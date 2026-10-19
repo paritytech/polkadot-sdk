@@ -41,6 +41,14 @@ pub struct RevenueClaim<Balance> {
 /// The sales are expected to happen on the same chain as `pallet-broker`, so that the revenue can
 /// be claimed and paid out synchronously.
 pub trait OnDemandRevenue<Balance, AccountId> {
+	/// Whether on-demand Coretime is sold here.
+	///
+	/// While it is, the claimer is expected to claim the revenue through
+	/// [`Self::claim_revenue`]. While it is not, no orders are accepted, and the claimer is
+	/// expected to get its revenue from elsewhere. Revenue booked before it was disabled stays
+	/// booked until it is enabled again.
+	fn is_enabled() -> bool;
+
 	/// Claim the revenue from the on-demand orders placed during timeslice `up_to` and during
 	/// every earlier timeslice whose revenue has not been claimed yet, transferring it to
 	/// `beneficiary`.
@@ -54,6 +62,10 @@ pub trait OnDemandRevenue<Balance, AccountId> {
 
 /// No on-demand Coretime market on this chain, for a broker which gets its revenue from elsewhere.
 impl<Balance, AccountId> OnDemandRevenue<Balance, AccountId> for () {
+	fn is_enabled() -> bool {
+		false
+	}
+
 	fn claim_revenue(_up_to: Timeslice, _beneficiary: &AccountId) -> RevenueClaim<Balance> {
 		RevenueClaim { paid: Vec::new(), weight: Weight::zero() }
 	}

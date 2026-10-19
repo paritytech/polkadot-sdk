@@ -45,7 +45,7 @@ impl<T: Config> Pallet<T> {
 			meter.consume(T::WeightInfo::process_core_count(status.core_count.into()));
 		}
 
-		let claim_revenue_locally = T::ClaimRevenueLocally::get();
+		let claim_revenue_locally = T::OnDemandRevenue::is_enabled();
 		if !claim_revenue_locally {
 			if let Some((when, revenue)) = Self::take_revenue_report() {
 				Self::process_revenue_amount(when, revenue);

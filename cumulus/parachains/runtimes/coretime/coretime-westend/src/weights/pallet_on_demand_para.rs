@@ -35,10 +35,16 @@ impl<T: frame_system::Config> pallet_on_demand_para::WeightInfo for WeightInfo<T
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// To be measured.
+	fn set_enabled() -> Weight {
+		// A placeholder value.
+		Weight::from_parts(2_742_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// To be measured.
 	fn place_order() -> Weight {
 		// A placeholder value.
 		Weight::from_parts(41_150_000, 9487)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// To be measured.

@@ -103,19 +103,12 @@ pub mod pallet {
 		/// the Instantaneous Coretime Pool. Expected to live on the same chain as this pallet, so
 		/// the revenue can be claimed directly.
 		///
-		/// The revenue of each timeslice is claimed once that timeslice has ended, along with that
-		/// of any earlier timeslice which could not be paid out before.
-		///
-		/// Only used if [`Config::ClaimRevenueLocally`] is `true`.
+		/// While it is enabled, the revenue of each timeslice is claimed from it once that
+		/// timeslice has ended, along with that of any earlier timeslice which could not be paid
+		/// out before, and revenue reports from the Relay chain are ignored. While it is not, the
+		/// revenue is requested from the Relay chain through [`Config::Coretime`], which reports
+		/// it back with `notify_revenue`.
 		type OnDemandRevenue: OnDemandRevenue<BalanceOf<Self>, Self::AccountId>;
-
-		/// Whether the revenue from instantaneous Coretime sales is claimed from
-		/// [`Config::OnDemandRevenue`] on this chain (`true`), or requested from the Relay chain
-		/// through [`Config::Coretime`], which reports it back with `notify_revenue` (`false`).
-		///
-		/// While it is `true`, revenue reports from the Relay chain are ignored.
-		#[pallet::constant]
-		type ClaimRevenueLocally: Get<bool>;
 
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;

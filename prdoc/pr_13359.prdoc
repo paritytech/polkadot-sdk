@@ -33,19 +33,24 @@ doc:
     and reports it with `notify_revenue`, so the payouts are ready one block earlier than
     they used to be.
 
-    Whether `pallet-broker` claims the revenue locally is decided by its new
-    `ClaimRevenueLocally` config item. If it is `false`, `pallet-broker` behaves as
-    before: it requests the revenue from the Relay Chain with
-    `CoretimeInterface::request_revenue_info_at` and distributes what the Relay Chain
-    reports with `notify_revenue`. If it is `true`, it only claims the revenue locally,
-    makes no requests to the Relay Chain, and ignores the `RevenueInbox`. Runtimes
-    which keep requesting the revenue from the Relay Chain can set `OnDemandRevenue` to
-    `()`.
+    On-demand coretime sales in `pallet-on-demand-para` can be enabled and disabled with the
+    new `set_enabled` call, which requires Root or `AdminOrigin`, is free, and emits an
+    `EnabledSet` event. They are disabled by default, and can also be enabled from genesis.
+    While they are disabled, `place_order` fails with the new `Disabled` error, so no revenue
+    is booked which would never be distributed; revenue booked before they were disabled
+    stays booked until they are enabled again.
 
-    `pallet-on-demand` is also wired into the coretime-westend runtime. Its broker keeps
-    requesting the revenue from the Relay Chain for now: `ClaimRevenueLocally` is a
-    storage parameter which defaults to `false`, so that claiming locally can be switched
-    on without a runtime upgrade.
+    `pallet-broker` follows that switch through the new `OnDemandRevenue::is_enabled`. While
+    the on-demand market is disabled, `pallet-broker` behaves as before: it requests the
+    revenue from the Relay Chain with `CoretimeInterface::request_revenue_info_at` and
+    distributes what the Relay Chain reports with `notify_revenue`. While it is enabled,
+    `pallet-broker` only claims the revenue locally, makes no requests to the Relay Chain,
+    and ignores the `RevenueInbox`. Runtimes which keep requesting the revenue from the
+    Relay Chain can set `OnDemandRevenue` to `()`, which is never enabled.
+
+    `pallet-on-demand-para` is also wired into the coretime-westend runtime. It starts out
+    disabled, so the broker keeps requesting the revenue from the Relay Chain until on-demand
+    coretime sales are enabled with `set_enabled`, without a runtime upgrade.
 
     With the `runtime-benchmarks` feature enabled, `PoolCapacityProvider` has a new
     `ensure_pool_cores` method, which the benchmarks use to make sure the pool is not

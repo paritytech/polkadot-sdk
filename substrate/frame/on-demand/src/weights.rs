@@ -72,6 +72,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_on_demand_para`.
 pub trait WeightInfo {
 	fn configure() -> Weight;
+	fn set_enabled() -> Weight;
 	fn place_order() -> Weight;
 	fn on_finalize_with_orders(n: u32, ) -> Weight;
 	fn claim_revenue(n: u32, ) -> Weight;
@@ -90,6 +91,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(2_742_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `OnDemand::Enabled` (r:0 w:1)
+	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn set_enabled() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_400_000 picoseconds.
+		Weight::from_parts(2_742_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `OnDemand::Enabled` (r:1 w:0)
+	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::PendingBatch` (r:1 w:1)
 	/// Proof: `OnDemand::PendingBatch` (`max_values`: Some(1), `max_size`: Some(8002), added: 8497, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::QueueState` (r:1 w:1)
@@ -106,7 +119,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `9487`
 		// Minimum execution time: 38_720_000 picoseconds.
 		Weight::from_parts(41_150_000, 9487)
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `OnDemand::PendingBatch` (r:1 w:1)
@@ -154,6 +167,18 @@ impl WeightInfo for () {
 		Weight::from_parts(2_742_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	/// Storage: `OnDemand::Enabled` (r:0 w:1)
+	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
+	fn set_enabled() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_400_000 picoseconds.
+		Weight::from_parts(2_742_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `OnDemand::Enabled` (r:1 w:0)
+	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::PendingBatch` (r:1 w:1)
 	/// Proof: `OnDemand::PendingBatch` (`max_values`: Some(1), `max_size`: Some(8002), added: 8497, mode: `MaxEncodedLen`)
 	/// Storage: `OnDemand::QueueState` (r:1 w:1)
@@ -170,7 +195,7 @@ impl WeightInfo for () {
 		//  Estimated: `9487`
 		// Minimum execution time: 38_720_000 picoseconds.
 		Weight::from_parts(41_150_000, 9487)
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `OnDemand::PendingBatch` (r:1 w:1)

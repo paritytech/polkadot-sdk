@@ -212,6 +212,30 @@ pub mod pallet {
 	pub type Revenue<T: Config> =
 		StorageValue<_, BoundedVec<RevenueRecordOf<T>, T::MaxUnclaimedTimeslices>, ValueQuery>;
 
+	/// Whether on-demand Coretime is sold here.
+	///
+	/// Orders are only accepted while it is, as the revenue from them is only claimed through
+	/// [`OnDemandRevenue::claim_revenue`] while it is; otherwise it would never be distributed.
+	/// Revenue booked before it was disabled stays booked until it is enabled again.
+	#[pallet::storage]
+	pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
+
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Whether on-demand Coretime is sold from genesis on.
+		pub enabled: bool,
+		#[serde(skip)]
+		pub _config: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			Enabled::<T>::put(self.enabled);
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
@@ -244,6 +268,11 @@ pub mod pallet {
 			/// The amount that was actually paid out.
 			paid_out: BalanceOf<T>,
 		},
+		/// On-demand Coretime sales were enabled or disabled.
+		EnabledSet {
+			/// Whether on-demand Coretime is sold now.
+			enabled: bool,
+		},
 	}
 
 	#[pallet::error]
@@ -263,6 +292,8 @@ pub mod pallet {
 		InsufficientFunds,
 		/// The price parameters allow the price to overflow with too many outstanding orders.
 		OrderPriceCanOverflow,
+		/// On-demand Coretime sales are disabled.
+		Disabled,
 	}
 
 	#[pallet::hooks]
@@ -329,6 +360,21 @@ pub mod pallet {
 			// TODO(ahm-v2): add a check that the para_id is valid
 			Self::do_place_order(who, para_id, max_amount)
 		}
+
+		/// Enable or disable on-demand Coretime sales.
+		///
+		/// While they are disabled, no orders are accepted, and the revenue from the earlier ones
+		/// is not claimed.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `enabled`: Whether on-demand Coretime is to be sold.
+		#[pallet::call_index(2)]
+		pub fn set_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResultWithPostInfo {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Enabled::<T>::put(enabled);
+			Self::deposit_event(Event::<T>::EnabledSet { enabled });
+			Ok(Pays::No.into())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -342,6 +388,8 @@ pub mod pallet {
 			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
+			// Fail early if the revenue of the order would never be distributed.
+			ensure!(Enabled::<T>::get(), Error::<T>::Disabled);
 			// Fail early if the batch is already full.
 			ensure!(
 				PendingBatch::<T>::decode_len().unwrap_or(0) < T::MaxBatchSize::get() as usize,
@@ -448,6 +496,10 @@ pub mod pallet {
 	}
 
 	impl<T: Config> OnDemandRevenue<BalanceOf<T>, T::AccountId> for Pallet<T> {
+		fn is_enabled() -> bool {
+			Enabled::<T>::get()
+		}
+
 		fn claim_revenue(
 			up_to: Timeslice,
 			beneficiary: &T::AccountId,

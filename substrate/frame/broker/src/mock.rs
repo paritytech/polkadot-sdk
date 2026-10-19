@@ -74,9 +74,9 @@ parameter_types! {
 	pub static CoretimeInPool: CoreMaskBitCount = 0;
 	/// The funds the on-demand market can pay revenue out of, or `None` for unlimited funds.
 	pub static RevenueClaimFunds: Option<u64> = None;
-	/// Whether the revenue is claimed from `TestLocalRevenue`, rather than requested from
-	/// `TestCoretimeProvider`.
-	pub static ClaimRevenueLocally: bool = true;
+	/// Whether `TestLocalRevenue` is enabled, so the revenue is claimed from it rather than
+	/// requested from `TestCoretimeProvider`.
+	pub static OnDemandEnabled: bool = true;
 }
 
 pub struct TestCoretimeProvider;
@@ -142,6 +142,10 @@ impl CoretimeInterface for TestCoretimeProvider {
 /// `pallet-on-demand-para`.
 pub struct TestLocalRevenue;
 impl OnDemandRevenue<u64, u64> for TestLocalRevenue {
+	fn is_enabled() -> bool {
+		OnDemandEnabled::get()
+	}
+
 	fn claim_revenue(up_to: Timeslice, beneficiary: &u64) -> RevenueClaim<u64> {
 		assert_eq!(*beneficiary, Broker::account_id(), "Revenue is paid into the broker pot");
 
@@ -259,7 +263,6 @@ impl crate::Config for Test {
 	type MaxReservedCores = ConstU32<5>;
 	type Coretime = TestCoretimeProvider;
 	type OnDemandRevenue = TestLocalRevenue;
-	type ClaimRevenueLocally = ClaimRevenueLocally;
 	type ConvertBalance = Identity;
 	type WeightInfo = ();
 	type PalletId = TestBrokerId;

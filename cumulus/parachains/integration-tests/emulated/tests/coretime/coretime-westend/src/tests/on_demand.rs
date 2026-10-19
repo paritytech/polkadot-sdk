@@ -64,22 +64,15 @@ fn price_config() -> PriceParameters<Balance> {
 	}
 }
 
-/// Reserve a whole core for the Instantaneous Coretime Pool, start sales, and configure the
-/// on-demand pallet.
-///
-/// `claim_revenue_locally` decides whether the broker claims the on-demand revenue from the
-/// on-demand pallet, or requests it from the Relay chain.
-fn configure_pool_and_on_demand(
-	price_config: PriceParameters<Balance>,
-	claim_revenue_locally: bool,
-) {
+/// Reserve a whole core for the Instantaneous Coretime Pool, start sales, and configure and enable
+/// the on-demand pallet, so that the broker claims the on-demand revenue from it.
+fn configure_pool_and_on_demand(price_config: PriceParameters<Balance>) {
 	let sender = CoretimeWestendSender::get();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(CoretimeWestend::para_id());
 	});
-	CoretimeWestend::ext_wrapper(|| ClaimRevenueLocally::set(&claim_revenue_locally));
 
 	CoretimeWestend::execute_with(|| {
 		let root = <CoretimeWestend as Chain>::RuntimeOrigin::root();
@@ -113,8 +106,9 @@ fn configure_pool_and_on_demand(
 		assert_ok!(Broker::configure(root.clone(), config));
 		assert_ok!(Broker::start_sales(root.clone(), 100, 0));
 
-		assert_ok!(OnDemand::configure(root, price_config.clone()));
+		assert_ok!(OnDemand::configure(root.clone(), price_config.clone()));
 		assert_eq!(PriceConfig::<CoretimeRuntime>::get(), price_config);
+		assert_ok!(OnDemand::set_enabled(root, true));
 	});
 }
 
@@ -228,7 +222,7 @@ fn on_demand_orders_reach_relay() {
 	let sender = CoretimeWestendSender::get();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
-	configure_pool_and_on_demand(price_config, true);
+	configure_pool_and_on_demand(price_config);
 
 	// The pool only gets its core once the reserved schedule becomes active.
 	CoretimeWestend::execute_with(|| {
@@ -349,7 +343,7 @@ fn on_demand_orders_reach_relay() {
 #[test]
 fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 	let para_id = 2000;
-	configure_pool_and_on_demand(price_config(), true);
+	configure_pool_and_on_demand(price_config());
 	wait_for_pool();
 
 	let mut claims = Claims::new();
@@ -372,7 +366,7 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_the_chain_skips_one() {
 #[test]
 fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_boundary() {
 	let para_id = 2000;
-	configure_pool_and_on_demand(price_config(), true);
+	configure_pool_and_on_demand(price_config());
 	wait_for_pool();
 
 	let mut claims = Claims::new();
@@ -395,15 +389,30 @@ fn on_demand_revenue_is_attributed_to_its_timeslice_when_catching_up_crosses_a_b
 }
 
 #[test]
-fn on_demand_revenue_stays_booked_while_the_revenue_is_requested_from_the_relay_chain() {
+fn on_demand_orders_are_rejected_and_revenue_stays_booked_while_disabled() {
 	type CoretimeEvent = <CoretimeWestend as Chain>::RuntimeEvent;
 
-	configure_pool_and_on_demand(price_config(), false);
+	configure_pool_and_on_demand(price_config());
 	wait_for_pool();
 	let pot = CoretimeWestend::ext_wrapper(OnDemand::account_id);
 
 	let mut claims = Claims::new();
 	let (ordered_in, revenue) = place_order_in_new_block(&mut claims, 2000);
+
+	// On-demand Coretime is disabled before the order's timeslice ends, so the broker requests the
+	// revenue from the Relay chain instead. No more orders are accepted, as their revenue would
+	// never be distributed.
+	CoretimeWestend::ext_wrapper(|| {
+		assert_ok!(OnDemand::set_enabled(<CoretimeWestend as Chain>::RuntimeOrigin::root(), false));
+		assert_noop!(
+			OnDemand::place_order(
+				<CoretimeWestend as Chain>::RuntimeOrigin::signed(CoretimeWestendSender::get()),
+				2000,
+				BASE_FEE * 2
+			),
+			pallet_on_demand_para::Error::<CoretimeRuntime>::Disabled
+		);
+	});
 
 	// Run until the broker has distributed the revenue of the order's timeslice, which it
 	// requests from the Relay chain once the timeslice has ended.
@@ -427,7 +436,8 @@ fn on_demand_revenue_stays_booked_while_the_revenue_is_requested_from_the_relay_
 		blocks += 1;
 	}
 
-	// The revenue of the order placed on this chain was not claimed; it stays booked in the pot.
+	// The revenue of the order placed on this chain was not claimed; it stays booked in the pot
+	// until the broker claims it again.
 	assert!(claims.is_empty());
 	CoretimeWestend::ext_wrapper(|| {
 		assert_eq!(

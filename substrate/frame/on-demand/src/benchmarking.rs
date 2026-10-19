@@ -59,6 +59,19 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn set_enabled() -> Result<(), BenchmarkError> {
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, true);
+
+		assert!(Enabled::<T>::get());
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn place_order() -> Result<(), BenchmarkError> {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		System::<T>::set_block_number(current_block);
@@ -74,6 +87,8 @@ mod benches {
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
 		// Orders can only be placed while the pool has some cores
 		T::PoolCapacityProvider::ensure_pool_cores(1);
+		// Orders can only be placed while on-demand Coretime is sold
+		Enabled::<T>::put(true);
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
@@ -138,6 +153,8 @@ mod benches {
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
 		// Orders can only be placed while the pool has some cores
 		T::PoolCapacityProvider::ensure_pool_cores(1);
+		// Orders can only be placed while on-demand Coretime is sold
+		Enabled::<T>::put(true);
 
 		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {

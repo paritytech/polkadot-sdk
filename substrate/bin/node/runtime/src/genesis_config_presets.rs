@@ -21,9 +21,9 @@ use polkadot_sdk::*;
 
 use crate::{
 	constants::currency::*, frame_support::build_struct_json_patch, AccountId, AssetsConfig,
-	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, ReviveConfig,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus, StakingConfig,
-	SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+	BabeConfig, Balance, BalancesConfig, ElectionsConfig, NominationPoolsConfig, OnDemandConfig,
+	ReviveConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, SocietyConfig, StakerStatus,
+	StakingConfig, SudoConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 use alloc::{vec, vec::Vec};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -86,6 +86,8 @@ pub fn kitchensink_genesis(
 		sudo: SudoConfig { key: Some(root_key) },
 		babe: BabeConfig { epoch_config: BABE_GENESIS_EPOCH_CONFIG },
 		society: SocietyConfig { pot: 0 },
+		// The broker claims the revenue from on-demand sales on this chain.
+		on_demand: OnDemandConfig { enabled: true },
 		assets: AssetsConfig {
 			// This asset is used by the NIS pallet as counterpart currency.
 			assets: vec![(9, Sr25519Keyring::Alice.to_account_id(), true, 1)],

@@ -151,6 +151,44 @@ fn place_order_fails_when_no_cores_in_pool() {
 }
 
 #[test]
+fn set_enabled_works() {
+	new_test_ext().execute_with(|| {
+		assert!(<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
+
+		// Only the admin or root can disable the pallet.
+		assert_noop!(OnDemand::set_enabled(RuntimeOrigin::signed(BOB), false), BadOrigin);
+		let post_info = OnDemand::set_enabled(RuntimeOrigin::root(), false)
+			.expect("root can disable the pallet");
+		assert_eq!(post_info.pays_fee, Pays::No);
+		assert!(!<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
+		assert!(on_demand_events().contains(&Event::EnabledSet { enabled: false }));
+
+		// The admin can enable it again.
+		assert_ok!(OnDemand::set_enabled(RuntimeOrigin::signed(ALICE), true));
+		assert!(<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
+	});
+}
+
+#[test]
+fn place_order_fails_while_disabled() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(OnDemand::set_enabled(RuntimeOrigin::root(), false));
+		assert_noop!(
+			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE / 2),
+			Error::<Test>::Disabled
+		);
+
+		// Orders are accepted again once the pallet is enabled.
+		assert_ok!(OnDemand::set_enabled(RuntimeOrigin::root(), true));
+		assert_ok!(OnDemand::place_order(
+			RuntimeOrigin::signed(ALICE),
+			2000,
+			DEFAULT_ACCOUNT_BALANCE / 2
+		));
+	});
+}
+
+#[test]
 fn the_queue_estimate_drains_over_relay_chain_blocks() {
 	new_test_ext().execute_with(|| {
 		for _ in 0..3 {

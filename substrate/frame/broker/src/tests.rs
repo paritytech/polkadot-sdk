@@ -860,7 +860,7 @@ fn drop_history_works_with_revenue_from_the_relay_chain() {
 		.endow(2, 50)
 		.execute_with(|| {
 			// Request the revenue from the Relay chain, as before it could be claimed locally.
-			ClaimRevenueLocally::set(false);
+			OnDemandEnabled::set(false);
 			assert_ok!(Broker::do_start_sales(100, 1));
 			advance_to(2);
 			let mut region = Broker::do_purchase(1, u64::max_value()).unwrap();
@@ -922,7 +922,7 @@ fn drop_history_works_with_revenue_from_the_relay_chain() {
 fn instapool_payouts_work_with_revenue_from_the_relay_chain() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		// Request the revenue from the Relay chain, as before it could be claimed locally.
-		ClaimRevenueLocally::set(false);
+		OnDemandEnabled::set(false);
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
 		assert_ok!(Broker::do_start_sales(100, 2));
