@@ -37,7 +37,9 @@
 //! and `STATEMENT_V2_SOAK_SECS` (default 900)
 
 use super::{
-	common::{submit_at_rate, submit_statement, subscribe_topic, wait_for_first_block, Load},
+	common::{
+		base_dir, submit_at_rate, submit_statement, subscribe_topic, wait_for_first_block, Load,
+	},
 	v2_dht_soak::{
 		bring_online, collect_peer_keys, env_parsed, is_dropped_connection, launch_soak_network,
 		nodes_with_statement_errors, placement_mismatch, ranked_by_distance, soak_topic,
@@ -63,6 +65,8 @@ use zombienet_sdk::{
 	AddCollatorOptions, LocalFileSystem, Network,
 };
 
+const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug,\
+	litep2p::ipfs::identify=trace,litep2p::transport-manager=debug";
 const DHT_OFF_NODES_ENV: &str = "STATEMENT_V2_SOAK_DHT_OFF_NODES";
 const DEFAULT_DHT_OFF_NODES: usize = 4;
 /// Leaves more DHT nodes than K beside the default DHT-off ones, so topics with only DHT replicas
@@ -153,6 +157,7 @@ struct Report {
 	/// dht→dht-off`, a probe path, a restart or a join with its entry kind
 	counts: BTreeMap<String, DeliveryCounts>,
 	findings: Vec<String>,
+	progress: Vec<String>,
 }
 
 impl Report {
@@ -179,16 +184,37 @@ impl Report {
 		self.findings.len() + self.counts.values().map(|counts| counts.missed).sum::<usize>()
 	}
 
+	fn progress(&mut self, line: String) {
+		info!("{line}");
+		self.progress.push(line);
+	}
+
+	/// Logs the report and saves it to `logs/` under the zombienet base directory, which CI
+	/// uploads: the job log can lose the test's output when the runner's exec stream drops
 	fn log(&self, waves: u64, restarts: u64, joins: u64) {
-		info!("Mixed soak report: {waves} waves, {restarts} restarts, {joins} joins");
+		let mut lines =
+			vec![format!("Mixed soak report: {waves} waves, {restarts} restarts, {joins} joins")];
 		for (category, counts) in &self.counts {
-			info!(
+			lines.push(format!(
 				"  {category}: sent {}, delivered {}, late {}, missed {}, not applicable {}",
 				counts.sent, counts.delivered, counts.late, counts.missed, counts.not_applicable,
-			);
+			));
 		}
-		for finding in &self.findings {
-			warn!("  finding: {finding}");
+		lines.extend(self.findings.iter().map(|finding| format!("  finding: {finding}")));
+		for line in &lines {
+			info!("{line}");
+		}
+		lines.push("Progress:".to_string());
+		lines.extend(self.progress.iter().map(|line| format!("  {line}")));
+		let saved = base_dir().and_then(|dir| {
+			let path = dir.join("logs").join("mixed-soak-report.txt");
+			std::fs::create_dir_all(dir.join("logs"))?;
+			std::fs::write(&path, lines.join("\n"))?;
+			Ok(path)
+		});
+		match saved {
+			Ok(path) => info!("Report saved to {}", path.display()),
+			Err(err) => warn!("Report not saved: {err:#}"),
 		}
 	}
 }
@@ -290,6 +316,7 @@ fn describe_links(
 async fn wait_for_mixed_topology(
 	nodes: &[NodeHandle],
 	dht_off: &[bool],
+	at_start: bool,
 	report: &mut Report,
 ) -> Result<(), anyhow::Error> {
 	let deadline = Instant::now() + Duration::from_secs(300 + 5 * nodes.len() as u64);
@@ -308,7 +335,10 @@ async fn wait_for_mixed_topology(
 			let eligible = handle.node.reports(ELIGIBLE_PEERS_METRIC).await?;
 			let connected = handle.node.reports(CONNECTED_PEERS_METRIC).await?;
 			if eligible < eligible_floor {
-				unaware.push(format!("{}: eligible={eligible}", handle.name()));
+				unaware.push(format!(
+					"{} knows {eligible} of the {eligible_floor} other nodes as eligible",
+					handle.name()
+				));
 			}
 			if connected < connected_floor {
 				short.push(format!(
@@ -322,10 +352,10 @@ async fn wait_for_mixed_topology(
 		}
 		if Instant::now() >= deadline {
 			ensure!(
-				unaware.is_empty(),
+				!at_start || unaware.is_empty(),
 				"DHT nodes miss eligible peers, so the replica oracle does not hold: {unaware:?}"
 			);
-			for problem in short {
+			for problem in unaware.into_iter().chain(short) {
 				report.finding(format!("topology: {problem}"));
 			}
 			return Ok(());
@@ -669,7 +699,7 @@ async fn run_wave(
 		}
 	}
 	summary.push(format!("{probes_delivered}/{} probes delivered", probes.len()));
-	info!("Wave {wave}: {}", summary.join(", "));
+	report.progress(format!("Wave {wave}: {}", summary.join(", ")));
 
 	// 6. Check the placement on the DHT nodes. Three ring statements entered through DHT nodes, the
 	// first, middle and last, join the probes: a replica that stops storing mid-wave shows on one
@@ -813,13 +843,13 @@ async fn run_restart(
 	drop(subscription);
 	let missed =
 		record_catch_up(report, "restart", target_idx, &batch, &entries, &arrivals, dht_off);
-	info!(
+	report.progress(format!(
 		"Restart {restart}: {} caught up on {}/{} backlog statements",
 		target.name(),
 		batch.len() - missed,
 		batch.len(),
-	);
-	wait_for_mixed_topology(nodes, dht_off, report).await
+	));
+	wait_for_mixed_topology(nodes, dht_off, false, report).await
 }
 
 /// Adds a new node a DHT-off one on the first join and a DHT one on the second and checks that
@@ -884,13 +914,13 @@ async fn run_join(
 	.await?;
 	drop(subscription);
 	let missed = record_catch_up(report, "join", joiner, &backlog, &entries, &arrivals, dht_off);
-	info!(
+	report.progress(format!(
 		"Join {join}: {name} caught up on {}/{} backlog statements",
 		backlog.len() - missed,
 		backlog.len(),
-	);
+	));
 	// The takeover check and the next wave's oracle rank the joiner among the eligible peers
-	wait_for_mixed_topology(nodes, dht_off, report).await?;
+	wait_for_mixed_topology(nodes, dht_off, false, report).await?;
 	if joiner_is_dht_off {
 		return Ok(());
 	}
@@ -962,7 +992,7 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 	// args, without `STATEMENT_STORE_V2_DHT_ENABLED`
 	let dht_node_names: Vec<String> =
 		(0..full_node_count - dht_off_count).map(|i| format!("soak-{i}")).collect();
-	let mut network = launch_soak_network(&dht_node_names).await?;
+	let mut network = launch_soak_network(&dht_node_names, LOG_FILTER).await?;
 	let dht_off_node_names: Vec<String> =
 		(0..dht_off_count).map(|i| format!("dht-off-{i}")).collect();
 	for name in &dht_off_node_names {
@@ -989,7 +1019,7 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 	wait_for_first_block(&[&nodes[0].node], 300).await?;
 
 	let mut report = Report::default();
-	wait_for_mixed_topology(&nodes, &dht_off, &mut report).await?;
+	wait_for_mixed_topology(&nodes, &dht_off, true, &mut report).await?;
 	let mut peer_keys = collect_peer_keys(&nodes).await?;
 	let mut peer_ids = collect_peer_ids(&nodes).await?;
 	info!(

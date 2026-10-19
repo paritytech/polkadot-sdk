@@ -176,10 +176,11 @@ fn salt_chain_spec(path: &Path) -> Result<(), anyhow::Error> {
 /// `full_node_names` entry
 pub(super) async fn launch_soak_network(
 	full_node_names: &[String],
+	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir()?)?;
 	salt_chain_spec(&chain_spec_path)?;
-	let args = collator_args_v2(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
+	let args = collator_args_v2(PARTICIPANTS, log_filter, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
@@ -1120,7 +1121,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let full_node_names: Vec<String> = (0..statement_node_count - AUTHORING_COLLATORS.len())
 		.map(|i| format!("soak-{i}"))
 		.collect();
-	let mut network = launch_soak_network(&full_node_names).await?;
+	let mut network = launch_soak_network(&full_node_names, LOG_FILTER).await?;
 
 	let mut nodes = Vec::with_capacity(statement_node_count);
 	for name in AUTHORING_COLLATORS.iter().map(|n| n.to_string()).chain(full_node_names) {
