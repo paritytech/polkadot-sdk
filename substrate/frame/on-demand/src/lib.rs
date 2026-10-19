@@ -307,6 +307,10 @@ pub mod pallet {
 				T::MaxUnclaimedTimeslices::get() > 0,
 				"`MaxUnclaimedTimeslices` must allow for the revenue of at least one timeslice"
 			);
+			assert!(
+				T::TimeslicePeriod::get() > 0u32.into(),
+				"The length of a timeslice cannot be 0"
+			);
 		}
 
 		fn on_finalize(_now: BlockNumberFor<T>) {
