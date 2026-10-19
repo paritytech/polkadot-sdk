@@ -48,6 +48,7 @@ impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
 
 impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
 	fn from(package: &'a WorkPackageBody) -> Self {
+		// Keep this exhaustive so new fields require an explicit signing decision.
 		let WorkPackageBody { auth_code_host, authorizer, context, items } = package;
 		Self { auth_code_host: *auth_code_host, authorizer, context, items }
 	}

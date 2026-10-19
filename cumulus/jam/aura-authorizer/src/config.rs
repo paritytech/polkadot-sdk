@@ -64,7 +64,7 @@ pub struct AuthConfig {
 }
 
 impl AuthConfig {
-	/// Check that every work item targets this service and has a configured para ID.
+	/// Check that every work item has a configured para ID and targets this service.
 	pub fn check_work_items(&self, items: &[WorkItem]) -> Result<(), ConfigError> {
 		if items.len() != self.para_ids.len() {
 			return Err(ConfigError::InvalidWorkItemCount);
@@ -81,6 +81,7 @@ impl AuthConfig {
 	///
 	/// Computed as `(slot / slot_duration) mod collator_set_size`.
 	pub fn expected_collator_index(&self, slot: Slot) -> u32 {
+		// unchecked math is safe since both are NonZero types, QED
 		(slot / self.slot_duration) % self.collator_set_size
 	}
 }
