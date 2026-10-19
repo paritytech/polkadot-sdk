@@ -1,0 +1,10 @@
+title: 'parachains/disputes: remove the dead ValidatorSetCounts storage item'
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+
+    Found while auditing for unused storage items (#13507). `ValidatorSetCounts` in the slashing pallet (`polkadot/runtime/parachains/src/disputes/slashing.rs`) is never read or written anywhere in the codebase. `ValidatorSetCount` (the value it would have cached) is always computed fresh from the session info or the key ownership proof where it's actually needed, instead of going through this storage map.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
