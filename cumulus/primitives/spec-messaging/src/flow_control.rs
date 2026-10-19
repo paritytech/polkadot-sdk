@@ -71,17 +71,11 @@ pub enum SpecMsgKind {
 )]
 pub enum SpecMsgSignal {
 	/// Open the channel and announce the sender's initial protocol version. Variant 0.
-	OpenChannel {
-		/// The sender's initial protocol-version announcement.
-		version: u8,
-	},
+	OpenChannel { version: u8 },
 	/// Sender-side half-close.
 	CloseChannel,
 	/// Raise the sender's version announcement mid-channel (announcements never decrease).
-	Upgrade {
-		/// The sender's new (higher) protocol-version announcement.
-		version: u8,
-	},
+	Upgrade { version: u8 },
 }
 
 /// Advisory send-window credit a receiver grants a sender beyond the confirmed watermark. Not
@@ -106,7 +100,6 @@ pub struct WindowGrant {
 	pub max_messages: u32,
 	/// Max cumulative bytes in flight beyond the watermark.
 	pub max_bytes: u64,
-	/// Max size of a single message.
 	pub max_message_size: u32,
 }
 
@@ -132,7 +125,6 @@ pub struct Register {
 	/// Cumulative confirmation watermark: consumed up to this position. Monotonic and idempotent,
 	/// so lost or delayed confirmations are harmless; the latest supersedes.
 	pub up_to: MessagePosition,
-	/// Advisory send-window credit beyond `up_to`.
 	pub grant: WindowGrant,
 	/// Receiver-side close / rejection.
 	pub closed: bool,

@@ -67,7 +67,6 @@ pub struct TreeStep {
 	/// Key-bit index this node branches on, `0..KEY_BITS` with `0` the MSB. Part of the inner-node
 	/// hash; the proven key's bit here gives the direction.
 	pub split_bit: u8,
-	/// Hash of the sibling subtree.
 	pub sibling: Hash,
 }
 

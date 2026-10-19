@@ -34,7 +34,6 @@ use crate::{mmr::MessagePosition, stream::StreamId};
 /// `ProvideInherent`.
 pub const INHERENT_IDENTIFIER: sp_inherents::InherentIdentifier = *b"specmsg0";
 
-/// A message payload.
 pub type Payload = Vec<u8>;
 
 /// One stream the runtime wants fetched, per source, as returned by `consumed_streams()`. `from` is

@@ -111,7 +111,6 @@ impl MMRExtensionProof {
 		Self { leaf_count: 0, connecting_nodes: Vec::new() }
 	}
 
-	/// Whether this is the identity extension.
 	pub fn is_identity(&self) -> bool {
 		self.leaf_count == 0 && self.connecting_nodes.is_empty()
 	}
@@ -346,12 +345,10 @@ impl LiftsBySource {
 		self.0.iter()
 	}
 
-	/// The number of sources.
 	pub fn len(&self) -> usize {
 		self.0.len()
 	}
 
-	/// Whether there are no sources.
 	pub fn is_empty(&self) -> bool {
 		self.0.is_empty()
 	}

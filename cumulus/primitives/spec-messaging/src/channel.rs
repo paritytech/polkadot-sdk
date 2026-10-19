@@ -27,8 +27,7 @@ use scale_info::TypeInfo;
 
 use crate::{flow_control::Register, mmr::MessagePosition};
 
-/// Channel discriminator. `peer` is the other end: the recipient of an outbound channel, the sender
-/// of an inbound one. Mirrors the fields of the channel's `StreamId`.
+/// Channel discriminator.
 #[derive(
 	Clone,
 	Copy,
@@ -44,11 +43,10 @@ use crate::{flow_control::Register, mmr::MessagePosition};
 	TypeInfo,
 )]
 pub struct ChannelId {
-	/// The other end of the channel.
+	/// The other end: the recipient of an outbound channel, the sender of an inbound one.
 	pub peer: ParaId,
 	/// Allocation-convention field, `0` by default (see `StreamId`).
 	pub domain: u8,
-	/// Channel number within the domain.
 	pub num: u16,
 }
 
@@ -117,7 +115,6 @@ impl OutChannelState {
 		self.register.map(|read| self.announced_version.min(read.register.version))
 	}
 
-	/// The phase this state is in.
 	pub fn phase(&self) -> ChannelPhase {
 		if self.closed_by_us || self.register.is_some_and(|read| read.register.closed) {
 			ChannelPhase::Closed
@@ -156,7 +153,6 @@ pub struct InChannelState {
 }
 
 impl InChannelState {
-	/// The lower of our published version and the peer's announcement.
 	pub fn effective_version(&self) -> u8 {
 		self.published.version.min(self.peer_version)
 	}

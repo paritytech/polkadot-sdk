@@ -101,7 +101,6 @@ pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
 /// Request for a range of a stream's messages, verified under a chosen `StreamsRoot`.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesRequest {
-	/// The requested stream of the serving chain.
 	pub stream: StreamId,
 	/// Where to start; typically the receiver's frontier leaf count.
 	pub start: MessagePosition,
@@ -208,7 +207,6 @@ pub(crate) fn verify_messages_response(
 /// chosen `StreamsRoot`. The server either serves or fails; nothing is resolved server-side.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct EventRequest {
-	/// The requested stream of the serving chain.
 	pub stream: StreamId,
 	/// The `StreamsRoot` the response must verify under. Always explicit.
 	pub under: StreamsRoot,

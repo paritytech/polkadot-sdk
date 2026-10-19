@@ -77,7 +77,6 @@ impl Merge for SpecMerge {
 	}
 }
 
-/// `H(tag ++ left ++ right)`.
 fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	let mut preimage = [0u8; 1 + 32 + 32];
 	preimage[0] = tag;
@@ -145,7 +144,6 @@ pub struct MmrFrontier {
 }
 
 impl MmrFrontier {
-	/// The empty frontier.
 	pub fn new() -> Self {
 		Self::default()
 	}
@@ -165,7 +163,6 @@ impl MmrFrontier {
 		&self.peaks
 	}
 
-	/// The number of leaves these peaks summarize.
 	pub fn leaf_count(&self) -> u64 {
 		self.leaf_count
 	}

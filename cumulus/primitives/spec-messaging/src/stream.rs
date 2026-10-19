@@ -42,7 +42,6 @@ use codec::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 
-/// Encoded length of every `StreamId`.
 pub const STREAM_ID_LEN: usize = 8;
 
 /// A private-use kind byte, `0x80..=0xFF`.
@@ -91,7 +90,6 @@ pub enum StreamId {
 }
 
 impl StreamId {
-	/// The chain the stream is addressed to, if the kind has one.
 	pub fn recipient(&self) -> Option<ParaId> {
 		match self {
 			StreamId::Channel { recipient, .. } | StreamId::Ack { recipient, .. } => {
