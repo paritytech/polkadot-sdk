@@ -78,8 +78,8 @@ fn published_package_works() {
 		para_ids: vec![],
 		parachain_service: 1,
 		collator_set_root: root,
-		collator_set_size: 1,
-		slot_duration: 1,
+		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 
 	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };

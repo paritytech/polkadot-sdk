@@ -32,7 +32,7 @@ mod work_package;
 
 pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
-pub use config::{AuthConfig, ConfigError};
+pub use config::AuthConfig;
 pub use merkle::{build_collator_proofs, CollatorProofError};
 pub use signing::{hash_signing_payload, signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, SignatureVerifier, TokenError};
@@ -47,7 +47,6 @@ pub struct AuthTrace {
 /// AURA authorization failed.
 #[derive(Debug)]
 pub enum AuthorizationError {
-	BadConfig(ConfigError),
 	BadToken(TokenError),
 }
 
@@ -59,8 +58,7 @@ impl AuthTrace {
 		package: &WorkPackage,
 		slot: Slot,
 	) -> Result<Self, AuthorizationError> {
-		let collator_index =
-			config.expected_collator_index(slot).map_err(AuthorizationError::BadConfig)?;
+		let collator_index = config.expected_collator_index(slot);
 
 		token
 			.try_into_trace::<S>(config, package, collator_index)
@@ -115,8 +113,8 @@ mod tests {
 			para_ids: vec![],
 			parachain_service: 1,
 			collator_set_root: root,
-			collator_set_size: 2,
-			slot_duration: 2,
+			collator_set_size: core::num::NonZero::new(2).expect("nonzero configuration"),
+			slot_duration: core::num::NonZero::new(2).expect("nonzero configuration"),
 		};
 
 		(config, token, package)
@@ -135,30 +133,6 @@ mod tests {
 				expected
 			);
 		}
-	}
-
-	#[test]
-	fn authorize_invalid_config_errors() {
-		let (mut config, token, package) = fixture();
-
-		config.collator_set_size = 0;
-		assert!(matches!(
-			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::ZeroCollatorSetSize))
-		));
-
-		config.collator_set_size = 2;
-		config.slot_duration = 0;
-		assert!(matches!(
-			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
-		));
-
-		config.collator_set_size = 0;
-		assert!(matches!(
-			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
-			Err(AuthorizationError::BadConfig(ConfigError::ZeroSlotDuration))
-		));
 	}
 
 	#[test]

@@ -31,8 +31,9 @@ fn config(keys: &[CollatorKey]) -> (AuthConfig, Vec<Vec<H256>>) {
 		para_ids: vec![ParaId::new(0)],
 		parachain_service: 1337,
 		collator_set_root,
-		collator_set_size: keys.len() as u32,
-		slot_duration: 1,
+		collator_set_size: core::num::NonZero::new(keys.len() as u32)
+			.expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(1).expect("nonzero configuration"),
 	};
 
 	(config, proofs)
@@ -108,10 +109,7 @@ fn invalid_set_size_and_index_errors() {
 	let token = token(keys[0], proofs[0].clone());
 	assert!(token.check_proof(&config, 1).is_err());
 
-	config.collator_set_size = 0;
-	assert!(token.check_proof(&config, 0).is_err());
-
-	config.collator_set_size = u32::MAX;
+	config.collator_set_size = core::num::NonZero::new(u32::MAX).expect("nonzero test size");
 	let token = AuthToken { proof: vec![H256::zero(); 32], ..token };
 	assert!(token.check_proof(&config, 0).is_err());
 }
@@ -140,7 +138,7 @@ fn populated_padding_leaf_errors() {
 
 	// Even a cryptographically valid proof cannot authorize a leaf outside the declared set.
 	// The padded width and proof length remain four and two respectively.
-	config.collator_set_size = 3;
+	config.collator_set_size = core::num::NonZero::new(3).expect("nonzero test size");
 	assert!(token.check_proof(&config, 3).is_err());
 }
 
@@ -180,6 +178,6 @@ fn empty_proof_matching_root_errors() {
 	assert!(token.check_proof(&config, 0).is_ok());
 
 	// Root equality alone must not allow an empty proof for a multi-leaf tree.
-	config.collator_set_size = 2;
+	config.collator_set_size = core::num::NonZero::new(2).expect("nonzero test size");
 	assert!(token.check_proof(&config, 0).is_err());
 }

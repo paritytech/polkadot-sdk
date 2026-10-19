@@ -17,6 +17,7 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::num::NonZero;
 use jam_types::{ServiceId, Slot};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use primitive_types::H256;
@@ -43,30 +44,20 @@ pub struct AuthConfig {
 	/// Number of collators in the set.
 	///
 	/// Can never be zero.
-	pub collator_set_size: u32,
+	pub collator_set_size: NonZero<u32>,
 
 	/// Slot duration as a multiple of the JAM timeslot (6 s).
 	///
 	/// Can never be zero.
-	pub slot_duration: u32,
-}
-
-/// AURA auth config is invalid for a specific reason.
-#[derive(Debug)]
-pub enum ConfigError {
-	ZeroCollatorSetSize,
-	ZeroSlotDuration,
+	pub slot_duration: NonZero<u32>,
 }
 
 impl AuthConfig {
 	/// The round-robin collator index expected for `slot`.
 	///
 	/// Computed as `(slot / slot_duration) mod collator_set_size`.
-	pub fn expected_collator_index(&self, slot: Slot) -> Result<u32, ConfigError> {
-		let round = slot.checked_div(self.slot_duration).ok_or(ConfigError::ZeroSlotDuration)?;
-		round
-			.checked_rem(self.collator_set_size)
-			.ok_or(ConfigError::ZeroCollatorSetSize)
+	pub fn expected_collator_index(&self, slot: Slot) -> u32 {
+		(slot / self.slot_duration) % self.collator_set_size
 	}
 }
 
@@ -78,29 +69,22 @@ mod tests {
 	fn expected_collator_index_works() {
 		for (size, duration, slot, expected) in [
 			// good cases
-			(1, 1, Slot::MAX, Some(0)),
-			(3, Slot::MAX, Slot::MAX - 1, Some(0)),
-			(3, Slot::MAX, Slot::MAX, Some(1)),
-			(u32::MAX, 1, Slot::MAX - 1, Some(u32::MAX - 1)),
-			(u32::MAX, 1, Slot::MAX, Some(0)),
-			// bad cases
-			(0, 1, 0, None),
-			(0, Slot::MAX, Slot::MAX, None),
-			(1, 0, 0, None),
-			(u32::MAX, 0, Slot::MAX, None),
-			(0, 0, 0, None),
-			(0, 0, Slot::MAX, None),
+			(1, 1, Slot::MAX, 0),
+			(3, Slot::MAX, Slot::MAX - 1, 0),
+			(3, Slot::MAX, Slot::MAX, 1),
+			(u32::MAX, 1, Slot::MAX - 1, u32::MAX - 1),
+			(u32::MAX, 1, Slot::MAX, 0),
 		] {
 			let config = AuthConfig {
 				para_ids: Vec::new(),
 				parachain_service: 1,
 				collator_set_root: H256::zero(),
-				collator_set_size: size,
-				slot_duration: duration,
+				collator_set_size: NonZero::new(size).expect("nonzero test size"),
+				slot_duration: NonZero::new(duration).expect("nonzero test duration"),
 			};
 
 			assert_eq!(
-				config.expected_collator_index(slot).ok(),
+				config.expected_collator_index(slot),
 				expected,
 				"set size {size}, slot duration {duration}, slot {slot}"
 			);

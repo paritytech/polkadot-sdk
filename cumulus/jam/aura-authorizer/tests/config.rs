@@ -17,47 +17,27 @@
 
 //! Slot selection and invalid AURA configuration.
 
-use cumulus_aura_authorizer::{AuthConfig, ConfigError};
+use codec::{DecodeAll, Encode};
+use cumulus_aura_authorizer::AuthConfig;
 use jam_types::Slot;
 
-fn config(collator_set_size: u32, slot_duration: u32) -> AuthConfig {
-	AuthConfig {
-		para_ids: Vec::new(),
-		parachain_service: 1337,
-		collator_set_root: Default::default(),
-		collator_set_size,
-		slot_duration,
-	}
+fn encoded_config(size: u32, duration: u32) -> Vec<u8> {
+	(Vec::<u32>::new(), 1337u32, [0u8; 32], size, duration).encode()
 }
 
 #[test]
 fn round_robin_works() {
-	let config = config(3, 2);
-
+	let config = AuthConfig::decode_all(&mut &encoded_config(3, 2)[..]).expect("valid config");
 	for (slot, expected) in [(0, 0), (1, 0), (2, 1), (4, 2), (5, 2), (6, 0)] {
-		assert_eq!(config.expected_collator_index(slot).unwrap(), expected);
+		assert_eq!(config.expected_collator_index(slot), expected);
 	}
-
-	assert_eq!(config.expected_collator_index(Slot::MAX).unwrap(), (Slot::MAX / 2) % 3);
+	assert_eq!(config.expected_collator_index(Slot::MAX), (Slot::MAX / 2) % 3);
+	assert_eq!(config.encode(), encoded_config(3, 2));
 }
 
 #[test]
-fn zero_collator_set_size_errors() {
-	for duration in [1, 2] {
-		assert!(matches!(
-			config(0, duration).expected_collator_index(0),
-			Err(ConfigError::ZeroCollatorSetSize)
-		));
+fn zero_parameters_errors() {
+	for (size, duration) in [(0, 1), (1, 0), (0, 0)] {
+		assert!(AuthConfig::decode_all(&mut &encoded_config(size, duration)[..]).is_err());
 	}
-}
-
-#[test]
-fn zero_slot_duration_errors() {
-	assert!(matches!(config(1, 0).expected_collator_index(0), Err(ConfigError::ZeroSlotDuration)));
-}
-
-#[test]
-fn zero_collator_set_and_slot_duration_errors() {
-	// Slot division is checked before the collator-set remainder.
-	assert!(matches!(config(0, 0).expected_collator_index(0), Err(ConfigError::ZeroSlotDuration)));
 }

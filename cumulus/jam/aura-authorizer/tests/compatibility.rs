@@ -52,8 +52,8 @@ fn scale_wire_vectors_works() {
 		para_ids: vec![ParaId::new(1000)],
 		parachain_service: 1337,
 		collator_set_root: H256::zero(),
-		collator_set_size: 3,
-		slot_duration: 2,
+		collator_set_size: core::num::NonZero::new(3).expect("nonzero configuration"),
+		slot_duration: core::num::NonZero::new(2).expect("nonzero configuration"),
 	};
 
 	let mut expected = vec![4, 232, 3, 0, 0, 57, 5, 0, 0];
