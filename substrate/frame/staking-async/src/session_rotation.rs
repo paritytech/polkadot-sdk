@@ -1064,6 +1064,7 @@ impl<T: Config> Rotator<T> {
 		});
 
 		Eras::<T>::set_stakers_reward(ending_era.index, validator_payout);
+		Eras::<T>::set_validator_expenses_reward(ending_era.index, Zero::zero());
 		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 	}
 
