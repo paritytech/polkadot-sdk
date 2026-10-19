@@ -45,10 +45,17 @@ const SENDER_COLLATOR: &str = "charlie";
 const RECEIVER_COLLATOR: &str = "dave";
 const SENDER_P2P_PORT: u16 = 30_500;
 const RECEIVER_P2P_PORT: u16 = 30_501;
+const RELAY_RPC_PORT: u16 = 30_510;
+const SENDER_RPC_PORT: u16 = 30_511;
+const RECEIVER_RPC_PORT: u16 = 30_512;
 
 /// The XCM channel: domain 0, number 0.
 fn channel(peer: u32) -> ChannelId {
 	ChannelId { peer: peer.into(), domain: 0, num: 0 }
+}
+
+fn flag(name: &str) -> bool {
+	std::env::var(name).is_ok_and(|v| v == "1" || v.eq_ignore_ascii_case("true"))
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -57,18 +64,41 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = initialize_network(build_network_config()?).await?;
-	let relay: OnlineClient<PolkadotConfig> = network.get_node("alice")?.wait_client().await?;
-	let sender: OnlineClient<PolkadotConfig> =
-		network.get_node(SENDER_COLLATOR)?.wait_client().await?;
-	let receiver: OnlineClient<PolkadotConfig> =
-		network.get_node(RECEIVER_COLLATOR)?.wait_client().await?;
+	let (_network, relay, sender, receiver) = if flag("SPEC_MSG_ATTACH") {
+		log::info!("Attaching to standby network on ports {RELAY_RPC_PORT}..={RECEIVER_RPC_PORT}");
+		let connect =
+			|port| OnlineClient::<PolkadotConfig>::from_url(format!("ws://127.0.0.1:{port}"));
+		(
+			None,
+			connect(RELAY_RPC_PORT).await?,
+			connect(SENDER_RPC_PORT).await?,
+			connect(RECEIVER_RPC_PORT).await?,
+		)
+	} else {
+		let network = initialize_network(build_network_config()?).await?;
+		let relay: OnlineClient<PolkadotConfig> = network.get_node("alice")?.wait_client().await?;
+		let sender: OnlineClient<PolkadotConfig> =
+			network.get_node(SENDER_COLLATOR)?.wait_client().await?;
+		let receiver: OnlineClient<PolkadotConfig> =
+			network.get_node(RECEIVER_COLLATOR)?.wait_client().await?;
 
-	let start = (finalized_number(&sender).await?, finalized_number(&receiver).await?);
-	wait_for("both chains to finalize a block", || {
-		advanced(&sender, &receiver, (start.0 + 1, start.1 + 1))
-	})
-	.await?;
+		let start = (finalized_number(&sender).await?, finalized_number(&receiver).await?);
+		wait_for("both chains to finalize a block", || {
+			advanced(&sender, &receiver, (start.0 + 1, start.1 + 1))
+		})
+		.await?;
+
+		if flag("SPEC_MSG_STANDBY") {
+			log::info!(
+				"Standby ready: {SENDER} and {RECEIVER} are producing blocks. \
+				 Run with SPEC_MSG_ATTACH=1 in another terminal (Ctrl-C to stop)."
+			);
+			tokio::signal::ctrl_c().await?;
+			network.destroy().await?;
+			return Ok(());
+		}
+		(Some(network), relay, sender, receiver)
+	};
 
 	if hrmp_channel_open(&relay, SENDER, RECEIVER).await? {
 		return Err(anyhow!("an HRMP channel {SENDER} -> {RECEIVER} exists"));
@@ -86,7 +116,7 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	let root = committed_root(&sent)
 		.ok_or_else(|| anyhow!("send block #{} commits no `StreamsRoot`", sent.number()))?;
 	log::info!(
-		"Checkpoint 1/5, send: {SENDER} block #{} holds `PolkadotXcm::Sent` and commits \
+		"Checkpoint 2/6, send: {SENDER} block #{} holds `PolkadotXcm::Sent` and commits \
 		 `StreamsRoot` {root:?} in its SPMS digest, its `Provides`",
 		sent.number(),
 	);
@@ -103,7 +133,7 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	})
 	.await?;
 	log::info!(
-		"Checkpoint 2/5, relay: at relay block #{}, `newest_included_provides({SENDER})` is that \
+		"Checkpoint 3/6, relay: at relay block #{}, `newest_included_provides({SENDER})` is that \
 		 root: the sender's candidate was included and its `Provides` recorded",
 		relay.blocks().at_latest().await?.number(),
 	);
@@ -458,6 +488,27 @@ async fn open_spec_msg_channel(
 		Ok(channels.get(&channel(RECEIVER)).is_some_and(|state| state.register.is_some()))
 	})
 	.await?;
+
+	let in_channels: BTreeMap<ChannelId, InChannelState> =
+		call(receiver, "SpecMsgApi_in_channels").await?;
+	let out_channels: BTreeMap<ChannelId, OutChannelState> =
+		call(sender, "SpecMsgApi_out_channels").await?;
+	if let (Some(in_state), Some(out_state)) =
+		(in_channels.get(&channel(SENDER)), out_channels.get(&channel(RECEIVER)))
+	{
+		if let Some(read) = out_state.register {
+			log::info!(
+				"Checkpoint 1/6, channel: {SENDER} -> {RECEIVER} is {:?} ({RECEIVER} consumed \
+				 `OpenChannel` to leaf {}, {SENDER} read `Ack` register at leaf {} with grant \
+				 {} msgs / {} bytes)",
+				out_state.phase(),
+				in_state.published.up_to.0,
+				read.at.0,
+				read.register.grant.max_messages,
+				read.register.grant.max_bytes,
+			);
+		}
+	}
 	Ok(())
 }
 
@@ -645,7 +696,7 @@ async fn follow_delivery(
 				if let Some(streams) = record.entries.get(&ParaId::from(SENDER)) {
 					for (stream, interval) in streams {
 						log::info!(
-							"Checkpoint 3/5, consume: {RECEIVER} block #{} consumed {stream:?} up \
+							"Checkpoint 4/6, consume: {RECEIVER} block #{} consumed {stream:?} up \
 							 to leaf {}, fetched from {SENDER}'s collator; its consumption \
 							 record becomes the candidate's `Requires`",
 							block.number(),
@@ -653,7 +704,7 @@ async fn follow_delivery(
 						);
 					}
 					log::info!(
-						"Checkpoint 4/5, backing: {RECEIVER} block #{} is finalized, so its \
+						"Checkpoint 5/6, backing: {RECEIVER} block #{} is finalized, so its \
 						 candidate was backed and included: the relay matched its `Requires` \
 						 against {SENDER}'s provides window",
 						block.number(),
@@ -674,7 +725,7 @@ async fn follow_delivery(
 					}
 					let field = |name| values.at(name).map(ToString::to_string).unwrap_or_default();
 					log::info!(
-						"Checkpoint 5/5, execute: {RECEIVER} block #{} `MessageQueue::Processed`: \
+						"Checkpoint 6/6, execute: {RECEIVER} block #{} `MessageQueue::Processed`: \
 						 origin {}, success {}",
 						block.number(),
 						field("origin"),
@@ -728,7 +779,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					("-lparachain=debug,runtime::inclusion=debug,runtime::inclusion-inherent=debug")
 						.into(),
 				])
-				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("alice").with_rpc_port(RELAY_RPC_PORT))
 				.with_validator(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
@@ -740,7 +791,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					serde_json::json!({ "protocolId": format!("penpal-{SENDER}") }),
 				)
 				.with_default_args(collator_args(&to_receiver))
-				.with_collator(|n| n.with_name(SENDER_COLLATOR).with_p2p_port(SENDER_P2P_PORT))
+				.with_collator(|n| {
+					n.with_name(SENDER_COLLATOR)
+						.with_p2p_port(SENDER_P2P_PORT)
+						.with_rpc_port(SENDER_RPC_PORT)
+				})
 		})
 		.with_parachain(|p| {
 			p.with_id(RECEIVER)
@@ -751,7 +806,11 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					serde_json::json!({ "protocolId": format!("penpal-{RECEIVER}") }),
 				)
 				.with_default_args(collator_args(&to_sender))
-				.with_collator(|n| n.with_name(RECEIVER_COLLATOR).with_p2p_port(RECEIVER_P2P_PORT))
+				.with_collator(|n| {
+					n.with_name(RECEIVER_COLLATOR)
+						.with_p2p_port(RECEIVER_P2P_PORT)
+						.with_rpc_port(RECEIVER_RPC_PORT)
+				})
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

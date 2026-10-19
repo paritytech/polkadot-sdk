@@ -24,16 +24,24 @@ NO_PROXY=127.0.0.1,localhost RUST_LOG=info ZOMBIE_PROVIDER=native PATH=$PWD/targ
 
 - `RUST_LOG=info` is needed. A value such as `RUST_LOG=xcm=trace` hides the test output.
 - `NO_PROXY` is needed only behind a system proxy.
+- For a live presentation, you can boot the network ahead of time with `SPEC_MSG_STANDBY=1` on the command above,
+  then trigger the ~2 min channel-open + XCM run from a second terminal with `SPEC_MSG_ATTACH=1`.
+  Stop standby with Ctrl-C.
+- Set `ZOMBIENET_SDK_BASE_DIR` for the standby run. The node logs are then in a known directory, for the
+  `tail -F` commands in section 3.
+- One standby network serves one attach run. A second run fails at the channel open, because the channel exists.
+  Restart standby before each run.
 
-The test prints five checkpoints. Each one is read from chain state:
+The test prints six checkpoints. Each one is read from chain state:
 
 | # | Checkpoint | What it shows |
 |---|---|---|
-| 1 | send | A 2000 block holds `PolkadotXcm::Sent`. Its digest commits a `StreamsRoot`: the `Provides`. |
-| 2 | relay | `newest_included_provides(2000)` is that root. The relay recorded it. |
-| 3 | consume | A 2001 block consumed the channel up to a leaf. This record is the candidate's `Requires`. |
-| 4 | backing | That 2001 block is finalized, so the relay matched its `Requires` against 2000's provides. |
-| 5 | execute | `MessageQueue::Processed` with origin `SpecMsg ((2000))` and success `true`. |
+| 1 | channel | 2001 consumed `OpenChannel`. 2000 read 2001's `Ack` register: the channel is `Open`. |
+| 2 | send | A 2000 block holds `PolkadotXcm::Sent`. Its digest commits a `StreamsRoot`: the `Provides`. |
+| 3 | relay | `newest_included_provides(2000)` is that root. The relay recorded it. |
+| 4 | consume | A 2001 block consumed the channel up to a leaf. This record is the candidate's `Requires`. |
+| 5 | backing | That 2001 block is finalized, so the relay matched its `Requires` against 2000's provides. |
+| 6 | execute | `MessageQueue::Processed` with origin `SpecMsg ((2000))` and success `true`. |
 
 ## 3. Follow the node logs
 
@@ -48,21 +56,21 @@ tail -F charlie/charlie.log dave/dave.log alice/alice.log | grep --line-buffered
 
 ## 4. One message in the logs
 
-This is the message of checkpoints 1 to 5 in one run. `Block N` is the parachain block.
+This is the message of checkpoints 2 to 6 in one run. `Block N` is the parachain block.
 
 | Time | Node | Log | Step |
 |---|---|---|---|
-| 15:32:48.050 | charlie | `runtime::spec-msg: Block 16: committed streams root 0x6329…` | Send. The root is checkpoint 1. |
+| 15:32:48.050 | charlie | `runtime::spec-msg: Block 16: committed streams root 0x6329…` | Send. The root is checkpoint 2. |
 | 15:32:48.050 | charlie | `runtime::parachain-system: Emitting the Provides signal for root 0x6329…` | The root leaves as a `Provides` signal. |
 | 15:32:48.056 | charlie | `spec-msg: Archived block #16 …: 1 sends, committing …` | The archive can serve the message. |
-| 15:33:00.089 | alice | `runtime::inclusion: Recording provides root 0x6329… of para 2000` | Inclusion (checkpoint 2). 12 s after the send. |
+| 15:33:00.089 | alice | `runtime::inclusion: Recording provides root 0x6329… of para 2000` | Inclusion (checkpoint 3). 12 s after the send. |
 | 15:33:00.119 | dave | `spec-msg: New root 0x6329… of 2000: fetching` | The receiver sees the root. |
 | 15:33:00.128 | dave | `spec-msg: Root 0x6329… of 2000: fetch settled in 9.7ms` | Pull fetch from charlie's archive. |
 | 15:33:00.128 | charlie | `spec-msg: Served a spec-msg exchange request from <peer>: 86 bytes` | The server side of that fetch. |
 | 15:33:00.136 | dave | `spec-msg: Messaging inherent: 1 items` | The collator plans the inherent. |
-| 15:33:00.148 | dave | `runtime::spec-msg: Block 17: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | Consume (checkpoint 3). |
+| 15:33:00.148 | dave | `runtime::spec-msg: Block 17: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | Consume (checkpoint 4). |
 | 15:33:00.176 | dave | `cumulus-collator: Collation carries a Requires over the consumption of 1 blocks. consuming=1 signals=4` | The collator adds `Requires` to the candidate. |
-| 15:33:06.016 | alice | `runtime::inclusion-inherent: Candidate 0x93f4… for para 2001: requires found in the provides windows` | The relay matches `Requires` (checkpoint 4). |
+| 15:33:06.016 | alice | `runtime::inclusion-inherent: Candidate 0x93f4… for para 2001: requires found in the provides windows` | The relay matches `Requires` (checkpoint 5). |
 
 - Send to consume takes 12 s: two relay blocks. The fetch takes 1 to 10 ms.
 - The same runtime line can appear several times for one block: the runtime runs on author and on import.

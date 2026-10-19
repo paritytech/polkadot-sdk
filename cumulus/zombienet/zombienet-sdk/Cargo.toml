@@ -15,7 +15,7 @@ log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
 futures = { workspace = true }
 zombienet-sdk = { workspace = true }
 zombienet-orchestrator = { workspace = true }
