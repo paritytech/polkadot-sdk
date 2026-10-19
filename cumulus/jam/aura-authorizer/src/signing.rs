@@ -15,13 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
 use jam_types::{
 	Authorizer, BoundedVec, Encode as JamEncode, MaxWorkItems, RefineContext, ServiceId, WorkItem,
 	WorkPackage,
 };
 use primitive_types::H256;
-use sp_crypto_hashing::blake2_256;
 
 use crate::WorkPackageBody;
 
@@ -74,11 +72,11 @@ impl SigningPayload<'_> {
 /// Adapters for other JAM versions must preserve their version's complete context encoding
 /// and exclude the authorization token.
 pub fn hash_signing_payload(payload: &[u8]) -> H256 {
-	let mut signable = Vec::with_capacity(WORK_PACKAGE_SIGN_CTX.len() + payload.len());
-	signable.extend_from_slice(WORK_PACKAGE_SIGN_CTX);
-	signable.extend_from_slice(payload);
+	let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
+	state.update(WORK_PACKAGE_SIGN_CTX);
+	state.update(payload);
 
-	H256::from(blake2_256(&signable))
+	H256::from_slice(state.finalize().as_bytes())
 }
 
 #[cfg(test)]

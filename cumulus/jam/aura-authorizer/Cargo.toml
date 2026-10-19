@@ -13,6 +13,7 @@ homepage.workspace = true
 workspace = true
 
 [dependencies]
+blake2b_simd = { workspace = true }
 binary-merkle-tree = { version = "16.1.1", default-features = false }
 hash-db = { version = "0.16.0", default-features = false }
 hash256-std-hasher = { version = "0.15.2", default-features = false }
@@ -25,6 +26,7 @@ sp-crypto-hashing = { version = "0.1.0", default-features = false }
 [features]
 default = []
 std = [
+    "blake2b_simd/std",
     "binary-merkle-tree/std",
     "hash-db/std",
     "hash256-std-hasher/std",
