@@ -449,14 +449,15 @@ enum ExecutionMode {
 
 /// Returns whether a `WarmWriteSender` call to a fresh receiver was denied, and its counter.
 fn call_warm_write_sender(
-	fixture_type: FixtureType,
+	sender_type: FixtureType,
+	receiver_type: FixtureType,
 	receiver_fixture: &str,
 	value: u128,
 	warm_write: WarmWrite,
 	execution_mode: ExecutionMode,
 ) -> (bool, U256) {
-	let (receiver_code, _) = compile_module_with_type(receiver_fixture, fixture_type).unwrap();
-	let (sender_code, _) = compile_module_with_type("WarmWriteSender", fixture_type).unwrap();
+	let (receiver_code, _) = compile_module_with_type(receiver_fixture, receiver_type).unwrap();
+	let (sender_code, _) = compile_module_with_type("WarmWriteSender", sender_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
 		let Contract { addr: receiver, .. } =
@@ -507,6 +508,7 @@ fn call_warm_write_sender(
 
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
+	[FixtureType::Solc, FixtureType::Resolc],
 	[
 		("WritingReceiver", 2),
 		("ClearingReceiver", 0),
@@ -515,12 +517,14 @@ fn call_warm_write_sender(
 	]
 )]
 fn stipend_check_denies_hot_slot_writes_from_a_zero_value_send(
-	fixture_type: FixtureType,
+	sender_type: FixtureType,
+	receiver_type: FixtureType,
 	(receiver_fixture, counter_after_write): (&str, u64),
 ) {
 	let call = |warm_write| {
 		call_warm_write_sender(
-			fixture_type,
+			sender_type,
+			receiver_type,
 			receiver_fixture,
 			0,
 			warm_write,
@@ -551,6 +555,7 @@ fn stipend_check_denies_hot_slot_writes_from_a_value_send(
 ) {
 	let call = |warm_write| {
 		call_warm_write_sender(
+			FixtureType::Solc,
 			FixtureType::Solc,
 			receiver_fixture,
 			1_000_000,
@@ -835,6 +840,7 @@ fn stipend_check_denies_writes_with_out_of_gas(fixture_type: FixtureType, receiv
 
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
+	[FixtureType::Solc, FixtureType::Resolc],
 	[
 		("WritingReceiver", 2),
 		("ClearingReceiver", 0),
@@ -844,13 +850,15 @@ fn stipend_check_denies_writes_with_out_of_gas(fixture_type: FixtureType, receiv
 	[0, 1_000_000]
 )]
 fn stipend_check_ignores_calls_with_an_explicit_gas_limit(
-	fixture_type: FixtureType,
+	sender_type: FixtureType,
+	receiver_type: FixtureType,
 	(receiver_fixture, counter_after_write): (&str, u64),
 	value: u128,
 ) {
 	assert_eq!(
 		call_warm_write_sender(
-			fixture_type,
+			sender_type,
+			receiver_type,
 			receiver_fixture,
 			value,
 			WarmWrite::ByCallWithGas(10_000_000_000),
