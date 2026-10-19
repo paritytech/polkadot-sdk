@@ -4920,6 +4920,7 @@ dependencies = [
  "blake2b_simd",
  "hash-db",
  "hash256-std-hasher",
+ "jam-codec",
  "jam-types",
  "parity-scale-codec",
  "polkadot-parachain-primitives 23.0.0",

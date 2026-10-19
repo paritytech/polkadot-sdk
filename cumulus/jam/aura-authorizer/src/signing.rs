@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use jam_types::{
-	Authorizer, BoundedVec, Encode as JamEncode, MaxWorkItems, RefineContext, ServiceId, WorkItem,
-	WorkPackage,
+	AuthConfig, BoundedVec, CodeHash, Encode as JamEncode, MaxWorkItems, RefineContext, ServiceId,
+	WorkItem, WorkPackage,
 };
 use primitive_types::H256;
 
@@ -31,10 +31,12 @@ pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-packa
 /// JAM-encodes the code host, authorizer code hash, refinement context, authorizer config,
 /// and work items after [`WORK_PACKAGE_SIGN_CTX`], then hashes them with Blake2b-256.
 /// The authorization token is excluded because it contains the signature.
+#[derive(JamEncode)]
 pub(crate) struct SigningPayload<'a> {
 	auth_code_host: ServiceId,
-	authorizer: &'a Authorizer,
+	auth_code_hash: &'a CodeHash,
 	context: &'a RefineContext,
+	auth_config: &'a AuthConfig,
 	items: &'a BoundedVec<WorkItem, MaxWorkItems>,
 }
 
@@ -42,7 +44,13 @@ impl<'a> From<&'a WorkPackage> for SigningPayload<'a> {
 	fn from(package: &'a WorkPackage) -> Self {
 		// Keep this exhaustive so new fields require an explicit signing decision.
 		let WorkPackage { authorization: _, auth_code_host, authorizer, context, items } = package;
-		Self { auth_code_host: *auth_code_host, authorizer, context, items }
+		Self {
+			auth_code_host: *auth_code_host,
+			auth_code_hash: &authorizer.code_hash,
+			context,
+			auth_config: &authorizer.config,
+			items,
+		}
 	}
 }
 
@@ -50,20 +58,19 @@ impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
 	fn from(package: &'a WorkPackageBody) -> Self {
 		// Keep this exhaustive so new fields require an explicit signing decision.
 		let WorkPackageBody { auth_code_host, authorizer, context, items } = package;
-		Self { auth_code_host: *auth_code_host, authorizer, context, items }
+		Self {
+			auth_code_host: *auth_code_host,
+			auth_code_hash: &authorizer.code_hash,
+			context,
+			auth_config: &authorizer.config,
+			items,
+		}
 	}
 }
 
 impl SigningPayload<'_> {
 	pub(crate) fn hash(&self) -> H256 {
-		let payload = JamEncode::encode(&(
-			&self.auth_code_host,
-			&self.authorizer.code_hash,
-			self.context,
-			&self.authorizer.config,
-			self.items,
-		));
-		hash_signing_payload(&payload)
+		hash_signing_payload(&self.encode())
 	}
 }
 
