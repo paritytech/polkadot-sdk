@@ -2053,12 +2053,12 @@ fn persistent_state_changes_are_denied_in_a_stipend_limited_frame() {
 		assert_eq!(
 			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
 			Err(Error::<Test>::OutOfGas.into()),
-			"the callee should not write persistent storage"
+			"a stipend-limited callee should not write persistent storage"
 		);
 		assert_eq!(
 			ctx.ext.set_transient_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
 			Ok(WriteOutcome::New),
-			"the callee should still write transient storage"
+			"a stipend-limited callee should still write transient storage"
 		);
 		assert_eq!(
 			ctx.ext.call(
@@ -2069,7 +2069,7 @@ fn persistent_state_changes_are_denied_in_a_stipend_limited_frame() {
 				CallProtections::none()
 			),
 			Err(Error::<Test>::OutOfGas.into()),
-			"the callee should not move value"
+			"a stipend-limited callee should not move value"
 		);
 		assert_eq!(
 			ctx.ext.instantiate(
@@ -2080,7 +2080,7 @@ fn persistent_state_changes_are_denied_in_a_stipend_limited_frame() {
 				Some(&[0; 32])
 			),
 			Err(Error::<Test>::OutOfGas.into()),
-			"the callee should not create a contract"
+			"a stipend-limited callee should not create a contract"
 		);
 		exec_success()
 	});
@@ -2099,9 +2099,123 @@ fn persistent_state_changes_are_denied_in_a_stipend_limited_frame() {
 		exec_success()
 	});
 
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.build()
+		.execute_with(|| {
+			place_contract(&BOB, bob_ch);
+			place_contract(&CHARLIE, charlie_ch);
+			run_root_call(BOB_ADDR, vec![]);
+		});
+}
+
+#[test]
+fn state_changes_are_denied_in_a_read_only_frame() {
+	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
+	let django_ch = MockLoader::insert(Call, |_, _| exec_success());
+	let charlie_ch = MockLoader::insert(Call, move |ctx, _| {
+		assert_eq!(
+			ctx.ext.set_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
+			Err(Error::<Test>::StateChangeDenied.into()),
+			"a read-only callee should not write persistent storage"
+		);
+		assert_eq!(
+			ctx.ext.set_transient_storage(&Key::Fix([1; 32]), Some(vec![1]), false),
+			Err(Error::<Test>::StateChangeDenied.into()),
+			"a read-only callee should not write transient storage"
+		);
+		assert_eq!(
+			ctx.ext.call(
+				&CallResources::NoLimits,
+				&DJANGO_ADDR,
+				U256::one(),
+				vec![],
+				CallProtections::none()
+			),
+			Err(Error::<Test>::StateChangeDenied.into()),
+			"a read-only callee should not send value"
+		);
+		assert_eq!(
+			ctx.ext.instantiate(
+				&CallResources::NoLimits,
+				Code::Existing(dummy_ch),
+				U256::zero(),
+				vec![],
+				Some(&[0; 32])
+			),
+			Err(Error::<Test>::StateChangeDenied.into()),
+			"a read-only callee should not create a contract"
+		);
+		assert_eq!(
+			ctx.ext.terminate_caller(&ALICE_ADDR),
+			Err(Error::<Test>::StateChangeDenied.into()),
+			"a read-only callee should not terminate its caller"
+		);
+		exec_success()
+	});
+	let bob_ch = MockLoader::insert(Call, |ctx, _| {
+		assert_eq!(
+			ctx.ext.call(
+				&CallResources::NoLimits,
+				&DJANGO_ADDR,
+				U256::one(),
+				vec![],
+				CallProtections {
+					reentrancy: ReentrancyProtection::AllowReentry,
+					read_only: true,
+					stipend_limited: false,
+				},
+			),
+			Err(Error::<Test>::StateChangeDenied.into()),
+			"a read-only call should not carry value"
+		);
+		// A frame that is also stipend-limited must still report the read-only denial.
+		for stipend_limited in [false, true] {
+			assert_ok!(ctx.ext.call(
+				&CallResources::NoLimits,
+				&CHARLIE_ADDR,
+				U256::zero(),
+				vec![],
+				CallProtections {
+					reentrancy: ReentrancyProtection::AllowReentry,
+					read_only: true,
+					stipend_limited,
+				},
+			));
+		}
+		exec_success()
+	});
+
+	ExtBuilder::default()
+		.with_code_hashes(MockLoader::code_hashes())
+		.build()
+		.execute_with(|| {
+			place_contract(&BOB, bob_ch);
+			place_contract(&CHARLIE, charlie_ch);
+			place_contract(&DJANGO, django_ch);
+			run_root_call(BOB_ADDR, vec![]);
+		});
+}
+
+#[test]
+fn read_only_call_without_value_to_an_account_without_code_succeeds() {
+	let bob_ch = MockLoader::insert(Call, |ctx, _| {
+		assert_ok!(ctx.ext.call(
+			&CallResources::NoLimits,
+			&ALICE_ADDR,
+			U256::zero(),
+			vec![],
+			CallProtections {
+				reentrancy: ReentrancyProtection::AllowReentry,
+				read_only: true,
+				stipend_limited: false,
+			},
+		));
+		exec_success()
+	});
+
 	ExtBuilder::default().build().execute_with(|| {
 		place_contract(&BOB, bob_ch);
-		place_contract(&CHARLIE, charlie_ch);
 		run_root_call(BOB_ADDR, vec![]);
 	});
 }

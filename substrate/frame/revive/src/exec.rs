@@ -413,6 +413,8 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Sets the transient storage entry for the given key to the specified value. If `value` is
 	/// `None` then the storage entry is deleted.
+	///
+	/// Returns `StateChangeDenied` if the current frame is read-only.
 	fn set_transient_storage(
 		&mut self,
 		key: &Key,
@@ -538,6 +540,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn is_read_only(&self) -> bool;
 
 	/// Returns `OutOfGas` if the current frame is stipend-limited.
+	///
+	/// A precompile must call this before every function that changes state.
 	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.
@@ -589,7 +593,8 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted.
 	///
-	/// Returns `OutOfGas` if the current frame is stipend-limited.
+	/// Returns `StateChangeDenied` if the current frame is read-only, and `OutOfGas` if it is
+	/// stipend-limited.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -2383,6 +2388,7 @@ where
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
 		self.ensure_not_stipend_limited()?;
 
 		let sender = self.top_frame().account_id.clone();
@@ -2451,8 +2457,13 @@ where
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
-		// Checks the caller's frame, not the callee's, so a `transfer` or `send` still moves value.
 		if !value.is_zero() {
+			ensure!(
+				!call_protections.read_only && !self.is_read_only(),
+				Error::<T>::StateChangeDenied
+			);
+			// Checks the caller's frame, not the callee's, so a `transfer` or `send` still
+			// moves value.
 			self.ensure_not_stipend_limited()?;
 		}
 
@@ -2527,10 +2538,8 @@ where
 					}) {
 					*self.last_frame_output_mut() = mock_answer.clone();
 					Ok(mock_answer)
-				} else if call_protections.read_only && value.is_zero() {
+				} else if value.is_zero() {
 					Ok(Default::default())
-				} else if call_protections.read_only {
-					Err(Error::<T>::StateChangeDenied.into())
 				} else {
 					let account_id = self.account_id().clone();
 					let frame = top_frame_mut!(self);
@@ -2590,6 +2599,7 @@ where
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
 		let account_id = self.account_id().clone();
 		self.with_transient_storage_mut(|transient_storage| {
 			transient_storage.write(&account_id, key, value, take_old)
@@ -2823,6 +2833,7 @@ where
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
 		self.ensure_not_stipend_limited()?;
 		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
@@ -2890,7 +2901,7 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
-		// Covers precompiles
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
 		self.ensure_not_stipend_limited()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
