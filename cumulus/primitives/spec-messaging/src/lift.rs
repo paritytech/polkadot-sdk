@@ -421,23 +421,23 @@ pub fn stitch(
 	// nothing needs to: everything consumed is bound through the chain from `first.end`.
 	// Cross-candidate continuity is the STF's (the stored frontier for channels; for register
 	// reads, the last applied position and the register's monotonic fields).
-	let mut current = first.end.clone();
+	let mut current = &first.end;
 	for next in rest {
 		let current_root = current.root();
 		if next.start != current_root {
 			// A gap must be a proven forward extension of where we ended.
 			let proof = gaps.next().ok_or(LiftError::MissingAdvance)?;
-			let extended = proof.verify(&current).map_err(|_| LiftError::BrokenChain)?;
+			let extended = proof.verify(current).map_err(|_| LiftError::BrokenChain)?;
 			if extended != next.start {
 				return Err(LiftError::BrokenChain);
 			}
 		}
-		current = next.end.clone();
+		current = &next.end;
 	}
 	if gaps.next().is_some() {
 		return Err(LiftError::StrayAdvance);
 	}
-	Ok(current)
+	Ok(current.clone())
 }
 
 /// Lift one source's streams to a single committed `StreamsRoot`: stitch each stream's intervals
