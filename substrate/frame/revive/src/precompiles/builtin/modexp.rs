@@ -91,12 +91,6 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		let exp_len = exp_len_big.to_usize().expect("exp_len out of bounds");
 		let mod_len = mod_len_big.to_usize().expect("mod_len out of bounds");
 
-		// if mod_len is 0 output must be empty
-		if mod_len == 0 {
-			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(MIN_GAS_COST))?;
-			return Ok(Vec::new());
-		}
-
 		// read the numbers themselves.
 		let mut base_buf = vec![0u8; base_len];
 		read_input(&input, &mut base_buf, &mut input_offset);
@@ -111,15 +105,21 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		let modulus = BigUint::from_bytes_be(&mod_buf);
 
 		// do our gas accounting
+		// `BigUint::is_even` is true for zero, but an empty modulus never reaches `modpow`.
 		let gas_cost = calculate_gas_cost(
 			base_len as u64,
 			mod_len as u64,
 			&exponent,
 			&exp_buf,
-			modulus.is_even(),
+			mod_len != 0 && modulus.is_even(),
 		);
 
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
+
+		// if mod_len is 0 output must be empty
+		if mod_len == 0 {
+			return Ok(Vec::new());
+		}
 
 		let r = if modulus.is_zero() || modulus.is_one() {
 			BigUint::zero()
@@ -130,8 +130,7 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		// write output to given memory, left padded and same length as the modulus.
 		let bytes = r.to_bytes_be();
 
-		// always true except in the case of zero-length modulus, which leads to
-		// output of length and value 1.
+		// `r < modulus`, so it always fits in `mod_len` bytes.
 		if bytes.len() == mod_len {
 			Ok(bytes.to_vec())
 		} else if bytes.len() < mod_len {
@@ -392,13 +391,16 @@ mod tests {
 	}
 
 	#[test]
-	fn test_zero_modulus_charges_min_gas_cost() {
+	fn test_zero_modulus_charges_eip2565_cost() {
 		use crate::{call_builder::CallSetup, metering::Token, tests::ExtBuilder};
 
-		for (base_len, exp_len) in [(0u8, 0u8), (0, 32), (32, 32)] {
+		// EIP-2565 cost for an all-0xff base and exponent.
+		for (base_len, exp_len, gas) in
+			[(0u16, 0u16, 200), (0, 32, 200), (32, 32, 1360), (1024, 1024, 44_733_781)]
+		{
 			let mut input = vec![0u8; 96];
-			input[31] = base_len;
-			input[63] = exp_len;
+			input[30..32].copy_from_slice(&base_len.to_be_bytes());
+			input[62..64].copy_from_slice(&exp_len.to_be_bytes());
 			input.extend(vec![0xff; base_len as usize + exp_len as usize]);
 
 			ExtBuilder::default().build().execute_with(|| {
@@ -414,7 +416,7 @@ mod tests {
 				assert!(output.is_empty());
 				assert_eq!(
 					after - before,
-					Token::<Test>::weight(&RuntimeCosts::Modexp(MIN_GAS_COST)),
+					Token::<Test>::weight(&RuntimeCosts::Modexp(gas)),
 					"base_len={base_len} exp_len={exp_len}",
 				);
 			})
