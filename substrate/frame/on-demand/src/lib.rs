@@ -467,9 +467,10 @@ pub mod pallet {
 			let mut revenue = Revenue::<T>::get();
 			// The records are newest first, so the claimable ones are at the end.
 			let claimable = revenue.iter().filter(|record| record.when <= up_to).count() as u32;
-			// Early return when nothing to be claimed.
+			// Early return when nothing to be claimed: everything up to `up_to` is already paid
+			// out, so it is settled even without revenue.
 			if claimable == 0 {
-				return (Vec::new(), 0);
+				return (Vec::from([(up_to, Zero::zero())]), 0);
 			}
 
 			let pot = Self::account_id();
