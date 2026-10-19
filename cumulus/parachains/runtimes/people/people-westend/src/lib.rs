@@ -435,8 +435,10 @@ impl pallet_validator_collators::Config for Runtime {
 	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
 	type BlockReporter = ReportBlocksToAssetHub;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
-	type MaxEntriesPerReport =
-		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT }>;
+	// Asset Hub's message queue must process a report of this many entries within its service
+	// weight, which the emulated tests check. A heavier report is set aside as overweight on Asset
+	// Hub, after this chain has already removed its counts.
+	type MaxEntriesPerReport = ConstU32<500>;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;

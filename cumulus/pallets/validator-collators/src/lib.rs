@@ -29,7 +29,7 @@
 //!
 //! The pallet is a [`pallet_session::SessionManager`]. At every session rotation it returns the
 //! stored validators that have registered local session keys, checked with
-//! [`Config::ValidatorRegistration`]. The runtime combines this pallet with
+//! [`Config::ValidatorRegistration`]. The runtime may combine this pallet with
 //! `pallet-collator-selection` through [`pallet_session::UnionSessionManager`], so invulnerables
 //! and candidates keep collating next to the validators.
 //!
@@ -385,9 +385,9 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		/// Reports [`AuthoredBlocks`] at every multiple of [`ReportPeriod`], and once per stored
-		/// set when [`ReportMargin`] or less remains until [`SetReceivedAt`] plus
-		/// [`ExpectedEraDuration`].
+		/// Reports [`AuthoredBlocks`] at every multiple of [`ReportPeriod`] (`periodic_send` in the
+		/// code), and once per stored set when [`ReportMargin`] or less remains until
+		/// [`SetReceivedAt`] plus [`ExpectedEraDuration`] (`early_send` in the code).
 		///
 		/// The early report removes [`SetReceivedAt`], so it is made once per set and not
 		/// retried. If the reporter rejects it, the counts go out with the next [`ReportPeriod`]
@@ -397,23 +397,28 @@ pub mod pallet {
 		/// [`ShouldEndSession::should_end_session`], which pallet-session makes in every block
 		/// without charging it.
 		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
-			let early = SetReceivedAt::<T>::get().is_some_and(|received_at| {
+			let early_send = SetReceivedAt::<T>::get().is_some_and(|received_at| {
 				let duration = ExpectedEraDuration::<T>::get();
 				let margin =
 					ReportMargin::<T>::get().min(T::MaxReportMargin::get()).min(duration / 2);
 				let now_ms: u64 = T::UnixTime::now().as_millis().saturated_into();
 				now_ms >= received_at.saturating_add(duration.saturating_sub(margin))
 			});
-			if early {
+
+			// kill the SetReceivedAt storage item if the early send is triggered, ensuring it is
+			// only sent once per set.
+			if early_send {
 				SetReceivedAt::<T>::kill();
 			}
-			let period = ReportPeriod::<T>::get();
-			let report = if early || (!period.is_zero() && (now % period).is_zero()) {
-				Self::report_blocks()
-			} else {
-				Weight::zero()
+
+			let periodic_send = {
+				let period = ReportPeriod::<T>::get();
+				!period.is_zero() && (now % period).is_zero()
 			};
-			T::WeightInfo::on_initialize().saturating_add(report)
+
+			let report_weight =
+				if early_send || periodic_send { Self::report_blocks() } else { Weight::zero() };
+			T::WeightInfo::on_initialize().saturating_add(report_weight)
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -624,7 +629,7 @@ pub mod pallet {
 				"a rotation is pending without a stored validator set"
 			);
 			ensure!(
-				!ValidatorSet::<T>::exists() || ValidatorSet::<T>::get().is_some(),
+				ValidatorSet::<T>::exists() != ValidatorSet::<T>::get().is_some(),
 				"the stored validator set does not decode, it may exceed `MaxValidators`"
 			);
 			ensure!(
@@ -633,7 +638,7 @@ pub mod pallet {
 				"drawn collators are stored without both a cap and a validator set"
 			);
 			ensure!(
-				!Collators::<T>::exists() || Collators::<T>::get().is_some(),
+				Collators::<T>::exists() != Collators::<T>::get().is_some(),
 				"the drawn collators do not decode"
 			);
 			// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a value in
@@ -685,6 +690,7 @@ pub mod pallet {
 				RotationState::AwaitingEnactment => PendingRotation::<T>::kill(),
 				RotationState::Idle => {},
 			}
+
 			let Some(set) = ValidatorSet::<T>::get() else {
 				if ValidatorSet::<T>::exists() {
 					log::error!(
@@ -695,17 +701,32 @@ pub mod pallet {
 				}
 				return None;
 			};
+
 			// Drawn at the rotation, which pallet-session weighs as the whole block, since the key
 			// reads may not fit the weight of the message or report that delivers the set.
 			let validators = match MaxCollators::<T>::get() {
 				Some(cap) if pending == RotationState::AwaitingQueue => {
+					// a cap is set, and we have a new set to draw from (`AwaitingQueue` set
+					// externally).
 					Self::draw_collators(set, cap).into_inner()
 				},
-				Some(_) => Collators::<T>::get()
-					.map(|drawn| drawn.validators.into_inner())
-					.unwrap_or_default(),
-				None => set.validators.into_iter().collect(),
+				Some(_) => {
+					// a cap is set, but we don't have a new externally set validator set, use the
+					// old drawn set.
+					Collators::<T>::get()
+						.map(|drawn| drawn.validators.into_inner())
+						.unwrap_or_default()
+				},
+				None => {
+					// no cap exists, no drawing ever done, return the full set.
+					set.validators.into_iter().collect()
+				},
 			};
+
+			// `draw_collators` filters `ValidatorRegistration`, but:
+			// 1. old drawn set may not have all validators registered,
+			// 2. new set may not have all validators registered.
+			// So we filter again here.
 			Some(validators.into_iter().filter(T::ValidatorRegistration::is_registered).collect())
 		}
 

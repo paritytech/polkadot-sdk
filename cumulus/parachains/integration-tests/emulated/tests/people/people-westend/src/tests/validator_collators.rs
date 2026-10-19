@@ -368,3 +368,21 @@ fn people_report_call_decodes_on_asset_hub() {
 		other => panic!("People's report decodes on Asset Hub as {other:?}"),
 	}
 }
+
+#[test]
+fn people_full_report_fits_the_message_queue_of_asset_hub() {
+	// GIVEN the largest report People sends, all credited
+	type MaxEntries =
+		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxEntriesPerReport;
+	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
+	let message = asset_hub_westend_runtime::StakingPointsConverter::report_authored_blocks_weight(
+		max_entries,
+	);
+	// WHEN Asset Hub processes it from its message queue
+	// THEN it fits the service weight, so it is not set aside as overweight
+	let service_weight = asset_hub_westend_runtime::MessageQueueServiceWeight::get();
+	assert!(
+		service_weight.all_gte(message),
+		"a full report of {max_entries} entries weighs {message:?}",
+	);
+}
