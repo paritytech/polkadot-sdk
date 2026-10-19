@@ -32,7 +32,7 @@ mod work_package;
 
 pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
-pub use config::AuthConfig;
+pub use config::{AuthConfig, ConfigError};
 pub use merkle::{build_collator_proofs, CollatorProofError};
 pub use signing::{hash_signing_payload, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, SignatureVerifier, TokenError};
@@ -47,11 +47,15 @@ pub struct AuthTrace {
 /// AURA authorization failed.
 #[derive(Debug)]
 pub enum AuthorizationError {
+	BadConfig(ConfigError),
 	BadToken(TokenError),
 }
 
 impl AuthTrace {
-	/// Validate an AURA token for the slot and work package, returning its author trace.
+	/// Validate the work items and AURA token, returning the author trace.
+	///
+	/// The caller must supply the configuration bound to the authorized code/config
+	/// combination and the slot from the host's trusted refinement context.
 	pub fn try_from_token<S: SignatureVerifier>(
 		config: &AuthConfig,
 		token: &AuthToken,
@@ -59,6 +63,7 @@ impl AuthTrace {
 		slot: Slot,
 	) -> Result<Self, AuthorizationError> {
 		let collator_index = config.expected_collator_index(slot);
+		config.check_work_items(&package.items).map_err(AuthorizationError::BadConfig)?;
 
 		token
 			.try_into_trace::<S>(config, package, collator_index)
@@ -118,6 +123,48 @@ mod tests {
 		};
 
 		(config, token, package)
+	}
+
+	#[test]
+	fn work_item_constraints_works() {
+		let (mut config, mut token, mut package) = fixture();
+		package.items = vec![jam_types::WorkItem {
+			service: config.parachain_service,
+			code_hash: Default::default(),
+			refine_gas_limit: 1,
+			accumulate_gas_limit: 1,
+			export_count: 0,
+			payload: Default::default(),
+			import_segments: Default::default(),
+			extrinsics: Default::default(),
+		}]
+		.try_into()
+		.expect("one work item fits");
+		let hash = signing::SigningPayload::from(&package).hash();
+		token.signature[..32].copy_from_slice(hash.as_bytes());
+
+		// Missing and surplus assignments fail before signature verification.
+		for para_ids in [vec![], vec![ParaId::new(0), ParaId::new(1)]] {
+			config.para_ids = para_ids;
+			assert!(matches!(
+				AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
+				Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
+			));
+		}
+		config.para_ids = vec![ParaId::new(0)];
+		assert!(AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 2).is_ok());
+
+		package.items[0].service += 1;
+		assert!(matches!(
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemService))
+		));
+		// Item-count errors take precedence when both constraints fail.
+		config.para_ids.clear();
+		assert!(matches!(
+			AuthTrace::try_from_token::<NeverVerify>(&config, &token, &package, 2),
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidWorkItemCount))
+		));
 	}
 
 	#[test]

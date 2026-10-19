@@ -18,9 +18,18 @@
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::num::NonZero;
-use jam_types::{ServiceId, Slot};
+use jam_types::{ServiceId, Slot, WorkItem};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use primitive_types::H256;
+
+/// Work items do not satisfy the AURA configuration.
+#[derive(Debug)]
+pub enum ConfigError {
+	/// A work item does not target the configured Parachain Service.
+	InvalidWorkItemService,
+	/// Number of work items does not match the number of configured para IDs.
+	InvalidWorkItemCount,
+}
 
 /// The AURA authorizer config embedded in every work package.
 ///
@@ -53,6 +62,19 @@ pub struct AuthConfig {
 }
 
 impl AuthConfig {
+	/// Check that every work item targets this service and has a configured para ID.
+	pub fn check_work_items(&self, items: &[WorkItem]) -> Result<(), ConfigError> {
+		if items.len() != self.para_ids.len() {
+			return Err(ConfigError::InvalidWorkItemCount);
+		}
+
+		if items.iter().any(|item| item.service != self.parachain_service) {
+			return Err(ConfigError::InvalidWorkItemService);
+		}
+
+		Ok(())
+	}
+
 	/// The round-robin collator index expected for `slot`.
 	///
 	/// Computed as `(slot / slot_duration) mod collator_set_size`.

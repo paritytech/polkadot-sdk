@@ -74,7 +74,7 @@ fn published_package_works() {
 
 	let (root, _) = build_collator_proofs(&[[7; 32]]).expect("valid test collator set");
 	let config = AuthConfig {
-		para_ids: vec![],
+		para_ids: vec![cumulus_aura_authorizer::ParaId::new(0)],
 		parachain_service: 1,
 		collator_set_root: root,
 		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),
