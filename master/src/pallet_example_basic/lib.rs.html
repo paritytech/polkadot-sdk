@@ -672,7 +672,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#522 id=522 data-nosnippet>522</a>		<span class="comment">// check for `set_dummy`
 <a href=#523 id=523 data-nosnippet>523</a>		</span><span class="kw">let </span>validity = <span class="kw">match </span>call.is_sub_type() {
 <a href=#524 id=524 data-nosnippet>524</a>			<span class="prelude-val">Some</span>(Call::set_dummy { .. }) =&gt; {
-<a href=#525 id=525 data-nosnippet>525</a>				sp_runtime::print(<span class="string">"set_dummy was received."</span>);
+<a href=#525 id=525 data-nosnippet>525</a>				<span class="macro">info!</span>(<span class="string">"set_dummy was received."</span>);
 <a href=#526 id=526 data-nosnippet>526</a>
 <a href=#527 id=527 data-nosnippet>527</a>				<span class="kw">let </span>valid_tx =
 <a href=#528 id=528 data-nosnippet>528</a>					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
