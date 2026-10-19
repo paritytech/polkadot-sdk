@@ -100,7 +100,7 @@ fn reference_draw(seed: [u8; 32], set: &[u64], cap: usize) -> Vec<u64> {
 
 #[test]
 fn calls_reject_wrong_origin() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN accounts other than the configured origin of each call
 		let not_set_origin = RootAccount::get();
 		let not_update_origin = SetAccount::get();
@@ -136,13 +136,12 @@ fn calls_reject_wrong_origin() {
 			ValidatorCollators::set_report_margin(RuntimeOrigin::signed(not_update_origin), 1),
 			BadOrigin
 		);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn set_is_checked_against_the_stored_era_and_max_validators() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a stored set for era 5
 		initialize_to_block(1);
 		assert_ok!(receive(5, vec![10, 11]));
@@ -166,13 +165,12 @@ fn set_is_checked_against_the_stored_era_and_max_validators() {
 		// THEN it fits once merged and is stored with MaxValidators accounts
 		assert_ok!(ValidatorCollators::receive_validator_set(6, (100..150).chain([100])));
 		System::assert_last_event(Event::ValidatorSetReceived { era: 6, count: 50 }.into());
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn call_with_more_than_max_validators_does_not_decode() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN encoded set_validators calls with MaxValidators and one more accounts
 		let encoded = |n: u64| (0u8, 1 as EraIndex, (100..100 + n).collect::<Vec<u64>>()).encode();
 		// WHEN they are decoded
@@ -187,7 +185,7 @@ fn call_with_more_than_max_validators_does_not_decode() {
 
 #[test]
 fn call_listing_an_account_twice_stores_it_once() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a set_validators call encoded with validator 10 listed twice
 		let encoded = (0u8, 1 as EraIndex, vec![11u64, 10, 10]).encode();
 		// WHEN it is decoded and dispatched
@@ -205,7 +203,7 @@ fn call_listing_an_account_twice_stores_it_once() {
 fn received_set_is_enacted_after_two_forced_rotations() {
 	// A cap draws the validators but must not add or delay rotations.
 	for cap in [None, Some(3)] {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN invulnerables 1 and 2, candidate 4 and validators with keys
 			initialize_to_block(1);
 			register_candidate(4);
@@ -235,14 +233,13 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 			assert_eq!(Session::validators(), expected, "cap {cap:?}");
 			initialize_to_block(6);
 			assert_eq!(Session::current_index(), 2);
-			assert_ok!(ValidatorCollators::do_try_state());
 		});
 	}
 }
 
 #[test]
 fn received_validator_without_keys_is_not_a_collator() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN validator 10 with keys and validator 11 without
 		initialize_to_block(1);
 		set_keys(10);
@@ -255,13 +252,12 @@ fn received_validator_without_keys_is_not_a_collator() {
 			<ValidatorCollators as SessionManager<u64>>::new_session(Session::current_index()),
 			Some(vec![10])
 		);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN the era 1 set of 10, 11 and 12 is enacted while only 10 and 11 have keys
 		initialize_to_block(1);
 		set_keys(10);
@@ -284,13 +280,12 @@ fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
 		assert_eq!(Session::validators(), vec![1, 2, 11]);
 		initialize_to_block(20);
 		assert_eq!(Session::validators(), vec![1, 2, 12]);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn without_pending_set_sessions_rotate_only_periodically() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN no received validator set
 		assert_eq!(ValidatorSet::<Test>::get(), None);
 		for block in 1..=35u64 {
@@ -299,13 +294,12 @@ fn without_pending_set_sessions_rotate_only_periodically() {
 			// THEN the session index grows only at multiples of the period
 			assert_eq!(Session::current_index() as u64, block / Period::get());
 		}
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn periodic_rotation_continues_after_forced_rotations() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a set received at block 3 and enacted at block 5
 		initialize_to_block(3);
 		assert_ok!(receive(1, vec![10]));
@@ -317,7 +311,6 @@ fn periodic_rotation_continues_after_forced_rotations() {
 		initialize_to_block(10);
 		// THEN the periodic rotation still happens
 		assert_eq!(Session::current_index(), 3);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
@@ -328,7 +321,7 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 	let cases: [(Option<u32>, usize); 5] =
 		[(Some(0), 0), (Some(1), 1), (Some(2), 2), (Some(10), 3), (None, 3)];
 	for (cap, count) in cases {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN invulnerables 1 and 2, candidate 4 and a set whose first validator has no keys
 			initialize_to_block(1);
 			register_candidate(4);
@@ -356,10 +349,9 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 			} else {
 				assert_eq!(returned, vec![11, 12, 13]);
 			}
-			assert_ok!(ValidatorCollators::do_try_state());
 		});
 	}
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN invulnerables 1 and 2, candidate 4, and a set where only candidate 4 has keys
 		initialize_to_block(1);
 		register_candidate(4);
@@ -375,7 +367,7 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 
 #[test]
 fn each_new_set_is_drawn_with_the_seed_of_its_era() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN validators 11, 12 and 13 with keys, 10 without, and a cap of 1
 		initialize_to_block(1);
 		[11, 12, 13].into_iter().for_each(set_keys);
@@ -396,7 +388,7 @@ fn each_new_set_is_drawn_with_the_seed_of_its_era() {
 
 #[test]
 fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN six validators with keys and a set received at block 3 under a cap of 3
 		initialize_to_block(1);
 		let set = vec![10, 11, 12, 13, 14, 15];
@@ -459,13 +451,12 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 			Session::validators(),
 			[1, 2].into_iter().chain(all_with_keys).collect::<Vec<_>>()
 		);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn validator_registering_keys_after_the_draw_waits_for_the_next_draw() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a set of 10, 11 and 12 drawn under a cap of 3 at block 2, while 12 has no keys
 		initialize_to_block(1);
 		set_keys(10);
@@ -488,13 +479,12 @@ fn validator_registering_keys_after_the_draw_waits_for_the_next_draw() {
 		// THEN 12 is drawn and collates
 		assert!(drawn().contains(&12));
 		assert!(Session::validators().contains(&12));
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN no stored set
 		initialize_to_block(1);
 		// WHEN a cap is set and then removed
@@ -504,13 +494,12 @@ fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
 		// THEN nothing is drawn and no rotation is pending
 		assert_eq!(Collators::<Test>::get(), None);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a runtime without the `OnSystemEvent` wiring, so no randomness is cached
 		RelayEpochRandomness::set(None);
 		initialize_to_block(1);
@@ -539,7 +528,6 @@ fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 		initialize_to_block(4);
 		// THEN the draw uses the cached zero value and try-state holds
 		assert_eq!(drawn(), reference_draw(expected_seed(2, [0; 32]), &[10, 11], 1));
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
@@ -557,7 +545,7 @@ fn on_relay_state_proof(proof: &RelayChainStateProof) {
 
 #[test]
 fn relay_randomness_cache_follows_the_proof() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let key = ONE_EPOCH_AGO_RANDOMNESS;
 		// GIVEN a proof with a new value and a proof showing the key absent, each asserted to
 		// yield its read result first
@@ -593,7 +581,7 @@ fn relay_randomness_cache_follows_the_proof() {
 	expected = "Invalid relay chain epoch randomness in the relay chain state proof: Proof"
 )]
 fn relay_proof_without_the_randomness_trie_nodes_makes_the_block_invalid() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a proof that holds the randomness key in its trie but not the nodes to read it
 		let key = ONE_EPOCH_AGO_RANDOMNESS;
 		let proof =
@@ -609,7 +597,7 @@ fn relay_proof_without_the_randomness_trie_nodes_makes_the_block_invalid() {
 	expected = "Invalid relay chain epoch randomness in the relay chain state proof: Decode"
 )]
 fn undecodable_relay_randomness_makes_the_block_invalid() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a proof whose randomness value is too short to decode
 		let key = ONE_EPOCH_AGO_RANDOMNESS;
 		let proof = relay_state_proof(&[(key, vec![1; 31])], &[key]);
@@ -626,7 +614,7 @@ fn undecodable_relay_randomness_makes_the_block_invalid() {
 fn set_received_while_planned_rearms_the_rotations() {
 	// A cap draws the validators but must not add or delay rotations.
 	for cap in [None, Some(1)] {
-		new_test_ext().execute_with(|| {
+		build_and_execute(|| {
 			// GIVEN a set for era 1 received at block 3 and queued at block 4
 			initialize_to_block(1);
 			set_keys(10);
@@ -648,21 +636,19 @@ fn set_received_while_planned_rearms_the_rotations() {
 			assert_eq!(Session::validators(), vec![1, 2, 11], "cap {cap:?}");
 			initialize_to_block(7);
 			assert_eq!(Session::current_index(), 3);
-			assert_ok!(ValidatorCollators::do_try_state());
 		});
 	}
 }
 
 #[test]
 fn empty_set_is_accepted_and_contributes_no_collators() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN no stored validator set
 		assert_eq!(ValidatorSet::<Test>::get(), None);
 		// WHEN an empty set is received
 		assert_ok!(receive(1, vec![]));
 		// THEN the pallet returns an empty list rather than None
 		assert_eq!(<ValidatorCollators as SessionManager<u64>>::new_session(1), Some(vec![]));
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
@@ -744,7 +730,7 @@ fn reported_entries() -> Vec<(u64, u32)> {
 
 #[test]
 fn report_sends_counts_of_stored_validators_only() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN the set of 10 and 11 is stored, and 10, 11 and invulnerable 1 authored blocks
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10, 11]));
@@ -784,13 +770,12 @@ fn report_sends_counts_of_stored_validators_only() {
 		assert_eq!(counts(), vec![]);
 		assert_eq!(AuthoredBlocks::<Test>::count(), 0);
 		System::assert_has_event(Event::BlocksReported { authors: 3, reported: 2 }.into());
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn report_is_split_into_chunks() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN at most two entries per report and three validators with counts
 		MaxEntriesPerReport::set(2);
 		initialize_to_block(1);
@@ -811,7 +796,7 @@ fn report_is_split_into_chunks() {
 
 #[test]
 fn failed_report_keeps_the_counts_for_the_next_period() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN counts of three validators over two chunks, of invulnerable 1, and a reporter
 		// that rejects the second chunk
 		MaxEntriesPerReport::set(2);
@@ -845,6 +830,51 @@ fn failed_report_keeps_the_counts_for_the_next_period() {
 	});
 }
 
+#[test]
+fn counts_of_a_validator_that_left_the_set_are_dropped_at_the_next_report() {
+	build_and_execute(|| {
+		// GIVEN the set of era 1 with 10 and 11, both of which authored blocks since the last
+		// report
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11]));
+		note_blocks(10, 2);
+		note_blocks(11, 3);
+
+		// WHEN the set of era 2 without 10 arrives before the next report
+		assert_ok!(receive(2, vec![11, 12]));
+		initialize_to_block(5);
+
+		// THEN the report filters against the set of era 2: 11 is reported with the blocks it
+		// authored under era 1, and the blocks of 10 are dropped
+		assert_eq!(reported_entries(), vec![(11, 3)]);
+		assert_eq!(counts(), vec![]);
+		System::assert_has_event(Event::BlocksReported { authors: 2, reported: 1 }.into());
+	});
+}
+
+#[test]
+fn report_with_an_undecodable_stored_set_drops_every_count() {
+	// The stored set breaks the invariants, so the test does not check them at its end.
+	new_test_ext().execute_with(|| {
+		// GIVEN 10 authored blocks and the stored set no longer decodes
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10]));
+		note_blocks(10, 2);
+		frame_support::storage::unhashed::put_raw(
+			&ValidatorSet::<Test>::hashed_key(),
+			&(1u32, (0..51u64).collect::<Vec<_>>()).encode(),
+		);
+
+		// WHEN the counts are reported
+		ValidatorCollators::report_blocks();
+
+		// THEN nothing reaches the reporter and every count is dropped, as without a stored set
+		assert!(reported().is_empty());
+		assert_eq!(counts(), vec![]);
+		System::assert_last_event(Event::BlocksReported { authors: 1, reported: 0 }.into());
+	});
+}
+
 fn root() -> RuntimeOrigin {
 	RuntimeOrigin::signed(RootAccount::get())
 }
@@ -868,7 +898,7 @@ fn block_at(time: u64) {
 
 #[test]
 fn reports_once_before_the_expected_era_end() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN an expected era of 1000 ms, a margin of 100 ms, no report period in the test
 		// blocks, and the set of 10 received at time 0
 		initialize_to_block(1);
@@ -914,7 +944,7 @@ fn reports_once_before_the_expected_era_end() {
 #[test]
 fn report_timing_edge_cases() {
 	// The early report and a `ReportPeriod` block in the same block report once.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN the default period of 5 blocks and a set received at time 0
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10]));
@@ -940,7 +970,7 @@ fn report_timing_edge_cases() {
 	});
 
 	// A rejected early report is not retried, and the next `ReportPeriod` block carries its counts.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN the default period of 5 blocks, a set received at time 0 and a reporter that
 		// rejects its first call
 		FailingReportCall::set(Some(1));
@@ -967,7 +997,7 @@ fn report_timing_edge_cases() {
 	});
 
 	// A margin above half of the expected era reports in the middle of the expected era.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN an expected era of 100 ms, a margin of 200 ms and a set received at time 0
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
@@ -983,7 +1013,7 @@ fn report_timing_edge_cases() {
 	});
 
 	// A set that arrives before the due time of the previous one replaces its arrival.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a set received at time 0, due at 900
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
@@ -999,7 +1029,7 @@ fn report_timing_edge_cases() {
 	});
 
 	// Without an arrival, only `ReportPeriod` blocks report.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a stored set without an arrival, as after the upgrade that adds the timing
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10]));
@@ -1016,7 +1046,7 @@ fn report_timing_edge_cases() {
 	});
 
 	// A change of `ReportMargin` after the arrival moves the due time.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN a set received at time 0, due at 900 with the default margin
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
@@ -1032,7 +1062,7 @@ fn report_timing_edge_cases() {
 
 	// A stored margin above `MaxReportMargin`, as after a runtime upgrade that lowers it, is
 	// used up to `MaxReportMargin`.
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// GIVEN an expected era of 2000 ms, a stored margin of 600 ms above the maximum of
 		// 500 ms, and a set received at time 0
 		initialize_to_block(1);
@@ -1047,13 +1077,12 @@ fn report_timing_edge_cases() {
 		block_at(1500);
 		assert_eq!(reports(), 1);
 		// AND the stored margin passes the invariants
-		assert_ok!(ValidatorCollators::do_try_state());
 	});
 }
 
 #[test]
 fn setters_are_bounded_and_announced() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let max_margin =
 			<<Test as Config>::MaxReportMargin as frame_support::traits::Get<u64>>::get();
 		// GIVEN validator 10 authored a block

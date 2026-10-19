@@ -212,6 +212,16 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+/// Run `test` in [`new_test_ext`] and check the invariants of the pallet once it is done.
+///
+/// A test that leaves the pallet in a broken state on purpose uses [`new_test_ext`] directly.
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		ValidatorCollators::do_try_state().expect("the invariants hold after the test");
+	});
+}
+
 parameter_types! {
 	/// The relay chain epoch randomness in the state proof of every block, `None` for no proof.
 	pub static RelayEpochRandomness: Option<[u8; 32]> = Some([7; 32]);
@@ -223,10 +233,14 @@ pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
 		System::set_block_number(i);
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
+		// Without a proof the mock is a runtime without the `OnSystemEvent` wiring, which the
+		// invariants flag once collators are drawn, so they are only checked with a proof.
 		if let Some(randomness) = RelayEpochRandomness::get() {
 			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(
 				&crate::relay_proof::with_epoch_randomness(randomness),
 			);
+			ValidatorCollators::do_try_state()
+				.unwrap_or_else(|e| panic!("the invariants hold after block {i}: {e:?}"));
 		}
 	}
 }
