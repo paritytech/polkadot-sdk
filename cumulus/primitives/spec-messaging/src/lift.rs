@@ -59,13 +59,13 @@ pub type TreeInclusionProof = StreamProof;
 /// Upper bound on an [`MMRExtensionProof`]'s connecting nodes: the design's ceiling, which the
 /// lift's PoV reservation assumes. A valid ancestry proof needs at most one node per bit of the
 /// leaf count, so at most 48 under [`MAX_MMR_LEAF_COUNT`]; a proof with any other count than the
-/// one derived from the two leaf counts fails anyway. Checked before positions are derived.
-pub const MAX_EXTENSION_CONNECTING_NODES: usize = 64;
+/// one derived from the two leaf counts fails anyway. Enforced at decode.
+pub const MAX_EXTENSION_CONNECTING_NODES: u32 = 64;
 
 /// Upper bound on an [`MmrInclusionProof`]'s items. A single-leaf proof needs at most the subtree
 /// height plus the other peaks, each at most 63; `2 * 64` is a ceiling no valid proof reaches.
-/// Bounds `calculate_root`'s work on untrusted input.
-pub const MAX_INCLUSION_PROOF_ITEMS: usize = 2 * 64;
+/// Enforced at decode, which bounds `calculate_root`'s work on untrusted input.
+pub const MAX_INCLUSION_PROOF_ITEMS: u32 = 2 * 64;
 
 /// Why an MMR proof verification rejected its input. Typed so callers can tell a malformed or
 /// forged proof from an out-of-range or non-forward one.
@@ -78,10 +78,6 @@ pub enum ProofError {
 	PositionOutOfRange,
 	/// An extension does not go strictly forward (its target is not newer than the frontier).
 	NotForward,
-	/// An inclusion proof carries more items than [`MAX_INCLUSION_PROOF_ITEMS`].
-	ItemLimitExceeded,
-	/// An extension proof carries more connecting nodes than [`MAX_EXTENSION_CONNECTING_NODES`].
-	NodeLimitExceeded,
 	/// A leaf count exceeds [`MAX_MMR_LEAF_COUNT`].
 	LeafCountTooLarge,
 }
@@ -101,14 +97,14 @@ pub struct MMRExtensionProof {
 	/// The connecting-node hashes, in `mmr_lib`'s proof order. Positions are not stored: an MMR's
 	/// shape is fixed by its size, so they are derived at verify time from the two leaf counts
 	/// (`ancestry_positions`). Empty for the identity.
-	pub connecting_nodes: Vec<Hash>,
+	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_EXTENSION_CONNECTING_NODES>>,
 }
 
 impl MMRExtensionProof {
 	/// The identity extension: `leaf_count = 0`, no connecting nodes. Yields a frontier's own root,
 	/// for the caught-up case.
 	pub fn identity() -> Self {
-		Self { leaf_count: 0, connecting_nodes: Vec::new() }
+		Self { leaf_count: 0, connecting_nodes: BoundedVec::new() }
 	}
 
 	/// Extend `from` and return the new root, computed from `from`'s peaks and the connecting
@@ -135,10 +131,6 @@ impl MMRExtensionProof {
 		if self.leaf_count <= from.leaf_count() {
 			return Err(ProofError::NotForward);
 		}
-		// Bound the connecting nodes before `calculate_root` does O(n) work on them.
-		if self.connecting_nodes.len() > MAX_EXTENSION_CONNECTING_NODES {
-			return Err(ProofError::NodeLimitExceeded);
-		}
 		let new_mmr_size = leaf_index_to_mmr_size(self.leaf_count - 1);
 
 		// Extending from the empty stream: nothing binds, so the connecting nodes must be the new
@@ -146,7 +138,7 @@ impl MMRExtensionProof {
 		if from.leaf_count() == 0 {
 			// The nodes must form a frontier of exactly `self.leaf_count` leaves; `from_parts`
 			// checks that.
-			return MmrFrontier::from_parts(self.connecting_nodes.clone(), self.leaf_count)
+			return MmrFrontier::from_parts(self.connecting_nodes.to_vec(), self.leaf_count)
 				.map(|f| f.root())
 				.ok_or(ProofError::InvalidProof);
 		}
@@ -192,7 +184,7 @@ pub struct MmrInclusionProof {
 	/// derives (`get_peak_map`), it pins a head read.
 	pub mmr_size: u64,
 	/// The leaf's sibling path plus the other peaks, in `mmr_lib` order.
-	pub items: Vec<Hash>,
+	pub items: BoundedVec<Hash, ConstU32<MAX_INCLUSION_PROOF_ITEMS>>,
 }
 
 impl MmrInclusionProof {
@@ -262,16 +254,11 @@ impl MmrInclusionProof {
 		if self.leaf_count() > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
-		// Bound `items` before `calculate_root` does O(n) work on them. `verify_head` gets the same
-		// from its exact item count.
-		if self.items.len() > MAX_INCLUSION_PROOF_ITEMS {
-			return Err(ProofError::ItemLimitExceeded);
-		}
 		if position.0 >= self.leaf_count() {
 			return Err(ProofError::PositionOutOfRange);
 		}
 		let pos = leaf_index_to_pos(position.0);
-		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.clone())
+		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.to_vec())
 			.calculate_root(vec![(pos, leaf)])
 			.map(|bag| MmrRoot::from_bag(self.leaf_count(), bag))
 			.map_err(|_| ProofError::InvalidProof)
@@ -556,7 +543,9 @@ mod tests {
 		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 		MMRExtensionProof {
 			leaf_count: n as u64,
-			connecting_nodes: ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect(),
+			connecting_nodes: BoundedVec::truncate_from(
+				ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
+			),
 		}
 	}
 
@@ -682,17 +671,17 @@ mod tests {
 		let nodes =
 			ancestry_positions(mmr_size(1), mmr_size((MAX_MMR_LEAF_COUNT - 1) as usize)).len();
 		assert_eq!(nodes, 48);
-		assert!(nodes <= MAX_EXTENSION_CONNECTING_NODES);
+		assert!(nodes <= MAX_EXTENSION_CONNECTING_NODES as usize);
 	}
 
 	#[test]
-	fn over_long_extension_proof_is_rejected() {
-		let all = leaves(5);
-		let mut ext = extension(&all, 2, 5);
-		// Pad the connecting nodes beyond the defense-in-depth ceiling: must reject, not do the
-		// work.
-		ext.connecting_nodes = vec![H256::zero(); MAX_EXTENSION_CONNECTING_NODES + 1];
-		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NodeLimitExceeded));
+	fn over_long_extension_proof_fails_to_decode() {
+		// The bound is in the type, so an over-long proof is rejected at the length prefix.
+		let max = MAX_EXTENSION_CONNECTING_NODES as usize;
+		let at_bound = (codec::Compact(5u64), vec![H256::zero(); max]).encode();
+		assert!(MMRExtensionProof::decode(&mut &at_bound[..]).is_ok());
+		let over = (codec::Compact(5u64), vec![H256::zero(); max + 1]).encode();
+		assert!(MMRExtensionProof::decode(&mut &over[..]).is_err());
 	}
 
 	#[test]
@@ -1003,7 +992,7 @@ mod tests {
 		// leaf_count 1 <= the endpoint's 3 leaves → NotForward inside verify → BadExtension.
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof { leaf_count: 1, connecting_nodes: Vec::new() },
+			extension: MMRExtensionProof { leaf_count: 1, connecting_nodes: BoundedVec::new() },
 			tree_proof,
 		};
 		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadExtension));
@@ -1108,7 +1097,10 @@ mod tests {
 			mmr.push(*l).unwrap();
 		}
 		let proof = mmr.gen_proof(vec![leaf_index_to_pos(index as u64)]).unwrap();
-		MmrInclusionProof { mmr_size: mmr_size(n), items: proof.proof_items().to_vec() }
+		MmrInclusionProof {
+			mmr_size: mmr_size(n),
+			items: BoundedVec::truncate_from(proof.proof_items().to_vec()),
+		}
 	}
 
 	#[test]
@@ -1132,12 +1124,12 @@ mod tests {
 
 		// Wrong item count (one extra item) → structural reject.
 		let mut bad = proof.clone();
-		bad.items.push(H256::zero());
+		bad.items.try_push(H256::zero()).expect("below the bound; qed");
 		assert_eq!(bad.verify_head(all[5]), Err(ProofError::InvalidProof));
 
 		// Invalid `mmr_size` (2 is not a valid MMR node count) → reject, no panic.
 		assert_eq!(
-			MmrInclusionProof { mmr_size: 2, items: Vec::new() }.verify_head(all[5]),
+			MmrInclusionProof { mmr_size: 2, items: BoundedVec::new() }.verify_head(all[5]),
 			Err(ProofError::InvalidProof),
 		);
 	}
@@ -1182,23 +1174,20 @@ mod tests {
 		);
 		// Invalid `mmr_size` → reject, no panic.
 		assert_eq!(
-			MmrInclusionProof { mmr_size: 2, items: Vec::new() }
+			MmrInclusionProof { mmr_size: 2, items: BoundedVec::new() }
 				.verify_leaf(MessagePosition(0), all[0]),
 			Err(ProofError::InvalidProof),
 		);
 	}
 
 	#[test]
-	fn inclusion_verify_leaf_rejects_oversized_items() {
-		let all = leaves(6);
-		// A valid proof, then bloated one item past the ceiling → rejected before `calculate_root`
-		// touches the untrusted `items` (defense-in-depth against a crafted, oversized proof).
-		let mut proof = inclusion(&all, 6, 3);
-		proof.items = vec![H256::zero(); MAX_INCLUSION_PROOF_ITEMS + 1];
-		assert_eq!(
-			proof.verify_leaf(MessagePosition(3), all[3]),
-			Err(ProofError::ItemLimitExceeded)
-		);
+	fn oversized_inclusion_proof_fails_to_decode() {
+		// The bound is in the type, so an oversized proof is rejected at the length prefix.
+		let max = MAX_INCLUSION_PROOF_ITEMS as usize;
+		let at_bound = (mmr_size(6) as u64, vec![H256::zero(); max]).encode();
+		assert!(MmrInclusionProof::decode(&mut &at_bound[..]).is_ok());
+		let over = (mmr_size(6) as u64, vec![H256::zero(); max + 1]).encode();
+		assert!(MmrInclusionProof::decode(&mut &over[..]).is_err());
 	}
 
 	#[test]

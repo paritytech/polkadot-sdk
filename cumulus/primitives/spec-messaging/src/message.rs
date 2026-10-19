@@ -128,7 +128,7 @@ pub struct MessagesResponse {
 	pub payloads: BoundedVec<Vec<u8>, ConstU32<MAX_MESSAGES_PER_RESPONSE>>,
 	/// The stream's peak set at `base`, at most 64 hashes, for a consumer that holds no frontier.
 	/// Fabricated peaks cannot extend to a committed root.
-	pub start_peaks: Vec<Hash>,
+	pub start_peaks: BoundedVec<Hash, ConstU32<64>>,
 	/// From the frontier recomputed over `payloads` to the stream's current root; the identity
 	/// extension when the payloads already reach it.
 	pub extension: MMRExtensionProof,
@@ -170,7 +170,7 @@ pub(crate) fn verify_messages_response(
 	// shape (one peak per set bit of `base`, which also caps `start_peaks` at 64) and a `base` past
 	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither make `append` pop from an empty vec
 	// nor reach the node-position arithmetic. A rejected response is unverifiable, without a panic.
-	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.clone(), resp.base.0)
+	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.to_vec(), resp.base.0)
 		.ok_or(VerifyError::MalformedResponse)?;
 	// The frontier after the payloads must stay within `MAX_MMR_LEAF_COUNT`, or it would not
 	// decode. Checked up front; `try_append` refuses it too.
@@ -426,7 +426,9 @@ mod tests {
 		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 		MMRExtensionProof {
 			leaf_count: n as u64,
-			connecting_nodes: ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect(),
+			connecting_nodes: BoundedVec::truncate_from(
+				ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
+			),
 		}
 	}
 
@@ -455,7 +457,7 @@ mod tests {
 			base: MessagePosition(2),
 			leaf_version: 0,
 			payloads: vec![payloads[2].clone(), payloads[3].clone()].try_into().unwrap(),
-			start_peaks: frontier_at(&leaves, 2).peaks().to_vec(),
+			start_peaks: BoundedVec::truncate_from(frontier_at(&leaves, 2).peaks().to_vec()),
 			extension: ancestry(&leaves, 4, 6),
 			tree_proof: tree_proof.clone(),
 		};
@@ -543,7 +545,7 @@ mod tests {
 			base: MessagePosition(0),
 			leaf_version: 0,
 			payloads: payloads.clone().try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
@@ -575,7 +577,7 @@ mod tests {
 			base: MessagePosition(0),
 			leaf_version: 0,
 			payloads: payloads.clone().try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
@@ -627,7 +629,7 @@ mod tests {
 			base: MessagePosition(0),
 			leaf_version: 0,
 			payloads: payloads.clone().try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
@@ -674,7 +676,7 @@ mod tests {
 			base: MessagePosition(0),
 			leaf_version: 0,
 			payloads: payloads.try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
@@ -701,7 +703,7 @@ mod tests {
 			base: MessagePosition(1),
 			leaf_version: 0,
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
@@ -717,7 +719,7 @@ mod tests {
 			base: MessagePosition(1 << 63),
 			leaf_version: 0,
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: vec![H256::zero(); 1],
+			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); 1]),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
@@ -732,7 +734,7 @@ mod tests {
 			base: MessagePosition(MAX_MMR_LEAF_COUNT),
 			leaf_version: 0,
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: vec![H256::zero(); 1],
+			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); 1]),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
@@ -747,7 +749,7 @@ mod tests {
 			base: MessagePosition(u64::MAX),
 			leaf_version: 0,
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: vec![H256::zero(); 64],
+			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); 64]),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
@@ -775,14 +777,14 @@ mod tests {
 			base: MessagePosition(0),
 			leaf_version: 0,
 			payloads: Vec::new().try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		let eresp = EventResponse {
 			payload: Vec::new(),
 			leaf_version: 0,
-			inclusion: MmrInclusionProof { mmr_size: 0, items: Vec::new() },
+			inclusion: MmrInclusionProof { mmr_size: 0, items: BoundedVec::new() },
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		assert_eq!(ExchangeResponse::Messages(mresp).encode()[0], 0x00);
@@ -815,7 +817,7 @@ mod tests {
 		let mproof = src.gen_proof(vec![positions[head]]).unwrap();
 		let inclusion = MmrInclusionProof {
 			mmr_size: mmr_size(payloads.len()),
-			items: mproof.proof_items().to_vec(),
+			items: BoundedVec::truncate_from(mproof.proof_items().to_vec()),
 		};
 
 		let resp = EventResponse {
@@ -887,7 +889,7 @@ mod tests {
 			leaf_version: 0,
 			inclusion: MmrInclusionProof {
 				mmr_size: leaf_index_to_mmr_size(forged_count - 1),
-				items: frontier_at(&leaves, 2).peaks().to_vec(),
+				items: BoundedVec::truncate_from(frontier_at(&leaves, 2).peaks().to_vec()),
 			},
 			tree_proof,
 		};
@@ -914,7 +916,7 @@ mod tests {
 		let mproof = src.gen_proof(vec![positions[at]]).unwrap();
 		let inclusion = MmrInclusionProof {
 			mmr_size: mmr_size(payloads.len()),
-			items: mproof.proof_items().to_vec(),
+			items: BoundedVec::truncate_from(mproof.proof_items().to_vec()),
 		};
 
 		let resp =
@@ -974,7 +976,7 @@ mod tests {
 			leaf_version: 0,
 			inclusion: MmrInclusionProof {
 				mmr_size: mmr_size(payloads.len()),
-				items: mproof.proof_items().to_vec(),
+				items: BoundedVec::truncate_from(mproof.proof_items().to_vec()),
 			},
 			// `split_bit = 255` is >= KEY_BITS, so `streams_root_from_proof` rejects the walk.
 			tree_proof: StreamProof {
@@ -1005,7 +1007,7 @@ mod tests {
 			base: MessagePosition(0),
 			leaf_version: 0,
 			payloads: mpayloads.clone().try_into().unwrap(),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: mtree,
 		};
@@ -1035,7 +1037,7 @@ mod tests {
 			leaf_version: 0,
 			inclusion: MmrInclusionProof {
 				mmr_size: mmr_size(epayloads.len()),
-				items: eproof.proof_items().to_vec(),
+				items: BoundedVec::truncate_from(eproof.proof_items().to_vec()),
 			},
 			tree_proof: etree,
 		};

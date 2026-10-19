@@ -34,6 +34,7 @@ use mmr_lib::{
 };
 use polkadot_core_primitives::Hash;
 use sp_core::H256;
+use sp_runtime::BoundedVec;
 
 fn leaves(n: u64) -> Vec<Hash> {
 	(0..n).map(|i| H256::from_low_u64_be(i + 1)).collect()
@@ -65,7 +66,9 @@ fn extension(all: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
 	let proof = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
 	MMRExtensionProof {
 		leaf_count: n as u64,
-		connecting_nodes: proof.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect(),
+		connecting_nodes: BoundedVec::truncate_from(
+			proof.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
+		),
 	}
 }
 
@@ -111,11 +114,17 @@ fn forged_inclusion_never_moves_a_leaf() {
 	for (k, leaf) in all.iter().enumerate() {
 		let items =
 			mmr.gen_proof(vec![leaf_index_to_pos(k as u64)]).unwrap().proof_items().to_vec();
-		let honest = MmrInclusionProof { mmr_size: mmr_size(all.len()), items: items.clone() };
+		let honest = MmrInclusionProof {
+			mmr_size: mmr_size(all.len()),
+			items: BoundedVec::truncate_from(items.clone()),
+		};
 		assert_eq!(honest.verify_leaf(MessagePosition(k as u64), *leaf), Ok(root));
 		for count in claimable_counts() {
 			let size = leaf_index_to_mmr_size(count - 1);
-			let proof = MmrInclusionProof { mmr_size: size, items: items.clone() };
+			let proof = MmrInclusionProof {
+				mmr_size: size,
+				items: BoundedVec::truncate_from(items.clone()),
+			};
 			for position in [0, k as u64, k as u64 + 1, count - 1, count / 2] {
 				if (size, position) == (honest.mmr_size, k as u64) {
 					continue;
@@ -130,7 +139,7 @@ fn forged_inclusion_never_moves_a_leaf() {
 	let all = leaves(3);
 	let forged = MmrInclusionProof {
 		mmr_size: leaf_index_to_mmr_size(1 << 47),
-		items: frontier_at(&all, 2).peaks().to_vec(),
+		items: BoundedVec::truncate_from(frontier_at(&all, 2).peaks().to_vec()),
 	};
 	let (position, frontier) = forged.verify_head(all[2]).unwrap();
 	assert_eq!(position, MessagePosition(1 << 47));
