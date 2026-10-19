@@ -689,9 +689,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 	where
 		H::Out: Ord + Encode + codec::Codec,
 	{
-		let snapshot = self.top.take_delta();
+		let delta_keys = self.top.take_delta();
 
-		let mut child_snapshots: Vec<_> = self
+		let mut child_delta_keys: Vec<_> = self
 			.children
 			.values_mut()
 			.map(|(changeset, info)| {
@@ -699,9 +699,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 			})
 			.collect();
 
-		let delta = snapshot.values().map(|(k, op)| (&k[..], *op));
-		let child_delta = child_snapshots.iter_mut().map(|(info, snap, estimation_trie)| {
-			(*info, snap.values().map(|(k, op)| (&k[..], *op)), &mut **estimation_trie)
+		let delta = delta_keys.values().map(|(key, op)| (&key[..], *op));
+		let child_delta = child_delta_keys.iter_mut().map(|(info, keys, estimation_trie)| {
+			(*info, keys.values().map(|(key, op)| (&key[..], *op)), &mut **estimation_trie)
 		});
 
 		backend.record_proof_for_dirty_keys_full(

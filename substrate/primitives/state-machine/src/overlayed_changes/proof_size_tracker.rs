@@ -81,6 +81,12 @@ pub type DefaultHashBuilder = sp_trie::RandomState;
 /// - Updated → Deleted: Both operations appear in separate deltas
 /// - Deleted → Updated: Only `Deleted` appears, `Updated` is filtered
 ///
+/// # Estimation trie
+///
+/// Only removals are applied to the estimation trie. An update is estimated by reading the key's
+/// path in the block-start trie, while a removal restructures the trie and may load sibling nodes
+/// that later removals depend on. The trie therefore accumulates removals across flushes.
+///
 /// # Note on performance profile
 ///
 /// Optimized for 1k-5k transactions with ~10 nesting levels. Each transaction typically
@@ -179,7 +185,8 @@ impl<K, H: Hasher, HB: Default> ProofSizeTracker<K, H, HB> {
 	///
 	/// Used by `spawn_child` to match the parent's transaction depth so that
 	/// commit/rollback operations on pre-existing levels work correctly
-	/// instead of being silent no-ops.
+	/// instead of being silent no-ops. Each layer holds a snapshot of the empty estimation trie the
+	/// tracker starts with.
 	pub fn with_transaction_depth(depth: usize) -> Self {
 		Self {
 			layers: (0..depth).map(|_| TransactionLayer::default()).collect(),
@@ -207,6 +214,8 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 	}
 
 	/// Starts a new transaction layer for atomic operations.
+	///
+	/// The new layer holds a snapshot of the estimation trie taken at this point.
 	pub fn start_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "start_transaction {}", self.layers.len());
 		let trie_snapshot = self.estimation_trie.snapshot();
@@ -219,6 +228,8 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 	}
 
 	/// Commits the current transaction, merging dirty keys and snapshot into parent.
+	///
+	/// The estimation trie keeps its changes and the layer's trie snapshot is discarded.
 	pub fn commit_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "commit_transaction empty:{}", self.layers.len());
 		if let Some(mut parent) = self.layers.pop() {
@@ -237,6 +248,8 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 	}
 
 	/// Rolls back the current transaction, discarding dirty keys, updated and deleted key sets.
+	///
+	/// The estimation trie is rolled back to the trie snapshot of the discarded layer.
 	pub fn rollback_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "rollback_transaction empty:{}", self.layers.len());
 		if let Some(layer) = self.layers.pop() {
@@ -256,6 +269,8 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 	/// delta. After taking a delta:
 	/// - On commit: captured keys are merged into parent, dirty keys become unavailable in parent
 	/// - On rollback: captured keys are discarded, dirty keys become available again in parent
+	///
+	/// Does not touch the estimation trie.
 	#[must_use]
 	pub fn take_delta(&mut self) -> DeltaKeys<K>
 	where
