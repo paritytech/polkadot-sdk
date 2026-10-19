@@ -469,7 +469,7 @@ pub mod pallet {
 			let claimable = revenue.iter().filter(|record| record.when <= up_to).count() as u32;
 			// Early return when nothing to be claimed.
 			if claimable == 0 {
-				return (vec![], 0);
+				return (Vec::new(), 0);
 			}
 
 			let pot = Self::account_id();
