@@ -1,0 +1,11 @@
+title: 'parachains/disputes: remove the dead ValidatorSetCounts storage item'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `ValidatorSetCounts` in the slashing pallet was never read or written anywhere in the
+    codebase. The value it would have cached is always computed fresh where it's needed instead.
+    Since nothing ever wrote to it, there's no on-chain data to clean up, so this just removes
+    the declaration.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
