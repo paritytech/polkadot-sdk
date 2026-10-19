@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::peers_index::{Key, PeersIndex};
+use bitvec::{order::Msb0, view::BitView};
 use sc_network_types::PeerId;
 use sp_statement_store::{Statement, Topic};
 use std::{
@@ -261,15 +262,14 @@ impl PeersTopology {
 	pub fn peers_for_routing(&self) -> Vec<PeerId> {
 		let nearest = self.config.replication_factor.get();
 		let mut routing = Vec::new();
-		let mut covered = HashSet::new();
+		let mut last_bucket = None;
 		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
 		for (peer, key) in self.discovered_index.closest(self.local_key) {
-			let bucket = common_prefix_len(&self.local_key, &key);
-			let among_nearest = routing.len() < nearest;
-			let first_of_bucket = covered.insert(bucket);
-			if among_nearest || first_of_bucket {
+			let bucket = bucket_of(self.local_key, key);
+			if routing.len() < nearest || last_bucket != Some(bucket) {
 				routing.push(peer);
 			}
+			last_bucket = Some(bucket);
 		}
 		routing
 	}
@@ -364,16 +364,8 @@ fn peer_key(peer: &PeerId) -> Key {
 }
 
 /// Number of leading bits `a` and `b` share: the distance bucket of `b` as seen from `a`.
-fn common_prefix_len(a: &Key, b: &Key) -> u32 {
-	let mut len = 0;
-	for (a, b) in a.iter().zip(b) {
-		let shared = (a ^ b).leading_zeros();
-		len += shared;
-		if shared < 8 {
-			break;
-		}
-	}
-	len
+fn bucket_of(a: Key, b: Key) -> usize {
+	xor_distance(a, b).view_bits::<Msb0>().leading_zeros()
 }
 
 fn xor_distance(a: Key, b: Key) -> Key {
@@ -721,7 +713,7 @@ mod tests {
 	fn peers_for_routing_takes_the_nearest_then_one_peer_per_uncovered_bucket() {
 		let local = peer(1);
 		let local_key = peer_key(&local);
-		let mut topology = PeersTopology::new(local, topology_config(12, 3));
+		let mut topology = PeersTopology::new(local, topology_config(10, 3));
 		let mut candidates = Vec::new();
 		for seed in 2..=200 {
 			let peer = peer(seed);
@@ -730,36 +722,25 @@ mod tests {
 		}
 		candidates.sort_by(|a, b| cmp_distance_then_peer(Topic(local_key), a, b));
 
-		// Naive model: the 12 nearest, then the nearest peer of every bucket without one of them.
-		let bucket_of = |peer: &PeerId| common_prefix_len(&local_key, &peer_key(peer));
-		let mut expected: Vec<PeerId> = candidates[..12].to_vec();
-		let mut buckets: std::collections::HashSet<u32> = expected.iter().map(bucket_of).collect();
-		for peer in &candidates[12..] {
+		// Naive model: the 10 nearest, then the nearest peer of every bucket without one of them.
+		let bucket_of = |peer: &PeerId| bucket_of(local_key, peer_key(peer));
+		let mut expected: Vec<PeerId> = candidates[..10].to_vec();
+		let mut buckets: std::collections::HashSet<usize> =
+			expected.iter().map(bucket_of).collect();
+		for peer in &candidates[10..] {
 			if buckets.insert(bucket_of(peer)) {
 				expected.push(*peer);
 			}
 		}
-		assert!(expected.len() > 12, "the far buckets add peers beyond the nearest");
+		assert!(expected.len() > 10, "the far buckets add peers beyond the nearest");
+		// The 10th nearest peer sits mid-bucket, so an off-by-one in the nearest bound changes
+		// the result.
+		assert_eq!(bucket_of(&candidates[9]), bucket_of(&candidates[10]));
 
 		let mut routing = topology.peers_for_routing();
 		routing.sort();
 		expected.sort();
 		assert_eq!(routing, expected);
-	}
-
-	#[test]
-	fn common_prefix_len_counts_the_shared_leading_bits() {
-		let zero = [0u8; 32];
-		assert_eq!(common_prefix_len(&zero, &zero), 256);
-
-		let mut first_bit = zero;
-		first_bit[0] = 0x80;
-		assert_eq!(common_prefix_len(&zero, &first_bit), 0);
-
-		let mut bit_ten = zero;
-		bit_ten[1] = 0x20;
-		bit_ten[2] = 0xff;
-		assert_eq!(common_prefix_len(&zero, &bit_ten), 10);
 	}
 
 	#[test]
