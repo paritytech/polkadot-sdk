@@ -629,7 +629,7 @@ pub mod pallet {
 				"a rotation is pending without a stored validator set"
 			);
 			ensure!(
-				ValidatorSet::<T>::exists() != ValidatorSet::<T>::get().is_some(),
+				ValidatorSet::<T>::exists() == ValidatorSet::<T>::get().is_some(),
 				"the stored validator set does not decode, it may exceed `MaxValidators`"
 			);
 			ensure!(
@@ -638,7 +638,7 @@ pub mod pallet {
 				"drawn collators are stored without both a cap and a validator set"
 			);
 			ensure!(
-				Collators::<T>::exists() != Collators::<T>::get().is_some(),
+				Collators::<T>::exists() == Collators::<T>::get().is_some(),
 				"the drawn collators do not decode"
 			);
 			// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a value in
