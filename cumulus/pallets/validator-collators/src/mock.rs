@@ -233,6 +233,10 @@ pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
 		System::set_block_number(i);
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
+		<AllPalletsWithSystem as frame_support::traits::OnPoll<u64>>::on_poll(
+			i,
+			&mut frame_support::weights::WeightMeter::new(),
+		);
 		// Without a proof the mock is a runtime without the `OnSystemEvent` wiring, which the
 		// invariants flag once collators are drawn, so they are only checked with a proof.
 		if let Some(randomness) = RelayEpochRandomness::get() {

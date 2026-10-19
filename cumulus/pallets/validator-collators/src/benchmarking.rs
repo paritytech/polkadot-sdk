@@ -26,10 +26,10 @@ use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	traits::{EnsureOrigin, Get, Hooks},
+	weights::WeightMeter,
 	BoundedBTreeSet, BoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use pallet_session::ShouldEndSession;
 use sp_runtime::traits::Saturating;
 
 #[benchmarks]
@@ -150,23 +150,31 @@ mod benchmarks {
 	}
 
 	/// A block at a multiple of `ReportPeriod` that makes the early report of the stored set with
-	/// no counts, and the `PendingRotation` read of `should_end_session`.
+	/// no counts.
+	///
+	/// This is the weight of the checks only: the report itself is weighed by `report_blocks`.
 	#[benchmark]
-	fn on_initialize() -> Result<(), BenchmarkError> {
+	fn on_poll() -> Result<(), BenchmarkError> {
 		let validators = BoundedBTreeSet::try_from(BTreeSet::from([account("validator", 0, 0)]))
 			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
 		Pallet::<T>::do_receive_validator_set(0, validators)?;
 		// The early report is due at any time with a zero expected era duration.
 		ExpectedEraDuration::<T>::put(0);
 		let now = ReportPeriod::<T>::get();
+		// Events are recorded from block 1 on, so that the check below sees them.
+		frame_system::Pallet::<T>::set_block_number(now);
+		assert_eq!(AuthoredBlocks::<T>::count(), 0);
+		let events = frame_system::Pallet::<T>::events().len();
 
 		#[block]
 		{
-			<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_initialize(now);
-			<Pallet<T> as ShouldEndSession<_>>::should_end_session(now);
+			<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_poll(now, &mut WeightMeter::new());
 		}
 
 		assert_eq!(SetReceivedAt::<T>::get(), None);
+		// The reporter was not reached: every call to it ends in `BlocksReported` or
+		// `BlocksReportFailed`, and the poll deposited no event.
+		assert_eq!(frame_system::Pallet::<T>::events().len(), events);
 		Ok(())
 	}
 
@@ -186,7 +194,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			Pallet::<T>::report_blocks();
+			Pallet::<T>::report_blocks(n);
 		}
 
 		assert_eq!(AuthoredBlocks::<T>::count(), 0);

@@ -162,7 +162,7 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:1 w:0)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn on_initialize() -> Weight {
+	fn on_poll() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `161`
 		//  Estimated: `1493`

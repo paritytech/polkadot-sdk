@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, AuthoredBlocks, Call, Collators, Config,
-	DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraDuration,
+	mock::*, relay_proof::relay_state_proof, weights::WeightInfo, AuthoredBlocks, Call, Collators,
+	Config, DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraDuration,
 	MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState, SetReceivedAt,
 	ValidatorSet,
 };
@@ -28,6 +28,7 @@ use cumulus_primitives_core::relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMN
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{Hooks, UnfilteredDispatchable, ValidatorRegistration},
+	weights::{Weight, WeightMeter},
 	BoundedBTreeSet,
 };
 use pallet_session::SessionManager;
@@ -866,7 +867,7 @@ fn report_with_an_undecodable_stored_set_drops_every_count() {
 		);
 
 		// WHEN the counts are reported
-		ValidatorCollators::report_blocks();
+		ValidatorCollators::report_blocks(AuthoredBlocks::<Test>::count());
 
 		// THEN nothing reaches the reporter and every count is dropped, as without a stored set
 		assert!(reported().is_empty());
@@ -955,13 +956,18 @@ fn report_timing_edge_cases() {
 		Now::set(900);
 		note_blocks(10, 1);
 		System::set_block_number(5);
+		let poll = || {
+			let mut meter = WeightMeter::new();
+			ValidatorCollators::on_poll(5, &mut meter);
+			meter.consumed()
+		};
 		// AND the charge of block 5 at the due time if it were not a `ReportPeriod` block
 		let early_only = frame_support::hypothetically!({
 			ReportPeriod::<Test>::put(1000);
-			ValidatorCollators::on_initialize(5)
+			poll()
 		});
 		// WHEN block 5 runs at the due time
-		let both = ValidatorCollators::on_initialize(5);
+		let both = poll();
 		// THEN one report is made and charged, and the arrival is removed
 		assert_eq!(both, early_only);
 		assert_eq!(reports(), 1);
@@ -1077,6 +1083,52 @@ fn report_timing_edge_cases() {
 		block_at(1500);
 		assert_eq!(reports(), 1);
 		// AND the stored margin passes the invariants
+	});
+}
+
+#[test]
+fn report_that_does_not_fit_the_meter_is_postponed() {
+	build_and_execute(|| {
+		// GIVEN 10 authored a block, and the early report of its set, received at time 0, is due
+		// at time 900
+		initialize_to_block(1);
+		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
+		assert_ok!(receive(1, vec![10]));
+		note_blocks(10, 1);
+		Now::set(900);
+		let checks = <Test as Config>::WeightInfo::on_poll();
+		let full = checks.saturating_add(<Test as Config>::WeightInfo::report_blocks(1));
+
+		// WHEN block 2 has no room for the checks
+		System::set_block_number(2);
+		let mut meter = WeightMeter::with_limit(Weight::zero());
+		ValidatorCollators::on_poll(2, &mut meter);
+		// THEN the reporter is not called, nothing is charged and the early report stays due
+		assert_eq!(ReportCalls::get(), 0);
+		assert_eq!(meter.consumed(), Weight::zero());
+		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+
+		// WHEN block 3 has room for the checks only
+		System::set_block_number(3);
+		let mut meter = WeightMeter::with_limit(checks);
+		ValidatorCollators::on_poll(3, &mut meter);
+		// THEN the reporter is not called, only the checks are charged, and the counts are kept
+		// for the early report, which stays due
+		assert_eq!(ReportCalls::get(), 0);
+		assert_eq!(meter.consumed(), checks);
+		assert_eq!(counts(), vec![(10, 1)]);
+		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+
+		// WHEN block 4 has room for the report
+		System::set_block_number(4);
+		let mut meter = WeightMeter::with_limit(full);
+		ValidatorCollators::on_poll(4, &mut meter);
+		// THEN the reporter gets the counts once, the report is charged, and the arrival is
+		// removed
+		assert_eq!(ReportCalls::get(), 1);
+		assert_eq!(reported_entries(), vec![(10, 1)]);
+		assert_eq!(meter.consumed(), full);
+		assert_eq!(SetReceivedAt::<Test>::get(), None);
 	});
 }
 
