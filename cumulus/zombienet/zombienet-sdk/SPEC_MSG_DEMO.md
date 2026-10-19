@@ -1,7 +1,8 @@
 # Speculative messaging demo
 
 `spec_msg_delivers_xcm_without_hrmp` (`tests/zombie_ci/spec_msg.rs`) sends one XCM between two penpal chains
-(2000 and 2001) over spec-msg, with no HRMP channel. The run takes about 4 minutes.
+(2000 and 2001) over spec-msg, with no HRMP channel. The network boots in about 4 minutes. The channel open, the
+send and the checkpoints take about 1.5 more minutes.
 
 ## 1. Build
 
@@ -13,15 +14,20 @@ cargo build --release -p polkadot -p polkadot-parachain-bin
 
 ## 2. Run
 
-Use a new base directory for every network: an old one keeps its chain state.
+The test needs this environment:
 
 ```
-export ZOMBIENET_SDK_BASE_DIR=$(mktemp -d)
 export NO_PROXY=127.0.0.1,localhost RUST_LOG=info ZOMBIE_PROVIDER=native PATH=$PWD/target/release:$PATH
 ```
 
-`RUST_LOG=info` is needed: a value such as `RUST_LOG=xcm=trace` hides the test output. `NO_PROXY` is needed only
-behind a system proxy.
+Set `RUST_LOG=info`. An inherited value such as `RUST_LOG=xcm=trace` overrides the test's default and hides the
+checkpoint lines. `NO_PROXY` is needed only behind a system proxy.
+
+A run that boots a network also needs a new base directory: an old one keeps its chain state.
+
+```
+export ZOMBIENET_SDK_BASE_DIR=$(mktemp -d)
+```
 
 **One command** boots the network and runs the test:
 
@@ -39,9 +45,8 @@ cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_ms
    ```
 
 2. Demo, about 1.5 minutes, in a second terminal. It connects to the running nodes, opens and accepts the channel,
-   sends the XCM, and prints the six checkpoints. Run the second `export` line again. Set
-   `ZOMBIENET_SDK_BASE_DIR` to the directory of step 1, not to a new `mktemp -d`: only the log commands in
-   section 3 use it.
+   sends the XCM, and prints the six checkpoints. Run the environment `export` again. Step 2 starts no nodes, so
+   it does not use `ZOMBIENET_SDK_BASE_DIR`: only the log commands in section 3 do.
 
    ```
    SPEC_MSG_ATTACH=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
@@ -55,7 +60,7 @@ The test prints six checkpoints. Each one is read from chain state:
 
 | # | Checkpoint | What it shows |
 |---|---|---|
-| 1 | channel | 2001 consumed `OpenChannel`. 2000 read 2001's `Ack` register: the channel is `Open`. |
+| 1 | channel | 2001 consumed 2000's stream, which carries the open signal. 2000 read 2001's `Ack` register: the channel is `Open`. |
 | 2 | send | A 2000 block holds `PolkadotXcm::Sent`. Its digest commits a `StreamsRoot`: the `Provides`. |
 | 3 | relay | `newest_included_provides(2000)` is that root. The relay recorded it. |
 | 4 | consume | A 2001 block consumed the channel up to a leaf. This record is the candidate's `Requires`. |
@@ -64,8 +69,9 @@ The test prints six checkpoints. Each one is read from chain state:
 
 ## 3. Follow the node logs
 
-Open another terminal in the same shell about 40 s after the start (with two steps: before step 2). charlie is the
-sender collator (2000), dave the receiver collator (2001), alice a relay validator.
+Open another terminal about 40 s after the start (with two steps: before step 2). Set `ZOMBIENET_SDK_BASE_DIR` to the
+directory of the network (with two steps: the one of step 1). charlie is the sender collator (2000), dave the
+receiver collator (2001), alice a relay validator.
 
 ```
 cd $ZOMBIENET_SDK_BASE_DIR
@@ -100,11 +106,12 @@ This is the message of checkpoints 2 to 6 in one run. `Block N` is the parachain
 
 ## Log targets
 
-The test sets the filters in `build_network_config`. Collators: `spec-msg`, `cumulus-collator`,
-`runtime::spec-msg`, `runtime::parachain-system`. Relay validators: `runtime::inclusion`,
+The test sets the node log filters in `build_network_config`, at `debug` level. Collators: `spec-msg`,
+`cumulus-collator`, `runtime::spec-msg`, `runtime::parachain-system`. Relay validators: `runtime::inclusion`,
 `runtime::inclusion-inherent`.
 
 ## Latency against HRMP
 
 `spec_msg_vs_hrmp_latency -- --ignored --nocapture` replaces `spec_msg_delivers -- --nocapture`. It compares
-spec-msg with HRMP on the same chains.
+spec-msg with HRMP on the same chains. It takes 10 samples per path by default: set `SPEC_MSG_SAMPLES=2` for a
+short check (about 8 minutes). It boots its own network, so it does not use the two-step flow.
