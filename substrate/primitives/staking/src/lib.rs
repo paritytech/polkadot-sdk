@@ -79,16 +79,16 @@ pub trait RewardPoints<AccountId> {
 	fn weight(entries: u32) -> Weight;
 }
 
-/// Trait for reporting additional validator reward points
+/// Trait for reporting additional validator reward points.
+///
+/// Note: This is interface is similar to [`RewardPoints`], but is a legacy version thereof which
+/// doesn't support service-specific points.
 pub trait RewardsReporter<ValidatorId> {
-	/// The input is an iterator of tuples of validator account IDs and the amount of points they
-	/// should be rewarded.
 	fn reward_by_ids(validators_points: impl IntoIterator<Item = (ValidatorId, u32)>);
 }
 
 impl RewardsReporter<sp_runtime::AccountId32> for () {
 	fn reward_by_ids(_validators_points: impl IntoIterator<Item = (sp_runtime::AccountId32, u32)>) {
-		// do nothing
 	}
 }
 

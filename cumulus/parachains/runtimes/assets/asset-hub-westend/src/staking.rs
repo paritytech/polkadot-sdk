@@ -17,7 +17,7 @@
 use super::*;
 use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
-use frame_support::traits::{EitherOf, EnsureOrigin};
+use frame_support::traits::{EitherOf, EnsureOrigin, Get};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
 use pallet_staking_async::UseValidatorsMap;
 use pallet_staking_async_rc_client as rc_client;
@@ -28,8 +28,7 @@ use sp_runtime::{
 };
 use sp_staking::EraIndex;
 use testnet_parachains_constants::westend::{
-	locations::{PeopleLocation, PeopleParaId},
-	staking::MAX_VALIDATOR_SET,
+	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
 };
 use xcm::latest::prelude::*;
 
@@ -530,22 +529,26 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 		match destination {
 			ValidatorSetDestination::People => {
 				ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(
-					PeopleParaId::get(),
+					testnet_parachains_constants::westend::locations::PeopleParaId::get(),
 				)
 			},
 		}
 	}
 }
 
-/// Accepts the sibling parachain origin of a system chain allowed to report the blocks authored
-/// on it, and returns its parachain id.
-pub struct EnsureReportingSibling;
-impl EnsureOrigin<RuntimeOrigin> for EnsureReportingSibling {
+/// Accepts the sibling parachain origin of one of the `Reporters`, the system chains allowed to
+/// report the blocks authored on them, and returns its parachain id.
+pub struct EnsureReportingSiblings<Reporters>(core::marker::PhantomData<Reporters>);
+impl<Reporters: Get<Vec<ParaId>>> EnsureOrigin<RuntimeOrigin>
+	for EnsureReportingSiblings<Reporters>
+{
 	type Success = ParaId;
 
 	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
 		match o.clone().into() {
-			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id)) if id == PeopleParaId::get() => {
+			Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id))
+				if Reporters::get().contains(&id) =>
+			{
 				Ok(id)
 			},
 			_ => Err(o),
@@ -554,7 +557,8 @@ impl EnsureOrigin<RuntimeOrigin> for EnsureReportingSibling {
 
 	#[cfg(feature = "runtime-benchmarks")]
 	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(PeopleParaId::get()).into())
+		let id = Reporters::get().first().copied().ok_or(())?;
+		Ok(cumulus_pallet_xcm::Origin::SiblingParachain(id).into())
 	}
 }
 

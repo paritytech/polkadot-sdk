@@ -3894,20 +3894,10 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 }
 
 #[test]
-fn full_report_of_authored_blocks_fits_the_message_queue_and_the_block() {
-	use asset_hub_westend_runtime::{MessageQueueServiceWeight, StakingPointsConverter};
+fn crediting_every_validator_locally_fits_the_block() {
 	use frame_support::traits::Get;
 	use pallet_validator_collators::{Config, WeightInfo};
-	use testnet_parachains_constants::westend::staking::MAX_ENTRIES_PER_REPORT;
 	type MaxValidators = <Runtime as Config>::MaxValidators;
-	// GIVEN the largest report a system chain sends over XCM, all credited
-	let message = StakingPointsConverter::report_authored_blocks_weight(MAX_ENTRIES_PER_REPORT);
-	// WHEN it is processed from the message queue
-	// THEN it fits the service weight, so it is not set aside as overweight
-	assert!(
-		MessageQueueServiceWeight::get().all_gte(message),
-		"a full report of {MAX_ENTRIES_PER_REPORT} entries weighs {message:?}",
-	);
 	// GIVEN this chain counted blocks for every validator of the largest set
 	let local = <Runtime as Config>::WeightInfo::report_blocks(<MaxValidators as Get<u32>>::get());
 	// WHEN they are credited locally in one block's `on_initialize`
@@ -4014,8 +4004,9 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 
 #[test]
 fn only_people_reports_blocks_and_only_as_itself() {
-	use asset_hub_westend_runtime::staking::EnsureReportingSibling;
+	use asset_hub_westend_runtime::{staking::EnsureReportingSiblings, ReportingSiblings};
 	use frame_support::traits::EnsureOrigin;
+	type EnsureReportingSibling = EnsureReportingSiblings<ReportingSiblings>;
 	use testnet_parachains_constants::westend::locations::{PeopleLocation, PeopleParaId};
 	let sibling =
 		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));

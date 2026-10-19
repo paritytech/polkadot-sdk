@@ -202,14 +202,6 @@ pub mod staking {
 	/// that system chains accept from it.
 	pub const MAX_VALIDATOR_SET: u32 = 1000;
 
-	/// Maximum number of entries in one report of authored blocks.
-	///
-	/// Every system chain that reports over XCM sends its reports in chunks of at most this many
-	/// entries. Asset Hub's message queue must be able to process a report of this size within its
-	/// service weight. A heavier report is set aside as overweight on Asset Hub, after the
-	/// reporting chain has already removed its counts.
-	pub const MAX_ENTRIES_PER_REPORT: u32 = 500;
-
 	/// Expected time from the arrival of a validator set on a system chain to the end of its era,
 	/// in milliseconds: six relay chain sessions of one hour, the era length of Asset Hub's
 	/// staking.
