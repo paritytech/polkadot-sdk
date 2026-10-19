@@ -257,12 +257,32 @@ impl MmrInclusionProof {
 		if position.0 >= self.leaf_count() {
 			return Err(ProofError::PositionOutOfRange);
 		}
+		// `calculate_root` ignores the items of a 1-leaf proof, so padding would slip through.
+		if self.items.len() != leaf_proof_len(self.leaf_count(), position.0) {
+			return Err(ProofError::InvalidProof);
+		}
 		let pos = leaf_index_to_pos(position.0);
 		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.to_vec())
 			.calculate_root(vec![(pos, leaf)])
 			.map(|bag| MmrRoot::from_bag(self.leaf_count(), bag))
 			.map_err(|_| ProofError::InvalidProof)
 	}
+}
+
+/// Proof length `gen_proof` produces for leaf `index`: siblings up to its peak, the peaks to its
+/// left, and one bagged item for any peaks to its right.
+fn leaf_proof_len(leaf_count: u64, index: u64) -> usize {
+	let mut first = 0;
+	let heights = (0..u64::BITS).rev().filter(|h| leaf_count >> h & 1 == 1);
+	for (left_peaks, height) in heights.enumerate() {
+		let peak_leaves = 1u64 << height;
+		if index < first + peak_leaves {
+			let right_peaks = leaf_count.count_ones() as usize - left_peaks - 1;
+			return height as usize + left_peaks + usize::from(right_peaks > 0);
+		}
+		first += peak_leaves;
+	}
+	unreachable!("index < leaf_count lies under some peak; qed")
 }
 
 /// Per stream and block: consumption entered the block at `start` and left it at `end`.
@@ -1188,6 +1208,37 @@ mod tests {
 		assert!(MmrInclusionProof::decode(&mut &at_bound[..]).is_ok());
 		let over = (mmr_size(6) as u64, vec![H256::zero(); max + 1]).encode();
 		assert!(MmrInclusionProof::decode(&mut &over[..]).is_err());
+	}
+
+	/// Found by the `lift_inclusion` fuzzer: a padded 1-leaf proof used to verify.
+	#[test]
+	fn inclusion_verify_leaf_rejects_padding() {
+		let all = leaves(6);
+		let one = inclusion(&all, 1, 0);
+		assert!(one.items.is_empty());
+		assert_eq!(one.verify_leaf(MessagePosition(0), all[0]), Ok(root_at(&all, 1)));
+		let mut padded = one.clone();
+		padded.items.push(H256::repeat_byte(0xAB));
+		assert_eq!(padded.verify_leaf(MessagePosition(0), all[0]), Err(ProofError::InvalidProof));
+
+		let mut longer = inclusion(&all, 6, 3);
+		longer.items.push(H256::zero());
+		assert_eq!(longer.verify_leaf(MessagePosition(3), all[3]), Err(ProofError::InvalidProof));
+	}
+
+	/// 130 leaves gets us past 127, the first count with seven peaks.
+	#[test]
+	fn leaf_proof_len_matches_mmr_lib() {
+		let all = leaves(130);
+		for n in 1..=130 {
+			for i in 0..n {
+				assert_eq!(
+					leaf_proof_len(n as u64, i as u64),
+					inclusion(&all, n, i).items.len(),
+					"leaf {i} of {n}"
+				);
+			}
+		}
 	}
 
 	#[test]
