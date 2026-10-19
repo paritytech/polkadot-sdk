@@ -98,6 +98,36 @@ impl StreamId {
 			StreamId::Broadcast { .. } | StreamId::Private { .. } => None,
 		}
 	}
+
+	/// The canonical encoding, which is also the commitment-tree key.
+	pub fn to_bytes(&self) -> [u8; STREAM_ID_LEN] {
+		let mut out = [0u8; STREAM_ID_LEN];
+		match self {
+			StreamId::Channel { recipient, domain, num } => {
+				out[0] = 0x00;
+				out[1..5].copy_from_slice(&u32::from(*recipient).to_be_bytes());
+				out[5] = *domain;
+				out[6..8].copy_from_slice(&num.to_be_bytes());
+			},
+			StreamId::Ack { recipient, domain, num } => {
+				out[0] = 0x01;
+				out[1..5].copy_from_slice(&u32::from(*recipient).to_be_bytes());
+				out[5] = *domain;
+				out[6..8].copy_from_slice(&num.to_be_bytes());
+			},
+			StreamId::Broadcast { domain, subdomain, num } => {
+				out[0] = 0x02;
+				out[1..3].copy_from_slice(&domain.to_be_bytes());
+				out[3] = *subdomain;
+				out[4..8].copy_from_slice(&num.to_be_bytes());
+			},
+			StreamId::Private { kind, body } => {
+				out[0] = kind.get();
+				out[1..8].copy_from_slice(body);
+			},
+		}
+		out
+	}
 }
 
 impl Encode for StreamId {
@@ -106,30 +136,7 @@ impl Encode for StreamId {
 	}
 
 	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
-		match self {
-			StreamId::Channel { recipient, domain, num } => {
-				dest.push_byte(0x00);
-				dest.write(&u32::from(*recipient).to_be_bytes());
-				dest.push_byte(*domain);
-				dest.write(&num.to_be_bytes());
-			},
-			StreamId::Ack { recipient, domain, num } => {
-				dest.push_byte(0x01);
-				dest.write(&u32::from(*recipient).to_be_bytes());
-				dest.push_byte(*domain);
-				dest.write(&num.to_be_bytes());
-			},
-			StreamId::Broadcast { domain, subdomain, num } => {
-				dest.push_byte(0x02);
-				dest.write(&domain.to_be_bytes());
-				dest.push_byte(*subdomain);
-				dest.write(&num.to_be_bytes());
-			},
-			StreamId::Private { kind, body } => {
-				dest.push_byte(kind.get());
-				dest.write(body);
-			},
-		}
+		dest.write(&self.to_bytes());
 	}
 }
 

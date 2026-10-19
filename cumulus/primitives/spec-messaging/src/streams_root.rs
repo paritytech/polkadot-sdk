@@ -86,14 +86,6 @@ fn bit(key: &[u8; STREAM_ID_LEN], i: usize) -> bool {
 	(key[i >> 3] >> (7 - (i & 7))) & 1 == 1
 }
 
-/// The `StreamId`'s 8-byte encoding, as the trie key.
-fn key_of(stream: &StreamId) -> [u8; STREAM_ID_LEN] {
-	let mut key = [0u8; STREAM_ID_LEN];
-	// `StreamId::encode` is always exactly `STREAM_ID_LEN` bytes.
-	key.copy_from_slice(&stream.encode());
-	key
-}
-
 /// First bit index (from the MSB) at which two distinct keys differ. Callers guarantee `a != b`.
 fn first_diverging_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> usize {
 	(0..KEY_BITS).find(|&i| bit(a, i) != bit(b, i)).expect("keys are distinct; qed")
@@ -145,7 +137,8 @@ fn node_hash(entries: &[([u8; STREAM_ID_LEN], Hash)]) -> Hash {
 /// trie splits on bytes, so sort by them here rather than rely on that. Unsorted input would leave
 /// one side of `split` empty and make `prove` recurse on its own slice.
 fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)> {
-	let mut keyed: Vec<_> = entries.iter().map(|(stream, root)| (key_of(stream), *root)).collect();
+	let mut keyed: Vec<_> =
+		entries.iter().map(|(stream, root)| (stream.to_bytes(), *root)).collect();
 	keyed.sort_unstable_by_key(|(key, _)| *key);
 	keyed
 }
@@ -200,7 +193,7 @@ pub fn gen_stream_proof(
 		return None;
 	}
 	let entries = keyed(entries);
-	let key = key_of(&stream);
+	let key = stream.to_bytes();
 	let mut steps = Vec::new();
 	let root = prove(&entries, &key, &mut steps);
 	// `prove` pushes root-first; the wire order is leaf-to-root.
@@ -234,7 +227,7 @@ pub fn streams_root_from_proof(
 	stream_root: Hash,
 	membership: &StreamProof,
 ) -> Option<StreamsRoot> {
-	let key = key_of(&stream);
+	let key = stream.to_bytes();
 	let mut node = hash_leaf(&key, &stream_root);
 	// Steps are leaf-to-root with strictly decreasing split bits; anything else is rejected.
 	// Uniqueness rests on the key-in-leaf and bit-in-inner commitments, not on this rule. The
