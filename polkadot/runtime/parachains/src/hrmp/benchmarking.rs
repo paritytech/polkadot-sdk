@@ -353,16 +353,16 @@ mod benchmarks {
 		assert_eq!(HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32, c);
 	}
 
-	// worse case will be `n` parachain channel requests, where in all of them either the sender or
-	// the recipient need to be cleaned. This enforces the deposit of at least one to be processed.
-	// No code path for triggering two deposit process exists.
+	// worse case will be `n` confirmed parachain channel requests, where in all of them the
+	// recipient needs to be cleaned. The sender's deposit is given back and both request counts
+	// are updated for each of them.
 	#[benchmark]
 	fn clean_open_channel_requests(c: Linear<0, MAX_UNIQUE_CHANNELS>) {
 		for id in 0..c {
 			let _ = establish_para_connection::<T>(
 				PREFIX_0 + id,
 				PREFIX_1 + id,
-				ParachainSetupStep::Requested,
+				ParachainSetupStep::Accepted,
 			);
 		}
 

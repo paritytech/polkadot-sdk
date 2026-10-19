@@ -942,7 +942,8 @@ impl<T: Config> Pallet<T> {
 
 	// Go over the HRMP open channel requests and remove all in which offboarding paras participate.
 	//
-	// This will also perform the refunds for the counterparty if it doesn't offboard.
+	// This will also perform the refunds for the counterparty if it doesn't offboard, and decrease
+	// the open request count of a sender that stays.
 	pub(crate) fn clean_open_channel_requests(
 		config: &HostConfiguration<BlockNumberFor<T>>,
 		outgoing: &[ParaId],
@@ -981,11 +982,20 @@ impl<T: Config> Pallet<T> {
 			// We still want to refund the deposit only if the para is not being offboarded.
 			let recipient_deposit = if req_data.confirmed {
 				Self::decrease_accepted_channel_request_count(req_id.recipient);
+				// `accept_open_channel` takes no deposit for channels with or amongst the system.
+				let is_system = req_id.sender.is_system() || req_id.recipient.is_system();
 				unless_offboarding(req_id.recipient, config.hrmp_recipient_deposit)
+					.filter(|_| !is_system)
 			} else {
 				None
 			};
 			Self::release_deposits(&req_id, sender_deposit, recipient_deposit);
+
+			// The request no longer counts against the sender's outbound limit. An outgoing
+			// sender's counter is removed altogether by `clean_hrmp_after_outgoing`.
+			if !outgoing.contains(&req_id.sender) {
+				Self::decrease_open_channel_request_count(req_id.sender);
+			}
 		}
 
 		<T as Config>::WeightInfo::clean_open_channel_requests(outgoing.len() as u32)
