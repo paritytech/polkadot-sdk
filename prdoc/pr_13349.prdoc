@@ -1,0 +1,9 @@
+title: Remove the construct_runtime! where clause
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removes the deprecated `where` clause from `construct_runtime!`. The block type is taken
+    from `frame_system::Config::Block`, so just delete the clause.
+crates:
+- name: frame-support-procedural
+  bump: major
