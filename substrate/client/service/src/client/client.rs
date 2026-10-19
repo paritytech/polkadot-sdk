@@ -85,6 +85,7 @@ use std::{
 	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
+	time::Duration,
 };
 
 use super::call_executor::LocalCallExecutor;
@@ -396,7 +397,7 @@ where
 				NewBlockState::Normal
 			};
 			let (header, body) = genesis_block.deconstruct();
-			op.set_block_data(header, Some(body), None, None, block_state, true)?;
+			op.set_block_data(header, Some(body), None, block_state, true)?;
 			backend.commit_operation(op)?;
 		}
 
@@ -477,7 +478,6 @@ where
 			justifications,
 			post_digests,
 			body,
-			indexed_body,
 			finalized,
 			auxiliary,
 			fork_choice,
@@ -523,7 +523,6 @@ where
 			import_headers,
 			justifications,
 			body,
-			indexed_body,
 			storage_changes,
 			finalized,
 			auxiliary,
@@ -560,7 +559,6 @@ where
 		import_headers: PrePostHeader<Block::Header>,
 		justifications: Option<Justifications>,
 		body: Option<Vec<Block::Extrinsic>>,
-		indexed_body: Option<Vec<Vec<u8>>>,
 		storage_changes: Option<sc_consensus::StorageChanges<Block>>,
 		finalized: bool,
 		aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
@@ -728,7 +726,6 @@ where
 		operation.op.set_block_data(
 			import_headers.post().clone(),
 			body,
-			indexed_body,
 			justifications,
 			leaf_state,
 			register_as_leaf,
@@ -1243,8 +1240,9 @@ where
 		hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
-		self.executor.prove_execution(hash, method, call_data)
+		self.executor.prove_execution(hash, method, call_data, timeout)
 	}
 
 	fn read_proof_collection(
