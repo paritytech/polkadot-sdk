@@ -24,16 +24,17 @@ use primitive_types::H256;
 use crate::{signing::SigningPayload, AuthToken};
 
 /// A work package awaiting its authorization token.
-///
-/// Nodes can compute the signing hash before attaching the completed token.
 #[derive(Clone, Debug)]
 pub struct WorkPackageBody {
 	/// Service hosting the authorizer code.
 	pub auth_code_host: ServiceId,
+
 	/// Authorizer code hash and configuration.
 	pub authorizer: Authorizer,
+
 	/// Refinement context.
 	pub context: RefineContext,
+
 	/// Work items in execution order.
 	pub items: BoundedVec<WorkItem, MaxWorkItems>,
 }
@@ -45,8 +46,6 @@ impl WorkPackageBody {
 	}
 
 	/// Attach an existing AURA token and return the complete work package.
-	///
-	/// SCALE-encodes the token without creating a signature or verifying authorization.
 	pub fn with_authorization(self, token: &AuthToken) -> WorkPackage {
 		WorkPackage {
 			authorization: ScaleEncode::encode(token).into(),

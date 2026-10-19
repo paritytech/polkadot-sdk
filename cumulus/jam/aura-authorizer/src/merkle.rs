@@ -56,7 +56,6 @@ pub(crate) fn padded_leaf_count(size: usize) -> Result<u32, CollatorProofError> 
 
 /// Build a zero-padded Merkle tree and return its root and the proof for `collator_index`.
 ///
-/// See [`crate::token::AuthToken::check_proof`] for the proof format.
 /// Construction takes O(n) hashing work for n keys.
 ///
 /// Returns an error if `keys` is empty, the padded tree exceeds the SDK's `u32` leaf count,

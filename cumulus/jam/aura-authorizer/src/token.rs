@@ -22,7 +22,7 @@ use primitive_types::H256;
 use crate::{
 	config::{AuthConfig, ConfigError},
 	merkle::{padded_leaf_count, CollatorHasher},
-	AuthorizationError,
+	AuthorizationError, SignatureVerifier,
 };
 
 /// Raw 32-byte collator public key.
@@ -55,36 +55,10 @@ pub enum TokenError {
 	BadCollatorSignature,
 }
 
-/// Signature verification for Collator keys.
-///
-/// The authorizer code hash selects the scheme; keys and signatures have the same wire format.
-pub trait SignatureVerifier {
-	/// Whether `signature` is `key`'s signature over `payload`.
-	fn verify(key: &CollatorKey, signature: &CollatorSignature, payload: &[u8]) -> bool;
-}
-
 impl AuthToken {
 	/// Verify that `key` sits at zero-based leaf index `collator_index` of the collator-set tree.
 	///
-	/// Proof format:
-	///
-	/// - **Leaf hash**: blake2b-32 over the raw 32-byte key.
-	/// - **Node hash**: blake2b-32 over the concatenated left–right pair.
-	/// - **Sibling ordering**: LSB-first from `collator_index`; bit = 0 means the current node is
-	///   the left child (proof sibling is right), bit = 1 means the current node is the right child
-	///   (proof sibling is left).
-	/// - **Padding**: append zero-valued 32-byte leaf hashes to reach the next power of two, then
-	///   hash parent nodes normally.
-	/// - **Proof length**: ⌈log₂(collator_set_size)⌉.
-	///
-	/// The configured root is assumed to use this padding convention; this method verifies
-	/// the supplied membership proof without independently validating all padding leaves.
-	///
-	/// Returns [`TokenError::BadCollatorSetProof`] for a wrong proof length or root,
-	/// or an out-of-range index, wrapped in [`AuthorizationError::BadToken`].
-	/// Returns [`AuthorizationError::BadConfig`] with [`ConfigError::InvalidCollatorSetSize`]
-	/// for a set size above `2^31`. The upper limit ensures that
-	/// the power-of-two padded leaf count fits in the SDK's `u32` leaf-count parameter.
+	/// Use [`crate::merkle::build_collator_proof`] to generate a valid proof.
 	pub fn check_proof(
 		&self,
 		config: &AuthConfig,

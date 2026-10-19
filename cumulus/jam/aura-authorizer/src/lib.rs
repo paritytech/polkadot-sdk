@@ -35,8 +35,14 @@ pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 pub use config::{AuthConfig, ConfigError};
 pub use merkle::{build_collator_proof, CollatorProofError};
 pub use signing::{hash_signing_payload, WORK_PACKAGE_SIGN_CTX};
-pub use token::{AuthToken, CollatorKey, CollatorSignature, SignatureVerifier, TokenError};
+pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};
 pub use work_package::WorkPackageBody;
+
+/// Signature verification for Collator keys.
+pub trait SignatureVerifier {
+	/// Whether `signature` is `key`'s signature over `payload`.
+	fn verify(key: &CollatorKey, signature: &CollatorSignature, payload: &[u8]) -> bool;
+}
 
 /// The collator authenticated by AURA for the work package.
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode, MaxEncodedLen)]
@@ -62,9 +68,9 @@ impl AuthTrace {
 		package: &WorkPackage,
 		slot: Slot,
 	) -> Result<Self, AuthorizationError> {
-		let collator_index = config.expected_collator_index(slot);
 		config.check_work_items(&package.items).map_err(AuthorizationError::BadConfig)?;
 
+		let collator_index = config.expected_collator_index(slot);
 		token.check_proof(config, collator_index)?;
 		token
 			.check_signature::<S>(signing::SigningPayload::from(package).hash())

@@ -53,13 +53,9 @@ pub struct AuthConfig {
 	pub collator_set_root: H256,
 
 	/// Number of collators in the set.
-	///
-	/// Can never be zero.
 	pub collator_set_size: NonZero<u32>,
 
 	/// Slot duration as a multiple of the JAM timeslot (6 s).
-	///
-	/// Can never be zero.
 	pub slot_duration: NonZero<u32>,
 }
 
