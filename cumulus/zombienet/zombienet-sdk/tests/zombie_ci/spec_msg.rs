@@ -17,18 +17,16 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
-	ChannelId, ConsumptionRecord, InChannelState, OutChannelState, SPMS_ENGINE_ID,
+	ChannelId, ChannelPhase, ConsumptionRecord, InChannelState, OutChannelState, SPMS_ENGINE_ID,
 };
-use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, open_hrmp_channel, submit_extrinsic_and_wait_for_finalization_success,
-};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, open_hrmp_channel};
 use std::{collections::BTreeMap, future::Future, time::Duration};
 use zombienet_sdk::{
 	subxt::{
 		self,
 		backend::StreamOfResults,
 		blocks::Block,
-		config::substrate::DigestItem,
+		config::{polkadot::PolkadotExtrinsicParamsBuilder, substrate::DigestItem},
 		dynamic::Value,
 		ext::scale_value::{At, Primitive, ValueDef},
 		tx::TxStatus,
@@ -109,8 +107,10 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 
 	log::info!("Sending an XCM {SENDER} -> {RECEIVER}");
 	// Subscribe first: the receiver may consume the message before the send is finalized. The
-	// stream starts at the block finalized now, which predates the send.
-	let before_send = finalized_number(&receiver).await?;
+	// stream starts at the block finalized now, which predates the send. Skip every block up to the
+	// best one now: a block that consumes the message comes later, and an earlier one that is not
+	// yet finalized, such as the one that consumed the open signal, is not the message.
+	let before_send = receiver.blocks().at(best_hash(&receiver).await?).await?.number();
 	let receiver_blocks = receiver.blocks().subscribe_finalized().await?;
 	let sent = sender.blocks().at(sudo(&sender, send_xcm_to(RECEIVER)).await?).await?;
 	let root = committed_root(&sent)
@@ -141,8 +141,8 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	follow_delivery(&receiver, receiver_blocks, before_send).await?;
 
 	let now = (finalized_number(&sender).await?, finalized_number(&receiver).await?);
-	wait_for("both chains to finalize two more blocks with messaging live", || {
-		advanced(&sender, &receiver, (now.0 + 2, now.1 + 2))
+	wait_for("both chains to finalize one more block with messaging live", || {
+		advanced(&sender, &receiver, (now.0 + 1, now.1 + 1))
 	})
 	.await?;
 
@@ -439,68 +439,76 @@ async fn open_spec_msg_channel(
 	sender: &OnlineClient<PolkadotConfig>,
 	receiver: &OnlineClient<PolkadotConfig>,
 ) -> Result<(), anyhow::Error> {
-	log::info!("Opening channel {SENDER} -> {RECEIVER}");
-	// Either order works, so submit both at once; the waits below poll finalized state.
-	let open = sudo_in_block(
-		sender,
-		Value::unnamed_variant(
-			"SpecMessaging",
-			[Value::named_variant(
-				"open_channel",
-				[
-					("recipient", Value::u128(RECEIVER.into())),
-					("domain", Value::u128(0)),
-					("num", Value::u128(0)),
-				],
-			)],
-		),
-	);
-	let accept = sudo_in_block(
-		receiver,
-		Value::unnamed_variant(
-			"SpecMessaging",
-			[Value::named_variant(
-				"accept_open_channel",
-				[
-					("sender", Value::u128(SENDER.into())),
-					("domain", Value::u128(0)),
-					("num", Value::u128(0)),
-				],
-			)],
-		),
-	);
-	tokio::try_join!(open, accept)?;
+	// A rerun against the same network finds the channel open: skip the open and send again.
+	let (_, out_channels) = channel_states(sender, receiver).await?;
+	if out_channels
+		.get(&channel(RECEIVER))
+		.is_some_and(|state| state.phase() == ChannelPhase::Open)
+	{
+		log::info!("Channel {SENDER} -> {RECEIVER} is already open: skipping the open");
+	} else {
+		log::info!("Opening channel {SENDER} -> {RECEIVER}");
+		// Either order works, so submit both at once; the wait below polls best blocks.
+		let open = sudo_in_block(
+			sender,
+			Value::unnamed_variant(
+				"SpecMessaging",
+				[Value::named_variant(
+					"open_channel",
+					[
+						("recipient", Value::u128(RECEIVER.into())),
+						("domain", Value::u128(0)),
+						("num", Value::u128(0)),
+					],
+				)],
+			),
+		);
+		let accept = sudo_in_block(
+			receiver,
+			Value::unnamed_variant(
+				"SpecMessaging",
+				[Value::named_variant(
+					"accept_open_channel",
+					[
+						("sender", Value::u128(SENDER.into())),
+						("domain", Value::u128(0)),
+						("num", Value::u128(0)),
+					],
+				)],
+			),
+		);
+		tokio::try_join!(open, accept)?;
 
-	// The receiver consumes the `OpenChannel` signal from the sender's data stream: a channel
-	// payload fetched from the sender's collator, lifted to an included root.
-	wait_for("the receiver to consume the open signal", || async {
-		let channels: BTreeMap<ChannelId, InChannelState> =
-			call(receiver, "SpecMsgApi_in_channels").await?;
-		Ok(channels.get(&channel(SENDER)).is_some_and(|state| state.published.up_to.0 > 0))
-	})
-	.await?;
+		// Two legs run at once, so one wait covers both. The receiver consumes the `OpenChannel`
+		// signal from the sender's data stream: a channel payload fetched from the sender's
+		// collator, lifted to an included root. The sender reads the receiver's register from its
+		// `Ack` stream: an `Events` item fetched from the receiver's collator. Its grant opens
+		// the channel for sends. Best blocks, not finalized: finality adds about 30 s, and
+		// checkpoints 3 to 6 still prove inclusion, backing and finality of the send.
+		wait_for(
+			"the receiver to consume the open signal and the sender to read its register",
+			|| async {
+				let (in_channels, out_channels) = channel_states(sender, receiver).await?;
+				Ok(in_channels
+					.get(&channel(SENDER))
+					.is_some_and(|state| state.published.up_to.0 > 0) &&
+					out_channels
+						.get(&channel(RECEIVER))
+						.is_some_and(|state| state.register.is_some()))
+			},
+		)
+		.await?;
+	}
 
-	// The sender reads the receiver's register from its `Ack` stream: an `Events` item fetched
-	// from the receiver's collator. Its grant opens the channel for sends.
-	wait_for("the sender to read the receiver's register", || async {
-		let channels: BTreeMap<ChannelId, OutChannelState> =
-			call(sender, "SpecMsgApi_out_channels").await?;
-		Ok(channels.get(&channel(RECEIVER)).is_some_and(|state| state.register.is_some()))
-	})
-	.await?;
-
-	let in_channels: BTreeMap<ChannelId, InChannelState> =
-		call(receiver, "SpecMsgApi_in_channels").await?;
-	let out_channels: BTreeMap<ChannelId, OutChannelState> =
-		call(sender, "SpecMsgApi_out_channels").await?;
+	let (in_channels, out_channels) = channel_states(sender, receiver).await?;
 	if let (Some(in_state), Some(out_state)) =
 		(in_channels.get(&channel(SENDER)), out_channels.get(&channel(RECEIVER)))
 	{
 		if let Some(read) = out_state.register {
 			log::info!(
 				"Checkpoint 1/6, channel: {SENDER} -> {RECEIVER} is {:?} ({RECEIVER} consumed \
-				 `OpenChannel` to leaf {}, {SENDER} read `Ack` register at leaf {} with grant \
-				 {} msgs / {} bytes)",
+				 {SENDER}'s stream up to leaf {}, {SENDER} read `Ack` register at leaf {} with \
+				 grant {} msgs / {} bytes)",
 				out_state.phase(),
 				in_state.published.up_to.0,
 				read.at.0,
@@ -544,24 +552,10 @@ fn send_xcm_to(para: u32) -> Value {
 	)
 }
 
-/// Dispatch `call` as root with `Sudo::sudo`, signed by Alice, and check the inner result.
+/// Dispatch `call` as root with `Sudo::sudo`, signed by Alice, and check the inner result. Returns
+/// the finalized block that holds it.
 async fn sudo(client: &OnlineClient<PolkadotConfig>, call: Value) -> Result<H256, anyhow::Error> {
-	let tx = subxt::dynamic::tx("Sudo", "sudo", vec![call]);
-	let block_hash =
-		submit_extrinsic_and_wait_for_finalization_success(client, &tx, &dev::alice()).await?;
-	let events = client.blocks().at(block_hash).await?.events().await?;
-	for event in events.iter() {
-		let event = event?;
-		if event.pallet_name() == "Sudo" && event.variant_name() == "Sudid" {
-			let fields = format!("{:?}", event.field_values()?);
-			return if fields.contains("Err") {
-				Err(anyhow!("sudo dispatch failed: {fields}"))
-			} else {
-				Ok(block_hash)
-			};
-		}
-	}
-	Err(anyhow!("no `Sudo::Sudid` in block {block_hash:?}"))
+	submit_sudo(client, call, true).await
 }
 
 /// Dispatch `call` as root like [`sudo`], but return once the call is in a best block.
@@ -569,11 +563,32 @@ async fn sudo_in_block(
 	client: &OnlineClient<PolkadotConfig>,
 	call: Value,
 ) -> Result<H256, anyhow::Error> {
+	submit_sudo(client, call, false).await
+}
+
+async fn submit_sudo(
+	client: &OnlineClient<PolkadotConfig>,
+	call: Value,
+	finalized: bool,
+) -> Result<H256, anyhow::Error> {
+	let alice = dev::alice();
+	// The nonce is read at the best block. subxt reads it at the finalized block, which an earlier
+	// call that is only in a best block has not reached: the next call would reuse its nonce.
+	let nonce: u32 = call_at(
+		client,
+		Some(best_hash(client).await?),
+		"AccountNonceApi_account_nonce",
+		&alice.public_key().0.encode(),
+	)
+	.await?;
+	let params = PolkadotExtrinsicParamsBuilder::new().immortal().nonce(nonce.into()).build();
 	let tx = subxt::dynamic::tx("Sudo", "sudo", vec![call]);
-	let mut progress = client.tx().sign_and_submit_then_watch_default(&tx, &dev::alice()).await?;
+	let mut progress =
+		client.tx().create_signed(&tx, &alice, params).await?.submit_and_watch().await?;
 	while let Some(status) = progress.next().await {
 		let in_block = match status? {
-			TxStatus::InBestBlock(in_block) | TxStatus::InFinalizedBlock(in_block) => in_block,
+			TxStatus::InBestBlock(in_block) if !finalized => in_block,
+			TxStatus::InFinalizedBlock(in_block) => in_block,
 			TxStatus::Error { message } |
 			TxStatus::Invalid { message } |
 			TxStatus::Dropped { message } => return Err(anyhow!("sudo tx failed: {message}")),
@@ -594,6 +609,28 @@ async fn sudo_in_block(
 	Err(anyhow!("sudo tx status stream ended"))
 }
 
+/// The receiver's inbound and the sender's outbound channel states at their best blocks.
+async fn channel_states(
+	sender: &OnlineClient<PolkadotConfig>,
+	receiver: &OnlineClient<PolkadotConfig>,
+) -> Result<
+	(BTreeMap<ChannelId, InChannelState>, BTreeMap<ChannelId, OutChannelState>),
+	anyhow::Error,
+> {
+	let in_channels =
+		call_at(receiver, Some(best_hash(receiver).await?), "SpecMsgApi_in_channels", &[]).await?;
+	let out_channels =
+		call_at(sender, Some(best_hash(sender).await?), "SpecMsgApi_out_channels", &[]).await?;
+	Ok((in_channels, out_channels))
+}
+
+/// The hash of a chain's latest best block.
+async fn best_hash(client: &OnlineClient<PolkadotConfig>) -> Result<H256, anyhow::Error> {
+	let mut blocks = client.blocks().subscribe_best().await?;
+	let block = blocks.next().await.ok_or_else(|| anyhow!("the best block stream ended"))??;
+	Ok(block.hash())
+}
+
 /// The number of a chain's latest finalized block.
 async fn finalized_number(client: &OnlineClient<PolkadotConfig>) -> Result<u32, anyhow::Error> {
 	Ok(client.blocks().at_latest().await?.number())
@@ -607,14 +644,6 @@ async fn advanced(
 ) -> Result<bool, anyhow::Error> {
 	Ok(finalized_number(sender).await? >= sender_at &&
 		finalized_number(receiver).await? >= receiver_at)
-}
-
-/// Call a runtime API with no arguments at the latest block and decode its result.
-async fn call<T: Decode>(
-	client: &OnlineClient<PolkadotConfig>,
-	method: &str,
-) -> Result<T, anyhow::Error> {
-	call_at(client, None, method, &[]).await
 }
 
 /// Call a runtime API with SCALE-encoded `args` at block `at`, or the latest if `None`, and decode

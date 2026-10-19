@@ -1,11 +1,11 @@
 # Speculative messaging demo
 
 `spec_msg_delivers_xcm_without_hrmp` (`tests/zombie_ci/spec_msg.rs`) sends one XCM between two penpal chains
-(2000 and 2001) over spec-msg. The chains have no HRMP channel. The run takes about 4 minutes.
+(2000 and 2001) over spec-msg, with no HRMP channel. The run takes about 4 minutes.
 
 ## 1. Build
 
-Build the binaries once. The penpal and relay runtimes are inside them, so build again after a runtime change.
+Build once. The runtimes are inside the binaries, so build again after a runtime or node change.
 
 ```
 cargo build --release -p polkadot -p polkadot-parachain-bin
@@ -13,46 +13,43 @@ cargo build --release -p polkadot -p polkadot-parachain-bin
 
 ## 2. Run
 
-Use a new base directory for every run. An old directory keeps its chain state (for example an HRMP channel from
-the latency test), and the first check then fails.
+Use a new base directory for every network: an old one keeps its chain state.
 
 ```
 export ZOMBIENET_SDK_BASE_DIR=$(mktemp -d)
 export NO_PROXY=127.0.0.1,localhost RUST_LOG=info ZOMBIE_PROVIDER=native PATH=$PWD/target/release:$PATH
 ```
 
-- `RUST_LOG=info` is needed. A value such as `RUST_LOG=xcm=trace` hides the test output.
-- `NO_PROXY` is needed only behind a system proxy.
+`RUST_LOG=info` is needed: a value such as `RUST_LOG=xcm=trace` hides the test output. `NO_PROXY` is needed only
+behind a system proxy.
 
-### One command
+**One command** boots the network and runs the test:
 
 ```
 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
 ```
 
-### Two steps, for a live presentation
+**Two steps**, for a talk:
 
-Step 1 is the warmup. It boots the relay chain and both parachains, and waits until both parachains finalize a
-block. This takes about 4 minutes. Start it before the talk, in a first terminal:
+1. Warmup, about 4 minutes. It boots the network, waits until both parachains finalize a block, and then waits.
+   Ctrl-C stops the nodes.
 
-```
-SPEC_MSG_STANDBY=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
-```
+   ```
+   SPEC_MSG_STANDBY=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
+   ```
 
-The test prints `Standby ready: 2000 and 2001 are producing blocks` and then waits. Ctrl-C stops the nodes.
+2. Demo, about 1.5 minutes, in a second terminal. It connects to the running nodes, opens and accepts the channel,
+   sends the XCM, and prints the six checkpoints. Run the second `export` line again. Set
+   `ZOMBIENET_SDK_BASE_DIR` to the directory of step 1, not to a new `mktemp -d`: only the log commands in
+   section 3 use it.
 
-Step 2 is the demo. It connects to the running nodes (RPC ports 30510 for alice, 30511 for 2000, 30512 for 2001),
-opens and accepts the channel, sends the XCM, and prints the six checkpoints. This takes about 2 minutes. Run it in
-a second terminal with the same `export` lines:
+   ```
+   SPEC_MSG_ATTACH=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
+   ```
 
-```
-SPEC_MSG_ATTACH=1 cargo test --release -p cumulus-zombienet-sdk-tests --features zombie-ci spec_msg_delivers -- --nocapture
-```
-
-- Use the same `ZOMBIENET_SDK_BASE_DIR` in both terminals, so the node logs are in a known place (section 3).
-- One standby network serves one step 2. A second run fails at the channel open, because the channel exists.
-  Stop and restart step 1 before each run.
-- Run the `cargo test` command once before the talk, so the test crate is already compiled.
+- Step 2 can run again on the same network: it skips the open and sends another message. Restart step 1 before
+  a talk, so the audience sees the channel open. After a test-only change, keep step 1 running.
+- Run the `cargo test` command once before the talk, so the test crate is compiled.
 
 The test prints six checkpoints. Each one is read from chain state:
 
@@ -67,9 +64,8 @@ The test prints six checkpoints. Each one is read from chain state:
 
 ## 3. Follow the node logs
 
-Open another terminal in the same shell about 40 s after the start (in two steps: before step 2). The node log files
-appear then.
-charlie is the sender collator (2000), dave the receiver collator (2001), alice a relay validator.
+Open another terminal in the same shell about 40 s after the start (with two steps: before step 2). charlie is the
+sender collator (2000), dave the receiver collator (2001), alice a relay validator.
 
 ```
 cd $ZOMBIENET_SDK_BASE_DIR
@@ -96,10 +92,9 @@ This is the message of checkpoints 2 to 6 in one run. `Block N` is the parachain
 | 15:33:06.016 | alice | `runtime::inclusion-inherent: Candidate 0x93f4… for para 2001: requires found in the provides windows` | The relay matches `Requires` (checkpoint 5). |
 
 - Send to consume takes 12 s: two relay blocks. The fetch takes 1 to 10 ms.
-- The same runtime line can appear several times for one block: the runtime runs on author and on import.
-  Other 2000 and 2001 blocks in the log (blocks 8, 10, 19) are the channel open and accept messages.
-- The relay line names the candidate by hash. The candidate `0x93f4…` is dave's block 17 candidate: the relay
-  log shows it seconded at 15:33:00.453, and the match comes 6 s later.
+- A runtime line can appear twice for one block: the runtime runs on author and on import. Blocks 8, 10 and 19
+  in the log are the channel open and accept messages.
+- The relay line names the candidate by hash: `0x93f4…` is dave's block 17 candidate.
 - The register `Ack` consumption is logged at `trace`, because every block republishes it.
 - If delivery stalls, grep the relay logs for `Dropping candidate`. It names the missing root.
 
