@@ -19,8 +19,8 @@
 
 use codec::DecodeAll;
 use cumulus_aura_authorizer::{
-	build_collator_proof, AuthConfig, AuthToken, AuthTrace, AuthorizationError, SignatureVerifier,
-	TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
+	build_collator_proof, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
+	AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
 };
 use jam_types::Encode as JamEncode;
 
@@ -91,6 +91,7 @@ fn signing_vectors_works() {
 	];
 	assert_eq!(payload, expected_payload);
 	assert_eq!(hash.as_bytes(), &expected_hash);
+	assert_eq!(hash_signing_payload(&payload).as_bytes(), &expected_hash);
 	let mut expected = WORK_PACKAGE_SIGN_CTX.to_vec();
 
 	expected.extend_from_slice(&payload);

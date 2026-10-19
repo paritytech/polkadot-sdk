@@ -70,12 +70,21 @@ impl<'a> From<&'a WorkPackageBody> for SigningPayload<'a> {
 
 impl SigningPayload<'_> {
 	pub(crate) fn hash(&self) -> H256 {
-		let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
-		state.update(WORK_PACKAGE_SIGN_CTX);
-		state.update(&self.encode());
-
-		H256::from_slice(state.finalize().as_bytes())
+		hash_signing_payload(&self.encode())
 	}
+}
+
+/// Hash the JAM-encoded tuple of code host, authorizer code hash, refinement context,
+/// authorizer config, and work items, with the AURA domain separator.
+///
+/// Adapters for other JAM versions must preserve their version's complete context encoding
+/// and exclude the authorization token.
+pub fn hash_signing_payload(payload: &[u8]) -> H256 {
+	let mut state = blake2b_simd::Params::new().hash_length(32).to_state();
+	state.update(WORK_PACKAGE_SIGN_CTX);
+	state.update(payload);
+
+	H256::from_slice(state.finalize().as_bytes())
 }
 
 #[cfg(test)]
