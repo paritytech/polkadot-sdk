@@ -6,11 +6,11 @@
 //! passes through this state, and a node of a release before the DHT path acts like a DHT-off one:
 //! it speaks statement/2 but never advertises a filter
 //!
-//! The two kinds exchange statements over sync links only, as a DHT-off node opens statement
-//! substreams to its sync peers alone, and in each direction only part of the traffic crosses: a
-//! DHT node pushes a new statement to a DHT-off peer only when that peer is a DHT target of the
-//! statement, and a DHT-off node pushes to a DHT peer only what matches the peer's filter, its
-//! subscriptions. A new connection's initial sync carries the rest
+//! The two kinds meet on sync links only, as a DHT-off node opens statement substreams to its sync
+//! peers alone. A DHT node serves a DHT-off peer silent past the filter grace as a node that wants
+//! everything: it pushes the peer every statement, sends it a match-all filter so the peer pushes
+//! everything back, and keeps it out of the DHT index. The soak expects every DHT node to know
+//! exactly the other DHT nodes as eligible, and the K closest DHT nodes to hold a topic's replicas
 //!
 //! Every wave checks delivery in all four directions, entry kind to subscriber kind:
 //! - ring load on the wave topic, submitted round-robin through every node, with one subscriber of
@@ -21,8 +21,8 @@
 //!   none of the DHT-off nodes the entry reaches; DHT-off entry and subscriber in different groups
 //!   of linked DHT-off nodes. Links come from each DHT-off node's `system_peers`
 //!
-//! The DHT nodes stay selective: a statement entered through a DHT node sits on the DHT nodes among
-//! its K closest and on DHT subscribers, nowhere else. Restarts alternate between a DHT-off and a
+//! The DHT nodes stay selective: a statement entered through a DHT node sits on its K closest DHT
+//! nodes and on DHT subscribers, nowhere else. Restarts alternate between a DHT-off and a
 //! DHT full node: the node goes offline, a backlog on its subscribed topic enters through both
 //! kinds, and after the restart the node must catch up on it. A fresh DHT-off node and then a fresh
 //! DHT node join once: each must catch up on a backlog entered before it joined, and the DHT joiner
@@ -38,15 +38,17 @@
 
 use super::{
 	common::{
-		base_dir, submit_at_rate, submit_statement, subscribe_topic, wait_for_first_block, Load,
+		base_dir, collator_args, submit_at_rate, submit_statement, subscribe_topic,
+		wait_for_first_block, Load,
 	},
 	v2_dht_soak::{
 		bring_online, collect_peer_keys, env_parsed, is_dropped_connection, launch_soak_network,
 		nodes_with_statement_errors, placement_mismatch, ranked_by_distance, soak_topic,
 		store_snapshot, take_offline, ExpectedPlacement, NodeHandle, AUTHORING_COLLATORS,
 		CONNECTED_PEERS_METRIC, DEFAULT_SOAK_SECS, DELIVERY_TIMEOUT_SECS, ELIGIBLE_PEERS_METRIC,
-		MAX_RECONNECTS, NODES_ENV, PARTICIPANTS, PLACEMENT_TIMEOUT_SECS, PRE_JOIN_TOPICS,
-		REPLICATION_FACTOR, RING_RATE_PER_SECOND, RING_SECS, SOAK_SECS_ENV, STATEMENT_TTL,
+		LOG_FILTER, MAX_RECONNECTS, NODES_ENV, PARTICIPANTS, PLACEMENT_TIMEOUT_SECS,
+		PRE_JOIN_TOPICS, REPLICATION_FACTOR, RING_RATE_PER_SECOND, RING_SECS, SOAK_SECS_ENV,
+		STATEMENT_TTL,
 	},
 };
 use anyhow::{anyhow, bail, ensure, Context};
@@ -65,8 +67,6 @@ use zombienet_sdk::{
 	AddCollatorOptions, LocalFileSystem, Network,
 };
 
-const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug,\
-	litep2p::ipfs::identify=trace,litep2p::transport-manager=debug";
 const DHT_OFF_NODES_ENV: &str = "STATEMENT_V2_SOAK_DHT_OFF_NODES";
 const DEFAULT_DHT_OFF_NODES: usize = 4;
 /// Leaves more DHT nodes than K beside the default DHT-off ones, so topics with only DHT replicas
@@ -110,6 +110,12 @@ fn farthest_dht(order: &[usize], dht_off: &[bool]) -> usize {
 		.rev()
 		.find(|&&idx| !dht_off[idx])
 		.expect("the network has DHT nodes; qed")
+}
+
+/// A DHT-off node runs the network's args without the v2 DHT ones, the flag that turns the path on
+/// among them
+fn dht_off_options() -> AddCollatorOptions {
+	AddCollatorOptions { args: collator_args(PARTICIPANTS, LOG_FILTER), ..Default::default() }
 }
 
 fn kind(dht_off: &[bool], idx: usize) -> &'static str {
@@ -310,9 +316,9 @@ fn describe_links(
 	format!("{} is linked to {names:?}", nodes[idx].name())
 }
 
-/// Waits for the topology the replica oracle needs: every DHT node knows every other node as
-/// eligible, the DHT-off ones included. A DHT node under the K-peer floor or a DHT-off node without
-/// a statement peer is a finding, not a stop
+/// Waits for the topology the replica oracle needs: every DHT node knows exactly the other DHT
+/// nodes as eligible. A DHT node keeping DHT-off nodes in its DHT index, a DHT node under the
+/// K-peer floor or a DHT-off node without a statement peer is a finding, not a stop
 async fn wait_for_mixed_topology(
 	nodes: &[NodeHandle],
 	dht_off: &[bool],
@@ -320,7 +326,7 @@ async fn wait_for_mixed_topology(
 	report: &mut Report,
 ) -> Result<(), anyhow::Error> {
 	let deadline = Instant::now() + Duration::from_secs(300 + 5 * nodes.len() as u64);
-	let eligible_floor = (nodes.len() - 1) as f64;
+	let dht_peers = (dht_off.iter().filter(|&&off| !off).count() - 1) as f64;
 	let connected_floor = (nodes.len() - 1).min(REPLICATION_FACTOR) as f64;
 	loop {
 		let mut unaware = Vec::new();
@@ -334,9 +340,15 @@ async fn wait_for_mixed_topology(
 			}
 			let eligible = handle.node.reports(ELIGIBLE_PEERS_METRIC).await?;
 			let connected = handle.node.reports(CONNECTED_PEERS_METRIC).await?;
-			if eligible < eligible_floor {
+			if eligible < dht_peers {
 				unaware.push(format!(
-					"{} knows {eligible} of the {eligible_floor} other nodes as eligible",
+					"{} knows {eligible} of the {dht_peers} other DHT nodes as eligible",
+					handle.name()
+				));
+			} else if eligible > dht_peers {
+				short.push(format!(
+					"{} knows {eligible} nodes as eligible, over the {dht_peers} other DHT nodes: \
+					 DHT-off nodes stay in its DHT index",
 					handle.name()
 				));
 			}
@@ -536,8 +548,8 @@ async fn dht_placement(
 	}
 }
 
-/// Where `statement` must sit among the DHT nodes: on the DHT nodes among the K closest of its
-/// topic's `order`, and on `subscriber` when that is a DHT node that got it. DHT-off stores are not
+/// Where `statement` must sit among the DHT nodes: on the K closest DHT nodes of its topic's
+/// `order`, and on `subscriber` when that is a DHT node that got it. DHT-off stores are not
 /// checked, they keep whatever reaches them
 fn expected_dht_placement(
 	statement: &[u8],
@@ -545,11 +557,12 @@ fn expected_dht_placement(
 	dht_off: &[bool],
 	subscriber: Option<usize>,
 ) -> ExpectedPlacement {
-	// DHT nodes among the K closest of it topic's `order` + `subscriber`
-	let mut holders: Vec<usize> = order[..REPLICATION_FACTOR]
+	// The K closest DHT nodes of the topic's `order` + `subscriber`
+	let mut holders: Vec<usize> = order
 		.iter()
 		.copied()
 		.filter(|&idx| !dht_off[idx])
+		.take(REPLICATION_FACTOR)
 		.collect();
 	if let Some(subscriber) = subscriber.filter(|&idx| !dht_off[idx] && !holders.contains(&idx)) {
 		holders.push(subscriber);
@@ -855,7 +868,7 @@ async fn run_restart(
 /// Adds a new node a DHT-off one on the first join and a DHT one on the second and checks that
 /// it gets the statements sent before it joined:
 /// - those on the topic it subscribes to;
-/// - for a DHT node, also those on the topics it now stores as one of their K closest nodes
+/// - for a DHT node, also those on the topics it now stores as one of their K closest DHT nodes
 async fn run_join(
 	join: u64,
 	network: &mut Network<LocalFileSystem>,
@@ -891,14 +904,9 @@ async fn run_join(
 	tokio::time::sleep(BACKLOG_SETTLE).await;
 
 	info!("Join {join}: {name} joins");
-	let env = if joiner_is_dht_off {
-		Vec::new()
-	} else {
-		vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()]
-	};
-	network
-		.add_collator(name, AddCollatorOptions { env, ..Default::default() }, 1004)
-		.await?;
+	// A DHT joiner keeps the network's args, the v2 DHT flag among them
+	let options = if joiner_is_dht_off { dht_off_options() } else { AddCollatorOptions::default() };
+	network.add_collator(name, options, 1004).await?;
 	let node = network.get_node(name)?.clone();
 	let rpc = node.rpc().await?;
 	nodes.push(NodeHandle { node, rpc });
@@ -929,7 +937,11 @@ async fn run_join(
 	let entered: Vec<&Vec<u8>> = pre_join
 		.iter()
 		.filter(|(topic, _)| {
-			ranked_by_distance(&peer_keys, *topic)[..REPLICATION_FACTOR].contains(&joiner)
+			ranked_by_distance(&peer_keys, *topic)
+				.into_iter()
+				.filter(|&idx| !dht_off[idx])
+				.take(REPLICATION_FACTOR)
+				.any(|idx| idx == joiner)
 		})
 		.map(|(_, statement)| statement)
 		.collect();
@@ -988,15 +1000,15 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 			statement_node_count - dht_off_count > REPLICATION_FACTOR
 	);
 
-	// 2. Start the collators and the DHT nodes, then add the DHT-off nodes: the same binary and
-	// args, without `STATEMENT_STORE_V2_DHT_ENABLED`
+	// 2. Start the collators and the DHT nodes, then add the DHT-off nodes: the same binary, the
+	// args without the v2 DHT ones
 	let dht_node_names: Vec<String> =
 		(0..full_node_count - dht_off_count).map(|i| format!("soak-{i}")).collect();
-	let mut network = launch_soak_network(&dht_node_names, LOG_FILTER).await?;
+	let mut network = launch_soak_network(&dht_node_names).await?;
 	let dht_off_node_names: Vec<String> =
 		(0..dht_off_count).map(|i| format!("dht-off-{i}")).collect();
 	for name in &dht_off_node_names {
-		network.add_collator(name.as_str(), AddCollatorOptions::default(), 1004).await?;
+		network.add_collator(name.as_str(), dht_off_options(), 1004).await?;
 	}
 
 	let mut nodes = Vec::with_capacity(statement_node_count);

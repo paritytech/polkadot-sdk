@@ -73,7 +73,7 @@ pub(super) const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "d
 pub(super) const REPLICATION_FACTOR: usize = 8;
 const GOSSIP_TARGET: u32 = 3;
 pub(super) const PARTICIPANTS: u32 = 2_000;
-const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
+pub(super) const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
 pub(super) const RING_RATE_PER_SECOND: usize = 20;
 pub(super) const RING_SECS: u64 = 45;
 const PROBES_PER_WAVE: usize = 8;
@@ -176,11 +176,10 @@ fn salt_chain_spec(path: &Path) -> Result<(), anyhow::Error> {
 /// `full_node_names` entry
 pub(super) async fn launch_soak_network(
 	full_node_names: &[String],
-	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir()?)?;
 	salt_chain_spec(&chain_spec_path)?;
-	let args = collator_args_v2(PARTICIPANTS, log_filter, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
+	let args = collator_args_v2(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET);
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
@@ -1110,7 +1109,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let full_node_names: Vec<String> = (0..statement_node_count - AUTHORING_COLLATORS.len())
 		.map(|i| format!("soak-{i}"))
 		.collect();
-	let mut network = launch_soak_network(&full_node_names, LOG_FILTER).await?;
+	let mut network = launch_soak_network(&full_node_names).await?;
 
 	let mut nodes = Vec::with_capacity(statement_node_count);
 	for name in AUTHORING_COLLATORS.iter().map(|n| n.to_string()).chain(full_node_names) {
