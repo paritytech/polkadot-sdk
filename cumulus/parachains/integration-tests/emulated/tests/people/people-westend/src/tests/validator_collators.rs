@@ -295,9 +295,13 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		));
 	});
 
-	// WHEN People reaches the report block
+	// WHEN People reaches the report block, whose `on_poll` the emulator does not run
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
+		<PeopleValidatorCollators as frame_support::traits::Hooks<_>>::on_poll(
+			<PeopleWestend as Chain>::System::block_number(),
+			&mut frame_support::weights::WeightMeter::new(),
+		);
 		assert_expected_events!(
 			PeopleWestend,
 			vec![

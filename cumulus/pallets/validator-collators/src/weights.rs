@@ -36,7 +36,7 @@ pub trait WeightInfo {
 	fn set_report_margin() -> Weight;
 	fn note_author() -> Weight;
 	fn report_blocks(n: u32) -> Weight;
-	fn on_initialize() -> Weight;
+	fn on_poll() -> Weight;
 }
 
 /// Default weights for `pallet_validator_collators`, see the module doc for their source.
@@ -154,7 +154,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:0)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn on_initialize() -> Weight {
+	fn on_poll() -> Weight {
 		Weight::from_parts(15_000_000, 3_506)
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
@@ -275,7 +275,7 @@ impl WeightInfo for () {
 	/// Storage: `ValidatorCollators::CounterForAuthoredBlocks` (r:1 w:0)
 	/// Proof: `ValidatorCollators::CounterForAuthoredBlocks` (`max_values`: Some(1),
 	/// `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn on_initialize() -> Weight {
+	fn on_poll() -> Weight {
 		Weight::from_parts(15_000_000, 3_506)
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))

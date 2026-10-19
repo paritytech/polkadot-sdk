@@ -3961,7 +3961,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 		// WHEN the report block comes
 		let period = pallet_validator_collators::ReportPeriod::<Runtime>::get();
 		frame_system::Pallet::<Runtime>::reset_events();
-		ValidatorCollators::on_initialize(period);
+		ValidatorCollators::on_poll(period, &mut frame_support::weights::WeightMeter::new());
 		// THEN Alice's blocks reach staking as collation points of this chain, with no message
 		// sent
 		assert_eq!(

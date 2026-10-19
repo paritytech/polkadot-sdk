@@ -170,6 +170,7 @@ pub mod pallet {
 		pallet_prelude::*,
 		storage::with_storage_layer,
 		traits::{EnsureOrigin, UnixTime, ValidatorRegistration},
+		weights::WeightMeter,
 		BoundedBTreeSet,
 	};
 	use frame_system::pallet_prelude::*;
@@ -385,6 +386,12 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Charges the read of [`PendingRotation`] by [`ShouldEndSession::should_end_session`],
+		/// which pallet-session makes in every block without charging it.
+		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
+			T::DbWeight::get().reads(1)
+		}
+
 		/// Reports [`AuthoredBlocks`] at every multiple of [`ReportPeriod`] (`periodic_send` in the
 		/// code), and once per stored set when [`ReportMargin`] or less remains until
 		/// [`SetReceivedAt`] plus [`ExpectedEraDuration`] (`early_send` in the code).
@@ -393,10 +400,17 @@ pub mod pallet {
 		/// retried. If the reporter rejects it, the counts go out with the next [`ReportPeriod`]
 		/// report. Both rules in the same block make one report.
 		///
-		/// The weight includes the read of [`PendingRotation`] by
-		/// [`ShouldEndSession::should_end_session`], which pallet-session makes in every block
-		/// without charging it.
-		fn on_initialize(now: BlockNumberFor<T>) -> Weight {
+		/// It runs after the inherents, so the timestamp is the one of this block. A report that
+		/// does not fit `meter` is not made: an early report stays due and is made in the next
+		/// block it fits, and the counts of a periodic report go out with the next report. During
+		/// a multi-block migration no report is made, and the counts are kept.
+		fn on_poll(now: BlockNumberFor<T>, meter: &mut WeightMeter) {
+			// the base-weight, as per the benchmarks, is everything minus the report.
+			let base_weight = T::WeightInfo::on_poll();
+			if !meter.can_consume(base_weight) {
+				return;
+			}
+
 			let early_send = SetReceivedAt::<T>::get().is_some_and(|received_at| {
 				let duration = ExpectedEraDuration::<T>::get();
 				let margin =
@@ -404,21 +418,37 @@ pub mod pallet {
 				let now_ms: u64 = T::UnixTime::now().as_millis().saturated_into();
 				now_ms >= received_at.saturating_add(duration.saturating_sub(margin))
 			});
-
-			// kill the SetReceivedAt storage item if the early send is triggered, ensuring it is
-			// only sent once per set.
-			if early_send {
-				SetReceivedAt::<T>::kill();
-			}
-
 			let periodic_send = {
 				let period = ReportPeriod::<T>::get();
 				!period.is_zero() && (now % period).is_zero()
 			};
 
-			let report_weight =
-				if early_send || periodic_send { Self::report_blocks() } else { Weight::zero() };
-			T::WeightInfo::on_initialize().saturating_add(report_weight)
+			if !early_send && !periodic_send {
+				// nothing should be sent, we're done.
+				meter.consume(base_weight);
+				return;
+			}
+
+			// either periodic send, or early send, which we don't care to distinguish anymore, and
+			// just send the report.
+			let authors = AuthoredBlocks::<T>::count();
+			let report_weight = T::WeightInfo::report_blocks(authors);
+			if !meter.can_consume(base_weight.saturating_add(report_weight)) {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"the report of authored blocks does not fit the block, postponing it"
+				);
+				meter.consume(base_weight);
+				return;
+			}
+
+			// Remove the arrival only once the report is made, so the early report is made once
+			// per set.
+			if early_send {
+				SetReceivedAt::<T>::kill();
+			}
+			Self::report_blocks(authors);
+			meter.consume(base_weight.saturating_add(report_weight));
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -589,11 +619,12 @@ pub mod pallet {
 		/// Sends at most [`Config::MaxEntriesPerReport`] entries per call to the reporter. Counts
 		/// are removed only if the reporter accepts every chunk. Authors outside the stored set
 		/// are dropped.
-		pub(crate) fn report_blocks() -> Weight {
-			let authors = AuthoredBlocks::<T>::count();
-			let weight = T::WeightInfo::report_blocks(authors);
+		///
+		/// `authors` is the number of entries in [`AuthoredBlocks`], which the caller reads to
+		/// weigh the report with [`WeightInfo::report_blocks`] before making it.
+		pub(crate) fn report_blocks(authors: u32) {
 			if authors == 0 {
-				return weight;
+				return;
 			}
 			let validators = ValidatorSet::<T>::get().map(|set| set.validators);
 			let chunk_size = T::MaxEntriesPerReport::get().max(1) as usize;
@@ -618,7 +649,6 @@ pub mod pallet {
 				},
 			};
 			Self::deposit_event(event);
-			weight
 		}
 
 		/// Check the pallet invariants.
