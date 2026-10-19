@@ -20,8 +20,9 @@ use codec::{Decode, Encode};
 use primitive_types::H256;
 
 use crate::{
-	config::AuthConfig,
+	config::{AuthConfig, ConfigError},
 	merkle::{padded_leaf_count, CollatorHasher},
+	AuthorizationError,
 };
 
 /// Raw public key bytes for either supported signature scheme.
@@ -80,18 +81,24 @@ impl AuthToken {
 	/// the supplied membership proof without independently validating all padding leaves.
 	///
 	/// Returns [`TokenError::BadCollatorSetProof`] for a wrong proof length or root,
-	/// an out-of-range index, or a set size outside `1..=2^31`. The upper limit ensures that
+	/// or an out-of-range index, wrapped in [`AuthorizationError::BadToken`].
+	/// Returns [`AuthorizationError::BadConfig`] with [`ConfigError::InvalidCollatorSetSize`]
+	/// for a set size above `2^31`. The upper limit ensures that
 	/// the power-of-two padded leaf count fits in the SDK's `u32` leaf-count parameter.
-	pub fn check_proof(&self, config: &AuthConfig, collator_index: u32) -> Result<(), TokenError> {
+	pub fn check_proof(
+		&self,
+		config: &AuthConfig,
+		collator_index: u32,
+	) -> Result<(), AuthorizationError> {
 		let padded_size = padded_leaf_count(config.collator_set_size.get() as usize)
-			.map_err(|_| TokenError::BadCollatorSetProof)?;
+			.map_err(|_| AuthorizationError::BadConfig(ConfigError::InvalidCollatorSetSize))?;
 
 		if self.proof.len() != padded_size.ilog2() as usize {
-			return Err(TokenError::BadCollatorSetProof);
+			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
 		}
 
 		if collator_index >= config.collator_set_size.get() {
-			return Err(TokenError::BadCollatorSetProof);
+			return Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof));
 		}
 
 		binary_merkle_tree::verify_proof::<CollatorHasher, _, _>(
@@ -102,7 +109,7 @@ impl AuthToken {
 			binary_merkle_tree::Leaf::Value(&self.key),
 		)
 		.then_some(())
-		.ok_or(TokenError::BadCollatorSetProof)
+		.ok_or(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
 	}
 
 	/// Verify the signature over the work-package signing hash (see
@@ -176,7 +183,7 @@ mod tests {
 		assert!(token.check_proof(&config, index).is_ok());
 		assert!(matches!(
 			token.check_proof(&config, index - 1),
-			Err(TokenError::BadCollatorSetProof)
+			Err(AuthorizationError::BadToken(TokenError::BadCollatorSetProof))
 		));
 	}
 
@@ -188,6 +195,9 @@ mod tests {
 			core::num::NonZero::new((1u32 << 31) + 1).expect("nonzero test size");
 		token.proof = alloc::vec![H256::zero(); 32];
 
-		assert!(matches!(token.check_proof(&config, 0), Err(TokenError::BadCollatorSetProof)));
+		assert_eq!(
+			token.check_proof(&config, 0),
+			Err(AuthorizationError::BadConfig(ConfigError::InvalidCollatorSetSize))
+		);
 	}
 }
