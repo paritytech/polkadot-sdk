@@ -948,7 +948,7 @@ mod tests {
 	mod estimation_trie {
 		use super::Tracker;
 		use sp_core::{Blake2Hasher, H256};
-		use sp_trie::{LayoutV1, MemoryDB, TrieDBMutBuilder, TrieMut};
+		use sp_trie::{AppendOnlyTrieDBMutBuilder, LayoutV1, MemoryDB, TrieDBMutBuilder, TrieMut};
 
 		type Layout = LayoutV1<Blake2Hasher>;
 
@@ -989,10 +989,9 @@ mod tests {
 
 			fn contains(&mut self, key: &[u8]) -> bool {
 				let estimation_trie = self.tracker.estimation_trie_mut();
-				let mut root = self.root;
-				let trie = TrieDBMutBuilder::<Layout>::from_detached(
+				let trie = AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(
 					&mut self.db,
-					&mut root,
+					self.root,
 					core::mem::take(estimation_trie),
 				)
 				.build();

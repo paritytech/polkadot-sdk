@@ -66,9 +66,9 @@ pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
 	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
-	CError, DBValue, DetachedTrieDBMut, Query, Recorder, Trie, TrieCache, TrieConfiguration,
-	TrieDBIterator, TrieDBKeyIterator, TrieDBMutSnapshot, TrieDBNodeDoubleEndedIterator,
-	TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
+	AppendOnlyTrieDBMutBuilder, CError, DBValue, DetachedTrieDBMut, Query, Recorder, Trie,
+	TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator, TrieDBMutSnapshot,
+	TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -325,7 +325,7 @@ where
 /// never altered.
 pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 	db: &mut DB,
-	mut root: TrieHash<L>,
+	root: TrieHash<L>,
 	delta: I,
 	detached: &mut DetachedTrieDBMut<L>,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
@@ -336,10 +336,11 @@ where
 	A: Borrow<[u8]>,
 	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
 {
-	let mut trie = TrieDBMutBuilder::<L>::from_detached(db, &mut root, core::mem::take(detached))
-		.with_optional_cache(cache)
-		.with_optional_recorder(recorder)
-		.build();
+	let mut trie =
+		AppendOnlyTrieDBMutBuilder::<L>::from_detached(db, root, core::mem::take(detached))
+			.with_optional_cache(cache)
+			.with_optional_recorder(recorder)
+			.build();
 
 	let result = delta.into_iter().try_for_each(|key| trie.remove(key.borrow()).map(|_| ()));
 	*detached = trie.detach();
