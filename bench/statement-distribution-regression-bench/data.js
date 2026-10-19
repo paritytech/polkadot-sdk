@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792400049346,
+  "lastUpdate": 1792402757240,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "48632512+s0me0ne-unkn0wn@users.noreply.github.com",
-            "name": "s0me0ne-unkn0wn",
-            "username": "s0me0ne-unkn0wn"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5e1f597fd9ff388bf3315d6d805de4fdf88ae4d4",
-          "message": "Update PolkaVM to latest version (#11650)",
-          "timestamp": "2026-04-07T08:53:13Z",
-          "tree_id": "aea557c47a059041d5337471d3f6872e4202dd4b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e1f597fd9ff388bf3315d6d805de4fdf88ae4d4"
-        },
-        "date": 1775557997738,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08799999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038717473186,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08751169560399985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08700629902999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "09476c778a37494e60c650372b17126f5a6b85ed",
+          "message": "Remove `Printable` trait (#13491)\n\nThis removes the `Printable` trait. There was almost no usage left and\nwhat was left was replaced by `log`.",
+          "timestamp": "2026-10-19T07:41:38Z",
+          "tree_id": "fb25bf1be9ee322080b5789a78cd213c8718f99b",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/09476c778a37494e60c650372b17126f5a6b85ed"
+        },
+        "date": 1792402724937,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11200000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08677135110399993,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03855269582200001,
             "unit": "seconds"
           }
         ]
