@@ -23,7 +23,7 @@ use primitive_types::H256;
 use crate::{
 	config::AuthConfig,
 	merkle::{padded_leaf_count, CollatorHasher},
-	signing::signable_work_package_hash,
+	signing::SigningPayload,
 	AuthTrace,
 };
 
@@ -45,7 +45,8 @@ pub struct AuthToken {
 	/// Key of the collator that authored the work package.
 	pub key: CollatorKey,
 
-	/// Signature by the `key` over [`signable_work_package_hash`].
+	/// Signature by the `key` over the work-package signing hash (see
+	/// [`crate::WorkPackageBody::signing_hash`]).
 	pub signature: CollatorSignature,
 }
 
@@ -107,7 +108,8 @@ impl AuthToken {
 		.ok_or(TokenError::BadCollatorSetProof)
 	}
 
-	/// Verify the signature over [`signable_work_package_hash`] using `S`.
+	/// Verify the signature over the work-package signing hash (see
+	/// [`crate::WorkPackageBody::signing_hash`]) using `S`.
 	pub fn check_signature<S: SignatureVerifier>(
 		&self,
 		work_package_hash: H256,
@@ -126,7 +128,7 @@ impl AuthToken {
 		wp: &WorkPackage,
 		collator_index: u32,
 	) -> Result<AuthTrace, TokenError> {
-		let wp_hash = signable_work_package_hash(wp);
+		let wp_hash = SigningPayload::from(wp).hash();
 
 		self.check_proof(config, collator_index)?;
 		self.check_signature::<S>(wp_hash)?;
@@ -143,13 +145,13 @@ mod tests {
 	#[test]
 	fn check_signature_arguments_works() {
 		let (_, token, package) = fixture();
-		assert!(token.check_signature::<Verifier>(signable_work_package_hash(&package)).is_ok());
+		assert!(token.check_signature::<Verifier>(SigningPayload::from(&package).hash()).is_ok());
 	}
 
 	#[test]
 	fn check_signature_changed_arguments_errors() {
 		let (_, token, package) = fixture();
-		let hash = signable_work_package_hash(&package);
+		let hash = SigningPayload::from(&package).hash();
 
 		for field in 0..4 {
 			let mut forged = token.clone();

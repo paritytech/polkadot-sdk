@@ -19,9 +19,8 @@
 
 use codec::DecodeAll;
 use cumulus_aura_authorizer::{
-	build_collator_proofs, hash_signing_payload, signable_work_package_hash, AuthConfig, AuthToken,
-	AuthTrace, AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody,
-	WORK_PACKAGE_SIGN_CTX,
+	build_collator_proofs, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
+	AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
 };
 use jam_types::Encode as JamEncode;
 
@@ -86,7 +85,6 @@ fn published_package_works() {
 	token.signature[..32].copy_from_slice(hash.as_bytes());
 	let expected_fields = payload;
 	let mut package = package.with_authorization(&token);
-	assert_eq!(signable_work_package_hash(&package), hash);
 	assert_eq!(
 		JamEncode::encode(&(
 			&package.auth_code_host,

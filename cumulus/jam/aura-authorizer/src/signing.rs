@@ -28,16 +28,11 @@ use crate::WorkPackageBody;
 /// Domain separator for the token-free work-package hash signed by AURA collators.
 pub const WORK_PACKAGE_SIGN_CTX: &[u8] = b"jam:parachain-service:aura:work-package:v1";
 
-/// Hash of a work-package that can be signed by AURA collators.
+/// Borrowed view of the work-package fields covered by the collator signature.
 ///
 /// JAM-encodes the code host, authorizer code hash, refinement context, authorizer config,
 /// and work items after [`WORK_PACKAGE_SIGN_CTX`], then hashes them with Blake2b-256.
 /// The authorization token is excluded because it contains the signature.
-pub fn signable_work_package_hash(package: &WorkPackage) -> H256 {
-	SigningPayload::from(package).hash()
-}
-
-/// Borrowed view of the work-package fields covered by the collator signature.
 pub(crate) struct SigningPayload<'a> {
 	auth_code_host: ServiceId,
 	authorizer: &'a Authorizer,
@@ -77,7 +72,7 @@ impl SigningPayload<'_> {
 /// authorizer config, and work items, with the AURA domain separator.
 ///
 /// Adapters for other JAM versions must preserve their version's complete context encoding
-/// and exclude the authorization token, just as [`signable_work_package_hash`] does.
+/// and exclude the authorization token.
 pub fn hash_signing_payload(payload: &[u8]) -> H256 {
 	let mut signable = Vec::with_capacity(WORK_PACKAGE_SIGN_CTX.len() + payload.len());
 	signable.extend_from_slice(WORK_PACKAGE_SIGN_CTX);
@@ -115,9 +110,9 @@ mod tests {
 	}
 
 	#[test]
-	fn signable_work_package_hash_signed_fields_works() {
+	fn signing_payload_signed_fields_works() {
 		let (_, _, package) = crate::tests::fixture();
-		let original = signable_work_package_hash(&package);
+		let original = SigningPayload::from(&package).hash();
 
 		let mutations: [(&str, fn(&mut WorkPackage)); 10] = [
 			("code host", |p| p.auth_code_host += 1),
@@ -153,22 +148,22 @@ mod tests {
 			let mut changed = package.clone();
 			mutate(&mut changed);
 
-			assert_ne!(signable_work_package_hash(&changed), original, "unsigned field: {field}");
+			assert_ne!(SigningPayload::from(&changed).hash(), original, "unsigned field: {field}");
 		}
 	}
 
 	#[test]
-	fn signable_work_package_hash_excludes_authorization_works() {
+	fn signing_payload_excludes_authorization_works() {
 		let (_, _, mut package) = crate::tests::fixture();
-		let original = signable_work_package_hash(&package);
+		let original = SigningPayload::from(&package).hash();
 
 		package.authorization = vec![1, 2, 3].try_into().expect("three bytes fit");
 
-		assert_eq!(signable_work_package_hash(&package), original);
+		assert_eq!(SigningPayload::from(&package).hash(), original);
 	}
 
 	#[test]
-	fn signable_work_package_hash_item_fields_works() {
+	fn signing_payload_item_fields_works() {
 		let (_, _, mut package) = crate::tests::fixture();
 
 		let item = jam_types::WorkItem {
@@ -183,7 +178,7 @@ mod tests {
 		};
 
 		package.items = vec![item.clone()].try_into().expect("one work item fits");
-		let original = signable_work_package_hash(&package);
+		let original = SigningPayload::from(&package).hash();
 
 		let mutations: [(&str, fn(&mut jam_types::WorkItem)); 8] = [
 			("service", |i| i.service += 1),
@@ -213,7 +208,7 @@ mod tests {
 			package.items = vec![changed].try_into().expect("one work item fits");
 
 			assert_ne!(
-				signable_work_package_hash(&package),
+				SigningPayload::from(&package).hash(),
 				original,
 				"unsigned item field: {field}"
 			);
@@ -223,10 +218,10 @@ mod tests {
 		second.service += 1;
 
 		package.items = vec![item.clone(), second.clone()].try_into().expect("two work items fit");
-		let ordered = signable_work_package_hash(&package);
+		let ordered = SigningPayload::from(&package).hash();
 
 		package.items = vec![second, item].try_into().expect("two work items fit");
 
-		assert_ne!(signable_work_package_hash(&package), ordered);
+		assert_ne!(SigningPayload::from(&package).hash(), ordered);
 	}
 }
