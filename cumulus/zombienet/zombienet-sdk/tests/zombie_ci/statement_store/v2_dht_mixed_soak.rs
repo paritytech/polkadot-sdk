@@ -9,8 +9,10 @@
 //! The two kinds meet on sync links only, as a DHT-off node opens statement substreams to its sync
 //! peers alone. A DHT node serves a DHT-off peer silent past the filter grace as a node that wants
 //! everything: it pushes the peer every statement, sends it a match-all filter so the peer pushes
-//! everything back, and keeps it out of the DHT index. The soak expects every DHT node to know
-//! exactly the other DHT nodes as eligible, and the K closest DHT nodes to hold a topic's replicas
+//! everything back, and keeps it out of the DHT index. A DHT node without a link to the DHT-off
+//! node cannot tell it apart and keeps it in its index. So for each DHT-off node among a topic's K
+//! closest, one DHT node past them holds a replica only if it is linked to the DHT-off nodes ahead,
+//! and the soak does not check that node's store
 //!
 //! Every wave checks delivery in all four directions, entry kind to subscriber kind:
 //! - ring load on the wave topic, submitted round-robin through every node, with one subscriber of
@@ -21,8 +23,8 @@
 //!   none of the DHT-off nodes the entry reaches; DHT-off entry and subscriber in different groups
 //!   of linked DHT-off nodes. Links come from each DHT-off node's `system_peers`
 //!
-//! The DHT nodes stay selective: a statement entered through a DHT node sits on its K closest DHT
-//! nodes and on DHT subscribers, nowhere else. Restarts alternate between a DHT-off and a
+//! The DHT nodes stay selective: a statement entered through a DHT node sits on the DHT nodes among
+//! its K closest and on DHT subscribers, nowhere else. Restarts alternate between a DHT-off and a
 //! DHT full node: the node goes offline, a backlog on its subscribed topic enters through both
 //! kinds, and after the restart the node must catch up on it. A fresh DHT-off node and then a fresh
 //! DHT node join once: each must catch up on a backlog entered before it joined, and the DHT joiner
@@ -74,6 +76,7 @@ const DEFAULT_DHT_OFF_NODES: usize = 4;
 const DEFAULT_NODES: usize = 16;
 /// Open statement substreams; the v2 DHT metrics are absent on a DHT-off node, this one is not
 const PEERS_CONNECTED_METRIC: &str = "substrate_sync_statement_peers_connected{kind=\"full\"}";
+const DESIRED_UNCONNECTED_METRIC: &str = "substrate_sync_statement_v2dht_desired_unconnected_peers";
 const BYTES_SENT_METRIC: &str = "substrate_sync_statement_bytes_sent_total";
 const BYTES_RECEIVED_METRIC: &str = "substrate_sync_statement_bytes_received_total";
 /// A DHT node waits 10 s for a filter from a new peer, then sends the peer everything it stores. A
@@ -316,9 +319,10 @@ fn describe_links(
 	format!("{} is linked to {names:?}", nodes[idx].name())
 }
 
-/// Waits for the topology the replica oracle needs: every DHT node knows exactly the other DHT
-/// nodes as eligible. A DHT node keeping DHT-off nodes in its DHT index, a DHT node under the
-/// K-peer floor or a DHT-off node without a statement peer is a finding, not a stop
+/// Waits for the topology the replica oracle needs: every DHT node knows all the other DHT nodes as
+/// eligible, and the DHT-off ones it has no link to may count as well. A DHT node whose connected
+/// and wanted statement peers stay under the K-peer floor or a DHT-off node without a statement
+/// peer is a finding, not a stop
 async fn wait_for_mixed_topology(
 	nodes: &[NodeHandle],
 	dht_off: &[bool],
@@ -340,21 +344,17 @@ async fn wait_for_mixed_topology(
 			}
 			let eligible = handle.node.reports(ELIGIBLE_PEERS_METRIC).await?;
 			let connected = handle.node.reports(CONNECTED_PEERS_METRIC).await?;
+			let unconnected = handle.node.reports(DESIRED_UNCONNECTED_METRIC).await?;
 			if eligible < dht_peers {
 				unaware.push(format!(
 					"{} knows {eligible} of the {dht_peers} other DHT nodes as eligible",
 					handle.name()
 				));
-			} else if eligible > dht_peers {
-				short.push(format!(
-					"{} knows {eligible} nodes as eligible, over the {dht_peers} other DHT nodes: \
-					 DHT-off nodes stay in its DHT index",
-					handle.name()
-				));
 			}
-			if connected < connected_floor {
+			if connected + unconnected < connected_floor {
 				short.push(format!(
-					"{} has {connected} statement peers, under the floor of {connected_floor}",
+					"{} has {connected} statement peers and wants {unconnected} more, under the \
+					 floor of {connected_floor}",
 					handle.name()
 				));
 			}
@@ -521,12 +521,12 @@ fn pick_probes(
 }
 
 /// Polls the stores of the DHT nodes until `expectations` match or the placement timeout passes,
-/// and returns the remaining mismatch
+/// and returns the remaining mismatch. An unchecked node of an expectation passes either way
 async fn dht_placement(
 	wave: u64,
 	nodes: &[NodeHandle],
 	dht_off: &[bool],
-	expectations: &[ExpectedPlacement],
+	expectations: &[(ExpectedPlacement, Vec<usize>)],
 ) -> Result<Option<String>, anyhow::Error> {
 	let names: Vec<&str> = nodes.iter().map(NodeHandle::name).collect();
 	let phase = format!("wave {wave}");
@@ -540,7 +540,19 @@ async fn dht_placement(
 			),
 		)
 		.await?;
-		let problem = placement_mismatch(&phase, expectations, &snapshots, &names);
+		let resolved: Vec<ExpectedPlacement> = expectations
+			.iter()
+			.map(|(placement, unchecked)| {
+				let mut placement = placement.clone();
+				placement.holder_node_indices.extend(unchecked.iter().filter(|&&idx| {
+					snapshots.iter().any(|(node, store)| {
+						*node == idx && store.contains(&placement.encoded_statement)
+					})
+				}));
+				placement
+			})
+			.collect();
+		let problem = placement_mismatch(&phase, &resolved, &snapshots, &names);
 		if problem.is_none() || Instant::now() >= deadline {
 			return Ok(problem);
 		}
@@ -548,30 +560,35 @@ async fn dht_placement(
 	}
 }
 
-/// Where `statement` must sit among the DHT nodes: on the K closest DHT nodes of its topic's
-/// `order`, and on `subscriber` when that is a DHT node that got it. DHT-off stores are not
-/// checked, they keep whatever reaches them
+/// Where `statement` must sit among the DHT nodes: on the DHT nodes among the K closest of its
+/// topic's `order`, and on `subscriber` when that is a DHT node that got it. Also returns the DHT
+/// nodes left unchecked: one past the K closest for each DHT-off node among them, as it holds a
+/// replica only if it is linked to the DHT-off nodes ahead. DHT-off stores are not checked, they
+/// keep whatever reaches them
 fn expected_dht_placement(
 	statement: &[u8],
 	order: &[usize],
 	dht_off: &[bool],
 	subscriber: Option<usize>,
-) -> ExpectedPlacement {
-	// The K closest DHT nodes of the topic's `order` + `subscriber`
-	let mut holders: Vec<usize> = order
+) -> (ExpectedPlacement, Vec<usize>) {
+	let (closest, rest) = order.split_at(REPLICATION_FACTOR);
+	let mut holders: Vec<usize> = closest.iter().copied().filter(|&idx| !dht_off[idx]).collect();
+	let mut unchecked: Vec<usize> = rest
 		.iter()
 		.copied()
 		.filter(|&idx| !dht_off[idx])
-		.take(REPLICATION_FACTOR)
+		.take(REPLICATION_FACTOR - holders.len())
 		.collect();
 	if let Some(subscriber) = subscriber.filter(|&idx| !dht_off[idx] && !holders.contains(&idx)) {
+		unchecked.retain(|&idx| idx != subscriber);
 		holders.push(subscriber);
 	}
-	ExpectedPlacement {
+	let placement = ExpectedPlacement {
 		hash: hex::encode(blake2_256(statement)),
 		encoded_statement: statement.to_vec(),
 		holder_node_indices: holders,
-	}
+	};
+	(placement, unchecked)
 }
 
 async fn run_wave(
@@ -647,8 +664,6 @@ async fn run_wave(
 	);
 	let ((probes_submitted_at, ring), ring_arrivals, probe_arrivals) =
 		tokio::try_join!(submit, read_ring_subscribers, read_probe_subscribers)?;
-	drop(ring_subscriptions);
-	drop(probe_subscriptions);
 
 	// 4. Check every ring statement at both ring subscribers and record it under its direction:
 	//    `ring dht-off→dht` counts statements sent through a DHT-off node to the DHT subscriber
@@ -733,6 +748,8 @@ async fn run_wave(
 	if let Some(problem) = dht_placement(wave, nodes, dht_off, &expectations).await? {
 		report.finding(format!("placement: {problem}, {PLACEMENT_TIMEOUT_SECS}s after the wave"));
 	}
+	drop(ring_subscriptions);
+	drop(probe_subscriptions);
 	Ok(())
 }
 
@@ -868,7 +885,7 @@ async fn run_restart(
 /// Adds a new node a DHT-off one on the first join and a DHT one on the second and checks that
 /// it gets the statements sent before it joined:
 /// - those on the topic it subscribes to;
-/// - for a DHT node, also those on the topics it now stores as one of their K closest DHT nodes
+/// - for a DHT node, also those on the topics it now stores as one of their K closest nodes
 async fn run_join(
 	join: u64,
 	network: &mut Network<LocalFileSystem>,
@@ -937,11 +954,7 @@ async fn run_join(
 	let entered: Vec<&Vec<u8>> = pre_join
 		.iter()
 		.filter(|(topic, _)| {
-			ranked_by_distance(&peer_keys, *topic)
-				.into_iter()
-				.filter(|&idx| !dht_off[idx])
-				.take(REPLICATION_FACTOR)
-				.any(|idx| idx == joiner)
+			ranked_by_distance(&peer_keys, *topic)[..REPLICATION_FACTOR].contains(&joiner)
 		})
 		.map(|(_, statement)| statement)
 		.collect();
