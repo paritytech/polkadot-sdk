@@ -4,8 +4,8 @@
 //! End-to-end tests for the v2 DHT-affinity statement routing.
 //!
 //! v2 routes a statement to the `K` nodes with affinity to its topic instead of flooding every
-//! peer. It is enabled per node by the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable (off
-//! by default); the replication factor `K` and gossip target are set via CLI flags.
+//! peer. The `--statement-v2-dht` flag turns it on per node, and further flags set the replication
+//! factor `K` and the gossip target.
 
 use super::common::{
 	assert_late_joiner_receives_backlog, collator_args_v2, expect_statement_delivered,
@@ -397,7 +397,6 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 	.await?;
 
 	let options = AddCollatorOptions {
-		env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
 		args: collator_args_v2(
 			names.len() as u32,
 			COLLATOR_TRACE_LOG_FILTER,

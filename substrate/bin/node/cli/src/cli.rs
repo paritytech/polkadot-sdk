@@ -43,6 +43,10 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Route statements through the DHT instead of gossiping them to every peer.
+	#[arg(long)]
+	pub statement_v2_dht: bool,
+
 	/// Number of concurrent workers for statement validation from the network.
 	///
 	/// Only relevant when `--enable-statement-store` is used.

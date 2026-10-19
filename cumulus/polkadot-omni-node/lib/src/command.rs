@@ -143,6 +143,7 @@ where
 	let mut cli =
 		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
+	sc_network_statement::set_v2dht_enabled(cli.statement_v2_dht);
 
 	match &cli.subcommand {
 		Some(Subcommand::CheckBlock(cmd)) => {
