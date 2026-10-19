@@ -175,52 +175,61 @@ fn evm_call_stipends_work_for_calls() {
 
 #[test_case(FixtureType::Solc;   "solc")]
 #[test_case(FixtureType::Resolc; "resolc")]
-fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureType) {
-	// On PVM the stipend alone cannot load the callee's code, so the receivers are always EVM
-	// contracts.
-	let (empty_receiver_code, _) =
+fn evm_call_stipend_is_added_to_value_calls(sender_type: FixtureType) {
+	// On PVM the stipend alone cannot load the callee's code, so the receiver is an EVM contract.
+	let (receiver_code, _) =
 		compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
-	let (writing_receiver_code, _) =
-		compile_module_with_type("WritingReceiver", FixtureType::Solc).unwrap();
-	let (warm_sender_code, _) = compile_module_with_type("WarmWriteSender", sender_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
-		let Contract { addr: empty_receiver, .. } =
-			builder::bare_instantiate(Code::Upload(empty_receiver_code))
-				.build_and_unwrap_contract();
-		let Contract { addr: writing_receiver, .. } =
-			builder::bare_instantiate(Code::Upload(writing_receiver_code))
-				.build_and_unwrap_contract();
-		let stipend_sender = deploy_stipend_sender(sender_type, empty_receiver);
-		let Contract { addr: warm_sender, .. } =
-			builder::bare_instantiate(Code::Upload(warm_sender_code)).build_and_unwrap_contract();
-		let writing_receiver = writing_receiver.0.into();
-
-		let is_denied = |sender: H160, call_data: Vec<u8>, value: u128| {
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let sender = deploy_stipend_sender(sender_type, receiver);
+		let value_call_denied = |gas_limit: u64| {
 			let result = builder::bare_call(sender)
-				.data(call_data)
-				.evm_value(value.into())
+				.data(StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode())
+				.evm_value(1_000_000.into())
 				.build_and_unwrap_result();
 			bool::abi_decode(&result.data).unwrap()
 		};
-		let value_call_denied = |gas_limit: u64| {
-			let call = StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit };
-			is_denied(stipend_sender, call.abi_encode(), 1_000_000)
+		assert_eq!(
+			[value_call_denied(0), value_call_denied(1)],
+			[false; 2],
+			"a value call gets the stipend at any gas limit"
+		);
+	});
+}
+
+#[test_case(FixtureType::Solc;   "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureType) {
+	// On PVM the stipend alone cannot load the callee's code, so the receiver is an EVM contract.
+	let (receiver_code, _) =
+		compile_module_with_type("WritingReceiver", FixtureType::Solc).unwrap();
+	let (sender_code, _) = compile_module_with_type("WarmWriteSender", sender_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 10_000_000_000_000);
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr: sender, .. } =
+			builder::bare_instantiate(Code::Upload(sender_code)).build_and_unwrap_contract();
+		let receiver = receiver.0.into();
+
+		let is_denied = |call_data: Vec<u8>| {
+			let result = builder::bare_call(sender).data(call_data).build_and_unwrap_result();
+			bool::abi_decode(&result.data).unwrap()
 		};
 		let static_read_denied = |gas_limit: u64| {
-			let call = WarmWriteSender::isWarmStaticReadDeniedCall {
-				receiver: writing_receiver,
-				gasLimit: gas_limit,
-			};
-			is_denied(warm_sender, call.abi_encode(), 0)
+			let call =
+				WarmWriteSender::isWarmStaticReadDeniedCall { receiver, gasLimit: gas_limit };
+			is_denied(call.abi_encode())
 		};
 		let delegate_call_denied = |gas_limit: u64, data: Vec<u8>| {
 			let call = WarmWriteSender::isWarmDelegateCallDeniedCall {
-				receiver: writing_receiver,
+				receiver,
 				gasLimit: gas_limit,
 				data: data.into(),
 			};
-			is_denied(warm_sender, call.abi_encode(), 0)
+			is_denied(call.abi_encode())
 		};
 		let delegate_read_denied = |gas_limit: u64| {
 			delegate_call_denied(gas_limit, BumpableCounter::counterCall {}.abi_encode())
@@ -229,39 +238,61 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 			delegate_call_denied(gas_limit, BumpableCounter::bumpCall {}.abi_encode())
 		};
 
-		assert!(!value_call_denied(1), "the stipend should be enough for an empty receive");
-		assert!(
-			!static_read_denied(2300),
-			"a static call with a gas limit of 2300 gets the stipend"
-		);
-		assert_eq!(
-			[static_read_denied(2299), static_read_denied(2301)],
-			[true; 2],
-			"a static call with any other gas limit gets no stipend"
-		);
-
-		if sender_type == FixtureType::Solc {
-			assert!(
-				!delegate_read_denied(2300),
-				"an EVM delegate call with a gas limit of 2300 gets the stipend"
-			);
-			assert!(
-				!delegate_write_denied(2300),
-				"an EVM delegate call with a gas limit of 2300 is not stipend-limited"
-			);
-		} else {
-			assert!(delegate_read_denied(2300), "a PVM delegate call gets no stipend");
+		const ENOUGH_GAS: u64 = 10_000_000_000;
+		struct TestCase<'a> {
+			denied: &'a dyn Fn(u64) -> bool,
+			gas_scale: u32,
+			gas_and_expected_result: &'a [(u64, bool)],
+			assert_message: &'static str,
 		}
-		assert_eq!(
-			[delegate_read_denied(2299), delegate_read_denied(2301)],
-			[true; 2],
-			"a delegate call with any other gas limit gets no stipend"
-		);
-		assert_eq!(
-			[static_read_denied(10_000_000_000), delegate_read_denied(10_000_000_000)],
-			[false; 2],
-			"delegate and static work with enough gas"
-		);
+		let default_gas_scale = GasScale::get();
+		let test_cases = [
+			// At the default gas scale, 2299 and 2301 gas is insufficient for a storage read.
+			TestCase {
+				denied: &static_read_denied,
+				gas_scale: default_gas_scale,
+				gas_and_expected_result: &[
+					(2300, false),
+					(0, true),
+					(2299, true),
+					(2301, true),
+					(ENOUGH_GAS, false),
+				],
+				assert_message: "a static call gets the stipend only with a gas limit of 2300",
+			},
+			TestCase {
+				denied: &delegate_read_denied,
+				gas_scale: default_gas_scale,
+				gas_and_expected_result: &[
+					(2300, false),
+					(0, true),
+					(2299, true),
+					(2301, true),
+					(ENOUGH_GAS, false),
+				],
+				assert_message: "a delegate call gets the stipend only with a gas limit of 2300",
+			},
+			TestCase {
+				denied: &delegate_write_denied,
+				gas_scale: 20_000_000, // Raised so that only the stipend limit can deny the write.
+				gas_and_expected_result: &[
+					(2300, true),
+					(2299, false),
+					(2301, false),
+					(ENOUGH_GAS, false),
+				],
+				assert_message: "a delegate call is stipend-limited only with a gas limit of 2300",
+			},
+		];
+		for TestCase { denied, gas_scale, gas_and_expected_result, assert_message } in test_cases {
+			let outcomes: Vec<_> = with_gas_scale(gas_scale, || {
+				gas_and_expected_result
+					.iter()
+					.map(|&(gas_limit, _)| (gas_limit, denied(gas_limit)))
+					.collect()
+			});
+			assert_eq!(outcomes, gas_and_expected_result, "{assert_message}");
+		}
 	});
 }
 

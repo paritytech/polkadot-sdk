@@ -144,7 +144,8 @@ pub struct CallProtections {
 	/// Whether the callee and every frame it creates cannot change state.
 	pub read_only: bool,
 	/// Whether the callee and every frame it creates cannot write persistent storage, move value,
-	/// or create or terminate contracts. Set for calls shaped like a `transfer` or `send`.
+	/// or create or terminate contracts. Set for calls shaped like a `transfer` or `send`, and for
+	/// delegate calls with a gas limit of exactly 2300.
 	pub stipend_limited: bool,
 }
 
@@ -298,6 +299,7 @@ pub trait Ext: PrecompileWithInfoExt + BuiltinPrecompileExt {
 		call_resources: &CallResources<Self::T>,
 		address: H160,
 		input_data: Vec<u8>,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError>;
 
 	/// Register the contract for destruction at the end of the call stack.
@@ -2247,6 +2249,7 @@ where
 		call_resources: &CallResources<T>,
 		address: H160,
 		input_data: Vec<u8>,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for unknown code hashes or creating the frame fails.
@@ -2271,7 +2274,7 @@ where
 			},
 			value,
 			call_resources,
-			CallProtections::none().inherit(self.top_frame()),
+			call_protections.inherit(self.top_frame()),
 			&input_data,
 		)? {
 			self.run(executable, input_data)

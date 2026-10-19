@@ -396,7 +396,12 @@ fn correct_transfer_on_delegate_call() {
 
 	let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
 		assert_eq!(ctx.ext.value_transferred(), evm_value);
-		ctx.ext.delegate_call(&Default::default(), CHARLIE_ADDR, Vec::new())?;
+		ctx.ext.delegate_call(
+			&Default::default(),
+			CHARLIE_ADDR,
+			Vec::new(),
+			CallProtections::none(),
+		)?;
 		Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 	});
 
@@ -429,7 +434,12 @@ fn delegate_call_missing_contract() {
 	});
 
 	let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-		ctx.ext.delegate_call(&Default::default(), CHARLIE_ADDR, Vec::new())?;
+		ctx.ext.delegate_call(
+			&Default::default(),
+			CHARLIE_ADDR,
+			Vec::new(),
+			CallProtections::none(),
+		)?;
 		Ok(ExecReturnValue { flags: ReturnFlags::empty(), data: Vec::new() })
 	});
 
@@ -2953,7 +2963,8 @@ fn last_frame_output_is_always_reset() {
 		assert_ok!(ctx.ext.delegate_call(
 			&Default::default(),
 			H160([0xff; 20]),
-			Default::default()
+			Default::default(),
+			CallProtections::none()
 		));
 		assert_eq!(ctx.ext.last_frame_output(), &Default::default());
 
@@ -3070,11 +3081,14 @@ fn correct_immutable_data_in_delegate_call() {
 
 		// Also in a delegate call, we should witness the callee immutable data
 		assert_eq!(
-			ctx.ext.delegate_call(&Default::default(), CHARLIE_ADDR, Vec::new()).map(|_| ctx
-				.ext
-				.last_frame_output()
-				.data
-				.clone()),
+			ctx.ext
+				.delegate_call(
+					&Default::default(),
+					CHARLIE_ADDR,
+					Vec::new(),
+					CallProtections::none()
+				)
+				.map(|_| ctx.ext.last_frame_output().data.clone()),
 			Ok(vec![2])
 		);
 
@@ -3282,7 +3296,12 @@ fn delegatecall_tracer_reports_correct_addresses() {
 	let target_ch = MockLoader::insert(Call, |_, _| exec_success());
 
 	let delegate_ch = MockLoader::insert(Call, move |ctx, _| {
-		ctx.ext.delegate_call(&Default::default(), CHARLIE_ADDR, Vec::new())?;
+		ctx.ext.delegate_call(
+			&Default::default(),
+			CHARLIE_ADDR,
+			Vec::new(),
+			CallProtections::none(),
+		)?;
 		exec_success()
 	});
 
@@ -3471,7 +3490,7 @@ fn cold_hot_delegate_call_marks_parent_slot_hot() {
 
 	let parent_code_hash = MockLoader::insert(Call, |ctx, _| {
 		ctx.ext
-			.delegate_call(&Default::default(), BOB_ADDR, vec![])
+			.delegate_call(&Default::default(), BOB_ADDR, vec![], CallProtections::none())
 			.expect("delegate-call to child must succeed");
 		assert!(
 			!is_cold_touch(ctx.ext, &Key::Fix(SLOT)),

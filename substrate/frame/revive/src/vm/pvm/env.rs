@@ -343,7 +343,7 @@ pub mod env {
 					gas.into(),
 					stipend_and_protections.gets_stipend(),
 				),
-				stipend_and_protections.is_transfer_or_send(),
+				stipend_and_protections.is_stipend_limited(),
 			)
 		};
 
@@ -383,7 +383,7 @@ pub mod env {
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::DelegateCall,
+			CallType::DelegateCall { stipend_limited: false },
 			address_ptr,
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			input_data_ptr,
@@ -406,16 +406,24 @@ pub mod env {
 	) -> Result<ReturnErrorCode, TrapReason> {
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
-		let resources = if gas == u64::MAX {
-			CallResources::NoLimits
+		let (resources, stipend_limited) = if gas == u64::MAX {
+			(CallResources::NoLimits, false)
 		} else {
-			CallResources::from_ethereum_gas(gas.into(), false)
+			let stipend_and_protections =
+				StipendAndProtections::new(U256::zero(), Some(gas), false);
+			(
+				CallResources::from_ethereum_gas(
+					gas.into(),
+					stipend_and_protections.gets_stipend(),
+				),
+				stipend_and_protections.is_stipend_limited(),
+			)
 		};
 
 		self.call(
 			memory,
 			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
-			CallType::DelegateCall,
+			CallType::DelegateCall { stipend_limited },
 			callee,
 			&resources,
 			input_data_ptr,

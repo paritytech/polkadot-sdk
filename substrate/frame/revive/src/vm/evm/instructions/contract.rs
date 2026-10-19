@@ -207,15 +207,14 @@ fn run_call<'a, E: Ext>(
 		StipendAndProtections::new(value, gas_limit.try_into().ok(), scheme.is_static_call());
 	let call_resources =
 		CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.gets_stipend());
+	let call_protections = stipend_and_protections.protections();
 	let call_result = match scheme {
-		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&call_resources,
-			&callee,
-			value,
-			input,
-			stipend_and_protections.protections(),
-		),
-		CallScheme::DelegateCall => interpreter.ext.delegate_call(&call_resources, callee, input),
+		CallScheme::Call | CallScheme::StaticCall => {
+			interpreter.ext.call(&call_resources, &callee, value, input, call_protections)
+		},
+		CallScheme::DelegateCall => {
+			interpreter.ext.delegate_call(&call_resources, callee, input, call_protections)
+		},
 		CallScheme::CallCode => {
 			unreachable!()
 		},

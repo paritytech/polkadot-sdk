@@ -288,6 +288,7 @@ impl<T: Config> Ext for MockExt<T> {
 		_call_resources: &CallResources<T>,
 		_address: H160,
 		_input_data: Vec<u8>,
+		_call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		panic!("MockExt::delegate_call")
 	}

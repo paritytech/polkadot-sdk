@@ -230,6 +230,9 @@ pub trait HostFn: private::Sealed {
 
 	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
 	///
+	/// With a gas of 2300, the delegate call gets the call stipend and its limits, as described in
+	/// [HostFn::call_evm].
+	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn delegate_call_evm(
 		flags: CallFlags,

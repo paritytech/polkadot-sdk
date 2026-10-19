@@ -277,7 +277,7 @@ enum CallType {
 	Call { value_ptr: u32, stipend_limited: bool },
 	/// Execute another contract code in the context (storage, account ID, value) of the caller
 	/// contract
-	DelegateCall,
+	DelegateCall { stipend_limited: bool },
 }
 
 /// This is only appropriate when writing out data of constant size that does not depend on user
@@ -652,9 +652,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.charge_gas(RuntimeCosts::PrecompileBase)?;
 			},
 			None => {
-				let warmth = self
-					.ext
-					.warm(CallItems::new(callee, matches!(call_type, CallType::DelegateCall)));
+				let warmth = self.ext.warm(CallItems::new(
+					callee,
+					matches!(call_type, CallType::DelegateCall { .. }),
+				));
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -721,11 +722,16 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					CallProtections { reentrancy, read_only, stipend_limited },
 				)
 			},
-			CallType::DelegateCall => {
+			CallType::DelegateCall { stipend_limited } => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(resources, callee, input_data)
+				self.ext.delegate_call(
+					resources,
+					callee,
+					input_data,
+					CallProtections { stipend_limited, ..CallProtections::none() },
+				)
 			},
 		};
 

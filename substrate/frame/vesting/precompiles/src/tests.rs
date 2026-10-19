@@ -27,7 +27,7 @@ use pallet_revive::{
 	AddressMapper, Code, ExecReturnValue, TransactionLimits,
 	evm::CallTracer,
 	precompiles::{Precompile, U256},
-	test_utils::builder::{BareCallBuilder, BareInstantiateBuilder},
+	test_utils::builder::{BareCallBuilder, BareInstantiateBuilder, Contract},
 	tracing::trace,
 };
 use pallet_revive_fixtures::{Caller, FixtureType, compile_module_with_type};
@@ -320,20 +320,22 @@ fn guard_test_cases() -> Vec<GuardTestCase> {
 	]
 }
 
-/// Deploys the `Caller` fixture compiled with `fixture_type` and returns its address.
-fn deploy_caller(fixture_type: FixtureType) -> H160 {
+/// Deploys the fixture `name` compiled with `fixture_type`, passing `constructor` as its
+/// constructor data.
+fn deploy(fixture_type: FixtureType, name: &str, constructor: Vec<u8>) -> Contract<Test> {
+	// ALICE pays the storage deposit.
 	CurrencyOf::<Test>::make_free_balance_be(&ALICE, 1_000_000_000_000_000);
-	let (code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type(name, fixture_type).unwrap();
 	BareInstantiateBuilder::<Test>::bare_instantiate(
 		RuntimeOrigin::signed(ALICE),
 		Code::Upload(code),
 	)
+	.constructor_data(constructor)
 	.transaction_limits(TransactionLimits::WeightAndDeposit {
 		weight_limit: Weight::MAX,
 		deposit_limit: u64::MAX,
 	})
 	.build_and_unwrap_contract()
-	.addr
 }
 
 /// Calls the precompile with `input` through `caller`, as a static call if `static_call` is set and
@@ -379,7 +381,7 @@ fn assert_guard(
 #[test_case(FixtureType::Resolc; "resolc")]
 fn read_only_guards(fixture_type: FixtureType) {
 	new_test_ext().execute_with(|| {
-		let caller = deploy_caller(fixture_type);
+		let caller = deploy(fixture_type, "Caller", Vec::new()).addr;
 		let expected_error = pallet_revive::Error::<Test>::StateChangeDenied;
 		for case in guard_test_cases() {
 			assert_guard(caller, &case, true, case.reject_read_only, &expected_error);
@@ -391,7 +393,7 @@ fn read_only_guards(fixture_type: FixtureType) {
 #[test_case(FixtureType::Resolc; "resolc")]
 fn delegate_call_guards(fixture_type: FixtureType) {
 	new_test_ext().execute_with(|| {
-		let caller = deploy_caller(fixture_type);
+		let caller = deploy(fixture_type, "Caller", Vec::new()).addr;
 		let expected_error = pallet_revive::Error::<Test>::PrecompileDelegateDenied;
 		for case in guard_test_cases() {
 			assert_guard(caller, &case, false, case.reject_delegate, &expected_error);
@@ -405,13 +407,9 @@ fn delegate_call_guards(fixture_type: FixtureType) {
 
 mod stipend_limited_frame {
 	use super::*;
-	use alloy_core::sol_types::{SolCall, SolConstructor};
-	use frame_support::weights::Weight;
-	use pallet_revive::{
-		Code, TransactionLimits,
-		test_utils::{builder::BareInstantiateBuilder, with_parameter},
-	};
-	use pallet_revive_fixtures::{CallingReceiver, FixtureType, StipendSender};
+	use alloy_core::sol_types::SolConstructor;
+	use pallet_revive::test_utils::with_parameter;
+	use pallet_revive_fixtures::{CallingReceiver, StipendSender};
 	use test_case::test_case;
 
 	const SCHEDULE_AMOUNT: u64 = 10_000;
@@ -492,24 +490,8 @@ mod stipend_limited_frame {
 	) -> StipendTestCaseOutcome {
 		let StipendTestCase { input, setup, read_state, .. } = vesting_call;
 		new_test_ext().execute_with(|| {
-			// ALICE pays the storage deposits of the two deployments.
-			CurrencyOf::<Test>::make_free_balance_be(&ALICE, 1_000_000_000_000_000);
-			let deploy = |name: &str, constructor: Vec<u8>| {
-				let (code, _) =
-					pallet_revive_fixtures::compile_module_with_type(name, fixture_type).unwrap();
-				BareInstantiateBuilder::<Test>::bare_instantiate(
-					RuntimeOrigin::signed(ALICE),
-					Code::Upload(code),
-				)
-				.constructor_data(constructor)
-				.transaction_limits(TransactionLimits::WeightAndDeposit {
-					weight_limit: Weight::MAX,
-					deposit_limit: u64::MAX,
-				})
-				.build_and_unwrap_contract()
-			};
-
 			let receiver = deploy(
+				fixture_type,
 				"CallingReceiver",
 				CallingReceiver::constructorCall {
 					_target: precompile_address().0.into(),
@@ -518,6 +500,7 @@ mod stipend_limited_frame {
 				.abi_encode(),
 			);
 			let sender = deploy(
+				fixture_type,
 				"StipendSender",
 				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
 			);

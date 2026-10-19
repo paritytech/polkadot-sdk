@@ -490,8 +490,8 @@ impl StipendAndProtections {
 		self.moves_value || self.has_transfer_or_send_shape
 	}
 
-	/// Returns whether the call is a `transfer` or `send`.
-	pub fn is_transfer_or_send(&self) -> bool {
+	/// Returns whether the callee is stipend-limited.
+	pub fn is_stipend_limited(&self) -> bool {
 		self.has_transfer_or_send_shape && !self.read_only
 	}
 
@@ -500,7 +500,7 @@ impl StipendAndProtections {
 		CallProtections {
 			reentrancy: ReentrancyProtection::AllowReentry,
 			read_only: self.read_only,
-			stipend_limited: self.is_transfer_or_send(),
+			stipend_limited: self.is_stipend_limited(),
 		}
 	}
 }

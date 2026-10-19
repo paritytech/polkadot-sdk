@@ -24,6 +24,10 @@ doc:
     and transient storage still work. Calls with any other explicit gas limit are not affected, even
     one below 2300.
 
+    A delegate call with a gas limit of exactly 2300 (an EVM `DELEGATECALL` or a PolkaVM
+    `delegate_call_evm`) now gets the stipend and the same limits. Before, the EVM gave such a
+    delegate call the stipend but not the limits, and PolkaVM gave it neither.
+
     The receiver may call back into the sender, as on Ethereum, under the same limits. Before, the
     EVM denied this after a zero-value `transfer()` or `send()` and in the callee of a `STATICCALL`
     with a gas limit of 2300: the reentrant call returned 0 in an EVM receiver, and a PolkaVM
