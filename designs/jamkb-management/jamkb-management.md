@@ -195,7 +195,8 @@ const CAP: Balance;
 
 /// The minimum `amount` that can be transferred by
 /// `approve_release`, `redeem`, `offer_lease`, `increase_lease`, `reclaim`,
-/// and `dispose_excess` with `refund`. A smaller `amount` is rejected.
+/// and `dispose_excess` with `refund`. A smaller `amount` is rejected,
+/// except a `reclaim` of the remaining amount.
 const MIN_TRANSFER: Balance;
 
 /// The gas every deferred `TransferOut` carries (§5.2). A destination whose
@@ -630,10 +631,12 @@ Contracts access the pallet through a precompile at a fixed address. It
 exposes the calls and reads a contract needs. Each precompile function calls
 the internal pallet method that holds the logic shared with the dispatchable
 of the same name. The call origin is the account that calls the precompile.
+Every account in the interface is an AccountId32 passed as `bytes32`.
 No governance call is exposed, and a Root caller is rejected. The precompile
 rejects a delegate call and a state-changing call in a read-only frame. It
 returns the new allocation id, or the operation id that `settle` resolves
-later. On failure the call reverts with the pallet error name.
+later. On failure the call reverts with the pallet error name. The precompile
+does not emit Solidity events.
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -656,7 +659,7 @@ interface IJamkb {
         AllocationMode mode;
         uint32 target;
         uint128 amount;
-        address approver;      // address(0) for governance
+        bytes32 approver;      // bytes32(0) for governance
         uint32 deliveredAt;    // 0: not delivered
         uint32 duration;       // 0 for Permanent
         uint32 validFrom;
@@ -702,7 +705,7 @@ interface IJamkb {
     function unsupervise(uint32 target) external returns (uint64 opId);
 
     // -- Returns --
-    function claim(address beneficiary) external returns (uint128 claimed);
+    function claim(bytes32 beneficiary) external returns (uint128 claimed);
 
     // -- Shared --
     function cancelAllocation(uint64 allocationId) external;
@@ -712,8 +715,8 @@ interface IJamkb {
     // -- Reads. allocation() and operation() revert for an unknown id. --
     function allocation(uint64 allocationId) external view returns (Allocation memory);
     function operation(uint64 opId) external view returns (Operation memory);
-    function claimableOf(address beneficiary) external view returns (uint128);
-    function serviceAccount(uint32 target) external view returns (address);
+    function claimableOf(bytes32 beneficiary) external view returns (uint128);
+    function serviceAccount(uint32 target) external view returns (bytes32);
     function isFrozen(uint32 target) external view returns (bool);
     function leasesOf(uint32 target) external view returns (uint64[] memory allocationIds);
     function gracePeriod() external view returns (uint32);
@@ -966,8 +969,8 @@ carry the memo their caller supplies, in a format the destination service
 defines. Every deferred `TransferOut` carries `MEMO_GAS`. A service that
 receives JAMKB from Asset Hub keeps its `min_memo_gas` at or below
 `MEMO_GAS`; a transfer to a service above it is refused and undone. A
-voluntary return carries the beneficiary account; its layout is to be
-defined.
+voluntary return carries the beneficiary account as 32 raw bytes; the rest
+of its layout is to be defined.
 
 ---
 
