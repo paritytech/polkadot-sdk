@@ -126,20 +126,6 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 	}
 }
 
-impl<H: Hasher> Clone for OverlayedChanges<H> {
-	fn clone(&self) -> Self {
-		Self {
-			top: self.top.clone(),
-			children: self.children.clone(),
-			offchain: self.offchain.clone(),
-			transaction_index_ops: self.transaction_index_ops.clone(),
-			collect_extrinsics: self.collect_extrinsics,
-			stats: self.stats.clone(),
-			storage_transaction_cache: self.storage_transaction_cache.clone(),
-		}
-	}
-}
-
 impl<H: Hasher> core::fmt::Debug for OverlayedChanges<H> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		f.debug_struct("OverlayedChanges")
@@ -253,16 +239,6 @@ struct StorageTransactionCache<H: Hasher> {
 impl<H: Hasher> StorageTransactionCache<H> {
 	fn into_inner(self) -> (BackendTransaction<H>, H::Out) {
 		(self.transaction, self.transaction_storage_root)
-	}
-}
-
-impl<H: Hasher> Clone for StorageTransactionCache<H> {
-	fn clone(&self) -> Self {
-		Self {
-			transaction: self.transaction.clone(),
-			transaction_storage_root: self.transaction_storage_root,
-			state_version: self.state_version,
-		}
 	}
 }
 
@@ -1006,14 +982,14 @@ mod tests {
 		use sp_core::offchain::STORAGE_PREFIX;
 		fn check_offchain_content(
 			state: &OverlayedChanges<Blake2Hasher>,
-			nb_commit: usize,
 			expected: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 		) {
-			let mut state = state.clone();
-			for _ in 0..nb_commit {
-				state.commit_transaction().unwrap();
-			}
-			let offchain_data: Vec<_> = state.offchain_drain_committed().collect();
+			let offchain_data: Vec<_> = state
+				.offchain()
+				.overlay()
+				.changes()
+				.map(|(key, entry)| (key.clone(), entry.value_ref().clone()))
+				.collect();
 			let expected: Vec<_> = expected
 				.into_iter()
 				.map(|(key, value)| {
@@ -1031,31 +1007,31 @@ mod tests {
 
 		let key = vec![42, 69, 169, 142];
 
-		check_offchain_content(&overlayed, 0, vec![]);
+		check_offchain_content(&overlayed, vec![]);
 
 		overlayed.start_transaction();
 
 		overlayed.set_offchain_storage(key.as_slice(), Some(&[1, 2, 3][..]));
-		check_offchain_content(&overlayed, 1, vec![(key.clone(), Some(vec![1, 2, 3]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![1, 2, 3]))]);
 
 		overlayed.commit_transaction().unwrap();
 
-		check_offchain_content(&overlayed, 0, vec![(key.clone(), Some(vec![1, 2, 3]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![1, 2, 3]))]);
 
 		overlayed.start_transaction();
 
 		overlayed.set_offchain_storage(key.as_slice(), Some(&[][..]));
-		check_offchain_content(&overlayed, 1, vec![(key.clone(), Some(vec![]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![]))]);
 
 		overlayed.set_offchain_storage(key.as_slice(), None);
-		check_offchain_content(&overlayed, 1, vec![(key.clone(), None)]);
+		check_offchain_content(&overlayed, vec![(key.clone(), None)]);
 
 		overlayed.rollback_transaction().unwrap();
 
-		check_offchain_content(&overlayed, 0, vec![(key.clone(), Some(vec![1, 2, 3]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![1, 2, 3]))]);
 
 		overlayed.set_offchain_storage(key.as_slice(), None);
-		check_offchain_content(&overlayed, 0, vec![(key.clone(), None)]);
+		check_offchain_content(&overlayed, vec![(key.clone(), None)]);
 	}
 
 	#[test]

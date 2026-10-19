@@ -208,19 +208,6 @@ pub struct OverlayedMap<K, V, H: Hasher> {
 	proof_size_tracker: ProofSizeTracker<K, H>,
 }
 
-// Not derived, as that would require `H: Clone`.
-impl<K: Clone, V: Clone, H: Hasher> Clone for OverlayedMap<K, V, H> {
-	fn clone(&self) -> Self {
-		Self {
-			changes: self.changes.clone(),
-			dirty_keys: self.dirty_keys.clone(),
-			num_client_transactions: self.num_client_transactions,
-			execution_mode: self.execution_mode,
-			proof_size_tracker: self.proof_size_tracker.clone(),
-		}
-	}
-}
-
 impl<K: fmt::Debug, V: fmt::Debug, H: Hasher> fmt::Debug for OverlayedMap<K, V, H> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("OverlayedMap")

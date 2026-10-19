@@ -127,17 +127,6 @@ impl<K, H: Hasher> Default for TransactionLayer<K, H> {
 	}
 }
 
-// Not derived, as that would require `H: Clone`.
-impl<K: Clone, H: Hasher> Clone for TransactionLayer<K, H> {
-	fn clone(&self) -> Self {
-		Self {
-			dirty_keys: self.dirty_keys.clone(),
-			snapshot: self.snapshot.clone(),
-			trie_snapshot: self.trie_snapshot.clone(),
-		}
-	}
-}
-
 impl<K: Debug, H: Hasher> Debug for TransactionLayer<K, H> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("TransactionLayer")
@@ -154,18 +143,6 @@ impl<K, H: Hasher, HB: Default> Default for ProofSizeTracker<K, H, HB> {
 			current: TransactionLayer::default(),
 			hasher: HB::default(),
 			estimation_trie: Default::default(),
-		}
-	}
-}
-
-// Not derived, as that would require `H: Clone`.
-impl<K: Clone, H: Hasher, HB: Clone> Clone for ProofSizeTracker<K, H, HB> {
-	fn clone(&self) -> Self {
-		Self {
-			layers: self.layers.clone(),
-			current: self.current.clone(),
-			hasher: self.hasher.clone(),
-			estimation_trie: self.estimation_trie.clone(),
 		}
 	}
 }

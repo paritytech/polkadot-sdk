@@ -29,13 +29,6 @@ pub struct OffchainOverlayedChanges<H: Hasher>(
 	OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange, H>,
 );
 
-// Not derived, as that would require `H: Clone` and `H: Default`.
-impl<H: Hasher> Clone for OffchainOverlayedChanges<H> {
-	fn clone(&self) -> Self {
-		Self(self.0.clone())
-	}
-}
-
 impl<H: Hasher> Default for OffchainOverlayedChanges<H> {
 	fn default() -> Self {
 		Self(Default::default())
