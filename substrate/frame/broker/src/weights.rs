@@ -105,6 +105,8 @@ pub trait WeightInfo {
 	fn enable_auto_renew() -> Weight;
 	fn disable_auto_renew() -> Weight;
 	fn on_new_timeslice() -> Weight;
+	fn tally_claimed_revenue(n: u32, ) -> Weight;
+	fn settle_older_timeslices(n: u32, ) -> Weight;
 	fn remove_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
 	fn force_transfer() -> Weight;
@@ -617,6 +619,30 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 257_000 picoseconds.
 		Weight::from_parts(347_000, 0)
+	}
+	/// The range of component `n` is `[0, 100]`.
+	fn tally_claimed_revenue(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 180_000 picoseconds.
+		Weight::from_parts(250_000, 0)
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(60_000, 0).saturating_mul(n.into()))
+	}
+	/// Storage: `Broker::InstaPoolHistory` (r:100 w:0)
+	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[0, 100]`.
+	fn settle_older_timeslices(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1485`
+		// Minimum execution time: 250_000 picoseconds.
+		Weight::from_parts(300_000, 1485)
+			// Standard Error: 1_000
+			.saturating_add(Weight::from_parts(5_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(n.into()))
 	}
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
@@ -1159,6 +1185,30 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 257_000 picoseconds.
 		Weight::from_parts(347_000, 0)
+	}
+	/// The range of component `n` is `[0, 100]`.
+	fn tally_claimed_revenue(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 180_000 picoseconds.
+		Weight::from_parts(250_000, 0)
+			// Standard Error: 50
+			.saturating_add(Weight::from_parts(60_000, 0).saturating_mul(n.into()))
+	}
+	/// Storage: `Broker::InstaPoolHistory` (r:100 w:0)
+	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
+	/// The range of component `n` is `[0, 100]`.
+	fn settle_older_timeslices(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `1485`
+		// Minimum execution time: 250_000 picoseconds.
+		Weight::from_parts(300_000, 1485)
+			// Standard Error: 1_000
+			.saturating_add(Weight::from_parts(5_000_000, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(n.into()))
 	}
 	/// Storage: `Broker::Workplan` (r:1 w:1)
 	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)

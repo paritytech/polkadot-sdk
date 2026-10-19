@@ -100,29 +100,43 @@ impl<T: Config> Pallet<T> {
 		let claim = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
 		meter.consume(claim.weight);
 
+		let paid_count = claim.paid.len().saturated_into();
+		let mut revenue = Self::tally_claimed_revenue(claim.paid);
+		meter.consume(T::WeightInfo::tally_claimed_revenue(paid_count));
+
 		// The timeslices listed are settled, and since the revenue is paid out oldest first, so
 		// is every older one. The revenue of any later timeslice stays booked, and is claimed
 		// along with a later timeslice; until then, its history is kept for it to be distributed
 		// by.
-		if !claim.paid.iter().any(|&(when, _)| when == ended_timeslice) {
+		if !revenue.contains_key(&ended_timeslice) {
 			log::warn!(
 				target: "pallet_broker::process_revenue",
 				"Not all on-demand revenue up to timeslice {ended_timeslice} could be claimed",
 			);
 		}
-		let mut revenue = BTreeMap::<Timeslice, BalanceOf<T>>::new();
-		let newest_settled = claim.paid.iter().map(|&(when, _)| when).max();
-		for (when, amount) in claim.paid {
-			revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
-		}
-		if let Some(newest_settled) = newest_settled {
-			Self::settle_older_timeslices(newest_settled, &mut revenue, meter);
+		if let Some(newest_settled) = revenue.last_key_value().map(|(&when, _)| when) {
+			let read = Self::settle_older_timeslices(newest_settled, &mut revenue);
+			meter.consume(T::WeightInfo::settle_older_timeslices(read));
 		}
 
 		for (when, amount) in revenue {
 			Self::process_revenue_amount(when, amount);
 			meter.consume(T::WeightInfo::process_revenue());
 		}
+	}
+
+	/// Sum up the revenue claimed for each timeslice listed in `paid`.
+	///
+	/// Its cost is linear in the length of `paid`, and is accounted for separately by
+	/// [`WeightInfo::tally_claimed_revenue`].
+	pub(crate) fn tally_claimed_revenue(
+		paid: Vec<(Timeslice, BalanceOf<T>)>,
+	) -> BTreeMap<Timeslice, BalanceOf<T>> {
+		let mut revenue = BTreeMap::<Timeslice, BalanceOf<T>>::new();
+		for (when, amount) in paid {
+			revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
+		}
+		revenue
 	}
 
 	/// Mark the timeslices older than `newest_settled` whose revenue is still awaited as settled,
@@ -132,15 +146,18 @@ impl<T: Config> Pallet<T> {
 	/// they had none, or because their revenue was merged into a later timeslice. The revenue of
 	/// the timeslices still awaiting it forms an unbroken run of history records without a
 	/// payout, which ends at the first record which is missing or has a payout.
+	///
+	/// Returns the number of history records read. Its cost is linear in that number, and is
+	/// accounted for separately by [`WeightInfo::settle_older_timeslices`].
 	pub(crate) fn settle_older_timeslices(
 		newest_settled: Timeslice,
 		revenue: &mut BTreeMap<Timeslice, BalanceOf<T>>,
-		meter: &mut WeightMeter,
-	) {
+	) -> u32 {
+		let mut read = 0u32;
 		let mut when = newest_settled;
 		while let Some(older) = when.checked_sub(1) {
 			when = older;
-			meter.consume(T::DbWeight::get().reads(1));
+			read.saturating_inc();
 			match InstaPoolHistory::<T>::get(when) {
 				Some(InstaPoolHistoryRecord { maybe_payout: None, .. }) => {
 					revenue.entry(when).or_insert_with(Zero::zero);
@@ -148,6 +165,7 @@ impl<T: Config> Pallet<T> {
 				_ => break,
 			}
 		}
+		read
 	}
 
 	pub(crate) fn process_core_count(status: &mut StatusRecord) -> bool {
