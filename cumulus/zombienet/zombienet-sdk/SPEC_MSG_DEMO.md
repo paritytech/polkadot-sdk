@@ -76,32 +76,53 @@ receiver collator (2001), alice a relay validator.
 ```
 cd $ZOMBIENET_SDK_BASE_DIR
 tail -F charlie/charlie.log dave/dave.log alice/alice.log | grep --line-buffered -E \
-  "committed streams root|Emitting the|Archived block|New root|fetch settled|Messaging inherent|consumed|Collation carries|Recording provides|requires found"
+  "committed streams root|Emitting the|Archived block|New root|Served a spec-msg|fetch settled|Messaging inherent|consumed|Collation carries|Recording provides|requires found"
 ```
 
 ## 4. One message in the logs
 
-This is the message of checkpoints 2 to 6 in one run. `Block N` is the parachain block.
+This is one run of the two-step flow. `Block N` is the parachain block. Roots are shortened. Part A is the channel
+open and accept (checkpoint 1). Part B is the message of checkpoints 2 to 6.
+
+**A. Open and accept**
 
 | Time | Node | Log | Step |
 |---|---|---|---|
-| 15:32:48.050 | charlie | `runtime::spec-msg: Block 16: committed streams root 0x6329…` | Send. The root is checkpoint 2. |
-| 15:32:48.050 | charlie | `runtime::parachain-system: Emitting the Provides signal for root 0x6329…` | The root leaves as a `Provides` signal. |
-| 15:32:48.056 | charlie | `spec-msg: Archived block #16 …: 1 sends, committing …` | The archive can serve the message. |
-| 15:33:00.089 | alice | `runtime::inclusion: Recording provides root 0x6329… of para 2000` | Inclusion (checkpoint 3). 12 s after the send. |
-| 15:33:00.119 | dave | `spec-msg: New root 0x6329… of 2000: fetching` | The receiver sees the root. |
-| 15:33:00.128 | dave | `spec-msg: Root 0x6329… of 2000: fetch settled in 9.7ms` | Pull fetch from charlie's archive. |
-| 15:33:00.128 | charlie | `spec-msg: Served a spec-msg exchange request from <peer>: 86 bytes` | The server side of that fetch. |
-| 15:33:00.136 | dave | `spec-msg: Messaging inherent: 1 items` | The collator plans the inherent. |
-| 15:33:00.148 | dave | `runtime::spec-msg: Block 17: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | Consume (checkpoint 4). |
-| 15:33:00.176 | dave | `cumulus-collator: Collation carries a Requires over the consumption of 1 blocks. consuming=1 signals=4` | The collator adds `Requires` to the candidate. |
-| 15:33:06.016 | alice | `runtime::inclusion-inherent: Candidate 0x93f4… for para 2001: requires found in the provides windows` | The relay matches `Requires` (checkpoint 5). |
+| 18:24:18.049 | charlie | `runtime::spec-msg: Block 10: committed streams root 0xed86… over 1 streams` | `open_channel` on 2000: the open signal is the first leaf of the stream. |
+| 18:24:18.049 | dave | `runtime::spec-msg: Block 10: committed streams root 0xb892… over 1 streams` | `accept_open_channel` on 2001: its first `Ack` register. |
+| 18:24:42.018 | alice | `runtime::inclusion: Recording provides root 0xed86… of para 2000` | The relay records both roots (0xb892… of para 2001 too). |
+| 18:24:42.034 | dave | `spec-msg: New root 0xed86… of 2000: fetching` | 2001 sees the open signal and fetches it. |
+| 18:24:42.036 | charlie | `spec-msg: New root 0xb892… of 2001: fetching` | 2000 fetches the register. |
+| 18:24:42.047 | dave | `runtime::spec-msg: Block 12: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | 2001 consumes the open signal. |
+| 18:24:42.052 | charlie | `cumulus-collator: Collation carries a Requires over the consumption of 1 blocks. consuming=1 signals=3` | 2000 consumed the register (no `consumed` line, see below). The channel is `Open` (checkpoint 1). |
+| 18:24:48.018 | alice | `runtime::inclusion-inherent: Candidate 0xbdba… for para 2001: requires found in the provides windows` | The relay matches both candidates (para 2000 too). |
 
-- Send to consume takes 12 s: two relay blocks. The fetch takes 1 to 10 ms.
-- A runtime line can appear twice for one block: the runtime runs on author and on import. Blocks 8, 10 and 19
-  in the log are the channel open and accept messages.
-- The relay line names the candidate by hash: `0x93f4…` is dave's block 17 candidate.
-- The register `Ack` consumption is logged at `trace`, because every block republishes it.
+**B. One message**
+
+| Time | Node | Log | Step |
+|---|---|---|---|
+| 18:24:48.041 | charlie | `runtime::spec-msg: Block 13: committed streams root 0x45a3… over 1 streams` | Send. The root is checkpoint 2. |
+| 18:24:48.041 | charlie | `runtime::parachain-system: Emitting the Provides signal for root 0x45a3…` | The root leaves as a `Provides` signal. |
+| 18:24:48.044 | charlie | `spec-msg: Archived block #13 …: 1 sends, committing …` | The archive can serve the message. |
+| 18:25:00.018 | alice | `runtime::inclusion: Recording provides root 0x45a3… of para 2000` | Inclusion (checkpoint 3). 12 s after the send. |
+| 18:25:00.030 | dave | `spec-msg: New root 0x45a3… of 2000: fetching` | The receiver sees the root. |
+| 18:25:00.031 | charlie | `spec-msg: Served a spec-msg exchange request from <peer>: 86 bytes` | The server side of the fetch. |
+| 18:25:00.032 | dave | `spec-msg: Root 0x45a3… of 2000: fetch settled in 2.1ms` | Pull fetch from charlie's archive. |
+| 18:25:00.036 | dave | `spec-msg: Messaging inherent: 1 items` | The collator plans the inherent. |
+| 18:25:00.041 | dave | `runtime::spec-msg: Block 15: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | Consume (checkpoint 4). |
+| 18:25:00.046 | dave | `cumulus-collator: Collation carries a Requires over the consumption of 1 blocks. consuming=1 signals=4` | The collator adds `Requires` to the candidate. |
+| 18:25:06.005 | alice | `runtime::inclusion-inherent: Candidate 0xcb6d… for para 2001: requires found in the provides windows` | The relay matches `Requires` (checkpoint 5). |
+
+- Send to consume takes 12 s: two relay blocks. The fetch takes 1 to 10 ms. Consume to match takes 6 s: one relay
+  block.
+- A runtime line can appear twice for one block: the runtime runs on author and on import, or the collator builds
+  the block again on the same parent. Here both Block 10 lines (open and accept) came twice, 12 s apart, so
+  their inclusion took 24 s instead of 12 s.
+- The relay line names the candidate by hash. The collator logs do not show the hash.
+- The register `Ack` consumption is logged at `trace`, because every block republishes it. So 2000's consumption
+  of the accept register has no `consumed` line.
+- Every consuming block also publishes a new `Ack` register root (Block 15 commits `0x2b12…`). A second wave of
+  the same lines follows 12 s later, in the other direction. It is not a second message.
 - If delivery stalls, grep the relay logs for `Dropping candidate`. It names the missing root.
 
 ## Log targets
