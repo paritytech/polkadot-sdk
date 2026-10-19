@@ -30,7 +30,7 @@ use nohash_hasher::BuildNoHashHasher;
 use sp_trie::{LayoutV1, TrieDBMutSnapshot};
 
 #[cfg(feature = "std")]
-const LOG_TARGET: &str = "storage_key_delta_tracker";
+const LOG_TARGET: &str = "proof_size_tracker";
 
 /// Operation type for a key in the delta tracker.
 ///
@@ -61,11 +61,11 @@ type CapturedMap = HashMap<KeyHash, DeltaKeyOp, BuildNoHashHasher<KeyHash>>;
 /// updated or deleted, allowing the trie layer to decide whether to read or remove the key.
 pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), BuildNoHashHasher<KeyHash>>;
 
-/// Default hash builder used by [`StorageRootProofTracker`] to hash storage keys.
+/// Default hash builder used by [`ProofSizeTracker`] to hash storage keys.
 #[cfg(feature = "std")]
 pub type DefaultHashBuilder = foldhash::fast::RandomState;
 
-/// Default hash builder used by [`StorageRootProofTracker`] to hash storage keys.
+/// Default hash builder used by [`ProofSizeTracker`] to hash storage keys.
 #[cfg(not(feature = "std"))]
 pub type DefaultHashBuilder = sp_trie::RandomState;
 
@@ -86,7 +86,7 @@ pub type DefaultHashBuilder = sp_trie::RandomState;
 /// Optimized for 1k-5k transactions with ~10 nesting levels. Each transaction typically
 /// has 10-20 keys, with 50% duplication across transactions. Keys are 64-162 byte arrays
 /// (concatenated cryptographic hashes). Deduplication is highly optimized.
-pub struct StorageRootProofTracker<K, H: Hasher, HB = DefaultHashBuilder> {
+pub struct ProofSizeTracker<K, H: Hasher, HB = DefaultHashBuilder> {
 	/// Stack of parent transaction layers (outermost first).
 	layers: Vec<TransactionLayer<K, H>>,
 	/// Current (innermost) transaction layer being built.
@@ -141,7 +141,7 @@ impl<K: Debug, H: Hasher> Debug for TransactionLayer<K, H> {
 	}
 }
 
-impl<K, H: Hasher, HB: Default> Default for StorageRootProofTracker<K, H, HB> {
+impl<K, H: Hasher, HB: Default> Default for ProofSizeTracker<K, H, HB> {
 	fn default() -> Self {
 		Self {
 			layers: Vec::new(),
@@ -153,7 +153,7 @@ impl<K, H: Hasher, HB: Default> Default for StorageRootProofTracker<K, H, HB> {
 }
 
 // Not derived, as that would require `H: Clone`.
-impl<K: Clone, H: Hasher, HB: Clone> Clone for StorageRootProofTracker<K, H, HB> {
+impl<K: Clone, H: Hasher, HB: Clone> Clone for ProofSizeTracker<K, H, HB> {
 	fn clone(&self) -> Self {
 		Self {
 			layers: self.layers.clone(),
@@ -164,9 +164,9 @@ impl<K: Clone, H: Hasher, HB: Clone> Clone for StorageRootProofTracker<K, H, HB>
 	}
 }
 
-impl<K: Debug, H: Hasher, HB: Debug> Debug for StorageRootProofTracker<K, H, HB> {
+impl<K: Debug, H: Hasher, HB: Debug> Debug for ProofSizeTracker<K, H, HB> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.debug_struct("StorageRootProofTracker")
+		f.debug_struct("ProofSizeTracker")
 			.field("layers", &self.layers)
 			.field("current", &self.current)
 			.field("hasher", &self.hasher)
@@ -174,7 +174,7 @@ impl<K: Debug, H: Hasher, HB: Debug> Debug for StorageRootProofTracker<K, H, HB>
 	}
 }
 
-impl<K, H: Hasher, HB: Default> StorageRootProofTracker<K, H, HB> {
+impl<K, H: Hasher, HB: Default> ProofSizeTracker<K, H, HB> {
 	/// Creates a tracker pre-initialized with `depth` empty transaction layers.
 	///
 	/// Used by `spawn_child` to match the parent's transaction depth so that
@@ -190,7 +190,7 @@ impl<K, H: Hasher, HB: Default> StorageRootProofTracker<K, H, HB> {
 	}
 }
 
-impl<K: core::fmt::Debug, H: Hasher, HB> StorageRootProofTracker<K, H, HB> {
+impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
 	/// A key added as `Deleted` prevents future `Updated` operations on the same key
@@ -352,7 +352,7 @@ mod tests {
         };
     }
 
-	type Tracker = super::StorageRootProofTracker<String, Blake2Hasher>;
+	type Tracker = super::ProofSizeTracker<String, Blake2Hasher>;
 
 	#[test]
 	fn test_empty_snapshot() {

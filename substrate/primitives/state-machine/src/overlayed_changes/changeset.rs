@@ -28,9 +28,7 @@ use std::collections::HashSet as Set;
 use crate::{
 	backend::EstimationTrie,
 	ext::StorageAppend,
-	overlayed_changes::{
-		storage_root_proof_tracker, storage_root_proof_tracker::StorageRootProofTracker,
-	},
+	overlayed_changes::{proof_size_tracker, proof_size_tracker::ProofSizeTracker},
 	warn,
 };
 use alloc::{
@@ -207,7 +205,7 @@ pub struct OverlayedMap<K, V, H: Hasher> {
 
 	/// Stores which keys are dirty since recent storage_root snapshot. Needed in order to
 	/// determine which values shall be used for merkelization when new storage_root is called.
-	storage_root_proof: StorageRootProofTracker<K, H>,
+	proof_size_tracker: ProofSizeTracker<K, H>,
 }
 
 // Not derived, as that would require `H: Clone`.
@@ -218,7 +216,7 @@ impl<K: Clone, V: Clone, H: Hasher> Clone for OverlayedMap<K, V, H> {
 			dirty_keys: self.dirty_keys.clone(),
 			num_client_transactions: self.num_client_transactions,
 			execution_mode: self.execution_mode,
-			storage_root_proof: self.storage_root_proof.clone(),
+			proof_size_tracker: self.proof_size_tracker.clone(),
 		}
 	}
 }
@@ -230,7 +228,7 @@ impl<K: fmt::Debug, V: fmt::Debug, H: Hasher> fmt::Debug for OverlayedMap<K, V, 
 			.field("dirty_keys", &self.dirty_keys)
 			.field("num_client_transactions", &self.num_client_transactions)
 			.field("execution_mode", &self.execution_mode)
-			.field("storage_root_proof", &self.storage_root_proof)
+			.field("proof_size_tracker", &self.proof_size_tracker)
 			.finish()
 	}
 }
@@ -242,7 +240,7 @@ impl<K, V, H: Hasher> Default for OverlayedMap<K, V, H> {
 			dirty_keys: SmallVec::new(),
 			num_client_transactions: Default::default(),
 			execution_mode: Default::default(),
-			storage_root_proof: Default::default(),
+			proof_size_tracker: Default::default(),
 		}
 	}
 }
@@ -268,7 +266,7 @@ impl<H: Hasher> From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, 
 			dirty_keys: Default::default(),
 			num_client_transactions: 0,
 			execution_mode: ExecutionMode::Client,
-			storage_root_proof: Default::default(),
+			proof_size_tracker: Default::default(),
 		}
 	}
 }
@@ -557,12 +555,12 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// Returns true if we are have at least one open transaction and if this
 	/// is the first write to the given key that transaction.
 	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
-		self.storage_root_proof.add_key(
+		self.proof_size_tracker.add_key(
 			key.clone(),
 			if deleted {
-				storage_root_proof_tracker::DeltaKeyOp::Deleted
+				proof_size_tracker::DeltaKeyOp::Deleted
 			} else {
-				storage_root_proof_tracker::DeltaKeyOp::Updated
+				proof_size_tracker::DeltaKeyOp::Updated
 			},
 		);
 		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
@@ -581,9 +579,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
 			num_client_transactions: self.num_client_transactions,
 			execution_mode: self.execution_mode,
-			storage_root_proof: StorageRootProofTracker::with_transaction_depth(
-				self.transaction_depth(),
-			),
+			proof_size_tracker: ProofSizeTracker::with_transaction_depth(self.transaction_depth()),
 		}
 	}
 
@@ -686,7 +682,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
 		self.dirty_keys.push(Default::default());
-		self.storage_root_proof.start_transaction();
+		self.proof_size_tracker.start_transaction();
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -716,9 +712,9 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
 
 		if rollback {
-			self.storage_root_proof.rollback_transaction();
+			self.proof_size_tracker.rollback_transaction();
 		} else {
-			self.storage_root_proof.commit_transaction();
+			self.proof_size_tracker.commit_transaction();
 		}
 
 		for key in dirty_keys {
@@ -771,21 +767,21 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	/// These delta keys allow estimating the PoV size impact of storage root calculation
 	/// incrementally, without computing the full root after each extrinsic.
 	#[must_use]
-	pub fn take_delta(&mut self) -> storage_root_proof_tracker::DeltaKeys<K> {
-		self.storage_root_proof.take_delta()
+	pub fn take_delta(&mut self) -> proof_size_tracker::DeltaKeys<K> {
+		self.proof_size_tracker.take_delta()
 	}
 
 	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
 	pub fn estimation_trie_mut(&mut self) -> &mut EstimationTrie<H> {
-		self.storage_root_proof.estimation_trie_mut()
+		self.proof_size_tracker.estimation_trie_mut()
 	}
 
 	/// Marks `key` as modified for PoV size estimation without changing its value.
 	///
 	/// Used for keys the storage root computation will touch that are not written through this
 	/// changeset, such as the roots of child tries stored in the main trie.
-	pub fn track_storage_root_key(&mut self, key: K, op: storage_root_proof_tracker::DeltaKeyOp) {
-		self.storage_root_proof.add_key(key, op);
+	pub fn track_storage_root_key(&mut self, key: K, op: proof_size_tracker::DeltaKeyOp) {
+		self.proof_size_tracker.add_key(key, op);
 	}
 }
 
@@ -817,9 +813,9 @@ impl<H: Hasher> OverlayedChangeSet<H> {
 		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
 
 		if rollback {
-			self.storage_root_proof.rollback_transaction();
+			self.proof_size_tracker.rollback_transaction();
 		} else {
-			self.storage_root_proof.commit_transaction();
+			self.proof_size_tracker.commit_transaction();
 		}
 
 		for key in dirty_keys {
@@ -1548,7 +1544,7 @@ mod test {
 
 	/// Simulates `spawn_child` scenario: a child changeset is created when the parent is
 	/// already at transaction depth N. The child's dirty_keys matches the parent's depth,
-	/// but storage_root_proof (delta tracker) starts at depth 0.
+	/// but proof_size_tracker (delta tracker) starts at depth 0.
 	///
 	/// Pre-existing commit/rollback calls for levels that existed before spawn are no-ops
 	/// on both dirty_keys (empty sets) and the delta tracker (no layers) — safe because

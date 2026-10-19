@@ -19,7 +19,7 @@
 
 mod changeset;
 mod offchain;
-mod storage_root_proof_tracker;
+mod proof_size_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -47,7 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
-pub use storage_root_proof_tracker::DeltaKeyOp;
+pub use proof_size_tracker::DeltaKeyOp;
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
