@@ -308,3 +308,18 @@ fn dust_removal_goes_to_accumulation_account() {
 			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 		});
 }
+
+#[test]
+fn relay_proof_request_includes_the_validator_collators_randomness_key() {
+	use cumulus_primitives_core::{
+		relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS,
+		runtime_decl_for_key_to_include_in_relay_proof::KeyToIncludeInRelayProofV1,
+		RelayStorageKey,
+	};
+	// GIVEN the runtime wires pallet-validator-collators, which reads the relay chain epoch
+	// randomness from every relay chain state proof
+	// WHEN a collator asks the runtime which relay chain keys to prove
+	let keys = Runtime::keys_to_prove().keys;
+	// THEN the randomness key is requested
+	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
+}
