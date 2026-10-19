@@ -70,13 +70,10 @@ pub fn build_collator_proof(
 		return Err(CollatorProofError::InvalidCollatorIndex);
 	}
 
-	let mut leaves: Vec<_> = keys.iter().map(|key| CollatorHasher::hash(key)).collect();
-	leaves.resize(padded_size as usize, H256::zero());
+	let leaves = (0..padded_size as usize)
+		.map(|index| keys.get(index).map_or_else(H256::zero, |key| CollatorHasher::hash(key)));
 
-	let proof = binary_merkle_tree::merkle_proof_raw::<CollatorHasher, _>(
-		leaves.into_iter(),
-		collator_index,
-	);
+	let proof = binary_merkle_tree::merkle_proof_raw::<CollatorHasher, _>(leaves, collator_index);
 	Ok((proof.root, proof.proof))
 }
 
