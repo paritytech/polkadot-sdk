@@ -111,10 +111,6 @@ impl MMRExtensionProof {
 		Self { leaf_count: 0, connecting_nodes: Vec::new() }
 	}
 
-	pub fn is_identity(&self) -> bool {
-		self.leaf_count == 0 && self.connecting_nodes.is_empty()
-	}
-
 	/// Extend `from` and return the new root, computed from `from`'s peaks and the connecting
 	/// nodes; `Err` if the proof does not fit that placement. The identity extension yields
 	/// `from`'s own root. `from`'s contents are not re-checked: a forged peak yields a root no
@@ -126,12 +122,17 @@ impl MMRExtensionProof {
 		if self.leaf_count > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
-		if self.is_identity() {
-			return Ok(from.root());
+		// `0` is the identity only without connecting nodes. This also keeps the `leaf_count - 1`
+		// below from underflowing.
+		if self.leaf_count == 0 {
+			return if self.connecting_nodes.is_empty() {
+				Ok(from.root())
+			} else {
+				Err(ProofError::InvalidProof)
+			};
 		}
-		// Strictly forward: the extended MMR must have more leaves than the frontier. `0` is
-		// covered by this, but reject it by name: the derivation below subtracts one.
-		if self.leaf_count == 0 || self.leaf_count <= from.leaf_count() {
+		// Strictly forward: the extended MMR must have more leaves than the frontier.
+		if self.leaf_count <= from.leaf_count() {
 			return Err(ProofError::NotForward);
 		}
 		// Bound the connecting nodes before `calculate_root` does O(n) work on them.
@@ -655,11 +656,10 @@ mod tests {
 	#[test]
 	fn extension_verify_rejects_zero_leaf_count() {
 		let all = leaves(5);
-		// `0` with connecting nodes is not the identity. It must reject before the `leaf_count - 1`
-		// the node-count derivation needs.
+		// `0` with connecting nodes is not the identity: malformed, not merely non-forward.
 		let mut ext = extension(&all, 2, 5);
 		ext.leaf_count = 0;
-		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::NotForward));
+		assert_eq!(ext.verify(&frontier_at(&all, 2)), Err(ProofError::InvalidProof));
 	}
 
 	#[test]
