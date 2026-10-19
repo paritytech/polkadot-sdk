@@ -1683,4 +1683,3 @@ fn max_active_child_bounty_count_is_strictly_enforced() {
 		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 2);
 	});
 }
-
