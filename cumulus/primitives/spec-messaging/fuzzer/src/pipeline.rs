@@ -185,8 +185,9 @@ fn consumed_mut(sources: &mut [Source], s: u8, j: u8) -> Option<&mut Consumed> {
 }
 
 impl Consumed {
-	/// What the STF would record.
-	fn intervals(&self) -> Vec<Interval> {
+	/// What the STF would record. `None` if a forged base is at the leaf ceiling: the STF's
+	/// `try_append` refuses the leaf, so it records nothing.
+	fn intervals(&self) -> Option<Vec<Interval>> {
 		let mut prev = MmrFrontier::new();
 		self.blocks
 			.iter()
@@ -194,10 +195,10 @@ impl Consumed {
 				let base = block.base.clone().unwrap_or_else(|| prev.clone());
 				let mut end = base.clone();
 				for leaf in &block.appended {
-					end.append(*leaf);
+					end.try_append(*leaf).ok()?;
 				}
 				prev = end.clone();
-				Interval { start: base.root(), end }
+				Some(Interval { start: base.root(), end })
 			})
 			.collect()
 	}
@@ -354,10 +355,13 @@ impl Oracle {
 		for edit in &input.edits {
 			self.apply_pipeline_edit(&mut sources, edit);
 		}
-		let intervals: Vec<Vec<Vec<Interval>>> = sources
+		let Some(intervals) = sources
 			.iter()
-			.map(|s| s.consumed.iter().map(Consumed::intervals).collect())
-			.collect();
+			.map(|s| s.consumed.iter().map(Consumed::intervals).collect::<Option<Vec<_>>>())
+			.collect::<Option<Vec<Vec<Vec<Interval>>>>>()
+		else {
+			return Outcome::Skipped;
+		};
 
 		// One record per block; a stream's `b`-th interval goes in record `b`.
 		let blocks = intervals.iter().flatten().map(Vec::len).max().unwrap_or(0);
