@@ -118,7 +118,7 @@
 mod affinity;
 mod v2dht;
 
-use crate::{config::*, v2dht::peers_topology::PeersTopologyConfig};
+use crate::config::*;
 
 use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
@@ -172,6 +172,8 @@ use tokio::time::timeout;
 use v2dht::{RetentionHandle, V2DhtMetrics, V2DhtOrchestrator};
 pub mod config;
 pub use config::{AffinityTopicsFile, V2DhtConfig};
+#[cfg_attr(not(any(test, feature = "test-helpers")), doc(hidden))]
+pub use v2dht::peers_topology::{DhtAffinity, PeersTopology, PeersTopologyConfig};
 pub use v2dht::RetentionReasonMask;
 #[cfg(test)]
 mod test_helpers;
@@ -1670,8 +1672,9 @@ where
 				});
 
 				if v2dht_enabled() {
+					// A light peer stores and routes nothing, so it stays out of the topology
+					// and reaches the propagation plan through its filter alone.
 					if !is_light {
-						// TODO: Do we need to pass light nodes to the Orchestrator?
 						self.v2dht.on_substream_opened(peer);
 					}
 					self.send_local_filter(&peer).await;
@@ -2062,9 +2065,8 @@ where
 				continue;
 			};
 
-			// TODO(#11288): light peers may need different gating on the v2 DHT path. The
-			// orchestrator already chose the peer, so blocking it until it advertises a filter
-			// may be redundant here.
+			// A V2 peer without a filter is skipped: the initial sync that follows its filter,
+			// or the match-all filter after the grace period, resends everything skipped here.
 			if !peer.can_receive() {
 				continue;
 			}
