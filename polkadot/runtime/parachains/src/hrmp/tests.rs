@@ -1298,3 +1298,75 @@ fn hrmp_notifications_works() {
 		);
 	});
 }
+
+#[test]
+fn offboarding_sender_gets_its_pending_request_deposit_back() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		run_to_block(5, Some(vec![4, 5]));
+
+		// `para_a` has an open channel and a pending (unaccepted) request.
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+		let para_c = 2096.into();
+		register_parachain_with_balance(para_c, 100);
+		run_to_block(8, Some(vec![7, 8]));
+		Hrmp::init_open_channel(para_a, para_c, 2, 8).unwrap();
+		let a_account = para_a.into_account_truncating();
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&a_account), 40);
+
+		deregister_parachain(para_a);
+		run_to_block(11, Some(vec![9, 10, 11]));
+		assert!(!Paras::is_valid_para(para_a));
+
+		// The channel deposit is returned to `para_a`'s account (`close_hrmp_channel`), so the
+		// deposit of its pending request must be returned there too instead of being stranded.
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&a_account), 0);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn offboarding_recipient_gets_its_accepted_request_deposit_back() {
+	use frame_support::traits::ReservableCurrency;
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		run_to_block(5, Some(vec![4, 5]));
+
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		// `para_b` is offboarding, and accepts in the session before it becomes outgoing.
+		deregister_parachain(para_b);
+		run_to_block(9, Some(vec![9]));
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		let b_account = para_b.into_account_truncating();
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&b_account), 15);
+
+		// Next session: `para_b` is outgoing and the confirmed request is cleaned up.
+		run_to_block(10, Some(vec![10]));
+		assert!(!Paras::is_valid_para(para_b));
+		assert!(!channel_exists(para_a, para_b));
+
+		// Both deposits are given back, also the one of the outgoing `para_b`.
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			0
+		);
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&b_account), 0);
+	});
+}
