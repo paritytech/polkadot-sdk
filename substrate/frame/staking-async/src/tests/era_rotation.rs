@@ -531,7 +531,15 @@ mod inflation {
 
 #[test]
 fn era_pot_drained_after_history_depth() {
+	use super::helpers::{mint_operational_expenses_asset, operational_expenses_asset_balance};
+
 	ExtBuilder::default().build_and_execute(|| {
+		let validator_expenses_general_pot = <Test as Config>::RewardPots::pot_account(
+			RewardPot::General(RewardKind::OperationalExpenses),
+		);
+		Balances::set_balance(&validator_expenses_general_pot, 1_000);
+		mint_operational_expenses_asset(validator_expenses_general_pot, 100);
+
 		// GIVEN: Start at era 2
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
@@ -539,8 +547,20 @@ fn era_pot_drained_after_history_depth() {
 		// Verify era-1 staker pot was funded with expected amount.
 		let staker_pot_1 =
 			<Test as Config>::RewardPots::pot_account(RewardPot::Era(1, RewardKind::StakerRewards));
+		let validator_expenses_pot_1 = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			1,
+			RewardKind::OperationalExpenses,
+		));
 		let expected_per_era = validator_payout_for(time_per_era());
 		assert_eq!(Balances::balance(&staker_pot_1), expected_per_era);
+		assert_eq!(
+			operational_expenses_asset_balance(validator_expenses_general_pot),
+			MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(
+			operational_expenses_asset_balance(validator_expenses_pot_1),
+			100 - MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
+		);
 
 		// era we expect to be drained
 		let drained_era = 1;
@@ -563,6 +583,9 @@ fn era_pot_drained_after_history_depth() {
 			1,
 			"Staker pot is kept alive for slot reuse; provider must be retained"
 		);
+
+		assert_eq!(operational_expenses_asset_balance(validator_expenses_general_pot), 100);
+		assert_eq!(operational_expenses_asset_balance(validator_expenses_pot_1), 0);
 	});
 }
 

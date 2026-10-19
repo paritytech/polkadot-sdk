@@ -238,6 +238,23 @@ impl<T: Config> EraRewardManager<T> {
 		}
 	}
 
+	/// TODO: where to?
+	pub(crate) fn drain_operational_expenses(era: EraIndex) {
+		let pot_account =
+			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
+
+		let remaining = T::ValidatorExpencesCurrency::balance(&pot_account);
+
+		if remaining.is_zero() {
+			return;
+		}
+
+		let general_pot_account =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+
+		// TODO
+	}
+
 	/// Whether the slot backing this era's staker reward pot exists.
 	///
 	/// Because slots are reused across eras (rotating pool), this returns
@@ -255,6 +272,7 @@ impl<T: Config> EraRewardManager<T> {
 	pub(crate) fn cleanup_era(era: EraIndex) {
 		Self::drain(era, RewardKind::StakerRewards);
 		Self::drain(era, RewardKind::ValidatorSelfStake);
+		Self::drain_operational_expenses(era);
 	}
 }
 

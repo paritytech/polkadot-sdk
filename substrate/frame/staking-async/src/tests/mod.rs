@@ -1236,3 +1236,24 @@ mod hold_migration {
 // assert_eq!(500 - 146 - 342, nominator_slash_amount_11);
 // });
 // }
+
+mod helpers {
+	use frame_support::traits::tokens::{Fortitude, Preservation};
+
+	use super::*;
+
+	pub fn mint_operational_expenses_asset(to: AccountId, amount: Balance) {
+		use frame_support::traits::fungibles::Mutate;
+		assert_ok!(Assets::mint_into(ValidatorExpensesAssetId::get(), &to, amount));
+	}
+
+	pub fn operational_expenses_asset_balance(account: AccountId) -> Balance {
+		use frame_support::traits::fungibles::Inspect;
+		Assets::reducible_balance(
+			ValidatorExpensesAssetId::get(),
+			&account,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		)
+	}
+}

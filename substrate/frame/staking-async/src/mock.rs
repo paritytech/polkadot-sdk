@@ -49,7 +49,7 @@ use std::collections::BTreeMap;
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;
-const MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE: u128 = 1;
+pub(crate) const MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE: u128 = 1;
 
 frame_support::construct_runtime!(
 	pub enum Test {

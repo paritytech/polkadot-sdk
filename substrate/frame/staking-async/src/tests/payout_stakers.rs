@@ -1796,23 +1796,10 @@ fn legacy_payout_ignores_pot_account_existence() {
 	});
 }
 
-fn mint_operational_expenses_asset(to: AccountId, amount: Balance) {
-	use frame_support::traits::fungibles::Mutate;
-	assert_ok!(Assets::mint_into(ValidatorExpensesAssetId::get(), &to, amount));
-}
-
-fn operational_expenses_asset_balance(account: AccountId) -> Balance {
-	use frame_support::traits::fungibles::Inspect;
-	Assets::reducible_balance(
-		ValidatorExpensesAssetId::get(),
-		&account,
-		Preservation::Expendable,
-		Fortitude::Polite,
-	)
-}
-
 #[test]
 fn validator_operational_expenses_paid_out() {
+	use super::helpers::{mint_operational_expenses_asset, operational_expenses_asset_balance};
+
 	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
 		bond_validator(11, 1000);
 		bond_validator(12, 1000);
