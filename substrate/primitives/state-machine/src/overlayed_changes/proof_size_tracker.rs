@@ -943,4 +943,123 @@ mod tests {
 		let delta = tracker.take_delta();
 		assert!(delta.is_empty());
 	}
+
+	mod estimation_trie {
+		use super::Tracker;
+		use sp_core::{Blake2Hasher, H256};
+		use sp_trie::{LayoutV1, MemoryDB, TrieDBMutBuilder, TrieMut};
+
+		type Layout = LayoutV1<Blake2Hasher>;
+
+		const FIRST: &[u8] = b"first";
+		const SECOND: &[u8] = b"second";
+		const THIRD: &[u8] = b"third";
+
+		struct Fixture {
+			tracker: Tracker,
+			db: MemoryDB<Blake2Hasher>,
+			root: H256,
+		}
+
+		impl Fixture {
+			fn new() -> Self {
+				let mut db = MemoryDB::default();
+				let mut root = H256::default();
+				{
+					let mut trie = TrieDBMutBuilder::<Layout>::new(&mut db, &mut root).build();
+					for key in [FIRST, SECOND, THIRD] {
+						trie.insert(key, b"value").unwrap();
+					}
+				}
+				Self { tracker: Tracker::default(), db, root }
+			}
+
+			fn remove(&mut self, key: &[u8]) {
+				sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
+					&mut self.db,
+					self.root,
+					[key],
+					self.tracker.estimation_trie_mut(),
+					None,
+					None,
+				)
+				.unwrap();
+			}
+
+			fn contains(&mut self, key: &[u8]) -> bool {
+				let estimation_trie = self.tracker.estimation_trie_mut();
+				let mut root = self.root;
+				let trie = TrieDBMutBuilder::<Layout>::from_detached(
+					&mut self.db,
+					&mut root,
+					core::mem::take(estimation_trie),
+				)
+				.build();
+				let contains = trie.get(key).unwrap().is_some();
+				*estimation_trie = trie.detach();
+				contains
+			}
+		}
+
+		/// A rolled back extrinsic must not leave its removals in the trie, or later flushes
+		/// would estimate collapses that the real storage root computation never performs.
+		#[test]
+		fn rollback_undoes_a_removal() {
+			let mut fixture = Fixture::new();
+			fixture.remove(THIRD);
+
+			fixture.tracker.start_transaction();
+			fixture.remove(FIRST);
+			fixture.tracker.rollback_transaction();
+
+			assert!(fixture.contains(FIRST));
+			assert!(!fixture.contains(THIRD));
+		}
+
+		/// A committed removal is part of the block, so later flushes must build on it.
+		#[test]
+		fn commit_keeps_a_removal() {
+			let mut fixture = Fixture::new();
+
+			fixture.tracker.start_transaction();
+			fixture.remove(FIRST);
+			fixture.tracker.commit_transaction();
+
+			assert!(!fixture.contains(FIRST));
+			assert!(fixture.contains(SECOND));
+		}
+
+		/// Each transaction layer must restore exactly the trie it started with, so an inner
+		/// rollback keeps the outer layer's removals.
+		#[test]
+		fn nested_rollbacks_undo_their_own_removals() {
+			let mut fixture = Fixture::new();
+
+			fixture.tracker.start_transaction();
+			fixture.remove(FIRST);
+			fixture.tracker.start_transaction();
+			fixture.remove(SECOND);
+
+			fixture.tracker.rollback_transaction();
+			assert!(!fixture.contains(FIRST));
+			assert!(fixture.contains(SECOND));
+
+			fixture.tracker.rollback_transaction();
+			assert!(fixture.contains(FIRST));
+			assert!(fixture.contains(SECOND));
+		}
+
+		/// Rolling back to before the first flush leaves an empty trie, which must continue from
+		/// the block-start root instead of a state built on it.
+		#[test]
+		fn rollback_before_any_flush_continues_from_the_given_root() {
+			let mut fixture = Fixture::new();
+
+			fixture.tracker.start_transaction();
+			fixture.remove(FIRST);
+			fixture.tracker.rollback_transaction();
+
+			assert!(fixture.contains(FIRST));
+		}
+	}
 }
