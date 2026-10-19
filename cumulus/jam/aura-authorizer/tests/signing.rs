@@ -31,9 +31,8 @@ impl SignatureVerifier for Verifier {
 	}
 }
 
-#[test]
-fn published_package_works() {
-	let package = WorkPackageBody {
+fn package_body() -> WorkPackageBody {
+	WorkPackageBody {
 		auth_code_host: 1,
 		authorizer: jam_types::Authorizer { code_hash: [3; 32].into(), config: vec![4, 5].into() },
 		context: jam_types::RefineContext {
@@ -56,8 +55,12 @@ fn published_package_works() {
 		}]
 		.try_into()
 		.expect("one work item fits"),
-	};
+	}
+}
 
+#[test]
+fn signing_vectors_works() {
+	let package = package_body();
 	let payload = JamEncode::encode(&(
 		&package.auth_code_host,
 		&package.authorizer.code_hash,
@@ -92,7 +95,19 @@ fn published_package_works() {
 
 	expected.extend_from_slice(&payload);
 	assert_eq!(hash.as_bytes(), &sp_crypto_hashing::blake2_256(&expected));
+}
 
+#[test]
+fn authorization_round_trip_works() {
+	let package = package_body();
+	let hash = package.signing_hash();
+	let expected_fields = JamEncode::encode(&(
+		&package.auth_code_host,
+		&package.authorizer.code_hash,
+		&package.context,
+		&package.authorizer.config,
+		&package.items,
+	));
 	let (root, _) = build_collator_proof(&[[7; 32]], 0).expect("valid test collator set");
 	let config = AuthConfig {
 		para_ids: vec![cumulus_aura_authorizer::ParaId::new(0)],
@@ -104,7 +119,6 @@ fn published_package_works() {
 
 	let mut token = AuthToken { proof: vec![], key: [7; 32], signature: [0; 64] };
 	token.signature[..32].copy_from_slice(hash.as_bytes());
-	let expected_fields = payload;
 	let mut package = package.with_authorization(&token);
 	assert_eq!(
 		JamEncode::encode(&(
@@ -121,7 +135,8 @@ fn published_package_works() {
 	assert_eq!(decoded.proof, token.proof);
 	assert_eq!(decoded.signature, token.signature);
 	assert_eq!(
-		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0).unwrap(),
+		AuthTrace::try_from_token::<Verifier>(&config, &token, &package, 0)
+			.expect("valid authorization"),
 		AuthTrace { author_key: token.key }
 	);
 
