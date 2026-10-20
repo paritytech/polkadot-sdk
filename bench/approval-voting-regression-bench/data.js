@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792516581455,
+  "lastUpdate": 1792528766713,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "89ad96ed0003ced574a6e21e55e334680fd0aeff",
-          "message": "Enforce current relay parent to be available (#11621)\n\nI would suggest to encode our intention directly instead of working\naround a symptom. This makes it much easier to reason about the code in\nmy opinion and should have less edge cases. In particular this change\nwill also wait for the current relay parent mid-parachain slot, which is\nuseful as otherwise we would build on an older than expected relay\nparent, which could then again affect block confidence as the relay\nparent might be out of scope already before the collation can land on\nchain.\n\nAlso worth mentioning: As the original PR already shows, we have the\nimplicit assumption that the current relay parent has arrived after 1s\ninto the relay chain slot. This seems to be the case most of the time,\nbut not always - triggering the issue this PR is fixing. For best\nperformance we should consider bumping the slot offset some more. If I\nunderstand correctly the error case we found was by a relay parent\ncoming late by only a couple of milliseconds - thus 1.5s might already\nbe plenty for the needed wait to almost never happen, but ideally we\nshould find a good value based on data from prod.\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: Alexandru Vasile <alexandru.vasile@parity.io>",
-          "timestamp": "2026-04-07T20:57:51Z",
-          "tree_id": "9a9e714cec14724c257a16367dbd6e53cf6a4e25",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/89ad96ed0003ced574a6e21e55e334680fd0aeff"
-        },
-        "date": 1775600282111,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.64,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52942.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.908418682099998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000026157239999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000024956810000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.739758194139956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8338563999699997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005088763830000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000026157239999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000024956810000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.89249046082,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4939347858299956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.833060686429999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7729084151599666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.285099246992845,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting",
             "value": 0.000017435039999999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b070ee1a2ba5b6440955a2b12e73dd9518c36f8e",
+          "message": "statement-store: keep up to K routing peers reserved on the v2 DHT path (#13487)\n\n# Description\n\nWith the v2 DHT path on, peer steering keeps the node's routing peers\nreserved besides the peers covering its topics: the K nearest known\npeers, K being the replication factor, then the nearest peer of every\ndistance bucket from the node's key that those K leave uncovered. The\nnearest peers are the replicas the node shares its topics with. The\nuncovered buckets are the far ones, as in Kademlia, and hold most of the\nnetwork: one peer in each gives a statement for any topic a next hop\ncloser to it. The set is recomputed every tick from the known peers, so\nit fills from the first discovered peers and settles as discovery\ncompletes.\n\nOnly about log2(N) buckets are populated, so the far peers add about\nlog2(N / K) connections: 3 at 100 nodes, 10 at 10 000.\n\nToday steering desires only the peers covering the node's topics, so a\nnode without topics asks for no peer at all. The routing peers give\nevery node a connected set that routes any statement onward.\nhttps://github.com/paritytech/polkadot-sdk/pull/13488 stops the\nstatement set dialing peers of its own, so it needs this floor.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-20T13:28:32Z",
+          "tree_id": "d8d5b5608651f5e9cc0a99b3ec2e77cd157be501",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b070ee1a2ba5b6440955a2b12e73dd9518c36f8e"
+        },
+        "date": 1792528735956,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940.3,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63565.729999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.82074622774,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7944445589800013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002192325,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020714539999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020714539999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.403921838650016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8363247310400155,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7867304283300007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3654100028299987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.3379010578327115,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7949665578100014,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002192325,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005299331920000005,
             "unit": "seconds"
           }
         ]
