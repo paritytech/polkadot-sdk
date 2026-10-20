@@ -196,8 +196,9 @@ units of a permanent release move into the `released` account. On failure the
 pallet undoes what the call did.
 
 To resolve operations, the pallet receives the validation inputs each block
-(§3.4). It stores the para head and marks the operations named by the failure
-entries of `parachain_log` as `Failed`.
+(§3.4). It stores the para head, marks the operations named by the failure
+entries of `parachain_log` as `Failed` and records the detail of the success
+entries (§5.1).
 
 For voluntary return (§4.4) it processes `incoming_transfers`. A valid
 beneficiary memo credits `Custodial`; a missing or malformed memo credits
@@ -231,6 +232,9 @@ const MIN_TRANSFER: Balance;
 /// `min_memo_gas` is above it refuses with `GasBelowDestinationMinimum`, and
 /// the operation fails.
 const MEMO_GAS: u64;
+
+/// A code hash with no preimage; a target set to it cannot run (§4.3).
+const FROZEN_CODE_HASH: Hash = [0u8; 32];
 
 type AllocationId = u64;              // assigned from 1;
 type OperationId = u64;               // assigned from 1;
@@ -269,8 +273,9 @@ type Custodial = Map<AccountId, Balance>;
 /// Unattributed inflows, per source service (§4.4).
 type Excess = Map<ServiceId, Balance>;
 
-/// The frozen lease targets (§4.3).
-type FrozenTargets = Set<ServiceId>;
+/// The frozen lease targets and the code hash each had before its freeze
+/// (§4.3).
+type FrozenTargets = Map<ServiceId, Hash>;
 
 /// One approved allocation.
 struct Allocation {
@@ -367,16 +372,18 @@ enum OperationPayload {
         amount: Balance,
     },
     /// A freeze (`freeze_target`, §4.3).
-    /// One message that stops the target from taking more state footprint.
-    /// The Parachain Service design does not provide it.
+    /// One `UpgradeService { service: Some(target), code_hash:
+    /// FROZEN_CODE_HASH, len: 0, min_acc_gas: 0, min_memo_gas: 0 }`.
     ///
-    /// Confirmed: the target is recorded in `FrozenTargets`.
+    /// Confirmed, once `ServiceUpgraded { previous_code_hash }` is recorded:
+    /// the previous code hash is saved in `FrozenTargets`.
     Freeze {
         target: ServiceId,
     },
     /// An unfreeze (`unfreeze_target`, §4.3).
-    /// One message that reverses the freeze. The Parachain Service design
-    /// does not provide it.
+    /// One `UpgradeService { service: Some(target), code_hash, len: 0,
+    /// min_acc_gas: 0, min_memo_gas: MEMO_GAS }` with the hash saved in
+    /// `FrozenTargets`.
     ///
     /// Confirmed: the target is removed from `FrozenTargets`.
     Unfreeze {
@@ -386,6 +393,9 @@ enum OperationPayload {
     /// One `RemoveServiceStorage { service: target, key }` per key in `keys`.
     ///
     /// Confirmed: the deposit is released.
+    /// Failed: the keys that were present are removed regardless;
+    /// `RECOVERY_DEPOSIT_PER_KEY` is slashed per missing key and the rest of
+    /// the deposit is released.
     Cleanup {
         target: ServiceId,
         keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>,
@@ -401,15 +411,15 @@ enum OperationPayload {
         len: u32,
     },
     /// An ejection (`eject_target`, §4.3).
-    /// One `EjectService { service: target }`; it fails `NotEmpty` until the
-    /// target's storage and requests are empty.
+    /// One `EjectService { service: target }`. It fails `NotEmpty` until the
+    /// target holds no storage items and no preimage requests.
     ///
-    /// Confirmed: every accepted lease on the target moves to `Closed` and
-    /// its hold is released; the target's `FrozenTargets` and
-    /// `ServiceAccounts` entries are removed. The amount above the leases is
-    /// booked as excess (`Excess`).
-    ///
-    /// Needs the Parachain Service to report the balance it credits (§7).
+    /// Confirmed, once `ServiceEjected { credited }` is recorded: every
+    /// accepted lease on the target moves to `Closed` and its hold is
+    /// released; the rest of `credited` moves from the `released` account to
+    /// the `excess` account, recorded as `Excess[target]` (§4.4). The target's
+    /// `FrozenTargets` and `ServiceAccounts` entries are removed.
+    /// Failed: the leases stay `Reclaiming`.
     Eject {
         target: ServiceId,
     },
@@ -441,13 +451,14 @@ enum OperationState {
 }
 
 /// The failure carried by `OperationFailed`: one variant per failure entry
-/// class, each wrapping that entry's `error` field (Parachain Service design
-/// §3.1).
+/// class, carrying that entry's detail (Parachain Service design §3.1).
 enum FailureReason {
-    Transfer(TransferError),            // a TransferFailed entry (§5.1)
-    Store(ServiceStoreError),           // a ServiceStoreFailed entry
-    Eject(ServiceEjectError),           // a ServiceEjectFailed entry
-    Supervisor(ServiceSupervisorError), // a ServiceSupervisorFailed entry
+    Transfer(TransferError),            // TransferFailed { id, error }
+    /// One `ServiceKeyNotFound { service, key_hash }` per missing key.
+    Cleanup { missing: BoundedVec<Hash, MAX_KEYS_PER_PAGE> },
+    ForgetNotRequested,                 // ServiceForgetNotRequested { service, hash, len }
+    Eject(ServiceEjectError),           // ServiceEjectFailed { service, error }
+    Supervisor(ServiceSupervisorError), // ServiceSupervisorFailed { service, error }
 }
 
 /// The booking class of an uncredited return (§4.4).
@@ -584,14 +595,16 @@ fn close_lease(id: AllocationId);
 
 // ── Recovery: a lease target that does not cooperate ───────────────────────
 
-/// Stops the target from taking more state footprint. Origin: any signed
-/// account. Legal while a lease on the target is `Reclaiming` and the target
-/// is not recorded frozen. Records a `Freeze` operation.
+/// Stops the target from taking more state footprint: its code hash is set
+/// to `FROZEN_CODE_HASH`, so it no longer runs. Its code preimage stays in
+/// place for `unfreeze_target`. Origin: any signed account. Legal while a
+/// lease on the target is `Reclaiming` and the target is not recorded
+/// frozen. Records a `Freeze` operation.
 fn freeze_target(target: ServiceId);
 
-/// Reverses the freeze. Origin: any signed account. Legal while the target is
-/// recorded frozen and no lease on it is `Reclaiming`. Records an `Unfreeze`
-/// operation.
+/// Restores the code hash saved at the freeze. Origin: any signed
+/// account. Legal while the target is recorded frozen and no lease on it is
+/// `Reclaiming`. Records an `Unfreeze` operation.
 fn unfreeze_target(target: ServiceId);
 
 /// Deletes one bounded page of keys from the target's storage. Origin: any
@@ -607,8 +620,9 @@ fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 /// (Parachain Service design §6.1). Records a `Forget` operation.
 fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 
-/// Destroys the emptied target, crediting its balances to the Parachain
-/// Service. Origin: the target's service account or governance. Legal while
+/// Destroys the emptied target, crediting its regular and supervisor
+/// balances to the Parachain Service's regular balance. Origin: the target's
+/// service account or governance. Legal while
 /// a lease on the target is `Reclaiming`. Rejected while a lease on the
 /// target has an unsettled operation (§5.1). Records an `Eject` operation.
 /// While the `Eject` is unsettled, `accept_lease`, `increase_lease`,
@@ -648,8 +662,12 @@ fn cancel_allocation(id: AllocationId);
 
 /// Resolves an operation. Origin: any signed account. Operation marked
 /// `Failed`: the call that recorded it is undone and its recovery deposit, if
-/// any, is slashed. Operation `Submitted`: moves to Confirmed once the block
-/// it was sent in is accumulated on JAM, otherwise stays `Submitted`.
+/// any, is slashed, except for a `Cleanup`, which is not undone and slashes
+/// only per missing key. Operation `Submitted`: moves to Confirmed once the block
+/// it was sent in is accumulated on JAM, otherwise stays `Submitted`. An
+/// `Eject` or a `Freeze` moves to Confirmed only once its success entry
+/// (`ServiceEjected`, `ServiceUpgraded`) is recorded; until then it stays
+/// `Submitted`.
 fn settle(op_id: OperationId);
 ```
 
@@ -987,10 +1005,11 @@ id: its `TransferOut` carries the `OperationId` as its `id` field, and a
 `TransferFailed { id }` entry points directly at the failed operation.
 
 A recovery operation has no id in its message. Its failure entry
-(`ServiceStoreFailed`, `ServiceEjectFailed`, `ServiceSupervisorFailed`)
-names the service, so it correlates by target and entry class. The pallet
-keeps at most one unsettled operation per allocation and at most one
-unsettled recovery operation per target.
+(`ServiceKeyNotFound`, `ServiceForgetNotRequested`, `ServiceEjectFailed`,
+`ServiceSupervisorFailed`) and its success entry (`ServiceEjected`,
+`ServiceUpgraded`, `ForgetAgainAt`) name the service, so it correlates by
+target and entry class. The pallet keeps at most one unsettled operation per
+allocation and at most one unsettled recovery operation per target.
 
 ### 5.2 Memo Requirements
 
@@ -1029,29 +1048,19 @@ of its layout is to be defined.
    and the reclaim must also be atomic: with several leases on one target,
    their reclaims race for the freed funds, and the lease the cleanup was done
    for should be the one to get them back.
-3. **Storage key removal.** `ServiceStoreError` has no variant for a key that
-   is not present, so `cleanup_storage` cannot tell whether keys were removed.
-   `settle` slashes the deposit on Failed.
-4. **Service Freeze.** No Parachain Service message stops a service from taking more
-   state footprint, so a target can allocate storage while a cleanup removes
-   it.
-5. **Eject sweep.** `EjectService` credits the ejected service's balances to
-   the Parachain Service without reporting the amount, so Asset Hub is not
-   aware of the incoming transfer. Needs the Parachain Service to report the
-   swept balance.
-6. **Service accounts.** A mapping from JAM service to Asset Hub account is
-   needed by the lease, for lease acceptance and early return, probably provided by
-   another pallet.
-7. **Generic transport.** The parachain-system rework that pulls the jamkb pallet's
+3. **Service Freeze.** The Parachain Service does not log anyhing for a supervised
+   `UpgradeService`. The freeze needs `ServiceUpgraded { service,
+   previous_code_hash }` so that `unfreeze_target` can restore the code.
+4. **Generic transport.** The parachain-system rework that pulls the jamkb pallet's
    upward messages and delivers the validation inputs does not exist yet
    (§3.4).
-8. **Burn instead of holds.** A hold cannot take the last `min_balance` unit,
+5. **Burn instead of holds.** A hold cannot take the last `min_balance` unit,
    so a holder redeems all but one unit and transfers the remainder out by a
    plain `pallet-assets` transfer. The alternative is
    `fungibles::Mutate::shelve` on the call and `restore` on Failed; `restore`
    into a dead non-sufficient account fails, so those units would fall back
    to `Custodial`.
-9. **Service registry pallet.** Service accounts, supervision, service
+6. **Service registry pallet.** Service accounts, supervision, service
    creation and upgrade belong to a service registry pallet that does not
    exist. The recovery calls of §4.3 stay here: they apply their origin rule
    and the recovery deposit, then request through `ServiceRegistry`. The
