@@ -83,5 +83,5 @@ exclude = [
 	# Private repository:
 	"https://github.com/paritytech/individuality/blob/main/runtimes/people-westend/chain-spec/create_people_westend_spec.sh",
 	# directory listing is not allowed in bucket
-	"https://storage.googleapis.com/zombienet-db-snaps/cumulus/bitswap"
+	"https://storage.googleapis.com/zombienet-db-snaps/cumulus/bitswap",
 ]
