@@ -74,10 +74,10 @@ fn fellowship_treasury_spend() {
 
 		let fellowship_treasury_spend_call =
 			RuntimeCall::FellowshipTreasury(pallet_treasury::Call::<Runtime, Instance1>::spend {
-				asset_kind: bx!(VersionedLocatableAsset::from((
+				asset: bx!(pallet_treasury::SpendAsset::Specific(VersionedLocatableAsset::from((
 					asset_hub_location,
 					native_asset.into()
-				))),
+				)))),
 				amount: fellowship_spend_balance,
 				beneficiary: bx!(VersionedLocation::from(alice_location)),
 				valid_from: None,
