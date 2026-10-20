@@ -128,6 +128,37 @@ impl StreamId {
 		}
 		out
 	}
+
+	/// The inverse of [`Self::to_bytes`]. `Err` for a reserved kind (`0x03..=0x7F`).
+	pub fn from_bytes(bytes: [u8; STREAM_ID_LEN]) -> Result<Self, CodecError> {
+		let [kind, rest @ ..] = bytes;
+		let recipient = || ParaId::from(u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]));
+		match kind {
+			0x00 => Ok(StreamId::Channel {
+				recipient: recipient(),
+				domain: rest[4],
+				num: u16::from_be_bytes([rest[5], rest[6]]),
+			}),
+			0x01 => Ok(StreamId::Ack {
+				recipient: recipient(),
+				domain: rest[4],
+				num: u16::from_be_bytes([rest[5], rest[6]]),
+			}),
+			0x02 => Ok(StreamId::Broadcast {
+				domain: u16::from_be_bytes([rest[0], rest[1]]),
+				subdomain: rest[2],
+				num: u32::from_be_bytes([rest[3], rest[4], rest[5], rest[6]]),
+			}),
+			0x80..=0xFF => {
+				// The arm guarantees the range. Go through `new` so the invariant has one
+				// enforcement point.
+				let kind = PrivateKind::new(kind).ok_or("StreamId: private kind out of range")?;
+				Ok(StreamId::Private { kind, body: rest })
+			},
+			// 0x03..=0x7F are reserved for future standard kinds.
+			_ => Err(CodecError::from("StreamId: reserved/unknown kind")),
+		}
+	}
 }
 
 impl Encode for StreamId {
@@ -151,43 +182,7 @@ impl MaxEncodedLen for StreamId {
 
 impl Decode for StreamId {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
-		let kind = input.read_byte()?;
-		match kind {
-			0x00 | 0x01 => {
-				let mut r = [0u8; 4];
-				input.read(&mut r)?;
-				let recipient = ParaId::from(u32::from_be_bytes(r));
-				let domain = input.read_byte()?;
-				let mut n = [0u8; 2];
-				input.read(&mut n)?;
-				let num = u16::from_be_bytes(n);
-				Ok(if kind == 0x00 {
-					StreamId::Channel { recipient, domain, num }
-				} else {
-					StreamId::Ack { recipient, domain, num }
-				})
-			},
-			0x02 => {
-				let mut d = [0u8; 2];
-				input.read(&mut d)?;
-				let domain = u16::from_be_bytes(d);
-				let subdomain = input.read_byte()?;
-				let mut n = [0u8; 4];
-				input.read(&mut n)?;
-				let num = u32::from_be_bytes(n);
-				Ok(StreamId::Broadcast { domain, subdomain, num })
-			},
-			0x80..=0xFF => {
-				let mut body = [0u8; 7];
-				input.read(&mut body)?;
-				// The arm guarantees the range. Go through `new` so the invariant has one
-				// enforcement point.
-				let kind = PrivateKind::new(kind).ok_or("StreamId: private kind out of range")?;
-				Ok(StreamId::Private { kind, body })
-			},
-			// 0x03..=0x7F are reserved for future standard kinds.
-			_ => Err(CodecError::from("StreamId: reserved/unknown kind")),
-		}
+		Self::from_bytes(<[u8; STREAM_ID_LEN]>::decode(input)?)
 	}
 }
 
@@ -251,6 +246,14 @@ mod tests {
 				"{id:?} must encode to {STREAM_ID_LEN} bytes"
 			);
 		}
+	}
+
+	#[test]
+	fn from_bytes_inverts_to_bytes() {
+		for id in sample_ids() {
+			assert_eq!(StreamId::from_bytes(id.to_bytes()).unwrap(), id);
+		}
+		assert!(StreamId::from_bytes([0x03, 0, 0, 0, 0, 0, 0, 0]).is_err());
 	}
 
 	#[test]
