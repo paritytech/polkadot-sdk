@@ -2345,17 +2345,18 @@ where
 		let median = heads[heads.len() / 2];
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
-				// Pick up where an earlier run stopped, if its target is still usable.
-				let state_sync = match resumable_state_sync(&*self.client, finalized_number, None) {
-					Some(resumable) => Ok(StateSync::resume(self.client.clone(), resumable)),
-					None => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Starting state sync for #{finalized_number} ({finalized_hash})",
-						);
-						StateSync::new(self.client.clone(), header, None, None)
-					},
-				};
+				// Pick up where an earlier run stopped.
+				let state_sync =
+					resumable_state_sync(&*self.client).and_then(|resumable| match resumable {
+						Some(resumable) => Ok(StateSync::resume(self.client.clone(), resumable)),
+						None => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Starting state sync for #{finalized_number} ({finalized_hash})",
+							);
+							StateSync::new(self.client.clone(), header, None, None)
+						},
+					});
 				match state_sync {
 					Ok(mut state_sync) => {
 						// Every chunk was written before the restart, so only the import is left.

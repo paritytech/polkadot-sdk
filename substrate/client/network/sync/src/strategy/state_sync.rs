@@ -47,63 +47,30 @@ const MAX_PARTIAL_STATE_WRITE_RETRIES: u32 = 4;
 /// The wait between two write attempts of the same chunk.
 const PARTIAL_STATE_WRITE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
-/// How far behind the finalized head the target of an interrupted state sync may be to resume it.
-/// Peers keep 256 blocks of state by default (`sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`). A
-/// quarter of that leaves the rest of the download some time before they prune the target.
-pub(crate) const MAX_RESUME_DISTANCE: u32 = 64;
-
-/// Is the stored target close enough behind `head` to resume, and not ahead of it?
-pub(crate) fn is_resumable<B: BlockT>(stored: NumberFor<B>, head: NumberFor<B>) -> bool {
-	stored <= head && head - stored <= MAX_RESUME_DISTANCE.into()
-}
-
-/// The state sync an earlier run left behind, if it can still be resumed towards `head`. `None`
-/// when there is none or it has to start over. The old attempt is then discarded when the new one
-/// begins.
+/// The state sync an earlier run left behind, logged as resumed. `Ok(None)` when nothing is
+/// recorded. The attempt is resumed whatever its age: its target is a finalized block, every chunk
+/// is verified against the target's state root, and block sync executes the blocks after it. Peers
+/// serve the state of a finalized block for a bounded time only (256 blocks by default,
+/// `sc_state_db::DEFAULT_MAX_BLOCK_CONSTRAINT`); a target every peer has pruned is downloaded from
+/// nobody until a peer that kept it answers.
 pub(crate) fn resumable_state_sync<B: BlockT, Client: PartialStateImport<B>>(
 	client: &Client,
-	head: NumberFor<B>,
-	highest_proof_header: Option<NumberFor<B>>,
-) -> Option<ResumablePartialState<B>> {
-	let resumable = match client.resumable_partial_state() {
-		Ok(resumable) => resumable?,
-		Err(e) => {
-			warn!(target: LOG_TARGET, "Failed to read the record of an earlier state sync: {e}");
-			return None;
-		},
+) -> sp_blockchain::Result<Option<ResumablePartialState<B>>> {
+	let Some(resumable) = client.resumable_partial_state()? else {
+		return Ok(None);
 	};
-	let stored = *resumable.target.header.number();
-	let hash = resumable.target.header.hash();
-	// Too far behind the head, or ahead of it: start over.
-	if !is_resumable::<B>(stored, head) {
-		info!(
-			target: LOG_TARGET,
-			"The state sync of #{stored} ({hash}) interrupted earlier cannot resume towards \
-			 #{head}: the target must be at most {MAX_RESUME_DISTANCE} blocks behind, starting over.",
-		);
-		return None;
-	}
-	// Warp sync only. The headers of the warp proof are imported without state and never
-	// executed. A target below one of them would leave finality stuck behind it, and a target
-	// that is one of them is already in the chain, so its state import would be skipped.
-	if highest_proof_header.is_some_and(|proof_header| proof_header >= stored) {
-		info!(
-			target: LOG_TARGET,
-			"The state sync of #{stored} ({hash}) interrupted earlier cannot resume: the warp proof \
-			 imported a header at or above it, starting over.",
-		);
-		return None;
-	}
 	info!(
 		target: LOG_TARGET,
-		"Resuming the state sync of #{stored} ({hash}) interrupted earlier{}.",
+		"Resuming the state sync of #{} ({}) interrupted earlier{}.",
+		resumable.target.header.number(),
+		resumable.target.header.hash(),
 		if resumable.complete {
 			", every chunk is in the database: importing the block"
 		} else {
 			""
 		},
 	);
-	Some(resumable)
+	Ok(Some(resumable))
 }
 
 /// Generic state sync provider. Used for mocking in tests.
@@ -836,40 +803,20 @@ mod tests {
 	}
 
 	#[test]
-	fn resumable_state_sync_follows_the_distance_and_the_proof_rules() {
-		let distance = MAX_RESUME_DISTANCE as u64;
+	fn resumable_state_sync_reads_the_record() {
 		let client = StubClient::new(vec![], 1, 0);
-		let target_at = |number| {
-			let header = Header::new(
-				number,
-				Default::default(),
-				Default::default(),
-				Default::default(),
-				Default::default(),
-			);
-			PartialStateTarget { header, body: None, justifications: None }
-		};
-		let record =
-			|complete| ResumablePartialState { target: target_at(100), cursor: vec![], complete };
+		assert!(resumable_state_sync(&*client).unwrap().is_none(), "nothing recorded");
 
-		assert!(resumable_state_sync(&*client, 100, None).is_none(), "nothing recorded");
+		*client.resumable.lock().unwrap() = Some(resumable(vec![], false));
+		assert_eq!(resumable_state_sync(&*client).unwrap(), Some(resumable(vec![], false)));
 
-		*client.resumable.lock().unwrap() = Some(record(false));
-		assert!(resumable_state_sync(&*client, 100, None).is_some());
-		assert!(resumable_state_sync(&*client, 100 + distance, None).is_some());
-		assert!(resumable_state_sync(&*client, 101 + distance, None).is_none(), "too old");
-		assert!(resumable_state_sync(&*client, 99, None).is_none(), "ahead of the head");
-		assert!(resumable_state_sync(&*client, 100, Some(99)).is_some(), "proof below");
-		assert!(resumable_state_sync(&*client, 100, Some(100)).is_none(), "proof at the target");
-		assert!(resumable_state_sync(&*client, 100, Some(101)).is_none(), "proof above");
-
-		*client.resumable.lock().unwrap() = Some(record(true));
+		*client.resumable.lock().unwrap() = Some(resumable(vec![], true));
 		assert!(
-			resumable_state_sync(&*client, 100, None).is_some_and(|record| record.complete),
+			resumable_state_sync(&*client).unwrap().is_some_and(|record| record.complete),
 			"a complete record passes through"
 		);
 
 		client.fail_resumable.store(true, Ordering::SeqCst);
-		assert!(resumable_state_sync(&*client, 100, None).is_none(), "read error");
+		assert!(resumable_state_sync(&*client).is_err(), "read error");
 	}
 }

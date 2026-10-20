@@ -920,7 +920,6 @@ pub struct BlockImportOperation<Block: BlockT> {
 	commit_state: bool,
 	create_gap: bool,
 	reset_storage: bool,
-	/// The pending block's state was written by a state sync, see `mark_state_synced`.
 	synced_state: bool,
 	index_ops: Vec<IndexOperation>,
 	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
@@ -1228,7 +1227,6 @@ pub struct Backend<Block: BlockT> {
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
-	/// The state sync in progress. Shares `storage`, the blockchain metadata and `state_usage`.
 	partial_state: DbPartialState<Block>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	pruning_filters: Vec<Arc<dyn PruningFilter>>,

@@ -362,6 +362,24 @@ where
 		}
 
 		if let SyncMode::Warp = config.mode {
+			// An interrupted state sync is resumed as recorded. No warp proof is downloaded again,
+			// so no authority set change above its target is imported header-only, and the target
+			// never moves.
+			if let Some(resumable) = resumable_state_sync(&*client)? {
+				let state = StateStrategy::new_with_provider(
+					Box::new(StateSync::resume(client.clone(), resumable)),
+					std::iter::empty(),
+					config.state_request_protocol_name.clone(),
+				);
+				return Ok(Self {
+					config,
+					client,
+					warp: None,
+					state: Some(state),
+					chain_sync: None,
+					peer_best_blocks: Default::default(),
+				});
+			}
 			let warp_sync_config = warp_sync_config
 				.expect("Warp sync configuration must be supplied in warp sync mode.");
 			let warp_sync = WarpSync::new(
@@ -416,28 +434,14 @@ where
 						.peer_best_blocks
 						.iter()
 						.map(|(peer_id, (_, best_number))| (*peer_id, *best_number));
-					let protocol_name = self.config.state_request_protocol_name.clone();
-					// Resume what an earlier run left behind if its target still fits, else start
-					// a new attempt.
-					let state_sync = match resumable_state_sync(
-						&*self.client,
-						*res.target_header.number(),
-						res.highest_proof_header,
-					) {
-						Some(resumable) => StateStrategy::new_with_provider(
-							Box::new(StateSync::resume(self.client.clone(), resumable)),
-							peers,
-							protocol_name,
-						),
-						None => StateStrategy::new(
-							self.client.clone(),
-							res.target_header,
-							res.target_body,
-							res.target_justifications,
-							peers,
-							protocol_name,
-						)?,
-					};
+					let state_sync = StateStrategy::new(
+						self.client.clone(),
+						res.target_header,
+						res.target_body,
+						res.target_justifications,
+						peers,
+						self.config.state_request_protocol_name.clone(),
+					)?;
 
 					self.warp = None;
 					self.state = Some(state_sync);
@@ -505,5 +509,76 @@ where
 		} else {
 			unreachable!("Only warp & state strategies can finish; qed")
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use crate::{mock::MockBlockDownloader, strategy::chain_sync::GapSyncBodyPolicy};
+	use sc_client_api::partial_state::PartialStateTarget;
+	use substrate_test_runtime_client::{
+		runtime::{Block, Header as TestHeader},
+		DefaultTestClientBuilderExt, TestClientBuilder, TestClientBuilderExt,
+	};
+
+	fn header(number: u64) -> TestHeader {
+		TestHeader::new(
+			number,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			Default::default(),
+		)
+	}
+
+	fn warp_mode_config() -> PolkadotSyncingStrategyConfig<Block> {
+		PolkadotSyncingStrategyConfig {
+			mode: SyncMode::Warp,
+			max_parallel_downloads: 1,
+			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
+			metrics_registry: None,
+			state_request_protocol_name: ProtocolName::from("/state/2"),
+			block_downloader: Arc::new(MockBlockDownloader::new()),
+			gap_sync_body_policy: Arc::new(|| Ok(GapSyncBodyPolicy::HeadersOnly)),
+		}
+	}
+
+	/// A warp-syncing node that finds a recorded state sync resumes it as it was: no warp phase,
+	/// so the warp target cannot replace the recorded one. Without a record it warp syncs.
+	#[test]
+	fn warp_mode_resumes_a_recorded_state_sync_without_a_warp_phase() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		client
+			.begin_partial_state(PartialStateTarget {
+				header: header(1),
+				body: None,
+				justifications: None,
+			})
+			.unwrap();
+		let strategy = PolkadotSyncingStrategy::new(
+			warp_mode_config(),
+			client,
+			Some(WarpSyncConfig::WithTarget(header(5))),
+			None,
+		)
+		.unwrap();
+		assert!(strategy.warp.is_none() && strategy.state.is_some());
+		assert_eq!(
+			strategy.status().best_seen_block,
+			Some(1),
+			"the recorded target, not the warp one"
+		);
+
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let strategy = PolkadotSyncingStrategy::new(
+			warp_mode_config(),
+			client,
+			Some(WarpSyncConfig::WithTarget(header(5))),
+			None,
+		)
+		.unwrap();
+		assert!(strategy.warp.is_some() && strategy.state.is_none());
 	}
 }
