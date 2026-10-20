@@ -321,7 +321,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 	/// Prune old or no longer relevant consensus messages. Provide a predicate
 	/// for pruning, which returns `false` when the items with a given topic should be pruned.
 	pub fn collect_garbage(&mut self) {
-		let known_messages = &mut self.known_messages;
+		let known_messages = &self.known_messages;
 		let before = self.messages.len();
 
 		let mut message_expired = self.validator.message_expired();
@@ -343,7 +343,7 @@ impl<B: BlockT> ConsensusGossip<B> {
 		);
 
 		for (_, ref mut peer) in self.peers.iter_mut() {
-			peer.known_messages.retain(|h| known_messages.get(h).is_some());
+			peer.known_messages.retain(|h| known_messages.peek(h).is_some());
 		}
 	}
 
