@@ -188,9 +188,16 @@ pub struct MmrInclusionProof {
 }
 
 impl MmrInclusionProof {
-	/// Leaf count of the proven MMR: the peak map of a valid MMR size.
-	pub fn leaf_count(&self) -> u64 {
-		get_peak_map(self.mmr_size)
+	/// Leaf count of the proven MMR. `mmr_lib` accepts counts up to 2^63; ours is lower.
+	fn checked_leaf_count(&self) -> Result<u64, ProofError> {
+		if !is_valid_mmr_size(self.mmr_size) {
+			return Err(ProofError::InvalidProof);
+		}
+		let leaf_count = get_peak_map(self.mmr_size);
+		if leaf_count > MAX_MMR_LEAF_COUNT {
+			return Err(ProofError::LeafCountTooLarge);
+		}
+		Ok(leaf_count)
 	}
 
 	/// Verify `leaf` (already hashed by [`crate::message::leaf_hash`]) as the last leaf of the
@@ -205,23 +212,15 @@ impl MmrInclusionProof {
 	/// authentication. Prefer [`crate::message::verify_event`], which binds the result to a trusted
 	/// `under`.
 	pub fn verify_head(&self, leaf: Hash) -> Result<(MessagePosition, MmrFrontier), ProofError> {
-		if !is_valid_mmr_size(self.mmr_size) {
-			return Err(ProofError::InvalidProof);
-		}
-		let leaf_count = self.leaf_count();
-		// Already in range under `is_valid_mmr_size`; stated so every entry point reads the same.
-		if leaf_count > MAX_MMR_LEAF_COUNT {
-			return Err(ProofError::LeafCountTooLarge);
-		}
+		let leaf_count = self.checked_leaf_count()?;
 		if leaf_count == 0 {
 			return Err(ProofError::PositionOutOfRange);
 		}
-		let path_len = leaf_count.trailing_zeros() as usize;
-		let other_peaks = leaf_count.count_ones() as usize - 1;
-		if self.items.len() != other_peaks + path_len {
+		if self.items.len() != leaf_proof_len(leaf_count, leaf_count - 1) {
 			return Err(ProofError::InvalidProof);
 		}
 
+		let other_peaks = leaf_count.count_ones() as usize - 1;
 		let (peak_items, path) = self.items.split_at(other_peaks);
 		let mut last_peak = leaf;
 		for sibling in path {
@@ -247,24 +246,18 @@ impl MmrInclusionProof {
 		position: MessagePosition,
 		leaf: Hash,
 	) -> Result<MmrRoot, ProofError> {
-		if !is_valid_mmr_size(self.mmr_size) {
-			return Err(ProofError::InvalidProof);
-		}
-		// Redundant under `is_valid_mmr_size`; stated so every entry point reads the same.
-		if self.leaf_count() > MAX_MMR_LEAF_COUNT {
-			return Err(ProofError::LeafCountTooLarge);
-		}
-		if position.0 >= self.leaf_count() {
+		let leaf_count = self.checked_leaf_count()?;
+		if position.0 >= leaf_count {
 			return Err(ProofError::PositionOutOfRange);
 		}
 		// `calculate_root` ignores the items of a 1-leaf proof, so padding would slip through.
-		if self.items.len() != leaf_proof_len(self.leaf_count(), position.0) {
+		if self.items.len() != leaf_proof_len(leaf_count, position.0) {
 			return Err(ProofError::InvalidProof);
 		}
 		let pos = leaf_index_to_pos(position.0);
 		MerkleProof::<Hash, SpecMerge>::new(self.mmr_size, self.items.to_vec())
 			.calculate_root(vec![(pos, leaf)])
-			.map(|bag| MmrRoot::from_bag(self.leaf_count(), bag))
+			.map(|bag| MmrRoot::from_bag(leaf_count, bag))
 			.map_err(|_| ProofError::InvalidProof)
 	}
 }
