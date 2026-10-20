@@ -17,13 +17,7 @@
 
 use super::*;
 use crate::{session_rotation::Eras, RewardKind, RewardPot};
-use frame_support::{
-	dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo},
-	traits::{
-		fungible::Mutate,
-		tokens::{Fortitude, Preservation},
-	},
-};
+use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
 use sp_runtime::{bounded_btree_map, traits::Dispatchable};
 
 #[test]

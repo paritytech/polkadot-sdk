@@ -290,6 +290,9 @@ type PositiveImbalanceOf<T> = Debt<<T as frame_system::Config>::AccountId, <T as
 pub type NegativeImbalanceOf<T> =
 	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
+pub type NegativeImbalanceOfOperationalExpensesCurrency<T> =
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::ValidatorExpencesCurrency>;
+
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).

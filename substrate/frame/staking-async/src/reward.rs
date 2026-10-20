@@ -238,7 +238,7 @@ impl<T: Config> EraRewardManager<T> {
 		}
 	}
 
-	/// TODO: where to?
+	// TODO: Docs.
 	pub(crate) fn drain_operational_expenses(era: EraIndex) {
 		let pot_account =
 			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
@@ -249,10 +249,32 @@ impl<T: Config> EraRewardManager<T> {
 			return;
 		}
 
-		let general_pot_account =
-			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
-
-		// TODO
+		match T::ValidatorExpencesCurrency::withdraw(
+			&pot_account,
+			remaining,
+			Precision::BestEffort,
+			Preservation::Expendable,
+			Fortitude::Force,
+		) {
+			Ok(credit) => {
+				T::UnclaimedOperationalExpensesHandler::on_unbalanced(credit);
+				log!(
+					debug,
+					"Drained {:?} unclaimed operational expenses from era {:?} pot",
+					remaining,
+					era,
+				);
+			},
+			Err(e) => {
+				defensive!("Failed to withdraw unclaimed operational expenses from era pot");
+				log!(
+					error,
+					"Era {:?}: unclaimed operational expenses withdrawal failed: {:?}",
+					era,
+					e
+				);
+			},
+		}
 	}
 
 	/// Whether the slot backing this era's staker reward pot exists.

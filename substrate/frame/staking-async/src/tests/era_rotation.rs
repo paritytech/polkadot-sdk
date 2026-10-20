@@ -584,7 +584,16 @@ fn era_pot_drained_after_history_depth() {
 			"Staker pot is kept alive for slot reuse; provider must be retained"
 		);
 
-		assert_eq!(operational_expenses_asset_balance(validator_expenses_general_pot), 100);
+		let unclaimed_rewards_account = UnclaimedOperationalExpensesAccount::get();
+
+		assert_eq!(
+			operational_expenses_asset_balance(unclaimed_rewards_account),
+			100 - MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(
+			operational_expenses_asset_balance(validator_expenses_general_pot),
+			MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
+		);
 		assert_eq!(operational_expenses_asset_balance(validator_expenses_pot_1), 0);
 	});
 }

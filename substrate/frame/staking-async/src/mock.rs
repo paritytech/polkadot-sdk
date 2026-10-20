@@ -30,7 +30,8 @@ use frame_election_provider_support::{
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
 	traits::{
-		fungible::ItemOf, AsEnsureOriginWithArg, EitherOfDiverse, Get, Imbalance, OnUnbalanced,
+		fungible::ItemOf, tokens::imbalance::ResolveTo, AsEnsureOriginWithArg, EitherOfDiverse,
+		Get, Imbalance, OnUnbalanced,
 	},
 	weights::constants::RocksDbWeight,
 };
@@ -555,9 +556,12 @@ pub(crate) fn setup_dap() {
 
 parameter_types! {
 	pub static ValidatorExpensesAssetId: u32 = 10;
+	pub static UnclaimedOperationalExpensesAccount: AccountId = 123_456;
 }
 
 type ValidatorExpensesCurrency = ItemOf<Assets, ValidatorExpensesAssetId, AccountId>;
+type UnclaimedOperationalExpensesHandler =
+	ResolveTo<UnclaimedOperationalExpensesAccount, ValidatorExpensesCurrency>;
 
 impl Config for Test {
 	type OldCurrency = Balances;
@@ -584,6 +588,7 @@ impl Config for Test {
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = DisableMintingMode;
 	type UnclaimedRewardHandler = Dap;
+	type UnclaimedOperationalExpensesHandler = UnclaimedOperationalExpensesHandler;
 	type RewardPots = SequentialTest;
 	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
 	type MaxPruningItems = MaxPruningItems;

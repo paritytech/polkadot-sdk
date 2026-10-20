@@ -33,7 +33,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Inspect as FunInspect, Mutate, Mutate as FunMutate,
+			Balanced as FunBalanced, Inspect as FunInspect, Mutate, Mutate as FunMutate,
 		},
 		Contains, Defensive, DefensiveSaturating, EnsureOrigin, Get, InspectLockableCurrency,
 		Nothing, OnUnbalanced,
@@ -68,7 +68,8 @@ pub mod pallet {
 	use super::*;
 	use crate::{
 		session_rotation::{self, Eras, Rotator},
-		IsValidatorInactive, OnEraStart, PagedExposureMetadata, SnapshotStatus,
+		IsValidatorInactive, NegativeImbalanceOfOperationalExpensesCurrency, OnEraStart,
+		PagedExposureMetadata, SnapshotStatus,
 	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -162,7 +163,8 @@ pub mod pallet {
 		/// Validator expenses may be paid in a non-native currency, so it's configured separately.
 		#[pallet::no_default]
 		type ValidatorExpencesCurrency: FunInspect<Self::AccountId>
-			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>;
+			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
+			+ FunBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
@@ -300,6 +302,15 @@ pub mod pallet {
 		/// withdrawn and passed to this handler.
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
+		/// Handler for unclaimed validators' operational expenses.
+		///
+		/// When era pots are cleaned up past `HistoryDepth`, remaining funds are
+		/// withdrawn and passed to this handler.
+		#[pallet::no_default_bounds]
+		type UnclaimedOperationalExpensesHandler: OnUnbalanced<
+			NegativeImbalanceOfOperationalExpensesCurrency<Self>,
+		>;
 
 		/// Provider for generating reward pot account IDs (non-minting mode only).
 		///
@@ -480,6 +491,7 @@ pub mod pallet {
 			type Slash = ();
 			type Reward = ();
 			type UnclaimedRewardHandler = ();
+			type UnclaimedOperationalExpensesHandler = ();
 			type StakerRewardCalculator = ();
 			type DisableMinting = ConstBool<false>;
 			type SessionsPerEra = SessionsPerEra;
