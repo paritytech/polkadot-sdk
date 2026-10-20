@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792402659993,
+  "lastUpdate": 1792502544524,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b71ca68ca00771d4bb5bd7b192ca42e873c8538",
-          "message": "Fix zombienet tests: Use compressed runtimes & log errors. (#11641)\n\nTest runtimes grew too large, we need compression now to fit the limits.\nThis fixes the runtime upgrading zombienet tests. In addition I added\nlogging, such that errors like this will be easier to find next time.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11568\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-07T15:04:47Z",
-          "tree_id": "73da9efd76dd118c59af6512c3b024573c2a0c52",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b71ca68ca00771d4bb5bd7b192ca42e873c8538"
-        },
-        "date": 1775579622630,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025342536,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007080637379999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14247549610666674,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00954523320666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010086616673333318,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aeb228f71799c9973a4e119aa15c016e1f0ce394",
+          "message": "[Release|CI/CD] Add publish delay on publish crates workflow (#11837)\n\nForwards a new `publish_delay` workflow input to `parity-publish apply`\nas `--publish-delay SECS`. The flag sleeps between parallel publish\nbatches within a dependency level, helping avoid crates.io rate limits\non large releases. Default is 0 (no delay, preserves existing behavior).\n\nBumps pinned parity-publish install to 0.10.16 which introduces the\nflag.\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
+          "timestamp": "2026-10-20T10:21:17Z",
+          "tree_id": "1f800c82c40f975619768596a292a280c67de691",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeb228f71799c9973a4e119aa15c016e1f0ce394"
+        },
+        "date": 1792502510603,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01011273799999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007743127679999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025077646893333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14380285517333335,
             "unit": "seconds"
           }
         ]
