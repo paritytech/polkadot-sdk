@@ -1,0 +1,21 @@
+title: Bump ark-vrf to 0.6.0
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bumps `ark-vrf` from 0.5.3 to 0.6.0. The Bandersnatch VRF primitives in `sp-core` use the new
+    API and its stricter decoders:
+
+    - All points and proofs decode with the `_exact` decoders, which reject trailing bytes.
+    - The decoder of `RingVerifierKey` now checks the curve points. A key with a point out of the
+      prime-order subgroup does not decode.
+    - Ring member keys decode with the subgroup and identity checks. A key that fails the checks
+      takes the slot of the padding point. Before, an identity key made `RingContext::prover` and
+      `RingContext::verifier_key` panic.
+    - The decoder of `RingContext` does not check the points, because the SRS comes from a
+      trusted setup.
+
+    The public `sp-core` traits `VrfSecret` and `VrfPublic` do not change. The ring VRF tickets of
+    the `pallet-sassafras` tests, made with `ark-vrf` 0.5.0, still verify.
+crates:
+- name: sp-core
+  bump: minor
