@@ -1,14 +1,16 @@
-title: 'frame-benchmarking: fall back to median value for same-x samples in `min_squares_iqr`'
+title: 'benchmarking-cli: drop constant components from per-prefix proof-size analysis'
 
 doc:
   - audience: Runtime Dev
     description: |
-      Fixes a regression where `benchmark pallet --output` has been failing with
-      "Parameter `n` only has 1 unique value(s)" for benchmarks touching a distinct storage key
-      per item. The per-prefix proof-size analysis can see one or two samples sharing a single
-      component value, and `min_squares_iqr` now uses the median value for those instead of
-      erroring. Two samples at distinct values still get a fitted slope.
+      Fixes `benchmark pallet --output` failing with "Parameter `n` only has 1 unique value(s)"
+      for benchmarks touching a storage key only at some component values, e.g. a distinct key
+      per item. The per-storage-prefix proof-size analysis now drops components that have a
+      single value across the samples touching that prefix, since they determine no slope.
+      This applies to every `--analysis` choice. Regenerated weights may change for such keys:
+      under `min-squares` with three or more samples, the constant component previously produced
+      a spurious slope, and it now contributes a constant.
 
 crates:
-  - name: frame-benchmarking
+  - name: frame-benchmarking-cli
     bump: patch
