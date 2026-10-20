@@ -968,6 +968,31 @@ mod tests {
 	}
 
 	#[test]
+	fn collect_garbage_does_not_refresh_known_messages() {
+		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
+		let mut notification_service: Box<dyn NotificationService> =
+			Box::new(NoOpNotificationService::default());
+		let topic = H256::default();
+
+		let peer_id = PeerId::random();
+		consensus.new_peer(&mut notification_service, peer_id, ObservedRole::Full);
+
+		let oldest = vec![0];
+		let oldest_hash = HashingFor::<Block>::hash(&oldest);
+		consensus.register_message(topic, oldest);
+		consensus.peers.get_mut(&peer_id).unwrap().known_messages.insert(oldest_hash);
+
+		for i in 1..KNOWN_MESSAGES_CACHE_SIZE {
+			consensus.register_message(topic, i.to_le_bytes().to_vec());
+		}
+		consensus.collect_garbage();
+
+		// The cache is full, so the next message evicts the least recently used one.
+		consensus.register_message(topic, u32::MAX.to_le_bytes().to_vec());
+		assert!(consensus.known_messages.peek(&oldest_hash).is_none());
+	}
+
+	#[test]
 	fn message_marked_known_is_ignored_and_not_kept() {
 		let mut consensus = ConsensusGossip::<Block>::new(Arc::new(AllowAll), "/foo".into(), None);
 
