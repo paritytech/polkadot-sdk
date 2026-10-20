@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792516629113,
+  "lastUpdate": 1792528820620,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "99be95da17c08dfc8388be26c213157db86dba22",
-          "message": "[Staking] Fix LastValidatorEra false positive (#11647)\n\nresolves partially:\nhttps://github.com/paritytech/polkadot-sdk/issues/11646",
-          "timestamp": "2026-04-07T11:18:18Z",
-          "tree_id": "a1cb6cf5bf48f5937e698339fdeaba306731eb0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99be95da17c08dfc8388be26c213157db86dba22"
-        },
-        "date": 1775566350476,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.05,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08885818374599987,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.039284722976000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0864602372379999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b070ee1a2ba5b6440955a2b12e73dd9518c36f8e",
+          "message": "statement-store: keep up to K routing peers reserved on the v2 DHT path (#13487)\n\n# Description\n\nWith the v2 DHT path on, peer steering keeps the node's routing peers\nreserved besides the peers covering its topics: the K nearest known\npeers, K being the replication factor, then the nearest peer of every\ndistance bucket from the node's key that those K leave uncovered. The\nnearest peers are the replicas the node shares its topics with. The\nuncovered buckets are the far ones, as in Kademlia, and hold most of the\nnetwork: one peer in each gives a statement for any topic a next hop\ncloser to it. The set is recomputed every tick from the known peers, so\nit fills from the first discovered peers and settles as discovery\ncompletes.\n\nOnly about log2(N) buckets are populated, so the far peers add about\nlog2(N / K) connections: 3 at 100 nodes, 10 at 10 000.\n\nToday steering desires only the peers covering the node's topics, so a\nnode without topics asks for no peer at all. The routing peers give\nevery node a connected set that routes any statement onward.\nhttps://github.com/paritytech/polkadot-sdk/pull/13488 stops the\nstatement set dialing peers of its own, so it needs this floor.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-20T13:28:32Z",
+          "tree_id": "d8d5b5608651f5e9cc0a99b3ec2e77cd157be501",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b070ee1a2ba5b6440955a2b12e73dd9518c36f8e"
+        },
+        "date": 1792528790473,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.15200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08975485498599996,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03871725713800001,
             "unit": "seconds"
           }
         ]
