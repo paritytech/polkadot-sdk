@@ -22,7 +22,9 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::{RuntimeCosts, StorageAccessKind, TransferAccessKind};
+pub use runtime_costs::{
+	RuntimeCosts, StorageAccessKind, TransferAccessKind, cold_non_revertible_storage_write_weight,
+};
 
 use crate::{
 	AccountIdOf, BalanceOf, CallProtections, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig,

@@ -292,6 +292,18 @@ pub fn deferred_write_cost<T: Config>() -> Weight {
 	db.writes(1).saturating_sub(db.reads(1))
 }
 
+/// Returns the weight of writing a value of the maximum size to a cold slot, without rollback.
+pub fn cold_non_revertible_storage_write_weight<T: Config>() -> Weight {
+	<RuntimeCosts as Token<T>>::weight(&RuntimeCosts::SetStorage {
+		new_bytes: limits::STORAGE_BYTES,
+		old_bytes: 0,
+		kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
+			Warmth::new_cold_non_revertible(),
+			StorageOp::Write,
+		)),
+	})
+}
+
 /// Computes the cost of an access from the warmth of its entries.
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The

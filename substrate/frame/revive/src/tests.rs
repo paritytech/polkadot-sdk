@@ -1342,3 +1342,22 @@ fn tracing_a_log_emitted_inside_a_call_frame_attaches_to_it() {
 	assert_eq!(trace.logs[0].data, data.into());
 	assert_eq!(trace.logs[0].index, 7);
 }
+
+#[test]
+fn max_memory_for_contract_storage_writes_counts_every_write_that_fits() {
+	use crate::{limits, vm::cold_non_revertible_storage_write_weight};
+
+	let cold_write_weight = cold_non_revertible_storage_write_weight::<Test>();
+	let bytes_per_write = Pallet::<Test>::max_memory_for_contract_storage_writes(cold_write_weight);
+	assert!(
+		bytes_per_write > u64::from(limits::STORAGE_BYTES),
+		"the memory for one cold write should exceed its value, since the key counts too"
+	);
+	assert_eq!(
+		Pallet::<Test>::max_memory_for_contract_storage_writes(
+			cold_write_weight.saturating_mul(10),
+		),
+		10 * bytes_per_write,
+		"ten times that weight should pay for ten times the bytes"
+	);
+}
