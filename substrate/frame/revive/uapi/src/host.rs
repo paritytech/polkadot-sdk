@@ -120,7 +120,15 @@ pub trait HostFn: private::Sealed {
 
 	/// Same as [HostFn::call] but receives the one-dimensional EVM gas argument.
 	///
-	/// Adds the EVM gas stipend for non-zero value calls.
+	/// A call shaped like Solidity's `transfer` or `send` (value with a gas of 0, or no value with
+	/// a gas of 2300) gets a call stipend: enough weight to run 2300 gas worth of EVM opcodes and
+	/// emit one event. It also limits the callee to what the stipend pays for on Ethereum: the
+	/// callee, and any contract it calls, cannot write persistent storage, transfer value, or
+	/// create or terminate a contract. Such an operation is denied with an out-of-gas error,
+	/// matching how it fails on Ethereum. Transient storage still works.
+	///
+	/// Any other call that transfers value, and a [`CallFlags::READ_ONLY`] call with a gas of 2300,
+	/// also get the stipend, but the above limits do not apply.
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn call_evm(
@@ -221,6 +229,9 @@ pub trait HostFn: private::Sealed {
 	) -> Result;
 
 	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
+	///
+	/// With a gas of 2300, the delegate call gets the call stipend and its limits, as described in
+	/// [HostFn::call_evm].
 	///
 	/// If gas is `u64::MAX`, the call will run with uncapped limits.
 	fn delegate_call_evm(
@@ -382,6 +393,9 @@ pub trait HostFn: private::Sealed {
 	/// The key and value lengths must not exceed the maximums defined by the `pallet-revive`
 	/// parameters.
 	///
+	/// Persistent writes trap in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls. Transient writes still work.
+	///
 	/// # Parameters
 	///
 	/// - `key`: The storage key.
@@ -396,6 +410,9 @@ pub trait HostFn: private::Sealed {
 	///
 	/// If the provided 32‑byte value is all zeros then the key is cleared (i.e. deleted),
 	/// mimicking Ethereum’s SSTORE behavior.
+	///
+	/// Persistent writes trap in the callee of a `transfer`, `send` or any call with that shape,
+	/// and in any contract that callee calls. Transient writes still work.
 	///
 	/// # Parameters
 	/// - `key`: The fixed 256‑bit storage key (32 bytes).
@@ -475,6 +492,8 @@ pub trait HostFn: private::Sealed {
 	/// - The contract is live i.e is already on the call stack.
 	/// - Failed to send the balance to the beneficiary.
 	/// - The deletion queue is full.
+	/// - The contract is the callee of a `transfer`, `send` or any call with that shape, or a
+	///   contract that callee calls.
 	fn terminate(beneficiary: &[u8; 20]) -> !;
 }
 

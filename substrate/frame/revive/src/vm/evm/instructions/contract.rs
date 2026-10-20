@@ -19,11 +19,11 @@ mod call_helpers;
 
 use super::utility::IntoAddress;
 use crate::{
-	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
+	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, U256,
 	access_list::InstantiateItems,
 	exec::CallResources,
 	vm::{
-		Ext, RuntimeCosts,
+		Ext, RuntimeCosts, StipendAndProtections,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -33,7 +33,7 @@ use core::{
 	cmp::min,
 	ops::{ControlFlow, Range},
 };
-use revm::interpreter::{gas::CALL_STIPEND, interpreter_action::CallScheme};
+use revm::interpreter::interpreter_action::CallScheme;
 
 /// Implements the CREATE/CREATE2 instruction.
 ///
@@ -43,6 +43,9 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 ) -> ControlFlow<Halt> {
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+	if let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
 	}
 
 	let [value, code_offset, len] = interpreter.stack.popn()?;
@@ -118,6 +121,9 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 	let has_transfer = !value.is_zero();
 	if interpreter.ext.is_read_only() && has_transfer {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+	if has_transfer && let Err(err) = interpreter.ext.ensure_not_stipend_limited() {
+		return ControlFlow::Break(Halt::Err(err));
 	}
 	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
 	let scheme = CallScheme::Call;
@@ -197,33 +203,18 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	let (add_stipend, reentracy) =
-		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
-		{
-			(false, _) => (true, ReentrancyProtection::AllowReentry),
-			// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
-			// For zero-value transfer/send, solc injects `gas_limit = 2300` explicitly.
-			// We apply `AllowNext` reentrancy protection and set `add_stipend = true` since the
-			// raw 2300 gas value is only meaningful at Ethereum's gas scale.
-			(_, true) => (true, ReentrancyProtection::AllowNext),
-			(_, _) => (false, ReentrancyProtection::AllowReentry),
-		};
-
+	let stipend_and_protections =
+		StipendAndProtections::new(value, gas_limit.try_into().ok(), scheme.is_static_call());
+	let call_resources =
+		CallResources::from_ethereum_gas(gas_limit, stipend_and_protections.gets_stipend());
+	let call_protections = stipend_and_protections.protections();
 	let call_result = match scheme {
-		CallScheme::Call | CallScheme::StaticCall => interpreter.ext.call(
-			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
-			&callee,
-			value,
-			input,
-			// protect against rex-entrancy when we grant the stipend
-			reentracy,
-			scheme.is_static_call(),
-		),
-		CallScheme::DelegateCall => interpreter.ext.delegate_call(
-			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
-			callee,
-			input,
-		),
+		CallScheme::Call | CallScheme::StaticCall => {
+			interpreter.ext.call(&call_resources, &callee, value, input, call_protections)
+		},
+		CallScheme::DelegateCall => {
+			interpreter.ext.delegate_call(&call_resources, callee, input, call_protections)
+		},
 		CallScheme::CallCode => {
 			unreachable!()
 		},

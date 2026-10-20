@@ -5828,3 +5828,32 @@ fn call_with_gas_limit() {
 		);
 	});
 }
+
+#[test]
+fn call_evm_reads_the_value_before_checking_the_flags() {
+	let (caller_binary, _caller_code_hash) = compile_module("call_evm_raw").unwrap();
+	let (callee_binary, _callee_code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(500).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_binary)).build_and_unwrap_contract();
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_binary)).build_and_unwrap_contract();
+
+		let call = |flags: u32, gas: u64, value_out_of_bounds: bool| {
+			builder::bare_call(caller_addr)
+				.data((callee_addr, flags, gas, value_out_of_bounds as u32).encode())
+				.build()
+				.result
+		};
+		let unknown_flags = !pallet_revive_uapi::CallFlags::all().bits();
+		let gas = 100_000_000_000;
+
+		assert_ok!(call(0, gas, false));
+		assert_err!(call(unknown_flags, gas, false), Error::<Test>::InvalidCallFlags);
+		assert_err!(call(unknown_flags, u64::MAX, false), Error::<Test>::InvalidCallFlags);
+		assert_err!(call(0, gas, true), Error::<Test>::OutOfBounds);
+		assert_err!(call(unknown_flags, gas, true), Error::<Test>::OutOfBounds);
+	});
+}
