@@ -84,10 +84,10 @@ impl CoretimeInterface for CoretimeAllocator {
 		let request_core_count_call = RelayRuntimePallets::Coretime(RequestCoreCount(count));
 
 		// Weight for `request_core_count` from westend benchmarks:
-		// `ref_time` = 7889000 + (3 * 25000000) + (1 * 100000000) = 182889000
+		// `ref_time` = 11429000 + (3 * 25000000) + (1 * 100000000) = 186429000
 		// `proof_size` = 1636
 		// Add 5% to each component and round to 2 significant figures.
-		let call_weight = Weight::from_parts(190_000_000, 1700);
+		let call_weight = Weight::from_parts(200_000_000, 1700);
 
 		let message = Xcm(vec![
 			Instruction::UnpaidExecution {
@@ -179,10 +179,10 @@ impl CoretimeInterface for CoretimeAllocator {
 		use crate::coretime::CoretimeProviderCalls::AssignCore;
 
 		// Weight for `assign_core` from westend benchmarks:
-		// `ref_time` = 10177115 + (1 * 25000000) + (2 * 100000000) + (57600 * 13932) = 937660315
-		// `proof_size` = 3612
+		// `ref_time` = 13959863 + (1 * 25000000) + (2 * 100000000) + (57600 * 8932) = 753443063
+		// `proof_size` = 1538
 		// Add 5% to each component and round to 2 significant figures.
-		let call_weight = Weight::from_parts(980_000_000, 3800);
+		let call_weight = Weight::from_parts(790_000_000, 1600);
 
 		// A maximum of 28 assignments fit in one message, so we split the assignments and send as
 		// multiple messages. This will get reassembled into a full list of assignments on the
@@ -228,8 +228,11 @@ impl QueueOnDemandOrders<relay_chain::BlockNumber> for CoretimeAllocator {
 	fn queue_batch(batch: Vec<(TaskId, relay_chain::BlockNumber)>) {
 		use crate::coretime::CoretimeProviderCalls::QueueOnDemandBatch;
 
-		// TODO: figure out the correct weight
-		let call_weight = Weight::from_parts(980_000_000, 3800);
+		// Weight for `queue_on_demand_batch` from westend benchmarks:
+		// `ref_time` = 144596852 + (1 * 25000000) + (1 * 100000000) + (100 * 16204) = 271217252
+		// `proof_size` = 81641
+		// Add 5% to each component and round to 2 significant figures.
+		let call_weight = Weight::from_parts(280_000_000, 86000);
 
 		// `MaxBatchSize` keeps the batch small enough to fit into a single message.
 		let batch = batch
