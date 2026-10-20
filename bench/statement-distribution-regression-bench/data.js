@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792402757240,
+  "lastUpdate": 1792502645096,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c9e84992741de0136fbf7ca66727a1aa42fb8433",
-          "message": "statement-store: add concurrent and multi-peer propagation tests (#11611)\n\n# Description\n\nImplement unit tests for \"Propagation under normal load\" #11534 \n\n## Summary\n- Add 3 multi-peer propagation tests for the network handler (all-peers\ndelivery, known-statement filtering, same-statement deduplication)\n- Refactor 3 duplicate test builder functions into a single canonical\n`build_handler_multi_peers(n)` with thin wrappers\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-07T09:07:33Z",
-          "tree_id": "d4e9da1978b569e219ad7f518379490cb6b2604a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c9e84992741de0136fbf7ca66727a1aa42fb8433"
-        },
-        "date": 1775560504743,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03400000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03846742137200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08336076330599988,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03855269582200001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aeb228f71799c9973a4e119aa15c016e1f0ce394",
+          "message": "[Release|CI/CD] Add publish delay on publish crates workflow (#11837)\n\nForwards a new `publish_delay` workflow input to `parity-publish apply`\nas `--publish-delay SECS`. The flag sleeps between parallel publish\nbatches within a dependency level, helping avoid crates.io rate limits\non large releases. Default is 0 (no delay, preserves existing behavior).\n\nBumps pinned parity-publish install to 0.10.16 which introduces the\nflag.\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
+          "timestamp": "2026-10-20T10:21:17Z",
+          "tree_id": "1f800c82c40f975619768596a292a280c67de691",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeb228f71799c9973a4e119aa15c016e1f0ce394"
+        },
+        "date": 1792502610737,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08392091432599998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03866966419000001,
             "unit": "seconds"
           }
         ]
