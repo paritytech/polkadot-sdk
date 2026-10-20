@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792502544524,
+  "lastUpdate": 1792516536717,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b0afea2776217a1a79cca98237464186b40ef248",
-          "message": "[Release|CI/CD] Fix warnings in GH workflows or release pipeline (#11632)\n\nhttps://github.com/paritytech/release-engineering/issues/291\n\nTODO:\n- handle warnings on all workflows regarding deprecated Node version 20",
-          "timestamp": "2026-04-07T16:04:23Z",
-          "tree_id": "2fdb315f6425204ed4d76d5765c6247515d57299",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0afea2776217a1a79cca98237464186b40ef248"
-        },
-        "date": 1775583301710,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14438979866666668,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00718143378,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009545903059999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025669578999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14380285517333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "193aa6c20eed45a960830aabedae6d6b8213abe9",
+          "message": "Registrar: Deregister (#13091)\n\n## Registrar: deregister\nCloses #12816 \n\nImplements deregister flow on the parachain in registrar. New flow\ncovers deregistering through para (CT in Polkadot case) and relay\naccepting it.\n\n### Deregister flow\n\n1. The manager (or root, or the para itself) calls\n`pallet-registrar-para::deregister(para_id)`. A locked para is out of\nthe manager's hands.\n2. If the id was only reserved, the relay chain never knew it. The\nreservation is released, the entry is removed and nothing is sent.\n3. If the para is registered, it moves to `Deregistering { ticket,\ncan_retry_after, message_id }` and `Deregister { para_id, message_id }`\ngoes to the relay chain. Both deposits stay held.\n4. On the relay chain, `pallet-registrar-relay` calls\n`ParachainRegistrar::deregister`:\n- A parathread is dropped through `paras_registrar::do_deregister`.\nCleanup is scheduled and `AwaitingFirstHead` is cleared.\n   - A para that is already gone or offboarding answers `Ok`.\n   - Anything else (onboarding, a lease-holding parachain) is refused.\n\nThere are no origin or lock checks here, because those belong to the\nparachain that took the deposit.\n5. The relay chain answers with `DeregisterResponse`:\n- `Ok(())`: the parachain releases both deposits and removes the entry.\n- `Err(NotDeregisterable)`: the para goes back to `Registered` with its\ndeposits.\n\nA rejected request still returns `Ok` on the relay chain, so the report\nisn't rolled back.\n\n### Retry flow\n\nA lost answer leaves the para in `Deregistering` with both deposits\nheld. There is no separate cancel message. The manager just asks again:\n\n1. From `can_retry_after` (`PendingDeadline` after the last request),\nthe manager calls `deregister` again. Before that it fails with\n`CannotRetryYet`, so the relay chain isn't asked once per block.\n2. The retry reports the missing answer as\n`Unexpected(ResponseNeverArrived)`, takes a new message id, pushes\n`can_retry_after` out and resends `Deregister`.\n3. `Deregister` is idempotent on the relay chain:\n- If the first request went through, the para is already offboarding or\ngone, so it is confirmed again and the deposits are released.\n- If it was refused, it is refused again and the para goes back to\n`Registered`.\n4. The parachain only accepts the answer to the latest request. An\nanswer to an older one is reported as `StaleResponse` and dropped.\n\n### Changes\n\n- `registrar-primitives`: `FailureReason::NotDeregisterable`.\n- `pallet-registrar-para`:\n  - `deregister` and `on_deregister_response` are implemented.\n- New events: `ReservationDropped`, `DeregisterRequested`,\n`Deregistered`, `DeregistrationFailed`.\n  - New error: `CannotRetryYet`.\n- New weights: `deregister_reserved`, `deregister_registered`,\n`deregister_retry`.\n- `pallet-registrar-relay`:\n  - `Deregister` is handled.\n  - New events: `Deregistered`, `DeregistrationRejected`.\n  - New weight: `receive_deregister`.\n- `polkadot-runtime-common`: `paras_registrar` implements\n`ParachainRegistrar::deregister`.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-20T12:18:36Z",
+          "tree_id": "cb1c7abd2918532d451aa362f70bcaf39be83035",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/193aa6c20eed45a960830aabedae6d6b8213abe9"
+        },
+        "date": 1792516502726,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02505307262000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14122868783333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007932282213333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010040782039999965,
             "unit": "seconds"
           }
         ]
