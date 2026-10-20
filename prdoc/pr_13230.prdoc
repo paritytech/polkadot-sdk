@@ -50,6 +50,9 @@ doc:
     within both the allowance and the owner's balance now reverts when the owner's remainder would
     fall below the asset's minimum and the allowance does not cover the whole balance.
 
+    A zero-value transfer through `fungible(s)::Mutate::transfer`, which includes the
+    `pallet-balances` transfer extrinsics, no longer emits `Transfer`/`Transferred`.
+
 crates:
 - name: frame-support
   bump: patch
