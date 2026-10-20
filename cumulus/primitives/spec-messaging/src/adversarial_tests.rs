@@ -24,9 +24,10 @@ use crate::{
 	message::leaf_hash,
 	mmr::{bag_peaks, MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
 	streams_root::{gen_stream_proof, streams_root, streams_root_from_proof},
+	test_utils::{extension, frontier_at, leaves, mmr_size},
 	StreamId, INNER_TAG, PEAK_TAG, ROOT_TAG,
 };
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::collections::BTreeMap;
 use mmr_lib::{
 	leaf_index_to_mmr_size, leaf_index_to_pos,
 	util::{MemMMR, MemStore},
@@ -35,42 +36,6 @@ use mmr_lib::{
 use polkadot_core_primitives::Hash;
 use sp_core::H256;
 use sp_runtime::BoundedVec;
-
-fn leaves(n: u64) -> Vec<Hash> {
-	(0..n).map(|i| H256::from_low_u64_be(i + 1)).collect()
-}
-
-fn frontier_at(all: &[Hash], k: usize) -> MmrFrontier {
-	let mut frontier = MmrFrontier::new();
-	for leaf in &all[..k] {
-		frontier.append(*leaf);
-	}
-	frontier
-}
-
-fn mmr_size(k: usize) -> u64 {
-	if k == 0 {
-		0
-	} else {
-		leaf_index_to_mmr_size((k - 1) as u64)
-	}
-}
-
-/// The honest extension from `k` leaves to `n` leaves.
-fn extension(all: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
-	let store = MemStore::<Hash>::default();
-	let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-	for leaf in &all[..n] {
-		mmr.push(*leaf).unwrap();
-	}
-	let proof = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
-	MMRExtensionProof {
-		leaf_count: n as u64,
-		connecting_nodes: BoundedVec::truncate_from(
-			proof.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
-		),
-	}
-}
 
 /// Counts an attacker can claim: every small one, and the edges of the allowed range.
 fn claimable_counts() -> impl Iterator<Item = u64> {

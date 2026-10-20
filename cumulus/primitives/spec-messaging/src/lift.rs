@@ -37,7 +37,7 @@ use alloc::{collections::BTreeMap, vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use mmr_lib::{
 	helper::{get_peak_map, get_peaks, is_valid_mmr_size},
-	leaf_index_to_mmr_size, leaf_index_to_pos, MerkleProof, NodeMerkleProof,
+	leaf_index_to_pos, MerkleProof, NodeMerkleProof,
 };
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -47,7 +47,10 @@ use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 use crate::{
-	mmr::{MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_HASHES, MAX_MMR_LEAF_COUNT},
+	mmr::{
+		mmr_size, MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_HASHES,
+		MAX_MMR_LEAF_COUNT,
+	},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 };
@@ -126,7 +129,7 @@ impl MMRExtensionProof {
 		if self.leaf_count <= from.leaf_count() {
 			return Err(ProofError::NotForward);
 		}
-		let new_mmr_size = leaf_index_to_mmr_size(self.leaf_count - 1);
+		let new_mmr_size = mmr_size(self.leaf_count);
 
 		// Extending from the empty stream: nothing binds, so the connecting nodes must be the new
 		// MMR's peaks in `get_peaks` order.
@@ -507,58 +510,17 @@ pub fn build_requires(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::streams_root::{gen_stream_proof, streams_root, TreeStep};
+	use crate::{
+		streams_root::{gen_stream_proof, streams_root, TreeStep},
+		test_utils::{ch, extension, frontier_at, leaves, mmr_size},
+	};
 	use mmr_lib::util::{MemMMR, MemStore};
 	use polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES;
 	use sp_core::H256;
 
-	fn leaves(n: u64) -> Vec<Hash> {
-		// Distinct for any `n` (the old `repeat_byte(i as u8 + 1)` wrapped past 255 leaves).
-		(0..n).map(|i| H256::from_low_u64_be(i + 1)).collect()
-	}
-
-	/// Peaks-only frontier after the first `k` leaves.
-	fn frontier_at(all: &[Hash], k: usize) -> MmrFrontier {
-		let mut frontier = MmrFrontier::new();
-		for l in &all[..k] {
-			frontier.append(*l);
-		}
-		frontier
-	}
-
 	/// Root over the first `k` leaves.
 	fn root_at(all: &[Hash], k: usize) -> MmrRoot {
 		frontier_at(all, k).root()
-	}
-
-	/// `mmr_lib` node count for `k` leaves.
-	fn mmr_size(k: usize) -> u64 {
-		if k == 0 {
-			0
-		} else {
-			leaf_index_to_mmr_size((k - 1) as u64)
-		}
-	}
-
-	/// O(log n) extension proof from `k` leaves to `n` leaves (`0 < k < n`), via
-	/// `gen_ancestry_proof`.
-	fn extension(all: &[Hash], k: usize, n: usize) -> MMRExtensionProof {
-		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		for l in &all[..n] {
-			mmr.push(*l).unwrap();
-		}
-		let ap = mmr.gen_ancestry_proof(mmr_size(k)).unwrap();
-		MMRExtensionProof {
-			leaf_count: n as u64,
-			connecting_nodes: BoundedVec::truncate_from(
-				ap.prev_peaks_proof.proof_items().iter().map(|(_, h)| *h).collect::<Vec<_>>(),
-			),
-		}
-	}
-
-	fn ch(recipient: u32) -> StreamId {
-		StreamId::Channel { recipient: recipient.into(), domain: 0, num: 0 }
 	}
 
 	#[test]

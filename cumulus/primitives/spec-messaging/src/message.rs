@@ -40,7 +40,7 @@ use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{
 	lift::{MMRExtensionProof, MmrInclusionProof, ProofError},
-	mmr::{MessagePosition, MmrFrontier, MAX_MMR_HASHES, MAX_MMR_LEAF_COUNT},
+	mmr::{MessagePosition, MmrFrontier, MmrRoot, MAX_MMR_HASHES, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	SpecHasher, LEAF_TAG,
@@ -179,15 +179,9 @@ pub(crate) fn verify_messages_response(
 		.checked_add(resp.payloads.len() as u64)
 		.filter(|end| *end <= MAX_MMR_LEAF_COUNT)
 		.ok_or(VerifyError::MalformedResponse)?;
-	// No payload may exceed the protocol's single-message bound (defense-in-depth against a crafted
-	// response inflating the hashed input; the transport also caps total response size).
-	if resp
-		.payloads
-		.iter()
-		.any(|p| p.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64)
-	{
-		return Err(VerifyError::PayloadTooLarge);
-	}
+	// Defense-in-depth against a crafted response inflating the hashed input; the transport also
+	// caps total response size.
+	resp.payloads.iter().try_for_each(|p| check_payload_len(p))?;
 
 	// Append the response's payloads as leaves onto the frontier at `base`.
 	for payload in &resp.payloads {
@@ -198,9 +192,36 @@ pub(crate) fn verify_messages_response(
 
 	// Extend to the stream's current root, then walk the tree to the committed `StreamsRoot`.
 	let current = resp.extension.verify(&frontier)?;
-	let root = streams_root_from_proof(stream, current.0, &resp.tree_proof)
-		.ok_or(VerifyError::TreeProof)?;
-	(root == under).then(|| resp.payloads.to_vec()).ok_or(VerifyError::RootMismatch)
+	bind_under(stream, under, current, &resp.tree_proof)?;
+	Ok(resp.payloads.to_vec())
+}
+
+/// Reject a payload above the protocol's single-message bound.
+fn check_payload_len(payload: &[u8]) -> Result<(), VerifyError> {
+	if payload.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64 {
+		return Err(VerifyError::PayloadTooLarge);
+	}
+	Ok(())
+}
+
+/// Walk `tree_proof` from `stream_root` to a `StreamsRoot` and require it to be `under`:
+/// [`TreeProof`](VerifyError::TreeProof) if the walk is malformed,
+/// [`RootMismatch`](VerifyError::RootMismatch) if it ends elsewhere.
+fn bind_under(
+	stream: StreamId,
+	under: StreamsRoot,
+	stream_root: MmrRoot,
+	tree_proof: &StreamProof,
+) -> Result<(), VerifyError> {
+	let root =
+		streams_root_from_proof(stream, stream_root.0, tree_proof).ok_or(VerifyError::TreeProof)?;
+	(root == under).then_some(()).ok_or(VerifyError::RootMismatch)
+}
+
+/// The MMR leaf of an event response's payload.
+fn event_leaf(resp: &EventResponse) -> Result<Hash, VerifyError> {
+	check_payload_len(&resp.payload)?;
+	Ok(leaf_hash(resp.leaf_version, &resp.payload))
 }
 
 /// Request for a single event of a lossy stream (`Ack` / `Broadcast` / `Private`), verified under a
@@ -298,17 +319,9 @@ pub(crate) fn verify_event_response(
 	under: StreamsRoot,
 	resp: &EventResponse,
 ) -> Result<(MessagePosition, MmrFrontier, Vec<u8>), VerifyError> {
-	if resp.payload.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64 {
-		return Err(VerifyError::PayloadTooLarge);
-	}
-	let leaf = leaf_hash(resp.leaf_version, &resp.payload);
-	let (position, frontier) = resp.inclusion.verify_head(leaf)?;
-	let root = frontier.root();
-	let streams_root =
-		streams_root_from_proof(stream, root.0, &resp.tree_proof).ok_or(VerifyError::TreeProof)?;
-	(streams_root == under)
-		.then(|| (position, frontier, resp.payload.clone()))
-		.ok_or(VerifyError::RootMismatch)
+	let (position, frontier) = resp.inclusion.verify_head(event_leaf(resp)?)?;
+	bind_under(stream, under, frontier.root(), &resp.tree_proof)?;
+	Ok((position, frontier, resp.payload.clone()))
 }
 
 /// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`; returns the
@@ -320,16 +333,9 @@ pub(crate) fn verify_positional_event_response(
 	position: MessagePosition,
 	resp: &EventResponse,
 ) -> Result<Vec<u8>, VerifyError> {
-	if resp.payload.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64 {
-		return Err(VerifyError::PayloadTooLarge);
-	}
-	let leaf = leaf_hash(resp.leaf_version, &resp.payload);
-	let root = resp.inclusion.verify_leaf(position, leaf)?;
-	let streams_root =
-		streams_root_from_proof(stream, root.0, &resp.tree_proof).ok_or(VerifyError::TreeProof)?;
-	(streams_root == under)
-		.then(|| resp.payload.clone())
-		.ok_or(VerifyError::RootMismatch)
+	let root = resp.inclusion.verify_leaf(position, event_leaf(resp)?)?;
+	bind_under(stream, under, root, &resp.tree_proof)?;
+	Ok(resp.payload.clone())
 }
 
 /// Verified outcome of an [`ExchangeResponse`]: the payloads of a fetch, or a [`VerifiedEvent`].
@@ -369,6 +375,7 @@ mod tests {
 		},
 		mmr::{MmrRoot, SpecMerge},
 		streams_root::{gen_stream_proof, streams_root, TreeStep},
+		test_utils::{ch, frontier_at, mmr_size},
 	};
 	use alloc::collections::BTreeMap;
 	use codec::Encode;
@@ -379,27 +386,6 @@ mod tests {
 	};
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use sp_core::H256;
-
-	fn ch(recipient: u32) -> StreamId {
-		StreamId::Channel { recipient: recipient.into(), domain: 0, num: 0 }
-	}
-
-	fn mmr_size(k: usize) -> u64 {
-		if k == 0 {
-			0
-		} else {
-			leaf_index_to_mmr_size((k - 1) as u64)
-		}
-	}
-
-	/// Peaks-only frontier after the first `k` leaves.
-	fn frontier_at(leaves: &[Hash], k: usize) -> MmrFrontier {
-		let mut frontier = MmrFrontier::new();
-		for l in &leaves[..k] {
-			frontier.append(*l);
-		}
-		frontier
-	}
 
 	/// The stream root of an `mmr_lib` MMR: its bag bound to the leaf count.
 	fn bound(mmr_size: u64, bag: Hash) -> Hash {

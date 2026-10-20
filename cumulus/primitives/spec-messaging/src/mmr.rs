@@ -220,11 +220,17 @@ impl MmrFrontier {
 	/// The `mmr_lib` node count (size) of this frontier's MMR. Total under the leaf-count
 	/// invariant.
 	pub(crate) fn mmr_size(&self) -> u64 {
-		if self.leaf_count == 0 {
-			0
-		} else {
-			mmr_lib::leaf_index_to_mmr_size(self.leaf_count - 1)
-		}
+		mmr_size(self.leaf_count)
+	}
+}
+
+/// The `mmr_lib` node count (size) of an MMR with `leaf_count` leaves. Total up to
+/// [`MAX_MMR_LEAF_COUNT`].
+pub(crate) fn mmr_size(leaf_count: u64) -> u64 {
+	if leaf_count == 0 {
+		0
+	} else {
+		mmr_lib::leaf_index_to_mmr_size(leaf_count - 1)
 	}
 }
 
