@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792516674165,
+  "lastUpdate": 1792528875243,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "20d65ad1febe16991b847d5d57c8d2cbdbf2979c",
-          "message": "[Release|CI/CD] Trigger check-sync flow in callable flows only if they are triggered manually and not with the workflow_call trigger (#11631)\n\nhttps://github.com/paritytech/release-engineering/issues/291",
-          "timestamp": "2026-04-07T10:40:36Z",
-          "tree_id": "2ad6bae28a6e46a10cba89ebf3c59d74ce1ac35d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/20d65ad1febe16991b847d5d57c8d2cbdbf2979c"
-        },
-        "date": 1775563356835,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026521983600000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009618036770000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009302965259999981,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.01002334039,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b070ee1a2ba5b6440955a2b12e73dd9518c36f8e",
+          "message": "statement-store: keep up to K routing peers reserved on the v2 DHT path (#13487)\n\n# Description\n\nWith the v2 DHT path on, peer steering keeps the node's routing peers\nreserved besides the peers covering its topics: the K nearest known\npeers, K being the replication factor, then the nearest peer of every\ndistance bucket from the node's key that those K leave uncovered. The\nnearest peers are the replicas the node shares its topics with. The\nuncovered buckets are the far ones, as in Kademlia, and hold most of the\nnetwork: one peer in each gives a statement for any topic a next hop\ncloser to it. The set is recomputed every tick from the known peers, so\nit fills from the first discovered peers and settles as discovery\ncompletes.\n\nOnly about log2(N) buckets are populated, so the far peers add about\nlog2(N / K) connections: 3 at 100 nodes, 10 at 10 000.\n\nToday steering desires only the peers covering the node's topics, so a\nnode without topics asks for no peer at all. The routing peers give\nevery node a connected set that routes any statement onward.\nhttps://github.com/paritytech/polkadot-sdk/pull/13488 stops the\nstatement set dialing peers of its own, so it needs this floor.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-20T13:28:32Z",
+          "tree_id": "d8d5b5608651f5e9cc0a99b3ec2e77cd157be501",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b070ee1a2ba5b6440955a2b12e73dd9518c36f8e"
+        },
+        "date": 1792528844855,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025760230399999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009327646059999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010379653779999986,
             "unit": "seconds"
           }
         ]
