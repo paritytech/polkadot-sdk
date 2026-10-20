@@ -927,6 +927,14 @@ mod on_idle {
 				// The cursor must resume at 3, the first node the weight limit forced it to
 				// skip, not jump past it to 5 as the count budget alone would suggest.
 				assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(3));
+
+				// Next block: the cursor resumes at 3 and the remaining two nodes get rebagged.
+				run_to_block(2, per_item.saturating_mul(2));
+				assert_eq!(
+					List::<Runtime>::get_bags(),
+					vec![(10, vec![1, 2, 3, 4]), (1_000, vec![5])]
+				);
+				assert_eq!(NextNodeAutoRebagged::<Runtime>::get(), Some(5));
 			});
 	}
 
