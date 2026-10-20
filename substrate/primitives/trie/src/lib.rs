@@ -324,7 +324,7 @@ where
 /// calls collapse the same nodes as a single removal of all of them would. The trie storage is
 /// never altered.
 pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
-	db: &mut DB,
+	db: &DB,
 	root: TrieHash<L>,
 	delta: I,
 	detached: &mut DetachedTrieDBMut<L>,
@@ -334,7 +334,7 @@ pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 where
 	I: IntoIterator<Item = A>,
 	A: Borrow<[u8]>,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
 	let mut trie =
 		AppendOnlyTrieDBMutBuilder::<L>::from_detached(db, root, core::mem::take(detached))
@@ -515,7 +515,7 @@ where
 /// Child trie variant of [`remove_trie_keys_from_delta`].
 pub fn child_remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB, RD>(
 	keyspace: &[u8],
-	db: &mut DB,
+	db: &DB,
 	root_data: RD,
 	delta: I,
 	detached: &mut DetachedTrieDBMut<L>,
@@ -526,14 +526,14 @@ where
 	I: IntoIterator<Item = A>,
 	A: Borrow<[u8]>,
 	RD: AsRef<[u8]>,
-	DB: hash_db::HashDB<L::Hash, trie_db::DBValue>,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
 	let mut root = TrieHash::<L>::default();
 	// root is fetched from DB, not writable by runtime, so it's always valid.
 	root.as_mut().copy_from_slice(root_data.as_ref());
 
-	let mut db = KeySpacedDBMut::new(db, keyspace);
-	remove_trie_keys_from_delta::<L, _, _, _>(&mut db, root, delta, detached, recorder, cache)
+	let db = KeySpacedDB::new(db, keyspace);
+	remove_trie_keys_from_delta::<L, _, _, _>(&db, root, delta, detached, recorder, cache)
 }
 
 /// Child trie variant of [`read_trie_keys_from_delta`].

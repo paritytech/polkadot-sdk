@@ -689,7 +689,7 @@ where
 		// sp_trie::TrieDB.
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
 		let backend_storage = &self.backend_storage();
-		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
+		let eph = Ephemeral::new(backend_storage, &mut write_overlay);
 
 		let mut delta = delta.into_iter().collect::<Vec<_>>();
 		delta.sort();
@@ -712,7 +712,7 @@ where
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
 			let res = remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
-				&mut eph,
+				&eph,
 				self.root,
 				keys_to_be_removed,
 				estimation_trie,
@@ -812,7 +812,7 @@ where
 				default_root
 			},
 		};
-		let mut eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
+		let eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
 
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
@@ -830,7 +830,7 @@ where
 		let _ = self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
 			child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 				child_info.keyspace(),
-				&mut eph,
+				&eph,
 				child_root,
 				keys_to_be_removed,
 				estimation_trie,

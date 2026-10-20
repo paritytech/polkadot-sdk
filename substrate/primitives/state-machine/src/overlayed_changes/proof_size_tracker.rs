@@ -977,7 +977,7 @@ mod tests {
 
 			fn remove(&mut self, key: &[u8]) {
 				sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
-					&mut self.db,
+					&self.db,
 					self.root,
 					[key],
 					self.tracker.estimation_trie_mut(),
@@ -990,7 +990,7 @@ mod tests {
 			fn contains(&mut self, key: &[u8]) -> bool {
 				let estimation_trie = self.tracker.estimation_trie_mut();
 				let trie = AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(
-					&mut self.db,
+					&self.db,
 					self.root,
 					core::mem::take(estimation_trie),
 				)
