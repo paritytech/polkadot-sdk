@@ -133,9 +133,9 @@ fn node_hash(entries: &[([u8; STREAM_ID_LEN], Hash)]) -> Hash {
 
 /// Encoded keys in trie order.
 ///
-/// `BTreeMap` iterates in `StreamId`'s `Ord`, which spec §2 fixes as equal to the byte order. The
-/// trie splits on bytes, so sort by them here rather than rely on that. Unsorted input would leave
-/// one side of `split` empty and make `prove` recurse on its own slice.
+/// `BTreeMap` iterates in `StreamId`'s `Ord`, which equals the byte order. The trie splits on
+/// bytes, so sort by them here rather than rely on that. Unsorted input would leave one side of
+/// `split` empty and make `prove` recurse on its own slice.
 fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)> {
 	let mut keyed: Vec<_> =
 		entries.iter().map(|(stream, root)| (stream.to_bytes(), *root)).collect();
@@ -203,8 +203,8 @@ pub fn gen_stream_proof(
 }
 
 /// Read the sender's `StreamsRoot` from its header digest. `None` if absent or not exactly what the
-/// sender deposits (spec §7.4): one `SPMS` item with a 32-byte payload. Foreign readers must agree
-/// on validity, so nothing else is accepted.
+/// sender deposits: one `SPMS` item with a 32-byte payload. Foreign readers must agree on
+/// validity, so nothing else is accepted.
 pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
 	let mut items = digest.logs().iter().filter_map(|item| match item {
 		DigestItem::Consensus(id, payload) if *id == SPMS_ENGINE_ID => Some(payload),
@@ -417,7 +417,7 @@ mod tests {
 		assert_eq!(read_streams_root(&digest(vec![spms(trailing)])), None);
 		assert_eq!(read_streams_root(&digest(vec![spms(r.encode()[..31].to_vec())])), None);
 
-		// Exactly one item (§7.4). A malformed first item is not skipped for a later one.
+		// Exactly one item. A malformed first item is not skipped for a later one.
 		let other = StreamsRoot(Hash::repeat_byte(0xAB));
 		assert_eq!(read_streams_root(&digest(vec![spms(r.encode()), spms(other.encode())])), None);
 		assert_eq!(read_streams_root(&digest(vec![spms(vec![0; 3]), spms(r.encode())])), None);

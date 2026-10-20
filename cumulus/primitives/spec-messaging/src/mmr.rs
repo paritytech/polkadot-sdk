@@ -89,17 +89,17 @@ fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
-/// The root of an empty MMR: the count-0 root over a zero bag, `H(ROOT_TAG ++ 0[8] ++ 0[32])`
-/// (encoding spec §3.2). `mmr_lib` has none; the protocol needs a comparable value, since a
-/// stream's first consumption starts from the empty frontier. No other root has a count of 0, so
-/// none can equal it. Empty streams are never committed to the `StreamsRoot` tree.
+/// The root of an empty MMR: the count-0 root over a zero bag, `H(ROOT_TAG ++ 0[8] ++ 0[32])`.
+/// `mmr_lib` has none; the protocol needs a comparable value, since a stream's first consumption
+/// starts from the empty frontier. No other root has a count of 0, so none can equal it. Empty
+/// streams are never committed to the `StreamsRoot` tree.
 pub fn empty_root() -> MmrRoot {
 	MmrRoot::from_bag(0, Hash::zero())
 }
 
 /// Bag the peaks (highest to lowest) with `mmr_lib`'s own bagging, so the result equals
-/// `MMR::get_root`. Not a stream root: [`MmrRoot::from_bag`] binds the leaf count over it. No
-/// peaks bag to zero.
+/// `MMR::get_root`: a right fold, `bag([p1..pn]) = H(PEAK_TAG ++ bag([p2..pn]) ++ p1)`. Not a
+/// stream root: [`MmrRoot::from_bag`] binds the leaf count over it. No peaks bag to zero.
 pub fn bag_peaks(peaks: &[Hash]) -> Hash {
 	// `SpecMerge` is infallible, so `Err` means no peaks.
 	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).unwrap_or_default()
@@ -115,9 +115,9 @@ pub struct FrontierFull;
 pub struct MmrRoot(pub Hash);
 
 impl MmrRoot {
-	/// `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag)` (encoding spec §3.2). Peak hashes do not commit
-	/// their heights, so the same peaks bag identically at many leaf counts; binding the count
-	/// makes a forged count, and so a forged position, yield a root nothing commits to.
+	/// `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag)`. Peak hashes do not commit their heights, so the
+	/// same peaks bag identically at many leaf counts; binding the count makes a forged count, and
+	/// so a forged position, yield a root nothing commits to.
 	pub fn from_bag(leaf_count: u64, bag: Hash) -> Self {
 		let mut preimage = [0u8; 1 + 8 + 32];
 		preimage[0] = ROOT_TAG;
@@ -336,7 +336,7 @@ mod tests {
 	#[test]
 	fn empty_root_frozen_vector() {
 		// FROZEN consensus vector: blake2b-256 of `ROOT_TAG = 0x04`, a zero `u64` count and a zero
-		// bag, the defined root of an empty frontier (encoding spec §3.2).
+		// bag, the defined root of an empty frontier.
 		assert_eq!(
 			empty_root().0,
 			Hash::from(hex_literal::hex!(
@@ -363,8 +363,8 @@ mod tests {
 
 	#[test]
 	fn mmr_root_frozen_vectors_at_64_and_65_leaves() {
-		// Frozen vectors (encoding spec §12, item 2), computed by an independent Python model: 64
-		// leaves make one peak, 65 add a second to bag.
+		// Frozen vectors, computed by an independent Python model: 64 leaves make one peak, 65 add
+		// a second to bag.
 		let mut acc = MmrFrontier::new();
 		for i in 1..=64u8 {
 			acc.append(h(i));

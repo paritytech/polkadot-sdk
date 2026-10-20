@@ -21,8 +21,7 @@
 //! that each receiver's `Requires` matches a sender's `Provides`.
 //!
 //! The relay-visible types (`StreamsRoot`, `RequiresSet`) are in `polkadot-primitives`. This crate
-//! has the parachain-side types and the off-chain wire format. `ENCODING.md` (the "encoding spec"
-//! below) pins the bytes.
+//! has the parachain-side types and the off-chain wire format.
 //!
 //! # Modules
 //!
@@ -79,7 +78,7 @@ pub use streams_root::{StreamProof, StreamsRoot};
 pub type SpecHasher = sp_runtime::traits::BlakeTwo256;
 
 // Domain tags. Each hash preimage starts with one, so a node in one role can never collide with a
-// node in another (encoding spec §1).
+// node in another.
 
 /// MMR leaf.
 pub const LEAF_TAG: u8 = 0x1;
@@ -106,5 +105,5 @@ pub const TREE_INNER_TAG: u8 = 0x6;
 pub const LEAF_VERSION: u8 = 0x0;
 
 /// Engine id of the header digest carrying a block's `StreamsRoot`, deposited only by blocks that
-/// send (encoding spec §7.4).
+/// send.
 pub const SPMS_ENGINE_ID: sp_runtime::ConsensusEngineId = *b"SPMS";

@@ -322,11 +322,11 @@ pub struct RequiresLift {
 	pub tree_proof: TreeInclusionProof,
 }
 
-/// The candidate's lifts, grouped per source: the PoV transport form (encoding spec §8). `Decode`
-/// enforces strictly increasing `ParaId`s and bounds the source count at
-/// [`MAX_COMMITMENT_ENTRIES`], so more sources than a `RequiresSet` can hold are rejected before
-/// any lift is verified. [`TryFrom<BTreeMap>`](Self::try_from) is canonical by construction.
-/// [`build_requires`] zips these against the record's sources by position.
+/// The candidate's lifts, grouped per source: the PoV transport form. `Decode` enforces strictly
+/// increasing `ParaId`s and bounds the source count at [`MAX_COMMITMENT_ENTRIES`], so more sources
+/// than a `RequiresSet` can hold are rejected before any lift is verified.
+/// [`TryFrom<BTreeMap>`](Self::try_from) is canonical by construction. [`build_requires`] zips
+/// these against the record's sources by position.
 #[derive(Clone, Encode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct LiftsBySource(BoundedVec<(ParaId, Vec<RequiresLift>), ConstU32<MAX_COMMITMENT_ENTRIES>>);
 
@@ -603,8 +603,8 @@ mod tests {
 
 	#[test]
 	fn extension_leaf_count_disambiguates_equal_node_counts() {
-		// Encoding spec §12, item 4: 1→3 and 1→4 both take two nodes, placed differently, so
-		// only `leaf_count` tells them apart.
+		// 1→3 and 1→4 both take two nodes, placed differently, so only `leaf_count` tells them
+		// apart.
 		let all = leaves(4);
 		let to3 = extension(&all, 1, 3);
 		let to4 = extension(&all, 1, 4);
@@ -657,8 +657,8 @@ mod tests {
 
 	#[test]
 	fn extension_identity_on_empty_frontier_yields_empty_root() {
-		// Yields `empty_root()` (encoding spec §3.2). An empty stream is never in the tree, so
-		// the tree walk is what fails.
+		// Yields `empty_root()`. An empty stream is never in the tree, so the tree walk is what
+		// fails.
 		assert_eq!(
 			MMRExtensionProof::identity().verify(&MmrFrontier::default()),
 			Ok(MmrFrontier::default().root()),
@@ -831,7 +831,7 @@ mod tests {
 		// Canonical round-trips …
 		let good = vec![pair(1), pair(2)].encode();
 		assert!(LiftsBySource::decode(&mut &good[..]).is_ok());
-		// … out of order and duplicate sources do not (spec §8) …
+		// … out of order and duplicate sources do not …
 		let unsorted = vec![pair(2), pair(1)].encode();
 		assert!(LiftsBySource::decode(&mut &unsorted[..]).is_err());
 		let duplicate = vec![pair(1), pair(1)].encode();

@@ -507,8 +507,8 @@ mod tests {
 
 	#[test]
 	fn leaf_hash_frozen_vector() {
-		// FROZEN consensus vector (encoding spec §3.1): `H(0x01 ‖ 0x00 ‖ "hello")`. Any change to
-		// `LEAF_TAG`, `LEAF_VERSION`, the preimage layout or the hasher breaks this.
+		// FROZEN consensus vector: `H(0x01 ‖ 0x00 ‖ "hello")`. Any change to `LEAF_TAG`,
+		// `LEAF_VERSION`, the preimage layout or the hasher breaks this.
 		assert_eq!(
 			leaf_hash(crate::LEAF_VERSION, b"hello"),
 			Hash::from(hex_literal::hex!(
