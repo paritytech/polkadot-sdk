@@ -93,16 +93,16 @@ fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 /// (encoding spec §3.2). `mmr_lib` has none; the protocol needs a comparable value, since a
 /// stream's first consumption starts from the empty frontier. No other root has a count of 0, so
 /// none can equal it. Empty streams are never committed to the `StreamsRoot` tree.
-pub fn empty_root() -> Hash {
-	MmrRoot::from_bag(0, Hash::zero()).0
+pub fn empty_root() -> MmrRoot {
+	MmrRoot::from_bag(0, Hash::zero())
 }
 
 /// Bag the peaks (highest to lowest) with `mmr_lib`'s own bagging, so the result equals
-/// `MMR::get_root`. Not a stream root: [`MmrRoot::from_bag`] binds the leaf count over it. `None`
-/// for no peaks.
-pub fn bag_peaks(peaks: &[Hash]) -> Option<Hash> {
+/// `MMR::get_root`. Not a stream root: [`MmrRoot::from_bag`] binds the leaf count over it. No
+/// peaks bag to zero.
+pub fn bag_peaks(peaks: &[Hash]) -> Hash {
 	// `SpecMerge` is infallible, so `Err` means no peaks.
-	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).ok()
+	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).unwrap_or_default()
 }
 
 /// [`MmrFrontier::try_append`] refused a leaf: the frontier already holds [`MAX_MMR_LEAF_COUNT`].
@@ -214,7 +214,7 @@ impl MmrFrontier {
 	/// frontier bags to zero ([`empty_root`]), so a frontier that has consumed nothing compares and
 	/// extends like any other.
 	pub fn root(&self) -> MmrRoot {
-		MmrRoot::from_bag(self.leaf_count, bag_peaks(&self.peaks).unwrap_or_default())
+		MmrRoot::from_bag(self.leaf_count, bag_peaks(&self.peaks))
 	}
 
 	/// The `mmr_lib` node count (size) of this frontier's MMR. Total under the leaf-count
@@ -310,9 +310,9 @@ mod tests {
 	fn empty_accumulator_root_is_empty_root() {
 		// A fresh accumulator is valid, and its root is the defined constant, not a panic in
 		// `bag_peaks`.
-		assert_eq!(bag_peaks(&[]), None);
-		assert_eq!(MmrFrontier::new().root().0, empty_root());
-		assert_eq!(MmrFrontier::from_parts(Vec::new(), 0).unwrap().root().0, empty_root());
+		assert_eq!(bag_peaks(&[]), Hash::zero());
+		assert_eq!(MmrFrontier::new().root(), empty_root());
+		assert_eq!(MmrFrontier::from_parts(Vec::new(), 0).unwrap().root(), empty_root());
 	}
 
 	#[test]
@@ -338,7 +338,7 @@ mod tests {
 		// FROZEN consensus vector: blake2b-256 of `ROOT_TAG = 0x04`, a zero `u64` count and a zero
 		// bag, the defined root of an empty frontier (encoding spec §3.2).
 		assert_eq!(
-			empty_root(),
+			empty_root().0,
 			Hash::from(hex_literal::hex!(
 				"3efd2c3528b8f163c2e2349211af73f86181b748be1b6a5eebfbadc9428643ce"
 			))
