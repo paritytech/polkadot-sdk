@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792516491576,
+  "lastUpdate": 1792528657517,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "luka.ciric2106@gmail.com",
-            "name": "Luka Ciric",
-            "username": "cirko33"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5a8eaa7825953ed960d88ff73dd6c363f59495d2",
-          "message": "Remove Meta Tx from Westend RC (#11668)\n\nRemoval of the Meta Transaction from the Westend Relay Chain.\nWith this removal, pallet Verify Signature is removed as well.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-07T22:43:26Z",
-          "tree_id": "371eaa3179ed4541feb73a88eed80b1e1a1b5298",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5a8eaa7825953ed960d88ff73dd6c363f59495d2"
-        },
-        "date": 1775606601678,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.796008510566669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12450417629999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1328364665666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b070ee1a2ba5b6440955a2b12e73dd9518c36f8e",
+          "message": "statement-store: keep up to K routing peers reserved on the v2 DHT path (#13487)\n\n# Description\n\nWith the v2 DHT path on, peer steering keeps the node's routing peers\nreserved besides the peers covering its topics: the K nearest known\npeers, K being the replication factor, then the nearest peer of every\ndistance bucket from the node's key that those K leave uncovered. The\nnearest peers are the replicas the node shares its topics with. The\nuncovered buckets are the far ones, as in Kademlia, and hold most of the\nnetwork: one peer in each gives a statement for any topic a next hop\ncloser to it. The set is recomputed every tick from the known peers, so\nit fills from the first discovered peers and settles as discovery\ncompletes.\n\nOnly about log2(N) buckets are populated, so the far peers add about\nlog2(N / K) connections: 3 at 100 nodes, 10 at 10 000.\n\nToday steering desires only the peers covering the node's topics, so a\nnode without topics asks for no peer at all. The routing peers give\nevery node a connected set that routes any statement onward.\nhttps://github.com/paritytech/polkadot-sdk/pull/13488 stops the\nstatement set dialing peers of its own, so it needs this floor.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-20T13:28:32Z",
+          "tree_id": "d8d5b5608651f5e9cc0a99b3ec2e77cd157be501",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b070ee1a2ba5b6440955a2b12e73dd9518c36f8e"
+        },
+        "date": 1792528624974,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13011835370000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.892665989466668,
             "unit": "seconds"
           }
         ]
