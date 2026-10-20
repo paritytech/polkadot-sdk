@@ -329,7 +329,6 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 	let bench_impls = expand_bench_functions(def);
 	let docs = expand_func_doc(def);
 	let all_syscalls = expand_func_list(def);
-	let lookup_syscall = expand_func_lookup();
 	let all_trace_ops = expand_trace_op_list(def);
 	let lookup_trace_op = expand_trace_op_lookup(def);
 
@@ -337,11 +336,6 @@ fn expand_env(def: &EnvDef) -> TokenStream2 {
 		/// Returns the list of all syscalls that contracts can import.
 		pub fn list_syscalls() -> &'static [&'static [u8]] {
 			#all_syscalls
-		}
-
-		/// Return the index of a syscall in the `list_syscalls()` list.
-		pub fn lookup_syscall_index(name: &'static str) -> Option<u8> {
-			#lookup_syscall
 		}
 
 		/// Returns the list of all trace operations (real syscalls + synthetic trace steps).
@@ -564,16 +558,6 @@ fn expand_func_list(def: &EnvDef) -> TokenStream2 {
 			static FUNCS: &[&[u8]] = &[#(#docs),*];
 			FUNCS
 		}
-	}
-}
-
-fn expand_func_lookup() -> TokenStream2 {
-	// Indices are only known after `#[cfg]` stripping, so derive them from the list itself.
-	quote! {
-		list_syscalls()
-			.iter()
-			.position(|syscall| *syscall == name.as_bytes())
-			.map(|idx| idx as u8)
 	}
 }
 

@@ -4182,17 +4182,18 @@ fn unknown_syscall_rejected() {
 }
 
 #[test]
-#[cfg(not(feature = "runtime-benchmarks"))]
 fn benchmark_only_syscall_rejected() {
 	let (code, _) = compile_module("noop").unwrap();
 
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		assert_err!(
-			builder::bare_instantiate(Code::Upload(code)).build().result,
-			<Error<Test>>::CodeRejected,
-		)
+		let result = builder::bare_instantiate(Code::Upload(code)).build().result;
+		if cfg!(feature = "runtime-benchmarks") {
+			assert_ok!(result);
+		} else {
+			assert_err!(result, <Error<Test>>::CodeRejected);
+		}
 	});
 }
 
