@@ -178,7 +178,9 @@ pub mod pallet {
 		/// Normally only the revenue of the current timeslice and of the one which has just ended
 		/// is unclaimed, but more builds up while the revenue cannot be paid out. Once this many
 		/// timeslices have unclaimed revenue, the revenue of the oldest one is merged into the
-		/// next oldest one, so it is never lost, but is attributed to a later timeslice.
+		/// next oldest one, so it is never lost, but is attributed to a later timeslice. This may
+		/// cause the revenue to be paid to a different set of contributors, which is why this
+		/// number should be big enough to minimize the probability of that happening.
 		#[pallet::constant]
 		type MaxUnclaimedTimeslices: Get<u32>;
 
