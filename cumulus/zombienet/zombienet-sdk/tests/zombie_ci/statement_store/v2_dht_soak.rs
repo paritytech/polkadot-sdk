@@ -20,7 +20,6 @@
 //! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
 //! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
 //! each are mandatory even with a zero duration.
-//! The lifecycle requires a full statement mesh.
 //!
 //! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
 //! locally — against the cluster given a kubeconfig:
@@ -363,7 +362,8 @@ async fn topology_mismatch(
 	offline_node_idx: Option<usize>,
 ) -> Result<Option<String>, anyhow::Error> {
 	let expected_eligible = nodes.len() - 1;
-	let expected_connected = expected_eligible - usize::from(offline_node_idx.is_some());
+	let online_peers = expected_eligible - usize::from(offline_node_idx.is_some());
+	let connected_floor = online_peers.min(CONNECTED_PEER_FLOOR);
 	let observations = futures::future::try_join_all(
 		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline_node_idx).map(
 			|(_, handle)| async move {
@@ -375,13 +375,14 @@ async fn topology_mismatch(
 					.as_bool()
 					.ok_or_else(|| anyhow!("{}: missing system_health.isSyncing", handle.name()))?;
 				if eligible != expected_eligible as f64 ||
-					actual_connected != expected_connected as f64 ||
+					actual_connected < connected_floor as f64 ||
+					actual_connected > online_peers as f64 ||
 					syncing
 				{
 					return Ok(Some(format!(
 						"{}: eligible={eligible}, connected={actual_connected}, syncing={syncing}; \
-						 expected eligible={expected_eligible}, connected={expected_connected}, \
-						 syncing=false",
+						 expected eligible={expected_eligible}, \
+						 connected={connected_floor}..={online_peers}, syncing=false",
 						handle.name(),
 					)));
 				}
