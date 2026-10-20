@@ -537,7 +537,7 @@ fn era_pot_drained_after_history_depth() {
 		let validator_expenses_general_pot = <Test as Config>::RewardPots::pot_account(
 			RewardPot::General(RewardKind::OperationalExpenses),
 		);
-		Balances::set_balance(&validator_expenses_general_pot, 1_000);
+		// Balances::set_balance(&validator_expenses_general_pot, 1_000);
 		mint_operational_expenses_asset(validator_expenses_general_pot, 100);
 
 		// GIVEN: Start at era 2

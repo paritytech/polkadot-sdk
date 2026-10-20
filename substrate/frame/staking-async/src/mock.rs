@@ -866,7 +866,7 @@ impl ExtBuilder {
 			use frame_support::traits::fungible::Create;
 			assert_ok!(<Test as Config>::ValidatorExpencesCurrency::create(
 				0,
-				false,
+				true,
 				MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
 			));
 

@@ -1813,7 +1813,6 @@ fn validator_operational_expenses_paid_out() {
 
 		Session::roll_until_active_era(2);
 
-		Balances::set_balance(&general_pot, ExistentialDeposit::get());
 		mint_operational_expenses_asset(general_pot, MIN_AMOUNT + 150);
 		Staking::reward_by_ids(vec![(11, 2), (12, 3)]);
 
