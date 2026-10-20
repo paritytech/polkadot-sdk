@@ -30,8 +30,7 @@ use scale_info::TypeInfo;
 
 use crate::{mmr::MessagePosition, stream::StreamId};
 
-/// Key of the messaging inherent in `InherentData`. Used by the node's provider and the pallet's
-/// `ProvideInherent`.
+/// Key of the messaging inherent in `InherentData`.
 pub const INHERENT_IDENTIFIER: sp_inherents::InherentIdentifier = *b"specmsg0";
 
 pub type Payload = Vec<u8>;
