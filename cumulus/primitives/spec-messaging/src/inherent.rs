@@ -27,8 +27,13 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use scale_info::TypeInfo;
+use sp_core::ConstU32;
+use sp_runtime::BoundedVec;
 
-use crate::{mmr::MessagePosition, stream::StreamId};
+use crate::{
+	mmr::{MessagePosition, MAX_MMR_HASHES},
+	stream::StreamId,
+};
 
 /// Key of the messaging inherent in `InherentData`.
 pub const INHERENT_IDENTIFIER: sp_inherents::InherentIdentifier = *b"specmsg0";
@@ -157,7 +162,11 @@ pub enum ConsumeItem {
 	/// Replay: a register read below the stored `RegisterRead::at` is ignored; an event read must
 	/// be above the stream's highwater, which then moves to `base + len - 1`.
 	#[codec(index = 1)]
-	Events { base: MessagePosition, start_peaks: Vec<Hash>, payloads: Vec<Payload> },
+	Events {
+		base: MessagePosition,
+		start_peaks: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
+		payloads: Vec<Payload>,
+	},
 }
 
 #[cfg(test)]
@@ -176,7 +185,7 @@ mod tests {
 		let item_ch = ConsumeItem::Channel { payloads: Vec::new() };
 		let item_ev = ConsumeItem::Events {
 			base: MessagePosition(0),
-			start_peaks: Vec::new(),
+			start_peaks: BoundedVec::new(),
 			payloads: Vec::new(),
 		};
 		assert_eq!(item_ch.encode()[0], 0);

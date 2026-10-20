@@ -175,7 +175,7 @@ root unchanged (the caught-up case, and the head check for register reads). It i
 because a genuine extension to an empty MMR cannot exist. Otherwise `leaf_count > old.leaf_count`
 strictly; an equal count is rejected (`NotForward`). The design's Appendix B writes `≥`; strict is
 the implemented and specified form. A zero count with connecting nodes is invalid (`InvalidProof`).
-More than `MAX_EXTENSION_CONNECTING_NODES` connecting nodes fail to decode (the list is a bounded
+More than `MAX_MMR_HASHES` connecting nodes fail to decode (the list is a bounded
 vector), before any position is derived or hash computed. Verification computes and returns the new
 root and fails if the node count is not exactly right for the pair.
 
@@ -310,7 +310,7 @@ Reference algorithms: design §Requires Lifting (`stitch`, `build_requires_entry
 | `MAX_UMP_SIGNALS` | 4 | = variant count |
 | `MAX_SPECULATIVE_MESSAGE_LEN` | 102 400 B | frozen; wire-enforced payload bound (`PayloadTooLarge`) |
 | `MAX_MESSAGES_PER_RESPONSE` | 1024 | decode ceiling on a `MessagesResponse`'s payloads; not consensus |
-| `MAX_EXTENSION_CONNECTING_NODES` | 64 | decode bound; the design's ceiling, which the lift reserves for |
+| `MAX_MMR_HASHES` | 64 | decode bound on a peak set or connecting-node list; a valid one has at most 48 |
 | `MAX_INCLUSION_PROOF_ITEMS` | 128 | decode bound; must exceed the valid maxima, not consensus |
 | `SPMS_ENGINE_ID` | `*b"SPMS"` | implemented; freeze before cross-chain ships |
 | `W` (RecentProvides ring) | 128 | relay-side constant; changed by runtime upgrade |

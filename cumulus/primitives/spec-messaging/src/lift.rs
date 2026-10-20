@@ -47,7 +47,7 @@ use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
 use crate::{
-	mmr::{MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
+	mmr::{MessagePosition, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_HASHES, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 };
@@ -55,12 +55,6 @@ use crate::{
 /// The keyed-tree proof a lift walks from a stream root to the `StreamsRoot`: the design's
 /// `TreeInclusionProof`, concretely [`StreamProof`].
 pub type TreeInclusionProof = StreamProof;
-
-/// Upper bound on an [`MMRExtensionProof`]'s connecting nodes: the design's ceiling, which the
-/// lift's PoV reservation assumes. A valid ancestry proof needs at most one node per bit of the
-/// leaf count, so at most 48 under [`MAX_MMR_LEAF_COUNT`]; a proof with any other count than the
-/// one derived from the two leaf counts fails anyway. Enforced at decode.
-pub const MAX_EXTENSION_CONNECTING_NODES: u32 = 64;
 
 /// Upper bound on an [`MmrInclusionProof`]'s items. A single-leaf proof needs at most the subtree
 /// height plus the other peaks, each at most 63; `2 * 64` is a ceiling no valid proof reaches.
@@ -96,8 +90,9 @@ pub struct MMRExtensionProof {
 	pub leaf_count: u64,
 	/// The connecting-node hashes, in `mmr_lib`'s proof order. Positions are not stored: an MMR's
 	/// shape is fixed by its size, so they are derived at verify time from the two leaf counts
-	/// (`ancestry_positions`). Empty for the identity.
-	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_EXTENSION_CONNECTING_NODES>>,
+	/// (`ancestry_positions`). Empty for the identity. At most [`MAX_MMR_HASHES`], enforced at
+	/// decode; a valid proof needs one node per bit of the leaf count, so at most 48.
+	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
 }
 
 impl MMRExtensionProof {
@@ -677,13 +672,13 @@ mod tests {
 		let nodes =
 			ancestry_positions(mmr_size(1), mmr_size((MAX_MMR_LEAF_COUNT - 1) as usize)).len();
 		assert_eq!(nodes, 48);
-		assert!(nodes <= MAX_EXTENSION_CONNECTING_NODES as usize);
+		assert!(nodes <= MAX_MMR_HASHES as usize);
 	}
 
 	#[test]
 	fn over_long_extension_proof_fails_to_decode() {
 		// The bound is in the type, so an over-long proof is rejected at the length prefix.
-		let max = MAX_EXTENSION_CONNECTING_NODES as usize;
+		let max = MAX_MMR_HASHES as usize;
 		let at_bound = (codec::Compact(5u64), vec![H256::zero(); max]).encode();
 		assert!(MMRExtensionProof::decode(&mut &at_bound[..]).is_ok());
 		let over = (codec::Compact(5u64), vec![H256::zero(); max + 1]).encode();

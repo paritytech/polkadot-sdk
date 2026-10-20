@@ -40,7 +40,7 @@ use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{
 	lift::{MMRExtensionProof, MmrInclusionProof, ProofError},
-	mmr::{MessagePosition, MmrFrontier, MAX_MMR_LEAF_COUNT},
+	mmr::{MessagePosition, MmrFrontier, MAX_MMR_HASHES, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	SpecHasher, LEAF_TAG,
@@ -126,9 +126,9 @@ pub struct MessagesResponse {
 	/// The payloads, in MMR order; payload `i` has position `base + i`. At most
 	/// [`MAX_MESSAGES_PER_RESPONSE`], rejected at the length prefix.
 	pub payloads: BoundedVec<Vec<u8>, ConstU32<MAX_MESSAGES_PER_RESPONSE>>,
-	/// The stream's peak set at `base`, at most 64 hashes, for a consumer that holds no frontier.
-	/// Fabricated peaks cannot extend to a committed root.
-	pub start_peaks: BoundedVec<Hash, ConstU32<64>>,
+	/// The stream's peak set at `base`, for a consumer that holds no frontier. Fabricated peaks
+	/// cannot extend to a committed root.
+	pub start_peaks: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
 	/// From the frontier recomputed over `payloads` to the stream's current root; the identity
 	/// extension when the payloads already reach it.
 	pub extension: MMRExtensionProof,
@@ -743,7 +743,7 @@ mod tests {
 			base: MessagePosition(u64::MAX),
 			leaf_version: 0,
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); 64]),
+			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); MAX_MMR_HASHES as usize]),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};

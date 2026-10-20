@@ -41,6 +41,10 @@ use crate::{SpecHasher, INNER_TAG, PEAK_TAG, ROOT_TAG};
 /// checked against this first. `2^48` is far beyond any real stream.
 pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
 
+/// Upper bound on a peak set or other hash list that a leaf count determines: one per bit of a
+/// `u64`.
+pub const MAX_MMR_HASHES: u32 = 64;
+
 /// A leaf position within a stream's MMR. Defined here because both `lift` and `message` use it.
 #[derive(
 	Clone,
@@ -139,8 +143,8 @@ impl MmrRoot {
 pub struct MmrFrontier {
 	/// Number of leaves these peaks summarize; also the position of the next message to append.
 	leaf_count: u64,
-	/// MMR peaks, highest to lowest. At most 64 for a `u64` leaf count.
-	peaks: BoundedVec<Hash, ConstU32<64>>,
+	/// MMR peaks, highest to lowest. At most [`MAX_MMR_HASHES`].
+	peaks: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
 }
 
 impl MmrFrontier {
@@ -230,7 +234,7 @@ impl MmrFrontier {
 impl Decode for MmrFrontier {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
 		let leaf_count = u64::decode(input)?;
-		let peaks = BoundedVec::<Hash, ConstU32<64>>::decode(input)?;
+		let peaks = BoundedVec::<Hash, ConstU32<MAX_MMR_HASHES>>::decode(input)?;
 		Self::from_parts(peaks.into_inner(), leaf_count)
 			.ok_or_else(|| "MmrFrontier: inconsistent peaks / leaf count".into())
 	}
@@ -284,7 +288,7 @@ mod tests {
 		// And within the ceiling, or the node-position arithmetic downstream is not total.
 		assert!(MmrFrontier::from_parts(vec![h(1)], MAX_MMR_LEAF_COUNT).is_some());
 		assert!(MmrFrontier::from_parts(vec![h(1)], 1 << 63).is_none());
-		assert!(MmrFrontier::from_parts(vec![h(1); 64], u64::MAX).is_none());
+		assert!(MmrFrontier::from_parts(vec![h(1); MAX_MMR_HASHES as usize], u64::MAX).is_none());
 	}
 
 	#[test]
