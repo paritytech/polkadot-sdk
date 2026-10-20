@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792401724780,
+  "lastUpdate": 1792501558712,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -135215,6 +135215,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3061410315,
             "range": "± 112921096",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aeb228f71799c9973a4e119aa15c016e1f0ce394",
+          "message": "[Release|CI/CD] Add publish delay on publish crates workflow (#11837)\n\nForwards a new `publish_delay` workflow input to `parity-publish apply`\nas `--publish-delay SECS`. The flag sleeps between parallel publish\nbatches within a dependency level, helping avoid crates.io rate limits\non large releases. Default is 0 (no delay, preserves existing behavior).\n\nBumps pinned parity-publish install to 0.10.16 which introduces the\nflag.\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
+          "timestamp": "2026-10-20T10:21:17Z",
+          "tree_id": "1f800c82c40f975619768596a292a280c67de691",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeb228f71799c9973a4e119aa15c016e1f0ce394"
+        },
+        "date": 1792501524694,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19447292,
+            "range": "± 117101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19812583,
+            "range": "± 55087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21092121,
+            "range": "± 84379",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26107228,
+            "range": "± 127364",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60903566,
+            "range": "± 969412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 360471347,
+            "range": "± 4662991",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2696602958,
+            "range": "± 78173525",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16714044,
+            "range": "± 202910",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16845554,
+            "range": "± 161909",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17286380,
+            "range": "± 172500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21844232,
+            "range": "± 92766",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62125807,
+            "range": "± 455056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 362252140,
+            "range": "± 5705501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2674065648,
+            "range": "± 24556518",
             "unit": "ns/iter"
           }
         ]
