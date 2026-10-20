@@ -1426,18 +1426,23 @@ fn cross_account_hold_paths_emit_transfer_logs() {
 	});
 }
 
-fn call_transfer_from(spender: u64, asset_addr: H160, from: H160, to: H160, value: U256) -> bool {
+fn call_transfer_from(
+	spender: u64,
+	asset_addr: H160,
+	from: H160,
+	to: H160,
+	value: U256,
+) -> pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u128> {
 	let data =
 		IERC20::transferFromCall { from: from.0.into(), to: to.0.into(), value }.abi_encode();
-	let result = pallet_revive::Pallet::<Test>::bare_call(
+	pallet_revive::Pallet::<Test>::bare_call(
 		RuntimeOrigin::signed(spender),
 		asset_addr,
 		0u32.into(),
 		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u128::MAX },
 		data,
 		&ExecConfig::new_substrate_tx(),
-	);
-	result.result.as_ref().map_or(false, |v| !v.did_revert())
+	)
 }
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
@@ -1510,13 +1515,10 @@ fn transfer_from_logs_the_charged_sweep(asset_index: u16) {
 		call_approve(owner, asset_addr, spender_addr, U256::from(110));
 
 		// Requesting 91 would strand 9, so all 100 move and all 100 are charged.
-		assert!(call_transfer_from(
-			spender,
-			asset_addr,
-			owner_addr,
-			recipient_addr,
-			U256::from(91)
-		));
+		let result =
+			call_transfer_from(spender, asset_addr, owner_addr, recipient_addr, U256::from(91));
+		assert!(result.result.is_ok(), "transferFrom precompile call failed: {:?}", result);
+		assert!(!result.result.unwrap().did_revert(), "transferFrom call reverted");
 
 		assert_eq!(Assets::balance(asset_id, owner), 0);
 		assert_eq!(Assets::balance(asset_id, recipient), 100);
@@ -1534,7 +1536,7 @@ fn transfer_from_logs_the_charged_sweep(asset_index: u16) {
 
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn transfer_from_reverts_when_the_sweep_exceeds_the_allowance(asset_index: u16) {
+fn transfer_from_fails_when_the_sweep_exceeds_the_allowance(asset_index: u16) {
 	use frame_support::traits::fungibles::approvals::Inspect;
 
 	new_test_ext().execute_with(|| {
@@ -1556,13 +1558,13 @@ fn transfer_from_reverts_when_the_sweep_exceeds_the_allowance(asset_index: u16) 
 		call_approve(owner, asset_addr, spender_addr, U256::from(95));
 
 		// 91 is within both the allowance and the balance, but the sweep would move 100.
-		assert!(!call_transfer_from(
-			spender,
-			asset_addr,
-			owner_addr,
-			recipient_addr,
-			U256::from(91)
-		));
+		let result =
+			call_transfer_from(spender, asset_addr, owner_addr, recipient_addr, U256::from(91));
+		assert_eq!(
+			result.result.err(),
+			Some(pallet_assets::Error::<Test>::Unapproved.into()),
+			"transferFrom must fail with Unapproved"
+		);
 
 		assert_eq!(Assets::balance(asset_id, owner), 100);
 		assert_eq!(Assets::balance(asset_id, recipient), 0);
