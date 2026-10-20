@@ -282,20 +282,23 @@ fn frozen_hold_balance_cannot_be_moved_without_force() {
 
 #[test]
 fn zero_value_transfer_emits_no_event() {
-	ExtBuilder::default().existential_deposit(1).monied(true).build_and_execute_with(|| {
-		let _ = events();
+	ExtBuilder::default()
+		.existential_deposit(1)
+		.monied(true)
+		.build_and_execute_with(|| {
+			let _ = events();
 
-		assert_ok!(<Balances as Mutate<_>>::transfer(&1, &2, 0, Preserve));
-		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 0));
-		assert_eq!(events(), []);
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1, &2, 0, Preserve));
+			assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 0));
+			assert_eq!(events(), []);
 
-		// A non-zero transfer still emits `Transfer`.
-		assert_ok!(<Balances as Mutate<_>>::transfer(&1, &2, 1, Preserve));
-		assert_eq!(
-			events(),
-			[RuntimeEvent::Balances(crate::Event::Transfer { from: 1, to: 2, amount: 1 })]
-		);
-	});
+			// A non-zero transfer still emits `Transfer`.
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1, &2, 1, Preserve));
+			assert_eq!(
+				events(),
+				[RuntimeEvent::Balances(crate::Event::Transfer { from: 1, to: 2, amount: 1 })]
+			);
+		});
 }
 
 #[test]

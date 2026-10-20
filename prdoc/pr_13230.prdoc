@@ -47,7 +47,7 @@ doc:
     covering it, and spends that whole balance out of the approval.
 
     The same applies to the ERC-20 `transferFrom` of the assets precompile: a call whose value is
-    within both the allowance and the owner's balance now reverts when the owner's remainder would
+    within both the allowance and the owner's balance now fails with `Unapproved` when the owner's remainder would
     fall below the asset's minimum and the allowance does not cover the whole balance.
 
     A zero-value transfer through `fungible(s)::Mutate::transfer`, which includes the
@@ -56,6 +56,8 @@ doc:
 crates:
 - name: frame-support
   bump: patch
+- name: pallet-balances
+  bump: none
 - name: pallet-assets
   bump: patch
 - name: pallet-assets-precompiles

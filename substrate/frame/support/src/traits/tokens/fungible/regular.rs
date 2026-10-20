@@ -321,11 +321,14 @@ where
 
 	/// Transfer funds from one account into another.
 	///
-	/// Returns the amount credited to `dest`. This is `amount` unless the default implementation
-	/// is used and [`Unbalanced::decrease_balance`] folded a sub-minimum remainder of `source`
-	/// into its return, in which case it exceeds `amount` by up to `minimum_balance() - 1` and
-	/// that remainder is credited to `dest` as well. Implementations may debit `source` by more
-	/// than this, e.g. when reaping it.
+	/// Returns the amount credited to `dest`. With the default implementation this is `amount`
+	/// unless [`Unbalanced::decrease_balance`] folded a sub-minimum remainder of `source` into
+	/// its return, as `pallet-assets` does, in which case it exceeds `amount` by up to
+	/// `minimum_balance() - 1` and that remainder is credited to `dest` as well. Adapters such as
+	/// `ItemOf` and `UnionOf` forward that figure.
+	///
+	/// `source` may be debited by more than is returned, e.g. when a reaped remainder is passed to
+	/// `handle_dust` as `pallet-balances` does.
 	///
 	/// A transfer where the source and destination account are identical, or where `amount` is
 	/// zero, is treated as No-OP after checking the preconditions.
