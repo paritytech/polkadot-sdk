@@ -52,9 +52,6 @@ use crate::{
 /// Bit width of a `StreamId` key (the Patricia trie's maximum depth).
 const KEY_BITS: usize = STREAM_ID_LEN * 8;
 
-// The proof container's decode bound below must equal the trie depth.
-const _: () = assert!(KEY_BITS == 64);
-
 /// The sender's per-block stream commitment root. Defined relay-side and re-exported here.
 pub use polkadot_primitives::StreamsRoot;
 
@@ -78,7 +75,7 @@ pub struct TreeStep {
 pub struct StreamProof {
 	/// Branch steps leaf to root, split bits strictly decreasing. Empty for a single-stream tree.
 	/// Bounded at the trie depth, so an over-long proof is rejected at decode.
-	pub steps: BoundedVec<TreeStep, ConstU32<64>>,
+	pub steps: BoundedVec<TreeStep, ConstU32<{ KEY_BITS as u32 }>>,
 }
 
 /// Bit `i` of an 8-byte key, `0` the MSB of byte 0.
@@ -218,10 +215,10 @@ pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
 }
 
 /// Fold a membership proof for `(stream, stream_root)` up to the `StreamsRoot` it implies, or
-/// `None` on a malformed step. Unlike [`verify_stream_membership`] this yields the root instead of
-/// comparing it, which is what the requires-lift `tree_proof` needs. Each branch direction is
-/// `stream`'s bit at `split_bit`, so a proof built for another stream folds the siblings on the
-/// wrong sides and yields a different root.
+/// `None` on a malformed step. Callers compare the root themselves (the requires-lift records it,
+/// the fetch checks it against `under`). Each branch direction is `stream`'s bit at `split_bit`, so
+/// a proof built for another stream folds the siblings on the wrong sides and yields a different
+/// root.
 pub fn streams_root_from_proof(
 	stream: StreamId,
 	stream_root: Hash,
@@ -253,30 +250,25 @@ pub fn streams_root_from_proof(
 	Some(StreamsRoot(node))
 }
 
-/// Verify that `stream_root` is the sender's committed root for `stream` under `streams_root`. The
-/// leaf is recomputed from `stream` and each direction is taken from its bits, so a proof for
-/// another stream cannot verify.
-pub fn verify_stream_membership(
-	streams_root: StreamsRoot,
-	stream: StreamId,
-	stream_root: Hash,
-	membership: &StreamProof,
-) -> bool {
-	streams_root_from_proof(stream, stream_root, membership) == Some(streams_root)
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::test_utils::ch;
 	use sp_core::H256;
 
-	fn ch(recipient: u32) -> StreamId {
-		StreamId::Channel { recipient: recipient.into(), domain: 0, num: 0 }
-	}
 	fn root(b: u8) -> Hash {
 		H256::repeat_byte(b)
 	}
 
+	/// Whether `stream_root` is committed for `stream` under `streams_root`.
+	fn verify_stream_membership(
+		streams_root: StreamsRoot,
+		stream: StreamId,
+		stream_root: Hash,
+		membership: &StreamProof,
+	) -> bool {
+		streams_root_from_proof(stream, stream_root, membership) == Some(streams_root)
+	}
 	fn entries() -> BTreeMap<StreamId, Hash> {
 		// inserted out of order; the map canonicalizes
 		BTreeMap::from([
