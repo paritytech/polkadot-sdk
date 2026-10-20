@@ -318,7 +318,7 @@ impl StorageCmd {
 		if self.params.estimation_batch_size > 0 {
 			let triggers_per_batch = self.params.estimation_batch_size;
 			let trigger_interval = batch_size.div_ceil(triggers_per_batch);
-			let mut estimation_trie = Default::default();
+			let mut estimation_trie = None;
 
 			for i in 0..triggers_per_batch {
 				let start_idx = i * trigger_interval;

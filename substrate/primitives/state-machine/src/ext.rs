@@ -1494,7 +1494,7 @@ mod tests {
 		backend.record_proof_for_child_dirty_keys(
 			&child_info,
 			core::iter::empty::<(&[u8], crate::DeltaKeyOp)>(),
-			&mut Default::default(),
+			&mut None,
 		);
 
 		assert_eq!(recorder.estimate_encoded_size(), 0);

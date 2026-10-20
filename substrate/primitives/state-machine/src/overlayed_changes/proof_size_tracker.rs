@@ -101,8 +101,9 @@ pub struct ProofSizeTracker<K, H: Hasher, HB = DefaultHashBuilder> {
 	/// Hash builder for computing key hashes.
 	hasher: HB,
 	/// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in
-	/// the real storage root computation.
-	estimation_trie: EstimationTrie<H>,
+	/// the real storage root computation. Created by the first size estimation call that applies a
+	/// removal.
+	estimation_trie: Option<EstimationTrie<H>>,
 }
 
 struct TransactionLayer<K, H: Hasher> {
@@ -114,8 +115,9 @@ struct TransactionLayer<K, H: Hasher> {
 	/// - Previously `Deleted`: suppress all future ops (Updated and Deleted).
 	/// - Previously `Updated`: suppress future `Updated` only; allow a subsequent `Deleted`.
 	snapshot: Option<CapturedMap>,
-	/// The trie as it was when this transaction started.
-	trie_snapshot: TrieDBMutSnapshot<LayoutV1<H>>,
+	/// The trie as it was when this transaction started, `None` if the trie did not exist when the
+	/// transaction started.
+	trie_snapshot: Option<TrieDBMutSnapshot<LayoutV1<H>>>,
 }
 
 impl<K, H: Hasher> Default for TransactionLayer<K, H> {
@@ -123,7 +125,7 @@ impl<K, H: Hasher> Default for TransactionLayer<K, H> {
 		Self {
 			dirty_keys: KeyMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default()),
 			snapshot: None,
-			trie_snapshot: EstimationTrie::<H>::default().snapshot(),
+			trie_snapshot: None,
 		}
 	}
 }
@@ -143,7 +145,7 @@ impl<K, H: Hasher, HB: Default> Default for ProofSizeTracker<K, H, HB> {
 			layers: Vec::new(),
 			current: TransactionLayer::default(),
 			hasher: HB::default(),
-			estimation_trie: Default::default(),
+			estimation_trie: None,
 		}
 	}
 }
@@ -163,14 +165,14 @@ impl<K, H: Hasher, HB: Default> ProofSizeTracker<K, H, HB> {
 	///
 	/// Used by `spawn_child` to match the parent's transaction depth so that
 	/// commit/rollback operations on pre-existing levels work correctly
-	/// instead of being silent no-ops. Each layer holds a snapshot of the empty estimation trie the
-	/// tracker starts with.
+	/// instead of being silent no-ops. The tracker starts without an estimation trie, so no layer
+	/// holds a trie snapshot.
 	pub fn with_transaction_depth(depth: usize) -> Self {
 		Self {
 			layers: (0..depth).map(|_| TransactionLayer::default()).collect(),
 			current: TransactionLayer::default(),
 			hasher: HB::default(),
-			estimation_trie: Default::default(),
+			estimation_trie: None,
 		}
 	}
 }
@@ -193,10 +195,11 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 
 	/// Starts a new transaction layer for atomic operations.
 	///
-	/// The new layer holds a snapshot of the estimation trie taken at this point.
+	/// The new layer holds a snapshot of the estimation trie taken at this point, if the trie
+	/// exists.
 	pub fn start_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "start_transaction {}", self.layers.len());
-		let trie_snapshot = self.estimation_trie.snapshot();
+		let trie_snapshot = self.estimation_trie.as_ref().map(|trie| trie.snapshot());
 		// Push current layer onto stack
 		let old_current = mem::replace(
 			&mut self.current,
@@ -227,17 +230,27 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 
 	/// Rolls back the current transaction, discarding dirty keys, updated and deleted key sets.
 	///
-	/// The estimation trie is rolled back to the trie snapshot of the discarded layer.
+	/// The estimation trie is rolled back to the trie snapshot of the discarded layer, or dropped
+	/// if it did not exist when that layer started.
 	pub fn rollback_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "rollback_transaction empty:{}", self.layers.len());
 		if let Some(layer) = self.layers.pop() {
 			let discarded = mem::replace(&mut self.current, layer);
-			self.estimation_trie.rollback_to(&discarded.trie_snapshot);
+			match (self.estimation_trie.as_mut(), discarded.trie_snapshot) {
+				(Some(trie), Some(snapshot)) => trie.rollback_to(&snapshot),
+				(_, None) => self.estimation_trie = None,
+				(None, Some(_)) => {
+					debug_assert!(
+						false,
+						"a layer only holds a snapshot of a trie that existed when it started"
+					);
+				},
+			}
 		}
 	}
 
 	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
-	pub fn estimation_trie_mut(&mut self) -> &mut EstimationTrie<H> {
+	pub fn estimation_trie_mut(&mut self) -> &mut Option<EstimationTrie<H>> {
 		&mut self.estimation_trie
 	}
 
@@ -948,7 +961,10 @@ mod tests {
 	mod estimation_trie {
 		use super::Tracker;
 		use sp_core::{Blake2Hasher, H256};
-		use sp_trie::{AppendOnlyTrieDBMutBuilder, LayoutV1, MemoryDB, TrieDBMutBuilder, TrieMut};
+		use sp_trie::{
+			AppendOnlyTrieDBMutBuilder, DetachedTrieDBMut, LayoutV1, MemoryDB, TrieDBMutBuilder,
+			TrieMut,
+		};
 
 		type Layout = LayoutV1<Blake2Hasher>;
 
@@ -988,15 +1004,12 @@ mod tests {
 			}
 
 			fn contains(&mut self, key: &[u8]) -> bool {
-				let estimation_trie = self.tracker.estimation_trie_mut();
-				let trie = AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(
-					&self.db,
-					self.root,
-					core::mem::take(estimation_trie),
-				)
-				.build();
+				let slot = self.tracker.estimation_trie_mut();
+				let trie = slot.take().unwrap_or_else(|| DetachedTrieDBMut::new(self.root));
+				let trie =
+					AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(&self.db, trie).build();
 				let contains = trie.get(key).unwrap().is_some();
-				*estimation_trie = trie.detach();
+				*slot = Some(trie.detach());
 				contains
 			}
 		}
@@ -1025,6 +1038,7 @@ mod tests {
 			fixture.remove(FIRST);
 			fixture.tracker.commit_transaction();
 
+			assert!(fixture.tracker.estimation_trie_mut().is_some());
 			assert!(!fixture.contains(FIRST));
 			assert!(fixture.contains(SECOND));
 		}
@@ -1049,8 +1063,8 @@ mod tests {
 			assert!(fixture.contains(SECOND));
 		}
 
-		/// Rolling back to before the first size estimation call leaves an empty trie, which must
-		/// continue from the block-start root instead of a state built on it.
+		/// Rolling back to before the first size estimation call drops the trie, so the next call
+		/// creates it on the block-start root instead of continuing a state built on it.
 		#[test]
 		fn rollback_before_any_size_estimation_continues_from_the_given_root() {
 			let mut fixture = Fixture::new();
@@ -1059,6 +1073,7 @@ mod tests {
 			fixture.remove(FIRST);
 			fixture.tracker.rollback_transaction();
 
+			assert!(fixture.tracker.estimation_trie_mut().is_none());
 			assert!(fixture.contains(FIRST));
 		}
 	}

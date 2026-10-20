@@ -759,7 +759,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	}
 
 	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
-	pub fn estimation_trie_mut(&mut self) -> &mut EstimationTrie<H> {
+	pub fn estimation_trie_mut(&mut self) -> &mut Option<EstimationTrie<H>> {
 		self.proof_size_tracker.estimation_trie_mut()
 	}
 

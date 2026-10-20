@@ -682,7 +682,7 @@ where
 	pub fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) {
 		// LayoutV1 is used unconditionally: V0 and V1 are read-compatible, and this function
 		// only reads trie nodes (removals stay in the append-only estimation trie). See
@@ -792,7 +792,7 @@ where
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) {
 		let mut delta = delta.into_iter().collect::<Vec<_>>();
 		if delta.is_empty() {

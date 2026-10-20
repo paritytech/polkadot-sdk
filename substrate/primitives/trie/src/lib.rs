@@ -320,14 +320,14 @@ where
 /// Removes keys from a trie based on the provided delta, recording the nodes for proof size
 /// calculation.
 ///
-/// The in-memory trie is kept in `detached` between calls, so that removals spread over several
-/// calls collapse the same nodes as a single removal of all of them would. The trie storage is
-/// never altered.
+/// The in-memory trie is created on `root` by the first call that applies a removal and is kept
+/// in `detached` between calls, so that removals spread over several calls collapse the same nodes
+/// as a single removal of all of them would. The trie storage is never altered.
 pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 	db: &DB,
 	root: TrieHash<L>,
 	delta: I,
-	detached: &mut DetachedTrieDBMut<L>,
+	detached: &mut Option<DetachedTrieDBMut<L>>,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<(), Box<TrieError<L>>>
@@ -336,14 +336,19 @@ where
 	A: Borrow<[u8]>,
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	let mut trie =
-		AppendOnlyTrieDBMutBuilder::<L>::from_detached(db, root, core::mem::take(detached))
-			.with_optional_cache(cache)
-			.with_optional_recorder(recorder)
-			.build();
+	let mut delta = delta.into_iter().peekable();
+	if delta.peek().is_none() {
+		return Ok(());
+	}
 
-	let result = delta.into_iter().try_for_each(|key| trie.remove(key.borrow()).map(|_| ()));
-	*detached = trie.detach();
+	let trie = detached.take().unwrap_or_else(|| DetachedTrieDBMut::new(root));
+	let mut trie = AppendOnlyTrieDBMutBuilder::<L>::from_detached(db, trie)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build();
+
+	let result = delta.try_for_each(|key| trie.remove(key.borrow()).map(|_| ()));
+	*detached = Some(trie.detach());
 	result
 }
 
@@ -518,7 +523,7 @@ pub fn child_remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB, RD>(
 	db: &DB,
 	root_data: RD,
 	delta: I,
-	detached: &mut DetachedTrieDBMut<L>,
+	detached: &mut Option<DetachedTrieDBMut<L>>,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<(), Box<TrieError<L>>>

@@ -177,6 +177,8 @@ pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
 /// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in the
 /// real storage root computation.
+///
+/// `None` until the first size estimation call applies a removal that is still part of the block.
 pub type EstimationTrie<H> = sp_trie::DetachedTrieDBMut<sp_trie::LayoutV1<H>>;
 
 /// A state backend is used to read state data and can have changes committed
@@ -277,7 +279,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) where
 		H::Out: Ord;
 
@@ -286,7 +288,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) where
 		H::Out: Ord;
 
@@ -359,10 +361,10 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			Item = (
 				&'a ChildInfo,
 				impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-				&'a mut EstimationTrie<H>,
+				&'a mut Option<EstimationTrie<H>>,
 			),
 		>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) where
 		H: 'a,
 		H::Out: Ord + Encode,

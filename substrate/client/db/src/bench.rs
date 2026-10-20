@@ -475,7 +475,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<Hasher>,
+		estimation_trie: &mut Option<EstimationTrie<Hasher>>,
 	) {
 		self.state
 			.borrow()
@@ -487,7 +487,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<Hasher>,
+		estimation_trie: &mut Option<EstimationTrie<Hasher>>,
 	) {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| {
 			s.record_proof_for_child_dirty_keys(child_info, delta, estimation_trie)

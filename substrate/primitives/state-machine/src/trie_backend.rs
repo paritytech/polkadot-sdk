@@ -533,7 +533,7 @@ where
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) where
 		H::Out: Ord,
 	{
@@ -544,7 +544,7 @@ where
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<H>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) where
 		H::Out: Ord,
 	{

@@ -205,7 +205,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<HashingFor<B>>,
+		estimation_trie: &mut Option<EstimationTrie<HashingFor<B>>>,
 	) {
 		self.state.record_proof_for_dirty_keys(delta, estimation_trie)
 	}
@@ -214,7 +214,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		estimation_trie: &mut EstimationTrie<HashingFor<B>>,
+		estimation_trie: &mut Option<EstimationTrie<HashingFor<B>>>,
 	) {
 		self.state.record_proof_for_child_dirty_keys(child_info, delta, estimation_trie)
 	}
