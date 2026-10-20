@@ -1,0 +1,12 @@
+title: 'network-transactions: prevent duplicate import reputation'
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      Record each peer only once per pending transaction import, preventing
+      repeated submissions from multiplying verification charges or import
+      reputation rewards. Distinct peers still receive their own import result,
+      and transactions can be retried after an inconclusive import.
+      No API changes, protocol changes, or storage migration are required.
+crates:
+  - name: sc-network-transactions
+    bump: patch
