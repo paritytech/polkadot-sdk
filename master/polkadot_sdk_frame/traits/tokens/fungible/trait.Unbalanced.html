@@ -216,6 +216,10 @@ reduce the balance of <code>who</code> by the most that is possible, up to <code
 Minimum balance will be respected and thus the returned amount may be up to
 <a href="../../../token/fungible/trait.Inspect.html#tymethod.minimum_balance" title="associated function polkadot_sdk_frame::token::fungible::Inspect::minimum_balance"><code>Inspect::minimum_balance()</code></a> - 1<code>greater than</code>amount` in the case that the reduction
 caused the account to be deleted.</p>
+<p>Any such excess must still be in the system when this returns — it must not have been
+disposed of through <a href="../../../token/fungible/trait.Unbalanced.html#tymethod.handle_dust" title="associated function polkadot_sdk_frame::token::fungible::Unbalanced::handle_dust"><code>Unbalanced::handle_dust</code></a>. Callers account for the returned amount,
+so an implementation that both reports the excess and traps it as dust makes them issue it
+a second time.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.increase_balance" class="method"><h4 class="code-header">fn <a href="#method.increase_balance" class="fn">increase_balance</a>(
     who: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.reference.html">&amp;AccountId</a>,
     amount: Self::<a class="associatedtype" href="../../../token/fungible/trait.Inspect.html#associatedtype.Balance" title="type polkadot_sdk_frame::token::fungible::Inspect::Balance">Balance</a>,

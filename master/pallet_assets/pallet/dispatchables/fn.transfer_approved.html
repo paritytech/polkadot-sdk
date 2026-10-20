@@ -157,16 +157,18 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 account.</p>
 <p>Origin must be Signed and there must be an approval in place by the <code>owner</code> to the
 signer.</p>
-<p>If the entire amount approved for transfer is transferred, then any deposit previously
-reserved by <code>approve_transfer</code> is unreserved.</p>
+<p>If the debit spends the approval in full, then any deposit previously reserved by
+<code>approve_transfer</code> is unreserved. The debit exceeds <code>amount</code> where transferring
+<code>amount</code> would leave <code>owner</code> holding a non-zero remainder below the asset’s minimum
+balance, so a request smaller than the approval can still spend it in full.</p>
 <ul>
 <li><code>id</code>: The identifier of the asset.</li>
-<li><code>owner</code>: The account which previously approved for a transfer of at least <code>amount</code> and
-from which the asset balance will be withdrawn.</li>
-<li><code>destination</code>: The account to which the asset balance of <code>amount</code> will be transferred.</li>
+<li><code>owner</code>: The account which previously approved for a transfer of at least the debit
+and from which the asset balance will be withdrawn.</li>
+<li><code>destination</code>: The account to which the debited balance will be transferred.</li>
 <li><code>amount</code>: The amount of assets to transfer.</li>
 </ul>
-<p>Emits <code>TransferredApproved</code> on success.</p>
+<p>Emits <code>Transferred</code> on success.</p>
 <p>Weight: <code>O(1)</code></p>
 <h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
 <p>This function is an automatically generated, and is doc-only, uncallable

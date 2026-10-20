@@ -606,16 +606,18 @@ account of the asset <code>id</code>.</p>
 account.</p>
 <p>Origin must be Signed and there must be an approval in place by the <code>owner</code> to the
 signer.</p>
-<p>If the entire amount approved for transfer is transferred, then any deposit previously
-reserved by <code>approve_transfer</code> is unreserved.</p>
+<p>If the debit spends the approval in full, then any deposit previously reserved by
+<code>approve_transfer</code> is unreserved. The debit exceeds <code>amount</code> where transferring
+<code>amount</code> would leave <code>owner</code> holding a non-zero remainder below the asset’s minimum
+balance, so a request smaller than the approval can still spend it in full.</p>
 <ul>
 <li><code>id</code>: The identifier of the asset.</li>
-<li><code>owner</code>: The account which previously approved for a transfer of at least <code>amount</code> and
-from which the asset balance will be withdrawn.</li>
-<li><code>destination</code>: The account to which the asset balance of <code>amount</code> will be transferred.</li>
+<li><code>owner</code>: The account which previously approved for a transfer of at least the debit
+and from which the asset balance will be withdrawn.</li>
+<li><code>destination</code>: The account to which the debited balance will be transferred.</li>
 <li><code>amount</code>: The amount of assets to transfer.</li>
 </ul>
-<p>Emits <code>TransferredApproved</code> on success.</p>
+<p>Emits <code>Transferred</code> on success.</p>
 <p>Weight: <code>O(1)</code></p>
 </div><div class="sub-variant" id="variant.transfer_approved.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.transfer_approved.field.id" class="section-header"><a href="#variant.transfer_approved.field.id" class="anchor field">§</a><code>id: T::<a class="associatedtype" href="trait.Config.html#associatedtype.AssetIdParameter" title="type pallet_assets::pallet::Config::AssetIdParameter">AssetIdParameter</a></code></span></div><div class="sub-variant-field"><span id="variant.transfer_approved.field.owner" class="section-header"><a href="#variant.transfer_approved.field.owner" class="anchor field">§</a><code>owner: &lt;&lt;T as Config&gt;::Lookup as StaticLookup&gt;::Source</code></span></div><div class="sub-variant-field"><span id="variant.transfer_approved.field.destination" class="section-header"><a href="#variant.transfer_approved.field.destination" class="anchor field">§</a><code>destination: &lt;&lt;T as Config&gt;::Lookup as StaticLookup&gt;::Source</code></span></div><div class="sub-variant-field"><span id="variant.transfer_approved.field.amount" class="section-header"><a href="#variant.transfer_approved.field.amount" class="anchor field">§</a><code>amount: T::<a class="associatedtype" href="trait.Config.html#associatedtype.Balance" title="type pallet_assets::pallet::Config::Balance">Balance</a></code></span></div></div><section id="variant.touch" class="variant"><a href="#variant.touch" class="anchor">§</a><h3 class="code-header">touch</h3></section><div class="docblock"><p>Create an asset account for non-provider assets.</p>
 <p>A deposit will be taken from the signer account.</p>
