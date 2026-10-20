@@ -28,7 +28,7 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
-	storage::{AccountIdOrAddress, WriteOutcome},
+	storage::{AccountIdOrAddress, AccountType, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 };
@@ -47,7 +47,7 @@ use frame_support::{
 	traits::{
 		Time,
 		fungible::{Balanced as _, Inspect, Mutate},
-		tokens::{Fortitude, Preservation},
+		tokens::Preservation,
 	},
 	weights::Weight,
 };
@@ -1950,35 +1950,26 @@ where
 			)
 		});
 
-		// ED was minted when the account was brought into existence. Burn it if everything left
-		// on the account after the burn is free and can be withdrawn down to zero. A lock, freeze
-		// or hold rolls the burn back, and so does a consumer another pallet placed while the
-		// account has no other provider. A provider or sufficient reference another pallet placed
-		// does not roll it back: the burn goes through and the account stays alive on that
-		// reference. The burn is also skipped if it would leave a non-zero amount below the ED,
-		// for example after a failed sweep or under a hold smaller than the ED. Left free, such
-		// an amount would be removed as dust. Whenever the burn does not happen, the ED is kept
-		// and the account stays in place as a plain account. A contract deployed to the same
-		// address later takes it over.
-		Self::best_effort(&contract_address, "burn the existential deposit", || {
-			let ed = T::Currency::minimum_balance();
-			let rest = T::Currency::total_balance(contract_account).saturating_sub(ed);
-			ensure!(
-				rest.is_zero() || rest >= ed,
-				DispatchError::Other("account can not be reaped")
-			);
-			T::Deposit::destroy_contract(contract_account)?;
-			let reducible = T::Currency::reducible_balance(
-				contract_account,
-				Preservation::Expendable,
-				Fortitude::Polite,
-			);
-			ensure!(
-				reducible == T::Currency::total_balance(contract_account),
-				DispatchError::Other("account can not be reaped")
-			);
-			Ok(())
-		});
+		// A sweep to another beneficiary moves the dust, so it is read only now.
+		let dust = AccountInfoOf::<T>::get(contract_address)
+			.map(|info| info.dust)
+			.unwrap_or_default();
+
+		// ED was minted when the account was brought into existence. Burn it only if the account
+		// holds nothing besides it: no other balance and no dust. Otherwise the ED is kept and
+		// the account stays in place as a plain account, so the balance left on it does not
+		// change, as in EIP-8246. A contract deployed to the same address later takes it over.
+		// A lock, freeze or hold rolls the burn back, and so does a consumer another pallet
+		// placed while the account has no other provider. A provider or sufficient reference
+		// another pallet placed does not roll it back: the burn goes through and the account
+		// stays alive on that reference.
+		if dust == 0 &&
+			T::Currency::total_balance(contract_account) == T::Currency::minimum_balance()
+		{
+			Self::best_effort(&contract_address, "burn the existential deposit", || {
+				T::Deposit::destroy_contract(contract_account)
+			});
+		}
 
 		if let Some(info) = account_info.account_type.contract_info() {
 			// this deletes the code if refcount drops to zero
@@ -1989,7 +1980,15 @@ where
 		} else {
 			defensive!("Terminated contract has no contract info", contract_address);
 		}
-		AccountInfoOf::<T>::remove(contract_address);
+		// The dust is part of the balance left on the account, so it stays with it.
+		if dust == 0 {
+			AccountInfoOf::<T>::remove(contract_address);
+		} else {
+			AccountInfoOf::<T>::insert(
+				contract_address,
+				AccountInfo { account_type: AccountType::EOA, dust },
+			);
+		}
 		ImmutableDataOf::<T>::remove(contract_address);
 
 		// the meter needs to discard all deposits interacting with the terminated contract

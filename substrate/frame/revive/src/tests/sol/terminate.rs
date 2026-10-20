@@ -16,15 +16,18 @@
 // limitations under the License.
 
 use crate::{
-	BalanceOf, Code, CodeInfoOf, Config, H160, H256, HoldReason, Pallet, StorageDeposit,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, H160, H256,
+	HoldReason, Pallet, StorageDeposit, U256,
 	address::{AddressMapper, create1},
 	metering::TransactionLimits,
+	storage::AccountType,
 	test_utils::{ALICE, BOB, BOB_ADDR, DJANGO, DJANGO_ADDR, WEIGHT_LIMIT, builder::Contract},
 	tests::{
 		Balances, BurnDestination, Contracts, ExtBuilder, RuntimeFreezeReason, RuntimeHoldReason,
 		RuntimeOrigin, System, Test, builder, pallet_dummy,
 		test_utils::{
 			get_balance, get_balance_on_hold, get_code_deposit, get_contract, get_contract_checked,
+			set_balance_with_dust,
 		},
 	},
 };
@@ -731,6 +734,20 @@ const FOREIGN_LOCK: [u8; 8] = *b"foreign ";
 /// The balance a `Terminate` contract from [`encumbered_contract`] holds on top of the ED.
 const SPENDABLE: u128 = 1_000;
 
+/// An amount below one native unit, which only the dust of an account can hold.
+const DUST: u32 = 123_456;
+
+/// The EVM value of `value` in the native currency plus `dust`.
+fn evm_value(value: u128, dust: u32) -> U256 {
+	Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(value, dust))
+}
+
+/// The account entry a terminated contract leaves behind: a plain account if `dust` is left on
+/// it, otherwise none.
+fn leftover_account_info(dust: u32) -> Option<AccountInfo<Test>> {
+	(dust != 0).then(|| AccountInfo { account_type: AccountType::EOA, dust })
+}
+
 fn storage_hold() -> RuntimeHoldReason {
 	HoldReason::StorageDepositReserve.into()
 }
@@ -880,6 +897,8 @@ fn precompile_terminate_with_encumbered_balance(
 /// burn then reaps the account, so nothing is left. An encumbrance keeps the account alive, so the
 /// ED is kept, and the sweep still sent the whole late amount. A lock or freeze of 1,000,000 is
 /// more than the whole balance: the sweep sends nothing and the late funds stay on the account.
+/// Late funds that are not a multiple of the native-to-EVM ratio carry dust. No encumbrance
+/// applies to the dust, so the sweep always sends it and the account keeps no entry for it.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[
@@ -891,12 +910,12 @@ fn precompile_terminate_with_encumbered_balance(
 		Encumbrance::Hold(1),
 		Encumbrance::Consumer,
 	],
-	[43, 57]
+	[(43, 0), (57, 0), (43, DUST)]
 )]
 fn precompile_terminate_with_encumbered_balance_and_late_funds(
 	fixture_type: FixtureType,
 	encumbrance: Encumbrance,
-	late: u128,
+	(late, late_dust): (u128, u32),
 ) {
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -905,17 +924,17 @@ fn precompile_terminate_with_encumbered_balance_and_late_funds(
 		let deposit = get_balance_on_hold(&storage_hold(), &account_id);
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
-				.native_value(late)
+				// Sending dust burns one more unit.
+				.native_value(late + 1)
 				.build_and_unwrap_contract();
 		let django_before = get_balance(&DJANGO);
+		let django_evm_before = Pallet::<Test>::evm_balance(&DJANGO_ADDR);
 
 		let result = builder::bare_call(caller_addr)
 			.data(
 				TerminateCaller::sendFundsAfterTerminateCall {
 					terminate_addr: addr.0.into(),
-					value: alloy_core::primitives::U256::from_limbs(
-						Pallet::<Test>::convert_native_to_evm(late).0,
-					),
+					value: alloy_core::primitives::U256::from_limbs(evm_value(late, late_dust).0),
 					method: METHOD_PRECOMPILE,
 					beneficiary: DJANGO_ADDR.0.into(),
 				}
@@ -942,7 +961,13 @@ fn precompile_terminate_with_encumbered_balance_and_late_funds(
 			paid_out + swept,
 			"beneficiary gets the payout and the late funds the encumbrance does not pin",
 		);
+		assert_eq!(
+			Pallet::<Test>::evm_balance(&DJANGO_ADDR) - django_evm_before,
+			evm_value(paid_out + swept, late_dust),
+			"beneficiary gets the dust of the late funds as well",
+		);
 		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
+		assert_eq!(AccountInfoOf::<Test>::get(addr), None, "no dust is left on the account");
 		match encumbrance {
 			Encumbrance::None => {},
 			Encumbrance::Lock(amount) => assert!(
@@ -972,19 +997,19 @@ fn precompile_terminate_with_encumbered_balance_and_late_funds(
 /// beneficiary does not exist and the deposit limit does not cover the ED that creating it
 /// charges, as in #13039.
 ///
-/// The ED is 50. Without an encumbrance, late funds of 57 keep the account alive on their own, so
-/// the ED is burned. Late funds of 43 are below the ED: burning it would remove them as dust, so
-/// the ED is kept. Under a lock or freeze of 1, the burn goes through with late funds of 57 but
-/// leaves the lock on the account, so it is rolled back and the ED is kept as well.
+/// The ED is 50. The ED stays with the late funds, with or without a lock or freeze of 1, so the
+/// balance of the address is exactly the late funds. This includes late funds that are not a
+/// multiple of the native-to-EVM ratio: their dust stays on the account as well, also when it is
+/// all that is left above the ED.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[Encumbrance::None, Encumbrance::Lock(1), Encumbrance::Freeze(1)],
-	[43, 57]
+	[(43, 0), (57, 0), (43, DUST), (0, DUST)]
 )]
 fn precompile_terminate_when_late_funds_cannot_be_sent(
 	fixture_type: FixtureType,
 	encumbrance: Encumbrance,
-	late: u128,
+	(late, late_dust): (u128, u32),
 ) {
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
@@ -997,7 +1022,8 @@ fn precompile_terminate_when_late_funds_cannot_be_sent(
 		let code_deposit = get_code_deposit(&get_contract(&addr).code_hash);
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code))
-				.native_value(late)
+				// Sending dust burns one more unit.
+				.native_value(late + 1)
 				.build_and_unwrap_contract();
 		let beneficiary = H160::from([0x42u8; 20]);
 		let beneficiary_account = <Test as Config>::AddressMapper::to_account_id(&beneficiary);
@@ -1007,9 +1033,7 @@ fn precompile_terminate_when_late_funds_cannot_be_sent(
 			.data(
 				TerminateCaller::sendFundsAfterTerminateCall {
 					terminate_addr: addr.0.into(),
-					value: alloy_core::primitives::U256::from_limbs(
-						Pallet::<Test>::convert_native_to_evm(late).0,
-					),
+					value: alloy_core::primitives::U256::from_limbs(evm_value(late, late_dust).0),
 					method: METHOD_PRECOMPILE,
 					beneficiary: beneficiary.0.into(),
 				}
@@ -1021,10 +1045,6 @@ fn precompile_terminate_when_late_funds_cannot_be_sent(
 			})
 			.build_and_unwrap_result();
 
-		let left = match encumbrance {
-			Encumbrance::None if late >= ed => late,
-			_ => ed + late,
-		};
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(get_balance(&beneficiary_account), 0, "beneficiary must not be created");
@@ -1033,7 +1053,9 @@ fn precompile_terminate_when_late_funds_cannot_be_sent(
 			deposit + code_deposit,
 			"origin must get the storage deposit back",
 		);
-		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
+		assert_eq!(Balances::total_balance(&account_id), ed + late, "the ED stays");
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(late, late_dust), "late funds");
+		assert_eq!(AccountInfoOf::<Test>::get(addr), leftover_account_info(late_dust));
 	});
 }
 
@@ -1195,6 +1217,44 @@ fn redeploy_onto_leftover_account(fixture_type: FixtureType) {
 	});
 }
 
+/// A contract that terminates to itself with nothing but dust above the ED leaves the ED and the
+/// dust on the account. A contract deployed to the same address later takes over both, without
+/// minting another ED.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn redeploy_onto_leftover_dust(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		let Contract { addr, account_id } = encumbered_contract(fixture_type, Encumbrance::None);
+		set_balance_with_dust(&addr, BalanceWithDust::new_unchecked::<Test>(0, DUST));
+		let result = builder::bare_call(addr)
+			.data(
+				Terminate::terminateCall { method: METHOD_PRECOMPILE, beneficiary: addr.0.into() }
+					.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
+		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+		assert_eq!(Balances::total_balance(&account_id), Contracts::min_balance());
+		assert_eq!(AccountInfoOf::<Test>::get(addr), leftover_account_info(DUST));
+
+		// The deletion queue has to clear the old contract's deposit bookkeeping first.
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		let redeployed = builder::bare_instantiate(Code::Upload(code))
+			.constructor_data(terminate_constructor(true, METHOD_PRECOMPILE))
+			.build_and_unwrap_contract();
+
+		assert_eq!(redeployed.addr, addr);
+		assert!(get_contract_checked(&addr).is_some(), "contract must be deployed");
+		assert_eq!(
+			Pallet::<Test>::evm_balance(&addr),
+			evm_value(0, DUST),
+			"the contract has the dust and no second ED",
+		);
+	});
+}
+
 /// Fund the account `OnBurn` resolves to, so that burned amounts below the ED reach it as well,
 /// and return its balance.
 fn fund_burn_destination() -> u128 {
@@ -1210,27 +1270,30 @@ fn burned(before: u128) -> u128 {
 /// `System.terminate` with the contract itself as the beneficiary deletes the contract and leaves
 /// its balance on the account, including funds that arrive after the call, as in EIP-8246.
 /// Nothing is burned through `OnBurn`. The ED is 50. With a zero balance the ED is burned and the
-/// account is reaped. With 43 the ED stays with it, and with 57, or 43 plus 7 late, only the
-/// balance stays and the ED is burned. Under a lock of 500 the ED stays as well.
+/// account is reaped. With any other balance the ED stays with it, so the balance of the address
+/// does not change apart from the late funds. This includes a balance that is not a multiple of
+/// the native-to-EVM ratio, whose dust stays as well, also when it is all there is above the ED.
+/// Under a lock of 500 the ED stays as well.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[
-		(Encumbrance::None, 0, 0, 0),
-		(Encumbrance::None, 43, 0, 50 + 43),
-		(Encumbrance::None, 43, 7, 43 + 7),
-		(Encumbrance::None, 57, 0, 57),
-		(Encumbrance::Lock(500), SPENDABLE, 7, 50 + SPENDABLE + 7),
+		(Encumbrance::None, 0, 0, 0, 0),
+		(Encumbrance::None, 43, 0, 0, 50 + 43),
+		(Encumbrance::None, 43, 7, 0, 50 + 50),
+		(Encumbrance::None, 57, 0, 0, 50 + 57),
+		(Encumbrance::None, 43, 0, DUST, 50 + 43),
+		(Encumbrance::None, 0, 0, DUST, 50),
+		(Encumbrance::Lock(500), SPENDABLE, 7, 0, 50 + SPENDABLE + 7),
 	]
 )]
 fn precompile_terminate_to_itself_keeps_balance(
 	fixture_type: FixtureType,
-	(encumbrance, spendable, late, left): (Encumbrance, u128, u128, u128),
+	(encumbrance, spendable, late, dust, left): (Encumbrance, u128, u128, u32, u128),
 ) {
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let Contract { addr, account_id } = encumbered_contract(fixture_type, encumbrance);
-		let ed = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&account_id, ed + spendable);
+		set_balance_with_dust(&addr, BalanceWithDust::new_unchecked::<Test>(spendable, dust));
 		let deposit = get_balance_on_hold(&storage_hold(), &account_id);
 		let code_deposit = get_code_deposit(&get_contract(&addr).code_hash);
 		let Contract { addr: caller_addr, .. } =
@@ -1254,11 +1317,18 @@ fn precompile_terminate_to_itself_keeps_balance(
 			)
 			.build_and_unwrap_result();
 
+		// The lock pins more than the ED, so the contract sees only what is left above the lock.
+		let seen = match encumbrance {
+			Encumbrance::Lock(lock) => left - lock,
+			_ => spendable + late,
+		};
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(burned(burned_before), 0, "nothing is burned");
 		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
 		assert_eq!(System::account_exists(&account_id), left != 0, "reaped only when empty");
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(seen, dust), "balance of addr");
+		assert_eq!(AccountInfoOf::<Test>::get(addr), leftover_account_info(dust));
 		assert_eq!(
 			get_balance(&ALICE) - alice_before,
 			deposit + code_deposit,
@@ -1268,14 +1338,19 @@ fn precompile_terminate_to_itself_keeps_balance(
 }
 
 /// A contract created in the same transaction that terminates with itself as the beneficiary,
-/// through `System.terminate` or `SELFDESTRUCT`, is deleted and its balance stays on the account,
-/// as in EIP-8246. With a zero balance the account is reaped.
+/// through `System.terminate` or `SELFDESTRUCT`, is deleted and its balance stays on the account
+/// together with the ED, as in EIP-8246. This includes the dust of a balance that is not a
+/// multiple of the native-to-EVM ratio. With a zero balance the account is reaped.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[METHOD_PRECOMPILE, METHOD_SYSCALL],
-	[0, SPENDABLE]
+	[(0, 0), (SPENDABLE, 0), (SPENDABLE, DUST), (0, DUST)]
 )]
-fn same_tx_terminate_to_itself_keeps_balance(fixture_type: FixtureType, method: u8, value: u128) {
+fn same_tx_terminate_to_itself_keeps_balance(
+	fixture_type: FixtureType,
+	method: u8,
+	(value, dust): (u128, u32),
+) {
 	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
 	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -1290,7 +1365,8 @@ fn same_tx_terminate_to_itself_keeps_balance(fixture_type: FixtureType, method: 
 		}
 		let Contract { addr: caller_addr, account_id: caller_account } =
 			builder::bare_instantiate(Code::Upload(caller_code))
-				.native_value(SPENDABLE)
+				// Sending dust burns one more unit.
+				.native_value(SPENDABLE + 1)
 				.build_and_unwrap_contract();
 		let addr = create1(&caller_addr, System::account_nonce(&caller_account).into());
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
@@ -1299,9 +1375,7 @@ fn same_tx_terminate_to_itself_keeps_balance(fixture_type: FixtureType, method: 
 		let result = builder::bare_call(caller_addr)
 			.data(
 				TerminateCaller::createAndTerminateCall {
-					value: alloy_core::primitives::U256::from_limbs(
-						Pallet::<Test>::convert_native_to_evm(value).0,
-					),
+					value: alloy_core::primitives::U256::from_limbs(evm_value(value, dust).0),
 					method,
 					beneficiary: addr.0.into(),
 				}
@@ -1309,14 +1383,17 @@ fn same_tx_terminate_to_itself_keeps_balance(fixture_type: FixtureType, method: 
 			)
 			.build_and_unwrap_result();
 
+		let left = if value == 0 && dust == 0 { 0 } else { Contracts::min_balance() + value };
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		let created =
 			TerminateCaller::createAndTerminateCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(H160::from_slice(created.as_slice()), addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(burned(burned_before), 0, "nothing is burned");
-		assert_eq!(Balances::total_balance(&account_id), value, "the balance stays");
-		assert_eq!(System::account_exists(&account_id), value != 0, "reaped only when empty");
+		assert_eq!(Balances::total_balance(&account_id), left, "the balance stays with the ED");
+		assert_eq!(System::account_exists(&account_id), left != 0, "reaped only when empty");
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(value, dust), "balance of addr");
+		assert_eq!(AccountInfoOf::<Test>::get(addr), leftover_account_info(dust));
 	});
 }
 
@@ -1349,8 +1426,8 @@ fn syscall_pre_existing_to_itself_changes_nothing(fixture_type: FixtureType) {
 /// A contract terminated twice in one transaction sends the funds that arrive afterwards to the
 /// beneficiary it named last. A pre-existing contract calls `System.terminate` with `DJANGO` and
 /// runs `SELFDESTRUCT` with itself as the beneficiary, in either order, and then receives late
-/// funds. They stay on the account if it named itself last, as in EIP-8246, and go to `DJANGO`
-/// otherwise. Either way the contract is deleted and its deposit is refunded once.
+/// funds. They stay on the account with the ED if it named itself last, as in EIP-8246, and go to
+/// `DJANGO` otherwise. Either way the contract is deleted and its deposit is refunded once.
 #[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
 fn terminate_twice_late_funds_stay_or_go_to_last_beneficiary(
 	fixture_type: FixtureType,
@@ -1390,13 +1467,15 @@ fn terminate_twice_late_funds_stay_or_go_to_last_beneficiary(
 			)
 			.build_and_unwrap_result();
 
-		let (to_beneficiary, left) =
-			if itself_last { (SPENDABLE, late) } else { (SPENDABLE + late, 0) };
+		let ed = Contracts::min_balance();
+		let (to_beneficiary, left, seen) =
+			if itself_last { (SPENDABLE, ed + late, late) } else { (SPENDABLE + late, 0, 0) };
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(get_balance(&DJANGO) - django_before, to_beneficiary, "beneficiary payout");
 		assert_eq!(burned(burned_before), 0, "nothing is burned");
 		assert_eq!(Balances::total_balance(&account_id), left, "balance left on the account");
+		assert_eq!(Pallet::<Test>::evm_balance(&addr), evm_value(seen, 0), "balance of addr");
 		assert_eq!(
 			get_balance(&ALICE) - alice_before,
 			deposit + code_deposit,
