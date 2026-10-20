@@ -3,19 +3,10 @@ doc:
 - audience: Node Operator
   description: |-
     Removes CLI flags that were deprecated and no longer had any effect, along with the code that handled them.
-
-    ## Changes
-
-    **polkadot-omni-node**
-    - Removes `--experimental-use-slot-based`. Its warning said the flag would be removed after May 2025. Use `--authoring slot-based` instead.
-    - `node_extra_args` now takes the authoring policy directly from `--authoring`. The old fallback to `SlotBased` is gone.
-    - Updates the omni-node SDK reference docs. They pointed to the removed flag and now link to `--authoring slot-based`.
-
-    **polkadot**
-    - Removes `--force-kusama`, `--force-westend` and `--force-rococo`.
-    - Chain spec loading from a file path no longer picks a chain-specific spec type based on those flags or on the file name. It always loads a `GenericChainSpec`.
+    For omni-node, removes `--experimental-use-slot-based`. Its warning said the flag would be removed after May 2025. Use `--authoring slot-based` instead.
+    For polkadot, Removes `--force-kusama`, `--force-westend` and `--force-rococo`.
 crates:
 - name: polkadot-omni-node-lib
-  bump: patch
+  bump: major
 - name: polkadot-cli
-  bump: patch
+  bump: major
