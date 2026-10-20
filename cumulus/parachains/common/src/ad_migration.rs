@@ -129,25 +129,6 @@ where
 
 		last_runtime_upgrade.spec_version >= RuntimeUpgradeVersion::get()
 	}
-
-	fn try_execute(execute: impl Fn(&mut Weight)) -> Weight {
-		let mut weight = Weight::zero();
-		let db = <Runtime as frame_system::Config>::DbWeight::get();
-
-		weight = weight.saturating_add(db.reads(1));
-		if Self::was_executed() {
-			log::error!(
-				target: LOG_TARGET,
-				"AppendAuthorityDiscoveryKeys: Migration was already executed. Skipping",
-			);
-
-			return weight;
-		}
-
-		execute(&mut weight);
-
-		weight
-	}
 }
 
 impl<Runtime, RuntimeUpgradeVersion, Translator> OnRuntimeUpgrade
@@ -158,36 +139,63 @@ where
 	Translator: KeysTranslatorT,
 {
 	fn on_runtime_upgrade() -> Weight {
-		let weight = Self::try_execute(|weight| {
-			let db = <Runtime as frame_system::Config>::DbWeight::get();
+		let mut weight = Weight::zero();
+		let db = <Runtime as frame_system::Config>::DbWeight::get();
 
-			let num_keys = pallet_session::Pallet::<Runtime>::upgrade_keys::<
-				Translator::OldSessionKeys,
-				_,
-			>(|collator, old| {
-				log::info!(
-					target: LOG_TARGET,
-					"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
-					collator,
-				);
-				Translator::translate(old)
-			});
-
-			// Per `NextKeys` entry translated by `upgrade_keys`:
-			//   - 1 read  + 1 write : NextKeys translate
-			//   - 1 write           : KeyOwner remove old aura + insert it back (same key)
-			//   - 1 write           : KeyOwner insert authority_discovery
-			let per_key_weight = db.reads_writes(1, 3);
-			weight.saturating_accrue(per_key_weight.saturating_mul(num_keys));
-			// QueuedKeys translate: 1 read + 1 write
-			weight.saturating_accrue(db.reads_writes(1, 1));
-
+		weight = weight.saturating_add(db.reads(1));
+		if Self::was_executed() {
 			log::info!(
 				target: LOG_TARGET,
-				"AppendAuthorityDiscoveryKeys: migrated {} collator(s) with hashed placeholder keys",
-				num_keys,
+				"AppendAuthorityDiscoveryKeys: Migration was already executed. Skipping",
 			);
+
+			return weight;
+		}
+
+		let num_keys = pallet_session::Pallet::<Runtime>::upgrade_keys::<
+			Translator::OldSessionKeys,
+			_,
+		>(|collator, old| {
+			log::info!(
+				target: LOG_TARGET,
+				"Collator {:?}: authority-discovery placeholder installed; rotate to activate",
+				collator,
+			);
+			Translator::translate(old)
 		});
+
+		// Per `NextKeys` entry translated by `upgrade_keys`:
+		//   - 1 read  + 1 write : NextKeys translate
+		//   - 1 write           : KeyOwner remove old aura + insert it back (same key)
+		//   - 1 write           : KeyOwner insert authority_discovery
+		let per_key_weight = db.reads_writes(1, 3);
+		weight = weight.saturating_add(per_key_weight.saturating_mul(num_keys));
+		// QueuedKeys translate: 1 read + 1 write
+		weight = weight.saturating_add(db.reads_writes(1, 1));
+
+		// Proof size. `DbWeight` only accounts for `ref_time`, so the PoV is added separately.
+		// The values below are very rough estimates.For reference, `try-runtime on-runtime-upgrade`
+		// against live Asset Hub Westend state (27 keys) measured ~2.8 KiB.
+		// For comparison, Asset Hub Polkadot has 74 keys, which with the values below means a
+		// ~76 KiB proof size.
+		//
+		// Fixed size: trie nodes from the root down to the `NextKeys`, `KeyOwner` and `QueuedKeys`
+		// prefixes (the keys touched by the migration share most of their trie paths).
+		let base_proof = 2048;
+		// Per `NextKeys` entry translated by `upgrade_keys`:
+		//   - NextKeys leaf, plus its share of the map's branch nodes
+		//   - KeyOwner aura leaf (removed and inserted back), and the `KeyOwner` branch nodes down
+		//     to the insertion point of the new authority_discovery entry
+		//   - QueuedKeys entry (64 B: `ValidatorId` + aura), for the active collators
+		let per_key_proof = 1024;
+		weight =
+			weight.saturating_add(Weight::from_parts(0, base_proof + per_key_proof * num_keys));
+
+		log::info!(
+			target: LOG_TARGET,
+			"AppendAuthorityDiscoveryKeys: migrated {} collator(s) with hashed placeholder keys",
+			num_keys,
+		);
 
 		weight
 	}
