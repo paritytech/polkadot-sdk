@@ -591,11 +591,12 @@ mod tests {
 	}
 
 	/// The derived connecting-node positions must equal what `gen_ancestry_proof` actually emits,
-	/// for every `(k, n)` shape: the invariant that lets `connecting_nodes`
-	/// store bare hashes. Exhaustive over every `(old, new)` pair up to 256 leaves, which covers
-	/// the all-ones sizes 127 and 255 (seven and eight peaks) and the single-peak powers of two
-	/// beside them. If `mmr_lib`'s node set or order drifts, this trips; `Cargo.lock` makes a drift
-	/// a deliberate bump.
+	/// for every `(k, n)` shape: the invariant that lets `connecting_nodes` store bare hashes.
+	///
+	/// Exhaustive over every `(old, new)` pair up to 256 leaves, which covers the all-ones sizes
+	/// 127 and 255 (seven and eight peaks) and the single-peak powers of two beside them. If
+	/// `mmr_lib`'s node set or order drifts, this trips; `Cargo.lock` makes a drift a deliberate
+	/// bump.
 	#[test]
 	fn ancestry_positions_matches_mmr_lib() {
 		for n in 2..=256usize {

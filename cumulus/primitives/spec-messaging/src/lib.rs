@@ -19,10 +19,11 @@
 //! A sender parachain accumulates each outgoing stream into an MMR and commits every stream's root
 //! into one `StreamsRoot`, a keyed commitment tree. The relay chain matches sender commitments
 //! (`Provides`) against receiver expectations (`Requires`), so both sides can process messages
-//! speculatively and confirm them later. `StreamsRoot` and `RequiresSet` are relay-visible and live
-//! in `polkadot-primitives`; this crate holds the parachain-side primitives that build them and the
-//! off-chain wire types. The byte formats, cited below as the "encoding spec", are in this
-//! crate's `ENCODING.md`.
+//! speculatively and confirm them later.
+//!
+//! `StreamsRoot` and `RequiresSet` are relay-visible and live in `polkadot-primitives`; this crate
+//! holds the parachain-side primitives that build them and the off-chain wire types. The byte
+//! formats, cited below as the "encoding spec", are in this crate's `ENCODING.md`.
 //!
 //! # Modules
 //!
