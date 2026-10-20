@@ -6301,9 +6301,9 @@ dependencies = [
 
 [[package]]
 name = "dimpl"
-version = "0.7.2"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba6aa42b0c64c3e5311a2afad224b32db1ee129d21c63daaaf8ea747b846cdbc"
+checksum = "df69b372e2de9011f8c22a58d1b5f5afa1752041bc5c0ae6b8a126aadaea5ed2"
 dependencies = [
  "arrayvec 0.7.6",
  "log",
@@ -9499,9 +9499,8 @@ dependencies = [
 
 [[package]]
 name = "is"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d08f9118d003d441f79c1070e84d0a2a89f35721ca8ae0cd5e1f9026dc4a2517"
+version = "0.11.1"
+source = "git+https://github.com/gab8i/str0m.git?branch=gab_sctp_patched#7814ed715bea4f02d763dda0786cb3c32b4d06f2"
 dependencies = [
  "crc",
  "serde",
@@ -10922,8 +10921,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9395e843af557d592cbde1a17f4070b2cbaa2fe4e518cdcb29c3a36dbfb7bd9b"
+source = "git+https://github.com/paritytech/litep2p.git?branch=gab_patched_sctp_proto#bb4466b999b7d955c7b03d49fcbf9ccad3000726"
 dependencies = [
  "async-trait",
  "bs58",
@@ -23364,9 +23362,8 @@ dependencies = [
 
 [[package]]
 name = "sctp-proto"
-version = "0.10.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a22cbe1d867f74fc377b9e63ac74457ea7dcfda23a0deaba6af083ad7e060019"
+version = "0.10.7"
+source = "git+https://github.com/gab8i/sctp-proto.git?branch=gab_reset_after_ack#fe1924cf5ed3dc111d26a0bdd6184abfc55de1bc"
 dependencies = [
  "bytes",
  "crc",
@@ -26918,9 +26915,8 @@ dependencies = [
 
 [[package]]
 name = "str0m"
-version = "0.23.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8522aa06c731cfdc1488e32de7fcebcfc8d9d86d49a6ecc95a64779fe7b545f2"
+version = "0.24.1"
+source = "git+https://github.com/gab8i/str0m.git?branch=gab_sctp_patched#7814ed715bea4f02d763dda0786cb3c32b4d06f2"
 dependencies = [
  "arrayvec 0.7.6",
  "base64ct",
@@ -26940,8 +26936,7 @@ dependencies = [
 [[package]]
 name = "str0m-openssl"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae33ce33dcd4dd2d9b6c01e7e425b604be9b811f69511b4387e76d5a36fe606b"
+source = "git+https://github.com/gab8i/str0m.git?branch=gab_sctp_patched#7814ed715bea4f02d763dda0786cb3c32b4d06f2"
 dependencies = [
  "libc",
  "openssl",
@@ -26953,8 +26948,7 @@ dependencies = [
 [[package]]
 name = "str0m-proto"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8f3d99f2cf6c76a502e45feb896ea71e54787ede8744bcdb215acfbfcb905dd"
+source = "git+https://github.com/gab8i/str0m.git?branch=gab_sctp_patched#7814ed715bea4f02d763dda0786cb3c32b4d06f2"
 dependencies = [
  "base64ct",
  "dimpl",
