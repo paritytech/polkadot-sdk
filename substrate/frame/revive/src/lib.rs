@@ -2552,18 +2552,15 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
-		let auth_result =
-			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
+		let auth_result = evm::eip7702::process_authorizations::<T>(
+			&authorization_list,
+			&origin,
+			&ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight),
+		);
 		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
 		let actual_auth_deposit = auth_result.deposit;
 		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
 			.saturating_mul(authorization_list.len().saturated_into());
-
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(timestamp_override);
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
@@ -2601,7 +2598,13 @@ impl<T: Config> Pallet<T> {
 						value,
 						transaction_limits,
 						input.clone(),
-						&exec_config,
+						&ExecConfig::new_eth_tx(
+							effective_gas_price,
+							call_info.encoded_len,
+							base_weight,
+						)
+						.with_first_frame_reads_paid()
+						.with_dry_run(timestamp_override),
 					);
 
 					let data = match result.result {
@@ -2643,7 +2646,12 @@ impl<T: Config> Pallet<T> {
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
-					&exec_config,
+					&ExecConfig::new_eth_tx(
+						effective_gas_price,
+						call_info.encoded_len,
+						base_weight,
+					)
+					.with_dry_run(timestamp_override),
 				);
 
 				let returned_data = match result.result {
@@ -4208,7 +4216,6 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> $crate::pallet_revive_types::runtime_api::CallVersionedOutputPayload<Balance> {
 					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::runtime_api::*;
-					use $crate::frame_support::traits::Get;
 					use alloc::boxed::Box;
 
 					let (input, output_wrapper): (
@@ -4221,24 +4228,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						),
 					};
 
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
-
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						input.dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
-
-					let output = CallOutputPayload { contract_result };
-					output_wrapper(output)
+					output_wrapper(dry_run_call::<Self>(input))
 				}
 
 				fn instantiate_versioned(

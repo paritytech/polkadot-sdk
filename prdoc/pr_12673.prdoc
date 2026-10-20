@@ -53,11 +53,13 @@ doc:
 
     `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
     sets. It adds the called contract's entries to the access list, so a call back into the
-    contract is charged hot. The `call` and `eth_call` dispatchables set it, because their weights
-    already cover these reads. Code that calls `bare_call` directly should leave it unset, unless
-    its weight already covers them too. Code that builds an `ExecConfig` by listing all its
-    fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`, must add
-    the new one.
+    contract is charged hot. Set it only when the weight already covers these reads, as the
+    weights of the `call` and `eth_call` dispatchables do. A dry run must set it exactly when the
+    dispatch it estimates does, or its estimate can be too low; the runtime APIs' dry runs of
+    `call` and `eth_call` set it. Code that calls `bare_call` directly should leave it unset,
+    unless its weight already covers these reads too. Code that builds an `ExecConfig` by listing
+    all its fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`,
+    must add the new one.
 
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB

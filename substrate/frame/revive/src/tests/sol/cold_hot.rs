@@ -216,7 +216,7 @@ fn a_transfer_back_to_the_sender_is_hot_only_after_call_or_eth_call(fixture_type
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		let _ = crate::Pallet::<Test>::set_evm_balance(&addr, 100_000_000_000u128.into());
-		let root_value: BalanceOf<Test> = 1_000;
+		let value_sent: BalanceOf<Test> = 1_000;
 		let access_list_metrics_of_transfer = |run: &dyn Fn(Vec<u8>)| {
 			let send_back = |amount| SendBack::sendBackCall { amount }.abi_encode();
 			let without_value = access_list_metrics_of(|| run(send_back(0)));
@@ -229,16 +229,16 @@ fn a_transfer_back_to_the_sender_is_hot_only_after_call_or_eth_call(fixture_type
 		};
 		let bare_call = access_list_metrics_of_transfer(&|data| {
 			let result = builder::bare_call(addr)
-				.native_value(root_value)
+				.native_value(value_sent)
 				.data(data)
 				.build_and_unwrap_result();
 			assert!(!result.did_revert());
 		});
 		let call = access_list_metrics_of_transfer(&|data| {
-			assert_ok!(builder::call(addr).value(root_value).data(data).build());
+			assert_ok!(builder::call(addr).value(value_sent).data(data).build());
 		});
 		let eth_call = access_list_metrics_of_transfer(&|data| {
-			let value = crate::Pallet::<Test>::convert_native_to_evm(root_value);
+			let value = crate::Pallet::<Test>::convert_native_to_evm(value_sent);
 			assert_ok!(builder::eth_call(addr).value(value).data(data).build());
 		});
 
@@ -709,4 +709,336 @@ fn deploy_factory(fixture_type: FixtureType) -> H160 {
 		.addr;
 	let _ = crate::Pallet::<Test>::set_evm_balance(&factory, 100_000_000_000u128.into());
 	factory
+}
+
+/// Compares `call` and `eth_call` with the dry runs that estimate their weight.
+mod dry_run {
+	use super::*;
+	use crate::{
+		DispatchError, ExecReturnValue,
+		evm::{CreateCallMode, GenericTransaction, TYPE_EIP1559, fees::InfoT},
+		runtime_api::{CallInputPayload, dry_run_call},
+		test_utils::{BOB_ADDR, deposit_limit},
+		tests::sol::eth_extrinsic_revert,
+		tracing::{Tracing, trace},
+	};
+	use frame_support::{
+		storage::{TransactionOutcome, with_transaction},
+		traits::fungible::Balanced,
+	};
+	use pretty_assertions::assert_eq;
+	use sp_runtime::traits::Dispatchable;
+	use test_case::test_case;
+
+	/// Records the weight the contract execution used.
+	///
+	/// A dispatch reports it with its base weight added, and the eth dry run reports only the peak,
+	/// so it is read from the meter instead.
+	#[derive(Default)]
+	struct WeightTracer(Option<Weight>);
+
+	impl Tracing for WeightTracer {
+		fn exit_child_span(&mut self, _output: &ExecReturnValue, _gas_used: u64, weight: Weight) {
+			self.0 = Some(weight);
+		}
+
+		fn exit_child_span_with_error(
+			&mut self,
+			_error: DispatchError,
+			_gas_used: u64,
+			weight: Weight,
+		) {
+			self.0 = Some(weight);
+		}
+	}
+
+	/// Runs `call` and rolls back its state changes, returning its result and the weight its
+	/// execution used.
+	fn execution_weight_of<R>(call: impl FnOnce() -> R) -> (R, Weight) {
+		let mut tracer = WeightTracer::default();
+		let result = with_transaction(|| {
+			TransactionOutcome::Rollback(Ok::<_, DispatchError>(trace(&mut tracer, call)))
+		})
+		.unwrap();
+		(result, tracer.0.expect("a contract call reports its weight when its frame exits"))
+	}
+
+	/// A dispatchable that calls a contract, with the value it sends.
+	#[derive(Clone, Copy, Debug)]
+	enum CallKind {
+		/// `call`, estimated through the `call` runtime API.
+		Call(BalanceOf<Test>),
+		/// `eth_call`, estimated by `dry_run_eth_transact`.
+		EthCall(U256),
+	}
+
+	/// Dry runs `call` to `dest`, then runs it with the limits the dry run reports.
+	/// Returns the dry run's weight, and the call's weight or its error.
+	fn dry_run_and_call(
+		call: CallKind,
+		dest: H160,
+		data: Vec<u8>,
+	) -> (Weight, Result<Weight, DispatchError>) {
+		let (dry_run_weight, (result, call_weight)) = match call {
+			CallKind::Call(value) => {
+				let (dry_run, dry_run_weight) = execution_weight_of(|| {
+					dry_run_call::<Test>(CallInputPayload {
+						origin: ALICE,
+						dest,
+						value,
+						gas_limit: None,
+						storage_deposit_limit: Some(deposit_limit::<Test>()),
+						input_data: data.clone(),
+					})
+				});
+				let weight_limit = dry_run.contract_result.weight_required;
+				let storage_deposit_limit =
+					dry_run.contract_result.max_storage_deposit.charge_or_zero();
+				let call = execution_weight_of(|| {
+					builder::call(dest)
+						.value(value)
+						.weight_limit(weight_limit)
+						.storage_deposit_limit(storage_deposit_limit)
+						.data(data)
+						.build()
+				});
+				(dry_run_weight, call)
+			},
+			CallKind::EthCall(value) => {
+				let transaction = GenericTransaction {
+					from: Some(ALICE_ADDR),
+					to: Some(dest),
+					value: Some(value),
+					input: data.into(),
+					..Default::default()
+				};
+				let (dry_run, dry_run_weight) = execution_weight_of(|| {
+					crate::Pallet::<Test>::dry_run_eth_transact(
+						transaction.clone(),
+						None,
+						true,
+						None,
+					)
+				});
+				let dry_run = dry_run.expect("the dry run succeeds");
+				// `ALICE_ADDR` cannot sign, so the call uses the dry run's transaction length.
+				let call_info = GenericTransaction {
+					gas: Some(dry_run.eth_gas),
+					gas_price: Some(crate::Pallet::<Test>::evm_base_fee()),
+					chain_id: Some(<Test as Config>::ChainId::get().into()),
+					r#type: Some(TYPE_EIP1559.into()),
+					..transaction
+				}
+				.into_call::<Test>(CreateCallMode::DryRun)
+				.expect("the estimated gas covers the transaction's base cost");
+				let call = execution_weight_of(|| {
+					// A real transaction fills this pot from its gas before `eth_call` runs.
+					<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+						call_info.tx_fee + call_info.storage_deposit,
+					));
+					let origin = RuntimeOrigin::from(crate::Origin::<Test>::EthTransaction(ALICE));
+					let result = call_info.call.dispatch(origin);
+					match eth_extrinsic_revert() {
+						Some(error) => Err(error.into()),
+						None => result,
+					}
+				});
+				(dry_run_weight, call)
+			},
+		};
+		(dry_run_weight, result.map(|_| call_weight).map_err(|err| err.error))
+	}
+
+	#[test]
+	#[ignore = "without first_frame_reads_paid, a bare_call dry run estimates below call"]
+	fn a_call_fits_a_bare_call_dry_run_estimate() {
+		let (code, _) = compile_module_with_type("SendBack", FixtureType::Solc).unwrap();
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+			let addr =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
+			let data = pallet_revive_fixtures::SendBack::sendBackCall { amount: 0 }.abi_encode();
+
+			// What `ReviveApi::call` runs.
+			let dry_run = builder::bare_call(addr)
+				.native_value(1_000)
+				.data(data.clone())
+				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
+				.build();
+
+			// The `call` dispatchable, limited to the dry run's estimate.
+			assert_ok!(
+				builder::call(addr)
+					.value(1_000)
+					.weight_limit(dry_run.weight_required)
+					.data(data)
+					.build()
+			);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn a_call_pays_what_its_dry_run_estimates(fixture_type: FixtureType) {
+		struct TestCase {
+			name: &'static str,
+			dest: H160,
+			value: BalanceOf<Test>,
+			data: Vec<u8>,
+		}
+
+		let [send_back_code, recurse_code, caller_code, call_each_code, reverter_code] =
+			["SendBack", "Recurse", "Caller", "CallEach", "CallThenRevert"]
+				.map(|name| compile_module_with_type(name, fixture_type).unwrap().0);
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+			let other_caller_contract =
+				builder::bare_instantiate(Code::Upload(caller_code.clone()))
+					.salt(Some([1; 32]))
+					.build_and_unwrap_contract()
+					.addr;
+			let [send_back_contract, recurse, caller_contract, call_each, reverter] =
+				[send_back_code, recurse_code, caller_code, call_each_code, reverter_code].map(
+					|code| {
+						builder::bare_instantiate(Code::Upload(code))
+							.build_and_unwrap_contract()
+							.addr
+					},
+				);
+
+			let _ = crate::Pallet::<Test>::set_evm_balance(
+				&send_back_contract,
+				100_000_000_000u128.into(),
+			);
+			let factory = deploy_factory(fixture_type);
+			AccountInfo::<Test>::set_delegation(&EVE_ADDR, Some(recurse), &ALICE).unwrap();
+			let value_sent: BalanceOf<Test> = 1_000;
+			let value_sent_in_wei = crate::Pallet::<Test>::convert_native_to_evm(value_sent);
+			let value_with_dust = value_sent_in_wei + U256::one();
+
+			let send_back =
+				|amount: U256| SendBack::sendBackCall { amount: amount.as_u64() }.abi_encode();
+			let call_back_once =
+				Recurse::recurseCall { callsLeft: 1, finalTarget: H160::zero().0.into() }
+					.abi_encode();
+			let delegate_to_itself = Caller::delegateCall {
+				_callee: caller_contract.0.into(),
+				_data: Caller::dataCall {}.abi_encode().into(),
+				_gas: u64::MAX,
+			};
+			let callback_from_other = Caller::normalCall {
+				_callee: other_caller_contract.0.into(),
+				_value: 0,
+				_data: Caller::normalCall {
+					_callee: caller_contract.0.into(),
+					_value: 0,
+					_data: Caller::dataCall {}.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode()
+				.into(),
+				_gas: u64::MAX,
+			};
+			let call_back_after_a_reverted_one = CallEach::callEachCall {
+				targets: vec![reverter.0.into(), call_each.0.into()],
+				data: vec![
+					CallThenRevert::callThenRevertCall { target: call_each.0.into() }
+						.abi_encode()
+						.into(),
+					CallEach::callEachCall { targets: vec![], data: vec![] }.abi_encode().into(),
+				],
+			};
+			let test_cases = [
+				TestCase {
+					name: "a call back into the contract",
+					dest: recurse,
+					value: 0,
+					data: call_back_once.clone(),
+				},
+				TestCase {
+					name: "a call back into an EIP-7702 delegated account",
+					dest: EVE_ADDR,
+					value: 0,
+					data: call_back_once,
+				},
+				TestCase {
+					name: "a call back into the contract after a reverted call back",
+					dest: call_each,
+					value: 0,
+					data: call_back_after_a_reverted_one.abi_encode(),
+				},
+				TestCase {
+					name: "a delegate call into the contract",
+					dest: caller_contract,
+					value: 0,
+					data: delegate_to_itself.abi_encode(),
+				},
+				TestCase {
+					name: "a callback from another contract",
+					dest: caller_contract,
+					value: 0,
+					data: callback_from_other.abi_encode(),
+				},
+				TestCase {
+					name: "a call back to the sender without value",
+					dest: send_back_contract,
+					value: value_sent,
+					data: send_back(U256::zero()),
+				},
+				TestCase {
+					name: "a transfer back to the sender",
+					dest: send_back_contract,
+					value: value_sent,
+					data: send_back(value_sent_in_wei),
+				},
+				TestCase {
+					name: "a dust transfer back to the sender",
+					dest: send_back_contract,
+					value: value_sent,
+					data: send_back(value_with_dust),
+				},
+				TestCase {
+					name: "a withdrawal by the sender",
+					dest: send_back_contract,
+					value: 0,
+					data: send_back(value_sent_in_wei),
+				},
+				TestCase {
+					name: "a payment forwarded to another account",
+					dest: send_back_contract,
+					value: value_sent,
+					data: SendBack::sendToCall {
+						to: BOB_ADDR.0.into(),
+						amount: value_sent_in_wei.as_u64(),
+					}
+					.abi_encode(),
+				},
+				TestCase {
+					name: "a contract created and funded with the value sent",
+					dest: factory,
+					value: value_sent,
+					data: Factory::createAndFundCall {}.abi_encode(),
+				},
+			];
+
+			for TestCase { name, dest, value, data } in test_cases {
+				let evm_value = crate::Pallet::<Test>::convert_native_to_evm(value);
+				for call in [CallKind::Call(value), CallKind::EthCall(evm_value)] {
+					let (dry_run_weight, call_result) = dry_run_and_call(call, dest, data.clone());
+					assert_eq!(call_result, Ok(dry_run_weight), "{call:?}: {name}");
+				}
+			}
+
+			// `call` takes a native value, so only `eth_call` can send dust.
+			for (name, data) in [
+				("a dust transfer back after a value with dust", send_back(value_with_dust)),
+				("a call back without value after a value with dust", send_back(U256::zero())),
+			] {
+				let call = CallKind::EthCall(value_with_dust);
+				let (dry_run_weight, call_result) =
+					dry_run_and_call(call, send_back_contract, data);
+				assert_eq!(call_result, Ok(dry_run_weight), "{call:?}: {name}");
+			}
+		});
+	}
 }

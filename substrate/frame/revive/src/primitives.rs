@@ -462,6 +462,9 @@ pub struct ExecConfig<T: Config> {
 	///
 	/// When set, these entries are added to the access list, so later accesses to them are
 	/// charged hot.
+	///
+	/// A dry run must set it exactly when the dispatch it estimates does. A different access list
+	/// changes what the execution is charged, and the estimate can end up below the real cost.
 	pub first_frame_reads_paid: bool,
 	/// An optional mock handler that can be used to override certain behaviors.
 	/// This is primarily used for testing purposes and should be `None` in production

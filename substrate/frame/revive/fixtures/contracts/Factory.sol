@@ -12,6 +12,12 @@ contract Factory {
         child = address(new ReceivingChild());
     }
 
+    function createAndFund() external payable returns (address child) {
+        child = address(new ReceivingChild());
+        (bool success, ) = child.call{value: msg.value}("");
+        require(success, "funding failed");
+    }
+
     function createThenCall(uint256 value) external returns (address child) {
         child = address(new ReceivingChild());
         child.call{value: value}("");
