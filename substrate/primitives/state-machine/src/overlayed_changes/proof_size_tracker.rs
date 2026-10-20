@@ -992,10 +992,14 @@ mod tests {
 			}
 
 			fn remove(&mut self, key: &[u8]) {
+				self.remove_all(&[key]);
+			}
+
+			fn remove_all(&mut self, keys: &[&[u8]]) {
 				sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
 					&self.db,
 					self.root,
-					[key],
+					keys.iter().copied(),
 					self.tracker.estimation_trie_mut(),
 					None,
 					None,
@@ -1027,6 +1031,17 @@ mod tests {
 
 			assert!(fixture.contains(FIRST));
 			assert!(!fixture.contains(THIRD));
+		}
+
+		/// Most size estimation calls carry no removals; they must not create a trie, or every
+		/// block would allocate one and the "created on first removal" contract would be false.
+		#[test]
+		fn size_estimation_without_removals_creates_no_trie() {
+			let mut fixture = Fixture::new();
+
+			fixture.remove_all(&[]);
+
+			assert!(fixture.tracker.estimation_trie_mut().is_none());
 		}
 
 		/// A committed removal is part of the block, so later size estimation calls build on it.
