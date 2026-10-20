@@ -332,7 +332,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		burn_dust: bool,
 	) -> Result<(T::Balance, Option<T::Balance>), DispatchError> {
 		let (credit, maybe_burn) = match (burn_dust, debit.checked_sub(&amount)) {
-			(true, Some(dust)) => (amount, Some(dust)),
+			(true, Some(dust)) if !dust.is_zero() => (amount, Some(dust)),
 			_ => (debit, None),
 		};
 		Self::can_increase(id, dest, credit, false).into_result()?;
@@ -396,15 +396,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Ok(());
 		}
 
+		Asset::<T, I>::insert(&id, details);
+
 		if !account.balance.is_zero() {
 			Self::deposit_event(Event::Burned {
 				asset_id: id.clone(),
 				owner: who.clone(),
 				balance: account.balance,
 			});
+			T::CallbackHandle::burned(&id, &who, account.balance);
 		}
 
-		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
 		T::Freezer::died(id.clone(), &who);
 		T::Holder::died(id, &who);
@@ -471,7 +473,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(())
 		})?;
 
-		Self::deposit_event(Event::Issued { asset_id: id, owner: beneficiary.clone(), amount });
+		Self::deposit_event(Event::Issued {
+			asset_id: id.clone(),
+			owner: beneficiary.clone(),
+			amount,
+		});
+		T::CallbackHandle::issued(&id, beneficiary, amount);
 
 		Ok(())
 	}
@@ -555,7 +562,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			Ok(())
 		})?;
-		Self::deposit_event(Event::Burned { asset_id: id, owner: target.clone(), balance: actual });
+		Self::deposit_event(Event::Burned {
+			asset_id: id.clone(),
+			owner: target.clone(),
+			balance: actual,
+		});
+		T::CallbackHandle::burned(&id, target, actual);
 		Ok(actual)
 	}
 
@@ -739,11 +751,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})?;
 
 		Self::deposit_event(Event::Transferred {
-			asset_id: id,
+			asset_id: id.clone(),
 			from: source.clone(),
 			to: dest.clone(),
 			amount: credit,
 		});
+		T::CallbackHandle::transferred(&id, source, dest, credit);
+		// A self-transfer is skipped above, dust included.
+		if source != dest {
+			if let Some(burn) = maybe_burn {
+				T::CallbackHandle::burned(&id, source, burn);
+			}
+		}
 		Ok((credit, source_died))
 	}
 

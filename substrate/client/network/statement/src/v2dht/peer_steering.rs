@@ -50,6 +50,8 @@ pub(crate) mod score {
 	pub(crate) const GOOD_ACTION: i32 = 1;
 	/// A peer sent an invalid statement, a duplicate, or an undecodable message.
 	pub(crate) const BAD_ACTION: i32 = -50;
+	/// A peer resent a banned statement.
+	pub(crate) const WASTEFUL_ACTION: i32 = -1;
 }
 
 /// Upper bound, as a percent of the connected peers, on how many connections a single refresh
@@ -61,7 +63,6 @@ const MAX_DISCONNECT_PERCENT: usize = 20;
 ///
 /// The connected set is fed by statement notification substream events; the desired set is supplied
 /// by the orchestrator. [`Self::refresh_connections`] drives the two together.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PeerSteering {
 	/// Statement protocol whose reserved set the connections are steered through.
@@ -83,7 +84,6 @@ struct ConnectedPeer {
 	score: i32,
 }
 
-#[allow(dead_code)]
 impl PeerSteering {
 	pub(crate) fn new(protocol: ProtocolName) -> Self {
 		Self {
