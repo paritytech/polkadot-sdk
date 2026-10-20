@@ -267,6 +267,8 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 		let mut delta: DeltaKeys<K> =
 			HashMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default());
 
+		// A key pending in several open layers is reported with the op of the newest layer, its
+		// final state. Layers are visited newest first, so the first op seen is kept.
 		let mut process_key = |hash: u64, key: K, op: DeltaKeyOp| {
 			// Find the last emitted op for this key: check current snapshot first (most
 			// recent), then layers from innermost to outermost.
@@ -287,7 +289,7 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 			};
 
 			if !suppress {
-				delta.insert(hash, (key, op));
+				delta.entry(hash).or_insert((key, op));
 			}
 		};
 
@@ -762,6 +764,25 @@ mod tests {
 		tracker.commit_transaction();
 		let delta2 = tracker.take_delta();
 		delta_assert_eq_with_ops!(delta2, [("a", DeltaKeyOp::Deleted)]);
+	}
+
+	/// A key pending in an outer layer and written again in an inner one must be reported with
+	/// the newer op, its final state: an older `Updated` would skip the removal the estimation
+	/// has to model, an older `Deleted` would model a removal that never happens.
+	#[test]
+	fn newer_op_in_inner_layer_wins_over_older_op_in_outer_layer() {
+		for (older, newer) in
+			[(DeltaKeyOp::Updated, DeltaKeyOp::Deleted), (DeltaKeyOp::Deleted, DeltaKeyOp::Updated)]
+		{
+			let mut tracker = Tracker::default();
+			tracker.start_transaction();
+			tracker.add_key("a".to_string(), older);
+			tracker.start_transaction();
+			tracker.add_key("a".to_string(), newer);
+
+			let delta = tracker.take_delta();
+			delta_assert_eq_with_ops!(delta, [("a", newer)]);
+		}
 	}
 
 	#[test]
