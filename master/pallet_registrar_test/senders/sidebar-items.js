@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["PARA_ID"],"enum":["ParaRuntimePallets","RegistrarParaCalls","RegistrarRelayCalls","RelayRuntimePallets"],"struct":["EnsureRegistrarPara","ParaSendToRelay","RegistrarParaId","RelaySendToPara"]};
+window.SIDEBAR_ITEMS = {"constant":["PARA_ID","RELAY_REPORTS_LOST"],"enum":["ParaRuntimePallets","RegistrarParaCalls","RegistrarRelayCalls","RelayRuntimePallets"],"struct":["EnsureRegistrarPara","ParaSendToRelay","RegistrarParaId","RelayReportsLost","RelaySendToPara"]};

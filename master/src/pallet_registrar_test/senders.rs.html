@@ -245,61 +245,71 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#95 id=95 data-nosnippet>95</a>	}
 <a href=#96 id=96 data-nosnippet>96</a>}
 <a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a><span class="doccomment">/// The relay chain's half of the transport.
-<a href=#99 id=99 data-nosnippet>99</a>///
-<a href=#100 id=100 data-nosnippet>100</a>/// `OriginKind::Superuser` so the report lands on the parachain as `Root` via
-<a href=#101 id=101 data-nosnippet>101</a>/// `ParentAsSuperuser`.
-<a href=#102 id=102 data-nosnippet>102</a></span><span class="kw">pub struct </span>RelaySendToPara;
+<a href=#98 id=98 data-nosnippet>98</a><span class="macro">frame_support::parameter_types!</span> {
+<a href=#99 id=99 data-nosnippet>99</a>	<span class="doccomment">/// When true, the relay chain's reports are accepted and then dropped, standing in for a
+<a href=#100 id=100 data-nosnippet>100</a>	/// message lost in transit.
+<a href=#101 id=101 data-nosnippet>101</a>	</span><span class="kw">pub static </span>RelayReportsLost: bool = <span class="bool-val">false</span>;
+<a href=#102 id=102 data-nosnippet>102</a>}
 <a href=#103 id=103 data-nosnippet>103</a>
-<a href=#104 id=104 data-nosnippet>104</a><span class="kw">impl </span>SendToPara <span class="kw">for </span>RelaySendToPara {
-<a href=#105 id=105 data-nosnippet>105</a>	<span class="kw">fn </span>send(message: MessageToPara) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
-<a href=#106 id=106 data-nosnippet>106</a>		<span class="kw">let </span>call = ParaRuntimePallets::Registrar(RegistrarParaCalls::Receive(message)).encode();
-<a href=#107 id=107 data-nosnippet>107</a>		<span class="kw">let </span>program = Xcm(<span class="macro">vec!</span>[
-<a href=#108 id=108 data-nosnippet>108</a>			UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
-<a href=#109 id=109 data-nosnippet>109</a>			Transact {
-<a href=#110 id=110 data-nosnippet>110</a>				origin_kind: OriginKind::Superuser,
-<a href=#111 id=111 data-nosnippet>111</a>				fallback_max_weight: <span class="prelude-val">None</span>,
-<a href=#112 id=112 data-nosnippet>112</a>				call: call.into(),
-<a href=#113 id=113 data-nosnippet>113</a>			},
-<a href=#114 id=114 data-nosnippet>114</a>		]);
+<a href=#104 id=104 data-nosnippet>104</a><span class="doccomment">/// The relay chain's half of the transport.
+<a href=#105 id=105 data-nosnippet>105</a>///
+<a href=#106 id=106 data-nosnippet>106</a>/// `OriginKind::Superuser` so the report lands on the parachain as `Root` via
+<a href=#107 id=107 data-nosnippet>107</a>/// `ParentAsSuperuser`.
+<a href=#108 id=108 data-nosnippet>108</a></span><span class="kw">pub struct </span>RelaySendToPara;
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a><span class="kw">impl </span>SendToPara <span class="kw">for </span>RelaySendToPara {
+<a href=#111 id=111 data-nosnippet>111</a>	<span class="kw">fn </span>send(message: MessageToPara) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt; {
+<a href=#112 id=112 data-nosnippet>112</a>		<span class="kw">if </span>RelayReportsLost::get() {
+<a href=#113 id=113 data-nosnippet>113</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#114 id=114 data-nosnippet>114</a>		}
 <a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a>		<span class="kw">let </span>dest = Location::new(<span class="number">0</span>, [Junction::Parachain(PARA_ID)]);
-<a href=#117 id=117 data-nosnippet>117</a>		send_xcm::&lt;<span class="kw">crate</span>::relay::XcmRouter&gt;(dest, program).map(|<span class="kw">_</span>| ()).map_err(|<span class="kw">_</span>| ())
-<a href=#118 id=118 data-nosnippet>118</a>	}
-<a href=#119 id=119 data-nosnippet>119</a>}
-<a href=#120 id=120 data-nosnippet>120</a>
-<a href=#121 id=121 data-nosnippet>121</a><span class="macro">frame_support::parameter_types!</span> {
-<a href=#122 id=122 data-nosnippet>122</a>	<span class="kw">pub const </span>RegistrarParaId: PolkadotParaId = PolkadotParaId::new(PARA_ID);
-<a href=#123 id=123 data-nosnippet>123</a>}
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a><span class="doccomment">/// Accepts Root, or the one parachain that is allowed to drive registrations.
-<a href=#126 id=126 data-nosnippet>126</a>///
-<a href=#127 id=127 data-nosnippet>127</a>/// The same shape as westend's `EnsureAssetHub`: match on the parachain origin the XCM origin
-<a href=#128 id=128 data-nosnippet>128</a>/// converter produced, and check the id.
-<a href=#129 id=129 data-nosnippet>129</a></span><span class="kw">pub struct </span>EnsureRegistrarPara;
+<a href=#116 id=116 data-nosnippet>116</a>		<span class="kw">let </span>call = ParaRuntimePallets::Registrar(RegistrarParaCalls::Receive(message)).encode();
+<a href=#117 id=117 data-nosnippet>117</a>		<span class="kw">let </span>program = Xcm(<span class="macro">vec!</span>[
+<a href=#118 id=118 data-nosnippet>118</a>			UnpaidExecution { weight_limit: Unlimited, check_origin: <span class="prelude-val">None </span>},
+<a href=#119 id=119 data-nosnippet>119</a>			Transact {
+<a href=#120 id=120 data-nosnippet>120</a>				origin_kind: OriginKind::Superuser,
+<a href=#121 id=121 data-nosnippet>121</a>				fallback_max_weight: <span class="prelude-val">None</span>,
+<a href=#122 id=122 data-nosnippet>122</a>				call: call.into(),
+<a href=#123 id=123 data-nosnippet>123</a>			},
+<a href=#124 id=124 data-nosnippet>124</a>		]);
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>		<span class="kw">let </span>dest = Location::new(<span class="number">0</span>, [Junction::Parachain(PARA_ID)]);
+<a href=#127 id=127 data-nosnippet>127</a>		send_xcm::&lt;<span class="kw">crate</span>::relay::XcmRouter&gt;(dest, program).map(|<span class="kw">_</span>| ()).map_err(|<span class="kw">_</span>| ())
+<a href=#128 id=128 data-nosnippet>128</a>	}
+<a href=#129 id=129 data-nosnippet>129</a>}
 <a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a><span class="kw">impl </span>frame_support::traits::EnsureOrigin&lt;<span class="kw">crate</span>::relay::RuntimeOrigin&gt; <span class="kw">for </span>EnsureRegistrarPara {
-<a href=#132 id=132 data-nosnippet>132</a>	<span class="kw">type </span>Success = ();
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a>	<span class="kw">fn </span>try_origin(
-<a href=#135 id=135 data-nosnippet>135</a>		o: <span class="kw">crate</span>::relay::RuntimeOrigin,
-<a href=#136 id=136 data-nosnippet>136</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, <span class="kw">crate</span>::relay::RuntimeOrigin&gt; {
-<a href=#137 id=137 data-nosnippet>137</a>		<span class="kw">if </span>o.caller().is_root() {
-<a href=#138 id=138 data-nosnippet>138</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#139 id=139 data-nosnippet>139</a>		}
+<a href=#131 id=131 data-nosnippet>131</a><span class="macro">frame_support::parameter_types!</span> {
+<a href=#132 id=132 data-nosnippet>132</a>	<span class="kw">pub const </span>RegistrarParaId: PolkadotParaId = PolkadotParaId::new(PARA_ID);
+<a href=#133 id=133 data-nosnippet>133</a>}
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a><span class="doccomment">/// Accepts Root, or the one parachain that is allowed to drive registrations.
+<a href=#136 id=136 data-nosnippet>136</a>///
+<a href=#137 id=137 data-nosnippet>137</a>/// The same shape as westend's `EnsureAssetHub`: match on the parachain origin the XCM origin
+<a href=#138 id=138 data-nosnippet>138</a>/// converter produced, and check the id.
+<a href=#139 id=139 data-nosnippet>139</a></span><span class="kw">pub struct </span>EnsureRegistrarPara;
 <a href=#140 id=140 data-nosnippet>140</a>
-<a href=#141 id=141 data-nosnippet>141</a>		<span class="kw">let </span>parachain_origin: <span class="prelude-ty">Result</span>&lt;ParachainsOrigin, <span class="kw">_</span>&gt; = o.clone().into();
-<a href=#142 id=142 data-nosnippet>142</a>		<span class="kw">match </span>parachain_origin {
-<a href=#143 id=143 data-nosnippet>143</a>			<span class="prelude-val">Ok</span>(ParachainsOrigin::Parachain(id)) <span class="kw">if </span>id == RegistrarParaId::get() =&gt; <span class="prelude-val">Ok</span>(()),
-<a href=#144 id=144 data-nosnippet>144</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(o),
-<a href=#145 id=145 data-nosnippet>145</a>		}
-<a href=#146 id=146 data-nosnippet>146</a>	}
-<a href=#147 id=147 data-nosnippet>147</a>
-<a href=#148 id=148 data-nosnippet>148</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
-<a href=#149 id=149 data-nosnippet>149</a>	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::relay::RuntimeOrigin, ()&gt; {
-<a href=#150 id=150 data-nosnippet>150</a>		<span class="prelude-val">Ok</span>(<span class="kw">crate</span>::relay::RuntimeOrigin::root())
-<a href=#151 id=151 data-nosnippet>151</a>	}
-<a href=#152 id=152 data-nosnippet>152</a>}
+<a href=#141 id=141 data-nosnippet>141</a><span class="kw">impl </span>frame_support::traits::EnsureOrigin&lt;<span class="kw">crate</span>::relay::RuntimeOrigin&gt; <span class="kw">for </span>EnsureRegistrarPara {
+<a href=#142 id=142 data-nosnippet>142</a>	<span class="kw">type </span>Success = ();
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a>	<span class="kw">fn </span>try_origin(
+<a href=#145 id=145 data-nosnippet>145</a>		o: <span class="kw">crate</span>::relay::RuntimeOrigin,
+<a href=#146 id=146 data-nosnippet>146</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Success, <span class="kw">crate</span>::relay::RuntimeOrigin&gt; {
+<a href=#147 id=147 data-nosnippet>147</a>		<span class="kw">if </span>o.caller().is_root() {
+<a href=#148 id=148 data-nosnippet>148</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#149 id=149 data-nosnippet>149</a>		}
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>		<span class="kw">let </span>parachain_origin: <span class="prelude-ty">Result</span>&lt;ParachainsOrigin, <span class="kw">_</span>&gt; = o.clone().into();
+<a href=#152 id=152 data-nosnippet>152</a>		<span class="kw">match </span>parachain_origin {
+<a href=#153 id=153 data-nosnippet>153</a>			<span class="prelude-val">Ok</span>(ParachainsOrigin::Parachain(id)) <span class="kw">if </span>id == RegistrarParaId::get() =&gt; <span class="prelude-val">Ok</span>(()),
+<a href=#154 id=154 data-nosnippet>154</a>			<span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(o),
+<a href=#155 id=155 data-nosnippet>155</a>		}
+<a href=#156 id=156 data-nosnippet>156</a>	}
+<a href=#157 id=157 data-nosnippet>157</a>
+<a href=#158 id=158 data-nosnippet>158</a>	<span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
+<a href=#159 id=159 data-nosnippet>159</a>	</span><span class="kw">fn </span>try_successful_origin() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::relay::RuntimeOrigin, ()&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>		<span class="prelude-val">Ok</span>(<span class="kw">crate</span>::relay::RuntimeOrigin::root())
+<a href=#161 id=161 data-nosnippet>161</a>	}
+<a href=#162 id=162 data-nosnippet>162</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

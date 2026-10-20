@@ -301,8 +301,23 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#151 id=151 data-nosnippet>151</a>		}
 <a href=#152 id=152 data-nosnippet>152</a>	}
 <a href=#153 id=153 data-nosnippet>153</a>
-<a href=#154 id=154 data-nosnippet>154</a>	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
-<a href=#155 id=155 data-nosnippet>155</a>}
+<a href=#154 id=154 data-nosnippet>154</a>	<span class="doccomment">/// Dropping a para from the registry, which is where the whole cost of this sits.
+<a href=#155 id=155 data-nosnippet>155</a>	</span><span class="attr">#[benchmark]
+<a href=#156 id=156 data-nosnippet>156</a>	</span><span class="kw">fn </span>receive_deregister() -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>		T::Registrar::setup_worst_case_deregister(PARA_ID)<span class="question-mark">?</span>;
+<a href=#158 id=158 data-nosnippet>158</a>		AwaitingFirstHead::&lt;T&gt;::insert(PARA_ID, ());
+<a href=#159 id=159 data-nosnippet>159</a>		<span class="kw">let </span>message =
+<a href=#160 id=160 data-nosnippet>160</a>			MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_ID, message_id: <span class="number">0 </span>});
+<a href=#161 id=161 data-nosnippet>161</a>
+<a href=#162 id=162 data-nosnippet>162</a>		<span class="attr">#[extrinsic_call]
+<a href=#163 id=163 data-nosnippet>163</a>		</span>receive(RawOrigin::Root, message);
+<a href=#164 id=164 data-nosnippet>164</a>
+<a href=#165 id=165 data-nosnippet>165</a>		<span class="macro">assert!</span>(!AwaitingFirstHead::&lt;T&gt;::contains_key(PARA_ID));
+<a href=#166 id=166 data-nosnippet>166</a>		<span class="prelude-val">Ok</span>(())
+<a href=#167 id=167 data-nosnippet>167</a>	}
+<a href=#168 id=168 data-nosnippet>168</a>
+<a href=#169 id=169 data-nosnippet>169</a>	<span class="macro">impl_benchmark_test_suite!</span>(Pallet, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
+<a href=#170 id=170 data-nosnippet>170</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
