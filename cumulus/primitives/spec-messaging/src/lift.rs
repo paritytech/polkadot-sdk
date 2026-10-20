@@ -85,7 +85,7 @@ pub enum ProofError {
 /// An append-only MMR extension proof: O(log n) connecting nodes that, with a frontier's own peaks,
 /// reconstruct a newer root. The `mmr_lib` `gen_ancestry_proof` form of the design's
 /// `connecting_nodes`. Verification computes the new root; it is never declared alongside the
-/// proof. Payloads are not needed.
+/// proof. It holds node hashes only, no message payloads.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MMRExtensionProof {
 	/// Leaf count of the extended MMR. The `mmr_lib` node count is derived from it, so no
