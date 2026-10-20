@@ -373,10 +373,11 @@ where
 
 	/// Transfer funds from one account into another.
 	///
-	/// Returns the amount debited from `source` and credited to `dest`. This is `amount` unless
-	/// [`Unbalanced::decrease_balance`] folded a sub-minimum remainder of `source` into its
-	/// return, in which case it exceeds `amount` by up to `minimum_balance() - 1` and that
-	/// remainder is credited to `dest` as well.
+	/// Returns the amount credited to `dest`. This is `amount` unless the default implementation
+	/// is used and [`Unbalanced::decrease_balance`] folded a sub-minimum remainder of `source`
+	/// into its return, in which case it exceeds `amount` by up to `minimum_balance() - 1` and
+	/// that remainder is credited to `dest` as well. Implementations may debit `source` by more
+	/// than this, e.g. when reaping it.
 	///
 	/// A transfer where the source and destination account are identical, or where `amount` is
 	/// zero, is treated as No-OP after checking the preconditions.
