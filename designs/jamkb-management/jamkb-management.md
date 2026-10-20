@@ -198,7 +198,8 @@ pallet undoes what the call did.
 To resolve operations, the pallet receives the validation inputs each block
 (§3.4). It stores the para head, marks the operations named by the failure
 entries of `parachain_log` as `Failed` and records the detail of the success
-entries (§5.1).
+entries (§5.1). It keeps the highest log timeslot it has processed and
+ignores every delivered entry at or below it.
 
 For voluntary return (§4.4) it processes `incoming_transfers`. A valid
 beneficiary memo credits `Custodial`; a missing or malformed memo credits
@@ -328,9 +329,10 @@ struct Operation {
 /// The operation's data payload.
 enum OperationPayload {
     /// A lease or a governance permanent release (§4.1, §4.2.1).
-    /// One `TransferOut` crediting the allocation's target; deferred when the
-    /// allocation's mode is `Permanent`, with that mode's memo and the gas of
-    /// §5.2.
+    /// One `TransferOut` from the Parachain Service's regular balance. A lease
+    /// credits the target's supervisor balance. A permanent release credits
+    /// the target's regular balance and is deferred, with the memo and the
+    /// gas of §5.2.
     ///
     /// Confirmed: the allocation moves to `Delivered` and `delivered_at` is
     /// set to the operation's `submitted_at`; for a release, the held units
@@ -340,7 +342,8 @@ enum OperationPayload {
         amount: Balance,              // the units locked for the transfer
     },
     /// A lease increase (`increase_lease`).
-    /// One plain `TransferOut` crediting the target's supervisor balance.
+    /// One plain `TransferOut` from the Parachain Service's regular balance to
+    /// the target's supervisor balance.
     ///
     /// Confirmed: the allocation's amount rises by `additional`; the lease
     /// stays `Delivered`.
@@ -349,8 +352,8 @@ enum OperationPayload {
         additional: Balance,
     },
     /// A redemption of holder funds (§4.2.2).
-    /// One deferred `TransferOut`, with the memo and gas of §5.2, crediting
-    /// `target`'s regular balance.
+    /// One deferred `TransferOut` from the Parachain Service's regular balance
+    /// to `target`'s regular balance, with the memo and gas of §5.2.
     ///
     /// Confirmed: the held units move from `holder` to the `released` account.
     Redemption {
@@ -360,8 +363,8 @@ enum OperationPayload {
         memo: [u8; 128],              // the redeemer's memo (§5.2)
     },
     /// A lease return (`reclaim`, §4.3).
-    /// One plain `TransferOut` debiting the lease target's supervisor balance
-    /// and crediting the Parachain Service.
+    /// One plain `TransferOut` from the lease target's supervisor balance to
+    /// the Parachain Service's regular balance.
     ///
     /// Confirmed: `amount` is released from the hold and the allocation's
     /// amount falls by `amount`; a fully returned lease moves to `Closed`.
@@ -431,8 +434,8 @@ enum OperationPayload {
         target: ServiceId,
     },
     /// A refund of an incoming transfer to its source (`dispose_excess`).
-    /// One deferred `TransferOut`, with the memo and gas of §5.2, crediting
-    /// `source`'s regular balance.
+    /// One deferred `TransferOut` from the Parachain Service's regular balance
+    /// to `source`'s regular balance, with the memo and gas of §5.2.
     ///
     /// Confirmed: the held units move from the `excess` account to the
     /// `released` account.
@@ -831,12 +834,14 @@ It holds the send queue, as `parachain-system` does for upward XCM today:
 `pallet-jamkb` adds each operation's messages to it, and it sends them
 through `send_upward_message` within the limits below.
 
-The pallet needs from it:
+The `pallet-jamkb` requirements:
 
 - the validation inputs: the para head as the Asset Hub block number the
   Parachain Service has accumulated up to, the entries of `parachain_log` not
-  delivered before, `incoming_transfers`, and the Parachain Service balance;
+  delivered before, `incoming_transfers`, and the Parachain Service balances;
 - input processing that cannot fail and has bounded weight;
+- the timeslot of a `parachain_log` entry is the timeslot of the JAM block
+  that accumulated it;
 - a send queue within 1024 messages and 40 KiB per block, with a sharing
   policy between pallets;
 - gas accounting for the send queue messages: a limit on how much gas the
@@ -1048,7 +1053,7 @@ of its layout is to be defined.
    and the reclaim must also be atomic: with several leases on one target,
    their reclaims race for the freed funds, and the lease the cleanup was done
    for should be the one to get them back.
-3. **Service Freeze.** The Parachain Service does not log anyhing for a supervised
+3. **Service Freeze.** The Parachain Service does not log anything for a supervised
    `UpgradeService`. The freeze needs `ServiceUpgraded { service,
    previous_code_hash }` so that `unfreeze_target` can restore the code.
 4. **Generic transport.** The parachain-system rework that pulls the jamkb pallet's
