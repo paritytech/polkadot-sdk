@@ -564,7 +564,7 @@ mod select_candidates {
 		expected.sort_by_key(|c| c.candidate().descriptor.para_id());
 		let mut candidates_iter = expected.iter().map(|candidate| BackableCandidateRef {
 			candidate_hash: candidate.hash(),
-			scheduling_parent: candidate.descriptor().scheduling_parent(true),
+			scheduling_parent: candidate.descriptor().scheduling_parent(),
 		});
 
 		while let Some(from_job) = receiver.next().await {
@@ -602,7 +602,7 @@ mod select_candidates {
 										candidate_hash: candidate.hash(),
 										scheduling_parent: candidate
 											.descriptor()
-											.scheduling_parent(true),
+											.scheduling_parent(),
 									})
 									.collect(),
 							)
@@ -902,7 +902,7 @@ mod select_candidates {
 	}
 
 	#[test]
-	fn multiple_cores_per_para_elastic_scaling_mvp() {
+	fn multiple_cores_per_para_elastic_scaling() {
 		let mock_cores = mock_availability_cores_multiple_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()

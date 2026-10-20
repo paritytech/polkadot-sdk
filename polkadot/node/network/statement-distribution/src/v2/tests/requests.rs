@@ -21,7 +21,7 @@ use codec::{Decode, Encode};
 use polkadot_node_network_protocol::{
 	request_response::v2 as request_v2, v3::BackedCandidateManifest,
 };
-use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v2};
+use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v2, make_candidate_v3};
 use sc_network::config::{
 	IncomingRequest as RawIncomingRequest, OutgoingResponse as RawOutgoingResponse,
 };
@@ -63,6 +63,12 @@ fn cluster_peer_allowed_to_send_incomplete_statements(#[case] use_v3_descriptor:
 		if use_v3_descriptor {
 			candidate.descriptor.set_version(1);
 			candidate.descriptor.set_scheduling_parent(relay_parent);
+			// V3 descriptors require UMP signals.
+			candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+			candidate
+				.commitments
+				.upward_messages
+				.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
 		}
 
 		let candidate_hash = candidate.hash();
@@ -276,7 +282,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// Peer C advertises candidate 1.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_1,
 				group_index: other_group,
 				para_id: other_para,
@@ -348,7 +354,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// Peer C advertises candidate 2.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_2,
 				group_index: other_group,
 				para_id: other_para,
@@ -425,7 +431,7 @@ fn peer_reported_for_providing_statements_meant_to_be_masked_out() {
 		// would fail with "Un-requested Statement In Response".
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_3,
 				group_index: other_group,
 				para_id: other_para,
@@ -526,7 +532,7 @@ fn peer_reported_for_not_enough_statements() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -1186,6 +1192,219 @@ fn peer_reported_for_invalid_v2_descriptor() {
 
 			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
 		}
+		overseer
+	});
+}
+
+#[test]
+// Test that V3 descriptors use scheduling_session() (session_index + offset) for validation,
+// not session_index() directly.
+fn v3_descriptor_scheduling_session_validation() {
+	let group_size = 3;
+	let config =
+		TestConfig { validator_count: 20, group_size, local_validator: LocalRole::Validator };
+
+	let relay_parent = Hash::repeat_byte(1);
+	let peer_a = PeerId::random();
+	let peer_b = PeerId::random();
+	let peer_c = PeerId::random();
+
+	test_harness(config, |state, mut overseer| async move {
+		let local_validator = state.local.clone().unwrap();
+		let local_group_index = local_validator.group_index.unwrap();
+		let local_para = ParaId::from(local_group_index.0);
+
+		let test_leaf = state.make_dummy_leaf(relay_parent);
+
+		// V3 candidate. Helper defaults: version=1, session_index=1, scheduling_session_offset=0
+		// → scheduling_session()=1 (matches session).
+		let (mut candidate, pvd) = make_candidate_v3(
+			relay_parent,
+			1,
+			relay_parent, // scheduling_parent = relay_parent
+			local_para,
+			test_leaf.para_data(local_para).head_data.clone(),
+			vec![4, 5, 6].into(),
+			Hash::repeat_byte(42).into(),
+		);
+		candidate.descriptor.set_core_index(CoreIndex(local_group_index.0));
+		// V3 descriptors require UMP signals.
+		candidate.commitments.upward_messages.force_push(UMP_SEPARATOR);
+		candidate
+			.commitments
+			.upward_messages
+			.force_push(UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode());
+
+		let candidate_hash = candidate.hash();
+
+		let other_group_validators = state.group_validators(local_group_index, true);
+		let v_a = other_group_validators[0];
+		let v_b = other_group_validators[1];
+
+		{
+			connect_peer(
+				&mut overseer,
+				peer_a.clone(),
+				Some(vec![state.discovery_id(v_a)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(
+				&mut overseer,
+				peer_b.clone(),
+				Some(vec![state.discovery_id(v_b)].into_iter().collect()),
+			)
+			.await;
+
+			connect_peer(&mut overseer, peer_c.clone(), None).await;
+
+			send_peer_view_change(&mut overseer, peer_a.clone(), view![relay_parent]).await;
+			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
+		}
+
+		activate_leaf(&mut overseer, &test_leaf, &state, true, vec![]).await;
+
+		// V3 candidate with session_index=1, offset=0 → scheduling_session()=1.
+		// The session at the scheduling parent is 1, so this should be valid.
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		// Send the valid V3 candidate — should succeed.
+		{
+			let b_seconded = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded.clone()];
+
+			// v_a has only seconded 1 candidate, so not exhausted → mask is blank.
+			handle_sent_request(
+				&mut overseer,
+				peer_a.clone(),
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT.into() => { }
+			);
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_RESPONSE.into() => { }
+			);
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendValidationMessage(
+					peers,
+					ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+						protocol_v3::StatementDistributionMessage::Statement(
+							r,
+							s,
+						)
+					))
+				)) => {
+					assert_eq!(peers, vec![peer_a.clone()]);
+					assert_eq!(r, relay_parent);
+					assert_eq!(s.unchecked_payload(), &CompactStatement::Seconded(candidate_hash));
+					assert_eq!(s.unchecked_validator_index(), v_b);
+				}
+			);
+
+			answer_expected_hypothetical_membership_request(&mut overseer, vec![]).await;
+		}
+
+		// Now test with wrong scheduling_session: session_index=1, offset=5 →
+		// scheduling_session()=6 ≠ 1. Should be rejected.
+		candidate.descriptor.set_scheduling_session_offset(5);
+
+		let candidate_hash = candidate.hash();
+
+		{
+			let a_seconded = state
+				.sign_statement(
+					v_a,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+
+			send_peer_message(
+				&mut overseer,
+				peer_a.clone(),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, a_seconded),
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == BENEFIT_VALID_STATEMENT_FIRST.into() => { }
+			);
+		}
+
+		{
+			let b_seconded = state
+				.sign_statement(
+					v_b,
+					CompactStatement::Seconded(candidate_hash),
+					&SigningContext { parent_hash: relay_parent, session_index: 1 },
+				)
+				.as_unchecked()
+				.clone();
+			let statements = vec![b_seconded.clone()];
+
+			handle_sent_request(
+				&mut overseer,
+				peer_a,
+				candidate_hash,
+				StatementFilter::blank(group_size),
+				candidate.clone(),
+				pvd.clone(),
+				statements,
+			)
+			.await;
+
+			assert_matches!(
+				overseer.recv().await,
+				AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(ReportPeerMessage::Single(p, r)))
+					if p == peer_a && r == COST_INVALID_SESSION_INDEX.into() => { }
+			);
+		}
+
 		overseer
 	});
 }
@@ -2407,7 +2626,7 @@ fn local_node_respects_statement_mask() {
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -2540,7 +2759,7 @@ fn should_delay_before_retrying_dropped_requests() {
 		// Send a request about a candidate.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_1,
 				group_index: other_group,
 				para_id: other_para,
@@ -2586,7 +2805,7 @@ fn should_delay_before_retrying_dropped_requests() {
 		// We still send requests about different candidates as per usual.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash: candidate_hash_2,
 				group_index: other_group,
 				para_id: other_para,

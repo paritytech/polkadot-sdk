@@ -18,8 +18,7 @@
 use super::*;
 use crate::{self as pools};
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Mutate, VariantCountOf},
+	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
 	PalletId,
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
@@ -444,8 +443,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
@@ -471,7 +468,7 @@ impl Contains<AccountId> for RestrictMock {
 }
 
 parameter_types! {
-	pub static PostUnbondingPoolsWindow: u32 = 2;
+	pub static MaxUnbondingPools: u32 = 5;
 	pub static MaxMetadataLen: u32 = 2;
 	pub static CheckLevel: u8 = 255;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
@@ -490,7 +487,7 @@ impl pools::Config for Runtime {
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter = adapter::DelegateStake<Self, StakingMock, DelegateMock>;
-	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
+	type MaxUnbondingPools = MaxUnbondingPools;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;

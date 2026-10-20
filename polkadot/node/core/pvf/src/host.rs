@@ -1035,7 +1035,9 @@ pub(crate) mod tests {
 	use futures::future::BoxFuture;
 	use polkadot_node_core_pvf_common::execute::ValidationContext;
 	use polkadot_node_primitives::{BlockData, PoV};
-	use polkadot_primitives::{ExecutorParams, PersistedValidationData};
+	use polkadot_primitives::{
+		CandidateReceiptV2 as CandidateReceipt, ExecutorParams, PersistedValidationData,
+	};
 	use polkadot_primitives_test_helpers::dummy_candidate_receipt;
 	use sp_core::H256;
 	use std::sync::Arc;
@@ -1238,13 +1240,14 @@ pub(crate) mod tests {
 		pvd: Arc<PersistedValidationData>,
 		pov: Arc<PoV>,
 	) -> ValidationContext {
+		let candidate_receipt: CandidateReceipt = dummy_candidate_receipt(H256::default()).into();
 		ValidationContext {
-			candidate_receipt: dummy_candidate_receipt(H256::default()).into(),
+			candidate_receipt,
 			pvd,
 			pov,
 			executor_params: ExecutorParams::default(),
 			exec_timeout: TEST_EXECUTION_TIMEOUT,
-			v3_enabled: false,
+			v3_seen: false,
 		}
 	}
 

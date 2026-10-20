@@ -24,7 +24,7 @@ use crate::{
 use alloc::format;
 use alloc::{vec, vec::Vec};
 use frame_support::build_struct_json_patch;
-use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
+use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use rococo_runtime_constants::currency::UNITS as ROC;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
@@ -139,6 +139,7 @@ fn default_parachains_host_configuration(
 			paras_availability_period: 4,
 			..Default::default()
 		},
+		max_relay_parent_session_age: 0,
 		..Default::default()
 	}
 }

@@ -294,6 +294,14 @@ impl Metrics {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "sent", name]).inc();
 			},
+			Event::PeerRoutingTableUpdate(_) => {
+				self.events_total
+					.with_label_values(&["peer-routing-table-update", "sent", name])
+					.inc();
+			},
+			Event::PeerIdentified { .. } => {
+				self.events_total.with_label_values(&["peer-identified", "sent", name]).inc();
+			},
 			Event::NotificationStreamOpened { protocol, .. } => {
 				format_label("notif-open-", protocol, |protocol_label| {
 					self.events_total.with_label_values(&[protocol_label, "sent", name]).inc();
@@ -321,6 +329,16 @@ impl Metrics {
 		match event {
 			Event::Dht(_) => {
 				self.events_total.with_label_values(&["dht", "received", name]).inc();
+			},
+			Event::PeerRoutingTableUpdate(_) => {
+				self.events_total
+					.with_label_values(&["peer-routing-table-update", "received", name])
+					.inc();
+			},
+			Event::PeerIdentified { .. } => {
+				self.events_total
+					.with_label_values(&["peer-identified", "received", name])
+					.inc();
 			},
 			Event::NotificationStreamOpened { protocol, .. } => {
 				format_label("notif-open-", protocol, |protocol_label| {

@@ -84,16 +84,19 @@ impl pallet_election_provider_multi_block_signed::WeightInfo for MultiBlockElect
 		unreachable!()
 	}
 	fn register_eject() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn register_not_full() -> Weight {
 		// we submit pages in tests
 		Default::default()
 	}
 	fn submit_page() -> Weight {
-		unreachable!()
+		Default::default()
 	}
 	fn unset_page() -> Weight {
+		unreachable!()
+	}
+	fn claim_unpaid_reward() -> Weight {
 		unreachable!()
 	}
 }
@@ -107,8 +110,10 @@ impl pallet_election_provider_multi_block_unsigned::WeightInfo for MultiBlockEle
 		// here.
 		Default::default()
 	}
-	fn validate_unsigned() -> Weight {
-		unreachable!()
+	fn authorize_submit_unsigned() -> Weight {
+		// `AuthorizeCall::weight` calls this for any transaction that carries `submit_unsigned`,
+		// so it must not panic.
+		Default::default()
 	}
 }
 
@@ -172,7 +177,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn payout_stakers_alive_staked(_: u32) -> Weight {
-		unreachable!()
+		Weight::default()
 	}
 	fn rebond(_: u32) -> Weight {
 		unreachable!()
@@ -195,6 +200,15 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn set_min_commission() -> Weight {
 		unreachable!()
 	}
+	fn set_max_commission() -> Weight {
+		unreachable!()
+	}
+	fn set_validator_self_stake_incentive_config() -> Weight {
+		unreachable!()
+	}
+	fn prune_era_validator_incentive_weight(_v: u32) -> Weight {
+		unreachable!()
+	}
 	fn restore_ledger() -> Weight {
 		unreachable!()
 	}
@@ -205,12 +219,15 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		Default::default()
 	}
 	fn process_offence_queue() -> Weight {
-		<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block
+		let max_block =
+			<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block;
+		// Reserve headroom for DAP drip weight which also runs in on_initialize.
+		max_block.saturating_sub(<() as pallet_dap::WeightInfo>::drip_issuance())
 	}
 	fn rc_on_offence(_: u32) -> Weight {
 		Default::default()
 	}
-	fn rc_on_session_report() -> Weight {
+	fn rc_on_session_report(_: u32) -> Weight {
 		Default::default()
 	}
 	fn prune_era_stakers_paged(_: u32) -> Weight {
@@ -235,6 +252,9 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn prune_era_validator_slash_in_era(_: u32) -> Weight {
+		unreachable!()
+	}
+	fn chill_inactive(_: u32) -> Weight {
 		unreachable!()
 	}
 }

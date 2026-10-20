@@ -63,12 +63,15 @@ pub(crate) fn build_statement_store<
 	sync_service: Arc<sc_network_sync::service::syncing_service::SyncingService<Block>>,
 	local_keystore: Arc<sc_keystore::LocalKeystore>,
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
-	statement_network_workers: usize,
-	statement_rate_limit: u32,
+	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
+	let network_workers = config.network_workers;
+	let rate_limit = config.rate_limit;
+	let v2dht_config = config.v2dht.clone();
+
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
-		Default::default(),
+		config,
 		client,
 		local_keystore,
 		parachain_config.prometheus_registry(),
@@ -87,9 +90,15 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
-		statement_network_workers,
-		statement_rate_limit,
+		network_workers,
+		rate_limit,
+		v2dht_config,
 	)?;
+	if sc_network_statement::v2dht_enabled() {
+		if let Some(resolver) = statement_handler.retention_resolver() {
+			statement_store.set_retention_resolver(resolver);
+		}
+	}
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
 		Some("networking"),

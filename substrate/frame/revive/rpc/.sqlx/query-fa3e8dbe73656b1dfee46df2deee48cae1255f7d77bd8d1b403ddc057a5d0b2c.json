@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tINSERT OR REPLACE INTO sync_state (label, block_number, block_hash)\n\t\t\tVALUES ($1, $2, $3)\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "fa3e8dbe73656b1dfee46df2deee48cae1255f7d77bd8d1b403ddc057a5d0b2c"
+}

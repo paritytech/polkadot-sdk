@@ -27,16 +27,16 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
+use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Everything, InstanceFilter,
-		TransformOrigin,
+		ConstBool, ConstU32, ConstU64, ConstU8, EitherOfDiverse, Equals, Everything,
+		InstanceFilter, TransformOrigin,
 	},
 	weights::{ConstantMultiplier, Weight},
 	PalletId,
@@ -62,13 +62,14 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
-pub use sp_runtime::{MultiAddress, Perbill, Permill};
-#[cfg(feature = "std")]
-use sp_version::NativeVersion;
+pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
 use sp_version::RuntimeVersion;
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee,
+	locations::AssetHubLocation, time::*,
+};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
@@ -131,11 +132,6 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
-	pallet_collator_selection::migration::v2::MigrationToV2<Runtime>,
-	pallet_session::migrations::v1::MigrateV0ToV1<
-		Runtime,
-		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
-	>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -161,18 +157,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_021_003,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
 	system_version: 1,
 };
-
-/// The version information used to identify this runtime when compiled natively.
-#[cfg(feature = "std")]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -248,7 +238,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type DustRemoval = ();
+	type DustRemoval = AccumulateForward;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -258,20 +248,26 @@ impl pallet_balances::Config for Runtime {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeHoldReason = RuntimeHoldReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
 }
 
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10.
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to the accumulation account.
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
+
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	DealWithFees<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -287,7 +283,7 @@ parameter_types! {
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = ();
+	type OnSystemEvent = ValidatorCollators;
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type OutboundXcmpMessageSource = XcmpQueue;
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<MessageQueue, RelayOrigin>;
@@ -298,6 +294,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type ConsensusHook = ConsensusHook;
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingSignatureVerifier = ();
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -379,9 +376,10 @@ impl pallet_session::Config for Runtime {
 	type ValidatorId = <Self as frame_system::Config>::AccountId;
 	// we don't have stash and controller, thus we don't need the convert as well.
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
-	type ShouldEndSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
+	type ShouldEndSession = ValidatorCollators;
 	type NextSessionRotation = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
-	type SessionManager = CollatorSelection;
+	type SessionManager =
+		pallet_session::UnionSessionManager<CollatorSelection, ValidatorCollators>;
 	// Essentially just Aura, but let's be pedantic.
 	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
 	type Keys = SessionKeys;
@@ -426,6 +424,16 @@ impl pallet_collator_selection::Config for Runtime {
 	type ValidatorIdOf = pallet_collator_selection::IdentityCollator;
 	type ValidatorRegistration = Session;
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
+}
+
+impl pallet_validator_collators::Config for Runtime {
+	type SetOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<Equals<AssetHubLocation>>>;
+	type UpdateOrigin = CollatorSelectionUpdateOrigin;
+	type ValidatorRegistration = Session;
+	type MaxValidators =
+		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET }>;
+	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
+	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -595,6 +603,50 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
+impl pallet_accumulate_and_forward::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
+		xcm_config::XcmConfig,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+		xcm_config::RelayLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
+}
+
+pub type MetaTxExtension = (
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_meta_tx::MetaTxMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -609,6 +661,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		AccumulateForward: pallet_accumulate_and_forward = 12,
 
 		// Collator support. The order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -616,6 +669,7 @@ construct_runtime!(
 		Session: pallet_session = 22,
 		Aura: pallet_aura = 23,
 		AuraExt: cumulus_pallet_aura_ext = 24,
+		ValidatorCollators: pallet_validator_collators = 25,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -627,6 +681,8 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
+		MetaTx: pallet_meta_tx = 43,
+		VerifySignature: pallet_verify_signature = 44,
 
 		// The main stage.
 		Identity: pallet_identity = 50,
@@ -651,6 +707,8 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
+		[pallet_meta_tx, MetaTx]
+		[pallet_verify_signature, VerifySignature]
 		[pallet_timestamp, Timestamp]
 		[pallet_migrations, MultiBlockMigrations]
 		// Polkadot
@@ -659,11 +717,13 @@ mod benches {
 		[cumulus_pallet_parachain_system, ParachainSystem]
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_collator_selection, CollatorSelection]
+		[pallet_validator_collators, ValidatorCollators]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[pallet_accumulate_and_forward, AccumulateForward]
 	);
 }
 
@@ -681,6 +741,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			<Runtime as cumulus_pallet_parachain_system::Config>::SchedulingSignatureVerifier::V3_SCHEDULING_ENABLED
 		}
 	}
 
@@ -1005,11 +1075,16 @@ impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` stays at its default: the `AssetTransactor` only handles the
+				// native token, so a multi-asset worst case is not constructible here.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(RelayLocation::get()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
 			}
 
@@ -1118,9 +1193,12 @@ impl_runtime_apis! {
 				}
 
 				fn alias_origin() -> Result<(Location, Location), BenchmarkError> {
-					let origin = Location::new(1, [Parachain(1000)]);
-					let target = Location::new(1, [Parachain(1000), AccountId32 { id: [128u8; 32], network: None }]);
-					Ok((origin, target))
+					use parachains_common::benchmarking::set_up_worst_case_authorized_alias;
+
+					// The worst case is an alias authorized through `pallet_xcm`'s
+					// `AuthorizedAliasers`, the last entry of `TrustedAliasers`, so that every cheaper
+					// filter is tried and fails first.
+					Ok(set_up_worst_case_authorized_alias::<Runtime>())
 				}
 			}
 
@@ -1160,7 +1238,15 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
-			1
+			BLOCK_PROCESSING_VELOCITY
+		}
+	}
+
+	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
+		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
+			cumulus_primitives_core::RelayProofRequest {
+				keys: ValidatorCollators::relay_keys_to_prove(),
+			}
 		}
 	}
 }

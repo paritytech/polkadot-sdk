@@ -1,0 +1,14 @@
+title: 'MBM: Add ForceUnstuck handler'
+doc:
+- audience: Runtime Dev
+  description: |-
+    For chains doing governance we should be force-unstucking the chain on failed MBMs instead of freezing. This is equivalent to single-block-migration error handling.
+    Would have been useful for https://github.com/polkadot-fellows/runtimes/pull/1085
+
+    Changes:
+    - Add a handler to unlock all locked calls and proceed
+crates:
+- name: pallet-migrations
+  bump: patch
+- name: frame-support
+  bump: minor

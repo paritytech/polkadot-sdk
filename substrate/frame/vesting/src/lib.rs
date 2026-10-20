@@ -274,11 +274,18 @@ pub mod pallet {
 
 				Vesting::<T>::try_append(who, vesting_info)
 					.expect("Too many vesting schedules at genesis.");
+			}
 
-				let reasons =
-					WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
-
-				T::Currency::set_lock(VESTING_ID, who, locked, reasons);
+			// Lock once per account, after every schedule is stored. `set_lock` replaces a
+			// lock of the same ID, so locking inside the loop above would leave an account
+			// with several entries holding only the last entry's amount.
+			let reasons = WithdrawReasons::except(T::UnvestedFundsAllowedWithdrawReasons::get());
+			for (who, schedules) in Vesting::<T>::iter() {
+				let locked = schedules
+					.iter()
+					.map(|s| s.locked())
+					.fold(BalanceOf::<T>::zero(), |a, b| a.saturating_add(b));
+				T::Currency::set_lock(VESTING_ID, &who, locked, reasons);
 			}
 		}
 	}
@@ -706,6 +713,42 @@ impl<T: Config> Pallet<T> {
 		);
 
 		Ok((schedules, locked_now))
+	}
+}
+
+impl<T: Config> frame_support::traits::tokens::VestedPayout<T::AccountId, BalanceOf<T>>
+	for Pallet<T>
+where
+	BalanceOf<T>: MaybeSerializeDeserialize + Debug,
+{
+	type BlockNumber = BlockNumberFor<T>;
+
+	fn vested_transfer(
+		source: &T::AccountId,
+		dest: &T::AccountId,
+		amount: BalanceOf<T>,
+		duration: BlockNumberFor<T>,
+		start_at: Option<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+
+		if duration.is_zero() {
+			// Zero duration means liquid transfer with no vesting schedule.
+			T::Currency::transfer(source, dest, amount, ExistenceRequirement::AllowDeath)
+		} else {
+			let starting_block =
+				start_at.unwrap_or_else(|| T::BlockNumberProvider::current_block_number());
+			let duration_as_balance = T::BlockNumberToBalance::convert(duration);
+			// Round up so that vesting completes within `duration` blocks, not longer.
+			let per_block =
+				((amount.saturating_add(duration_as_balance).saturating_sub(One::one())) /
+					duration_as_balance)
+					.max(One::one());
+			let schedule = VestingInfo::new(amount, per_block, starting_block);
+			Self::do_vested_transfer(source, dest, schedule)
+		}
 	}
 }
 

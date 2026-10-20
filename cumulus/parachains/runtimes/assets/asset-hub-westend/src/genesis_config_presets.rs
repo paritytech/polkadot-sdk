@@ -21,13 +21,13 @@ use crate::{
 };
 use alloc::{vec, vec::Vec};
 use cumulus_primitives_core::ParaId;
-use frame_support::{build_struct_json_patch, sp_runtime::traits::AccountIdConversion};
+use frame_support::{build_struct_json_patch, PalletId};
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use staking::DapPalletId;
+use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -36,10 +36,6 @@ use xcm_builder::GlobalConsensusConvertsFor;
 use xcm_executor::traits::ConvertLocation;
 
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
-
-fn dap_buffer_account() -> AccountId {
-	DapPalletId::get().into_account_truncating()
-}
 
 fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
@@ -50,9 +46,14 @@ fn asset_hub_westend_genesis(
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
-	// Fund DAP buffer account with ED so it can receive slashes.
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
-	balances.push((dap_buffer_account(), ASSET_HUB_WESTEND_ED));
+	// The DAP buffer receives slashes and is the signed-phase reward pot. Payouts transfer with
+	// `Preservation::Preserve`, so it needs spendable balance above ED, sized in rounds of
+	// `RewardBase` rather than tracking whatever endowment a preset picked.
+	balances
+		.push((Dap::buffer_account(), ASSET_HUB_WESTEND_ED + staking::RewardBase::get() * 1_000));
+	// The staging account only receives, so ED is enough for it to exist.
+	balances.push((Dap::staging_account(), ASSET_HUB_WESTEND_ED));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
@@ -100,7 +101,16 @@ fn asset_hub_westend_genesis(
 				.map(|asset| (asset.0.try_into().unwrap(), asset.1, asset.2))
 				.collect(),
 			..Default::default()
-		}
+		},
+		assets: AssetsConfig {
+			assets: vec![(
+				PGASAssetId::get(),
+				PalletId(*b"py/pgasa").into_account_truncating(),
+				true,
+				1,
+			)],
+			..Default::default()
+		},
 	})
 }
 

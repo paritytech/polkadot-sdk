@@ -23,7 +23,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible::HoldConsideration, tokens::UnityOrOuterConversion, EitherOf, EitherOfDiverse,
-		FromContains, LinearStoragePrice,
+		FromContains, LinearStoragePrice, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRootWithSuccess;
@@ -59,7 +59,7 @@ impl pallet_conviction_voting::Config for Runtime {
 	type MaxTurnout =
 		frame_support::traits::tokens::currency::ActiveIssuanceOf<Balances, Self::AccountId>;
 	type Polls = Referenda;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type VotingHooks = ();
 }
 
@@ -85,6 +85,8 @@ impl pallet_whitelist::Config for Runtime {
 		EnsureXcm<IsVoiceOfBody<Collectives, FellowsBodyId>>,
 	>;
 	type DispatchWhitelistedOrigin = EitherOf<EnsureRoot<Self::AccountId>, WhitelistedCaller>;
+	type DeferredDispatchExpiration = ConstU32<{ 28 * DAYS }>;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type Preimages = Preimage;
 }
 
@@ -106,7 +108,7 @@ impl pallet_referenda::Config for Runtime {
 	type AlarmInterval = AlarmInterval;
 	type Tracks = TracksInfo;
 	type Preimages = Preimage;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {
@@ -114,8 +116,9 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
 	// The asset's interior location for the paying account. This is the Treasury
-	// pallet instance (which sits at index 37).
-	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(37).into();
+	// pallet instance.
+	pub TreasuryInteriorLocation: InteriorLocation =
+		PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
 
 	pub const TipCountdown: BlockNumber = 1 * DAYS;
 	pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -165,7 +168,7 @@ impl pallet_treasury::Config for Runtime {
 		AssetRate,
 	>;
 	type PayoutPeriod = PayoutSpendPeriod;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
@@ -199,7 +202,7 @@ impl pallet_scheduler::Config for Runtime {
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
 	type Preimages = Preimage;
-	type BlockNumberProvider = RelayChainBlockNumberProvider;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 }
 
 parameter_types! {

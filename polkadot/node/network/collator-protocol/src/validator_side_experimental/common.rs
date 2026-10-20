@@ -22,8 +22,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
-	PersistedValidationData,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Id as ParaId, PersistedValidationData,
 };
 use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
@@ -93,9 +93,11 @@ pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 i
 
 /// Limit for the total number of connected peers for a paraid.
 /// Must be smaller than `CONNECTED_PEERS_LIMIT`.
+/// The value is optimal for lookahead=5. In that case we can have no more than 5 parachains in the
+/// claim queue => 60 is a good value for per para limit.
 pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
-	assert!(CONNECTED_PEERS_LIMIT.get() >= 100);
-	NonZeroU16::new(100).expect("100 is greater than 0")
+	assert!(CONNECTED_PEERS_LIMIT.get() == 300);
+	NonZeroU16::new(60).expect("60 is greater than 0")
 };
 
 /// Maximum number of relay parents to process for reputation bumps on startup and between finality
@@ -201,15 +203,36 @@ impl TryAcceptOutcome {
 
 /// Candidate supplied with a para head it's built on top of.
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
-pub struct ProspectiveCandidate {
-	/// Candidate hash.
-	pub candidate_hash: CandidateHash,
-	/// Parent head-data hash as supplied in advertisement.
-	pub parent_head_data_hash: Hash,
+pub enum ProspectiveCandidate {
+	ByHash { candidate_hash: CandidateHash, parent_head_data_hash: Hash },
+	ByOutputHead { output_head_data_hash: Hash, parent_head_data_hash: Hash },
+}
+
+impl ProspectiveCandidate {
+	pub fn candidate_hash(&self) -> Option<CandidateHash> {
+		match self {
+			Self::ByHash { candidate_hash, .. } => Some(*candidate_hash),
+			Self::ByOutputHead { .. } => None,
+		}
+	}
+
+	pub fn output_head_data_hash(&self) -> Option<Hash> {
+		match self {
+			Self::ByHash { .. } => None,
+			Self::ByOutputHead { output_head_data_hash, .. } => Some(*output_head_data_hash),
+		}
+	}
+
+	pub fn parent_head_data_hash(&self) -> Hash {
+		match self {
+			Self::ByHash { parent_head_data_hash, .. } |
+			Self::ByOutputHead { parent_head_data_hash, .. } => *parent_head_data_hash,
+		}
+	}
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
@@ -220,11 +243,14 @@ pub struct Advertisement {
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
+	/// Advertised candidate descriptor version (for V3 protocol).
+	/// None for V1/V2 protocols.
+	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 impl Advertisement {
 	pub fn candidate_hash(&self) -> Option<CandidateHash> {
-		self.prospective_candidate.map(|candidate| candidate.candidate_hash)
+		self.prospective_candidate.and_then(|candidate| candidate.candidate_hash())
 	}
 }
 
@@ -258,7 +284,7 @@ pub enum CanSecond {
 /// Information that identifies a collation that was rejected from seconding.
 #[derive(Debug)]
 pub struct SecondingRejectionInfo {
-	pub relay_parent: Hash,
+	pub scheduling_parent: Hash,
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
 	pub maybe_output_head_hash: Option<Hash>,
@@ -268,7 +294,7 @@ pub struct SecondingRejectionInfo {
 impl From<&Advertisement> for SecondingRejectionInfo {
 	fn from(advertisement: &Advertisement) -> Self {
 		SecondingRejectionInfo {
-			relay_parent: advertisement.scheduling_parent,
+			scheduling_parent: advertisement.scheduling_parent,
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
 			maybe_output_head_hash: None,

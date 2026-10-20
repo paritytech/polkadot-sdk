@@ -309,6 +309,10 @@ pub mod substrate_execution {
 						return Err(<Error<T>>::OutOfGas.into());
 					};
 
+					// Cap to u64::MAX since Ethereum gas is u64. Without this, large deposit_left
+					// (e.g., u128::MAX) causes ratio ≈ 0, giving nested calls almost no weight.
+					let remaining_gas = remaining_gas.min(u64::MAX.saturated_into());
+
 					let gas_limit = remaining_gas.min(*gas);
 
 					let ratio = compute_gas_ratio::<T>(gas_limit, remaining_gas);
@@ -449,6 +453,7 @@ pub mod ethereum_execution {
 				eth_gas_limit,
 				weight_limit,
 				eth_tx_info,
+				authorization_deposit: Default::default(),
 			},
 			_phantom: PhantomData,
 		};

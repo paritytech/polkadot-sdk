@@ -26,7 +26,6 @@ sp-std = { workspace = true }
 sp-storage = { workspace = true }
 sp-tracing = { workspace = true }
 sp-wasm-interface = { workspace = true }
-static_assertions = { workspace = true, default-features = true }
 
 [target.'cfg(all(target_arch = "riscv64", substrate_runtime))'.dependencies]
 polkavm-derive = { workspace = true }

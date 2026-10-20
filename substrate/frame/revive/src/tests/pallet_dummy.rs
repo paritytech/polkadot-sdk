@@ -22,16 +22,18 @@ pub mod pallet {
 	use frame_support::{
 		dispatch::{Pays, PostDispatchInfo},
 		ensure,
-		pallet_prelude::DispatchResultWithPostInfo,
+		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo},
 		weights::Weight,
 	};
 	use frame_system::pallet_prelude::*;
+	use sp_core::{H160, H256};
+	use sp_runtime::DispatchError;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {}
+	pub trait Config: frame_system::Config + crate::Config {}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
@@ -48,6 +50,25 @@ pub mod pallet {
 			ensure_signed(origin)?;
 			ensure!(pre_charge.any_gt(actual_weight), "pre_charge must be > actual_weight");
 			Ok(PostDispatchInfo { actual_weight: Some(actual_weight), pays_fee: Pays::Yes })
+		}
+
+		/// Mirror a log from outside any contract frame, the way a balance-change callback does.
+		#[pallet::call_index(2)]
+		pub fn emit_log(origin: OriginFor<T>, contract: H160, topic: H256) -> DispatchResult {
+			ensure_signed(origin)?;
+			crate::Pallet::<T>::emit_contract_log_outside_frame(
+				contract,
+				vec![topic].try_into().expect("one topic is within the LOG limit; qed"),
+				Vec::new().try_into().expect("no data is within the LOG limit; qed"),
+			);
+			Ok(())
+		}
+
+		/// Fail, so that a `batch_all` around this call rolls back what it dispatched before.
+		#[pallet::call_index(3)]
+		pub fn fail(origin: OriginFor<T>) -> DispatchResult {
+			ensure_signed(origin)?;
+			Err(DispatchError::Other("dummy failure"))
 		}
 	}
 }

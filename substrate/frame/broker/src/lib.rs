@@ -22,9 +22,9 @@ pub use pallet::*;
 
 mod adapt_price;
 mod benchmarking;
-mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
@@ -43,8 +43,11 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 pub use adapt_price::*;
-pub use core_mask::*;
 pub use coretime_interface::*;
+pub use fp_coretime::{
+	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	CORE_MASK_BITS,
+};
 pub use types::*;
 
 extern crate alloc;
@@ -67,7 +70,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -342,6 +345,8 @@ pub mod pallet {
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
+			/// Sequential identifier for the current sale period.
+			sale_index: SaleIndex,
 		},
 		/// A new lease has been created.
 		Leased {
@@ -486,7 +491,7 @@ pub mod pallet {
 			task: TaskId,
 		},
 		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
-		/// funded.
+		/// funded or the workload on the core no longer belonging to the paying task.
 		AutoRenewalFailed {
 			/// The core for which the renewal failed.
 			core: CoreIndex,
@@ -595,6 +600,8 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// The renewable workload of the core does not include the given task.
+		TaskNotInWorkload,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -951,7 +958,9 @@ pub mod pallet {
 		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
 		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-		///   inefficient to look up when the core expires to schedule the next renewal.
+		///   inefficient to look up when the core expires to schedule the next renewal. Also used
+		///   when the core is expiring with another task's workload, in which case it must point at
+		///   the task's own renewal record.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
 		pub fn enable_auto_renew(
@@ -1056,6 +1065,25 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_potential_renewal(core, when)
+		}
+
+		/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
+		///
+		/// This can also be used to recover regions that have been "burned" (e.g., from an
+		/// XCM reserve transfer).
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
+		#[pallet::call_index(28)]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]

@@ -1,0 +1,14 @@
+title: 'statement-store: refresh DHT affinity after peer eviction'
+
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Nodes running with `STATEMENT_STORE_V2_DHT_ENABLED=1` now refresh the statement store's
+    DHT-affinity snapshot after evicting a DHT-eligible peer. This prevents removed peers from
+    continuing to affect retention decisions. Sweeps that leave the eligible-peer index unchanged
+    skip the snapshot copy. Discovery and eviction policies are unchanged, and nodes with the
+    v2 DHT path disabled are unaffected.
+
+crates:
+- name: sc-network-statement
+  bump: patch

@@ -1,0 +1,10 @@
+title: 'statement gossip: remove unused code left by the v2 DHT work'
+doc:
+- audience: Node Dev
+  description: |-
+    Removes code in sc-network-statement that the v2 DHT work introduced and nothing uses anymore:
+    orchestrator hooks that only logged, stale dead_code allows, and per-source reference counts in
+    explicit affinity that never exceeded one. Behaviour does not change on either path.
+crates:
+- name: sc-network-statement
+  bump: patch

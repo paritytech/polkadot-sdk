@@ -63,7 +63,7 @@ use polkadot_runtime_common::{
 	},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
-	BlockHashCount, BlockLength, SlowAdjustingFeeUpdate,
+	BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::{
 	configuration as parachains_configuration,
@@ -119,8 +119,6 @@ use sp_runtime::{
 	ApplyExtrinsicResult, Debug, FixedU128, KeyTypeId, Perbill, Percent, Permill,
 };
 use sp_staking::SessionIndex;
-#[cfg(any(feature = "std", test))]
-use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 use xcm::{
 	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
@@ -182,7 +180,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("rococo"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-rococo-v2.0"),
 	authoring_version: 0,
-	spec_version: 1_021_002,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 26,
@@ -195,12 +193,6 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 		c: PRIMARY_PROBABILITY,
 		allowed_slots: sp_consensus_babe::AllowedSlots::PrimaryAndSecondaryVRFSlots,
 	};
-
-/// Native version.
-#[cfg(any(feature = "std", test))]
-pub fn native_version() -> NativeVersion {
-	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
-}
 
 /// A type to identify calls to the Identity pallet. These will be filtered to prevent invocation,
 /// locking the state of the pallet and preventing further updates to identities and sub-identities.
@@ -216,6 +208,15 @@ impl Contains<RuntimeCall> for IsIdentityCall {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
+	/// Maximum length of a relay-chain block is up to 10 MiB.
+	pub BlockLength: frame_system::limits::BlockLength =
+		frame_system::limits::BlockLength::builder()
+			.max_length(10 * 1024 * 1024)
+			.modify_max_length_for_class(
+				frame_support::dispatch::DispatchClass::Normal,
+				|m| { *m = polkadot_runtime_common::NORMAL_DISPATCH_RATIO * *m },
+			)
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
@@ -414,10 +415,8 @@ impl pallet_balances::Config for Runtime {
 	type MaxReserves = MaxReserves;
 	type ReserveIdentifier = [u8; 8];
 	type WeightInfo = weights::pallet_balances_balances::WeightInfo<Runtime>;
-	type FreezeIdentifier = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
 }
 
@@ -590,7 +589,7 @@ impl pallet_bounties::Config for Runtime {
 	type MaximumReasonLength = MaximumReasonLength;
 	type WeightInfo = weights::pallet_bounties::WeightInfo<Runtime>;
 	type OnSlash = Treasury;
-	type TransferAllAssets = ();
+	type TransferAllAssets = pallet_bounties::TransferFungible<AccountId, Balances>;
 }
 
 parameter_types! {
@@ -821,15 +820,17 @@ parameter_types! {
 }
 
 impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
 	type RuntimeCall = RuntimeCall;
-	type BlockNumberProvider = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
+	type FriendGroupsConsideration = ();
+	type AttemptConsideration = ();
+	type InheritorConsideration = ();
+	type SecurityDeposit = ();
+	type MaxFriendsPerConfig = ConstU32<100>;
+	type WeightInfo = ();
+	type Slash = (); // burn
 }
 
 parameter_types! {
@@ -940,13 +941,13 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
 				RuntimeCall::Society(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::close_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery {..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered {..}) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
+				RuntimeCall::Recovery(pallet_recovery::Call::set_friend_groups {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::initiate_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::approve_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::finish_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::cancel_attempt {..}) |
+				RuntimeCall::Recovery(pallet_recovery::Call::slash_attempt {..}) |
+				// Specifically omitting Recovery `control_inherited_account`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest {..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other {..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
@@ -1118,7 +1119,9 @@ impl pallet_message_queue::Config for Runtime {
 	type WeightInfo = weights::pallet_message_queue::WeightInfo<Runtime>;
 }
 
-impl parachains_dmp::Config for Runtime {}
+impl parachains_dmp::Config for Runtime {
+	type WeightInfo = ();
+}
 
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
@@ -1129,6 +1132,7 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type DepositProvider = Hrmp;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
@@ -1311,8 +1315,6 @@ impl pallet_balances::Config<NisCounterpartInstance> for Runtime {
 	type WeightInfo = weights::pallet_balances_nis_counterpart_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<1>;
 	type DoneSlashHandler = ();
 }
 
@@ -1450,7 +1452,10 @@ parameter_types! {
 impl pallet_migrations::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Migrations = pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>;
+	type Migrations = (
+		pallet_identity::migration::v2::LazyMigrationV1ToV2<Runtime>,
+		parachains_dmp::migration::MigrateV0ToV1<Runtime>,
+	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
 	type Migrations = pallet_migrations::mock_helpers::MockedMigrations;
@@ -1762,10 +1767,12 @@ pub mod migrations {
 		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 
+		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
+		parachains_shared::migration::MigrateToV2<Runtime>,
+
         // permanent
         pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
         parachains_inclusion::migration::MigrateToV1<Runtime>,
-		parachains_shared::migration::MigrateToV1<Runtime>,
     );
 }
 
@@ -1821,6 +1828,7 @@ mod benches {
 		[polkadot_runtime_common::paras_registrar, Registrar]
 		[polkadot_runtime_parachains::configuration, Configuration]
 		[polkadot_runtime_parachains::coretime, Coretime]
+		[polkadot_runtime_parachains::dmp, Dmp]
 		[polkadot_runtime_parachains::hrmp, Hrmp]
 		[polkadot_runtime_parachains::disputes, ParasDisputes]
 		[polkadot_runtime_parachains::inclusion, ParaInclusion]
@@ -1977,7 +1985,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(15)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2163,6 +2171,17 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
+		}
+
+		fn max_relay_parent_session_age() -> u32 {
+			parachains_staging_runtime_api_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn ancestor_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			parachains_staging_runtime_api_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 	}
 
@@ -2547,11 +2566,16 @@ sp_api::impl_runtime_apis! {
 					)
 				}
 
+				// `get_assets` stays at its default: the `AssetTransactor` only handles the
+				// native token, so a multi-asset worst case is not constructible here.
 				fn get_asset() -> Asset {
 					Asset {
 						id: AssetId(Location::here()),
 						fun: Fungible(ExistentialDeposit::get()),
 					}
+				}
+				fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+					Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 				}
 			}
 			impl pallet_xcm_benchmarks::Config for Runtime {

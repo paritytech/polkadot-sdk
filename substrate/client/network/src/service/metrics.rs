@@ -20,27 +20,20 @@ use crate::{service::traits::BandwidthSink, ProtocolName};
 
 use prometheus_endpoint::{
 	self as prometheus, Counter, CounterVec, Gauge, GaugeVec, HistogramOpts, MetricSource, Opts,
-	PrometheusError, Registry, SourcedCounter, SourcedGauge, U64,
+	PrometheusError, Registry, SourcedCounter, U64,
 };
 
-use std::{
-	str,
-	sync::{
-		atomic::{AtomicUsize, Ordering},
-		Arc,
-	},
-};
+use std::{str, sync::Arc};
 
 pub use prometheus_endpoint::{Histogram, HistogramVec};
 
 /// Registers all networking metrics with the given registry.
 pub fn register(registry: &Registry, sources: MetricSources) -> Result<Metrics, PrometheusError> {
 	BandwidthCounters::register(registry, sources.bandwidth)?;
-	NumConnectedGauge::register(registry, sources.connected_peers)?;
 	Metrics::register(registry)
 }
 
-// Register `sc-network` metrics without bandwidth/connected peer sources.
+// Register `sc-network` metrics without the bandwidth source.
 pub fn register_without_sources(registry: &Registry) -> Result<Metrics, PrometheusError> {
 	Metrics::register(registry)
 }
@@ -48,17 +41,14 @@ pub fn register_without_sources(registry: &Registry) -> Result<Metrics, Promethe
 /// Predefined metric sources that are fed directly into prometheus.
 pub struct MetricSources {
 	pub bandwidth: Arc<dyn BandwidthSink>,
-	pub connected_peers: Arc<AtomicUsize>,
 }
 
 impl MetricSources {
 	pub fn register(
 		registry: &Registry,
 		bandwidth: Arc<dyn BandwidthSink>,
-		connected_peers: Arc<AtomicUsize>,
 	) -> Result<(), PrometheusError> {
-		BandwidthCounters::register(registry, bandwidth)?;
-		NumConnectedGauge::register(registry, connected_peers)
+		BandwidthCounters::register(registry, bandwidth)
 	}
 }
 
@@ -281,34 +271,6 @@ impl MetricSource for BandwidthCounters {
 	}
 }
 
-/// The connected peers metric.
-#[derive(Clone)]
-pub struct NumConnectedGauge(Arc<AtomicUsize>);
-
-impl NumConnectedGauge {
-	/// Registers the `MajorSyncingGauge` metric whose value is
-	/// obtained from the given `AtomicUsize`.
-	fn register(registry: &Registry, value: Arc<AtomicUsize>) -> Result<(), PrometheusError> {
-		prometheus::register(
-			SourcedGauge::new(
-				&Opts::new("substrate_sub_libp2p_peers_count", "Number of connected peers"),
-				NumConnectedGauge(value),
-			)?,
-			registry,
-		)?;
-
-		Ok(())
-	}
-}
-
-impl MetricSource for NumConnectedGauge {
-	type N = u64;
-
-	fn collect(&self, mut set: impl FnMut(&[&str], Self::N)) {
-		set(&[], self.0.load(Ordering::Relaxed) as u64);
-	}
-}
-
 /// Notification metrics.
 ///
 /// Wrapper over `Option<InnerNotificationMetrics>` to make metrics reporting code cleaner.
@@ -365,6 +327,46 @@ impl NotificationMetrics {
 				.observe(size as f64);
 		}
 	}
+
+	/// Update the number of connected peers per direction and reservation status.
+	pub fn set_peerset_num_connected(
+		&self,
+		protocol: &ProtocolName,
+		in_reserved: usize,
+		in_non_reserved: usize,
+		out_reserved: usize,
+		out_non_reserved: usize,
+		num_disconnected: usize,
+		num_backoff: usize,
+	) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.peerset_num_connected
+				.with_label_values(&["in", "reserved", protocol])
+				.set(in_reserved as u64);
+			metrics
+				.peerset_num_connected
+				.with_label_values(&["in", "non-reserved", protocol])
+				.set(in_non_reserved as u64);
+			metrics
+				.peerset_num_connected
+				.with_label_values(&["out", "reserved", protocol])
+				.set(out_reserved as u64);
+			metrics
+				.peerset_num_connected
+				.with_label_values(&["out", "non-reserved", protocol])
+				.set(out_non_reserved as u64);
+
+			metrics
+				.peerset_num_state
+				.with_label_values(&["disconnected", protocol])
+				.set(num_disconnected as u64);
+			metrics
+				.peerset_num_state
+				.with_label_values(&["backoff", protocol])
+				.set(num_backoff as u64);
+		}
+	}
 }
 
 /// Notification metrics.
@@ -378,6 +380,12 @@ struct InnerNotificationMetrics {
 
 	/// In/outbound notification sizes.
 	pub notifications_sizes: HistogramVec,
+
+	/// Number of connected peers per direction, reservation status and protocol.
+	pub peerset_num_connected: GaugeVec<U64>,
+
+	/// Number of disconnected and backed off peers.
+	pub peerset_num_state: GaugeVec<U64>,
 }
 
 impl InnerNotificationMetrics {
@@ -414,6 +422,26 @@ impl InnerNotificationMetrics {
 						"Total number of notification substreams that have been opened",
 					),
 					&["protocol"],
+				)?,
+				registry,
+			)?,
+			peerset_num_connected: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_libp2p_peerset_num_connected",
+						"Number of connected peers per direction, reservation status and protocol",
+					),
+					&["direction", "kind", "protocol"],
+				)?,
+				registry,
+			)?,
+			peerset_num_state: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_sub_libp2p_peerset_num_state",
+						"Number of peers per state in the peerset manager",
+					),
+					&["state", "protocol"],
 				)?,
 				registry,
 			)?,

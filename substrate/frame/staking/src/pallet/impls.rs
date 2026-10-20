@@ -44,14 +44,14 @@ use sp_runtime::{
 use sp_staking::{
 	currency_to_vote::CurrencyToVote,
 	offence::{OffenceDetails, OnOffenceHandler},
-	EraIndex, OnStakingUpdate, Page, SessionIndex, Stake,
+	EraIndex, EraPayout, OnStakingUpdate, Page, SessionIndex, Stake,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
 
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
-	BalanceOf, EraInfo, EraPayout, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
+	BalanceOf, EraInfo, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
 	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
 	RewardDestination, SessionInterface, StakingLedger, UnlockChunk, ValidatorPrefs, STAKING_ID,
 };
@@ -457,7 +457,7 @@ impl<T: Config> Pallet<T> {
 			// Initial era has been set.
 			let current_era_start_session_index = ErasStartSessionIndex::<T>::get(current_era)
 				.unwrap_or_else(|| {
-					frame_support::print("Error: start_session_index must be set for current_era");
+					log!(error, "start_session_index must be set for current_era");
 					0
 				});
 
@@ -507,7 +507,7 @@ impl<T: Config> Pallet<T> {
 			} else if next_active_era_start_session_index < start_session {
 				// This arm should never happen, but better handle it than to stall the staking
 				// pallet.
-				frame_support::print("Warning: A session appears to have been skipped.");
+				log!(warn, "A session appears to have been skipped.");
 				Self::start_era(start_session);
 			}
 		}
