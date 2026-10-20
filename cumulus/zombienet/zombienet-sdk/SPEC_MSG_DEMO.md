@@ -61,11 +61,11 @@ The test prints six checkpoints. Each one is read from chain state:
 | # | Checkpoint | What it shows |
 |---|---|---|
 | 1 | channel | 2001 consumed 2000's stream, which carries the open signal. 2000 read 2001's `Ack` register: the channel is `Open`. |
-| 2 | send | A 2000 block holds `PolkadotXcm::Sent`. Its digest commits a `StreamsRoot`: the `Provides`. |
+| 2 | send | A 2000 block holds `PolkadotXcm::Sent` with a message id. Its digest commits a `StreamsRoot`. |
 | 3 | relay | `newest_included_provides(2000)` is that root. The relay recorded it. |
-| 4 | consume | A 2001 block consumed the channel up to a leaf. This record is the candidate's `Requires`. |
+| 4 | consume | A 2001 block consumed up to the stream root the sent `StreamsRoot` commits: its `Requires`. |
 | 5 | backing | That 2001 block is finalized, so the relay matched its `Requires` against 2000's provides. |
-| 6 | execute | `MessageQueue::Processed` with origin `SpecMsg ((2000))` and success `true`. |
+| 6 | execute | `MessageQueue::Processed` with the sent message id, origin `SpecMsg ((2000))` and success `true`. |
 
 ## 3. Follow the node logs
 

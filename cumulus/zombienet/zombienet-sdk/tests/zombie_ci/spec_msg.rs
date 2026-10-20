@@ -17,7 +17,8 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
-	ChannelId, ChannelPhase, ConsumptionRecord, InChannelState, OutChannelState, SPMS_ENGINE_ID,
+	streams_root::streams_root, ChannelId, ChannelPhase, ConsumptionRecord, InChannelState,
+	MmrFrontier, MmrRoot, OutChannelState, StreamId, SPMS_ENGINE_ID,
 };
 use cumulus_zombienet_sdk_helpers::{assert_para_throughput, open_hrmp_channel};
 use std::{collections::BTreeMap, future::Future, time::Duration};
@@ -115,11 +116,22 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 	let sent = sender.blocks().at(sudo(&sender, send_xcm_to(RECEIVER)).await?).await?;
 	let root = committed_root(&sent)
 		.ok_or_else(|| anyhow!("send block #{} commits no `StreamsRoot`", sent.number()))?;
+	let id = event_field(&sent, "PolkadotXcm", "Sent", "message_id")
+		.await?
+		.map(|id| flatten(&id))
+		.filter(|id| id.len() == 32)
+		.map(|id| H256::from_slice(&id))
+		.ok_or_else(|| anyhow!("no `PolkadotXcm::Sent` message id in the send block"))?;
 	log::info!(
-		"Checkpoint 2/6, send: {SENDER} block #{} holds `PolkadotXcm::Sent` and commits \
-		 `StreamsRoot` {root:?} in its SPMS digest, its `Provides`",
+		"Checkpoint 2/6, send: {SENDER} block #{} holds `PolkadotXcm::Sent` with message id \
+		 {id:?} and commits `StreamsRoot` {root:?} in its SPMS digest, its `Provides`",
 		sent.number(),
 	);
+	let committed = committed_stream_roots(&sent).await?;
+	let entries = committed.iter().map(|(stream, r)| (*stream, r.0)).collect();
+	if streams_root(&entries).map(|r| r.0 .0) != Some(root.0) {
+		return Err(anyhow!("{SENDER}'s stream state does not rebuild the committed root"));
+	}
 
 	wait_for("the relay chain to hold that root in the sender's provides window", || async {
 		let newest: Option<H256> = call_at(
@@ -138,7 +150,7 @@ async fn spec_msg_delivers_xcm_without_hrmp() -> Result<(), anyhow::Error> {
 		relay.blocks().at_latest().await?.number(),
 	);
 
-	follow_delivery(&receiver, receiver_blocks, before_send).await?;
+	follow_delivery(&receiver, receiver_blocks, before_send, id, root, &committed).await?;
 
 	let now = (finalized_number(&sender).await?, finalized_number(&receiver).await?);
 	wait_for("both chains to finalize one more block with messaging live", || {
@@ -686,6 +698,40 @@ fn committed_root(block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>) -
 	})
 }
 
+/// The stream roots a block's `StreamsRoot` commits: each stream's stored frontier, which is the
+/// parent's state, plus the leaves the block sent.
+async fn committed_stream_roots(
+	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
+) -> Result<BTreeMap<StreamId, MmrRoot>, anyhow::Error> {
+	let storage = block.storage();
+	// A `Twox64Concat` key ends with the encoded `StreamId`.
+	let stream_of = |key: &[u8]| -> Result<StreamId, anyhow::Error> {
+		let id = key.len().checked_sub(8).ok_or_else(|| anyhow!("short storage key"))?;
+		Ok(StreamId::decode(&mut &key[id..])?)
+	};
+	let mut frontiers = BTreeMap::new();
+	let query = subxt::dynamic::storage("SpecMessaging", "OutboundFrontier", Vec::<Value>::new());
+	let mut entries = storage.iter(query).await?;
+	while let Some(entry) = entries.next().await {
+		let entry = entry?;
+		let frontier = MmrFrontier::decode(&mut &entry.value.into_encoded()[..])?;
+		frontiers.insert(stream_of(&entry.key_bytes)?, frontier);
+	}
+	let query = subxt::dynamic::storage("SpecMessaging", "OutboundLeafHashes", Vec::<Value>::new());
+	let mut entries = storage.iter(query).await?;
+	while let Some(entry) = entries.next().await {
+		let entry = entry?;
+		let frontier = frontiers.entry(stream_of(&entry.key_bytes)?).or_default();
+		for leaf in Vec::<[u8; 32]>::decode(&mut &entry.value.into_encoded()[..])? {
+			frontier.append(leaf.into());
+		}
+	}
+	Ok(frontiers
+		.into_iter()
+		.map(|(stream, frontier)| (stream, frontier.root()))
+		.collect())
+}
+
 /// Poll `check` every 6 s for up to 5 minutes.
 async fn wait_for<F, Fut>(what: &str, check: F) -> Result<(), anyhow::Error>
 where
@@ -704,11 +750,16 @@ where
 }
 
 /// Follow the receiver's finalized blocks after `before_send` until the XCM executes, logging the
-/// block that consumed the sender's stream and the one that executed the XCM.
+/// block that consumed the sender's stream and the one that executed the XCM. The consumption must
+/// end at the stream root that `root`, the send block's `StreamsRoot`, commits (`committed`), and
+/// the executed XCM must carry the sent message `id`.
 async fn follow_delivery(
 	receiver: &OnlineClient<PolkadotConfig>,
 	mut blocks: StreamOfResults<Block<PolkadotConfig, OnlineClient<PolkadotConfig>>>,
 	before_send: u32,
+	id: H256,
+	root: H256,
+	committed: &BTreeMap<StreamId, MmrRoot>,
 ) -> Result<(), anyhow::Error> {
 	log::info!("Following {RECEIVER}'s finalized blocks");
 	let mut consumed = false;
@@ -724,10 +775,19 @@ async fn follow_delivery(
 						.await?;
 				if let Some(streams) = record.entries.get(&ParaId::from(SENDER)) {
 					for (stream, interval) in streams {
+						if committed.get(stream) != Some(&interval.end.root()) {
+							return Err(anyhow!(
+								"{RECEIVER} block #{} consumed {stream:?} up to leaf {}, not to \
+								 the entry {root:?} commits",
+								block.number(),
+								interval.end.leaf_count(),
+							));
+						}
 						log::info!(
 							"Checkpoint 4/6, consume: {RECEIVER} block #{} consumed {stream:?} up \
-							 to leaf {}, fetched from {SENDER}'s collator; its consumption \
-							 record becomes the candidate's `Requires`",
+							 to leaf {}, fetched from {SENDER}'s collator. It ends at the stream \
+							 root `StreamsRoot` {root:?} commits; its consumption record becomes \
+							 the candidate's `Requires`",
 							block.number(),
 							interval.end.leaf_count(),
 						);
@@ -747,21 +807,25 @@ async fn follow_delivery(
 					continue;
 				}
 				let values = event.field_values()?;
-				let fields = format!("{values:?}");
-				if fields.contains("SpecMsg") && fields.contains("Bool(true)") {
-					if !consumed {
-						return Err(anyhow!("XCM executed before any block consumed it"));
-					}
-					let field = |name| values.at(name).map(ToString::to_string).unwrap_or_default();
-					log::info!(
-						"Checkpoint 6/6, execute: {RECEIVER} block #{} `MessageQueue::Processed`: \
-						 origin {}, success {}",
-						block.number(),
-						field("origin"),
-						field("success"),
-					);
-					return Ok(());
+				if values.at("id").map(flatten) != Some(id.0.to_vec()) {
+					continue;
 				}
+				let fields = format!("{values:?}");
+				if !fields.contains("SpecMsg") || !fields.contains("Bool(true)") {
+					return Err(anyhow!("XCM {id:?} not executed over spec-msg: {fields}"));
+				}
+				if !consumed {
+					return Err(anyhow!("XCM executed before any block consumed it"));
+				}
+				let field = |name| values.at(name).map(ToString::to_string).unwrap_or_default();
+				log::info!(
+					"Checkpoint 6/6, execute: {RECEIVER} block #{} `MessageQueue::Processed`: id \
+					 {id:?}, the sent message id; origin {}, success {}",
+					block.number(),
+					field("origin"),
+					field("success"),
+				);
+				return Ok(());
 			}
 		}
 		Err(anyhow!("receiver block subscription ended"))
