@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792501558712,
+  "lastUpdate": 1792513875438,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -135323,6 +135323,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2674065648,
             "range": "± 24556518",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5cee2473f7d1d51d45b429d5844d46ba284360a2",
+          "message": "statement-store: keep a transient statement until its outboxes fetch it (#13465)\n\n# Description\n\nCloses #13220.\n\nA transient statement now stays in the store until every outbox it was\nqueued in has fetched it, instead of being swept as soon as the\npropagation pass takes it.\n\n- `StatementStore` gains `hold_statements` and `release_statements`.\n`take_recent_statements` returns each statement with one hold that the\ncaller releases.\n- The store counts holds per hash, and the retention sweep skips held\nstatements.\n- The handler's outboxes move into `PropagationOutboxes`, which holds\neach queued hash until it leaves the outbox.",
+          "timestamp": "2026-10-20T11:27:56Z",
+          "tree_id": "7fe9f6adfac418509c63ab86aecb62fc61bf4d93",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5cee2473f7d1d51d45b429d5844d46ba284360a2"
+        },
+        "date": 1792513847544,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19459479,
+            "range": "± 283419",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19762567,
+            "range": "± 278051",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21040069,
+            "range": "± 82431",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26124005,
+            "range": "± 125313",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61104471,
+            "range": "± 512387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 349949790,
+            "range": "± 5708056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2676211149,
+            "range": "± 77409545",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16939475,
+            "range": "± 322850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16841871,
+            "range": "± 96888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17276115,
+            "range": "± 278430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22001897,
+            "range": "± 279785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61852220,
+            "range": "± 561698",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351249154,
+            "range": "± 4734646",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2658377853,
+            "range": "± 29783558",
             "unit": "ns/iter"
           }
         ]
