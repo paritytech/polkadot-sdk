@@ -1663,6 +1663,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-vrf"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "578e43862345b4c7900667809bc0b3664dea55aa79c1d8448d853d1d8ee98a6a"
+dependencies = [
+ "ark-bls12-381 0.6.0",
+ "ark-ec 0.6.0",
+ "ark-ed-on-bls12-381-bandersnatch 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "digest 0.10.7",
+ "sha2 0.10.9",
+ "w3f-ring-proof 0.0.10",
+ "zeroize",
+]
+
+[[package]]
 name = "array-bytes"
 version = "6.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -25580,7 +25598,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
- "ark-vrf 0.5.3",
+ "ark-vrf 0.6.0",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
