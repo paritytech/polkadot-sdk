@@ -66,6 +66,7 @@ pub struct Metrics {
 	pub bytes_total: Gauge<U64>,
 	pub accounts_total: Gauge<U64>,
 	pub expired_total: Gauge<U64>,
+	pub held_statements: Gauge<U64>,
 	pub capacity_statements: Gauge<U64>,
 	pub capacity_bytes: Gauge<U64>,
 	pub rejections: CounterVec<U64>,
@@ -146,6 +147,13 @@ impl Metrics {
 				Gauge::new(
 					"substrate_sub_statement_store_expired_total",
 					"Current number of expired statements awaiting purge",
+				)?,
+				registry,
+			)?,
+			held_statements: register(
+				Gauge::new(
+					"substrate_sub_statement_store_held_statements",
+					"Current number of statement hashes propagation outboxes hold back from the retention sweep",
 				)?,
 				registry,
 			)?,
