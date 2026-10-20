@@ -239,12 +239,9 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 			match (self.estimation_trie.as_mut(), discarded.trie_snapshot) {
 				(Some(trie), Some(snapshot)) => trie.rollback_to(&snapshot),
 				(_, None) => self.estimation_trie = None,
-				(None, Some(_)) => {
-					debug_assert!(
-						false,
-						"a layer only holds a snapshot of a trie that existed when it started"
-					);
-				},
+				(None, Some(_)) => unreachable!(
+					"a layer only holds a snapshot of a trie that existed when it started; qed"
+				),
 			}
 		}
 	}
