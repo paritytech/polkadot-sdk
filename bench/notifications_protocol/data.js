@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792513823605,
+  "lastUpdate": 1792515489701,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -241919,6 +241919,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2331778650,
             "range": "± 30109516",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "193aa6c20eed45a960830aabedae6d6b8213abe9",
+          "message": "Registrar: Deregister (#13091)\n\n## Registrar: deregister\nCloses #12816 \n\nImplements deregister flow on the parachain in registrar. New flow\ncovers deregistering through para (CT in Polkadot case) and relay\naccepting it.\n\n### Deregister flow\n\n1. The manager (or root, or the para itself) calls\n`pallet-registrar-para::deregister(para_id)`. A locked para is out of\nthe manager's hands.\n2. If the id was only reserved, the relay chain never knew it. The\nreservation is released, the entry is removed and nothing is sent.\n3. If the para is registered, it moves to `Deregistering { ticket,\ncan_retry_after, message_id }` and `Deregister { para_id, message_id }`\ngoes to the relay chain. Both deposits stay held.\n4. On the relay chain, `pallet-registrar-relay` calls\n`ParachainRegistrar::deregister`:\n- A parathread is dropped through `paras_registrar::do_deregister`.\nCleanup is scheduled and `AwaitingFirstHead` is cleared.\n   - A para that is already gone or offboarding answers `Ok`.\n   - Anything else (onboarding, a lease-holding parachain) is refused.\n\nThere are no origin or lock checks here, because those belong to the\nparachain that took the deposit.\n5. The relay chain answers with `DeregisterResponse`:\n- `Ok(())`: the parachain releases both deposits and removes the entry.\n- `Err(NotDeregisterable)`: the para goes back to `Registered` with its\ndeposits.\n\nA rejected request still returns `Ok` on the relay chain, so the report\nisn't rolled back.\n\n### Retry flow\n\nA lost answer leaves the para in `Deregistering` with both deposits\nheld. There is no separate cancel message. The manager just asks again:\n\n1. From `can_retry_after` (`PendingDeadline` after the last request),\nthe manager calls `deregister` again. Before that it fails with\n`CannotRetryYet`, so the relay chain isn't asked once per block.\n2. The retry reports the missing answer as\n`Unexpected(ResponseNeverArrived)`, takes a new message id, pushes\n`can_retry_after` out and resends `Deregister`.\n3. `Deregister` is idempotent on the relay chain:\n- If the first request went through, the para is already offboarding or\ngone, so it is confirmed again and the deposits are released.\n- If it was refused, it is refused again and the para goes back to\n`Registered`.\n4. The parachain only accepts the answer to the latest request. An\nanswer to an older one is reported as `StaleResponse` and dropped.\n\n### Changes\n\n- `registrar-primitives`: `FailureReason::NotDeregisterable`.\n- `pallet-registrar-para`:\n  - `deregister` and `on_deregister_response` are implemented.\n- New events: `ReservationDropped`, `DeregisterRequested`,\n`Deregistered`, `DeregistrationFailed`.\n  - New error: `CannotRetryYet`.\n- New weights: `deregister_reserved`, `deregister_registered`,\n`deregister_retry`.\n- `pallet-registrar-relay`:\n  - `Deregister` is handled.\n  - New events: `Deregistered`, `DeregistrationRejected`.\n  - New weight: `receive_deregister`.\n- `polkadot-runtime-common`: `paras_registrar` implements\n`ParachainRegistrar::deregister`.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-20T12:18:36Z",
+          "tree_id": "cb1c7abd2918532d451aa362f70bcaf39be83035",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/193aa6c20eed45a960830aabedae6d6b8213abe9"
+        },
+        "date": 1792515455001,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4516463,
+            "range": "± 28587",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 286818,
+            "range": "± 2413",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4675455,
+            "range": "± 66720",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 355684,
+            "range": "± 2760",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5410183,
+            "range": "± 58373",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 880373,
+            "range": "± 8933",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10686971,
+            "range": "± 62316",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4780948,
+            "range": "± 38754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43080214,
+            "range": "± 442016",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38416396,
+            "range": "± 653967",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 372622108,
+            "range": "± 5352956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 302687862,
+            "range": "± 2113370",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2569146549,
+            "range": "± 8033625",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2349833491,
+            "range": "± 19975828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3299113,
+            "range": "± 23174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1821989,
+            "range": "± 9135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3379954,
+            "range": "± 23696",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1887005,
+            "range": "± 14293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 3827143,
+            "range": "± 41930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2196637,
+            "range": "± 13765",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7585741,
+            "range": "± 43361",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5200516,
+            "range": "± 61082",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37393244,
+            "range": "± 204929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36273954,
+            "range": "± 496265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 315471573,
+            "range": "± 2542887",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 282567888,
+            "range": "± 1620860",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2443078907,
+            "range": "± 13831394",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2500891360,
+            "range": "± 100892269",
             "unit": "ns/iter"
           }
         ]
