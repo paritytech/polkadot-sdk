@@ -119,7 +119,7 @@ impl Oracle {
 		}
 
 		let mut roots = HashMap::new();
-		roots.insert(empty_root(), 0);
+		roots.insert(empty_root().0, 0);
 		for (m, frontier) in frontiers.iter().enumerate().skip(1) {
 			roots.insert(frontier.root().0, m);
 		}
@@ -179,7 +179,7 @@ impl Oracle {
 		for frontier in &frontiers[1..] {
 			let peaks = frontier.peaks();
 			for start in 0..peaks.len() {
-				palette.insert(bag_peaks(&peaks[start..]).expect("non-empty peaks bag; qed"));
+				palette.insert(bag_peaks(&peaks[start..]));
 			}
 		}
 		palette.extend(roots.keys().copied());
