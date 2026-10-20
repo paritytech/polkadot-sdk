@@ -100,6 +100,7 @@ pub struct WindowGrant {
 	pub max_messages: u32,
 	/// Max cumulative bytes in flight beyond the watermark.
 	pub max_bytes: u64,
+	/// Max size of one encoded [`SpecMsgKind`] leaf the sender may send.
 	pub max_message_size: u32,
 }
 
@@ -125,6 +126,7 @@ pub struct Register {
 	/// Cumulative confirmation watermark: consumed up to this position. Monotonic and idempotent,
 	/// so lost or delayed confirmations are harmless; the latest supersedes.
 	pub up_to: MessagePosition,
+	/// The advisory send window beyond `up_to`.
 	pub grant: WindowGrant,
 	/// Receiver-side close / rejection.
 	pub closed: bool,
