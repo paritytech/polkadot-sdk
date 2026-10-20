@@ -766,11 +766,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			amount: credit,
 		});
 		T::CallbackHandle::transferred(&id, source, dest, credit);
-		// A self-transfer is skipped above, dust included.
-		if source != dest {
-			if let Some(burn) = maybe_burn {
-				T::CallbackHandle::burned(&id, source, burn);
-			}
+		if let Some(burn) = maybe_burn {
+			T::CallbackHandle::burned(&id, source, burn);
 		}
 		Ok((credit, source_died))
 	}
