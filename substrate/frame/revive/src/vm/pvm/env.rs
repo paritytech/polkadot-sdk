@@ -109,8 +109,7 @@ impl<T: Config> ContractBlob<T> {
 	pub fn from_pvm_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {
 		// We do validation only when new code is deployed. This allows us to increase
 		// the limits later without affecting already deployed code.
-		let available_syscalls = list_syscalls();
-		let code = limits::code::enforce::<T>(code, available_syscalls)?;
+		let code = limits::code::enforce::<T>(code)?;
 
 		let code_len = code.len() as u32;
 		let deposit = calculate_code_deposit::<T>(code_len);
