@@ -432,12 +432,9 @@ mod tests {
 		}
 	}
 
-	/// End-to-end composition, exercising the non-trivial branches (`base > 0`, a *real* extension
-	/// bridging an unconsumed tail): a sender stream of 6 messages commits a `StreamsRoot`; a
-	/// partial fetch (base 2, messages 2..3, extension bridging 4→6) verifies under that root;
-	/// and the receiver's consumption of those messages lifts (the same 4→6 extension +
-	/// `tree_proof`) into the same `StreamsRoot` via `build_requires`. Fetch and requires run
-	/// the same `extension` + `tree_proof` check, so this shows they compose.
+	/// A 6-message stream commits a `StreamsRoot`; a partial fetch (messages 2..3, extension 4→6)
+	/// verifies under it, and consuming the same messages lifts to the same root through
+	/// `build_requires`. Fetch and lift run the same `extension` + `tree_proof` check.
 	#[test]
 	fn composition_fetch_verify_then_build_requires() {
 		let source = ParaId::from(1000);
@@ -520,9 +517,7 @@ mod tests {
 		);
 	}
 
-	/// End-to-end: a sender builds a stream MMR, commits its root into a `StreamsRoot`, and serves
-	/// a response covering the whole stream from `base = 0`; the receiver authenticates it under
-	/// the committed root and recovers the payloads.
+	/// A response for the whole stream from `base = 0` verifies under the committed root.
 	#[test]
 	fn messages_response_round_trips_under_streams_root() {
 		let payloads: Vec<Vec<u8>> = (0..4u8).map(|i| vec![i, i + 1, i + 2]).collect();
@@ -712,9 +707,8 @@ mod tests {
 			Err(VerifyError::MalformedResponse),
 		);
 
-		// A `base` past the leaf-count ceiling must reject cleanly. It becomes the frontier's leaf
-		// count, which the extension derives node positions from. One set bit, so one peak passes
-		// the shape check and the ceiling is what rejects.
+		// A `base` past the ceiling. One set bit means one peak passes the shape check, so the
+		// ceiling is what rejects.
 		let too_large = MessagesResponse {
 			base: MessagePosition(1 << 63),
 			leaf_version: 0,
@@ -791,10 +785,7 @@ mod tests {
 		assert_eq!(ExchangeResponse::Event(eresp).encode()[0], 0x01);
 	}
 
-	/// End-to-end: a sender builds a stream MMR, commits its root into a `StreamsRoot`, and serves
-	/// the head event with a single-leaf inclusion proof; the receiver authenticates it under
-	/// the committed root, recovering the head position and payload. Wrong root / tampered payload
-	/// must reject.
+	/// The head event verifies under the committed root; a wrong root or payload does not.
 	#[test]
 	fn event_response_round_trips_under_streams_root() {
 		let stream = ch(2000);
@@ -960,9 +951,7 @@ mod tests {
 
 	#[test]
 	fn event_response_tree_proof_failure_surfaces_as_treeproof() {
-		// A valid head inclusion proof but a structurally-broken tree proof (split_bit past the key
-		// width) → the keyed-tree walk fails before any `under` comparison → TreeProof (distinct
-		// from RootMismatch).
+		// A split bit past the key width fails the tree walk (`TreeProof`, not `RootMismatch`).
 		let stream = ch(2000);
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i]).collect();
 		let store = MemStore::<Hash>::default();

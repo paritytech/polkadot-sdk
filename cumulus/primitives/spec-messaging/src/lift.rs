@@ -590,13 +590,10 @@ mod tests {
 		assert_eq!(id.verify(&frontier_at(&all, 3)), Ok(root_at(&all, 3)));
 	}
 
-	/// The derived connecting-node positions must equal what `gen_ancestry_proof` actually emits,
-	/// for every `(k, n)` shape: the invariant that lets `connecting_nodes` store bare hashes.
-	///
-	/// Exhaustive over every `(old, new)` pair up to 256 leaves, which covers the all-ones sizes
-	/// 127 and 255 (seven and eight peaks) and the single-peak powers of two beside them. If
-	/// `mmr_lib`'s node set or order drifts, this trips; `Cargo.lock` makes a drift a deliberate
-	/// bump.
+	/// `connecting_nodes` stores bare hashes, so the positions we derive must match what
+	/// `gen_ancestry_proof` emits. Checked for every `(old, new)` pair up to 256 leaves, which
+	/// includes the seven- and eight-peak sizes 127 and 255. A change in `mmr_lib` trips this;
+	/// `Cargo.lock` pins it.
 	#[test]
 	fn ancestry_positions_matches_mmr_lib() {
 		for n in 2..=256usize {
@@ -618,10 +615,8 @@ mod tests {
 
 	#[test]
 	fn extension_leaf_count_disambiguates_equal_node_counts() {
-		// Encoding spec §12, item 4: extending one leaf to three and to four both take two
-		// connecting nodes, placed differently. That is why `leaf_count` is carried (the verifier
-		// cannot derive it from the node count) and why the nodes carry no positions (the count
-		// fixes them).
+		// Encoding spec §12, item 4: 1→3 and 1→4 both take two nodes, placed differently, so
+		// only `leaf_count` tells them apart.
 		let all = leaves(4);
 		let to3 = extension(&all, 1, 3);
 		let to4 = extension(&all, 1, 4);
@@ -674,10 +669,8 @@ mod tests {
 
 	#[test]
 	fn extension_identity_on_empty_frontier_yields_empty_root() {
-		// The empty frontier has the defined root `empty_root()` (encoding spec §3.2); the
-		// identity extension yields it like any other frontier's own root. Nothing binds
-		// it to a committed entry; an empty stream is never in the StreamsRoot tree, so
-		// a downstream tree walk fails naturally.
+		// Yields `empty_root()` (encoding spec §3.2). An empty stream is never in the tree, so
+		// the tree walk is what fails.
 		assert_eq!(
 			MMRExtensionProof::identity().verify(&MmrFrontier::default()),
 			Ok(MmrFrontier::default().root()),
@@ -686,9 +679,8 @@ mod tests {
 
 	#[test]
 	fn the_longest_valid_extension_fits_the_node_ceiling() {
-		// The worst shape: one leaf extended to the largest count with every bit set, one
-		// connecting node per bit. The lift's PoV reservation assumes this stays within the
-		// ceiling.
+		// Worst case, one node per set bit: 1 → the largest all-ones count. The lift's PoV
+		// reservation relies on it.
 		let nodes =
 			ancestry_positions(mmr_size(1), mmr_size((MAX_MMR_LEAF_COUNT - 1) as usize)).len();
 		assert_eq!(nodes, 48);
@@ -866,10 +858,7 @@ mod tests {
 
 	#[test]
 	fn late_block_non_identity_extension_end_to_end() {
-		// The core of the unified lift: the block ended at frontier@2, but the stream's current
-		// committed root is @5. A non-identity `extension` proves @2 forward to @5, and the tree
-		// walk from @5 yields the committed StreamsRoot. Every other build_requires test uses the
-		// identity extension; this drives a real forward proof through the whole path.
+		// The block ended at @2 and the committed root is at @5: a real extension bridges them.
 		let all = leaves(5);
 		let stream = ch(2000);
 		let committed = root_at(&all, 5);
@@ -886,9 +875,7 @@ mod tests {
 
 	#[test]
 	fn multi_stream_source_converges_on_one_root() {
-		// A source commits ONE StreamsRoot over ALL its streams. Two streams at different frontiers
-		// must both lift to that same root — the happy path the divergent-roots test only shows
-		// failing.
+		// Two streams at different frontiers both lift to the source's one `StreamsRoot`.
 		let all = leaves(5);
 		let (a, b) = (ch(2000), ch(3000));
 		let (ra, rb) = (root_at(&all, 3), root_at(&all, 5));
@@ -954,9 +941,8 @@ mod tests {
 
 	#[test]
 	fn build_requires_entry_stitches_a_bundle_gap() {
-		// Two intervals in one stream (a bundle where block 2 jumped context @2 → @4), bridged by
-		// an advance, then extended @5 → committed root. stitch is unit-tested alone; this composes
-		// it into the full entry path.
+		// A bundle whose second block jumped @2 → @4: an advance bridges the gap, then the
+		// extension reaches the committed @5.
 		let all = leaves(5);
 		let stream = ch(2000);
 		let committed = root_at(&all, 5);
@@ -1032,9 +1018,7 @@ mod tests {
 
 	#[test]
 	fn build_requires_entry_rejects_a_malformed_tree_proof() {
-		// stitch and extension succeed, but a tree_proof with an out-of-range split bit cannot
-		// fold to any StreamsRoot → BadTreeProof. (A single-stream tree's real proof is empty, so
-		// the malformed step has to be hand-built.)
+		// A hand-built step with an out-of-range split bit (a one-stream tree has no real steps).
 		let all = leaves(3);
 		let stream = ch(2000);
 		let streams = SourceStreams::from([(
@@ -1137,9 +1121,8 @@ mod tests {
 		assert_eq!(frontier.leaf_count(), 6);
 		assert_eq!(frontier.root(), root_at(&all, 6));
 
-		// A different leaf under the same proof derives a frontier whose root does not match, an
-		// old leaf cannot be forged as the head (the derived-root mismatch is what downstream
-		// `under` comparison rejects).
+		// Another leaf under the same proof gives a different root, so an old leaf can't pass as
+		// the head.
 		let (_, forged) = proof.verify_head(all[0]).expect("shape still parses");
 		assert_ne!(forged.root(), root_at(&all, 6));
 
@@ -1245,18 +1228,14 @@ mod tests {
 	#[test]
 	fn inclusion_verify_head_rejects_non_head_proof() {
 		let all = leaves(6);
-		// A proof generated for a non-head leaf (index 2) has a different item count than the
-		// head's expected shape (3 vs 2 for a 6-leaf MMR), so `verify_head`'s exact item-count
-		// gate rejects it: a non-head leaf cannot be passed off as the head.
+		// Leaf 2's proof has 3 items; a 6-leaf head proof has 2.
 		let non_head = inclusion(&all, 6, 2);
 		assert_eq!(non_head.verify_head(all[2]), Err(ProofError::InvalidProof));
 	}
 
 	#[test]
 	fn inclusion_head_and_leaf_agree_on_root() {
-		// Cross-check the two crypto paths: `verify_head`'s manual peak walk and `verify_leaf`'s
-		// `mmr_lib::calculate_root` must derive the *same* root for the head leaf (and the
-		// committed stream root). Guards against the two implementations diverging.
+		// `verify_head`'s own peak walk and `mmr_lib::calculate_root` must agree.
 		let all = leaves(6);
 		let proof = inclusion(&all, 6, 5);
 		let (pos, frontier) = proof.verify_head(all[5]).expect("head verifies");

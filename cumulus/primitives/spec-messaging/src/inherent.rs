@@ -93,17 +93,13 @@ impl ConsumedStream {
 	}
 }
 
-/// The messaging inherent: this block's consumption, per `(source, stream)`.
+/// The messaging inherent: this block's consumption, per `(source, stream)`. A block that consumed
+/// nothing carries none.
 ///
-/// Strict on import. Dispatch is mandatory and first in the block. One invalid item (duplicate or
-/// undeclared stream, cap violation, kind/discipline mismatch, `base` at or below an event
-/// stream's highwater) invalidates the block.
-///
-/// Bad items are filtered when building, not tolerated on import: inherent items pay no fees, so
-/// tolerance would let a collator pad blocks. It also keeps [`crate::ConsumptionRecord`] simple:
-/// every item, no rejected-item bookkeeping.
-///
-/// A block that fetched nothing carries no inherent.
+/// Strict on import: one invalid item (duplicate or undeclared stream, cap violation, wrong
+/// discipline for the kind, `base` at or below an event stream's highwater) invalidates the block.
+/// The builder filters bad items instead. Inherent items pay no fees, so tolerating them would let
+/// a collator pad blocks, and [`crate::ConsumptionRecord`] can hold every item as is.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MessagingInherentData {
 	/// One item per stream consumed this block.
@@ -152,18 +148,15 @@ pub enum ConsumeItem {
 	/// bind.
 	#[codec(index = 0)]
 	Channel { payloads: Vec<Payload> },
-	/// Inclusion discipline (registers, event streams): the frontier arrives in the item.
-	/// `start_peaks` is the stream's peak set at `base`, standing in for the frontier a lossy
-	/// consumer does not keep. `payloads.len() >= 1`; a register or head read is the
-	/// single-payload case at the head.
+	/// Inclusion discipline (registers, event streams): the item carries the frontier, since a
+	/// lossy consumer keeps none. `start_peaks` are the peaks at `base`. At least one payload;
+	/// a register or head read has exactly one.
 	///
-	/// `base` and `start_peaks` are hints: the STF rebuilds the frontier with
-	/// `MmrFrontier::from_parts`, and a lie in either yields a root no lift can bind, since the
-	/// stream root binds the leaf count (`MmrRoot::from_bag`).
+	/// `base` and `start_peaks` are unchecked hints: a lie in either yields a root no lift can
+	/// bind, because the stream root commits the leaf count.
 	///
-	/// Replay of an older leaf is stopped by position: a register read below the stored
-	/// `RegisterRead::at` is ignored; an event read must exceed the stream's highwater,
-	/// consumption is ascending, and the highwater becomes `base + len - 1`.
+	/// Replay: a register read below the stored `RegisterRead::at` is ignored; an event read must
+	/// be above the stream's highwater, which then moves to `base + len - 1`.
 	#[codec(index = 1)]
 	Events { base: MessagePosition, start_peaks: Vec<Hash>, payloads: Vec<Payload> },
 }

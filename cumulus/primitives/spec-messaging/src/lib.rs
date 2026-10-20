@@ -16,14 +16,13 @@
 
 //! Primitives for the Speculative Messaging protocol (v0.5).
 //!
-//! A sender parachain accumulates each outgoing stream into an MMR and commits every stream's root
-//! into one `StreamsRoot`, a keyed commitment tree. The relay chain matches sender commitments
-//! (`Provides`) against receiver expectations (`Requires`), so both sides can process messages
-//! speculatively and confirm them later.
+//! A sender parachain keeps each outgoing stream as an MMR and commits all stream roots as one
+//! `StreamsRoot` (a keyed trie). Messages travel between collators; the relay chain only checks
+//! that each receiver's `Requires` matches a sender's `Provides`.
 //!
-//! `StreamsRoot` and `RequiresSet` are relay-visible and live in `polkadot-primitives`; this crate
-//! holds the parachain-side primitives that build them and the off-chain wire types. The byte
-//! formats, cited below as the "encoding spec", are in this crate's `ENCODING.md`.
+//! The relay-visible types (`StreamsRoot`, `RequiresSet`) are in `polkadot-primitives`. This crate
+//! has the parachain-side types and the off-chain wire format. `ENCODING.md` (the "encoding spec"
+//! below) pins the bytes.
 //!
 //! # Modules
 //!

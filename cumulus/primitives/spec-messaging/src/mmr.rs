@@ -343,10 +343,8 @@ mod tests {
 
 	#[test]
 	fn mmr_root_frozen_vector() {
-		// FROZEN consensus vector: appending these fixed leaves must always bag to this exact root.
-		// Any change to `SpecMerge`'s inner/peak domain tags or the peak-bagging order is a
-		// consensus break and breaks this test. (Round-trip tests can't catch a silent
-		// byte-format change.) Pinned for `LEAF/INNER/PEAK/ROOT = 0x1/0x2/0x3/0x4`.
+		// Frozen consensus vector for tags `LEAF/INNER/PEAK/ROOT = 0x1/0x2/0x3/0x4`: a change to
+		// the tags or the bagging order is a consensus break and fails this.
 		let mut acc = MmrFrontier::new();
 		for i in 1..=5u8 {
 			acc.append(h(i));
@@ -361,9 +359,8 @@ mod tests {
 
 	#[test]
 	fn mmr_root_frozen_vectors_at_64_and_65_leaves() {
-		// FROZEN consensus vectors (encoding spec §12, item 2): 64 leaves collapse to a single peak
-		// through the full six-level merge chain; 65 adds a second peak and exercises bagging over
-		// it. Values computed independently of this crate (a Python model of §3.2's tag layout).
+		// Frozen vectors (encoding spec §12, item 2), computed by an independent Python model: 64
+		// leaves make one peak, 65 add a second to bag.
 		let mut acc = MmrFrontier::new();
 		for i in 1..=64u8 {
 			acc.append(h(i));
