@@ -19,9 +19,11 @@
 //! See [Fellowship RFC 105](https://github.com/polkadot-fellows/rfCs/pull/105)
 //! and the [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
+use codec::{Decode, Encode};
 use xcm::prelude::*;
 
 use super::mock::*;
+use crate::XcmExecutor;
 
 // The sender and recipient we use across these tests.
 const SENDER: [u8; 32] = [0; 32];
@@ -189,6 +191,77 @@ fn fees_can_be_refunded() {
 }
 
 // ===== Unhappy path =====
+
+fn assert_refund_cleanup(holding_asset_count: u32, expected_native: u128) {
+	add_asset(SENDER, (Here, 100u128));
+	let held_assets: Vec<Asset> = (0..holding_asset_count)
+		.map(|i| (GeneralIndex(u128::from(i)), 10u128).into())
+		.collect();
+	for asset in &held_assets {
+		add_asset(SENDER, asset.clone());
+	}
+
+	let xcm = Xcm::<TestCall>::builder()
+		.withdraw_asset((Here, 100u128))
+		.pay_fees((Here, 10u128))
+		.deposit_asset(All, RECIPIENT)
+		.withdraw_asset(held_assets.clone())
+		// The unused handler creates refundable surplus through the normal execution path.
+		.set_error_handler(Xcm(vec![ClearOrigin]))
+		.build();
+	let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
+		SENDER,
+		xcm,
+		&mut [0; 32],
+		Weight::MAX,
+		Weight::zero(),
+	);
+	assert!(outcome.ensure_complete().is_ok());
+	assert_eq!(asset_list(RECIPIENT), [(Here, 90u128).into()]);
+
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert!(
+		trapped.contains(&(Here, expected_native).into()),
+		"unused fees must be trapped even if the surplus refund fails"
+	);
+	let mut expected = held_assets;
+	expected.push((Here, expected_native).into());
+	expected.sort();
+	assert_eq!(trapped, expected);
+	TRAPPED_ASSET_BATCHES.with(|batches| {
+		for batch in batches.borrow().iter() {
+			let encoded = Assets::from(batch.clone()).encode();
+			assert!(
+				Assets::decode(&mut &encoded[..]).is_ok(),
+				"each trapped batch must be decodable in a claim instruction"
+			);
+		}
+	});
+}
+
+#[test]
+fn leftover_fees_are_trapped_when_surplus_refund_overflows_holding() {
+	// Holding has no native asset and is at its worst-case bound. The trader takes back
+	// the failed refund, but the six native units left in the fees register must be trapped.
+	assert_refund_cleanup(2 * MaxAssetsIntoHolding::get(), 6);
+	TRAPPED_ASSET_BATCHES.with(|batches| {
+		assert_eq!(
+			batches.borrow().len(),
+			2,
+			"holding and leftover fees must be trapped separately"
+		);
+	});
+}
+
+#[test]
+fn surplus_and_leftover_fees_are_trapped_when_holding_has_room() {
+	// With room for the native refund, both the four refunded units and six leftover
+	// fee units reach the asset trap.
+	assert_refund_cleanup(2 * MaxAssetsIntoHolding::get() - 1, 10);
+	TRAPPED_ASSET_BATCHES.with(|batches| {
+		assert_eq!(batches.borrow().len(), 1, "successful refunds keep their existing trap batch");
+	});
+}
 
 #[test]
 fn putting_all_assets_in_pay_fees() {
