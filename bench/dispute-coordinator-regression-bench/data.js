@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792502695567,
+  "lastUpdate": 1792516674165,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c9e84992741de0136fbf7ca66727a1aa42fb8433",
-          "message": "statement-store: add concurrent and multi-peer propagation tests (#11611)\n\n# Description\n\nImplement unit tests for \"Propagation under normal load\" #11534 \n\n## Summary\n- Add 3 multi-peer propagation tests for the network handler (all-peers\ndelivery, known-statement filtering, same-statement deduplication)\n- Refactor 3 duplicate test builder functions into a single canonical\n`build_handler_multi_peers(n)` with thin wrappers\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-07T09:07:33Z",
-          "tree_id": "d4e9da1978b569e219ad7f518379490cb6b2604a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c9e84992741de0136fbf7ca66727a1aa42fb8433"
-        },
-        "date": 1775560534946,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002661212250000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009493603099999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009992405459999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011178470169999993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "193aa6c20eed45a960830aabedae6d6b8213abe9",
+          "message": "Registrar: Deregister (#13091)\n\n## Registrar: deregister\nCloses #12816 \n\nImplements deregister flow on the parachain in registrar. New flow\ncovers deregistering through para (CT in Polkadot case) and relay\naccepting it.\n\n### Deregister flow\n\n1. The manager (or root, or the para itself) calls\n`pallet-registrar-para::deregister(para_id)`. A locked para is out of\nthe manager's hands.\n2. If the id was only reserved, the relay chain never knew it. The\nreservation is released, the entry is removed and nothing is sent.\n3. If the para is registered, it moves to `Deregistering { ticket,\ncan_retry_after, message_id }` and `Deregister { para_id, message_id }`\ngoes to the relay chain. Both deposits stay held.\n4. On the relay chain, `pallet-registrar-relay` calls\n`ParachainRegistrar::deregister`:\n- A parathread is dropped through `paras_registrar::do_deregister`.\nCleanup is scheduled and `AwaitingFirstHead` is cleared.\n   - A para that is already gone or offboarding answers `Ok`.\n   - Anything else (onboarding, a lease-holding parachain) is refused.\n\nThere are no origin or lock checks here, because those belong to the\nparachain that took the deposit.\n5. The relay chain answers with `DeregisterResponse`:\n- `Ok(())`: the parachain releases both deposits and removes the entry.\n- `Err(NotDeregisterable)`: the para goes back to `Registered` with its\ndeposits.\n\nA rejected request still returns `Ok` on the relay chain, so the report\nisn't rolled back.\n\n### Retry flow\n\nA lost answer leaves the para in `Deregistering` with both deposits\nheld. There is no separate cancel message. The manager just asks again:\n\n1. From `can_retry_after` (`PendingDeadline` after the last request),\nthe manager calls `deregister` again. Before that it fails with\n`CannotRetryYet`, so the relay chain isn't asked once per block.\n2. The retry reports the missing answer as\n`Unexpected(ResponseNeverArrived)`, takes a new message id, pushes\n`can_retry_after` out and resends `Deregister`.\n3. `Deregister` is idempotent on the relay chain:\n- If the first request went through, the para is already offboarding or\ngone, so it is confirmed again and the deposits are released.\n- If it was refused, it is refused again and the para goes back to\n`Registered`.\n4. The parachain only accepts the answer to the latest request. An\nanswer to an older one is reported as `StaleResponse` and dropped.\n\n### Changes\n\n- `registrar-primitives`: `FailureReason::NotDeregisterable`.\n- `pallet-registrar-para`:\n  - `deregister` and `on_deregister_response` are implemented.\n- New events: `ReservationDropped`, `DeregisterRequested`,\n`Deregistered`, `DeregistrationFailed`.\n  - New error: `CannotRetryYet`.\n- New weights: `deregister_reserved`, `deregister_registered`,\n`deregister_retry`.\n- `pallet-registrar-relay`:\n  - `Deregister` is handled.\n  - New events: `Deregistered`, `DeregistrationRejected`.\n  - New weight: `receive_deregister`.\n- `polkadot-runtime-common`: `paras_registrar` implements\n`ParachainRegistrar::deregister`.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-20T12:18:36Z",
+          "tree_id": "cb1c7abd2918532d451aa362f70bcaf39be83035",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/193aa6c20eed45a960830aabedae6d6b8213abe9"
+        },
+        "date": 1792516640281,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002498183909999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00923287292999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01002334039,
             "unit": "seconds"
           }
         ]
