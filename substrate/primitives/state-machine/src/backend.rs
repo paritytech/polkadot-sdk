@@ -177,8 +177,6 @@ pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
 /// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in the
 /// real storage root computation.
-///
-/// `None` until the first size estimation call applies a removal that is still part of the block.
 pub type EstimationTrie<H> = sp_trie::DetachedTrieDBMut<sp_trie::LayoutV1<H>>;
 
 /// A state backend is used to read state data and can have changes committed
