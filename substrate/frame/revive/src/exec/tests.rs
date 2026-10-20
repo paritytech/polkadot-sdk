@@ -2121,6 +2121,20 @@ fn persistent_state_changes_are_denied_in_a_stipend_limited_frame() {
 
 #[test]
 fn state_changes_are_denied_in_a_read_only_frame() {
+	fn send_value_to_recipients(
+		ext: &mut MockStack<'_>,
+		protections: CallProtections,
+	) -> Vec<(&'static str, Result<(), ExecError>)> {
+		[(DJANGO_ADDR, "a contract"), (ALICE_ADDR, "an account without code")]
+			.into_iter()
+			.map(|(dest, recipient)| {
+				let result =
+					ext.call(&CallResources::NoLimits, &dest, U256::one(), vec![], protections);
+				(recipient, result)
+			})
+			.collect()
+	}
+
 	let dummy_ch = MockLoader::insert(Constructor, |_, _| exec_success());
 	let django_ch = MockLoader::insert(Call, |_, _| exec_success());
 	let charlie_ch = MockLoader::insert(Call, move |ctx, _| {
@@ -2134,17 +2148,7 @@ fn state_changes_are_denied_in_a_read_only_frame() {
 			Err(Error::<Test>::StateChangeDenied.into()),
 			"a read-only callee should not write transient storage"
 		);
-		assert_eq!(
-			ctx.ext.call(
-				&CallResources::NoLimits,
-				&DJANGO_ADDR,
-				U256::one(),
-				vec![],
-				CallProtections::none()
-			),
-			Err(Error::<Test>::StateChangeDenied.into()),
-			"a read-only callee should not send value"
-		);
+
 		assert_eq!(
 			ctx.ext.instantiate(
 				&CallResources::NoLimits,
@@ -2161,24 +2165,24 @@ fn state_changes_are_denied_in_a_read_only_frame() {
 			Err(Error::<Test>::StateChangeDenied.into()),
 			"a read-only callee should not terminate its caller"
 		);
+		for (recipient, result) in send_value_to_recipients(ctx.ext, CallProtections::none()) {
+			assert_eq!(
+				result,
+				Err(Error::<Test>::StateChangeDenied.into()),
+				"a read-only callee should not send value to {recipient}"
+			);
+		}
 		exec_success()
 	});
 	let bob_ch = MockLoader::insert(Call, |ctx, _| {
-		assert_eq!(
-			ctx.ext.call(
-				&CallResources::NoLimits,
-				&DJANGO_ADDR,
-				U256::one(),
-				vec![],
-				CallProtections {
-					reentrancy: ReentrancyProtection::AllowReentry,
-					read_only: true,
-					stipend_limited: false,
-				},
-			),
-			Err(Error::<Test>::StateChangeDenied.into()),
-			"a read-only call should not carry value"
-		);
+		let protections = CallProtections { read_only: true, ..CallProtections::none() };
+		for (recipient, result) in send_value_to_recipients(ctx.ext, protections) {
+			assert_eq!(
+				result,
+				Err(Error::<Test>::StateChangeDenied.into()),
+				"a call with `read_only` set should not carry value to {recipient}"
+			);
+		}
 		// A frame that is also stipend-limited must still report the read-only denial.
 		for stipend_limited in [false, true] {
 			assert_ok!(ctx.ext.call(

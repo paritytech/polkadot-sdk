@@ -543,7 +543,8 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Returns `OutOfGas` if the current frame is stipend-limited.
 	///
-	/// A precompile must call this before every function that changes state.
+	/// A precompile that changes state by calling into another pallet, for example to move
+	/// balances or assets, must call this first.
 	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError>;
 
 	/// Check if running as a delegate call.

@@ -405,15 +405,13 @@ pub mod env {
 		input_data: u64,
 		output_data: u64,
 	) -> Result<ReturnErrorCode, TrapReason> {
-		let call_flags = CallFlags::from_bits(flags);
 		let (input_data_len, input_data_ptr) = extract_hi_lo(input_data);
 		let (output_len_ptr, output_ptr) = extract_hi_lo(output_data);
 		let (resources, stipend_limited) = if gas == u64::MAX {
 			(CallResources::NoLimits, false)
 		} else {
-			let read_only = call_flags.is_some_and(|flags| flags.contains(CallFlags::READ_ONLY));
 			let stipend_and_protections =
-				StipendAndProtections::new(U256::zero(), Some(gas), read_only);
+				StipendAndProtections::new(U256::zero(), Some(gas), false);
 			(
 				CallResources::from_ethereum_gas(
 					gas.into(),
@@ -425,7 +423,7 @@ pub mod env {
 
 		self.call(
 			memory,
-			call_flags.ok_or(Error::<E::T>::InvalidCallFlags)?,
+			CallFlags::from_bits(flags).ok_or(Error::<E::T>::InvalidCallFlags)?,
 			CallType::DelegateCall { stipend_limited },
 			callee,
 			&resources,
