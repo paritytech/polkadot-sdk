@@ -113,8 +113,8 @@ impl MMRExtensionProof {
 	/// committed `StreamsRoot` can bind. The proof's own leaf count is checked against
 	/// [`MAX_MMR_LEAF_COUNT`] first; within it, the derived `mmr_lib` size is always valid.
 	pub fn verify(&self, from: &MmrFrontier) -> Result<MmrRoot, ProofError> {
-		// The proof's leaf count arrives raw. `from` is already in range and consistent by
-		// construction.
+		// `mmr_lib` accepts counts up to 2^63; bound the proof's to `MAX_MMR_LEAF_COUNT` first.
+		// `from` is already in range by construction.
 		if self.leaf_count > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
