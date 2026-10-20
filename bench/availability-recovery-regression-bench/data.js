@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792402611352,
+  "lastUpdate": 1792502493970,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b0afea2776217a1a79cca98237464186b40ef248",
-          "message": "[Release|CI/CD] Fix warnings in GH workflows or release pipeline (#11632)\n\nhttps://github.com/paritytech/release-engineering/issues/291\n\nTODO:\n- handle warnings on all workflows regarding deprecated Node version 20",
-          "timestamp": "2026-04-07T16:04:23Z",
-          "tree_id": "2fdb315f6425204ed4d76d5765c6247515d57299",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0afea2776217a1a79cca98237464186b40ef248"
-        },
-        "date": 1775583270904,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.782452935733332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12287718549999997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12293539166666663,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bruno.devic@parity.io",
+            "name": "BDevParity",
+            "username": "BDevParity"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aeb228f71799c9973a4e119aa15c016e1f0ce394",
+          "message": "[Release|CI/CD] Add publish delay on publish crates workflow (#11837)\n\nForwards a new `publish_delay` workflow input to `parity-publish apply`\nas `--publish-delay SECS`. The flag sleeps between parallel publish\nbatches within a dependency level, helping avoid crates.io rate limits\non large releases. Default is 0 (no delay, preserves existing behavior).\n\nBumps pinned parity-publish install to 0.10.16 which introduces the\nflag.\n\nCo-authored-by: EgorPopelyaev <egor@parity.io>",
+          "timestamp": "2026-10-20T10:21:17Z",
+          "tree_id": "1f800c82c40f975619768596a292a280c67de691",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aeb228f71799c9973a4e119aa15c016e1f0ce394"
+        },
+        "date": 1792502459903,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1365801928,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.559331511599998,
             "unit": "seconds"
           }
         ]
