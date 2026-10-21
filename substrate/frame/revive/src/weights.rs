@@ -87,7 +87,7 @@ pub trait WeightInfo {
 	fn eth_instantiate_with_code(c: u32, i: u32, d: u32, ) -> Weight;
 	fn deposit_eth_extrinsic_revert_event() -> Weight;
 	fn instantiate(i: u32, ) -> Weight;
-	fn code_load() -> Weight;
+	fn code_load(w: u32, ) -> Weight;
 	fn account_info_read() -> Weight;
 	fn call() -> Weight;
 	fn eth_call(d: u32, ) -> Weight;
@@ -553,17 +553,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(7_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
+	/// The range of component `w` is `[0, 1]`.
+	fn code_load(w: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `625`
 		//  Estimated: `4090`
 		// Minimum execution time: 9_273_000 picoseconds.
 		Weight::from_parts(10_191_000, 4090)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(w.into())))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
@@ -2541,17 +2543,19 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(7_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
 	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:1 w:0)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn code_load() -> Weight {
+	/// The range of component `w` is `[0, 1]`.
+	fn code_load(w: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `625`
 		//  Estimated: `4090`
 		// Minimum execution time: 9_273_000 picoseconds.
 		Weight::from_parts(10_191_000, 4090)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(w.into())))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)

@@ -128,20 +128,16 @@ enum CodeLoadToken {
 }
 
 impl CodeLoadToken {
-	/// Computes the flat cost of the code entries at their own warmth, plus the write that
-	/// `code_load` does not measure.
+	/// Computes the flat cost of the code entries at their own warmth.
 	fn flat_cost<T: Config>(warmth: Summarized<CodeLoadWarmth>) -> Weight {
 		let summary = warmth.summary();
-		// The `code_load` bench only reads, so a cold write still owes its re-hash.
-		let cold_writes_weight =
-			runtime_costs::deferred_write_cost::<T>().saturating_mul(summary.cold_writes().into());
+		let owes_write = summary.cold_writes().saturating_add(summary.upgrades()) > 0;
 		runtime_costs::weight_from_warmth_summary::<T>(
 			summary,
-			T::WeightInfo::code_load,
+			|| T::WeightInfo::code_load(owes_write.into()),
 			// Nothing on top of the base hot access.
 			Weight::zero,
 		)
-		.saturating_add(cold_writes_weight)
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
@@ -490,7 +486,7 @@ mod tests {
 				code_load_weight(code_len, code_type, load_warmth_at(Warmth::new_read_paid()));
 			assert!(cold.ref_time() > hot.ref_time(), "{code_type:?}: cold={cold:?} hot={hot:?}");
 			assert_eq!(hot.proof_size(), 0, "{code_type:?}: {hot:?}");
-			let both_reads_proof = <Test as Config>::WeightInfo::code_load().proof_size();
+			let both_reads_proof = <Test as Config>::WeightInfo::code_load(0).proof_size();
 			assert!(
 				cold.proof_size() >= both_reads_proof + u64::from(code_len),
 				"{code_type:?}: cold={cold:?} both_reads_proof={both_reads_proof} \
@@ -562,29 +558,25 @@ mod tests {
 				blob,
 			))
 		};
-		let rehash_weight = runtime_costs::deferred_write_cost::<Test>();
-		let rehash_and_upgrade_weight =
-			rehash_weight.saturating_add(runtime_costs::access_list_upgrade_overhead::<Test>());
+		let cold = Warmth::new_cold_non_revertible();
+		let read_paid = Warmth::new_read_paid();
+		let write_paid = Warmth::new_write_paid();
+		// The cold bench measures the write; the hot bench writes nothing.
+		let info_write_at_cold = <Test as Config>::WeightInfo::code_load(1)
+			.saturating_sub(<Test as Config>::WeightInfo::code_load(0));
+		let info_write_at_hot = runtime_costs::deferred_write_cost::<Test>();
+		let journal = runtime_costs::access_list_upgrade_overhead::<Test>();
 
-		assert_eq!(
-			owed_for_the_info_write(
-				Warmth::new_cold_non_revertible(),
-				Warmth::new_cold_non_revertible()
-			),
-			rehash_weight,
-		);
-		assert_eq!(
-			owed_for_the_info_write(Warmth::new_read_paid(), Warmth::new_read_paid()),
-			rehash_and_upgrade_weight,
-		);
-		assert_eq!(
-			owed_for_the_info_write(Warmth::new_read_paid(), Warmth::new_cold_non_revertible()),
-			rehash_and_upgrade_weight,
-		);
-		assert_eq!(
-			owed_for_the_info_write(Warmth::new_write_paid(), Warmth::new_read_paid()),
-			Weight::zero(),
-		);
+		for (case, info, blob, owed) in [
+			("cold info, cold blob", cold, cold, info_write_at_cold),
+			("cold info, hot blob", cold, read_paid, info_write_at_cold),
+			("read-paid info, hot blob", read_paid, read_paid, info_write_at_hot + journal),
+			("read-paid info, cold blob", read_paid, cold, info_write_at_cold + journal),
+			("write-paid info, hot blob", write_paid, read_paid, Weight::zero()),
+			("write-paid info, cold blob", write_paid, cold, Weight::zero()),
+		] {
+			assert_eq!(owed_for_the_info_write(info, blob), owed, "{case}");
+		}
 	}
 
 	#[test]

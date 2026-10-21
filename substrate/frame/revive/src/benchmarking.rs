@@ -990,8 +990,9 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// w: with or without the refcount bump of an instantiate from an existing hash
 	#[benchmark(pov_mode = Measured)]
-	fn code_load() -> Result<(), BenchmarkError> {
+	fn code_load(w: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let code_hash = contract.info()?.code_hash;
 		let mut meter =
@@ -1001,6 +1002,9 @@ mod benchmarks {
 		#[block]
 		{
 			blob = ContractBlob::<T>::from_storage(code_hash, &mut meter);
+			if w == 1 {
+				CodeInfo::<T>::increment_refcount(code_hash)?;
+			}
 		}
 		assert!(blob.is_ok(), "{:?}", blob.err());
 		Ok(())

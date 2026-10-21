@@ -295,8 +295,8 @@ pub fn deferred_write_cost<T: Config>() -> Weight {
 /// Computes the cost of an access from the warmth of its entries.
 ///
 /// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
-/// access list's own costs come on top for every entry accessed, plus the write surcharge for every
-/// read-paid entry the access writes.
+/// access list's own costs come on top for every entry accessed. The hot price pays the write
+/// surcharge for every entry that paid for a read only and is now written.
 pub fn weight_from_warmth_summary<T: Config>(
 	summary: WarmthSummary,
 	cold: impl FnOnce() -> Weight,
@@ -306,16 +306,16 @@ pub fn weight_from_warmth_summary<T: Config>(
 	// With no entries `all_hot` is vacuously true, so charge cold instead.
 	let operation_weight = if summary.all_hot() && summary.total() > 0 {
 		// One overlay lookup per entry, since each stands for one state read.
-		hot().saturating_add(
-			RuntimeCosts::hot_storage_overlay_overhead::<T>()
-				.saturating_mul(summary.total().into()),
-		)
+		hot()
+			.saturating_add(
+				RuntimeCosts::hot_storage_overlay_overhead::<T>()
+					.saturating_mul(summary.total().into()),
+			)
+			.saturating_add(RuntimeCosts::write_surcharge::<T>(summary))
 	} else {
 		cold()
 	};
-	operation_weight
-		.saturating_add(access_list_overhead::<T>(summary))
-		.saturating_add(RuntimeCosts::write_surcharge::<T>(summary))
+	operation_weight.saturating_add(access_list_overhead::<T>(summary))
 }
 
 /// How a storage access is priced.
@@ -859,6 +859,32 @@ mod tests {
 			);
 			assert_eq!(hot_weight.proof_size(), 0, "{call_kind}");
 			assert!(cold_weight.proof_size() > 0, "{call_kind}: cold={cold_weight:?}");
+		}
+	}
+
+	#[test]
+	fn a_partly_cold_call_pays_only_the_cold_bench_and_the_access_list_overhead() {
+		let cold = Warmth::new_cold_non_revertible();
+		let read_paid = Warmth::new_read_paid();
+		let write_paid = Warmth::new_write_paid();
+		// The entries in the order the call visits them: `OriginalAccount`, then `AccountInfo`,
+		// which the call writes.
+		for (case, original_account, account_info) in [
+			("cold original account, cold info", cold, cold),
+			("cold original account, read-paid info", cold, read_paid),
+			("cold original account, write-paid info", cold, write_paid),
+			("read-paid original account, cold info", read_paid, cold),
+		] {
+			let call = Summarized::from_warmths(
+				CallItems::new(H160::repeat_byte(2), false),
+				[original_account, account_info],
+			);
+			assert_eq!(
+				weight(&RuntimeCosts::CallBase(call)),
+				<Test as Config>::WeightInfo::seal_call(0, 0, 0)
+					.saturating_add(access_list_overhead::<Test>(call.summary())),
+				"{case}",
+			);
 		}
 	}
 
