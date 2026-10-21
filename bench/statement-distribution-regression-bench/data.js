@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792611299312,
+  "lastUpdate": 1792618750708,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b0afea2776217a1a79cca98237464186b40ef248",
-          "message": "[Release|CI/CD] Fix warnings in GH workflows or release pipeline (#11632)\n\nhttps://github.com/paritytech/release-engineering/issues/291\n\nTODO:\n- handle warnings on all workflows regarding deprecated Node version 20",
-          "timestamp": "2026-04-07T16:04:23Z",
-          "tree_id": "2fdb315f6425204ed4d76d5765c6247515d57299",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b0afea2776217a1a79cca98237464186b40ef248"
-        },
-        "date": 1775583365170,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.082,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03821381528400004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08419016939799992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038426379622,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7431714e049fdb008a9e2b93f918c96507a0a460",
+          "message": "statement-store: with the v2 DHT path on, steering alone edits the reserved set (#13488)\n\n# Description\n\nWith the v2 DHT path on, the statement set keeps its reserved set for\npeer steering only. Every other peer takes an inbound slot: such a peer\nis outside our reserved set but holds us in its own, as its steering\npicked us. The set has no outbound slots, since steering dials its peers\nitself. Sync peer events no longer touch the reserved set, and sync\nrecovery closes the v1 peer's substream directly, as that peer\nreconnects on its own.\n\nPeer steering tracks the peers it holds in the reserved set and reserves\nevery desired peer, including one that connected on its own. A reserved\npeer no longer desired is released: one without a substream at once, the\nconnected ones under the usual cap per refresh. A peer on the v1\nfallback protocol takes no part in the DHT path, so it stays out of the\norchestrator and is never reserved.\n\nThe soak no longer expects a full statement mesh. It waits for at least\nK open substreams per node, and the outage step confirms the disconnect\nby the sum of substreams over the online nodes.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13487, whose\nrouting peers keep every node connected once the set stops dialing peers\nof its own. https://github.com/paritytech/polkadot-sdk/pull/13458 builds\non this to split the inbound slots by peer role.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-21T13:28:57Z",
+          "tree_id": "101f2b927b30a5fa09032f552aec830b0935e74f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7431714e049fdb008a9e2b93f918c96507a0a460"
+        },
+        "date": 1792618722090,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039132994741999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08802598949999994,
             "unit": "seconds"
           }
         ]
