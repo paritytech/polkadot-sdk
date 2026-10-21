@@ -14,27 +14,30 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::{xcm_config, Hrmp, HrmpRelay, Runtime};
+use crate::{xcm_config, Hrmp, HrmpRelay, Runtime, RuntimeCall};
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
 	pallet_prelude::{DispatchResult, ValueQuery},
+	traits::{Get, ProcessMessageError},
 	weights::Weight,
 };
 use frame_system::RawOrigin;
 use hrmp_primitives::MessageToPara;
-use polkadot_primitives::Balance;
+use polkadot_parachain_primitives::primitives::IsSystem;
+use polkadot_primitives::{Balance, HrmpChannelId, Id as ParaId};
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-use polkadot_runtime_parachains::hrmp::deposits::{
-	ChannelDepositProvider, DepositChangeRequest, DepositChangeResponse,
+use polkadot_runtime_parachains::hrmp::{
+	self,
+	deposits::{ChannelDepositProvider, DepositChangeRequest, DepositChangeResponse},
 };
 use sp_runtime::DispatchError;
 use westend_runtime_constants::{
 	currency::*, hrmp_deposits::CORETIME_PALLET_INDEX, system_parachain::BROKER_ID,
 };
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
-use xcm_executor::traits::TransactAsset;
+use xcm_executor::traits::{Properties, ShouldExecute, TransactAsset, WeightBounds};
 
 /// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
 /// remote calls. The codec index must correspond to the index of `IdentityMigrator` in the
@@ -261,5 +264,92 @@ pub struct HrmpBenchmarkHelper;
 impl pallet_hrmp_relay::BenchmarkHelper for HrmpBenchmarkHelper {
 	fn ensure_send_to_para() {
 		crate::Dmp::make_parachain_reachable(BROKER_ID);
+	}
+}
+
+// This chain holds no funds for the parachains, so they cannot pay for their own requests. A
+// non-system parachain then gets in without paying, for one call at a time as itself, as long as
+// the message weighs no more than the costliest HRMP call it makes for itself:
+// `AllowUnpaidParaRequests` admits the message, `max_unpaid_para_request_weight` bounds it.
+
+/// The witness a para may give `hrmp_cancel_open_request` for free; with more open requests
+/// pending, it pays. As many as the pallet's benchmarks measure.
+const UNPAID_CANCEL_OPEN_REQUESTS: u32 = 128;
+
+/// The weight of the heaviest message [`AllowUnpaidParaRequests`] admits: `UnpaidExecution`, then
+/// one `Transact` of the costliest HRMP call a para makes for itself, weighed as the executor
+/// weighs it.
+pub fn max_unpaid_para_request_weight() -> Weight {
+	let para = ParaId::from(0);
+	let channel_id = HrmpChannelId { sender: para, recipient: para };
+	let calls = [
+		hrmp::Call::<Runtime>::hrmp_init_open_channel {
+			recipient: para,
+			proposed_max_capacity: 0,
+			proposed_max_message_size: 0,
+		},
+		hrmp::Call::hrmp_accept_open_channel { sender: para },
+		hrmp::Call::hrmp_close_channel { channel_id: channel_id.clone() },
+		hrmp::Call::hrmp_cancel_open_request {
+			channel_id,
+			open_requests: UNPAID_CANCEL_OPEN_REQUESTS,
+		},
+		hrmp::Call::poke_channel_deposits { sender: para, recipient: para },
+		hrmp::Call::establish_channel_with_system { target_system_chain: para },
+	];
+	calls.into_iter().fold(Weight::zero(), |max, call| {
+		let mut message = Xcm::<RuntimeCall>(vec![
+			UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+			Transact {
+				origin_kind: OriginKind::Native,
+				fallback_max_weight: None,
+				call: RuntimeCall::from(call).encode().into(),
+			},
+		]);
+		// Weighing cannot fail on a message this short that decodes; were it to, a zero bound
+		// admits nothing rather than everything.
+		let weight = <xcm_config::XcmConfig as xcm_executor::Config>::Weigher::weight(
+			&mut message,
+			Weight::MAX,
+		)
+		.unwrap_or(Weight::zero());
+		max.max(weight)
+	})
+}
+
+/// Admits, without payment, the message a non-system child parachain sends to make one call for
+/// itself: `UnpaidExecution` covering the message, then one `Transact` with `OriginKind::Native`,
+/// the whole weighing at most `MaxWeight`.
+///
+/// `Native` keeps it to the para's own origin: free execution can never reach a signed call of
+/// its sovereign account, only the calls that accept the para's own origin. `MaxWeight` bounds
+/// what one such message costs this chain, see [`max_unpaid_para_request_weight`].
+///
+/// NOTE: the executor bills a message the barrier refuses its full weight all the same, so this
+/// bounds what an admitted message costs, not what a refused one does.
+pub struct AllowUnpaidParaRequests<MaxWeight>(PhantomData<MaxWeight>);
+impl<MaxWeight: Get<Weight>> ShouldExecute for AllowUnpaidParaRequests<MaxWeight> {
+	fn should_execute<Call>(
+		origin: &Location,
+		instructions: &mut [Instruction<Call>],
+		max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		if !matches!(origin.unpack(), (0, [Parachain(id)]) if !ParaId::from(*id).is_system()) {
+			return Err(ProcessMessageError::Unsupported);
+		}
+		let covers = |limit: &WeightLimit| match limit {
+			WeightLimit::Unlimited => true,
+			WeightLimit::Limited(limit) => limit.all_gte(max_weight),
+		};
+		// A trailing `SetTopic` is already stripped by `TrailingSetTopicAsId`.
+		match instructions {
+			[UnpaidExecution { weight_limit, .. }, Transact { origin_kind: OriginKind::Native, .. }]
+				if covers(weight_limit) && max_weight.all_lte(MaxWeight::get()) =>
+			{
+				Ok(())
+			},
+			_ => Err(ProcessMessageError::Unsupported),
+		}
 	}
 }

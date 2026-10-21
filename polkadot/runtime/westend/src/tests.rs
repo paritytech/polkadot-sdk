@@ -512,3 +512,55 @@ mod hrmp_deposit_provider_switch {
 		assert_eq!(HrmpDeposits::weight_of_try_set_deposit(), read.saturating_add(heavier));
 	}
 }
+
+#[test]
+fn unpaid_para_requests_are_bounded_in_weight() {
+	use codec::Encode;
+	use frame_support::traits::ProcessMessageError::Unsupported;
+	use xcm::{latest::prelude::*, DoubleEncoded};
+	use xcm_executor::traits::{Properties, ShouldExecute};
+
+	type Allow = impls::AllowUnpaidParaRequests<xcm_config::MaxUnpaidParaRequestWeight>;
+	let cap = xcm_config::MaxUnpaidParaRequestWeight::get();
+	// The weigher weighed the HRMP calls, and no one of them comes close to a block.
+	assert!(cap.all_gt(Weight::zero()));
+	assert!(cap.all_lt(BlockWeights::get().max_block));
+
+	let call: DoubleEncoded<RuntimeCall> =
+		RuntimeCall::System(frame_system::Call::remark { remark: vec![] })
+			.encode()
+			.into();
+	let transact =
+		|origin_kind| Transact { origin_kind, fallback_max_weight: None, call: call.clone() };
+	let message = |weight_limit| {
+		vec![UnpaidExecution { weight_limit, check_origin: None }, transact(OriginKind::Native)]
+	};
+	let run = |origin: Location, mut instructions: Vec<Instruction<RuntimeCall>>, weight| {
+		let mut properties = Properties { weight_credit: Weight::zero(), message_id: None };
+		Allow::should_execute(&origin, &mut instructions, weight, &mut properties)
+	};
+	let para: Location = Parachain(2000).into();
+	let one = Weight::from_parts(1, 1);
+
+	assert_ok!(run(para.clone(), message(Unlimited), cap));
+	assert_ok!(run(para.clone(), message(Limited(cap)), cap));
+	// Heavier than any HRMP call: the para pays.
+	assert_eq!(run(para.clone(), message(Unlimited), cap.saturating_add(one)), Err(Unsupported));
+	// The para must cover the whole message.
+	assert_eq!(run(para.clone(), message(Limited(cap.saturating_sub(one))), cap), Err(Unsupported));
+	// Only as the para itself.
+	let as_account = vec![
+		UnpaidExecution { weight_limit: Unlimited, check_origin: None },
+		transact(OriginKind::SovereignAccount),
+	];
+	assert_eq!(run(para.clone(), as_account, cap), Err(Unsupported));
+	// Only one call, and nothing else.
+	let mut two_calls = message(Unlimited);
+	two_calls.push(transact(OriginKind::Native));
+	assert_eq!(run(para.clone(), two_calls, cap), Err(Unsupported));
+	assert_eq!(run(para.clone(), vec![transact(OriginKind::Native)], cap), Err(Unsupported));
+	// Only non-system child parachains; system parachains have a barrier of their own.
+	assert_eq!(run(Parachain(1000).into(), message(Unlimited), cap), Err(Unsupported));
+	let sibling = Location::new(1, [Parachain(2000)]);
+	assert_eq!(run(sibling, message(Unlimited), cap), Err(Unsupported));
+}

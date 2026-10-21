@@ -23,6 +23,7 @@ use super::{
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Disabled, Equals, Everything, Nothing},
+	weights::Weight,
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -64,6 +65,9 @@ parameter_types! {
 	pub AccumulateForwardLocation: Location = {
 		AccountId32 { network: None, id: AccumulateAccount::get().into() }.into()
 	};
+	/// The heaviest message a non-system parachain may have executed for free, see
+	/// `impls::AllowUnpaidParaRequests`.
+	pub MaxUnpaidParaRequestWeight: Weight = crate::impls::max_unpaid_para_request_weight();
 }
 
 pub type LocationConverter = (
@@ -173,6 +177,9 @@ pub type Barrier = TrailingSetTopicAsId<(
 	TakeWeightCredit,
 	// Expected responses are OK.
 	AllowKnownQueryResponses<XcmPallet>,
+	// Non-system parachains need not pay for the one call they make for themselves, as long as it
+	// weighs no more than an HRMP call.
+	crate::impls::AllowUnpaidParaRequests<MaxUnpaidParaRequestWeight>,
 	WithComputedOrigin<
 		(
 			// If the message is one that immediately attempts to pay for execution, then allow it.
