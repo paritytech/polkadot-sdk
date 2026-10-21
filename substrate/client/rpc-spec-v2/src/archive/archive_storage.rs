@@ -215,13 +215,24 @@ where
 		// Iterator over the current block and previous block
 		// at the same time to compare the keys. This approach effectively
 		// leverages backpressure to avoid memory consumption.
+		if tx.is_closed() {
+			return Ok(());
+		}
 		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
+		if tx.is_closed() {
+			return Ok(());
+		}
 		let previous_keys_iter =
 			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
+		if tx.is_closed() {
+			return Ok(());
+		}
 		let mut diff_iter = lexicographic_diff(keys_iter, previous_keys_iter);
 
-		while let Some(item) = diff_iter.next() {
+		// Unchanged and nonmatching keys never send, so check cancellation before advancing.
+		while !tx.is_closed() {
+			let Some(item) = diff_iter.next() else { break };
 			let (operation_type, key) = match item {
 				Diff::Added(key) => (ArchiveStorageDiffOperationType::Added, key),
 				Diff::Deleted(key) => (ArchiveStorageDiffOperationType::Deleted, key),
@@ -301,6 +312,9 @@ where
 		let this = ArchiveStorageDiff { client: self.client.clone() };
 
 		tokio::task::spawn_blocking(move || {
+			if tx.is_closed() {
+				return;
+			}
 			// Deduplicate the items.
 			let mut trie_items = match deduplicate_storage_diff_items(items) {
 				Ok(items) => items,
@@ -316,6 +330,9 @@ where
 			log::trace!(target: LOG_TARGET, "Storage diff deduplicated items: {:?}", trie_items);
 
 			for items in trie_items {
+				if tx.is_closed() {
+					return;
+				}
 				log::trace!(
 					target: LOG_TARGET,
 					"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",

@@ -253,7 +253,8 @@ where
 			{
 				Ok(items) => items,
 				Err(error) => {
-					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
+					let _ = send_storage_event(&sink, &ArchiveStorageEvent::err(error.to_string()))
+						.await;
 					return;
 				},
 			};
@@ -262,20 +263,20 @@ where
 			let child_trie = match child_trie {
 				Ok(child_trie) => child_trie.map(ChildInfo::new_default_from_vec),
 				Err(error) => {
-					let _ = sink.send(&ArchiveStorageEvent::err(error.to_string())).await;
+					let _ = send_storage_event(&sink, &ArchiveStorageEvent::err(error.to_string()))
+						.await;
 					return;
 				},
 			};
 
-			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
 			let storage_fut = storage_client.generate_events(hash, items, child_trie, tx);
 
 			// We don't care about the return value of this join:
 			// - process_events might encounter an error (if the client disconnected)
 			// - storage_fut might encounter an error while processing a trie queries and
 			// the error is propagated via the sink.
-			let _ = futures::future::join(storage_fut, process_storage_events(&mut rx, &mut sink))
-				.await;
+			let _ = futures::future::join(storage_fut, process_storage_events(rx, &mut sink)).await;
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
@@ -301,32 +302,39 @@ where
 			} else {
 				let Ok(Some(current_header)) = client.header(hash) else {
 					let message = format!("Block header is not present: {hash}");
-					let _ = sink.send(&ArchiveStorageDiffEvent::err(message)).await;
+					let _ = send_storage_event(&sink, &ArchiveStorageDiffEvent::err(message)).await;
 					return;
 				};
 				*current_header.parent_hash()
 			};
 
-			let (tx, mut rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
-			let storage_fut =
-				storage_client.handle_trie_queries(hash, items, previous_hash, tx.clone());
+			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			let storage_fut = storage_client.handle_trie_queries(hash, items, previous_hash, tx);
 
 			// We don't care about the return value of this join:
 			// - process_events might encounter an error (if the client disconnected)
 			// - storage_fut might encounter an error while processing a trie queries and
 			// the error is propagated via the sink.
-			let _ =
-				futures::future::join(storage_fut, process_storage_diff_events(&mut rx, &mut sink))
-					.await;
+			let _ = futures::future::join(storage_fut, process_storage_diff_events(rx, &mut sink))
+				.await;
 		};
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 }
 
+/// Sends a storage event while observing subscription closure under backpressure.
+async fn send_storage_event(sink: &Subscription, event: &impl serde::Serialize) -> bool {
+	tokio::select! {
+		biased;
+		_ = sink.closed() => false,
+		result = sink.send(event) => result.is_ok(),
+	}
+}
+
 /// Sends all the events of the storage_diff method to the sink.
 async fn process_storage_diff_events(
-	rx: &mut mpsc::Receiver<ArchiveStorageDiffEvent>,
+	mut rx: mpsc::Receiver<ArchiveStorageDiffEvent>,
 	sink: &mut Subscription,
 ) {
 	loop {
@@ -346,7 +354,7 @@ async fn process_storage_diff_events(
 					log::debug!(target: LOG_TARGET, "Error encountered while processing partial trie query");
 				}
 
-				if sink.send(&event).await.is_err() {
+				if !send_storage_event(sink, &event).await {
 					return
 				}
 			}
@@ -355,7 +363,7 @@ async fn process_storage_diff_events(
 }
 
 /// Sends all the events of the storage method to the sink.
-async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
+async fn process_storage_events(mut rx: mpsc::Receiver<QueryResult>, sink: &mut Subscription) {
 	loop {
 		tokio::select! {
 			_ = sink.closed() => {
@@ -371,12 +379,12 @@ async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut
 					Ok(None) => continue,
 
 					Ok(Some(event)) =>
-						if sink.send(&ArchiveStorageEvent::result(event)).await.is_err() {
+						if !send_storage_event(sink, &ArchiveStorageEvent::result(event)).await {
 							return
 						},
 
 					Err(error) => {
-						let _ = sink.send(&ArchiveStorageEvent::err(error)).await;
+						let _ = send_storage_event(sink, &ArchiveStorageEvent::err(error)).await;
 						return
 					}
 				}
@@ -384,5 +392,5 @@ async fn process_storage_events(rx: &mut mpsc::Receiver<QueryResult>, sink: &mut
 		}
 	}
 
-	let _ = sink.send(&ArchiveStorageEvent::StorageDone).await;
+	let _ = send_storage_event(sink, &ArchiveStorageEvent::StorageDone).await;
 }

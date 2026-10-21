@@ -168,6 +168,9 @@ where
 	) {
 		let QueryIter { ty, query_key, pagination_start_key } = query;
 
+		if tx.is_closed() {
+			return;
+		}
 		let maybe_storage = if let Some(child_key) = child_key {
 			self.client.child_storage_keys(
 				hash,
@@ -179,7 +182,7 @@ where
 			self.client.storage_keys(hash, Some(&query_key), pagination_start_key.as_ref())
 		};
 
-		let keys_iter = match maybe_storage {
+		let mut keys_iter = match maybe_storage {
 			Ok(keys_iter) => keys_iter,
 			Err(error) => {
 				_ = tx.blocking_send(Err(error.to_string()));
@@ -187,7 +190,8 @@ where
 			},
 		};
 
-		for key in keys_iter {
+		while !tx.is_closed() {
+			let Some(key) = keys_iter.next() else { break };
 			let result = match ty {
 				IterQueryType::Value => self.query_value(hash, &key, child_key),
 				IterQueryType::Hash => self.query_hash(hash, &key, child_key),
@@ -253,6 +257,9 @@ where
 
 		tokio::task::spawn_blocking(move || {
 			for item in items {
+				if tx.is_closed() {
+					break;
+				}
 				match item.query_type {
 					StorageQueryType::Value => {
 						let rp = this.client.query_value(hash, &item.key, child_key.as_ref());
