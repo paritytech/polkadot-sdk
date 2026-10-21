@@ -1,33 +1,15 @@
-title: Return dedicated error for justifications signed by previous authority set
+title: 'bridge-grandpa: return dedicated error for justifications signed by previous authority set'
+
 doc:
-- audience: Todo
-  description: |-
-    # Description
+  - audience: [Runtime Dev, Runtime User]
+    description: |-
+      `bp-header-chain` adds `JustificationVerificationError::OutdatedAuthoritySet`. The strict
+      justification verifier returns it when a precommit is signed by the previous authority set.
+      `pallet-bridge-grandpa` maps it to `InvalidAuthoritySetId` instead of `InvalidJustification`.
+      The justification optimizer and the equivocations collector are unchanged.
 
-    Return a dedicated error when a GRANDPA justification is signed by the previous authority set.
-
-    - `bp-header-chain`: add `JustificationVerificationError::OutdatedAuthoritySet`. The strict   verifier (`verify_justification`) returns it when a precommit signature is valid for the   previous authority set.
-    - `pallet-bridge-grandpa`: map this error to `Error::InvalidAuthoritySetId` instead of `Error::InvalidJustification`.
-    - The optimizer (`verify_and_optimize_justification`) and the equivocations collector are unchanged. They still treat such votes as votes with an invalid signature.
-
-    ## Integration
-
-    - `bp-header-chain`: `JustificationVerificationError` has a new variant, `OutdatedAuthoritySet`.
-      Code that matches on this enum exhaustively needs to handle it.
-    - `pallet-bridge-grandpa`: `submit_finality_proof` and `submit_finality_proof_ex` return
-      `InvalidAuthoritySetId` for justifications signed by the previous authority set.
-
-    ## Review Notes
-
-    - The private `JustificationVerifier` trait gets a `process_outdated_signature_vote` method. By default it calls `process_invalid_signature_vote`. Only the strict verifier overrides it.
-    - Only the directly previous set is detected, same as `sp_consensus_grandpa::check_message_signature_with_buffer`. Signatures from older sets are still reported as `InvalidAuthoritySignature`.
-
-    Tests added:
-    - `justification_signed_by_previous_authority_set_rejected_as_outdated` (strict verifier)
-    - `outdated_authority_signatures_are_removed_by_optimizer` (optimizer)
-    - `rejects_justification_that_has_old_set_id` (pallet)
 crates:
-- name: pallet-bridge-grandpa
-  bump: major
-- name: bp-header-chain
-  bump: major
+  - name: bp-header-chain
+    bump: major
+  - name: pallet-bridge-grandpa
+    bump: patch
