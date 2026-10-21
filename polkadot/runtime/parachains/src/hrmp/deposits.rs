@@ -294,6 +294,7 @@ impl<T: Config> Pallet<T> {
 				let config = configuration::ActiveConfig::<T>::get();
 				Self::check_init_open_channel(channel_id, max_capacity, max_message_size, &config)?;
 				Self::check_accept_limit(channel_id.recipient, &config)?;
+				Self::check_recipient_deposit(request, &config)?;
 				// Always set by `init_and_accept_open_channel`.
 				let sender_deposit = request.sender.map(|c| c.target).unwrap_or_default();
 				Self::finish_init_open_channel(
@@ -316,6 +317,7 @@ impl<T: Config> Pallet<T> {
 			DepositAction::AcceptOpenChannel => {
 				let config = configuration::ActiveConfig::<T>::get();
 				Self::check_accept_open_channel(channel_id, &config)?;
+				Self::check_recipient_deposit(request, &config)?;
 				Self::finish_accept_open_channel(channel_id);
 				Ok(())
 			},
@@ -325,5 +327,21 @@ impl<T: Config> Pallet<T> {
 			},
 			DepositAction::Release => Ok(()),
 		}
+	}
+
+	/// Whether the recipient's deposit taken by `request` is still the price in `config`.
+	///
+	/// The channel does not record the deposit its recipient paid: it is opened at the session
+	/// change with the price of `config`, which cannot change before then. But a pending request
+	/// may come back after a session change, with a deposit taken at an older price. This is not
+	/// expected often, as the price rarely changes.
+	fn check_recipient_deposit(
+		request: &DepositChangeRequest,
+		config: &HostConfiguration<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		let taken = request.recipient.map(|c| c.target).unwrap_or_default();
+		let (_, price) = Self::required_deposits(&request.channel_id, config);
+		ensure!(taken == price, Error::<T>::AcceptHrmpChannelDepositChanged);
+		Ok(())
 	}
 }

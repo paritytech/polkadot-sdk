@@ -48,6 +48,9 @@ pub const HRMP_MAX_OUTBOUND_CHANNELS_BOUND: u32 = 128;
 #[cfg(test)]
 pub(crate) mod tests;
 
+#[cfg(test)]
+mod remote_deposit_tests;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 
@@ -381,6 +384,10 @@ pub mod pallet {
 		WrongWitness,
 		/// The channel between these two chains cannot be authorized.
 		ChannelCreationNotAuthorized,
+		/// The sender is not a valid para.
+		OpenHrmpChannelInvalidSender,
+		/// The recipient's deposit changed while it was being taken.
+		AcceptHrmpChannelDepositChanged,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -1490,6 +1497,11 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let HrmpChannelId { sender: origin, recipient } = *channel_id;
 		ensure!(origin != recipient, Error::<T>::OpenHrmpChannelToSelf);
+		// The sender may be offboarded while its deposit is pending.
+		ensure!(
+			paras::Pallet::<T>::is_valid_para(origin),
+			Error::<T>::OpenHrmpChannelInvalidSender
+		);
 		ensure!(
 			paras::Pallet::<T>::is_valid_para(recipient),
 			Error::<T>::OpenHrmpChannelInvalidRecipient,
