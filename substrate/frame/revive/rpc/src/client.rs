@@ -369,10 +369,12 @@ impl SubscriptionGapQueue {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
 			},
+			// The range is never indexed, so it stays counted as pending: that keeps the sync
+			// head from advancing over it until a restart's backward sync fills it.
 			Err(err) => {
-				self.pending.fetch_sub(1, Ordering::Release);
-				log::warn!(target: LOG_TARGET,
-					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}");
+				log::error!(target: LOG_TARGET,
+					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}. \
+					 Sync head stays at its current block until a restart fills the gap");
 			},
 		}
 	}
@@ -1423,5 +1425,23 @@ mod tests {
 		assert!(rpc_user_error(-32602).recorded_unavailable_reason().is_none());
 		assert!(ClientError::EthExtrinsicNotFound.recorded_unavailable_reason().is_none());
 		assert!(ClientError::BlockNotFound.recorded_unavailable_reason().is_none());
+	}
+
+	#[test]
+	fn gap_dropped_on_full_queue_stays_pending() {
+		let (queue, mut rx) = SubscriptionGapQueue::new();
+		let capacity = rx.max_capacity() as SubstrateBlockNumber;
+
+		// One more gap than the channel holds; the last one is dropped.
+		for i in 0..=capacity {
+			queue.detect_and_queue(i * 10 + 5, i * 10);
+		}
+
+		for _ in 0..capacity {
+			rx.try_recv().expect("queued gap fill");
+			queue.mark_done();
+		}
+		assert!(rx.try_recv().is_err());
+		assert!(queue.has_pending(), "dropped gap must keep the sync head from advancing");
 	}
 }
