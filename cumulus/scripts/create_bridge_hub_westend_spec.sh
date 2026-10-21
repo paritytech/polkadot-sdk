@@ -26,7 +26,7 @@ echo "Generating chain spec for runtime: $rt_path and para_id: $para_id"
 binary="./target/release/polkadot-parachain"
 
 # build the chain spec we'll manipulate
-$binary build-spec --chain bridge-hub-kusama-dev > chain-spec-plain.json
+$binary export-chain-spec --chain bridge-hub-kusama-dev > chain-spec-plain.json
 
 # convert runtime to hex
 cat $rt_path | od -A n -v -t x1 |  tr -d ' \n' > rt-hex.txt
@@ -89,7 +89,7 @@ cat chain-spec-plain.json | jq --rawfile code rt-hex.txt '.genesis.runtime.syste
     > edited-chain-spec-plain.json
 
 # build a raw spec
-$binary build-spec --chain edited-chain-spec-plain.json --raw > chain-spec-raw.json
+$binary export-chain-spec --chain edited-chain-spec-plain.json --raw > chain-spec-raw.json
 cp edited-chain-spec-plain.json bridge-hub-westend-spec.json
 cp chain-spec-raw.json ./parachains/chain-specs/bridge-hub-westend.json
 cp chain-spec-raw.json bridge-hub-westend-spec-raw.json

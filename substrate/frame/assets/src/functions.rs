@@ -332,7 +332,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		burn_dust: bool,
 	) -> Result<(T::Balance, Option<T::Balance>), DispatchError> {
 		let (credit, maybe_burn) = match (burn_dust, debit.checked_sub(&amount)) {
-			(true, Some(dust)) => (amount, Some(dust)),
+			(true, Some(dust)) if !dust.is_zero() => (amount, Some(dust)),
 			_ => (debit, None),
 		};
 		Self::can_increase(id, dest, credit, false).into_result()?;
@@ -396,15 +396,17 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			return Ok(());
 		}
 
+		Asset::<T, I>::insert(&id, details);
+
 		if !account.balance.is_zero() {
 			Self::deposit_event(Event::Burned {
 				asset_id: id.clone(),
 				owner: who.clone(),
 				balance: account.balance,
 			});
+			T::CallbackHandle::burned(&id, &who, account.balance);
 		}
 
-		Asset::<T, I>::insert(&id, details);
 		// Executing a hook here is safe, since it is not in a `mutate`.
 		T::Freezer::died(id.clone(), &who);
 		T::Holder::died(id, &who);
@@ -471,7 +473,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Ok(())
 		})?;
 
-		Self::deposit_event(Event::Issued { asset_id: id, owner: beneficiary.clone(), amount });
+		Self::deposit_event(Event::Issued {
+			asset_id: id.clone(),
+			owner: beneficiary.clone(),
+			amount,
+		});
+		T::CallbackHandle::issued(&id, beneficiary, amount);
 
 		Ok(())
 	}
@@ -555,7 +562,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 			Ok(())
 		})?;
-		Self::deposit_event(Event::Burned { asset_id: id, owner: target.clone(), balance: actual });
+		Self::deposit_event(Event::Burned {
+			asset_id: id.clone(),
+			owner: target.clone(),
+			balance: actual,
+		});
+		T::CallbackHandle::burned(&id, target, actual);
 		Ok(actual)
 	}
 
@@ -637,7 +649,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		f: TransferFlags,
 	) -> Result<T::Balance, DispatchError> {
 		let (balance, died) =
-			Self::transfer_and_die(id.clone(), source, dest, amount, maybe_need_admin, f)?;
+			Self::transfer_and_die(id.clone(), source, dest, amount, maybe_need_admin, f, |_| {
+				Ok(())
+			})?;
 		if let Some(Remove) = died {
 			T::Freezer::died(id.clone(), source);
 			T::Holder::died(id, source);
@@ -647,6 +661,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 	/// Same as `do_transfer` but it does not execute the `FrozenBalance::died` hook and
 	/// instead returns whether and how the `source` account died in this operation.
+	///
+	/// `check` is called with the resolved debit before anything is written, and is not called
+	/// for a zero `amount`.
 	fn transfer_and_die(
 		id: T::AssetId,
 		source: &T::AccountId,
@@ -654,6 +671,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		amount: T::Balance,
 		maybe_need_admin: Option<T::AccountId>,
 		f: TransferFlags,
+		check: impl FnOnce(T::Balance) -> DispatchResult,
 	) -> Result<(T::Balance, Option<DeadConsequence>), DispatchError> {
 		// Early exit if no-op.
 		if amount.is_zero() {
@@ -664,6 +682,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
 		// Figure out the debit and credit, together with side-effects.
 		let debit = Self::prep_debit(id.clone(), source, amount, f.into())?;
+		// A self-transfer moves nothing, so the sweep does not apply.
+		let debit = if source == dest { amount } else { debit };
+		check(debit)?;
 		let (credit, maybe_burn) = Self::prep_credit(id.clone(), dest, amount, debit, f.burn_dust)?;
 
 		let mut source_account =
@@ -739,11 +760,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		})?;
 
 		Self::deposit_event(Event::Transferred {
-			asset_id: id,
+			asset_id: id.clone(),
 			from: source.clone(),
 			to: dest.clone(),
 			amount: credit,
 		});
+		T::CallbackHandle::transferred(&id, source, dest, credit);
+		if let Some(burn) = maybe_burn {
+			T::CallbackHandle::burned(&id, source, burn);
+		}
 		Ok((credit, source_died))
 	}
 
@@ -755,16 +780,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	///   this asset.
 	/// * `min_balance`: The minimum balance a user is allowed to have of this asset before they are
 	///   considered dust and cleaned up.
+	/// * `enforce_allocator`: Whether `id` must be the one required by
+	///   [`Config::AssetIdAllocator`]. Only pass `false` for a `ForceOrigin` caller.
 	pub(super) fn do_force_create(
 		id: T::AssetId,
 		owner: T::AccountId,
 		is_sufficient: bool,
 		min_balance: T::Balance,
+		enforce_allocator: bool,
 	) -> DispatchResult {
 		ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 		ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
-		if let Some(next_id) = NextAssetId::<T, I>::get() {
-			ensure!(id == next_id, Error::<T, I>::BadAssetId);
+		if enforce_allocator {
+			if let Some(next_id) = T::AssetIdAllocator::next() {
+				ensure!(id == next_id, Error::<T, I>::BadAssetId);
+			}
 		}
 
 		Asset::<T, I>::insert(
@@ -785,6 +815,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			},
 		);
 		ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
+		T::AssetIdAllocator::advance_from(&id)
+			.map_err(|_| Error::<T, I>::AssetIdAllocationFailed)?;
 		Self::deposit_event(Event::ForceCreated { asset_id: id, owner: owner.clone() });
 		Ok(())
 	}
@@ -999,9 +1031,11 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `dest` by (similar) amount, checking that 'delegate' has an existing approval from `owner`
 	/// to spend`amount`.
 	///
-	/// Will fail if `amount` is greater than the approval from `owner` to 'delegate'
-	/// Will unreserve the deposit from `owner` if the entire approved `amount` is spent by
-	/// 'delegate'
+	/// Will fail if the charge is greater than the approval from `owner` to 'delegate'. The
+	/// charge is the debit, which exceeds `amount` where transferring `amount` would leave `owner`
+	/// holding a non-zero remainder below the asset's minimum balance. A transfer to `owner`
+	/// itself moves nothing and is charged `amount`.
+	/// Will unreserve the deposit from `owner` if the charge spends the approval in full.
 	pub fn do_transfer_approved(
 		id: T::AssetId,
 		owner: &T::AccountId,
@@ -1018,12 +1052,25 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			(id.clone(), &owner, delegate),
 			|maybe_approved| -> DispatchResult {
 				let mut approved = maybe_approved.take().ok_or(Error::<T, I>::Unapproved)?;
-				let remaining =
-					approved.amount.checked_sub(&amount).ok_or(Error::<T, I>::Unapproved)?;
+				// Reports `Unapproved` before `prep_debit` can raise a balance error.
+				ensure!(approved.amount >= amount, Error::<T, I>::Unapproved);
 
 				let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
-				owner_died =
-					Self::transfer_and_die(id.clone(), owner, destination, amount, None, f)?.1;
+				let mut remaining = approved.amount;
+				owner_died = Self::transfer_and_die(
+					id.clone(),
+					owner,
+					destination,
+					amount,
+					None,
+					f,
+					|debit| {
+						remaining =
+							approved.amount.checked_sub(&debit).ok_or(Error::<T, I>::Unapproved)?;
+						Ok(())
+					},
+				)?
+				.1;
 
 				if remaining.is_zero() {
 					T::Currency::unreserve(owner, approved.deposit);

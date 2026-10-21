@@ -22,7 +22,7 @@ use crate::{
 };
 use frame_benchmarking::v2::*;
 use frame_election_provider_support::ElectionProvider;
-use frame_support::{assert_ok, pallet_prelude::*};
+use frame_support::{assert_ok, pallet_prelude::*, traits::Authorize};
 use frame_system::RawOrigin;
 use sp_std::boxed::Box;
 
@@ -31,7 +31,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark(pov_mode = Measured)]
-	fn validate_unsigned() -> Result<(), BenchmarkError> {
+	fn authorize_submit_unsigned() -> Result<(), BenchmarkError> {
 		#[cfg(test)]
 		crate::mock::ElectionStart::set(sp_runtime::traits::Bounded::max_value());
 		crate::Pallet::<T>::start().unwrap();
@@ -45,8 +45,9 @@ mod benchmarks {
 
 		#[block]
 		{
-			#[allow(deprecated)]
-			let result = Pallet::<T>::validate_unsigned(TransactionSource::Local, &call);
+			let result = call
+				.authorize(TransactionSource::Local)
+				.expect("submit_unsigned declares an authorize callback; qed");
 			assert_ok!(result);
 		}
 
@@ -71,7 +72,10 @@ mod benchmarks {
 		assert!(T::Verifier::queued_score().is_none());
 		#[block]
 		{
-			assert_ok!(Pallet::<T>::submit_unsigned(RawOrigin::None.into(), Box::new(solution)));
+			assert_ok!(Pallet::<T>::submit_unsigned(
+				RawOrigin::Authorized.into(),
+				Box::new(solution)
+			));
 		}
 
 		// something is queued

@@ -62,6 +62,56 @@ pub enum Error {
 		/// The invalid addresses.
 		addresses: Vec<Multiaddr>,
 	},
+	/// A configured address carries an identity component the node key does not produce.
+	#[error(
+		"Address `{address}` carries `{configured}`, but {node_key_origin} yields `{expected}`."
+	)]
+	MismatchedAddressIdentity {
+		/// The address as configured.
+		address: Multiaddr,
+		/// The component found in the address, rendered as `/p2p/…` or `/certhash/…`.
+		configured: String,
+		/// The component the node key yields.
+		expected: String,
+		/// Where the node key it was compared against comes from.
+		node_key_origin: String,
+	},
+	/// A configured address carries an identity component where none belongs.
+	#[error("Address `{address}` is malformed at `{component}`.")]
+	MalformedAddressIdentity {
+		/// The address as configured.
+		address: Multiaddr,
+		/// The component that doesn't belong, rendered as `/p2p/…` or `/certhash/…`.
+		component: String,
+	},
+	/// A configured address carries an identity component, but there is no node key to check it
+	/// against: one generated now could not yield it.
+	#[error(
+		"An address carries `/p2p` or `/certhash`, but there is no node key to check it \
+		 against: a key generated now would not yield it."
+	)]
+	AddressIdentityWithoutNodeKey,
+	/// An invalid `webrtc-direct` address.
+	#[error(
+		"Invalid WebRTC address `{address}`: expected `/<host>/udp/<port>/webrtc-direct`, followed \
+		 at most by this node's own `/certhash/<hash>` and `/p2p/<peer id>`."
+	)]
+	InvalidWebRtcAddress {
+		/// The invalid address.
+		address: Multiaddr,
+	},
+	/// A public `webrtc-direct` address was configured without a WebRTC transport to back it.
+	#[error(
+		"A WebRTC public address has been configured, but the node does not listen on any \
+		 `webrtc-direct` address"
+	)]
+	WebRtcTransportNotConfigured,
+	/// A `webrtc-direct` address was configured on a backend that cannot serve WebRTC.
+	#[error(
+		"A WebRTC address is configured, \
+		 but WebRTC is only supported by the litep2p network backend."
+	)]
+	WebRtcNotSupportedByBackend,
 	/// The same request-response protocol has been registered multiple times.
 	#[error("Request-response protocol registered multiple times: {protocol}")]
 	DuplicateRequestResponseProtocol {

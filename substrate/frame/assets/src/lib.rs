@@ -136,7 +136,8 @@
 //! ### Callbacks
 //!
 //! Using `CallbackHandle` associated type, user can configure custom callback functions which are
-//! executed when new asset is created or an existing asset is destroyed.
+//! executed when an asset is created or destroyed, and on every balance change: mint, burn,
+//! transfer, and the imbalance deposit and withdraw paths.
 //!
 //! ## Related Modules
 //!
@@ -202,8 +203,8 @@ pub use weights::WeightInfo;
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 const LOG_TARGET: &str = "runtime::assets";
 
-/// Trait with callbacks that are executed after successful asset creation or destruction.
-pub trait AssetsCallback<AssetId, AccountId> {
+/// Callbacks executed on asset lifecycle and balance-change events.
+pub trait AssetsCallback<AssetId, AccountId, Balance> {
 	/// Indicates that asset with `id` was successfully created by the `owner`
 	fn created(_id: &AssetId, _owner: &AccountId) -> Result<(), ()> {
 		Ok(())
@@ -213,10 +214,25 @@ pub trait AssetsCallback<AssetId, AccountId> {
 	fn destroyed(_id: &AssetId) -> Result<(), ()> {
 		Ok(())
 	}
+
+	/// Indicates that `amount` of asset `id` was minted into `owner`, increasing total supply.
+	fn issued(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was moved from `from` to `to`.
+	fn transferred(_id: &AssetId, _from: &AccountId, _to: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was burned from `owner`, decreasing total supply.
+	fn burned(_id: &AssetId, _owner: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was credited to `who` without changing total supply.
+	fn deposited(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
+
+	/// Indicates that `amount` of asset `id` was debited from `who` without changing total supply.
+	fn withdrawn(_id: &AssetId, _who: &AccountId, _amount: Balance) {}
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(10)]
-impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
+impl<AssetId, AccountId, Balance: Copy> AssetsCallback<AssetId, AccountId, Balance> for Tuple {
 	fn created(id: &AssetId, owner: &AccountId) -> Result<(), ()> {
 		for_tuples!( #( Tuple::created(id, owner)?; )* );
 		Ok(())
@@ -226,23 +242,93 @@ impl<AssetId, AccountId> AssetsCallback<AssetId, AccountId> for Tuple {
 		for_tuples!( #( Tuple::destroyed(id)?; )* );
 		Ok(())
 	}
+
+	fn issued(id: &AssetId, owner: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::issued(id, owner, amount); )* );
+	}
+
+	fn transferred(id: &AssetId, from: &AccountId, to: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::transferred(id, from, to, amount); )* );
+	}
+
+	fn burned(id: &AssetId, owner: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::burned(id, owner, amount); )* );
+	}
+
+	fn deposited(id: &AssetId, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::deposited(id, who, amount); )* );
+	}
+
+	fn withdrawn(id: &AssetId, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::withdrawn(id, who, amount); )* );
+	}
 }
 
-/// Auto-increment the [`NextAssetId`] when an asset is created.
+/// Allocates the asset ids used by `create`.
 ///
-/// This has not effect if the [`NextAssetId`] value is not present.
+/// Configure [`Config::AssetIdAllocator`] with `()` to leave `create` unconstrained, or with an
+/// impl such as [`AutoIncAssetId`] to enforce an allocation policy.
+pub trait AssetIdAllocator<AssetId> {
+	/// The only id `create` may use, or `None` to accept any id not currently in use.
+	fn next() -> Option<AssetId>;
+
+	/// Allocate the id returned by [`Self::next`], after a successful `create`.
+	///
+	/// Returns `Err` if the id space is exhausted.
+	fn advance() -> Result<(), ()>;
+
+	/// Allocate `id`, after a successful `force_create`, so [`Self::next`] can never return it.
+	///
+	/// Returns `Err` if the id space is exhausted.
+	fn advance_from(id: &AssetId) -> Result<(), ()>;
+}
+
+/// No allocation policy: `create` accepts any unused id and [`NextAssetId`] has no effect.
+impl<AssetId> AssetIdAllocator<AssetId> for () {
+	fn next() -> Option<AssetId> {
+		None
+	}
+	fn advance() -> Result<(), ()> {
+		Ok(())
+	}
+	fn advance_from(_: &AssetId) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+/// Allocates asset ids by auto-incrementing the [`NextAssetId`].
+///
+/// This has no effect while the [`NextAssetId`] value is not present.
 pub struct AutoIncAssetId<T, I = ()>(PhantomData<(T, I)>);
-impl<T: Config<I>, I> AssetsCallback<T::AssetId, T::AccountId> for AutoIncAssetId<T, I>
+impl<T: Config<I>, I: 'static> AssetIdAllocator<T::AssetId> for AutoIncAssetId<T, I>
 where
-	T::AssetId: Incrementable,
+	T::AssetId: Incrementable + PartialOrd,
 {
-	fn created(_: &T::AssetId, _: &T::AccountId) -> Result<(), ()> {
+	fn next() -> Option<T::AssetId> {
+		NextAssetId::<T, I>::get()
+	}
+
+	fn advance() -> Result<(), ()> {
 		let Some(next_id) = NextAssetId::<T, I>::get() else {
-			// Auto increment for the asset id is not enabled.
+			// Auto increment for the asset id is not active.
 			return Ok(());
 		};
 		let next_id = next_id.increment().ok_or(())?;
 		NextAssetId::<T, I>::put(next_id);
+		Ok(())
+	}
+
+	fn advance_from(id: &T::AssetId) -> Result<(), ()> {
+		let Some(next_id) = NextAssetId::<T, I>::get() else {
+			// Auto increment for the asset id is not active.
+			return Ok(());
+		};
+		// Only advance when the forced id is at or beyond the sequence; ids below `next_id` belong
+		// to a range that can be reserved for deliberate, forced assignment.
+		if *id >= next_id {
+			let next_id = id.increment().ok_or(())?;
+			NextAssetId::<T, I>::put(next_id);
+		}
 		Ok(())
 	}
 }
@@ -310,6 +396,7 @@ pub mod pallet {
 			type Holder = ();
 			type Extra = ();
 			type CallbackHandle = ();
+			type AssetIdAllocator = ();
 			type WeightInfo = ();
 			#[cfg(feature = "runtime-benchmarks")]
 			type BenchmarkHelper = ();
@@ -417,13 +504,20 @@ pub mod pallet {
 		/// Additional data to be stored with an account's asset balance.
 		type Extra: Member + Parameter + Default + MaxEncodedLen;
 
-		/// Callback methods for asset state change (e.g. asset created or destroyed)
+		/// Callback methods for asset state changes (creation, destruction) and balance changes.
 		///
 		/// Types implementing the [`AssetsCallback`] can be chained when listed together as a
 		/// tuple.
-		/// The [`AutoIncAssetId`] callback, in conjunction with the [`NextAssetId`], can be
-		/// used to set up auto-incrementing asset IDs for this collection.
-		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId>;
+		///
+		/// Do NOT allocate asset ids through this; use [`Config::AssetIdAllocator`]. A callback
+		/// that also mutates [`NextAssetId`] desyncs [`AutoIncAssetId`].
+		type CallbackHandle: AssetsCallback<Self::AssetId, Self::AccountId, Self::Balance>;
+
+		/// Allocates the asset ids used by `create`. See [`AssetIdAllocator`].
+		///
+		/// Set to `()` to leave `create` unconstrained, or to [`AutoIncAssetId`] (with an
+		/// initialized [`NextAssetId`]) for auto-incrementing ids.
+		type AssetIdAllocator: AssetIdAllocator<Self::AssetId>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -490,9 +584,8 @@ pub mod pallet {
 	/// The asset ID enforced for the next asset creation, if any present. Otherwise, this storage
 	/// item has no effect.
 	///
-	/// This can be useful for setting up constraints for IDs of the new assets. For example, by
-	/// providing an initial [`NextAssetId`] and using the [`crate::AutoIncAssetId`] callback, an
-	/// auto-increment model can be applied to all new asset IDs.
+	/// Only read by [`crate::AutoIncAssetId`]: configure it as [`Config::AssetIdAllocator`] and
+	/// provide an initial value here to apply an auto-increment model to all new asset IDs.
 	///
 	/// The initial next asset ID can be set using the [`GenesisConfig`] or the
 	/// [SetNextAssetId](`migration::next_asset_id::SetNextAssetId`) migration.
@@ -541,6 +634,12 @@ pub mod pallet {
 						approvals: 0,
 						status: AssetStatus::Live,
 					},
+				);
+				// Fire `created` so callback state (e.g. the precompile asset-index map) is seeded
+				// for genesis assets, matching runtime creation.
+				assert!(
+					T::CallbackHandle::created(id, owner).is_ok(),
+					"asset creation callback failed at genesis"
 				);
 			}
 
@@ -737,8 +836,11 @@ pub mod pallet {
 		NotFrozen,
 		/// Callback action resulted in error
 		CallbackFailed,
-		/// The asset ID must be equal to the [`NextAssetId`].
+		/// The asset ID is not the one required by [`Config::AssetIdAllocator`].
 		BadAssetId,
+		/// The [`Config::AssetIdAllocator`] cannot allocate the asset ID: the id space is
+		/// exhausted.
+		AssetIdAllocationFailed,
 		/// The asset cannot be destroyed because some accounts for this asset contain freezes.
 		ContainsFreezes,
 		/// The asset cannot be destroyed because some accounts for this asset contain holds.
@@ -769,7 +871,8 @@ pub mod pallet {
 		///
 		/// Parameters:
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
+		/// an existing asset. If [`Config::AssetIdAllocator`] requires a specific id, this must
+		/// equal it.
 		/// - `admin`: The admin of this class of assets. The admin is the initial address of each
 		/// member of the asset class's admin team.
 		/// - `min_balance`: The minimum balance of this new asset that any single account must
@@ -792,7 +895,7 @@ pub mod pallet {
 			ensure!(!Asset::<T, I>::contains_key(&id), Error::<T, I>::InUse);
 			ensure!(!min_balance.is_zero(), Error::<T, I>::MinBalanceZero);
 
-			if let Some(next_id) = NextAssetId::<T, I>::get() {
+			if let Some(next_id) = T::AssetIdAllocator::next() {
 				ensure!(id == next_id, Error::<T, I>::BadAssetId);
 			}
 
@@ -817,6 +920,7 @@ pub mod pallet {
 				},
 			);
 			ensure!(T::CallbackHandle::created(&id, &owner).is_ok(), Error::<T, I>::CallbackFailed);
+			T::AssetIdAllocator::advance().map_err(|_| Error::<T, I>::AssetIdAllocationFailed)?;
 			Self::deposit_event(Event::Created {
 				asset_id: id,
 				creator: owner.clone(),
@@ -834,8 +938,18 @@ pub mod pallet {
 		///
 		/// Unlike `create`, no funds are reserved.
 		///
+		/// Unlike `create`, the `id` does not have to be the one required by
+		/// [`Config::AssetIdAllocator`]: a privileged origin may pick any `id`, which is then
+		/// marked as allocated.
+		///
+		/// # Warning
+		///
+		/// Forcing an arbitrary `id` is dangerous: the pallet only checks that `id` is not
+		/// *currently* in use, not that it was never used before. Reusing an id can corrupt state,
+		/// most severely for bridged assets, where a collision breaks the local/remote mapping.
+		///
 		/// - `id`: The identifier of the new asset. This must not be currently in use to identify
-		/// an existing asset. If [`NextAssetId`] is set, then this must be equal to it.
+		/// an existing asset, and must never have been in use previously (see warning above).
 		/// - `owner`: The owner of this class of assets. The owner has full superuser permissions
 		/// over this asset, but may later change and configure the permissions using
 		/// `transfer_ownership` and `set_team`.
@@ -856,7 +970,7 @@ pub mod pallet {
 			T::ForceOrigin::ensure_origin(origin)?;
 			let owner = T::Lookup::lookup(owner)?;
 			let id: T::AssetId = id.into();
-			Self::do_force_create(id, owner, is_sufficient, min_balance)
+			Self::do_force_create(id, owner, is_sufficient, min_balance, false)
 		}
 
 		/// Start the process of destroying a fungible asset class.
@@ -1619,16 +1733,18 @@ pub mod pallet {
 		/// Origin must be Signed and there must be an approval in place by the `owner` to the
 		/// signer.
 		///
-		/// If the entire amount approved for transfer is transferred, then any deposit previously
-		/// reserved by `approve_transfer` is unreserved.
+		/// If the debit spends the approval in full, then any deposit previously reserved by
+		/// `approve_transfer` is unreserved. The debit exceeds `amount` where transferring
+		/// `amount` would leave `owner` holding a non-zero remainder below the asset's minimum
+		/// balance, so a request smaller than the approval can still spend it in full.
 		///
 		/// - `id`: The identifier of the asset.
-		/// - `owner`: The account which previously approved for a transfer of at least `amount` and
-		/// from which the asset balance will be withdrawn.
-		/// - `destination`: The account to which the asset balance of `amount` will be transferred.
+		/// - `owner`: The account which previously approved for a transfer of at least the debit
+		/// and from which the asset balance will be withdrawn.
+		/// - `destination`: The account to which the debited balance will be transferred.
 		/// - `amount`: The amount of assets to transfer.
 		///
-		/// Emits `TransferredApproved` on success.
+		/// Emits `Transferred` on success.
 		///
 		/// Weight: `O(1)`
 		#[pallet::call_index(25)]
