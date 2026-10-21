@@ -5,6 +5,8 @@ doc:
     Add cumulus-aura-authorizer-utils as part of upstreaming code from the
     parachain-service repository. Provides shared AURA authorization types,
     collator membership proofs, and work-package signing and verification for JAM.
+    Update jam-std-common to 0.1.29 to match jam-types and keep Zombienet dependencies
+    compatible when building workspace documentation.
 crates:
 - name: cumulus-aura-authorizer-utils
   bump: major
