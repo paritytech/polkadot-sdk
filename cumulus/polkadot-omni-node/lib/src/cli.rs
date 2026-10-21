@@ -207,6 +207,12 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long)]
 	pub enable_statement_store: bool,
 
+	/// Route statements through the DHT instead of gossiping them to every peer.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long)]
+	pub statement_v2_dht: bool,
+
 	/// Number of concurrent workers for statement validation from the network.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -279,6 +285,20 @@ pub struct Cli<Config: CliConfig> {
 		hide = true
 	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
 
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	///
@@ -402,6 +422,7 @@ impl<Config: CliConfig> Cli<Config> {
 							gossip_target: self.statement_gossip_target,
 							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
 							transient_max_size: self.statement_store_max_transient_size,
+							in_peers: self.statement_in_peers,
 						}
 					}),
 				},

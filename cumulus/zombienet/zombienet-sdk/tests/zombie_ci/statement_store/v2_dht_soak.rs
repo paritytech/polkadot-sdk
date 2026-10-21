@@ -20,6 +20,8 @@
 //! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
 //! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
 //! each are mandatory even with a zero duration.
+//! Every node keeps at least `replication_factor` statement peers, so the lifecycle checks that
+//! floor, not a full mesh.
 //!
 //! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
 //! locally — against the cluster given a kubeconfig:
@@ -59,33 +61,32 @@ use zombienet_sdk::{
 	AddCollatorOptions, AssetLocation, LocalFileSystem, Network, NetworkNode,
 };
 
-const SOAK_SECS_ENV: &str = "STATEMENT_V2_SOAK_SECS";
-const DEFAULT_SOAK_SECS: u64 = 900;
+pub(super) const SOAK_SECS_ENV: &str = "STATEMENT_V2_SOAK_SECS";
+pub(super) const DEFAULT_SOAK_SECS: u64 = 900;
 /// How many statement-store nodes to spawn: the 4 authoring collators plus soak-* full nodes for
 /// the rest.
-const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
+pub(super) const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
-const CONNECTED_PEER_FLOOR: usize = 50;
-const STATEMENT_TTL: Duration = Duration::from_secs(900);
-const MAX_RECONNECTS: usize = 5;
-const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
-const REPLICATION_FACTOR: usize = 8;
-const GOSSIP_TARGET: u32 = 3;
-const PARTICIPANTS: u32 = 2_000;
-const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
-const RING_RATE_PER_SECOND: usize = 20;
-const RING_SECS: u64 = 45;
+pub(super) const STATEMENT_TTL: Duration = Duration::from_secs(900);
+pub(super) const MAX_RECONNECTS: usize = 5;
+pub(super) const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
+pub(super) const REPLICATION_FACTOR: usize = 8;
+pub(super) const GOSSIP_TARGET: u32 = 3;
+pub(super) const PARTICIPANTS: u32 = 2_000;
+pub(super) const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
+pub(super) const RING_RATE_PER_SECOND: usize = 20;
+pub(super) const RING_SECS: u64 = 45;
 const PROBES_PER_WAVE: usize = 8;
-const DELIVERY_TIMEOUT_SECS: u64 = 120;
-const PLACEMENT_TIMEOUT_SECS: u64 = 90;
-const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
-const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
+pub(super) const DELIVERY_TIMEOUT_SECS: u64 = 120;
+pub(super) const PLACEMENT_TIMEOUT_SECS: u64 = 90;
+pub(super) const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
+pub(super) const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
 const JOINER_NAME: &str = "soak-joiner";
 /// Round tag of the join step's statements: waves count from 0, the outage step uses `u64::MAX`.
 const JOIN_ROUND: u64 = u64::MAX - 1;
 /// At the CI size of 40 nodes a topic shifts to the joiner with odds 8/41, so 64 topics leave
 /// none shifted with odds below 1e-6.
-const PRE_JOIN_TOPICS: u64 = 64;
+pub(super) const PRE_JOIN_TOPICS: u64 = 64;
 const OUTAGE_BATCHES: usize = 3;
 const OUTAGE_RATE_PER_SECOND: usize = 4;
 const OUTAGE_DELIVERY_TIMEOUT_SECS: u64 = 30;
@@ -101,7 +102,7 @@ const QUIET_METRICS: [&str; 4] = [
 	"substrate_sync_pending_statement_validations",
 ];
 
-fn env_parsed<T: std::str::FromStr>(name: &str) -> Result<Option<T>, anyhow::Error>
+pub(super) fn env_parsed<T: std::str::FromStr>(name: &str) -> Result<Option<T>, anyhow::Error>
 where
 	T::Err: std::fmt::Display,
 {
@@ -122,13 +123,13 @@ fn xor_distance(a: [u8; 32], b: [u8; 32]) -> [u8; 32] {
 
 /// Node indices by the XOR distance of their peer key to `topic`, closest first. Equal distances
 /// would mean equal keys, so the order needs no tie-break.
-fn ranked_by_distance(peer_keys: &[[u8; 32]], topic: Topic) -> Vec<usize> {
+pub(super) fn ranked_by_distance(peer_keys: &[[u8; 32]], topic: Topic) -> Vec<usize> {
 	let mut order: Vec<usize> = (0..peer_keys.len()).collect();
 	order.sort_by_cached_key(|&idx| xor_distance(*topic, peer_keys[idx]));
 	order
 }
 
-fn soak_topic(kind: &[u8], wave: u64, idx: u64) -> Topic {
+pub(super) fn soak_topic(kind: &[u8], wave: u64, idx: u64) -> Topic {
 	let mut preimage = Vec::with_capacity(kind.len() + 16);
 	preimage.extend_from_slice(kind);
 	preimage.extend_from_slice(&wave.to_le_bytes());
@@ -136,19 +137,19 @@ fn soak_topic(kind: &[u8], wave: u64, idx: u64) -> Topic {
 	blake2_256(&preimage).into()
 }
 
-fn is_dropped_connection(err: &anyhow::Error) -> bool {
+pub(super) fn is_dropped_connection(err: &anyhow::Error) -> bool {
 	err.chain().any(|cause| cause.to_string().contains("restart required"))
 }
 
 /// A statement node and its open RPC connection.
 #[derive(Clone)]
-struct NodeHandle {
-	node: NetworkNode,
-	rpc: RpcClient,
+pub(super) struct NodeHandle {
+	pub(super) node: NetworkNode,
+	pub(super) rpc: RpcClient,
 }
 
 impl NodeHandle {
-	fn name(&self) -> &str {
+	pub(super) fn name(&self) -> &str {
 		self.node.name()
 	}
 }
@@ -173,7 +174,7 @@ fn salt_chain_spec(path: &Path) -> Result<(), anyhow::Error> {
 
 /// Spawns the statement nodes on the v2 DHT path: the 4 authoring collators and one full node per
 /// `full_node_names` entry
-async fn launch_soak_network(
+pub(super) async fn launch_soak_network(
 	full_node_names: &[String],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let chain_spec_path = create_chain_spec_with_allowances(PARTICIPANTS, &base_dir()?)?;
@@ -182,19 +183,14 @@ async fn launch_soak_network(
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
-	launch_network_with_commands(
-		&collators,
-		&full_nodes,
-		&chain_spec_path,
-		args,
-		&[("STATEMENT_STORE_V2_DHT_ENABLED", "1")],
-	)
-	.await
+	launch_network_with_commands(&collators, &full_nodes, &chain_spec_path, args).await
 }
 
 /// Reads each node's peer id and maps it into the XOR topic space: `blake2_256` of the peer id
 /// bytes, the key the node ranks replicas by.
-async fn collect_peer_keys(nodes: &[NodeHandle]) -> Result<Vec<[u8; 32]>, anyhow::Error> {
+pub(super) async fn collect_peer_keys(
+	nodes: &[NodeHandle],
+) -> Result<Vec<[u8; 32]>, anyhow::Error> {
 	let mut keys = Vec::with_capacity(nodes.len());
 	for handle in nodes {
 		let peer_id: String = handle.rpc.request("system_localPeerId", rpc_params![]).await?;
@@ -208,7 +204,7 @@ async fn collect_peer_keys(nodes: &[NodeHandle]) -> Result<Vec<[u8; 32]>, anyhow
 }
 
 /// Reads a node's persistent store from a fresh subscription's replay.
-async fn store_snapshot(rpc: &RpcClient) -> Result<HashSet<Vec<u8>>, anyhow::Error> {
+pub(super) async fn store_snapshot(rpc: &RpcClient) -> Result<HashSet<Vec<u8>>, anyhow::Error> {
 	let mut subscription = subscribe_topic_filter(rpc, TopicFilter::Any).await?;
 	let mut snapshot = HashSet::new();
 	loop {
@@ -227,13 +223,13 @@ async fn store_snapshot(rpc: &RpcClient) -> Result<HashSet<Vec<u8>>, anyhow::Err
 }
 
 #[derive(Clone)]
-struct ExpectedPlacement {
-	hash: String,
-	encoded_statement: Vec<u8>,
-	holder_node_indices: Vec<usize>,
+pub(super) struct ExpectedPlacement {
+	pub(super) hash: String,
+	pub(super) encoded_statement: Vec<u8>,
+	pub(super) holder_node_indices: Vec<usize>,
 }
 
-fn placement_mismatch(
+pub(super) fn placement_mismatch(
 	phase: &str,
 	expected_placements: &[ExpectedPlacement],
 	snapshots: &[(usize, HashSet<Vec<u8>>)],
@@ -363,7 +359,9 @@ async fn topology_mismatch(
 ) -> Result<Option<String>, anyhow::Error> {
 	let expected_eligible = nodes.len() - 1;
 	let online_peers = expected_eligible - usize::from(offline_node_idx.is_some());
-	let connected_floor = online_peers.min(CONNECTED_PEER_FLOOR);
+	// A node's routing peers may include the offline one.
+	let connected_floor =
+		expected_eligible.min(REPLICATION_FACTOR) - usize::from(offline_node_idx.is_some());
 	let observations = futures::future::try_join_all(
 		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline_node_idx).map(
 			|(_, handle)| async move {
@@ -411,7 +409,46 @@ async fn wait_for_topology(
 	})
 	.await
 	.map_err(|_| anyhow!("{phase}: topology deadline: {last}"))??;
-	info!("Lifecycle {phase}: full eligible topology, expected open substreams, no major sync");
+	info!("Lifecycle {phase}: full eligible topology, open substreams at the floor, no major sync");
+	Ok(())
+}
+
+/// Open statement substreams summed over the online nodes, each connection counted at both ends.
+async fn connected_sum(
+	nodes: &[NodeHandle],
+	offline_node_idx: Option<usize>,
+) -> Result<f64, anyhow::Error> {
+	let mut sum = 0.0;
+	for (idx, handle) in nodes.iter().enumerate() {
+		if Some(idx) != offline_node_idx {
+			sum += handle.node.reports(CONNECTED_PEERS_METRIC).await?;
+		}
+	}
+	Ok(sum)
+}
+
+/// Wait until every substream to the offline node is closed: the online nodes' substreams sum
+/// to `expected_sum`, the pre-outage sum less both ends of the offline node's connections.
+async fn wait_for_disconnect(
+	nodes: &[NodeHandle],
+	offline_node_idx: usize,
+	expected_sum: f64,
+) -> Result<(), anyhow::Error> {
+	let mut last = 0.0;
+	tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
+		loop {
+			last = connected_sum(nodes, Some(offline_node_idx)).await?;
+			if last == expected_sum {
+				return Ok::<_, anyhow::Error>(());
+			}
+			tokio::time::sleep(Duration::from_secs(2)).await;
+		}
+	})
+	.await
+	.map_err(|_| {
+		anyhow!("disconnected: substreams deadline: sum {last}, expected {expected_sum}")
+	})??;
+	info!("Lifecycle disconnected: every substream to the offline node closed");
 	Ok(())
 }
 
@@ -511,6 +548,67 @@ async fn admissions_by_reason(node: &NetworkNode) -> Result<String, anyhow::Erro
 	Ok(parts.join(" "))
 }
 
+/// Stops `node` in place: its process gives way to an idle `sleep`, paused so the SDK monitor
+/// treats the node as offline until [`bring_online`]
+pub(super) async fn take_offline(node: &NetworkNode) -> Result<(), anyhow::Error> {
+	// Both providers upload these assets as executables; k8s requires a /scripts command even
+	// when restoring. restart_with regenerates the original node arguments for each invocation.
+	let program = "soak-replica-offline.sh";
+	let path = base_dir()?.join(program);
+	std::fs::write(&path, "#!/bin/sh\nexec sleep 3600\n")?;
+	node.restart_with(vec![AssetLocation::FilePath(path)], Some(program.into()), None, None)
+		.await?;
+	// Pause only the idle replacement so the SDK monitor treats the node as offline.
+	node.pause().await?;
+	Ok(())
+}
+
+/// Restarts a node stopped by [`take_offline`] with its original command and arguments, and
+/// returns an RPC client once the node answers
+pub(super) async fn bring_online(node: &NetworkNode) -> Result<RpcClient, anyhow::Error> {
+	bring_online_with(node, None).await
+}
+
+/// [`bring_online`] with `args` in place of the original arguments when given. A running node
+/// restarts the same way, keeping its key and database
+pub(super) async fn bring_online_with(
+	node: &NetworkNode,
+	args: Option<Vec<zombienet_sdk::Arg>>,
+) -> Result<RpcClient, anyhow::Error> {
+	let program = "soak-replica-online.sh";
+	let path = base_dir()?.join(program);
+	std::fs::write(&path, "#!/bin/sh\nexec polkadot-parachain \"$@\"\n")?;
+	node.restart_with(vec![AssetLocation::FilePath(path)], Some(program.into()), args, None)
+		.await?;
+	node.wait_until_is_up(120u64).await?;
+	loop {
+		match node.rpc().await {
+			Ok(rpc) => return Ok(rpc),
+			Err(error) => warn!("Lifecycle RPC not ready after restart: {error:#}"),
+		}
+		tokio::time::sleep(Duration::from_secs(1)).await;
+	}
+}
+
+/// Names of the nodes whose logs hold a statement error. The count-zero predicate only passes
+/// after a full log scan, so the timeout is minimal
+pub(super) async fn nodes_with_statement_errors(
+	nodes: &[NodeHandle],
+) -> Result<Vec<String>, anyhow::Error> {
+	let options = LogLineCountOptions::new(|n| n == 0, Duration::from_secs(1), false);
+	let mut failing = Vec::new();
+	for handle in nodes {
+		let result = handle
+			.node
+			.wait_log_line_count_with_timeout(".*ERROR.*statement.*", false, options.clone())
+			.await?;
+		if !result.success() {
+			failing.push(handle.name().to_string());
+		}
+	}
+	Ok(failing)
+}
+
 /// Full-node outage and recovery:
 /// 1. Pick replica/subscriber/non-affine topics; check baseline delivery and placement.
 /// 2. Stop the node; wait for its statement substreams to close.
@@ -596,32 +694,15 @@ async fn run_replica_outage(
 	}
 	wait_for_stable_placement("baseline", nodes, &expected_placements, None).await?;
 
-	// Both providers upload these assets as executables; k8s requires a /scripts command even
-	// when restoring. restart_with regenerates the original node arguments for each invocation.
-	let offline_program = "soak-replica-offline.sh";
-	let online_program = "soak-replica-online.sh";
-	let dir = base_dir()?;
-	let offline_path = dir.join(offline_program);
-	let online_path = dir.join(online_program);
-	std::fs::write(&offline_path, "#!/bin/sh\nexec sleep 3600\n")?;
-	std::fs::write(&online_path, "#!/bin/sh\nexec polkadot-parachain \"$@\"\n")?;
-
 	let outage_result = tokio::time::timeout(
 		Duration::from_secs(OUTAGE_TIMEOUT_SECS),
 		AssertUnwindSafe(async {
 			info!("Lifecycle stop: {} peer={original_peer_id}", outage_node.name());
-			outage_node
-				.restart_with(
-					vec![AssetLocation::FilePath(offline_path)],
-					Some(offline_program.into()),
-					None,
-					None,
-				)
-				.await?;
-
-			// Pause only the idle replacement so the SDK monitor treats the node as offline.
-			outage_node.pause().await?;
+			let outage_node_connected = outage_node.reports(CONNECTED_PEERS_METRIC).await?;
+			let expected_sum = connected_sum(nodes, None).await? - 2.0 * outage_node_connected;
+			take_offline(&outage_node).await?;
 			wait_for_topology("disconnected", nodes, Some(outage_node_idx)).await?;
+			wait_for_disconnect(nodes, outage_node_idx, expected_sum).await?;
 
 			// Send data during the outage
 			for batch in 0..OUTAGE_BATCHES {
@@ -687,27 +768,10 @@ async fn run_replica_outage(
 	.await;
 
 	let restart_rpc_result =
-		tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
-			outage_node
-				.restart_with(
-					vec![AssetLocation::FilePath(online_path)],
-					Some(online_program.into()),
-					None,
-					None,
-				)
-				.await?;
-			outage_node.wait_until_is_up(120u64).await?;
-			loop {
-				match outage_node.rpc().await {
-					Ok(rpc) => break Ok::<_, anyhow::Error>(rpc),
-					Err(error) => warn!("Lifecycle RPC not ready after restart: {error:#}"),
-				}
-				tokio::time::sleep(Duration::from_secs(1)).await;
-			}
-		})
-		.await
-		.context("outage node restart/up deadline")
-		.and_then(|result| result);
+		tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), bring_online(&outage_node))
+			.await
+			.context("outage node restart/up deadline")
+			.and_then(|result| result);
 	if let Err(error) = &restart_rpc_result {
 		warn!("Lifecycle recovery failed: {error:#}; original node is not confirmed running");
 	}
@@ -832,11 +896,7 @@ async fn run_node_join(
 		load_started_rx.await?;
 		info!("Lifecycle join: adding {JOINER_NAME} to {} statement nodes", nodes.len());
 		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
-		let joiner_options = AddCollatorOptions {
-			env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
-			..Default::default()
-		};
-		network.add_collator(JOINER_NAME, joiner_options, 1004).await?;
+		network.add_collator(JOINER_NAME, AddCollatorOptions::default(), 1004).await?;
 		let node = network.get_node(JOINER_NAME)?.clone();
 		let rpc = node.rpc().await?;
 		nodes_after_join.push(NodeHandle { node, rpc });
@@ -1074,7 +1134,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	// them, and the load needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
 	let eligible_floor = (statement_node_count - 1) as f64;
-	let connected_floor = (statement_node_count - 1).min(CONNECTED_PEER_FLOOR) as f64;
+	let connected_floor = (statement_node_count - 1).min(REPLICATION_FACTOR) as f64;
 	for handle in &nodes {
 		handle
 			.node
@@ -1141,16 +1201,8 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 		}
 	}
 
-	// No statement errors on any node; the count-zero predicate only passes after a full log
-	// scan, so the timeout is minimal.
-	let options = LogLineCountOptions::new(|n| n == 0, Duration::from_secs(1), false);
-	for handle in &nodes {
-		let result = handle
-			.node
-			.wait_log_line_count_with_timeout(".*ERROR.*statement.*", false, options.clone())
-			.await?;
-		assert!(result.success(), "{} logged statement errors during the soak", handle.name());
-	}
+	let failing = nodes_with_statement_errors(&nodes).await?;
+	assert!(failing.is_empty(), "{failing:?} logged statement errors during the soak");
 
 	info!(
 		"Soak done: {wave} waves, {total_statements} statements in {:.0}s, no statement errors",

@@ -142,7 +142,7 @@ use prometheus_endpoint::{
 };
 use rand::seq::IteratorRandom;
 use sc_network::{
-	config::{NonReservedPeerMode, SetConfig},
+	config::{NetworkConfiguration, NonReservedPeerMode, SetConfig},
 	error, multiaddr,
 	peer_store::PeerStoreProvider,
 	service::{
@@ -151,7 +151,7 @@ use sc_network::{
 	},
 	types::ProtocolName,
 	utils::interval,
-	Event, NetworkBackend, NetworkEventStream, NetworkPeers, NetworkStateInfo,
+	Event, NetworkBackend, NetworkEventStream, NetworkPeers, NetworkStateInfo, ObservedRole,
 };
 use sc_network_sync::{SyncEvent, SyncEventStream};
 use sc_network_types::PeerId;
@@ -258,10 +258,10 @@ mod rep {
 }
 
 const LOG_TARGET: &str = "statement-gossip";
-/// V2 statement protocol suffix, work in progress protocol with topic affinity and other
-/// improvements, may have breaking changes before stabilization.
+/// V2 statement protocol suffix: topic affinity filters, shipped since stable2606.
 const STATEMENT_PROTOCOL_V2: &str = "statement/2";
-/// V1 statement protocol suffix, current stable protocol, no breaking changes will be made to it.
+/// V1 statement protocol suffix: flood gossip without affinity filters. No breaking changes will
+/// be made to it.
 const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
@@ -276,9 +276,8 @@ const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// How long a full `statement/2` peer may stay silent about its affinity before it is treated as
 /// wanting every statement.
 ///
-/// TODO: Remove once the filter is mandatory by protocol version. A full node running without
-/// the v2 DHT path never sends a filter, so a node with the path on would wait for it forever.
-/// The rollout flips every node at once, so the grace period is a safety net in case it does not.
+/// A full node without the v2 DHT path never sends a filter, so the wait is what tells it apart
+/// from a v2 peer whose filter is still in flight.
 const AFFINITY_FILTER_GRACE_PERIOD: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval between sweeps that evict statement-store peers unseen for the staleness TTL, so the
 /// topology converges on live peers even while discovery is quiet.
@@ -286,15 +285,21 @@ const PEER_EVICTION_INTERVAL: std::time::Duration = std::time::Duration::from_se
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
-/// Feature-flag to switch between the legacy flood path and the new DHT-targeted path.
+static V2DHT_ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+/// Feature-flag to switch between the legacy flood path and the DHT-targeted path.
 ///
-/// Off by default; enable the v2 DHT path by setting `STATEMENT_STORE_V2_DHT_ENABLED=1`.
-/// The environment variable is read once; the value stays fixed for the process lifetime.
+/// Off by default. The first read or call to [`set_v2dht_enabled`] fixes the value for the
+/// process lifetime.
 pub fn v2dht_enabled() -> bool {
-	static ENABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-	*ENABLED.get_or_init(|| {
-		std::env::var_os("STATEMENT_STORE_V2_DHT_ENABLED").map_or(false, |value| value == "1")
-	})
+	*V2DHT_ENABLED.get_or_init(|| false)
+}
+
+/// Set the v2 DHT gate. The first read or set fixes it, so a node binary calls this once before
+/// anything reads the gate.
+pub fn set_v2dht_enabled(enabled: bool) {
+	let fixed_now = V2DHT_ENABLED.set(enabled).is_ok();
+	debug_assert!(fixed_now, "the v2 DHT gate is already fixed at {}", v2dht_enabled());
 }
 
 struct Metrics {
@@ -305,6 +310,7 @@ struct Metrics {
 	pending_statements: Gauge<U64>,
 	ignored_statements: Counter<U64>,
 	peers_connected: GaugeVec<U64>,
+	peers_without_dht: Gauge<U64>,
 	statements_received: Counter<U64>,
 	bytes_sent_total: Counter<U64>,
 	bytes_received_total: Counter<U64>,
@@ -389,6 +395,13 @@ impl Metrics {
 					)
 					.buckets(exponential_buckets(1.0, 2.0, 14)?),
 					&["kind"],
+				)?,
+				r,
+			)?,
+			peers_without_dht: register(
+				Gauge::new(
+					"substrate_sync_statement_peers_without_dht",
+					"Number of connected peers served as nodes without the v2 DHT path",
 				)?,
 				r,
 			)?,
@@ -527,6 +540,10 @@ impl Metrics {
 pub struct StatementHandlerPrototype {
 	protocol_name: ProtocolName,
 	notification_service: Box<dyn NotificationService>,
+	/// Inbound slots for full peers, [`V2DhtConfig::in_peers`].
+	in_peers_full: u32,
+	/// Inbound slots for light peers, the node's `--in-peers-light`.
+	in_peers_light: u32,
 }
 
 impl StatementHandlerPrototype {
@@ -540,6 +557,8 @@ impl StatementHandlerPrototype {
 		fork_id: Option<&str>,
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
+		network_config: &NetworkConfiguration,
+		v2dht_config: Option<&V2DhtConfig>,
 	) -> (Self, Net::NotificationProtocolConfig) {
 		let genesis_hash = genesis_hash.as_ref();
 		let hex = array_bytes::bytes2hex("", genesis_hash);
@@ -551,13 +570,20 @@ impl StatementHandlerPrototype {
 		} else {
 			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
 		};
-		// The v2 DHT topology dials peers outside the sync set, so it needs non-reserved slots.
-		// The v1 path manages its peers exclusively through the reserved set: it must keep
-		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
+		// The default set holds `--in-peers-light` only as part of its inbound total, so the
+		// light allowance is recovered the way the sync engine recovers it.
+		let default_set = &network_config.default_peers_set;
+		let in_peers_light = (default_set.in_peers + default_set.out_peers)
+			.saturating_sub(network_config.default_peers_set_num_full);
+		let in_peers_full = v2dht_config.map_or(DEFAULT_IN_PEERS, |config| config.in_peers);
+		// The v2 DHT path reserves only the peers that steering picks, every other peer holds an
+		// inbound slot. The v1 path manages its peers exclusively through the reserved set:
+		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
+		// disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
-				in_peers: 50,
-				out_peers: 50,
+				in_peers: in_peers_full.saturating_add(in_peers_light),
+				out_peers: DEFAULT_OUT_PEERS,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
 			}
@@ -579,7 +605,15 @@ impl StatementHandlerPrototype {
 			peer_store_handle,
 		);
 
-		(Self { protocol_name: protocol_name.into(), notification_service }, config)
+		(
+			Self {
+				protocol_name: protocol_name.into(),
+				notification_service,
+				in_peers_full,
+				in_peers_light,
+			},
+			config,
+		)
 	}
 
 	/// Turns the prototype into the actual handler.
@@ -738,6 +772,8 @@ impl StatementHandlerPrototype {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: self.in_peers_full,
+			in_peers_light: self.in_peers_light,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -824,6 +860,10 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
+	/// Inbound slots for full peers.
+	in_peers_full: u32,
+	/// Inbound slots for light peers.
+	in_peers_light: u32,
 	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
 	/// and only a reconnect can recover it: any peer without the v2 DHT path, a v1 peer with it
 	dropped_statements_during_sync: bool,
@@ -913,10 +953,14 @@ pub struct Peer {
 	/// Whether this peer is a light client.
 	/// Light clients on V2 must set topic affinity before receiving statements.
 	is_light: bool,
+	/// Whether the peer opened the substream.
+	inbound: bool,
 	/// A pending topic affinity filter waiting to be scheduled for initial sync.
 	/// Set when a new `ExplicitTopicAffinity` arrives; consumed by the main loop
 	/// once any in-progress initial sync for this peer completes.
 	pending_topic_affinity: Option<AffinityFilter>,
+	/// The peer sent no filter in time, so it is served as a full node without the v2 DHT path.
+	assumed_match_all: bool,
 	/// One past the newest admission covered by the peer's initial syncs.
 	sync_watermark: u64,
 }
@@ -1142,6 +1186,11 @@ fn has_received_from(
 }
 
 impl Peer {
+	/// The peer floods instead of routing, so it is served like a v1 peer.
+	fn without_dht(&self) -> bool {
+		self.protocol_version == PeerProtocolVersion::V1 || self.assumed_match_all
+	}
+
 	/// Create a new peer for testing/benchmarking purposes.
 	#[cfg(any(test, feature = "test-helpers"))]
 	pub fn new_for_testing(statements_per_second: NonZeroU32, burst: NonZeroU32) -> Self {
@@ -1152,7 +1201,9 @@ impl Peer {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		}
 	}
@@ -1243,6 +1294,8 @@ where
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -1327,7 +1380,7 @@ where
 						self.v2dht.on_pending_affinities();
 						self.v2dht.refresh_connections(&self.network);
 					}
-					self.assume_match_all_after_filter_grace();
+					self.assume_match_all_after_filter_grace().await;
 					self.process_pending_affinities();
 					self.pending_affinities_timeout =
 						Box::pin(tokio::time::sleep(PENDING_AFFINITIES_INTERVAL).fuse());
@@ -1397,13 +1450,17 @@ where
 		});
 	}
 
-	/// Advertise a changed affinity filter to every connected peer past V1.
+	/// Advertise a changed affinity filter to every connected peer past V1. A peer assumed
+	/// match-all is skipped: any filter restarts the receiver's initial sync, and it already has
+	/// the match-all one.
 	async fn broadcast_local_filter(&mut self, filter: AffinityFilter) {
 		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
 		let peers: Vec<PeerId> = self
 			.peers
 			.iter()
-			.filter(|(_, peer)| peer.protocol_version != PeerProtocolVersion::V1)
+			.filter(|(_, peer)| {
+				peer.protocol_version != PeerProtocolVersion::V1 && !peer.assumed_match_all
+			})
 			.map(|(peer_id, _)| *peer_id)
 			.collect();
 		log::debug!(
@@ -1422,6 +1479,13 @@ where
 			return;
 		}
 		let encoded = StatementMessage::ExplicitTopicAffinity(self.v2dht.local_filter()).encode();
+		self.send_notification(peer, encoded).await;
+	}
+
+	/// Ask `peer` for everything.
+	async fn send_match_all_filter(&mut self, peer: &PeerId) {
+		let encoded =
+			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
 		self.send_notification(peer, encoded).await;
 	}
 
@@ -1485,10 +1549,10 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active.
 	///
-	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
-	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
-	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
-	/// of a reserved peer.
+	/// With the v2 DHT path on, only the drop from a peer without the DHT path leads here, so only
+	/// such a peer is picked. Steering reserves only peers in the DHT index, which such a peer
+	/// stays out of, so it is not reserved: its substream is closed directly, and the peer, which
+	/// holds this node in its own reserved set, reconnects on its own.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1502,9 +1566,7 @@ where
 		let Some(&peer_id) = self
 			.peers
 			.iter()
-			.filter(|(_, peer)| {
-				!v2dht_enabled() || peer.protocol_version == PeerProtocolVersion::V1
-			})
+			.filter(|(_, peer)| !v2dht_enabled() || peer.without_dht())
 			.map(|(peer_id, _)| peer_id)
 			.choose(&mut rand::thread_rng())
 		else {
@@ -1516,15 +1578,17 @@ where
 			"Major sync complete, force-reconnecting {peer_id} for statement recovery",
 		);
 
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
+			return;
+		}
+
 		if let Err(err) = self.network.remove_peers_from_reserved_set(
 			self.protocol_name.clone(),
 			iter::once(peer_id).collect(),
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
-		}
-		if v2dht_enabled() {
-			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1549,6 +1613,22 @@ where
 		}
 	}
 
+	/// Whether the role's inbound quota has room for one more peer.
+	///
+	/// The protocol controller counts the full and light slots together, so the split by role
+	/// happens here, as in the sync engine. A reserved peer holds no controller slot, so it is
+	/// left out of the count.
+	fn inbound_slot_free(&self, role: ObservedRole) -> bool {
+		let is_light = role.is_light();
+		let taken = self
+			.peers
+			.iter()
+			.filter(|(id, p)| p.inbound && p.is_light == is_light && !self.v2dht.is_reserved(id))
+			.count();
+		let limit = if is_light { self.in_peers_light } else { self.in_peers_full } as usize;
+		taken < limit
+	}
+
 	/// React to peer connect/disconnect events from the sync subsystem:
 	///
 	/// - On connect while major-syncing: defer the peer (kept in `deferred_peers`) instead of
@@ -1557,7 +1637,13 @@ where
 	/// - On connect otherwise: add the peer to the reserved set.
 	/// - On disconnect: remove the peer from the reserved set, or from the deferred set if it never
 	///   joined.
+	///
+	/// With the v2 DHT path on, peer steering alone edits the reserved set and a sync peer holds
+	/// an ordinary slot, so the events are ignored.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
+		if v2dht_enabled() {
+			return;
+		}
 		match event {
 			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
 				if self.sync.is_major_syncing() {
@@ -1618,17 +1704,28 @@ where
 		match event {
 			NotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx, .. } => {
 				// Only accept peers whose role can be determined
-				let result = self
-					.network
-					.peer_role(peer, handshake)
-					.map_or(ValidationResult::Reject, |_| ValidationResult::Accept);
+				let result = match self.network.peer_role(peer, handshake) {
+					Some(role)
+						if v2dht_enabled() &&
+							!self.v2dht.is_reserved(&peer) &&
+							!self.inbound_slot_free(role) =>
+					{
+						log::debug!(
+							target: LOG_TARGET,
+							"Inbound slot quota full for {role:?}, rejecting {peer}",
+						);
+						ValidationResult::Reject
+					},
+					Some(_) => ValidationResult::Accept,
+					None => ValidationResult::Reject,
+				};
 				let _ = result_tx.send(result);
 			},
 			NotificationEvent::NotificationStreamOpened {
 				peer,
 				negotiated_fallback,
 				handshake,
-				..
+				direction,
 			} => {
 				// If negotiated_fallback is Some, the peer connected on a fallback protocol
 				// (v1). If None, the peer connected on the main protocol (v2).
@@ -1665,7 +1762,9 @@ where
 						protocol_version,
 						topic_affinity: None,
 						is_light,
+						inbound: direction.is_inbound(),
 						pending_topic_affinity: None,
+						assumed_match_all: false,
 						sync_watermark: 0,
 					},
 				);
@@ -1678,9 +1777,13 @@ where
 				});
 
 				if v2dht_enabled() {
-					// A light peer stores and routes nothing, so it stays out of the topology
-					// and reaches the propagation plan through its filter alone.
-					if !is_light {
+					if protocol_version == PeerProtocolVersion::V1 {
+						// A V1 peer cannot decode a filter and wants everything, so it is served
+						// like a peer assumed match-all and stays out of the DHT index.
+						self.v2dht.on_peer_filter_update(peer, AffinityFilter::match_all(0));
+					} else if !is_light {
+						// A light peer stores and routes nothing, so it stays out of the topology
+						// and reaches the propagation plan through its filter alone.
 						self.v2dht.on_substream_opened(peer);
 					}
 					self.send_local_filter(&peer).await;
@@ -1694,6 +1797,7 @@ where
 				} else if !is_light {
 					self.awaiting_affinity_filter.insert(peer, Instant::now());
 				}
+				self.update_peers_without_dht();
 			},
 			NotificationEvent::NotificationStreamClosed { peer } => {
 				if v2dht_enabled() {
@@ -1702,6 +1806,7 @@ where
 				let removed_peer = self.peers.remove(&peer);
 				debug_assert!(removed_peer.is_some());
 				self.awaiting_affinity_filter.remove(&peer);
+				self.update_peers_without_dht();
 
 				if let Some(removed_peer) = removed_peer {
 					self.metrics.as_ref().map(|metrics| {
@@ -1736,12 +1841,12 @@ where
 						target: LOG_TARGET,
 						"{peer}: Ignoring statements while major syncing or offline"
 					);
-					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a v1
-					// peer has no such request and is reconnected once the sync ends.
-					let from_v1_peer = self.peers.get(&peer).is_some_and(|peer_data| {
-						peer_data.protocol_version == PeerProtocolVersion::V1
-					});
-					if !v2dht_enabled() || from_v1_peer {
+					// With the v2 DHT path on, a v2 peer replays on the re-advertised filter; a
+					// peer without the DHT path gets no such request and is reconnected once the
+					// sync ends.
+					let from_peer_without_dht =
+						self.peers.get(&peer).is_some_and(|peer_data| peer_data.without_dht());
+					if !v2dht_enabled() || from_peer_without_dht {
 						self.dropped_statements_during_sync = true;
 					}
 					return;
@@ -1802,6 +1907,7 @@ where
 									// already-stored statements (filtered by `topic_affinity`
 									// and DHT routing targets). Without this a late subscriber
 									// sees only the statements that arrive after it subscribes.
+									let mut was_assumed_match_all = false;
 									if let Some(peer_data) = self.peers.get_mut(&peer) {
 										log::debug!(
 											target: LOG_TARGET,
@@ -1810,7 +1916,17 @@ where
 										// Defer both the affinity update and sync scheduling
 										// to the main loop tick.
 										peer_data.pending_topic_affinity = Some(filter);
+										was_assumed_match_all =
+											std::mem::take(&mut peer_data.assumed_match_all);
 										self.awaiting_affinity_filter.remove(&peer);
+									}
+									if was_assumed_match_all {
+										// A late filter means the peer runs the v2 DHT path.
+										if v2dht_enabled() {
+											self.v2dht.on_substream_opened(peer);
+										}
+										self.send_local_filter(&peer).await;
+										self.update_peers_without_dht();
 									}
 								},
 							}
@@ -2444,9 +2560,10 @@ where
 		}
 	}
 
-	/// Give peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] a match-all filter, the v1 meaning
-	/// of no filter, and schedule their initial sync.
-	fn assume_match_all_after_filter_grace(&mut self) {
+	/// Treat peers silent past [`AFFINITY_FILTER_GRACE_PERIOD`] as nodes without the v2 DHT path:
+	/// a match-all filter, the v1 meaning of no filter, no place in the DHT index, an initial
+	/// sync, and a match-all filter in return.
+	async fn assume_match_all_after_filter_grace(&mut self) {
 		let now = Instant::now();
 		let expired: Vec<PeerId> = self
 			.awaiting_affinity_filter
@@ -2466,9 +2583,28 @@ where
 				"No affinity filter from {peer} within the grace period, assuming it wants everything"
 			);
 			// The seed is irrelevant to a filter with every bit set.
-			peer_data.topic_affinity = Some(AffinityFilter::match_all(0));
+			let filter = AffinityFilter::match_all(0);
+			peer_data.topic_affinity = Some(filter.clone());
+			peer_data.assumed_match_all = true;
+			if v2dht_enabled() {
+				// The propagation plan reads peer filters from the orchestrator.
+				self.v2dht.on_peer_filter_update(peer, filter);
+				self.v2dht.on_peer_without_dht(peer);
+			}
 			self.schedule_initial_sync_for_peer(peer);
+			self.send_match_all_filter(&peer).await;
 		}
+		self.update_peers_without_dht();
+	}
+
+	/// Count the connected peers served as nodes without the v2 DHT path.
+	fn update_peers_without_dht(&self) {
+		if !v2dht_enabled() {
+			return;
+		}
+		let Some(metrics) = &self.metrics else { return };
+		let count = self.peers.values().filter(|peer| peer.without_dht()).count();
+		metrics.peers_without_dht.set(count as u64);
 	}
 
 	/// Process pending topic affinity changes for peers that have no active initial sync.
@@ -3375,7 +3511,9 @@ mod tests {
 					protocol_version: PeerProtocolVersion::V1,
 					topic_affinity: None,
 					is_light: false,
+					inbound: true,
 					pending_topic_affinity: None,
+					assumed_match_all: false,
 					sync_watermark: 0,
 				},
 			);
@@ -3419,6 +3557,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -4366,6 +4506,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -4432,6 +4574,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -5962,6 +6106,69 @@ mod tests {
 		);
 	}
 
+	#[tokio::test]
+	async fn a_peer_silent_past_the_grace_period_is_asked_for_everything() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let peer_id = PeerId::random();
+		handler
+			.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+				peer: peer_id,
+				direction: sc_network::service::traits::Direction::Inbound,
+				handshake: vec![],
+				negotiated_fallback: None,
+			})
+			.await;
+		// With the gate off a full peer owes no filter, so the wait is set up by hand.
+		handler
+			.awaiting_affinity_filter
+			.insert(peer_id, Instant::now() - AFFINITY_FILTER_GRACE_PERIOD);
+		notification_service.clear_sent_notifications();
+
+		handler.assume_match_all_after_filter_grace().await;
+
+		let peer = handler.peers.get(&peer_id).unwrap();
+		assert!(peer.assumed_match_all);
+		assert!(peer.topic_affinity.as_ref().is_some_and(|filter| filter.contains(&[0xAA; 32])));
+		let match_all =
+			StatementMessage::ExplicitTopicAffinity(AffinityFilter::match_all(0)).encode();
+		assert_eq!(notification_service.get_sent_notifications(), vec![(peer_id, match_all)]);
+
+		// A late filter clears the mark and gets the real filter in return.
+		send_affinity(&mut handler, peer_id, [0xAA; 32]).await;
+
+		assert!(!handler.peers.get(&peer_id).unwrap().assumed_match_all);
+		let local = StatementMessage::ExplicitTopicAffinity(handler.v2dht.local_filter()).encode();
+		assert_eq!(notification_service.get_sent_notifications().last(), Some(&(peer_id, local)));
+	}
+
+	#[tokio::test]
+	async fn a_filter_broadcast_skips_a_peer_assumed_match_all() {
+		let (mut handler, _statement_store, _network, notification_service) =
+			build_handler_no_peers();
+		let assumed = PeerId::random();
+		let other = PeerId::random();
+		for peer in [assumed, other] {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamOpened {
+					peer,
+					direction: sc_network::service::traits::Direction::Inbound,
+					handshake: vec![],
+					negotiated_fallback: None,
+				})
+				.await;
+		}
+		handler.peers.get_mut(&assumed).unwrap().assumed_match_all = true;
+		notification_service.clear_sent_notifications();
+
+		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
+		filter.insert(&[0xAA; 32]);
+		handler.broadcast_local_filter(filter.clone()).await;
+
+		let encoded = StatementMessage::ExplicitTopicAffinity(filter).encode();
+		assert_eq!(notification_service.get_sent_notifications(), vec![(other, encoded)]);
+	}
+
 	async fn send_affinity(
 		handler: &mut StatementHandler<TestNetwork, TestSync>,
 		peer_id: PeerId,
@@ -6530,7 +6737,9 @@ mod tests {
 				protocol_version: version,
 				topic_affinity,
 				is_light,
+				inbound: true,
 				pending_topic_affinity: None,
+				assumed_match_all: false,
 				sync_watermark: 0,
 			}
 		};
@@ -6715,6 +6924,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -6801,7 +7012,9 @@ mod tests {
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
+				inbound: true,
 				pending_topic_affinity: None,
+				assumed_match_all: false,
 				sync_watermark: 0,
 			},
 		);
@@ -7218,6 +7431,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -7261,6 +7476,42 @@ mod tests {
 		assert!(handler.deferred_peers.contains(&peer2));
 		assert!(handler.deferred_peers.contains(&peer3));
 		assert!(network.get_removed_reserved().is_empty(), "no remove call for buffered peer");
+	}
+
+	#[test]
+	fn inbound_slots_are_split_by_role() {
+		let (mut handler, _store, _network, _notification_service, _, peer_ids) =
+			build_handler(DEFAULT_IN_PEERS as usize);
+		handler.in_peers_light = 1;
+
+		assert!(!handler.inbound_slot_free(ObservedRole::Full), "full inbound slots are taken");
+		assert!(handler.inbound_slot_free(ObservedRole::Light), "light slots are counted apart");
+
+		handler.peers.get_mut(&peer_ids[0]).unwrap().inbound = false;
+		assert!(handler.inbound_slot_free(ObservedRole::Full), "an outbound peer holds no slot");
+
+		handler.peers.get_mut(&peer_ids[1]).unwrap().is_light = true;
+		assert!(!handler.inbound_slot_free(ObservedRole::Light), "the light quota is taken");
+		assert!(handler.inbound_slot_free(ObservedRole::Full));
+	}
+
+	#[test]
+	fn reserved_peers_hold_no_inbound_slot() {
+		let (mut handler, _store, network, _notification_service, _, peer_ids) = build_handler(1);
+		handler.in_peers_light = 1;
+		handler.peers.get_mut(&peer_ids[0]).unwrap().is_light = true;
+		assert!(!handler.inbound_slot_free(ObservedRole::Light));
+
+		handler.v2dht.update_peers_needing_connections([peer_ids[0]]);
+		handler.v2dht.refresh_connections(&network);
+		assert_eq!(network.get_added_reserved().len(), 1);
+		assert!(handler.inbound_slot_free(ObservedRole::Light), "a reserved peer is not counted");
+
+		handler.v2dht.update_peers_needing_connections([]);
+		handler.v2dht.refresh_connections(&network);
+		assert_eq!(network.get_removed_reserved().len(), 1);
+		assert!(!handler.v2dht.is_reserved(&peer_ids[0]), "a released peer is reserved no more");
+		assert!(!handler.inbound_slot_free(ObservedRole::Light));
 	}
 
 	#[test]
@@ -7315,6 +7566,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: deferred,
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -7367,7 +7620,9 @@ mod tests {
 				protocol_version: PeerProtocolVersion::V1,
 				topic_affinity: None,
 				is_light: false,
+				inbound: true,
 				pending_topic_affinity: None,
+				assumed_match_all: false,
 				sync_watermark: 0,
 			},
 		);
@@ -7410,6 +7665,8 @@ mod tests {
 			parked_propagations: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
 			deferred_peers: HashSet::new(),
+			in_peers_full: DEFAULT_IN_PEERS,
+			in_peers_light: 0,
 			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
@@ -7480,7 +7737,9 @@ mod tests {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 
@@ -7529,6 +7788,8 @@ mod tests {
 					parked_propagations: VecDeque::new(),
 					pending_sends: FuturesUnordered::new(),
 					deferred_peers: HashSet::new(),
+					in_peers_full: DEFAULT_IN_PEERS,
+					in_peers_light: 0,
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,
 					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
@@ -7585,7 +7846,9 @@ mod tests {
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let who = PeerId::random();
@@ -7647,7 +7910,9 @@ mod tests {
 			protocol_version: PeerProtocolVersion::V2,
 			topic_affinity: Some(filter_over(&[topic(9)])),
 			is_light: false,
+			inbound: true,
 			pending_topic_affinity: None,
+			assumed_match_all: false,
 			sync_watermark: 0,
 		};
 		let who = PeerId::random();

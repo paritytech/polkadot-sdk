@@ -43,6 +43,10 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Route statements through the DHT instead of gossiping them to every peer.
+	#[arg(long)]
+	pub statement_v2_dht: bool,
+
 	/// Number of concurrent workers for statement validation from the network.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -112,6 +116,20 @@ pub struct Cli {
 		hide = true
 	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
 
 	/// Number of peers to gossip a statement to within the affinity set.
 	///

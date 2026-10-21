@@ -1,0 +1,15 @@
+title: 'statement-store: add a flag that turns the v2 DHT path on'
+doc:
+- audience: [Node Operator, Node Dev]
+  description: |-
+    The new `--statement-v2-dht` flag on the substrate node and the omni-node makes a node with
+    the statement store route statements through the DHT instead of flooding them to every peer.
+    Without it the node floods as before. The `STATEMENT_STORE_V2_DHT_ENABLED` environment
+    variable is gone. Node binaries set the gate once from the CLI with `set_v2dht_enabled`.
+crates:
+- name: sc-network-statement
+  bump: minor
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: staging-node-cli
+  bump: minor
