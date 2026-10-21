@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792610340822,
+  "lastUpdate": 1792616086541,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -242687,6 +242687,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2364003076,
             "range": "± 75378743",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7431714e049fdb008a9e2b93f918c96507a0a460",
+          "message": "statement-store: with the v2 DHT path on, steering alone edits the reserved set (#13488)\n\n# Description\n\nWith the v2 DHT path on, the statement set keeps its reserved set for\npeer steering only. Every other peer takes an inbound slot: such a peer\nis outside our reserved set but holds us in its own, as its steering\npicked us. The set has no outbound slots, since steering dials its peers\nitself. Sync peer events no longer touch the reserved set, and sync\nrecovery closes the v1 peer's substream directly, as that peer\nreconnects on its own.\n\nPeer steering tracks the peers it holds in the reserved set and reserves\nevery desired peer, including one that connected on its own. A reserved\npeer no longer desired is released: one without a substream at once, the\nconnected ones under the usual cap per refresh. A peer on the v1\nfallback protocol takes no part in the DHT path, so it stays out of the\norchestrator and is never reserved.\n\nThe soak no longer expects a full statement mesh. It waits for at least\nK open substreams per node, and the outage step confirms the disconnect\nby the sum of substreams over the online nodes.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13487, whose\nrouting peers keep every node connected once the set stops dialing peers\nof its own. https://github.com/paritytech/polkadot-sdk/pull/13458 builds\non this to split the inbound slots by peer role.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-21T13:28:57Z",
+          "tree_id": "101f2b927b30a5fa09032f552aec830b0935e74f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7431714e049fdb008a9e2b93f918c96507a0a460"
+        },
+        "date": 1792616058276,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5300733,
+            "range": "± 83119",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 316834,
+            "range": "± 3838",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 5306002,
+            "range": "± 55937",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 391026,
+            "range": "± 9635",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5877895,
+            "range": "± 96926",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 967894,
+            "range": "± 24680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11865543,
+            "range": "± 186683",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5086353,
+            "range": "± 85319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 47774144,
+            "range": "± 980732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 40063005,
+            "range": "± 335804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 384772456,
+            "range": "± 4255657",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 323900543,
+            "range": "± 5199197",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2804068113,
+            "range": "± 18717044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2498639486,
+            "range": "± 25283616",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3934989,
+            "range": "± 85938",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1954437,
+            "range": "± 16524",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3846199,
+            "range": "± 76553",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2030613,
+            "range": "± 13502",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4413425,
+            "range": "± 86686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2327928,
+            "range": "± 19347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8407020,
+            "range": "± 106527",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5448596,
+            "range": "± 60301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 41107559,
+            "range": "± 826843",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 37133179,
+            "range": "± 390947",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 327497657,
+            "range": "± 2498910",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 283338313,
+            "range": "± 959957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2627994623,
+            "range": "± 28448153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2411265506,
+            "range": "± 35836474",
             "unit": "ns/iter"
           }
         ]
