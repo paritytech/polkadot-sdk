@@ -67,9 +67,10 @@ pub struct WorkerParams<Client, Network, S, Bc, AccountId, Keys> {
 	/// dealing's proof of possession (the keystore cannot export secrets).
 	/// If `None`, the node validates/forwards dealings but does not deal.
 	pub dealing_pair: Option<sp_core::ecdsa_bls381::Pair>,
-	/// Called with the node's own compressed serialized transcript right after
-	/// it is dealt and gossiped; the embedding service decides how/whether to
-	/// submit it on-chain (e.g. as a `key_gen::add_transcript` extrinsic).
+	/// Called with the session index and the node's own compressed serialized
+	/// transcript right after it is dealt and gossiped; the embedding service
+	/// decides how/whether to submit it on-chain (e.g. as a
+	/// `key_gen::add_transcript` extrinsic).
 	pub dealing_submitter: Option<DealingSubmitter>,
 	/// Network implementing gossip and peers reporting (e.g. `Arc<dyn NetworkService>`).
 	pub network: Network,
@@ -85,9 +86,9 @@ pub struct WorkerParams<Client, Network, S, Bc, AccountId, Keys> {
 	pub _phantom: PhantomData<(Bc, AccountId, Keys)>,
 }
 
-/// Callback invoked with the node's own serialized dealing after it is dealt
-/// and gossiped (e.g. to submit it on-chain).
-pub type DealingSubmitter = Arc<dyn Fn(Vec<u8>) + Send + Sync>;
+/// Callback invoked with the session index and the node's own serialized
+/// dealing after it is dealt and gossiped (e.g. to submit it on-chain).
+pub type DealingSubmitter = Arc<dyn Fn(u32, Vec<u8>) + Send + Sync>;
 
 /// Error produced by the DKG worker.
 #[derive(Debug, thiserror::Error)]
@@ -350,7 +351,7 @@ where
 				self.dealt_session = Some(session_index);
 				info!(target: LOG_TARGET, "🎲 DKG: dealt for session {session_index}");
 				if let Some(submit) = &self.dealing_submitter {
-					submit(dealing_bytes);
+					submit(session_index, dealing_bytes);
 				}
 			},
 			Err(e) => error!(target: LOG_TARGET, "🎲 DKG: dealing failed: {e}"),

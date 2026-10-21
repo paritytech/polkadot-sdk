@@ -71,7 +71,7 @@ pub use frame_support::{
 	StorageValue,
 };
 pub use frame_system::Call as SystemCall;
-pub use key_gen::Call as KeyGenCall;
+pub use key_gen::{Call as KeyGenCall, ThresholdKey};
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -99,7 +99,7 @@ impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
 		pub authority_discovery: AuthorityDiscovery,
-		pub beefy: key_gen::BeefySessionHandler,
+		pub beefy: KeyGen,
 	}
 }
 
@@ -397,6 +397,16 @@ impl key_gen::DkgKeyLookup<AccountId> for SessionDkgKeys {
 	}
 }
 
+#[cfg(feature = "with-authority-discovery")]
+pub struct CurrentSessionIndex;
+
+#[cfg(feature = "with-authority-discovery")]
+impl Get<key_gen::SessionIndex> for CurrentSessionIndex {
+	fn get() -> key_gen::SessionIndex {
+		pallet_session::CurrentIndex::<Runtime>::get()
+	}
+}
+
 impl key_gen::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 
@@ -404,6 +414,13 @@ impl key_gen::Config for Runtime {
 	type DkgKeyOf = SessionDkgKeys;
 	#[cfg(not(feature = "with-authority-discovery"))]
 	type DkgKeyOf = ();
+
+	#[cfg(feature = "with-authority-discovery")]
+	type CurrentSessionIndex = CurrentSessionIndex;
+	#[cfg(not(feature = "with-authority-discovery"))]
+	type CurrentSessionIndex = ConstU32<0>;
+
+	type KeyHistoryDepth = ConstU32<8>;
 }
 
 parameter_types! {

@@ -484,12 +484,13 @@ where
 				let transaction_pool = transaction_pool.clone();
 				let keystore = keystore.clone();
 				let spawner = task_manager.spawn_handle();
-				Arc::new(move |transcript_bytes: Vec<u8>| {
+				Arc::new(move |session_index: u32, transcript_bytes: Vec<u8>| {
 					let client = client.clone();
 					let transaction_pool = transaction_pool.clone();
 					let keystore = keystore.clone();
 					spawner.spawn("dkg-submit-dealing", Some("dkg"), async move {
-						let call = runtime::KeyGenCall::add_transcript { transcript_bytes };
+						let call =
+							runtime::KeyGenCall::add_transcript { session_index, transcript_bytes };
 						let extrinsic = match construct_extrinsic_with_keystore(
 							&client, &keystore, call, aura_pk, None,
 						) {
@@ -1114,6 +1115,12 @@ pub fn construct_extrinsic(
 /// Construct an extrinsic like [`construct_extrinsic`], but sign the payload
 /// with the node's sr25519 (aura) key from the keystore instead of an
 /// in-memory pair (the keystore cannot export secret keys).
+///
+/// The mortality era starts at the finalized block rather than the best block:
+/// collators may build on a parent below the local best block, and a block
+/// whose history lacks the era's birth block rejects the extrinsic as
+/// `AncientBirthBlock`, which makes the proposer drop it from the pool. The
+/// finalized block is an ancestor of every block still to be built.
 pub fn construct_extrinsic_with_keystore(
 	client: &Client,
 	keystore: &sp_keystore::KeystorePtr,
@@ -1122,8 +1129,9 @@ pub fn construct_extrinsic_with_keystore(
 	nonce: Option<u32>,
 ) -> Result<runtime::UncheckedExtrinsic, ()> {
 	let function = function.into();
-	let current_block_hash = client.info().best_hash;
-	let current_block = client.info().best_number.saturated_into();
+	let info = client.info();
+	let birth_hash = info.finalized_hash;
+	let birth_block = info.finalized_number.saturated_into();
 	let genesis_block = client.hash(0).unwrap().unwrap();
 	let nonce = nonce.unwrap_or_else(|| fetch_nonce(client, signer));
 	let period = runtime::BlockHashCount::get()
@@ -1136,10 +1144,7 @@ pub fn construct_extrinsic_with_keystore(
 		frame_system::CheckNonZeroSender::<runtime::Runtime>::new(),
 		frame_system::CheckSpecVersion::<runtime::Runtime>::new(),
 		frame_system::CheckGenesis::<runtime::Runtime>::new(),
-		frame_system::CheckEra::<runtime::Runtime>::from(generic::Era::mortal(
-			period,
-			current_block,
-		)),
+		frame_system::CheckEra::<runtime::Runtime>::from(generic::Era::mortal(period, birth_block)),
 		frame_system::CheckNonce::<runtime::Runtime>::from(nonce),
 		frame_system::CheckWeight::<runtime::Runtime>::new(),
 		pallet_transaction_payment::ChargeTransactionPayment::<runtime::Runtime>::from(tip),
@@ -1149,7 +1154,7 @@ pub fn construct_extrinsic_with_keystore(
 	let raw_payload = runtime::SignedPayload::from_raw(
 		function.clone(),
 		tx_ext.clone(),
-		((), (), runtime::VERSION.spec_version, genesis_block, current_block_hash, (), (), (), ()),
+		((), (), runtime::VERSION.spec_version, genesis_block, birth_hash, (), (), (), ()),
 	);
 	let mut signature = None;
 	raw_payload.using_encoded(|e| {

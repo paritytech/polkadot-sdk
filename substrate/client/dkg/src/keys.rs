@@ -25,9 +25,6 @@ pub enum AuthoritySetError {
 	/// `Session::QueuedKeys` is not present at the given block.
 	#[error("Session::QueuedKeys not found at block")]
 	MissingQueuedKeys,
-	/// `Session::CurrentIndex` is not present at the given block.
-	#[error("Session::CurrentIndex not found at block")]
-	MissingSessionIndex,
 	/// `Session::QueuedKeys` failed to SCALE-decode.
 	#[error("failed to decode Session::QueuedKeys")]
 	DecodeFailed,
@@ -61,6 +58,9 @@ where
 }
 
 /// Reads the current session index (`Session::CurrentIndex`) at `hash`.
+///
+/// `CurrentIndex` is a value-query storage item that is first written at the
+/// first session rotation, so an absent value is the genesis session `0`.
 pub fn session_index<Client, Block, Backend>(
 	client: &Client,
 	hash: Block::Hash,
@@ -72,10 +72,10 @@ where
 {
 	let mut storage_key = twox_128(b"Session").to_vec();
 	storage_key.extend_from_slice(&twox_128(b"CurrentIndex"));
-	let data = client
-		.storage(hash, &StorageKey(storage_key))?
-		.ok_or(AuthoritySetError::MissingSessionIndex)?;
-	u32::decode(&mut &data.0[..]).map_err(|_| AuthoritySetError::DecodeFailed)
+	match client.storage(hash, &StorageKey(storage_key))? {
+		Some(data) => u32::decode(&mut &data.0[..]).map_err(|_| AuthoritySetError::DecodeFailed),
+		None => Ok(0),
+	}
 }
 
 ///
