@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792570748787,
+  "lastUpdate": 1792611142852,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d8837ceb93f00290612d51b5348ae3e80d0eb8a8",
-          "message": "revive: Automatic address mapping via OnNewAccount/OnKilledAccount (#11416)\n\nThis PR add the necessary code to automatically map Substrate account to\nan Eth H160 address.\nIt does that by leveraging the OnNewAccount/OnKilledAccount frame_system\nhooks.\n\nIn that configuration pallet-revive map/ unmap dispatchable becomes\nessentially noop.\nNo extra deposit is taken from the the account. We also don't increase\nthe existential deposit since doing so would mean that we need to mint\nthe difference to all existing account\n\n \nChanges summary:\n- Add `AutoMapper<T>` struct that implements\n`OnNewAccount`/`OnKilledAccount` to automatically map accounts when\ncreated and unmap when killed\n- Add `AutoMap` config constant to enable/disable the feature\nper-runtime\n- Guard `map_account`/`unmap_account` dispatchables with\n`AutoMappingEnabled` error when auto-mapping is active\n- Wire up `AutoMapper` in Asset Hub Westend and dev-node runtimes with\n`AutoMap = true`\n- Add v3 multi-block migration to auto-map all existing accounts and\nrelease deposits for already-mapped accounts\n- Add `v3_migration_step` benchmark\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-08T09:02:21Z",
-          "tree_id": "d6d4f1d7d867b8838c3d09874091f7c85c1a9321",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8837ceb93f00290612d51b5348ae3e80d0eb8a8"
-        },
-        "date": 1775643844315,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13578445803333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.672424002933337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13222994843333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2be2c1e8a13d960e77445202c5bb304711feb820",
+          "message": "Remove deprecated polkadot and omni-node CLI flags (#13520)\n\nRemoves CLI flags that were deprecated and no longer had any effect,\nalong with the code that handled them.\n\n## Changes\n\n**polkadot-omni-node**\n- Removes `--experimental-use-slot-based`. Its warning said the flag\nwould be removed after May 2025. Use `--authoring slot-based` instead.\n- `node_extra_args` now takes the authoring policy directly from\n`--authoring`. The old fallback to `SlotBased` is gone.\n- Updates the omni-node SDK reference docs. They pointed to the removed\nflag and now link to `--authoring slot-based`.\n\n**polkadot**\n- Removes `--force-kusama`, `--force-westend` and `--force-rococo`.\n- Chain spec loading from a file path no longer picks a chain-specific\nspec type based on those flags or on the file name. It always loads a\n`GenericChainSpec`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-21T11:25:34Z",
+          "tree_id": "36253f1606fc520c65896cc67df42190eb4578e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2be2c1e8a13d960e77445202c5bb304711feb820"
+        },
+        "date": 1792611107358,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.865888600666665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12857227086666662,
             "unit": "seconds"
           }
         ]
