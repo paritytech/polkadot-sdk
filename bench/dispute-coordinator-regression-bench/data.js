@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792570951658,
+  "lastUpdate": 1792611351691,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf245e0df46f34d1a24f7f42f4a9845a7f6b770b",
-          "message": "collator-protocol: Enhance visibility into para id of failed to fetch collations (#11629)\n\nThis PR enhances the observability of our logs when validators refuse to\nfetch advertised collations for certain para IDs.\n\nThe validator keeps track of advertised collations from collators.\nThen, the validator checks if it has sufficient slots\n(`is_slot_available`) and if the collation can be seconded\n(`can_second`).\nIf either of the mentioned functions fails, the validator silently\nignores the collation.\n\nThis PR aims to surface this behavior and help investigate further\nissues.\n\nThis PR is already deployed on validators and has surfaced:\n- https://github.com/paritytech/polkadot-sdk/issues/11625\n\nPart of:\n- https://github.com/paritytech/polkadot-sdk/issues/11377\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>",
-          "timestamp": "2026-04-07T13:34:59Z",
-          "tree_id": "ede38e5c65cd589a7bee6f97619f5e406d7699d2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf245e0df46f34d1a24f7f42f4a9845a7f6b770b"
-        },
-        "date": 1775574327720,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009441651559999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027023943300000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009996387879999995,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009379977969999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2be2c1e8a13d960e77445202c5bb304711feb820",
+          "message": "Remove deprecated polkadot and omni-node CLI flags (#13520)\n\nRemoves CLI flags that were deprecated and no longer had any effect,\nalong with the code that handled them.\n\n## Changes\n\n**polkadot-omni-node**\n- Removes `--experimental-use-slot-based`. Its warning said the flag\nwould be removed after May 2025. Use `--authoring slot-based` instead.\n- `node_extra_args` now takes the authoring policy directly from\n`--authoring`. The old fallback to `SlotBased` is gone.\n- Updates the omni-node SDK reference docs. They pointed to the removed\nflag and now link to `--authoring slot-based`.\n\n**polkadot**\n- Removes `--force-kusama`, `--force-westend` and `--force-rococo`.\n- Chain spec loading from a file path no longer picks a chain-specific\nspec type based on those flags or on the file name. It always loads a\n`GenericChainSpec`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-21T11:25:34Z",
+          "tree_id": "36253f1606fc520c65896cc67df42190eb4578e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2be2c1e8a13d960e77445202c5bb304711feb820"
+        },
+        "date": 1792611316013,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01086868911,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025759938,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009468807299999988,
             "unit": "seconds"
           }
         ]
