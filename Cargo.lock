@@ -2869,7 +2869,7 @@ dependencies = [
  "sp-std 14.0.0",
  "sp-trie 29.0.0",
  "tracing",
- "trie-db 0.31.0",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -5263,7 +5263,7 @@ dependencies = [
  "sp-version 29.0.0",
  "staging-xcm",
  "staging-xcm-builder",
- "trie-db 0.31.0",
+ "trie-db 0.32.0",
  "trie-standardmap",
 ]
 
@@ -8429,8 +8429,7 @@ dependencies = [
 [[package]]
 name = "hash-db"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e7d7786361d7425ae2fe4f9e407eb0efaa0840f5212d109cc018c40c35c6ab4"
+source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#a3c92a0498569477a75739437ae1b17116117091"
 
 [[package]]
 name = "hash256-std-hasher"
@@ -25644,24 +25643,23 @@ dependencies = [
  "arbitrary",
  "array-bytes 6.2.2",
  "assert_matches",
- "foldhash 0.1.5",
  "hash-db",
  "indexmap 2.9.0",
  "log",
- "nohash-hasher",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pretty_assertions",
  "rand 0.8.5",
  "smallvec",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-panic-handler 13.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
  "thiserror 1.0.65",
  "tracing",
- "trie-db 0.31.0",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -25837,7 +25835,7 @@ dependencies = [
  "thiserror 1.0.65",
  "tracing",
  "trie-bench",
- "trie-db 0.31.0",
+ "trie-db 0.32.0",
  "trie-root",
  "trie-standardmap",
 ]
@@ -26813,7 +26811,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
- "trie-db 0.31.0",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -26893,7 +26891,7 @@ dependencies = [
  "substrate-test-runtime-client",
  "substrate-wasm-builder",
  "tracing",
- "trie-db 0.31.0",
+ "trie-db 0.32.0",
 ]
 
 [[package]]
@@ -28715,6 +28713,17 @@ name = "trie-db"
 version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a7795f2df2ef744e4ffb2125f09325e60a21d305cc3ecece0adeef03f7a9e560"
+dependencies = [
+ "hash-db",
+ "log",
+ "rustc-hex",
+ "smallvec",
+]
+
+[[package]]
+name = "trie-db"
+version = "0.32.0"
+source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#a3c92a0498569477a75739437ae1b17116117091"
 dependencies = [
  "hash-db",
  "log",

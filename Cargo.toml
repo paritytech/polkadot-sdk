@@ -1466,7 +1466,7 @@ tracing-log = { version = "0.2.0" }
 tracing-subscriber = { version = "=0.3.19" }
 tracking-allocator = { path = "polkadot/node/tracking-allocator", default-features = false, package = "staging-tracking-allocator" }
 trie-bench = { version = "0.42.1" }
-trie-db = { version = "0.31.0", default-features = false }
+trie-db = { version = "0.32.0", default-features = false }
 trie-root = { version = "0.18.0", default-features = false }
 trie-standardmap = { version = "0.16.0" }
 trybuild = { version = "1.0.103" }
@@ -1568,3 +1568,7 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[patch.crates-io]
+trie-db = { git = "https://github.com/paritytech/trie", branch = "mku-triedb-transaction-support" }
+hash-db = { git = "https://github.com/paritytech/trie", branch = "mku-triedb-transaction-support" }
