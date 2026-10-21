@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792611351691,
+  "lastUpdate": 1792618801224,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "jfanatiker@gmx.at",
-            "name": "eskimor",
-            "username": "eskimor"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1b71ca68ca00771d4bb5bd7b192ca42e873c8538",
-          "message": "Fix zombienet tests: Use compressed runtimes & log errors. (#11641)\n\nTest runtimes grew too large, we need compression now to fit the limits.\nThis fixes the runtime upgrading zombienet tests. In addition I added\nlogging, such that errors like this will be easier to find next time.\n\nFixes: https://github.com/paritytech/polkadot-sdk/issues/11568\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-07T15:04:47Z",
-          "tree_id": "73da9efd76dd118c59af6512c3b024573c2a0c52",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1b71ca68ca00771d4bb5bd7b192ca42e873c8538"
-        },
-        "date": 1775579715616,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009433705709999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267471481,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009275913149999985,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009468807299999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7431714e049fdb008a9e2b93f918c96507a0a460",
+          "message": "statement-store: with the v2 DHT path on, steering alone edits the reserved set (#13488)\n\n# Description\n\nWith the v2 DHT path on, the statement set keeps its reserved set for\npeer steering only. Every other peer takes an inbound slot: such a peer\nis outside our reserved set but holds us in its own, as its steering\npicked us. The set has no outbound slots, since steering dials its peers\nitself. Sync peer events no longer touch the reserved set, and sync\nrecovery closes the v1 peer's substream directly, as that peer\nreconnects on its own.\n\nPeer steering tracks the peers it holds in the reserved set and reserves\nevery desired peer, including one that connected on its own. A reserved\npeer no longer desired is released: one without a substream at once, the\nconnected ones under the usual cap per refresh. A peer on the v1\nfallback protocol takes no part in the DHT path, so it stays out of the\norchestrator and is never reserved.\n\nThe soak no longer expects a full statement mesh. It waits for at least\nK open substreams per node, and the outage step confirms the disconnect\nby the sum of substreams over the online nodes.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13487, whose\nrouting peers keep every node connected once the set stops dialing peers\nof its own. https://github.com/paritytech/polkadot-sdk/pull/13458 builds\non this to split the inbound slots by peer role.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-21T13:28:57Z",
+          "tree_id": "101f2b927b30a5fa09032f552aec830b0935e74f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7431714e049fdb008a9e2b93f918c96507a0a460"
+        },
+        "date": 1792618772724,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01010400128999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025799234199999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009402157759999984,
             "unit": "seconds"
           }
         ]
