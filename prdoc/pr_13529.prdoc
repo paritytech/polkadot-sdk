@@ -1,0 +1,20 @@
+title: Close archive subscriptions and stop canceled storage work
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: |-
+    Fix archive_v1_storage and archive_v1_storageDiff subscription lifecycle handling.
+    Unsubscribing or disconnecting now releases bounded forwarding channels and stops
+    subsequent storage scans, query items and trie groups at cooperative cancellation
+    boundaries. Notifications waiting for outgoing queue capacity also observe
+    subscription closure, including early error paths. An already-running synchronous
+    backend operation is allowed to finish.
+
+    Completed storageDiff subscriptions now close after their terminal event instead
+    of retaining an extra sender. RPC method names, parameters and event order remain
+    compatible. Node operators adopt the fix through a node binary update; no runtime
+    upgrade or database migration is required.
+crates:
+- name: sc-rpc-spec-v2
+  bump: patch
