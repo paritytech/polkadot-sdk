@@ -96,7 +96,7 @@ use sp_runtime::{
 
 use frame_support::{
 	dispatch::{DispatchResult, DispatchResultWithPostInfo},
-	ensure, print,
+	ensure,
 	traits::{
 		tokens::Pay, Currency, ExistenceRequirement::KeepAlive, Get, Imbalance, OnUnbalanced,
 		ReservableCurrency, WithdrawReasons,
@@ -984,7 +984,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		if let Err(problem) =
 			T::Currency::settle(&account_id, imbalance, WithdrawReasons::TRANSFER, KeepAlive)
 		{
-			print("Inconsistent state - couldn't settle imbalance for funds spent by treasury");
+			log::error!(
+				target: "runtime::treasury",
+				"Inconsistent state - couldn't settle imbalance for funds spent by treasury"
+			);
 			// Nothing else to do here.
 			drop(problem);
 		}

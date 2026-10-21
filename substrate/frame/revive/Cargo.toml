@@ -76,6 +76,7 @@ alloy-consensus = { workspace = true, default-features = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
 itertools = { workspace = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 pretty_assertions = { workspace = true }
 serde_json = { workspace = true }
 strum = { workspace = true, features = ["derive"] }

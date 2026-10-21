@@ -1,0 +1,19 @@
+title: 'statement-store: keep a transient statement until its outboxes fetch it'
+
+doc:
+- audience: Node Dev
+  description: |-
+    On nodes running the v2 DHT statement path, a transient statement stays in the store until
+    every propagation outbox it was queued in has fetched it, instead of being swept as soon as the
+    propagation pass takes it. `StatementStore` gains `hold_statements` and `release_statements`,
+    both no-ops by default, and every statement `take_recent_statements` returns comes with one
+    hold that the caller releases. The new `substrate_sub_statement_store_held_statements` gauge
+    reports how many statements are held. Nodes without the v2 DHT path enabled are unaffected.
+
+crates:
+- name: sp-statement-store
+  bump: minor
+- name: sc-statement-store
+  bump: patch
+- name: sc-network-statement
+  bump: patch
