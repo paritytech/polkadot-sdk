@@ -1,0 +1,13 @@
+title: 'Zombienet: Reduce flakyness of AD full-mesh test'
+doc:
+- audience: Runtime Dev
+  description: |-
+    I was looking a bit into recent merge-queue failures. And this AD test was at the flaky top.
+
+    **Problems and fixes:**
+    - Sequential key updates could cross session boundaries, and readiness accepted partial activation -> Batch all six updates atomically and wait for the exact new key set on every collator.
+    - Discovery readiness counted addresses instead of peers -> Count distinct peer IDs.
+    - Ordinary peer counts included full nodes. Require all five collator peers to resolve and verify the full mesh.
+crates:
+- name: cumulus-client-collator-discovery
+  bump: patch
