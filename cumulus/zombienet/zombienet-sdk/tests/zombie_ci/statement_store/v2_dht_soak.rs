@@ -71,7 +71,7 @@ pub(super) const STATEMENT_TTL: Duration = Duration::from_secs(900);
 pub(super) const MAX_RECONNECTS: usize = 5;
 pub(super) const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
 pub(super) const REPLICATION_FACTOR: usize = 8;
-const GOSSIP_TARGET: u32 = 3;
+pub(super) const GOSSIP_TARGET: u32 = 3;
 pub(super) const PARTICIPANTS: u32 = 2_000;
 pub(super) const LOG_FILTER: &str = "info,statement-store=info,statement-gossip=debug";
 pub(super) const RING_RATE_PER_SECOND: usize = 20;
@@ -566,10 +566,19 @@ pub(super) async fn take_offline(node: &NetworkNode) -> Result<(), anyhow::Error
 /// Restarts a node stopped by [`take_offline`] with its original command and arguments, and
 /// returns an RPC client once the node answers
 pub(super) async fn bring_online(node: &NetworkNode) -> Result<RpcClient, anyhow::Error> {
+	bring_online_with(node, None).await
+}
+
+/// [`bring_online`] with `args` in place of the original arguments when given. A running node
+/// restarts the same way, keeping its key and database
+pub(super) async fn bring_online_with(
+	node: &NetworkNode,
+	args: Option<Vec<zombienet_sdk::Arg>>,
+) -> Result<RpcClient, anyhow::Error> {
 	let program = "soak-replica-online.sh";
 	let path = base_dir()?.join(program);
 	std::fs::write(&path, "#!/bin/sh\nexec polkadot-parachain \"$@\"\n")?;
-	node.restart_with(vec![AssetLocation::FilePath(path)], Some(program.into()), None, None)
+	node.restart_with(vec![AssetLocation::FilePath(path)], Some(program.into()), args, None)
 		.await?;
 	node.wait_until_is_up(120u64).await?;
 	loop {
