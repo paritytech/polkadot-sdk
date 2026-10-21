@@ -237,7 +237,9 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 		if let Some(layer) = self.layers.pop() {
 			let discarded = mem::replace(&mut self.current, layer);
 			match (self.estimation_trie.as_mut(), discarded.trie_snapshot) {
-				(Some(trie), Some(snapshot)) => trie.rollback_to(&snapshot),
+				(Some(trie), Some(snapshot)) => trie.rollback_to(&snapshot).expect(
+					"layers are a stack, so a layer's snapshot is never rolled back past; qed",
+				),
 				(_, None) => self.estimation_trie = None,
 				(None, Some(_)) => unreachable!(
 					"a layer only holds a snapshot of a trie that existed when it started; qed"
