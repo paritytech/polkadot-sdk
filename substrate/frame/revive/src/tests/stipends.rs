@@ -22,7 +22,8 @@ use crate::{
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, StipendTest, compile_module_with_type};
+use pallet_revive_fixtures::{BalanceReadTest, FixtureType, StipendTest, compile_module_with_type};
+use test_case::test_case;
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
@@ -96,6 +97,30 @@ fn evm_call_stipends_work_for_send_zero() {
 
 		let result = builder::bare_call(addr)
 			.data(StipendTest::testSendZeroCall {}.abi_encode())
+			.build();
+
+		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn evm_call_stipends_work_for_balance_reads(fixture_type: FixtureType) {
+	let (receiver_code, _) = compile_module_with_type("BalanceReader", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("BalanceReadTest", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(BalanceReadTest::testBalanceReadCall { to: receiver.0.into() }.abi_encode())
+			.evm_value(1_000_000_u128.into())
 			.build();
 
 		assert!(!result.result.unwrap().did_revert());

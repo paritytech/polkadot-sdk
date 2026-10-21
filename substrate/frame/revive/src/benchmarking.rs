@@ -117,6 +117,15 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
 ///
 /// Returns the account id the `seal_call` family expects in guest memory: `address` is never
@@ -1339,6 +1348,10 @@ mod benchmarks {
 			Pallet::<T>::min_balance() * 2u32.into(),
 			42u32,
 		));
+		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
+		// still be able to read its own balance.
+		let account_id = &contract.account_id;
+		whitelist_account!(account_id);
 
 		let result;
 		#[block]
@@ -1721,6 +1734,7 @@ mod benchmarks {
 		if !delete_code {
 			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
 		}
+		assert_account_not_whitelisted::<T>(&instance.account_id);
 
 		let result;
 		#[block]
@@ -1764,6 +1778,7 @@ mod benchmarks {
 		let trie_id = instance.info()?.trie_id.clone();
 		let code_hash = instance.info()?.code_hash;
 		let only_if_same_tx = false;
+		assert_account_not_whitelisted::<T>(contract_account);
 
 		let result;
 		#[block]
@@ -2783,11 +2798,11 @@ mod benchmarks {
 
 	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
 	// The callee's account is funded up front if `$callee_exists`; otherwise the transfer creates
-	// it. Defines `$do_call` to make the call and `$assert_transferred` to check that the value
-	// arrived.
+	// it. Defines `$do_call` to make the call, `$assert_transferred` to check that the value
+	// arrived, and `$caller_account` as the account of the contract that makes the call.
 	macro_rules! call_setup {
 		(
-			$do_call:ident, $assert_transferred:ident,
+			$do_call:ident, $assert_transferred:ident, $caller_account:ident,
 			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr,
 			callee_exists: $callee_exists:expr
 		) => {
@@ -2816,6 +2831,7 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::default();
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
+			let $caller_account = setup.contract().account_id.clone();
 			let caller_addr = setup.contract().address;
 			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
 			let callee_ed_paid = if $callee_exists {
@@ -2863,6 +2879,7 @@ mod benchmarks {
 		call_setup!(
 			do_call,
 			assert_transferred,
+			_caller_account,
 			value: 0u32,
 			dust: 0u32,
 			input_len: i,
@@ -2886,12 +2903,14 @@ mod benchmarks {
 		call_setup!(
 			do_call,
 			assert_transferred,
+			caller_account,
 			value: 1_000_000u32,
 			dust: 100u32 * d,
 			input_len: 0u32,
 			// Worst case: the transfer also has to create the callee's account.
 			callee_exists: false
 		);
+		assert_account_not_whitelisted::<T>(&caller_account);
 
 		let result;
 		#[block]
@@ -3074,6 +3093,7 @@ mod benchmarks {
 					"{deployer:?} should pay only the value"
 				);
 			};
+			assert_account_not_whitelisted::<T>(account_id);
 		};
 	}
 
@@ -3133,6 +3153,7 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
+			let deployer_account = setup.contract().account_id.clone();
 			let deployer = setup.contract().address;
 			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
 
@@ -3180,6 +3201,7 @@ mod benchmarks {
 					"{deployer:?} should pay only the value and the code deposit"
 				);
 			};
+			assert_account_not_whitelisted::<T>(&deployer_account);
 		};
 	}
 
