@@ -416,8 +416,9 @@ fn a_head_update_travels_to_the_relay_chain_and_lands_in_paras() {
 
 	// Registration was message 0, so the head update is message 1.
 	RegistrarPara::execute_with(|| {
-		assert!(para_event(|e| *e ==
-			pallet_registrar_para::Event::HeadUpdated { para_id, message_id: 1 }));
+		assert!(para_event(
+			|e| *e == pallet_registrar_para::Event::HeadUpdated { para_id, message_id: 1 }
+		));
 	});
 }
 
