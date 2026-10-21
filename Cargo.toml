@@ -140,7 +140,7 @@ members = [
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-omni-node/lib",
 	"cumulus/polkadot-parachain",
-	"cumulus/jam/aura-authorizer",
+	"cumulus/jam/aura-authorizer-utils",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -659,7 +659,7 @@ zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_0
 
 [workspace.dependencies]
 jam-types = { version = "=0.1.28", default-features = false }
-cumulus-aura-authorizer = { path = "cumulus/jam/aura-authorizer", default-features = false }
+cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils", default-features = false }
 
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }

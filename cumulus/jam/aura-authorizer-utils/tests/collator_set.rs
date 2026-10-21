@@ -17,7 +17,7 @@
 
 //! Collator membership proofs, including padded trees and invalid membership.
 
-use cumulus_aura_authorizer::{build_collator_proof, AuthConfig, AuthToken, CollatorKey, ParaId};
+use cumulus_aura_authorizer_utils::{build_collator_proof, AuthConfig, AuthToken, CollatorKey, ParaId};
 use primitive_types::H256;
 
 fn keys(count: u32) -> Vec<CollatorKey> {

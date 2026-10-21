@@ -18,7 +18,7 @@
 //! Published JAM work-package signing and authorization.
 
 use codec::DecodeAll;
-use cumulus_aura_authorizer::{
+use cumulus_aura_authorizer_utils::{
 	build_collator_proof, hash_signing_payload, AuthConfig, AuthToken, AuthTrace,
 	AuthorizationError, SignatureVerifier, TokenError, WorkPackageBody, WORK_PACKAGE_SIGN_CTX,
 };
@@ -111,7 +111,7 @@ fn authorization_round_trip_works() {
 	));
 	let (root, _) = build_collator_proof(&[[7; 32]], 0).expect("valid test collator set");
 	let config = AuthConfig {
-		para_ids: vec![cumulus_aura_authorizer::ParaId::new(0)],
+		para_ids: vec![cumulus_aura_authorizer_utils::ParaId::new(0)],
 		parachain_service: 1,
 		collator_set_root: root,
 		collator_set_size: core::num::NonZero::new(1).expect("nonzero configuration"),

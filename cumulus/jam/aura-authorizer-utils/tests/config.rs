@@ -18,7 +18,7 @@
 //! Slot selection and invalid AURA configuration.
 
 use codec::{DecodeAll, Encode};
-use cumulus_aura_authorizer::AuthConfig;
+use cumulus_aura_authorizer_utils::AuthConfig;
 use jam_types::Slot;
 
 fn encoded_config(size: u32, duration: u32) -> Vec<u8> {

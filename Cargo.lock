@@ -4913,7 +4913,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-aura-authorizer"
+name = "cumulus-aura-authorizer-utils"
 version = "0.1.0"
 dependencies = [
  "binary-merkle-tree 16.1.1",
