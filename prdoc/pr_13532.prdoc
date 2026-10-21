@@ -1,0 +1,12 @@
+title: Remove deprecated reclaim extension
+doc:
+- audience: Runtime Dev
+  description: Removes the original `StorageWeightReclaim` extension which was deprecated
+    for 1.5 years or so. It has been replaced by the Corresponding pallet which is
+    more accurate. No runtime in this repo or fellowship still use the inaccurate
+    one. Anyone else should also migrate if they were still using it.
+crates:
+- name: cumulus-primitives-storage-weight-reclaim
+  bump: major
+- name: cumulus-pallet-weight-reclaim
+  bump: major
