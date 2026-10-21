@@ -8,3 +8,5 @@ doc:
 crates:
 - name: cumulus-aura-authorizer-utils
   bump: major
+- name: polkadot-sdk
+  bump: minor
