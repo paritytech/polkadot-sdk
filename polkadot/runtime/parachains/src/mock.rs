@@ -421,7 +421,7 @@ impl MockDepositProvider {
 				}
 				Ok(())
 			} else {
-				Err(DepositError::InsufficientFunds)
+				Err(DepositError::CannotHold)
 			};
 			if request.action != DepositAction::Release {
 				remote.answers.push((request, result));

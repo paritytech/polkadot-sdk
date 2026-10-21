@@ -82,8 +82,8 @@ pub trait OnDepositSet {
 	MaxEncodedLen,
 )]
 pub enum DepositError {
-	/// A side cannot cover its deposit.
-	InsufficientFunds,
+	/// A side's deposit could not be taken.
+	CannotHold,
 	/// A reason of the provider's own.
 	Other,
 }
@@ -94,7 +94,7 @@ pub enum DepositError {
 /// It carries everything the action needs, so the requester keeps no pending state of its own:
 /// the request comes back unchanged in [`OnDepositSet::on_deposit_set`] and the action resumes
 /// from it.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct DepositChangeRequest {
 	/// The channel whose deposits change.
 	pub channel_id: HrmpChannelId,
