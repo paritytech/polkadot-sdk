@@ -31,6 +31,7 @@ pub mod fast_runtime_binary {
 
 mod coretime;
 mod genesis_config_presets;
+mod hrmp_deposits;
 mod weights;
 pub mod xcm_config;
 
@@ -707,6 +708,10 @@ construct_runtime!(
 
 		// The main stage.
 		Broker: pallet_broker = 50,
+
+		// Holds the relay chain's HRMP channel deposits. The relay chain calls it by index: keep it
+		// equal to `westend_runtime_constants::hrmp_deposits::CORETIME_PALLET_INDEX`.
+		HrmpPara: pallet_hrmp_para = 61,
 
 		// Sudo
 		Sudo: pallet_sudo = 100,

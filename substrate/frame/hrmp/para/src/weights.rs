@@ -35,6 +35,8 @@ pub trait WeightInfo {
 	fn receive_set_deposits() -> Weight;
 	/// `receive` of `Release` with both sides set.
 	fn receive_release() -> Weight;
+	/// `migrate_deposits` of `n` deposits.
+	fn migrate_deposits(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_hrmp_para`, using the runtime's database weights.
@@ -50,6 +52,12 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
+	fn migrate_deposits(n: u32) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(70_000_000, 8_000).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(4_u64.saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(4_u64.saturating_mul(n.into())))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -63,5 +71,11 @@ impl WeightInfo for () {
 		Weight::from_parts(60_000_000, 8_000)
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(6))
+	}
+	fn migrate_deposits(n: u32) -> Weight {
+		Weight::from_parts(10_000_000, 0)
+			.saturating_add(Weight::from_parts(70_000_000, 8_000).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(4_u64.saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(4_u64.saturating_mul(n.into())))
 	}
 }

@@ -15,14 +15,17 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::xcm_config;
-use alloc::{boxed::Box, vec};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::pallet_prelude::DispatchResult;
 use frame_system::RawOrigin;
+use hrmp_primitives::MessageToPara;
 use polkadot_primitives::Balance;
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-use westend_runtime_constants::currency::*;
+use westend_runtime_constants::{
+	currency::*, hrmp_deposits::CORETIME_PALLET_INDEX, system_parachain::BROKER_ID,
+};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 
@@ -180,5 +183,31 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_identity_reaping(_: &AccountId, _: u32, _: u32) {
 		crate::Dmp::make_parachain_reachable(1004);
+	}
+}
+
+/// Sends `call`, encoded for the Coretime chain, to be dispatched there as this chain
+/// (`Superuser`, which the Coretime chain turns into Root).
+pub fn send_to_coretime(call: Vec<u8>) -> Result<(), SendError> {
+	let message = Xcm(vec![
+		Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
+		Instruction::Transact {
+			origin_kind: OriginKind::Superuser,
+			fallback_max_weight: None,
+			call: call.into(),
+		},
+	]);
+	send_xcm::<xcm_config::XcmRouter>(Location::new(0, [Parachain(BROKER_ID)]), message).map(|_| ())
+}
+
+/// Sends `pallet-hrmp-relay`'s messages to `pallet-hrmp-para` on the Coretime chain.
+pub struct HrmpToCoretime;
+impl pallet_hrmp_relay::SendToPara for HrmpToCoretime {
+	fn send(message: MessageToPara) -> Result<(), ()> {
+		// `HrmpPara::receive` on the Coretime chain.
+		let call = (CORETIME_PALLET_INDEX, pallet_hrmp_para::RECEIVE_CALL_INDEX, message).encode();
+		send_to_coretime(call).map_err(|e| {
+			log::error!(target: "runtime::hrmp", "sending to the Coretime chain failed: {e:?}");
+		})
 	}
 }

@@ -25,6 +25,8 @@
 //!   neither, and is answered with [`MessageToRelayV1::DepositsSet`].
 //! - [`MessageToParaV1::Release`] releases everything held for the named sides. It never fails and
 //!   is not answered.
+//! - [`Call::migrate_deposits`] takes the deposits the relay chain held itself before, burnt there:
+//!   each is minted here and held.
 //! - [`Call::force_set_deposit`] is governance's way out when a side holds other than what the
 //!   relay chain records, e.g. after a lost release or a wrong forced answer on the relay chain.
 
@@ -35,11 +37,14 @@ extern crate alloc;
 use frame_support::{
 	pallet_prelude::*,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
-	traits::{fungible::MutateHold, tokens::Precision},
+	traits::{
+		fungible::{Inspect, Mutate, MutateHold},
+		tokens::{Fortitude, Precision, Preservation},
+	},
 };
 use hrmp_primitives::{
 	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId,
+	MessageToRelayV1, MigratedDeposit, ParaId,
 };
 use sp_runtime::{traits::Convert, DispatchResult};
 
@@ -55,6 +60,12 @@ mod tests;
 
 /// The index of [`Call::receive`]. The relay chain encodes the call with it.
 pub const RECEIVE_CALL_INDEX: u8 = 0;
+
+/// The index of [`Call::migrate_deposits`]. The relay chain encodes the call with it.
+pub const MIGRATE_DEPOSITS_CALL_INDEX: u8 = 2;
+
+/// How many deposits one [`Call::migrate_deposits`] takes at most.
+pub const MAX_MIGRATED_DEPOSITS: u32 = 256;
 
 /// Used to send an XCM `Transact` to `pallet-hrmp-relay` on the relay chain.
 pub trait SendToRelay {
@@ -80,7 +91,8 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The currency the deposits are held in.
-		type Currency: MutateHold<Self::AccountId, Reason: From<HoldReason>, Balance = Balance>;
+		type Currency: Mutate<Self::AccountId>
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>, Balance = Balance>;
 
 		/// Sends messages to the relay chain.
 		type SendToRelay: SendToRelay;
@@ -117,6 +129,12 @@ pub mod pallet {
 		DepositRefused { id: u64, channel: ChannelId },
 		/// Everything held for a side, `amount`, was released.
 		DepositReleased { channel: ChannelId, side: DepositSide, amount: Balance },
+		/// A deposit burnt on the relay chain, `amount`, was minted here, and `held` of it is now
+		/// held for the side. The rest, if any, is free in the paying para's sovereign account.
+		DepositMigrated { channel: ChannelId, side: DepositSide, amount: Balance, held: Balance },
+		/// A deposit burnt on the relay chain, `amount`, could not be minted here, e.g. for an
+		/// amount below the existential deposit of an account that does not exist. It is lost.
+		DepositNotMigrated { channel: ChannelId, side: DepositSide, amount: Balance },
 	}
 
 	#[pallet::error]
@@ -211,6 +229,27 @@ pub mod pallet {
 				DepositError::Other => Error::<T>::CannotRelease.into(),
 			})
 		}
+
+		/// Take deposits the relay chain held itself before, burnt there: mint each into the
+		/// paying para's sovereign account, and hold as much of it as the account allows.
+		///
+		/// An account left without its existential deposit holds less than was burnt, rather
+		/// than having more minted. Never fails past the origin check, as the relay chain already
+		/// burnt the funds.
+		// Must equal `MIGRATE_DEPOSITS_CALL_INDEX`.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::WeightInfo::migrate_deposits(deposits.len() as u32))]
+		pub fn migrate_deposits(
+			origin: OriginFor<T>,
+			deposits: BoundedVec<MigratedDeposit, ConstU32<MAX_MIGRATED_DEPOSITS>>,
+		) -> DispatchResult {
+			// The relay chain's `Superuser` arrives as Root.
+			ensure_root(origin)?;
+			for deposit in deposits {
+				Self::migrate_deposit(deposit);
+			}
+			Ok(())
+		}
 	}
 }
 
@@ -248,6 +287,30 @@ impl<T: Config> Pallet<T> {
 		}
 		Self::deposit_event(Event::DepositSet { channel, side, amount: target });
 		Ok(())
+	}
+
+	/// Mints `amount` for `side` and holds as much of it as the paying account allows.
+	fn migrate_deposit(MigratedDeposit { channel, side, amount }: MigratedDeposit) {
+		let who = Self::payer(&channel, side);
+		if T::Currency::mint_into(&who, amount).is_err() {
+			Self::deposit_event(Event::DepositNotMigrated { channel, side, amount });
+			return;
+		}
+		// A hold must leave the existential deposit free.
+		let holdable =
+			T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force)
+				.min(amount);
+		let reason = HoldReason::ChannelDeposit.into();
+		let held = match T::Currency::hold(&reason, &who, holdable) {
+			Ok(()) => holdable,
+			Err(_) => 0,
+		};
+		if held != 0 {
+			Deposits::<T>::mutate((channel, side), |deposit| {
+				*deposit = Some(deposit.unwrap_or_default().saturating_add(held))
+			});
+		}
+		Self::deposit_event(Event::DepositMigrated { channel, side, amount, held });
 	}
 
 	/// Releases everything held for `side`. Nothing held is not an error.

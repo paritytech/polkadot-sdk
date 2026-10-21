@@ -4477,12 +4477,15 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "hrmp-primitives",
  "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
+ "pallet-hrmp-para",
+ "pallet-hrmp-relay",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -8952,7 +8955,6 @@ version = "0.1.0"
 dependencies = [
  "parity-scale-codec",
  "scale-info",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13924,6 +13926,7 @@ dependencies = [
  "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
 
@@ -30771,6 +30774,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "hrmp-primitives",
  "log",
  "pallet-accumulate-and-forward",
  "pallet-asset-rate",
@@ -30781,6 +30785,8 @@ dependencies = [
  "pallet-beefy",
  "pallet-beefy-mmr",
  "pallet-grandpa",
+ "pallet-hrmp-para",
+ "pallet-hrmp-relay",
  "pallet-identity",
  "pallet-indices",
  "pallet-message-queue",

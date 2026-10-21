@@ -211,7 +211,7 @@ impl<T: Config> OnDepositSet for Pallet<T> {
 impl<T: Config> Pallet<T> {
 	/// What the sender and the recipient must each hold for `channel_id` at the prices in
 	/// `config`. Channels with or amongst the system are free.
-	pub(super) fn required_deposits(
+	pub fn required_deposits(
 		channel_id: &HrmpChannelId,
 		config: &HostConfiguration<BlockNumberFor<T>>,
 	) -> (Balance, Balance) {

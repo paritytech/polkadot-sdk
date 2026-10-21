@@ -18,8 +18,8 @@
 //! Test runtime for `pallet-hrmp-para`.
 
 use crate as pallet_hrmp_para;
-use frame_support::derive_impl;
-use sp_runtime::traits::ConvertInto;
+use frame_support::{derive_impl, parameter_types};
+use sp_runtime::{traits::ConvertInto, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -37,9 +37,14 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
+parameter_types! {
+	pub const ExistentialDeposit: u128 = 10;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type Balance = u128;
+	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type RuntimeHoldReason = RuntimeHoldReason;
 }
@@ -49,4 +54,12 @@ impl pallet_hrmp_para::Config for Test {
 	type SendToRelay = ();
 	type SovereignAccountOf = ConvertInto;
 	type WeightInfo = ();
+}
+
+/// Externalities with a block set, so that events are kept.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+	let storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+	let mut ext = sp_io::TestExternalities::new(storage);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
 }

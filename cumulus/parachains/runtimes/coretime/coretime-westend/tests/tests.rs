@@ -350,3 +350,13 @@ fn coretime_revenue_goes_to_accumulation_account() {
 			);
 		});
 }
+
+/// `CORETIME_PALLET_INDEX` is the index of `HrmpPara` in this runtime.
+#[test]
+fn coretime_pallet_index_ok() {
+	use coretime_westend_runtime::HrmpPara;
+	use frame_support::traits::PalletInfoAccess;
+	use westend_runtime_constants::hrmp_deposits::CORETIME_PALLET_INDEX;
+
+	assert_eq!(<HrmpPara as PalletInfoAccess>::index(), CORETIME_PALLET_INDEX as usize);
+}

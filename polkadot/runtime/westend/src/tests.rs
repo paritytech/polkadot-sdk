@@ -422,3 +422,182 @@ mod drain_legacy_treasury_migration {
 		});
 	}
 }
+
+/// `RELAY_PALLET_INDEX` is the index of `HrmpRelay` in this runtime.
+#[test]
+fn relay_pallet_index_ok() {
+	use frame_support::traits::PalletInfoAccess;
+	use westend_runtime_constants::hrmp_deposits::RELAY_PALLET_INDEX;
+
+	assert_eq!(<HrmpRelay as PalletInfoAccess>::index(), RELAY_PALLET_INDEX as usize);
+}
+
+mod hrmp_deposits_migration {
+	use super::*;
+	use crate::migrations::MigrateHrmpDepositsToCoretime;
+	use frame_support::traits::{OnRuntimeUpgrade, ReservableCurrency};
+	use parachains_hrmp::{
+		HrmpChannel, HrmpChannels, HrmpOpenChannelRequest, HrmpOpenChannelRequests,
+	};
+	use polkadot_primitives::HrmpChannelId;
+
+	const SENDER_DEPOSIT: Balance = 100 * UNITS;
+	const RECIPIENT_DEPOSIT: Balance = 60 * UNITS;
+
+	fn sovereign(para: u32) -> AccountId {
+		ParaId::from(para).into_account_truncating()
+	}
+
+	fn reserved(para: u32) -> Balance {
+		<Balances as ReservableCurrency<AccountId>>::reserved_balance(&sovereign(para))
+	}
+
+	/// Reserves `amount` on `para`'s sovereign account, funding it first.
+	fn reserve(para: u32, amount: Balance) {
+		let who = sovereign(para);
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&who, amount + UNITS));
+		assert_ok!(<Balances as ReservableCurrency<AccountId>>::reserve(&who, amount));
+	}
+
+	fn channel(sender: u32, recipient: u32) -> HrmpChannelId {
+		HrmpChannelId { sender: sender.into(), recipient: recipient.into() }
+	}
+
+	/// A channel 2000 -> 2001 and a confirmed request 2002 -> 2003, with their deposits reserved,
+	/// and a Coretime chain that can be reached.
+	fn setup() {
+		parachains_configuration::ActiveConfig::<Runtime>::mutate(|config| {
+			config.max_downward_message_size = 51_200;
+			config.hrmp_recipient_deposit = RECIPIENT_DEPOSIT;
+		});
+		assert_ok!(XcmPallet::force_default_xcm_version(
+			RuntimeOrigin::root(),
+			Some(xcm::latest::VERSION)
+		));
+		Dmp::make_parachain_reachable(BROKER_ID);
+
+		HrmpChannels::<Runtime>::insert(
+			channel(2000, 2001),
+			HrmpChannel {
+				max_capacity: 8,
+				max_total_size: 1024,
+				max_message_size: 512,
+				msg_count: 0,
+				total_size: 0,
+				mqc_head: None,
+				sender_deposit: SENDER_DEPOSIT,
+				recipient_deposit: RECIPIENT_DEPOSIT,
+			},
+		);
+		reserve(2000, SENDER_DEPOSIT);
+		reserve(2001, RECIPIENT_DEPOSIT);
+
+		HrmpOpenChannelRequests::<Runtime>::insert(
+			channel(2002, 2003),
+			HrmpOpenChannelRequest {
+				confirmed: true,
+				_age: 0,
+				sender_deposit: SENDER_DEPOSIT,
+				max_message_size: 512,
+				max_capacity: 8,
+				max_total_size: 1024,
+			},
+		);
+		reserve(2002, SENDER_DEPOSIT);
+		reserve(2003, RECIPIENT_DEPOSIT);
+	}
+
+	fn messages_to_coretime() -> usize {
+		Dmp::dmq_contents_do_not_call_in_consensus(BROKER_ID.into()).len()
+	}
+
+	/// Every deposit is burnt here and sent to the Coretime chain, once.
+	#[test]
+	fn moves_every_deposit_once() {
+		new_test_ext().execute_with(|| {
+			setup();
+			let issuance = <Balances as Inspect<AccountId>>::total_issuance();
+
+			MigrateHrmpDepositsToCoretime::on_runtime_upgrade();
+
+			for para in 2000..2004 {
+				assert_eq!(reserved(para), 0);
+			}
+			let burnt = 2 * SENDER_DEPOSIT + 2 * RECIPIENT_DEPOSIT;
+			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance - burnt);
+			assert_eq!(messages_to_coretime(), 1);
+
+			// A second run moves nothing.
+			reserve(2000, SENDER_DEPOSIT);
+			MigrateHrmpDepositsToCoretime::on_runtime_upgrade();
+			assert_eq!(reserved(2000), SENDER_DEPOSIT);
+			assert_eq!(messages_to_coretime(), 1);
+		});
+	}
+
+	/// A deposit never takes more than its para has reserved besides holds.
+	#[test]
+	fn takes_no_more_than_reserved() {
+		new_test_ext().execute_with(|| {
+			setup();
+			let left = <Balances as ReservableCurrency<AccountId>>::unreserve(
+				&sovereign(2000),
+				SENDER_DEPOSIT / 2,
+			);
+			assert_eq!(left, 0);
+
+			MigrateHrmpDepositsToCoretime::on_runtime_upgrade();
+
+			assert_eq!(reserved(2000), 0);
+			assert_eq!(
+				<Balances as Inspect<AccountId>>::balance(&sovereign(2000)),
+				SENDER_DEPOSIT / 2 + UNITS
+			);
+		});
+	}
+
+	/// Nothing is burnt if the Coretime chain cannot be reached, and a later run does not retry.
+	#[test]
+	fn burns_nothing_if_unsent_and_never_retries() {
+		new_test_ext().execute_with(|| {
+			setup();
+			parachains_configuration::ActiveConfig::<Runtime>::mutate(|config| {
+				config.max_downward_message_size = 0;
+			});
+			let issuance = <Balances as Inspect<AccountId>>::total_issuance();
+
+			MigrateHrmpDepositsToCoretime::on_runtime_upgrade();
+
+			assert_eq!(reserved(2000), SENDER_DEPOSIT);
+			assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance);
+			assert_eq!(messages_to_coretime(), 0);
+
+			parachains_configuration::ActiveConfig::<Runtime>::mutate(|config| {
+				config.max_downward_message_size = 51_200;
+			});
+			MigrateHrmpDepositsToCoretime::on_runtime_upgrade();
+			assert_eq!(reserved(2000), SENDER_DEPOSIT);
+			assert_eq!(messages_to_coretime(), 0);
+		});
+	}
+
+	/// Each deposit moves what its account actually lost, not what was asked.
+	#[test]
+	fn moves_what_was_burnt() {
+		new_test_ext().execute_with(|| {
+			setup();
+			let (mut deposits, _, _) = MigrateHrmpDepositsToCoretime::deposits();
+			// Ask for more than 2000 has reserved.
+			let first = deposits.iter_mut().find(|d| d.channel.sender == 2000).unwrap();
+			first.amount += UNITS;
+			let side = first.side;
+
+			let sent = MigrateHrmpDepositsToCoretime::migrate_batch(&deposits).unwrap();
+
+			assert_eq!(sent.len(), deposits.len());
+			let sent = sent.iter().find(|d| d.channel.sender == 2000 && d.side == side);
+			assert_eq!(sent.unwrap().amount, SENDER_DEPOSIT);
+			assert_eq!(reserved(2000), 0);
+		});
+	}
+}

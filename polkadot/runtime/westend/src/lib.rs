@@ -130,7 +130,7 @@ pub mod xcm_config;
 
 // Implemented types.
 mod impls;
-use impls::ToParachainIdentityReaper;
+use impls::{HrmpToCoretime, ToParachainIdentityReaper};
 
 // XCM configuration.
 use xcm_config::XcmConfig;
@@ -1141,6 +1141,10 @@ impl parachains_dmp::Config for Runtime {
 
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
+	/// Releases that may wait for the transport to the Coretime chain.
+	pub const HrmpMaxOutbox: u32 = 128;
+	/// The Coretime chain, which holds the HRMP deposits.
+	pub const HrmpHolderParaId: ParaId = ParaId::new(BROKER_ID);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -1148,13 +1152,21 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DepositProvider = Hrmp;
+	type DepositProvider = HrmpRelay;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
 	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
+}
+
+impl pallet_hrmp_relay::Config for Runtime {
+	type OnDepositSet = Hrmp;
+	type HolderParaId = HrmpHolderParaId;
+	type SendToPara = HrmpToCoretime;
+	type MaxOutbox = HrmpMaxOutbox;
+	type WeightInfo = pallet_hrmp_relay::weights::SubstrateWeight<Runtime>;
 }
 
 impl parachains_paras_inherent::Config for Runtime {
@@ -1575,6 +1587,9 @@ mod runtime {
 	pub type Coretime = coretime;
 	#[runtime::pallet_index(67)]
 	pub type StakingAhClient = pallet_staking_async_ah_client;
+	// Index must match `westend_runtime_constants::hrmp_deposits::RELAY_PALLET_INDEX`.
+	#[runtime::pallet_index(68)]
+	pub type HrmpRelay = pallet_hrmp_relay;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -1657,15 +1672,19 @@ pub type Migrations = migrations::Unreleased;
 pub mod migrations {
 	use super::*;
 	use frame_support::{
+		pallet_prelude::{DispatchError, OptionQuery},
+		storage::with_storage_layer,
 		traits::{
 			fungible::{Balanced, Inspect},
 			tokens::{Fortitude, Precision, Preservation},
-			OnRuntimeUpgrade, OnUnbalanced,
+			OnRuntimeUpgrade, OnUnbalanced, ReservableCurrency,
 		},
 		weights::Weight,
 	};
+	use hrmp_primitives::{ChannelId, DepositSide, MigratedDeposit};
 	use polkadot_primitives::AccountId;
 	use sp_runtime::traits::Zero;
+	use westend_runtime_constants::hrmp_deposits::CORETIME_PALLET_INDEX;
 	#[cfg(feature = "try-runtime")]
 	use {
 		alloc::vec::Vec,
@@ -1798,6 +1817,185 @@ pub mod migrations {
 		}
 	}
 
+	/// Log target of [`MigrateHrmpDepositsToCoretime`].
+	const HRMP_MIGRATION_LOG_TARGET: &str = "runtime::hrmp::migration";
+
+	/// How many HRMP deposits [`MigrateHrmpDepositsToCoretime`] moves at most. Any left stay
+	/// reserved here, for governance to handle if ever needed.
+	const MAX_MIGRATED_HRMP_DEPOSITS: usize = 2048;
+
+	/// Set once [`MigrateHrmpDepositsToCoretime`] ran, whatever it moved, so that it never runs
+	/// twice.
+	#[frame_support::storage_alias]
+	type HrmpDepositsOnCoretime = StorageValue<HrmpDepositsMigration, (), OptionQuery>;
+
+	/// Moves the HRMP deposits reserved here to the Coretime chain, where `pallet-hrmp-para` holds
+	/// them from now on: burns each here, and has it minted and held there.
+	///
+	/// It runs before any hook or extrinsic of the upgrade's block, so every later deposit change
+	/// reaches the Coretime chain after it. No other migration of the upgrade changes deposits.
+	///
+	/// Best effort, and runs once: a deposit that cannot be taken here, or a batch that cannot be
+	/// sent, stays reserved here for governance to handle. So do deposits past
+	/// [`MAX_MIGRATED_HRMP_DEPOSITS`].
+	pub struct MigrateHrmpDepositsToCoretime;
+
+	impl MigrateHrmpDepositsToCoretime {
+		/// The deposits to move, how many records were read to find them, and how many paras
+		/// pay them.
+		pub(crate) fn deposits() -> (Vec<MigratedDeposit>, u64, u64) {
+			let config = parachains_configuration::ActiveConfig::<Runtime>::get();
+			let records = core::cell::Cell::new(0u64);
+			let channels = parachains_hrmp::HrmpChannels::<Runtime>::iter().flat_map(|(id, c)| {
+				records.set(records.get() + 1);
+				[
+					(id.clone(), DepositSide::Sender, c.sender_deposit),
+					(id, DepositSide::Recipient, c.recipient_deposit),
+				]
+			});
+			let requests =
+				parachains_hrmp::HrmpOpenChannelRequests::<Runtime>::iter().flat_map(|(id, r)| {
+					records.set(records.get() + 1);
+					// Not recorded: what `hrmp` gives back when the request is cancelled.
+					let recipient_deposit =
+						if r.confirmed { Hrmp::required_deposits(&id, &config).1 } else { 0 };
+					[
+						(id.clone(), DepositSide::Sender, r.sender_deposit),
+						(id, DepositSide::Recipient, recipient_deposit),
+					]
+				});
+
+			// What each para has reserved here besides holds, not yet given to a deposit. A
+			// deposit never takes more.
+			let mut reserved = BTreeMap::<ParaId, Balance>::new();
+			let mut deposits = Vec::new();
+			for (id, side, amount) in channels.chain(requests) {
+				if deposits.len() == MAX_MIGRATED_HRMP_DEPOSITS {
+					break;
+				}
+				let para = match side {
+					DepositSide::Sender => id.sender,
+					DepositSide::Recipient => id.recipient,
+				};
+				let left = reserved.entry(para).or_insert_with(|| {
+					let who: AccountId = para.into_account_truncating();
+					// `reserved_balance` counts the holds too.
+					let held = pallet_balances::Holds::<Runtime>::get(&who)
+						.iter()
+						.fold(0, |total: Balance, hold| total.saturating_add(hold.amount));
+					<Balances as ReservableCurrency<AccountId>>::reserved_balance(&who)
+						.saturating_sub(held)
+				});
+				let amount = amount.min(*left);
+				if amount == 0 {
+					continue;
+				}
+				*left -= amount;
+				let channel =
+					ChannelId { sender: id.sender.into(), recipient: id.recipient.into() };
+				deposits.push(MigratedDeposit { channel, side, amount });
+			}
+			(deposits, records.get() + 1, reserved.len() as u64)
+		}
+
+		/// Burns `batch` here and sends what was burnt to the Coretime chain. A batch that cannot
+		/// be sent burns nothing. Returns what was sent.
+		pub(crate) fn migrate_batch(
+			batch: &[MigratedDeposit],
+		) -> Result<Vec<MigratedDeposit>, DispatchError> {
+			with_storage_layer(|| {
+				let burnt: Vec<_> = batch
+					.iter()
+					.filter_map(|deposit| {
+						let who: AccountId = ParaId::from(deposit.side.para(&deposit.channel))
+							.into_account_truncating();
+						// Dropping the slashed imbalance burns it. Short if the account cannot
+						// lose it all, e.g. to keep it alive.
+						let (_, short) =
+							<Balances as ReservableCurrency<AccountId>>::slash_reserved(
+								&who,
+								deposit.amount,
+							);
+						let amount = deposit.amount.saturating_sub(short);
+						(amount != 0).then(|| MigratedDeposit { amount, ..deposit.clone() })
+					})
+					.collect();
+				if burnt.is_empty() {
+					return Ok(burnt);
+				}
+				// `HrmpPara::migrate_deposits` on the Coretime chain.
+				let call =
+					(CORETIME_PALLET_INDEX, pallet_hrmp_para::MIGRATE_DEPOSITS_CALL_INDEX, &burnt)
+						.encode();
+				impls::send_to_coretime(call)
+					.map_err(|_| DispatchError::Other("sending to the Coretime chain failed"))?;
+				Ok(burnt)
+			})
+		}
+	}
+
+	impl OnRuntimeUpgrade for MigrateHrmpDepositsToCoretime {
+		fn on_runtime_upgrade() -> Weight {
+			let db = <Runtime as frame_system::Config>::DbWeight::get();
+			if HrmpDepositsOnCoretime::exists() {
+				log::info!(target: HRMP_MIGRATION_LOG_TARGET, "already migrated.");
+				return db.reads(1);
+			}
+			HrmpDepositsOnCoretime::put(());
+
+			let (deposits, records, payers) = Self::deposits();
+			let (mut moved, mut burnt) = (0, 0);
+			for batch in deposits.chunks(pallet_hrmp_para::MAX_MIGRATED_DEPOSITS as usize) {
+				match Self::migrate_batch(batch) {
+					Ok(sent) => {
+						moved += sent.len();
+						burnt = sent
+							.iter()
+							.fold(burnt, |total: Balance, d| total.saturating_add(d.amount));
+					},
+					Err(e) => log::error!(
+						target: HRMP_MIGRATION_LOG_TARGET,
+						"{} deposits left reserved here, for governance: {e:?}",
+						batch.len(),
+					),
+				}
+			}
+			log::info!(
+				target: HRMP_MIGRATION_LOG_TARGET,
+				"moved {moved} of {} deposits found, {burnt:?} burnt here.",
+				deposits.len(),
+			);
+
+			// Each deposit writes its account and the total issuance. Each batch reads and
+			// writes the queue to the Coretime chain, its head and its fee factor.
+			let batches = deposits.len().div_ceil(pallet_hrmp_para::MAX_MIGRATED_DEPOSITS as usize);
+			let deposits = deposits.len() as u64;
+			let batches = batches as u64;
+			db.reads_writes(1 + records + 2 * payers + 3 * batches, 1 + 2 * deposits + 3 * batches)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+			Ok(<Balances as Inspect<AccountId>>::total_issuance().encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			let issuance: Balance =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade encoded the issuance");
+			frame_support::ensure!(
+				HrmpDepositsOnCoretime::exists(),
+				"The HRMP deposits migration should have run"
+			);
+			// Best effort: what was burnt is not known here, only that nothing was minted.
+			frame_support::ensure!(
+				<Balances as Inspect<AccountId>>::total_issuance() <= issuance,
+				"Moving the HRMP deposits should only burn"
+			);
+			Ok(())
+		}
+	}
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
@@ -1859,6 +2057,9 @@ pub mod migrations {
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		// HRMP deposits are held on the Coretime chain from now on. Last: it reads the host
+		// configuration and sends XCM, both migrated above.
+		MigrateHrmpDepositsToCoretime,
 	);
 }
 
