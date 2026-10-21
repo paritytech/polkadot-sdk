@@ -111,6 +111,36 @@ fn points_credit_exposed_validators_of_the_active_era_only() {
 }
 
 #[test]
+fn relay_session_report_points_are_recorded_as_relay_consensus() {
+	use crate::tests::session_mock::CurrentIndex;
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN era 1 is active, and 21 earned collation points
+		Session::roll_until_active_era(1);
+		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(21, 3)]);
+
+		// WHEN the relay chain reports the end of a session with points for 11 and 21
+		let ending = CurrentIndex::get();
+		<Staking as pallet_staking_async_rc_client::AHStakingInterface>::on_relay_session_report(
+			pallet_staking_async_rc_client::SessionReport::new_terminal(
+				ending,
+				vec![(11, 20), (21, 10)],
+				None,
+			),
+		);
+		CurrentIndex::set(ending + 1);
+
+		// THEN the reported points are recorded as relay consensus points, next to the collation
+		// points, and the tally of era 1 is their sum
+		assert_eq!(
+			points_of_service(1, ValidatorServiceKind::RelayConsensus),
+			(30, vec![(11, 20), (21, 10)])
+		);
+		assert_eq!(points_of_service(1, ValidatorServiceKind::Collation), (3, vec![(21, 3)]));
+		assert_eq!(points_of(1), (33, vec![(11, 20), (21, 13)]));
+	});
+}
+
+#[test]
 fn closed_era_split_never_changes() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN era 1 with points for 11 and 21 has ended and era 2 is active
