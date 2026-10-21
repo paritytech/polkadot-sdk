@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792570800119,
+  "lastUpdate": 1792611194718,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4050536124f2285ea8d7ae4661611b9e256d398e",
-          "message": "statement-store: read allowance on best hash (#11667)\n\nTo allow accepting statements as early as possible\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-08T07:40:51Z",
-          "tree_id": "b9b5de2ac209791a72d5158faa256f51d71d9bb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4050536124f2285ea8d7ae4661611b9e256d398e"
-        },
-        "date": 1775639658892,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025697019559999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1440677412466667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00976415420666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007115788800000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025137812779999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2be2c1e8a13d960e77445202c5bb304711feb820",
+          "message": "Remove deprecated polkadot and omni-node CLI flags (#13520)\n\nRemoves CLI flags that were deprecated and no longer had any effect,\nalong with the code that handled them.\n\n## Changes\n\n**polkadot-omni-node**\n- Removes `--experimental-use-slot-based`. Its warning said the flag\nwould be removed after May 2025. Use `--authoring slot-based` instead.\n- `node_extra_args` now takes the authoring policy directly from\n`--authoring`. The old fallback to `SlotBased` is gone.\n- Updates the omni-node SDK reference docs. They pointed to the removed\nflag and now link to `--authoring slot-based`.\n\n**polkadot**\n- Removes `--force-kusama`, `--force-westend` and `--force-rococo`.\n- Chain spec loading from a file path no longer picks a chain-specific\nspec type based on those flags or on the file name. It always loads a\n`GenericChainSpec`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-21T11:25:34Z",
+          "tree_id": "36253f1606fc520c65896cc67df42190eb4578e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2be2c1e8a13d960e77445202c5bb304711feb820"
+        },
+        "date": 1792611159481,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02494801067333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007498999939999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14453132652000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009851831139999972,
             "unit": "seconds"
           }
         ]
