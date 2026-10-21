@@ -20,24 +20,28 @@ codec = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 tracing = { workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-sp-core.workspace = true
-sp-io.workspace = true
-sp-runtime.workspace = true
-sp-std.workspace = true
-xcm.workspace = true
-xcm-builder.workspace = true
-xcm-executor.workspace = true
-snowbridge-beacon-primitives.workspace = true
-snowbridge-core.workspace = true
-snowbridge-verification-primitives.workspace = true
-assets-common.workspace = true
+
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
+xcm-executor = { workspace = true }
+
+snowbridge-beacon-primitives = { workspace = true }
+snowbridge-core = { workspace = true }
+snowbridge-verification-primitives = { workspace = true }
+
+assets-common = { workspace = true }
 
 hex-literal = { workspace = true, default-features = true }
 
 [dev-dependencies]
-snowbridge-test-utils = { path = "../../test-utils" }
+snowbridge-test-utils = { workspace = true }
 
 [features]
 default = ["std"]
@@ -65,6 +69,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
+	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

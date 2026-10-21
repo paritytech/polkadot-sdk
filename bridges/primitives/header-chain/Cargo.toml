@@ -15,15 +15,19 @@ codec = { workspace = true }
 finality-grandpa = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
-bp-runtime.workspace = true
-frame-support.workspace = true
+
+# Bridge dependencies
+bp-runtime = { workspace = true }
+
+# Substrate Dependencies
+frame-support = { workspace = true }
 sp-consensus-grandpa = { features = ["serde"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
 sp-runtime = { features = ["serde"], workspace = true }
-sp-std.workspace = true
+sp-std = { workspace = true }
 
 [dev-dependencies]
-bp-test-utils = { default-features = true, path = "../test-utils" }
+bp-test-utils = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 
