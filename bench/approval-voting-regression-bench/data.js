@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792570850946,
+  "lastUpdate": 1792611246898,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4050536124f2285ea8d7ae4661611b9e256d398e",
-          "message": "statement-store: read allowance on best hash (#11667)\n\nTo allow accepting statements as early as possible\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-08T07:40:51Z",
-          "tree_id": "b9b5de2ac209791a72d5158faa256f51d71d9bb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4050536124f2285ea8d7ae4661611b9e256d398e"
-        },
-        "date": 1775639691120,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63614.54,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52938.2,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000021031059999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002336321,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8032364268100003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7735133662599513,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.309045744782952,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.843423159770001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002336321,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.672945218139954,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.956350845390001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.80900675411,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.482019166470001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00539549933,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000021031059999999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.732948541520002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "2be2c1e8a13d960e77445202c5bb304711feb820",
+          "message": "Remove deprecated polkadot and omni-node CLI flags (#13520)\n\nRemoves CLI flags that were deprecated and no longer had any effect,\nalong with the code that handled them.\n\n## Changes\n\n**polkadot-omni-node**\n- Removes `--experimental-use-slot-based`. Its warning said the flag\nwould be removed after May 2025. Use `--authoring slot-based` instead.\n- `node_extra_args` now takes the authoring policy directly from\n`--authoring`. The old fallback to `SlotBased` is gone.\n- Updates the omni-node SDK reference docs. They pointed to the removed\nflag and now link to `--authoring slot-based`.\n\n**polkadot**\n- Removes `--force-kusama`, `--force-westend` and `--force-rococo`.\n- Chain spec loading from a file path no longer picks a chain-specific\nspec type based on those flags or on the file name. It always loads a\n`GenericChainSpec`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-21T11:25:34Z",
+          "tree_id": "36253f1606fc520c65896cc67df42190eb4578e6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/2be2c1e8a13d960e77445202c5bb304711feb820"
+        },
+        "date": 1792611211891,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.55,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52943.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.407489389202808,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018957200000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.80668922121,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005337106789999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018683629999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.328447779850038,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.77323824713,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018683629999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018957200000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7710556259300008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8055637656300441,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.354674403569993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.81188940959,
             "unit": "seconds"
           }
         ]
