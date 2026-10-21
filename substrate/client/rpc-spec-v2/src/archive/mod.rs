@@ -23,6 +23,10 @@
 //! Methods are prefixed by `archive`.
 
 #[cfg(test)]
+mod lifecycle_tests;
+#[cfg(test)]
+pub(crate) mod test_observer;
+#[cfg(test)]
 mod tests;
 
 mod archive_storage;

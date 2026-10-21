@@ -223,6 +223,8 @@ where
 	) {
 		let mut storage_client =
 			StorageSubscriptionClient::<Client, Block, BE>::new(self.client.clone());
+		#[cfg(test)]
+		let client = self.client.clone();
 
 		let fut = async move {
 			let Ok(mut sink) = pending.accept().await.map(Subscription::from) else { return };
@@ -270,6 +272,10 @@ where
 			};
 
 			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			#[cfg(test)]
+			if let Some(observer) = super::test_observer::get(&client) {
+				observer.channel(&tx);
+			}
 			let storage_fut = storage_client.generate_events(hash, items, child_trie, tx);
 
 			// We don't care about the return value of this join:
@@ -278,6 +284,9 @@ where
 			// the error is propagated via the sink.
 			let _ = futures::future::join(storage_fut, process_storage_events(rx, &mut sink)).await;
 		};
+
+		#[cfg(test)]
+		let fut = super::test_observer::scope(self.client.clone(), fut);
 
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
@@ -309,6 +318,10 @@ where
 			};
 
 			let (tx, rx) = tokio::sync::mpsc::channel(STORAGE_QUERY_BUF);
+			#[cfg(test)]
+			if let Some(observer) = super::test_observer::get(&client) {
+				observer.channel(&tx);
+			}
 			let storage_fut = storage_client.handle_trie_queries(hash, items, previous_hash, tx);
 
 			// We don't care about the return value of this join:
@@ -319,16 +332,24 @@ where
 				.await;
 		};
 
+		#[cfg(test)]
+		let fut = super::test_observer::scope(self.client.clone(), fut);
+
 		self.executor.spawn("substrate-rpc-subscription", Some("rpc"), fut.boxed());
 	}
 }
 
 /// Sends a storage event while observing subscription closure under backpressure.
 async fn send_storage_event(sink: &Subscription, event: &impl serde::Serialize) -> bool {
+	#[cfg(test)]
+	super::test_observer::prepare_send(sink, event).await;
+	let send = sink.send(event);
+	#[cfg(test)]
+	let send = super::test_observer::sending(send);
 	tokio::select! {
 		biased;
 		_ = sink.closed() => false,
-		result = sink.send(event) => result.is_ok(),
+		result = send => result.is_ok(),
 	}
 }
 

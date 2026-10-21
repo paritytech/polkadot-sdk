@@ -45,11 +45,7 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
 	SaturatedConversion,
 };
-use std::{
-	collections::HashMap,
-	sync::{Arc, Mutex},
-	time::Duration,
-};
+use std::{collections::HashMap, sync::Arc};
 use substrate_test_runtime::Transfer;
 use substrate_test_runtime_client::{
 	prelude::*, runtime, Backend, BlockBuilderExt, Client, ClientBlockImportExt,
@@ -64,29 +60,6 @@ const CHILD_VALUE: &[u8] = b"child value";
 
 type Header = substrate_test_runtime_client::runtime::Header;
 type Block = substrate_test_runtime_client::runtime::Block;
-
-#[derive(Clone, Default)]
-struct TrackedExecutor(Arc<Mutex<Vec<tokio::task::JoinHandle<()>>>>);
-
-impl sp_core::traits::SpawnNamed for TrackedExecutor {
-	fn spawn_blocking(
-		&self,
-		_name: &'static str,
-		_group: Option<&'static str>,
-		future: futures::future::BoxFuture<'static, ()>,
-	) {
-		self.spawn(_name, _group, future);
-	}
-
-	fn spawn(
-		&self,
-		_name: &'static str,
-		_group: Option<&'static str>,
-		future: futures::future::BoxFuture<'static, ()>,
-	) {
-		self.0.lock().unwrap().push(tokio::spawn(future));
-	}
-}
 
 fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Client<Backend>>>) {
 	let child_info = ChildInfo::new_default(CHILD_STORAGE_KEY);
@@ -107,117 +80,6 @@ fn setup_api() -> (Arc<Client<Backend>>, RpcModule<Archive<Backend, Block, Clien
 	.into_rpc();
 
 	(client, api)
-}
-
-#[tokio::test]
-async fn archive_storage_cancellation_releases_backpressured_producer() {
-	let executor = TrackedExecutor::default();
-	let mut builder = TestClientBuilder::new();
-	for n in 0..128 {
-		builder = builder.add_extra_storage(
-			[b":cancel:", format!("{n:03}").as_bytes()].concat(),
-			b"value".to_vec(),
-		);
-	}
-	let backend = builder.backend();
-	let client = Arc::new(builder.build());
-	let hash = format!("{:?}", client.genesis_hash());
-	let api = Archive::new(client, backend, CHAIN_GENESIS, Arc::new(executor.clone())).into_rpc();
-	let sub = api
-		.subscribe(
-			"archive_v1_storage",
-			rpc_params![
-				&hash,
-				vec![StorageQuery {
-					key: hex_string(b":cancel:"),
-					query_type: StorageQueryType::DescendantsValues,
-					pagination_start_key: None,
-				}]
-			],
-			1,
-		)
-		.await
-		.unwrap();
-
-	tokio::time::sleep(Duration::from_millis(250)).await;
-	assert!(
-		executor.0.lock().unwrap().iter().any(|task| !task.is_finished()),
-		"unread capacity-one output should keep the subscription task pending",
-	);
-	let stopped: bool = api
-		.call("archive_v1_stopStorage", rpc_params![sub.subscription_id()])
-		.await
-		.unwrap();
-	assert!(stopped);
-
-	tokio::time::timeout(Duration::from_secs(5), async {
-		loop {
-			if executor.0.lock().unwrap().iter().all(|task| task.is_finished()) {
-				break;
-			}
-			tokio::task::yield_now().await;
-		}
-	})
-	.await
-	.expect("canceled subscription task must finish while output remains unread");
-}
-
-#[tokio::test]
-async fn archive_storage_diff_cancellation_releases_backpressured_producer() {
-	let executor = TrackedExecutor::default();
-	let builder = TestClientBuilder::new();
-	let backend = builder.backend();
-	let client = Arc::new(builder.build());
-	let previous_hash = client.genesis_hash();
-	let mut block_builder = BlockBuilderBuilder::new(&*client)
-		.on_parent_block(previous_hash)
-		.with_parent_block_number(0)
-		.build()
-		.unwrap();
-	for n in 0..128 {
-		block_builder
-			.push_storage_change(
-				[b":cancel:", format!("{n:03}").as_bytes()].concat(),
-				Some(b"value".to_vec()),
-			)
-			.unwrap();
-	}
-	let block = block_builder.build().unwrap().block;
-	let hash = format!("{:?}", block.hash());
-	let previous_hash = format!("{previous_hash:?}");
-	client.import(BlockOrigin::Own, block).await.unwrap();
-	let api = Archive::new(client, backend, CHAIN_GENESIS, Arc::new(executor.clone())).into_rpc();
-	let items = vec![ArchiveStorageDiffItem {
-		key: hex_string(b":cancel:"),
-		return_type: ArchiveStorageDiffType::Value,
-		child_trie_key: None::<String>,
-	}];
-	let sub = api
-		.subscribe("archive_v1_storageDiff", rpc_params![hash, items, previous_hash], 1)
-		.await
-		.unwrap();
-
-	tokio::time::sleep(Duration::from_millis(250)).await;
-	assert!(
-		executor.0.lock().unwrap().iter().any(|task| !task.is_finished()),
-		"unread capacity-one output should keep the diff task pending",
-	);
-	let stopped: bool = api
-		.call("archive_v1_storageDiff_stopStorageDiff", rpc_params![sub.subscription_id()])
-		.await
-		.unwrap();
-	assert!(stopped);
-
-	tokio::time::timeout(Duration::from_secs(5), async {
-		loop {
-			if executor.0.lock().unwrap().iter().all(|task| task.is_finished()) {
-				break;
-			}
-			tokio::task::yield_now().await;
-		}
-	})
-	.await
-	.expect("canceled diff task must finish while output remains unread");
 }
 
 async fn get_next_event<T: serde::de::DeserializeOwned>(sub: &mut RpcSubscription) -> T {

@@ -25,25 +25,39 @@ use sp_runtime::traits::Block as BlockT;
 use tokio::sync::mpsc;
 
 use super::events::{StorageQuery, StorageQueryType, StorageResult, StorageResultType};
+#[cfg(test)]
+use crate::archive::test_observer::{self, Point};
 use crate::hex_string;
 
 /// Call into the storage of blocks.
 pub struct Storage<Client, Block, BE> {
 	/// Substrate client.
 	client: Arc<Client>,
+	#[cfg(test)]
+	pub(crate) observer: Option<Arc<test_observer::Observer>>,
 	_phandom: PhantomData<(BE, Block)>,
 }
 
 impl<Client, Block, BE> Clone for Storage<Client, Block, BE> {
 	fn clone(&self) -> Self {
-		Self { client: self.client.clone(), _phandom: PhantomData }
+		Self {
+			client: self.client.clone(),
+			#[cfg(test)]
+			observer: self.observer.clone(),
+			_phandom: PhantomData,
+		}
 	}
 }
 
 impl<Client, Block, BE> Storage<Client, Block, BE> {
 	/// Constructs a new [`Storage`].
 	pub fn new(client: Arc<Client>) -> Self {
-		Self { client, _phandom: PhantomData }
+		Self {
+			#[cfg(test)]
+			observer: test_observer::get(&client),
+			client,
+			_phandom: PhantomData,
+		}
 	}
 }
 
@@ -168,9 +182,13 @@ where
 	) {
 		let QueryIter { ty, query_key, pagination_start_key } = query;
 
+		#[cfg(test)]
+		test_observer::point(&self.observer, Point::IteratorBoundary);
 		if tx.is_closed() {
 			return;
 		}
+		#[cfg(test)]
+		test_observer::point(&self.observer, Point::Iterator);
 		let maybe_storage = if let Some(child_key) = child_key {
 			self.client.child_storage_keys(
 				hash,
@@ -190,7 +208,14 @@ where
 			},
 		};
 
-		while !tx.is_closed() {
+		loop {
+			#[cfg(test)]
+			test_observer::point(&self.observer, Point::AdvanceBoundary);
+			if tx.is_closed() {
+				break;
+			}
+			#[cfg(test)]
+			test_observer::point(&self.observer, Point::Advance);
 			let Some(key) = keys_iter.next() else { break };
 			let result = match ty {
 				IterQueryType::Value => self.query_value(hash, &key, child_key),
@@ -215,6 +240,11 @@ where
 			self.client.storage_keys(hash, None, None)
 		};
 
+		#[cfg(test)]
+		let keys_iter = keys_iter.map(|iter| {
+			let observer = self.observer.clone();
+			iter.inspect(move |_| test_observer::point(&observer, Point::RawNext))
+		});
 		keys_iter.map_err(|err| err.to_string())
 	}
 }
@@ -255,11 +285,21 @@ where
 	) -> Result<(), tokio::task::JoinError> {
 		let this = self.clone();
 
-		tokio::task::spawn_blocking(move || {
+		#[cfg(test)]
+		let observer = this.client.observer.clone();
+		let result = tokio::task::spawn_blocking(move || {
+			#[cfg(test)]
+			let _guard = test_observer::ProducerGuard(this.client.observer.clone());
+			#[cfg(test)]
+			test_observer::point(&this.client.observer, Point::Producer);
 			for item in items {
+				#[cfg(test)]
+				test_observer::point(&this.client.observer, Point::ItemBoundary);
 				if tx.is_closed() {
 					break;
 				}
+				#[cfg(test)]
+				test_observer::point(&this.client.observer, Point::Item);
 				match item.query_type {
 					StorageQueryType::Value => {
 						let rp = this.client.query_value(hash, &item.key, child_key.as_ref());
@@ -309,7 +349,13 @@ where
 				}
 			}
 		})
-		.await?;
+		.await;
+		#[cfg(test)]
+		test_observer::point(
+			&observer,
+			if result.is_ok() { Point::ProducerJoined } else { Point::ProducerPanicked },
+		);
+		result?;
 
 		Ok(())
 	}

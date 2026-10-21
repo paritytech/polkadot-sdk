@@ -28,6 +28,8 @@ use sc_client_api::{Backend, ChildInfo, StorageKey, StorageProvider};
 use sp_runtime::traits::Block as BlockT;
 
 use super::error::Error as ArchiveError;
+#[cfg(test)]
+use super::test_observer::{self, Point};
 use crate::{
 	archive::archive::LOG_TARGET,
 	common::{
@@ -215,23 +217,40 @@ where
 		// Iterator over the current block and previous block
 		// at the same time to compare the keys. This approach effectively
 		// leverages backpressure to avoid memory consumption.
+		#[cfg(test)]
+		test_observer::point(&self.client.observer, Point::CurrentIteratorBoundary);
 		if tx.is_closed() {
 			return Ok(());
 		}
+		#[cfg(test)]
+		test_observer::point(&self.client.observer, Point::CurrentIterator);
 		let keys_iter = self.client.raw_keys_iter(hash, maybe_child_trie.clone())?;
+		#[cfg(test)]
+		test_observer::point(&self.client.observer, Point::PreviousIteratorBoundary);
 		if tx.is_closed() {
 			return Ok(());
 		}
+		#[cfg(test)]
+		test_observer::point(&self.client.observer, Point::PreviousIterator);
 		let previous_keys_iter =
 			self.client.raw_keys_iter(previous_hash, maybe_child_trie.clone())?;
 
+		#[cfg(test)]
+		test_observer::point(&self.client.observer, Point::DiffStartBoundary);
 		if tx.is_closed() {
 			return Ok(());
 		}
 		let mut diff_iter = lexicographic_diff(keys_iter, previous_keys_iter);
 
 		// Unchanged and nonmatching keys never send, so check cancellation before advancing.
-		while !tx.is_closed() {
+		loop {
+			#[cfg(test)]
+			test_observer::point(&self.client.observer, Point::DiffAdvanceBoundary);
+			if tx.is_closed() {
+				break;
+			}
+			#[cfg(test)]
+			test_observer::point(&self.client.observer, Point::DiffAdvance);
 			let Some(item) = diff_iter.next() else { break };
 			let (operation_type, key) = match item {
 				Diff::Added(key) => (ArchiveStorageDiffOperationType::Added, key),
@@ -241,6 +260,8 @@ where
 
 			let Some(fetch_type) = Self::belongs_to_query(&key, &items) else {
 				// The key does not belong the the query items.
+				#[cfg(test)]
+				test_observer::point(&self.client.observer, Point::Nonmatching);
 				continue;
 			};
 
@@ -277,6 +298,8 @@ where
 
 					// For modified records we need to check the actual storage values.
 					if storage_result == previous_storage_result {
+						#[cfg(test)]
+						test_observer::point(&self.client.observer, Point::Unchanged);
 						continue;
 					}
 
@@ -311,10 +334,18 @@ where
 	) -> Result<(), tokio::task::JoinError> {
 		let this = ArchiveStorageDiff { client: self.client.clone() };
 
-		tokio::task::spawn_blocking(move || {
+		#[cfg(test)]
+		let observer = this.client.observer.clone();
+		let result = tokio::task::spawn_blocking(move || {
+			#[cfg(test)]
+			let _guard = test_observer::ProducerGuard(this.client.observer.clone());
+			#[cfg(test)]
+			test_observer::point(&this.client.observer, Point::Producer);
 			if tx.is_closed() {
 				return;
 			}
+			#[cfg(test)]
+			test_observer::point(&this.client.observer, Point::Deduplicate);
 			// Deduplicate the items.
 			let mut trie_items = match deduplicate_storage_diff_items(items) {
 				Ok(items) => items,
@@ -330,9 +361,13 @@ where
 			log::trace!(target: LOG_TARGET, "Storage diff deduplicated items: {:?}", trie_items);
 
 			for items in trie_items {
+				#[cfg(test)]
+				test_observer::point(&this.client.observer, Point::GroupBoundary);
 				if tx.is_closed() {
 					return;
 				}
+				#[cfg(test)]
+				test_observer::point(&this.client.observer, Point::Group);
 				log::trace!(
 					target: LOG_TARGET,
 					"handle_trie_queries: hash={:?}, previous_hash={:?}, items={:?}",
@@ -363,7 +398,13 @@ where
 
 			let _ = tx.blocking_send(ArchiveStorageDiffEvent::StorageDiffDone);
 		})
-		.await?;
+		.await;
+		#[cfg(test)]
+		test_observer::point(
+			&observer,
+			if result.is_ok() { Point::ProducerJoined } else { Point::ProducerPanicked },
+		);
+		result?;
 
 		Ok(())
 	}
