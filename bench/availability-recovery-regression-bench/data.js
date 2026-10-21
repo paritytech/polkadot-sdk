@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792528657517,
+  "lastUpdate": 1792570748787,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4050536124f2285ea8d7ae4661611b9e256d398e",
-          "message": "statement-store: read allowance on best hash (#11667)\n\nTo allow accepting statements as early as possible\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-08T07:40:51Z",
-          "tree_id": "b9b5de2ac209791a72d5158faa256f51d71d9bb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4050536124f2285ea8d7ae4661611b9e256d398e"
-        },
-        "date": 1775639628287,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.917424580600002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12475099190000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.892665989466668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff",
+          "message": "Remove accidentally reintroduced contracts  runtime (#13522)\n\nRuntime was removed in #7638 and accidentally reintroduced in #1739\n\nThis also removes the `cargo-check-runtimes` job. This was triggered by\nlooking at changes at `cumulus/parachains/runtimes/*`. But actually this\nonly includes files directly in that folder and not on subfolders. So\nthe job nearly never ran. Also it is only checking the crates, which is\nalso covered by our crate-checker job. So from my perspective we can\njust kill this one.",
+          "timestamp": "2026-10-21T06:45:20Z",
+          "tree_id": "2b89564b09669493c4c1c6e27b2ba2070ee265b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff"
+        },
+        "date": 1792570714180,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.064437361300003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13222994843333333,
             "unit": "seconds"
           }
         ]
