@@ -537,8 +537,10 @@ fn era_pot_drained_after_history_depth() {
 		let validator_expenses_general_pot = <Test as Config>::RewardPots::pot_account(
 			RewardPot::General(RewardKind::OperationalExpenses),
 		);
-		// Balances::set_balance(&validator_expenses_general_pot, 1_000);
 		mint_operational_expenses_asset(validator_expenses_general_pot, 100);
+
+		let unclaimed_rewards_account = UnclaimedOperationalExpensesAccount::get();
+		Balances::set_balance(&unclaimed_rewards_account, 1_000);
 
 		// GIVEN: Start at era 2
 		Session::roll_until_active_era(2);
@@ -583,8 +585,6 @@ fn era_pot_drained_after_history_depth() {
 			1,
 			"Staker pot is kept alive for slot reuse; provider must be retained"
 		);
-
-		let unclaimed_rewards_account = UnclaimedOperationalExpensesAccount::get();
 
 		assert_eq!(
 			operational_expenses_asset_balance(unclaimed_rewards_account),

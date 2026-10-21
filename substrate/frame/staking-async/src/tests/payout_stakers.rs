@@ -1847,3 +1847,25 @@ fn validator_operational_expenses_paid_out() {
 		assert_eq!(operational_expenses_asset_balance(11), 60);
 	});
 }
+
+#[test]
+fn migration_creates_operational_expenses_general_pot_account() {
+	use crate::migrations::CreateOperationalExpensesGeneralPotAccount as Migration;
+	use frame_support::traits::OnRuntimeUpgrade;
+	use frame_system::Pallet as System;
+
+	ExtBuilder::default().build_and_execute(|| {
+		let pot_account = <Test as Config>::RewardPots::pot_account(RewardPot::General(
+			RewardKind::OperationalExpenses,
+		));
+		while System::<Test>::providers(&pot_account) != 0 {
+			assert_ok!(System::<Test>::dec_providers(&pot_account));
+		}
+
+		assert_eq!(System::<Test>::providers(&pot_account), 0);
+
+		Migration::<Test>::on_runtime_upgrade();
+
+		assert_eq!(System::<Test>::providers(&pot_account), 1);
+	});
+}

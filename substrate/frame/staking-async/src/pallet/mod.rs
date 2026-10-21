@@ -21,8 +21,8 @@ use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
 	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	PositiveImbalanceOf, PotAccountProvider, RewardDestination, RewardKind, RewardPot,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -1343,6 +1343,13 @@ pub mod pallet {
 				)
 				.expect("bound for BondedEras is BondingDuration + 1; can contain at least one element; qed")
 			);
+
+			// Create operational expenses general pot account.
+			let operational_expenses_pot_account =
+				T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+			if frame_system::Pallet::<T>::providers(&operational_expenses_pot_account) == 0 {
+				frame_system::Pallet::<T>::inc_providers(&operational_expenses_pot_account);
+			}
 		}
 	}
 

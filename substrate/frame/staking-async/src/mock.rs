@@ -581,7 +581,7 @@ impl BenchmarkHelper<AccountId, Balance> for BenchHelper {
 				ValidatorExpensesAssetId::get(),
 				caller,
 				false,
-				1u32.into(),
+				MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE.into(),
 			)?;
 		}
 
@@ -905,7 +905,7 @@ impl ExtBuilder {
 			use frame_support::traits::fungible::Create;
 			assert_ok!(<Test as Config>::ValidatorExpencesCurrency::create(
 				0,
-				true,
+				false,
 				MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
 			));
 
