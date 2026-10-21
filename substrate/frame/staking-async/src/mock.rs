@@ -563,10 +563,27 @@ type ValidatorExpensesCurrency = ItemOf<Assets, ValidatorExpensesAssetId, Accoun
 type UnclaimedOperationalExpensesHandler =
 	ResolveTo<UnclaimedOperationalExpensesAccount, ValidatorExpensesCurrency>;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchHelper {}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper<AccountId, Balance> for BenchHelper {
+	fn mint_operational_expenses_token(
+		to: &AccountId,
+		amount: Balance,
+	) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::fungibles::Mutate;
+
+		Assets::mint_into(ValidatorExpensesAssetId::get(), to, amount).map(|_| ())
+	}
+}
+
 impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
 	type ValidatorExpencesCurrency = ValidatorExpensesCurrency;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchHelper;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;

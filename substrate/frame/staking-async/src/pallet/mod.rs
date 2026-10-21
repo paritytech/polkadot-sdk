@@ -121,6 +121,11 @@ pub mod pallet {
 		Remove,
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<AccountId, Balance> {
+		fn mint_operational_expenses_token(to: &AccountId, amount: Balance) -> DispatchResult;
+	}
+
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
@@ -165,6 +170,10 @@ pub mod pallet {
 		type ValidatorExpencesCurrency: FunInspect<Self::AccountId>
 			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
 			+ FunBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		#[pallet::no_default]
+		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, Self::CurrencyBalance>;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
