@@ -406,5 +406,10 @@ async fn late_joiner_receives_backlog() -> Result<(), anyhow::Error> {
 		),
 		..Default::default()
 	};
-	assert_late_joiner_receives_backlog(&mut network, options).await
+	assert_late_joiner_receives_backlog(
+		&mut network,
+		options,
+		"Advertising the local affinity filter to",
+	)
+	.await
 }
