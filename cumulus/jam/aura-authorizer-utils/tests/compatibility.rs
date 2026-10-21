@@ -18,7 +18,9 @@
 //! Fixed protocol vectors for SCALE encoding and the zero-padded Merkle tree.
 
 use codec::Encode;
-use cumulus_aura_authorizer_utils::{build_collator_proof, AuthConfig, AuthToken, AuthTrace, ParaId};
+use cumulus_aura_authorizer_utils::{
+	build_collator_proof, AuthConfig, AuthToken, AuthTrace, ParaId,
+};
 use primitive_types::H256;
 
 #[test]
