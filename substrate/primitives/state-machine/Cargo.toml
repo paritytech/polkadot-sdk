@@ -19,15 +19,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 arbitrary = { features = ["derive"], optional = true, workspace = true }
 codec = { workspace = true }
-foldhash = { workspace = true, default-features = false }
 hash-db = { workspace = true }
 indexmap = { workspace = true, default-features = false }
 log = { workspace = true }
-nohash-hasher = { workspace = true, default-features = false }
 parking_lot = { optional = true, workspace = true, default-features = true }
 rand = { optional = true, workspace = true, default-features = true }
 smallvec = { workspace = true, default-features = true }
 sp-core = { workspace = true }
+sp-crypto-hashing = { workspace = true }
 sp-externalities = { workspace = true }
 sp-panic-handler = { optional = true, workspace = true, default-features = true }
 sp-trie = { workspace = true }
@@ -48,14 +47,13 @@ default = ["std"]
 fuzzing = ["arbitrary"]
 std = [
 	"codec/std",
-	"foldhash/std",
 	"hash-db/std",
 	"indexmap/std",
 	"log/std",
-	"nohash-hasher/std",
 	"parking_lot",
 	"rand",
 	"sp-core/std",
+	"sp-crypto-hashing/std",
 	"sp-externalities/std",
 	"sp-panic-handler",
 	"sp-runtime/std",

@@ -47,7 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
-pub use proof_size_tracker::DeltaKeyOp;
+pub use proof_size_tracker::{DeltaKeyOp, ProofSizeKey};
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -512,7 +512,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Get an iterator over all child changes as seen by the current transaction.
 	pub fn children(
 		&self,
-	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)> {
+	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)>
+	{
 		self.children.values().map(|v| (v.0.changes(), &v.1))
 	}
 

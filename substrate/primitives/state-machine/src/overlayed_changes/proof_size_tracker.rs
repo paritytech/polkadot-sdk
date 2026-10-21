@@ -21,12 +21,12 @@ use crate::{backend::EstimationTrie, trace};
 use alloc::vec::Vec;
 use core::{
 	fmt::{self, Debug},
-	hash::{BuildHasher, Hash},
+	hash::{BuildHasherDefault, Hasher as CoreHasher},
 	mem,
 };
 use hash_db::Hasher;
 use indexmap::IndexMap as HashMap;
-use nohash_hasher::BuildNoHashHasher;
+use sp_crypto_hashing::blake2_128;
 use sp_trie::{LayoutV1, TrieDBMutSnapshot};
 
 #[cfg(feature = "std")]
@@ -45,29 +45,65 @@ pub enum DeltaKeyOp {
 	Deleted,
 }
 
-/// Pre-computed hash of a storage key, used as an internal map key for fast dedup.
-type KeyHash = u64;
+/// Identity of a storage key inside the tracker: the Blake2 hash of its bytes.
+///
+/// It is the same on the collator and in the PVF, so both sides agree on every key, and a
+/// collision is as hard to find as for any other Blake2 output the chain relies on.
+pub type KeyHash = u128;
+
+/// A key the tracker can identify, see [`KeyHash`].
+pub trait ProofSizeKey {
+	/// The identity of the key.
+	fn key_hash(&self) -> KeyHash;
+}
+
+impl ProofSizeKey for Vec<u8> {
+	fn key_hash(&self) -> KeyHash {
+		KeyHash::from_le_bytes(blake2_128(self))
+	}
+}
+
+impl ProofSizeKey for (Vec<u8>, Vec<u8>) {
+	fn key_hash(&self) -> KeyHash {
+		let (prefix, key) = self;
+		let prefix_len = (prefix.len() as u32).to_le_bytes();
+		KeyHash::from_le_bytes(blake2_128(&[&prefix_len[..], prefix, key].concat()))
+	}
+}
+
+/// Map hasher for [`KeyHash`] keys: the key is already a hash, so its low half is the bucket.
+#[derive(Default)]
+pub struct KeyHashHasher(u64);
+
+impl CoreHasher for KeyHashHasher {
+	fn finish(&self) -> u64 {
+		self.0
+	}
+
+	fn write(&mut self, _: &[u8]) {
+		unreachable!("only `KeyHash` is hashed, which uses `write_u128`; qed")
+	}
+
+	fn write_u128(&mut self, key_hash: u128) {
+		self.0 = key_hash as u64;
+	}
+}
+
+/// Builder of [`KeyHashHasher`], the map hasher of [`DeltaKeys`].
+pub type KeyHashBuilder = BuildHasherDefault<KeyHashHasher>;
 
 /// Maps key hash -> (key, last op) for keys staged in the current transaction layer.
-type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), BuildNoHashHasher<KeyHash>>;
+type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 
 /// Maps key hash -> last emitted `DeltaKeyOp` for keys already reported in an incremental delta.
 /// Used to suppress redundant re-emissions across `take_delta` calls.
-type CapturedMap = HashMap<KeyHash, DeltaKeyOp, BuildNoHashHasher<KeyHash>>;
+type CapturedMap = HashMap<KeyHash, DeltaKeyOp, KeyHashBuilder>;
 
 /// Incremental snapshot result: map of key hash -> (key, op) for all new keys since last snapshot.
 ///
 /// KeyHash is for internal use and shall be ignored. The `DeltaKeyOp` indicates whether the key was
 /// updated or deleted, allowing the trie layer to decide whether to read or remove the key.
-pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), BuildNoHashHasher<KeyHash>>;
-
-/// Default hash builder used by [`ProofSizeTracker`] to hash storage keys.
-#[cfg(feature = "std")]
-pub type DefaultHashBuilder = foldhash::fast::RandomState;
-
-/// Default hash builder used by [`ProofSizeTracker`] to hash storage keys.
-#[cfg(not(feature = "std"))]
-pub type DefaultHashBuilder = sp_trie::RandomState;
+pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 
 /// Tracks storage key modifications with transaction support and incremental delta extraction.
 ///
@@ -93,13 +129,11 @@ pub type DefaultHashBuilder = sp_trie::RandomState;
 /// Optimized for 1k-5k transactions with ~10 nesting levels. Each transaction typically
 /// has 10-20 keys, with 50% duplication across transactions. Keys are 64-162 byte arrays
 /// (concatenated cryptographic hashes). Deduplication is highly optimized.
-pub struct ProofSizeTracker<K, H: Hasher, HB = DefaultHashBuilder> {
+pub struct ProofSizeTracker<K, H: Hasher> {
 	/// Stack of parent transaction layers (outermost first).
 	layers: Vec<TransactionLayer<K, H>>,
 	/// Current (innermost) transaction layer being built.
 	current: TransactionLayer<K, H>,
-	/// Hash builder for computing key hashes.
-	hasher: HB,
 	/// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in
 	/// the real storage root computation. Created by the first size estimation call that applies a
 	/// removal.
@@ -123,7 +157,7 @@ struct TransactionLayer<K, H: Hasher> {
 impl<K, H: Hasher> Default for TransactionLayer<K, H> {
 	fn default() -> Self {
 		Self {
-			dirty_keys: KeyMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default()),
+			dirty_keys: KeyMap::with_capacity_and_hasher(16, KeyHashBuilder::default()),
 			snapshot: None,
 			trie_snapshot: None,
 		}
@@ -139,28 +173,22 @@ impl<K: Debug, H: Hasher> Debug for TransactionLayer<K, H> {
 	}
 }
 
-impl<K, H: Hasher, HB: Default> Default for ProofSizeTracker<K, H, HB> {
+impl<K, H: Hasher> Default for ProofSizeTracker<K, H> {
 	fn default() -> Self {
-		Self {
-			layers: Vec::new(),
-			current: TransactionLayer::default(),
-			hasher: HB::default(),
-			estimation_trie: None,
-		}
+		Self { layers: Vec::new(), current: TransactionLayer::default(), estimation_trie: None }
 	}
 }
 
-impl<K: Debug, H: Hasher, HB: Debug> Debug for ProofSizeTracker<K, H, HB> {
+impl<K: Debug, H: Hasher> Debug for ProofSizeTracker<K, H> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("ProofSizeTracker")
 			.field("layers", &self.layers)
 			.field("current", &self.current)
-			.field("hasher", &self.hasher)
 			.finish_non_exhaustive()
 	}
 }
 
-impl<K, H: Hasher, HB: Default> ProofSizeTracker<K, H, HB> {
+impl<K, H: Hasher> ProofSizeTracker<K, H> {
 	/// Creates a tracker pre-initialized with `depth` empty transaction layers.
 	///
 	/// Used by `spawn_child` to match the parent's transaction depth so that
@@ -171,13 +199,12 @@ impl<K, H: Hasher, HB: Default> ProofSizeTracker<K, H, HB> {
 		Self {
 			layers: (0..depth).map(|_| TransactionLayer::default()).collect(),
 			current: TransactionLayer::default(),
-			hasher: HB::default(),
 			estimation_trie: None,
 		}
 	}
 }
 
-impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
+impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
 	/// A key added as `Deleted` prevents future `Updated` operations on the same key
@@ -185,11 +212,10 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 	/// it can still appear as `Deleted` in a subsequent snapshot.
 	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
 	where
-		K: Hash,
-		HB: BuildHasher,
+		K: ProofSizeKey,
 	{
 		trace!(target:LOG_TARGET, "add_key: {:?}/{:?}", key, op);
-		let hash = self.hasher.hash_one(&key);
+		let hash = key.key_hash();
 		self.current.dirty_keys.insert(hash, (key, op));
 	}
 
@@ -267,11 +293,11 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 		K: Clone,
 	{
 		let mut delta: DeltaKeys<K> =
-			HashMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default());
+			HashMap::with_capacity_and_hasher(16, KeyHashBuilder::default());
 
 		// A key pending in several open layers is reported with the op of the newest layer, its
 		// final state. Layers are visited newest first, so the first op seen is kept.
-		let mut process_key = |hash: u64, key: K, op: DeltaKeyOp| {
+		let mut process_key = |hash: KeyHash, key: K, op: DeltaKeyOp| {
 			// Find the last emitted op for this key: check current snapshot first (most
 			// recent), then layers from innermost to outermost.
 			let prev_op =
@@ -331,8 +357,14 @@ impl<K: core::fmt::Debug, H: Hasher, HB> ProofSizeTracker<K, H, HB> {
 
 #[cfg(test)]
 mod tests {
-	use super::{DeltaKeyOp, LOG_TARGET};
+	use super::{blake2_128, DeltaKeyOp, KeyHash, ProofSizeKey, LOG_TARGET};
 	use sp_core::Blake2Hasher;
+
+	impl ProofSizeKey for String {
+		fn key_hash(&self) -> KeyHash {
+			KeyHash::from_le_bytes(blake2_128(self.as_bytes()))
+		}
+	}
 	use tracing::debug;
 
 	macro_rules! delta_assert_eq {
@@ -785,6 +817,19 @@ mod tests {
 			let delta = tracker.take_delta();
 			delta_assert_eq_with_ops!(delta, [("a", newer)]);
 		}
+	}
+
+	/// The collator and the PVF must identify keys the same way, otherwise they could disagree
+	/// on which keys collide and estimate different sizes for the same block. Blake2 of the key
+	/// bytes is the same on every build and needs no seed.
+	#[test]
+	fn key_identity_is_blake2_128_of_the_key_bytes() {
+		let mut tracker = Tracker::default();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+
+		let delta = tracker.take_delta();
+		let expected = KeyHash::from_le_bytes(blake2_128(b"a"));
+		assert_eq!(delta.keys().copied().collect::<Vec<_>>(), vec![expected]);
 	}
 
 	#[test]

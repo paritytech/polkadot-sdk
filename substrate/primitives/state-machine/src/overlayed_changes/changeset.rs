@@ -28,7 +28,10 @@ use std::collections::HashSet as Set;
 use crate::{
 	backend::EstimationTrie,
 	ext::StorageAppend,
-	overlayed_changes::{proof_size_tracker, proof_size_tracker::ProofSizeTracker},
+	overlayed_changes::{
+		proof_size_tracker,
+		proof_size_tracker::{ProofSizeKey, ProofSizeTracker},
+	},
 	warn,
 };
 use alloc::{
@@ -536,7 +539,7 @@ impl OverlayedEntry<StorageEntry> {
 	}
 }
 
-impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug + ProofSizeKey, V, H: Hasher> OverlayedMap<K, V, H> {
 	/// Inserts a key into the dirty set.
 	///
 	/// Returns true if we are have at least one open transaction and if this
@@ -554,7 +557,7 @@ impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, 
 	}
 }
 
-impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug + ProofSizeKey, V, H: Hasher> OverlayedMap<K, V, H> {
 	/// Create a new changeset at the same transaction state but without any contents.
 	///
 	/// This changeset might be created when there are already open transactions.
