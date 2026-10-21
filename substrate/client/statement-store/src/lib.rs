@@ -693,6 +693,10 @@ struct QueryIndex {
 	/// The track of every statement the maintenance sweep re-checks once it is propagated.
 	/// Persistent statements are not recorded.
 	retention_tracks: HashMap<Hash, RetentionTrack>,
+	/// Number of holds per hash, see [`StatementStore::hold_statements`]; the maintenance sweep
+	/// skips held statements. A removal keeps the count, as its holders release it even after a
+	/// re-admission.
+	held: HashMap<Hash, usize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode)]
@@ -749,6 +753,7 @@ impl QueryIndex {
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
 			retention_tracks: HashMap::new(),
+			held: HashMap::new(),
 		}
 	}
 
@@ -793,10 +798,27 @@ impl QueryIndex {
 
 	/// The track of an already propagated statement, which the retention sweep re-checks.
 	fn propagated_track(&self, hash: &Hash) -> Option<RetentionTrack> {
-		if self.recent.contains_key(hash) {
+		if self.recent.contains_key(hash) || self.held.contains_key(hash) {
 			return None;
 		}
 		self.retention_tracks.get(hash).copied()
+	}
+
+	fn hold<'a>(&mut self, hashes: impl IntoIterator<Item = &'a Hash>) {
+		for hash in hashes {
+			*self.held.entry(*hash).or_insert(0) += 1;
+		}
+	}
+
+	fn release(&mut self, hashes: &[Hash]) {
+		for hash in hashes {
+			if let Some(count) = self.held.get_mut(hash) {
+				*count = count.saturating_sub(1);
+				if *count == 0 {
+					self.held.remove(hash);
+				}
+			}
+		}
 	}
 
 	/// Copies the set of recently added hashes with their admission sequence numbers.
@@ -2150,38 +2172,44 @@ impl Store {
 		Ok(result)
 	}
 
-	/// Evicts the lowest-priority statements of `account` while it exceeds its on-chain
-	/// allowance, spending at most `budget` evictions. Statements already past their expiry are
-	/// neither counted against the allowance nor evicted here — the expiry sweep reaps them.
+	/// Evicts the lowest-priority statements of `account` while it exceeds the larger of its
+	/// allowances at the finalized and the best block, spending at most `budget` evictions.
+	/// Admission checks only the best block, so taking it here too keeps what admission accepted
+	/// while finality lags. Expired statements neither count nor get evicted here; the expiry
+	/// sweep reaps them.
 	fn enforce_account_allowance(
 		&self,
 		account: &AccountId,
 		current_time: u64,
 		budget: &mut usize,
 	) {
-		let allowance = match (self.read_allowance_fn)(account, AllowanceBlock::Finalized) {
-			Ok(Some(allowance)) => allowance,
-			Ok(None) => {
-				log::debug!(
-					target: LOG_TARGET,
-					"No allowance found for account {:?}, treating as zero allowance",
-					HexDisplay::from(account)
-				);
-				StatementAllowance { max_count: 0, max_size: 0 }
-			},
-			Err(e) => {
-				log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
-				// Skip allowance enforcement for this account on error
-				return;
-			},
+		let read_allowance =
+			|allowance_block| match (self.read_allowance_fn)(account, allowance_block) {
+				Ok(Some(allowance)) => Some(allowance),
+				Ok(None) => {
+					log::debug!(
+						target: LOG_TARGET,
+						"No allowance found for account {:?}, treating as zero allowance",
+						HexDisplay::from(account)
+					);
+					Some(StatementAllowance { max_count: 0, max_size: 0 })
+				},
+				Err(e) => {
+					log::error!(target: LOG_TARGET, "Error reading allowance: {:?}", e);
+					// Skip allowance enforcement for this account on error
+					None
+				},
+			};
+		let fits = |allowance: &StatementAllowance, count: usize, size: usize| {
+			count <= allowance.max_count as usize && size <= allowance.max_size as usize
 		};
-		let (max_count, max_size) = (allowance.max_count as usize, allowance.max_size as usize);
+		let Some(finalized) = read_allowance(AllowanceBlock::Finalized) else { return };
 
 		// A cached summary proving the account within its allowance saves the disk scan. The
 		// summary also counts expired-but-unswept statements, so it can only overestimate usage,
 		// which is fine for a within-limit conclusion; the over-limit path recounts from disk.
 		if let Some(summary) = self.submit_index.read().summaries.peek(account) {
-			if summary.count <= max_count && summary.data_size <= max_size {
+			if fits(&finalized, summary.count, summary.data_size) {
 				return;
 			}
 		}
@@ -2202,7 +2230,16 @@ impl Store {
 				remaining_size += details.data_len;
 			}
 		}
-		if remaining_count <= max_count && remaining_size <= max_size {
+		if fits(&finalized, remaining_count, remaining_size) {
+			return;
+		}
+		// The best block is read only for accounts already over their finalized allowance
+		let Some(best) = read_allowance(AllowanceBlock::Best) else { return };
+		let allowance = StatementAllowance {
+			max_count: finalized.max_count.max(best.max_count),
+			max_size: finalized.max_size.max(best.max_size),
+		};
+		if fits(&allowance, remaining_count, remaining_size) {
 			return;
 		}
 		log::debug!(
@@ -2217,7 +2254,7 @@ impl Store {
 
 		// Evict lowest priority statements that exceed allowance
 		for (key, details) in &entries {
-			if (remaining_count <= max_count && remaining_size <= max_size) || *budget == 0 {
+			if fits(&allowance, remaining_count, remaining_size) || *budget == 0 {
 				break;
 			}
 			if key.expiry < expiry_bound {
@@ -2428,7 +2465,7 @@ impl Store {
 			query_index
 				.retention_tracks
 				.iter()
-				.filter(|(hash, _)| !query_index.recent.contains_key(*hash))
+				.filter(|(hash, _)| query_index.propagated_track(hash).is_some())
 				.map(|(hash, track)| (*hash, *track))
 				.collect()
 		};
@@ -2549,6 +2586,7 @@ impl Store {
 			)
 		};
 		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
+		let held_count = self.query_index.read().held.len();
 
 		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
@@ -2559,6 +2597,7 @@ impl Store {
 			metrics.bytes_total.set(total_size as u64);
 			metrics.accounts_total.set(accounts_count as u64);
 			metrics.expired_total.set(expired_count as u64);
+			metrics.held_statements.set(held_count as u64);
 			metrics.capacity_statements.set(capacity_statements as u64);
 			metrics.capacity_bytes.set(capacity_bytes as u64);
 		});
@@ -2674,8 +2713,8 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
-		// `recent` is cleared only once the bodies are in hand: membership in it is the retention
-		// sweep's only signal that a statement still awaits propagation.
+		// `recent` is cleared only once the bodies are in hand, and the taken statements are held
+		// under the same lock, so the sweep never sees one off `recent` and unheld.
 		let recent = self.query_index.read().recent_snapshot();
 		let mut result = Vec::with_capacity(recent.len());
 		for (&hash, &seq) in &recent {
@@ -2693,9 +2732,27 @@ impl StatementStore for Store {
 				),
 			}
 		}
-		self.query_index.write().clear_propagated(&recent);
+		{
+			let mut query_index = self.query_index.write();
+			query_index.clear_propagated(&recent);
+			if self.retention_fn.get().is_some() {
+				query_index.hold(result.iter().map(|(_, hash, _)| hash));
+			}
+		}
 		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)
+	}
+
+	fn hold_statements(&self, hashes: &[Hash]) {
+		if self.retention_fn.get().is_some() {
+			self.query_index.write().hold(hashes);
+		}
+	}
+
+	fn release_statements(&self, hashes: &[Hash]) {
+		if self.retention_fn.get().is_some() {
+			self.query_index.write().release(hashes);
+		}
 	}
 
 	fn admission_watermark(&self) -> Result<u64> {
@@ -2983,8 +3040,10 @@ impl StatementStore for Store {
 	/// 5. **Allowance** — read the account's allowance (`StatementAllowance`: max count and size)
 	///    directly from chain state at the best block (via the `statement_allowance_key` storage
 	///    key — not a runtime call); reject with `SubmitResult::Rejected(NoAllowance)` if none is
-	///    set. The best block is used for responsiveness; a statement accepted here may later be
-	///    evicted when limits are enforced against the finalized block.
+	///    set. The best block is used for responsiveness. Limit enforcement takes the larger of the
+	///    best and the finalized allowance, so a statement accepted here outlives the finality lag;
+	///    it is evicted later if the allowance it relied on leaves the best chain or a lower
+	///    allowance is finalized.
 	/// 6. **Constraint check & eviction** — check the account's record, enforcing per-account
 	///    limits (count, size, one statement per channel, higher priority replaces lower) and
 	///    global limits ([`DEFAULT_MAX_TOTAL_STATEMENTS`], [`DEFAULT_MAX_TOTAL_SIZE`]), evicting
@@ -3098,9 +3157,9 @@ impl StatementStore for Store {
 		// Check statement allowance for the account and evict statements if necessary to make room
 		// for the new statement. We use the best block for allowance checks to allow for more
 		// up-to-date allowances. This means that in some cases, a statement may be accepted but
-		// then later evicted when we enforce limits based on the finalized block, if the best_hash
-		// does not make it into the finalized chain, but this is an acceptable tradeoff for
-		// better responsiveness to allowance changes.
+		// then later evicted when we enforce limits, if the best_hash does not make it into the
+		// finalized chain, but this is an acceptable tradeoff for better responsiveness to
+		// allowance changes.
 		let validation = match (self.read_allowance_fn)(&account_id, AllowanceBlock::Best) {
 			Ok(Some(allowance)) if !allowance.is_depleted() => allowance,
 			Ok(Some(_)) | Ok(None) => {
@@ -3874,15 +3933,16 @@ impl Store {
 mod tests {
 
 	use crate::{
-		col, evicted_index_key, parse_time_index_key, Config, Error, QueryIndex, Resubmission,
-		RetentionReasonMask, RetentionTrack, Store, StoreTotals, V2DhtConfig, INDEX_EMPTY_VALUE,
-		KEY_VERSION,
+		col, evicted_index_key, parse_time_index_key, AllowanceBlock, Config, Error, QueryIndex,
+		Resubmission, RetentionReasonMask, RetentionTrack, Store, StoreTotals, V2DhtConfig,
+		INDEX_EMPTY_VALUE, KEY_VERSION,
 	};
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
 		AccountId, Channel, DecryptionKey, FilterDecision, InvalidReason, OptimizedTopicFilter,
-		Proof, RejectionReason, Statement, StatementSource, StatementStore, SubmitResult, Topic,
+		Proof, RejectionReason, Statement, StatementAllowance, StatementSource, StatementStore,
+		SubmitResult, Topic,
 	};
 	use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 
@@ -4978,6 +5038,17 @@ mod tests {
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::Known);
 	}
 
+	/// Takes the recent statements and releases their holds, as a finished propagation does.
+	fn propagate(store: &Store) {
+		let hashes: Vec<_> = store
+			.take_recent_statements()
+			.unwrap()
+			.into_iter()
+			.map(|(_, hash, _)| hash)
+			.collect();
+		store.release_statements(&hashes);
+	}
+
 	#[test]
 	fn sweep_removes_propagated_transient_statements_with_a_ban() {
 		let (store, _temp) = test_store();
@@ -4990,12 +5061,61 @@ mod tests {
 		store.maintain();
 		assert!(store.has_statement(&hash));
 
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 		assert!(store.query_index.read().retention_tracks.is_empty());
 		// Forwarded once: a redelivery from another peer must not start another round.
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::KnownExpired);
+	}
+
+	#[test]
+	fn sweep_keeps_a_transient_statement_until_its_last_hold_is_released() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+
+		// The take holds the statement, two outboxes queue it, then the take lets go.
+		store.take_recent_statements().unwrap();
+		store.hold_statements(&[hash, hash]);
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		// One outbox sent it, the other still holds it.
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+	}
+
+	#[test]
+	fn a_readmitted_statement_keeps_its_hold_when_the_removed_copy_is_released() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// Removed while an outbox still holds it, then resubmitted locally and taken again.
+		store.remove(&hash).unwrap();
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// The removed copy's outbox lets go, the new copy's hold remains.
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(!store.has_statement(&hash));
 	}
 
 	#[test]
@@ -5014,7 +5134,7 @@ mod tests {
 		let hash = statement.hash();
 		let data_len = statement.data_len();
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		assert_eq!(track_size(&store, RetentionTrack::Transient), data_len);
 
 		// Explicit affinity arrived before the sweep: kept, tracked as explicit-only.
@@ -5303,7 +5423,7 @@ mod tests {
 
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
 		assert!(store.has_statement(&hash));
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// Affinity still holds: the sweep keeps the statement.
 		store.maintain();
@@ -5321,7 +5441,7 @@ mod tests {
 
 		// The redelivered statement is tracked again: a second lapse sweeps it once more.
 		affine.store(false, Ordering::Relaxed);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 	}
@@ -5343,7 +5463,7 @@ mod tests {
 		assert_eq!(store.evicted_count(), 1);
 
 		// Affinity lapsed: the sweep removes the evictor without a ban, freeing the slot.
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		affine.store(false, Ordering::Relaxed);
 		store.maintain();
 		assert!(!store.has_statement(&evictor.hash()));
@@ -5358,7 +5478,7 @@ mod tests {
 		assert!(evicted_journal.next().unwrap().is_none());
 
 		// The sweep removes the statement again without a ban, so peers may redeliver it.
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		affine.store(false, Ordering::Relaxed);
 		store.maintain();
 		assert!(!store.has_statement(&evicted.hash()));
@@ -5385,7 +5505,7 @@ mod tests {
 		assert!(store.has_statement(&hash));
 
 		// Once propagation has taken it, the next sweep drops it.
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 	}
@@ -5401,7 +5521,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// Explicit affinity lapsed but the DHT covers the statement at sweep time: the sweep
 		// checks for any persistent reason, not the explicit bit, and keeps it.
@@ -5437,7 +5557,7 @@ mod tests {
 			}
 		}));
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// The candidate is deleted and re-admitted with DHT affinity while the sweep resolves
 		// its lapsed explicit affinity: the sweep must not remove the new copy.
@@ -5457,7 +5577,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// The DHT bit in the admission mask exempts the statement from the sweep.
 		affine.store(false, Ordering::Relaxed);
@@ -6637,6 +6757,38 @@ mod tests {
 		assert!(store.has_statement(&h2), "Higher priority should remain");
 		assert!(!store.has_statement(&h1), "Lower priority should be evicted");
 		assert_eq!(store.total_size(), 600);
+	}
+
+	#[test]
+	fn enforce_allowances_takes_larger_of_best_and_finalized() {
+		// (max_count, max_size) at the finalized and the best block: the count, then the size,
+		// raised and lowered in a best block not finalized yet
+		let cases = [
+			((2, 1000), (3, 1000)),
+			((3, 1000), (2, 1000)),
+			((4, 200), (4, 300)),
+			((4, 300), (4, 200)),
+		];
+		for (finalized, best) in cases {
+			let (mut store, _temp) = test_store();
+			store.set_time(0);
+			store.read_allowance_fn = Box::new(move |_who: &AccountId, block: AllowanceBlock| {
+				let (max_count, max_size) = match block {
+					AllowanceBlock::Finalized => finalized,
+					AllowanceBlock::Best => best,
+				};
+				Ok(Some(StatementAllowance::new(max_count, max_size)))
+			});
+			let statements = [10, 20, 30, 40].map(|priority| statement(7, priority, None, 100));
+			for statement in &statements {
+				store.force_insert(statement);
+			}
+
+			store.enforce_limits();
+
+			assert_eq!(store.statement_count(), 3);
+			assert!(store.is_evicted(&statements[0].hash()));
+		}
 	}
 
 	#[test]

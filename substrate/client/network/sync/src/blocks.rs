@@ -330,7 +330,6 @@ mod test {
 				hash: H256::random(),
 				header: None,
 				body: None,
-				indexed_body: None,
 				message_queue: None,
 				receipt: None,
 				justification: None,
