@@ -28,7 +28,7 @@ use alloc::sync::Arc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
 use core::marker::PhantomData;
-use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
+use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, MaybeDebug, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
@@ -359,8 +359,17 @@ impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecord
 
 /// The estimation only reads nodes of the state the backend serves and never writes, so an error
 /// means a corrupt database or a bug, never an input.
-const ESTIMATION_READS_EXISTING_NODES: &str =
-	"the backend serves the block-start state, so every node the estimation reads exists; qed";
+fn expect_existing_nodes<T, E: MaybeDebug>(result: core::result::Result<T, E>) -> T {
+	const PROOF: &str =
+		"the backend serves the block-start state, so every node the estimation reads exists; qed";
+	match result {
+		Ok(value) => value,
+		#[cfg(feature = "std")]
+		Err(error) => panic!("{PROOF}: {error:?}"),
+		#[cfg(not(feature = "std"))]
+		Err(_) => panic!("{}", PROOF),
+	}
+}
 
 impl<
 		S: TrieBackendStorage<H>,
@@ -702,26 +711,24 @@ where
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+			expect_existing_nodes(read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 				&eph,
 				self.root,
 				keys_to_be_read,
 				recorder,
 				cache,
-			)
-			.expect(ESTIMATION_READS_EXISTING_NODES);
+			));
 		});
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+			expect_existing_nodes(remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 				&eph,
 				self.root,
 				keys_to_be_removed,
 				estimation_trie,
 				recorder,
 				cache,
-			)
-			.expect(ESTIMATION_READS_EXISTING_NODES);
+			));
 		});
 	}
 
@@ -803,28 +810,36 @@ where
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
 		};
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
-		let child_root = self
-			.child_root(child_info)
-			.expect(ESTIMATION_READS_EXISTING_NODES)
-			.unwrap_or(default_root);
+		let child_root = expect_existing_nodes(self.child_root(child_info)).unwrap_or(default_root);
 		let eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
 
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
 		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
-			child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+			expect_existing_nodes(child_read_trie_keys_from_delta::<
+				sp_trie::LayoutV1<H>,
+				_,
+				_,
+				_,
+				_,
+			>(
 				child_info.keyspace(),
 				&eph,
 				child_root,
 				keys_to_be_read,
 				recorder,
 				cache,
-			)
-			.expect(ESTIMATION_READS_EXISTING_NODES);
+			));
 		});
 
 		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
-			child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+			expect_existing_nodes(child_remove_trie_keys_from_delta::<
+				sp_trie::LayoutV1<H>,
+				_,
+				_,
+				_,
+				_,
+			>(
 				child_info.keyspace(),
 				&eph,
 				child_root,
@@ -832,8 +847,7 @@ where
 				estimation_trie,
 				recorder,
 				cache,
-			)
-			.expect(ESTIMATION_READS_EXISTING_NODES);
+			));
 		});
 	}
 }
