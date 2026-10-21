@@ -18013,6 +18013,7 @@ dependencies = [
  "bridge-hub-common",
  "bridge-hub-test-utils",
  "bridge-runtime-common",
+ "cumulus-aura-authorizer-utils",
  "cumulus-client-bootnodes",
  "cumulus-client-cli",
  "cumulus-client-collator",
