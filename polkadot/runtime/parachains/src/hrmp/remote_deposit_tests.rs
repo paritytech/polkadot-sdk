@@ -197,7 +197,7 @@ fn refused_deposit_records_nothing() {
 		Remote::settle();
 		assert!(has_event(Event::DepositRefused {
 			channel_id: id.clone(),
-			error: DepositError::CannotHold,
+			error: DepositError::InsufficientFunds,
 		}));
 		assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_none());
 		assert_eq!(held(A, B, ChannelSide::Sender), 0);
@@ -215,7 +215,7 @@ fn refused_deposit_records_nothing() {
 		Remote::settle();
 		assert!(has_event(Event::DepositRefused {
 			channel_id: id.clone(),
-			error: DepositError::CannotHold,
+			error: DepositError::InsufficientFunds,
 		}));
 		assert!(!HrmpOpenChannelRequests::<Test>::get(&id).unwrap().confirmed);
 		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
@@ -296,7 +296,7 @@ fn force_open_takes_both_deposits_at_once() {
 		Remote::settle();
 		assert!(has_event(Event::DepositRefused {
 			channel_id: id.clone(),
-			error: DepositError::CannotHold,
+			error: DepositError::InsufficientFunds,
 		}));
 		assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_none());
 		assert_eq!(held(C, D, ChannelSide::Sender), 0);
@@ -334,7 +334,7 @@ fn poke_waits_for_the_remote_chain() {
 		Remote::settle();
 		assert!(has_event(Event::DepositRefused {
 			channel_id: id.clone(),
-			error: DepositError::CannotHold,
+			error: DepositError::InsufficientFunds,
 		}));
 		let channel = HrmpChannels::<Test>::get(&id).unwrap();
 		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (150, 120));
@@ -849,7 +849,7 @@ fn refused_force_open_over_an_existing_request() {
 		Remote::settle();
 		assert!(has_event(Event::DepositRefused {
 			channel_id: id.clone(),
-			error: DepositError::CannotHold,
+			error: DepositError::InsufficientFunds,
 		}));
 
 		// Nothing is recorded and nothing is held.

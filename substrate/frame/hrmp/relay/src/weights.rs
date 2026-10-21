@@ -36,7 +36,7 @@ pub trait WeightInfo {
 	/// A deposit request or a release: one pending entry per side, the id, the outbox's length,
 	/// one message sent or kept.
 	fn try_set_deposit() -> Weight;
-	/// Sending `n` messages waiting in the outbox.
+	/// Flushing the outbox with `n` messages waiting, all sent.
 	fn flush_outbox(n: u32) -> Weight;
 }
 

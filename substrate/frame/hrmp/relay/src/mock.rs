@@ -17,13 +17,16 @@
 
 //! Test runtime for `pallet-hrmp-relay`.
 
-use crate as pallet_hrmp_relay;
+use crate::{self as pallet_hrmp_relay, SendToPara};
+use core::cell::{Cell, RefCell};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::Weight};
+use hrmp_primitives::MessageToPara;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
 	hrmp::deposits::{DepositAction, DepositChangeRequest, DepositError, OnDepositSet},
 	origin as parachains_origin,
 };
+use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -42,13 +45,45 @@ impl frame_system::Config for Test {
 
 impl parachains_origin::Config for Test {}
 
-/// Ignores every answer.
-pub struct NoOnDepositSet;
-impl OnDepositSet for NoOnDepositSet {
-	fn on_deposit_set(_: DepositChangeRequest, _: Result<(), DepositError>) {}
+thread_local! {
+	/// The messages the transport took, oldest first.
+	pub static SENT: RefCell<Vec<MessageToPara>> = const { RefCell::new(Vec::new()) };
+	/// How many more messages the transport takes, or `None` for all.
+	pub static ACCEPT: Cell<Option<u32>> = const { Cell::new(None) };
+	/// The answers handed to `OnDepositSet`, oldest first.
+	pub static ANSWERS: RefCell<Vec<(DepositChangeRequest, Result<(), DepositError>)>> =
+		const { RefCell::new(Vec::new()) };
+}
 
-	fn weight_of_on_deposit_set(_: &DepositAction) -> Weight {
-		Weight::zero()
+/// Records what it takes, while [`ACCEPT`] allows.
+pub struct RecordingTransport;
+impl SendToPara for RecordingTransport {
+	fn send(message: MessageToPara) -> Result<(), ()> {
+		match ACCEPT.get() {
+			Some(0) => return Err(()),
+			Some(n) => ACCEPT.set(Some(n - 1)),
+			None => (),
+		}
+		SENT.with_borrow_mut(|sent| sent.push(message));
+		Ok(())
+	}
+}
+
+/// Records every answer. Each action costs a different weight.
+pub struct RecordingOnDepositSet;
+impl OnDepositSet for RecordingOnDepositSet {
+	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) {
+		ANSWERS.with_borrow_mut(|answers| answers.push((request, result)));
+	}
+
+	fn weight_of_on_deposit_set(action: &DepositAction) -> Weight {
+		match action {
+			DepositAction::InitOpenChannel { .. } => Weight::from_parts(1, 10),
+			DepositAction::InitAndAcceptOpenChannel { .. } => Weight::from_parts(2, 40),
+			DepositAction::AcceptOpenChannel { .. } => Weight::from_parts(3, 20),
+			DepositAction::PokeChannelDeposits => Weight::from_parts(4, 30),
+			DepositAction::Release => Weight::from_parts(100, 100),
+		}
 	}
 }
 
@@ -57,9 +92,32 @@ parameter_types! {
 }
 
 impl pallet_hrmp_relay::Config for Test {
-	type OnDepositSet = NoOnDepositSet;
+	type OnDepositSet = RecordingOnDepositSet;
 	type HolderParaId = HolderParaId;
-	type SendToPara = ();
+	type SendToPara = RecordingTransport;
 	type MaxOutbox = ConstU32<4>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
+/// Externalities at block 1, with the transport taking every message.
+pub fn build_ext() -> sp_io::TestExternalities {
+	let mut ext: sp_io::TestExternalities =
+		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		SENT.take();
+		ACCEPT.set(None);
+		ANSWERS.take();
+	});
+	ext
+}
+
+/// Runs `test`, then checks the pallet's invariants.
+pub fn new_test_ext(test: impl FnOnce()) {
+	build_ext().execute_with(|| {
+		test();
+		HrmpRelay::do_try_state().unwrap();
+	});
 }

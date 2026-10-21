@@ -17,14 +17,10 @@
 
 //! # HRMP-channel shared primitives
 //!
-//! The wire types between the relay-chain pallet (`pallet-hrmp-relay`) and the parachain pallet
-//! that holds the HRMP channel deposits (`pallet-hrmp-para`). This crate is deliberately free of
-//! any FRAME, XCM, or network-specific dependency, so a single version of the wire types serves
-//! Westend, Kusama and Polkadot, and so both pallets can depend on it without forming a
-//! dependency cycle.
-//!
-//! The relay chain owns every channel and decides every deposit. The parachain holds what it is
-//! asked to, against a channel side, and answers whether it could.
+//! Types shared by the parachain pallet (`pallet-hrmp-para`) and relay-chain pallet
+//! (`pallet-hrmp-relay`). This crate is deliberately free of any FRAME, XCM, or network-specific
+//! dependency, so a single version of the wire types serves Westend, Kusama and Polkadot, and so
+//! both pallets can depend on it without forming a dependency cycle.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -107,9 +103,9 @@ impl DepositSide {
 	MaxEncodedLen,
 )]
 pub enum DepositError {
-	/// A side's deposit could not be held, e.g. its funds are short.
+	/// A side cannot cover its deposit.
 	#[codec(index = 0)]
-	CannotHold,
+	InsufficientFunds,
 	/// Any other reason.
 	#[codec(index = 1)]
 	Other,
@@ -179,7 +175,7 @@ pub enum MessageToRelayV1 {
 	DepositsSet {
 		/// The `id` of the request.
 		id: u64,
-		/// `Ok` if every named side now holds what it should.
+		/// The `result` of the request.
 		result: Result<(), DepositError>,
 	},
 }

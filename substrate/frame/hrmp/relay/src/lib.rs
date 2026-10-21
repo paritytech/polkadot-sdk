@@ -17,23 +17,22 @@
 
 //! # Relay-chain HRMP deposit pallet
 //!
-//! Holds the relay chain's HRMP channel deposits on another chain, through
-//! `pallet-hrmp-para` there. HRMP itself stays on the relay chain: this pallet is the `hrmp`
-//! pallet's [`ChannelDepositProvider`].
+//! Forward the HRMP channel deposit operations between the relay chain HRMP pallet and the
+//! parachain handling deposits.
+//! Implements [`ChannelDepositProvider`] and [`OnDepositSet`] for the relay chain HRMP pallet.
+//! Forward the deposit operations with [`SendToPara`] following the protocol defined in
+//! hrmp-primitives and get results back through [`Call::receive`].
 //!
-//! - A deposit change is sent as [`MessageToParaV1::SetDeposits`] and kept pending until the answer
-//!   comes back through [`Call::receive`], which hands the request back to
-//!   [`Config::OnDepositSet`]. One request per channel side may be pending at a time.
-//! - A release is sent as [`MessageToParaV1::Release`], is never answered and is never refused. One
-//!   that cannot be sent waits in [`Outbox`], and no later request overtakes it. The outbox is only
-//!   sent in `on_initialize`, so that a request or a release costs the same whatever waits.
-//! - [`Call::force_answer`] is governance's way out when an answer never arrives.
+//! [`Call::force_answer`] is called by governance to fix potential inconsistent state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-use frame_support::{pallet_prelude::*, weights::Weight};
+use frame_support::{
+	pallet_prelude::*,
+	weights::{Weight, WeightMeter},
+};
 use hrmp_primitives::{
 	ChannelId, DepositError as WireDepositError, DepositSide, MessageToPara, MessageToParaV1,
 	MessageToRelay, MessageToRelayV1,
@@ -53,12 +52,16 @@ pub use weights::WeightInfo;
 
 pub mod weights;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+#[cfg(test)]
+mod integration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
-/// The index of [`Call::receive`]. The chain that holds the deposits encodes the call with it.
+/// The index of [`Call::receive`] that receives [`MessageToPara`].
 pub const RECEIVE_CALL_INDEX: u8 = 0;
 
 const LOG_TARGET: &str = "runtime::hrmp-relay";
@@ -66,8 +69,6 @@ const LOG_TARGET: &str = "runtime::hrmp-relay";
 /// Used to send an XCM `Transact` to `pallet-hrmp-para` on the chain that holds the deposits.
 pub trait SendToPara {
 	/// Send `message` to the parachain.
-	///
-	/// `Err(())` means the message could not be handed to the transport.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
@@ -77,6 +78,18 @@ impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
 		Ok(())
 	}
+}
+
+/// Prepares the runtime for this pallet's benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	/// Makes [`Config::SendToPara`] take messages.
+	fn ensure_send_to_para();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper for () {
+	fn ensure_send_to_para() {}
 }
 
 #[frame_support::pallet]
@@ -106,6 +119,10 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Prepares the runtime for the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	#[pallet::pallet]
@@ -159,9 +176,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			let (sent, left) = Self::flush_outbox();
-			T::WeightInfo::flush_outbox(sent.saturating_add(left))
+		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
+			Self::flush_outbox(meter);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -172,8 +188,10 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take a message from the parachain that holds the deposits.
-		// Must equal `RECEIVE_CALL_INDEX`.
+		/// Take a message from the parachain that holds the HRMP deposits.
+		///
+		/// The origin must be the parachain holding HRMP deposits.
+		// The index must equal `RECEIVE_CALL_INDEX`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::receive().saturating_add(Pallet::<T>::max_answer_weight()))]
 		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
@@ -191,9 +209,6 @@ pub mod pallet {
 
 		/// Answer the pending request `id` on the parachain's behalf, for an answer that never
 		/// arrived.
-		///
-		/// If the parachain did set the deposits, they stay held there until released by its
-		/// own governance.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::receive().saturating_add(Pallet::<T>::max_answer_weight()))]
 		pub fn force_answer(
@@ -224,15 +239,18 @@ impl<T: Config> Pallet<T> {
 
 	/// The most [`Config::OnDepositSet`] may spend on an answer.
 	fn max_answer_weight() -> Weight {
-		let (max_capacity, max_message_size, max_total_size) = (0, 0, 0);
 		[
-			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size },
-			DepositAction::InitAndAcceptOpenChannel {
-				max_capacity,
-				max_message_size,
-				max_total_size,
+			DepositAction::InitOpenChannel {
+				max_capacity: 1,
+				max_message_size: 1,
+				max_total_size: 1,
 			},
-			DepositAction::AcceptOpenChannel,
+			DepositAction::InitAndAcceptOpenChannel {
+				max_capacity: 1,
+				max_message_size: 1,
+				max_total_size: 1,
+			},
+			DepositAction::AcceptOpenChannel { max_capacity: 1, max_message_size: 1 },
 			DepositAction::PokeChannelDeposits,
 		]
 		.iter()
@@ -249,22 +267,28 @@ impl<T: Config> Pallet<T> {
 		}
 		Self::deposit_event(Event::DepositAnswered { id, result });
 		let result = result.map_err(|e| match e {
-			WireDepositError::CannotHold => DepositError::CannotHold,
+			WireDepositError::InsufficientFunds => DepositError::InsufficientFunds,
 			WireDepositError::Other => DepositError::Other,
 		});
 		T::OnDepositSet::on_deposit_set(request, result);
 		Ok(())
 	}
 
-	/// Sends what waits in [`Outbox`], oldest first, until the transport refuses one. Returns how
-	/// many were sent and how many are left.
-	fn flush_outbox() -> (u32, u32) {
-		let mut outbox = Outbox::<T>::get();
-		if outbox.is_empty() {
-			return (0, 0);
+	/// Sends what waits in [`Outbox`], oldest first, until `meter` has no room for the next one or
+	/// the transport refuses it.
+	fn flush_outbox(meter: &mut WeightMeter) {
+		if meter.try_consume(T::WeightInfo::flush_outbox(0)).is_err() {
+			return;
 		}
-		let mut sent = 0u32;
-		for message in outbox.iter() {
+		let mut outbox = Outbox::<T>::get();
+		let mut sent = 0usize;
+		for (n, message) in (1..).zip(outbox.iter()) {
+			// What the `n`th message adds to the flush.
+			let weight =
+				T::WeightInfo::flush_outbox(n).saturating_sub(T::WeightInfo::flush_outbox(n - 1));
+			if meter.try_consume(weight).is_err() {
+				break;
+			}
 			if T::SendToPara::send(message.clone()).is_err() {
 				break;
 			}
@@ -274,12 +298,10 @@ impl<T: Config> Pallet<T> {
 			}
 			sent += 1;
 		}
-		let left = outbox.len() as u32 - sent;
 		if sent > 0 {
-			outbox.drain(..sent as usize);
+			outbox.drain(..sent);
 			Outbox::<T>::put(outbox);
 		}
-		(sent, left)
 	}
 
 	/// Whether nothing waits in [`Outbox`].
@@ -334,7 +356,7 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 		let channel = Self::to_wire(&request.channel_id);
 
 		// A release only gives back: it is sent in order and never refused. Everything held for
-		// the side is released, whatever the requester's records say.
+		// the side is released.
 		if request.action == DepositAction::Release {
 			Self::release(channel, request.sender.is_some(), request.recipient.is_some());
 			return Ok(DepositChangeResponse::Applied);

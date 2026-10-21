@@ -82,8 +82,8 @@ pub trait OnDepositSet {
 	MaxEncodedLen,
 )]
 pub enum DepositError {
-	/// A side's deposit could not be taken.
-	CannotHold,
+	/// A side cannot cover its deposit.
+	InsufficientFunds,
 	/// A reason of the provider's own.
 	Other,
 }

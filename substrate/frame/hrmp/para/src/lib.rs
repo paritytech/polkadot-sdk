@@ -17,16 +17,11 @@
 
 //! # Parachain HRMP deposit pallet
 //!
-//! Holds the relay chain's HRMP channel deposits. The relay chain owns every channel and decides
-//! every deposit; this pallet holds and releases what it is told, against a channel side, from
-//! the paying para's sovereign account on this chain.
+//! Holds and release the deposits of parachain for the relay chain HRMP channel.
 //!
-//! - [`MessageToParaV1::SetDeposits`] moves the named sides to what they should hold, both or
-//!   neither, and is answered with [`MessageToRelayV1::DepositsSet`].
-//! - [`MessageToParaV1::Release`] releases everything held for the named sides. It never fails and
-//!   is not answered.
-//! - [`Call::force_set_deposit`] is governance's way out when a side holds other than what the
-//!   relay chain records, e.g. after a lost release or a wrong forced answer on the relay chain.
+//! [`Pallet::receive`] is called with [`MessageToPara`] from the relay chain and follows the
+//! protocol defined in hrmp-primitives.
+//! [`Call::force_set_deposit`] is called by governance to fix potential inconsistent state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -41,26 +36,26 @@ use hrmp_primitives::{
 	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
 	MessageToRelayV1, ParaId,
 };
-use sp_runtime::{traits::Convert, DispatchResult};
+use sp_runtime::{traits::Convert, DispatchError, DispatchResult, TokenError};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
 
 pub mod weights;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
 
-/// The index of [`Call::receive`]. The relay chain encodes the call with it.
+/// The index of [`Call::receive`] that receives [`MessageToPara`].
 pub const RECEIVE_CALL_INDEX: u8 = 0;
 
 /// Used to send an XCM `Transact` to `pallet-hrmp-relay` on the relay chain.
 pub trait SendToRelay {
 	/// Send `message` to the relay chain.
-	///
-	/// `Err(())` means the message could not be handed to the transport.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToRelay) -> Result<(), ()>;
 }
@@ -70,6 +65,18 @@ impl SendToRelay for () {
 	fn send(_message: MessageToRelay) -> Result<(), ()> {
 		Ok(())
 	}
+}
+
+/// Prepares the runtime for this pallet's benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	/// Makes [`Config::SendToRelay`] take messages.
+	fn ensure_send_to_relay();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper for () {
+	fn ensure_send_to_relay() {}
 }
 
 #[frame_support::pallet]
@@ -88,8 +95,12 @@ pub mod pallet {
 		/// A para's sovereign account on this chain, which pays its deposits.
 		type SovereignAccountOf: Convert<ParaId, Self::AccountId>;
 
-		/// Weight information for the extrinsics in this pallet.
+		/// Weight information for the operations in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Prepares the runtime for the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	#[pallet::pallet]
@@ -123,12 +134,10 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The answer could not be handed to the transport.
 		SendFailed,
-		/// The side already holds this amount.
-		Unchanged,
-		/// The side's deposit could not be held, e.g. its funds are short.
-		CannotHold,
-		/// The side's deposit could not be released.
-		CannotRelease,
+		/// The side cannot cover its deposit.
+		InsufficientFunds,
+		/// The side's deposit could not be held or released for another reason.
+		CannotChangeDeposit,
 	}
 
 	#[pallet::hooks]
@@ -141,8 +150,10 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take a message from the relay chain.
-		// Must equal `RECEIVE_CALL_INDEX`.
+		/// Take a message from the relay chain for HRMP deposits.
+		///
+		/// The origin must be root.
+		// The index must equal `RECEIVE_CALL_INDEX`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(match message {
 			MessageToPara::V1(MessageToParaV1::SetDeposits { .. }) =>
@@ -150,7 +161,6 @@ pub mod pallet {
 			MessageToPara::V1(MessageToParaV1::Release { .. }) => T::WeightInfo::receive_release(),
 		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
-			// The relay chain's `Superuser` arrives as Root.
 			ensure_root(origin)?;
 			match message {
 				MessageToPara::V1(MessageToParaV1::SetDeposits {
@@ -173,8 +183,8 @@ pub mod pallet {
 							TransactionOutcome::Rollback(result)
 						}
 					})
-					// Too deep in nested transactions.
-					.unwrap_or(Err(DepositError::Other));
+					.unwrap_or(Err(DepositError::Other)); // Too deep in nested transactions.
+
 					if result.is_err() {
 						Self::deposit_event(Event::DepositRefused { id, channel });
 					}
@@ -204,11 +214,12 @@ pub mod pallet {
 			amount: Balance,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
-			ensure!(amount != held, Error::<T>::Unchanged);
+			if Deposits::<T>::get((channel, side)).unwrap_or_default() == amount {
+				return Ok(());
+			}
 			Self::set_side(channel, side, amount).map_err(|e| match e {
-				DepositError::CannotHold => Error::<T>::CannotHold.into(),
-				DepositError::Other => Error::<T>::CannotRelease.into(),
+				DepositError::InsufficientFunds => Error::<T>::InsufficientFunds.into(),
+				DepositError::Other => Error::<T>::CannotChangeDeposit.into(),
 			})
 		}
 	}
@@ -234,11 +245,14 @@ impl<T: Config> Pallet<T> {
 		let who = Self::payer(&channel, side);
 		let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
 		if target > held {
-			T::Currency::hold(&reason, &who, target - held)
-				.map_err(|_| DepositError::CannotHold)?;
+			T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
+				DispatchError::Token(TokenError::FundsUnavailable) => {
+					DepositError::InsufficientFunds
+				},
+				_ => DepositError::Other,
+			})?;
 		} else if target < held {
 			T::Currency::release(&reason, &who, held - target, Precision::BestEffort)
-				// Only fails on a broken account, e.g. free balance below ED.
 				.map_err(|_| DepositError::Other)?;
 		}
 		if target == 0 {
