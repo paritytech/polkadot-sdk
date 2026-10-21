@@ -233,6 +233,41 @@ fn buy_with_various_assets_and_refund_for_target() {
 }
 
 #[test]
+fn buy_and_refund_whole_fee_for_target() {
+	let client_asset_total = 15;
+	let fee = 5;
+
+	setup_pool(CLIENT_ASSET, 1000, TARGET_ASSET, 1000);
+	// create pool for refund swap.
+	setup_pool(TARGET_ASSET, 1000, CLIENT_ASSET, 1000);
+
+	let holding_asset = create_holding_asset(CLIENT_ASSET, client_asset_total);
+	let holding_change = create_holding_asset(CLIENT_ASSET, client_asset_total - fee);
+	let refund_asset = create_holding_asset(CLIENT_ASSET, fee);
+
+	let target_total = Fungibles::total_issuance(TARGET_ASSET);
+	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
+
+	let mut trader = Trader::new();
+	let change = trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&change, &holding_change);
+
+	assert_eq!(trader.total_fee.peek(), fee);
+	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
+
+	let refund = trader.refund_weight(weight_worth_of(fee), &xcm_context());
+	assert_eq!(refund.as_ref(), Some(&refund_asset));
+
+	assert_eq!(trader.total_fee.peek(), 0);
+	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
+
+	assert_eq!(trader.refund_weight(weight_worth_of(1), &xcm_context()), None);
+
+	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
+	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
+}
+
+#[test]
 fn not_enough_to_refund() {
 	let client_asset_total = 15;
 	let fee = 5;

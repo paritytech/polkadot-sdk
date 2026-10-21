@@ -527,7 +527,7 @@ where
 			return None;
 		};
 		let refund_amount = WeightToFee::weight_to_fee(&weight);
-		if refund_amount >= self.total_fee.peek() {
+		if refund_amount > self.total_fee.peek() {
 			// not enough was paid to refund the `weight`.
 			return None;
 		}
