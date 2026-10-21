@@ -129,7 +129,7 @@ impl<T: Config> Eras<T> {
 		};
 
 		// Zero reward points means a payout transfers nothing, so there is nothing to claim.
-		if Self::get_reward_points_for_validator(era, validator).is_zero() {
+		if Self::get_total_reward_points_for_validator(era, validator).is_zero() {
 			return false;
 		}
 
@@ -497,16 +497,48 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
+	pub(crate) fn get_total_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
 
-	pub(crate) fn get_reward_points_for_validator(
+	pub(crate) fn get_total_reward_points_for_validator(
 		era: EraIndex,
 		validator: &T::AccountId,
 	) -> RewardPoint {
 		let points = ErasRewardPoints::<T>::get(era);
 		points.individual.get(validator).copied().unwrap_or_default()
+	}
+
+	/// The points of `validator` in `era` per service.
+	///
+	/// Points of the tally not recorded per service count as
+	/// [`ValidatorServiceKind::RelayConsensus`]: they are from before points were recorded per
+	/// service, when only the relay chain session report credited points.
+	pub(crate) fn get_reward_points_by_service_for_validator(
+		era: EraIndex,
+		validator: &T::AccountId,
+	) -> Vec<(ValidatorServiceKind, RewardPoint)> {
+		let tally = Self::get_total_reward_points_for_validator(era, validator);
+		// At most one entry per `ValidatorServiceKind`.
+		let mut points = ErasRewardPointsByService::<T>::iter_prefix(era)
+			.filter_map(|(service, points)| {
+				points.individual.get(validator).map(|points| (service, *points))
+			})
+			.collect::<Vec<_>>();
+		let recorded = points
+			.iter()
+			.fold(RewardPoint::zero(), |sum, (_, points)| sum.saturating_add(*points));
+		let unrecorded = tally.saturating_sub(recorded);
+		if !unrecorded.is_zero() {
+			match points
+				.iter_mut()
+				.find(|(service, _)| *service == ValidatorServiceKind::RelayConsensus)
+			{
+				Some((_, points)) => points.saturating_accrue(unrecorded),
+				None => points.push((ValidatorServiceKind::RelayConsensus, unrecorded)),
+			}
+		}
+		points
 	}
 
 	/// Whether era `era` uses the weighted-points incentive-share formula

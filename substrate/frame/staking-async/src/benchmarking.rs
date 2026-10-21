@@ -1695,21 +1695,28 @@ mod benchmarks {
 		// proof era (`l - 1`) stays below the active era.
 		set_active_era::<T>(l);
 
-		// Fill the `EraRewardPoints::individual` to hit the worst-case scenario.
-		let mut individual_points = BoundedBTreeMap::new();
-		for index in 0..T::MaxValidatorSet::get() {
-			individual_points
-				.try_insert(account::<T::AccountId>("validator", index, 0), 100)
-				.unwrap();
-		}
+		// Fill `EraRewardPoints::individual` of every service, and of the tally that adds them
+		// up, to hit the worst-case scenario. A new `ValidatorServiceKind` must be added here.
+		let services = [ValidatorServiceKind::RelayConsensus, ValidatorServiceKind::Collation];
+		let points_of_each = |points: RewardPoint| {
+			let mut individual = BoundedBTreeMap::new();
+			for index in 0..T::MaxValidatorSet::get() {
+				individual
+					.try_insert(account::<T::AccountId>("validator", index, 0), points)
+					.unwrap();
+			}
+			EraRewardPoints { total: points * T::MaxValidatorSet::get(), individual }
+		};
+		let per_service = 100;
+		let tally = per_service * services.len() as RewardPoint;
 
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
 			.inspect(|&era| {
-				ErasRewardPoints::<T>::insert(
-					era,
-					EraRewardPoints { total: 0, individual: individual_points.clone() },
-				);
+				ErasRewardPoints::<T>::insert(era, points_of_each(tally));
+				for kind in services {
+					ErasRewardPointsByService::<T>::insert(era, kind, points_of_each(per_service));
+				}
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 			})
 			.collect::<Vec<_>>();
