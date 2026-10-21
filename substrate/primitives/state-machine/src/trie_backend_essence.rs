@@ -698,9 +698,9 @@ where
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<H>>,
 	) {
-		// LayoutV1 is used unconditionally: V0 and V1 are read-compatible, and this function
-		// only reads trie nodes (removals stay in the append-only estimation trie). See
-		// sp_trie::TrieDB.
+		// LayoutV1 whatever the chain's state version: only nodes read from the backend are
+		// recorded, reading and collapsing nodes work the same under both layouts, and nothing
+		// is encoded or written back.
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
 		let backend_storage = &self.backend_storage();
 		let eph = Ephemeral::new(backend_storage, &mut write_overlay);

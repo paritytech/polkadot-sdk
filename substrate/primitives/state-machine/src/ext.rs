@@ -1120,6 +1120,14 @@ mod tests {
 		backend: TestBackend,
 		apply_changes: impl FnOnce(&mut dyn Externalities, &Recorder<Blake2Hasher>),
 	) -> (usize, usize) {
+		estimation_and_storage_root_proof_sizes_at(backend, StateVersion::V1, apply_changes)
+	}
+
+	fn estimation_and_storage_root_proof_sizes_at(
+		backend: TestBackend,
+		state_version: StateVersion,
+		apply_changes: impl FnOnce(&mut dyn Externalities, &Recorder<Blake2Hasher>),
+	) -> (usize, usize) {
 		let mut overlay = OverlayedChanges::default();
 
 		let estimation_recorder = Recorder::<Blake2Hasher>::default();
@@ -1138,7 +1146,7 @@ mod tests {
 				.with_recorder(storage_root_recorder.clone())
 				.build();
 			let mut ext = Ext::new(&mut overlay, &backend, None);
-			ext.storage_root(StateVersion::V1);
+			ext.storage_root(state_version);
 		}
 
 		(estimation_recorder.estimate_encoded_size(), storage_root_recorder.estimate_encoded_size())
@@ -1189,12 +1197,16 @@ mod tests {
 	}
 
 	fn collapse_scenario_backend() -> TestBackend {
+		collapse_scenario_backend_at(StateVersion::V1)
+	}
+
+	fn collapse_scenario_backend_at(state_version: StateVersion) -> TestBackend {
 		(
 			Storage {
 				top: collapse_scenario_keys().into_iter().collect(),
 				children_default: Default::default(),
 			},
-			StateVersion::V1,
+			state_version,
 		)
 			.into()
 	}
@@ -1231,6 +1243,25 @@ mod tests {
 				ext.record_proof_for_dirty_keys();
 				ext.clear_storage(second);
 			});
+		}
+	}
+
+	/// The estimation walks the trie with `LayoutV1` whatever the chain's state version. On a V0
+	/// chain the real storage root computation uses `LayoutV0`, and the estimation must still
+	/// record the same nodes, since reading and collapsing nodes do not depend on the layout.
+	#[test]
+	fn joint_collapse_is_estimated_exactly_on_a_v0_chain() {
+		for (first, second) in [(K1, K2), (K2, K1)] {
+			let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_at(
+				collapse_scenario_backend_at(StateVersion::V0),
+				StateVersion::V0,
+				|ext, _| {
+					ext.clear_storage(first);
+					ext.record_proof_for_dirty_keys();
+					ext.clear_storage(second);
+				},
+			);
+			assert_eq!(estimation, storage_root);
 		}
 	}
 
