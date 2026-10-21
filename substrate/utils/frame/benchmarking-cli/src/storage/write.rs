@@ -15,8 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::cmp::min;
-
 use codec::Encode;
 use frame_storage_access_test_runtime::StorageAccessParams;
 use log::{debug, info, trace, warn};
@@ -316,15 +314,9 @@ impl StorageCmd {
 
 		// Call record_proof_for_dirty_keys if enabled
 		if self.params.estimation_batch_size > 0 {
-			let triggers_per_batch = self.params.estimation_batch_size;
-			let trigger_interval = batch_size.div_ceil(triggers_per_batch);
 			let mut estimation_trie = None;
 
-			for i in 0..triggers_per_batch {
-				let start_idx = i * trigger_interval;
-				let end_idx = min(batch_size, (i + 1) * trigger_interval);
-
-				let trigger_changes = &changes[start_idx..end_idx];
+			for trigger_changes in estimation_tiles(&changes, self.params.estimation_batch_size) {
 				let trigger_delta =
 					trigger_changes.iter().map(|(key, _)| (key.as_ref(), DeltaKeyOp::Updated));
 
@@ -454,6 +446,12 @@ impl StorageCmd {
 /// Converts a Trie transaction into a DB transaction.
 /// Removals are ignored and will not be included in the final tx.
 /// `invert_inserts` replaces all inserts with removals.
+/// The slices of `changes` that each size estimation call covers, up to `triggers_per_batch`
+/// of them spread evenly over the batch.
+fn estimation_tiles<T>(changes: &[T], triggers_per_batch: usize) -> impl Iterator<Item = &[T]> {
+	changes.chunks(changes.len().div_ceil(triggers_per_batch).max(1))
+}
+
 fn convert_tx<B: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
 	mut tx: PrefixedMemoryDB<HashingFor<B>>,
@@ -504,4 +502,22 @@ fn check_new_value<Block: BlockT>(
 		}
 	}
 	true
+}
+
+#[cfg(test)]
+mod tests {
+	use super::estimation_tiles;
+
+	/// Any trigger count the CLI accepts must tile the batch without indexing past its end;
+	/// rounding the interval up used to make the last tiles start beyond the batch.
+	#[test]
+	fn every_trigger_count_tiles_the_whole_batch() {
+		let changes: Vec<usize> = (0..100).collect();
+		for triggers_per_batch in 1..=150 {
+			let tiles: Vec<_> = estimation_tiles(&changes, triggers_per_batch).collect();
+			assert!(tiles.len() <= triggers_per_batch);
+			assert!(tiles.iter().all(|tile| !tile.is_empty()));
+			assert_eq!(tiles.concat(), changes);
+		}
+	}
 }

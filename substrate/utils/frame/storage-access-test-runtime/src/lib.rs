@@ -159,16 +159,11 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 		} => {
 			// Call record_proof_for_dirty_keys if enabled
 			if estimation_batch_size > 0 {
-				let batch_size = changes.len();
-				let triggers_per_batch = estimation_batch_size as usize;
-				let trigger_interval = batch_size.div_ceil(triggers_per_batch);
+				let trigger_interval =
+					changes.len().div_ceil(estimation_batch_size as usize).max(1);
 				let mut estimation_trie = None;
 
-				for i in 0..triggers_per_batch {
-					let start_idx = i * trigger_interval;
-					let end_idx = batch_size.min((i + 1) * trigger_interval);
-
-					let trigger_changes = &changes[start_idx..end_idx];
+				for trigger_changes in changes.chunks(trigger_interval) {
 					let trigger_delta = trigger_changes
 						.iter()
 						.map(|(key, _value)| (key.as_ref(), DeltaKeyOp::Updated));
