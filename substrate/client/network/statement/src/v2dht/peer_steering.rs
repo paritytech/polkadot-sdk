@@ -19,16 +19,17 @@
 //! Peer steering for the v2 DHT gossip path.
 //!
 //! Implements [#11935](https://github.com/paritytech/polkadot-sdk/issues/11935): the module that
-//! keeps the node connected to the peers it needs to cover its subscriptions.
+//! keeps the node connected to the peers it needs: those covering its subscriptions and its
+//! routing peers.
 //!
-//! It tracks the connected peers and the peers needed for coverage.
+//! It tracks the connected peers and the desired peers.
 //! [`PeerSteering::peers_to_connect`] and [`PeerSteering::peers_to_disconnect`] decide how to align
 //! the former with the latter — the desired peers that are not connected and the connected peers no
 //! longer desired — closing at most [`MAX_DISCONNECT_PERCENT`] of the connected peers per refresh
 //! so the set converges over several refreshes rather than churning at once.
 //! [`PeerSteering::refresh_connections`] applies that decision by editing the statement protocol's
 //! reserved set: adding a peer dials it and keeps the notification substream open, removing one
-//! drops it. The orchestrator supplies the coverage set via
+//! drops it. The orchestrator supplies the desired set via
 //! [`PeerSteering::update_peers_needing_connections`].
 //!
 //! Each connected peer carries a score based on its actions. Undesired peers are
@@ -59,11 +60,11 @@ pub(crate) mod score {
 /// instead of dropping every undesired connection at once.
 const MAX_DISCONNECT_PERCENT: usize = 20;
 
-/// Keeps the connected peer set aligned with the peers needed to cover the node's subscriptions.
+/// Keeps the connected peer set aligned with the peers the node needs: those covering its
+/// subscriptions and its routing peers.
 ///
 /// The connected set is fed by statement notification substream events; the desired set is supplied
 /// by the orchestrator. [`Self::refresh_connections`] drives the two together.
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PeerSteering {
 	/// Statement protocol whose reserved set the connections are steered through.
@@ -72,7 +73,7 @@ pub(crate) struct PeerSteering {
 	connected: HashMap<PeerId, ConnectedPeer>,
 	/// Monotonic counter handing each new connection its sequence.
 	next_connection_seq: u64,
-	/// Peers needed to cover the node's subscriptions.
+	/// Peers the node needs connected: those covering its subscriptions and its routing peers.
 	desired: HashSet<PeerId>,
 }
 
@@ -85,7 +86,6 @@ struct ConnectedPeer {
 	score: i32,
 }
 
-#[allow(dead_code)]
 impl PeerSteering {
 	pub(crate) fn new(protocol: ProtocolName) -> Self {
 		Self {
@@ -125,9 +125,9 @@ impl PeerSteering {
 		self.connected.get(peer).map(|entry| entry.score)
 	}
 
-	// === Coverage target ===
+	// === Desired set ===
 
-	/// Replace the set of peers needed to cover the node's subscriptions.
+	/// Replace the set of peers the node needs connected.
 	pub(crate) fn update_peers_needing_connections(
 		&mut self,
 		peers: impl IntoIterator<Item = PeerId>,
