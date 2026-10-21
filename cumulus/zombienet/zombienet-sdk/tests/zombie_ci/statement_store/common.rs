@@ -20,6 +20,7 @@ use std::{
 	time::Duration,
 };
 use zombienet_configuration::shared::node::{Initial, NodeConfigBuilder};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -643,8 +644,10 @@ pub(super) async fn assert_late_joiner_receives_backlog(
 		.collect();
 	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
 
-	let dave_logs = dave.logs().await?;
-	assert!(dave_logs.lines().any(|line| line.contains(recovery_log)), "{recovery_log}");
+	// The recovery step runs after the sync settles, so it can land after the statements.
+	let options = LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(30), false);
+	let result = dave.wait_log_line_count_with_timeout(recovery_log, false, options).await?;
+	assert!(result.success(), "dave never logged: {recovery_log}");
 	Ok(())
 }
 
