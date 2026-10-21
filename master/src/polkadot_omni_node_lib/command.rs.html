@@ -437,106 +437,98 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#287 id=287 data-nosnippet>287</a>				RelayChainCli::&lt;CliConfig&gt;::new(runner.config(), cli.relay_chain_args.iter());
 <a href=#288 id=288 data-nosnippet>288</a>			<span class="kw">let </span>collator_options = cli.run.collator_options();
 <a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a>			<span class="kw">if </span>cli.experimental_use_slot_based {
-<a href=#291 id=291 data-nosnippet>291</a>				<span class="macro">log::warn!</span>(
-<a href=#292 id=292 data-nosnippet>292</a>					<span class="string">"Deprecated: The flag --experimental-use-slot-based is no longer \
-<a href=#293 id=293 data-nosnippet>293</a>				supported. Please use --authoring slot-based instead. This feature will be removed \
-<a href=#294 id=294 data-nosnippet>294</a>				after May 2025."
-<a href=#295 id=295 data-nosnippet>295</a>				</span>);
-<a href=#296 id=296 data-nosnippet>296</a>			}
-<a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a>			runner.run_node_until_exit(|config| <span class="kw">async move </span>{
-<a href=#299 id=299 data-nosnippet>299</a>				<span class="kw">let </span>node_extra_args = cli.node_extra_args();
-<a href=#300 id=300 data-nosnippet>300</a>				<span class="kw">let </span>node_spec =
-<a href=#301 id=301 data-nosnippet>301</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>node_extra_args)<span class="question-mark">?</span>;
-<a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(dev_mode) = cli.dev_mode() {
-<a href=#304 id=304 data-nosnippet>304</a>					<span class="kw">return </span>node_spec
-<a href=#305 id=305 data-nosnippet>305</a>						.start_dev_node(config, dev_mode, node_extra_args)
-<a href=#306 id=306 data-nosnippet>306</a>						.map_err(Into::into);
-<a href=#307 id=307 data-nosnippet>307</a>				}
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a>				<span class="comment">// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
-<a href=#310 id=310 data-nosnippet>310</a>				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
-<a href=#311 id=311 data-nosnippet>311</a>				// that both file paths exist, the node will exit, as the user must decide (by
-<a href=#312 id=312 data-nosnippet>312</a>				// deleting one path) the information that they want to use as their DB.
-<a href=#313 id=313 data-nosnippet>313</a>				</span><span class="kw">let </span>old_name = <span class="kw">match </span>config.chain_spec.id() {
-<a href=#314 id=314 data-nosnippet>314</a>					<span class="string">"asset-hub-polkadot" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemint"</span>),
-<a href=#315 id=315 data-nosnippet>315</a>					<span class="string">"asset-hub-kusama" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemine"</span>),
-<a href=#316 id=316 data-nosnippet>316</a>					<span class="string">"asset-hub-westend" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"westmint"</span>),
-<a href=#317 id=317 data-nosnippet>317</a>					<span class="string">"asset-hub-rococo" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"rockmine"</span>),
-<a href=#318 id=318 data-nosnippet>318</a>					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#319 id=319 data-nosnippet>319</a>				};
-<a href=#320 id=320 data-nosnippet>320</a>
-<a href=#321 id=321 data-nosnippet>321</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(old_name) = old_name {
-<a href=#322 id=322 data-nosnippet>322</a>					<span class="kw">let </span>new_path = config.base_path.config_dir(config.chain_spec.id());
-<a href=#323 id=323 data-nosnippet>323</a>					<span class="kw">let </span>old_path = config.base_path.config_dir(old_name);
-<a href=#324 id=324 data-nosnippet>324</a>
-<a href=#325 id=325 data-nosnippet>325</a>					<span class="kw">if </span>old_path.exists() &amp;&amp; new_path.exists() {
-<a href=#326 id=326 data-nosnippet>326</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
-<a href=#327 id=327 data-nosnippet>327</a>							<span class="string">"Found legacy {} path {} and new Asset Hub path {}. \
-<a href=#328 id=328 data-nosnippet>328</a>							Delete one path such that only one exists."</span>,
-<a href=#329 id=329 data-nosnippet>329</a>							old_name,
-<a href=#330 id=330 data-nosnippet>330</a>							old_path.display(),
-<a href=#331 id=331 data-nosnippet>331</a>							new_path.display()
-<a href=#332 id=332 data-nosnippet>332</a>						)
-<a href=#333 id=333 data-nosnippet>333</a>						.into());
-<a href=#334 id=334 data-nosnippet>334</a>					}
-<a href=#335 id=335 data-nosnippet>335</a>
-<a href=#336 id=336 data-nosnippet>336</a>					<span class="kw">if </span>old_path.exists() {
-<a href=#337 id=337 data-nosnippet>337</a>						std::fs::rename(old_path.clone(), new_path.clone())<span class="question-mark">?</span>;
-<a href=#338 id=338 data-nosnippet>338</a>						<span class="macro">info!</span>(
-<a href=#339 id=339 data-nosnippet>339</a>							<span class="string">"{} was renamed to Asset Hub. The filepath with associated data on disk \
-<a href=#340 id=340 data-nosnippet>340</a>							has been renamed from {} to {}."</span>,
-<a href=#341 id=341 data-nosnippet>341</a>							old_name,
-<a href=#342 id=342 data-nosnippet>342</a>							old_path.display(),
-<a href=#343 id=343 data-nosnippet>343</a>							new_path.display()
-<a href=#344 id=344 data-nosnippet>344</a>						);
-<a href=#345 id=345 data-nosnippet>345</a>					}
-<a href=#346 id=346 data-nosnippet>346</a>				}
-<a href=#347 id=347 data-nosnippet>347</a>
-<a href=#348 id=348 data-nosnippet>348</a>				<span class="kw">let </span>hwbench = (!cli.no_hardware_benchmarks)
-<a href=#349 id=349 data-nosnippet>349</a>					.then(|| {
-<a href=#350 id=350 data-nosnippet>350</a>						config.database.path().map(|database_path| {
-<a href=#351 id=351 data-nosnippet>351</a>							<span class="kw">let _ </span>= std::fs::create_dir_all(database_path);
-<a href=#352 id=352 data-nosnippet>352</a>							sc_sysinfo::gather_hwbench(
-<a href=#353 id=353 data-nosnippet>353</a>								<span class="prelude-val">Some</span>(database_path),
-<a href=#354 id=354 data-nosnippet>354</a>								<span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE,
-<a href=#355 id=355 data-nosnippet>355</a>							)
-<a href=#356 id=356 data-nosnippet>356</a>						})
-<a href=#357 id=357 data-nosnippet>357</a>					})
-<a href=#358 id=358 data-nosnippet>358</a>					.flatten();
-<a href=#359 id=359 data-nosnippet>359</a>				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
-<a href=#360 id=360 data-nosnippet>360</a>				<span class="kw">let </span><span class="kw-2">mut </span>polkadot_config =
-<a href=#361 id=361 data-nosnippet>361</a>					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
-<a href=#362 id=362 data-nosnippet>362</a>						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>				<span class="comment">// The relay chain side of a collator doesn't listen on WebRTC by default;
-<a href=#365 id=365 data-nosnippet>365</a>				// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
-<a href=#366 id=366 data-nosnippet>366</a>				</span><span class="kw">let </span>relay_network_params = <span class="kw-2">&amp;</span>polkadot_cli.base.base.network_params;
-<a href=#367 id=367 data-nosnippet>367</a>				<span class="kw">if </span>config.role.is_authority() &amp;&amp;
-<a href=#368 id=368 data-nosnippet>368</a>					!relay_network_params.force_enable_webrtc &amp;&amp;
-<a href=#369 id=369 data-nosnippet>369</a>					relay_network_params.listen_addr.is_empty()
-<a href=#370 id=370 data-nosnippet>370</a>				{
-<a href=#371 id=371 data-nosnippet>371</a>					polkadot_config.network.remove_webrtc_addresses();
-<a href=#372 id=372 data-nosnippet>372</a>				}
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>				<span class="macro">info!</span>(<span class="string">"✍️ Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
-<a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a>				node_spec
-<a href=#377 id=377 data-nosnippet>377</a>					.start_node(
-<a href=#378 id=378 data-nosnippet>378</a>						config,
-<a href=#379 id=379 data-nosnippet>379</a>						polkadot_config,
-<a href=#380 id=380 data-nosnippet>380</a>						collator_options,
-<a href=#381 id=381 data-nosnippet>381</a>						hwbench,
-<a href=#382 id=382 data-nosnippet>382</a>						cli.node_extra_args(),
-<a href=#383 id=383 data-nosnippet>383</a>					)
-<a href=#384 id=384 data-nosnippet>384</a>					.<span class="kw">await
-<a href=#385 id=385 data-nosnippet>385</a>					</span>.map_err(Into::into)
-<a href=#386 id=386 data-nosnippet>386</a>			})
-<a href=#387 id=387 data-nosnippet>387</a>		},
-<a href=#388 id=388 data-nosnippet>388</a>	}
-<a href=#389 id=389 data-nosnippet>389</a>}
+<a href=#290 id=290 data-nosnippet>290</a>			runner.run_node_until_exit(|config| <span class="kw">async move </span>{
+<a href=#291 id=291 data-nosnippet>291</a>				<span class="kw">let </span>node_extra_args = cli.node_extra_args();
+<a href=#292 id=292 data-nosnippet>292</a>				<span class="kw">let </span>node_spec =
+<a href=#293 id=293 data-nosnippet>293</a>					new_node_spec(<span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span>cmd_config.runtime_resolver, <span class="kw-2">&amp;</span>node_extra_args)<span class="question-mark">?</span>;
+<a href=#294 id=294 data-nosnippet>294</a>
+<a href=#295 id=295 data-nosnippet>295</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(dev_mode) = cli.dev_mode() {
+<a href=#296 id=296 data-nosnippet>296</a>					<span class="kw">return </span>node_spec
+<a href=#297 id=297 data-nosnippet>297</a>						.start_dev_node(config, dev_mode, node_extra_args)
+<a href=#298 id=298 data-nosnippet>298</a>						.map_err(Into::into);
+<a href=#299 id=299 data-nosnippet>299</a>				}
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a>				<span class="comment">// If Statemint (Statemine, Westmint, Rockmine) DB exists and we're using the
+<a href=#302 id=302 data-nosnippet>302</a>				// asset-hub chain spec, then rename the base path to the new chain ID. In the case
+<a href=#303 id=303 data-nosnippet>303</a>				// that both file paths exist, the node will exit, as the user must decide (by
+<a href=#304 id=304 data-nosnippet>304</a>				// deleting one path) the information that they want to use as their DB.
+<a href=#305 id=305 data-nosnippet>305</a>				</span><span class="kw">let </span>old_name = <span class="kw">match </span>config.chain_spec.id() {
+<a href=#306 id=306 data-nosnippet>306</a>					<span class="string">"asset-hub-polkadot" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemint"</span>),
+<a href=#307 id=307 data-nosnippet>307</a>					<span class="string">"asset-hub-kusama" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"statemine"</span>),
+<a href=#308 id=308 data-nosnippet>308</a>					<span class="string">"asset-hub-westend" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"westmint"</span>),
+<a href=#309 id=309 data-nosnippet>309</a>					<span class="string">"asset-hub-rococo" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"rockmine"</span>),
+<a href=#310 id=310 data-nosnippet>310</a>					<span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#311 id=311 data-nosnippet>311</a>				};
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>				<span class="kw">if let </span><span class="prelude-val">Some</span>(old_name) = old_name {
+<a href=#314 id=314 data-nosnippet>314</a>					<span class="kw">let </span>new_path = config.base_path.config_dir(config.chain_spec.id());
+<a href=#315 id=315 data-nosnippet>315</a>					<span class="kw">let </span>old_path = config.base_path.config_dir(old_name);
+<a href=#316 id=316 data-nosnippet>316</a>
+<a href=#317 id=317 data-nosnippet>317</a>					<span class="kw">if </span>old_path.exists() &amp;&amp; new_path.exists() {
+<a href=#318 id=318 data-nosnippet>318</a>						<span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(
+<a href=#319 id=319 data-nosnippet>319</a>							<span class="string">"Found legacy {} path {} and new Asset Hub path {}. \
+<a href=#320 id=320 data-nosnippet>320</a>							Delete one path such that only one exists."</span>,
+<a href=#321 id=321 data-nosnippet>321</a>							old_name,
+<a href=#322 id=322 data-nosnippet>322</a>							old_path.display(),
+<a href=#323 id=323 data-nosnippet>323</a>							new_path.display()
+<a href=#324 id=324 data-nosnippet>324</a>						)
+<a href=#325 id=325 data-nosnippet>325</a>						.into());
+<a href=#326 id=326 data-nosnippet>326</a>					}
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>					<span class="kw">if </span>old_path.exists() {
+<a href=#329 id=329 data-nosnippet>329</a>						std::fs::rename(old_path.clone(), new_path.clone())<span class="question-mark">?</span>;
+<a href=#330 id=330 data-nosnippet>330</a>						<span class="macro">info!</span>(
+<a href=#331 id=331 data-nosnippet>331</a>							<span class="string">"{} was renamed to Asset Hub. The filepath with associated data on disk \
+<a href=#332 id=332 data-nosnippet>332</a>							has been renamed from {} to {}."</span>,
+<a href=#333 id=333 data-nosnippet>333</a>							old_name,
+<a href=#334 id=334 data-nosnippet>334</a>							old_path.display(),
+<a href=#335 id=335 data-nosnippet>335</a>							new_path.display()
+<a href=#336 id=336 data-nosnippet>336</a>						);
+<a href=#337 id=337 data-nosnippet>337</a>					}
+<a href=#338 id=338 data-nosnippet>338</a>				}
+<a href=#339 id=339 data-nosnippet>339</a>
+<a href=#340 id=340 data-nosnippet>340</a>				<span class="kw">let </span>hwbench = (!cli.no_hardware_benchmarks)
+<a href=#341 id=341 data-nosnippet>341</a>					.then(|| {
+<a href=#342 id=342 data-nosnippet>342</a>						config.database.path().map(|database_path| {
+<a href=#343 id=343 data-nosnippet>343</a>							<span class="kw">let _ </span>= std::fs::create_dir_all(database_path);
+<a href=#344 id=344 data-nosnippet>344</a>							sc_sysinfo::gather_hwbench(
+<a href=#345 id=345 data-nosnippet>345</a>								<span class="prelude-val">Some</span>(database_path),
+<a href=#346 id=346 data-nosnippet>346</a>								<span class="kw-2">&amp;</span>SUBSTRATE_REFERENCE_HARDWARE,
+<a href=#347 id=347 data-nosnippet>347</a>							)
+<a href=#348 id=348 data-nosnippet>348</a>						})
+<a href=#349 id=349 data-nosnippet>349</a>					})
+<a href=#350 id=350 data-nosnippet>350</a>					.flatten();
+<a href=#351 id=351 data-nosnippet>351</a>				<span class="kw">let </span>tokio_handle = config.tokio_handle.clone();
+<a href=#352 id=352 data-nosnippet>352</a>				<span class="kw">let </span><span class="kw-2">mut </span>polkadot_config =
+<a href=#353 id=353 data-nosnippet>353</a>					SubstrateCli::create_configuration(<span class="kw-2">&amp;</span>polkadot_cli, <span class="kw-2">&amp;</span>polkadot_cli, tokio_handle)
+<a href=#354 id=354 data-nosnippet>354</a>						.map_err(|err| <span class="macro">format!</span>(<span class="string">"Relay chain argument error: {}"</span>, err))<span class="question-mark">?</span>;
+<a href=#355 id=355 data-nosnippet>355</a>
+<a href=#356 id=356 data-nosnippet>356</a>				<span class="comment">// The relay chain side of a collator doesn't listen on WebRTC by default;
+<a href=#357 id=357 data-nosnippet>357</a>				// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
+<a href=#358 id=358 data-nosnippet>358</a>				</span><span class="kw">let </span>relay_network_params = <span class="kw-2">&amp;</span>polkadot_cli.base.base.network_params;
+<a href=#359 id=359 data-nosnippet>359</a>				<span class="kw">if </span>config.role.is_authority() &amp;&amp;
+<a href=#360 id=360 data-nosnippet>360</a>					!relay_network_params.force_enable_webrtc &amp;&amp;
+<a href=#361 id=361 data-nosnippet>361</a>					relay_network_params.listen_addr.is_empty()
+<a href=#362 id=362 data-nosnippet>362</a>				{
+<a href=#363 id=363 data-nosnippet>363</a>					polkadot_config.network.remove_webrtc_addresses();
+<a href=#364 id=364 data-nosnippet>364</a>				}
+<a href=#365 id=365 data-nosnippet>365</a>
+<a href=#366 id=366 data-nosnippet>366</a>				<span class="macro">info!</span>(<span class="string">"✍️ Is collating: {}"</span>, <span class="kw">if </span>config.role.is_authority() { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>});
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>				node_spec
+<a href=#369 id=369 data-nosnippet>369</a>					.start_node(
+<a href=#370 id=370 data-nosnippet>370</a>						config,
+<a href=#371 id=371 data-nosnippet>371</a>						polkadot_config,
+<a href=#372 id=372 data-nosnippet>372</a>						collator_options,
+<a href=#373 id=373 data-nosnippet>373</a>						hwbench,
+<a href=#374 id=374 data-nosnippet>374</a>						cli.node_extra_args(),
+<a href=#375 id=375 data-nosnippet>375</a>					)
+<a href=#376 id=376 data-nosnippet>376</a>					.<span class="kw">await
+<a href=#377 id=377 data-nosnippet>377</a>					</span>.map_err(Into::into)
+<a href=#378 id=378 data-nosnippet>378</a>			})
+<a href=#379 id=379 data-nosnippet>379</a>		},
+<a href=#380 id=380 data-nosnippet>380</a>	}
+<a href=#381 id=381 data-nosnippet>381</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

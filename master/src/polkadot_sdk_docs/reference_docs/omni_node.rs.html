@@ -317,33 +317,33 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#167 id=167 data-nosnippet>167</a>//! consensus system used in the runtime, and be aware if it is matching that of the OmniNode or
 <a href=#168 id=168 data-nosnippet>168</a>//! not. For the time being, [`polkadot-omni-node`] only supports:
 <a href=#169 id=169 data-nosnippet>169</a>//!
-<a href=#170 id=170 data-nosnippet>170</a>//! * Parachain-based Aura consensus, with 6s async-backing block-time, and before full elastic
-<a href=#171 id=171 data-nosnippet>171</a>//!   scaling). [`polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based`] for fixed factor
-<a href=#172 id=172 data-nosnippet>172</a>//!   scaling (a step
-<a href=#173 id=173 data-nosnippet>173</a>//! * Ability to run any runtime with [`--dev-block-time`] flag. This uses
-<a href=#174 id=174 data-nosnippet>174</a>//!   [`sc_consensus_manual_seal`] under the hood, and has no restrictions on the runtime's
-<a href=#175 id=175 data-nosnippet>175</a>//!   consensus.
-<a href=#176 id=176 data-nosnippet>176</a>//!
-<a href=#177 id=177 data-nosnippet>177</a>//! [This](https://github.com/paritytech/polkadot-sdk/issues/5565) future improvement to OmniNode
-<a href=#178 id=178 data-nosnippet>178</a>//! aims to make such checks automatic.
-<a href=#179 id=179 data-nosnippet>179</a>//!
-<a href=#180 id=180 data-nosnippet>180</a>//! ### Runtime conventions
-<a href=#181 id=181 data-nosnippet>181</a>//!
-<a href=#182 id=182 data-nosnippet>182</a>//! The Omni Node needs to make some assumptions about the runtime. During startup, the node fetches
-<a href=#183 id=183 data-nosnippet>183</a>//! the runtime metadata and asserts that the runtime represents a compatible parachain.
-<a href=#184 id=184 data-nosnippet>184</a>//! The checks are best effort and will generate warning level logs in the Omni Node log file on
-<a href=#185 id=185 data-nosnippet>185</a>//! failure.
-<a href=#186 id=186 data-nosnippet>186</a>//!
-<a href=#187 id=187 data-nosnippet>187</a>//! The list of checks may evolve in the future and for now only few rules are implemented:
-<a href=#188 id=188 data-nosnippet>188</a>//! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
-<a href=#189 id=189 data-nosnippet>189</a>//!   be named as `ParachainSystem`.
-<a href=#190 id=190 data-nosnippet>190</a>//! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
-<a href=#191 id=191 data-nosnippet>191</a>//!   `System`. The configured [`block number`] here will be used by Omni Node to configure AURA
-<a href=#192 id=192 data-nosnippet>192</a>//!   accordingly.
-<a href=#193 id=193 data-nosnippet>193</a>//!
-<a href=#194 id=194 data-nosnippet>194</a>//! [`templates`]: crate::polkadot_sdk::templates
-<a href=#195 id=195 data-nosnippet>195</a>//! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template
-<a href=#196 id=196 data-nosnippet>196</a>//! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time
+<a href=#170 id=170 data-nosnippet>170</a>//! * Parachain-based Aura consensus, with 6s async-backing block-time, and the slot-based collator
+<a href=#171 id=171 data-nosnippet>171</a>//!   (enabled with [`--authoring slot-based`]) for elastic scaling.
+<a href=#172 id=172 data-nosnippet>172</a>//! * Ability to run any runtime with [`--dev-block-time`] flag. This uses
+<a href=#173 id=173 data-nosnippet>173</a>//!   [`sc_consensus_manual_seal`] under the hood, and has no restrictions on the runtime's
+<a href=#174 id=174 data-nosnippet>174</a>//!   consensus.
+<a href=#175 id=175 data-nosnippet>175</a>//!
+<a href=#176 id=176 data-nosnippet>176</a>//! [This](https://github.com/paritytech/polkadot-sdk/issues/5565) future improvement to OmniNode
+<a href=#177 id=177 data-nosnippet>177</a>//! aims to make such checks automatic.
+<a href=#178 id=178 data-nosnippet>178</a>//!
+<a href=#179 id=179 data-nosnippet>179</a>//! ### Runtime conventions
+<a href=#180 id=180 data-nosnippet>180</a>//!
+<a href=#181 id=181 data-nosnippet>181</a>//! The Omni Node needs to make some assumptions about the runtime. During startup, the node fetches
+<a href=#182 id=182 data-nosnippet>182</a>//! the runtime metadata and asserts that the runtime represents a compatible parachain.
+<a href=#183 id=183 data-nosnippet>183</a>//! The checks are best effort and will generate warning level logs in the Omni Node log file on
+<a href=#184 id=184 data-nosnippet>184</a>//! failure.
+<a href=#185 id=185 data-nosnippet>185</a>//!
+<a href=#186 id=186 data-nosnippet>186</a>//! The list of checks may evolve in the future and for now only few rules are implemented:
+<a href=#187 id=187 data-nosnippet>187</a>//! * runtimes must define a type for [`cumulus-pallet-parachain-system`], which is recommended to
+<a href=#188 id=188 data-nosnippet>188</a>//!   be named as `ParachainSystem`.
+<a href=#189 id=189 data-nosnippet>189</a>//! * runtimes must define a type for [`frame-system`] pallet, which is recommended to be named as
+<a href=#190 id=190 data-nosnippet>190</a>//!   `System`. The configured [`block number`] here will be used by Omni Node to configure AURA
+<a href=#191 id=191 data-nosnippet>191</a>//!   accordingly.
+<a href=#192 id=192 data-nosnippet>192</a>//!
+<a href=#193 id=193 data-nosnippet>193</a>//! [`templates`]: crate::polkadot_sdk::templates
+<a href=#194 id=194 data-nosnippet>194</a>//! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template
+<a href=#195 id=195 data-nosnippet>195</a>//! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time
+<a href=#196 id=196 data-nosnippet>196</a>//! [`--authoring slot-based`]: polkadot_omni_node_lib::cli::AuthoringPolicy::SlotBased
 <a href=#197 id=197 data-nosnippet>197</a>//! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 <a href=#198 id=198 data-nosnippet>198</a>//! [`chain-spec-builder`]: https://crates.io/crates/staging-chain-spec-builder
 <a href=#199 id=199 data-nosnippet>199</a>//! [`cumulus-pallet-parachain-system`]: https://docs.rs/cumulus-pallet-parachain-system/latest/cumulus_pallet_parachain_system/
