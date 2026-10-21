@@ -12,7 +12,7 @@ doc:
 
     Every way these calls can fail at dispatch fails with nobody charged, so both witnesses are
     checked at the pool: `dispatch_whitelisted_call` fetches the preimage at `call_encoded_len`
-    and decodes it to reject a `call_weight_witness` below the call's weight. Submissions are
+    and decodes it to require a `call_weight_witness` equal to the call's weight. Submissions are
     tagged `(call_hash, call_encoded_len, call_weight)`, all read off the call itself, so every
     submission dispatching it shares one pool slot.
 
