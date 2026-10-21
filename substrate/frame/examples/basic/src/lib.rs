@@ -522,7 +522,7 @@ where
 		// check for `set_dummy`
 		let validity = match call.is_sub_type() {
 			Some(Call::set_dummy { .. }) => {
-				sp_runtime::print("set_dummy was received.");
+				info!("set_dummy was received.");
 
 				let valid_tx =
 					ValidTransaction { priority: Bounded::max_value(), ..Default::default() };
