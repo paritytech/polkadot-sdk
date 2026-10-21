@@ -693,6 +693,10 @@ struct QueryIndex {
 	/// The track of every statement the maintenance sweep re-checks once it is propagated.
 	/// Persistent statements are not recorded.
 	retention_tracks: HashMap<Hash, RetentionTrack>,
+	/// Number of holds per hash, see [`StatementStore::hold_statements`]; the maintenance sweep
+	/// skips held statements. A removal keeps the count, as its holders release it even after a
+	/// re-admission.
+	held: HashMap<Hash, usize>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode)]
@@ -749,6 +753,7 @@ impl QueryIndex {
 			dec_key_counts: HashMap::new(),
 			recent: HashMap::new(),
 			retention_tracks: HashMap::new(),
+			held: HashMap::new(),
 		}
 	}
 
@@ -793,10 +798,27 @@ impl QueryIndex {
 
 	/// The track of an already propagated statement, which the retention sweep re-checks.
 	fn propagated_track(&self, hash: &Hash) -> Option<RetentionTrack> {
-		if self.recent.contains_key(hash) {
+		if self.recent.contains_key(hash) || self.held.contains_key(hash) {
 			return None;
 		}
 		self.retention_tracks.get(hash).copied()
+	}
+
+	fn hold<'a>(&mut self, hashes: impl IntoIterator<Item = &'a Hash>) {
+		for hash in hashes {
+			*self.held.entry(*hash).or_insert(0) += 1;
+		}
+	}
+
+	fn release(&mut self, hashes: &[Hash]) {
+		for hash in hashes {
+			if let Some(count) = self.held.get_mut(hash) {
+				*count = count.saturating_sub(1);
+				if *count == 0 {
+					self.held.remove(hash);
+				}
+			}
+		}
 	}
 
 	/// Copies the set of recently added hashes with their admission sequence numbers.
@@ -2443,7 +2465,7 @@ impl Store {
 			query_index
 				.retention_tracks
 				.iter()
-				.filter(|(hash, _)| !query_index.recent.contains_key(*hash))
+				.filter(|(hash, _)| query_index.propagated_track(hash).is_some())
 				.map(|(hash, track)| (*hash, *track))
 				.collect()
 		};
@@ -2564,6 +2586,7 @@ impl Store {
 			)
 		};
 		let accounts_count = self.known_accounts_count.load(AtomicOrdering::Relaxed);
+		let held_count = self.query_index.read().held.len();
 
 		if deleted_count > 0 {
 			self.metrics.report(|metrics| metrics.statements_pruned.inc_by(deleted_count));
@@ -2574,6 +2597,7 @@ impl Store {
 			metrics.bytes_total.set(total_size as u64);
 			metrics.accounts_total.set(accounts_count as u64);
 			metrics.expired_total.set(expired_count as u64);
+			metrics.held_statements.set(held_count as u64);
 			metrics.capacity_statements.set(capacity_statements as u64);
 			metrics.capacity_bytes.set(capacity_bytes as u64);
 		});
@@ -2689,8 +2713,8 @@ impl StatementStore for Store {
 	}
 
 	fn take_recent_statements(&self) -> Result<Vec<(u64, Hash, Statement)>> {
-		// `recent` is cleared only once the bodies are in hand: membership in it is the retention
-		// sweep's only signal that a statement still awaits propagation.
+		// `recent` is cleared only once the bodies are in hand, and the taken statements are held
+		// under the same lock, so the sweep never sees one off `recent` and unheld.
 		let recent = self.query_index.read().recent_snapshot();
 		let mut result = Vec::with_capacity(recent.len());
 		for (&hash, &seq) in &recent {
@@ -2708,9 +2732,27 @@ impl StatementStore for Store {
 				),
 			}
 		}
-		self.query_index.write().clear_propagated(&recent);
+		{
+			let mut query_index = self.query_index.write();
+			query_index.clear_propagated(&recent);
+			if self.retention_fn.get().is_some() {
+				query_index.hold(result.iter().map(|(_, hash, _)| hash));
+			}
+		}
 		result.sort_unstable_by_key(|(seq, ..)| *seq);
 		Ok(result)
+	}
+
+	fn hold_statements(&self, hashes: &[Hash]) {
+		if self.retention_fn.get().is_some() {
+			self.query_index.write().hold(hashes);
+		}
+	}
+
+	fn release_statements(&self, hashes: &[Hash]) {
+		if self.retention_fn.get().is_some() {
+			self.query_index.write().release(hashes);
+		}
 	}
 
 	fn admission_watermark(&self) -> Result<u64> {
@@ -4996,6 +5038,17 @@ mod tests {
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::Known);
 	}
 
+	/// Takes the recent statements and releases their holds, as a finished propagation does.
+	fn propagate(store: &Store) {
+		let hashes: Vec<_> = store
+			.take_recent_statements()
+			.unwrap()
+			.into_iter()
+			.map(|(_, hash, _)| hash)
+			.collect();
+		store.release_statements(&hashes);
+	}
+
 	#[test]
 	fn sweep_removes_propagated_transient_statements_with_a_ban() {
 		let (store, _temp) = test_store();
@@ -5008,12 +5061,61 @@ mod tests {
 		store.maintain();
 		assert!(store.has_statement(&hash));
 
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 		assert!(store.query_index.read().retention_tracks.is_empty());
 		// Forwarded once: a redelivery from another peer must not start another round.
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::KnownExpired);
+	}
+
+	#[test]
+	fn sweep_keeps_a_transient_statement_until_its_last_hold_is_released() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
+
+		// The take holds the statement, two outboxes queue it, then the take lets go.
+		store.take_recent_statements().unwrap();
+		store.hold_statements(&[hash, hash]);
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		// One outbox sent it, the other still holds it.
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(!store.has_statement(&hash));
+	}
+
+	#[test]
+	fn a_readmitted_statement_keeps_its_hold_when_the_removed_copy_is_released() {
+		let (store, _temp) = test_store();
+		store.set_retention_resolver(Box::new(|_| RetentionReasonMask::TRANSIENT));
+		let statement = signed_statement(0);
+		let hash = statement.hash();
+		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// Removed while an outbox still holds it, then resubmitted locally and taken again.
+		store.remove(&hash).unwrap();
+		assert_eq!(store.submit(statement, StatementSource::Local), SubmitResult::New);
+		store.take_recent_statements().unwrap();
+
+		// The removed copy's outbox lets go, the new copy's hold remains.
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(store.has_statement(&hash));
+
+		store.release_statements(&[hash]);
+		store.maintain();
+		assert!(!store.has_statement(&hash));
 	}
 
 	#[test]
@@ -5032,7 +5134,7 @@ mod tests {
 		let hash = statement.hash();
 		let data_len = statement.data_len();
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		assert_eq!(track_size(&store, RetentionTrack::Transient), data_len);
 
 		// Explicit affinity arrived before the sweep: kept, tracked as explicit-only.
@@ -5321,7 +5423,7 @@ mod tests {
 
 		assert_eq!(store.submit(statement.clone(), StatementSource::Network), SubmitResult::New);
 		assert!(store.has_statement(&hash));
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// Affinity still holds: the sweep keeps the statement.
 		store.maintain();
@@ -5339,7 +5441,7 @@ mod tests {
 
 		// The redelivered statement is tracked again: a second lapse sweeps it once more.
 		affine.store(false, Ordering::Relaxed);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 	}
@@ -5361,7 +5463,7 @@ mod tests {
 		assert_eq!(store.evicted_count(), 1);
 
 		// Affinity lapsed: the sweep removes the evictor without a ban, freeing the slot.
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		affine.store(false, Ordering::Relaxed);
 		store.maintain();
 		assert!(!store.has_statement(&evictor.hash()));
@@ -5376,7 +5478,7 @@ mod tests {
 		assert!(evicted_journal.next().unwrap().is_none());
 
 		// The sweep removes the statement again without a ban, so peers may redeliver it.
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		affine.store(false, Ordering::Relaxed);
 		store.maintain();
 		assert!(!store.has_statement(&evicted.hash()));
@@ -5403,7 +5505,7 @@ mod tests {
 		assert!(store.has_statement(&hash));
 
 		// Once propagation has taken it, the next sweep drops it.
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 		store.maintain();
 		assert!(!store.has_statement(&hash));
 	}
@@ -5419,7 +5521,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// Explicit affinity lapsed but the DHT covers the statement at sweep time: the sweep
 		// checks for any persistent reason, not the explicit bit, and keeps it.
@@ -5455,7 +5557,7 @@ mod tests {
 			}
 		}));
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// The candidate is deleted and re-admitted with DHT affinity while the sweep resolves
 		// its lapsed explicit affinity: the sweep must not remove the new copy.
@@ -5475,7 +5577,7 @@ mod tests {
 		let statement = signed_statement(0);
 		let hash = statement.hash();
 		assert_eq!(store.submit(statement, StatementSource::Network), SubmitResult::New);
-		store.take_recent_statements().unwrap();
+		propagate(&store);
 
 		// The DHT bit in the admission mask exempts the statement from the sweep.
 		affine.store(false, Ordering::Relaxed);
