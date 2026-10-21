@@ -241,6 +241,25 @@ parameter_types! {
 	pub static StartedEras: Vec<(EraIndex, Vec<AccountId>)> = Vec::new();
 }
 
+parameter_types! {
+	/// The check of [`MockIsValidatorInactive`]: whether a validator with these points per service
+	/// is inactive. By default, if it earned no points at all.
+	pub static InactivityCheck: fn(&[(ValidatorServiceKind, RewardPoint)]) -> bool =
+		|points| points.iter().all(|(_, points)| *points == 0);
+}
+
+/// Decides inactivity with [`InactivityCheck`].
+pub struct MockIsValidatorInactive;
+impl crate::IsValidatorInactive<AccountId> for MockIsValidatorInactive {
+	fn is_inactive(
+		_era: EraIndex,
+		_stash: &AccountId,
+		points: &[(ValidatorServiceKind, RewardPoint)],
+	) -> bool {
+		InactivityCheck::get()(points)
+	}
+}
+
 pub struct EraStartMock;
 impl crate::OnEraStart<AccountId> for EraStartMock {
 	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
@@ -576,7 +595,7 @@ impl Config for Test {
 	type Slash = Dap;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type WeightInfo = ();
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = MockIsValidatorInactive;
 	type OnEraStart = EraStartMock;
 }
 

@@ -929,6 +929,7 @@ pub mod pallet {
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	///
 	/// The same points split by the service that earned them are in [`ErasRewardPointsByService`].
+	/// This pot is essentially the _total_ points earned by the validator.
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
@@ -3295,10 +3296,10 @@ pub mod pallet {
 					)
 				);
 
-				let points = Eras::<T>::get_reward_points_for_validator(era, &stash);
+				let points = Eras::<T>::get_reward_points_by_service_for_validator(era, &stash);
 
 				ensure!(
-					T::IsValidatorInactive::is_inactive(era, &stash, points),
+					T::IsValidatorInactive::is_inactive(era, &stash, &points),
 					Error::<T>::InvalidInactivityProof(
 						InvalidInactivityProofError::ValidatorActive
 					)
