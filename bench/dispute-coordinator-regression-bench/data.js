@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792528875243,
+  "lastUpdate": 1792570951658,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "99be95da17c08dfc8388be26c213157db86dba22",
-          "message": "[Staking] Fix LastValidatorEra false positive (#11647)\n\nresolves partially:\nhttps://github.com/paritytech/polkadot-sdk/issues/11646",
-          "timestamp": "2026-04-07T11:18:18Z",
-          "tree_id": "a1cb6cf5bf48f5937e698339fdeaba306731eb0b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99be95da17c08dfc8388be26c213157db86dba22"
-        },
-        "date": 1775566380677,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00263023914,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00920546152999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009554298979999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010379653779999986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff",
+          "message": "Remove accidentally reintroduced contracts  runtime (#13522)\n\nRuntime was removed in #7638 and accidentally reintroduced in #1739\n\nThis also removes the `cargo-check-runtimes` job. This was triggered by\nlooking at changes at `cumulus/parachains/runtimes/*`. But actually this\nonly includes files directly in that folder and not on subfolders. So\nthe job nearly never ran. Also it is only checking the crates, which is\nalso covered by our crate-checker job. So from my perspective we can\njust kill this one.",
+          "timestamp": "2026-10-21T06:45:20Z",
+          "tree_id": "2b89564b09669493c4c1c6e27b2ba2070ee265b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff"
+        },
+        "date": 1792570917569,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010712470929999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025799891399999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009379977969999991,
             "unit": "seconds"
           }
         ]
