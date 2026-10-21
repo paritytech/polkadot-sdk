@@ -14,15 +14,15 @@ workspace = true
 
 [dependencies]
 blake2b_simd = { workspace = true }
-binary-merkle-tree = { version = "16.1.1", default-features = false }
-hash-db = { version = "0.16.0", default-features = false }
-hash256-std-hasher = { version = "0.15.2", default-features = false }
+binary-merkle-tree = { workspace = true }
+hash-db = { workspace = true }
+hash256-std-hasher = { workspace = true }
 codec = { workspace = true, features = ["derive", "max-encoded-len"] }
-jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
+jam-codec = { workspace = true, features = ["derive"] }
 jam-types = { workspace = true }
-polkadot-parachain-primitives = { version = "23.0.0", default-features = false }
+polkadot-parachain-primitives = { workspace = true }
 primitive-types = { workspace = true, features = ["codec"] }
-sp-crypto-hashing = { version = "0.1.0", default-features = false }
+sp-crypto-hashing = { workspace = true }
 
 [features]
 default = []
