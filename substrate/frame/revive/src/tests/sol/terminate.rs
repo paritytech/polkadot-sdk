@@ -1284,6 +1284,7 @@ fn burned(before: u128) -> u128 {
 		(Encumbrance::None, 43, 0, DUST, 50 + 43),
 		(Encumbrance::None, 0, 0, DUST, 50),
 		(Encumbrance::Lock(500), SPENDABLE, 7, 0, 50 + SPENDABLE + 7),
+		(Encumbrance::Lock(500), SPENDABLE, 7, DUST, 50 + SPENDABLE + 7),
 	]
 )]
 fn precompile_terminate_to_itself_keeps_balance(

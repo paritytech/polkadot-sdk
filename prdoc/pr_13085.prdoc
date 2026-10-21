@@ -20,14 +20,14 @@ doc:
     deployed to the same address later takes the account over. Funds sent to the contract after
     `System.terminate` are forwarded to the beneficiary at the end of the call stack, before the
     ED is burned. This only holds as far as the balance covers the locks and freezes on the
-    account: under a lock or freeze larger than the balance nothing is forwarded and the late
-    funds stay on the account. If the transfer fails, the funds stay on the account as well, and
-    the contract is deleted anyway. The ED is only burned when the account holds nothing else
-    afterwards, not even a part of a balance below one native unit. Otherwise the ED stays on the
-    account together with the rest, so `BALANCE` of the address does not change. Under an
-    encumbrance the ED stays on the account as well. A provider or sufficient reference from
-    another pallet, for example a sufficient asset the contract holds, does not keep the ED: it is
-    burned and the account stays alive on that reference.
+    account: under a lock or freeze larger than the balance only the part below one native unit
+    is forwarded and the rest of the late funds stays on the account. If the transfer fails, the
+    funds stay on the account as well, and the contract is deleted anyway. The ED is only burned
+    when the account holds nothing else afterwards, not even a part of a balance below one native
+    unit. Otherwise the ED stays on the account together with the rest, so `BALANCE` of the
+    address does not change. Under an encumbrance the ED stays on the account as well. A provider
+    or sufficient reference from another pallet, for example a sufficient asset the contract
+    holds, does not keep the ED: it is burned and the account stays alive on that reference.
 
     A contract that names itself as the beneficiary, of `System.terminate` or of a `SELFDESTRUCT`
     in the transaction that created it, is deleted and its balance stays on the account, as in

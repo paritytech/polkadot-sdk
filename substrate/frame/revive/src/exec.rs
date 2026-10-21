@@ -1929,8 +1929,9 @@ where
 		// Send the balance that arrived after the termination was scheduled. `Preserve` leaves
 		// the ED and anything a lock, freeze or hold pins on the account. The beneficiary
 		// therefore gets all of the late funds only if the balance covers the lock or freeze. If
-		// it does not, for example with a lock larger than the whole balance, nothing is sent and
-		// the late funds stay on the account. If the transfer fails they stay as well.
+		// it does not, for example with a lock larger than the whole balance, nothing but the
+		// dust is sent and the rest of the late funds stays on the account. If the transfer fails
+		// they stay as well.
 		//
 		// If the contract named itself as the beneficiary, the sweep is a no-op and the balance
 		// stays on the account, as in EIP-8246.
@@ -1958,11 +1959,12 @@ where
 		// ED was minted when the account was brought into existence. Burn it only if the account
 		// holds nothing besides it: no other balance and no dust. Otherwise the ED is kept and
 		// the account stays in place as a plain account, so the balance left on it does not
-		// change, as in EIP-8246. A contract deployed to the same address later takes it over.
-		// A lock, freeze or hold rolls the burn back, and so does a consumer another pallet
-		// placed while the account has no other provider. A provider or sufficient reference
-		// another pallet placed does not roll it back: the burn goes through and the account
-		// stays alive on that reference.
+		// change. A contract deployed to the same address later takes it over. A hold counts
+		// towards the total balance, and while the account has no other provider its free
+		// balance cannot drop below the ED, so a hold normally skips the burn. A lock or freeze
+		// rolls the burn back, and so does a consumer another pallet placed while the account
+		// has no other provider. A provider or sufficient reference another pallet placed does
+		// not roll it back: the burn goes through and the account stays alive on that reference.
 		if dust == 0 &&
 			T::Currency::total_balance(contract_account) == T::Currency::minimum_balance()
 		{
@@ -1981,14 +1983,10 @@ where
 			defensive!("Terminated contract has no contract info", contract_address);
 		}
 		// The dust is part of the balance left on the account, so it stays with it.
-		if dust == 0 {
-			AccountInfoOf::<T>::remove(contract_address);
-		} else {
-			AccountInfoOf::<T>::insert(
-				contract_address,
-				AccountInfo { account_type: AccountType::EOA, dust },
-			);
-		}
+		AccountInfoOf::<T>::set(
+			contract_address,
+			(dust != 0).then(|| AccountInfo { account_type: AccountType::EOA, dust }),
+		);
 		ImmutableDataOf::<T>::remove(contract_address);
 
 		// the meter needs to discard all deposits interacting with the terminated contract
