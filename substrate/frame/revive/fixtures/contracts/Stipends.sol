@@ -36,6 +36,20 @@ contract ComplexReceiver {
 }
 
 /**
+ * @title BalanceReader
+ * @dev Receiver contract 4: reads its own balance (SELFBALANCE)
+ */
+contract BalanceReader {
+    receive() external payable {
+        uint256 ownBalance;
+        // Fixtures are built without the solc optimizer, so resolc would compile
+        // `address(this).balance` to BALANCE.
+        assembly { ownBalance := selfbalance() }
+        require(ownBalance >= msg.value);
+    }
+}
+
+/**
  * @title ReentrancyAttacker
  * @dev On receiving ETH, attempts to call back into the sender
  */
@@ -223,4 +237,19 @@ contract StipendTest {
     }
 
     receive() external payable {}
+}
+
+/**
+ * @title BalanceReadTest
+ * @dev Test contract that verifies the stipend covers a receiver reading its own balance
+ */
+contract BalanceReadTest {
+    function testBalanceRead(address payable to) public payable {
+        require(to.send(0), "BalanceReader send zero failed");
+        to.transfer(0);
+
+        uint256 amount = msg.value / 2;
+        require(to.send(amount), "BalanceReader send failed");
+        to.transfer(amount);
+    }
 }
