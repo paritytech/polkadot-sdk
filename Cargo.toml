@@ -78,6 +78,7 @@ members = [
 	"cumulus/client/relay-chain-streams",
 	"cumulus/client/resubmission-store",
 	"cumulus/client/service",
+	"cumulus/jam/aura-authorizer-utils",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -140,7 +141,6 @@ members = [
 	"cumulus/polkadot-omni-node",
 	"cumulus/polkadot-omni-node/lib",
 	"cumulus/polkadot-parachain",
-	"cumulus/jam/aura-authorizer-utils",
 	"cumulus/primitives/aura",
 	"cumulus/primitives/core",
 	"cumulus/primitives/parachain-inherent",
@@ -658,9 +658,6 @@ while_immutable_condition = { level = "allow", priority = 2 }        # false pos
 zero-prefixed-literal = { level = "allow", priority = 2 }            # 00_1000_000
 
 [workspace.dependencies]
-jam-types = { version = "=0.1.29", default-features = false }
-cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils", default-features = false }
-
 Inflector = { version = "0.11.4" }
 aes-gcm = { version = "0.10" }
 ahash = { version = "0.8.2" }
@@ -780,6 +777,7 @@ coretime-westend-emulated-chain = { path = "cumulus/parachains/integration-tests
 coretime-westend-runtime = { path = "cumulus/parachains/runtimes/coretime/coretime-westend" }
 cpu-time = { version = "1.0.0" }
 criterion = { version = "0.5.1", default-features = false }
+cumulus-aura-authorizer-utils = { path = "cumulus/jam/aura-authorizer-utils", default-features = false }
 cumulus-client-bootnodes = { path = "cumulus/client/bootnodes", default-features = false }
 cumulus-client-cli = { path = "cumulus/client/cli", default-features = false }
 cumulus-client-collator = { path = "cumulus/client/collator", default-features = false }
@@ -919,6 +917,7 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 itertools = { version = "0.11" }
 jam-codec = { version = "0.1.1", default-features = false }
+jam-types = { version = "=0.1.29", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }

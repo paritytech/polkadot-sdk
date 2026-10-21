@@ -13,11 +13,11 @@ homepage.workspace = true
 workspace = true
 
 [dependencies]
-blake2b_simd = { workspace = true }
 binary-merkle-tree = { workspace = true }
+blake2b_simd = { workspace = true }
+codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 hash-db = { workspace = true }
 hash256-std-hasher = { workspace = true }
-codec = { workspace = true, features = ["derive", "max-encoded-len"] }
 jam-codec = { workspace = true, features = ["derive"] }
 jam-types = { workspace = true }
 polkadot-parachain-primitives = { workspace = true }
@@ -27,14 +27,14 @@ sp-crypto-hashing = { workspace = true }
 [features]
 default = []
 std = [
-    "blake2b_simd/std",
-    "binary-merkle-tree/std",
-    "hash-db/std",
-    "hash256-std-hasher/std",
-    "codec/std",
-    "jam-codec/std",
-    "jam-types/std",
-    "polkadot-parachain-primitives/std",
-    "primitive-types/std",
-    "sp-crypto-hashing/std",
+	"binary-merkle-tree/std",
+	"blake2b_simd/std",
+	"codec/std",
+	"hash-db/std",
+	"hash256-std-hasher/std",
+	"jam-codec/std",
+	"jam-types/std",
+	"polkadot-parachain-primitives/std",
+	"primitive-types/std",
+	"sp-crypto-hashing/std",
 ]
