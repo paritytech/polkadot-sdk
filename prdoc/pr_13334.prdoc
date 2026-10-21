@@ -5,18 +5,30 @@ doc:
     Asset Hub Westend's `pallet_xcm_benchmarks::generic` worst case for `BuyExecution`, `PayFees`
     and `RefundSurplus` paid fees in the native asset, so it measured the `UsingComponents` trader
     and never the `SwapFirstAssetTrader` that runs when fees come in a foreign asset. That swap
-    goes through `pallet_asset_conversion` and costs an order of magnitude more than the native
-    path, and the runtime charged the native weight for it. `worst_case_for_trader` now pays in a
-    foreign asset with a pool against the native asset, sharing the pool setup with
-    `worst_case_asset_exchange`, so the swap is what gets measured.
+    goes through `pallet_asset_conversion` and costs several times the native path, and the
+    runtime charged the native weight for it. `worst_case_for_trader` now pays in a foreign asset
+    with a pool against the native asset, sharing the pool setup with `worst_case_asset_exchange`,
+    so the swap is what gets measured. The setup also funds the staking pot, so the trader's fee
+    settlement is measured as the balance update it is on a live chain rather than as an account
+    creation or a burn.
 
     The `refund_surplus` benchmark buys twice the surplus it then refunds. A trader that swapped
     the fee asset refunds less than it was paid, so refunding the whole purchase refunded nothing
     and the benchmark's assertion failed against such a trader.
 
-    Runtimes wiring a swap trader should regenerate `pallet_xcm_benchmarks::generic`; Asset Hub
-    Westend's `buy_execution`, `pay_fees` and `refund_surplus` weights rise from about 28 µs to
-    about 120 µs.
+    A runtime wiring `SwapFirstAssetTrader` prices the swap only if its own `worst_case_for_trader`
+    returns a foreign asset with a pool against the native asset and `worst_case_holding` carries
+    that asset; regenerating `pallet_xcm_benchmarks::generic` alone re-measures `UsingComponents`.
+    Runtimes with only `UsingComponents` need no regeneration.
+- audience: Runtime User
+  description: |-
+    Asset Hub Westend charges `BuyExecution`, `PayFees` and `RefundSurplus` the weight of the swap
+    path whatever the fee asset, so messages paying in WND are charged more as well. With this
+    runtime's `InMemoryDbWeight`, `BuyExecution` goes from about 28 µs to about 254 µs,
+    `PayFees` from about 104 µs to about 330 µs and `RefundSurplus` from about 2 µs to about
+    267 µs, each with a proof size of 6196 bytes. Senders with a hard-coded `Limited` weight limit
+    covering these instructions may now fail with `Overweight` and should raise it; senders using
+    `Unlimited` or `XcmPaymentApi::query_xcm_weight` need no change.
 crates:
 - name: pallet-xcm-benchmarks
   bump: patch

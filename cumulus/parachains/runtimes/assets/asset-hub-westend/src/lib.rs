@@ -2853,6 +2853,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 			/// Creates the fee asset, funds an account with it and opens its pool against the
 			/// native asset, so fee swaps and asset exchanges have liquidity to run against.
+			/// Funds the staking pot as well, so the trader settles its fee the way it does on a
+			/// live chain instead of creating the pot or burning a fee below the existential
+			/// deposit.
 			fn set_up_benchmark_fee_asset_pool() {
 				let native_asset_location = WestendLocation::get();
 				let asset_location = benchmark_fee_asset_location();
@@ -2862,6 +2865,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
 					&account,
 					ExistentialDeposit::get() + (1_000 * UNITS)
+				));
+				assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+					&StakingPot::get(),
+					ExistentialDeposit::get()
 				));
 
 				assert_ok!(ForeignAssets::force_create(
@@ -3064,7 +3071,8 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
 					// Paying in a foreign asset falls through `UsingComponents` to the
-					// `SwapFirstAssetTrader`, whose pool swap is the expensive path.
+					// `SwapFirstAssetTrader`, whose pool swap is the expensive path. The weigher
+					// charges this worst case whatever the fee asset, native payers included.
 					set_up_benchmark_fee_asset_pool();
 					Ok((Asset {
 						id: AssetId(benchmark_fee_asset_location()),
