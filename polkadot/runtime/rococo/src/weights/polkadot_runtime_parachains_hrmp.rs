@@ -381,4 +381,12 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::hrmp::WeightInfo for 
 			.saturating_add(T::DbWeight::get().reads(23))
 			.saturating_add(T::DbWeight::get().writes(11))
 	}
+	/// Storage: `Hrmp::ParaRequestsInBlock` (r:1 w:0)
+	/// Proof: `Hrmp::ParaRequestsInBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	fn admit_para_request_err() -> Weight {
+		// NOTE: not benchmarked yet, a conservative estimate until the weights are regenerated.
+		Weight::from_parts(20_000_000, 0)
+			.saturating_add(Weight::from_parts(0, 1_500))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
 }

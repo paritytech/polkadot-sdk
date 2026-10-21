@@ -263,6 +263,7 @@ impl crate::dmp::Config for Test {
 
 parameter_types! {
 	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) = (4, 1);
+	pub static MaxParaRequestsPerBlock: Option<u32> = Some(1);
 }
 
 thread_local! {
@@ -297,6 +298,7 @@ impl crate::hrmp::Config for Test {
 	type Currency = pallet_balances::Pallet<Test>;
 	type DepositProvider = Hrmp;
 	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
+	type MaxParaRequestsPerBlock = MaxParaRequestsPerBlock;
 	type VersionWrapper = TestUsesOnlyStoredVersionWrapper;
 	type WeightInfo = crate::hrmp::TestWeightInfo;
 }

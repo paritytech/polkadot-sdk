@@ -173,6 +173,9 @@ pub type Barrier = TrailingSetTopicAsId<(
 	TakeWeightCredit,
 	// Expected responses are OK.
 	AllowKnownQueryResponses<XcmPallet>,
+	// Non-system parachains need not pay for the calls they make for themselves. Which calls they
+	// reach is up to `RestrictNonSystemParaCalls`.
+	crate::impls::AllowUnpaidParaRequests,
 	WithComputedOrigin<
 		(
 			// If the message is one that immediately attempts to pay for execution, then allow it.
@@ -231,7 +234,7 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
-	type CallDispatcher = RuntimeCall;
+	type CallDispatcher = crate::impls::RestrictNonSystemParaCalls;
 	type SafeCallFilter = Everything;
 	type Aliasers = Aliasers;
 	type TransactionalProcessor = FrameTransactionalProcessor;

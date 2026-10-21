@@ -1235,7 +1235,8 @@ fn hrmp_notifications_works() {
 		let _ = Dmp::prune_dmq(para_a, 1000);
 		let _ = Dmp::prune_dmq(para_b, 1000);
 
-		// accept open channel requests
+		// accept open channel requests, in the same block as the requests
+		ParaRequestsInBlock::<Test>::kill();
 		assert_ok!(Hrmp::hrmp_accept_open_channel(para_a_origin.clone().into(), para_b));
 		assert_ok!(Hrmp::hrmp_accept_open_channel(para_b_origin.clone().into(), para_a));
 		Hrmp::assert_storage_consistency_exhaustive();
@@ -1299,3 +1300,33 @@ fn hrmp_notifications_works() {
 	});
 }
 
+#[test]
+fn admit_para_request_follows_the_limit() {
+	new_test_ext(default_genesis_config()).execute_with(|| {
+		let para: ParaId = 2000.into();
+		let other: ParaId = 2001.into();
+		let system: ParaId = 1.into();
+		crate::mock::MaxParaRequestsPerBlock::set(Some(2));
+
+		assert_ok!(Hrmp::admit_para_request(para));
+		assert_ok!(Hrmp::admit_para_request(para));
+		assert_noop!(Hrmp::admit_para_request(para), Error::<Test>::RequestNotAdmitted);
+		// Each para has a limit of its own, and system chains have none.
+		assert_ok!(Hrmp::admit_para_request(other));
+		for _ in 0..3 {
+			assert_ok!(Hrmp::admit_para_request(system));
+		}
+
+		// The limit is per block.
+		Hrmp::initializer_finalize();
+		assert_ok!(Hrmp::admit_para_request(para));
+
+		// No limit: every request is admitted and nothing is recorded.
+		Hrmp::initializer_finalize();
+		crate::mock::MaxParaRequestsPerBlock::set(None);
+		for _ in 0..3 {
+			assert_ok!(Hrmp::admit_para_request(para));
+		}
+		assert!(ParaRequestsInBlock::<Test>::get().is_empty());
+	});
+}

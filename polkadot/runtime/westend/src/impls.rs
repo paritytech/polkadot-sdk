@@ -14,20 +14,28 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::xcm_config;
+use crate::{parachains_origin, xcm_config, Runtime, RuntimeCall, RuntimeOrigin};
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::pallet_prelude::DispatchResult;
+use frame_support::{
+	dispatch::{PostDispatchInfo, WithPostDispatchInfo},
+	pallet_prelude::DispatchResult,
+	traits::{Contains, ProcessMessageError},
+	weights::Weight,
+};
 use frame_system::RawOrigin;
 use hrmp_primitives::MessageToPara;
-use polkadot_primitives::Balance;
+use polkadot_parachain_primitives::primitives::IsSystem;
+use polkadot_primitives::{Balance, Id as ParaId};
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
+use polkadot_runtime_parachains::hrmp;
+use sp_runtime::{traits::Dispatchable, DispatchErrorWithPostInfo};
 use westend_runtime_constants::{
 	currency::*, hrmp_deposits::CORETIME_PALLET_INDEX, system_parachain::BROKER_ID,
 };
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
-use xcm_executor::traits::TransactAsset;
+use xcm_executor::traits::{CallDispatcher, Properties, ShouldExecute, TransactAsset};
 
 /// A type containing the encoding of the People Chain pallets in its runtime. Used to construct any
 /// remote calls. The codec index must correspond to the index of `IdentityMigrator` in the
@@ -209,5 +217,68 @@ impl pallet_hrmp_relay::SendToPara for HrmpToCoretime {
 		send_to_coretime(call).map_err(|e| {
 			log::error!(target: "runtime::hrmp", "sending to the Coretime chain failed: {e:?}");
 		})
+	}
+}
+
+// This chain holds no funds for the parachains, so they cannot pay for their own requests. A
+// non-system parachain then gets in without paying, but only for the calls it makes for itself:
+// `AllowUnpaidParaRequests` admits the message, `RestrictNonSystemParaCalls` refuses any call
+// outside `hrmp::ParaCalls`, and the calls themselves admit few requests per para per block, see
+// `parachains_hrmp::Config::MaxParaRequestsPerBlock`.
+
+/// Admits, without payment, the message a non-system child parachain sends to make one call for
+/// itself: `UnpaidExecution` covering the message, then one `Transact` with `OriginKind::Native`.
+///
+/// `Native` keeps it to the para's own origin: free execution can never reach a signed call of
+/// its sovereign account. Which calls the origin then reaches is up to
+/// [`RestrictNonSystemParaCalls`].
+pub struct AllowUnpaidParaRequests;
+impl ShouldExecute for AllowUnpaidParaRequests {
+	fn should_execute<Call>(
+		origin: &Location,
+		instructions: &mut [Instruction<Call>],
+		max_weight: Weight,
+		_properties: &mut Properties,
+	) -> Result<(), ProcessMessageError> {
+		if !matches!(origin.unpack(), (0, [Parachain(id)]) if !ParaId::from(*id).is_system()) {
+			return Err(ProcessMessageError::Unsupported);
+		}
+		let covers = |limit: &WeightLimit| match limit {
+			WeightLimit::Unlimited => true,
+			WeightLimit::Limited(limit) => limit.all_gte(max_weight),
+		};
+		// A trailing `SetTopic` is already stripped by `TrailingSetTopicAsId`.
+		match instructions {
+			[UnpaidExecution { weight_limit, .. }, Transact { origin_kind: OriginKind::Native, .. }]
+				if covers(weight_limit) =>
+			{
+				Ok(())
+			},
+			_ => Err(ProcessMessageError::Unsupported),
+		}
+	}
+}
+
+/// Dispatches `Transact` calls, refusing any call a non-system parachain makes as itself that is
+/// not in `hrmp::ParaCalls`. A refused call charges nothing, so a costly call (e.g. a batch) that
+/// is never run costs nothing either.
+pub struct RestrictNonSystemParaCalls;
+impl CallDispatcher<RuntimeCall> for RestrictNonSystemParaCalls {
+	fn dispatch(
+		call: RuntimeCall,
+		origin: RuntimeOrigin,
+	) -> Result<PostDispatchInfo, DispatchErrorWithPostInfo<PostDispatchInfo>> {
+		let as_para =
+			<RuntimeOrigin as Into<Result<parachains_origin::Origin, RuntimeOrigin>>>::into(
+				origin.clone(),
+			);
+		if let Ok(parachains_origin::Origin::Parachain(id)) = as_para {
+			if !id.is_system() && !hrmp::ParaCalls::<Runtime>::contains(&call) {
+				return Err(
+					frame_system::Error::<Runtime>::CallFiltered.with_weight(Weight::zero())
+				);
+			}
+		}
+		call.dispatch(origin)
 	}
 }

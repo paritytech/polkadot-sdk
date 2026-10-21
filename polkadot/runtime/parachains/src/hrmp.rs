@@ -25,7 +25,12 @@ use alloc::{
 };
 use codec::{Decode, Encode};
 use core::{fmt, mem};
-use frame_support::{pallet_prelude::*, traits::ReservableCurrency, DefaultNoBound};
+use frame_support::{
+	dispatch::WithPostDispatchInfo,
+	pallet_prelude::*,
+	traits::{Contains, IsSubType, ReservableCurrency},
+	DefaultNoBound,
+};
 use frame_system::pallet_prelude::*;
 use polkadot_parachain_primitives::primitives::{HorizontalMessages, IsSystem};
 use polkadot_primitives::{
@@ -71,6 +76,7 @@ pub trait WeightInfo {
 	fn establish_system_channel() -> Weight;
 	fn poke_channel_deposits() -> Weight;
 	fn establish_channel_with_system() -> Weight;
+	fn admit_para_request_err() -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -111,6 +117,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn establish_channel_with_system() -> Weight {
+		Weight::MAX
+	}
+	fn admit_para_request_err() -> Weight {
 		Weight::MAX
 	}
 }
@@ -288,6 +297,13 @@ pub mod pallet {
 		/// parachain.
 		type DefaultChannelSizeAndCapacityWithSystem: Get<(u32, u32)>;
 
+		/// How many requests a non-system para may make in a block, see
+		/// [`Pallet::admit_para_request`]. `None` sets no limit.
+		///
+		/// Non-system paras may reach the calls of [`ParaCalls`] without paying for them: with no
+		/// limit, the runtime must bound what they cost the relay chain some other way.
+		type MaxParaRequestsPerBlock: Get<Option<u32>>;
+
 		/// Means of converting an `Xcm` into a `VersionedXcm`. This pallet sends HRMP XCM
 		/// notifications to the channel-related parachains, while the `WrapVersion` implementation
 		/// attempts to wrap them into the most suitable XCM version for the destination parachain.
@@ -381,6 +397,8 @@ pub mod pallet {
 		WrongWitness,
 		/// The channel between these two chains cannot be authorized.
 		ChannelCreationNotAuthorized,
+		/// The para already made as many requests as it may in this block.
+		RequestNotAdmitted,
 		/// The origin may not poke the deposits of this channel.
 		PokeHrmpChannelUnauthorized,
 	}
@@ -487,6 +505,14 @@ pub mod pallet {
 	pub type HrmpChannelDigests<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Vec<(BlockNumberFor<T>, Vec<ParaId>)>, ValueQuery>;
 
+	/// How many requests each non-system para made in this block, see
+	/// [`Pallet::admit_para_request`]. Left empty when [`Config::MaxParaRequestsPerBlock`] sets no
+	/// limit.
+	///
+	/// Cleared in `initializer_finalize`.
+	#[pallet::storage]
+	pub type ParaRequestsInBlock<T: Config> = StorageValue<_, BTreeMap<ParaId, u32>, ValueQuery>;
+
 	/// Preopen the given HRMP channels.
 	///
 	/// The values in the tuple corresponds to
@@ -515,6 +541,12 @@ pub mod pallet {
 		}
 	}
 
+	// Calls that a non-system parachain can do are defined in [ParaCalls], and all such calls
+	// restrict the non-system parachain the number of call per block to maximum
+	// [Config::MaxParaRequestsPerBlock] calls and have accurate post-dispatch
+	// weight when this check fails.
+	//
+	// This post-dispatch weight is important for spam protection.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Initiate opening a channel from a parachain to a given recipient with given channel
@@ -537,15 +569,20 @@ pub mod pallet {
 			recipient: ParaId,
 			proposed_max_capacity: u32,
 			proposed_max_message_size: u32,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if let Err(e) = Self::admit_para_request(origin) {
+				// `ensure_parachain` above is negligible.
+				return Err(e.with_weight(<T as Config>::WeightInfo::admit_para_request_err()));
+			}
 			// `OpenChannelRequested` is emitted once the deposit is set and the request recorded.
 			Self::init_open_channel(
 				origin,
 				recipient,
 				proposed_max_capacity,
 				proposed_max_message_size,
-			)
+			)?;
+			Ok(().into())
 		}
 
 		/// Accept a pending open channel request from the given sender.
@@ -556,10 +593,18 @@ pub mod pallet {
 			<T as Config>::WeightInfo::hrmp_accept_open_channel()
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
 		)]
-		pub fn hrmp_accept_open_channel(origin: OriginFor<T>, sender: ParaId) -> DispatchResult {
+		pub fn hrmp_accept_open_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+		) -> DispatchResultWithPostInfo {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if let Err(e) = Self::admit_para_request(origin) {
+				// `ensure_parachain` above is negligible.
+				return Err(e.with_weight(<T as Config>::WeightInfo::admit_para_request_err()));
+			}
 			// `OpenChannelAccepted` is emitted once the deposit is set and the request confirmed.
-			Self::accept_open_channel(origin, sender)
+			Self::accept_open_channel(origin, sender)?;
+			Ok(().into())
 		}
 
 		/// Initiate unilateral closing of a channel. The origin must be either the sender or the
@@ -571,11 +616,15 @@ pub mod pallet {
 		pub fn hrmp_close_channel(
 			origin: OriginFor<T>,
 			channel_id: HrmpChannelId,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if let Err(e) = Self::admit_para_request(origin) {
+				// `ensure_parachain` above is negligible.
+				return Err(e.with_weight(<T as Config>::WeightInfo::admit_para_request_err()));
+			}
 			Self::close_channel(origin, channel_id.clone())?;
 			Self::deposit_event(Event::ChannelClosed { by_parachain: origin, channel_id });
-			Ok(())
+			Ok(().into())
 		}
 
 		/// This extrinsic triggers the cleanup of all the HRMP storage items that a para may have.
@@ -674,8 +723,12 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			channel_id: HrmpChannelId,
 			open_requests: u32,
-		) -> DispatchResult {
+		) -> DispatchResultWithPostInfo {
 			let origin = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if let Err(e) = Self::admit_para_request(origin) {
+				// `ensure_parachain` above is negligible.
+				return Err(e.with_weight(<T as Config>::WeightInfo::admit_para_request_err()));
+			}
 			ensure!(
 				HrmpOpenChannelRequestsList::<T>::decode_len().unwrap_or_default() as u32 <=
 					open_requests,
@@ -683,7 +736,7 @@ pub mod pallet {
 			);
 			Self::cancel_open_request(origin, channel_id.clone())?;
 			Self::deposit_event(Event::OpenChannelCanceled { by_parachain: origin, channel_id });
-			Ok(())
+			Ok(().into())
 		}
 
 		/// Open a channel from a `sender` to a `recipient` `ParaId`. Although opened by governance,
@@ -803,6 +856,10 @@ pub mod pallet {
 				T::ChannelManager::ensure_origin(origin.clone()).is_err()
 			{
 				let caller = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+				Self::admit_para_request(caller).map_err(|e| {
+					e.with_weight(<T as Config>::WeightInfo::admit_para_request_err())
+				})?;
+
 				ensure!(
 					caller == sender || caller == recipient,
 					Error::<T>::PokeHrmpChannelUnauthorized,
@@ -853,6 +910,10 @@ pub mod pallet {
 			target_system_chain: ParaId,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+			if let Err(e) = Self::admit_para_request(sender) {
+				// `ensure_parachain` above is negligible.
+				return Err(e.with_weight(<T as Config>::WeightInfo::admit_para_request_err()));
+			}
 
 			ensure!(target_system_chain.is_system(), Error::<T>::ChannelCreationNotAuthorized);
 
@@ -885,6 +946,28 @@ pub mod pallet {
 	}
 }
 
+/// The calls of this pallet a non-system para makes for itself.
+///
+/// A non-system para reaching the relay chain without paying should reach these calls and
+/// nothing else, e.g. through the XCM executor's `CallDispatcher`. Each of them admits at most one
+/// request per para per block and charges only what it spent when it refuses one early.
+pub struct ParaCalls<T>(core::marker::PhantomData<T>);
+impl<T: Config, C: IsSubType<Call<T>>> Contains<C> for ParaCalls<T> {
+	fn contains(call: &C) -> bool {
+		matches!(
+			call.is_sub_type(),
+			Some(
+				Call::hrmp_init_open_channel { .. } |
+					Call::hrmp_accept_open_channel { .. } |
+					Call::hrmp_close_channel { .. } |
+					Call::hrmp_cancel_open_request { .. } |
+					Call::poke_channel_deposits { .. } |
+					Call::establish_channel_with_system { .. }
+			)
+		)
+	}
+}
+
 fn initialize_storage<T: Config>(preopen_hrmp_channels: &[(ParaId, ParaId, u32, u32)]) {
 	let host_config = configuration::ActiveConfig::<T>::get();
 	for &(sender, recipient, max_capacity, max_message_size) in preopen_hrmp_channels {
@@ -910,11 +993,15 @@ fn preopen_hrmp_channel<T: Config>(
 impl<T: Config> Pallet<T> {
 	/// Block initialization logic, called by initializer.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
-		Weight::zero()
+		// Clearing `ParaRequestsInBlock` in `initializer_finalize`.
+		// proof-size weight is ignored, the value never reaches the trie.
+		T::DbWeight::get().writes(1)
 	}
 
 	/// Block finalization logic, called by initializer.
-	pub(crate) fn initializer_finalize() {}
+	pub(crate) fn initializer_finalize() {
+		ParaRequestsInBlock::<T>::kill();
+	}
 
 	/// Called by the initializer to note that a new session has started.
 	pub(crate) fn initializer_on_new_session(
@@ -936,6 +1023,28 @@ impl<T: Config> Pallet<T> {
 		.saturating_add(
 			T::DepositProvider::weight_of_try_set_deposit().saturating_mul(releases.into()),
 		)
+	}
+
+	/// Admits at most [`Config::MaxParaRequestsPerBlock`] requests per block from each non-system
+	/// para. System chains are not limited.
+	///
+	/// TODO: only requests that succeed are counted. A call that fails after being admitted rolls
+	/// back the count along with everything else, so a para can make any number of failing
+	/// requests in a block, each unpaid on the free XCM path. The count must survive the call's
+	/// rollback, with its weight still accounted.
+	fn admit_para_request(para: ParaId) -> DispatchResult {
+		if para.is_system() {
+			return Ok(());
+		}
+		let Some(max) = T::MaxParaRequestsPerBlock::get() else { return Ok(()) };
+		let mut paras = ParaRequestsInBlock::<T>::get();
+		let count = paras.entry(para).or_default();
+		if *count >= max {
+			return Err(Error::<T>::RequestNotAdmitted.into());
+		}
+		*count += 1;
+		ParaRequestsInBlock::<T>::put(paras);
+		Ok(())
 	}
 
 	/// Iterate over all paras that were noted for offboarding and remove all the data

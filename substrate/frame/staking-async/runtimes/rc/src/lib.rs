@@ -1529,6 +1529,7 @@ impl parachains_dmp::Config for Runtime {
 
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
+	pub const HrmpMaxParaRequestsPerBlock: Option<u32> = Some(1);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -1541,6 +1542,7 @@ impl parachains_hrmp::Config for Runtime {
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
+	type MaxParaRequestsPerBlock = HrmpMaxParaRequestsPerBlock;
 	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
 }

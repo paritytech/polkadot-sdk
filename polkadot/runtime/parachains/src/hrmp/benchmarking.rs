@@ -102,18 +102,23 @@ where
 		register_parachain_with_balance::<T>(recipient, deposit + ed);
 	}
 
+	// Each step is a request of its own: let the paras make the next one in this block too.
+	let reset_budget = || ParaRequestsInBlock::<T>::kill();
+
 	assert_ok!(Hrmp::<T>::hrmp_init_open_channel(
 		sender_origin.clone().into(),
 		recipient,
 		capacity,
 		message_size
 	));
+	reset_budget();
 
 	if matches!(until, ParachainSetupStep::Requested) {
 		return output;
 	}
 
 	assert_ok!(Hrmp::<T>::hrmp_accept_open_channel(recipient_origin.into(), sender));
+	reset_budget();
 	if matches!(until, ParachainSetupStep::Accepted) {
 		return output;
 	}
@@ -125,6 +130,7 @@ where
 
 	let channel_id = HrmpChannelId { sender, recipient };
 	assert_ok!(Hrmp::<T>::hrmp_close_channel(sender_origin.clone().into(), channel_id));
+	reset_budget();
 	if matches!(until, ParachainSetupStep::CloseRequested) {
 		// NOTE: this is just for expressiveness, otherwise the if-statement is 100% useless.
 		return output;
@@ -559,6 +565,34 @@ mod benchmarks {
 			}
 			.into(),
 		);
+	}
+
+	// A call refused because its para already made as many requests as it may in this block.
+	// Measured on `poke_channel_deposits`, which checks the most before admitting the request,
+	// with many paras at their limit already.
+	#[benchmark]
+	fn admit_para_request_err() {
+		let para: ParaId = 2000u32.into();
+		let limit = T::MaxParaRequestsPerBlock::get();
+		if let Some(max) = limit {
+			ParaRequestsInBlock::<T>::mutate(|paras| {
+				paras.extend((0..MAX_UNIQUE_CHANNELS).map(|i| (ParaId::from(3000 + i), max)));
+				paras.insert(para, max);
+			});
+		}
+
+		let result;
+		#[block]
+		{
+			result = Hrmp::<T>::admit_para_request(para);
+		}
+
+		if limit.is_some() {
+			assert_eq!(result, Err(Error::<T>::RequestNotAdmitted.into()));
+		} else {
+			// No limit: a request is never refused, measure the admission.
+			assert_ok!(result);
+		}
 	}
 
 	impl_benchmark_test_suite!(
