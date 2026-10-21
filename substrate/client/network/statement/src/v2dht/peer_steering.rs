@@ -19,7 +19,7 @@
 //! Peer steering for the v2 DHT gossip path.
 //!
 //! Implements [#11935](https://github.com/paritytech/polkadot-sdk/issues/11935): the module that
-//! keeps the node connected to the peers it needs, those covering its subscriptions and its
+//! keeps the node connected to the peers it needs: those covering its subscriptions and its
 //! routing peers.
 //!
 //! The module keeps three sets of peers: the peers with an open substream, the peers the node
@@ -73,7 +73,7 @@ pub(crate) struct PeerSteering {
 	connected: HashMap<PeerId, ConnectedPeer>,
 	/// Monotonic counter handing each new connection its sequence.
 	next_connection_seq: u64,
-	/// Peers the node needs connected.
+	/// Peers the node needs connected: those covering its subscriptions and its routing peers.
 	desired: HashSet<PeerId>,
 	/// Peers held in the statement protocol's reserved set.
 	reserved: HashSet<PeerId>,
