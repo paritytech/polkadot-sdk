@@ -1,0 +1,17 @@
+title: 'Registrar: Force Register'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Implements `pallet-registrar-para::force_register`, the root-only port of the relay chain's
+      `paras_registrar::force_register`.
+
+      Any id works, the system range included, and it need not be reserved first. The manager
+      pays the usual deposits, as with `reserve` + `register`, and the old `deposit` override is
+      gone. `NextFreeParaId` moves past a forced public id so `reserve` doesn't collide with it.
+      The call sends the existing `Register` message, so the relay chain side is unchanged. It
+      comes with a new `force_register` weight.
+
+crates:
+  - name: pallet-registrar-para
+    bump: major
