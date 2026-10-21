@@ -1,0 +1,14 @@
+title: Add shared AURA authorizer utilities for JAM
+doc:
+- audience:
+  - Node Dev
+  description: |-
+    Add cumulus-aura-authorizer-utils with shared configuration, token and trace types,
+    collator membership proofs, work-package signing, and generic signature verification.
+    WorkPackageBody supports signing before attaching an authorization token.
+    Use jam-types 0.1.29, including the anchor slot and lookup anchor state root in
+    signed work packages. Expose hashing of complete work packages so consumers can
+    use the shared implementation without a version-specific adapter.
+crates:
+- name: cumulus-aura-authorizer-utils
+  bump: minor

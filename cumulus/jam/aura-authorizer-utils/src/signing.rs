@@ -74,6 +74,11 @@ impl SigningPayload<'_> {
 	}
 }
 
+/// Hash the token-free work-package fields signed by the collator.
+pub fn signable_work_package_hash(package: &WorkPackage) -> H256 {
+	SigningPayload::from(package).hash()
+}
+
 /// Hash the JAM-encoded tuple of code host, authorizer code hash, refinement context,
 /// authorizer config, and work items, with the AURA domain separator.
 ///
@@ -97,17 +102,19 @@ mod tests {
 		let (_, _, package) = crate::tests::fixture();
 		let original = SigningPayload::from(&package).hash();
 
-		let mutations: [(&str, fn(&mut WorkPackage)); 10] = [
+		let mutations: [(&str, fn(&mut WorkPackage)); 12] = [
 			("code host", |p| p.auth_code_host += 1),
 			("authorizer code", |p| p.authorizer.code_hash.0[0] ^= 1),
 			("authorizer config", |p| {
 				p.authorizer.config = vec![1].try_into().expect("one byte fits")
 			}),
 			("anchor", |p| p.context.anchor.0[0] ^= 1),
+			("anchor slot", |p| p.context.anchor_slot += 1),
 			("state root", |p| p.context.state_root.0[0] ^= 1),
 			("beefy root", |p| p.context.beefy_root.0[0] ^= 1),
 			("lookup anchor", |p| p.context.lookup_anchor.0[0] ^= 1),
 			("lookup slot", |p| p.context.lookup_anchor_slot += 1),
+			("lookup state root", |p| p.context.lookup_anchor_state_root.0[0] ^= 1),
 			("prerequisites", |p| {
 				p.context.prerequisites.insert([1; 32].into());
 			}),

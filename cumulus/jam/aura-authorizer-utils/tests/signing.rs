@@ -37,10 +37,12 @@ fn package_body() -> WorkPackageBody {
 		authorizer: jam_types::Authorizer { code_hash: [3; 32].into(), config: vec![4, 5].into() },
 		context: jam_types::RefineContext {
 			anchor: [6; 32].into(),
+			anchor_slot: 14,
 			state_root: [7; 32].into(),
 			beefy_root: [8; 32].into(),
 			lookup_anchor: [6; 32].into(),
 			lookup_anchor_slot: 9,
+			lookup_anchor_state_root: [15; 32].into(),
 			prerequisites: Default::default(),
 		},
 		items: vec![jam_types::WorkItem {
@@ -69,25 +71,26 @@ fn signing_vectors_works() {
 		&package.items,
 	));
 	let hash = package.signing_hash();
-	// Independently assembled for jam-types 0.1.28: fixed-width integers are little-endian,
+	// Independently assembled for jam-types 0.1.29: fixed-width integers are little-endian,
 	// hashes are raw bytes, and these sequence lengths fit in one JAM compact byte.
 	// Pin the bytes as well as the hash so codec changes cannot silently update the expectation.
 	let expected_payload = [
 		1, 0, 0, 0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
 		3, 3, 3, 3, 3, 3, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-		6, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
-		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
-		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
-		6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 0, 0, 0, 0, 2, 4, 5, 1, 1, 0, 0, 0, 10, 10,
-		10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
-		10, 10, 10, 10, 10, 10, 10, 11, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 13,
-		0, 0,
+		6, 6, 6, 6, 6, 6, 6, 6, 14, 0, 0, 0, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+		7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+		8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+		6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 0, 0, 0, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15,
+		15, 15, 15, 0, 2, 4, 5, 1, 1, 0, 0, 0, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10,
+		10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11, 0, 0, 0, 0,
+		0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 13, 0, 0,
 	];
 	// Python: hashlib.blake2b(b"jam:parachain-service:aura:work-package:v1" +
 	//                         bytes(expected_payload), digest_size=32).digest()
 	let expected_hash = [
-		253, 225, 168, 236, 160, 160, 70, 29, 59, 213, 123, 190, 5, 203, 246, 185, 208, 39, 207,
-		78, 42, 73, 134, 65, 52, 93, 245, 216, 174, 237, 151, 49,
+		70, 105, 60, 131, 151, 80, 76, 5, 177, 87, 22, 96, 11, 137, 229, 127, 177, 19, 158, 211,
+		40, 155, 16, 66, 206, 255, 187, 237, 245, 39, 119, 106,
 	];
 	assert_eq!(payload, expected_payload);
 	assert_eq!(hash.as_bytes(), &expected_hash);

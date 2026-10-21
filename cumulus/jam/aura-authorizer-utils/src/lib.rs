@@ -34,7 +34,7 @@ pub use polkadot_parachain_primitives::primitives::Id as ParaId;
 
 pub use config::{AuthConfig, ConfigError};
 pub use merkle::{build_collator_proof, CollatorProofError};
-pub use signing::{hash_signing_payload, WORK_PACKAGE_SIGN_CTX};
+pub use signing::{hash_signing_payload, signable_work_package_hash, WORK_PACKAGE_SIGN_CTX};
 pub use token::{AuthToken, CollatorKey, CollatorSignature, TokenError};
 pub use work_package::WorkPackageBody;
 
@@ -73,7 +73,7 @@ impl AuthTrace {
 		let collator_index = config.expected_collator_index(slot);
 		token.check_proof(config, collator_index)?;
 		token
-			.check_signature::<S>(signing::SigningPayload::from(package).hash())
+			.check_signature::<S>(signable_work_package_hash(package))
 			.map_err(AuthorizationError::BadToken)?;
 
 		Ok(Self { author_key: token.key })
@@ -107,10 +107,12 @@ mod tests {
 			authorizer: jam_types::Authorizer::any(),
 			context: jam_types::RefineContext {
 				anchor: Default::default(),
+				anchor_slot: 0,
 				state_root: Default::default(),
 				beefy_root: Default::default(),
 				lookup_anchor: Default::default(),
 				lookup_anchor_slot: 0,
+				lookup_anchor_state_root: Default::default(),
 				prerequisites: Default::default(),
 			},
 			items: Default::default(),
