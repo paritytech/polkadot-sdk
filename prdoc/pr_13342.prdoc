@@ -1,0 +1,37 @@
+title: 'pallet-revive: split the call and instantiate benchmarks by value transfer'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `seal_call`, `seal_instantiate` and `evm_instantiate` now measure the operation without a
+    value transfer. Each of the three also gets a new benchmark that measures it with a value
+    transfer. `WeightInfo` changes accordingly:
+    - `seal_call(t, d, i)` becomes `seal_call(i)`
+    - `seal_instantiate(t, d, i)` becomes `seal_instantiate(i)`
+    - `evm_instantiate(t, d, i)` becomes `evm_instantiate(i)`
+    - `seal_call_transfer(d)`, `seal_instantiate_transfer(d)` and `evm_instantiate_transfer(d)`
+      are new
+
+    A runtime with its own `pallet_revive` weights has to re-run the benchmarks.
+
+    The `seal_call` benchmark now measures the per-byte cost of cloning the input with the
+    `CLONE_INPUT` flag, while previously it always cloned an empty input.
+    Unlike the previous `seal_call` benchmark, `seal_call_transfer` also covers the cost of
+    creating the callee's account.
+    `call_with_evm_code_per_byte` now benchmarks code up to `MAX_CODE_SIZE`.
+- audience: Runtime User
+  description: |-
+    The weight charged for calls and instantiations changes. With the pallet's default weights:
+    - A call without value costs less and does one fewer storage read. Cloning the input with
+      the `CLONE_INPUT` flag costs about 150 picoseconds per byte instead of 3.
+    - The weight of a call with value now includes creating the callee's account.
+    - The weights of a PolkaVM instantiate and of an EVM `CREATE` or `CREATE2` change, with and
+      without value.
+    - An instantiate, `CREATE` or `CREATE2` that sends only dust now pays the full transfer cost,
+      as a call already does.
+
+    Runtimes with their own weights see different numbers.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
