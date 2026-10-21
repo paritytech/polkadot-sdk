@@ -67,6 +67,8 @@ pub enum RuntimeCosts {
 	CallerIsOrigin,
 	/// Weight of calling `callerIsRoot` on the `System` pre-compile.
 	CallerIsRoot,
+	/// Weight of calling `originIsRoot` on the `System` pre-compile.
+	OriginIsRoot,
 	/// Weight of calling `seal_address`.
 	Address,
 	/// Weight of calling `seal_ref_time_left`.
@@ -248,6 +250,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			OwnCodeHash => T::WeightInfo::own_code_hash(),
 			CallerIsOrigin => T::WeightInfo::caller_is_origin(),
 			CallerIsRoot => T::WeightInfo::caller_is_root(),
+			OriginIsRoot => T::WeightInfo::origin_is_root(),
 			Address => T::WeightInfo::seal_address(),
 			RefTimeLeft => T::WeightInfo::seal_ref_time_left(),
 			WeightLeft => T::WeightInfo::weight_left(),

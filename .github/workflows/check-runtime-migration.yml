@@ -31,7 +31,9 @@ jobs:
   prepare-snapshots:
     runs-on: ubuntu-latest
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    # Disabled on the unstable2604 backport branch: the migration check runs against
+    # live Westend state (which tracks master) and does not apply here.
+    if: ${{ false }}
     strategy:
       fail-fast: false
       matrix:
@@ -109,7 +111,9 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' }}
+    # Disabled on the unstable2604 backport branch: the migration check runs against
+    # live Westend state (which tracks master) and does not apply here.
+    if: ${{ false }}
     timeout-minutes: 120
     needs: [preflight, prepare-snapshots]
     container:

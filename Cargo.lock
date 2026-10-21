@@ -1589,7 +1589,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.36.0"
+version = "0.38.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.48.0"
+version = "0.50.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -1868,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "34.0.0"
+version = "36.0.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-parachain-system",
@@ -1898,7 +1898,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.32.0"
+version = "0.34.0"
 dependencies = [
  "cumulus-primitives-core",
  "ethereum-standards",
@@ -2629,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-rococo"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2646,7 +2646,7 @@ dependencies = [
 
 [[package]]
 name = "bp-asset-hub-westend"
-version = "0.26.0"
+version = "0.28.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-cumulus"
-version = "0.31.0"
+version = "0.33.0"
 dependencies = [
  "bp-messages",
  "bp-polkadot-core",
@@ -2695,7 +2695,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-rococo"
-version = "0.31.0"
+version = "0.33.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2710,7 +2710,7 @@ dependencies = [
 
 [[package]]
 name = "bp-bridge-hub-westend"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "bp-bridge-hub-cumulus",
  "bp-messages",
@@ -2989,7 +2989,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.31.0"
+version = "0.33.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3092,7 +3092,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.33.0"
+version = "0.35.0"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -3198,7 +3198,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.28.0"
+version = "0.30.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3856,7 +3856,7 @@ dependencies = [
 
 [[package]]
 name = "collectives-westend-runtime"
-version = "29.0.0"
+version = "31.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -4220,7 +4220,7 @@ dependencies = [
 
 [[package]]
 name = "coretime-westend-runtime"
-version = "0.25.0"
+version = "0.27.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -6541,7 +6541,7 @@ checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "33.0.0"
+version = "35.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -8227,7 +8227,7 @@ dependencies = [
 
 [[package]]
 name = "glutton-westend-runtime"
-version = "27.0.0"
+version = "29.0.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -13644,7 +13644,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-multi-asset-bounties"
-version = "0.5.0"
+version = "0.7.0"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -14119,7 +14119,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.18.0"
+version = "0.18.1"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -14187,7 +14187,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-eth-rpc"
-version = "0.18.0"
+version = "0.20.0"
 dependencies = [
  "alloy-network",
  "alloy-primitives",
@@ -14238,7 +14238,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.12.0"
+version = "0.12.1"
 dependencies = [
  "alloy-core",
  "anyhow",
@@ -14263,7 +14263,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-uapi"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "alloy-core",
  "bitflags 1.3.2",
@@ -15309,7 +15309,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-common"
-version = "31.0.0"
+version = "33.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
@@ -15364,7 +15364,7 @@ dependencies = [
 
 [[package]]
 name = "parachains-runtimes-test-utils"
-version = "32.0.0"
+version = "34.0.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcmp-queue",
@@ -15583,7 +15583,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.40.0"
+version = "0.42.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -15687,7 +15687,7 @@ dependencies = [
 
 [[package]]
 name = "people-westend-runtime"
-version = "0.25.0"
+version = "0.27.0"
 dependencies = [
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
@@ -17315,7 +17315,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2604.2.0"
+version = "2604.0.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -19806,7 +19806,7 @@ dependencies = [
 
 [[package]]
 name = "revive-dev-runtime"
-version = "0.9.0"
+version = "0.11.0"
 dependencies = [
  "array-bytes 6.2.2",
  "parity-scale-codec",
@@ -21155,7 +21155,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-beefy"
-version = "36.0.0"
+version = "36.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -21227,7 +21227,7 @@ dependencies = [
 
 [[package]]
 name = "sc-consensus-grandpa"
-version = "0.42.0"
+version = "0.42.1"
 dependencies = [
  "ahash 0.8.11",
  "array-bytes 6.2.2",
@@ -23751,7 +23751,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.13.0"
+version = "0.15.0"
 dependencies = [
  "alloy-core",
  "assets-common",
@@ -23894,7 +23894,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.24.0"
+version = "0.26.0"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -23922,7 +23922,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.32.0"
+version = "0.34.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -23934,7 +23934,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.13.0"
+version = "0.15.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -23970,7 +23970,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
-version = "0.13.0"
+version = "0.15.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -24126,7 +24126,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.26.0"
+version = "0.28.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -30715,7 +30715,7 @@ dependencies = [
 
 [[package]]
 name = "xcm-emulator"
-version = "0.30.0"
+version = "0.32.0"
 dependencies = [
  "array-bytes 6.2.2",
  "cumulus-pallet-parachain-system",
@@ -30949,7 +30949,7 @@ dependencies = [
 
 [[package]]
 name = "yet-another-parachain-runtime"
-version = "0.12.0"
+version = "0.14.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "parity-scale-codec",

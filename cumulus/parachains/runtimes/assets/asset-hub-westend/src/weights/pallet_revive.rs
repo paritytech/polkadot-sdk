@@ -570,6 +570,14 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(1_728_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
+	fn origin_is_root() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_774_000 picoseconds.
+		Weight::from_parts(2_093_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 	fn seal_address() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

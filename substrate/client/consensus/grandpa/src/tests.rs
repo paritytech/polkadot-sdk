@@ -946,6 +946,48 @@ async fn allows_reimporting_change_blocks() {
 }
 
 #[tokio::test]
+async fn rejected_old_block_without_changes() {
+	let peers_a = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+	let peers_b = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob];
+	let voters = make_ids(peers_a);
+	let api = TestApi::new(voters);
+	let mut net = GrandpaTestNet::new(api.clone(), 3, 0);
+
+	// Finalize block 2.
+	let hashes = net.peer(0).push_blocks(2, false);
+	net.peer(0).client().finalize_block(hashes[1], None, false).unwrap();
+
+	let client = net.peer(0).client().clone();
+	let (block_import, _, link) = net.make_block_import(client.clone());
+	let link = link.lock().take().unwrap();
+
+	let full_client = client.as_client();
+	assert_eq!(full_client.chain_info().finalized_number, 2);
+
+	// Add a fork at block 1 with a scheduled change.
+	let mut builder = BlockBuilderBuilder::new(&*full_client)
+		.on_parent_block(full_client.chain_info().genesis_hash)
+		.with_parent_block_number(0)
+		.build()
+		.unwrap();
+	add_scheduled_change(
+		&mut builder,
+		ScheduledChange { next_authorities: make_ids(peers_b), delay: 0 },
+	);
+	let block = builder.build().unwrap().block;
+
+	let mut import = BlockImportParams::new(BlockOrigin::File, block.header);
+	import.justifications = Some(Justifications::from((GRANDPA_ENGINE_ID, Vec::new())));
+	import.body = Some(block.extrinsics);
+	import.fork_choice = Some(ForkChoiceStrategy::Custom(false));
+
+	let changes_before = link.shared_authority_set().authority_set_changes();
+	assert!(block_import.import_block(import).await.is_err());
+
+	assert_eq!(changes_before, link.shared_authority_set().authority_set_changes());
+}
+
+#[tokio::test]
 async fn test_bad_justification() {
 	let peers_a = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
 	let peers_b = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob];

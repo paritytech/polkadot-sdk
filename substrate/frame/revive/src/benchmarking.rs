@@ -865,6 +865,29 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
+	fn origin_is_root() {
+		let input_bytes =
+			ISystem::ISystemCalls::originIsRoot(ISystem::originIsRootCall {}).abi_encode();
+
+		let mut setup = CallSetup::<T>::default();
+		setup.set_origin(ExecOrigin::Root);
+		let (mut ext, _) = setup.ext();
+
+		let result;
+		#[block]
+		{
+			result = run_builtin_precompile(
+				&mut ext,
+				H160(BenchmarkSystem::<T>::MATCHER.base_address()).as_fixed_bytes(),
+				input_bytes,
+			);
+		}
+		let raw_data = result.unwrap().data;
+		let is_root = Bool::abi_decode(&raw_data).expect("decoding failed");
+		assert!(is_root);
+	}
+
+	#[benchmark(pov_mode = Measured)]
 	fn seal_address() {
 		let len = H160::len_bytes();
 		build_runtime!(runtime, memory: [vec![0u8; len as _], ]);

@@ -34,6 +34,18 @@ interface ISystem {
 	/// and `false` indicates that the caller is a signed origin.
 	function callerIsRoot() external view returns (bool);
 
+	/// Checks whether the origin of the whole call stack is root.
+	///
+	/// Unlike `callerIsRoot`, this does not require the immediate caller to be the origin:
+	/// it returns `true` whenever the top-level dispatch was made with a root origin, regardless
+	/// of how many contract or delegate-call frames separate the precompile from that dispatch.
+	/// This is the analogue of `tx.origin == ROOT` and is intended for upgradeable proxy patterns
+	/// where root authority needs to flow through intermediate frames.
+	///
+	/// Contracts that need the stricter "my direct caller is root" check must keep using
+	/// `callerIsRoot`.
+	function originIsRoot() external view returns (bool);
+
 	/// Returns the minimum balance that is required for creating an account
 	/// (the existential deposit).
 	function minimumBalance() external view returns (uint);
