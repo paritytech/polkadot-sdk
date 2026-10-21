@@ -693,20 +693,9 @@ fn min_balance_should_work() {
 			TokenError::BelowMinimum
 		);
 
-		// A transfer that would strand a remainder below the minimum is refused: sweeping it
-		// along with `amount` would move more than the sender asked to move.
-		assert_noop!(
-			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 91),
-			Error::<Test>::WouldSweepDust
-		);
-		assert_noop!(
-			Assets::force_transfer(RuntimeOrigin::signed(1), 0, 1, 2, 91),
-			Error::<Test>::WouldSweepDust
-		);
-
-		// Emptying an account still reaps it.
+		// When deducting from an account to below minimum, it should be reaped.
 		// Death by `transfer`.
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 100));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 91));
 		assert!(Assets::maybe_balance(0, 1).is_none());
 		assert_eq!(Assets::balance(0, 2), 100);
 		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
@@ -721,7 +710,7 @@ fn min_balance_should_work() {
 		);
 
 		// Death by `force_transfer`.
-		assert_ok!(Assets::force_transfer(RuntimeOrigin::signed(1), 0, 2, 1, 100));
+		assert_ok!(Assets::force_transfer(RuntimeOrigin::signed(1), 0, 2, 1, 91));
 		assert!(Assets::maybe_balance(0, 2).is_none());
 		assert_eq!(Assets::balance(0, 1), 100);
 		assert_eq!(Asset::<Test>::get(0).unwrap().accounts, 1);
@@ -753,13 +742,7 @@ fn min_balance_should_work() {
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
 		Balances::make_free_balance_be(&1, 2);
 		assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 100));
-		// Spending 91 would sweep the owner's remaining 9 as well, taking more from the owner
-		// than the delegate is spending against the allowance.
-		assert_noop!(
-			Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91),
-			Error::<Test>::WouldSweepDust
-		);
-		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 100));
+		assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 91));
 		assert_eq!(
 			take_hooks(),
 			vec![
@@ -1851,15 +1834,8 @@ fn force_asset_status_should_work() {
 		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 1));
 		assert_eq!(Assets::balance(0, 1), 51);
 
-		// a partial outbound transfer would strand the rest of a below-min_balance account, so
-		// it is refused rather than sweeping the remainder along
-		assert_noop!(
-			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 1),
-			Error::<Test>::WouldSweepDust
-		);
-
-		// account on outbound transfer of its whole balance will cleanup
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 51));
+		// account on outbound transfer will cleanup for balance < min_balance
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 1));
 		assert_eq!(Assets::balance(0, 1), 0);
 
 		// won't create new account with balance below min_balance
@@ -1874,8 +1850,7 @@ fn force_asset_status_should_work() {
 			Error::<Test>::Unknown
 		);
 
-		// raising min_balance above what a partial transfer would leave behind does not let the
-		// transfer drain the account; it has to be drained explicitly
+		// account drains to completion when funds dip below min_balance
 		assert_ok!(Assets::force_asset_status(
 			RuntimeOrigin::root(),
 			0,
@@ -1887,11 +1862,7 @@ fn force_asset_status_should_work() {
 			true,
 			false
 		));
-		assert_noop!(
-			Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 110),
-			Error::<Test>::WouldSweepDust
-		);
-		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 200));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(2), 0, 1, 110));
 		assert_eq!(Assets::balance(0, 1), 200);
 		assert_eq!(Assets::balance(0, 2), 0);
 		assert_eq!(Assets::total_supply(0), 200);
@@ -2905,168 +2876,4 @@ fn transfer_approved_to_self_charges_the_request() {
 			amount: 95,
 		}));
 	});
-}
-
-mod exact_amounts {
-	use super::*;
-	use frame_support::traits::tokens::{
-		fungibles::{Balanced as FungiblesBalanced, Mutate as FungiblesMutate},
-		Fortitude::Polite,
-		Precision::Exact,
-		Preservation::Expendable,
-	};
-
-	/// `min_balance` of 10 leaves 1..10 as a window of balances no account may hold
-	fn setup_dust_window() {
-		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
-		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 2, 10));
-	}
-
-	#[test]
-	fn transfer_moves_exactly_the_requested_amount() {
-		build_and_execute(|| {
-			setup_dust_window();
-
-			// 100 - 95 = 5, which account 1 may not keep. Debiting 100 to clear it would hand
-			// account 2 five more than account 1 asked to send, so the transfer is refused.
-			assert_noop!(
-				Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 95),
-				Error::<Test>::WouldSweepDust
-			);
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_eq!(Assets::balance(0, 2), 10);
-
-			// A remainder the account can hold is unaffected.
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 90));
-			assert_eq!(Assets::balance(0, 1), 10);
-			assert_eq!(Assets::balance(0, 2), 100);
-
-			// So is emptying the account outright, which still reaps it.
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10));
-			assert_eq!(Assets::maybe_balance(0, 1), None);
-			assert_eq!(Assets::balance(0, 2), 110);
-			assert_eq!(Assets::total_supply(0), 110);
-		});
-	}
-
-	#[test]
-	fn transfer_approved_cannot_debit_more_than_the_allowance() {
-		build_and_execute(|| {
-			setup_dust_window();
-			Balances::make_free_balance_be(&1, 2);
-			// Owner 1 lets delegate 2 move at most 95 of its 100.
-			assert_ok!(Assets::approve_transfer(RuntimeOrigin::signed(1), 0, 2, 95));
-
-			// Spending the whole allowance strands 5 on the owner, so the debit would have to
-			// grow to 100 — five more than the owner ever approved.
-			assert_noop!(
-				Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 95),
-				Error::<Test>::WouldSweepDust
-			);
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_eq!(Assets::maybe_balance(0, 3), None);
-			assert_eq!(Approvals::<Test>::get((0, 1, 2)).unwrap().amount, 95);
-
-			// Staying inside the allowance settles for exactly what was spent.
-			assert_ok!(Assets::transfer_approved(RuntimeOrigin::signed(2), 0, 1, 3, 90));
-			assert_eq!(Assets::balance(0, 1), 10);
-			assert_eq!(Assets::balance(0, 3), 90);
-			assert_eq!(Approvals::<Test>::get((0, 1, 2)).unwrap().amount, 5);
-		});
-	}
-
-	#[test]
-	fn fungibles_transfer_keeps_total_supply_in_sync() {
-		build_and_execute(|| {
-			setup_dust_window();
-
-			// The generic entry point that XCM adapters and other pallets reach for used to
-			// debit 100, credit 95 and drop the difference on the floor without telling
-			// `Asset::supply` about it.
-			assert_noop!(
-				<Assets as FungiblesMutate<u64>>::transfer(0, &1, &2, 95, Expendable),
-				Error::<Test>::WouldSweepDust
-			);
-
-			assert_ok!(<Assets as FungiblesMutate<u64>>::transfer(0, &1, &2, 90, Expendable));
-			assert_eq!(Assets::balance(0, 1), 10);
-			assert_eq!(Assets::balance(0, 2), 100);
-
-			// Total issuance still equals the sum of every balance.
-			assert_eq!(Assets::total_supply(0), 110);
-			assert_eq!(Assets::total_supply(0), Assets::balance(0, 1) + Assets::balance(0, 2));
-		});
-	}
-
-	#[test]
-	fn self_transfer_is_held_to_the_same_rules() {
-		build_and_execute(|| {
-			setup_dust_window();
-
-			// Sending 95 of 100 to oneself moves nothing, yet the debit would still grow to 100
-			// and be reported as the amount transferred. Every entry point refuses it, as it
-			// would for any other destination.
-			assert_noop!(
-				Assets::transfer(RuntimeOrigin::signed(1), 0, 1, 95),
-				Error::<Test>::WouldSweepDust
-			);
-			assert_noop!(
-				<Assets as FungiblesMutate<u64>>::transfer(0, &1, &1, 95, Expendable),
-				Error::<Test>::WouldSweepDust
-			);
-
-			// One that strands nothing still moves nothing, and reports exactly what was asked.
-			System::reset_events();
-			assert_eq!(
-				<Assets as FungiblesMutate<u64>>::transfer(0, &1, &1, 90, Expendable),
-				Ok(90)
-			);
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 1, 90));
-			assert_eq!(Assets::balance(0, 1), 100);
-			assert_eq!(Assets::total_supply(0), 110);
-			let transferred = System::events()
-				.into_iter()
-				.filter_map(|r| match r.event {
-					RuntimeEvent::Assets(crate::Event::Transferred {
-						from, to, amount, ..
-					}) => Some((from, to, amount)),
-					_ => None,
-				})
-				.collect::<Vec<_>>();
-			assert_eq!(transferred, vec![(1, 1, 90), (1, 1, 90)]);
-		});
-	}
-
-	#[test]
-	fn burn_still_sweeps_a_stranded_remainder() {
-		build_and_execute(|| {
-			setup_dust_window();
-
-			// `burn` asks for a best-effort debit and destroys what it takes, so sweeping the
-			// stranded 5 is both intended and accounted for against supply.
-			assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 1, 95));
-			assert_eq!(Assets::maybe_balance(0, 1), None);
-			assert_eq!(Assets::total_supply(0), 10);
-		});
-	}
-
-	#[test]
-	fn balanced_withdraw_still_reports_a_swept_remainder() {
-		build_and_execute(|| {
-			setup_dust_window();
-
-			// An imbalance-returning withdrawal may still sweep, because the amount it really
-			// took comes back in the credit for the caller to resolve. Nothing is concealed, so
-			// nothing here has to change.
-			let credit =
-				<Assets as FungiblesBalanced<u64>>::withdraw(0, &1, 95, Exact, Expendable, Polite)
-					.unwrap();
-			assert_eq!(credit.peek(), 100);
-			assert_eq!(Assets::maybe_balance(0, 1), None);
-
-			drop(credit);
-			assert_eq!(Assets::total_supply(0), 10);
-		});
-	}
 }

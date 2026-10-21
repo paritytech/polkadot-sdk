@@ -21,7 +21,6 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use codec::Decode;
 use core::marker::PhantomData;
 use ethereum_standards::{
 	IERC20,
@@ -203,7 +202,7 @@ where
 			IERC20Calls::permit(_)
 				if env.is_read_only() =>
 			{
-				Err(Error::Revert(Revert { reason: ERR_STATE_CHANGE_DENIED.into() }))
+				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
 
 			// ERC20 functions
@@ -385,8 +384,6 @@ const TRANSFER_LOG_DATA_LEN: u32 = 32;
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_WOULD_SWEEP_REMAINDER: &str = "Transfer would leave sender below minimum balance";
-const ERR_STATE_CHANGE_DENIED: &str = "cannot modify state in a static call";
-const ERR_UNEXPECTED: &str = "Unexpected error";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -424,66 +421,40 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
-	/// Every pallet or token failure of a state-changing call is a Solidity revert.
-	/// `Error::Error` comes from the blanket `From<DispatchError>`; only charging
-	/// failures should reach it.
+	/// Every pallet or token failure of a state-changing call is a Solidity revert, with the
+	/// reason sp-runtime gives the error: the variant name for a module error, so a contract sees
+	/// the same name whichever precompile surfaced it. `Error::Error` comes from the blanket
+	/// `From<DispatchError>`; only charging failures should reach it.
 	fn revert_dispatch(e: DispatchError) -> Error {
-		Error::Revert(Revert { reason: Self::dispatch_reason(e).into() })
+		Error::Revert(Revert { reason: <&'static str>::from(e).into() })
 	}
 
-	fn dispatch_reason(e: DispatchError) -> &'static str {
-		match e {
-			DispatchError::Token(token) => token.into(),
-			DispatchError::Arithmetic(arith) => arith.into(),
-			DispatchError::Other(msg) => msg,
-			DispatchError::Module(module) => match Self::decode_pallet_error(e) {
-				Some(err) => Self::pallet_reason(err),
-				None => module.message.unwrap_or(ERR_UNEXPECTED),
+	/// ERC-20 requires a transfer to move exactly `value`, but pallet-assets debits the whole
+	/// balance when debiting `amount` would leave `from` a non-zero remainder below the minimum
+	/// balance, and credits all of it to the destination. Refuse such a transfer instead.
+	///
+	/// `can_withdraw` is the `can_decrease` that `prep_debit` runs right after, so this reads only
+	/// keys the transfer reads anyway. Sending the whole balance leaves no remainder and is
+	/// allowed. A self-transfer moves exactly `amount` in pallet-assets, so it is exempt.
+	fn ensure_no_sweep(
+		asset_id: &<Runtime as Config<Instance>>::AssetId,
+		from: &<Runtime as frame_system::Config>::AccountId,
+		to: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) -> Result<(), Error> {
+		use frame_support::traits::{fungibles::Inspect, tokens::WithdrawConsequence};
+		if from == to {
+			return Ok(());
+		}
+		match pallet_assets::Pallet::<Runtime, Instance>::can_withdraw(
+			asset_id.clone(),
+			from,
+			amount,
+		) {
+			WithdrawConsequence::ReducedToZero(rest) if !rest.is_zero() => {
+				Err(Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() }))
 			},
-			_ => ERR_UNEXPECTED,
-		}
-	}
-
-	fn decode_pallet_error(e: DispatchError) -> Option<pallet_assets::Error<Runtime, Instance>> {
-		use frame_support::traits::PalletInfoAccess;
-		let DispatchError::Module(module) = e else { return None };
-		let index = <pallet_assets::Pallet<Runtime, Instance> as PalletInfoAccess>::index() as u8;
-		if module.index != index {
-			return None;
-		}
-		pallet_assets::Error::<Runtime, Instance>::decode(&mut &module.error[..]).ok()
-	}
-
-	fn pallet_reason(err: pallet_assets::Error<Runtime, Instance>) -> &'static str {
-		use pallet_assets::Error::*;
-		match err {
-			BalanceLow => "Balance too low",
-			NoAccount => "Account does not exist",
-			NoPermission => "No permission",
-			Unknown => "Unknown asset",
-			Frozen => "Account is frozen",
-			InUse => "Asset id is already in use",
-			BadWitness => "Invalid witness",
-			MinBalanceZero => "Minimum balance must be non-zero",
-			UnavailableConsumer => "Cannot take another consumer reference",
-			BadMetadata => "Invalid metadata",
-			Unapproved => "No approval for this transfer",
-			WouldDie => "Account would be reaped",
-			AlreadyExists => "Asset account already exists",
-			NoDeposit => "No deposit for this asset account",
-			WouldBurn => "Operation would burn funds",
-			LiveAsset => "Asset is live",
-			AssetNotLive => "Asset is not live",
-			IncorrectStatus => "Asset status is not the expected status",
-			NotFrozen => "Asset is not frozen",
-			CallbackFailed => "Callback failed",
-			BadAssetId => "Asset id is not the required id",
-			AssetIdAllocationFailed => "Asset id allocation failed",
-			ContainsFreezes => "Asset accounts contain freezes",
-			ContainsHolds => "Asset accounts contain holds",
-			TooManyReserves => "Too many reserves",
-			IncompleteDepositTransfer => "Asset deposit could not be fully moved",
-			WouldSweepDust => ERR_WOULD_SWEEP_REMAINDER,
+			_ => Ok(()),
 		}
 	}
 
@@ -525,6 +496,7 @@ where
 			&call.to.into_array().into(),
 		);
 		let amount = Self::to_balance(call.value)?;
+		Self::ensure_no_sweep(&asset_id, &from_account, &dest, amount)?;
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
@@ -723,6 +695,7 @@ where
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
+		Self::ensure_no_sweep(&asset_id, &from, &to, approval_amount)?;
 
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
