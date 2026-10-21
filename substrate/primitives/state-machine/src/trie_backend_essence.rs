@@ -357,6 +357,11 @@ impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecord
 	}
 }
 
+/// The estimation only reads nodes of the state the backend serves and never writes, so an error
+/// means a corrupt database or a bug, never an input.
+const ESTIMATION_READS_EXISTING_NODES: &str =
+	"the backend serves the block-start state, so every node the estimation reads exists; qed";
+
 impl<
 		S: TrieBackendStorage<H>,
 		H: Hasher,
@@ -697,32 +702,26 @@ where
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			let res = read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+			read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 				&eph,
 				self.root,
 				keys_to_be_read,
 				recorder,
 				cache,
-			);
-
-			if let Err(e) = res {
-				warn!(target: "trie", "Failed to read delta keys from trie: {}", e);
-			};
+			)
+			.expect(ESTIMATION_READS_EXISTING_NODES);
 		});
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			let res = remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+			remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 				&eph,
 				self.root,
 				keys_to_be_removed,
 				estimation_trie,
 				recorder,
 				cache,
-			);
-
-			if let Err(e) = res {
-				warn!(target: "trie", "Failed to remove delta keys from trie: {}", e);
-			};
+			)
+			.expect(ESTIMATION_READS_EXISTING_NODES);
 		});
 	}
 
@@ -804,19 +803,15 @@ where
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
 		};
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
-		let child_root = match self.child_root(child_info) {
-			Ok(Some(hash)) => hash,
-			Ok(None) => default_root,
-			Err(e) => {
-				warn!(target: "trie", "Failed to read child storage root: {}", e);
-				default_root
-			},
-		};
+		let child_root = self
+			.child_root(child_info)
+			.expect(ESTIMATION_READS_EXISTING_NODES)
+			.unwrap_or(default_root);
 		let eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
 
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
-		let _ = self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
 			child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 				child_info.keyspace(),
 				&eph,
@@ -825,9 +820,10 @@ where
 				recorder,
 				cache,
 			)
+			.expect(ESTIMATION_READS_EXISTING_NODES);
 		});
 
-		let _ = self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+		self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
 			child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
 				child_info.keyspace(),
 				&eph,
@@ -837,6 +833,7 @@ where
 				recorder,
 				cache,
 			)
+			.expect(ESTIMATION_READS_EXISTING_NODES);
 		});
 	}
 }
