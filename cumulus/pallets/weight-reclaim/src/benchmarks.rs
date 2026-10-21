@@ -40,6 +40,7 @@ mod bench {
 
 		let overestimate = 10_000;
 		let info = DispatchInfo {
+			length_weight: Default::default(),
 			call_weight: Weight::zero().add_proof_size(overestimate),
 			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,

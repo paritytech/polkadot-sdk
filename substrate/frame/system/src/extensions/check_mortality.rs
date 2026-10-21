@@ -141,6 +141,7 @@ mod tests {
 	fn signed_ext_check_era_should_change_longevity() {
 		new_test_ext().execute_with(|| {
 			let normal = DispatchInfo {
+				length_weight: Default::default(),
 				call_weight: Weight::from_parts(100, 0),
 				extension_weight: Weight::zero(),
 				class: DispatchClass::Normal,
