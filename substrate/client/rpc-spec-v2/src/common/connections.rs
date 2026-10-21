@@ -153,17 +153,19 @@ pub struct ReservedConnection {
 impl ReservedConnection {
 	/// Register the identifier for the given connection.
 	pub fn register(mut self, identifier: String) -> Option<RegisteredConnection> {
-		let rpc_connections = self.rpc_connections.take()?;
-
-		if rpc_connections.register_identifier(self.connection_id, identifier.clone()) {
-			Some(RegisteredConnection {
-				connection_id: self.connection_id,
-				identifier,
-				rpc_connections,
-			})
-		} else {
-			None
+		if !self
+			.rpc_connections
+			.as_ref()?
+			.register_identifier(self.connection_id, identifier.clone())
+		{
+			return None;
 		}
+
+		Some(RegisteredConnection {
+			connection_id: self.connection_id,
+			identifier,
+			rpc_connections: self.rpc_connections.take()?,
+		})
 	}
 }
 
@@ -260,6 +262,33 @@ mod tests {
 		// Ensure data is cleared.
 		drop(reserved);
 		drop(registered_second);
+		assert!(rpc_connections.data.lock().get(&conn_id).is_none());
+	}
+
+	#[test]
+	fn failed_registration_releases_reserved_space() {
+		let rpc_connections = RpcConnections::new(2);
+		let conn_id = ConnectionId(1);
+
+		let registered = rpc_connections
+			.reserve_space(conn_id)
+			.unwrap()
+			.register("identifier".to_string())
+			.unwrap();
+
+		let duplicate = rpc_connections
+			.reserve_space(conn_id)
+			.unwrap()
+			.register("identifier".to_string());
+		assert!(duplicate.is_none());
+		assert_eq!(1, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
+
+		let reserved = rpc_connections.reserve_space(conn_id);
+		assert!(reserved.is_some());
+		assert_eq!(2, rpc_connections.data.lock().get(&conn_id).unwrap().num_identifiers);
+
+		drop(reserved);
+		drop(registered);
 		assert!(rpc_connections.data.lock().get(&conn_id).is_none());
 	}
 }

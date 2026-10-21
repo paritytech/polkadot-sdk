@@ -287,7 +287,10 @@ impl<T: Config<I>, I: 'static> DerivativesRegistry<OriginalOf<T, I>, DerivativeO
 		<OriginalToDerivative<T, I>>::insert(original, derivative);
 		<DerivativeToOriginal<T, I>>::insert(derivative, original);
 
-		Self::deposit_event(Event::<T, I>::DerivativeCreated { original: original.clone() });
+		Self::deposit_event(Event::<T, I>::DerivativeMappingCreated {
+			original: original.clone(),
+			derivative_id: derivative.clone(),
+		});
 
 		Ok(())
 	}

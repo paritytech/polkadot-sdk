@@ -36,7 +36,6 @@ async fn collation_protocol_version_negotiation() -> Result<(), anyhow::Error> {
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![
 					("-lparachain=debug,parachain::collator-protocol=trace".into()),
-					("--network-backend=libp2p").into(),
 				])
 				.with_genesis_overrides(json!({
 					"configuration": {

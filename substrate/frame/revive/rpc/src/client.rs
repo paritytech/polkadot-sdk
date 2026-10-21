@@ -406,13 +406,6 @@ fn known_first_evm_block_for_chain(chain_id: u64) -> Option<u64> {
 	}
 }
 
-/// Fetch the chain ID from the substrate chain.
-async fn chain_id(api: &OnlineClient<SrcChainConfig>) -> Result<u64, ClientError> {
-	let query = subxt_client::constants().revive().chain_id().unvalidated();
-	let at_block = api.at_current_block().await?;
-	at_block.constants().entry(query).map_err(|err| err.into())
-}
-
 /// Fetch the max block weight from the substrate chain.
 async fn max_block_weight(api: &OnlineClient<SrcChainConfig>) -> Result<Weight, ClientError> {
 	let query = subxt_client::constants().system().block_weights().unvalidated();
@@ -474,11 +467,11 @@ impl Client {
 		is_archive: bool,
 		subscription_gap_queue: SubscriptionGapQueue,
 		runtime_api_provider: VersionAwareRuntimeApiProvider,
+		chain_id: u64,
 	) -> Result<Self, ClientError> {
-		let (chain_id, max_block_weight, automine) =
-			tokio::try_join!(chain_id(&api), max_block_weight(&api), async {
-				Ok(get_automine(&rpc_client).await)
-			},)?;
+		let (max_block_weight, automine) = tokio::try_join!(max_block_weight(&api), async {
+			Ok(get_automine(&rpc_client).await)
+		},)?;
 
 		// Compute the very first capabilities so that the provider's cache has an anchor which
 		// the subscriptions grow forward and the backfill grows backward.
@@ -712,6 +705,33 @@ impl Client {
 		Ok((eth_block, receipt_infos))
 	}
 
+	/// Updates the latest block with `block`, and sends the new latest block to block subscribers.
+	async fn update_and_announce_latest_block(
+		&self,
+		block: SubstrateBlock,
+		eth_block: Option<BlockV1>,
+		subscription_type: SubscriptionType,
+	) {
+		let hash = block.block_hash();
+		let Some(latest_block) =
+			self.block_provider.update_latest(Arc::new(block), subscription_type).await
+		else {
+			return;
+		};
+
+		if self.block_subscription_tx.receiver_count() == 0 {
+			return;
+		}
+
+		let eth_block = match eth_block {
+			Some(eth_block) if latest_block.block_hash() == hash => Some(eth_block),
+			_ => self.evm_block(latest_block, false).await,
+		};
+		if let Some(eth_block) = eth_block {
+			let _ = self.block_subscription_tx.send(eth_block);
+		}
+	}
+
 	/// Start the block subscription, and populate the block cache.
 	pub async fn subscribe_and_cache_new_blocks(
 		&self,
@@ -724,20 +744,22 @@ impl Client {
 			match subscription_type {
 				SubscriptionType::BestBlocks => {
 					let (eth_block, _) = self.process_block(&block).await?;
-					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					self.update_and_announce_latest_block(
+						block,
+						Some(eth_block),
+						subscription_type,
+					)
+					.await;
 
 					if let Some(sender) = &self.block_notifier {
 						if sender.receiver_count() > 0 {
 							let _ = sender.send(hash);
 						}
 					}
-					if self.block_subscription_tx.receiver_count() > 0 {
-						let _ = self.block_subscription_tx.send(eth_block);
-					}
 				},
 				SubscriptionType::FinalizedBlocks => {
 					let block_number = block.block_number();
-					let (receipt_infos, eth_hash) = match self
+					let (receipt_infos, eth_hash, eth_block) = match self
 						.receipt_provider
 						.get_processed_eth_block_hash(block_number, hash)
 						.await
@@ -746,15 +768,16 @@ impl Client {
 							log::trace!(target: LOG_TARGET_SUBSCRIPTION,
 									"⏩ Finalized block #{block_number} already processed, \
 									 skipping extraction");
-							(None, eth_hash)
+							(None, eth_hash, None)
 						},
 						None => {
 							let (eth_block, infos) = self.process_block(&block).await?;
-							(Some(infos), eth_block.hash)
+							(Some(infos), eth_block.hash, Some(eth_block))
 						},
 					};
 
-					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					self.update_and_announce_latest_block(block, eth_block, subscription_type)
+						.await;
 					self.advance_sync_head(block_number, hash).await;
 
 					if self.log_subscription_tx.receiver_count() > 0 {

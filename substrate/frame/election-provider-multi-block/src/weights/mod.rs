@@ -42,6 +42,7 @@ pub mod traits {
 			fn unset_page() -> Weight;
 			fn bail() -> Weight;
 			fn clear_old_round_data(p: u32) -> Weight;
+			fn claim_unpaid_reward() -> Weight;
 		}
 
 		#[cfg(feature = "std")]
@@ -64,6 +65,9 @@ pub mod traits {
 			fn unset_page() -> Weight {
 				Default::default()
 			}
+			fn claim_unpaid_reward() -> Weight {
+				Default::default()
+			}
 		}
 	}
 
@@ -72,7 +76,7 @@ pub mod traits {
 
 		/// Weight functions needed for `pallet_election_provider_multi_block::unsigned`.
 		pub trait WeightInfo {
-			fn validate_unsigned() -> Weight;
+			fn authorize_submit_unsigned() -> Weight;
 			fn submit_unsigned() -> Weight;
 			// This has an auto-impl as the associated benchmark is `#[extra]`.
 			fn mine_solution(_p: u32) -> Weight {
@@ -82,7 +86,7 @@ pub mod traits {
 
 		#[cfg(feature = "std")]
 		impl WeightInfo for () {
-			fn validate_unsigned() -> Weight {
+			fn authorize_submit_unsigned() -> Weight {
 				Default::default()
 			}
 			fn submit_unsigned() -> Weight {

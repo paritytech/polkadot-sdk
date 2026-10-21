@@ -68,10 +68,12 @@ alloy-primitives = { workspace = true, default-features = true }
 alloy-provider = { workspace = true, default-features = true, features = [
 	"debug-api",
 	"reqwest",
+	"ws",
 ] }
 alloy-signer-local = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 frame-system = { workspace = true, default-features = true }
+k256 = { features = ["alloc", "ecdsa"], workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }

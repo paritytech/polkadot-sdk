@@ -76,6 +76,8 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
+	/// When true, `MockRegistrar::deregister` fails.
+	pub static DeregisterFails: bool = false;
 	/// Heads `MockRegistrar` has set, in order.
 	pub static Heads: Vec<(ParaId, Vec<u8>)> = Vec::new();
 	/// Reports handed to the transport, oldest first.
@@ -115,6 +117,21 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
+	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		if DeregisterFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
+		}
+		AlreadyKnown::mutate(|v| v.retain(|id| *id != para_id));
+		Onboarded::mutate(|v| v.retain(|(id, ..)| *id != para_id));
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		AlreadyKnown::mutate(|v| v.push(para_id));
+		Ok(())
+	}
+
 	fn check_head_data(head_len: u32) -> Result<(), ()> {
 		if head_len <= MAX_HEAD_SIZE {
 			Ok(())
@@ -125,6 +142,19 @@ impl ParachainRegistrar for MockRegistrar {
 
 	fn set_current_head(para_id: ParaId, head: Vec<u8>) {
 		Heads::mutate(|v| v.push((para_id, head)));
+	}
+
+	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the code upgrade in the mock.
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
+		Ok(())
 	}
 }
 
@@ -172,6 +202,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
+	DeregisterFails::set(false);
 	Heads::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);

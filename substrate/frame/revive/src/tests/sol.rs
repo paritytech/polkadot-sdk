@@ -51,6 +51,7 @@ mod memory;
 mod stack;
 mod system;
 mod terminate;
+mod terminate_storage;
 mod tx_info;
 
 fn make_initcode_from_runtime_code(runtime_code: &Vec<u8>) -> Vec<u8> {
@@ -190,6 +191,323 @@ fn basic_evm_flow_tracing_works() {
 				..Default::default()
 			},
 		);
+	});
+}
+
+/// Calling a delegated EOA should trace as CallType::Call (not DelegateCall).
+#[test]
+fn delegated_eoa_call_tracing_works() {
+	use crate::{
+		evm::{CallTrace, CallTracer, CallType},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = CallTracer::new(Default::default());
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address).build_and_unwrap_result()
+		});
+
+		let call_trace = tracer.collect_trace().unwrap();
+		assert_eq!(
+			call_trace,
+			CallTrace {
+				call_type: CallType::Call,
+				from: ALICE_ADDR,
+				to: setup.signer.address,
+				value: Some(crate::U256::zero()),
+				gas: call_trace.gas,
+				gas_used: call_trace.gas_used,
+				..Default::default()
+			}
+		);
+	});
+}
+
+/// Prestate-tracer (prestate mode) must surface a delegated EOA's `code` as the
+/// 23-byte EIP-7702 indicator `0xef0100 || target`. This is the channel most users
+/// (foundry / hardhat traces, Tenderly, etc.) inspect to confirm a delegation
+/// took effect.
+#[test]
+fn delegated_eoa_prestate_tracing_returns_indicator() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: false,
+			disable_storage: true,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address).build_and_unwrap_result()
+		});
+
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(target_addr.as_bytes());
+
+		match tracer.collect_trace() {
+			PrestateTrace::Prestate(accounts) => {
+				let info = accounts
+					.get(&setup.signer.address)
+					.expect("delegated EOA should be in prestate trace");
+				let code = info.code.as_ref().expect("delegated EOA should report code");
+				assert_eq!(
+					code.0, indicator,
+					"prestate trace code should be the 23-byte delegation indicator",
+				);
+			},
+			other => panic!("expected Prestate mode, got {:?}", other),
+		}
+	});
+}
+
+/// Prestate-tracer must surface a precompile's `code` as its stub, matching what
+/// eth_getCode and EXTCODESIZE/EXTCODEHASH/EXTCODECOPY report for the same address.
+/// Primitive precompiles have an empty stub and report no code.
+#[test]
+fn precompile_prestate_tracing_returns_code_stub() {
+	use crate::{H160, evm::PrestateTrace, precompiles::EVM_REVERT};
+	use pallet_revive_uapi::{SYSTEM_PRECOMPILE_ADDR, precompiles::system::ISystem};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let traced_code = |addr: H160, data: Vec<u8>| {
+			let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+				diff_mode: false,
+				disable_storage: true,
+				disable_code: false,
+			});
+			let result = trace(&mut tracer, || {
+				builder::bare_call(addr).data(data).build_and_unwrap_result()
+			});
+			assert!(!result.did_revert(), "call to {addr:?} reverted");
+
+			match tracer.collect_trace() {
+				PrestateTrace::Prestate(accounts) => accounts
+					.get(&addr)
+					.expect("precompile should be in prestate trace")
+					.code
+					.clone()
+					.map(|code| code.0),
+				other => panic!("expected Prestate mode, got {:?}", other),
+			}
+		};
+
+		assert_eq!(
+			traced_code(H160(SYSTEM_PRECOMPILE_ADDR), ISystem::minimumBalanceCall {}.abi_encode()),
+			Some(EVM_REVERT.to_vec()),
+			"prestate trace code should be the precompile's code stub",
+		);
+		assert_eq!(
+			traced_code(H160::from_low_u64_be(1), vec![]),
+			None,
+			"primitive precompile should report no code",
+		);
+	});
+}
+
+/// Prestate-tracer (diff mode) must surface the indicator in the pre-state when
+/// the traced call mutates the delegated EOA (otherwise diff mode correctly
+/// filters unchanged addresses out). Uses a Counter target + setNumber so the
+/// authority's storage changes, forcing the address to appear in both halves.
+#[test]
+fn delegated_eoa_prestate_diff_tracing_includes_indicator() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		precompiles::alloy::sol_types::SolCall,
+		tests::eip7702::DelegationTestSetup,
+	};
+	use pallet_revive_fixtures::{Counter, FixtureType, compile_module_with_type};
+
+	let (counter_code, _) = compile_module_with_type("Counter", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(counter_code)).build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let _ = trace(&mut tracer, || {
+			builder::bare_call(setup.signer.address)
+				.data(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+				.build_and_unwrap_result()
+		});
+
+		let mut indicator = vec![0xefu8, 0x01, 0x00];
+		indicator.extend_from_slice(target_addr.as_bytes());
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post: _ } => {
+				let pre_info = pre
+					.get(&setup.signer.address)
+					.expect("delegated EOA whose storage changed should be in pre-state diff");
+				let pre_code = pre_info.code.as_ref().expect("pre-state should include code");
+				assert_eq!(
+					pre_code.0, indicator,
+					"diff pre-state code must be the delegation indicator",
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
+/// Regression: EIP-7702 authority state changes must be visible to the prestate diff tracer.
+///
+/// `process_authorizations` mutates account state (code, nonce, deposit) without going through
+/// any of the EVM hooks (`enter_child_span`, `read_account`, `balance_read`, ...). Without an
+/// explicit notification, the tracer never sees the authority address, so a revoke of an existing
+/// delegation is invisible to clients consuming the diff — the post block lacks the `code: null`
+/// entry that Geth produces for the same transaction.
+///
+/// This test triggers an authority-only state change inside the trace scope (revoke, no further
+/// EVM call) and asserts the authority appears in `post` with cleared code. Without the fix, the
+/// authority is missing from the diff entirely.
+#[test]
+fn prestate_diff_includes_authority_when_eip7702_revokes_delegation() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+	use sp_core::H160;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		let setup = DelegationTestSetup::default();
+		setup.authorize(target_addr);
+		assert!(crate::AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: true,
+			disable_code: false,
+		});
+
+		let _ = trace(&mut tracer, || {
+			let revoke_auth = setup.sign_authorization(H160::zero());
+			setup.process(&[revoke_auth]);
+		});
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post } => {
+				let pre_info = pre.get(&setup.signer.address).expect(
+					"authority must appear in pre-state diff with its pre-revoke delegation indicator",
+				);
+				let pre_code = pre_info.code.as_ref().expect("pre.code must capture the indicator");
+				let mut indicator = vec![0xefu8, 0x01, 0x00];
+				indicator.extend_from_slice(target_addr.as_bytes());
+				assert_eq!(
+					pre_code.0, indicator,
+					"pre.code must be the pre-revoke delegation indicator, not the post-revoke (empty) state",
+				);
+
+				let post_info = post.get(&setup.signer.address).expect(
+					"authority must appear in post-state diff after revoke (code cleared, nonce bumped)",
+				);
+				assert!(
+					post_info.code.is_none(),
+					"post.code must be None (delegation cleared), got {:?}",
+					post_info.code,
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
+/// Symmetric to [`prestate_diff_includes_authority_when_eip7702_revokes_delegation`] but for the
+/// set direction: an EIP-7702 tx that creates a fresh delegation on an authority without prior
+/// code must surface `pre.code == None` and `post.code == Some(0xef0100 || target)`. Without the
+/// fix in `process_authorizations`, the authority is missing from the trace entirely.
+#[test]
+fn prestate_diff_includes_authority_when_eip7702_sets_delegation() {
+	use crate::{
+		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig},
+		tests::{dummy_evm_contract, eip7702::DelegationTestSetup},
+	};
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: target_addr, .. } =
+			builder::bare_instantiate(Code::Upload(dummy_evm_contract()))
+				.build_and_unwrap_contract();
+
+		// Fresh authority — funded, but no existing delegation.
+		let setup = DelegationTestSetup::default();
+		assert!(!crate::AccountInfo::<Test>::is_delegated(&setup.signer.address));
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: true,
+			disable_code: false,
+		});
+
+		let _ = trace(&mut tracer, || {
+			let auth = setup.sign_authorization(target_addr);
+			setup.process(&[auth]);
+		});
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { pre, post } => {
+				let pre_info = pre
+					.get(&setup.signer.address)
+					.expect("authority must appear in pre-state diff before delegation is set");
+				assert!(
+					pre_info.code.is_none(),
+					"pre.code must be None (no prior delegation), got {:?}",
+					pre_info.code,
+				);
+
+				let post_info = post
+					.get(&setup.signer.address)
+					.expect("authority must appear in post-state diff after delegation is set");
+				let post_code =
+					post_info.code.as_ref().expect("post.code must carry the indicator");
+				let mut indicator = vec![0xefu8, 0x01, 0x00];
+				indicator.extend_from_slice(target_addr.as_bytes());
+				assert_eq!(
+					post_code.0, indicator,
+					"post.code must be the 23-byte delegation indicator pointing at target",
+				);
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
 	});
 }
 
@@ -896,8 +1214,15 @@ fn eth_substrate_call_tracks_weight_correctly() {
 
 /// Tests execution tracing for both EVM and PVM.
 ///
-/// Each test case runs for both Solc (EVM) and Resolc (PVM) with separate expected traces.
-/// Expected traces are stored in `src/tests/json_trace/` directory.
+/// Each test case runs for both Solc (EVM) and Resolc (PVM).
+///
+/// The EVM trace is compared against a snapshot in `src/tests/json_trace/`: every opcode is
+/// traced, so the step sequence is determined by the bytecode.
+///
+/// The PVM trace only contains syscalls, and which syscalls a contract makes is up to the
+/// compiler: resolc releases add and remove them. It is therefore not compared against a
+/// snapshot. `verify_pvm_trace` checks what the tracer is responsible for instead: the call
+/// structure, the fuel steps around every syscall, the return data and the result.
 ///
 /// Gas consistency is verified for consecutive steps:
 /// - For EVM: gas - gas_cost == next_step.gas (exact, every opcode is traced)
@@ -911,12 +1236,29 @@ fn execution_tracing_works() {
 	};
 	use pallet_revive_fixtures::{Callee, Caller};
 
+	/// A PVM step that enters or leaves a call frame.
+	#[derive(Debug, PartialEq, Eq)]
+	enum Frame {
+		Call,
+		DelegateCall,
+		Return,
+	}
+
 	struct TestCase {
 		name: &'static str,
 		setup: Box<dyn Fn(FixtureType) -> ExecutionTrace>,
 		expected_evm_trace: &'static str,
-		expected_pvm_trace: &'static str,
+		/// Every step of the PVM trace that enters or leaves a frame, with its depth.
+		pvm_frames: &'static [(u16, Frame)],
+		/// The `limit` the tracer was configured with, if any.
+		step_limit: Option<usize>,
+		/// The output of the traced call.
+		return_value: Vec<u8>,
+		/// The output of the sub call. Unused by cases which make none.
+		callee_output: Vec<u8>,
 	}
+
+	let echo_output = Callee::echoCall::abi_encode_returns(&42u64);
 
 	let test_cases: Vec<TestCase> = vec![
 		TestCase {
@@ -940,7 +1282,10 @@ fn execution_tracing_works() {
 				tracer.collect_trace()
 			}),
 			expected_evm_trace: include_str!("json_trace/fibonacci_evm.json"),
-			expected_pvm_trace: include_str!("json_trace/fibonacci_pvm.json"),
+			pvm_frames: &[],
+			step_limit: Some(5),
+			return_value: Fibonacci::fibCall::abi_encode_returns(&2u64),
+			callee_output: Vec::new(),
 		},
 		TestCase {
 			name: "CALL",
@@ -974,7 +1319,13 @@ fn execution_tracing_works() {
 				tracer.collect_trace()
 			}),
 			expected_evm_trace: include_str!("json_trace/call_evm.json"),
-			expected_pvm_trace: include_str!("json_trace/call_pvm.json"),
+			pvm_frames: &[(1, Frame::Call), (2, Frame::Return), (1, Frame::Return)],
+			step_limit: None,
+			return_value: Caller::normalCall::abi_encode_returns(&Caller::normalReturn {
+				success: true,
+				output: echo_output.clone().into(),
+			}),
+			callee_output: echo_output.clone(),
 		},
 		TestCase {
 			name: "DELEGATECALL",
@@ -1007,11 +1358,17 @@ fn execution_tracing_works() {
 				tracer.collect_trace()
 			}),
 			expected_evm_trace: include_str!("json_trace/delegatecall_evm.json"),
-			expected_pvm_trace: include_str!("json_trace/delegatecall_pvm.json"),
+			pvm_frames: &[(1, Frame::DelegateCall), (2, Frame::Return), (1, Frame::Return)],
+			step_limit: None,
+			return_value: Caller::delegateCall::abi_encode_returns(&Caller::delegateReturn {
+				success: true,
+				output: echo_output.clone().into(),
+			}),
+			callee_output: echo_output,
 		},
 	];
 
-	/// Normalizes trace by zeroing out all dynamic values for stable comparisons.
+	/// Normalizes an EVM trace by zeroing out all dynamic values for stable comparisons.
 	fn normalize_trace(trace: &ExecutionTraceV1) -> ExecutionTraceV1 {
 		use frame_support::weights::Weight;
 
@@ -1025,41 +1382,90 @@ fn execution_tracing_works() {
 			step.gas_cost = 0;
 			step.weight_cost = Weight::zero();
 
-			match &mut step.kind {
-				ExecutionStepKindV1::EVMOpcode { stack, .. } => {
-					for val in stack.iter_mut() {
-						*val = Bytes::from(vec![0u8]);
-					}
-				},
-				ExecutionStepKindV1::PVMSyscall { op, args, returned, .. } => {
-					// Normalize call/delegate_call to their _evm variants so
-					// the test passes regardless of which resolc version
-					// compiled the fixtures (older emits call/delegate_call,
-					// newer emits call_evm/delegate_call_evm).
-					match op {
-						PolkavmSyscallV1::Call | PolkavmSyscallV1::CallEvm => {
-							*op = PolkavmSyscallV1::CallEvm;
-							// Clear args since the two variants have compatible behavior but
-							// different argument layouts.
-							args.clear();
-						},
-						PolkavmSyscallV1::DelegateCall | PolkavmSyscallV1::DelegateCallEvm => {
-							*op = PolkavmSyscallV1::DelegateCallEvm;
-							args.clear();
-						},
-						_ => {
-							for val in args.iter_mut() {
-								*val = 0;
-							}
-						},
-					}
-					if returned.is_some() {
-						*returned = Some(0);
-					}
-				},
+			let ExecutionStepKindV1::EVMOpcode { stack, .. } = &mut step.kind else {
+				panic!("an EVM trace only contains opcodes: {step:?}");
+			};
+			for val in stack.iter_mut() {
+				*val = Bytes::from(vec![0u8]);
 			}
 		}
 		normalized
+	}
+
+	/// Verifies the parts of a PVM trace that do not depend on the compiler.
+	///
+	/// The tracer records a `PvmFuel` step for the instructions executed before every syscall
+	/// and at the end of a frame. A frame's steps therefore alternate between fuel and syscall,
+	/// starting and ending with fuel. The steps of a sub call sit between the calling syscall
+	/// and the fuel step that follows it.
+	fn verify_pvm_trace(trace: &ExecutionTraceV1, case: &TestCase) {
+		let name = case.name;
+
+		assert!(!trace.failed, "{name}: the call must succeed");
+		assert_eq!(trace.return_value.0, case.return_value, "{name}: wrong return value");
+		if let Some(limit) = case.step_limit {
+			assert_eq!(trace.struct_logs.len(), limit, "{name}: the step limit was not applied");
+		}
+
+		let mut frames = Vec::new();
+		// Whether the next step of the frame at `depth - 1` has to be a fuel step.
+		let mut expects_fuel: Vec<bool> = Vec::new();
+		// Whether the next step may be one level deeper: the first step and the one after a call.
+		let mut enters_frame = true;
+		let mut sub_call_returned = false;
+
+		for (i, step) in trace.struct_logs.iter().enumerate() {
+			let ExecutionStepKindV1::PVMSyscall { op, .. } = &step.kind else {
+				panic!("{name}: step {i} is not a syscall: {step:?}");
+			};
+			assert_eq!(step.error, None, "{name}: step {i} failed");
+
+			let depth = usize::from(step.depth);
+			if depth > expects_fuel.len() {
+				assert_eq!(depth, expects_fuel.len() + 1, "{name}: step {i} skips a depth");
+				assert!(enters_frame, "{name}: step {i} enters a frame without a call");
+				expects_fuel.push(true);
+			} else if depth < expects_fuel.len() {
+				assert_eq!(depth + 1, expects_fuel.len(), "{name}: step {i} skips a depth");
+				assert_eq!(
+					expects_fuel.pop(),
+					Some(false),
+					"{name}: the frame left at step {i} does not end with a fuel step",
+				);
+				sub_call_returned = true;
+			}
+
+			let is_fuel = matches!(op, PolkavmSyscallV1::PvmFuel);
+			assert_eq!(
+				is_fuel,
+				expects_fuel[depth - 1],
+				"{name}: step {i} breaks the fuel and syscall alternation: {op:?}",
+			);
+			expects_fuel[depth - 1] = !is_fuel;
+			assert!(is_fuel || step.gas_cost > 0, "{name}: step {i} is free: {op:?}");
+
+			let expected_return_data =
+				if sub_call_returned { case.callee_output.as_slice() } else { &[] };
+			assert_eq!(step.return_data.0, expected_return_data, "{name}: step {i} return data");
+
+			// Which of the two syscalls a call compiles to depends on the resolc version.
+			let frame = match op {
+				PolkavmSyscallV1::Call | PolkavmSyscallV1::CallEvm => Some(Frame::Call),
+				PolkavmSyscallV1::DelegateCall | PolkavmSyscallV1::DelegateCallEvm => {
+					Some(Frame::DelegateCall)
+				},
+				PolkavmSyscallV1::SealReturn => Some(Frame::Return),
+				_ => None,
+			};
+			enters_frame = matches!(frame, Some(Frame::Call | Frame::DelegateCall));
+			frames.extend(frame.map(|frame| (step.depth, frame)));
+		}
+
+		assert_eq!(frames, case.pvm_frames, "{name}: wrong call structure");
+		// A truncated trace ends wherever the limit was reached.
+		if case.step_limit.is_none() {
+			assert_eq!(expects_fuel, [false], "{name}: the trace does not end with a fuel step");
+		}
 	}
 
 	/// Verifies gas consistency for execution traces.
@@ -1100,22 +1506,21 @@ fn execution_tracing_works() {
 				let name = test_case.name;
 				let vm_type = if is_evm { "EVM" } else { "PVM" };
 
-				let expected_json_str = if is_evm {
-					test_case.expected_evm_trace
+				if is_evm {
+					let expected: ExecutionTraceV1 =
+						serde_json::from_str(test_case.expected_evm_trace).unwrap_or_else(|e| {
+							panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
+						});
+					// Normalize both traces for comparison (zeroes out dynamic values)
+					let normalized_actual = normalize_trace(&actual_trace.clone().into());
+					let normalized_expected = normalize_trace(&expected);
+					assert_eq!(
+						normalized_actual, normalized_expected,
+						"{name} ({vm_type}): trace mismatch"
+					);
 				} else {
-					test_case.expected_pvm_trace
-				};
-				let expected: ExecutionTraceV1 = serde_json::from_str(expected_json_str)
-					.unwrap_or_else(|e| {
-						panic!("{name} ({vm_type}): failed to parse expected JSON: {e}")
-					});
-				// Normalize both traces for comparison (zeroes out dynamic values)
-				let normalized_actual = normalize_trace(&actual_trace.clone().into());
-				let normalized_expected = normalize_trace(&expected);
-				assert_eq!(
-					normalized_actual, normalized_expected,
-					"{name} ({vm_type}): trace mismatch"
-				);
+					verify_pvm_trace(&actual_trace.clone().into(), &test_case);
+				}
 
 				verify_gas_consistency(&actual_trace, is_evm, &format!("{name} ({vm_type})"));
 			});
@@ -1252,5 +1657,377 @@ fn truncation_does_not_alter_the_steps_it_keeps() {
 				trace.gas,
 			);
 		}
+	}
+}
+
+/// Where a contract's log ends up, per entry point and per outcome, for a Solc and a Resolc build
+/// of the same contract.
+///
+/// A log from a frame that took effect is on the ethereum transaction's receipt when there is one
+/// and a substrate-only event otherwise. A log from a frame that reverted reaches no receipt: not
+/// the transaction's, not the block's synthetic one for logs emitted outside any ethereum
+/// transaction.
+mod emitter_logs {
+	use crate::{
+		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, Origin, Pallet,
+		evm::{block_hash::LogsBloom, fees::InfoT},
+		test_utils::{ALICE, WEIGHT_LIMIT, deposit_limit},
+		tests::{
+			Contracts, ExtBuilder, RuntimeCall, RuntimeEvent, System, Test, builder, pallet_dummy,
+		},
+	};
+	use alloy_core::sol_types::{SolCall, SolEvent};
+	use frame_support::{
+		assert_ok,
+		traits::{
+			Hooks,
+			fungible::{Balanced, Mutate},
+		},
+	};
+	use pallet_revive_fixtures::{Emitter, FixtureType, compile_module_with_type};
+	use pretty_assertions::assert_eq;
+	use sp_core::{H160, H256};
+	use test_case::test_case;
+
+	fn emitted() -> H256 {
+		H256(Emitter::Emitted::SIGNATURE_HASH.0)
+	}
+
+	fn doomed() -> H256 {
+		H256(Emitter::Doomed::SIGNATURE_HASH.0)
+	}
+
+	/// Deploy the fixture into a block that is ready to take ethereum transactions.
+	fn deploy(fixture_type: FixtureType) -> H160 {
+		let (code, _) = compile_module_with_type("Emitter", fixture_type).unwrap();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			1_000_000_000_000,
+		));
+		Contracts::on_initialize(1);
+		builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr
+	}
+
+	/// The topics of every `ContractEmitted` event `contract` deposited, in order.
+	fn contract_emitted_topics(contract: H160) -> Vec<Vec<H256>> {
+		System::events()
+			.into_iter()
+			.filter_map(|record| match record.event {
+				RuntimeEvent::Contracts(crate::Event::ContractEmitted {
+					contract: emitter,
+					topics,
+					..
+				}) if emitter == contract => Some(topics),
+				_ => None,
+			})
+			.collect()
+	}
+
+	/// The error the ethereum transaction failed with, if it failed.
+	fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
+		System::events().into_iter().find_map(|record| match record.event {
+			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
+				Some(dispatch_error)
+			},
+			_ => None,
+		})
+	}
+
+	fn bloom_of(contract: H160, topic: H256) -> [u8; 256] {
+		let mut bloom = LogsBloom::new();
+		bloom.accrue_log(&contract, &[topic]);
+		bloom.bloom
+	}
+
+	fn occurrences(haystack: &[u8], word: &H256) -> usize {
+		haystack.windows(32).filter(|window| *window == word.0).count()
+	}
+
+	/// What the block committed to its receipts.
+	struct Committed {
+		transactions: usize,
+		bloom: [u8; 256],
+		/// The first transaction's receipt as RLP, when there was one.
+		first_receipt: Option<Vec<u8>>,
+		synthetic_transaction: bool,
+	}
+
+	fn finalize_block() -> Committed {
+		let first_receipt = EthBlockBuilderFirstValues::<Test>::get().map(|(_, r)| r);
+		Contracts::on_finalize(1);
+		let block = Pallet::<Test>::eth_block();
+		Committed {
+			transactions: block.transactions.len(),
+			bloom: block.logs_bloom.0,
+			first_receipt,
+			synthetic_transaction: Pallet::<Test>::eth_synthetic_transaction().is_some(),
+		}
+	}
+
+	fn assert_no_receipt_path(committed: &Committed) {
+		assert_eq!(committed.transactions, 0, "no ethereum transaction was in the block");
+		assert_eq!(committed.bloom, [0u8; 256], "so nothing is in the block's bloom");
+		assert!(!committed.synthetic_transaction, "and nothing was buffered for a synthetic one");
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn native_call_logs_are_events_only(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			builder::bare_call(addr)
+				.data(Emitter::emitValueCall { value: 7 }.abi_encode())
+				.build_and_unwrap_result();
+
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			assert!(EthBlockBuilderIR::<Test>::get().gas_info.is_empty(), "no receipt is open");
+			assert_no_receipt_path(&finalize_block());
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn reverted_native_call_leaves_no_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			let result = builder::bare_call(addr)
+				.data(Emitter::emitThenRevertCall { value: 7 }.abi_encode())
+				.build_and_unwrap_result();
+
+			assert!(result.did_revert());
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			assert_no_receipt_path(&finalize_block());
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn native_sub_call_revert_drops_only_its_own_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			let result = builder::bare_call(addr)
+				.data(Emitter::emitAndCallRevertingCall { kept: 1, dropped: 2 }.abi_encode())
+				.build_and_unwrap_result();
+
+			assert!(!result.did_revert());
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			assert_no_receipt_path(&finalize_block());
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ethereum_call_logs_land_on_the_receipt(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitValueCall { value: 7 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(committed.bloom, bloom_of(addr, emitted()));
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 1);
+			assert!(!committed.synthetic_transaction, "a frame's log is never buffered");
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn reverted_ethereum_call_receipt_has_no_logs(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitThenRevertCall { value: 7 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ContractReverted.into()));
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1, "the failed transaction is in the block");
+			assert_eq!(committed.bloom, [0u8; 256], "with an empty bloom");
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &doomed()), 0, "and no log in its receipt");
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	/// The frames succeed and log, then the transaction fails settling its fee: the logs go with
+	/// the state the frames committed.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ethereum_call_failing_after_its_frames_leaves_no_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+			let _ = <Test as Config>::FeeInfo::withdraw_txfee(
+				<Test as Config>::FeeInfo::remaining_txfee(),
+			);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitValueCall { value: 7 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::TxFeeOverdraw.into()));
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(committed.bloom, [0u8; 256]);
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 0);
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ethereum_sub_call_revert_drops_only_its_own_log(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(Emitter::emitAndCallRevertingCall { kept: 1, dropped: 2 }.abi_encode())
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(
+				committed.bloom,
+				bloom_of(addr, emitted()),
+				"the sub-call's log is not in it"
+			);
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 1);
+			assert_eq!(occurrences(&receipt, &doomed()), 0);
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	/// A log committed by a descendant frame goes with the ancestor that reverts above it, not
+	/// with the frame that emitted it: the descendant's storage write, its log and the
+	/// reverting ancestor's own log are all gone, the outer frame's log stays.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn ancestor_revert_discards_successful_descendant_logs(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(
+				builder::eth_call(addr)
+					.data(
+						Emitter::emitAndCallRevertingChainCall { kept: 1, dropped: 2 }.abi_encode()
+					)
+					.build()
+			);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(contract_emitted_topics(addr), vec![vec![emitted()]]);
+			let touched = builder::bare_call(addr)
+				.data(Emitter::touchedCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(
+				Emitter::touchedCall::abi_decode_returns(&touched.data).unwrap(),
+				0,
+				"the descendant's storage write rolled back"
+			);
+			let committed = finalize_block();
+			assert_eq!(committed.transactions, 1);
+			assert_eq!(
+				committed.bloom,
+				bloom_of(addr, emitted()),
+				"neither the descendant's nor the ancestor's log is in it"
+			);
+			let receipt = committed.first_receipt.expect("one transaction, one receipt");
+			assert_eq!(occurrences(&receipt, &emitted()), 1);
+			assert_eq!(occurrences(&receipt, &doomed()), 0);
+			assert!(!committed.synthetic_transaction);
+		});
+	}
+
+	/// A rollback layer above the frames that still succeeds: `batch_all` rolls back `first`
+	/// when the call after it fails, and the `batch` around it returns `Ok` regardless.
+	fn batch_rolling_back(first: RuntimeCall) -> RuntimeCall {
+		RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				calls: vec![first, RuntimeCall::Dummy(pallet_dummy::Call::fail {})],
+			})],
+		})
+	}
+
+	/// The transaction succeeded, its receipt is the block's only one, and `topic` is in neither
+	/// the receipt nor the bloom.
+	fn assert_status_1_receipt_without(topic: H256) {
+		assert_eq!(eth_extrinsic_revert(), None, "the transaction succeeded");
+		let committed = finalize_block();
+		assert_eq!(committed.transactions, 1);
+		assert_eq!(committed.bloom, [0u8; 256], "the rolled-back log is not in the bloom");
+		let receipt = committed.first_receipt.expect("one transaction, one receipt");
+		assert_eq!(occurrences(&receipt, &topic), 0, "nor in the receipt");
+		assert!(!committed.synthetic_transaction);
+	}
+
+	/// A mirrored balance change has no frame: its log goes straight onto the open receipt. When
+	/// the `batch_all` it ran in rolls back, the balance change and its event are gone, and the
+	/// receipt must not keep a `Transfer` that never happened.
+	#[test]
+	fn rolled_back_batch_all_keeps_a_mirrored_log_off_the_receipt() {
+		ExtBuilder::default().build().execute_with(|| {
+			deploy(FixtureType::Solc);
+			let mirror = H160::repeat_byte(0xa5);
+			let topic = H256::repeat_byte(0x11);
+
+			assert_ok!(Pallet::<Test>::eth_substrate_call(
+				Origin::EthTransaction(ALICE).into(),
+				Box::new(batch_rolling_back(RuntimeCall::Dummy(pallet_dummy::Call::emit_log {
+					contract: mirror,
+					topic,
+				}))),
+				vec![],
+			));
+
+			assert!(contract_emitted_topics(mirror).is_empty(), "the event rolled back");
+			assert_status_1_receipt_without(topic);
+		});
+	}
+
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn rolled_back_batch_all_keeps_a_frame_log_off_the_receipt(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+			let call = RuntimeCall::Contracts(crate::Call::call {
+				dest: addr,
+				value: 0,
+				weight_limit: WEIGHT_LIMIT,
+				storage_deposit_limit: deposit_limit::<Test>(),
+				data: Emitter::emitValueCall { value: 7 }.abi_encode(),
+			});
+
+			assert_ok!(Pallet::<Test>::eth_substrate_call(
+				Origin::EthTransaction(ALICE).into(),
+				Box::new(batch_rolling_back(call)),
+				vec![],
+			));
+
+			assert!(contract_emitted_topics(addr).is_empty(), "the event rolled back");
+			assert_status_1_receipt_without(emitted());
+		});
 	}
 }
