@@ -573,7 +573,7 @@ mod tests {
 			("cold info, cold blob", cold, cold, info_write_at_cold),
 			("cold info, hot blob", cold, read_paid, info_write_at_cold),
 			("read-paid info, hot blob", read_paid, read_paid, info_write_at_hot + journal),
-			("read-paid info, cold blob", read_paid, cold, info_write_at_cold + journal),
+			("read-paid info, cold blob", read_paid, cold, info_write_at_cold),
 			("write-paid info, hot blob", write_paid, read_paid, Weight::zero()),
 			("write-paid info, cold blob", write_paid, cold, Weight::zero()),
 		] {

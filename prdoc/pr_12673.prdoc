@@ -13,7 +13,7 @@ doc:
     `seal_call_transfer_hot`, `seal_delegate_call_hot`, `call_with_pvm_code_per_byte_hot`,
     `call_with_evm_code_per_byte_hot`, `access_list_touch_hot_upgrade`,
     `access_list_touch_hot_address_upgrade`, `access_list_touch_cold_address_empty`,
-    `access_list_touch_cold_address_full`, `access_list_touch_hot_address_single_element`,
+    `access_list_touch_cold_address_full`, `access_list_touch_hot_address_nearly_empty`,
     `access_list_touch_hot_address_full` and `access_list_rollback_address_amortization`.
     Some existing benchmarks also measure different work now, so runtimes with their own
     `pallet_revive` weights must regenerate them:
@@ -22,8 +22,13 @@ doc:
       but a cold call or instantiation now also pays `code_load`.
     - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
       `OriginalAccount` entry.
-    - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
-      measures an upgrade; `access_list_touch_hot_upgrade` measures that.
+    - The access-list touch benchmarks, `access_list_touch_cold_empty`,
+      `access_list_touch_cold_full`, `access_list_touch_hot_full` and the new ones, take the
+      number of touches `n` and measure `n` touches per run. `access_list_touch_hot_single_element`
+      is renamed to `access_list_touch_hot_nearly_empty` and touches `n` entries of a nearly
+      empty list.
+      `access_list_touch_hot_full` no longer measures an upgrade, which
+      `access_list_touch_hot_upgrade` now does.
     - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
       up to 4,096.
 

@@ -850,7 +850,6 @@ mod dry_run {
 	}
 
 	#[test]
-	#[ignore = "without first_frame_reads_paid, a bare_call dry run estimates below call"]
 	fn a_call_fits_a_bare_call_dry_run_estimate() {
 		let (code, _) = compile_module_with_type("SendBack", FixtureType::Solc).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
