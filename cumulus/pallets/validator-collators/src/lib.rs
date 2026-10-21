@@ -141,6 +141,24 @@ pub trait ReportAuthoredBlocks<AccountId> {
 	#[allow(clippy::result_unit_err)]
 	fn report(blocks: &[(AccountId, u32)]) -> Result<(), ()>;
 
+	/// The encoded size of what [`Self::report`] sends for `blocks`.
+	///
+	/// By default the encoded `blocks`, as if the transport added nothing: an XCM envelope adds a
+	/// few bytes. Checked against [`Self::max_message_size`] in the pallet's `integrity_test`.
+	#[cfg(feature = "std")]
+	fn message_size(blocks: &[(AccountId, u32)]) -> usize
+	where
+		AccountId: codec::Encode,
+	{
+		codec::Encode::encoded_size(blocks)
+	}
+
+	/// The largest message the transport accepts, `None` without a limit, as for a local credit.
+	#[cfg(feature = "std")]
+	fn max_message_size() -> Option<usize> {
+		None
+	}
+
 	/// Prepare the runtime so that [`Self::report`] succeeds for `blocks` in benchmarks.
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_report(_blocks: &[(AccountId, u32)]) {}
@@ -178,7 +196,7 @@ pub mod pallet {
 	use rand::{seq::SliceRandom, SeedableRng};
 	use rand_chacha::ChaCha20Rng;
 	use sp_runtime::{
-		traits::{BlakeTwo256, Hash, Saturating, Zero},
+		traits::{BlakeTwo256, Hash, Saturating, TrailingZeroInput, Zero},
 		SaturatedConversion,
 	};
 	use sp_staking::{EraIndex, SessionIndex};
@@ -449,6 +467,49 @@ pub mod pallet {
 			}
 			Self::report_blocks(authors);
 			meter.consume(base_weight.saturating_add(report_weight));
+		}
+
+		fn integrity_test() {
+			assert!(T::MaxEntriesPerReport::get() > 0, "`MaxEntriesPerReport` must not be zero");
+			assert!(
+				!T::DefaultReportPeriod::get().is_zero(),
+				"`DefaultReportPeriod` must not be zero"
+			);
+			assert!(
+				T::DefaultExpectedEraDuration::get() > 0,
+				"`DefaultExpectedEraDuration` must not be zero"
+			);
+			let margin = T::DefaultReportMargin::get();
+			assert!(
+				margin > 0 && margin <= T::MaxReportMargin::get(),
+				"`DefaultReportMargin` must not be zero and at most `MaxReportMargin`"
+			);
+			// `on_poll` postpones a report that does not fit, so one that does not fit an empty
+			// block is never made.
+			let report = T::WeightInfo::on_poll()
+				.saturating_add(T::WeightInfo::report_blocks(T::MaxValidators::get()));
+			let max_block = T::BlockWeights::get().max_block;
+			assert!(
+				report.all_lte(max_block),
+				"a report of `MaxValidators` authors weighs {report:?}, above the block {max_block:?}"
+			);
+
+			#[cfg(feature = "std")]
+			if let Some(max) = T::BlockReporter::max_message_size() {
+				let entries = (0..T::MaxEntriesPerReport::get())
+					.map(|i| {
+						let who = T::AccountId::decode(&mut TrailingZeroInput::new(&i.encode()))
+							.expect("infinite input decodes into an account; qed");
+						(who, u32::MAX)
+					})
+					.collect::<Vec<_>>();
+				let size = T::BlockReporter::message_size(&entries);
+				assert!(
+					size <= max,
+					"a report of {} entries is {size} bytes, above the limit of {max}",
+					entries.len()
+				);
+			}
 		}
 
 		#[cfg(feature = "try-runtime")]

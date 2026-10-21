@@ -3893,22 +3893,6 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }
 
-#[test]
-fn crediting_every_validator_locally_fits_the_block() {
-	use frame_support::traits::Get;
-	use pallet_validator_collators::{Config, WeightInfo};
-	type MaxValidators = <Runtime as Config>::MaxValidators;
-	// GIVEN this chain counted blocks for every validator of the largest set
-	let local = <Runtime as Config>::WeightInfo::report_blocks(<MaxValidators as Get<u32>>::get());
-	// WHEN they are credited locally in one block's `on_initialize`
-	// THEN the mandatory weight fits the block
-	assert!(
-		RuntimeBlockWeights::get().max_block.all_gte(local),
-		"crediting {} validators locally weighs {local:?}",
-		<MaxValidators as Get<u32>>::get()
-	);
-}
-
 // `fast-runtime` shortens the era, not the expected era duration.
 #[cfg(not(feature = "fast-runtime"))]
 #[test]

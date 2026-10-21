@@ -524,6 +524,14 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 		})
 	}
 
+	#[cfg(feature = "std")]
+	fn max_message_size(_: &ValidatorSetDestination) -> Option<usize> {
+		Some(
+			testnet_parachains_constants::westend::staking::LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE
+				as usize,
+		)
+	}
+
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_send(destination: &ValidatorSetDestination) {
 		match destination {

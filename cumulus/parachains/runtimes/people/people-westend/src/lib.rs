@@ -437,7 +437,8 @@ impl pallet_validator_collators::Config for Runtime {
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	// Asset Hub's message queue must process a report of this many entries within its service
 	// weight, which the emulated tests check. A heavier report is set aside as overweight on Asset
-	// Hub, after this chain has already removed its counts.
+	// Hub, after this chain has already removed its counts. The report must also fit an HRMP
+	// message, which the pallet's `integrity_test` checks.
 	type MaxEntriesPerReport = ConstU32<500>;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
@@ -497,6 +498,14 @@ impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for ReportBlock
 					blocks.len(),
 				);
 			})
+	}
+
+	#[cfg(feature = "std")]
+	fn max_message_size() -> Option<usize> {
+		Some(
+			testnet_parachains_constants::westend::staking::LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE
+				as usize,
+		)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

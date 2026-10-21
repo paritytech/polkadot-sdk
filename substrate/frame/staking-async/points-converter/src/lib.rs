@@ -155,6 +155,14 @@ pub mod pallet {
 		RelayConsensusNotWeighted,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn integrity_test() {
+			assert!(T::MaxPointsPerService::get() > 0, "`MaxPointsPerService` must not be zero");
+			assert!(T::MaxBlocksPerEntry::get() > 0, "`MaxBlocksPerEntry` must not be zero");
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		/// Set the era points a validator earns for each unit of `service` on `source`.

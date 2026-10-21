@@ -202,6 +202,15 @@ pub mod staking {
 	/// that system chains accept from it.
 	pub const MAX_VALIDATOR_SET: u32 = 1000;
 
+	/// The max message size of the HRMP channels between Asset Hub and People on Polkadot and
+	/// Kusama, in both directions, as read on 2026-10-20 from `hrmp.hrmpChannels({ sender,
+	/// recipient })`.
+	///
+	/// The system chains that send the validator set and the authored blocks over HRMP return it
+	/// as their limit, which the pallets check in their `integrity_test`. Recheck it when the relay
+	/// chain changes it.
+	pub const LAST_KNOWN_HRMP_MAX_MESSAGE_SIZE: u32 = 102_400;
+
 	/// Expected time from the arrival of a validator set on a system chain to the end of its era,
 	/// in milliseconds: six relay chain sessions of one hour, the era length of Asset Hub's
 	/// staking.
