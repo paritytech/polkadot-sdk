@@ -68,7 +68,7 @@ impl TrackedKey for (Vec<u8>, Vec<u8>) {
 	}
 }
 
-/// Map hasher for [`KeyHash`] keys: the key is already a hash, so its low half is the bucket.
+/// No hashing: the key is a hash already, its low 64 bits are the bucket index.
 #[derive(Default)]
 pub struct KeyHashHasher(u64);
 
@@ -121,11 +121,20 @@ pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 /// that later removals depend on. The trie therefore accumulates removals across size estimation
 /// calls.
 ///
-/// # Note on performance profile
+/// # Key identity
 ///
-/// Optimized for 1k-5k transactions with ~10 nesting levels. Each transaction typically
-/// has 10-20 keys, with 50% duplication across transactions. Keys are 64-162 byte arrays
-/// (concatenated cryptographic hashes). Deduplication is highly optimized.
+/// Keys are 64 to 162 byte arrays, and a block writes thousands of them. The tracker looks
+/// each key up many times: on every write, on every size estimation call, and once per open
+/// layer when it checks whether the key was already reported. Hashing the full key bytes on
+/// each of those lookups was measured at 6-7% of block production time.
+///
+/// So the tracker hashes a key once, when it is written, and uses the hash as the key's
+/// identity from then on. See [`KeyHash`] and [`TrackedKey`]. All maps are keyed by that
+/// hash. Their own hasher, [`KeyHashHasher`], does no hashing at all: the key is already a
+/// hash, so it just returns the low 64 bits as the bucket index.
+///
+/// The hash is Blake2. It is the same on the collator and in the PVF, so both sides agree
+/// on every key. A 128-bit collision is out of reach, so two keys never share an identity.
 pub struct ProofSizeTracker<K, H: Hasher> {
 	/// Stack of parent transaction layers (outermost first).
 	layers: Vec<TransactionLayer<K, H>>,
