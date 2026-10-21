@@ -13920,8 +13920,11 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -13930,8 +13933,13 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "log",
  "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
  "scale-info",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
