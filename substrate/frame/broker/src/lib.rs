@@ -595,8 +595,6 @@ pub mod pallet {
 		SovereignAccountNotFound,
 		/// Attempted to disable auto-renewal for a core that didn't have it enabled.
 		AutoRenewalNotEnabled,
-		/// Attempted to enable auto-renewal for a core that already has it enabled.
-		AutoRenewalAlreadyEnabled,
 		/// Attempted to force remove an assignment that doesn't exist.
 		AssignmentNotFound,
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
@@ -604,6 +602,8 @@ pub mod pallet {
 		CreditPurchaseTooSmall,
 		/// The renewable workload of the core does not include the given task.
 		TaskNotInWorkload,
+		/// Attempted to enable auto-renewal for a core that already has it enabled.
+		AutoRenewalAlreadyEnabled,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
