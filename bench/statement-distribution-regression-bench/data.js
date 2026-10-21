@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792528820620,
+  "lastUpdate": 1792570901672,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "60601340+lexnv@users.noreply.github.com",
-            "name": "Alexandru Vasile",
-            "username": "lexnv"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cf245e0df46f34d1a24f7f42f4a9845a7f6b770b",
-          "message": "collator-protocol: Enhance visibility into para id of failed to fetch collations (#11629)\n\nThis PR enhances the observability of our logs when validators refuse to\nfetch advertised collations for certain para IDs.\n\nThe validator keeps track of advertised collations from collators.\nThen, the validator checks if it has sufficient slots\n(`is_slot_available`) and if the collation can be seconded\n(`can_second`).\nIf either of the mentioned functions fails, the validator silently\nignores the collation.\n\nThis PR aims to surface this behavior and help investigate further\nissues.\n\nThis PR is already deployed on validators and has surfaced:\n- https://github.com/paritytech/polkadot-sdk/issues/11625\n\nPart of:\n- https://github.com/paritytech/polkadot-sdk/issues/11377\n\n---------\n\nSigned-off-by: Alexandru Vasile <alexandru.vasile@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Tsvetomir Dimitrov <tsvetomir@parity.io>",
-          "timestamp": "2026-04-07T13:34:59Z",
-          "tree_id": "ede38e5c65cd589a7bee6f97619f5e406d7699d2",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cf245e0df46f34d1a24f7f42f4a9845a7f6b770b"
-        },
-        "date": 1775574296845,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.072,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03773398187400001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07658054310199991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03871725713800001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff",
+          "message": "Remove accidentally reintroduced contracts  runtime (#13522)\n\nRuntime was removed in #7638 and accidentally reintroduced in #1739\n\nThis also removes the `cargo-check-runtimes` job. This was triggered by\nlooking at changes at `cumulus/parachains/runtimes/*`. But actually this\nonly includes files directly in that folder and not on subfolders. So\nthe job nearly never ran. Also it is only checking the crates, which is\nalso covered by our crate-checker job. So from my perspective we can\njust kill this one.",
+          "timestamp": "2026-10-21T06:45:20Z",
+          "tree_id": "2b89564b09669493c4c1c6e27b2ba2070ee265b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff"
+        },
+        "date": 1792570867426,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.17199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09168923547599997,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03924652917200001,
             "unit": "seconds"
           }
         ]
