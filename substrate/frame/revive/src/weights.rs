@@ -159,6 +159,7 @@ pub trait WeightInfo {
 	fn access_list_touch_cold_address_full() -> Weight;
 	fn access_list_touch_hot_address_full() -> Weight;
 	fn access_list_touch_hot_upgrade() -> Weight;
+	fn access_list_touch_hot_address_upgrade() -> Weight;
 	fn access_list_rollback_amortization() -> Weight;
 	fn access_list_rollback_address_amortization() -> Weight;
 	fn set_transient_storage_empty() -> Weight;
@@ -1346,6 +1347,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Estimated: `0`
 		// Minimum execution time: 5_202_000 picoseconds.
 		Weight::from_parts(5_878_000, 0)
+	}
+	fn access_list_touch_hot_address_upgrade() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_358_000 picoseconds.
+		Weight::from_parts(1_508_000, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:
@@ -3336,6 +3344,13 @@ impl WeightInfo for () {
 		//  Estimated: `0`
 		// Minimum execution time: 5_202_000 picoseconds.
 		Weight::from_parts(5_878_000, 0)
+	}
+	fn access_list_touch_hot_address_upgrade() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 1_358_000 picoseconds.
+		Weight::from_parts(1_508_000, 0)
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:

@@ -565,7 +565,9 @@ mod tests {
 		let info_write_at_cold = <Test as Config>::WeightInfo::code_load(1)
 			.saturating_sub(<Test as Config>::WeightInfo::code_load(0));
 		let info_write_at_hot = runtime_costs::deferred_write_cost::<Test>();
-		let journal = runtime_costs::access_list_upgrade_overhead::<Test>();
+		let journal = runtime_costs::access_list_upgrade_overhead::<Test>(
+			crate::access_list::KeyFamily::PalletStorageSlot,
+		);
 
 		for (case, info, blob, owed) in [
 			("cold info, cold blob", cold, cold, info_write_at_cold),

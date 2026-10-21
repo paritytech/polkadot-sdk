@@ -268,21 +268,27 @@ fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 				T::WeightInfo::access_list_rollback_address_amortization,
 			],
 		};
-	let cold_touch = cold_full().saturating_sub(cold_base());
-	let hot_touch = hot_full().saturating_sub(hot_base());
-	cold_touch
+	// The bench that ran already paid one small-list touch per entry.
+	let bench_base = if summary.all_hot() { hot_base() } else { cold_base() };
+	cold_full()
 		.saturating_mul(summary.cold().into())
-		.saturating_add(hot_touch.saturating_mul(summary.hot().into()))
+		.saturating_add(hot_full().saturating_mul(summary.hot().into()))
+		.saturating_sub(bench_base.saturating_mul(summary.total().into()))
 		.saturating_add(rollback().saturating_mul(summary.cold_revertible().into()))
 		.saturating_add(
-			access_list_upgrade_overhead::<T>().saturating_mul(summary.upgrades().into()),
+			access_list_upgrade_overhead::<T>(summary.key_family())
+				.saturating_mul(summary.upgrades().into()),
 		)
 }
 
 /// Computes the cost of journaling a `Read` to `Write` upgrade, on top of the touch itself.
-pub fn access_list_upgrade_overhead<T: Config>() -> Weight {
-	T::WeightInfo::access_list_touch_hot_upgrade()
-		.saturating_sub(T::WeightInfo::access_list_touch_hot_full())
+pub fn access_list_upgrade_overhead<T: Config>(key_family: KeyFamily) -> Weight {
+	match key_family {
+		KeyFamily::ContractStorageSlot => T::WeightInfo::access_list_touch_hot_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_full()),
+		KeyFamily::PalletStorageSlot => T::WeightInfo::access_list_touch_hot_address_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_address_full()),
+	}
 }
 
 /// Computes the cost a hot write adds on top of the cold read that warmed the key: re-hashing
@@ -590,22 +596,62 @@ mod tests {
 
 	#[test]
 	fn an_access_list_registration_pays_for_journaling_an_upgrade() {
-		let registration_weight = |warmth, op| {
+		let registration_weight = |key_family, warmth, op| {
 			weight(&RuntimeCosts::AccessListRegistration(
-				WarmthSummary::new(KeyFamily::PalletStorageSlot).add(warmth, op),
+				WarmthSummary::new(key_family).add(warmth, op),
 			))
 		};
+		for key_family in [KeyFamily::ContractStorageSlot, KeyFamily::PalletStorageSlot] {
+			assert_eq!(
+				registration_weight(key_family, Warmth::new_read_paid(), StorageOp::Write)
+					.saturating_sub(registration_weight(
+						key_family,
+						Warmth::new_write_paid(),
+						StorageOp::Write,
+					)),
+				access_list_upgrade_overhead::<Test>(key_family),
+				"{key_family:?}",
+			);
+			assert_eq!(
+				registration_weight(
+					key_family,
+					Warmth::new_cold_non_revertible(),
+					StorageOp::Write
+				),
+				registration_weight(key_family, Warmth::new_cold_non_revertible(), StorageOp::Read),
+				"{key_family:?}: a cold entry has nothing to upgrade",
+			);
+		}
+	}
 
-		assert_eq!(
-			registration_weight(Warmth::new_read_paid(), StorageOp::Write)
-				.saturating_sub(registration_weight(Warmth::new_write_paid(), StorageOp::Write)),
-			access_list_upgrade_overhead::<Test>(),
-		);
-		assert_eq!(
-			registration_weight(Warmth::new_cold_non_revertible(), StorageOp::Write),
-			registration_weight(Warmth::new_cold_non_revertible(), StorageOp::Read),
-			"a cold entry has nothing to upgrade",
-		);
+	#[test]
+	fn a_partly_cold_access_subtracts_one_base_per_entry() {
+		let cold = Warmth::new_cold_non_revertible();
+		let hot = Warmth::new_read_paid();
+		let overhead = |key_family, warmths: [Warmth; 2]| {
+			let summary = warmths.iter().fold(WarmthSummary::new(key_family), |summary, warmth| {
+				summary.add(*warmth, StorageOp::Read)
+			});
+			access_list_overhead::<Test>(summary)
+		};
+		for (key_family, cold_full, hot_full) in [
+			(
+				KeyFamily::ContractStorageSlot,
+				<Test as Config>::WeightInfo::access_list_touch_cold_full(),
+				<Test as Config>::WeightInfo::access_list_touch_hot_full(),
+			),
+			(
+				KeyFamily::PalletStorageSlot,
+				<Test as Config>::WeightInfo::access_list_touch_cold_address_full(),
+				<Test as Config>::WeightInfo::access_list_touch_hot_address_full(),
+			),
+		] {
+			assert_eq!(
+				overhead(key_family, [cold, hot]).saturating_add(cold_full),
+				overhead(key_family, [cold, cold]).saturating_add(hot_full),
+				"{key_family:?}: on the cold path a hot entry subtracts the cold bench's base too",
+			);
+		}
 	}
 
 	#[test]
@@ -628,7 +674,14 @@ mod tests {
 			("hot address touch", touch_overhead(hot, KeyFamily::PalletStorageSlot)),
 			("slot rollback", rollback_overhead(KeyFamily::ContractStorageSlot)),
 			("address rollback", rollback_overhead(KeyFamily::PalletStorageSlot)),
-			("journaled upgrade", access_list_upgrade_overhead::<Test>()),
+			(
+				"journaled slot upgrade",
+				access_list_upgrade_overhead::<Test>(KeyFamily::ContractStorageSlot),
+			),
+			(
+				"journaled address upgrade",
+				access_list_upgrade_overhead::<Test>(KeyFamily::PalletStorageSlot),
+			),
 			("hot storage overlay", overlay_overhead),
 		];
 		for (overhead_name, overhead) in derived_overheads {
@@ -748,7 +801,7 @@ mod tests {
 		const LEN: u32 = 64;
 
 		let deferred_write = deferred_write_cost::<Test>();
-		let upgrade_overhead = access_list_upgrade_overhead::<Test>();
+		let upgrade_overhead = access_list_upgrade_overhead::<Test>(KeyFamily::ContractStorageSlot);
 		let db = <Test as frame_system::Config>::DbWeight::get();
 		let read_paid = Warmth::new_read_paid();
 		let write_paid = Warmth::new_write_paid();
@@ -997,8 +1050,8 @@ mod tests {
 			)))
 		};
 
-		let surcharge_and_upgrade =
-			deferred_write_cost::<Test>().saturating_add(access_list_upgrade_overhead::<Test>());
+		let surcharge_and_upgrade = deferred_write_cost::<Test>()
+			.saturating_add(access_list_upgrade_overhead::<Test>(KeyFamily::PalletStorageSlot));
 		let write_paid_dust_transfer = weight_of(true, write_paid, write_paid);
 
 		assert_eq!(

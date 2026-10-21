@@ -9,12 +9,12 @@ doc:
     cold benchmark if any of the items it accesses is cold, and the hot benchmark if all are hot.
 - audience: Runtime Dev
   description: |-
-    `WeightInfo` has 13 new required methods: `code_load`, `account_info_read`, `seal_call_hot`,
+    `WeightInfo` has 14 new required methods: `code_load`, `account_info_read`, `seal_call_hot`,
     `seal_call_transfer_hot`, `seal_delegate_call_hot`, `call_with_pvm_code_per_byte_hot`,
     `call_with_evm_code_per_byte_hot`, `access_list_touch_hot_upgrade`,
-    `access_list_touch_cold_address_empty`, `access_list_touch_cold_address_full`,
-    `access_list_touch_hot_address_single_element`, `access_list_touch_hot_address_full` and
-    `access_list_rollback_address_amortization`.
+    `access_list_touch_hot_address_upgrade`, `access_list_touch_cold_address_empty`,
+    `access_list_touch_cold_address_full`, `access_list_touch_hot_address_single_element`,
+    `access_list_touch_hot_address_full` and `access_list_rollback_address_amortization`.
     Some existing benchmarks also measure different work now, so runtimes with their own
     `pallet_revive` weights must regenerate them:
     - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
