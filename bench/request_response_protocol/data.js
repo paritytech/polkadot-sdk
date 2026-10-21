@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792527455126,
+  "lastUpdate": 1792569877536,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -135647,6 +135647,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2743574916,
             "range": "± 24072342",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff",
+          "message": "Remove accidentally reintroduced contracts  runtime (#13522)\n\nRuntime was removed in #7638 and accidentally reintroduced in #1739\n\nThis also removes the `cargo-check-runtimes` job. This was triggered by\nlooking at changes at `cumulus/parachains/runtimes/*`. But actually this\nonly includes files directly in that folder and not on subfolders. So\nthe job nearly never ran. Also it is only checking the crates, which is\nalso covered by our crate-checker job. So from my perspective we can\njust kill this one.",
+          "timestamp": "2026-10-21T06:45:20Z",
+          "tree_id": "2b89564b09669493c4c1c6e27b2ba2070ee265b0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7a3a1675fadff0e10aa4beb868e6bfb8c12af5ff"
+        },
+        "date": 1792569842500,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20405590,
+            "range": "± 726716",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20098666,
+            "range": "± 551113",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21682081,
+            "range": "± 375994",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27060201,
+            "range": "± 846323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65455872,
+            "range": "± 2830126",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377341795,
+            "range": "± 30574296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2841216264,
+            "range": "± 164843133",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17570737,
+            "range": "± 943974",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17951350,
+            "range": "± 591764",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18004100,
+            "range": "± 686585",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22490962,
+            "range": "± 411137",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65846463,
+            "range": "± 2032597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 388778827,
+            "range": "± 19619064",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2852238435,
+            "range": "± 116602821",
             "unit": "ns/iter"
           }
         ]
