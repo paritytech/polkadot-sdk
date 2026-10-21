@@ -168,13 +168,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
-	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
-	///
-	/// Use slot-based collator which can handle elastic scaling.
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long, conflicts_with = "authoring")]
-	pub experimental_use_slot_based: bool,
-
 	/// Authoring style to use.
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
@@ -379,10 +372,7 @@ impl Display for AuthoringPolicy {
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			authoring_policy: self
-				.experimental_use_slot_based
-				.then(|| AuthoringPolicy::SlotBased)
-				.unwrap_or(self.authoring),
+			authoring_policy: self.authoring,
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			statement_store_config: self.enable_statement_store.then_some(
