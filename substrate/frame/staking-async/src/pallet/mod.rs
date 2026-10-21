@@ -124,6 +124,8 @@ pub mod pallet {
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelper<AccountId, Balance> {
 		fn mint_operational_expenses_token(to: &AccountId, amount: Balance) -> DispatchResult;
+
+		fn operational_expenses_token_min_balance() -> Balance;
 	}
 
 	#[pallet::config(with_default)]

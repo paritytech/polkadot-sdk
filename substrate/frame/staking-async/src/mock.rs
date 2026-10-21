@@ -572,9 +572,26 @@ impl BenchmarkHelper<AccountId, Balance> for BenchHelper {
 		to: &AccountId,
 		amount: Balance,
 	) -> frame_support::dispatch::DispatchResult {
-		use frame_support::traits::fungibles::Mutate;
+		use frame_benchmarking::whitelisted_caller;
+		use frame_support::traits::fungibles::{Create, Inspect, Mutate};
+
+		if !Assets::asset_exists(ValidatorExpensesAssetId::get()) {
+			let caller: AccountId = whitelisted_caller();
+			<Assets as Create<_>>::create(
+				ValidatorExpensesAssetId::get(),
+				caller,
+				false,
+				1u32.into(),
+			)?;
+		}
 
 		Assets::mint_into(ValidatorExpensesAssetId::get(), to, amount).map(|_| ())
+	}
+
+	fn operational_expenses_token_min_balance() -> Balance {
+		use frame_support::traits::fungibles::Inspect;
+
+		Assets::minimum_balance(ValidatorExpensesAssetId::get())
 	}
 }
 

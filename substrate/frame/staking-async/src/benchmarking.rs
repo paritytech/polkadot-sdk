@@ -44,6 +44,7 @@ use sp_staking::currency_to_vote::CurrencyToVote;
 use testing_utils::*;
 
 const SEED: u32 = 0;
+const OPERATIONAL_EXPENSES_PAYOUT: u32 = 1_000_000;
 
 // This function clears all existing validators and nominators from the set, and generates one new
 // validator being nominated by n nominators, and returns the validator stash account and the
@@ -142,6 +143,16 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::ValidatorSelfStake);
 	let _ = asset::mint_creating::<T>(&incentive_pot, incentive_payout);
 	ErasValidatorIncentiveBudget::<T>::insert(planned_era, incentive_payout);
+
+	let operational_expenses_pot =
+		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::OperationalExpenses);
+	let min_balance = T::BenchmarkHelper::operational_expenses_token_min_balance();
+	let payout: BalanceOf<T> = OPERATIONAL_EXPENSES_PAYOUT.into();
+	assert_ok!(T::BenchmarkHelper::mint_operational_expenses_token(
+		&operational_expenses_pot,
+		payout + min_balance,
+	));
+	ErasValidatorExpensesReward::<T>::insert(planned_era, payout);
 
 	// Single-validator benchmark setup: sum == this validator's weight.
 	let incentive_weight = BalanceOf::<T>::from(100u64);
@@ -757,6 +768,16 @@ mod benchmarks {
 		#[extrinsic_call]
 		payout_stakers(RawOrigin::Signed(caller), validator.clone(), current_era);
 
+		frame_system::Pallet::<T>::assert_has_event(
+			Event::ValidatorOperationalExpensesPaid {
+				era: current_era,
+				validator_stash: validator.clone(),
+				dest: RewardDestination::Staked,
+				amount: OPERATIONAL_EXPENSES_PAYOUT.into(),
+			}
+			.into(),
+		);
+
 		let balance_after = asset::stakeable_balance::<T>(&validator);
 		ensure!(
 			balance_before < balance_after,
@@ -1230,6 +1251,15 @@ mod benchmarks {
 		let initial_planned_era = Rotator::<T>::planned_era();
 		let initial_active_era = Rotator::<T>::active_era();
 
+		let operational_expenses_pot =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+		let min_balance = T::BenchmarkHelper::operational_expenses_token_min_balance();
+		let operational_esxpenses_payout = min_balance * 10u32.into();
+		assert_ok!(T::BenchmarkHelper::mint_operational_expenses_token(
+			&operational_expenses_pot,
+			min_balance + operational_esxpenses_payout,
+		));
+
 		// create a small, arbitrary number of stakers. This is just for sanity of the era planning,
 		// numbers don't matter.
 		crate::testing_utils::create_validators_with_nominators_for_era::<T>(
@@ -1365,6 +1395,7 @@ mod benchmarks {
 			total_incentive_weight.saturating_mul(BalanceOf::<T>::from(7u32)),
 		);
 		ErasValidatorIncentiveBudget::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
+		ErasValidatorExpensesReward::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
 
 		era
 	}
