@@ -381,6 +381,8 @@ pub mod pallet {
 		WrongWitness,
 		/// The channel between these two chains cannot be authorized.
 		ChannelCreationNotAuthorized,
+		/// The origin may not poke the deposits of this channel.
+		PokeHrmpChannelUnauthorized,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -727,8 +729,7 @@ pub mod pallet {
 			Ok(Some(<T as Config>::WeightInfo::force_open_hrmp_channel(cancel_request)).into())
 		}
 
-		/// Establish an HRMP channel between two system chains. If the channel does not already
-		/// exist, the transaction fees will be refunded to the caller. The system does not take
+		/// Establish an HRMP channel between two system chains. The system does not take
 		/// deposits for channels between system chains, and automatically sets the message number
 		/// and size limits to the maximum allowed by the network's configuration.
 		///
@@ -737,8 +738,9 @@ pub mod pallet {
 		/// - `sender`: A system chain, `ParaId`.
 		/// - `recipient`: A system chain, `ParaId`.
 		///
-		/// Any signed origin can call this function, but _both_ inputs MUST be system chains. If
-		/// the channel does not exist yet, there is no fee.
+		/// Any signed origin, the `ChannelManager`, or a system parachain can call this function.
+		///
+		/// _both_ inputs MUST be system chains. There is no fee.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
@@ -746,7 +748,13 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResultWithPostInfo {
-			let _caller = ensure_signed(origin)?;
+			ensure!(
+				ensure_signed(origin.clone()).is_ok() ||
+					T::ChannelManager::ensure_origin(origin.clone()).is_ok() ||
+					ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))
+						.is_ok_and(|caller| caller.is_system()),
+				Error::<T>::ChannelCreationNotAuthorized
+			);
 
 			// both chains must be system
 			ensure!(
@@ -779,7 +787,8 @@ pub mod pallet {
 		/// - `sender`: A chain, `ParaId`.
 		/// - `recipient`: A chain, `ParaId`.
 		///
-		/// Any signed origin can call this function.
+		/// Any signed origin, the `ChannelManager`, or either chain of the channel can call this
+		/// function.
 		#[pallet::call_index(9)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::poke_channel_deposits()
@@ -789,8 +798,16 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			sender: ParaId,
 			recipient: ParaId,
-		) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
+		) -> DispatchResultWithPostInfo {
+			if ensure_signed(origin.clone()).is_err() &&
+				T::ChannelManager::ensure_origin(origin.clone()).is_err()
+			{
+				let caller = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+				ensure!(
+					caller == sender || caller == recipient,
+					Error::<T>::PokeHrmpChannelUnauthorized,
+				);
+			}
 
 			let channel_id = HrmpChannelId { sender, recipient };
 			let channel = HrmpChannels::<T>::get(&channel_id)
@@ -803,7 +820,7 @@ pub mod pallet {
 				(sender_deposit, recipient_deposit)
 			{
 				Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
-				return Ok(());
+				return Ok(().into());
 			}
 
 			// `OpenChannelDepositsUpdated` is emitted once the deposits are set and recorded.
@@ -818,7 +835,8 @@ pub mod pallet {
 					target: recipient_deposit,
 				}),
 				action: DepositAction::PokeChannelDeposits,
-			})
+			})?;
+			Ok(().into())
 		}
 
 		/// Establish a bidirectional HRMP channel between a parachain and a system chain.
