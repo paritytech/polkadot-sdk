@@ -1,0 +1,136 @@
+title: 'Update EVM Opcode Benchmarking and Weights'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replace JUMPDEST-based estimates for selected EVM op-codes with
+    weights derived from their own benchmarks.
+
+    The `evm_opcode` benchmark and WeightInfo method are renamed to
+    `evm_jumpdest_opcode`. Rename the method in custom WeightInfo
+    implementations and update its callers.
+
+    The following benchmarks and matching WeightInfo methods are added:
+
+    - `evm_jump_opcode`
+    - `evm_jumpi_opcode`
+    - `evm_pc_opcode`
+    - `evm_push_opcode`
+    - `evm_dup_opcode`
+    - `evm_swap_opcode`
+    - `evm_chainid_opcode`
+    - `evm_difficulty_opcode`
+    - `evm_codesize_opcode`
+    - `evm_calldatasize_opcode`
+    - `evm_returndatasize_opcode`
+    - `evm_calldataload_opcode`
+    - `evm_calldatacopy_opcode`
+    - `evm_codecopy_opcode`
+    - `evm_returndatacopy_opcode`
+    - `evm_memory_grow`
+    - `evm_memory_reallocate`
+    - `evm_memory_copy_out`
+    - `evm_mload_opcode`
+    - `evm_msize_opcode`
+    - `evm_mstore_opcode`
+    - `evm_mstore8_opcode`
+    - `evm_mcopy_opcode`
+    - `evm_mcopy_per_byte`
+    - `evm_lt_opcode`
+    - `evm_gt_opcode`
+    - `evm_eq_opcode`
+    - `evm_iszero_opcode`
+    - `evm_and_opcode`
+    - `evm_or_opcode`
+    - `evm_xor_opcode`
+    - `evm_not_opcode`
+    - `evm_byte_opcode`
+    - `evm_clz_opcode`
+    - `evm_slt_opcode`
+    - `evm_sgt_opcode`
+    - `evm_shl_opcode`
+    - `evm_shr_opcode`
+    - `evm_sar_opcode`
+    - `evm_add_opcode`
+    - `evm_sub_opcode`
+    - `evm_mul_opcode`
+    - `evm_exp_zero_opcode`
+    - `evm_exp_opcode`
+    - `evm_exp_per_bit`
+    - `evm_signextend_opcode`
+    - `evm_dispatch_mix`
+    - `evm_div_opcode_three_limb_variant`
+    - `evm_sdiv_opcode_three_limb_variant`
+    - `evm_mod_opcode_three_limb_variant`
+    - `evm_smod_opcode_three_limb_variant`
+    - `evm_addmod_opcode_three_limb_variant`
+
+    Below, `slope(f)` is `f(1) - f(0)` for a WeightInfo method `f`. An
+    op-code charged from its own benchmark pays the benchmark's slope.
+    `JUMP` and `JUMPI` subtract `slope(evm_jumpdest_opcode)`, and the
+    op-codes benchmarked in pairs with a `POP` subtract
+    `slope(evm_pop_opcode)`. `DIV`, `SDIV`, `MOD`, `SMOD` and `ADDMOD` take
+    the largest slope of their benchmark and its `_one_limb_variant`,
+    `_three_limb_variant`, `_mixed_variant` and `_fixed_knuth_variant`
+    benchmarks before subtracting. Before it runs, every op-code except
+    `PUSH`, `DUP` and `SWAP` also pays a dispatch charge, including
+    op-codes charged through RuntimeCosts: `slope(evm_dispatch_mix)` minus
+    the charges of the 80 op-codes in one block of that benchmark, divided
+    by 80.
+
+    These charges depend on the size of an operand:
+
+    - `EXP` with a zero exponent: `slope(evm_exp_zero_opcode)`, plus the
+      dispatch charge.
+    - `EXP` with an exponent of `L >= 1` bits: `slope(evm_exp_opcode) +
+      slope(evm_exp_per_bit) * (L - 1)`, plus the dispatch charge.
+    - `MCOPY` of `len` bytes: `slope(evm_mcopy_opcode) +
+      slope(evm_mcopy_per_byte) * max(len - 64, 0)`, plus the dispatch
+      charge. A zero-length copy pays the fixed part too.
+    - `CALLDATACOPY`, `CODECOPY` and `RETURNDATACOPY`: the slope of
+      `evm_calldatacopy_opcode`, `evm_codecopy_opcode` and
+      `evm_returndatacopy_opcode` respectively, plus the dispatch charge,
+      also at zero length. A non-zero length also pays
+      `seal_copy_to_contract(len)` and the memory growth.
+    - Memory growth from `current` to `target` bytes, with `target`
+      rounded up to a multiple of 32:
+      `slope(evm_memory_grow) * (target - current) / 32`. When `target`
+      exceeds the capacity of the memory buffer, the capacity becomes
+      `target` rounded up to a power of two, and the growth also pays
+      `evm_memory_reallocate(capacity / 32)`. The buffer starts at 4 KiB.
+      Every op-code whose non-empty memory range ends past the current
+      memory size pays this, including the input and output ranges of
+      calls.
+    - `RETURN` and `REVERT` with `len > 0` bytes of output:
+      `evm_memory_copy_out(len)`.
+
+    Regenerate pallet-revive weights for your runtime and implement these
+    methods in custom WeightInfo implementations.
+
+    The pallet's `integrity_test` requires the `ref_time` of the dispatch
+    charge above to be greater than zero. If it fails for your runtime,
+    regenerate its pallet-revive weights.
+
+    No storage migration is required.
+- audience: Runtime User
+  description: |-
+    Selected EVM op-codes are charged from their own benchmarks, so their
+    gas costs change. The exact prices depend on the weights of each
+    runtime.
+
+    - Cheaper: `JUMP`, `JUMPI`, `EXP` with small exponents, and long
+      `MCOPY` copies.
+    - Much more expensive: `DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and
+      `MULMOD`.
+    - More expensive: `CALLDATALOAD`, `MLOAD`, `MSTORE`, `EQ`, `MUL`, `EXP`
+      with large exponents, and short `MCOPY` copies.
+
+    Existing contracts do not need migration or redeployment. Re-estimate
+    gas limits after the runtime upgrade; calls using previous limits
+    may run out of gas.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: major

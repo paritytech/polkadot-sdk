@@ -21,11 +21,10 @@ use crate::{
 	address::AddressMapper,
 	vm::{
 		Ext, RuntimeCosts,
-		evm::{EVMGas, Interpreter, interpreter::Halt, util::as_usize_or_halt},
+		evm::{EvmOpcodeCosts, Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
 use core::ops::ControlFlow;
-use revm::interpreter::gas::{BASE, VERYLOW};
 use sp_core::H256;
 use sp_io::hashing::keccak_256;
 
@@ -48,7 +47,7 @@ pub fn keccak256<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 		H256::from(KECCAK_EMPTY)
 	} else {
 		let from = as_usize_or_halt::<E::T>(offset)?;
-		interpreter.memory.resize(from, len)?;
+		interpreter.memory.resize(from, len, interpreter.ext)?;
 		H256::from(keccak_256(interpreter.memory.slice_len(from, len)))
 	};
 	*top = U256::from_big_endian(hash.as_ref());
@@ -82,7 +81,7 @@ pub fn caller<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Pushes the size of running contract's bytecode onto the stack.
 pub fn codesize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CodeSize)?;
 	interpreter.stack.push(U256::from(interpreter.bytecode.len()))
 }
 
@@ -90,6 +89,7 @@ pub fn codesize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Copies running contract's bytecode to memory.
 pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CodeCopy)?;
 	let [memory_offset, code_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 	let Some(memory_offset) = memory_resize(interpreter, memory_offset, len)? else {
@@ -111,7 +111,7 @@ pub fn codecopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 ///
 /// Loads 32 bytes of input data from the specified offset.
 pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(VERYLOW))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CallDataLoad)?;
 	let ([], offset_ptr) = interpreter.stack.popn_top()?;
 	let mut word = [0u8; 32];
 	let offset = as_usize_saturated(*offset_ptr);
@@ -129,7 +129,7 @@ pub fn calldataload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 ///
 /// Pushes the size of input data onto the stack.
 pub fn calldatasize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CallDataSize)?;
 	interpreter.stack.push(U256::from(interpreter.input.len()))
 }
 
@@ -146,6 +146,7 @@ pub fn callvalue<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> 
 ///
 /// Copies input data to memory.
 pub fn calldatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::CallDataCopy)?;
 	let [memory_offset, data_offset, len] = interpreter.stack.popn()?;
 	let len = as_usize_or_halt::<E::T>(len)?;
 
@@ -162,13 +163,14 @@ pub fn calldatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Hal
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatasize<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(EVMGas(BASE))?;
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ReturnDataSize)?;
 	let return_data_len = interpreter.ext.last_frame_output().data.len();
 	interpreter.stack.push(U256::from(return_data_len))
 }
 
 /// EIP-211: New opcodes: RETURNDATASIZE and RETURNDATACOPY
 pub fn returndatacopy<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	interpreter.ext.charge_or_halt(EvmOpcodeCosts::ReturnDataCopy)?;
 	let [memory_offset, offset, len] = interpreter.stack.popn()?;
 
 	let len = as_usize_or_halt::<E::T>(len)?;
@@ -217,6 +219,6 @@ pub fn memory_resize<'a, E: Ext>(
 
 	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
-	interpreter.memory.resize(memory_offset, len)?;
+	interpreter.memory.resize(memory_offset, len, interpreter.ext)?;
 	ControlFlow::Continue(Some(memory_offset))
 }

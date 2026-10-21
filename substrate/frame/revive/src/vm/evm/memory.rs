@@ -15,21 +15,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, Error, vm::evm::Halt};
+use crate::{
+	Config, Error, RuntimeCosts,
+	vm::{Ext, evm::Halt},
+};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
 
 /// EVM memory implementation
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Memory<T> {
 	data: Vec<u8>,
+	/// Requested capacity. Allocator-provided spare space must not change the charging schedule.
+	capacity: usize,
 	_phantom: core::marker::PhantomData<T>,
 }
 
 impl<T: Config> Memory<T> {
 	/// Create a new empty memory
 	pub fn new() -> Self {
-		Self { data: Vec::with_capacity(4 * 1024), _phantom: core::marker::PhantomData }
+		Self {
+			data: Vec::with_capacity(4 * 1024),
+			capacity: 4 * 1024,
+			_phantom: core::marker::PhantomData,
+		}
 	}
 
 	/// Get a slice of memory for the given range
@@ -62,19 +71,71 @@ impl<T: Config> Memory<T> {
 		self.data.len()
 	}
 
-	/// Resize memory to accommodate the given offset and length
-	pub fn resize(&mut self, offset: usize, len: usize) -> ControlFlow<Halt> {
-		let current_len = self.data.len();
-		let target_len = revm::interpreter::num_words(offset.saturating_add(len)) * 32;
-		if target_len > crate::limits::EVM_MEMORY_BYTES as usize {
-			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} target_len={target_len} current_len={current_len}");
+	/// Resize memory to accommodate the given offset and length.
+	///
+	/// Charge before allocating, copying, or zeroing. Capacity grows in powers of two up to the
+	/// memory limit, independently of the allocator's growth strategy or spare capacity.
+	pub fn resize(
+		&mut self,
+		offset: usize,
+		len: usize,
+		ext: &mut impl Ext<T = T>,
+	) -> ControlFlow<Halt> {
+		if len == 0 {
+			return ControlFlow::Continue(());
+		}
+		let end = offset.saturating_add(len);
+		if end > crate::limits::EVM_MEMORY_BYTES as usize {
+			log::debug!(target: crate::LOG_TARGET, "check memory bounds failed: offset={offset} len={len}");
 			return ControlFlow::Break(Error::<T>::OutOfGas.into());
 		}
 
-		if target_len > current_len {
-			self.data.resize(target_len, 0);
+		let current_len = self.data.len();
+		let target_len = end.next_multiple_of(32);
+		if target_len <= current_len {
+			return ControlFlow::Continue(());
 		}
 
+		let allocation =
+			if target_len > self.capacity { target_len.next_power_of_two() } else { 0 };
+		ext.charge_or_halt(RuntimeCosts::EvmMemoryGrow {
+			words: ((target_len - current_len) / 32) as u32,
+			allocation_words: (allocation / 32) as u32,
+		})?;
+
+		if allocation != 0 {
+			self.reallocate((allocation / 32) as u32)?;
+		}
+		self.grow((target_len / 32) as u32)
+	}
+
+	/// Expose zeroed memory through `words` without allocating.
+	///
+	/// The caller charges for growth first. The requested size must fit the existing capacity.
+	fn grow(&mut self, words: u32) -> ControlFlow<Halt> {
+		if words > (self.capacity / 32) as u32 {
+			return ControlFlow::Break(Error::<T>::OutOfGas.into());
+		}
+		let len = words as usize * 32;
+		if len > self.data.len() {
+			self.data.resize(len, 0);
+		}
+		ControlFlow::Continue(())
+	}
+
+	/// Replace the allocation with room for `words`, preserving live bytes without zeroing.
+	///
+	/// The caller charges for allocation and copying first. Production capacity at least doubles,
+	/// so live bytes occupy at most half the requested replacement capacity.
+	fn reallocate(&mut self, words: u32) -> ControlFlow<Halt> {
+		if words > crate::limits::EVM_MEMORY_BYTES / 32 || words <= (self.capacity / 32) as u32 {
+			return ControlFlow::Break(Error::<T>::OutOfGas.into());
+		}
+		let capacity = words as usize * 32;
+		let mut data = Vec::with_capacity(capacity);
+		data.extend_from_slice(&self.data);
+		self.data = data;
+		self.capacity = capacity;
 		ControlFlow::Continue(())
 	}
 
@@ -122,6 +183,30 @@ impl<T: Config> Memory<T> {
 		&self.data[offset..offset + size]
 	}
 
+	/// Charge for copying the given memory region out, then copy it into a new output buffer.
+	///
+	/// The caller ensures the region is exposed.
+	///
+	/// # Panics
+	///
+	/// Panics on out of bounds.
+	pub fn copy_out(
+		&self,
+		offset: usize,
+		len: usize,
+		ext: &mut impl Ext<T = T>,
+	) -> ControlFlow<Halt, Vec<u8>> {
+		ext.charge_or_halt(RuntimeCosts::EvmMemoryCopyOut(len as u32))?;
+		ControlFlow::Continue(self.copy_out_uncharged(offset, len))
+	}
+
+	/// Allocate an output buffer and copy the given memory region into it.
+	///
+	/// The caller charges for copying first.
+	fn copy_out_uncharged(&self, offset: usize, len: usize) -> Vec<u8> {
+		self.slice_len(offset, len).to_vec()
+	}
+
 	/// Copy data within memory from src to dst
 	///
 	/// # Panics
@@ -146,22 +231,117 @@ impl<T: Config> Memory<T> {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl<T: Config> Memory<T> {
+	/// [`Self::grow`] without a charge, for the `evm_memory_grow` benchmark.
+	pub fn bench_grow(&mut self, words: u32) -> ControlFlow<Halt> {
+		self.grow(words)
+	}
+
+	/// [`Self::reallocate`] without a charge, for the `evm_memory_reallocate` benchmark.
+	pub fn bench_reallocate(&mut self, words: u32) -> ControlFlow<Halt> {
+		self.reallocate(words)
+	}
+
+	/// [`Self::copy_out`] without a charge, for the `evm_memory_copy_out` benchmark.
+	pub fn bench_copy_out(&self, offset: usize, len: usize) -> Vec<u8> {
+		self.copy_out_uncharged(offset, len)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::Test;
+	use crate::{exec::PrecompileExt, tests::Test};
 
 	#[test]
 	fn test_memory_resize() {
-		let mut memory = Memory::<Test>::new();
-		assert_eq!(memory.size(), 0);
+		crate::tests::ExtBuilder::default().build().execute_with(|| {
+			let mut setup = crate::call_builder::CallSetup::<Test>::new(
+				crate::call_builder::VmBinaryModule::evm_noop(0),
+			);
+			let (mut ext, _) = setup.ext();
+			let mut memory = Memory::<Test>::new();
+			assert_eq!(memory.size(), 0);
 
-		assert!(memory.resize(0, 100).is_continue());
-		assert_eq!(memory.size(), 128); // Should be word-aligned (4 words * 32 bytes)
+			assert!(memory.resize(0, 100, &mut ext).is_continue());
+			assert_eq!(memory.size(), 128);
+			let charged = ext.frame_meter().weight_consumed();
+			assert!(memory.resize(0, 50, &mut ext).is_continue());
+			assert_eq!(memory.size(), 128);
+			assert_eq!(ext.frame_meter().weight_consumed(), charged);
+			assert!(memory.resize(usize::MAX, 0, &mut ext).is_continue());
+			assert!(memory.resize(usize::MAX, 32, &mut ext).is_break());
+			assert_eq!(memory.size(), 128);
+			assert_eq!(ext.frame_meter().weight_consumed(), charged);
+		});
+	}
 
-		// Resizing to smaller size should not shrink
-		assert!(memory.resize(0, 50).is_continue());
-		assert_eq!(memory.size(), 128); // Should stay the same
+	#[test]
+	fn growth_is_charged_before_memory_changes() {
+		crate::tests::ExtBuilder::default().build().execute_with(|| {
+			let mut setup = crate::call_builder::CallSetup::<Test>::new(
+				crate::call_builder::VmBinaryModule::evm_noop(0),
+			);
+			let (mut ext, _) = setup.ext();
+			let mut memory = Memory::<Test>::new();
+			assert!(memory.resize(0, 32, &mut ext).is_continue());
+			memory.set(0, &[0xa5; 32]);
+
+			for target in [4096, 4128, 4160, 8192, 8224, crate::limits::EVM_MEMORY_BYTES as usize] {
+				let previous = memory.size();
+				let allocation =
+					if target > memory.capacity { target.next_power_of_two() } else { 0 };
+				let cost = RuntimeCosts::EvmMemoryGrow {
+					words: ((target - previous) / 32) as u32,
+					allocation_words: (allocation / 32) as u32,
+				};
+				let before = ext.frame_meter().weight_consumed();
+				assert!(memory.resize(0, target, &mut ext).is_continue());
+				assert_eq!(
+					ext.frame_meter().weight_consumed().saturating_sub(before),
+					<RuntimeCosts as crate::metering::Token<Test>>::weight(&cost),
+				);
+				assert_eq!(memory.slice(0..32), &[0xa5; 32]);
+				assert!(memory.slice(previous..target).iter().all(|&byte| byte == 0));
+			}
+		});
+	}
+
+	#[test]
+	fn failed_growth_keeps_memory_unchanged() {
+		crate::tests::ExtBuilder::default().build().execute_with(|| {
+			let mut setup = crate::call_builder::CallSetup::<Test>::new(
+				crate::call_builder::VmBinaryModule::evm_noop(0),
+			);
+			let (mut ext, _) = setup.ext();
+			let mut memory = Memory::<Test>::new();
+			assert!(memory.resize(0, 32, &mut ext).is_continue());
+			memory.set(0, &[0xa5; 32]);
+			let address = memory.data.as_ptr();
+			let meter = ext
+				.frame_meter()
+				.new_nested(&crate::exec::CallResources::WeightDeposit {
+					weight: crate::Weight::from_parts(100_000_000, 0),
+					deposit_limit: 0,
+				})
+				.expect("finite weight limit fits within the parent meter; qed");
+			*ext.frame_meter_mut() = meter;
+			ext.frame_meter_mut().consume_all_weight();
+
+			// Failure within capacity and failure requiring allocation must both leave memory
+			// intact.
+			for target in [64, 4128] {
+				assert_eq!(
+					memory.resize(0, target, &mut ext),
+					ControlFlow::Break(Error::<Test>::OutOfGas.into()),
+				);
+				assert_eq!(memory.size(), 32);
+				assert_eq!(memory.capacity, 4096);
+				assert_eq!(memory.data.as_ptr(), address);
+				assert_eq!(memory.slice(0..32), &[0xa5; 32]);
+			}
+		});
 	}
 
 	#[test]
