@@ -23,8 +23,7 @@ use sp_core::H160;
 use sp_runtime::traits::Bounded;
 
 use crate::{
-	BalanceOf, Config, ContractResult, ExecConfig, ExecReturnValue, Pallet, TransactionLimits,
-	Weight,
+	BalanceOf, Config, ContractResult, ExecReturnValue, Pallet, TransactionLimits, Weight,
 };
 
 pub struct CallInputPayload<AccountId, Balance> {
@@ -87,7 +86,7 @@ pub fn dry_run_call<T: Config>(
 			deposit_limit: input.storage_deposit_limit.unwrap_or(BalanceOf::<T>::max_value()),
 		},
 		input.input_data,
-		&ExecConfig::new_substrate_tx().with_first_frame_reads_paid().with_dry_run(None),
+		&Pallet::<T>::substrate_call_exec_config().with_dry_run(None),
 	);
 	CallOutputPayload { contract_result }
 }

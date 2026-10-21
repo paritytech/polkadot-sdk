@@ -859,14 +859,12 @@ mod dry_run {
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
 			let data = pallet_revive_fixtures::SendBack::sendBackCall { amount: 0 }.abi_encode();
 
-			// What `ReviveApi::call` runs.
 			let dry_run = builder::bare_call(addr)
 				.native_value(1_000)
 				.data(data.clone())
 				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
 				.build();
 
-			// The `call` dispatchable, limited to the dry run's estimate.
 			assert_ok!(
 				builder::call(addr)
 					.value(1_000)

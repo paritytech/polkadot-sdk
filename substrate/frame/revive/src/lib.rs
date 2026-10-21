@@ -1432,7 +1432,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				&ExecConfig::new_substrate_tx().with_first_frame_reads_paid(),
+				&Self::substrate_call_exec_config(),
 			);
 
 			if let Ok(return_value) = &output.result &&
@@ -1699,8 +1699,11 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			let exec_config =
-				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let exec_config = Self::eth_call_exec_config(
+				effective_gas_price,
+				encoded_len,
+				base_info.total_weight(),
+			);
 			let auth_result = evm::eip7702::process_authorizations::<T>(
 				&authorization_list,
 				&signer,
@@ -1721,8 +1724,7 @@ pub mod pallet {
 						authorization_deposit: auth_result.deposit,
 					},
 					data,
-					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight)
-						.with_first_frame_reads_paid(),
+					&Self::eth_call_exec_config(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -2555,7 +2557,7 @@ impl<T: Config> Pallet<T> {
 		let auth_result = evm::eip7702::process_authorizations::<T>(
 			&authorization_list,
 			&origin,
-			&ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight),
+			&Self::eth_call_exec_config(effective_gas_price, call_info.encoded_len, base_weight),
 		);
 		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
 		let actual_auth_deposit = auth_result.deposit;
@@ -2598,12 +2600,11 @@ impl<T: Config> Pallet<T> {
 						value,
 						transaction_limits,
 						input.clone(),
-						&ExecConfig::new_eth_tx(
+						&Self::eth_call_exec_config(
 							effective_gas_price,
 							call_info.encoded_len,
 							base_weight,
 						)
-						.with_first_frame_reads_paid()
 						.with_dry_run(timestamp_override),
 					);
 
@@ -3223,6 +3224,21 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Ok(())
 		}
+	}
+
+	/// The config the `call` dispatchable runs with.
+	fn substrate_call_exec_config() -> ExecConfig<T> {
+		ExecConfig::new_substrate_tx().with_first_frame_reads_paid()
+	}
+
+	/// The config the `eth_call` dispatchable runs with.
+	fn eth_call_exec_config(
+		effective_gas_price: U256,
+		encoded_len: u32,
+		base_weight: Weight,
+	) -> ExecConfig<T> {
+		ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_weight)
+			.with_first_frame_reads_paid()
 	}
 }
 
