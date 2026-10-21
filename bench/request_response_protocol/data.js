@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792610394223,
+  "lastUpdate": 1792616136822,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -135863,6 +135863,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2572905994,
             "range": "± 29056564",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7431714e049fdb008a9e2b93f918c96507a0a460",
+          "message": "statement-store: with the v2 DHT path on, steering alone edits the reserved set (#13488)\n\n# Description\n\nWith the v2 DHT path on, the statement set keeps its reserved set for\npeer steering only. Every other peer takes an inbound slot: such a peer\nis outside our reserved set but holds us in its own, as its steering\npicked us. The set has no outbound slots, since steering dials its peers\nitself. Sync peer events no longer touch the reserved set, and sync\nrecovery closes the v1 peer's substream directly, as that peer\nreconnects on its own.\n\nPeer steering tracks the peers it holds in the reserved set and reserves\nevery desired peer, including one that connected on its own. A reserved\npeer no longer desired is released: one without a substream at once, the\nconnected ones under the usual cap per refresh. A peer on the v1\nfallback protocol takes no part in the DHT path, so it stays out of the\norchestrator and is never reserved.\n\nThe soak no longer expects a full statement mesh. It waits for at least\nK open substreams per node, and the outage step confirms the disconnect\nby the sum of substreams over the online nodes.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13487, whose\nrouting peers keep every node connected once the set stops dialing peers\nof its own. https://github.com/paritytech/polkadot-sdk/pull/13458 builds\non this to split the inbound slots by peer role.\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/13307.",
+          "timestamp": "2026-10-21T13:28:57Z",
+          "tree_id": "101f2b927b30a5fa09032f552aec830b0935e74f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7431714e049fdb008a9e2b93f918c96507a0a460"
+        },
+        "date": 1792616109479,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22396342,
+            "range": "± 263170",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22178342,
+            "range": "± 275381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23934628,
+            "range": "± 475544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28791804,
+            "range": "± 366733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63715120,
+            "range": "± 1663299",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 375152022,
+            "range": "± 11873840",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2682876686,
+            "range": "± 24529997",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19364245,
+            "range": "± 188776",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19878091,
+            "range": "± 609701",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20399860,
+            "range": "± 257368",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24704697,
+            "range": "± 330558",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64343648,
+            "range": "± 831512",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 376537793,
+            "range": "± 3244451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2823716137,
+            "range": "± 50819886",
             "unit": "ns/iter"
           }
         ]
