@@ -80,6 +80,7 @@ pub trait WeightInfo {
 	fn swap_tokens_for_exact_tokens(n: u32, ) -> Weight;
 	fn touch(n: u32, ) -> Weight;
 	fn get_reserves() -> Weight;
+	fn pool_exists() -> Weight;
 }
 
 /// Weights for `pallet_asset_conversion` using the Substrate node and recommended hardware.
@@ -262,6 +263,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(25_001_000, 6360)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	fn pool_exists() -> Weight {
+		// Placeholder: will be replaced by running benchmarks.
+		Weight::from_parts(10_000_000, 2505)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -442,5 +450,12 @@ impl WeightInfo for () {
 		// Minimum execution time: 23_606_000 picoseconds.
 		Weight::from_parts(25_001_000, 6360)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	fn pool_exists() -> Weight {
+		// Placeholder: will be replaced by running benchmarks.
+		Weight::from_parts(10_000_000, 2505)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }
