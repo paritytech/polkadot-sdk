@@ -136,8 +136,8 @@ pub use crate::{
 	ext::Ext,
 	overlayed_changes::{
 		ChildStorageCollection, DeltaKeyOp, IndexOperation, OffchainChangesCollection,
-		OffchainOverlayedChanges, OverlayedChanges, ProofSizeKey, StorageChanges,
-		StorageCollection, StorageKey, StorageValue,
+		OffchainOverlayedChanges, OverlayedChanges, StorageChanges, StorageCollection, StorageKey,
+		StorageValue, TrackedKey,
 	},
 	stats::{StateMachineStats, UsageInfo, UsageUnit},
 	trie_backend::{TrieBackend, TrieBackendBuilder},

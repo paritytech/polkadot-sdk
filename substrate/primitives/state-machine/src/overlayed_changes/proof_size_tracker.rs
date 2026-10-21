@@ -46,24 +46,21 @@ pub enum DeltaKeyOp {
 }
 
 /// Identity of a storage key inside the tracker: the Blake2 hash of its bytes.
-///
-/// It is the same on the collator and in the PVF, so both sides agree on every key, and a
-/// collision is as hard to find as for any other Blake2 output the chain relies on.
 pub type KeyHash = u128;
 
 /// A key the tracker can identify, see [`KeyHash`].
-pub trait ProofSizeKey {
+pub trait TrackedKey {
 	/// The identity of the key.
 	fn key_hash(&self) -> KeyHash;
 }
 
-impl ProofSizeKey for Vec<u8> {
+impl TrackedKey for Vec<u8> {
 	fn key_hash(&self) -> KeyHash {
 		KeyHash::from_le_bytes(blake2_128(self))
 	}
 }
 
-impl ProofSizeKey for (Vec<u8>, Vec<u8>) {
+impl TrackedKey for (Vec<u8>, Vec<u8>) {
 	fn key_hash(&self) -> KeyHash {
 		let (prefix, key) = self;
 		let prefix_len = (prefix.len() as u32).to_le_bytes();
@@ -212,7 +209,7 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	/// it can still appear as `Deleted` in a subsequent snapshot.
 	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
 	where
-		K: ProofSizeKey,
+		K: TrackedKey,
 	{
 		trace!(target:LOG_TARGET, "add_key: {:?}/{:?}", key, op);
 		let hash = key.key_hash();
@@ -357,10 +354,10 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 
 #[cfg(test)]
 mod tests {
-	use super::{blake2_128, DeltaKeyOp, KeyHash, ProofSizeKey, LOG_TARGET};
+	use super::{blake2_128, DeltaKeyOp, KeyHash, TrackedKey, LOG_TARGET};
 	use sp_core::Blake2Hasher;
 
-	impl ProofSizeKey for String {
+	impl TrackedKey for String {
 		fn key_hash(&self) -> KeyHash {
 			KeyHash::from_le_bytes(blake2_128(self.as_bytes()))
 		}

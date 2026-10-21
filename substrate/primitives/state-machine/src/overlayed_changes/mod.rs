@@ -47,7 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
-pub use proof_size_tracker::{DeltaKeyOp, ProofSizeKey};
+pub use proof_size_tracker::{DeltaKeyOp, TrackedKey};
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
