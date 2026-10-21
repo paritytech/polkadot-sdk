@@ -849,11 +849,6 @@ pub mod pallet {
 		TooManyReserves,
 		/// The asset deposit could not be fully moved due to a lock or freeze on the owner.
 		IncompleteDepositTransfer,
-		/// The operation would have had to debit more than the requested amount, in order to
-		/// sweep a remainder below the minimum balance out of the source account. Only an
-		/// approximate (`best_effort`) debit, or one that burns the remainder (`burn_dust`), may
-		/// do that; retry with the source's whole balance.
-		WouldSweepDust,
 	}
 
 	#[pallet::hooks]
@@ -1128,13 +1123,14 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `target`: The account to be credited.
-		/// - `amount`: The exact amount by which the sender's balance of assets should be reduced
-		/// and `target`'s balance increased. Must be greater than zero. If transferring `amount`
-		/// would leave the sender holding a non-zero remainder below the asset's minimum balance,
-		/// the call fails with [`Error::WouldSweepDust`]. Transfer the sender's whole balance to
-		/// reap the account instead.
+		/// - `amount`: The amount by which the sender's balance of assets should be reduced and
+		/// `target`'s balance increased. The amount actually transferred may be slightly greater in
+		/// the case that the transfer would otherwise take the sender balance above zero but below
+		/// the minimum balance. Must be greater than zero.
 		///
-		/// Emits `Transferred` with `amount`.
+		/// Emits `Transferred` with the actual amount transferred. If this takes the source balance
+		/// to below the minimum for the asset, then the amount transferred is increased to take it
+		/// to zero.
 		///
 		/// Weight: `O(1)`
 		/// Modes: Pre-existence of `target`; Post-existence of sender; Account pre-existence of
@@ -1160,12 +1156,14 @@ pub mod pallet {
 		///
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `target`: The account to be credited.
-		/// - `amount`: The exact amount by which the sender's balance of assets should be reduced
-		/// and `target`'s balance increased. Must be greater than zero. The sender account is kept
-		/// alive: if transferring `amount` would leave it below the asset's minimum balance, the
-		/// call fails.
+		/// - `amount`: The amount by which the sender's balance of assets should be reduced and
+		/// `target`'s balance increased. The amount actually transferred may be slightly greater in
+		/// the case that the transfer would otherwise take the sender balance above zero but below
+		/// the minimum balance. Must be greater than zero.
 		///
-		/// Emits `Transferred` with `amount`.
+		/// Emits `Transferred` with the actual amount transferred. If this takes the source balance
+		/// to below the minimum for the asset, then the amount transferred is increased to take it
+		/// to zero.
 		///
 		/// Weight: `O(1)`
 		/// Modes: Pre-existence of `target`; Post-existence of sender; Account pre-existence of
@@ -1192,13 +1190,14 @@ pub mod pallet {
 		/// - `id`: The identifier of the asset to have some amount transferred.
 		/// - `source`: The account to be debited.
 		/// - `dest`: The account to be credited.
-		/// - `amount`: The exact amount by which the `source`'s balance of assets should be reduced
-		/// and `dest`'s balance increased. Must be greater than zero. If transferring `amount`
-		/// would leave `source` holding a non-zero remainder below the asset's minimum balance,
-		/// the call fails with [`Error::WouldSweepDust`]. Transfer `source`'s whole balance to
-		/// reap the account instead.
+		/// - `amount`: The amount by which the `source`'s balance of assets should be reduced and
+		/// `dest`'s balance increased. The amount actually transferred may be slightly greater in
+		/// the case that the transfer would otherwise take the `source` balance above zero but
+		/// below the minimum balance. Must be greater than zero.
 		///
-		/// Emits `Transferred` with `amount`.
+		/// Emits `Transferred` with the actual amount transferred. If this takes the source balance
+		/// to below the minimum for the asset, then the amount transferred is increased to take it
+		/// to zero.
 		///
 		/// Weight: `O(1)`
 		/// Modes: Pre-existence of `dest`; Post-existence of `source`; Account pre-existence of
@@ -1740,13 +1739,10 @@ pub mod pallet {
 		/// balance, so a request smaller than the approval can still spend it in full.
 		///
 		/// - `id`: The identifier of the asset.
-		/// - `owner`: The account which previously approved for a transfer of at least `amount` and
-		/// from which the asset balance will be withdrawn.
-		/// - `destination`: The account to which the asset balance of `amount` will be transferred.
-		/// - `amount`: The exact amount of assets to transfer. If transferring `amount` would
-		/// leave the owner holding a non-zero remainder below the asset's minimum balance, the
-		/// call fails with [`Error::WouldSweepDust`] rather than debiting more than the owner
-		/// approved.
+		/// - `owner`: The account which previously approved for a transfer of at least the debit
+		/// and from which the asset balance will be withdrawn.
+		/// - `destination`: The account to which the debited balance will be transferred.
+		/// - `amount`: The amount of assets to transfer.
 		///
 		/// Emits `Transferred` on success.
 		///

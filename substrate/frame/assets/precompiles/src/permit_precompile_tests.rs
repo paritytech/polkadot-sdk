@@ -589,7 +589,7 @@ fn permit_rollback_does_not_increment_nonce() {
 			r,
 			s,
 		);
-		assert_permit_reverted_with(result, "Asset is not live");
+		assert_permit_reverted_with(result, "AssetNotLive");
 
 		assert_eq!(
 			permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
@@ -652,7 +652,7 @@ fn permit_rollback_preserves_prior_allowance() {
 			r,
 			s,
 		);
-		assert_permit_reverted_with(result, "Asset is not live");
+		assert_permit_reverted_with(result, "AssetNotLive");
 
 		assert_eq!(
 			Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
@@ -1039,16 +1039,17 @@ fn permit_rejects_recovery_failure() {
 /// `env.is_read_only()`) is what guards this.
 ///
 /// The test passes a *valid* signature so the post-call state acts as
-/// the regression pin: with the dispatcher check active, the call reverts
-/// with `ERR_STATE_CHANGE_DENIED`, the writes never run, and nonce/allowance
-/// stay at 0. With the check removed, the precompile would proceed past
-/// `use_permit` and `do_approve_transfer` (both go through frame_support
-/// storage writes that bypass pallet-revive's host-call read-only gating),
-/// and nonce would advance to 1. So a regression that drops
-/// `IERC20Calls::permit(_)` from the read-only match arm flips this test,
-/// even though the outer `success=false` boolean alone would not (an empty
-/// trap and a clean revert both surface as `success=false`). The decoded
-/// reason is what distinguishes the two.
+/// the regression pin: with the dispatcher check active, the call is
+/// rejected via `StateChangeDenied`, the writes never run, and
+/// nonce/allowance stay at 0. With the check removed, the precompile
+/// would proceed past `use_permit` and `do_approve_transfer` (both go
+/// through frame_support storage writes that bypass pallet-revive's
+/// host-call read-only gating), and nonce would advance to 1. So a
+/// regression that drops `IERC20Calls::permit(_)` from the read-only
+/// match arm flips this test, even though the outer `success=false`
+/// boolean alone would not (an empty trap and a clean revert both
+/// surface as `success=false`). Like any other state change under
+/// STATICCALL in revive, the rejection carries no return data.
 #[test]
 fn permit_staticcall_is_rejected() {
 	use frame_support::traits::fungibles::approvals::Inspect;
@@ -1119,9 +1120,7 @@ fn permit_staticcall_is_rejected() {
 		let ret = ICaller::staticCallCall::abi_decode_returns(&result.data)
 			.expect("return must decode as (bool, bytes)");
 		assert!(!ret.success, "STATICCALL to permit() must be rejected");
-		use alloy::sol_types::{Revert, SolError};
-		let decoded = Revert::abi_decode(&ret.output).expect("Error(string) revert");
-		assert_eq!(decoded.reason, super::ERR_STATE_CHANGE_DENIED);
+		assert!(ret.output.is_empty(), "STATICCALL rejection must carry no return data");
 		// Regression pin: if the dispatcher's read-only check were
 		// dropped, these would both move (nonce → 1, allowance → 100).
 		assert_eq!(

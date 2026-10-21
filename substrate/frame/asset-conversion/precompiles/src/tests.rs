@@ -124,6 +124,15 @@ fn assert_output_reason(output: &[u8], reason: &str) {
 	assert_eq!(decoded.reason, reason);
 }
 
+/// Assert a failed call's return data: an `Error(string)` revert with `reason`, or no data at
+/// all for `None`.
+fn assert_failure_output(output: &[u8], reason: Option<&str>) {
+	match reason {
+		Some(reason) => assert_output_reason(output, reason),
+		None => assert!(output.is_empty(), "expected no return data, got {output:?}"),
+	}
+}
+
 #[test]
 fn swap_exact_tokens_for_tokens_works() {
 	new_test_ext().execute_with(|| {
@@ -453,8 +462,10 @@ fn quote_reverts_for_empty_pool() {
 	});
 }
 
+/// The pool exists and is funded, but the reserves cannot fill the quote. `QuotePrice` returns
+/// `None` without saying why, so the reason does not name a cause.
 #[test]
-fn quote_reverts_for_insufficient_liquidity() {
+fn quote_reverts_when_reserves_cannot_fill_it() {
 	new_test_ext().execute_with(|| {
 		let provider = 1u64;
 		let asset_id = 1u32;
@@ -488,7 +499,7 @@ fn quote_reverts_for_insufficient_liquidity() {
 			includeFee: true,
 		}
 		.abi_encode();
-		assert_revert_reason(&bare_call(provider, exact_out), "Insufficient liquidity");
+		assert_revert_reason(&bare_call(provider, exact_out), "Quote failed");
 
 		// Output exceeds the asset the pool can withdraw above `min_balance`.
 		let exact_in = IAssetConversion::quoteExactTokensForTokensCall {
@@ -498,7 +509,7 @@ fn quote_reverts_for_insufficient_liquidity() {
 			includeFee: true,
 		}
 		.abi_encode();
-		assert_revert_reason(&bare_call(provider, exact_in), "Insufficient liquidity");
+		assert_revert_reason(&bare_call(provider, exact_in), "Quote failed");
 	});
 }
 
@@ -889,9 +900,11 @@ fn call_fixture(caller_contract: sp_core::H160, calldata: Vec<u8>) -> (bool, Vec
 
 use test_case::test_case;
 
-#[test_case(encode_static_call, ERR_STATE_CHANGE_DENIED ; "staticcall")]
-#[test_case(encode_delegate_call, DELEGATE_DENIED ; "delegatecall")]
-fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: &str) {
+/// A state change under STATICCALL fails with no return data, as on Ethereum and elsewhere in
+/// revive; the delegate-call guard reverts with a reason.
+#[test_case(encode_static_call, None ; "staticcall")]
+#[test_case(encode_delegate_call, Some(DELEGATE_DENIED) ; "delegatecall")]
+fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: Option<&str>) {
 	new_test_ext().execute_with(|| {
 		let caller_contract = deploy_caller();
 
@@ -906,7 +919,7 @@ fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: &str) {
 
 		let (success, output) = call_fixture(caller_contract, encode(swap_data));
 		assert!(!success, "swap must fail in indirect call context");
-		assert_output_reason(&output, reason);
+		assert_failure_output(&output, reason);
 	});
 }
 
@@ -958,9 +971,9 @@ fn get_reserves_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
 	});
 }
 
-#[test_case(encode_static_call, ERR_STATE_CHANGE_DENIED ; "staticcall")]
-#[test_case(encode_delegate_call, DELEGATE_DENIED ; "delegatecall")]
-fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: &str) {
+#[test_case(encode_static_call, None ; "staticcall")]
+#[test_case(encode_delegate_call, Some(DELEGATE_DENIED) ; "delegatecall")]
+fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: Option<&str>) {
 	new_test_ext().execute_with(|| {
 		let caller_contract = deploy_caller();
 
@@ -972,7 +985,7 @@ fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: &str) {
 
 		let (success, output) = call_fixture(caller_contract, encode(data));
 		assert!(!success, "create_pool must fail in indirect call context");
-		assert_output_reason(&output, reason);
+		assert_failure_output(&output, reason);
 	});
 }
 
@@ -997,8 +1010,11 @@ fn delegatecall_is_rejected() {
 }
 
 /// A swap against a pair with no liquidity must revert with a reason, not trap.
+/// A swap on a pair with no pool fails in `get_reserves`, which reports `PoolEmpty` for a missing
+/// pool as well: the swap path never reads `Pools`. The reason is the pallet's variant name, not a
+/// sentence claiming the pool exists.
 #[test]
-fn swap_exact_tokens_for_tokens_reverts_when_pool_has_no_liquidity() {
+fn swap_exact_tokens_for_tokens_reverts_when_pool_does_not_exist() {
 	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
 
 	new_test_ext().execute_with(|| {
@@ -1017,9 +1033,9 @@ fn swap_exact_tokens_for_tokens_reverts_when_pool_has_no_liquidity() {
 
 		let result = bare_call(swapper, data);
 		let exec = result.result.expect("must not trap");
-		assert!(exec.did_revert(), "empty pool must revert");
+		assert!(exec.did_revert(), "a swap without a pool must revert");
 		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
-		assert_eq!(decoded.reason, "Pool exists but has no liquidity");
+		assert_eq!(decoded.reason, "PoolEmpty");
 	});
 }
 
