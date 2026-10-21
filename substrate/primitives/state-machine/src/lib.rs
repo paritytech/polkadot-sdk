@@ -168,7 +168,7 @@ mod execution {
 	use smallvec::SmallVec;
 	use sp_core::{
 		hexdisplay::HexDisplay,
-		storage::{ChildInfo, ChildType, PrefixedStorageKey},
+		storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion},
 		traits::{CallContext, CodeExecutor, RuntimeCode},
 	};
 	use sp_externalities::Extensions;
@@ -216,6 +216,7 @@ mod execution {
 		/// Used for logging.
 		parent_hash: Option<H::Out>,
 		context: CallContext,
+		state_version: StateVersion,
 		/// Wall-clock limit for the runtime call, see [`Self::with_timeout`].
 		timeout: Option<Duration>,
 	}
@@ -247,6 +248,7 @@ mod execution {
 			extensions: &'a mut Extensions,
 			runtime_code: &'a RuntimeCode,
 			context: CallContext,
+			state_version: StateVersion,
 		) -> Self {
 			Self {
 				backend,
@@ -259,6 +261,7 @@ mod execution {
 				stats: StateMachineStats::default(),
 				parent_hash: None,
 				context,
+				state_version,
 				timeout: None,
 			}
 		}
@@ -293,7 +296,8 @@ mod execution {
 				.enter_runtime()
 				.expect("StateMachine is never called from the runtime; qed");
 
-			let mut ext = Ext::new(self.overlay, self.backend, Some(self.extensions));
+			let mut ext =
+				Ext::new(self.overlay, self.backend, Some(self.extensions), self.state_version);
 
 			let ext_id = ext.id;
 
@@ -354,6 +358,7 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		state_version: StateVersion,
 		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
@@ -371,6 +376,7 @@ mod execution {
 			call_data,
 			runtime_code,
 			&mut Default::default(),
+			state_version,
 			timeout,
 		)
 	}
@@ -394,6 +400,7 @@ mod execution {
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
 		extensions: &mut Extensions,
+		state_version: StateVersion,
 		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
@@ -414,6 +421,7 @@ mod execution {
 			extensions,
 			runtime_code,
 			CallContext::Offchain,
+			state_version,
 		)
 		.with_timeout(timeout)
 		.execute()?;
@@ -434,6 +442,7 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		state_version: StateVersion,
 	) -> Result<Vec<u8>, Box<dyn Error>>
 	where
 		H: Hasher + 'static,
@@ -448,6 +457,7 @@ mod execution {
 			method,
 			call_data,
 			runtime_code,
+			state_version,
 		)
 	}
 
@@ -459,6 +469,7 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		state_version: StateVersion,
 	) -> Result<Vec<u8>, Box<dyn Error>>
 	where
 		H: Hasher,
@@ -474,6 +485,7 @@ mod execution {
 			&mut Extensions::default(),
 			runtime_code,
 			CallContext::Offchain,
+			state_version,
 		)
 		.execute()
 	}
@@ -1228,6 +1240,7 @@ mod tests {
 			&mut execution_extensions,
 			&wasm_code,
 			CallContext::Offchain,
+			state_version,
 		);
 
 		assert_eq!(state_machine.execute().unwrap(), vec![66]);
@@ -1257,6 +1270,7 @@ mod tests {
 			&mut execution_extensions,
 			&wasm_code,
 			CallContext::Offchain,
+			state_version,
 		);
 
 		assert_eq!(state_machine.execute().unwrap(), vec![66]);
@@ -1290,6 +1304,7 @@ mod tests {
 			"test",
 			&[],
 			&RuntimeCode::empty(),
+			state_version,
 			timeout,
 		)
 		.unwrap();
@@ -1303,6 +1318,7 @@ mod tests {
 			"test",
 			&[],
 			&RuntimeCode::empty(),
+			state_version,
 		)
 		.unwrap();
 
@@ -1331,7 +1347,7 @@ mod tests {
 
 		let overlay_limit = overlay.clone();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			let _ = ext.clear_prefix(b"ab", None, None);
 		}
 		overlay.commit_transaction().unwrap();
@@ -1354,7 +1370,7 @@ mod tests {
 
 		let mut overlay = overlay_limit;
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_matches!(
 				ext.clear_prefix(b"ab", Some(1), None).deconstruct(),
 				(Some(_), 1, 3, 1)
@@ -1398,7 +1414,7 @@ mod tests {
 		overlay.set_child_storage(&child_info, b"4".to_vec(), Some(b"1312".to_vec()));
 
 		{
-			let mut ext = Ext::new(&mut overlay, &backend, None);
+			let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::default());
 			let r = ext.kill_child_storage(&child_info, Some(2), None);
 			assert_matches!(r.deconstruct(), (Some(_), 2, 6, 2));
 		}
@@ -1433,7 +1449,7 @@ mod tests {
 		];
 		let backend = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
 		let mut overlay = OverlayedChanges::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
+		let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::default());
 		let r = ext.kill_child_storage(&child_info, Some(0), None).deconstruct();
 		assert_matches!(r, (Some(_), 0, 0, 0));
 		let r = ext
@@ -1462,7 +1478,7 @@ mod tests {
 		];
 		let backend = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
 		let mut overlay = OverlayedChanges::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
+		let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::default());
 		assert_eq!(ext.kill_child_storage(&child_info, None, None).deconstruct(), (None, 4, 4, 4));
 	}
 
@@ -1473,7 +1489,7 @@ mod tests {
 		let state = new_in_mem::<BlakeTwo256>();
 		let backend = state.as_trie_backend();
 		let mut overlay = OverlayedChanges::default();
-		let mut ext = Ext::new(&mut overlay, backend, None);
+		let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 		ext.set_child_storage(child_info, b"abc".to_vec(), b"def".to_vec());
 		assert_eq!(ext.child_storage(child_info, b"abc"), Some(b"def".to_vec()));
@@ -1489,14 +1505,14 @@ mod tests {
 		let backend = state.as_trie_backend();
 		let mut overlay = OverlayedChanges::default();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			ext.storage_append(key.clone(), reference_data[0].encode());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![reference_data[0].clone()].encode()));
 		}
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			for i in reference_data.iter().skip(1) {
 				ext.storage_append(key.clone(), i.encode());
@@ -1505,7 +1521,7 @@ mod tests {
 		}
 		overlay.rollback_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![reference_data[0].clone()].encode()));
 		}
 	}
@@ -1529,7 +1545,7 @@ mod tests {
 		// Append first item
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			ext.clear_storage(key.as_slice());
 			ext.storage_append(key.clone(), Item::Item1.encode());
 		}
@@ -1537,7 +1553,7 @@ mod tests {
 		// Append second item
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 
@@ -1549,7 +1565,7 @@ mod tests {
 		// Remove item
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			ext.place_storage(key.clone(), None);
 
@@ -1559,20 +1575,20 @@ mod tests {
 		// Remove gets commited and merged into previous transaction
 		overlay.commit_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), None,);
 		}
 
 		// Remove gets rolled back, we should see the initial append again.
 		overlay.rollback_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 		}
 
 		overlay.commit_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 		}
 	}
@@ -1593,7 +1609,7 @@ mod tests {
 
 		// For example, block initialization with event.
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			ext.clear_storage(key.as_slice());
 			ext.storage_append(key.clone(), Item::InitializationItem.encode());
 		}
@@ -1601,7 +1617,7 @@ mod tests {
 
 		// For example, first transaction resulted in panic during block building
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::InitializationItem].encode()));
 
@@ -1616,7 +1632,7 @@ mod tests {
 
 		// Then we apply next transaction which is valid this time.
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::InitializationItem].encode()));
 
@@ -1631,7 +1647,7 @@ mod tests {
 
 		// Then only initialization item and second (committed) item should persist.
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(
 				ext.storage(key.as_slice()),
 				Some(vec![Item::InitializationItem, Item::CommittedItem].encode()),
@@ -2045,10 +2061,10 @@ mod tests {
 
 		let mut transaction = {
 			let backend = test_trie(state_version, None, None);
-			let mut ext = Ext::new(&mut overlay, &backend, None);
+			let mut ext = Ext::new(&mut overlay, &backend, None, state_version);
 			ext.set_child_storage(&child_info_1, b"abc".to_vec(), b"def".to_vec());
 			ext.set_child_storage(&child_info_2, b"abc".to_vec(), b"def".to_vec());
-			ext.storage_root(state_version);
+			ext.storage_root();
 			overlay.drain_storage_changes(&backend, state_version).unwrap().transaction
 		};
 		let mut duplicate = false;
@@ -2081,7 +2097,7 @@ mod tests {
 		assert_eq!(overlay.storage(b"bbb"), None);
 
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(b"bbb"), Some(vec![]));
 			assert_eq!(ext.storage(b"ccc"), Some(vec![]));
 			ext.clear_storage(b"ccc");

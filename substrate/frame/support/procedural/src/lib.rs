@@ -86,20 +86,13 @@ fn counter_prefix(prefix: &str) -> String {
 /// NOTE: A new version of this macro is available at `frame_support::runtime`. This macro will
 /// soon be deprecated. Please use the new macro instead.
 ///
-/// The parameters here are specific types for `Block`, `NodeBlock`, and `UncheckedExtrinsic`
-/// and the pallets that are used by the runtime.
-/// `Block` is the block type that is used in the runtime and `NodeBlock` is the block type
-/// that is used in the node. For instance they can differ in the extrinsics type.
+/// The block type is read from `frame_system::Config::Block`.
 ///
 /// # Example:
 ///
 /// ```ignore
 /// construct_runtime!(
-///     pub enum Runtime where
-///         Block = Block,
-///         NodeBlock = node::Block,
-///         UncheckedExtrinsic = UncheckedExtrinsic
-///     {
+///     pub enum Runtime {
 ///         System: frame_system::{Pallet, Call, Event<T>, Config<T>} = 0,
 ///         Test: path::to::test::{Pallet, Call} = 1,
 ///
