@@ -19,7 +19,7 @@
 //! Adapted copy of substrate/client/finality-grandpa/src/justification.rs. If origin
 //! will ever be moved to the sp_consensus_grandpa, we should reuse that implementation.
 
-pub mod verification;
+mod verification;
 
 use crate::ChainWithGrandpa;
 pub use verification::{

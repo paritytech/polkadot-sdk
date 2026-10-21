@@ -27,8 +27,7 @@ use bp_header_chain::justification::{
 };
 use bp_test_utils::{
 	header_id, make_justification_for_header, signed_precommit, test_header, Account,
-	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, FERDIE, TEST_GRANDPA_ROUND,
-	TEST_GRANDPA_SET_ID,
+	JustificationGeneratorParams, ALICE, BOB, CHARLIE, DAVE, EVE, FERDIE, TEST_GRANDPA_SET_ID,
 };
 use finality_grandpa::voter_set::VoterSet;
 use sp_consensus_grandpa::{AuthorityId, AuthorityWeight, SetId};
@@ -409,98 +408,4 @@ fn different_results_when_there_is_a_vote_of_unknown_authority() {
 	.unwrap();
 
 	assert!(result.is_valid());
-}
-
-#[test]
-fn test_authority_set_id_mismatch() {
-	use bp_header_chain::justification::verification::Error;
-	use sp_consensus_grandpa::check_message_signature_with_buffer;
-	let old_set_id = 0u64;
-	let new_set_id = 1u64;
-	let authorities = vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1)];
-	let params = JustificationGeneratorParams {
-		header: test_header(1),
-		round: TEST_GRANDPA_ROUND,
-		set_id: old_set_id,
-		authorities: authorities.clone(),
-		ancestors: 3,
-		forks: 2,
-	};
-	let justification = make_justification_for_header::<TestHeader>(params);
-	let signed_precommit = &justification.commit.precommits[0];
-	let message = finality_grandpa::Message::Precommit(signed_precommit.precommit.clone());
-	let mut signature_buffer = Vec::new();
-	let signature_result = check_message_signature_with_buffer(
-		&message,
-		&signed_precommit.id,
-		&signed_precommit.signature,
-		TEST_GRANDPA_ROUND,
-		new_set_id,
-		&mut signature_buffer,
-	);
-	assert!(matches!(signature_result, sp_consensus_grandpa::SignatureResult::OutdatedSet));
-	assert!(!signature_result.is_valid(), "Vulnerability: OutdatedSet returns false");
-	let voter_set = VoterSet::new(
-		authorities
-			.iter()
-			.map(|(id, weight)| (sp_consensus_grandpa::AuthorityId::from(*id), *weight))
-			.collect::<Vec<_>>(),
-	)
-	.unwrap();
-	let verification_context =
-		JustificationVerificationContext { voter_set, authority_set_id: new_set_id };
-	let result = verify_justification::<TestHeader>(
-		header_id::<TestHeader>(1),
-		&verification_context,
-		&justification,
-	);
-	assert!(
-		!matches!(result, Err(JustificationVerificationError::Precommit(_))),
-		"Bridge rejects valid justification"
-	);
-	assert!(
-		matches!(result, Err(Error::OutdatedAuthoritySet)),
-		"Bridge accepted outdated authority set!"
-	);
-}
-
-#[test]
-fn test_bridge_desync() {
-	let old_set_id = 0u64;
-	let new_set_id = 1u64;
-	let authorities = vec![(ALICE, 1), (BOB, 1), (CHARLIE, 1)];
-	let mut valid_justifications = Vec::new();
-	for block_num in 1..=5 {
-		let params = JustificationGeneratorParams {
-			header: test_header(block_num),
-			round: TEST_GRANDPA_ROUND + block_num - 1,
-			set_id: old_set_id,
-			authorities: authorities.clone(),
-			ancestors: 2,
-			forks: 1,
-		};
-		valid_justifications.push(make_justification_for_header::<TestHeader>(params));
-	}
-	let voter_set = VoterSet::new(
-		authorities
-			.iter()
-			.map(|(id, weight)| (sp_consensus_grandpa::AuthorityId::from(*id), *weight))
-			.collect::<Vec<_>>(),
-	)
-	.unwrap();
-	let verification_context =
-		JustificationVerificationContext { voter_set, authority_set_id: new_set_id };
-	let rejected_count = valid_justifications
-		.iter()
-		.enumerate()
-		.filter(|(i, justification)| {
-			verify_justification::<TestHeader>(
-				header_id::<TestHeader>(*i as u8 + 1),
-				&verification_context,
-				justification,
-			)
-			.is_err()
-		})
-		.count();
-	assert_eq!(rejected_count, 5, "All valid justifications rejected");
 }

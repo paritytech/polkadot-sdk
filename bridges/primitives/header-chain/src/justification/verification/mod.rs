@@ -151,7 +151,7 @@ pub enum Error {
 	TooLowCumulativeWeight,
 	/// The justification contains extra (unused) headers in its `votes_ancestries` field.
 	RedundantVotesAncestries,
-	/// The signatures were valid under previous authority sets.
+	/// The justification contains a vote signed by the previous authority set.
 	OutdatedAuthoritySet,
 }
 
@@ -228,6 +228,13 @@ trait JustificationVerifier<Header: HeaderT> {
 		&mut self,
 		precommit_idx: usize,
 	) -> Result<(), PrecommitError>;
+
+	/// Called when the vote signature is valid for the previous authority set.
+	///
+	/// By default such vote is treated as a vote with invalid signature.
+	fn process_outdated_signature_vote(&mut self, precommit_idx: usize) -> Result<(), Error> {
+		self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)
+	}
 
 	fn process_valid_vote(&mut self, signed: &SignedPrecommit<Header>);
 
@@ -311,7 +318,10 @@ trait JustificationVerifier<Header: HeaderT> {
 			);
 			match signature_result {
 				SignatureResult::Valid => {},
-				SignatureResult::OutdatedSet => return Err(Error::OutdatedAuthoritySet),
+				SignatureResult::OutdatedSet => {
+					self.process_outdated_signature_vote(precommit_idx)?;
+					continue;
+				},
 				SignatureResult::Invalid => {
 					self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
 					continue;

@@ -680,7 +680,7 @@ pub mod pallet {
 		authority_set: bp_header_chain::AuthoritySet,
 	) -> Result<(), sp_runtime::DispatchError> {
 		use bp_header_chain::justification::{
-			verification::Error as VerificationError, verify_justification,
+			verify_justification, JustificationVerificationError,
 		};
 
 		Ok(verify_justification::<BridgedHeader<T, I>>(
@@ -696,7 +696,9 @@ pub mod pallet {
 				"Received invalid justification"
 			);
 			match e {
-				VerificationError::OutdatedAuthoritySet => <Error<T, I>>::InvalidAuthoritySetId,
+				JustificationVerificationError::OutdatedAuthoritySet => {
+					<Error<T, I>>::InvalidAuthoritySetId
+				},
 				_ => <Error<T, I>>::InvalidJustification,
 			}
 		})?)
