@@ -376,12 +376,8 @@ mod tests {
 		assert!(!SchedulingSignals::from_scheduling_info(&signed).into_ump_messages().is_empty());
 	}
 
-	/// Compile-time tripwire for [`SchedulingSignals::from_scheduling_info`]: it wholesale-replaces
-	/// the UMP tail with only the scheduling signals, which is correct only while *every*
-	/// `UMPSignal` variant is a scheduling signal. This exhaustive match (no `_` arm) stops
-	/// compiling the moment a new variant is added — decide then whether `from_scheduling_info`
-	/// must first become selective (merge the block's non-scheduling signals) so it is not
-	/// silently dropped on resubmissions.
+	/// Stops compiling when a `UMPSignal` variant is added. Then decide whether it must survive
+	/// [`SchedulingSignals::from_scheduling_info`], which keeps only scheduling signals.
 	#[test]
 	fn all_ump_signals_are_scheduling_signals() {
 		fn classify(signal: UMPSignal) {
