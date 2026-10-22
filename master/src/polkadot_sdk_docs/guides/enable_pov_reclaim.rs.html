@@ -211,7 +211,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#61 id=61 data-nosnippet>61</a>//! In your runtime, you will find a list of TransactionExtensions.
 <a href=#62 id=62 data-nosnippet>62</a>//! To enable the reclaiming,
 <a href=#63 id=63 data-nosnippet>63</a>//! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim::StorageWeightReclaim)
-<a href=#64 id=64 data-nosnippet>64</a>//! as a warpper of that list.
+<a href=#64 id=64 data-nosnippet>64</a>//! as a wrapper of that list.
 <a href=#65 id=65 data-nosnippet>65</a>//! It is necessary that this extension wraps all the other transaction extensions in order to catch
 <a href=#66 id=66 data-nosnippet>66</a>//! the whole PoV size of the transactions.
 <a href=#67 id=67 data-nosnippet>67</a>//! The extension will check the size of the storage proof before and after an extrinsic execution.
@@ -219,13 +219,13 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#69 id=69 data-nosnippet>69</a></span><span class="attr">#![doc = <span class="macro">docify::embed!</span>(<span class="string">"../../templates/parachain/runtime/src/lib.rs"</span>, template_signed_extra)]
 <a href=#70 id=70 data-nosnippet>70</a></span><span class="doccomment">//! ## Optional: Verify that reclaim works
 <a href=#71 id=71 data-nosnippet>71</a>//!
-<a href=#72 id=72 data-nosnippet>72</a>//! Start your node with the log target `runtime::storage_reclaim` set to `trace` to enable full
-<a href=#73 id=73 data-nosnippet>73</a>//! logging for `StorageWeightReclaim`. The following log is an example from a local testnet. To
-<a href=#74 id=74 data-nosnippet>74</a>//! trigger the log, execute any extrinsic on the network.
+<a href=#72 id=72 data-nosnippet>72</a>//! Start your node with the log target `runtime::storage_reclaim_pallet` set to `trace` to enable
+<a href=#73 id=73 data-nosnippet>73</a>//! full logging for `StorageWeightReclaim`. The following log is an example from a local testnet.
+<a href=#74 id=74 data-nosnippet>74</a>//! To trigger the log, execute any extrinsic on the network.
 <a href=#75 id=75 data-nosnippet>75</a>//!
 <a href=#76 id=76 data-nosnippet>76</a>//! ```ignore
 <a href=#77 id=77 data-nosnippet>77</a>//! ...
-<a href=#78 id=78 data-nosnippet>78</a>//! 2024-04-22 17:31:48.014 TRACE runtime::storage_reclaim: [ferdie] Reclaiming storage weight. benchmarked: 3593, consumed: 265 unspent: 0
+<a href=#78 id=78 data-nosnippet>78</a>//! 2024-04-22 17:31:48.014 TRACE runtime::storage_reclaim_pallet: [ferdie] Reclaiming storage weight. benchmarked: 3593, consumed: 265
 <a href=#79 id=79 data-nosnippet>79</a>//! ...
 <a href=#80 id=80 data-nosnippet>80</a>//! ```
 <a href=#81 id=81 data-nosnippet>81</a>//!

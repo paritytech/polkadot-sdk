@@ -277,7 +277,7 @@ set up correctly.</p>
 <p>In your runtime, you will find a list of TransactionExtensions.
 To enable the reclaiming,
 set <a href="../../../cumulus_pallet_weight_reclaim/struct.StorageWeightReclaim.html" title="struct cumulus_pallet_weight_reclaim::StorageWeightReclaim"><code>StorageWeightReclaim</code></a>
-as a warpper of that list.
+as a wrapper of that list.
 It is necessary that this extension wraps all the other transaction extensions in order to catch
 the whole PoV size of the transactions.
 The extension will check the size of the storage proof before and after an extrinsic execution.
@@ -298,12 +298,12 @@ It reclaims the difference between the calculated size and the benchmarked size.
 		frame_metadata_hash_extension::CheckMetadataHash&lt;Runtime&gt;,
 	),
 &gt;;</code></pre></div><h3 id="optional-verify-that-reclaim-works"><a class="doc-anchor" href="#optional-verify-that-reclaim-works">§</a>Optional: Verify that reclaim works</h3>
-<p>Start your node with the log target <code>runtime::storage_reclaim</code> set to <code>trace</code> to enable full
-logging for <code>StorageWeightReclaim</code>. The following log is an example from a local testnet. To
-trigger the log, execute any extrinsic on the network.</p>
+<p>Start your node with the log target <code>runtime::storage_reclaim_pallet</code> set to <code>trace</code> to enable
+full logging for <code>StorageWeightReclaim</code>. The following log is an example from a local testnet.
+To trigger the log, execute any extrinsic on the network.</p>
 
 <div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code>...
-<span class="number">2024</span>-<span class="number">04</span>-<span class="number">22 17</span>:<span class="number">31</span>:<span class="number">48.014 </span>TRACE runtime::storage_reclaim: [ferdie] Reclaiming storage weight. benchmarked: <span class="number">3593</span>, consumed: <span class="number">265 </span>unspent: <span class="number">0
+<span class="number">2024</span>-<span class="number">04</span>-<span class="number">22 17</span>:<span class="number">31</span>:<span class="number">48.014 </span>TRACE runtime::storage_reclaim_pallet: [ferdie] Reclaiming storage weight. benchmarked: <span class="number">3593</span>, consumed: <span class="number">265
 </span>...</code></pre></div>
 <p>In the above example we see a benchmarked size of 3593 bytes, while the extrinsic only consumed
 265 bytes of proof size. This results in 3328 bytes of reclaim.</p>

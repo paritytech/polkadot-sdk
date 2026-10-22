@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_proof_size"],"struct":["StorageWeightReclaim","StorageWeightReclaimer"]};
+window.SIDEBAR_ITEMS = {"fn":["get_proof_size"],"struct":["StorageWeightReclaimer"]};
