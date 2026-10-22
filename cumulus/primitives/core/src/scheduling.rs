@@ -101,10 +101,6 @@ impl SchedulingSignals {
 						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
 					}
 				},
-				// Speculative-messaging commitments (`Provides`/`Requires`) are not scheduling
-				// signals and `into_ump_messages` does not carry them, so reaching here would
-				// delete the block's commitment from the candidate. Nothing emits them yet; panic
-				// until the pass-through exists.
 				UMPSignal::Provides(_) | UMPSignal::Requires(_) => panic!(
 					"Parachain emitted a speculative-messaging UMP signal, which `validate_block` does not yet forward"
 				),
@@ -391,8 +387,6 @@ mod tests {
 		fn classify(signal: UMPSignal) {
 			match signal {
 				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
-				// Not scheduling signals. Nothing emits them yet, and `from_block_signals` panics
-				// on them. `from_scheduling_info` must merge them before anything emits them.
 				UMPSignal::Provides(..) | UMPSignal::Requires(..) => {},
 			}
 		}

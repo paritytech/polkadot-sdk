@@ -56,12 +56,11 @@ pub type Payload = Vec<u8>;
 	TypeInfo,
 )]
 pub enum ConsumedStream {
-	/// The source's `Channel { us, domain, num }`. Ordered prefix consumption; `from` is the
-	/// tracked frontier's leaf count.
+	/// The source's `Channel`. Ordered prefix consumption; `from` is the tracked frontier's leaf
+	/// count.
 	#[codec(index = 0)]
 	Channel { domain: u8, num: u16, from: MessagePosition },
-	/// The source's `Broadcast { domain, subdomain, num }`. Lossy, latest-wins; `from` is the
-	/// highwater plus one.
+	/// The source's `Broadcast`. Lossy, latest-wins; `from` is the highwater plus one.
 	#[codec(index = 1)]
 	Broadcast { domain: u16, subdomain: u8, num: u32, from: MessagePosition },
 }
@@ -99,11 +98,6 @@ impl ConsumedStream {
 
 /// The messaging inherent: this block's consumption, per `(source, stream)`. A block that consumed
 /// nothing carries none.
-///
-/// Strict on import: one invalid item (duplicate or undeclared stream, cap violation, wrong
-/// discipline for the kind, `base` at or below an event stream's highwater) invalidates the block.
-/// The builder filters bad items instead. Inherent items pay no fees, so tolerating them would let
-/// a collator pad blocks, and [`crate::ConsumptionRecord`] can hold every item as is.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MessagingInherentData {
 	/// One item per stream consumed this block.
