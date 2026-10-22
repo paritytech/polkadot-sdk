@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792644136039,
+  "lastUpdate": 1792672361047,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf0fb0117518f02b2b97fab162265e2be71ef990",
-          "message": "Add disk cleanup option to publish crates workflow (#11693)\n\n## Summary\n- Adds `clean_every` workflow input to the publish crates workflow that\nruns `cargo clean` after every N published crates to free disk space\n- Recommended value of 50 for major releases with 100+ crates, where the\nrunner disk would otherwise fill up\n- Default is 0 (disabled), so no change to existing behavior\n- Bumps parity-publish to 0.10.15 which adds the `--clean-every` CLI\nflag\n\n## Issue\n- https://github.com/paritytech/release-engineering/issues/291\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-04-08T18:09:31Z",
-          "tree_id": "0314d38ab7f5e8b9c880ee4bec3413fb301786ca",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf0fb0117518f02b2b97fab162265e2be71ef990"
-        },
-        "date": 1775676660407,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.638244306399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12695166173333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12655534113333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c1418a966d9234013f0bf2e469e67e999c9b07cd",
+          "message": "Remove deprecated reclaim extension (#13532)\n\nRemoves the original `StorageWeightReclaim` extension which was\ndeprecated for 1.5 years or so. It has been replaced by the\nCorresponding pallet which is more accurate. No runtime in this repo or\nfellowship still use the inaccurate one. Anyone else should also migrate\nif they were still using it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-22T07:45:11Z",
+          "tree_id": "f8f7b09b0b13c0a23578a76d66b3c7b4f6432be6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1418a966d9234013f0bf2e469e67e999c9b07cd"
+        },
+        "date": 1792672332228,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1260709279666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.708094324800001,
             "unit": "seconds"
           }
         ]
