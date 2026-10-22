@@ -267,521 +267,527 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#117 id=117 data-nosnippet>117</a>	/// - `who`: account whose held balance is returned.
 <a href=#118 id=118 data-nosnippet>118</a>	</span><span class="kw">fn </span>total_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt;;
 <a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>	<span class="doccomment">/// Refund every storage-deposit fund held on `from` to `dst`, ignoring the per-contributor
+<a href=#120 id=120 data-nosnippet>120</a>	<span class="doccomment">/// Refund the storage-deposit funds held on `from` to `dst`, ignoring the per-contributor
 <a href=#121 id=121 data-nosnippet>121</a>	/// caps that govern partial refunds. Used at contract termination.
 <a href=#122 id=122 data-nosnippet>122</a>	///
-<a href=#123 id=123 data-nosnippet>123</a>	/// Returns the total amount released, so the storage meter can finalise its deposit
-<a href=#124 id=124 data-nosnippet>124</a>	/// accounting.
+<a href=#123 id=123 data-nosnippet>123</a>	/// Only as much as the freezes on `from` allow is released: a held amount that a freeze
+<a href=#124 id=124 data-nosnippet>124</a>	/// needs to stay on the account is left on hold instead of failing the refund.
 <a href=#125 id=125 data-nosnippet>125</a>	///
-<a href=#126 id=126 data-nosnippet>126</a>	/// # Parameters
-<a href=#127 id=127 data-nosnippet>127</a>	/// - `from`: contract whose hold is being released.
-<a href=#128 id=128 data-nosnippet>128</a>	/// - `dst`: destination of the refund. See [`Funds`].
-<a href=#129 id=129 data-nosnippet>129</a>	</span><span class="kw">fn </span>refund_all(
-<a href=#130 id=130 data-nosnippet>130</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#131 id=131 data-nosnippet>131</a>		dst: Funds&lt;T::AccountId&gt;,
-<a href=#132 id=132 data-nosnippet>132</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt;;
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a>	<span class="doccomment">/// Burn the native currency held on `contract` under `reason` and replace it with the same
-<a href=#135 id=135 data-nosnippet>135</a>	/// amount of PGAS, minted into `contract` and placed on hold under the same reason.
-<a href=#136 id=136 data-nosnippet>136</a>	///
-<a href=#137 id=137 data-nosnippet>137</a>	/// Only used by the v4 multi-block migration (see [`crate::migrations::v4`]) to move
-<a href=#138 id=138 data-nosnippet>138</a>	/// pre-existing native storage deposits over to PGAS. Not part of the regular charge/refund
-<a href=#139 id=139 data-nosnippet>139</a>	/// flow.
-<a href=#140 id=140 data-nosnippet>140</a>	///
-<a href=#141 id=141 data-nosnippet>141</a>	/// # Parameters
-<a href=#142 id=142 data-nosnippet>142</a>	/// - `reason`: hold reason whose balance is being migrated.
-<a href=#143 id=143 data-nosnippet>143</a>	/// - `contract`: account holding the funds to migrate.
-<a href=#144 id=144 data-nosnippet>144</a>	/// - `amount`: amount to migrate from native to PGAS.
-<a href=#145 id=145 data-nosnippet>145</a>	</span><span class="kw">fn </span>migrate_native_to_pgas(
-<a href=#146 id=146 data-nosnippet>146</a>		reason: HoldReason,
-<a href=#147 id=147 data-nosnippet>147</a>		contract: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#148 id=148 data-nosnippet>148</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#149 id=149 data-nosnippet>149</a>	) -&gt; DispatchResult;
-<a href=#150 id=150 data-nosnippet>150</a>}
-<a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a><span class="doccomment">/// Default backend: every storage deposit charge goes through the native currency.
-<a href=#153 id=153 data-nosnippet>153</a></span><span class="kw">impl</span>&lt;T: Config&gt; Deposit&lt;T&gt; <span class="kw">for </span>() {
-<a href=#154 id=154 data-nosnippet>154</a>	<span class="kw">const </span>SUPPORTS_PGAS: bool = <span class="bool-val">false</span>;
-<a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a>	<span class="doccomment">/// The native ED is freshly minted and immediately
-<a href=#157 id=157 data-nosnippet>157</a>	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
-<a href=#158 id=158 data-nosnippet>158</a>	/// active issuance, and therefore opengov conviction, inflation accounting, etc., is
-<a href=#159 id=159 data-nosnippet>159</a>	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
-<a href=#160 id=160 data-nosnippet>160</a>	/// exists, so this minted ED is not extractable: the account cannot be reaped.
-<a href=#161 id=161 data-nosnippet>161</a>	</span><span class="kw">fn </span>init_contract(to: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
-<a href=#162 id=162 data-nosnippet>162</a>		<span class="kw">let </span>ed = T::Currency::minimum_balance();
-<a href=#163 id=163 data-nosnippet>163</a>		T::Currency::mint_into(to, ed)<span class="question-mark">?</span>;
-<a href=#164 id=164 data-nosnippet>164</a>		T::Currency::deactivate(ed);
-<a href=#165 id=165 data-nosnippet>165</a>		<span class="prelude-val">Ok</span>(())
-<a href=#166 id=166 data-nosnippet>166</a>	}
-<a href=#167 id=167 data-nosnippet>167</a>
-<a href=#168 id=168 data-nosnippet>168</a>	<span class="kw">fn </span>destroy_contract(contract: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
-<a href=#169 id=169 data-nosnippet>169</a>		<span class="kw">let </span>ed = T::Currency::minimum_balance();
-<a href=#170 id=170 data-nosnippet>170</a>		T::Currency::burn_from(
-<a href=#171 id=171 data-nosnippet>171</a>			contract,
-<a href=#172 id=172 data-nosnippet>172</a>			ed,
-<a href=#173 id=173 data-nosnippet>173</a>			Preservation::Expendable,
-<a href=#174 id=174 data-nosnippet>174</a>			Precision::Exact,
-<a href=#175 id=175 data-nosnippet>175</a>			Fortitude::Polite,
-<a href=#176 id=176 data-nosnippet>176</a>		)<span class="question-mark">?</span>;
-<a href=#177 id=177 data-nosnippet>177</a>		<span class="comment">// Pair with [`Self::init_contract`]: shrink the inactive pool first so the burn only
-<a href=#178 id=178 data-nosnippet>178</a>		// nets out the mint, rather than also taking an ED off the active issuance.
-<a href=#179 id=179 data-nosnippet>179</a>		</span>T::Currency::reactivate(ed);
-<a href=#180 id=180 data-nosnippet>180</a>		<span class="prelude-val">Ok</span>(())
-<a href=#181 id=181 data-nosnippet>181</a>	}
-<a href=#182 id=182 data-nosnippet>182</a>
-<a href=#183 id=183 data-nosnippet>183</a>	<span class="kw">fn </span>charge_and_hold(
-<a href=#184 id=184 data-nosnippet>184</a>		reason: HoldReason,
-<a href=#185 id=185 data-nosnippet>185</a>		src: Funds&lt;T::AccountId&gt;,
-<a href=#186 id=186 data-nosnippet>186</a>		to: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#187 id=187 data-nosnippet>187</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#188 id=188 data-nosnippet>188</a>	) -&gt; DispatchResult {
-<a href=#189 id=189 data-nosnippet>189</a>		<span class="kw">match </span>src {
-<a href=#190 id=190 data-nosnippet>190</a>			Funds::Balance(from) =&gt; {
-<a href=#191 id=191 data-nosnippet>191</a>				T::Currency::transfer_and_hold(
-<a href=#192 id=192 data-nosnippet>192</a>					<span class="kw-2">&amp;</span>reason.into(),
-<a href=#193 id=193 data-nosnippet>193</a>					from,
-<a href=#194 id=194 data-nosnippet>194</a>					to,
-<a href=#195 id=195 data-nosnippet>195</a>					amount,
-<a href=#196 id=196 data-nosnippet>196</a>					Precision::Exact,
-<a href=#197 id=197 data-nosnippet>197</a>					Preservation::Preserve,
-<a href=#198 id=198 data-nosnippet>198</a>					Fortitude::Polite,
-<a href=#199 id=199 data-nosnippet>199</a>				)<span class="question-mark">?</span>;
-<a href=#200 id=200 data-nosnippet>200</a>			},
-<a href=#201 id=201 data-nosnippet>201</a>			Funds::TxFee(<span class="kw">_</span>) =&gt; {
-<a href=#202 id=202 data-nosnippet>202</a>				<span class="kw">let </span>credit = T::FeeInfo::withdraw_txfee(amount)
-<a href=#203 id=203 data-nosnippet>203</a>					.ok_or(DispatchError::Token(TokenError::FundsUnavailable))<span class="question-mark">?</span>;
-<a href=#204 id=204 data-nosnippet>204</a>				T::Currency::resolve(to, credit)
-<a href=#205 id=205 data-nosnippet>205</a>					.map_err(|<span class="kw">_</span>| DispatchError::Token(TokenError::FundsUnavailable))<span class="question-mark">?</span>;
-<a href=#206 id=206 data-nosnippet>206</a>				T::Currency::hold(<span class="kw-2">&amp;</span>reason.into(), to, amount)<span class="question-mark">?</span>;
-<a href=#207 id=207 data-nosnippet>207</a>			},
-<a href=#208 id=208 data-nosnippet>208</a>		}
-<a href=#209 id=209 data-nosnippet>209</a>		<span class="prelude-val">Ok</span>(())
-<a href=#210 id=210 data-nosnippet>210</a>	}
-<a href=#211 id=211 data-nosnippet>211</a>
-<a href=#212 id=212 data-nosnippet>212</a>	<span class="kw">fn </span>refund_on_hold(
-<a href=#213 id=213 data-nosnippet>213</a>		reason: HoldReason,
-<a href=#214 id=214 data-nosnippet>214</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#215 id=215 data-nosnippet>215</a>		dst: Funds&lt;T::AccountId&gt;,
-<a href=#216 id=216 data-nosnippet>216</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#217 id=217 data-nosnippet>217</a>	) -&gt; DispatchResult {
-<a href=#218 id=218 data-nosnippet>218</a>		<span class="kw">match </span>dst {
-<a href=#219 id=219 data-nosnippet>219</a>			Funds::Balance(to) =&gt; {
-<a href=#220 id=220 data-nosnippet>220</a>				T::Currency::transfer_on_hold(
-<a href=#221 id=221 data-nosnippet>221</a>					<span class="kw-2">&amp;</span>reason.into(),
-<a href=#222 id=222 data-nosnippet>222</a>					from,
-<a href=#223 id=223 data-nosnippet>223</a>					to,
-<a href=#224 id=224 data-nosnippet>224</a>					amount,
-<a href=#225 id=225 data-nosnippet>225</a>					Precision::Exact,
-<a href=#226 id=226 data-nosnippet>226</a>					Restriction::Free,
-<a href=#227 id=227 data-nosnippet>227</a>					Fortitude::Polite,
-<a href=#228 id=228 data-nosnippet>228</a>				)<span class="question-mark">?</span>;
-<a href=#229 id=229 data-nosnippet>229</a>			},
-<a href=#230 id=230 data-nosnippet>230</a>			Funds::TxFee(<span class="kw">_</span>) =&gt; {
-<a href=#231 id=231 data-nosnippet>231</a>				<span class="kw">let </span>released =
-<a href=#232 id=232 data-nosnippet>232</a>					T::Currency::release(<span class="kw-2">&amp;</span>reason.into(), from, amount, Precision::Exact)<span class="question-mark">?</span>;
-<a href=#233 id=233 data-nosnippet>233</a>				<span class="kw">let </span>credit = T::Currency::withdraw(
-<a href=#234 id=234 data-nosnippet>234</a>					from,
-<a href=#235 id=235 data-nosnippet>235</a>					released,
-<a href=#236 id=236 data-nosnippet>236</a>					Precision::Exact,
-<a href=#237 id=237 data-nosnippet>237</a>					Preservation::Preserve,
-<a href=#238 id=238 data-nosnippet>238</a>					Fortitude::Polite,
-<a href=#239 id=239 data-nosnippet>239</a>				)<span class="question-mark">?</span>;
-<a href=#240 id=240 data-nosnippet>240</a>				T::FeeInfo::deposit_txfee(credit);
-<a href=#241 id=241 data-nosnippet>241</a>			},
-<a href=#242 id=242 data-nosnippet>242</a>		}
-<a href=#243 id=243 data-nosnippet>243</a>		<span class="prelude-val">Ok</span>(())
-<a href=#244 id=244 data-nosnippet>244</a>	}
-<a href=#245 id=245 data-nosnippet>245</a>
-<a href=#246 id=246 data-nosnippet>246</a>	<span class="kw">fn </span>total_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
-<a href=#247 id=247 data-nosnippet>247</a>		T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>reason.into(), who)
-<a href=#248 id=248 data-nosnippet>248</a>	}
-<a href=#249 id=249 data-nosnippet>249</a>
-<a href=#250 id=250 data-nosnippet>250</a>	<span class="kw">fn </span>refund_all(
-<a href=#251 id=251 data-nosnippet>251</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#252 id=252 data-nosnippet>252</a>		dst: Funds&lt;T::AccountId&gt;,
-<a href=#253 id=253 data-nosnippet>253</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
-<a href=#254 id=254 data-nosnippet>254</a>		<span class="kw">let </span>reason = HoldReason::StorageDepositReserve;
-<a href=#255 id=255 data-nosnippet>255</a>		<span class="kw">let </span>amount = T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>reason.into(), from);
-<a href=#256 id=256 data-nosnippet>256</a>		<span class="kw">if </span>!amount.is_zero() {
-<a href=#257 id=257 data-nosnippet>257</a>			&lt;<span class="self">Self </span><span class="kw">as </span>Deposit&lt;T&gt;&gt;::refund_on_hold(reason, from, dst, amount)<span class="question-mark">?</span>;
-<a href=#258 id=258 data-nosnippet>258</a>		}
-<a href=#259 id=259 data-nosnippet>259</a>		<span class="prelude-val">Ok</span>(amount)
-<a href=#260 id=260 data-nosnippet>260</a>	}
-<a href=#261 id=261 data-nosnippet>261</a>
-<a href=#262 id=262 data-nosnippet>262</a>	<span class="kw">fn </span>migrate_native_to_pgas(
-<a href=#263 id=263 data-nosnippet>263</a>		_reason: HoldReason,
-<a href=#264 id=264 data-nosnippet>264</a>		_contract: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#265 id=265 data-nosnippet>265</a>		_amount: BalanceOf&lt;T&gt;,
-<a href=#266 id=266 data-nosnippet>266</a>	) -&gt; DispatchResult {
-<a href=#267 id=267 data-nosnippet>267</a>		<span class="prelude-val">Ok</span>(())
-<a href=#268 id=268 data-nosnippet>268</a>	}
-<a href=#269 id=269 data-nosnippet>269</a>}
-<a href=#270 id=270 data-nosnippet>270</a>
-<a href=#271 id=271 data-nosnippet>271</a><span class="doccomment">/// PGAS-backed payment backend. Charges prefer PGAS and fall back to the native currency;
-<a href=#272 id=272 data-nosnippet>272</a>/// refunds return native first (capped by [`NativeDepositOf`]) then `RefundPercent` of the
-<a href=#273 id=273 data-nosnippet>273</a>/// PGAS portion, burning the rest.
-<a href=#274 id=274 data-nosnippet>274</a></span><span class="kw">pub struct </span>PGasDeposit&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;(
-<a href=#275 id=275 data-nosnippet>275</a>	PhantomData&lt;(T, Mutator, Holder, Freezer, Id, RefundPercent)&gt;,
-<a href=#276 id=276 data-nosnippet>276</a>);
-<a href=#277 id=277 data-nosnippet>277</a>
-<a href=#278 id=278 data-nosnippet>278</a><span class="kw">impl</span>&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt; Deposit&lt;T&gt;
-<a href=#279 id=279 data-nosnippet>279</a>	<span class="kw">for </span>PGasDeposit&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;
-<a href=#280 id=280 data-nosnippet>280</a><span class="kw">where
-<a href=#281 id=281 data-nosnippet>281</a>	</span>T: Config,
-<a href=#282 id=282 data-nosnippet>282</a>	Mutator: fungibles::Mutate&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;&gt;,
-<a href=#283 id=283 data-nosnippet>283</a>	Holder: fungibles::MutateHold&lt;
-<a href=#284 id=284 data-nosnippet>284</a>			T::AccountId,
-<a href=#285 id=285 data-nosnippet>285</a>			Balance = BalanceOf&lt;T&gt;,
-<a href=#286 id=286 data-nosnippet>286</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
-<a href=#287 id=287 data-nosnippet>287</a>		&gt;,
-<a href=#288 id=288 data-nosnippet>288</a>	&lt;Holder <span class="kw">as </span>fungibles::InspectHold&lt;T::AccountId&gt;&gt;::Reason: From&lt;HoldReason&gt;,
-<a href=#289 id=289 data-nosnippet>289</a>	Freezer: fungibles::freeze::Mutate&lt;
-<a href=#290 id=290 data-nosnippet>290</a>			T::AccountId,
-<a href=#291 id=291 data-nosnippet>291</a>			Balance = BalanceOf&lt;T&gt;,
-<a href=#292 id=292 data-nosnippet>292</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
-<a href=#293 id=293 data-nosnippet>293</a>		&gt;,
-<a href=#294 id=294 data-nosnippet>294</a>	&lt;Freezer <span class="kw">as </span>fungibles::freeze::Inspect&lt;T::AccountId&gt;&gt;::Id: From&lt;FreezeReason&gt;,
-<a href=#295 id=295 data-nosnippet>295</a>	Id: Get&lt;&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId&gt;,
-<a href=#296 id=296 data-nosnippet>296</a>	RefundPercent: Get&lt;Perbill&gt;,
-<a href=#297 id=297 data-nosnippet>297</a>{
-<a href=#298 id=298 data-nosnippet>298</a>	<span class="kw">const </span>SUPPORTS_PGAS: bool = <span class="bool-val">true</span>;
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>	<span class="doccomment">/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
-<a href=#301 id=301 data-nosnippet>301</a>	/// deposits in either asset without tripping existential-deposit checks. The minted native
-<a href=#302 id=302 data-nosnippet>302</a>	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays
-<a href=#303 id=303 data-nosnippet>303</a>	/// outside active issuance. The minted PGAS ED is frozen under
-<a href=#304 id=304 data-nosnippet>304</a>	/// [`FreezeReason::PGasMinBalance`] so the contract cannot transfer or burn it:
-<a href=#305 id=305 data-nosnippet>305</a>	/// pallet-assets' `reducible_balance` treats any frozen amount as untouchable, regardless
-<a href=#306 id=306 data-nosnippet>306</a>	/// of `Preservation` / `Fortitude`.
-<a href=#307 id=307 data-nosnippet>307</a>	</span><span class="kw">fn </span>init_contract(to: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
-<a href=#308 id=308 data-nosnippet>308</a>		&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::init_contract(to)<span class="question-mark">?</span>;
-<a href=#309 id=309 data-nosnippet>309</a>		<span class="kw">let </span>pgas_ed = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::minimum_balance(Id::get());
-<a href=#310 id=310 data-nosnippet>310</a>		&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::mint_into(Id::get(), to, pgas_ed)<span class="question-mark">?</span>;
-<a href=#311 id=311 data-nosnippet>311</a>		&lt;Freezer <span class="kw">as </span>fungibles::freeze::Mutate&lt;T::AccountId&gt;&gt;::set_freeze(
-<a href=#312 id=312 data-nosnippet>312</a>			Id::get(),
-<a href=#313 id=313 data-nosnippet>313</a>			<span class="kw-2">&amp;</span>FreezeReason::PGasMinBalance.into(),
-<a href=#314 id=314 data-nosnippet>314</a>			to,
-<a href=#315 id=315 data-nosnippet>315</a>			pgas_ed,
-<a href=#316 id=316 data-nosnippet>316</a>		)<span class="question-mark">?</span>;
-<a href=#317 id=317 data-nosnippet>317</a>		<span class="prelude-val">Ok</span>(())
-<a href=#318 id=318 data-nosnippet>318</a>	}
-<a href=#319 id=319 data-nosnippet>319</a>
-<a href=#320 id=320 data-nosnippet>320</a>	<span class="doccomment">/// Thaws and burns the PGAS ED frozen by [`Self::init_contract`], plus the native ED.
-<a href=#321 id=321 data-nosnippet>321</a>	</span><span class="kw">fn </span>destroy_contract(contract: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
-<a href=#322 id=322 data-nosnippet>322</a>		&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::destroy_contract(contract)<span class="question-mark">?</span>;
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>		&lt;Freezer <span class="kw">as </span>fungibles::freeze::Mutate&lt;T::AccountId&gt;&gt;::thaw(
-<a href=#325 id=325 data-nosnippet>325</a>			Id::get(),
-<a href=#326 id=326 data-nosnippet>326</a>			<span class="kw-2">&amp;</span>FreezeReason::PGasMinBalance.into(),
-<a href=#327 id=327 data-nosnippet>327</a>			contract,
-<a href=#328 id=328 data-nosnippet>328</a>		)<span class="question-mark">?</span>;
-<a href=#329 id=329 data-nosnippet>329</a>		<span class="kw">let </span>ed = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::balance(Id::get(), contract);
-<a href=#330 id=330 data-nosnippet>330</a>		&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::burn_from(
-<a href=#331 id=331 data-nosnippet>331</a>			Id::get(),
+<a href=#126 id=126 data-nosnippet>126</a>	/// Returns the amount released, so the storage meter can finalise its deposit accounting.
+<a href=#127 id=127 data-nosnippet>127</a>	///
+<a href=#128 id=128 data-nosnippet>128</a>	/// # Parameters
+<a href=#129 id=129 data-nosnippet>129</a>	/// - `from`: contract whose hold is being released.
+<a href=#130 id=130 data-nosnippet>130</a>	/// - `dst`: destination of the refund. See [`Funds`].
+<a href=#131 id=131 data-nosnippet>131</a>	</span><span class="kw">fn </span>refund_all(
+<a href=#132 id=132 data-nosnippet>132</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#133 id=133 data-nosnippet>133</a>		dst: Funds&lt;T::AccountId&gt;,
+<a href=#134 id=134 data-nosnippet>134</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt;;
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a>	<span class="doccomment">/// Burn the native currency held on `contract` under `reason` and replace it with the same
+<a href=#137 id=137 data-nosnippet>137</a>	/// amount of PGAS, minted into `contract` and placed on hold under the same reason.
+<a href=#138 id=138 data-nosnippet>138</a>	///
+<a href=#139 id=139 data-nosnippet>139</a>	/// Only used by the v4 multi-block migration (see [`crate::migrations::v4`]) to move
+<a href=#140 id=140 data-nosnippet>140</a>	/// pre-existing native storage deposits over to PGAS. Not part of the regular charge/refund
+<a href=#141 id=141 data-nosnippet>141</a>	/// flow.
+<a href=#142 id=142 data-nosnippet>142</a>	///
+<a href=#143 id=143 data-nosnippet>143</a>	/// # Parameters
+<a href=#144 id=144 data-nosnippet>144</a>	/// - `reason`: hold reason whose balance is being migrated.
+<a href=#145 id=145 data-nosnippet>145</a>	/// - `contract`: account holding the funds to migrate.
+<a href=#146 id=146 data-nosnippet>146</a>	/// - `amount`: amount to migrate from native to PGAS.
+<a href=#147 id=147 data-nosnippet>147</a>	</span><span class="kw">fn </span>migrate_native_to_pgas(
+<a href=#148 id=148 data-nosnippet>148</a>		reason: HoldReason,
+<a href=#149 id=149 data-nosnippet>149</a>		contract: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#150 id=150 data-nosnippet>150</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#151 id=151 data-nosnippet>151</a>	) -&gt; DispatchResult;
+<a href=#152 id=152 data-nosnippet>152</a>}
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a><span class="doccomment">/// Default backend: every storage deposit charge goes through the native currency.
+<a href=#155 id=155 data-nosnippet>155</a></span><span class="kw">impl</span>&lt;T: Config&gt; Deposit&lt;T&gt; <span class="kw">for </span>() {
+<a href=#156 id=156 data-nosnippet>156</a>	<span class="kw">const </span>SUPPORTS_PGAS: bool = <span class="bool-val">false</span>;
+<a href=#157 id=157 data-nosnippet>157</a>
+<a href=#158 id=158 data-nosnippet>158</a>	<span class="doccomment">/// The native ED is freshly minted and immediately
+<a href=#159 id=159 data-nosnippet>159</a>	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
+<a href=#160 id=160 data-nosnippet>160</a>	/// active issuance, and therefore opengov conviction, inflation accounting, etc., is
+<a href=#161 id=161 data-nosnippet>161</a>	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
+<a href=#162 id=162 data-nosnippet>162</a>	/// exists, so this minted ED is not extractable: the account cannot be reaped.
+<a href=#163 id=163 data-nosnippet>163</a>	</span><span class="kw">fn </span>init_contract(to: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
+<a href=#164 id=164 data-nosnippet>164</a>		<span class="kw">let </span>ed = T::Currency::minimum_balance();
+<a href=#165 id=165 data-nosnippet>165</a>		T::Currency::mint_into(to, ed)<span class="question-mark">?</span>;
+<a href=#166 id=166 data-nosnippet>166</a>		T::Currency::deactivate(ed);
+<a href=#167 id=167 data-nosnippet>167</a>		<span class="prelude-val">Ok</span>(())
+<a href=#168 id=168 data-nosnippet>168</a>	}
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>	<span class="kw">fn </span>destroy_contract(contract: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
+<a href=#171 id=171 data-nosnippet>171</a>		<span class="kw">let </span>ed = T::Currency::minimum_balance();
+<a href=#172 id=172 data-nosnippet>172</a>		T::Currency::burn_from(
+<a href=#173 id=173 data-nosnippet>173</a>			contract,
+<a href=#174 id=174 data-nosnippet>174</a>			ed,
+<a href=#175 id=175 data-nosnippet>175</a>			Preservation::Expendable,
+<a href=#176 id=176 data-nosnippet>176</a>			Precision::Exact,
+<a href=#177 id=177 data-nosnippet>177</a>			Fortitude::Polite,
+<a href=#178 id=178 data-nosnippet>178</a>		)<span class="question-mark">?</span>;
+<a href=#179 id=179 data-nosnippet>179</a>		<span class="comment">// Pair with [`Self::init_contract`]: shrink the inactive pool first so the burn only
+<a href=#180 id=180 data-nosnippet>180</a>		// nets out the mint, rather than also taking an ED off the active issuance.
+<a href=#181 id=181 data-nosnippet>181</a>		</span>T::Currency::reactivate(ed);
+<a href=#182 id=182 data-nosnippet>182</a>		<span class="prelude-val">Ok</span>(())
+<a href=#183 id=183 data-nosnippet>183</a>	}
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>	<span class="kw">fn </span>charge_and_hold(
+<a href=#186 id=186 data-nosnippet>186</a>		reason: HoldReason,
+<a href=#187 id=187 data-nosnippet>187</a>		src: Funds&lt;T::AccountId&gt;,
+<a href=#188 id=188 data-nosnippet>188</a>		to: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#189 id=189 data-nosnippet>189</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#190 id=190 data-nosnippet>190</a>	) -&gt; DispatchResult {
+<a href=#191 id=191 data-nosnippet>191</a>		<span class="kw">match </span>src {
+<a href=#192 id=192 data-nosnippet>192</a>			Funds::Balance(from) =&gt; {
+<a href=#193 id=193 data-nosnippet>193</a>				T::Currency::transfer_and_hold(
+<a href=#194 id=194 data-nosnippet>194</a>					<span class="kw-2">&amp;</span>reason.into(),
+<a href=#195 id=195 data-nosnippet>195</a>					from,
+<a href=#196 id=196 data-nosnippet>196</a>					to,
+<a href=#197 id=197 data-nosnippet>197</a>					amount,
+<a href=#198 id=198 data-nosnippet>198</a>					Precision::Exact,
+<a href=#199 id=199 data-nosnippet>199</a>					Preservation::Preserve,
+<a href=#200 id=200 data-nosnippet>200</a>					Fortitude::Polite,
+<a href=#201 id=201 data-nosnippet>201</a>				)<span class="question-mark">?</span>;
+<a href=#202 id=202 data-nosnippet>202</a>			},
+<a href=#203 id=203 data-nosnippet>203</a>			Funds::TxFee(<span class="kw">_</span>) =&gt; {
+<a href=#204 id=204 data-nosnippet>204</a>				<span class="kw">let </span>credit = T::FeeInfo::withdraw_txfee(amount)
+<a href=#205 id=205 data-nosnippet>205</a>					.ok_or(DispatchError::Token(TokenError::FundsUnavailable))<span class="question-mark">?</span>;
+<a href=#206 id=206 data-nosnippet>206</a>				T::Currency::resolve(to, credit)
+<a href=#207 id=207 data-nosnippet>207</a>					.map_err(|<span class="kw">_</span>| DispatchError::Token(TokenError::FundsUnavailable))<span class="question-mark">?</span>;
+<a href=#208 id=208 data-nosnippet>208</a>				T::Currency::hold(<span class="kw-2">&amp;</span>reason.into(), to, amount)<span class="question-mark">?</span>;
+<a href=#209 id=209 data-nosnippet>209</a>			},
+<a href=#210 id=210 data-nosnippet>210</a>		}
+<a href=#211 id=211 data-nosnippet>211</a>		<span class="prelude-val">Ok</span>(())
+<a href=#212 id=212 data-nosnippet>212</a>	}
+<a href=#213 id=213 data-nosnippet>213</a>
+<a href=#214 id=214 data-nosnippet>214</a>	<span class="kw">fn </span>refund_on_hold(
+<a href=#215 id=215 data-nosnippet>215</a>		reason: HoldReason,
+<a href=#216 id=216 data-nosnippet>216</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#217 id=217 data-nosnippet>217</a>		dst: Funds&lt;T::AccountId&gt;,
+<a href=#218 id=218 data-nosnippet>218</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#219 id=219 data-nosnippet>219</a>	) -&gt; DispatchResult {
+<a href=#220 id=220 data-nosnippet>220</a>		<span class="kw">match </span>dst {
+<a href=#221 id=221 data-nosnippet>221</a>			Funds::Balance(to) =&gt; {
+<a href=#222 id=222 data-nosnippet>222</a>				T::Currency::transfer_on_hold(
+<a href=#223 id=223 data-nosnippet>223</a>					<span class="kw-2">&amp;</span>reason.into(),
+<a href=#224 id=224 data-nosnippet>224</a>					from,
+<a href=#225 id=225 data-nosnippet>225</a>					to,
+<a href=#226 id=226 data-nosnippet>226</a>					amount,
+<a href=#227 id=227 data-nosnippet>227</a>					Precision::Exact,
+<a href=#228 id=228 data-nosnippet>228</a>					Restriction::Free,
+<a href=#229 id=229 data-nosnippet>229</a>					Fortitude::Polite,
+<a href=#230 id=230 data-nosnippet>230</a>				)<span class="question-mark">?</span>;
+<a href=#231 id=231 data-nosnippet>231</a>			},
+<a href=#232 id=232 data-nosnippet>232</a>			Funds::TxFee(<span class="kw">_</span>) =&gt; {
+<a href=#233 id=233 data-nosnippet>233</a>				<span class="kw">let </span>released =
+<a href=#234 id=234 data-nosnippet>234</a>					T::Currency::release(<span class="kw-2">&amp;</span>reason.into(), from, amount, Precision::Exact)<span class="question-mark">?</span>;
+<a href=#235 id=235 data-nosnippet>235</a>				<span class="kw">let </span>credit = T::Currency::withdraw(
+<a href=#236 id=236 data-nosnippet>236</a>					from,
+<a href=#237 id=237 data-nosnippet>237</a>					released,
+<a href=#238 id=238 data-nosnippet>238</a>					Precision::Exact,
+<a href=#239 id=239 data-nosnippet>239</a>					Preservation::Preserve,
+<a href=#240 id=240 data-nosnippet>240</a>					Fortitude::Polite,
+<a href=#241 id=241 data-nosnippet>241</a>				)<span class="question-mark">?</span>;
+<a href=#242 id=242 data-nosnippet>242</a>				T::FeeInfo::deposit_txfee(credit);
+<a href=#243 id=243 data-nosnippet>243</a>			},
+<a href=#244 id=244 data-nosnippet>244</a>		}
+<a href=#245 id=245 data-nosnippet>245</a>		<span class="prelude-val">Ok</span>(())
+<a href=#246 id=246 data-nosnippet>246</a>	}
+<a href=#247 id=247 data-nosnippet>247</a>
+<a href=#248 id=248 data-nosnippet>248</a>	<span class="kw">fn </span>total_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
+<a href=#249 id=249 data-nosnippet>249</a>		T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>reason.into(), who)
+<a href=#250 id=250 data-nosnippet>250</a>	}
+<a href=#251 id=251 data-nosnippet>251</a>
+<a href=#252 id=252 data-nosnippet>252</a>	<span class="kw">fn </span>refund_all(
+<a href=#253 id=253 data-nosnippet>253</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#254 id=254 data-nosnippet>254</a>		dst: Funds&lt;T::AccountId&gt;,
+<a href=#255 id=255 data-nosnippet>255</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
+<a href=#256 id=256 data-nosnippet>256</a>		<span class="kw">let </span>reason = HoldReason::StorageDepositReserve;
+<a href=#257 id=257 data-nosnippet>257</a>		<span class="comment">// Holds count towards the freeze, so the part of the freeze that the free balance does
+<a href=#258 id=258 data-nosnippet>258</a>		// not cover has to stay on hold.
+<a href=#259 id=259 data-nosnippet>259</a>		</span><span class="kw">let </span>amount = T::Currency::balance_on_hold(<span class="kw-2">&amp;</span>reason.into(), from)
+<a href=#260 id=260 data-nosnippet>260</a>			.min(T::Currency::reducible_total_balance_on_hold(from, Fortitude::Polite));
+<a href=#261 id=261 data-nosnippet>261</a>		<span class="kw">if </span>!amount.is_zero() {
+<a href=#262 id=262 data-nosnippet>262</a>			&lt;<span class="self">Self </span><span class="kw">as </span>Deposit&lt;T&gt;&gt;::refund_on_hold(reason, from, dst, amount)<span class="question-mark">?</span>;
+<a href=#263 id=263 data-nosnippet>263</a>		}
+<a href=#264 id=264 data-nosnippet>264</a>		<span class="prelude-val">Ok</span>(amount)
+<a href=#265 id=265 data-nosnippet>265</a>	}
+<a href=#266 id=266 data-nosnippet>266</a>
+<a href=#267 id=267 data-nosnippet>267</a>	<span class="kw">fn </span>migrate_native_to_pgas(
+<a href=#268 id=268 data-nosnippet>268</a>		_reason: HoldReason,
+<a href=#269 id=269 data-nosnippet>269</a>		_contract: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#270 id=270 data-nosnippet>270</a>		_amount: BalanceOf&lt;T&gt;,
+<a href=#271 id=271 data-nosnippet>271</a>	) -&gt; DispatchResult {
+<a href=#272 id=272 data-nosnippet>272</a>		<span class="prelude-val">Ok</span>(())
+<a href=#273 id=273 data-nosnippet>273</a>	}
+<a href=#274 id=274 data-nosnippet>274</a>}
+<a href=#275 id=275 data-nosnippet>275</a>
+<a href=#276 id=276 data-nosnippet>276</a><span class="doccomment">/// PGAS-backed payment backend. Charges prefer PGAS and fall back to the native currency;
+<a href=#277 id=277 data-nosnippet>277</a>/// refunds return native first (capped by [`NativeDepositOf`]) then `RefundPercent` of the
+<a href=#278 id=278 data-nosnippet>278</a>/// PGAS portion, burning the rest.
+<a href=#279 id=279 data-nosnippet>279</a></span><span class="kw">pub struct </span>PGasDeposit&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;(
+<a href=#280 id=280 data-nosnippet>280</a>	PhantomData&lt;(T, Mutator, Holder, Freezer, Id, RefundPercent)&gt;,
+<a href=#281 id=281 data-nosnippet>281</a>);
+<a href=#282 id=282 data-nosnippet>282</a>
+<a href=#283 id=283 data-nosnippet>283</a><span class="kw">impl</span>&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt; Deposit&lt;T&gt;
+<a href=#284 id=284 data-nosnippet>284</a>	<span class="kw">for </span>PGasDeposit&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;
+<a href=#285 id=285 data-nosnippet>285</a><span class="kw">where
+<a href=#286 id=286 data-nosnippet>286</a>	</span>T: Config,
+<a href=#287 id=287 data-nosnippet>287</a>	Mutator: fungibles::Mutate&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;&gt;,
+<a href=#288 id=288 data-nosnippet>288</a>	Holder: fungibles::MutateHold&lt;
+<a href=#289 id=289 data-nosnippet>289</a>			T::AccountId,
+<a href=#290 id=290 data-nosnippet>290</a>			Balance = BalanceOf&lt;T&gt;,
+<a href=#291 id=291 data-nosnippet>291</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
+<a href=#292 id=292 data-nosnippet>292</a>		&gt;,
+<a href=#293 id=293 data-nosnippet>293</a>	&lt;Holder <span class="kw">as </span>fungibles::InspectHold&lt;T::AccountId&gt;&gt;::Reason: From&lt;HoldReason&gt;,
+<a href=#294 id=294 data-nosnippet>294</a>	Freezer: fungibles::freeze::Mutate&lt;
+<a href=#295 id=295 data-nosnippet>295</a>			T::AccountId,
+<a href=#296 id=296 data-nosnippet>296</a>			Balance = BalanceOf&lt;T&gt;,
+<a href=#297 id=297 data-nosnippet>297</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
+<a href=#298 id=298 data-nosnippet>298</a>		&gt;,
+<a href=#299 id=299 data-nosnippet>299</a>	&lt;Freezer <span class="kw">as </span>fungibles::freeze::Inspect&lt;T::AccountId&gt;&gt;::Id: From&lt;FreezeReason&gt;,
+<a href=#300 id=300 data-nosnippet>300</a>	Id: Get&lt;&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId&gt;,
+<a href=#301 id=301 data-nosnippet>301</a>	RefundPercent: Get&lt;Perbill&gt;,
+<a href=#302 id=302 data-nosnippet>302</a>{
+<a href=#303 id=303 data-nosnippet>303</a>	<span class="kw">const </span>SUPPORTS_PGAS: bool = <span class="bool-val">true</span>;
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a>	<span class="doccomment">/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
+<a href=#306 id=306 data-nosnippet>306</a>	/// deposits in either asset without tripping existential-deposit checks. The minted native
+<a href=#307 id=307 data-nosnippet>307</a>	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays
+<a href=#308 id=308 data-nosnippet>308</a>	/// outside active issuance. The minted PGAS ED is frozen under
+<a href=#309 id=309 data-nosnippet>309</a>	/// [`FreezeReason::PGasMinBalance`] so the contract cannot transfer or burn it:
+<a href=#310 id=310 data-nosnippet>310</a>	/// pallet-assets' `reducible_balance` treats any frozen amount as untouchable, regardless
+<a href=#311 id=311 data-nosnippet>311</a>	/// of `Preservation` / `Fortitude`.
+<a href=#312 id=312 data-nosnippet>312</a>	</span><span class="kw">fn </span>init_contract(to: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
+<a href=#313 id=313 data-nosnippet>313</a>		&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::init_contract(to)<span class="question-mark">?</span>;
+<a href=#314 id=314 data-nosnippet>314</a>		<span class="kw">let </span>pgas_ed = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::minimum_balance(Id::get());
+<a href=#315 id=315 data-nosnippet>315</a>		&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::mint_into(Id::get(), to, pgas_ed)<span class="question-mark">?</span>;
+<a href=#316 id=316 data-nosnippet>316</a>		&lt;Freezer <span class="kw">as </span>fungibles::freeze::Mutate&lt;T::AccountId&gt;&gt;::set_freeze(
+<a href=#317 id=317 data-nosnippet>317</a>			Id::get(),
+<a href=#318 id=318 data-nosnippet>318</a>			<span class="kw-2">&amp;</span>FreezeReason::PGasMinBalance.into(),
+<a href=#319 id=319 data-nosnippet>319</a>			to,
+<a href=#320 id=320 data-nosnippet>320</a>			pgas_ed,
+<a href=#321 id=321 data-nosnippet>321</a>		)<span class="question-mark">?</span>;
+<a href=#322 id=322 data-nosnippet>322</a>		<span class="prelude-val">Ok</span>(())
+<a href=#323 id=323 data-nosnippet>323</a>	}
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>	<span class="doccomment">/// Thaws and burns the PGAS ED frozen by [`Self::init_contract`], plus the native ED.
+<a href=#326 id=326 data-nosnippet>326</a>	</span><span class="kw">fn </span>destroy_contract(contract: <span class="kw-2">&amp;</span>T::AccountId) -&gt; DispatchResult {
+<a href=#327 id=327 data-nosnippet>327</a>		&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::destroy_contract(contract)<span class="question-mark">?</span>;
+<a href=#328 id=328 data-nosnippet>328</a>
+<a href=#329 id=329 data-nosnippet>329</a>		&lt;Freezer <span class="kw">as </span>fungibles::freeze::Mutate&lt;T::AccountId&gt;&gt;::thaw(
+<a href=#330 id=330 data-nosnippet>330</a>			Id::get(),
+<a href=#331 id=331 data-nosnippet>331</a>			<span class="kw-2">&amp;</span>FreezeReason::PGasMinBalance.into(),
 <a href=#332 id=332 data-nosnippet>332</a>			contract,
-<a href=#333 id=333 data-nosnippet>333</a>			ed,
-<a href=#334 id=334 data-nosnippet>334</a>			Preservation::Expendable,
-<a href=#335 id=335 data-nosnippet>335</a>			Precision::BestEffort,
-<a href=#336 id=336 data-nosnippet>336</a>			Fortitude::Polite,
-<a href=#337 id=337 data-nosnippet>337</a>		)<span class="question-mark">?</span>;
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a>		<span class="prelude-val">Ok</span>(())
-<a href=#340 id=340 data-nosnippet>340</a>	}
-<a href=#341 id=341 data-nosnippet>341</a>
-<a href=#342 id=342 data-nosnippet>342</a>	<span class="doccomment">/// Charges a deposit and places it on hold.
-<a href=#343 id=343 data-nosnippet>343</a>	///
-<a href=#344 id=344 data-nosnippet>344</a>	/// Uses PGAS when the payer has enough reducible PGAS, otherwise falls back to the native
-<a href=#345 id=345 data-nosnippet>345</a>	/// currency and records the contribution in [`NativeDepositOf`] so refunds return native up
-<a href=#346 id=346 data-nosnippet>346</a>	/// to the contributed amount. The native fallback honours [`Funds::TxFee`] by withdrawing
-<a href=#347 id=347 data-nosnippet>347</a>	/// from the txfee pool instead of the payer's free balance.
-<a href=#348 id=348 data-nosnippet>348</a>	</span><span class="kw">fn </span>charge_and_hold(
-<a href=#349 id=349 data-nosnippet>349</a>		reason: HoldReason,
-<a href=#350 id=350 data-nosnippet>350</a>		src: Funds&lt;T::AccountId&gt;,
-<a href=#351 id=351 data-nosnippet>351</a>		to: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#352 id=352 data-nosnippet>352</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#353 id=353 data-nosnippet>353</a>	) -&gt; DispatchResult {
-<a href=#354 id=354 data-nosnippet>354</a>		<span class="kw">let </span>from = <span class="kw">match </span><span class="kw-2">&amp;</span>src {
-<a href=#355 id=355 data-nosnippet>355</a>			Funds::Balance(from) | Funds::TxFee(from) =&gt; <span class="kw-2">*</span>from,
-<a href=#356 id=356 data-nosnippet>356</a>		};
-<a href=#357 id=357 data-nosnippet>357</a>
-<a href=#358 id=358 data-nosnippet>358</a>		<span class="kw">if </span><span class="self">Self</span>::pgas_reducible_balance(from) &gt;= amount {
-<a href=#359 id=359 data-nosnippet>359</a>			&lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::transfer_and_hold(
-<a href=#360 id=360 data-nosnippet>360</a>				Id::get(),
-<a href=#361 id=361 data-nosnippet>361</a>				<span class="kw-2">&amp;</span>reason.into(),
-<a href=#362 id=362 data-nosnippet>362</a>				from,
-<a href=#363 id=363 data-nosnippet>363</a>				to,
-<a href=#364 id=364 data-nosnippet>364</a>				amount,
-<a href=#365 id=365 data-nosnippet>365</a>				Precision::Exact,
-<a href=#366 id=366 data-nosnippet>366</a>				Preservation::Expendable,
-<a href=#367 id=367 data-nosnippet>367</a>				Fortitude::Polite,
-<a href=#368 id=368 data-nosnippet>368</a>			)<span class="question-mark">?</span>;
-<a href=#369 id=369 data-nosnippet>369</a>		} <span class="kw">else </span>{
-<a href=#370 id=370 data-nosnippet>370</a>			&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::charge_and_hold(reason, src, to, amount)<span class="question-mark">?</span>;
-<a href=#371 id=371 data-nosnippet>371</a>			<span class="self">Self</span>::record_native_deposit(from, to, amount);
-<a href=#372 id=372 data-nosnippet>372</a>		}
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>		<span class="prelude-val">Ok</span>(())
-<a href=#375 id=375 data-nosnippet>375</a>	}
-<a href=#376 id=376 data-nosnippet>376</a>
-<a href=#377 id=377 data-nosnippet>377</a>	<span class="doccomment">/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from
-<a href=#378 id=378 data-nosnippet>378</a>	/// PGAS with `RefundPercent` refunded and the rest burned. When `dst` is [`Funds::TxFee`],
-<a href=#379 id=379 data-nosnippet>379</a>	/// the native portion is routed into the tx fee pool instead of the embedded account's
-<a href=#380 id=380 data-nosnippet>380</a>	/// free balance. The PGAS portion (if any) is always settled to the account embedded in
-<a href=#381 id=381 data-nosnippet>381</a>	/// `dst`.
-<a href=#382 id=382 data-nosnippet>382</a>	///
-<a href=#383 id=383 data-nosnippet>383</a>	/// Note: callers must run inside a storage layer so partial state rolls back on error.
-<a href=#384 id=384 data-nosnippet>384</a>	</span><span class="kw">fn </span>refund_on_hold(
-<a href=#385 id=385 data-nosnippet>385</a>		reason: HoldReason,
-<a href=#386 id=386 data-nosnippet>386</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#387 id=387 data-nosnippet>387</a>		dst: Funds&lt;T::AccountId&gt;,
-<a href=#388 id=388 data-nosnippet>388</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#389 id=389 data-nosnippet>389</a>	) -&gt; DispatchResult {
-<a href=#390 id=390 data-nosnippet>390</a>		<span class="kw">let </span>to = <span class="kw">match </span><span class="kw-2">&amp;</span>dst {
-<a href=#391 id=391 data-nosnippet>391</a>			Funds::Balance(to) | Funds::TxFee(to) =&gt; <span class="kw-2">*</span>to,
-<a href=#392 id=392 data-nosnippet>392</a>		};
-<a href=#393 id=393 data-nosnippet>393</a>		<span class="kw">let </span>contribution = NativeDepositOf::&lt;T&gt;::get(from, to);
-<a href=#394 id=394 data-nosnippet>394</a>		<span class="kw">let </span>native_requested = amount.min(contribution);
-<a href=#395 id=395 data-nosnippet>395</a>
-<a href=#396 id=396 data-nosnippet>396</a>		<span class="kw">let </span>native_refunded = <span class="kw">if </span>!native_requested.is_zero() {
-<a href=#397 id=397 data-nosnippet>397</a>			&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::refund_on_hold(reason, from, dst, native_requested)<span class="question-mark">?</span>;
-<a href=#398 id=398 data-nosnippet>398</a>			<span class="kw">let </span>new_val = contribution.saturating_sub(native_requested);
-<a href=#399 id=399 data-nosnippet>399</a>			<span class="kw">if </span>new_val.is_zero() {
-<a href=#400 id=400 data-nosnippet>400</a>				NativeDepositOf::&lt;T&gt;::remove(from, to);
-<a href=#401 id=401 data-nosnippet>401</a>			} <span class="kw">else </span>{
-<a href=#402 id=402 data-nosnippet>402</a>				NativeDepositOf::&lt;T&gt;::insert(from, to, new_val);
-<a href=#403 id=403 data-nosnippet>403</a>			}
-<a href=#404 id=404 data-nosnippet>404</a>			native_requested
-<a href=#405 id=405 data-nosnippet>405</a>		} <span class="kw">else </span>{
-<a href=#406 id=406 data-nosnippet>406</a>			BalanceOf::&lt;T&gt;::zero()
-<a href=#407 id=407 data-nosnippet>407</a>		};
-<a href=#408 id=408 data-nosnippet>408</a>
-<a href=#409 id=409 data-nosnippet>409</a>		<span class="kw">let </span>pgas_needed = amount.saturating_sub(native_refunded);
-<a href=#410 id=410 data-nosnippet>410</a>		<span class="self">Self</span>::settle_pgas_refund(reason, from, to, pgas_needed)<span class="question-mark">?</span>;
-<a href=#411 id=411 data-nosnippet>411</a>		<span class="prelude-val">Ok</span>(())
-<a href=#412 id=412 data-nosnippet>412</a>	}
+<a href=#333 id=333 data-nosnippet>333</a>		)<span class="question-mark">?</span>;
+<a href=#334 id=334 data-nosnippet>334</a>		<span class="kw">let </span>ed = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::balance(Id::get(), contract);
+<a href=#335 id=335 data-nosnippet>335</a>		&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::burn_from(
+<a href=#336 id=336 data-nosnippet>336</a>			Id::get(),
+<a href=#337 id=337 data-nosnippet>337</a>			contract,
+<a href=#338 id=338 data-nosnippet>338</a>			ed,
+<a href=#339 id=339 data-nosnippet>339</a>			Preservation::Expendable,
+<a href=#340 id=340 data-nosnippet>340</a>			Precision::BestEffort,
+<a href=#341 id=341 data-nosnippet>341</a>			Fortitude::Polite,
+<a href=#342 id=342 data-nosnippet>342</a>		)<span class="question-mark">?</span>;
+<a href=#343 id=343 data-nosnippet>343</a>
+<a href=#344 id=344 data-nosnippet>344</a>		<span class="prelude-val">Ok</span>(())
+<a href=#345 id=345 data-nosnippet>345</a>	}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>	<span class="doccomment">/// Charges a deposit and places it on hold.
+<a href=#348 id=348 data-nosnippet>348</a>	///
+<a href=#349 id=349 data-nosnippet>349</a>	/// Uses PGAS when the payer has enough reducible PGAS, otherwise falls back to the native
+<a href=#350 id=350 data-nosnippet>350</a>	/// currency and records the contribution in [`NativeDepositOf`] so refunds return native up
+<a href=#351 id=351 data-nosnippet>351</a>	/// to the contributed amount. The native fallback honours [`Funds::TxFee`] by withdrawing
+<a href=#352 id=352 data-nosnippet>352</a>	/// from the txfee pool instead of the payer's free balance.
+<a href=#353 id=353 data-nosnippet>353</a>	</span><span class="kw">fn </span>charge_and_hold(
+<a href=#354 id=354 data-nosnippet>354</a>		reason: HoldReason,
+<a href=#355 id=355 data-nosnippet>355</a>		src: Funds&lt;T::AccountId&gt;,
+<a href=#356 id=356 data-nosnippet>356</a>		to: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#357 id=357 data-nosnippet>357</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#358 id=358 data-nosnippet>358</a>	) -&gt; DispatchResult {
+<a href=#359 id=359 data-nosnippet>359</a>		<span class="kw">let </span>from = <span class="kw">match </span><span class="kw-2">&amp;</span>src {
+<a href=#360 id=360 data-nosnippet>360</a>			Funds::Balance(from) | Funds::TxFee(from) =&gt; <span class="kw-2">*</span>from,
+<a href=#361 id=361 data-nosnippet>361</a>		};
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>		<span class="kw">if </span><span class="self">Self</span>::pgas_reducible_balance(from) &gt;= amount {
+<a href=#364 id=364 data-nosnippet>364</a>			&lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::transfer_and_hold(
+<a href=#365 id=365 data-nosnippet>365</a>				Id::get(),
+<a href=#366 id=366 data-nosnippet>366</a>				<span class="kw-2">&amp;</span>reason.into(),
+<a href=#367 id=367 data-nosnippet>367</a>				from,
+<a href=#368 id=368 data-nosnippet>368</a>				to,
+<a href=#369 id=369 data-nosnippet>369</a>				amount,
+<a href=#370 id=370 data-nosnippet>370</a>				Precision::Exact,
+<a href=#371 id=371 data-nosnippet>371</a>				Preservation::Expendable,
+<a href=#372 id=372 data-nosnippet>372</a>				Fortitude::Polite,
+<a href=#373 id=373 data-nosnippet>373</a>			)<span class="question-mark">?</span>;
+<a href=#374 id=374 data-nosnippet>374</a>		} <span class="kw">else </span>{
+<a href=#375 id=375 data-nosnippet>375</a>			&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::charge_and_hold(reason, src, to, amount)<span class="question-mark">?</span>;
+<a href=#376 id=376 data-nosnippet>376</a>			<span class="self">Self</span>::record_native_deposit(from, to, amount);
+<a href=#377 id=377 data-nosnippet>377</a>		}
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>		<span class="prelude-val">Ok</span>(())
+<a href=#380 id=380 data-nosnippet>380</a>	}
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a>	<span class="doccomment">/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from
+<a href=#383 id=383 data-nosnippet>383</a>	/// PGAS with `RefundPercent` refunded and the rest burned. When `dst` is [`Funds::TxFee`],
+<a href=#384 id=384 data-nosnippet>384</a>	/// the native portion is routed into the tx fee pool instead of the embedded account's
+<a href=#385 id=385 data-nosnippet>385</a>	/// free balance. The PGAS portion (if any) is always settled to the account embedded in
+<a href=#386 id=386 data-nosnippet>386</a>	/// `dst`.
+<a href=#387 id=387 data-nosnippet>387</a>	///
+<a href=#388 id=388 data-nosnippet>388</a>	/// Note: callers must run inside a storage layer so partial state rolls back on error.
+<a href=#389 id=389 data-nosnippet>389</a>	</span><span class="kw">fn </span>refund_on_hold(
+<a href=#390 id=390 data-nosnippet>390</a>		reason: HoldReason,
+<a href=#391 id=391 data-nosnippet>391</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#392 id=392 data-nosnippet>392</a>		dst: Funds&lt;T::AccountId&gt;,
+<a href=#393 id=393 data-nosnippet>393</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#394 id=394 data-nosnippet>394</a>	) -&gt; DispatchResult {
+<a href=#395 id=395 data-nosnippet>395</a>		<span class="kw">let </span>to = <span class="kw">match </span><span class="kw-2">&amp;</span>dst {
+<a href=#396 id=396 data-nosnippet>396</a>			Funds::Balance(to) | Funds::TxFee(to) =&gt; <span class="kw-2">*</span>to,
+<a href=#397 id=397 data-nosnippet>397</a>		};
+<a href=#398 id=398 data-nosnippet>398</a>		<span class="kw">let </span>contribution = NativeDepositOf::&lt;T&gt;::get(from, to);
+<a href=#399 id=399 data-nosnippet>399</a>		<span class="kw">let </span>native_requested = amount.min(contribution);
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a>		<span class="kw">let </span>native_refunded = <span class="kw">if </span>!native_requested.is_zero() {
+<a href=#402 id=402 data-nosnippet>402</a>			&lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::refund_on_hold(reason, from, dst, native_requested)<span class="question-mark">?</span>;
+<a href=#403 id=403 data-nosnippet>403</a>			<span class="kw">let </span>new_val = contribution.saturating_sub(native_requested);
+<a href=#404 id=404 data-nosnippet>404</a>			<span class="kw">if </span>new_val.is_zero() {
+<a href=#405 id=405 data-nosnippet>405</a>				NativeDepositOf::&lt;T&gt;::remove(from, to);
+<a href=#406 id=406 data-nosnippet>406</a>			} <span class="kw">else </span>{
+<a href=#407 id=407 data-nosnippet>407</a>				NativeDepositOf::&lt;T&gt;::insert(from, to, new_val);
+<a href=#408 id=408 data-nosnippet>408</a>			}
+<a href=#409 id=409 data-nosnippet>409</a>			native_requested
+<a href=#410 id=410 data-nosnippet>410</a>		} <span class="kw">else </span>{
+<a href=#411 id=411 data-nosnippet>411</a>			BalanceOf::&lt;T&gt;::zero()
+<a href=#412 id=412 data-nosnippet>412</a>		};
 <a href=#413 id=413 data-nosnippet>413</a>
-<a href=#414 id=414 data-nosnippet>414</a>	<span class="doccomment">/// Sum of `who`'s native and PGAS balances on hold for `reason`.
-<a href=#415 id=415 data-nosnippet>415</a>	</span><span class="kw">fn </span>total_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
-<a href=#416 id=416 data-nosnippet>416</a>		<span class="kw">let </span>native_held = &lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::total_on_hold(reason, who);
-<a href=#417 id=417 data-nosnippet>417</a>		<span class="kw">let </span>pgas_held = <span class="self">Self</span>::pgas_on_hold(reason, who);
-<a href=#418 id=418 data-nosnippet>418</a>		native_held.saturating_add(pgas_held)
-<a href=#419 id=419 data-nosnippet>419</a>	}
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>	<span class="doccomment">/// Refunds the full native hold to `dst` ignoring the per-contributor cap, then settles the
-<a href=#422 id=422 data-nosnippet>422</a>	/// PGAS hold via [`Self::settle_pgas_refund`] (refunding `RefundPercent` to `dst` and burning
-<a href=#423 id=423 data-nosnippet>423</a>	/// the rest). The native cap only makes sense for partial refunds on a live contract; at
-<a href=#424 id=424 data-nosnippet>424</a>	/// termination there is one recipient and the contract is gone.
-<a href=#425 id=425 data-nosnippet>425</a>	///
-<a href=#426 id=426 data-nosnippet>426</a>	/// Note: callers must run inside a storage layer so partial state rolls back on error.
-<a href=#427 id=427 data-nosnippet>427</a>	</span><span class="kw">fn </span>refund_all(
-<a href=#428 id=428 data-nosnippet>428</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#429 id=429 data-nosnippet>429</a>		dst: Funds&lt;T::AccountId&gt;,
-<a href=#430 id=430 data-nosnippet>430</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
-<a href=#431 id=431 data-nosnippet>431</a>		<span class="kw">let </span>to = <span class="kw">match </span><span class="kw-2">&amp;</span>dst {
-<a href=#432 id=432 data-nosnippet>432</a>			Funds::Balance(to) | Funds::TxFee(to) =&gt; <span class="kw-2">*</span>to,
-<a href=#433 id=433 data-nosnippet>433</a>		};
-<a href=#434 id=434 data-nosnippet>434</a>		<span class="kw">let </span>native = &lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::refund_all(from, dst)<span class="question-mark">?</span>;
-<a href=#435 id=435 data-nosnippet>435</a>		<span class="kw">let </span>reason = HoldReason::StorageDepositReserve;
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a>		<span class="kw">let </span>pgas = <span class="self">Self</span>::pgas_on_hold(reason, from);
-<a href=#438 id=438 data-nosnippet>438</a>		<span class="kw">let </span>pgas = <span class="self">Self</span>::settle_pgas_refund(reason, from, to, pgas)<span class="question-mark">?</span>;
-<a href=#439 id=439 data-nosnippet>439</a>		<span class="prelude-val">Ok</span>(native.saturating_add(pgas))
-<a href=#440 id=440 data-nosnippet>440</a>	}
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>	<span class="doccomment">/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
-<a href=#443 id=443 data-nosnippet>443</a>	/// mint and freeze the PGAS ED if missing, then burn the native hold under `reason` and
-<a href=#444 id=444 data-nosnippet>444</a>	/// replace it with the same amount of PGAS held on `contract`.
-<a href=#445 id=445 data-nosnippet>445</a>	</span><span class="kw">fn </span>migrate_native_to_pgas(
-<a href=#446 id=446 data-nosnippet>446</a>		reason: HoldReason,
-<a href=#447 id=447 data-nosnippet>447</a>		contract: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#448 id=448 data-nosnippet>448</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#449 id=449 data-nosnippet>449</a>	) -&gt; DispatchResult {
-<a href=#450 id=450 data-nosnippet>450</a>		<span class="kw">let </span>pgas_ed = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::minimum_balance(Id::get());
-<a href=#451 id=451 data-nosnippet>451</a>		<span class="kw">let </span>freeze_id = FreezeReason::PGasMinBalance.into();
-<a href=#452 id=452 data-nosnippet>452</a>		<span class="kw">if </span>&lt;Freezer <span class="kw">as </span>fungibles::freeze::Inspect&lt;T::AccountId&gt;&gt;::balance_frozen(
-<a href=#453 id=453 data-nosnippet>453</a>			Id::get(),
-<a href=#454 id=454 data-nosnippet>454</a>			<span class="kw-2">&amp;</span>freeze_id,
-<a href=#455 id=455 data-nosnippet>455</a>			contract,
-<a href=#456 id=456 data-nosnippet>456</a>		) &lt; pgas_ed
-<a href=#457 id=457 data-nosnippet>457</a>		{
-<a href=#458 id=458 data-nosnippet>458</a>			<span class="kw">if </span>&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::balance(Id::get(), contract) &lt; pgas_ed
-<a href=#459 id=459 data-nosnippet>459</a>			{
-<a href=#460 id=460 data-nosnippet>460</a>				&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::mint_into(
-<a href=#461 id=461 data-nosnippet>461</a>					Id::get(),
-<a href=#462 id=462 data-nosnippet>462</a>					contract,
-<a href=#463 id=463 data-nosnippet>463</a>					pgas_ed,
-<a href=#464 id=464 data-nosnippet>464</a>				)
-<a href=#465 id=465 data-nosnippet>465</a>				.inspect_err(|err| {
-<a href=#466 id=466 data-nosnippet>466</a>					<span class="macro">log::debug!</span>(
-<a href=#467 id=467 data-nosnippet>467</a>						target: LOG_TARGET,
-<a href=#468 id=468 data-nosnippet>468</a>						<span class="string">"Failed to mint PGAS ED for contract: {err:?}"</span>,
-<a href=#469 id=469 data-nosnippet>469</a>					)
-<a href=#470 id=470 data-nosnippet>470</a>				})<span class="question-mark">?</span>;
-<a href=#471 id=471 data-nosnippet>471</a>			}
-<a href=#472 id=472 data-nosnippet>472</a>			&lt;Freezer <span class="kw">as </span>fungibles::freeze::Mutate&lt;T::AccountId&gt;&gt;::set_freeze(
-<a href=#473 id=473 data-nosnippet>473</a>				Id::get(),
-<a href=#474 id=474 data-nosnippet>474</a>				<span class="kw-2">&amp;</span>freeze_id,
-<a href=#475 id=475 data-nosnippet>475</a>				contract,
-<a href=#476 id=476 data-nosnippet>476</a>				pgas_ed,
-<a href=#477 id=477 data-nosnippet>477</a>			)
-<a href=#478 id=478 data-nosnippet>478</a>			.inspect_err(|err| {
-<a href=#479 id=479 data-nosnippet>479</a>				<span class="macro">log::debug!</span>(
-<a href=#480 id=480 data-nosnippet>480</a>					target: LOG_TARGET,
-<a href=#481 id=481 data-nosnippet>481</a>					<span class="string">"Failed to freeze PGAS ED for contract: {err:?}"</span>,
-<a href=#482 id=482 data-nosnippet>482</a>				)
-<a href=#483 id=483 data-nosnippet>483</a>			})<span class="question-mark">?</span>;
-<a href=#484 id=484 data-nosnippet>484</a>		}
-<a href=#485 id=485 data-nosnippet>485</a>
-<a href=#486 id=486 data-nosnippet>486</a>		<span class="kw">if </span>amount.is_zero() {
-<a href=#487 id=487 data-nosnippet>487</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#488 id=488 data-nosnippet>488</a>		}
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>		T::Currency::burn_held(
-<a href=#491 id=491 data-nosnippet>491</a>			<span class="kw-2">&amp;</span>reason.into(),
-<a href=#492 id=492 data-nosnippet>492</a>			contract,
-<a href=#493 id=493 data-nosnippet>493</a>			amount,
-<a href=#494 id=494 data-nosnippet>494</a>			Precision::Exact,
-<a href=#495 id=495 data-nosnippet>495</a>			Fortitude::Polite,
-<a href=#496 id=496 data-nosnippet>496</a>		)
-<a href=#497 id=497 data-nosnippet>497</a>		.inspect_err(
-<a href=#498 id=498 data-nosnippet>498</a>			|err| <span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to burn held amount {amount:?}: {err:?}"</span>),
-<a href=#499 id=499 data-nosnippet>499</a>		)<span class="question-mark">?</span>;
-<a href=#500 id=500 data-nosnippet>500</a>
-<a href=#501 id=501 data-nosnippet>501</a>		&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::mint_into(Id::get(), contract, amount)
-<a href=#502 id=502 data-nosnippet>502</a>			.inspect_err(
-<a href=#503 id=503 data-nosnippet>503</a>				|err| <span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to mint to {contract:?} amount: {amount:?}: {err:?}"</span>),
-<a href=#504 id=504 data-nosnippet>504</a>			)<span class="question-mark">?</span>;
-<a href=#505 id=505 data-nosnippet>505</a>
-<a href=#506 id=506 data-nosnippet>506</a>		&lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::hold(
-<a href=#507 id=507 data-nosnippet>507</a>			Id::get(),
-<a href=#508 id=508 data-nosnippet>508</a>			<span class="kw-2">&amp;</span>reason.into(),
-<a href=#509 id=509 data-nosnippet>509</a>			contract,
-<a href=#510 id=510 data-nosnippet>510</a>			amount,
-<a href=#511 id=511 data-nosnippet>511</a>		)
-<a href=#512 id=512 data-nosnippet>512</a>		.inspect_err(
-<a href=#513 id=513 data-nosnippet>513</a>			|err| <span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to hold amount in {contract:?}: {amount:?}: {err:?}"</span>),
-<a href=#514 id=514 data-nosnippet>514</a>		)<span class="question-mark">?</span>;
-<a href=#515 id=515 data-nosnippet>515</a>		<span class="prelude-val">Ok</span>(())
-<a href=#516 id=516 data-nosnippet>516</a>	}
-<a href=#517 id=517 data-nosnippet>517</a>}
-<a href=#518 id=518 data-nosnippet>518</a>
-<a href=#519 id=519 data-nosnippet>519</a><span class="kw">impl</span>&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;
-<a href=#520 id=520 data-nosnippet>520</a>	PGasDeposit&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;
-<a href=#521 id=521 data-nosnippet>521</a><span class="kw">where
-<a href=#522 id=522 data-nosnippet>522</a>	</span>T: Config,
-<a href=#523 id=523 data-nosnippet>523</a>	Mutator: fungibles::Mutate&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;&gt;,
-<a href=#524 id=524 data-nosnippet>524</a>	Holder: fungibles::MutateHold&lt;
-<a href=#525 id=525 data-nosnippet>525</a>			T::AccountId,
-<a href=#526 id=526 data-nosnippet>526</a>			Balance = BalanceOf&lt;T&gt;,
-<a href=#527 id=527 data-nosnippet>527</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
-<a href=#528 id=528 data-nosnippet>528</a>		&gt;,
-<a href=#529 id=529 data-nosnippet>529</a>	&lt;Holder <span class="kw">as </span>fungibles::InspectHold&lt;T::AccountId&gt;&gt;::Reason: From&lt;HoldReason&gt;,
-<a href=#530 id=530 data-nosnippet>530</a>	Freezer: fungibles::freeze::Mutate&lt;
+<a href=#414 id=414 data-nosnippet>414</a>		<span class="kw">let </span>pgas_needed = amount.saturating_sub(native_refunded);
+<a href=#415 id=415 data-nosnippet>415</a>		<span class="self">Self</span>::settle_pgas_refund(reason, from, to, pgas_needed)<span class="question-mark">?</span>;
+<a href=#416 id=416 data-nosnippet>416</a>		<span class="prelude-val">Ok</span>(())
+<a href=#417 id=417 data-nosnippet>417</a>	}
+<a href=#418 id=418 data-nosnippet>418</a>
+<a href=#419 id=419 data-nosnippet>419</a>	<span class="doccomment">/// Sum of `who`'s native and PGAS balances on hold for `reason`.
+<a href=#420 id=420 data-nosnippet>420</a>	</span><span class="kw">fn </span>total_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
+<a href=#421 id=421 data-nosnippet>421</a>		<span class="kw">let </span>native_held = &lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::total_on_hold(reason, who);
+<a href=#422 id=422 data-nosnippet>422</a>		<span class="kw">let </span>pgas_held = <span class="self">Self</span>::pgas_on_hold(reason, who);
+<a href=#423 id=423 data-nosnippet>423</a>		native_held.saturating_add(pgas_held)
+<a href=#424 id=424 data-nosnippet>424</a>	}
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>	<span class="doccomment">/// Refunds the native hold to `dst` as far as the freezes on `from` allow, ignoring the
+<a href=#427 id=427 data-nosnippet>427</a>	/// per-contributor cap, then settles the PGAS hold via [`Self::settle_pgas_refund`]
+<a href=#428 id=428 data-nosnippet>428</a>	/// (refunding `RefundPercent` to `dst` and burning the rest). The native cap only makes
+<a href=#429 id=429 data-nosnippet>429</a>	/// sense for partial refunds on a live contract; at termination there is one recipient and
+<a href=#430 id=430 data-nosnippet>430</a>	/// the contract is gone.
+<a href=#431 id=431 data-nosnippet>431</a>	///
+<a href=#432 id=432 data-nosnippet>432</a>	/// Note: callers must run inside a storage layer so partial state rolls back on error.
+<a href=#433 id=433 data-nosnippet>433</a>	</span><span class="kw">fn </span>refund_all(
+<a href=#434 id=434 data-nosnippet>434</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#435 id=435 data-nosnippet>435</a>		dst: Funds&lt;T::AccountId&gt;,
+<a href=#436 id=436 data-nosnippet>436</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
+<a href=#437 id=437 data-nosnippet>437</a>		<span class="kw">let </span>to = <span class="kw">match </span><span class="kw-2">&amp;</span>dst {
+<a href=#438 id=438 data-nosnippet>438</a>			Funds::Balance(to) | Funds::TxFee(to) =&gt; <span class="kw-2">*</span>to,
+<a href=#439 id=439 data-nosnippet>439</a>		};
+<a href=#440 id=440 data-nosnippet>440</a>		<span class="kw">let </span>native = &lt;() <span class="kw">as </span>Deposit&lt;T&gt;&gt;::refund_all(from, dst)<span class="question-mark">?</span>;
+<a href=#441 id=441 data-nosnippet>441</a>		<span class="kw">let </span>reason = HoldReason::StorageDepositReserve;
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>		<span class="kw">let </span>pgas = <span class="self">Self</span>::pgas_on_hold(reason, from);
+<a href=#444 id=444 data-nosnippet>444</a>		<span class="kw">let </span>pgas = <span class="self">Self</span>::settle_pgas_refund(reason, from, to, pgas)<span class="question-mark">?</span>;
+<a href=#445 id=445 data-nosnippet>445</a>		<span class="prelude-val">Ok</span>(native.saturating_add(pgas))
+<a href=#446 id=446 data-nosnippet>446</a>	}
+<a href=#447 id=447 data-nosnippet>447</a>
+<a href=#448 id=448 data-nosnippet>448</a>	<span class="doccomment">/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
+<a href=#449 id=449 data-nosnippet>449</a>	/// mint and freeze the PGAS ED if missing, then burn the native hold under `reason` and
+<a href=#450 id=450 data-nosnippet>450</a>	/// replace it with the same amount of PGAS held on `contract`.
+<a href=#451 id=451 data-nosnippet>451</a>	</span><span class="kw">fn </span>migrate_native_to_pgas(
+<a href=#452 id=452 data-nosnippet>452</a>		reason: HoldReason,
+<a href=#453 id=453 data-nosnippet>453</a>		contract: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#454 id=454 data-nosnippet>454</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#455 id=455 data-nosnippet>455</a>	) -&gt; DispatchResult {
+<a href=#456 id=456 data-nosnippet>456</a>		<span class="kw">let </span>pgas_ed = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::minimum_balance(Id::get());
+<a href=#457 id=457 data-nosnippet>457</a>		<span class="kw">let </span>freeze_id = FreezeReason::PGasMinBalance.into();
+<a href=#458 id=458 data-nosnippet>458</a>		<span class="kw">if </span>&lt;Freezer <span class="kw">as </span>fungibles::freeze::Inspect&lt;T::AccountId&gt;&gt;::balance_frozen(
+<a href=#459 id=459 data-nosnippet>459</a>			Id::get(),
+<a href=#460 id=460 data-nosnippet>460</a>			<span class="kw-2">&amp;</span>freeze_id,
+<a href=#461 id=461 data-nosnippet>461</a>			contract,
+<a href=#462 id=462 data-nosnippet>462</a>		) &lt; pgas_ed
+<a href=#463 id=463 data-nosnippet>463</a>		{
+<a href=#464 id=464 data-nosnippet>464</a>			<span class="kw">if </span>&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::balance(Id::get(), contract) &lt; pgas_ed
+<a href=#465 id=465 data-nosnippet>465</a>			{
+<a href=#466 id=466 data-nosnippet>466</a>				&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::mint_into(
+<a href=#467 id=467 data-nosnippet>467</a>					Id::get(),
+<a href=#468 id=468 data-nosnippet>468</a>					contract,
+<a href=#469 id=469 data-nosnippet>469</a>					pgas_ed,
+<a href=#470 id=470 data-nosnippet>470</a>				)
+<a href=#471 id=471 data-nosnippet>471</a>				.inspect_err(|err| {
+<a href=#472 id=472 data-nosnippet>472</a>					<span class="macro">log::debug!</span>(
+<a href=#473 id=473 data-nosnippet>473</a>						target: LOG_TARGET,
+<a href=#474 id=474 data-nosnippet>474</a>						<span class="string">"Failed to mint PGAS ED for contract: {err:?}"</span>,
+<a href=#475 id=475 data-nosnippet>475</a>					)
+<a href=#476 id=476 data-nosnippet>476</a>				})<span class="question-mark">?</span>;
+<a href=#477 id=477 data-nosnippet>477</a>			}
+<a href=#478 id=478 data-nosnippet>478</a>			&lt;Freezer <span class="kw">as </span>fungibles::freeze::Mutate&lt;T::AccountId&gt;&gt;::set_freeze(
+<a href=#479 id=479 data-nosnippet>479</a>				Id::get(),
+<a href=#480 id=480 data-nosnippet>480</a>				<span class="kw-2">&amp;</span>freeze_id,
+<a href=#481 id=481 data-nosnippet>481</a>				contract,
+<a href=#482 id=482 data-nosnippet>482</a>				pgas_ed,
+<a href=#483 id=483 data-nosnippet>483</a>			)
+<a href=#484 id=484 data-nosnippet>484</a>			.inspect_err(|err| {
+<a href=#485 id=485 data-nosnippet>485</a>				<span class="macro">log::debug!</span>(
+<a href=#486 id=486 data-nosnippet>486</a>					target: LOG_TARGET,
+<a href=#487 id=487 data-nosnippet>487</a>					<span class="string">"Failed to freeze PGAS ED for contract: {err:?}"</span>,
+<a href=#488 id=488 data-nosnippet>488</a>				)
+<a href=#489 id=489 data-nosnippet>489</a>			})<span class="question-mark">?</span>;
+<a href=#490 id=490 data-nosnippet>490</a>		}
+<a href=#491 id=491 data-nosnippet>491</a>
+<a href=#492 id=492 data-nosnippet>492</a>		<span class="kw">if </span>amount.is_zero() {
+<a href=#493 id=493 data-nosnippet>493</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#494 id=494 data-nosnippet>494</a>		}
+<a href=#495 id=495 data-nosnippet>495</a>
+<a href=#496 id=496 data-nosnippet>496</a>		T::Currency::burn_held(
+<a href=#497 id=497 data-nosnippet>497</a>			<span class="kw-2">&amp;</span>reason.into(),
+<a href=#498 id=498 data-nosnippet>498</a>			contract,
+<a href=#499 id=499 data-nosnippet>499</a>			amount,
+<a href=#500 id=500 data-nosnippet>500</a>			Precision::Exact,
+<a href=#501 id=501 data-nosnippet>501</a>			Fortitude::Polite,
+<a href=#502 id=502 data-nosnippet>502</a>		)
+<a href=#503 id=503 data-nosnippet>503</a>		.inspect_err(
+<a href=#504 id=504 data-nosnippet>504</a>			|err| <span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to burn held amount {amount:?}: {err:?}"</span>),
+<a href=#505 id=505 data-nosnippet>505</a>		)<span class="question-mark">?</span>;
+<a href=#506 id=506 data-nosnippet>506</a>
+<a href=#507 id=507 data-nosnippet>507</a>		&lt;Mutator <span class="kw">as </span>fungibles::Mutate&lt;T::AccountId&gt;&gt;::mint_into(Id::get(), contract, amount)
+<a href=#508 id=508 data-nosnippet>508</a>			.inspect_err(
+<a href=#509 id=509 data-nosnippet>509</a>				|err| <span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to mint to {contract:?} amount: {amount:?}: {err:?}"</span>),
+<a href=#510 id=510 data-nosnippet>510</a>			)<span class="question-mark">?</span>;
+<a href=#511 id=511 data-nosnippet>511</a>
+<a href=#512 id=512 data-nosnippet>512</a>		&lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::hold(
+<a href=#513 id=513 data-nosnippet>513</a>			Id::get(),
+<a href=#514 id=514 data-nosnippet>514</a>			<span class="kw-2">&amp;</span>reason.into(),
+<a href=#515 id=515 data-nosnippet>515</a>			contract,
+<a href=#516 id=516 data-nosnippet>516</a>			amount,
+<a href=#517 id=517 data-nosnippet>517</a>		)
+<a href=#518 id=518 data-nosnippet>518</a>		.inspect_err(
+<a href=#519 id=519 data-nosnippet>519</a>			|err| <span class="macro">log::debug!</span>(target: LOG_TARGET, <span class="string">"Failed to hold amount in {contract:?}: {amount:?}: {err:?}"</span>),
+<a href=#520 id=520 data-nosnippet>520</a>		)<span class="question-mark">?</span>;
+<a href=#521 id=521 data-nosnippet>521</a>		<span class="prelude-val">Ok</span>(())
+<a href=#522 id=522 data-nosnippet>522</a>	}
+<a href=#523 id=523 data-nosnippet>523</a>}
+<a href=#524 id=524 data-nosnippet>524</a>
+<a href=#525 id=525 data-nosnippet>525</a><span class="kw">impl</span>&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;
+<a href=#526 id=526 data-nosnippet>526</a>	PGasDeposit&lt;T, Mutator, Holder, Freezer, Id, RefundPercent&gt;
+<a href=#527 id=527 data-nosnippet>527</a><span class="kw">where
+<a href=#528 id=528 data-nosnippet>528</a>	</span>T: Config,
+<a href=#529 id=529 data-nosnippet>529</a>	Mutator: fungibles::Mutate&lt;T::AccountId, Balance = BalanceOf&lt;T&gt;&gt;,
+<a href=#530 id=530 data-nosnippet>530</a>	Holder: fungibles::MutateHold&lt;
 <a href=#531 id=531 data-nosnippet>531</a>			T::AccountId,
 <a href=#532 id=532 data-nosnippet>532</a>			Balance = BalanceOf&lt;T&gt;,
 <a href=#533 id=533 data-nosnippet>533</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
 <a href=#534 id=534 data-nosnippet>534</a>		&gt;,
-<a href=#535 id=535 data-nosnippet>535</a>	&lt;Freezer <span class="kw">as </span>fungibles::freeze::Inspect&lt;T::AccountId&gt;&gt;::Id: From&lt;FreezeReason&gt;,
-<a href=#536 id=536 data-nosnippet>536</a>	Id: Get&lt;&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId&gt;,
-<a href=#537 id=537 data-nosnippet>537</a>	RefundPercent: Get&lt;Perbill&gt;,
-<a href=#538 id=538 data-nosnippet>538</a>{
-<a href=#539 id=539 data-nosnippet>539</a>	<span class="kw">fn </span>pgas_reducible_balance(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
-<a href=#540 id=540 data-nosnippet>540</a>		&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::reducible_balance(
-<a href=#541 id=541 data-nosnippet>541</a>			Id::get(),
-<a href=#542 id=542 data-nosnippet>542</a>			who,
-<a href=#543 id=543 data-nosnippet>543</a>			Preservation::Expendable,
-<a href=#544 id=544 data-nosnippet>544</a>			Fortitude::Polite,
-<a href=#545 id=545 data-nosnippet>545</a>		)
-<a href=#546 id=546 data-nosnippet>546</a>	}
-<a href=#547 id=547 data-nosnippet>547</a>
-<a href=#548 id=548 data-nosnippet>548</a>	<span class="kw">fn </span>pgas_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
-<a href=#549 id=549 data-nosnippet>549</a>		&lt;Holder <span class="kw">as </span>fungibles::InspectHold&lt;T::AccountId&gt;&gt;::balance_on_hold(
-<a href=#550 id=550 data-nosnippet>550</a>			Id::get(),
-<a href=#551 id=551 data-nosnippet>551</a>			<span class="kw-2">&amp;</span>reason.into(),
-<a href=#552 id=552 data-nosnippet>552</a>			who,
-<a href=#553 id=553 data-nosnippet>553</a>		)
-<a href=#554 id=554 data-nosnippet>554</a>	}
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a>	<span class="doccomment">/// Record that user `from` contributed `amount` in native balance to contract `to`.
-<a href=#557 id=557 data-nosnippet>557</a>	/// Read by [`Self::refund_on_hold`] to cap the native portion of refunds.
-<a href=#558 id=558 data-nosnippet>558</a>	</span><span class="kw">fn </span>record_native_deposit(from: <span class="kw-2">&amp;</span>T::AccountId, to: <span class="kw-2">&amp;</span>T::AccountId, amount: BalanceOf&lt;T&gt;) {
-<a href=#559 id=559 data-nosnippet>559</a>		NativeDepositOf::&lt;T&gt;::mutate(to, from, |entitlement| {
-<a href=#560 id=560 data-nosnippet>560</a>			<span class="kw-2">*</span>entitlement = entitlement.saturating_add(amount);
-<a href=#561 id=561 data-nosnippet>561</a>		});
-<a href=#562 id=562 data-nosnippet>562</a>	}
-<a href=#563 id=563 data-nosnippet>563</a>
-<a href=#564 id=564 data-nosnippet>564</a>	<span class="doccomment">/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
-<a href=#565 id=565 data-nosnippet>565</a>	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
-<a href=#566 id=566 data-nosnippet>566</a>	/// portion).
-<a href=#567 id=567 data-nosnippet>567</a>	///
-<a href=#568 id=568 data-nosnippet>568</a>	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
-<a href=#569 id=569 data-nosnippet>569</a>	/// account and the refund would create one below ED), the refund portion is folded into
-<a href=#570 id=570 data-nosnippet>570</a>	/// the burn rather than aborting the whole refund.
-<a href=#571 id=571 data-nosnippet>571</a>	///
-<a href=#572 id=572 data-nosnippet>572</a>	/// `amount` is capped at the PGAS actually held by `from`: when a recipient with no
-<a href=#573 id=573 data-nosnippet>573</a>	/// [`NativeDepositOf`] credit triggers a refund on a contract whose deposit was paid in
-<a href=#574 id=574 data-nosnippet>574</a>	/// native, the call settles whatever PGAS is actually held instead of reverting.
-<a href=#575 id=575 data-nosnippet>575</a>	</span><span class="kw">fn </span>settle_pgas_refund(
-<a href=#576 id=576 data-nosnippet>576</a>		reason: HoldReason,
-<a href=#577 id=577 data-nosnippet>577</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#578 id=578 data-nosnippet>578</a>		to: <span class="kw-2">&amp;</span>T::AccountId,
-<a href=#579 id=579 data-nosnippet>579</a>		amount: BalanceOf&lt;T&gt;,
-<a href=#580 id=580 data-nosnippet>580</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
-<a href=#581 id=581 data-nosnippet>581</a>		<span class="kw">if </span>amount.is_zero() {
-<a href=#582 id=582 data-nosnippet>582</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(BalanceOf::&lt;T&gt;::zero());
-<a href=#583 id=583 data-nosnippet>583</a>		}
-<a href=#584 id=584 data-nosnippet>584</a>		<span class="comment">// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
-<a href=#585 id=585 data-nosnippet>585</a>		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
-<a href=#586 id=586 data-nosnippet>586</a>		// otherwise route the full amount through PGAS and revert on `Precision::Exact`.
-<a href=#587 id=587 data-nosnippet>587</a>		</span><span class="kw">let </span>pgas_held = <span class="self">Self</span>::pgas_on_hold(reason, from);
-<a href=#588 id=588 data-nosnippet>588</a>		<span class="kw">let </span>amount = amount.min(pgas_held);
-<a href=#589 id=589 data-nosnippet>589</a>		<span class="kw">if </span>amount.is_zero() {
-<a href=#590 id=590 data-nosnippet>590</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(BalanceOf::&lt;T&gt;::zero());
-<a href=#591 id=591 data-nosnippet>591</a>		}
-<a href=#592 id=592 data-nosnippet>592</a>		<span class="kw">let </span>refund = RefundPercent::get().mul_floor(amount);
-<a href=#593 id=593 data-nosnippet>593</a>		<span class="kw">let </span><span class="kw-2">mut </span>burn = amount.saturating_sub(refund);
-<a href=#594 id=594 data-nosnippet>594</a>		<span class="kw">let </span><span class="kw-2">mut </span>refunded = BalanceOf::&lt;T&gt;::zero();
-<a href=#595 id=595 data-nosnippet>595</a>
-<a href=#596 id=596 data-nosnippet>596</a>		<span class="kw">if </span>!refund.is_zero() {
-<a href=#597 id=597 data-nosnippet>597</a>			<span class="kw">let </span>can_credit = <span class="macro">matches!</span>(
-<a href=#598 id=598 data-nosnippet>598</a>				&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::can_deposit(
-<a href=#599 id=599 data-nosnippet>599</a>					Id::get(),
-<a href=#600 id=600 data-nosnippet>600</a>					to,
-<a href=#601 id=601 data-nosnippet>601</a>					refund,
-<a href=#602 id=602 data-nosnippet>602</a>					Provenance::Extant,
-<a href=#603 id=603 data-nosnippet>603</a>				),
-<a href=#604 id=604 data-nosnippet>604</a>				DepositConsequence::Success
-<a href=#605 id=605 data-nosnippet>605</a>			);
-<a href=#606 id=606 data-nosnippet>606</a>			<span class="kw">if </span>can_credit {
-<a href=#607 id=607 data-nosnippet>607</a>				refunded = &lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::transfer_on_hold(
-<a href=#608 id=608 data-nosnippet>608</a>					Id::get(),
-<a href=#609 id=609 data-nosnippet>609</a>					<span class="kw-2">&amp;</span>reason.into(),
-<a href=#610 id=610 data-nosnippet>610</a>					from,
-<a href=#611 id=611 data-nosnippet>611</a>					to,
-<a href=#612 id=612 data-nosnippet>612</a>					refund,
-<a href=#613 id=613 data-nosnippet>613</a>					Precision::BestEffort,
-<a href=#614 id=614 data-nosnippet>614</a>					Restriction::Free,
-<a href=#615 id=615 data-nosnippet>615</a>					Fortitude::Polite,
-<a href=#616 id=616 data-nosnippet>616</a>				)<span class="question-mark">?</span>;
-<a href=#617 id=617 data-nosnippet>617</a>			} <span class="kw">else </span>{
-<a href=#618 id=618 data-nosnippet>618</a>				burn = burn.saturating_add(refund);
-<a href=#619 id=619 data-nosnippet>619</a>			}
-<a href=#620 id=620 data-nosnippet>620</a>		}
-<a href=#621 id=621 data-nosnippet>621</a>
-<a href=#622 id=622 data-nosnippet>622</a>		<span class="kw">if </span>!burn.is_zero() {
-<a href=#623 id=623 data-nosnippet>623</a>			&lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::burn_held(
-<a href=#624 id=624 data-nosnippet>624</a>				Id::get(),
-<a href=#625 id=625 data-nosnippet>625</a>				<span class="kw-2">&amp;</span>reason.into(),
-<a href=#626 id=626 data-nosnippet>626</a>				from,
-<a href=#627 id=627 data-nosnippet>627</a>				burn,
-<a href=#628 id=628 data-nosnippet>628</a>				Precision::Exact,
-<a href=#629 id=629 data-nosnippet>629</a>				Fortitude::Polite,
-<a href=#630 id=630 data-nosnippet>630</a>			)<span class="question-mark">?</span>;
-<a href=#631 id=631 data-nosnippet>631</a>		}
-<a href=#632 id=632 data-nosnippet>632</a>		<span class="prelude-val">Ok</span>(refunded)
-<a href=#633 id=633 data-nosnippet>633</a>	}
-<a href=#634 id=634 data-nosnippet>634</a>}
+<a href=#535 id=535 data-nosnippet>535</a>	&lt;Holder <span class="kw">as </span>fungibles::InspectHold&lt;T::AccountId&gt;&gt;::Reason: From&lt;HoldReason&gt;,
+<a href=#536 id=536 data-nosnippet>536</a>	Freezer: fungibles::freeze::Mutate&lt;
+<a href=#537 id=537 data-nosnippet>537</a>			T::AccountId,
+<a href=#538 id=538 data-nosnippet>538</a>			Balance = BalanceOf&lt;T&gt;,
+<a href=#539 id=539 data-nosnippet>539</a>			AssetId = &lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId,
+<a href=#540 id=540 data-nosnippet>540</a>		&gt;,
+<a href=#541 id=541 data-nosnippet>541</a>	&lt;Freezer <span class="kw">as </span>fungibles::freeze::Inspect&lt;T::AccountId&gt;&gt;::Id: From&lt;FreezeReason&gt;,
+<a href=#542 id=542 data-nosnippet>542</a>	Id: Get&lt;&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::AssetId&gt;,
+<a href=#543 id=543 data-nosnippet>543</a>	RefundPercent: Get&lt;Perbill&gt;,
+<a href=#544 id=544 data-nosnippet>544</a>{
+<a href=#545 id=545 data-nosnippet>545</a>	<span class="kw">fn </span>pgas_reducible_balance(who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
+<a href=#546 id=546 data-nosnippet>546</a>		&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::reducible_balance(
+<a href=#547 id=547 data-nosnippet>547</a>			Id::get(),
+<a href=#548 id=548 data-nosnippet>548</a>			who,
+<a href=#549 id=549 data-nosnippet>549</a>			Preservation::Expendable,
+<a href=#550 id=550 data-nosnippet>550</a>			Fortitude::Polite,
+<a href=#551 id=551 data-nosnippet>551</a>		)
+<a href=#552 id=552 data-nosnippet>552</a>	}
+<a href=#553 id=553 data-nosnippet>553</a>
+<a href=#554 id=554 data-nosnippet>554</a>	<span class="kw">fn </span>pgas_on_hold(reason: HoldReason, who: <span class="kw-2">&amp;</span>T::AccountId) -&gt; BalanceOf&lt;T&gt; {
+<a href=#555 id=555 data-nosnippet>555</a>		&lt;Holder <span class="kw">as </span>fungibles::InspectHold&lt;T::AccountId&gt;&gt;::balance_on_hold(
+<a href=#556 id=556 data-nosnippet>556</a>			Id::get(),
+<a href=#557 id=557 data-nosnippet>557</a>			<span class="kw-2">&amp;</span>reason.into(),
+<a href=#558 id=558 data-nosnippet>558</a>			who,
+<a href=#559 id=559 data-nosnippet>559</a>		)
+<a href=#560 id=560 data-nosnippet>560</a>	}
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a>	<span class="doccomment">/// Record that user `from` contributed `amount` in native balance to contract `to`.
+<a href=#563 id=563 data-nosnippet>563</a>	/// Read by [`Self::refund_on_hold`] to cap the native portion of refunds.
+<a href=#564 id=564 data-nosnippet>564</a>	</span><span class="kw">fn </span>record_native_deposit(from: <span class="kw-2">&amp;</span>T::AccountId, to: <span class="kw-2">&amp;</span>T::AccountId, amount: BalanceOf&lt;T&gt;) {
+<a href=#565 id=565 data-nosnippet>565</a>		NativeDepositOf::&lt;T&gt;::mutate(to, from, |entitlement| {
+<a href=#566 id=566 data-nosnippet>566</a>			<span class="kw-2">*</span>entitlement = entitlement.saturating_add(amount);
+<a href=#567 id=567 data-nosnippet>567</a>		});
+<a href=#568 id=568 data-nosnippet>568</a>	}
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>	<span class="doccomment">/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
+<a href=#571 id=571 data-nosnippet>571</a>	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
+<a href=#572 id=572 data-nosnippet>572</a>	/// portion).
+<a href=#573 id=573 data-nosnippet>573</a>	///
+<a href=#574 id=574 data-nosnippet>574</a>	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
+<a href=#575 id=575 data-nosnippet>575</a>	/// account and the refund would create one below ED), the refund portion is folded into
+<a href=#576 id=576 data-nosnippet>576</a>	/// the burn rather than aborting the whole refund.
+<a href=#577 id=577 data-nosnippet>577</a>	///
+<a href=#578 id=578 data-nosnippet>578</a>	/// `amount` is capped at the PGAS actually held by `from`: when a recipient with no
+<a href=#579 id=579 data-nosnippet>579</a>	/// [`NativeDepositOf`] credit triggers a refund on a contract whose deposit was paid in
+<a href=#580 id=580 data-nosnippet>580</a>	/// native, the call settles whatever PGAS is actually held instead of reverting.
+<a href=#581 id=581 data-nosnippet>581</a>	</span><span class="kw">fn </span>settle_pgas_refund(
+<a href=#582 id=582 data-nosnippet>582</a>		reason: HoldReason,
+<a href=#583 id=583 data-nosnippet>583</a>		from: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#584 id=584 data-nosnippet>584</a>		to: <span class="kw-2">&amp;</span>T::AccountId,
+<a href=#585 id=585 data-nosnippet>585</a>		amount: BalanceOf&lt;T&gt;,
+<a href=#586 id=586 data-nosnippet>586</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;BalanceOf&lt;T&gt;, DispatchError&gt; {
+<a href=#587 id=587 data-nosnippet>587</a>		<span class="kw">if </span>amount.is_zero() {
+<a href=#588 id=588 data-nosnippet>588</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(BalanceOf::&lt;T&gt;::zero());
+<a href=#589 id=589 data-nosnippet>589</a>		}
+<a href=#590 id=590 data-nosnippet>590</a>		<span class="comment">// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
+<a href=#591 id=591 data-nosnippet>591</a>		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
+<a href=#592 id=592 data-nosnippet>592</a>		// otherwise route the full amount through PGAS and revert on `Precision::Exact`.
+<a href=#593 id=593 data-nosnippet>593</a>		</span><span class="kw">let </span>pgas_held = <span class="self">Self</span>::pgas_on_hold(reason, from);
+<a href=#594 id=594 data-nosnippet>594</a>		<span class="kw">let </span>amount = amount.min(pgas_held);
+<a href=#595 id=595 data-nosnippet>595</a>		<span class="kw">if </span>amount.is_zero() {
+<a href=#596 id=596 data-nosnippet>596</a>			<span class="kw">return </span><span class="prelude-val">Ok</span>(BalanceOf::&lt;T&gt;::zero());
+<a href=#597 id=597 data-nosnippet>597</a>		}
+<a href=#598 id=598 data-nosnippet>598</a>		<span class="kw">let </span>refund = RefundPercent::get().mul_floor(amount);
+<a href=#599 id=599 data-nosnippet>599</a>		<span class="kw">let </span><span class="kw-2">mut </span>burn = amount.saturating_sub(refund);
+<a href=#600 id=600 data-nosnippet>600</a>		<span class="kw">let </span><span class="kw-2">mut </span>refunded = BalanceOf::&lt;T&gt;::zero();
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a>		<span class="kw">if </span>!refund.is_zero() {
+<a href=#603 id=603 data-nosnippet>603</a>			<span class="kw">let </span>can_credit = <span class="macro">matches!</span>(
+<a href=#604 id=604 data-nosnippet>604</a>				&lt;Mutator <span class="kw">as </span>fungibles::Inspect&lt;T::AccountId&gt;&gt;::can_deposit(
+<a href=#605 id=605 data-nosnippet>605</a>					Id::get(),
+<a href=#606 id=606 data-nosnippet>606</a>					to,
+<a href=#607 id=607 data-nosnippet>607</a>					refund,
+<a href=#608 id=608 data-nosnippet>608</a>					Provenance::Extant,
+<a href=#609 id=609 data-nosnippet>609</a>				),
+<a href=#610 id=610 data-nosnippet>610</a>				DepositConsequence::Success
+<a href=#611 id=611 data-nosnippet>611</a>			);
+<a href=#612 id=612 data-nosnippet>612</a>			<span class="kw">if </span>can_credit {
+<a href=#613 id=613 data-nosnippet>613</a>				refunded = &lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::transfer_on_hold(
+<a href=#614 id=614 data-nosnippet>614</a>					Id::get(),
+<a href=#615 id=615 data-nosnippet>615</a>					<span class="kw-2">&amp;</span>reason.into(),
+<a href=#616 id=616 data-nosnippet>616</a>					from,
+<a href=#617 id=617 data-nosnippet>617</a>					to,
+<a href=#618 id=618 data-nosnippet>618</a>					refund,
+<a href=#619 id=619 data-nosnippet>619</a>					Precision::BestEffort,
+<a href=#620 id=620 data-nosnippet>620</a>					Restriction::Free,
+<a href=#621 id=621 data-nosnippet>621</a>					Fortitude::Polite,
+<a href=#622 id=622 data-nosnippet>622</a>				)<span class="question-mark">?</span>;
+<a href=#623 id=623 data-nosnippet>623</a>			} <span class="kw">else </span>{
+<a href=#624 id=624 data-nosnippet>624</a>				burn = burn.saturating_add(refund);
+<a href=#625 id=625 data-nosnippet>625</a>			}
+<a href=#626 id=626 data-nosnippet>626</a>		}
+<a href=#627 id=627 data-nosnippet>627</a>
+<a href=#628 id=628 data-nosnippet>628</a>		<span class="kw">if </span>!burn.is_zero() {
+<a href=#629 id=629 data-nosnippet>629</a>			&lt;Holder <span class="kw">as </span>fungibles::MutateHold&lt;T::AccountId&gt;&gt;::burn_held(
+<a href=#630 id=630 data-nosnippet>630</a>				Id::get(),
+<a href=#631 id=631 data-nosnippet>631</a>				<span class="kw-2">&amp;</span>reason.into(),
+<a href=#632 id=632 data-nosnippet>632</a>				from,
+<a href=#633 id=633 data-nosnippet>633</a>				burn,
+<a href=#634 id=634 data-nosnippet>634</a>				Precision::Exact,
+<a href=#635 id=635 data-nosnippet>635</a>				Fortitude::Polite,
+<a href=#636 id=636 data-nosnippet>636</a>			)<span class="question-mark">?</span>;
+<a href=#637 id=637 data-nosnippet>637</a>		}
+<a href=#638 id=638 data-nosnippet>638</a>		<span class="prelude-val">Ok</span>(refunded)
+<a href=#639 id=639 data-nosnippet>639</a>	}
+<a href=#640 id=640 data-nosnippet>640</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
