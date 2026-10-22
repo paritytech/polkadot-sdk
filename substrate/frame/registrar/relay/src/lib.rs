@@ -35,15 +35,23 @@
 //!    and the parachain has already made the manager pay for them. If the blob matches, the para is
 //!    onboarded and the outcome is reported back to the parachain.
 //!
-//! An authorization never times out here. The parachain sends
+//! A registration authorization never times out here. The parachain sends
 //! [`MessageToRelayV1::CancelRegistration`] when the manager gives up, this pallet drops the entry
 //! and confirms, and the parachain releases the deposit. So the relay chain runs no per-block
 //! sweep, and whoever wants the deposit back pays for the round trip. No deposit is taken here.
 //!
+//! Code upgrade authorizations do lapse instead: no deposit is at stake, and their validity
+//! depends on relay-chain state the parachain does not track.
+//!
+//! ## Deregistration
+//!
+//! Applied as it arrives and answered once. A para already gone is confirmed, so the parachain's
+//! retry after a lost answer settles instead of being refused.
+//!
 //! ## Locking
 //!
-//! The relay chain also tells the parachain when a para produces a head, so the chain holding
-//! the manager relationship can lock the para. See [`OnNewParaHead`].
+//! The relay chain also tells the parachain when a para produces a head, so the chain holding the
+//! manager relationship can lock the para. Add this pallet to `paras::Config::OnNewHead`.
 //!
 //! ## Code upgrades
 //!
@@ -64,17 +72,20 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, weights::Weight};
+pub use pallet::*;
+use polkadot_primitives::{HeadData, Id};
+use polkadot_runtime_parachains::paras::OnNewHead;
 use registrar_primitives::{
-	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, OnNewParaHead,
-	Outcome, ParaId, ParachainRegistrar,
+	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
+	ParaId, ParachainRegistrar,
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-
-pub use pallet::*;
 pub use weights::WeightInfo;
 
 pub mod weights;
+
+const LOG_TARGET: &str = "runtime::registrar-relay";
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -207,6 +218,10 @@ pub mod pallet {
 	pub type PendingRegistrations<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, ParaId, PendingRegistrationOf<T>>;
 
+	/// Paras registered here that have not produced their first head yet, by para id.
+	#[pallet::storage]
+	pub type AwaitingFirstHead<T: Config> = StorageMap<_, Blake2_128Concat, ParaId, ()>;
+
 	/// Code upgrades waiting on their validation code, by para id.
 	#[pallet::storage]
 	pub type PendingCodeUpgrades<T: Config> =
@@ -242,6 +257,10 @@ pub mod pallet {
 		HeadNoted { para_id: ParaId },
 		/// A para's first head could not be reported to the parachain.
 		HeadNoteFailed { para_id: ParaId },
+		/// A para was dropped from the registry, or had already left it.
+		Deregistered { para_id: ParaId, message_id: u64 },
+		/// The registry refused to drop a para.
+		DeregistrationRejected { para_id: ParaId, message_id: u64 },
 	}
 
 	#[pallet::error]
@@ -271,11 +290,11 @@ pub mod pallet {
 				T::WeightInfo::receive_register(genesis_head.len() as u32),
 			MessageToRelay::V1(MessageToRelayV1::CancelRegistration { .. }) =>
 				T::WeightInfo::receive_cancel_registration(),
+			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) =>
+				T::WeightInfo::receive_deregister(),
 			MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade { .. }) =>
 				T::WeightInfo::receive_authorize_code_upgrade(),
-			MessageToRelay::V1(MessageToRelayV1::Deregister { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { .. }) |
-			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::zero(),
+			MessageToRelay::V1(MessageToRelayV1::SetCurrentHead { .. }) => Weight::MAX,
 		})]
 		pub fn receive(
 			origin: OriginFor<T>,
@@ -303,11 +322,9 @@ pub mod pallet {
 					para_id,
 					message_id,
 				}) => Self::on_cancel_request(para_id, message_id),
-				MessageToRelay::V1(MessageToRelayV1::Deregister {
-					para_id,
-					message_id,
-					manager,
-				}) => Self::on_deregister_request(para_id, message_id, manager),
+				MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id }) => {
+					Self::on_deregister_request(para_id, message_id)
+				},
 				MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
 					para_id,
 					message_id,
@@ -319,13 +336,8 @@ pub mod pallet {
 				MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
 					para_id,
 					message_id,
-					manager,
 					head,
-				}) => Self::on_set_current_head_request(para_id, message_id, manager, head),
-				MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
-					para_id,
-					message_id,
-				}) => Self::on_cancel_deregistration_request(para_id, message_id),
+				}) => Self::on_set_current_head_request(para_id, message_id, head),
 			}
 
 			Ok(())
@@ -480,6 +492,8 @@ pub mod pallet {
 				PendingRegistration { message_id, manager, genesis_head, code_hash, code_len },
 			);
 
+			AwaitingFirstHead::<T>::insert(para_id, ());
+
 			Self::deposit_event(Event::RegistrationPending { para_id, message_id, code_hash });
 		}
 
@@ -489,10 +503,10 @@ pub mod pallet {
 			Self::deposit_event(Event::RegistrationRejected { para_id, message_id, reason });
 		}
 
-		/// Drop the authorization for `para_id`, unless the code beat the cancellation here.
+		/// Drop the authorization for `para_id` and tell the parachain to release the deposit.
 		///
-		/// A registered id keeps its deposit. Nothing pending still gets an `Ok`: the request may
-		/// have been rejected here and the report lost.
+		/// If the code already landed the cancellation is refused and the deposit is kept. Nothing
+		/// pending still gets an `Ok`: the request may have been rejected here and the report lost.
 		fn on_cancel_request(para_id: ParaId, message_id: u64) {
 			PendingRegistrations::<T>::remove(para_id);
 
@@ -504,6 +518,8 @@ pub mod pallet {
 				);
 				return Self::deposit_event(Event::CancellationRefused { para_id, message_id });
 			}
+
+			AwaitingFirstHead::<T>::remove(para_id);
 
 			Self::report_cancellation(para_id, message_id, Ok(()));
 			Self::deposit_event(Event::AuthorizationCancelled { para_id, message_id });
@@ -583,9 +599,26 @@ pub mod pallet {
 			);
 		}
 
-		fn on_deregister_request(para_id: ParaId, message_id: u64, manager: T::AccountId) {
-			let _ = (para_id, message_id, manager);
-			todo!()
+		/// Drop `para_id` at the parachain's request.
+		///
+		/// A para already gone is confirmed rather than refused, so a retried request settles.
+		fn on_deregister_request(para_id: ParaId, message_id: u64) {
+			if let Err(e) = T::Registrar::deregister(para_id) {
+				log::debug!(
+					target: LOG_TARGET,
+					"registry refused to drop para {para_id}: {e:?}",
+				);
+				Self::report_deregistration(
+					para_id,
+					message_id,
+					Err(FailureReason::NotDeregisterable),
+				);
+				return Self::deposit_event(Event::DeregistrationRejected { para_id, message_id });
+			}
+
+			AwaitingFirstHead::<T>::remove(para_id);
+			Self::report_deregistration(para_id, message_id, Ok(()));
+			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}
 
 		/// Park an upgrade authorization for `para_id`, or refuse it, and report either way.
@@ -629,36 +662,17 @@ pub mod pallet {
 			});
 		}
 
-		fn on_set_current_head_request(
-			para_id: ParaId,
-			message_id: u64,
-			manager: T::AccountId,
-			head: Vec<u8>,
-		) {
-			let _ = (para_id, message_id, manager, head);
-			todo!()
+		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
+			let _ = (para_id, message_id, head);
+			// TODO(ahm-v2): set the para's head and report the outcome back.
 		}
 
-		fn on_cancel_deregistration_request(para_id: ParaId, message_id: u64) {
-			let _ = (para_id, message_id);
-			todo!()
-		}
-
-		#[allow(dead_code)]
+		/// Tell the parachain how a deregistration ended.
 		fn report_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
 			Self::report(
 				para_id,
 				message_id,
 				MessageToParaV1::DeregisterResponse { para_id, message_id, outcome },
-			);
-		}
-
-		#[allow(dead_code)]
-		fn report_cancel_deregistration(para_id: ParaId, message_id: u64, outcome: Outcome) {
-			Self::report(
-				para_id,
-				message_id,
-				MessageToParaV1::CancelDeregistrationResponse { para_id, message_id, outcome },
 			);
 		}
 
@@ -700,7 +714,7 @@ pub mod pallet {
 		fn report(para_id: ParaId, message_id: u64, message: MessageToParaV1) {
 			if T::SendToPara::send(MessageToPara::V1(message)).is_err() {
 				log::error!(
-					target: "runtime::registrar-relay",
+					target: LOG_TARGET,
 					"failed to report the outcome for para {para_id} back to the parachain",
 				);
 				Self::deposit_event(Event::ReportFailed { para_id, message_id });
@@ -709,21 +723,28 @@ pub mod pallet {
 	}
 }
 
-/// Tells the parachain when a para produces a head, so it can lock the para.
+/// Tells the parachain the first time a para produces a head, so it can lock the para.
 ///
-/// A send failure is only logged and evented: the caller is a hook that cannot fail.
-impl<T: Config> OnNewParaHead for Pallet<T> {
-	fn on_new_para_head(para_id: ParaId) -> Weight {
+/// The caller is a hook that cannot fail, so a send failure is only logged and evented. Nothing is
+/// recorded in that case, so the next head retries.
+impl<T: Config> OnNewHead for Pallet<T> {
+	fn on_new_head(id: Id, _head: &HeadData) -> Weight {
+		let para_id: ParaId = id.into();
+		if !AwaitingFirstHead::<T>::contains_key(para_id) {
+			return T::WeightInfo::on_new_head_already_noted();
+		}
+
 		if T::SendToPara::send(MessageToPara::V1(MessageToParaV1::HeadNoted { para_id })).is_err() {
 			log::error!(
-				target: "runtime::registrar-relay",
+				target: LOG_TARGET,
 				"failed to tell the parachain about a new head for para {para_id}",
 			);
 			Self::deposit_event(Event::HeadNoteFailed { para_id });
 		} else {
+			AwaitingFirstHead::<T>::remove(para_id);
 			Self::deposit_event(Event::HeadNoted { para_id });
 		}
 
-		T::WeightInfo::on_new_para_head()
+		T::WeightInfo::on_new_head()
 	}
 }

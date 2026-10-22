@@ -1,0 +1,13 @@
+title: 'grandpa: skip decoding commits peers would reject'
+doc:
+- audience: Node Dev
+  description: |-
+    In `GossipValidator::message_allowed`, check whether the peer would accept a commit at our best commit height before decoding the message.
+
+    Only our best commit is ever gossiped to peers, and its height is already known from the local view, so the check can be done without decoding. Previously the commit was decoded first and then refused for peers already at or past that
+    height. A refused peer isn't marked as knowing the message, so this could repeat on later gossip attempts.
+
+    Discovered while working on #13318 (but independent of it)
+crates:
+- name: sc-consensus-grandpa
+  bump: patch

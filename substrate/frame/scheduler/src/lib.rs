@@ -580,7 +580,8 @@ pub mod pallet {
 		/// original task's configuration, but will have a lower value for `remaining` than the
 		/// original `total_retries`.
 		///
-		/// This call **cannot** be used to set a retry configuration for a named task.
+		/// This call **cannot** be used to set a retry configuration for a named task; it fails
+		/// with [`Error::Named`]. Use [`Pallet::set_retry_named`] for those.
 		#[pallet::call_index(6)]
 		#[pallet::weight(<T as Config>::WeightInfo::set_retry())]
 		pub fn set_retry(
@@ -598,6 +599,8 @@ pub mod pallet {
 				.and_then(Option::as_ref)
 				.ok_or(Error::<T>::NotFound)?;
 			Self::ensure_privilege(origin.caller(), &scheduled.origin)?;
+			// Named tasks must go through `set_retry_named`.
+			ensure!(scheduled.maybe_id.is_none(), Error::<T>::Named);
 			Retries::<T>::insert(
 				(when, index),
 				RetryConfig { total_retries: retries, remaining: retries, period },
@@ -651,6 +654,10 @@ pub mod pallet {
 		}
 
 		/// Removes the retry configuration of a task.
+		///
+		/// Unlike [`Pallet::set_retry`], this accepts named tasks too: dropping a retry
+		/// configuration is always safe, and configurations left by older runtimes still need a
+		/// way out. The `RetryCancelled` event therefore carries `id: None` even for a named task.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::cancel_retry())]
 		pub fn cancel_retry(

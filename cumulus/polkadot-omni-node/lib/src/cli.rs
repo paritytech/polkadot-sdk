@@ -79,22 +79,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	///
-	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
-	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
-	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
-	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
-	/// isn't bringing significant value as it does for other node binaries (e.g. the
-	///  `polkadot` binary).
-	///
-	/// For a more versatile `chain-spec` manipulation experience please check out the
-	/// `polkadot-omni-node chain-spec-builder` subcommand.
-	#[deprecated(
-		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
 
@@ -184,13 +168,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
-	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
-	///
-	/// Use slot-based collator which can handle elastic scaling.
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long, conflicts_with = "authoring")]
-	pub experimental_use_slot_based: bool,
-
 	/// Authoring style to use.
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
@@ -262,6 +239,93 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
+	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
+	/// hash.
+	///
+	/// Makes the node responsible for finding and storing all statements with topics in this
+	/// list.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
+	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
+
+	/// File with affinity topics advertised by this node, one 32-byte hex topic per line.
+	/// Blank lines and lines starting with `#` are skipped. Adds to `--statement-affinity-topic`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
+	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
+
+	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
+	/// False-positive rate of the topic-affinity bloom filter this node advertises.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "RATE",
+		default_value_t = sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
+		hide = true
+	)]
+	pub statement_bloom_false_positive_rate: f64,
+
+	/// Seed of the topic-affinity bloom filter this node advertises. Defaults to a random
+	/// value per node.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "SEED", hide = true)]
+	pub statement_bloom_seed: Option<u128>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
 	/// Upper bound on collator reserved-peer slots.
 	#[arg(long, value_name = "N", default_value_t = 32)]
 	pub collator_reserved_slots: usize,
@@ -308,10 +372,7 @@ impl Display for AuthoringPolicy {
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			authoring_policy: self
-				.experimental_use_slot_based
-				.then(|| AuthoringPolicy::SlotBased)
-				.unwrap_or(self.authoring),
+			authoring_policy: self.authoring,
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			statement_store_config: self.enable_statement_store.then_some(
@@ -321,6 +382,18 @@ impl<Config: CliConfig> Cli<Config> {
 					purge_after_sec: self.statement_store_purge_after_sec,
 					network_workers: self.statement_network_workers,
 					rate_limit: self.statement_rate_limit,
+					v2dht: sc_network_statement::v2dht_enabled().then(|| {
+						sc_statement_store::V2DhtConfig {
+							affinity_topics: self.statement_affinity_topics.clone(),
+							affinity_topics_file: self.statement_affinity_topics_file.clone(),
+							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
+							bloom_seed: self.statement_bloom_seed,
+							replication_factor: self.statement_replication_factor,
+							gossip_target: self.statement_gossip_target,
+							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
+							transient_max_size: self.statement_store_max_transient_size,
+						}
+					}),
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
@@ -576,5 +649,71 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 
 	fn node_name(&self) -> sc_cli::Result<String> {
 		self.base.base.node_name()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::{CommandFactory, FromArgMatches};
+
+	struct TestCliConfig;
+	impl CliConfig for TestCliConfig {
+		fn impl_version() -> String {
+			"0.0.0".into()
+		}
+		fn author() -> String {
+			"test".into()
+		}
+		fn support_url() -> String {
+			"https://example.invalid".into()
+		}
+		fn copyright_start_year() -> u16 {
+			2025
+		}
+	}
+
+	#[test]
+	fn statement_affinity_topics_accumulate_repeated_flags() {
+		let topic_a = "11".repeat(32);
+		let topic_b = "22".repeat(32);
+		// `propagate_version = true` on the command requires a version; the binary injects one via
+		// `SubstrateCli` at runtime, so set one here to drive clap directly.
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--statement-affinity-topic",
+			&format!("0x{topic_a}"),
+			"--statement-affinity-topic",
+			&format!("0x{topic_b}"),
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(
+			cli.statement_affinity_topics,
+			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
+		);
+	}
+
+	#[test]
+	fn statement_bloom_flags_parse() {
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--statement-bloom-false-positive-rate",
+			"0.001",
+			"--statement-bloom-seed",
+			"12345678901234567890123456789012345678",
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(cli.statement_bloom_false_positive_rate, 0.001);
+		assert_eq!(cli.statement_bloom_seed, Some(12345678901234567890123456789012345678));
+
+		let matches = Cli::<TestCliConfig>::command()
+			.version("0.0.0")
+			.get_matches_from(["polkadot-omni-node"]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(
+			cli.statement_bloom_false_positive_rate,
+			sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE
+		);
+		assert_eq!(cli.statement_bloom_seed, None);
 	}
 }

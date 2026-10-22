@@ -28,6 +28,17 @@
 //!
 //! In the meantime the call corresponding to the hash must have been submitted to the pre-image
 //! handler [`pallet::Config::Preimages`].
+//!
+//! ## Deferred dispatch
+//!
+//! A dispatch by [`Config::DispatchWhitelistedOrigin`] of a not-yet-whitelisted hash is deferred
+//! into [`DeferredDispatch`] with an expiration. Once the hash is whitelisted, any signed account
+//! can relay it as root, fee-free.
+//!
+//! [`WhitelistedCall`] and [`DeferredDispatch`] are independent: each is written only by its own
+//! origin and neither removes the other. Unwhitelisting therefore *pauses* a live deferral rather
+//! than cancelling it. Relayers are blocked while the hash is off the whitelist, but
+//! re-whitelisting it before expiry re-enables relayed execution without a new governance act.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -183,6 +194,10 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Remove a call hash from the whitelist.
+		///
+		/// Leaves any live [`DeferredDispatch`] entry in place, so re-whitelisting the hash before
+		/// it expires re-enables relayed execution.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::remove_whitelisted_call())]
 		pub fn remove_whitelisted_call(origin: OriginFor<T>, call_hash: T::Hash) -> DispatchResult {

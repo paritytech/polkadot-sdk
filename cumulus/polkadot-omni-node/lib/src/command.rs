@@ -144,12 +144,7 @@ where
 		Cli::<CliConfig>::from_arg_matches(&matches).map_err(|e| sc_cli::Error::Cli(e.into()))?;
 	cli.chain_spec_loader = Some(cmd_config.chain_spec_loader);
 
-	#[allow(deprecated)]
 	match &cli.subcommand {
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		},
 		Some(Subcommand::CheckBlock(cmd)) => {
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
@@ -291,14 +286,6 @@ where
 			let polkadot_cli =
 				RelayChainCli::<CliConfig>::new(runner.config(), cli.relay_chain_args.iter());
 			let collator_options = cli.run.collator_options();
-
-			if cli.experimental_use_slot_based {
-				log::warn!(
-					"Deprecated: The flag --experimental-use-slot-based is no longer \
-				supported. Please use --authoring slot-based instead. This feature will be removed \
-				after May 2025."
-				);
-			}
 
 			runner.run_node_until_exit(|config| async move {
 				let node_extra_args = cli.node_extra_args();

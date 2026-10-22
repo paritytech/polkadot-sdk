@@ -64,10 +64,12 @@ use frame_support::{
 	pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 	traits::{
 		tokens::{
-			fungible::{Inspect, Mutate, MutateHold},
-			Fortitude, Precision,
+			fungible::{
+				BalancedHold, Credit as FungibleCredit, Inspect, Mutate, MutateHold, Unbalanced,
+			},
+			Imbalance, Precision, Preservation,
 		},
-		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee,
+		Defensive, DefensiveSaturating, EstimateCallFee, EstimateFee, OnUnbalanced,
 	},
 	BoundedVec, Twox64Concat,
 };
@@ -75,7 +77,10 @@ use frame_system::{ensure_signed, pallet_prelude::*};
 use scale_info::TypeInfo;
 use sp_io::MultiRemovalResults;
 use sp_npos_elections::ElectionScore;
-use sp_runtime::{traits::Saturating, Perbill};
+use sp_runtime::{
+	traits::{Saturating, Zero},
+	Perbill,
+};
 use sp_std::prelude::*;
 
 /// Explore all weights
@@ -110,6 +115,27 @@ pub struct SubmissionMetadata<T: Config> {
 	claimed_score: ElectionScore,
 	/// A bounded-bool-vec of pages that have been submitted so far.
 	pages: BoundedVec<bool, T::Pages>,
+}
+
+/// Maximum number of entries in [`UnpaidRewards`].
+///
+/// Deferrals require a depleted pot and at most one entry is created per round, so a small fixed
+/// bound suffices for every runtime. When full, the oldest entry is evicted.
+pub const MAX_UNPAID_REWARDS: u32 = 16;
+
+/// A round-winner reward that failed to pay, pending a permissionless claim via
+/// [`Pallet::claim_unpaid_reward`]. Rewards only, not fee refunds, so `round` is a unique key.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, DebugNoBound)]
+#[cfg_attr(test, derive(frame_support::PartialEqNoBound, frame_support::EqNoBound))]
+#[codec(mel_bound(T: Config))]
+#[scale_info(skip_type_params(T))]
+pub struct UnpaidReward<T: Config> {
+	/// The round the reward was owed for; unique among [`UnpaidRewards`] entries.
+	round: u32,
+	/// The winner the reward is owed to.
+	who: T::AccountId,
+	/// The amount owed.
+	amount: BalanceOf<T>,
 }
 
 impl<T: Config> crate::types::SignedInterface for Pallet<T> {
@@ -175,14 +201,7 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 					// first, let's give them their reward.
 					let reward =
 						metadata.reward.saturating_add(metadata.fee.min(T::MaxFeeRefund::get()));
-					// TODO: no direct mint (https://github.com/paritytech/polkadot-sdk/issues/12813)
-					let _r = T::Currency::mint_into(&winner, reward);
-					debug_assert!(_r.is_ok());
-					Self::deposit_event(Event::<T>::Rewarded(
-						current_round,
-						winner.clone(),
-						reward,
-					));
+					Self::pay_reward(current_round, &winner, reward);
 
 					// then, unreserve their deposit
 					let _res = T::Currency::release(
@@ -230,6 +249,55 @@ impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Bala
 	}
 }
 
+/// Provides the account that reward payments and invulnerable fee refunds are drawn from.
+///
+/// `None` mints directly. `Some(account)` transfers from `account`, followed by a call to
+/// [`Self::paid`] for any bookkeeping the source needs to perform after a successful payout.
+pub trait RewardSource<AccountId, Balance> {
+	/// The pot account to draw the reward from, or `None` to mint directly.
+	fn account() -> Option<AccountId>;
+
+	/// Called after `amount` has been successfully transferred out of the pot.
+	fn paid(amount: Balance);
+}
+
+/// A [`RewardSource`] drawing from the account in `P`, with no issuance reactivation.
+///
+/// Correct only for pots holding *active* funds. A pot holding deactivated issuance, such as a
+/// DAP buffer, must use a source that reactivates in [`RewardSource::paid`].
+pub struct ActivePot<P>(sp_std::marker::PhantomData<P>);
+
+impl<AccountId, Balance, P: Get<Option<AccountId>>> RewardSource<AccountId, Balance>
+	for ActivePot<P>
+{
+	fn account() -> Option<AccountId> {
+		P::get()
+	}
+
+	fn paid(_amount: Balance) {}
+}
+
+/// A [`RewardSource`] drawing from the account in `P`, reactivating the paid amount in
+/// `Currency` afterwards.
+///
+/// For pots holding previously-deactivated issuance, such as a DAP buffer.
+pub struct ReactivatingPot<P, Currency>(sp_std::marker::PhantomData<(P, Currency)>);
+
+impl<AccountId, Balance, P, Currency> RewardSource<AccountId, Balance>
+	for ReactivatingPot<P, Currency>
+where
+	P: Get<Option<AccountId>>,
+	Currency: Unbalanced<AccountId, Balance = Balance>,
+{
+	fn account() -> Option<AccountId> {
+		P::get()
+	}
+
+	fn paid(amount: Balance) {
+		Currency::reactivate(amount);
+	}
+}
+
 /// A [`Config::MaxFeeRefund`] that is the fee of a full submission: one [`Pallet::register`], plus
 /// [`crate::Config::Pages`] [`Pallet::submit_page`] calls, each carrying a maximum-size solution
 /// page.
@@ -268,7 +336,8 @@ pub mod pallet {
 		/// Handler to the currency.
 		type Currency: Inspect<Self::AccountId>
 			+ Mutate<Self::AccountId>
-			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>;
+			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>
+			+ BalancedHold<Self::AccountId>;
 
 		/// Base deposit amount for a submission.
 		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
@@ -302,6 +371,13 @@ pub mod pallet {
 		/// Handler to estimate the fee of a call. Useful to refund the transaction fee of the
 		/// submitter for the winner.
 		type EstimateCallFee: EstimateCallFee<Call<Self>, BalanceOf<Self>>;
+
+		/// Handler for slashed deposits. Use `()` to burn them, or redirect them elsewhere.
+		type Slash: OnUnbalanced<FungibleCredit<Self::AccountId, Self::Currency>>;
+
+		/// Source account for reward payments. `Some(pot)` transfers from that account; `None`
+		/// mints directly into the winner's account.
+		type RewardSource: RewardSource<Self::AccountId, BalanceOf<Self>>;
 
 		/// Ceiling on the transaction fee that is refunded to a submitter.
 		///
@@ -339,6 +415,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Invulnerables<T: Config> =
 		StorageValue<_, BoundedVec<T::AccountId, ConstU32<16>>, ValueQuery>;
+
+	/// Round-winner rewards that failed to pay out of [`Config::RewardSource`], pending a
+	/// permissionless claim via [`Pallet::claim_unpaid_reward`].
+	///
+	/// Expected to stay empty in normal operation; only grows when the pot is depleted. Bounded
+	/// to [`MAX_UNPAID_REWARDS`] entries, pushed in round order, so if full, the oldest one is
+	/// evicted (see [`Pallet::pay_reward`]).
+	#[pallet::storage]
+	pub type UnpaidRewards<T: Config> =
+		StorageValue<_, BoundedVec<UnpaidReward<T>, ConstU32<MAX_UNPAID_REWARDS>>, ValueQuery>;
 
 	/// Wrapper type for signed submissions.
 	///
@@ -546,6 +632,7 @@ pub mod pallet {
 
 						if let Some(metadata) = maybe_metadata {
 							Pallet::<T>::settle_deposit(
+								round,
 								&discarded,
 								metadata.deposit,
 								T::EjectGraceRatio::get(),
@@ -805,6 +892,14 @@ pub mod pallet {
 		Stored(u32, T::AccountId, PageIndex),
 		/// The given account has been rewarded with the given amount.
 		Rewarded(u32, T::AccountId, BalanceOf<T>),
+		/// A reward payout failed and has been queued in [`UnpaidRewards`]; claimable via
+		/// [`Pallet::claim_unpaid_reward`] once the pot is refilled.
+		RewardPaymentDeferred(u32, T::AccountId, BalanceOf<T>),
+		/// [`UnpaidRewards`] was full, so this (the oldest) entry was evicted to make room for a
+		/// new deferral; no funds moved, the reward is now unrecoverable.
+		UnpaidRewardEvicted(u32, T::AccountId, BalanceOf<T>),
+		/// An invulnerable's transaction fee refund failed; no funds moved, no recovery.
+		FeeRefundFailed(u32, T::AccountId, BalanceOf<T>),
 		/// The given account has been slashed with the given amount.
 		Slashed(u32, T::AccountId, BalanceOf<T>),
 		/// The given solution, for the given round, was ejected.
@@ -835,6 +930,10 @@ pub mod pallet {
 		BadWitnessData,
 		/// Too many invulnerable accounts are provided,
 		TooManyInvulnerables,
+		/// No [`UnpaidRewards`] entry exists for the caller in the given round.
+		NoUnpaidReward,
+		/// The [`Config::RewardSource`] pot is still insufficient to pay the unpaid reward.
+		PotStillDepleted,
 	}
 
 	#[pallet::call]
@@ -922,7 +1021,7 @@ pub mod pallet {
 				.ok_or(Error::<T>::NoSubmission)?;
 
 			let deposit = metadata.deposit;
-			Self::settle_deposit(&who, deposit, T::BailoutGraceRatio::get());
+			Self::settle_deposit(round, &who, deposit, T::BailoutGraceRatio::get());
 			Self::deposit_event(Event::<T>::Bailed(round, who));
 
 			Ok(None.into())
@@ -965,10 +1064,7 @@ pub mod pallet {
 
 			// maybe give back their fees
 			if Self::is_invulnerable(&discarded) {
-				let refund = metadata.fee.min(T::MaxFeeRefund::get());
-				// TODO: no direct mint (https://github.com/paritytech/polkadot-sdk/issues/12813)
-				let _r = T::Currency::mint_into(&discarded, refund);
-				debug_assert!(_r.is_ok());
+				Self::refund_fee(round, &discarded, metadata.fee.min(T::MaxFeeRefund::get()));
 			}
 
 			Self::deposit_event(Event::<T>::Discarded(round, discarded));
@@ -988,6 +1084,29 @@ pub mod pallet {
 				inv.try_into().map_err(|_| Error::<T>::TooManyInvulnerables)?;
 			Invulnerables::<T>::set(bounded);
 			Ok(())
+		}
+
+		/// Pay out a round's [`UnpaidRewards`] entry to its winner. Permissionless: anyone may
+		/// call it for any round. Free on success, normal fee on failure to discourage spam.
+		#[pallet::call_index(5)]
+		#[pallet::weight(SignedWeightsOf::<T>::claim_unpaid_reward())]
+		pub fn claim_unpaid_reward(origin: OriginFor<T>, round: u32) -> DispatchResultWithPostInfo {
+			let _ = ensure_signed(origin)?;
+			let mut unpaid = UnpaidRewards::<T>::get();
+			let idx = unpaid
+				.iter()
+				.position(|entry| entry.round == round)
+				.ok_or(Error::<T>::NoUnpaidReward)?;
+			let entry = unpaid[idx].clone();
+
+			Self::transfer_or_mint(&entry.who, entry.amount)
+				.map_err(|_| Error::<T>::PotStillDepleted)?;
+
+			unpaid.remove(idx);
+			UnpaidRewards::<T>::put(unpaid);
+			Self::deposit_event(Event::<T>::Rewarded(entry.round, entry.who, entry.amount));
+
+			Ok(Pays::No.into())
 		}
 	}
 
@@ -1026,7 +1145,68 @@ impl<T: Config> Pallet<T> {
 		Invulnerables::<T>::get().contains(who)
 	}
 
-	fn settle_deposit(who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
+	/// Transfer `amount` from [`Config::RewardSource`] pot to `to`, or mint if `None`.
+	fn transfer_or_mint(to: &T::AccountId, amount: BalanceOf<T>) -> Result<(), ()> {
+		if let Some(source) = T::RewardSource::account() {
+			T::Currency::transfer(&source, to, amount, Preservation::Preserve).map_err(|_| ())?;
+			T::RewardSource::paid(amount);
+		} else {
+			let _r = T::Currency::mint_into(to, amount);
+			debug_assert!(_r.is_ok());
+		}
+		Ok(())
+	}
+
+	/// Pay the round's winner. On success emits `Rewarded`. On failure, always defers into
+	/// [`UnpaidRewards`] (`RewardPaymentDeferred`), evicting the oldest entry first
+	/// (`UnpaidRewardEvicted`) if it's already full.
+	fn pay_reward(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
+		if Self::transfer_or_mint(to, amount).is_ok() {
+			Self::deposit_event(Event::<T>::Rewarded(round, to.clone(), amount));
+			return;
+		}
+
+		sublog!(
+			warn,
+			"signed",
+			"reward pot insufficient; deferring {:?} to {:?} for round {}",
+			amount,
+			to,
+			round
+		);
+		let entry = UnpaidReward { round, who: to.clone(), amount };
+		UnpaidRewards::<T>::mutate(|unpaid| {
+			if unpaid.is_full() {
+				// Entries are pushed in round order, so index 0 is the oldest.
+				let evicted = unpaid.remove(0);
+				Self::deposit_event(Event::<T>::UnpaidRewardEvicted(
+					evicted.round,
+					evicted.who,
+					evicted.amount,
+				));
+			}
+			let _ = unpaid.try_push(entry).defensive_proof("an element was just evicted; qed");
+		});
+		Self::deposit_event(Event::<T>::RewardPaymentDeferred(round, to.clone(), amount));
+	}
+
+	/// Refund an invulnerable's tx fee on discard. Unlike `pay_reward`, a failure is not
+	/// deferred: it is out of scope for [`UnpaidRewards`] (see its doc for why) and simply emits
+	/// `FeeRefundFailed`, never `Rewarded`.
+	fn refund_fee(round: u32, to: &T::AccountId, amount: BalanceOf<T>) {
+		if Self::transfer_or_mint(to, amount).is_err() {
+			sublog!(
+				warn,
+				"signed",
+				"reward pot insufficient; fee refund of {:?} to {:?} not paid",
+				amount,
+				to
+			);
+			Self::deposit_event(Event::<T>::FeeRefundFailed(round, to.clone(), amount));
+		}
+	}
+
+	fn settle_deposit(round: u32, who: &T::AccountId, deposit: BalanceOf<T>, grace: Perbill) {
 		let to_refund = grace * deposit;
 		let to_slash = deposit.defensive_saturating_sub(to_refund);
 
@@ -1039,15 +1219,14 @@ impl<T: Config> Pallet<T> {
 		.defensive();
 		debug_assert_eq!(_res, Ok(to_refund));
 
-		let _res = T::Currency::burn_held(
-			&HoldReason::SignedSubmission.into(),
-			who,
-			to_slash,
-			Precision::BestEffort,
-			Fortitude::Force,
-		)
-		.defensive();
-		debug_assert_eq!(_res, Ok(to_slash));
+		let (credit, remainder) =
+			T::Currency::slash(&HoldReason::SignedSubmission.into(), who, to_slash);
+		debug_assert!(remainder.is_zero(), "the full deposit was held; slash must not be partial");
+		let slashed = credit.peek();
+		T::Slash::on_unbalanced(credit);
+		if !slashed.is_zero() {
+			Self::deposit_event(Event::<T>::Slashed(round, who.clone(), slashed));
+		}
 	}
 
 	/// Common logic for handling solution rejection - slash the submitter and try next solution
@@ -1061,15 +1240,17 @@ impl<T: Config> Pallet<T> {
 			// network issue that leads to an incomplete submission is much more likely than a bad
 			// faith action from an invulnerable.
 			let slash = metadata.deposit;
-			let _res = T::Currency::burn_held(
-				&HoldReason::SignedSubmission.into(),
-				&loser,
-				slash,
-				Precision::BestEffort,
-				Fortitude::Force,
+			let (credit, remainder) =
+				T::Currency::slash(&HoldReason::SignedSubmission.into(), &loser, slash);
+			debug_assert!(
+				remainder.is_zero(),
+				"the full deposit was held; slash must not be partial"
 			);
-			debug_assert_eq!(_res, Ok(slash));
-			Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slash));
+			let slashed = credit.peek();
+			T::Slash::on_unbalanced(credit);
+			if !slashed.is_zero() {
+				Self::deposit_event(Event::<T>::Slashed(current_round, loser.clone(), slashed));
+			}
 
 			// Try to start verification again if we still have submissions
 			if let crate::types::Phase::SignedValidation(remaining_blocks) =

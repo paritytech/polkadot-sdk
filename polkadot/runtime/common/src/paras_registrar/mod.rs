@@ -24,11 +24,12 @@
 pub mod migration;
 
 use alloc::vec::Vec;
-use core::result;
+use core::{matches, result};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
+	storage::with_storage_layer,
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
@@ -45,7 +46,6 @@ use crate::traits::{OnSwap, Registrar};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 pub use pallet::*;
 use polkadot_runtime_parachains::paras::{OnNewHead, ParaKind};
-use registrar_primitives::OnNewParaHead;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{CheckedSub, Saturating, Zero},
@@ -162,11 +162,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
-		/// Notified when a registered para produces a head.
-		///
-		/// Lets the chain that holds the manager relationship lock the para. `()` if there is none.
-		type OnNewParaHead: registrar_primitives::OnNewParaHead;
-
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -212,6 +207,8 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
+		/// The operation is scaffolded but not implemented yet.
+		NotImplemented,
 	}
 
 	/// Pending swap operations.
@@ -616,6 +613,79 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		)
 	}
 
+	// No origin, manager or lock check: the parachain registrar does those before asking.
+	fn deregister(para_id: u32) -> DispatchResult {
+		let id = ParaId::from(para_id);
+		// Rolls back if `schedule_para_cleanup` fails after earlier writes.
+		with_storage_layer(|| {
+			// A retry after a lost answer: cleanup is already scheduled.
+			if matches!(
+				paras::Pallet::<T>::lifecycle(id),
+				Some(ParaLifecycle::OffboardingParathread) |
+					Some(ParaLifecycle::OffboardingParachain)
+			) {
+				return Ok(());
+			}
+			Self::do_deregister(id)
+		})
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: u32) -> DispatchResult {
+		use frame_system::RawOrigin;
+		use polkadot_runtime_parachains::shared;
+
+		// The sample size the paras pallet's own benchmarks assume for per-para lists.
+		const OTHER_PARAS: u32 = 1024;
+
+		let code = Self::worst_validation_code();
+		<Self as registrar_primitives::ParachainRegistrar>::register(
+			frame_benchmarking::account("manager", 0, 0),
+			para_id,
+			Self::worst_head_data().0,
+			code.0.clone(),
+		)?;
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
+		Self::execute_pending_transitions();
+
+		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
+		// gets no vote of its own, which would make offboarding fail.
+		let now = frame_system::Pallet::<T>::block_number();
+		let upgrade = ValidationCode(alloc::vec![1u8; MIN_CODE_SIZE as usize]);
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), upgrade.clone())?;
+		paras::Pallet::<T>::force_schedule_code_upgrade(
+			RawOrigin::Root.into(),
+			ParaId::from(para_id),
+			upgrade,
+			now,
+		)?;
+
+		let others: Vec<ParaId> =
+			(1..=OTHER_PARAS).map(|i| ParaId::from(para_id.saturating_add(i))).collect();
+		for other in &others {
+			// Unknown code, so each upgrade opens a vote of its own.
+			let mut code = alloc::vec![0u8; MIN_CODE_SIZE as usize];
+			code[..4].copy_from_slice(&u32::from(*other).to_le_bytes());
+			paras::Pallet::<T>::force_schedule_code_upgrade(
+				RawOrigin::Root.into(),
+				*other,
+				ValidationCode(code),
+				now,
+			)?;
+		}
+		paras::ActionsQueue::<T>::insert(shared::Pallet::<T>::scheduled_session(), others);
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the head data length against the active configuration.
+		Err(())
+	}
+
+	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
+		// TODO(ahm-v2): set the para's current head.
+	}
+
 	fn check_code_upgrade(
 		para_id: u32,
 		code_len: u32,
@@ -797,16 +867,16 @@ impl<T: Config> Pallet<T> {
 
 impl<T: Config> OnNewHead for Pallet<T> {
 	fn on_new_head(id: ParaId, _head: &HeadData) -> Weight {
-		let mut weight = T::OnNewParaHead::on_new_para_head(id.into());
 		// mark the parachain locked if the locked value is not already set
+		let mut writes = 0;
 		if let Some(mut info) = Paras::<T>::get(id) {
 			if info.locked.is_none() {
 				info.locked = Some(true);
 				Paras::<T>::insert(id, info);
-				weight = weight.saturating_add(T::DbWeight::get().writes(1));
+				writes += 1;
 			}
 		}
-		weight
+		T::DbWeight::get().reads_writes(1, writes)
 	}
 }
 
