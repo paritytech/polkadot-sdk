@@ -152,6 +152,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
 	let mut api_missing_logged = false;
+	let mut no_signer_logged = false;
 
 	log::info!(target: LOG_TARGET, "Price oracle service started on {protocol_name}");
 	loop {
@@ -174,6 +175,13 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					validator.clear_acceptance();
 					continue;
 				};
+				// Warn once, not on every tick, while the keystore holds no signer key.
+				if setup.signer.is_some() {
+					no_signer_logged = false;
+				} else if !no_signer_logged {
+					log::warn!(target: LOG_TARGET, "No signer key in the keystore, not reporting");
+					no_signer_logged = true;
+				}
 				let acceptance = setup.acceptance();
 				// Drop pooled reports that fell out of the report window.
 				pool.prune(acceptance.oldest());
