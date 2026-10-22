@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792618642637,
+  "lastUpdate": 1792644187306,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "lrazovic@gmail.com",
-            "name": "Leonardo Razovic",
-            "username": "lrazovic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dd79f9668c46bd439cec8a916eabbb02ce74bba1",
-          "message": "Introduce PSM pallet (part of the pUSD Project) (#11068)\n\n## Description\n\nThis PR introduces `pallet-psm`, a new FRAME pallet that implements a\nPeg Stability Module (PSM) for pUSD. The pallet enables 1:1 swaps\nbetween pUSD and approved external stablecoins (e.g. USDC/USDT), with\nconfigurable mint/redeem fees and per-asset circuit breakers.\n\nThe pallet enforces a three-tier debt ceiling model before minting:\n- System-wide cap from Vaults (`MaximumIssuance`)\n- Aggregate PSM cap (`MaxPsmDebtOfTotal`)\n- Per-asset normalized ceiling (`AssetCeilingWeight`)\n\nIt also adds cross-pallet interfaces in\n`frame_support::traits::tokens::stable`:\n- `VaultsInterface` (PSM -> Vaults): query system issuance ceiling\n- `PsmInterface` (Vaults/others -> PSM): query reserved PSM capacity\n\n## Integration\n\n### For Runtime Developers\n\nTo integrate `pallet-psm` into your runtime:\n\n1. Add dependency to your runtime `Cargo.toml`:\n\n```toml\npallet-psm = { version = \"0.1.0\", default-features = false }\n```\n\n2. Implement the Config trait in your runtime:\n\n```rust\nimpl pallet_psm::Config for Runtime {\n    type Fungibles = Assets;                     // fungibles impl (must impl metadata::Inspect)\n    type AssetId = u32;                          // asset identifier type\n    type VaultsInterface = Vaults;               // must implement VaultsInterface\n    type ManagerOrigin = EnsurePsmManager;       // returns PsmManagerLevel (Full/Emergency)\n    type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;\n    type StableAsset = ItemOf<Assets, StablecoinAssetId, AccountId>;  // pUSD as fungible\n    type FeeHandler = ResolveTo<InsuranceFundAccount, Self::StableAsset>;\n    type PalletId = PsmPalletId;                 // PSM reserve account derivation\n    type MinSwapAmount = MinSwapAmount;          // minimum mint/redeem amount\n    type MaxExternalAssets = ConstU32<10>;        // max approved external assets\n}\n```\n\n3. Add to `construct_runtime!`:\n\n```rust\nconstruct_runtime!(\n    pub enum Runtime {\n        // ... other pallets\n        Psm: pallet_psm,\n    }\n);\n```\n\n4. Ensure Vaults exposes issuance ceiling to PSM:\n\n```rust\nuse frame_support::traits::tokens::stable::VaultsInterface;\n\nimpl VaultsInterface for Vaults {\n    type Balance = Balance;\n    fn get_maximum_issuance() -> Balance {\n        // return system-wide pUSD ceiling\n    }\n}\n```\n\n5. For existing chains, include the migration:\n\n```rust\npub struct PsmInitialConfig;\n\nimpl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {\n    fn max_psm_debt_of_total() -> Permill { Permill::from_percent(10) }\n    fn external_asset_ids() -> Vec<AssetId> { vec![USDC_ASSET_ID, USDT_ASSET_ID] }\n    fn asset_configs() -> BTreeMap<AssetId, (Permill, Permill, Permill)> {\n        // asset -> (mint_fee, redeem_fee, ceiling_weight)\n        [\n            (USDC_ASSET_ID, (Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(50))),\n            (USDT_ASSET_ID, (Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(50))),\n        ].into_iter().collect()\n    }\n}\n\npub type Migrations = (\n    pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,\n);\n```\n\n### For Pallet Developers\n\nOther pallets can query PSM-reserved issuance capacity via\n`PsmInterface`:\n\n```rust\nuse frame_support::traits::tokens::stable::PsmInterface;\n\nlet reserved = <Psm as PsmInterface>::reserved_capacity();\n```\n\nThis can be used to account for PSM-reserved issuance when computing\nvault minting headroom.\n\n## Review Notes\n\n### Key Features\n\n- 1:1 swaps: `mint` (external -> pUSD) and `redeem` (pUSD -> external)\n- Multi-asset support with explicit approval list (`add_external_asset`\n/ `remove_external_asset`)\n- Three-tier debt ceiling enforcement (system-wide, aggregate PSM,\nper-asset normalized)\n- Per-asset circuit breaker: `AllEnabled` -> `MintingDisabled` ->\n`AllDisabled`\n- Tiered governance origin:\n  - `Full`: all parameter and asset-management operations\n  - `Emergency`: can only set circuit breaker status\n- Fee model:\n- Mint fee: deducted from minted pUSD, fee credit issued to `FeeHandler`\n- Redeem fee: deducted from pUSD input, fee withdrawn as credit to\n`FeeHandler`\n- Safety invariant on redeem: limited by tracked `PsmDebt` (not just raw\nreserve), preventing withdrawal of donated reserves\n- Includes benchmarks and V0 -> V1 migration for post-genesis deployment\n\n### Swap Lifecycle\n\n**Mint (External -> pUSD):**\n1. User calls `mint(asset_id, external_amount)`\n2. Checks: approved asset, circuit breaker, min amount\n3. Enforces ceilings in order: system-wide -> aggregate PSM -> per-asset\n4. Transfers external asset into PSM account\n5. Mints pUSD to user minus fee\n6. Issues fee as pUSD credit to `FeeHandler`\n7. Increases `PsmDebt[asset_id]`\n\n**Redeem (pUSD -> External):**\n1. User calls `redeem(asset_id, pusd_amount)`\n2. Checks: approved asset, circuit breaker, min amount\n3. Calculates fee and external output amount\n4. Verifies tracked debt and reserve are sufficient\n5. Burns pUSD principal portion from user\n6. Withdraws pUSD fee from user as credit to `FeeHandler`\n7. Transfers external asset from PSM account to user\n8. Decreases `PsmDebt[asset_id]`\n\n### Governance/Operations\n\n- `set_minting_fee`\n- `set_redemption_fee`\n- `set_max_psm_debt`\n- `set_asset_ceiling_weight`\n- `set_asset_status`\n- `add_external_asset`\n- `remove_external_asset` (requires zero debt; cleans up config storage)\n\n### Config Trait\n\n| Type | Purpose |\n|---|---|\n| `Fungibles` | Fungibles impl for pUSD + external assets. |\n| `AssetId` | Asset identifier type. |\n| `VaultsInterface` | Query system-wide issuance ceiling. |\n| `ManagerOrigin` | Returns `PsmManagerLevel` (`Full` / `Emergency`). |\n| `WeightInfo` | Benchmark weights. |\n| `StableAsset` | pUSD as a single-asset `fungible` type (typically\n`ItemOf<Assets, StablecoinAssetId>`). Must implement `FungibleMutate` +\n`FungibleBalanced`. |\n| `FeeHandler` | `OnUnbalanced` handler for fee credits. |\n| `PalletId` | Derives the PSM reserve account. |\n| `MinSwapAmount` | Minimum mint/redeem amount. |\n| `MaxExternalAssets` | Maximum number of approved external assets. |\n\n### Testing\n\nThe pallet includes comprehensive coverage for:\n- Mint/redeem success paths and failure modes\n- Fee edge cases (0%, non-zero, 100%)\n- Three-tier ceiling enforcement and boundary conditions\n- Per-asset ceiling redistribution when weight is set to 0%\n- Circuit breaker behavior per asset\n- Full vs emergency governance permissions\n- Asset onboarding/offboarding invariants and cleanup\n- Reserve-vs-debt safety (donated reserve cannot be redeemed)\n- Long-running mint/redeem cycles and accounting invariants\n- Migration tests (`v0 -> v1` and skip-when-already-v1)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2026-04-08T14:25:35Z",
-          "tree_id": "b9194793351e60e7fa3eae559a87a4da9f17a92a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd79f9668c46bd439cec8a916eabbb02ce74bba1"
-        },
-        "date": 1775667956361,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1427178683733333,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025482720566666662,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009459909079999974,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007072704953333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007808897233333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "diego2737@gmail.com",
+            "name": "Diego",
+            "username": "dimartiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f6294915115a2ff9b0862c1f92e49d6cb5dfd2d4",
+          "message": "pallet-revive: System.terminate deletes the contract despite locks, freezes and holds (#13085)\n\n# Description\n\nFixes #13017.\n\n`System.terminate` could return success and leave the contract alive.\nThe destruction runs at the end of the call stack, where a failure is\ndropped by design, and it failed whenever the contract account carried a\nlock, a freeze or a foreign hold, because the ED could then not be\nburned. A third party can cause this, for example with a vested transfer\nto the contract.\n\nReverting `System.terminate` in that case is not an option: anyone could\nblock every termination of a contract with a cheap long-lived lock. So\n`terminate` now succeeds despite encumbrances the contract did not\ncreate, and a success always means the contract is gone.\n\n## The change\n\nAt call time, in `terminate_caller` (precompile only):\n\n1. The storage deposit is refunded to the termination origin first, as\nfar as the freeze on the account allows. The hold counts towards the\nfreeze, so refunding before the payout keeps the deposit away from\ncovering the lock. Only the part the freeze still needs stays on hold.\n2. The immediate `Preserve` payout runs as before.\n3. The refunded amount is carried in `TerminateArgs`, so `do_terminate`\nstill reports it to `transaction_meter.terminate`.\n\nAt the end of the call stack, `do_terminate` runs these steps. No step\ncan abort the teardown any more. Each balance step runs in its own\nstorage transaction and is rolled back on its own if it fails:\n\n4. Refund, best effort, whatever deposit is still held.\n5. Drop the consumer added at instantiation, then send the balance that\narrived after the call to the beneficiary with `Preserve`. This only\nworks as far as the balance covers the locks and freezes. Under a lock\nor freeze larger than the balance, nothing but the dust is sent and the\nrest of the late funds stays on the account. If the transfer fails (the\n#13039 case), the funds stay on the account too. If the contract named\nitself as the beneficiary, the sweep is a no-op and the balance stays on\nthe account, as in EIP-8246.\n6. Read the dust, which a sweep to another beneficiary has moved, and\nburn the ED only if the account holds nothing besides it: no other\nbalance and no dust. Otherwise keep the ED, so `BALANCE` of the address\ndoes not change, and leave the account as a plain account. A contract\ndeployed to the same address later takes it over: `init_contract` only\nruns for an account that does not exist, so no second ED is minted, and\n`insert_contract` keeps the dust.\n7. Always delete the contract: `decrement_refcount`,\n`queue_for_deletion` and `ImmutableDataOf`. `AccountInfoOf` is removed,\nor, if dust is left, kept as `AccountType::EOA` with that dust.\n\n`do_terminate` reads `trie_id` and `code_hash` from the stored\n`ContractInfo`, so `TerminateArgs` no longer carries them.\n\n`Deposit::refund_all` of the native backend releases the deposit only as\nfar as `reducible_total_balance_on_hold` allows instead of failing,\nwhich is what steps 1 and 4 rely on.\n\n`SELFDESTRUCT` and the PVM `terminate` syscall keep EIP-6780 semantics:\n`terminate_if_same_tx` is unchanged and only shares steps 4 to 7. A\npre-existing contract keeps its code and deposits, and a `SELFDESTRUCT`\nto itself changes nothing. A contract created in the same transaction is\nnow deleted even under a lock, which leaves only the locked funds\nbehind, and a `SELFDESTRUCT` to itself leaves its balance on the\naccount, as in EIP-8246. A `SELFDESTRUCT` in the constructor of a\ntop-level instantiation or of a nested `new X()` now deletes the\ncontract as well, which before left it alive.\n\nA contract can be terminated more than once in a transaction, by\n`System.terminate` twice or together with a `SELFDESTRUCT` in either\norder. `Frame::schedule_termination` merges the terminations: once any\nof them is unconditional the contract is deleted, the refunded amounts\nadd up so the meter sees the refund once, and the beneficiary named last\nreceives the late funds.\n\n`seal_terminate_logic` now measures the call-time refund plus the\ndeferred teardown, and the weights are regenerated (80ceb1f035c): it\nloses the `OriginalAccount` read in both runtimes. The benchmark sweeps\nto another beneficiary and burns the ED. A contract that names itself as\nthe beneficiary skips the transfer, so it costs less than measured.\n\nThe earlier dry run, `RuntimeCosts::TerminateDryRun` and\n`Error::TerminateBalanceLocked` are gone, and the balance line in\n`ISystem.sol` is removed.\n\n## Integration\n\nNo migration or configuration change. `pallet_revive::Error` is\nunchanged. Contracts calling `System.terminate` on an unencumbered\nbalance see no difference, except that the deposit refund now happens at\ncall time. With an encumbered balance, the call keeps returning success\nbut the contract is actually deleted. A contract that names itself as\nthe beneficiary keeps its balance on the account, as in EIP-8246, and\nthe ED and the dust stay with it, so `BALANCE` of the address does not\nchange. Before, the ED was burned out of that balance and the dust was\ndropped.\n\n## Testing\n\nAll on Solc and Resolc:\n\n- `precompile_terminate_with_encumbered_balance`: no encumbrance, a\nforeign lock and a foreign freeze of 1, 500 and 1,000,000, a hold of 1\nunder a `pallet_dummy` hold reason and a foreign consumer. Each case\nasserts success, that the contract is deleted, the beneficiary payout,\nthe deposit refunded to the origin, what stays on hold, what stays on\nthe account and that a foreign hold, freeze or consumer stays in place.\nThe lock of 500 is the case where the refund order matters: with the\ncall-time refund disabled it fails, while the others still pass.\n- `precompile_terminate_with_encumbered_balance_and_late_funds`: late\nfunds below and above the ED, and late funds with dust. Without an\nencumbrance all of them go to the beneficiary and nothing is left. Under\na lock or freeze of 1,000,000 they stay on the account. The dust always\nreaches the beneficiary and leaves no `AccountInfoOf` entry behind.\n- `precompile_terminate_when_late_funds_cannot_be_sent`: the sweep fails\nas in #13039, with no encumbrance, a lock and a freeze of 1, and late\nfunds below and above the ED, with dust and with only dust. Every case\nleaves ED + late on the account, `BALANCE` equal to the late funds and\nthe dust in an `AccountType::EOA` entry. Burning the ED despite dust,\nremoving the dust entry or reading the dust before the sweep each makes\nsome of the dust cases in these tests fail.\n- `precompile_terminate_after_payout_refunds_partially`: the contract\npays out `address(this).balance` and then terminates under a lock. Part\nof the deposit is refunded and exactly the locked amount stays on the\naccount.\n- `precompile_terminate_to_itself_keeps_balance`,\n`same_tx_terminate_to_itself_keeps_balance`: a contract that names\nitself as the beneficiary, with a zero balance, a balance below or above\nthe ED, with dust, with only dust, under a lock with and without dust,\nand with late funds. Nothing is burned. With a zero balance the account\nis reaped. Otherwise the ED stays and `BALANCE` of the address is what\nthe contract held plus the late funds.\n- `syscall_pre_existing_to_itself_changes_nothing`: a `SELFDESTRUCT` of\na pre-existing contract to itself changes no balance and burns nothing.\n- `syscall_same_tx_with_lock`: a contract created and `SELFDESTRUCT`ed\nin the same transaction under a lock is deleted, and the lock keeps the\nED.\n- `syscall_pre_existing_with_lock`: `SELFDESTRUCT` of a pre-existing\ncontract under a lock only moves the balance and keeps the contract, its\ncode and its deposit.\n- `syscall_in_top_level_constructor_deletes_contract`,\n`syscall_in_nested_constructor_deletes_contract`: a `SELFDESTRUCT` in a\nconstructor deletes the contract and releases its code and deposits.\n- `redeploy_onto_leftover_account`: a contract deployed to the address\nof a terminated contract whose account a lock kept alive.\n- `redeploy_onto_leftover_dust`: a contract deployed onto the ED and the\ndust a terminated contract left behind sees the dust and no second ED.\n- `precompile_terminate_twice_reports_refund_once`: terminating twice\nreports the same storage deposit as terminating once.\n- `precompile_terminate_then_syscall_pre_existing`,\n`precompile_terminate_then_syscall_same_tx`,\n`syscall_then_precompile_terminate_pre_existing`: `System.terminate` and\n`SELFDESTRUCT` in either order, in the same frame or a delegatecall. The\ncontract is deleted and the deposit is refunded once. For a pre-existing\ncontract, `storage_deposit` is exactly `Refund(deposit)`.\n- `terminate_twice_late_funds_stay_or_go_to_last_beneficiary`: late\nfunds go to the beneficiary named last, or stay on the account with the\nED if that is the contract itself.\n- `refund_all_leaves_frozen_part_on_hold`: the partial native refund\nunder a lock.\n- `terminate_storage.rs` (#13039) now asserts that the inner contract is\ndeleted, the funds stay on its account and the writes stay charged.\n\nLocal run: `cargo test -p pallet-revive --lib` (942 passed, 3 ignored)\nand with `--features runtime-benchmarks` (1078 passed, 3 ignored), with\nresolc 1.4.0. With `runtime-benchmarks`, 9 `emitter_logs` tests also\nfail, with or without this change.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the [labeling\nrequirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process)\nof this project (at minimum one label for `T` required)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-22T03:05:51Z",
+          "tree_id": "e5d8aeb22b5ee58e0b0c625bacc6a3e1257095b8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f6294915115a2ff9b0862c1f92e49d6cb5dfd2d4"
+        },
+        "date": 1792644150553,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14436576019333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00794630931333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009987614793333318,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02537255567333334,
             "unit": "seconds"
           }
         ]
