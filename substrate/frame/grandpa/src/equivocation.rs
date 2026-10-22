@@ -32,19 +32,22 @@
 //!
 //! IMPORTANT:
 //! When using this module for enabling equivocation reporting it is required
-//! that the `ValidateUnsigned` for the GRANDPA pallet is used in the runtime
-//! definition.
+//! that the runtime includes `frame_system::AuthorizeCall` in its transaction
+//! extension pipeline.
 
 use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{self as codec, Decode, Encode};
-use frame_support::traits::{Get, KeyOwnerProofSystem};
+use frame_support::{
+	traits::{Get, KeyOwnerProofSystem},
+	weights::Weight,
+};
 use frame_system::pallet_prelude::BlockNumberFor;
 use log::{error, info};
 use sp_consensus_grandpa::{AuthorityId, EquivocationProof, RoundNumber, SetId, KEY_TYPE};
 use sp_runtime::{
 	transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		TransactionValidityError, ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidityError,
+		TransactionValidityWithRefund, ValidTransaction,
 	},
 	DispatchError, KeyTypeId, Perbill,
 };
@@ -109,11 +112,11 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 /// GRANDPA equivocation offence report system.
 ///
 /// This type implements `OffenceReportSystem` such that:
-/// - Equivocation reports are published on-chain as unsigned extrinsic via
+/// - Equivocation reports are published on-chain as authorized transactions via
 ///   `offchain::CreateTransactionBase`.
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
-/// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
+/// - Offence reporter for authorized transactions is fetched via the the authorship pallet.
 pub struct EquivocationReportSystem<T, R, P, L>(core::marker::PhantomData<(T, R, P, L)>);
 
 impl<T, R, P, L>
@@ -122,7 +125,9 @@ impl<T, R, P, L>
 		(EquivocationProof<T::Hash, BlockNumberFor<T>>, T::KeyOwnerProof),
 	> for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
+	T: Config
+		+ pallet_authorship::Config
+		+ frame_system::offchain::CreateAuthorizedTransaction<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -144,7 +149,7 @@ where
 			equivocation_proof: Box::new(equivocation_proof),
 			key_owner_proof,
 		};
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report"),
@@ -235,57 +240,49 @@ where
 	}
 }
 
-/// Methods for the `ValidateUnsigned` implementation:
-/// It restricts calls to `report_equivocation_unsigned` to local calls (i.e. extrinsics generated
-/// on this node) or that already in a block. This guarantees that only block authors can include
-/// unsigned equivocation reports.
+/// Authorization logic for `report_equivocation_unsigned`.
+///
+/// It restricts the call to local calls (i.e. extrinsics generated on this node) or to calls
+/// already in a block. This guarantees that only block authors can include equivocation reports.
 impl<T: Config> Pallet<T> {
-	pub fn validate_unsigned(source: TransactionSource, call: &Call<T>) -> TransactionValidity {
-		if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
-			// discard equivocation report not coming from the local node
-			match source {
-				TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
-				_ => {
-					log::warn!(
-						target: LOG_TARGET,
-						"rejecting unsigned report equivocation transaction because it is not local/in-block."
-					);
+	pub(crate) fn authorize_report_equivocation(
+		source: TransactionSource,
+		equivocation_proof: &Box<EquivocationProof<T::Hash, BlockNumberFor<T>>>,
+		key_owner_proof: &T::KeyOwnerProof,
+	) -> TransactionValidityWithRefund {
+		// discard equivocation report not coming from the local node
+		match source {
+			TransactionSource::Local | TransactionSource::InBlock => { /* allowed */ },
+			_ => {
+				log::warn!(
+					target: LOG_TARGET,
+					"rejecting report equivocation transaction because it is not local/in-block."
+				);
 
-					return InvalidTransaction::Call.into();
-				},
-			}
-
-			// Check report validity
-			let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
-			T::EquivocationReportSystem::check_evidence(evidence)?;
-
-			let longevity =
-				<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
-
-			ValidTransaction::with_tag_prefix("GrandpaEquivocation")
-				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
-				// Only one equivocation report for the same offender at the same slot.
-				.and_provides((
-					equivocation_proof.offender().clone(),
-					equivocation_proof.set_id(),
-					equivocation_proof.round(),
-				))
-				.longevity(longevity)
-				// We don't propagate this. This can never be included on a remote node.
-				.propagate(false)
-				.build()
-		} else {
-			InvalidTransaction::Call.into()
+				return Err(InvalidTransaction::Call.into());
+			},
 		}
-	}
 
-	pub fn pre_dispatch(call: &Call<T>) -> Result<(), TransactionValidityError> {
-		if let Call::report_equivocation_unsigned { equivocation_proof, key_owner_proof } = call {
-			let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
-			T::EquivocationReportSystem::check_evidence(evidence)
-		} else {
-			Err(InvalidTransaction::Call.into())
-		}
+		// Check report validity
+		let evidence = (*equivocation_proof.clone(), key_owner_proof.clone());
+		T::EquivocationReportSystem::check_evidence(evidence)?;
+
+		let longevity =
+			<T::EquivocationReportSystem as OffenceReportSystem<_, _>>::Longevity::get();
+
+		ValidTransaction::with_tag_prefix("GrandpaEquivocation")
+			// We assign the maximum priority for any equivocation report.
+			.priority(TransactionPriority::max_value())
+			// Only one equivocation report for the same offender at the same slot.
+			.and_provides((
+				equivocation_proof.offender().clone(),
+				equivocation_proof.set_id(),
+				equivocation_proof.round(),
+			))
+			.longevity(longevity)
+			// We don't propagate this. This can never be included on a remote node.
+			.propagate(false)
+			.build()
+			.map(|validity| (validity, Weight::zero()))
 	}
 }
