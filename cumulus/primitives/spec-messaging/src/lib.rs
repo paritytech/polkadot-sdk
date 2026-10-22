@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Primitives for the Speculative Messaging protocol (v0.5).
+//! Primitives for the Speculative Messaging protocol.
 //!
 //! A sender parachain keeps each outgoing stream as an MMR and commits all stream roots as one
 //! `StreamsRoot` (a keyed trie). Messages travel between collators; the relay chain only checks

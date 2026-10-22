@@ -69,13 +69,11 @@ pub struct SpecMerge;
 impl Merge for SpecMerge {
 	type Item = Hash;
 
-	/// Inner-node merge: `H(INNER_TAG ++ left ++ right)`.
 	fn merge(left: &Hash, right: &Hash) -> Result<Hash, MmrError> {
 		Ok(tagged_node(INNER_TAG, left, right))
 	}
 
-	/// Peak-bagging merge: `H(PEAK_TAG ++ left ++ right)`. A bagged value can never be read as an
-	/// inner node.
+	/// Tagged apart from `merge`, so a bagged value can never be read as an inner node.
 	fn merge_peaks(left: &Hash, right: &Hash) -> Result<Hash, MmrError> {
 		Ok(tagged_node(PEAK_TAG, left, right))
 	}
@@ -89,10 +87,7 @@ fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
-/// The root of an empty MMR: the count-0 root over a zero bag, `H(ROOT_TAG ++ 0[8] ++ 0[32])`.
-/// `mmr_lib` has none; the protocol needs a comparable value, since a stream's first consumption
-/// starts from the empty frontier. No other root has a count of 0, so none can equal it. Empty
-/// streams are never committed to the `StreamsRoot` tree.
+/// The root of an empty MMR.
 pub fn empty_root() -> MmrRoot {
 	MmrRoot::from_bag(0, Hash::zero())
 }

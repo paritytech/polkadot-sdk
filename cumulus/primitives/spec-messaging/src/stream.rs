@@ -44,12 +44,11 @@ use polkadot_parachain_primitives::primitives::Id as ParaId;
 
 pub const STREAM_ID_LEN: usize = 8;
 
-/// A private-use kind byte, `0x80..=0xFF`.
+/// A private-use kind byte, at least [`Self::MIN`].
 ///
 /// Byte 0 of the encoding is the discriminant for standard kinds and the payload for `Private`, so
-/// a kind below `0x03` would encode identically to a `Channel` or `Ack`, and would also break the
-/// `Ord` = byte-order equivalence (the derive ranks `Private` last). The constructor enforces the
-/// range, so construction and `Decode` follow one rule.
+/// a lower kind would encode like a standard kind and break the `Ord` = byte-order equivalence. The
+/// constructor enforces the range, so construction and `Decode` follow one rule.
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, scale_info::TypeInfo)]
 pub struct PrivateKind(u8);
 
@@ -57,7 +56,6 @@ impl PrivateKind {
 	/// Lowest private-use kind byte; everything below is standard or reserved.
 	pub const MIN: u8 = 0x80;
 
-	/// `None` unless `kind` is in `0x80..=0xFF`.
 	pub const fn new(kind: u8) -> Option<Self> {
 		if kind >= Self::MIN {
 			Some(Self(kind))
@@ -129,7 +127,7 @@ impl StreamId {
 		out
 	}
 
-	/// The inverse of [`Self::to_bytes`]. `Err` for a reserved kind (`0x03..=0x7F`).
+	/// The inverse of [`Self::to_bytes`]. Returns `Err` if the kind is reserved.
 	pub fn from_bytes(bytes: [u8; STREAM_ID_LEN]) -> Result<Self, CodecError> {
 		let [kind, rest @ ..] = bytes;
 		let recipient = || ParaId::from(u32::from_be_bytes([rest[0], rest[1], rest[2], rest[3]]));

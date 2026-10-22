@@ -55,12 +55,11 @@ use crate::{
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 };
 
-/// The keyed-tree proof a lift walks from a stream root to the `StreamsRoot`: the design's
-/// `TreeInclusionProof`, concretely [`StreamProof`].
+/// The keyed-tree proof a lift walks from a stream root to the `StreamsRoot`.
 pub type TreeInclusionProof = StreamProof;
 
 /// Upper bound on an [`MmrInclusionProof`]'s items. A single-leaf proof needs at most the subtree
-/// height plus the other peaks, each at most 63; `2 * 64` is a ceiling no valid proof reaches.
+/// height plus the other peaks, each at most 63; this constant is a ceiling no valid proof reaches.
 /// Enforced at decode, which bounds `calculate_root`'s work on untrusted input.
 pub const MAX_INCLUSION_PROOF_ITEMS: u32 = 2 * 64;
 
@@ -99,8 +98,7 @@ pub struct MMRExtensionProof {
 }
 
 impl MMRExtensionProof {
-	/// The identity extension: `leaf_count = 0`, no connecting nodes. Yields a frontier's own root,
-	/// for the caught-up case.
+	/// The identity extension. Yields a frontier's own root for the caught-up case.
 	pub fn identity() -> Self {
 		Self { leaf_count: 0, connecting_nodes: BoundedVec::new() }
 	}

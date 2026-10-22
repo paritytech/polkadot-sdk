@@ -2718,10 +2718,10 @@ pub enum UMPSignal {
 	SelectCore(CoreSelector, ClaimQueueOffset),
 	/// A message sent by a parachain to promote the reputation of a given peerid.
 	ApprovedPeer(ApprovedPeerId),
-	/// A speculative-messaging signal carrying this candidate's outgoing stream commitment root
+	/// A message sent by a parachain carrying this candidate's outgoing stream commitment root
 	/// (`Provides(StreamsRoot)`). The relay chain records these into its provides window.
 	Provides(StreamsRoot),
-	/// A speculative-messaging signal carrying this candidate's expected incoming per-source
+	/// A message sent by a parachain carrying this candidate's expected incoming per-source
 	/// stream commitment roots (`Requires(RequiresSet)`). The relay chain matches these against
 	/// the provides window of the corresponding source parachains.
 	Requires(RequiresSet),
@@ -2816,7 +2816,7 @@ impl CandidateUMPSignals {
 pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
 /// The maximum number of `UMPSignal` messages a candidate may carry — one per
-/// [`UMPSignal`] variant (`SelectCore`, `ApprovedPeer`, `Provides`, `Requires`).
+/// [`UMPSignal`] variant.
 pub const MAX_UMP_SIGNALS: usize = 4;
 
 /// Utility function for skipping the ump signals.
