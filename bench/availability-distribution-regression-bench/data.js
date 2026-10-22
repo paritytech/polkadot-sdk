@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792689874706,
+  "lastUpdate": 1792705081407,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0ec94c97e2599a90b43abee84104133793caf5fe",
-          "message": "fix links: 404 individuality private repo. (#11644)",
-          "timestamp": "2026-04-09T03:25:19Z",
-          "tree_id": "d2ed74146d689c990bb42d4436ec62c6fe27928b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0ec94c97e2599a90b43abee84104133793caf5fe"
-        },
-        "date": 1775710082896,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14459330689333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009679132066666657,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007114162066666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02552613101333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14335213467999997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a81d29d69e8e065663acc90d370d93b78ee4ac05",
+          "message": "statement-store: add a flag that turns the v2 DHT path on (#13498)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11938.\n\nA node opts into the v2 DHT path with a CLI flag. The gate stays a\nprocess-wide value that a node binary sets once from its CLI before\nanything reads it, and it is off by default, so a default-configured\nnode floods statements to every peer as before. The environment variable\nthat used to turn the path on is gone, and the zombienet tests pass the\nflag to every collator instead.\n\nThe grace-period comment no longer speaks of a rollout that flips every\nnode at once: a peer without the v2 DHT path is served by the flood\nbranch for as long as the fallback exists. The statement/2 protocol\ncomment drops the \"may change\" warning, since the protocol has shipped\nsince stable2606.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13497.\n\n# Integration\n\nNode operators get `--statement-v2-dht` on the substrate node and the\nomni-node. With it, a node with the statement store routes statements\nthrough the DHT. Without it, nothing changes.",
+          "timestamp": "2026-10-22T19:54:42Z",
+          "tree_id": "e14369b1b9990d311008d3874ab84d56f3f218f6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a81d29d69e8e065663acc90d370d93b78ee4ac05"
+        },
+        "date": 1792705044196,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007885094526666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024961146939999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14142634677333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009839383886666633,
             "unit": "seconds"
           }
         ]
