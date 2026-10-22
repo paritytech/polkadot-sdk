@@ -196,7 +196,7 @@ pub mod pallet {
 	use rand::{seq::SliceRandom, SeedableRng};
 	use rand_chacha::ChaCha20Rng;
 	use sp_runtime::{
-		traits::{BlakeTwo256, Hash, Saturating, TrailingZeroInput, Zero},
+		traits::{BlakeTwo256, Hash, Saturating, Zero},
 		SaturatedConversion,
 	};
 	use sp_staking::{EraIndex, SessionIndex};
@@ -498,8 +498,10 @@ pub mod pallet {
 			if let Some(max) = T::BlockReporter::max_message_size() {
 				let entries = (0..T::MaxEntriesPerReport::get())
 					.map(|i| {
-						let who = T::AccountId::decode(&mut TrailingZeroInput::new(&i.encode()))
-							.expect("infinite input decodes into an account; qed");
+						let who = T::AccountId::decode(
+							&mut sp_runtime::traits::TrailingZeroInput::new(&i.encode()),
+						)
+						.expect("infinite input decodes into an account; qed");
 						(who, u32::MAX)
 					})
 					.collect::<Vec<_>>();
