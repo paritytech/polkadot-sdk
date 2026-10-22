@@ -21,8 +21,9 @@ use super::{Call, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	dispatch::{GetDispatchInfo, Pays},
-	traits::{Currency, EstimateNextSessionRotation, KeyOwnerProofSystem, OnFinalize},
+	traits::{Authorize, Currency, EstimateNextSessionRotation, KeyOwnerProofSystem, OnFinalize},
 };
+use frame_system::RawOrigin;
 use mock::*;
 use pallet_session::ShouldEndSession;
 use sp_consensus_babe::{
@@ -467,7 +468,7 @@ fn report_equivocation_current_session_works() {
 
 		// report the equivocation
 		Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
@@ -537,7 +538,7 @@ fn report_equivocation_old_session_works() {
 
 		// report the equivocation
 		Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
@@ -587,7 +588,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 		key_owner_proof.session = 0;
 		assert_err!(
 			Babe::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof.clone()),
 				key_owner_proof
 			),
@@ -607,7 +608,7 @@ fn report_equivocation_invalid_key_owner_proof() {
 
 		assert_err!(
 			Babe::report_equivocation_unsigned(
-				RuntimeOrigin::none(),
+				RuntimeOrigin::from(RawOrigin::Authorized),
 				Box::new(equivocation_proof),
 				key_owner_proof,
 			),
@@ -639,7 +640,7 @@ fn report_equivocation_invalid_equivocation_proof() {
 		let assert_invalid_equivocation = |equivocation_proof| {
 			assert_err!(
 				Babe::report_equivocation_unsigned(
-					RuntimeOrigin::none(),
+					RuntimeOrigin::from(RawOrigin::Authorized),
 					Box::new(equivocation_proof),
 					key_owner_proof.clone(),
 				),
@@ -717,11 +718,9 @@ fn report_equivocation_invalid_equivocation_proof() {
 }
 
 #[test]
-#[allow(deprecated)]
-fn report_equivocation_validate_unsigned_prevents_duplicates() {
+fn report_equivocation_authorize_prevents_duplicates() {
 	use sp_runtime::transaction_validity::{
-		InvalidTransaction, TransactionPriority, TransactionSource, TransactionValidity,
-		ValidTransaction,
+		InvalidTransaction, TransactionPriority, TransactionSource, ValidTransaction,
 	};
 
 	build_and_execute_with_pairs(3, |pairs| {
@@ -745,60 +744,54 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 		let key = (sp_consensus_babe::KEY_TYPE, &offending_authority_pair.public());
 		let key_owner_proof = Historical::prove(key).unwrap();
 
-		let inner = Call::report_equivocation_unsigned {
+		let inner = Call::<Test>::report_equivocation_unsigned {
 			equivocation_proof: Box::new(equivocation_proof.clone()),
 			key_owner_proof: key_owner_proof.clone(),
 		};
 
 		// only local/inblock reports are allowed
 		assert_eq!(
-			<Babe as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::External,
-				&inner,
-			),
-			InvalidTransaction::Call.into(),
+			inner.authorize(TransactionSource::External),
+			Some(Err(InvalidTransaction::Call.into())),
 		);
 
 		// the transaction is valid when passed as local
 		let tx_tag = (offending_authority_pair.public(), CurrentSlot::<Test>::get());
 		assert_eq!(
-			<Babe as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&inner,
-			),
-			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
-				requires: vec![],
-				provides: vec![("BabeEquivocation", tx_tag).encode()],
-				longevity: ReportLongevity::get(),
-				propagate: false,
-			})
+			inner.authorize(TransactionSource::Local),
+			Some(Ok((
+				ValidTransaction {
+					priority: TransactionPriority::max_value(),
+					requires: vec![],
+					provides: vec![("BabeEquivocation", tx_tag.clone()).encode()],
+					longevity: ReportLongevity::get(),
+					propagate: false,
+				},
+				Weight::zero(),
+			))),
 		);
 
-		// the pre dispatch checks should also pass
-		assert_ok!(<Babe as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&inner));
+		// a report already in a block is also allowed
+		assert!(inner.authorize(TransactionSource::InBlock).unwrap().is_ok());
 
 		// we submit the report
 		Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)
 		.unwrap();
 
 		// the report should now be considered stale and the transaction is invalid.
-		// the check for staleness should be done on both `validate_unsigned` and on `pre_dispatch`
-		assert_err!(
-			<Babe as sp_runtime::traits::ValidateUnsigned>::validate_unsigned(
-				TransactionSource::Local,
-				&inner,
-			),
-			InvalidTransaction::Stale,
+		// the check for staleness applies to both pool validation and block import.
+		assert_eq!(
+			inner.authorize(TransactionSource::Local),
+			Some(Err(InvalidTransaction::Stale.into())),
 		);
 
-		assert_err!(
-			<Babe as sp_runtime::traits::ValidateUnsigned>::pre_dispatch(&inner),
-			InvalidTransaction::Stale,
+		assert_eq!(
+			inner.authorize(TransactionSource::InBlock),
+			Some(Err(InvalidTransaction::Stale.into())),
 		);
 	});
 }
@@ -862,7 +855,7 @@ fn report_equivocation_after_skipped_epochs_works() {
 		// report the equivocation, in order for the validation to pass the mapping
 		// between epoch index and session index must be checked.
 		assert_ok!(Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof
 		));
@@ -899,7 +892,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 
 		// report the equivocation.
 		let post_info = Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof.clone()),
 			key_owner_proof.clone(),
 		)
@@ -913,7 +906,7 @@ fn valid_equivocation_reports_dont_pay_fees() {
 		// report the equivocation again which is invalid now since it is
 		// duplicate.
 		let post_info = Babe::report_equivocation_unsigned(
-			RuntimeOrigin::none(),
+			RuntimeOrigin::from(RawOrigin::Authorized),
 			Box::new(equivocation_proof),
 			key_owner_proof,
 		)

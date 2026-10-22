@@ -68,20 +68,33 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u128>;
 }
 
+type TxExtension = frame_system::AuthorizeCall<Test>;
+
 impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
 	type RuntimeCall = RuntimeCall;
-	type Extrinsic = TestXt<RuntimeCall, ()>;
+	type Extrinsic = TestXt<RuntimeCall, TxExtension>;
 }
 
-impl<C> frame_system::offchain::CreateBare<C> for Test
+impl<C> frame_system::offchain::CreateTransaction<C> for Test
 where
 	RuntimeCall: From<C>,
 {
-	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
-		TestXt::new_bare(call)
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Self::Extrinsic {
+		TestXt::new_transaction(call, extension)
+	}
+}
+
+impl<C> frame_system::offchain::CreateAuthorizedTransaction<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_extension() -> Self::Extension {
+		TxExtension::new()
 	}
 }
 
