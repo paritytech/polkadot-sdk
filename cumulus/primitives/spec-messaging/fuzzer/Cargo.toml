@@ -40,6 +40,10 @@ path = "src/bin/mmr_decode.rs"
 name = "message_fetch"
 path = "src/bin/message_fetch.rs"
 
+[[bin]]
+name = "message_event"
+path = "src/bin/message_event.rs"
+
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }

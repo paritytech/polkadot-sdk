@@ -52,7 +52,7 @@ pub mod frontier;
 pub mod message;
 mod pipeline;
 pub use frontier::FrontierInput;
-pub use message::{FetchInput, MessageOracle};
+pub use message::{EventInput, FetchInput, MessageOracle};
 pub use pipeline::PipelineInput;
 
 /// Enough for every peak layout up to six peaks, small enough to precompute every proof.
@@ -600,6 +600,9 @@ mod tests {
 			if let Ok(input) = FetchInput::arbitrary(&mut Unstructured::new(&bytes)) {
 				real += (messages.check_fetch_input(&input) == Outcome::Real) as u32;
 			}
+			if let Ok(input) = EventInput::arbitrary(&mut Unstructured::new(&bytes)) {
+				real += (messages.check_event_input(&input) == Outcome::Real) as u32;
+			}
 			oracle.check_decode(&bytes);
 			oracle.check_frontier_decode(&bytes);
 		}
@@ -667,6 +670,15 @@ mod tests {
 					println!("{input:#?}");
 				}
 				("message_fetch", messages.check_fetch_input(&input))
+			} else if name.contains("message_event") {
+				let Ok(input) = EventInput::arbitrary(input) else {
+					*tally.entry(("message_event", "Unparsed".into())).or_default() += 1;
+					continue;
+				};
+				if verbose {
+					println!("{input:#?}");
+				}
+				("message_event", messages.check_event_input(&input))
 			} else if name.contains("lift_pipeline") {
 				let Ok(input) = PipelineInput::arbitrary(input) else {
 					*tally.entry(("lift_pipeline", "Unparsed".into())).or_default() += 1;

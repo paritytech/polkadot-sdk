@@ -30,13 +30,15 @@
 //! An accepted response must also honour its request.
 //!
 //! - `message_fetch`: [`verify_messages`].
+//! - `message_event`: [`verify_event`], head and positional reads.
 
 use crate::{apply_bounded, payload, Count, Edit, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	verify_messages, MessagePosition, MessagesRequest, MessagesResponse, StreamId, StreamProof,
-	StreamsRoot, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
+	verify_event, verify_messages, EventRequest, EventResponse, MessagePosition, MessagesRequest,
+	MessagesResponse, MmrInclusionProof, StreamId, StreamProof, StreamsRoot, VerifiedEvent,
+	LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::{bounded::BoundedVec, H256 as Hash};
@@ -205,6 +207,31 @@ impl MessageOracle {
 		(req, resp)
 	}
 
+	/// The honest event read of stream `s` under height `h`: the head, or leaf `at` reduced into
+	/// range.
+	pub fn honest_event(&self, h: u64, s: usize, at: Option<u64>) -> (EventRequest, EventResponse) {
+		let m = committed_len(s, h);
+		let at = at.map(|i| i % m.max(1));
+		let leaf = at.unwrap_or(m.saturating_sub(1));
+		let inclusion = self
+			.mmr(s)
+			.inclusion(leaf, m)
+			.cloned()
+			.unwrap_or(MmrInclusionProof { mmr_size: 0, items: BoundedVec::new() });
+		let resp = EventResponse {
+			payload: payload(leaf),
+			leaf_version: leaf_version(s),
+			inclusion,
+			tree_proof: self.tree_proof(h, s),
+		};
+		let req = EventRequest {
+			stream: stream_id(s),
+			under: self.commit(h).under,
+			at: at.map(MessagePosition),
+		};
+		(req, resp)
+	}
+
 	/// What an accepted fetch claims: the requested range of the committed stream, from the honest
 	/// proof.
 	fn fetch_claim(
@@ -260,10 +287,85 @@ impl MessageOracle {
 		Outcome::Real
 	}
 
+	/// What an accepted event read claims: the head, or the requested leaf, of the committed
+	/// stream, from the honest proof.
+	fn event_claim(
+		&self,
+		req: &EventRequest,
+		resp: &EventResponse,
+		verified: &VerifiedEvent,
+	) -> Outcome {
+		let (position, payload_out) = match verified {
+			VerifiedEvent::Head { position, frontier, payload } => {
+				assert!(req.at.is_none(), "a positional request verified as a head read");
+				assert_eq!(
+					frontier.leaf_count(),
+					position.0 + 1,
+					"a head read's frontier does not end at its position"
+				);
+				(*position, payload)
+			},
+			VerifiedEvent::Positional { position, payload } => {
+				assert_eq!(req.at, Some(*position), "a positional read at another position");
+				(*position, payload)
+			},
+		};
+		assert_eq!(payload_out, &resp.payload, "verify_event returned another payload");
+		assert!(
+			resp.payload.len() <= MAX_SPECULATIVE_MESSAGE_LEN as usize,
+			"accepted a payload over the single-message bound"
+		);
+		let Some(&h) = self.heights.get(&req.under.0) else { return Outcome::Unbound };
+		let Some(s) = Self::committed(req.stream, h) else {
+			panic!(
+				"FORGERY: {:?} is not committed at height {h}, yet an event verified",
+				req.stream
+			)
+		};
+		let m = committed_len(s, h);
+		let mmr = self.mmr(s);
+		assert!(
+			position.0 < m,
+			"FORGERY: position {} of stream {s}, which has {m} leaves",
+			position.0
+		);
+		if let VerifiedEvent::Head { frontier, .. } = verified {
+			assert_eq!(position.0 + 1, m, "FORGERY: leaf {} served as the head of {m}", position.0);
+			assert_eq!(Some(frontier), mmr.frontier(m), "FORGERY: a head frontier of stream {s}");
+		}
+		assert_eq!(resp.leaf_version, leaf_version(s), "FORGERY: leaf version of stream {s}");
+		assert_eq!(
+			resp.payload,
+			payload(position.0),
+			"FORGERY: wrong payload at position {} of stream {s}",
+			position.0
+		);
+		assert_eq!(
+			Some(&resp.inclusion),
+			mmr.inclusion(position.0, m),
+			"MALLEABLE: non-honest inclusion proof of leaf {} in {m} for stream {s}",
+			position.0
+		);
+		assert_eq!(
+			Some(&resp.tree_proof),
+			self.commit(h).proofs[s].as_ref(),
+			"MALLEABLE: non-honest tree proof for stream {s} at height {h}"
+		);
+		Outcome::Real
+	}
+
 	/// Verify a fetch, and check the claim behind it if accepted.
 	pub fn check_fetch(&self, req: &MessagesRequest, resp: &MessagesResponse) -> Outcome {
 		match verify_messages(req, resp) {
 			Ok(payloads) => self.fetch_claim(req, resp, &payloads),
+			Err(_) => Outcome::Rejected,
+		}
+	}
+
+	/// Verify an event read, and check the claim behind it if accepted.
+	pub fn check_event(&self, req: &EventRequest, resp: &EventResponse) -> Outcome {
+		match verify_event(req, resp) {
+			Ok(verified) => self.event_claim(req, resp, &verified),
 			Err(_) => Outcome::Rejected,
 		}
 	}
@@ -314,6 +416,40 @@ impl MessageOracle {
 			req.under = self.under(under);
 		}
 		self.check_fetch(&req, &resp)
+	}
+
+	/// Fuzz entry point for [`verify_event`].
+	pub fn check_event_input(&self, input: &EventInput) -> Outcome {
+		let Some(stream) = input.stream.get() else { return Outcome::Skipped };
+		let h = Self::height(input.commit);
+		let material = Self::material(stream, input.material);
+		let at = input.at.map(|c| c.get());
+		let (mut req, mut resp) = self.honest_event(h, material, at);
+		req.stream = stream;
+		// `honest_event` reduced the position into range; the request keeps it as is.
+		req.at = at.map(MessagePosition);
+		if let Some((i, n)) = input.template {
+			let (i, n) = (i as u64 % N as u64, n as u64 % (N as u64 + 1));
+			if let Some(proof) = self.mmr(material).inclusion(i, n) {
+				resp.inclusion = proof.clone();
+				resp.payload = payload(i);
+			}
+		}
+		if let Some(size) = input.mmr_size {
+			resp.inclusion.mmr_size = size.get();
+		}
+		apply_bounded(&self.palette, &mut resp.inclusion.items, &input.item_edits);
+		let mut payloads = vec![resp.payload];
+		apply_payload_edits(&mut payloads, &input.payload_edits);
+		resp.payload = payloads.into_iter().next().unwrap_or_default();
+		if let Some(version) = input.leaf_version {
+			resp.leaf_version = version;
+		}
+		apply_tree_edits(&self.palette, &mut resp.tree_proof, &input.tree_edits);
+		if let Some(under) = input.under {
+			req.under = self.under(under);
+		}
+		self.check_event(&req, &resp)
 	}
 }
 
@@ -492,6 +628,24 @@ pub struct FetchInput {
 	pub under: Option<UnderChoice>,
 }
 
+#[derive(Arbitrary, Debug)]
+pub struct EventInput {
+	/// Height `commit % N + 1`.
+	pub commit: u8,
+	pub stream: StreamChoice,
+	pub material: Option<u8>,
+	/// `None` reads the head. Requested as is; the honest template reduces it into range.
+	pub at: Option<Count>,
+	/// Use the honest proof of leaf `i % N` in `n % (N + 1)` leaves, and leaf `i`'s payload.
+	pub template: Option<(u8, u8)>,
+	pub mmr_size: Option<Count>,
+	pub item_edits: Vec<Edit>,
+	pub payload_edits: Vec<PayloadEdit>,
+	pub leaf_version: Option<u8>,
+	pub tree_edits: Vec<TreeEdit>,
+	pub under: Option<UnderChoice>,
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -508,6 +662,21 @@ mod tests {
 						let outcome = oracle.check_fetch(&req, &resp);
 						assert_eq!(outcome, if m > 0 { Outcome::Real } else { Outcome::Rejected });
 					}
+				}
+			}
+		}
+	}
+
+	#[test]
+	fn honest_events_are_real() {
+		let oracle = MessageOracle::new();
+		for h in 1..=N as u64 {
+			for s in 0..=STREAMS {
+				let m = committed_len(s, h);
+				for at in core::iter::once(None).chain((0..m.max(1)).map(Some)) {
+					let (req, resp) = oracle.honest_event(h, s, at);
+					let outcome = oracle.check_event(&req, &resp);
+					assert_eq!(outcome, if m > 0 { Outcome::Real } else { Outcome::Rejected });
 				}
 			}
 		}
