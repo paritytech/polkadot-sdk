@@ -116,6 +116,7 @@
 //!   that processes statements.
 
 mod affinity;
+mod outbox;
 mod v2dht;
 
 use crate::config::*;
@@ -134,6 +135,7 @@ use governor::{
 	state::{InMemoryState, NotKeyed},
 	Quota, RateLimiter,
 };
+use outbox::PropagationOutboxes;
 use prometheus_endpoint::{
 	exponential_buckets, register, Counter, CounterVec, Gauge, GaugeVec, Histogram, HistogramOpts,
 	HistogramVec, Opts, PrometheusError, Registry, U64,
@@ -557,13 +559,14 @@ impl StatementHandlerPrototype {
 		} else {
 			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
 		};
-		// The v2 DHT topology dials peers outside the sync set, so it needs non-reserved slots.
-		// The v1 path manages its peers exclusively through the reserved set: it must keep
-		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
+		// The v2 DHT path reserves only the peers that steering picks, every other peer holds an
+		// inbound slot. The v1 path manages its peers exclusively through the reserved set:
+		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
+		// disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
 				in_peers: 50,
-				out_peers: 50,
+				out_peers: DEFAULT_OUT_PEERS,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
 			}
@@ -703,6 +706,8 @@ impl StatementHandlerPrototype {
 		if let Some(retention) = retention {
 			v2dht.set_retention_handle(retention);
 		}
+		let propagation_outboxes =
+			PropagationOutboxes::new(v2dht_enabled().then(|| statement_store.clone()));
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
 			notification_service: self.notification_service,
@@ -735,7 +740,7 @@ impl StatementHandlerPrototype {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes,
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -810,7 +815,7 @@ pub struct StatementHandler<
 	initial_sync_in_flight_bytes: u64,
 	/// Statement hashes queued for propagation to each peer, drained from the front as chunks
 	/// are fetched, whether the fetch yields a send or not.
-	propagation_outboxes: HashMap<PeerId, VecDeque<Hash>>,
+	propagation_outboxes: PropagationOutboxes,
 	/// Id of the chunk in flight, per peer — the peer's single send slot, shared by
 	/// propagation and initial sync.
 	in_flight_chunks: HashMap<PeerId, u64>,
@@ -1220,6 +1225,8 @@ where
 			protocol_name.clone(),
 			None,
 		);
+		let propagation_outboxes =
+			PropagationOutboxes::new(v2dht_enabled().then(|| statement_store.clone()));
 		Self {
 			protocol_name,
 			notification_service,
@@ -1246,7 +1253,7 @@ where
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes,
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -1507,9 +1514,9 @@ where
 	/// `is_major_syncing` guard was active.
 	///
 	/// With the v2 DHT path on, only the drop from a peer without the DHT path leads here, so only
-	/// such a peer is picked. Its set keeps non-reserved slots open, so leaving the reserved set
-	/// alone keeps the peer connected; the substream is closed explicitly afterwards, as litep2p
-	/// ignores a disconnect of a reserved peer.
+	/// such a peer is picked. Steering reserves v2 peers only, so the peer is not reserved: its
+	/// substream is closed directly, and the peer, which holds this node in its own reserved set,
+	/// reconnects on its own.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1535,15 +1542,17 @@ where
 			"Major sync complete, force-reconnecting {peer_id} for statement recovery",
 		);
 
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
+			return;
+		}
+
 		if let Err(err) = self.network.remove_peers_from_reserved_set(
 			self.protocol_name.clone(),
 			iter::once(peer_id).collect(),
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
-		}
-		if v2dht_enabled() {
-			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1576,7 +1585,13 @@ where
 	/// - On connect otherwise: add the peer to the reserved set.
 	/// - On disconnect: remove the peer from the reserved set, or from the deferred set if it never
 	///   joined.
+	///
+	/// With the v2 DHT path on, peer steering alone edits the reserved set and a sync peer holds
+	/// an ordinary slot, so the events are ignored.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
+		if v2dht_enabled() {
+			return;
+		}
 		match event {
 			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
 				if self.sync.is_major_syncing() {
@@ -1742,10 +1757,9 @@ where
 					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
-				if let Some(outbox) = self.propagation_outboxes.remove(&peer) {
-					if !outbox.is_empty() {
-						self.record_abandoned_send(send_failure::DISCONNECTED, outbox.len());
-					}
+				let abandoned = self.propagation_outboxes.remove(&peer);
+				if abandoned > 0 {
+					self.record_abandoned_send(send_failure::DISCONNECTED, abandoned);
 				}
 				self.in_flight_chunks.remove(&peer);
 			},
@@ -2140,18 +2154,8 @@ where
 		if hashes.is_empty() {
 			return;
 		}
-		let outbox = self.propagation_outboxes.entry(*who).or_default();
 		let queued = hashes.len();
-		let mut overflow = 0;
-		for hash in hashes {
-			// The freshest statements are the ones still worth delivering, so an
-			// overflowing outbox drops from the front.
-			if outbox.len() == MAX_PROPAGATION_OUTBOX_LEN {
-				outbox.pop_front();
-				overflow += 1;
-			}
-			outbox.push_back(hash);
-		}
+		let overflow = self.propagation_outboxes.push(*who, hashes);
 
 		log::trace!(target: LOG_TARGET, "We have {queued} statements that the peer doesn't know about");
 
@@ -2195,7 +2199,7 @@ where
 			}
 			let peer_version = peer_data.protocol_version;
 			let max_size = max_statement_payload_size(peer_version.envelope_overhead());
-			let Some(outbox) = self.propagation_outboxes.get_mut(&who) else {
+			let Some(outbox) = self.propagation_outboxes.queued(&who) else {
 				return;
 			};
 			let chunk = match fetch_statement_chunk(
@@ -2205,7 +2209,7 @@ where
 				&who,
 				peer_data,
 				!v2dht_enabled(),
-				outbox.make_contiguous(),
+				outbox,
 				max_size,
 			) {
 				Ok(result) => result,
@@ -2237,7 +2241,7 @@ where
 
 			// Consume the fetched hashes before the oversized check, otherwise the oversized
 			// statement would be fetched again on the next iteration.
-			outbox.drain(..processed);
+			self.propagation_outboxes.consume(&who, processed);
 
 			if missing > 0 {
 				self.record_abandoned_send(send_failure::MISSING_FROM_STORE, missing);
@@ -2265,14 +2269,12 @@ where
 			};
 			let bytes_sent = encoded.len() as u64;
 			let Some(message_sink) = self.notification_service.message_sink(&who) else {
-				let abandoned = statement_count +
-					self.propagation_outboxes.get(&who).map_or(0, |outbox| outbox.len());
+				let abandoned = statement_count + self.propagation_outboxes.remove(&who);
 				log::debug!(
 					target: LOG_TARGET,
 					"Failed to get message sink for peer {who}, abandoning {abandoned} statements ({bytes_sent} bytes in the current chunk)",
 				);
 				self.record_abandoned_send(send_failure::NO_SINK, abandoned);
-				self.propagation_outboxes.remove(&who);
 				return;
 			};
 			let chunk_id = self.occupy_send_slot(who);
@@ -2438,6 +2440,8 @@ where
 			} else {
 				self.do_propagate_statements(&statements);
 			}
+			// The outboxes hold what they queued, so the take's holds can go.
+			self.propagation_outboxes.release_taken(&statements);
 		}
 		// Every entry here belongs to an already drained statement, so it is done
 		// propagating. Statements imported after the drain get their entries only
@@ -3151,6 +3155,7 @@ mod tests {
 		/// Admission journal: the vector index is the statement's admission sequence number.
 		admissions: Arc<Mutex<Vec<sp_statement_store::Hash>>>,
 		fail_fetches: Arc<AtomicBool>,
+		held: Arc<Mutex<HashMap<sp_statement_store::Hash, usize>>>,
 	}
 
 	impl TestStatementStore {
@@ -3161,6 +3166,7 @@ mod tests {
 				subscription_topics: Default::default(),
 				admissions: Default::default(),
 				fail_fetches: Arc::new(AtomicBool::new(false)),
+				held: Default::default(),
 			}
 		}
 
@@ -3210,7 +3216,29 @@ mod tests {
 				.map(|(hash, statement)| (self.admit(hash), hash, statement))
 				.collect();
 			result.sort_unstable_by_key(|(seq, ..)| *seq);
+			let hashes: Vec<_> = result.iter().map(|(_, hash, _)| *hash).collect();
+			self.hold_statements(&hashes);
 			Ok(result)
+		}
+
+		fn hold_statements(&self, hashes: &[sp_statement_store::Hash]) {
+			let mut held = self.held.lock().unwrap();
+			for hash in hashes {
+				*held.entry(*hash).or_default() += 1;
+			}
+		}
+
+		fn release_statements(&self, hashes: &[sp_statement_store::Hash]) {
+			let mut held = self.held.lock().unwrap();
+			for hash in hashes {
+				let Entry::Occupied(mut count) = held.entry(*hash) else {
+					panic!("released {hash:?} without a hold");
+				};
+				*count.get_mut() -= 1;
+				if *count.get() == 0 {
+					count.remove();
+				}
+			}
 		}
 
 		fn statement(
@@ -3457,7 +3485,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(Some(Arc::new(statement_store.clone()))),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -3750,16 +3778,14 @@ mod tests {
 		let pruned_hash = pruned.hash();
 
 		// The pruned statement's hash is queued but the statement left the store.
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![pruned_hash, kept_hash]));
+		handler.propagation_outboxes.push(peer_id, vec![pruned_hash, kept_hash]);
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
 		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
 		assert_eq!(sent, vec![kept_hash]);
 		assert!(
-			!handler.propagation_outboxes.contains_key(&peer_id),
+			handler.propagation_outboxes.get(&peer_id).is_none(),
 			"the drained outbox must be removed"
 		);
 	}
@@ -3774,7 +3800,7 @@ mod tests {
 		statement.set_plain_data(b"statement".to_vec());
 		let hash = statement.hash();
 		statement_store.statements.lock().unwrap().insert(hash, statement);
-		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+		handler.propagation_outboxes.push(peer_id, vec![hash]);
 
 		statement_store.fail_fetches.store(true, Ordering::Relaxed);
 		handler.try_send_next_chunk(peer_id);
@@ -3794,7 +3820,7 @@ mod tests {
 
 		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
 		assert_eq!(sent, vec![hash]);
-		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
 		assert!(handler.parked_propagations.is_empty());
 	}
 
@@ -3816,9 +3842,7 @@ mod tests {
 
 		// The oversized statement heads the outbox. It must be consumed, not
 		// re-fetched forever, and the statement behind it must still go out.
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![oversized_hash, small_hash]));
+		handler.propagation_outboxes.push(peer_id, vec![oversized_hash, small_hash]);
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -3852,6 +3876,7 @@ mod tests {
 		let queued = handler.propagation_outboxes.get(&peer_id).map_or(0, |outbox| outbox.len());
 		assert!(queued > 0);
 		assert!(handler.in_flight_chunks.contains_key(&peer_id));
+		assert_eq!(statement_store.held.lock().unwrap().values().sum::<usize>(), queued);
 
 		handler
 			.handle_notification_event(NotificationEvent::NotificationStreamClosed {
@@ -3859,7 +3884,8 @@ mod tests {
 			})
 			.await;
 
-		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
+		assert!(statement_store.held.lock().unwrap().is_empty());
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(
@@ -3920,7 +3946,7 @@ mod tests {
 
 		handler
 			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![gone_hash, expired_hash, live_hash]));
+			.push(peer_id, vec![gone_hash, expired_hash, live_hash]);
 		handler.try_send_next_chunk(peer_id);
 		handler.flush_pending_sends().await;
 
@@ -3952,9 +3978,7 @@ mod tests {
 		let second_hash = second.hash();
 		statement_store.insert(first);
 		statement_store.insert(second);
-		handler
-			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![first_hash, second_hash]));
+		handler.propagation_outboxes.push(peer_id, vec![first_hash, second_hash]);
 
 		// Only the first chunk's send fails.
 		notification_service.fail_sends();
@@ -3969,7 +3993,7 @@ mod tests {
 		handler.flush_pending_sends().await;
 		let sent = get_peer_hashes(&notification_service.get_sent_notifications(), peer_id);
 		assert_eq!(sent, vec![second_hash]);
-		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
 		assert!(!handler.in_flight_chunks.contains_key(&peer_id));
 	}
 
@@ -3998,7 +4022,7 @@ mod tests {
 		handler.in_flight_chunks.insert(peer_id, 0);
 		handler
 			.propagation_outboxes
-			.insert(peer_id, VecDeque::from(vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]));
+			.push(peer_id, vec![old_hash; MAX_PROPAGATION_OUTBOX_LEN]);
 
 		handler.propagate_statements().await;
 
@@ -4007,6 +4031,10 @@ mod tests {
 		let tail: HashSet<_> =
 			outbox.iter().skip(MAX_PROPAGATION_OUTBOX_LEN - 3).copied().collect();
 		assert_eq!(tail, fresh_hashes, "the freshest hashes must survive the overflow");
+		let held = statement_store.held.lock().unwrap();
+		assert_eq!(held[&old_hash], MAX_PROPAGATION_OUTBOX_LEN - 3);
+		assert!(fresh_hashes.iter().all(|hash| held[hash] == 1));
+		drop(held);
 
 		let metrics = handler.metrics.as_ref().unwrap();
 		assert_eq!(
@@ -4038,7 +4066,7 @@ mod tests {
 		// The hash was appended while the peer's slot was busy, and the peer sent
 		// us the statement before the slot freed: the encode-time senders check
 		// must catch what the append-time check could not have seen.
-		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+		handler.propagation_outboxes.push(peer_id, vec![hash]);
 		handler.recently_received_statements.insert(hash, HashSet::from_iter([peer_id]));
 
 		handler.try_send_next_chunk(peer_id);
@@ -4158,10 +4186,11 @@ mod tests {
 		statement_store.insert(statement.clone());
 		let statements = vec![(0, hash, statement)];
 
-		handler.queue_statements_for_targets(&statements, vec![(PeerId::random(), vec![0])]);
+		let disconnected_peer = PeerId::random();
+		handler.queue_statements_for_targets(&statements, vec![(disconnected_peer, vec![0])]);
 		handler.flush_pending_sends().await;
 		assert!(notification_service.get_sent_notifications().is_empty());
-		assert!(handler.propagation_outboxes.is_empty());
+		assert!(handler.propagation_outboxes.get(&disconnected_peer).is_none());
 	}
 
 	#[tokio::test]
@@ -4245,7 +4274,7 @@ mod tests {
 		peer.is_light = true;
 
 		handler.queue_statements_for_targets(&statements, vec![(peer_id, vec![0])]);
-		assert!(handler.propagation_outboxes.is_empty());
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
 	}
 
 	#[tokio::test]
@@ -4403,7 +4432,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(None),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -4469,7 +4498,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(None),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -4648,12 +4677,12 @@ mod tests {
 		statement.set_plain_data(b"queued before re-sync".to_vec());
 		let hash = statement.hash();
 		statement_store.insert(statement);
-		handler.propagation_outboxes.insert(peer_id, VecDeque::from(vec![hash]));
+		handler.propagation_outboxes.push(peer_id, vec![hash]);
 
 		handler.schedule_initial_sync_for_peer(peer_id);
 
 		assert!(
-			!handler.propagation_outboxes.contains_key(&peer_id),
+			handler.propagation_outboxes.get(&peer_id).is_none(),
 			"hashes queued before the sync are covered by its cursor"
 		);
 
@@ -5082,9 +5111,7 @@ mod tests {
 
 		// Propagation holds the whole budget and one peer waits parked.
 		handler.propagation_in_flight_bytes = MAX_SEND_IN_FLIGHT_BYTES;
-		handler
-			.propagation_outboxes
-			.insert(propagation_peer, VecDeque::from(vec![hash]));
+		handler.propagation_outboxes.push(propagation_peer, vec![hash]);
 		handler.parked_propagations.push_back(propagation_peer);
 
 		// A completed send frees exactly the reserve: the parked peer must stay parked,
@@ -5236,9 +5263,7 @@ mod tests {
 				NonZeroU32::new(10).expect("nonzero"),
 				&clock,
 			);
-		handler
-			.propagation_outboxes
-			.insert(throttled, VecDeque::from(hashes[..10].to_vec()));
+		handler.propagation_outboxes.push(throttled, hashes[..10].to_vec());
 		handler.try_send_next_chunk(throttled);
 		handler.flush_pending_sends().await;
 		assert!(handler.peers[&throttled].send_budget.is_flooding(1), "propagation charged");
@@ -6820,7 +6845,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(None),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -6953,7 +6978,7 @@ mod tests {
 		// A tick between scheduling and the first burst must not queue the statement:
 		// below the peer's sync watermark it is the cursor's job.
 		handler.propagate_statements().await;
-		assert!(!handler.propagation_outboxes.contains_key(&peer_id));
+		assert!(handler.propagation_outboxes.get(&peer_id).is_none());
 
 		while handler.pending_initial_syncs.contains_key(&peer_id) {
 			handler.process_initial_sync_burst();
@@ -7324,7 +7349,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(None),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -7421,7 +7446,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(None),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -7517,7 +7542,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			next_initial_sync_id: 0,
 			initial_sync_in_flight_bytes: 0,
-			propagation_outboxes: HashMap::new(),
+			propagation_outboxes: PropagationOutboxes::new(None),
 			in_flight_chunks: HashMap::new(),
 			next_chunk_id: 0,
 			propagation_in_flight_bytes: 0,
@@ -7637,7 +7662,7 @@ mod tests {
 					initial_sync_peer_queue: VecDeque::new(),
 					next_initial_sync_id: 0,
 					initial_sync_in_flight_bytes: 0,
-					propagation_outboxes: HashMap::new(),
+					propagation_outboxes: PropagationOutboxes::new(None),
 					in_flight_chunks: HashMap::new(),
 					next_chunk_id: 0,
 					propagation_in_flight_bytes: 0,

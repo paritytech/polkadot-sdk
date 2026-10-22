@@ -38,7 +38,7 @@ use crate::{
 		SameOrOther, TryDrop,
 	},
 };
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
+use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
@@ -194,6 +194,11 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	/// Minimum balance will be respected and thus the returned amount may be up to
 	/// `Self::minimum_balance() - 1` greater than `amount` in the case that the reduction caused
 	/// the account to be deleted.
+	///
+	/// Any such excess must still be in the system when this returns — it must not have been
+	/// disposed of through [`Unbalanced::handle_dust`]. Callers account for the returned amount,
+	/// so an implementation that both reports the excess and traps it as dust makes them issue it
+	/// a second time.
 	fn decrease_balance(
 		asset: Self::AssetId,
 		who: &AccountId,
@@ -368,8 +373,17 @@ where
 
 	/// Transfer funds from one account into another.
 	///
-	/// A transfer where the source and destination account are identical is treated as No-OP after
-	/// checking the preconditions.
+	/// Returns the amount credited to `dest`. With the default implementation this is `amount`
+	/// unless [`Unbalanced::decrease_balance`] folded a sub-minimum remainder of `source` into
+	/// its return, as `pallet-assets` does, in which case it exceeds `amount` by up to
+	/// `minimum_balance() - 1` and that remainder is credited to `dest` as well. Adapters such as
+	/// `ItemOf` and `UnionOf` forward that figure.
+	///
+	/// `source` may be debited by more than is returned, e.g. when a reaped remainder is passed to
+	/// `handle_dust` as `pallet-balances` does.
+	///
+	/// A transfer where the source and destination account are identical, or where `amount` is
+	/// zero, is treated as No-OP after checking the preconditions.
 	fn transfer(
 		asset: Self::AssetId,
 		source: &AccountId,
@@ -380,16 +394,15 @@ where
 		let _extra = Self::can_withdraw(asset.clone(), source, amount)
 			.into_result(preservation != Expendable)?;
 		Self::can_deposit(asset.clone(), dest, amount, Extant).into_result()?;
-		if source == dest {
+		if source == dest || amount.is_zero() {
 			return Ok(amount);
 		}
 
-		Self::decrease_balance(asset.clone(), source, amount, BestEffort, preservation, Polite)?;
-		// This should never fail as we checked `can_deposit` earlier. But we do a best-effort
-		// anyway.
-		let _ = Self::increase_balance(asset.clone(), dest, amount, BestEffort);
-		Self::done_transfer(asset, source, dest, amount);
-		Ok(amount)
+		let actual =
+			Self::decrease_balance(asset.clone(), source, amount, Exact, preservation, Polite)?;
+		Self::increase_balance(asset.clone(), dest, actual, Exact)?;
+		Self::done_transfer(asset, source, dest, actual);
+		Ok(actual)
 	}
 
 	/// Simple infallible function to force an account to have a particular balance, good for use
