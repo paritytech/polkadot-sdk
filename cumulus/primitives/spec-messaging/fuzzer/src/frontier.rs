@@ -18,7 +18,8 @@
 //!
 //! [`Model`] is an independent peaks-with-heights MMR. It hashes with plain blake2-256 and the
 //! domain tags directly and bags by the documented right fold, so it shares no code with the crate.
-//! Every frontier is checked against it after every step, at any leaf count up to the ceiling.
+//! Every frontier is checked against it after every step, at any leaf count up to the ceiling. When
+//! the leaves are known (grown from empty or an oracle prefix), `mmr_lib` is a second reference.
 //!
 //! Any mismatch is a `DIVERGENCE` panic.
 
@@ -27,10 +28,18 @@ use arbitrary::Arbitrary;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
 	leaf_hash,
-	mmr::{bag_peaks, MAX_MMR_LEAF_COUNT},
-	FrontierFull, MmrFrontier, INNER_TAG, PEAK_TAG, ROOT_TAG,
+	mmr::{bag_peaks, empty_root, SpecMerge, MAX_MMR_LEAF_COUNT},
+	FrontierFull, MmrFrontier, MmrRoot, INNER_TAG, PEAK_TAG, ROOT_TAG,
+};
+use mmr_lib::{
+	helper::get_peaks,
+	util::{MemMMR, MemStore},
+	MMRStoreReadOps,
 };
 use sp_core::{Blake2Hasher, Hasher, H256 as Hash};
+
+/// Above this many known leaves the `mmr_lib` rebuild is skipped.
+const MMR_LIB_LEAVES: usize = 512;
 
 /// Each append is checked against the model in full, so this bounds an input's run time.
 const MAX_APPENDS: usize = 2048;
@@ -105,6 +114,34 @@ fn check_against_model(frontier: &MmrFrontier, model: &Model) {
 	assert_eq!(count, model.leaf_count, "DIVERGENCE: leaf count");
 	assert_eq!(frontier.peaks(), &model.hashes()[..], "DIVERGENCE: peaks at {count} leaves");
 	assert_eq!(frontier.root().0, model.root(), "DIVERGENCE: root at {count} leaves");
+}
+
+fn check_against_mmr_lib(frontier: &MmrFrontier, leaves: &[Hash]) {
+	let store = MemStore::<Hash>::default();
+	let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
+	for leaf in leaves {
+		mmr.push(*leaf).expect("MemStore never fails; qed");
+	}
+	let n = leaves.len() as u64;
+	assert_eq!(frontier.leaf_count(), n, "DIVERGENCE: leaf count against mmr_lib");
+	if n == 0 {
+		assert_eq!(frontier.root(), empty_root(), "DIVERGENCE: empty root against mmr_lib");
+		return;
+	}
+	mmr.commit().expect("MemStore never fails; qed");
+	let peaks: Vec<Hash> = get_peaks(mmr.mmr_size())
+		.into_iter()
+		.map(|pos| (&store).get_elem(pos).expect("MemStore never fails; qed").expect("a peak; qed"))
+		.collect();
+	assert_eq!(frontier.peaks(), &peaks[..], "DIVERGENCE: peaks against mmr_lib at {n} leaves");
+	let bag = MemMMR::<Hash, SpecMerge>::new(mmr.mmr_size(), &store)
+		.get_root()
+		.expect("a non-empty MMR has a root; qed");
+	assert_eq!(
+		frontier.root(),
+		MmrRoot::from_bag(n, bag),
+		"DIVERGENCE: root against mmr_lib at {n} leaves"
+	);
 }
 
 fn check_round_trip(frontier: &MmrFrontier) {
@@ -191,7 +228,13 @@ pub struct FrontierInput {
 	pub ops: Vec<FrontierOp>,
 }
 
-fn run_ops(palette: &[Hash], mut frontier: MmrFrontier, ops: &[FrontierOp]) {
+/// `leaves` are the frontier's leaves, when known.
+fn run_ops(
+	palette: &[Hash],
+	mut frontier: MmrFrontier,
+	mut leaves: Option<Vec<Hash>>,
+	ops: &[FrontierOp],
+) {
 	let mut model = Model::from_parts(frontier.peaks(), frontier.leaf_count());
 	check_against_model(&frontier, &model);
 	let mut appends = 0;
@@ -208,6 +251,9 @@ fn run_ops(palette: &[Hash], mut frontier: MmrFrontier, ops: &[FrontierOp]) {
 					"DIVERGENCE: an append carried a frontier past the ceiling"
 				);
 				model.append(leaf);
+				if let Some(known) = leaves.as_mut() {
+					known.push(leaf);
+				}
 			},
 			Err(FrontierFull) => {
 				assert_eq!(
@@ -236,14 +282,20 @@ fn run_ops(palette: &[Hash], mut frontier: MmrFrontier, ops: &[FrontierOp]) {
 		}
 	}
 	check_round_trip(&frontier);
+	if let Some(known) = leaves.filter(|l| l.len() <= MMR_LIB_LEAVES) {
+		check_against_mmr_lib(&frontier, &known);
+	}
 }
 
 impl Oracle {
 	/// Fuzz entry point for `MmrFrontier` and the root and bagging in `mmr`.
 	pub fn check_frontier_input(&self, input: &FrontierInput) -> Outcome {
-		let frontier = match &input.start {
-			Start::Empty => MmrFrontier::new(),
-			Start::Real(k) => self.frontiers[*k as usize % (N + 1)].clone(),
+		let (frontier, leaves) = match &input.start {
+			Start::Empty => (MmrFrontier::new(), Some(Vec::new())),
+			Start::Real(k) => {
+				let k = *k as usize % (N + 1);
+				(self.frontiers[k].clone(), Some(self.leaves[..k].to_vec()))
+			},
 			Start::Parts { leaf_count, peaks, fit } => {
 				let leaf_count = leaf_count.get();
 				let mut peaks: Vec<Hash> = peaks.iter().map(|c| c.resolve(&self.palette)).collect();
@@ -256,10 +308,10 @@ impl Oracle {
 				let Some(frontier) = check_from_parts(&peaks, leaf_count) else {
 					return Outcome::Skipped;
 				};
-				frontier
+				(frontier, None)
 			},
 		};
-		run_ops(&self.palette, frontier, &input.ops);
+		run_ops(&self.palette, frontier, leaves, &input.ops);
 		Outcome::Real
 	}
 }
