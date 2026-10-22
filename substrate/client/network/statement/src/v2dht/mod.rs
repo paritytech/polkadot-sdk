@@ -158,7 +158,7 @@ pub(crate) struct V2DhtOrchestrator {
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
-	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
+	/// Keeps the connected peer set aligned with the peers the node needs connected.
 	peer_steering: PeerSteering,
 	/// Shared affinity view the store reads to decide statement retention.
 	retention: Option<RetentionHandle>,
@@ -337,7 +337,7 @@ impl V2DhtOrchestrator {
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
-	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
+	/// statement ([`ExplicitAffinity::peers_with_explicit_affinity`]).
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
@@ -350,11 +350,7 @@ impl V2DhtOrchestrator {
 			for topic in statement.topics() {
 				targets.extend(self.peers_topology.routing_targets(*topic));
 			}
-			for peer in self.peers_topology.connected_peers() {
-				if self.explicit_affinity.peer_has_explicit_affinity(peer, statement) {
-					targets.insert(peer);
-				}
-			}
+			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
 
 			for peer_id in targets {
 				statements_by_peer.entry(peer_id).or_default().push(index);
@@ -715,6 +711,18 @@ mod tests {
 	}
 
 	#[test]
+	fn plans_a_light_peer_by_its_filter_alone() {
+		let mut orchestrator = orchestrator();
+		let light_peer = PeerId::random();
+		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
+		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
+
+		let plan = orchestrator.propagation_plan(&statements);
+
+		assert_eq!(plan, vec![(light_peer, vec![0])]);
+	}
+
+	#[test]
 	fn substream_close_drops_the_filter() {
 		let mut orchestrator = orchestrator();
 		let peer = PeerId::random();
@@ -747,26 +755,27 @@ mod tests {
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
-			PeerId::random(),
-			topology_config(20, 3),
+			peer(1),
+			topology_config(1, 3),
 			"/statement/test".into(),
 			None,
 		);
 
-		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
-		orchestrator.on_peers_discovered(peers.clone());
-		for peer in &peers {
-			orchestrator.on_peer_identified(*peer, true);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
 		}
 
-		// The tick turns the configured topic into a coverage target.
+		// The tick turns the configured topic into a coverage target. With k=1 the routing peers
+		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
-		assert!(!desired.is_empty());
+		let routing = orchestrator.peers_topology.peers_for_routing();
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
 		let connect = orchestrator.peer_steering.peers_to_connect();
-		assert!(desired.iter().all(|peer| connect.contains(peer)));
+		assert!(coverage.iter().all(|peer| connect.contains(peer)));
 	}
 
 	#[test]
@@ -847,20 +856,22 @@ mod tests {
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
-			topology_config(20, 3),
+			topology_config(1, 3),
 			"/statement/test".into(),
 			None,
 		);
 
-		for seed in 2..=10 {
+		for seed in 2..=30 {
 			orchestrator.on_peers_discovered([peer(seed)]);
 			orchestrator.on_peer_identified(peer(seed), true);
 		}
 
-		// The first tick selects the coverage peers and queues them for connection.
+		// The first tick selects the coverage peers and queues them for connection. With k=1 the
+		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
-		assert!(!desired.is_empty());
+		let routing = orchestrator.peers_topology.peers_for_routing();
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.
 		for peer in orchestrator.peer_steering.peers_to_reserve() {

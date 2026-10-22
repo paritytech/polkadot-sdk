@@ -705,6 +705,33 @@ impl Client {
 		Ok((eth_block, receipt_infos))
 	}
 
+	/// Updates the latest block with `block`, and sends the new latest block to block subscribers.
+	async fn update_and_announce_latest_block(
+		&self,
+		block: SubstrateBlock,
+		eth_block: Option<BlockV1>,
+		subscription_type: SubscriptionType,
+	) {
+		let hash = block.block_hash();
+		let Some(latest_block) =
+			self.block_provider.update_latest(Arc::new(block), subscription_type).await
+		else {
+			return;
+		};
+
+		if self.block_subscription_tx.receiver_count() == 0 {
+			return;
+		}
+
+		let eth_block = match eth_block {
+			Some(eth_block) if latest_block.block_hash() == hash => Some(eth_block),
+			_ => self.evm_block(latest_block, false).await,
+		};
+		if let Some(eth_block) = eth_block {
+			let _ = self.block_subscription_tx.send(eth_block);
+		}
+	}
+
 	/// Start the block subscription, and populate the block cache.
 	pub async fn subscribe_and_cache_new_blocks(
 		&self,
@@ -717,20 +744,22 @@ impl Client {
 			match subscription_type {
 				SubscriptionType::BestBlocks => {
 					let (eth_block, _) = self.process_block(&block).await?;
-					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					self.update_and_announce_latest_block(
+						block,
+						Some(eth_block),
+						subscription_type,
+					)
+					.await;
 
 					if let Some(sender) = &self.block_notifier {
 						if sender.receiver_count() > 0 {
 							let _ = sender.send(hash);
 						}
 					}
-					if self.block_subscription_tx.receiver_count() > 0 {
-						let _ = self.block_subscription_tx.send(eth_block);
-					}
 				},
 				SubscriptionType::FinalizedBlocks => {
 					let block_number = block.block_number();
-					let (receipt_infos, eth_hash) = match self
+					let (receipt_infos, eth_hash, eth_block) = match self
 						.receipt_provider
 						.get_processed_eth_block_hash(block_number, hash)
 						.await
@@ -739,15 +768,16 @@ impl Client {
 							log::trace!(target: LOG_TARGET_SUBSCRIPTION,
 									"⏩ Finalized block #{block_number} already processed, \
 									 skipping extraction");
-							(None, eth_hash)
+							(None, eth_hash, None)
 						},
 						None => {
 							let (eth_block, infos) = self.process_block(&block).await?;
-							(Some(infos), eth_block.hash)
+							(Some(infos), eth_block.hash, Some(eth_block))
 						},
 					};
 
-					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					self.update_and_announce_latest_block(block, eth_block, subscription_type)
+						.await;
 					self.advance_sync_head(block_number, hash).await;
 
 					if self.log_subscription_tx.receiver_count() > 0 {
