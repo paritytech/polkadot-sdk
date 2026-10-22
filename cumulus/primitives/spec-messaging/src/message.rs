@@ -138,11 +138,9 @@ pub struct MessagesResponse {
 
 /// Verify a [`MessagesResponse`] against its [`MessagesRequest`]: `resp.base == req.start`, total
 /// payload bytes within `req.max_bytes` (`0` means proofs only), then the payloads under
-/// `req.stream` / `req.under`. The public entry for the fetch protocol.
-pub fn verify_messages(
-	req: &MessagesRequest,
-	resp: &MessagesResponse,
-) -> Result<Vec<Vec<u8>>, VerifyError> {
+/// `req.stream` / `req.under`. On `Ok`, `resp.payloads` are verified. The public entry for the
+/// fetch protocol.
+pub fn verify_messages(req: &MessagesRequest, resp: &MessagesResponse) -> Result<(), VerifyError> {
 	if resp.base != req.start {
 		return Err(VerifyError::UnexpectedBase);
 	}
@@ -155,7 +153,7 @@ pub fn verify_messages(
 	verify_messages_response(req.stream, req.under, resp)
 }
 
-/// Verify a [`MessagesResponse`] for `stream` under `under` and return the payloads.
+/// Verify a [`MessagesResponse`] for `stream` under `under`.
 /// Crate-internal: it does not bind `resp.base` to a requested start; [`verify_messages`] does.
 ///
 /// Recomputes the frontier from `start_peaks` and the hashed payloads, extends it to the stream's
@@ -165,7 +163,7 @@ pub(crate) fn verify_messages_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &MessagesResponse,
-) -> Result<Vec<Vec<u8>>, VerifyError> {
+) -> Result<(), VerifyError> {
 	// `start_peaks` and `base` are untrusted. `MmrFrontier::from_parts` rejects an inconsistent
 	// shape (one peak per set bit of `base`, which also caps `start_peaks` at 64) and a `base` past
 	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither make `append` pop from an empty vec
@@ -192,8 +190,7 @@ pub(crate) fn verify_messages_response(
 
 	// Extend to the stream's current root, then walk the tree to the committed `StreamsRoot`.
 	let current = resp.extension.verify(&frontier)?;
-	bind_under(stream, under, current, &resp.tree_proof)?;
-	Ok(resp.payloads.to_vec())
+	bind_under(stream, under, current, &resp.tree_proof)
 }
 
 /// Reject a payload above the protocol's single-message bound.
@@ -277,38 +274,38 @@ pub enum ExchangeResponse {
 }
 
 /// Outcome of verifying an [`EventResponse`]. A head read yields the stream [`MmrFrontier`], which
-/// lossy consumption records as its interval endpoint; a positional read yields only the payload,
-/// since an inclusion proof reconstructs a root, not a frontier.
+/// lossy consumption records as its interval endpoint; a positional read yields none, since an
+/// inclusion proof reconstructs a root, not a frontier.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum VerifiedEvent {
-	/// Head (register / latest-event) read: the head position, the stream frontier at that head,
-	/// and the payload.
-	Head { position: MessagePosition, frontier: MmrFrontier, payload: Vec<u8> },
-	/// Positional read: the requested position and its payload.
-	Positional { position: MessagePosition, payload: Vec<u8> },
+	/// Head (register / latest-event) read: the head position and the stream frontier at that
+	/// head.
+	Head { position: MessagePosition, frontier: MmrFrontier },
+	/// Positional read: the requested position.
+	Positional { position: MessagePosition },
 }
 
 /// Verify an [`EventResponse`] against its [`EventRequest`]: `req.at` selects head (`None`) or leaf
-/// `k`, so a head response is never accepted for a positional request or vice versa. The public
-/// entry for event reads.
+/// `k`, so a head response is never accepted for a positional request or vice versa. On `Ok`,
+/// `resp.payload` is verified. The public entry for event reads.
 pub fn verify_event(
 	req: &EventRequest,
 	resp: &EventResponse,
 ) -> Result<VerifiedEvent, VerifyError> {
 	match req.at {
 		None => {
-			let (position, frontier, payload) = verify_event_response(req.stream, req.under, resp)?;
-			Ok(VerifiedEvent::Head { position, frontier, payload })
+			let (position, frontier) = verify_event_response(req.stream, req.under, resp)?;
+			Ok(VerifiedEvent::Head { position, frontier })
 		},
 		Some(position) => {
-			let payload = verify_positional_event_response(req.stream, req.under, position, resp)?;
-			Ok(VerifiedEvent::Positional { position, payload })
+			verify_positional_event_response(req.stream, req.under, position, resp)?;
+			Ok(VerifiedEvent::Positional { position })
 		},
 	}
 }
 
-/// Verify an [`EventResponse`] as the head of `stream` under `under`; returns the position, the
-/// frontier at that head, and the payload. Crate-internal; [`verify_event`] is the public entry.
+/// Verify an [`EventResponse`] as the head of `stream` under `under`; returns the position and the
+/// frontier at that head. Crate-internal; [`verify_event`] is the public entry.
 ///
 /// Hashes the payload, verifies it as the last leaf ([`MmrInclusionProof::verify_head`]), computes
 /// the frontier's root, and walks the tree to a `StreamsRoot` that must equal `under`. The
@@ -318,31 +315,30 @@ pub(crate) fn verify_event_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &EventResponse,
-) -> Result<(MessagePosition, MmrFrontier, Vec<u8>), VerifyError> {
+) -> Result<(MessagePosition, MmrFrontier), VerifyError> {
 	let (position, frontier) = resp.inclusion.verify_head(event_leaf(resp)?)?;
 	bind_under(stream, under, frontier.root(), &resp.tree_proof)?;
-	Ok((position, frontier, resp.payload.clone()))
+	Ok((position, frontier))
 }
 
-/// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`; returns the
-/// payload. Crate-internal; [`verify_event`] is the public entry. Same chain as the head read, with
+/// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`.
+/// Crate-internal; [`verify_event`] is the public entry. Same chain as the head read, with
 /// [`MmrInclusionProof::verify_leaf`].
 pub(crate) fn verify_positional_event_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	position: MessagePosition,
 	resp: &EventResponse,
-) -> Result<Vec<u8>, VerifyError> {
+) -> Result<(), VerifyError> {
 	let root = resp.inclusion.verify_leaf(position, event_leaf(resp)?)?;
-	bind_under(stream, under, root, &resp.tree_proof)?;
-	Ok(resp.payload.clone())
+	bind_under(stream, under, root, &resp.tree_proof)
 }
 
-/// Verified outcome of an [`ExchangeResponse`]: the payloads of a fetch, or a [`VerifiedEvent`].
+/// Verified outcome of an [`ExchangeResponse`]: a fetch, or a [`VerifiedEvent`].
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum ExchangeVerified {
-	/// Answer to an [`ExchangeRequest::Messages`]: the verified payloads.
-	Messages(Vec<Vec<u8>>),
+	/// Answer to an [`ExchangeRequest::Messages`]; the response's payloads are verified.
+	Messages,
 	/// Answer to an [`ExchangeRequest::Event`]: the verified event.
 	Event(VerifiedEvent),
 }
@@ -356,7 +352,7 @@ pub fn verify_exchange(
 ) -> Result<ExchangeVerified, VerifyError> {
 	match (req, resp) {
 		(ExchangeRequest::Messages(mreq), ExchangeResponse::Messages(mresp)) => {
-			verify_messages(mreq, mresp).map(ExchangeVerified::Messages)
+			verify_messages(mreq, mresp).map(|()| ExchangeVerified::Messages)
 		},
 		(ExchangeRequest::Event(ereq), ExchangeResponse::Event(eresp)) => {
 			verify_event(ereq, eresp).map(ExchangeVerified::Event)
@@ -444,10 +440,7 @@ mod tests {
 			extension: ancestry(&leaves, 4, 6),
 			tree_proof: tree_proof.clone(),
 		};
-		assert_eq!(
-			verify_messages_response(stream, under, &resp),
-			Ok(vec![payloads[2].clone(), payloads[3].clone()]),
-		);
+		assert_eq!(verify_messages_response(stream, under, &resp), Ok(()));
 
 		// Requires: receiver consumed messages 2,3 (frontier 2 → 4); lift the endpoint (4 → 6).
 		let record = ConsumptionRecord {
@@ -531,7 +524,7 @@ mod tests {
 			tree_proof,
 		};
 
-		assert_eq!(verify_messages_response(stream, under, &resp), Ok(payloads));
+		assert_eq!(verify_messages_response(stream, under, &resp), Ok(()));
 		// Sanity: the recomputed root matches the sender's.
 		let mut mmr = MmrFrontier::new();
 		for p in &resp.payloads {
@@ -569,7 +562,7 @@ mod tests {
 		// start == base and within budget → dispatches and authenticates.
 		let req =
 			MessagesRequest { stream, start: MessagePosition(0), under, max_bytes: total_bytes };
-		assert_eq!(verify_messages(&req, &resp), Ok(payloads.clone()));
+		assert_eq!(verify_messages(&req, &resp), Ok(()));
 
 		// start != base → rejected up front (before any crypto), and distinct from RootMismatch:
 		// the payloads do verify under `under`; only the answered range is wrong.
@@ -616,7 +609,7 @@ mod tests {
 		};
 		let req =
 			|max_bytes| MessagesRequest { stream, start: MessagePosition(0), under, max_bytes };
-		assert_eq!(verify_messages(&req(1), &resp), Ok(payloads));
+		assert_eq!(verify_messages(&req(1), &resp), Ok(()));
 		assert_eq!(verify_messages(&req(0), &resp), Err(VerifyError::ExceedsBudget));
 	}
 
@@ -805,10 +798,8 @@ mod tests {
 		};
 
 		// Head verify returns the frontier too (needed as the lossy-consumption interval endpoint).
-		let (pos, frontier, payload) =
-			verify_event_response(stream, under, &resp).expect("head verifies");
+		let (pos, frontier) = verify_event_response(stream, under, &resp).expect("head verifies");
 		assert_eq!(pos, MessagePosition(head as u64));
-		assert_eq!(payload, payloads[head]);
 		assert_eq!(frontier.leaf_count(), 6);
 		assert_eq!(frontier.root().0, stream_root);
 
@@ -816,11 +807,7 @@ mod tests {
 		let req = EventRequest { stream, under, at: None };
 		assert_eq!(
 			verify_event(&req, &resp),
-			Ok(VerifiedEvent::Head {
-				position: MessagePosition(head as u64),
-				frontier,
-				payload: payloads[head].clone(),
-			}),
+			Ok(VerifiedEvent::Head { position: MessagePosition(head as u64), frontier }),
 		);
 
 		// A head proof used *positionally* at a non-head index → rejected (the proof's shape
@@ -902,7 +889,7 @@ mod tests {
 		// Correct position → payload authenticated under `under`.
 		assert_eq!(
 			verify_positional_event_response(stream, under, MessagePosition(at as u64), &resp),
-			Ok(payloads[at].clone()),
+			Ok(()),
 		);
 		// Wrong position (same proof) → rejected (exact error is mmr_lib-dependent).
 		assert!(verify_positional_event_response(stream, under, MessagePosition(3), &resp).is_err());
@@ -928,10 +915,7 @@ mod tests {
 		let req = EventRequest { stream, under, at: Some(MessagePosition(at as u64)) };
 		assert_eq!(
 			verify_event(&req, &resp),
-			Ok(VerifiedEvent::Positional {
-				position: MessagePosition(at as u64),
-				payload: payloads[at].clone(),
-			}),
+			Ok(VerifiedEvent::Positional { position: MessagePosition(at as u64) }),
 		);
 	}
 
@@ -1024,7 +1008,7 @@ mod tests {
 				&ExchangeRequest::Messages(mreq.clone()),
 				&ExchangeResponse::Messages(mresp.clone()),
 			),
-			Ok(ExchangeVerified::Messages(mpayloads)),
+			Ok(ExchangeVerified::Messages),
 		);
 		assert!(matches!(
 			verify_exchange(
