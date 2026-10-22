@@ -316,7 +316,8 @@ where
 		return None;
 	}
 
-	let deadline = Instant::now() + interval.saturating_sub(TICK_MARGIN);
+	let started = Instant::now();
+	let deadline = started + interval.saturating_sub(TICK_MARGIN);
 	let (tx, mut rx) = mpsc::unbounded();
 	let fetch = fetcher.fetch_markets(&markets, deadline, tx);
 	let parse = async {
@@ -359,8 +360,9 @@ where
 	let signed = signer::sign_report(&keystore, signer, report)?;
 	log::info!(
 		target: LOG_TARGET,
-		"Reporting {} pair prices at anchor {anchor:?}",
+		"Reporting {} pair prices at anchor {anchor:?}, tick took {:?}",
 		signed.report.quotes.len(),
+		started.elapsed(),
 	);
 	let encoded = signed.encode();
 	pool.insert(signed);
