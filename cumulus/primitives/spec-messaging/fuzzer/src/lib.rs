@@ -66,6 +66,11 @@ pub enum Outcome {
 	Real,
 }
 
+/// The payload behind the oracle's leaf `i`.
+pub fn payload(i: u64) -> Vec<u8> {
+	i.to_le_bytes().to_vec()
+}
+
 pub fn mmr_size(leaves: u64) -> u64 {
 	if leaves == 0 {
 		0
@@ -97,8 +102,13 @@ impl Default for Oracle {
 
 impl Oracle {
 	pub fn new() -> Self {
+		Self::with_leaf_version(LEAF_VERSION)
+	}
+
+	/// Leaf `i` is `leaf_hash(leaf_version, &payload(i))`.
+	pub fn with_leaf_version(leaf_version: u8) -> Self {
 		let leaves: Vec<Hash> =
-			(0..N as u64).map(|i| leaf_hash(LEAF_VERSION, &i.to_le_bytes())).collect();
+			(0..N as u64).map(|i| leaf_hash(leaf_version, &payload(i))).collect();
 
 		let store = MemStore::<Hash>::default();
 		{
