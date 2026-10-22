@@ -44,7 +44,7 @@ pub struct Cli {
 	pub no_hardware_benchmarks: bool,
 
 	/// Route statements through the DHT instead of gossiping them to every peer.
-	#[arg(long)]
+	#[arg(long, hide = true)]
 	pub statement_v2_dht: bool,
 
 	/// Number of concurrent workers for statement validation from the network.
@@ -91,7 +91,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
@@ -100,7 +100,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
 	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
 
@@ -108,7 +108,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "K",
@@ -122,7 +122,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "COUNT",
@@ -135,7 +135,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "N",
@@ -148,7 +148,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "RATE",
@@ -162,7 +162,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
@@ -171,7 +171,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_dht_affinity_size: Option<usize>,
 
@@ -180,7 +180,7 @@ pub struct Cli {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_transient_size: Option<usize>,
 
