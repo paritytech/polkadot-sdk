@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792705238963,
+  "lastUpdate": 1792710620954,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d8837ceb93f00290612d51b5348ae3e80d0eb8a8",
-          "message": "revive: Automatic address mapping via OnNewAccount/OnKilledAccount (#11416)\n\nThis PR add the necessary code to automatically map Substrate account to\nan Eth H160 address.\nIt does that by leveraging the OnNewAccount/OnKilledAccount frame_system\nhooks.\n\nIn that configuration pallet-revive map/ unmap dispatchable becomes\nessentially noop.\nNo extra deposit is taken from the the account. We also don't increase\nthe existential deposit since doing so would mean that we need to mint\nthe difference to all existing account\n\n \nChanges summary:\n- Add `AutoMapper<T>` struct that implements\n`OnNewAccount`/`OnKilledAccount` to automatically map accounts when\ncreated and unmap when killed\n- Add `AutoMap` config constant to enable/disable the feature\nper-runtime\n- Guard `map_account`/`unmap_account` dispatchables with\n`AutoMappingEnabled` error when auto-mapping is active\n- Wire up `AutoMapper` in Asset Hub Westend and dev-node runtimes with\n`AutoMap = true`\n- Add v3 multi-block migration to auto-map all existing accounts and\nrelease deposits for already-mapped accounts\n- Add `v3_migration_step` benchmark\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-08T09:02:21Z",
-          "tree_id": "d6d4f1d7d867b8838c3d09874091f7c85c1a9321",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8837ceb93f00290612d51b5348ae3e80d0eb8a8"
-        },
-        "date": 1775643967623,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009172367709999987,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009723749600000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00265031792,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00945999278999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michal.gil@parity.io",
+            "name": "Michał Gil",
+            "username": "Zebedeusz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "477b53f040f1a45f3567fb37435e2c0ef7476221",
+          "message": "benchmarking-cli: drop constant components from per-prefix proof-size analysis (#13390)\n\nBenchmark pallet --output can fail with \"Parameter n only has 1 unique\nvalue(s)\" when a benchmark touches a different storage key for each\nitem. The proof-size analysis for each storage key can get only 1–2\nsamples, all with the same component value. No slope can be fitted from\nthose.\n\n## Changes\n- min_squares_iqr falls back to the median value when 1–2 samples can't\ngive a slope.\n- Regression tests added.",
+          "timestamp": "2026-10-22T21:32:16Z",
+          "tree_id": "1de69dacdb6dfa688ff73e82fa1b4d60db8ce3f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/477b53f040f1a45f3567fb37435e2c0ef7476221"
+        },
+        "date": 1792710584029,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025293411899999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009261821929999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010452291149999998,
             "unit": "seconds"
           }
         ]
