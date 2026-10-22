@@ -14,7 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Fuzzer for the MMR verifiers in `cumulus_primitives_spec_messaging::lift`.
+//! Fuzzer for `cumulus_primitives_spec_messaging`: the MMR verifiers in `lift` and the frontier in
+//! `mmr` ([`frontier`]).
 //!
 //! [`Oracle`] keeps one real `N`-leaf MMR, every honest proof over it, and a palette of real
 //! hashes for inputs to replay. Inputs are honest proofs with edits applied, or raw bytes. Whenever
@@ -26,9 +27,8 @@
 //!
 //! # Running
 //!
-//! From this directory: `cargo hfuzz run lift_extension` (or `lift_inclusion`, `lift_decode`,
-//! `lift_pipeline`). Pass honggfuzz flags through `HFUZZ_RUN_ARGS`, e.g. `-n 8`. Needs
-//! `binutils-dev` and `libunwind-dev`.
+//! From this directory: `cargo hfuzz run <target>`, one of the binaries in `src/bin`. Pass
+//! honggfuzz flags through `HFUZZ_RUN_ARGS`, e.g. `-n 8`. Needs `binutils-dev` and `libunwind-dev`.
 //!
 //! To debug a crash: `cargo hfuzz run-debug lift_extension hfuzz_workspace/lift_extension/*.fuzz`.
 
@@ -48,7 +48,9 @@ use mmr_lib::{
 use sp_core::{bounded::BoundedVec, Get, H256 as Hash};
 use std::collections::{BTreeSet, HashMap};
 
+pub mod frontier;
 mod pipeline;
+pub use frontier::FrontierInput;
 pub use pipeline::PipelineInput;
 
 /// Enough for every peak layout up to six peaks, small enough to precompute every proof.
@@ -589,6 +591,9 @@ mod tests {
 			if let Ok(input) = PipelineInput::arbitrary(&mut Unstructured::new(&bytes)) {
 				real += (oracle.check_pipeline_input(&input) == Outcome::Real) as u32;
 			}
+			if let Ok(input) = FrontierInput::arbitrary(&mut Unstructured::new(&bytes)) {
+				real += (oracle.check_frontier_input(&input) == Outcome::Real) as u32;
+			}
 			oracle.check_decode(&bytes);
 		}
 		assert!(real > 0);
@@ -634,6 +639,15 @@ mod tests {
 					println!("{input:#?}");
 				}
 				("lift_inclusion", oracle.check_inclusion_input(&input))
+			} else if name.contains("mmr_frontier") {
+				let Ok(input) = FrontierInput::arbitrary(input) else {
+					*tally.entry(("mmr_frontier", "Unparsed".into())).or_default() += 1;
+					continue;
+				};
+				if verbose {
+					println!("{input:#?}");
+				}
+				("mmr_frontier", oracle.check_frontier_input(&input))
 			} else if name.contains("lift_pipeline") {
 				let Ok(input) = PipelineInput::arbitrary(input) else {
 					*tally.entry(("lift_pipeline", "Unparsed".into())).or_default() += 1;
