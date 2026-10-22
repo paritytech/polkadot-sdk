@@ -130,8 +130,10 @@ pub enum DepositAction {
 	/// Record and accept the open channel request of [`Pallet::init_and_accept_open_channel`] once
 	/// both deposits are taken, so that it is opened whole or not at all.
 	InitAndAcceptOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
-	/// Confirm the open channel request of [`Pallet::accept_open_channel`].
-	AcceptOpenChannel,
+	/// Confirm the open channel request of [`Pallet::accept_open_channel`]. The request may be
+	/// canceled and made anew before the recipient's deposit is taken, so the limits it was
+	/// accepted with travel here: only a request with the same ones is confirmed.
+	AcceptOpenChannel { max_capacity: u32, max_message_size: u32 },
 	/// Record the deposits of [`Pallet::poke_channel_deposits`].
 	PokeChannelDeposits,
 	/// Deposits given back after their request or channel is already removed. Nothing to resume.
@@ -196,7 +198,7 @@ impl<T: Config> OnDepositSet for Pallet<T> {
 			DepositAction::InitAndAcceptOpenChannel { .. } => {
 				<T as Config>::WeightInfo::force_open_hrmp_channel(0)
 			},
-			DepositAction::AcceptOpenChannel => {
+			DepositAction::AcceptOpenChannel { .. } => {
 				<T as Config>::WeightInfo::hrmp_accept_open_channel()
 			},
 			DepositAction::PokeChannelDeposits => {
@@ -314,14 +316,21 @@ impl<T: Config> Pallet<T> {
 				});
 				Ok(())
 			},
-			DepositAction::AcceptOpenChannel => {
+			DepositAction::AcceptOpenChannel { max_capacity, max_message_size } => {
 				let config = configuration::ActiveConfig::<T>::get();
-				Self::check_accept_open_channel(channel_id, &config)?;
+				let channel_req = Self::check_accept_open_channel(channel_id, &config)?;
+				// The request may have been canceled and made anew with other limits meanwhile.
+				ensure!(
+					(channel_req.max_capacity, channel_req.max_message_size) ==
+						(max_capacity, max_message_size),
+					Error::<T>::AcceptHrmpChannelRequestChanged
+				);
 				Self::check_recipient_deposit(request, &config)?;
 				Self::finish_accept_open_channel(channel_id);
 				Ok(())
 			},
 			DepositAction::PokeChannelDeposits => {
+				Self::check_poke_channel_deposits(channel_id, request.sender, request.recipient)?;
 				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient);
 				Ok(())
 			},

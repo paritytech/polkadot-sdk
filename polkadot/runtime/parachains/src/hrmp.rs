@@ -388,6 +388,11 @@ pub mod pallet {
 		OpenHrmpChannelInvalidSender,
 		/// The recipient's deposit changed while it was being taken.
 		AcceptHrmpChannelDepositChanged,
+		/// The open channel request was canceled and made anew with other limits while the
+		/// recipient's deposit was being taken.
+		AcceptHrmpChannelRequestChanged,
+		/// The channel's deposits changed while they were being updated.
+		ChannelDepositsChanged,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -1591,26 +1596,31 @@ impl<T: Config> Pallet<T> {
 	pub fn accept_open_channel(origin: ParaId, sender: ParaId) -> DispatchResult {
 		let config = configuration::ActiveConfig::<T>::get();
 		let channel_id = HrmpChannelId { sender, recipient: origin };
-		Self::check_accept_open_channel(&channel_id, &config)?;
+		let channel_req = Self::check_accept_open_channel(&channel_id, &config)?;
 
 		let (_, recipient_deposit) = Self::required_deposits(&channel_id, &config);
 		Self::set_deposit(DepositChangeRequest {
 			channel_id,
 			sender: None,
 			recipient: Some(DepositChange { current: 0, target: recipient_deposit }),
-			action: DepositAction::AcceptOpenChannel,
+			action: DepositAction::AcceptOpenChannel {
+				max_capacity: channel_req.max_capacity,
+				max_message_size: channel_req.max_message_size,
+			},
 		})
 	}
 
-	/// Whether `channel_id.recipient` may accept the open request of `channel_id` now.
+	/// Whether `channel_id.recipient` may accept the open request of `channel_id` now. Returns
+	/// the request.
 	pub(super) fn check_accept_open_channel(
 		channel_id: &HrmpChannelId,
 		config: &HostConfiguration<BlockNumberFor<T>>,
-	) -> DispatchResult {
+	) -> Result<HrmpOpenChannelRequest, DispatchError> {
 		let channel_req = HrmpOpenChannelRequests::<T>::get(channel_id)
 			.ok_or(Error::<T>::AcceptHrmpChannelDoesntExist)?;
 		ensure!(!channel_req.confirmed, Error::<T>::AcceptHrmpChannelAlreadyConfirmed);
-		Self::check_accept_limit(channel_id.recipient, config)
+		Self::check_accept_limit(channel_id.recipient, config)?;
+		Ok(channel_req)
 	}
 
 	/// Whether `origin` may accept one more inbound channel now.
@@ -1657,6 +1667,27 @@ impl<T: Config> Pallet<T> {
 		);
 
 		Self::deposit_event(Event::OpenChannelAccepted { sender, recipient });
+	}
+
+	/// Whether the channel still records the deposits a poke set out from, if it still exists.
+	///
+	/// A channel closed and opened anew meanwhile records the deposits of its new opening, and
+	/// the poke took more than those: it is refused so that they are given back.
+	fn check_poke_channel_deposits(
+		channel_id: &HrmpChannelId,
+		sender: Option<DepositChange>,
+		recipient: Option<DepositChange>,
+	) -> DispatchResult {
+		let Some(channel) = HrmpChannels::<T>::get(channel_id) else { return Ok(()) };
+		let unchanged = |change: Option<DepositChange>, recorded: Balance| {
+			change.is_none_or(|c| c.current == recorded)
+		};
+		ensure!(
+			unchanged(sender, channel.sender_deposit) &&
+				unchanged(recipient, channel.recipient_deposit),
+			Error::<T>::ChannelDepositsChanged
+		);
+		Ok(())
 	}
 
 	/// Second half of [`Self::poke_channel_deposits`], run once both deposits are changed.

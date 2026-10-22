@@ -821,3 +821,194 @@ fn refused_force_open_over_an_existing_request() {
 		assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_some());
 	});
 }
+
+/// The sender cancels its request and asks again with other limits while the recipient's accept
+/// awaits its answer. The late accept is for the first request: it does not confirm the new one.
+#[test]
+fn accept_answered_after_the_request_made_anew() {
+	new_remote_test_ext(|| {
+		let id = channel(A, B);
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		settle_channel(A, B);
+		assert_ok!(Hrmp::hrmp_accept_open_channel(origin(B), A));
+		Remote::process_requests();
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+
+		// The new request is answered before the accept.
+		assert_ok!(Hrmp::hrmp_cancel_open_request(origin(A), id.clone(), 1));
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 1, 4));
+		Remote::process_requests();
+		assert_eq!(Remote::answers().len(), 2);
+		Remote::deliver_answer(1);
+		let request = HrmpOpenChannelRequests::<Test>::get(&id).unwrap();
+		assert_eq!((request.max_capacity, request.max_message_size), (1, 4));
+		assert!(!request.confirmed);
+
+		// The accept is refused and its deposit is given back.
+		Remote::deliver_answer(0);
+		assert!(has_event(Event::DepositReturned {
+			channel_id: id.clone(),
+			error: Error::<Test>::AcceptHrmpChannelRequestChanged.into(),
+		}));
+		assert!(!HrmpOpenChannelRequests::<Test>::get(&id).unwrap().confirmed);
+		Remote::settle();
+		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
+		assert_eq!(Remote::remote_free(B), REMOTE_FREE);
+
+		// The recipient accepts the new request.
+		assert_ok!(Hrmp::hrmp_accept_open_channel(origin(B), A));
+		Remote::settle();
+		assert!(HrmpOpenChannelRequests::<Test>::get(&id).unwrap().confirmed);
+		next_session();
+		let channel = HrmpChannels::<Test>::get(&id).unwrap();
+		assert_eq!((channel.max_capacity, channel.max_message_size), (1, 4));
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+	});
+}
+
+/// Asked again with the same limits, the new request is what the recipient accepted: the late
+/// accept confirms it.
+#[test]
+fn accept_answered_after_the_request_made_anew_alike() {
+	new_remote_test_ext(|| {
+		let id = channel(A, B);
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		settle_channel(A, B);
+		assert_ok!(Hrmp::hrmp_accept_open_channel(origin(B), A));
+		Remote::process_requests();
+
+		assert_ok!(Hrmp::hrmp_cancel_open_request(origin(A), id.clone(), 1));
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		Remote::process_requests();
+		Remote::deliver_answer(1);
+		Remote::deliver_answer(0);
+		assert!(HrmpOpenChannelRequests::<Test>::get(&id).unwrap().confirmed);
+
+		next_session();
+		assert!(HrmpChannels::<Test>::get(&id).is_some());
+		assert_eq!(held(A, B, ChannelSide::Sender), DEPOSIT);
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+	});
+}
+
+/// The channel is closed and opened anew, free of deposits, while a poke awaits its answer. The
+/// late poke does not record deposits the new channel does not hold.
+#[test]
+fn poke_answered_after_the_channel_opened_anew() {
+	new_remote_test_ext(|| {
+		let id = channel(A, B);
+		request_and_accept(A, B);
+		next_session();
+
+		set_deposits(150, 150);
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), A, B));
+		assert_ok!(Hrmp::hrmp_close_channel(origin(A), id.clone()));
+		next_session();
+		assert!(HrmpChannels::<Test>::get(&id).is_none());
+
+		// Without deposits the provider is not asked, so the pending poke does not hold this back.
+		set_deposits(0, 0);
+		assert_ok!(Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), A, B, 2, 8));
+		next_session();
+		let channel = HrmpChannels::<Test>::get(&id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (0, 0));
+
+		// The remote chain took the poke's deposits, then gave everything back for the close.
+		Remote::process_requests();
+		assert_eq!(held(A, B, ChannelSide::Sender), 0);
+		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
+
+		// The late poke is refused, and the new channel keeps its records.
+		Remote::settle();
+		assert!(has_event(Event::DepositReturned {
+			channel_id: id.clone(),
+			error: Error::<Test>::ChannelDepositsChanged.into(),
+		}));
+		let channel = HrmpChannels::<Test>::get(&id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (0, 0));
+		assert_eq!(held(A, B, ChannelSide::Sender), 0);
+		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
+		assert_eq!(Remote::remote_free(A), REMOTE_FREE);
+		assert_eq!(Remote::remote_free(B), REMOTE_FREE);
+	});
+}
+
+/// Asked again with the same limits, but refused: the sender moved its funds meanwhile. Nothing
+/// is recorded, and the late accept gives the recipient's deposit back.
+#[test]
+fn accept_answered_after_the_request_made_anew_refused() {
+	new_remote_test_ext(|| {
+		let id = channel(A, B);
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		settle_channel(A, B);
+		assert_ok!(Hrmp::hrmp_accept_open_channel(origin(B), A));
+		Remote::process_requests();
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+
+		// The sender gets its deposit back, moves everything away and asks again.
+		assert_ok!(Hrmp::hrmp_cancel_open_request(origin(A), id.clone(), 1));
+		Remote::process_requests();
+		assert_eq!(Remote::remote_free(A), REMOTE_FREE);
+		Remote::set_remote_free(A, 0);
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		Remote::process_requests();
+		assert_eq!(held(A, B, ChannelSide::Sender), 0);
+
+		// The refused request is answered first: nothing is recorded.
+		Remote::deliver_answer(1);
+		assert!(has_event(Event::DepositRefused {
+			channel_id: id.clone(),
+			error: DepositError::InsufficientFunds,
+		}));
+		assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_none());
+
+		// The accept finds no request and gives its deposit back.
+		Remote::deliver_answer(0);
+		assert!(has_event(Event::DepositReturned {
+			channel_id: id.clone(),
+			error: Error::<Test>::AcceptHrmpChannelDoesntExist.into(),
+		}));
+		assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_none());
+		Remote::settle();
+		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
+		assert_eq!(Remote::remote_free(B), REMOTE_FREE);
+		assert_eq!(Remote::remote_free(A), 0);
+	});
+}
+
+/// The sender is offboarded, onboarded again and asks again with the same limits while the
+/// recipient's accept awaits its answer. The late accept confirms the new request: the recipient
+/// accepted a channel from that para with those limits.
+#[test]
+fn accept_answered_after_the_sender_offboarded_and_onboarded() {
+	new_remote_test_ext(|| {
+		let id = channel(A, B);
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		settle_channel(A, B);
+		assert_ok!(Hrmp::hrmp_accept_open_channel(origin(B), A));
+		Remote::process_requests();
+
+		// The request is removed and the sender's deposit given back. The recipient's stays held.
+		offboard(A);
+		assert!(HrmpOpenChannelRequests::<Test>::get(&id).is_none());
+		Remote::process_requests();
+		assert_eq!(held(A, B, ChannelSide::Sender), 0);
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+
+		register_parachain_with_balance(A, 0);
+		next_session();
+		next_session();
+		assert!(Paras::is_valid_para(A));
+		assert_ok!(Hrmp::hrmp_init_open_channel(origin(A), B, 2, 8));
+		Remote::process_requests();
+		Remote::deliver_answer(1);
+		assert!(!HrmpOpenChannelRequests::<Test>::get(&id).unwrap().confirmed);
+		Remote::deliver_answer(0);
+		assert!(HrmpOpenChannelRequests::<Test>::get(&id).unwrap().confirmed);
+
+		next_session();
+		assert!(HrmpChannels::<Test>::get(&id).is_some());
+		assert_eq!(held(A, B, ChannelSide::Sender), DEPOSIT);
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+	});
+}
