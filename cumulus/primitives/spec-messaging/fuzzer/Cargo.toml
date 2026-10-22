@@ -32,6 +32,10 @@ path = "src/bin/lift_pipeline.rs"
 name = "mmr_frontier"
 path = "src/bin/mmr_frontier.rs"
 
+[[bin]]
+name = "mmr_decode"
+path = "src/bin/mmr_decode.rs"
+
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
