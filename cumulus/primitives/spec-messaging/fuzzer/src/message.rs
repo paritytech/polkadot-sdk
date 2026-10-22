@@ -28,8 +28,11 @@
 //! - `MALLEABLE`: the right answer, from material other than the honest proof.
 //!
 //! An accepted response must also honour its request.
+//!
+//! - `message_fetch`: [`verify_messages`].
 
-use crate::{payload, Oracle, Outcome, N};
+use crate::{apply_bounded, payload, Count, Edit, HashChoice, Oracle, Outcome, N};
+use arbitrary::Arbitrary;
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root},
 	verify_messages, MessagePosition, MessagesRequest, MessagesResponse, StreamId, StreamProof,
@@ -37,7 +40,7 @@ use cumulus_primitives_spec_messaging::{
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::{bounded::BoundedVec, H256 as Hash};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 /// Committed streams. Index `STREAMS` is a stream that is never committed.
 pub const STREAMS: usize = 3;
@@ -84,6 +87,8 @@ pub struct MessageOracle {
 	commits: Vec<Commit>,
 	/// `StreamsRoot` to height.
 	heights: HashMap<Hash, u64>,
+	/// Both MMR palettes, plus every `StreamsRoot` and tree sibling.
+	palette: Vec<Hash>,
 }
 
 impl Default for MessageOracle {
@@ -116,7 +121,15 @@ impl MessageOracle {
 			})
 			.collect();
 		let heights = commits.iter().zip(1..).map(|(c, h)| (c.under.0, h)).collect();
-		Self { mmrs, commits, heights }
+		let mut palette: BTreeSet<Hash> =
+			mmrs.iter().flat_map(|o| o.palette.iter().copied()).collect();
+		for commit in &commits {
+			palette.insert(commit.under.0);
+			for proof in commit.proofs.iter().flatten() {
+				palette.extend(proof.steps.iter().map(|step| step.sibling));
+			}
+		}
+		Self { mmrs, commits, heights, palette: palette.into_iter().collect() }
 	}
 
 	fn mmr(&self, s: usize) -> &Oracle {
@@ -127,8 +140,27 @@ impl MessageOracle {
 		&self.commits[h as usize - 1]
 	}
 
+	fn height(byte: u8) -> u64 {
+		byte as u64 % N as u64 + 1
+	}
+
 	fn committed(stream: StreamId, h: u64) -> Option<usize> {
 		(0..STREAMS).find(|s| stream_id(*s) == stream && committed_len(*s, h) > 0)
+	}
+
+	/// The stream whose honest material a response starts from: `material`, or the requested one.
+	fn material(stream: StreamId, material: Option<u8>) -> usize {
+		match material {
+			Some(s) => s as usize % (STREAMS + 1),
+			None => (0..STREAMS).find(|s| stream_id(*s) == stream).unwrap_or(STREAMS),
+		}
+	}
+
+	fn under(&self, choice: UnderChoice) -> StreamsRoot {
+		match choice {
+			UnderChoice::Commit(h) => self.commit(Self::height(h)).under,
+			UnderChoice::Hash(hash) => StreamsRoot(hash.resolve(&self.palette)),
+		}
 	}
 
 	fn tree_proof(&self, h: u64, s: usize) -> StreamProof {
@@ -235,6 +267,192 @@ impl MessageOracle {
 			Err(_) => Outcome::Rejected,
 		}
 	}
+
+	/// Fuzz entry point for [`verify_messages`].
+	pub fn check_fetch_input(&self, input: &FetchInput) -> Outcome {
+		let Some(stream) = input.stream.get() else { return Outcome::Skipped };
+		let h = Self::height(input.commit);
+		let material = Self::material(stream, input.material);
+		let (mut req, mut resp) =
+			self.honest_fetch(h, material, input.base as u64, input.len as u64);
+		req.stream = stream;
+		if let Some(target) = input.target {
+			let end = resp.base.0 + resp.payloads.len() as u64;
+			resp.extension = self
+				.mmr(material)
+				.extension(end, target as u64 % (N as u64 + 1))
+				.cloned()
+				.unwrap_or_default();
+		}
+		if let Some(base) = input.resp_base {
+			resp.base = MessagePosition(base.get());
+		}
+		if let Some(version) = input.leaf_version {
+			resp.leaf_version = version;
+		}
+		let mut payloads = resp.payloads.to_vec();
+		apply_payload_edits(&mut payloads, &input.payload_edits);
+		if let Ok(payloads) = payloads.try_into() {
+			resp.payloads = payloads;
+		}
+		apply_bounded(&self.palette, &mut resp.start_peaks, &input.peak_edits);
+		if let Some(count) = input.ext_count {
+			resp.extension.leaf_count = count.get();
+		}
+		apply_bounded(&self.palette, &mut resp.extension.connecting_nodes, &input.ext_edits);
+		req.start = input.start.map_or(resp.base, |c| MessagePosition(c.get()));
+		req.max_bytes = input.max_bytes.unwrap_or_else(|| {
+			let total = resp.payloads.iter().map(|p| p.len() as u32).sum::<u32>();
+			if resp.payloads.is_empty() {
+				0
+			} else {
+				total.max(1)
+			}
+		});
+		if let Some(under) = input.under {
+			req.under = self.under(under);
+		}
+		self.check_fetch(&req, &resp)
+	}
+}
+
+fn apply_payload_edits(payloads: &mut Vec<Vec<u8>>, edits: &[PayloadEdit]) {
+	for edit in edits {
+		let len = payloads.len();
+		match edit {
+			PayloadEdit::Set { slot, payload } if len > 0 => {
+				payloads[*slot as usize % len] = payload.get()
+			},
+			PayloadEdit::Insert { slot, payload } => {
+				payloads.insert(*slot as usize % (len + 1), payload.get())
+			},
+			PayloadEdit::Remove { slot } if len > 0 => {
+				payloads.remove(*slot as usize % len);
+			},
+			PayloadEdit::Swap { a, b } if len > 0 => {
+				payloads.swap(*a as usize % len, *b as usize % len)
+			},
+			PayloadEdit::Flip { slot, byte, mask } if len > 0 => {
+				let p = &mut payloads[*slot as usize % len];
+				if !p.is_empty() {
+					let i = *byte as usize % p.len();
+					p[i] ^= mask;
+				}
+			},
+			PayloadEdit::Truncate { slot, len: to } if len > 0 => {
+				payloads[*slot as usize % len].truncate(*to as usize)
+			},
+			PayloadEdit::Push { slot, byte } if len > 0 => {
+				payloads[*slot as usize % len].push(*byte)
+			},
+			_ => {},
+		}
+	}
+}
+
+#[derive(Arbitrary, Clone, Copy, Debug)]
+pub enum StreamChoice {
+	/// `stream_id(s % (STREAMS + 1))`.
+	Known(u8),
+	/// Skipped unless it decodes.
+	Raw([u8; 8]),
+}
+
+impl StreamChoice {
+	fn get(self) -> Option<StreamId> {
+		match self {
+			StreamChoice::Known(s) => Some(stream_id(s as usize % (STREAMS + 1))),
+			StreamChoice::Raw(bytes) => StreamId::from_bytes(bytes).ok(),
+		}
+	}
+}
+
+#[derive(Arbitrary, Clone, Copy, Debug)]
+pub enum UnderChoice {
+	/// A real `StreamsRoot`, by height.
+	Commit(u8),
+	Hash(HashChoice),
+}
+
+#[derive(Arbitrary, Clone, Debug)]
+pub enum PayloadChoice {
+	/// The payload of leaf `i % N`, the same bytes in every stream.
+	Real(u8),
+	Raw(Vec<u8>),
+	/// `MAX_SPECULATIVE_MESSAGE_LEN - 2 + x % 4` zero bytes: either side of the bound.
+	NearBound(u8),
+}
+
+impl PayloadChoice {
+	fn get(&self) -> Vec<u8> {
+		match self {
+			PayloadChoice::Real(i) => payload(*i as u64 % N as u64),
+			PayloadChoice::Raw(bytes) => bytes.clone(),
+			PayloadChoice::NearBound(x) => {
+				vec![0; MAX_SPECULATIVE_MESSAGE_LEN as usize - 2 + *x as usize % 4]
+			},
+		}
+	}
+}
+
+/// Slots wrap around the list's length.
+#[derive(Arbitrary, Clone, Debug)]
+pub enum PayloadEdit {
+	Set {
+		slot: u8,
+		payload: PayloadChoice,
+	},
+	Insert {
+		slot: u8,
+		payload: PayloadChoice,
+	},
+	Remove {
+		slot: u8,
+	},
+	Swap {
+		a: u8,
+		b: u8,
+	},
+	/// XOR `mask` into byte `byte % len`.
+	Flip {
+		slot: u8,
+		byte: u8,
+		mask: u8,
+	},
+	Truncate {
+		slot: u8,
+		len: u8,
+	},
+	Push {
+		slot: u8,
+		byte: u8,
+	},
+}
+
+#[derive(Arbitrary, Debug)]
+pub struct FetchInput {
+	/// Height `commit % N + 1`.
+	pub commit: u8,
+	pub stream: StreamChoice,
+	/// Build the honest material for stream `s % (STREAMS + 1)` instead of the requested one.
+	pub material: Option<u8>,
+	/// The honest range, reduced into the committed count.
+	pub base: u8,
+	pub len: u8,
+	/// Extend to `target % (N + 1)` leaves instead of the committed count.
+	pub target: Option<u8>,
+	pub resp_base: Option<Count>,
+	/// Defaults to the response's base.
+	pub start: Option<Count>,
+	/// Defaults to the payloads' total, at least 1 if there are any.
+	pub max_bytes: Option<u32>,
+	pub leaf_version: Option<u8>,
+	pub payload_edits: Vec<PayloadEdit>,
+	pub peak_edits: Vec<Edit>,
+	pub ext_count: Option<Count>,
+	pub ext_edits: Vec<Edit>,
+	/// Defaults to the real `StreamsRoot` at the height.
+	pub under: Option<UnderChoice>,
 }
 
 #[cfg(test)]

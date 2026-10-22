@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Fuzzer for the speculative-messaging MMR lift verifiers."
+description = "Fuzzer for the speculative-messaging MMR, lift and message verifiers."
 publish = false
 
 [lints]
@@ -35,6 +35,10 @@ path = "src/bin/mmr_frontier.rs"
 [[bin]]
 name = "mmr_decode"
 path = "src/bin/mmr_decode.rs"
+
+[[bin]]
+name = "message_fetch"
+path = "src/bin/message_fetch.rs"
 
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
