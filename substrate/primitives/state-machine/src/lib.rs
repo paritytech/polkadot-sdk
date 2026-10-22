@@ -130,7 +130,8 @@ impl core::fmt::Display for DefaultError {
 
 pub use crate::{
 	backend::{
-		Backend, BackendTransaction, EstimationTrie, IterArgs, KeysIter, PairsIter, StorageIterator,
+		Backend, BackendTransaction, EstimationTrie, EstimationTrieSnapshot, IterArgs, KeysIter,
+		PairsIter, StorageIterator,
 	},
 	error::{Error, ExecutionError},
 	ext::Ext,

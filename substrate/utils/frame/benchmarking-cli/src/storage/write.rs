@@ -326,11 +326,15 @@ impl StorageCmd {
 							info,
 							trigger_delta,
 							&mut estimation_trie,
+							version,
 						);
 					},
 					None => {
-						let _ =
-							trie.record_proof_for_dirty_keys(trigger_delta, &mut estimation_trie);
+						let _ = trie.record_proof_for_dirty_keys(
+							trigger_delta,
+							&mut estimation_trie,
+							version,
+						);
 					},
 				}
 			}

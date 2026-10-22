@@ -534,10 +534,11 @@ where
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
 	) where
 		H::Out: Ord,
 	{
-		self.essence.record_proof_for_dirty_keys(delta, estimation_trie)
+		self.essence.record_proof_for_dirty_keys(delta, estimation_trie, state_version)
 	}
 
 	fn record_proof_for_child_dirty_keys<'a>(
@@ -545,11 +546,16 @@ where
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
 	) where
 		H::Out: Ord,
 	{
-		self.essence
-			.record_proof_for_child_dirty_keys(child_info, delta, estimation_trie)
+		self.essence.record_proof_for_child_dirty_keys(
+			child_info,
+			delta,
+			estimation_trie,
+			state_version,
+		)
 	}
 
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}

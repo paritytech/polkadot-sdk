@@ -506,7 +506,7 @@ where
 	fn record_proof_for_dirty_keys(&mut self) {
 		let _guard = guard();
 
-		self.overlay.record_proof_for_dirty_keys(self.backend);
+		self.overlay.record_proof_for_dirty_keys(self.backend, self.state_version);
 
 		trace!(
 			target: "state",
@@ -1279,6 +1279,24 @@ mod tests {
 		}
 	}
 
+	/// Most size estimation calls carry no removals; they must not create a trie, or every block
+	/// would allocate one and the "created on first removal" contract would be false.
+	#[test]
+	fn size_estimation_without_removals_creates_no_trie() {
+		let backend = collapse_scenario_backend();
+		let mut overlay = OverlayedChanges::default();
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(Recorder::default()).build();
+		let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::V1);
+
+		ext.set_storage(K1.to_vec(), vec![9; 64]);
+		ext.record_proof_for_dirty_keys();
+		assert!(!ext.overlay.has_estimation_trie());
+
+		ext.clear_storage(K2);
+		ext.record_proof_for_dirty_keys();
+		assert!(ext.overlay.has_estimation_trie());
+	}
+
 	/// A host rollback drops the nodes recorded inside the transaction from the proof. The
 	/// estimation trie must forget the deletes too, otherwise re-deleting the key is served from
 	/// memory and records nothing.
@@ -1287,6 +1305,30 @@ mod tests {
 		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
 			collapse_scenario_backend(),
 			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	/// On a V0 chain the estimation trie is a V0 trie; rolling it back to a snapshot must restore
+	/// it like the V1 one, through the same transaction machinery.
+	#[test]
+	fn host_rollback_restores_the_estimation_trie_on_a_v0_chain() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_at(
+			collapse_scenario_backend_at(StateVersion::V0),
+			StateVersion::V0,
+			|ext, recorder| {
+				ext.clear_storage(FILLER);
+				ext.record_proof_for_dirty_keys();
+
 				start_host_transaction(ext, recorder);
 				ext.clear_storage(K1);
 				ext.record_proof_for_dirty_keys();
@@ -1541,6 +1583,7 @@ mod tests {
 			&child_info,
 			core::iter::empty::<(&[u8], crate::DeltaKeyOp)>(),
 			&mut None,
+			StateVersion::V1,
 		);
 
 		assert_eq!(recorder.estimate_encoded_size(), 0);

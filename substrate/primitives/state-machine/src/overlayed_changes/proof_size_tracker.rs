@@ -17,7 +17,10 @@
 
 //! Tracks modified storage keys to optimize PoV size estimation for storage root computation.
 
-use crate::{backend::EstimationTrie, trace};
+use crate::{
+	backend::{EstimationTrie, EstimationTrieSnapshot},
+	trace,
+};
 use alloc::vec::Vec;
 use core::{
 	fmt::{self, Debug},
@@ -27,7 +30,6 @@ use core::{
 use hash_db::Hasher;
 use indexmap::IndexMap as HashMap;
 use sp_crypto_hashing::blake2_128;
-use sp_trie::{LayoutV1, TrieDBMutSnapshot};
 
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "proof_size_tracker";
@@ -157,7 +159,7 @@ struct TransactionLayer<K, H: Hasher> {
 	snapshot: Option<CapturedMap>,
 	/// The trie as it was when this transaction started, `None` if the trie did not exist when the
 	/// transaction started.
-	trie_snapshot: Option<TrieDBMutSnapshot<LayoutV1<H>>>,
+	trie_snapshot: Option<EstimationTrieSnapshot<H>>,
 }
 
 impl<K, H: Hasher> Default for TransactionLayer<K, H> {
@@ -1031,7 +1033,8 @@ mod tests {
 
 	mod estimation_trie {
 		use super::Tracker;
-		use sp_core::{Blake2Hasher, H256};
+		use crate::backend::EstimationTrie;
+		use sp_core::{storage::StateVersion, Blake2Hasher, H256};
 		use sp_trie::{
 			AppendOnlyTrieDBMutBuilder, DetachedTrieDBMut, LayoutV1, MemoryDB, TrieDBMutBuilder,
 			TrieMut,
@@ -1067,25 +1070,36 @@ mod tests {
 			}
 
 			fn remove_all(&mut self, keys: &[&[u8]]) {
-				sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
+				let trie = self.take_trie();
+				let trie = sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
 					&self.db,
-					self.root,
 					keys.iter().copied(),
-					self.tracker.estimation_trie_mut(),
+					trie,
 					None,
 					None,
 				)
 				.unwrap();
+				*self.tracker.estimation_trie_mut() = Some(EstimationTrie::V1(trie));
 			}
 
 			fn contains(&mut self, key: &[u8]) -> bool {
-				let slot = self.tracker.estimation_trie_mut();
-				let trie = slot.take().unwrap_or_else(|| DetachedTrieDBMut::new(self.root));
+				let trie = self.take_trie();
 				let trie =
 					AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(&self.db, trie).build();
 				let contains = trie.get(key).unwrap().is_some();
-				*slot = Some(trie.detach());
+				*self.tracker.estimation_trie_mut() = Some(EstimationTrie::V1(trie.detach()));
 				contains
+			}
+
+			fn take_trie(&mut self) -> DetachedTrieDBMut<Layout> {
+				let slot = self.tracker.estimation_trie_mut();
+				match slot
+					.take()
+					.unwrap_or_else(|| EstimationTrie::new(StateVersion::V1, self.root))
+				{
+					EstimationTrie::V1(trie) => trie,
+					EstimationTrie::V0(_) => unreachable!("the fixture only creates V1 tries"),
+				}
 			}
 		}
 
@@ -1102,17 +1116,6 @@ mod tests {
 
 			assert!(fixture.contains(FIRST));
 			assert!(!fixture.contains(THIRD));
-		}
-
-		/// Most size estimation calls carry no removals; they must not create a trie, or every
-		/// block would allocate one and the "created on first removal" contract would be false.
-		#[test]
-		fn size_estimation_without_removals_creates_no_trie() {
-			let mut fixture = Fixture::new();
-
-			fixture.remove_all(&[]);
-
-			assert!(fixture.tracker.estimation_trie_mut().is_none());
 		}
 
 		/// A committed removal is part of the block, so later size estimation calls build on it.

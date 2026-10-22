@@ -174,11 +174,15 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 								child_info,
 								trigger_delta,
 								&mut estimation_trie,
+								StateVersion::V1,
 							);
 						},
 						None => {
-							let _ = backend
-								.record_proof_for_dirty_keys(trigger_delta, &mut estimation_trie);
+							let _ = backend.record_proof_for_dirty_keys(
+								trigger_delta,
+								&mut estimation_trie,
+								StateVersion::V1,
+							);
 						},
 					}
 				}

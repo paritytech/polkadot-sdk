@@ -309,8 +309,9 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<HashingFor<B>>>,
+		state_version: StateVersion,
 	) {
-		self.state.record_proof_for_dirty_keys(delta, estimation_trie)
+		self.state.record_proof_for_dirty_keys(delta, estimation_trie, state_version)
 	}
 
 	fn record_proof_for_child_dirty_keys<'a>(
@@ -318,8 +319,14 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<HashingFor<B>>>,
+		state_version: StateVersion,
 	) {
-		self.state.record_proof_for_child_dirty_keys(child_info, delta, estimation_trie)
+		self.state.record_proof_for_child_dirty_keys(
+			child_info,
+			delta,
+			estimation_trie,
+			state_version,
+		)
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

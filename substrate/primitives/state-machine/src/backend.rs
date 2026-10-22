@@ -30,7 +30,10 @@ use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
-use sp_trie::{MerkleValue, PrefixedMemoryDB, RandomState};
+use sp_trie::{
+	DetachedTrieDBMut, InvalidSnapshot, LayoutV0, LayoutV1, MerkleValue, PrefixedMemoryDB,
+	RandomState, TrieDBMutSnapshot,
+};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -177,7 +180,56 @@ pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
 /// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in the
 /// real storage root computation.
-pub type EstimationTrie<H> = sp_trie::DetachedTrieDBMut<sp_trie::LayoutV1<H>>;
+///
+/// Created by the first size estimation call that applies a removal, in the layout of the state
+/// version in force at that point. Later calls follow the trie's layout.
+pub enum EstimationTrie<H: Hasher> {
+	/// The trie of a chain with state version 0.
+	V0(DetachedTrieDBMut<LayoutV0<H>>),
+	/// The trie of a chain with state version 1.
+	V1(DetachedTrieDBMut<LayoutV1<H>>),
+}
+
+/// A point an [`EstimationTrie`] can be rolled back to.
+pub enum EstimationTrieSnapshot<H: Hasher> {
+	/// A snapshot of an [`EstimationTrie::V0`].
+	V0(TrieDBMutSnapshot<LayoutV0<H>>),
+	/// A snapshot of an [`EstimationTrie::V1`].
+	V1(TrieDBMutSnapshot<LayoutV1<H>>),
+}
+
+impl<H: Hasher> EstimationTrie<H> {
+	/// The trie at `root` without in-memory nodes, in the layout of `state_version`.
+	pub fn new(state_version: StateVersion, root: H::Out) -> Self {
+		match state_version {
+			StateVersion::V0 => Self::V0(DetachedTrieDBMut::new(root)),
+			StateVersion::V1 => Self::V1(DetachedTrieDBMut::new(root)),
+		}
+	}
+
+	/// Take a snapshot to roll back to, see [`DetachedTrieDBMut::snapshot`].
+	pub fn snapshot(&self) -> EstimationTrieSnapshot<H> {
+		match self {
+			Self::V0(trie) => EstimationTrieSnapshot::V0(trie.snapshot()),
+			Self::V1(trie) => EstimationTrieSnapshot::V1(trie.snapshot()),
+		}
+	}
+
+	/// Roll back to `snapshot`, see [`DetachedTrieDBMut::rollback_to`].
+	pub fn rollback_to(
+		&mut self,
+		snapshot: &EstimationTrieSnapshot<H>,
+	) -> Result<(), InvalidSnapshot> {
+		match (self, snapshot) {
+			(Self::V0(trie), EstimationTrieSnapshot::V0(snapshot)) => trie.rollback_to(snapshot),
+			(Self::V1(trie), EstimationTrieSnapshot::V1(snapshot)) => trie.rollback_to(snapshot),
+			_ => unreachable!(
+				"a snapshot is taken from the trie it is rolled back to, and a trie keeps its \
+				 layout for its whole life; qed"
+			),
+		}
+	}
+}
 
 /// A state backend is used to read state data and can have changes committed
 /// to it.
@@ -278,6 +330,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
 	) where
 		H::Out: Ord;
 
@@ -287,6 +340,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
 	) where
 		H::Out: Ord;
 
@@ -363,14 +417,20 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			),
 		>,
 		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
 	) where
 		H: 'a,
 		H::Out: Ord + Encode,
 	{
 		for (child_info, child_delta, child_estimation_trie) in child_deltas {
-			self.record_proof_for_child_dirty_keys(child_info, child_delta, child_estimation_trie);
+			self.record_proof_for_child_dirty_keys(
+				child_info,
+				child_delta,
+				child_estimation_trie,
+				state_version,
+			);
 		}
-		self.record_proof_for_dirty_keys(delta, estimation_trie);
+		self.record_proof_for_dirty_keys(delta, estimation_trie, state_version);
 	}
 
 	/// Register stats from overlay of state machine.
