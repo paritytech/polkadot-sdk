@@ -3223,7 +3223,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.35.0"
+version = "0.35.1"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -5491,7 +5491,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-primitives-utility"
-version = "0.34.0"
+version = "0.34.1"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -24304,7 +24304,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -24708,7 +24708,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-common"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -26789,7 +26789,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "28.0.1"
+version = "28.1.0"
 dependencies = [
  "environmental",
  "frame-benchmarking",
