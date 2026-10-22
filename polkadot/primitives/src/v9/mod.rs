@@ -2727,6 +2727,11 @@ pub enum UMPSignal {
 	Requires(RequiresSet),
 }
 
+impl UMPSignal {
+	/// Number of signal variants.
+	const COUNT: usize = 4;
+}
+
 /// The default claim queue offset to be used if it's not configured/accessible in the parachain
 /// runtime
 pub const DEFAULT_CLAIM_QUEUE_OFFSET: u8 = 0;
@@ -2817,7 +2822,7 @@ pub const UMP_SEPARATOR: Vec<u8> = vec![];
 
 /// The maximum number of `UMPSignal` messages a candidate may carry — one per
 /// [`UMPSignal`] variant.
-pub const MAX_UMP_SIGNALS: usize = 4;
+pub const MAX_UMP_SIGNALS: usize = UMPSignal::COUNT;
 
 /// Utility function for skipping the ump signals.
 pub fn skip_ump_signals<'a>(
