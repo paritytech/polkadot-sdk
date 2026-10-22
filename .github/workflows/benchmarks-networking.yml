@@ -12,6 +12,11 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  # Bypass forklift cache: master moved to bookworm and shares the cache bucket, serving
+  # build-script binaries linked against a newer glibc than this bullseye image has.
+  FORKLIFT_BYPASS: "true"
+
 jobs:
   preflight:
     uses: ./.github/workflows/reusable-preflight.yml
