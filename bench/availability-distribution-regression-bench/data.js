@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792644187306,
+  "lastUpdate": 1792672412715,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ae43774747e1d54c617d30dc5573570d0e6f7c6",
-          "message": "eth-rpc: Add trace logging for receipt lookup debugging (#11522)\n\nAdd trace logging to receipt handling to help diagnose intermittent\nreceipt retrieval failures for finalized transactions, observed while\nrunning revive differential test benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-08T16:45:55Z",
-          "tree_id": "7b0a5e0ac611eadb5d74f4fc4f29baec64e616eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ae43774747e1d54c617d30dc5573570d0e6f7c6"
-        },
-        "date": 1775671775091,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025391625173333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009758162899999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1423706863533333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007050281513333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02537255567333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c1418a966d9234013f0bf2e469e67e999c9b07cd",
+          "message": "Remove deprecated reclaim extension (#13532)\n\nRemoves the original `StorageWeightReclaim` extension which was\ndeprecated for 1.5 years or so. It has been replaced by the\nCorresponding pallet which is more accurate. No runtime in this repo or\nfellowship still use the inaccurate one. Anyone else should also migrate\nif they were still using it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-22T07:45:11Z",
+          "tree_id": "f8f7b09b0b13c0a23578a76d66b3c7b4f6432be6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1418a966d9234013f0bf2e469e67e999c9b07cd"
+        },
+        "date": 1792672384577,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00811589936,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02495674368666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14215125170000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010233503746666648,
             "unit": "seconds"
           }
         ]
