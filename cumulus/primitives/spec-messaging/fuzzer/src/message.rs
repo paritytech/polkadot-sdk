@@ -34,7 +34,7 @@
 use crate::{apply_bounded, payload, Count, Edit, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
 use cumulus_primitives_spec_messaging::{
-	streams_root::{gen_stream_proof, streams_root},
+	streams_root::{gen_stream_proof, streams_root, TreeStep},
 	verify_messages, MessagePosition, MessagesRequest, MessagesResponse, StreamId, StreamProof,
 	StreamsRoot, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
 };
@@ -300,6 +300,7 @@ impl MessageOracle {
 			resp.extension.leaf_count = count.get();
 		}
 		apply_bounded(&self.palette, &mut resp.extension.connecting_nodes, &input.ext_edits);
+		apply_tree_edits(&self.palette, &mut resp.tree_proof, &input.tree_edits);
 		req.start = input.start.map_or(resp.base, |c| MessagePosition(c.get()));
 		req.max_bytes = input.max_bytes.unwrap_or_else(|| {
 			let total = resp.payloads.iter().map(|p| p.len() as u32).sum::<u32>();
@@ -347,6 +348,31 @@ fn apply_payload_edits(payloads: &mut Vec<Vec<u8>>, edits: &[PayloadEdit]) {
 			},
 			_ => {},
 		}
+	}
+}
+
+fn apply_tree_edits(palette: &[Hash], proof: &mut StreamProof, edits: &[TreeEdit]) {
+	let mut steps = proof.steps.to_vec();
+	for edit in edits {
+		let len = steps.len();
+		match *edit {
+			TreeEdit::Split { step, bit } if len > 0 => steps[step as usize % len].split_bit = bit,
+			TreeEdit::Sibling { step, hash } if len > 0 => {
+				steps[step as usize % len].sibling = hash.resolve(palette)
+			},
+			TreeEdit::Insert { slot, bit, hash } => steps.insert(
+				slot as usize % (len + 1),
+				TreeStep { split_bit: bit, sibling: hash.resolve(palette) },
+			),
+			TreeEdit::Remove { slot } if len > 0 => {
+				steps.remove(slot as usize % len);
+			},
+			TreeEdit::Swap { a, b } if len > 0 => steps.swap(a as usize % len, b as usize % len),
+			_ => {},
+		}
+	}
+	if let Ok(steps) = steps.try_into() {
+		proof.steps = steps;
 	}
 }
 
@@ -429,6 +455,16 @@ pub enum PayloadEdit {
 	},
 }
 
+/// Steps wrap around the proof's length.
+#[derive(Arbitrary, Clone, Copy, Debug)]
+pub enum TreeEdit {
+	Split { step: u8, bit: u8 },
+	Sibling { step: u8, hash: HashChoice },
+	Insert { slot: u8, bit: u8, hash: HashChoice },
+	Remove { slot: u8 },
+	Swap { a: u8, b: u8 },
+}
+
 #[derive(Arbitrary, Debug)]
 pub struct FetchInput {
 	/// Height `commit % N + 1`.
@@ -451,6 +487,7 @@ pub struct FetchInput {
 	pub peak_edits: Vec<Edit>,
 	pub ext_count: Option<Count>,
 	pub ext_edits: Vec<Edit>,
+	pub tree_edits: Vec<TreeEdit>,
 	/// Defaults to the real `StreamsRoot` at the height.
 	pub under: Option<UnderChoice>,
 }
