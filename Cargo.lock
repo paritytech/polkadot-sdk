@@ -5563,6 +5563,7 @@ version = "0.1.0"
 dependencies = [
  "arbitrary",
  "cumulus-primitives-spec-messaging",
+ "hex-literal",
  "honggfuzz",
  "parity-scale-codec",
  "polkadot-ckb-merkle-mountain-range",

@@ -28,6 +28,10 @@ path = "src/bin/lift_decode.rs"
 name = "lift_pipeline"
 path = "src/bin/lift_pipeline.rs"
 
+[[bin]]
+name = "mmr_frontier"
+path = "src/bin/mmr_frontier.rs"
+
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
@@ -36,3 +40,6 @@ honggfuzz = { workspace = true }
 mmr-lib = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+
+[dev-dependencies]
+hex-literal = { workspace = true, default-features = true }
