@@ -12,6 +12,11 @@ on:
 
 # Jobs in this workflow depend on each other, only for limiting peak amount of spawned workers
 
+env:
+  # Bypass forklift cache: master moved to bookworm and shares the cache bucket, serving
+  # build-script binaries linked against a newer glibc than this bullseye image has.
+  FORKLIFT_BYPASS: "true"
+
 jobs:
   isdraft:
     uses: ./.github/workflows/reusable-isdraft.yml
