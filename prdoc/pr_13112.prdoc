@@ -1,0 +1,32 @@
+title: 'Registrar: schedule code upgrade'
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      `pallet-registrar-para::schedule_code_upgrade` asks the relay chain to authorize a validation
+      code upgrade for a registered para. Root, the para itself, or its manager while unlocked may
+      call it. Only the code hash and length are sent, no deposit is taken, and the answer comes
+      back as an event.
+
+      `pallet-registrar-relay` checks the request through `ParachainRegistrar::check_code_upgrade`,
+      which now returns a `FailureReason`, and stores the authorization in `PendingCodeUpgrades`,
+      replacing any earlier one for that para. Anyone can then upload the matching code with the
+      new unsigned, fee-free `apply_authorized_code_upgrade`, which schedules the upgrade and
+      reports back to the parachain. Unlike registrations, the authorization expires after the new
+      `CodeUpgradeValidPeriod`, which runtimes using the pallet must set.
+
+      `paras_registrar` in `polkadot-runtime-common` implements `check_code_upgrade` and
+      `schedule_code_upgrade`, using the new
+      `polkadot_runtime_parachains::can_upgrade_validation_code`.
+
+crates:
+  - name: registrar-primitives
+    bump: major
+  - name: pallet-registrar-para
+    bump: major
+  - name: pallet-registrar-relay
+    bump: major
+  - name: polkadot-runtime-common
+    bump: patch
+  - name: polkadot-runtime-parachains
+    bump: minor
