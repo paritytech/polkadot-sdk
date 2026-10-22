@@ -1,0 +1,10 @@
+title: 'SwapFirstAssetTrader: refund the whole fee held'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `SwapFirstAssetTrader::refund_weight` refused a refund equal to the fee it held, so a
+    `RefundSurplus` of the whole purchase refunded nothing while `UsingComponents` refunds it in
+    full. The guard is now strict, so a refund of exactly the fee held is served.
+crates:
+- name: cumulus-primitives-utility
+  bump: patch
