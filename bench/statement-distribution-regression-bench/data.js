@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792672515729,
+  "lastUpdate": 1792689995167,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "4050536124f2285ea8d7ae4661611b9e256d398e",
-          "message": "statement-store: read allowance on best hash (#11667)\n\nTo allow accepting statements as early as possible\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-08T07:40:51Z",
-          "tree_id": "b9b5de2ac209791a72d5158faa256f51d71d9bb3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4050536124f2285ea8d7ae4661611b9e256d398e"
-        },
-        "date": 1775639721910,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03799999999993,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038579964455999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08026556462399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08823700073999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "470ea2fb7ea3502e0eb8911a554e0fec3e630665",
+          "message": "[Release|CI/CD] Add eth-rpc image mention to release notes (#13541)",
+          "timestamp": "2026-10-22T14:04:35Z",
+          "tree_id": "49207c3f3476fe8dd6b4bf8c9d7ac846ee59b0c0",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/470ea2fb7ea3502e0eb8911a554e0fec3e630665"
+        },
+        "date": 1792689959137,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10000000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09079861124999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03869141824399999,
             "unit": "seconds"
           }
         ]
