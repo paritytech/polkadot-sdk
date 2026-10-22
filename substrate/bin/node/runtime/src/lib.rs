@@ -2738,6 +2738,13 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(
+		_para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
 	fn check_head_data(_head_len: u32) -> Result<(), ()> {
 		Ok(())
 	}

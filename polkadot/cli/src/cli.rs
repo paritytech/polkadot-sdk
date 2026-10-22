@@ -65,18 +65,6 @@ pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
 
-	/// Force using Kusama native runtime.
-	#[arg(long = "force-kusama")]
-	pub force_kusama: bool,
-
-	/// Force using Westend native runtime.
-	#[arg(long = "force-westend")]
-	pub force_westend: bool,
-
-	/// Force using Rococo native runtime.
-	#[arg(long = "force-rococo")]
-	pub force_rococo: bool,
-
 	/// Disable the BEEFY gadget.
 	///
 	/// Currently enabled by default.
