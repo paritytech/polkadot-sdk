@@ -14,8 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Fuzzer for `cumulus_primitives_spec_messaging`: the MMR verifiers in `lift` and the frontier in
-//! `mmr` ([`frontier`]).
+//! Fuzzer for `cumulus_primitives_spec_messaging`: the MMR verifiers in `lift`, the frontier in
+//! `mmr` ([`frontier`]) and the off-chain response verifiers in `message` ([`message`]).
 //!
 //! [`Oracle`] keeps one real `N`-leaf MMR, every honest proof over it, and a palette of real
 //! hashes for inputs to replay. Inputs are honest proofs with edits applied, or raw bytes. Whenever
@@ -49,8 +49,10 @@ use sp_core::{bounded::BoundedVec, Get, H256 as Hash};
 use std::collections::{BTreeSet, HashMap};
 
 pub mod frontier;
+pub mod message;
 mod pipeline;
 pub use frontier::FrontierInput;
+pub use message::MessageOracle;
 pub use pipeline::PipelineInput;
 
 /// Enough for every peak layout up to six peaks, small enough to precompute every proof.
