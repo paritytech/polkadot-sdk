@@ -355,7 +355,7 @@ impl ReconnectingWebsocketWorker {
 			tokio::time::Instant::now() + self.preferred_server_probe_interval,
 			self.preferred_server_probe_interval,
 		);
-		let mut preferred_server_probe = probe_preferred_rpc_servers(Vec::new());
+		let mut preferred_server_probe = stream::empty().boxed().fuse();
 		loop {
 			if let ConnectionStatus::ReconnectRequired(failed_request) = should_reconnect {
 				// Requests retain their own clients. Leave them pending while replacing the
@@ -367,7 +367,7 @@ impl ReconnectingWebsocketWorker {
 					return;
 				};
 				active = connection;
-				preferred_server_probe = probe_preferred_rpc_servers(Vec::new());
+				preferred_server_probe = stream::empty().boxed().fuse();
 				preferred_server_probe_timer.reset();
 				if let Some(RpcDispatcherMessage::Request(method, params, sender)) = failed_request
 				{
@@ -438,7 +438,7 @@ impl ReconnectingWebsocketWorker {
 					// consumed by the probe. Subsequent best-head changes may include reorgs.
 					last_seen_best_num = server.best_header.number;
 					distribute_header(server.best_header, &mut self.best_header_listeners);
-					preferred_server_probe = probe_preferred_rpc_servers(Vec::new());
+					preferred_server_probe = stream::empty().boxed().fuse();
 					preferred_server_probe_timer.reset();
 				},
 				import_event = active.subscriptions.import_subscription.next() => {
