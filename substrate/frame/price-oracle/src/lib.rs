@@ -689,7 +689,16 @@ impl<T: Config> Pallet<T> {
 		let updated_at = T::BlockNumberProvider::current_block_number();
 
 		for (pair, pair_votes) in votes.iter() {
-			if pair_votes.is_empty() || (pair_votes.len() as u32) < params.quorum {
+			if pair_votes.is_empty() {
+				continue;
+			}
+			if (pair_votes.len() as u32) < params.quorum {
+				log::debug!(
+					target: LOG_TARGET,
+					"{pair:?} has {} of {} votes, not priced",
+					pair_votes.len(),
+					params.quorum,
+				);
 				continue;
 			}
 			let mut prices: Vec<Price> = pair_votes.iter().map(|v| v.price).collect();

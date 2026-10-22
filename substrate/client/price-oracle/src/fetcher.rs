@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! HTTPS client for the queries of the markets.
 
+use crate::LOG_TARGET;
 use bytes::Bytes;
 use futures::{channel::mpsc, future::try_join_all, stream::FuturesUnordered, StreamExt};
 use http_body_util::{BodyExt, Full};
@@ -236,7 +237,7 @@ impl Fetcher {
 			Method::Get => hyper::Method::GET,
 			Method::Post => hyper::Method::POST,
 		};
-		let mut builder = hyper::Request::builder().method(method).uri(uri);
+		let mut builder = hyper::Request::builder().method(method).uri(uri.clone());
 		for header in &request.headers {
 			builder = builder.header(header.name.as_slice(), header.value.as_slice());
 		}
@@ -247,6 +248,7 @@ impl Fetcher {
 		let timeout = Duration::from_millis(request.timeout_ms.min(MAX_TIMEOUT_MS).into());
 		let max_bytes = request.max_response_bytes.min(MAX_RESPONSE_BYTES) as usize;
 
+		let started = Instant::now();
 		let response = async {
 			let response = self
 				.client
@@ -258,7 +260,17 @@ impl Fetcher {
 			}
 			read_body(response, max_bytes).await
 		};
-		tokio::time::timeout(timeout, response).await.map_err(|_| FetchError::Timeout)?
+		let result = tokio::time::timeout(timeout, response)
+			.await
+			.unwrap_or(Err(FetchError::Timeout));
+		if let Err(e) = &result {
+			log::debug!(
+				target: LOG_TARGET,
+				"Request to {uri} failed after {:?}: {e}",
+				started.elapsed(),
+			);
+		}
+		result
 	}
 }
 

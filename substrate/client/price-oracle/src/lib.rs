@@ -355,6 +355,7 @@ where
 		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
 		return None;
 	}
+	log::debug!(target: LOG_TARGET, "Aggregated quotes: {quotes:?}");
 
 	let report = PriceReport { anchor, quotes };
 	let signed = signer::sign_report(&keystore, signer, report)?;
