@@ -372,9 +372,9 @@ impl V2DhtOrchestrator {
 		}
 	}
 
-	/// Align the connected peers with the peers the node needs connected, opening
-	/// and closing connections through the statement protocol's reserved set on `network`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+	/// Reserve the peers the node needs connected and release the rest, through the statement
+	/// protocol's reserved set on `network`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
 	}
 
@@ -861,15 +861,16 @@ mod tests {
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.
-		for peer in orchestrator.peer_steering.peers_to_connect() {
+		for peer in orchestrator.peer_steering.peers_to_reserve() {
 			orchestrator.on_substream_opened(peer);
+			orchestrator.peer_steering.reserve([peer]);
 		}
 		orchestrator.on_pending_affinities();
 
 		// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
-		// connect, nothing to disconnect.
-		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
-		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+		// reserve, nothing to release.
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
+		assert!(orchestrator.peer_steering.peers_to_release().is_empty());
 	}
 
 	#[test]
