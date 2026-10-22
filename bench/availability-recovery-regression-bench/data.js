@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792689814704,
+  "lastUpdate": 1792705028457,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "99670e9703224aa06c5c1e863034841d58525c1f",
-          "message": "[eth-rpc] Detect and backfill gaps in finalized block subscriptions (#11538)\n\nTemporary connection drops can result in missed blocks, leaving gaps in\nthe local database and causing incomplete results for RPC methods such\nas eth_getLogs and eth_getBlockByNumber. This PR introduces automatic\ngap detection in the finalized block subscription and backfills missing\nranges via a background worker.\n\n- Gap detection: When a newly finalized block arrives with a number\nhigher than expected, the skipped range is queued for backfill.\n- Gap-fill queue: A bounded in-memory channel (capacity: 32),\nnon-blocking; a separate atomic counter tracks queued and in-flight\nrequests.\n- Gap-filler task: A background worker processes requests sequentially,\nreusing sync_backward_range; it does not update Head/Tail sync labels or\nthe first_evm_block boundary.\n- Sync state (Head advancement): The sync head does not advance while\ngap fills are in flight, ensuring continuity of the synced block range.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T07:57:02Z",
-          "tree_id": "35e9ca9e924e613bff73c9d49c462d81c8b5918b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99670e9703224aa06c5c1e863034841d58525c1f"
-        },
-        "date": 1775726543593,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13505210586666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 12.006680041433336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.682491405566664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a81d29d69e8e065663acc90d370d93b78ee4ac05",
+          "message": "statement-store: add a flag that turns the v2 DHT path on (#13498)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11938.\n\nA node opts into the v2 DHT path with a CLI flag. The gate stays a\nprocess-wide value that a node binary sets once from its CLI before\nanything reads it, and it is off by default, so a default-configured\nnode floods statements to every peer as before. The environment variable\nthat used to turn the path on is gone, and the zombienet tests pass the\nflag to every collator instead.\n\nThe grace-period comment no longer speaks of a rollout that flips every\nnode at once: a peer without the v2 DHT path is served by the flood\nbranch for as long as the fallback exists. The statement/2 protocol\ncomment drops the \"may change\" warning, since the protocol has shipped\nsince stable2606.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13497.\n\n# Integration\n\nNode operators get `--statement-v2-dht` on the substrate node and the\nomni-node. With it, a node with the statement store routes statements\nthrough the DHT. Without it, nothing changes.",
+          "timestamp": "2026-10-22T19:54:42Z",
+          "tree_id": "e14369b1b9990d311008d3874ab84d56f3f218f6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a81d29d69e8e065663acc90d370d93b78ee4ac05"
+        },
+        "date": 1792704990648,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.574246822333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12987148943333332,
             "unit": "seconds"
           }
         ]
