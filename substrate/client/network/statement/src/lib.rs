@@ -551,13 +551,14 @@ impl StatementHandlerPrototype {
 		} else {
 			(format!("/{hex}/{STATEMENT_PROTOCOL_V2}"), format!("/{hex}/{STATEMENT_PROTOCOL_V1}"))
 		};
-		// The v2 DHT topology dials peers outside the sync set, so it needs non-reserved slots.
-		// The v1 path manages its peers exclusively through the reserved set: it must keep
-		// non-reserved slots closed, or sync recovery's forced disconnect stops disconnecting.
+		// The v2 DHT path reserves only the peers that steering picks, every other peer holds an
+		// inbound slot. The v1 path manages its peers exclusively through the reserved set:
+		// it must keep non-reserved slots closed, or sync recovery's forced disconnect stops
+		// disconnecting.
 		let set_config = if v2dht_enabled() {
 			SetConfig {
 				in_peers: 50,
-				out_peers: 50,
+				out_peers: DEFAULT_OUT_PEERS,
 				reserved_nodes: Vec::new(),
 				non_reserved_mode: NonReservedPeerMode::Accept,
 			}
@@ -1485,10 +1486,10 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active.
 	///
-	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked. Its
-	/// set keeps non-reserved slots open, so leaving the reserved set alone keeps the peer
-	/// connected; the substream is closed explicitly afterwards, as litep2p ignores a disconnect
-	/// of a reserved peer.
+	/// With the v2 DHT path on, only a v1 peer's drop leads here, so only a v1 peer is picked.
+	/// Steering reserves v2 peers only, so the v1 peer is not reserved: its substream is closed
+	/// directly, and the peer, which holds this node in its own reserved set, reconnects on its
+	/// own.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
 			return;
@@ -1516,15 +1517,17 @@ where
 			"Major sync complete, force-reconnecting {peer_id} for statement recovery",
 		);
 
+		if v2dht_enabled() {
+			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
+			return;
+		}
+
 		if let Err(err) = self.network.remove_peers_from_reserved_set(
 			self.protocol_name.clone(),
 			iter::once(peer_id).collect(),
 		) {
 			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
 			return;
-		}
-		if v2dht_enabled() {
-			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 		}
 
 		self.sync_recovery_peer = Some(peer_id);
@@ -1557,7 +1560,13 @@ where
 	/// - On connect otherwise: add the peer to the reserved set.
 	/// - On disconnect: remove the peer from the reserved set, or from the deferred set if it never
 	///   joined.
+	///
+	/// With the v2 DHT path on, peer steering alone edits the reserved set and a sync peer holds
+	/// an ordinary slot, so the events are ignored.
 	fn handle_sync_event(&mut self, event: SyncEvent) {
+		if v2dht_enabled() {
+			return;
+		}
 		match event {
 			SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
 				if self.sync.is_major_syncing() {
@@ -1679,8 +1688,10 @@ where
 
 				if v2dht_enabled() {
 					// A light peer stores and routes nothing, so it stays out of the topology
-					// and reaches the propagation plan through its filter alone.
-					if !is_light {
+					// and reaches the propagation plan through its filter alone. A v1 peer takes
+					// no part in the DHT path, so it stays out of the orchestrator and steering
+					// never reserves it.
+					if !is_light && protocol_version == PeerProtocolVersion::V2 {
 						self.v2dht.on_substream_opened(peer);
 					}
 					self.send_local_filter(&peer).await;
