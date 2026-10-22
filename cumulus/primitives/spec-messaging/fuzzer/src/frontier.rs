@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `mmr_frontier`: `MmrFrontier`, `bag_peaks` and `MmrRoot` from `mmr`.
+//! `mmr_frontier` and `mmr_decode`: `MmrFrontier`, `bag_peaks` and `MmrRoot` from `mmr`.
 //!
 //! [`Model`] is an independent peaks-with-heights MMR. It hashes with plain blake2-256 and the
 //! domain tags directly and bags by the documented right fold, so it shares no code with the crate.
@@ -314,6 +314,43 @@ impl Oracle {
 		run_ops(&self.palette, frontier, leaves, &input.ops);
 		Outcome::Real
 	}
+
+	/// Fuzz entry point for raw `MmrFrontier` bytes: decoding must accept exactly the valid
+	/// `(leaf_count, peaks)` pairs, in their canonical encoding. The rest of the input is appended
+	/// as 32-byte leaves.
+	pub fn check_frontier_decode(&self, data: &[u8]) -> Outcome {
+		let mut input = data;
+		let decoded = MmrFrontier::decode(&mut input);
+
+		let mut reference = data;
+		let valid = <(u64, Vec<Hash>)>::decode(&mut reference).is_ok_and(|(count, peaks)| {
+			count <= MAX_MMR_LEAF_COUNT && peaks.len() == count.count_ones() as usize
+		});
+		let frontier = match decoded {
+			Ok(frontier) => {
+				assert!(valid, "DIVERGENCE: decoded an invalid frontier {frontier:?}");
+				assert_eq!(input.len(), reference.len(), "DIVERGENCE: decode length");
+				// The reference read these bytes as `(leaf_count, peaks)`: equal bytes, equal
+				// fields.
+				let consumed = &data[..data.len() - input.len()];
+				assert_eq!(consumed, &frontier.encode()[..], "DIVERGENCE: non-canonical");
+				frontier
+			},
+			Err(e) => {
+				assert!(!valid, "DIVERGENCE: refused a valid frontier: {e:?}");
+				return Outcome::Rejected;
+			},
+		};
+		let ops: Vec<FrontierOp> = input
+			.chunks_exact(32)
+			.map(|chunk| {
+				FrontierOp::Append(HashChoice::Raw(chunk.try_into().expect("32 bytes; qed")))
+			})
+			.chain(core::iter::once(FrontierOp::RoundTrip))
+			.collect();
+		run_ops(&self.palette, frontier, None, &ops);
+		Outcome::Real
+	}
 }
 
 #[cfg(test)]
@@ -355,5 +392,11 @@ mod tests {
 			ops: vec![FrontierOp::AppendMany { n: 20, seed: 0 }],
 		};
 		assert_eq!(oracle.check_frontier_input(&input), Outcome::Real);
+		let raw = (MAX_MMR_LEAF_COUNT, vec![Hash::zero()]).encode();
+		assert_eq!(oracle.check_frontier_decode(&raw), Outcome::Real);
+		assert_eq!(
+			oracle.check_frontier_decode(&(3u64, vec![Hash::zero()]).encode()),
+			Outcome::Rejected
+		);
 	}
 }

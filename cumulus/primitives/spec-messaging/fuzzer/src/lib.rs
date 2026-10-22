@@ -595,6 +595,7 @@ mod tests {
 				real += (oracle.check_frontier_input(&input) == Outcome::Real) as u32;
 			}
 			oracle.check_decode(&bytes);
+			oracle.check_frontier_decode(&bytes);
 		}
 		assert!(real > 0);
 	}
@@ -648,6 +649,8 @@ mod tests {
 					println!("{input:#?}");
 				}
 				("mmr_frontier", oracle.check_frontier_input(&input))
+			} else if name.contains("mmr_decode") {
+				("mmr_decode", oracle.check_frontier_decode(&bytes))
 			} else if name.contains("lift_pipeline") {
 				let Ok(input) = PipelineInput::arbitrary(input) else {
 					*tally.entry(("lift_pipeline", "Unparsed".into())).or_default() += 1;
