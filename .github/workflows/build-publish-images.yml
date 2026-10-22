@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 env:
+  # Bypass forklift cache: master moved to bookworm and shares the cache bucket, serving
+  # build-script binaries linked against a newer glibc than this bullseye image has.
+  FORKLIFT_BYPASS: "true"
   COMMIT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
