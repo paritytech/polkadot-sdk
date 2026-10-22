@@ -605,6 +605,7 @@ mod tests {
 			}
 			oracle.check_decode(&bytes);
 			oracle.check_frontier_decode(&bytes);
+			messages.check_message_decode(&bytes);
 		}
 		assert!(real > 0);
 	}
@@ -679,6 +680,8 @@ mod tests {
 					println!("{input:#?}");
 				}
 				("message_event", messages.check_event_input(&input))
+			} else if name.contains("message_decode") {
+				("message_decode", messages.check_message_decode(&bytes))
 			} else if name.contains("lift_pipeline") {
 				let Ok(input) = PipelineInput::arbitrary(input) else {
 					*tally.entry(("lift_pipeline", "Unparsed".into())).or_default() += 1;

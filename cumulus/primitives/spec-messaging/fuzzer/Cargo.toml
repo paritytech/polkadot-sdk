@@ -44,6 +44,10 @@ path = "src/bin/message_fetch.rs"
 name = "message_event"
 path = "src/bin/message_event.rs"
 
+[[bin]]
+name = "message_decode"
+path = "src/bin/message_decode.rs"
+
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
