@@ -19,9 +19,12 @@
 //! The database side of a state sync: the trie nodes of a block's state go into `STATE` chunk by
 //! chunk before the block is imported, and `STATE_META` records enough for a restart to resume
 //! the download or to finish an interrupted discard. [`DbPartialState`] is the
-//! [`PartialStateStore`] the backend hands out; it shares the backend's database, metadata and
-//! write statistics, and the commit of the target block in `Backend::try_commit_operation`
-//! completes what it began, under the same lock.
+//! [`PartialStateStore`] the backend hands out. It holds the backend's own database, blockchain
+//! metadata and write statistics (clones of the same `Arc`s), and one mutex over the status of
+//! the attempt. `begin`, `import`, `check_complete` and discards hold that mutex. So does
+//! `Backend::try_commit_operation`, through [`DbPartialState::lock`], until the status is 
+//! cleared: the commit of the target block removes the records `begin` wrote, in
+//! the block's own transaction, and nothing else touching the attempt can run in between.
 
 use crate::{columns, stats::StateUsageStats, utils::Meta, DbHash, StorageDb};
 use codec::{Decode, Encode};
