@@ -31,18 +31,26 @@
 //!
 //! - `message_fetch`: [`verify_messages`].
 //! - `message_event`: [`verify_event`], head and positional reads.
+//! - `message_decode`: wire bytes through [`verify_exchange`]. Every decoded value must be
+//!   canonical (`NONCANONICAL`). Seed it with honest encodings first, from this crate:
+//!   `SEED_DIR=hfuzz_workspace/message_decode/input cargo test write_decode_seeds -- --ignored`
 
 use crate::{apply_bounded, payload, Count, Edit, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
+use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	verify_event, verify_messages, EventRequest, EventResponse, MessagePosition, MessagesRequest,
-	MessagesResponse, MmrInclusionProof, StreamId, StreamProof, StreamsRoot, VerifiedEvent,
+	verify_event, verify_exchange, verify_messages, EventRequest, EventResponse, ExchangeRequest,
+	ExchangeResponse, ExchangeVerified, MessagePosition, MessagesRequest, MessagesResponse,
+	MmrInclusionProof, StreamId, StreamProof, StreamsRoot, VerifiedEvent, VerifyError,
 	LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::{bounded::BoundedVec, H256 as Hash};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{
+	collections::{BTreeMap, BTreeSet, HashMap},
+	fmt::Debug,
+};
 
 /// Committed streams. Index `STREAMS` is a stream that is never committed.
 pub const STREAMS: usize = 3;
@@ -370,6 +378,32 @@ impl MessageOracle {
 		}
 	}
 
+	/// [`Self::check_fetch`] or [`Self::check_event`], by variant. `verify_exchange` must agree
+	/// with the verifier the variants select.
+	pub fn check_exchange(&self, req: &ExchangeRequest, resp: &ExchangeResponse) -> Outcome {
+		let result = verify_exchange(req, resp);
+		match (req, resp) {
+			(ExchangeRequest::Messages(req), ExchangeResponse::Messages(resp)) => {
+				let direct = verify_messages(req, resp).map(ExchangeVerified::Messages);
+				assert_eq!(result, direct, "verify_exchange disagrees with verify_messages");
+				self.check_fetch(req, resp)
+			},
+			(ExchangeRequest::Event(req), ExchangeResponse::Event(resp)) => {
+				let direct = verify_event(req, resp).map(ExchangeVerified::Event);
+				assert_eq!(result, direct, "verify_exchange disagrees with verify_event");
+				self.check_event(req, resp)
+			},
+			_ => {
+				assert_eq!(
+					result,
+					Err(VerifyError::VariantMismatch),
+					"accepted a cross-variant answer"
+				);
+				Outcome::Rejected
+			},
+		}
+	}
+
 	/// Fuzz entry point for [`verify_messages`].
 	pub fn check_fetch_input(&self, input: &FetchInput) -> Outcome {
 		let Some(stream) = input.stream.get() else { return Outcome::Skipped };
@@ -451,6 +485,114 @@ impl MessageOracle {
 		}
 		self.check_event(&req, &resp)
 	}
+
+	/// Fuzz entry point for raw wire bytes. The first byte picks the layout:
+	/// - `0`: `[h, s, max_bytes[4]]` then an `ExchangeResponse`, answering a fetch of known stream
+	///   `s` under height `h` from the response's own base.
+	/// - `1`: `[h, s, positional, at[8]]` then an `ExchangeResponse`, answering an event read.
+	/// - `2`: an `(ExchangeRequest, ExchangeResponse)` pair.
+	pub fn check_message_decode(&self, data: &[u8]) -> Outcome {
+		let Some((&selector, rest)) = data.split_first() else { return Outcome::Skipped };
+		match selector % 3 {
+			0 => {
+				let Some(([h, s, b0, b1, b2, b3], body)) = split_header(rest) else {
+					return Outcome::Skipped;
+				};
+				let Some(resp) = canonical::<ExchangeResponse>(body) else {
+					return Outcome::Skipped;
+				};
+				let start = match &resp {
+					ExchangeResponse::Messages(m) => m.base,
+					ExchangeResponse::Event(_) => MessagePosition(0),
+				};
+				let req = ExchangeRequest::Messages(MessagesRequest {
+					stream: stream_id(s as usize % (STREAMS + 1)),
+					start,
+					under: self.commit(Self::height(h)).under,
+					max_bytes: u32::from_le_bytes([b0, b1, b2, b3]),
+				});
+				self.check_exchange(&req, &resp)
+			},
+			1 => {
+				let Some(([h, s, positional, a0, a1, a2, a3, a4, a5, a6, a7], body)) =
+					split_header(rest)
+				else {
+					return Outcome::Skipped;
+				};
+				let Some(resp) = canonical::<ExchangeResponse>(body) else {
+					return Outcome::Skipped;
+				};
+				let at = u64::from_le_bytes([a0, a1, a2, a3, a4, a5, a6, a7]);
+				let req = ExchangeRequest::Event(EventRequest {
+					stream: stream_id(s as usize % (STREAMS + 1)),
+					under: self.commit(Self::height(h)).under,
+					at: (positional & 1 == 1).then_some(MessagePosition(at)),
+				});
+				self.check_exchange(&req, &resp)
+			},
+			_ => {
+				let Some((req, resp)) = canonical::<(ExchangeRequest, ExchangeResponse)>(rest)
+				else {
+					return Outcome::Skipped;
+				};
+				self.check_exchange(&req, &resp)
+			},
+		}
+	}
+
+	/// Honest wire inputs for `message_decode`, so it starts from bytes that verify.
+	pub fn decode_seeds(&self) -> Vec<Vec<u8>> {
+		let mut seeds = Vec::new();
+		for h in [1u64, 2, 3, 6, 7, 13, 31, 32, 33, 63, 64] {
+			for s in 0..=STREAMS {
+				for (base, len) in [(0, 0), (0, 64), (1, 1), (5, 3), (64, 0)] {
+					let (req, resp) = self.honest_fetch(h, s, base, len);
+					let mut seed = vec![0, h as u8 - 1, s as u8];
+					seed.extend_from_slice(&req.max_bytes.to_le_bytes());
+					seed.extend(ExchangeResponse::Messages(resp.clone()).encode());
+					seeds.push(seed);
+					let mut seed = vec![2];
+					seed.extend(
+						(ExchangeRequest::Messages(req), ExchangeResponse::Messages(resp)).encode(),
+					);
+					seeds.push(seed);
+				}
+				for at in [None, Some(0), Some(5), Some(63)] {
+					let (req, resp) = self.honest_event(h, s, at);
+					let mut seed = vec![1, h as u8 - 1, s as u8, req.at.is_some() as u8];
+					seed.extend_from_slice(&req.at.map_or(0, |p| p.0).to_le_bytes());
+					seed.extend(ExchangeResponse::Event(resp.clone()).encode());
+					seeds.push(seed);
+					let mut seed = vec![2];
+					seed.extend(
+						(ExchangeRequest::Event(req), ExchangeResponse::Event(resp)).encode(),
+					);
+					seeds.push(seed);
+				}
+			}
+		}
+		seeds
+	}
+}
+
+fn split_header<const L: usize>(data: &[u8]) -> Option<([u8; L], &[u8])> {
+	(data.len() >= L).then(|| (data[..L].try_into().expect("length checked; qed"), &data[L..]))
+}
+
+/// Decode a `T` from the front of `data`. Its encoding must be exactly the bytes consumed, and
+/// decode back to itself.
+fn canonical<T: Decode + Encode + PartialEq + Debug>(data: &[u8]) -> Option<T> {
+	let mut input = data;
+	let value = T::decode(&mut input).ok()?;
+	let consumed = data.len() - input.len();
+	let encoded = value.encode();
+	assert_eq!(&data[..consumed], &encoded[..], "NONCANONICAL: {value:?}");
+	assert_eq!(
+		T::decode(&mut &encoded[..]).ok().as_ref(),
+		Some(&value),
+		"NONCANONICAL: round trip"
+	);
+	Some(value)
 }
 
 fn apply_payload_edits(payloads: &mut Vec<Vec<u8>>, edits: &[PayloadEdit]) {
@@ -679,6 +821,28 @@ mod tests {
 					assert_eq!(outcome, if m > 0 { Outcome::Real } else { Outcome::Rejected });
 				}
 			}
+		}
+	}
+
+	#[test]
+	fn decode_seeds_are_canonical_and_mostly_real() {
+		let oracle = MessageOracle::new();
+		let real = oracle
+			.decode_seeds()
+			.iter()
+			.filter(|seed| oracle.check_message_decode(seed) == Outcome::Real)
+			.count();
+		assert!(real > 0);
+	}
+
+	/// Writes [`MessageOracle::decode_seeds`] to `$SEED_DIR`, the `message_decode` input corpus.
+	#[test]
+	#[ignore]
+	fn write_decode_seeds() {
+		let dir = std::env::var("SEED_DIR").expect("set SEED_DIR");
+		std::fs::create_dir_all(&dir).expect("creatable seed dir");
+		for (i, seed) in MessageOracle::new().decode_seeds().iter().enumerate() {
+			std::fs::write(format!("{dir}/seed_{i:04}"), seed).expect("writable seed");
 		}
 	}
 }
