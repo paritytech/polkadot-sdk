@@ -22,7 +22,7 @@
 //! [`PartialStateStore`] the backend hands out. It holds the backend's own database, blockchain
 //! metadata and write statistics (clones of the same `Arc`s), and one mutex over the status of
 //! the attempt. `begin`, `import`, `check_complete` and discards hold that mutex. So does
-//! `Backend::try_commit_operation`, through [`DbPartialState::lock`], until the status is 
+//! `Backend::try_commit_operation`, through [`DbPartialState::lock`], until the status is
 //! cleared: the commit of the target block removes the records `begin` wrote, in
 //! the block's own transaction, and nothing else touching the attempt can run in between.
 
@@ -138,7 +138,8 @@ impl<Block: BlockT> DbPartialState<Block> {
 		Self { storage, meta, state_usage, status: Mutex::new(None) }
 	}
 
-	/// The status, locked. The commit path holds it for the whole commit.
+	/// The status, locked. A block commit holds it for the whole commit, as long as no finalized
+	/// block has state: afterwards nothing is recorded and the commit does not look.
 	pub(crate) fn lock(&self) -> MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>> {
 		self.status.lock()
 	}
@@ -892,6 +893,7 @@ mod tests {
 		assert!(backend.have_state_at(genesis.hash(), 0));
 		// From now on a state sync only ever runs on a database that holds no block state.
 		assert!(backend.partial_state.begin(partial_state_target(&header)).is_err());
+		assert!(commit_synced_block(&backend, &header).is_err(), "nothing recorded, lock skipped");
 		assert!(db.get(columns::STATE_META, partial_state_keys::TARGET).is_none());
 
 		let db = reopen_partial_state_db(kind, backend, db, &tmp);
