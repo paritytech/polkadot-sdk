@@ -818,6 +818,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
+	/// Transfer operational expenses from era pot to the validator's payout account.
 	fn transfer_operational_expenses(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {

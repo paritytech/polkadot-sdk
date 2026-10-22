@@ -167,7 +167,8 @@ pub mod pallet {
 			+ Sync
 			+ MaxEncodedLen;
 
-		/// Validator expenses may be paid in a non-native currency, so it's configured separately.
+		/// Operational expenses may be paid in a non-native currency, so it's configured
+		/// separately.
 		#[pallet::no_default]
 		type OperationalExpencesCurrency: FunInspect<Self::AccountId>
 			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
@@ -953,6 +954,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
+	/// The total operational expenses budget for each era within [`Config::HistoryDepth`].
+	///
+	/// Set at era finalization and equals to the amount available in the general pot.
 	#[pallet::storage]
 	pub type ErasOperationalExpensesReward<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
@@ -1364,8 +1368,8 @@ pub mod pallet {
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
-			operational_expenses: BalanceOf<T>,
 			remainder: BalanceOf<T>,
+			operational_expenses: BalanceOf<T>,
 		},
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
@@ -1518,7 +1522,7 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
-		/// The validator has been paid their self-stake incentive bonus.
+		/// The validator has been paid their operational expenses.
 		ValidatorOperationalExpensesPaid {
 			era: EraIndex,
 			validator_stash: T::AccountId,

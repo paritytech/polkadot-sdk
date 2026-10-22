@@ -1890,10 +1890,8 @@ fn migration_creates_operational_expenses_general_pot_account() {
 		let pot_account = <Test as Config>::RewardPots::pot_account(RewardPot::General(
 			RewardKind::OperationalExpenses,
 		));
-		while System::<Test>::providers(&pot_account) != 0 {
-			assert_ok!(System::<Test>::dec_providers(&pot_account));
-		}
 
+		assert_ok!(System::<Test>::dec_providers(&pot_account));
 		assert_eq!(System::<Test>::providers(&pot_account), 0);
 
 		Migration::<Test>::on_runtime_upgrade();

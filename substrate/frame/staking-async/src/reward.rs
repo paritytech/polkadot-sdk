@@ -238,7 +238,9 @@ impl<T: Config> EraRewardManager<T> {
 		}
 	}
 
-	// TODO: Docs.
+	/// Drains an era operational expenses pot's remaining balance to the unclaimed reward handler.
+	///
+	/// The same as [`Self::drain`] but only for the operational expenses pot.
 	pub(crate) fn drain_operational_expenses(era: EraIndex) {
 		let pot_account =
 			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
