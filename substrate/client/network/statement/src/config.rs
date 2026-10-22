@@ -25,6 +25,10 @@ use std::{
 	time,
 };
 
+/// Default outbound slots on the statement protocol with the v2 DHT path on. Peer steering dials
+/// its peers through the reserved set, so the protocol controller dials none of its own.
+pub const DEFAULT_OUT_PEERS: u32 = 0;
+
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
 
