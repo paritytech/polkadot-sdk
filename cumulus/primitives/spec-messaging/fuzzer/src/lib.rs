@@ -52,7 +52,7 @@ pub mod frontier;
 pub mod message;
 mod pipeline;
 pub use frontier::FrontierInput;
-pub use message::MessageOracle;
+pub use message::{FetchInput, MessageOracle};
 pub use pipeline::PipelineInput;
 
 /// Enough for every peak layout up to six peaks, small enough to precompute every proof.
@@ -573,6 +573,7 @@ mod tests {
 	#[test]
 	fn harness_smoke() {
 		let oracle = Oracle::new();
+		let messages = MessageOracle::new();
 		let mut state = 0x9E37_79B9_7F4A_7C15u64;
 		let mut real = 0;
 		for _ in 0..20_000 {
@@ -596,6 +597,9 @@ mod tests {
 			if let Ok(input) = FrontierInput::arbitrary(&mut Unstructured::new(&bytes)) {
 				real += (oracle.check_frontier_input(&input) == Outcome::Real) as u32;
 			}
+			if let Ok(input) = FetchInput::arbitrary(&mut Unstructured::new(&bytes)) {
+				real += (messages.check_fetch_input(&input) == Outcome::Real) as u32;
+			}
 			oracle.check_decode(&bytes);
 			oracle.check_frontier_decode(&bytes);
 		}
@@ -610,6 +614,7 @@ mod tests {
 	#[ignore]
 	fn replay() {
 		let oracle = Oracle::new();
+		let messages = MessageOracle::new();
 		let roots = std::env::var("REPLAY").expect("set REPLAY to input files or directories");
 		let mut paths = Vec::new();
 		for root in roots.split_whitespace().map(std::path::PathBuf::from) {
@@ -653,6 +658,15 @@ mod tests {
 				("mmr_frontier", oracle.check_frontier_input(&input))
 			} else if name.contains("mmr_decode") {
 				("mmr_decode", oracle.check_frontier_decode(&bytes))
+			} else if name.contains("message_fetch") {
+				let Ok(input) = FetchInput::arbitrary(input) else {
+					*tally.entry(("message_fetch", "Unparsed".into())).or_default() += 1;
+					continue;
+				};
+				if verbose {
+					println!("{input:#?}");
+				}
+				("message_fetch", messages.check_fetch_input(&input))
 			} else if name.contains("lift_pipeline") {
 				let Ok(input) = PipelineInput::arbitrary(input) else {
 					*tally.entry(("lift_pipeline", "Unparsed".into())).or_default() += 1;
