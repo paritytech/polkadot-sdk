@@ -1364,6 +1364,7 @@ pub mod pallet {
 		EraPaid {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
+			operational_expenses: BalanceOf<T>,
 			remainder: BalanceOf<T>,
 		},
 		/// The nominator has been rewarded by this amount to this destination.

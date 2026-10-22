@@ -822,7 +822,6 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	// TODO: Is the logic correct?
 	fn transfer_validator_expenses(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
@@ -837,7 +836,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if amount < <T::ValidatorExpencesCurrency as FunInspect<T::AccountId>>::minimum_balance() {
-			// TODO
+			// TODO: Decide on a behaviour here.
 			return;
 		}
 

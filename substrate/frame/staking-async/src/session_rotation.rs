@@ -1084,12 +1084,12 @@ impl<T: Config> Rotator<T> {
 		Eras::<T>::set_validator_expenses_reward(ending_era.index, allocation.operational_expenses);
 
 		// Include both staker rewards and validator incentive in the event
-		// TODO: Include operational expenses?
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
 			validator_payout: allocation
 				.staker_rewards
 				.saturating_add(allocation.validator_incentive),
+			operational_expenses: allocation.operational_expenses,
 			remainder: Zero::zero(),
 		});
 
