@@ -817,9 +817,9 @@ impl<T: Config> Pallet<T> {
 
 	/// Consume a register read: the head `Register` of the peer's `Ack` stream for one of our
 	/// outbound channels, in any phase. Rebuild the frontier from the unproven hints (a lie binds
-	/// no lift), record the [`Interval`] and apply the register. A read is never rejected for its
-	/// position; [`Pallet::apply_register_read`] ignores an older one. Any other `Events` stream
-	/// invalidates the block.
+	/// no lift), apply the register and, if applied, record the [`Interval`]. A read is never
+	/// rejected for its position; [`Pallet::apply_register_read`] ignores an older one. Any other
+	/// `Events` stream invalidates the block.
 	fn consume_events_item(
 		touched: &mut BTreeSet<(ParaId, StreamId)>,
 		gaps: &mut u32,
@@ -851,9 +851,12 @@ impl<T: Config> Pallet<T> {
 		// against. Two blocks that read the same head then chain with no gap, and a gap between
 		// two heads is a forward extension to the later context, which the lift can prove.
 		let start = frontier.root();
-		ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
 		*gaps += 1;
-		Self::apply_register_read(&channel, base, register);
+		// An ignored read changes nothing, so it needs no lift. Recording it would leave a backward
+		// step after a newer read in the same bundle, which no lift can prove.
+		if Self::apply_register_read(&channel, base, register) {
+			ConsumptionOutbox::<T>::append((source, stream, Interval { start, end: frontier }));
+		}
 		Ok(())
 	}
 
@@ -1033,15 +1036,19 @@ impl<T: Config> Pallet<T> {
 	/// Apply a register read at `position` on the peer's `Ack` stream: refresh the grant and
 	/// release in-flight messages below the watermark. A register older than the last applied one,
 	/// or whose watermark or version goes backwards, is ignored. The position check stops an older
-	/// grant or `closed` flag from replacing a newer one.
-	fn apply_register_read(channel: &ChannelId, position: MessagePosition, register: Register) {
-		let Some(mut state) = OutChannels::<T>::get(channel) else { return };
+	/// grant or `closed` flag from replacing a newer one. Returns whether the read was applied.
+	fn apply_register_read(
+		channel: &ChannelId,
+		position: MessagePosition,
+		register: Register,
+	) -> bool {
+		let Some(mut state) = OutChannels::<T>::get(channel) else { return false };
 		if let Some(previous) = state.register {
 			if position < previous.at ||
 				register.up_to < previous.register.up_to ||
 				register.version < previous.register.version
 			{
-				return;
+				return false;
 			}
 		}
 		let mut meta = OutChannelsMeta::<T>::get(channel);
@@ -1049,6 +1056,7 @@ impl<T: Config> Pallet<T> {
 		OutChannelsMeta::<T>::insert(channel, meta);
 		state.register = Some(RegisterRead { at: position, register });
 		OutChannels::<T>::insert(channel, state);
+		true
 	}
 }
 

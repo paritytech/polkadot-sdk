@@ -701,6 +701,27 @@ fn a_register_read_starts_and_ends_at_its_context() {
 }
 
 #[test]
+fn an_ignored_register_read_is_not_recorded() {
+	new_test_ext().execute_with(|| {
+		open_out_channel();
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(2, register(1, TestGrant::get()))
+		));
+		assert_eq!(SpecMessaging::consumption_record().entries.len(), 1);
+		roll_one_block();
+
+		// An older head in the next block of a bundle would be a backward step no lift can prove;
+		// it is ignored, so nothing is recorded for it.
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			read_register(0, register(1, TestGrant::get()))
+		));
+		assert!(SpecMessaging::consumption_record().entries.is_empty());
+	});
+}
+
+#[test]
 fn an_older_register_never_replaces_a_newer_one() {
 	new_test_ext().execute_with(|| {
 		open_out_channel();
@@ -801,14 +822,14 @@ fn a_forged_register_position_lifts_to_no_committed_root() {
 			build_requires_entry(&streams, &[lift.clone()])
 		};
 
+		// The true position lifts.
+		assert_eq!(read(2), Ok(committed));
 		// The same peaks fit position `2^47`. The runtime cannot tell (it never sees the peer's
 		// count) and applies the read; the lift is what rejects it, since its root is not
 		// committed, so no candidate carrying this block can be backed.
 		assert_ne!(read(1 << 47), Ok(committed));
 		let applied = OutChannels::<Test>::get(out_channel()).unwrap().register.unwrap();
 		assert_eq!(applied.at, MessagePosition(1 << 47));
-		// The true position lifts.
-		assert_eq!(read(2), Ok(committed));
 	});
 }
 
