@@ -701,7 +701,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#551 id=551 data-nosnippet>551</a><span class="kw">impl </span>parachains_inclusion::Config <span class="kw">for </span>Runtime {
 <a href=#552 id=552 data-nosnippet>552</a>	<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
 <a href=#553 id=553 data-nosnippet>553</a>	<span class="kw">type </span>DisputesHandler = ParasDisputes;
-<a href=#554 id=554 data-nosnippet>554</a>	<span class="kw">type </span>RewardValidators = RewardValidatorsWithEraPoints&lt;Runtime, Staking&gt;;
+<a href=#554 id=554 data-nosnippet>554</a>	<span class="kw">type </span>RewardValidators = RewardValidatorsWithEraPoints&lt;Runtime, Staking, ConstU32&lt;<span class="number">20</span>&gt;&gt;;
 <a href=#555 id=555 data-nosnippet>555</a>	<span class="kw">type </span>MessageQueue = ();
 <a href=#556 id=556 data-nosnippet>556</a>	<span class="kw">type </span>WeightInfo = ();
 <a href=#557 id=557 data-nosnippet>557</a>}

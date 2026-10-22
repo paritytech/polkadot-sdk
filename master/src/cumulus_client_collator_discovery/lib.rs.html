@@ -534,27 +534,27 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#384 id=384 data-nosnippet>384</a>	<span class="kw">let </span>(addrs, unresolved) =
 <a href=#385 id=385 data-nosnippet>385</a>		resolve_authority_addresses(<span class="kw-2">&amp;</span>selected, authority_discovery_service, local_peer_id).<span class="kw">await</span>;
 <a href=#386 id=386 data-nosnippet>386</a>	<span class="kw">let </span>resolved = target_count.saturating_sub(unresolved);
-<a href=#387 id=387 data-nosnippet>387</a>
-<a href=#388 id=388 data-nosnippet>388</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(m) = metrics {
-<a href=#389 id=389 data-nosnippet>389</a>		m.target_authorities.set(target_count <span class="kw">as </span>u64);
-<a href=#390 id=390 data-nosnippet>390</a>		m.unresolved_authorities.set(unresolved <span class="kw">as </span>u64);
-<a href=#391 id=391 data-nosnippet>391</a>		m.resolved_peers.set(addrs.len() <span class="kw">as </span>u64);
-<a href=#392 id=392 data-nosnippet>392</a>	}
-<a href=#393 id=393 data-nosnippet>393</a>
-<a href=#394 id=394 data-nosnippet>394</a>	log_low_connectivity_if_stuck(target_count, resolved, <span class="kw-2">&amp;mut </span>state.low_connectivity_since);
-<a href=#395 id=395 data-nosnippet>395</a>
-<a href=#396 id=396 data-nosnippet>396</a>	<span class="comment">// Skip pushing when both the authority set and resolved multiaddrs are unchanged.
-<a href=#397 id=397 data-nosnippet>397</a>	</span><span class="kw">if </span>state.last_authorities.as_ref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>selected) &amp;&amp;
-<a href=#398 id=398 data-nosnippet>398</a>		state.last_addrs.as_ref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>addrs)
-<a href=#399 id=399 data-nosnippet>399</a>	{
-<a href=#400 id=400 data-nosnippet>400</a>		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"No-op refresh at {at:?}"</span>);
-<a href=#401 id=401 data-nosnippet>401</a>		<span class="kw">return</span>;
-<a href=#402 id=402 data-nosnippet>402</a>	}
-<a href=#403 id=403 data-nosnippet>403</a>
-<a href=#404 id=404 data-nosnippet>404</a>	<span class="comment">// Diff against the last known state and apply additively.
-<a href=#405 id=405 data-nosnippet>405</a>	</span><span class="kw">let </span>(to_add, to_remove) = compute_reserved_diff(<span class="kw-2">&amp;</span>addrs, state.last_addrs.as_ref());
-<a href=#406 id=406 data-nosnippet>406</a>
-<a href=#407 id=407 data-nosnippet>407</a>	<span class="kw">let </span>peer_ids: HashSet&lt;PeerId&gt; = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
+<a href=#387 id=387 data-nosnippet>387</a>	<span class="kw">let </span>peer_ids: HashSet&lt;PeerId&gt; = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
+<a href=#388 id=388 data-nosnippet>388</a>
+<a href=#389 id=389 data-nosnippet>389</a>	<span class="kw">if let </span><span class="prelude-val">Some</span>(m) = metrics {
+<a href=#390 id=390 data-nosnippet>390</a>		m.target_authorities.set(target_count <span class="kw">as </span>u64);
+<a href=#391 id=391 data-nosnippet>391</a>		m.unresolved_authorities.set(unresolved <span class="kw">as </span>u64);
+<a href=#392 id=392 data-nosnippet>392</a>		m.resolved_peers.set(peer_ids.len() <span class="kw">as </span>u64);
+<a href=#393 id=393 data-nosnippet>393</a>	}
+<a href=#394 id=394 data-nosnippet>394</a>
+<a href=#395 id=395 data-nosnippet>395</a>	log_low_connectivity_if_stuck(target_count, resolved, <span class="kw-2">&amp;mut </span>state.low_connectivity_since);
+<a href=#396 id=396 data-nosnippet>396</a>
+<a href=#397 id=397 data-nosnippet>397</a>	<span class="comment">// Skip pushing when both the authority set and resolved multiaddrs are unchanged.
+<a href=#398 id=398 data-nosnippet>398</a>	</span><span class="kw">if </span>state.last_authorities.as_ref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>selected) &amp;&amp;
+<a href=#399 id=399 data-nosnippet>399</a>		state.last_addrs.as_ref() == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>addrs)
+<a href=#400 id=400 data-nosnippet>400</a>	{
+<a href=#401 id=401 data-nosnippet>401</a>		<span class="macro">log::trace!</span>(target: LOG_TARGET, <span class="string">"No-op refresh at {at:?}"</span>);
+<a href=#402 id=402 data-nosnippet>402</a>		<span class="kw">return</span>;
+<a href=#403 id=403 data-nosnippet>403</a>	}
+<a href=#404 id=404 data-nosnippet>404</a>
+<a href=#405 id=405 data-nosnippet>405</a>	<span class="comment">// Diff against the last known state and apply additively.
+<a href=#406 id=406 data-nosnippet>406</a>	</span><span class="kw">let </span>(to_add, to_remove) = compute_reserved_diff(<span class="kw-2">&amp;</span>addrs, state.last_addrs.as_ref());
+<a href=#407 id=407 data-nosnippet>407</a>
 <a href=#408 id=408 data-nosnippet>408</a>	<span class="macro">log::debug!</span>(
 <a href=#409 id=409 data-nosnippet>409</a>		target: LOG_TARGET,
 <a href=#410 id=410 data-nosnippet>410</a>		<span class="string">"Refreshing reserved peers at {at:?}: target={target_count} unresolved={unresolved} multiaddrs={} peer_ids={} (+{} -{})"</span>,
@@ -687,7 +687,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#537 id=537 data-nosnippet>537</a>			resolved_peers: register(
 <a href=#538 id=538 data-nosnippet>538</a>				Gauge::with_opts(Opts::new(
 <a href=#539 id=539 data-nosnippet>539</a>					<span class="string">"collator_discovery_resolved_peers"</span>,
-<a href=#540 id=540 data-nosnippet>540</a>					<span class="string">"Number of multiaddrs pushed to the collator-sync reserved set."</span>,
+<a href=#540 id=540 data-nosnippet>540</a>					<span class="string">"Number of distinct peers resolved for the collator-sync reserved set."</span>,
 <a href=#541 id=541 data-nosnippet>541</a>				))<span class="question-mark">?</span>,
 <a href=#542 id=542 data-nosnippet>542</a>				registry,
 <a href=#543 id=543 data-nosnippet>543</a>			)<span class="question-mark">?</span>,
