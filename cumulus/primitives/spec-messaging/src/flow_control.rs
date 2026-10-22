@@ -70,7 +70,7 @@ pub enum SpecMsgKind {
 	TypeInfo,
 )]
 pub enum SpecMsgSignal {
-	/// Open the channel and announce the sender's initial protocol version. Variant 0.
+	/// Open the channel and announce the sender's initial protocol version.
 	OpenChannel { version: u8 },
 	/// Sender-side half-close.
 	CloseChannel,
