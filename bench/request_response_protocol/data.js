@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792671514935,
+  "lastUpdate": 1792684956337,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -136187,6 +136187,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2582937658,
             "range": "± 31028759",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "fd51dd43529d2ff92ce5ed85e62f04a78dac47f8",
+          "message": "statement-store: split the v2 inbound statement slots by peer role (#13458)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13457.\n\nWith the v2 DHT path on, the inbound slots of the statement set are\nsplit by role: the new `--statement-in-peers` flag for full peers, 50 by\ndefault, and the node's light allowance for light peers. The handler\nchecks the quota when it validates the handshake. A peer that steering\nholds in the reserved set takes no slot and is not counted.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13488, which\nleaves the reserved set to steering so that every other peer holds an\ninbound slot.\n\n# Integration\n\n`StatementHandlerPrototype::new` takes the network configuration and the\nv2 DHT configuration as its last arguments:\n\n```diff\n StatementHandlerPrototype::new::<_, _, Net>(\n     genesis_hash,\n     fork_id,\n     metrics,\n     peer_store_handle,\n+    &net_config.network_config,\n+    statement_store_config.v2dht.as_ref(),\n );\n```",
+          "timestamp": "2026-10-22T12:04:42Z",
+          "tree_id": "f2cc25dd89a3676cabb081608126b86452c5efbd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/fd51dd43529d2ff92ce5ed85e62f04a78dac47f8"
+        },
+        "date": 1792684925981,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19710561,
+            "range": "± 124173",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20033522,
+            "range": "± 78882",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21308218,
+            "range": "± 142139",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26359312,
+            "range": "± 146042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59443457,
+            "range": "± 397225",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 368729442,
+            "range": "± 6345140",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2591683179,
+            "range": "± 74556902",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17163581,
+            "range": "± 220946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17181284,
+            "range": "± 103395",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17883503,
+            "range": "± 192333",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22172314,
+            "range": "± 135233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61188364,
+            "range": "± 619599",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 360107067,
+            "range": "± 7943538",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2655944390,
+            "range": "± 31311554",
             "unit": "ns/iter"
           }
         ]
