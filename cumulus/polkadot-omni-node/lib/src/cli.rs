@@ -168,13 +168,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
-	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
-	///
-	/// Use slot-based collator which can handle elastic scaling.
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long, conflicts_with = "authoring")]
-	pub experimental_use_slot_based: bool,
-
 	/// Authoring style to use.
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
@@ -286,6 +279,20 @@ pub struct Cli<Config: CliConfig> {
 	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
 
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
+
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
@@ -385,10 +392,7 @@ impl Display for AuthoringPolicy {
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			authoring_policy: self
-				.experimental_use_slot_based
-				.then(|| AuthoringPolicy::SlotBased)
-				.unwrap_or(self.authoring),
+			authoring_policy: self.authoring,
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			statement_store_config: self.enable_statement_store.then_some(
@@ -408,6 +412,7 @@ impl<Config: CliConfig> Cli<Config> {
 							gossip_target: self.statement_gossip_target,
 							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
 							transient_max_size: self.statement_store_max_transient_size,
+							in_peers: self.statement_in_peers,
 						}
 					}),
 				},

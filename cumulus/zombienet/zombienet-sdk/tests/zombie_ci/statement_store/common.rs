@@ -20,6 +20,7 @@ use std::{
 	time::Duration,
 };
 use zombienet_configuration::shared::node::{Initial, NodeConfigBuilder};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -577,10 +578,12 @@ pub(super) const LATE_JOINER_TOTAL: usize = 5;
 
 /// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
 /// checks its subscription receives every statement submitted on charlie before and during the
-/// sync. Its log must also show the deferred-peer drain: charlie and alice dial dave either way.
+/// sync. Its log must also show `recovery_log`, the step that delivers the statements dropped
+/// during the sync: the deferred-peer drain on v1, the filter advertisement on v2.
 pub(super) async fn assert_late_joiner_receives_backlog(
 	network: &mut Network<LocalFileSystem>,
 	joiner_options: AddCollatorOptions,
+	recovery_log: &str,
 ) -> Result<(), anyhow::Error> {
 	const PRE_JOIN_COUNT: usize = 3;
 
@@ -641,8 +644,10 @@ pub(super) async fn assert_late_joiner_receives_backlog(
 		.collect();
 	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
 
-	let dave_logs = dave.logs().await?;
-	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+	// The recovery step runs after the sync settles, so it can land after the statements.
+	let options = LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(30), false);
+	let result = dave.wait_log_line_count_with_timeout(recovery_log, false, options).await?;
+	assert!(result.success(), "dave never logged: {recovery_log}");
 	Ok(())
 }
 

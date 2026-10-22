@@ -158,7 +158,7 @@ pub(crate) struct V2DhtOrchestrator {
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
-	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
+	/// Keeps the connected peer set aligned with the peers the node needs connected.
 	peer_steering: PeerSteering,
 	/// Shared affinity view the store reads to decide statement retention.
 	retention: Option<RetentionHandle>,
@@ -369,20 +369,35 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics and its routing
+	/// peers, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
-		let desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		desired.extend(self.peers_topology.peers_for_routing());
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
 		}
 	}
 
-	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
-	/// and closing connections through the statement protocol's reserved set on `network`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+	/// Reserve the peers the node needs connected and release the rest, through the statement
+	/// protocol's reserved set on `network`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
+	pub(crate) fn is_reserved(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_reserved(peer)
+	}
+
+	#[cfg(test)]
+	pub(crate) fn update_peers_needing_connections(
+		&mut self,
+		peers: impl IntoIterator<Item = PeerId>,
+	) {
+		self.peer_steering.update_peers_needing_connections(peers);
 	}
 
 	pub(crate) fn evict_stale_peers(&mut self) {
@@ -764,26 +779,45 @@ mod tests {
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
-			PeerId::random(),
-			topology_config(20, 3),
+			peer(1),
+			topology_config(1, 3),
 			"/statement/test".into(),
 			None,
 		);
 
-		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
-		orchestrator.on_peers_discovered(peers.clone());
-		for peer in &peers {
-			orchestrator.on_peer_identified(*peer, true);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
 		}
 
-		// The tick turns the configured topic into a coverage target.
+		// The tick turns the configured topic into a coverage target. With k=1 the routing peers
+		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
-		assert!(!desired.is_empty());
+		let routing = orchestrator.peers_topology.peers_for_routing();
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
 		let connect = orchestrator.peer_steering.peers_to_connect();
-		assert!(desired.iter().all(|peer| connect.contains(peer)));
+		assert!(coverage.iter().all(|peer| connect.contains(peer)));
+	}
+
+	#[test]
+	fn affinity_tick_marks_routing_peers_for_connection() {
+		let mut orchestrator = orchestrator_with(1, topology_config(3, 3));
+		for seed in 2..=6 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+
+		// Without topics the desired set is the routing peers alone, none connected yet.
+		orchestrator.on_pending_affinities();
+		let mut routing = orchestrator.peers_topology.peers_for_routing();
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		routing.sort();
+		connect.sort();
+		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
+		assert_eq!(connect, routing);
 	}
 
 	#[test]
@@ -846,31 +880,34 @@ mod tests {
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
-			topology_config(20, 3),
+			topology_config(1, 3),
 			"/statement/test".into(),
 			None,
 		);
 
-		for seed in 2..=10 {
+		for seed in 2..=30 {
 			orchestrator.on_peers_discovered([peer(seed)]);
 			orchestrator.on_peer_identified(peer(seed), true);
 		}
 
-		// The first tick selects the coverage peers and queues them for connection.
+		// The first tick selects the coverage peers and queues them for connection. With k=1 the
+		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
-		assert!(!desired.is_empty());
+		let routing = orchestrator.peers_topology.peers_for_routing();
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
-		// The coverage peers connect, then the next tick recomputes the target.
-		for peer in &desired {
-			orchestrator.on_substream_opened(*peer);
+		// The desired peers connect, then the next tick recomputes the target.
+		for peer in orchestrator.peer_steering.peers_to_reserve() {
+			orchestrator.on_substream_opened(peer);
+			orchestrator.peer_steering.reserve([peer]);
 		}
 		orchestrator.on_pending_affinities();
 
 		// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
-		// connect, nothing to disconnect.
-		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
-		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+		// reserve, nothing to release.
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
+		assert!(orchestrator.peer_steering.peers_to_release().is_empty());
 	}
 
 	#[test]

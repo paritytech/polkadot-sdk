@@ -117,6 +117,20 @@ pub struct Cli {
 	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
 
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
+
 	/// Number of peers to gossip a statement to within the affinity set.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
