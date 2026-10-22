@@ -52,8 +52,8 @@ pub enum FetchError {
 	Transport(String),
 	/// The server answered with a status code outside `2xx`.
 	Status(u16),
-	/// The response body exceeds `max_response_bytes` of the request.
-	TooLarge,
+	/// The response body exceeds this many bytes, `max_response_bytes` of the request.
+	TooLarge(usize),
 	/// The request did not complete within `timeout_ms` of the request.
 	Timeout,
 }
@@ -64,7 +64,7 @@ impl std::fmt::Display for FetchError {
 			Self::InvalidRequest(reason) => write!(f, "invalid request: {reason}"),
 			Self::Transport(reason) => write!(f, "transport error: {reason}"),
 			Self::Status(status) => write!(f, "status {status}"),
-			Self::TooLarge => write!(f, "response too large"),
+			Self::TooLarge(max) => write!(f, "response larger than {max} bytes"),
 			Self::Timeout => write!(f, "timed out"),
 		}
 	}
@@ -254,7 +254,7 @@ impl Fetcher {
 				.client
 				.request(http_request)
 				.await
-				.map_err(|e| FetchError::Transport(e.to_string()))?;
+				.map_err(|e| FetchError::Transport(format!("{e:?}")))?;
 			if !response.status().is_success() {
 				return Err(FetchError::Status(response.status().as_u16()));
 			}
@@ -293,10 +293,10 @@ async fn read_body(response: Response<Incoming>, max_bytes: usize) -> Result<Vec
 	let mut body = response.into_body();
 	let mut bytes = Vec::new();
 	while let Some(frame) = body.frame().await {
-		let frame = frame.map_err(|e| FetchError::Transport(e.to_string()))?;
+		let frame = frame.map_err(|e| FetchError::Transport(format!("{e:?}")))?;
 		if let Some(data) = frame.data_ref() {
 			if bytes.len() + data.len() > max_bytes {
-				return Err(FetchError::TooLarge);
+				return Err(FetchError::TooLarge(max_bytes));
 			}
 			bytes.extend_from_slice(data);
 		}
@@ -428,7 +428,7 @@ mod tests {
 		let fetcher = Fetcher::new().unwrap();
 		let mut r = request("x.io", "/p", &[]);
 		r.max_response_bytes = 999;
-		assert_eq!(fetcher.send(uri.clone(), &r).await, Err(FetchError::TooLarge));
+		assert_eq!(fetcher.send(uri.clone(), &r).await, Err(FetchError::TooLarge(999)));
 		r.max_response_bytes = 1_000;
 		assert_eq!(fetcher.send(uri, &r).await.unwrap().len(), 1_000);
 	}
