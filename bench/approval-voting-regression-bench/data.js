@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792705133891,
+  "lastUpdate": 1792710518891,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "99670e9703224aa06c5c1e863034841d58525c1f",
-          "message": "[eth-rpc] Detect and backfill gaps in finalized block subscriptions (#11538)\n\nTemporary connection drops can result in missed blocks, leaving gaps in\nthe local database and causing incomplete results for RPC methods such\nas eth_getLogs and eth_getBlockByNumber. This PR introduces automatic\ngap detection in the finalized block subscription and backfills missing\nranges via a background worker.\n\n- Gap detection: When a newly finalized block arrives with a number\nhigher than expected, the skipped range is queued for backfill.\n- Gap-fill queue: A bounded in-memory channel (capacity: 32),\nnon-blocking; a separate atomic counter tracks queued and in-flight\nrequests.\n- Gap-filler task: A background worker processes requests sequentially,\nreusing sync_backward_range; it does not update Head/Tail sync labels or\nthe first_evm_block boundary.\n- Sync state (Head advancement): The sync head does not advance while\ngap fills are in flight, ensuring continuity of the synced block range.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T07:57:02Z",
-          "tree_id": "35e9ca9e924e613bff73c9d49c462d81c8b5918b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99670e9703224aa06c5c1e863034841d58525c1f"
-        },
-        "date": 1775726604803,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63626.43000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.737260813949941,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9054184680800015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4536998227499955,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8528167066099988,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005359094560000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022039019999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.270963501402729,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002132798,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002132798,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022039019999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8620148633199998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8889024504600007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.769049408169947,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.7647072149099996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michal.gil@parity.io",
+            "name": "Michał Gil",
+            "username": "Zebedeusz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "477b53f040f1a45f3567fb37435e2c0ef7476221",
+          "message": "benchmarking-cli: drop constant components from per-prefix proof-size analysis (#13390)\n\nBenchmark pallet --output can fail with \"Parameter n only has 1 unique\nvalue(s)\" when a benchmark touches a different storage key for each\nitem. The proof-size analysis for each storage key can get only 1–2\nsamples, all with the same component value. No slope can be fitted from\nthose.\n\n## Changes\n- min_squares_iqr falls back to the median value when 1–2 samples can't\ngive a slope.\n- Regression tests added.",
+          "timestamp": "2026-10-22T21:32:16Z",
+          "tree_id": "1de69dacdb6dfa688ff73e82fa1b4d60db8ce3f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/477b53f040f1a45f3567fb37435e2c0ef7476221"
+        },
+        "date": 1792710482050,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63558.82000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.7,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7706835538199996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.34297223289001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000022456629999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000023309989999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005332985739999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7781850279899993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000022456629999999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7724300614699993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000023309989999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.355483829880009,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8473830729200031,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.813473701070001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.75889520394287,
             "unit": "seconds"
           }
         ]
