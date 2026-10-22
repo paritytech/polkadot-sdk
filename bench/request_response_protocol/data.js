@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792703627512,
+  "lastUpdate": 1792709412728,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -136619,6 +136619,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2674404360,
             "range": "± 61697759",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "michal.gil@parity.io",
+            "name": "Michał Gil",
+            "username": "Zebedeusz"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "477b53f040f1a45f3567fb37435e2c0ef7476221",
+          "message": "benchmarking-cli: drop constant components from per-prefix proof-size analysis (#13390)\n\nBenchmark pallet --output can fail with \"Parameter n only has 1 unique\nvalue(s)\" when a benchmark touches a different storage key for each\nitem. The proof-size analysis for each storage key can get only 1–2\nsamples, all with the same component value. No slope can be fitted from\nthose.\n\n## Changes\n- min_squares_iqr falls back to the median value when 1–2 samples can't\ngive a slope.\n- Regression tests added.",
+          "timestamp": "2026-10-22T21:32:16Z",
+          "tree_id": "1de69dacdb6dfa688ff73e82fa1b4d60db8ce3f3",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/477b53f040f1a45f3567fb37435e2c0ef7476221"
+        },
+        "date": 1792709384599,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21841825,
+            "range": "± 355609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22534425,
+            "range": "± 374363",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 24640198,
+            "range": "± 291784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 30134612,
+            "range": "± 502624",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 67905833,
+            "range": "± 954956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 418708786,
+            "range": "± 11732293",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2884250637,
+            "range": "± 80292879",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 19672447,
+            "range": "± 222205",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 19179458,
+            "range": "± 277894",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19424268,
+            "range": "± 242956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24446017,
+            "range": "± 284547",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65027235,
+            "range": "± 765820",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 382419150,
+            "range": "± 8332284",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2938730443,
+            "range": "± 47998624",
             "unit": "ns/iter"
           }
         ]
