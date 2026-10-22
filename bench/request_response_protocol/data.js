@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792643113951,
+  "lastUpdate": 1792671514935,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -136079,6 +136079,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2705033026,
             "range": "± 19156228",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c1418a966d9234013f0bf2e469e67e999c9b07cd",
+          "message": "Remove deprecated reclaim extension (#13532)\n\nRemoves the original `StorageWeightReclaim` extension which was\ndeprecated for 1.5 years or so. It has been replaced by the\nCorresponding pallet which is more accurate. No runtime in this repo or\nfellowship still use the inaccurate one. Anyone else should also migrate\nif they were still using it.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-22T07:45:11Z",
+          "tree_id": "f8f7b09b0b13c0a23578a76d66b3c7b4f6432be6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c1418a966d9234013f0bf2e469e67e999c9b07cd"
+        },
+        "date": 1792671482412,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19366545,
+            "range": "± 82969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19611383,
+            "range": "± 85812",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20993476,
+            "range": "± 110603",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25849816,
+            "range": "± 161201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58578748,
+            "range": "± 746092",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 327433877,
+            "range": "± 3931827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2609486265,
+            "range": "± 66984677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16536132,
+            "range": "± 101158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16880543,
+            "range": "± 157474",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 16978817,
+            "range": "± 117094",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21635818,
+            "range": "± 87586",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60539054,
+            "range": "± 973677",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 339109498,
+            "range": "± 3639280",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2582937658,
+            "range": "± 31028759",
             "unit": "ns/iter"
           }
         ]
