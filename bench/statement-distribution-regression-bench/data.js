@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792689995167,
+  "lastUpdate": 1792705186630,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d8837ceb93f00290612d51b5348ae3e80d0eb8a8",
-          "message": "revive: Automatic address mapping via OnNewAccount/OnKilledAccount (#11416)\n\nThis PR add the necessary code to automatically map Substrate account to\nan Eth H160 address.\nIt does that by leveraging the OnNewAccount/OnKilledAccount frame_system\nhooks.\n\nIn that configuration pallet-revive map/ unmap dispatchable becomes\nessentially noop.\nNo extra deposit is taken from the the account. We also don't increase\nthe existential deposit since doing so would mean that we need to mint\nthe difference to all existing account\n\n \nChanges summary:\n- Add `AutoMapper<T>` struct that implements\n`OnNewAccount`/`OnKilledAccount` to automatically map accounts when\ncreated and unmap when killed\n- Add `AutoMap` config constant to enable/disable the feature\nper-runtime\n- Guard `map_account`/`unmap_account` dispatchables with\n`AutoMappingEnabled` error when auto-mapping is active\n- Wire up `AutoMapper` in Asset Hub Westend and dev-node runtimes with\n`AutoMap = true`\n- Add v3 multi-block migration to auto-map all existing accounts and\nrelease deposits for already-mapped accounts\n- Add `v3_migration_step` benchmark\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-08T09:02:21Z",
-          "tree_id": "d6d4f1d7d867b8838c3d09874091f7c85c1a9321",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d8837ceb93f00290612d51b5348ae3e80d0eb8a8"
-        },
-        "date": 1775643937199,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038498799916,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08788943986199987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03869141824399999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a81d29d69e8e065663acc90d370d93b78ee4ac05",
+          "message": "statement-store: add a flag that turns the v2 DHT path on (#13498)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11938.\n\nA node opts into the v2 DHT path with a CLI flag. The gate stays a\nprocess-wide value that a node binary sets once from its CLI before\nanything reads it, and it is off by default, so a default-configured\nnode floods statements to every peer as before. The environment variable\nthat used to turn the path on is gone, and the zombienet tests pass the\nflag to every collator instead.\n\nThe grace-period comment no longer speaks of a rollout that flips every\nnode at once: a peer without the v2 DHT path is served by the flood\nbranch for as long as the fallback exists. The statement/2 protocol\ncomment drops the \"may change\" warning, since the protocol has shipped\nsince stable2606.\n\nStacked on https://github.com/paritytech/polkadot-sdk/pull/13497.\n\n# Integration\n\nNode operators get `--statement-v2-dht` on the substrate node and the\nomni-node. With it, a node with the statement store routes statements\nthrough the DHT. Without it, nothing changes.",
+          "timestamp": "2026-10-22T19:54:42Z",
+          "tree_id": "e14369b1b9990d311008d3874ab84d56f3f218f6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/a81d29d69e8e065663acc90d370d93b78ee4ac05"
+        },
+        "date": 1792705149139,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.122,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03832181325999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08480149077199986,
             "unit": "seconds"
           }
         ]
