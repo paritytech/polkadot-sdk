@@ -367,8 +367,8 @@ impl<T: Config> Pallet<T> {
 				.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 		})?;
 
-		let operatonal_expenses_payout =
-			Eras::<T>::get_validator_expenses_reward(era).ok_or_else(|| {
+		let operatonal_expenses_payout = Eras::<T>::get_operational_expenses_reward(era)
+			.ok_or_else(|| {
 				Error::<T>::InvalidEraToReward
 					.with_weight(T::WeightInfo::payout_stakers_alive_staked(0))
 			})?;
@@ -418,7 +418,7 @@ impl<T: Config> Pallet<T> {
 		// This is how much validator + nominators are entitled to.
 		let validator_total_payout = validator_total_reward_part.mul_floor(era_payout);
 
-		let validator_operational_expenses_payout =
+		let operational_expenses_payout =
 			validator_total_reward_part.mul_floor(operatonal_expenses_payout);
 
 		let validator_commission = Eras::<T>::get_validator_commission(era, &ledger.stash);
@@ -441,8 +441,8 @@ impl<T: Config> Pallet<T> {
 		let validator_staker_payout_for_page =
 			page_stake_part.mul_floor(reward_split.validator_payout);
 
-		let validator_operational_expenses_payout_for_page =
-			page_stake_part.mul_floor(validator_operational_expenses_payout);
+		let operational_expenses_payout_for_page =
+			page_stake_part.mul_floor(operational_expenses_payout);
 
 		Self::deposit_event(Event::<T>::PayoutStarted {
 			era_index: era,
@@ -462,11 +462,7 @@ impl<T: Config> Pallet<T> {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
 
-		Self::transfer_validator_expenses(
-			era,
-			&stash,
-			validator_operational_expenses_payout_for_page,
-		);
+		Self::transfer_operational_expenses(era, &stash, operational_expenses_payout_for_page);
 
 		// Determine whether to use dap payout or legacy path.
 		let use_dap_payout =
@@ -822,7 +818,7 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	fn transfer_validator_expenses(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
+	fn transfer_operational_expenses(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let Some(dest) = Self::payee(Stash(stash.clone())) else {
 			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
 				era,
@@ -835,7 +831,8 @@ impl<T: Config> Pallet<T> {
 			return;
 		};
 
-		if amount < <T::ValidatorExpencesCurrency as FunInspect<T::AccountId>>::minimum_balance() {
+		if amount < <T::OperationalExpencesCurrency as FunInspect<T::AccountId>>::minimum_balance()
+		{
 			// TODO: Decide on a behaviour here.
 			return;
 		}
@@ -845,7 +842,7 @@ impl<T: Config> Pallet<T> {
 			crate::RewardKind::OperationalExpenses,
 		));
 
-		match T::ValidatorExpencesCurrency::transfer(
+		match T::OperationalExpencesCurrency::transfer(
 			&pot,
 			&payout_account,
 			amount,

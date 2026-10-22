@@ -291,7 +291,7 @@ pub type NegativeImbalanceOf<T> =
 	Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
 pub type NegativeImbalanceOfOperationalExpensesCurrency<T> =
-	Credit<<T as frame_system::Config>::AccountId, <T as Config>::ValidatorExpencesCurrency>;
+	Credit<<T as frame_system::Config>::AccountId, <T as Config>::OperationalExpencesCurrency>;
 
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 

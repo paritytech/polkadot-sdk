@@ -62,7 +62,12 @@ fn rewards_with_nominator_should_work() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 1,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -120,7 +125,12 @@ fn rewards_with_nominator_should_work() {
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 2,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
@@ -222,7 +232,12 @@ fn nominating_and_rewards_should_work() {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+					Event::EraPaid {
+						era_index: 1,
+						validator_payout: 7500,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -1803,21 +1818,38 @@ fn validator_operational_expenses_paid_out() {
 		let era_pot =
 			|era| SequentialTest::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
 
-		const MIN_AMOUNT: Balance = 1;
-
 		Session::roll_until_active_era(2);
 
-		mint_operational_expenses_asset(general_pot, MIN_AMOUNT + 150);
+		mint_operational_expenses_asset(
+			general_pot,
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE + 150,
+		);
 		Staking::reward_by_ids(vec![(11, 2), (12, 3)]);
 
 		Session::roll_until_active_era(3);
-		assert_eq!(operational_expenses_asset_balance(general_pot), MIN_AMOUNT);
+		assert_eq!(
+			operational_expenses_asset_balance(general_pot),
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
 		assert_eq!(operational_expenses_asset_balance(era_pot(2)), 150);
+
+		System::assert_has_event(
+			Event::EraPaid {
+				era_index: 2,
+				validator_payout: 7500,
+				operational_expenses: 150,
+				remainder: 0,
+			}
+			.into(),
+		);
 
 		Session::roll_until_active_era(4);
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
 		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 12, 2, 0));
-		assert_eq!(operational_expenses_asset_balance(general_pot), MIN_AMOUNT);
+		assert_eq!(
+			operational_expenses_asset_balance(general_pot),
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
 		assert_eq!(operational_expenses_asset_balance(era_pot(2)), 0);
 		assert_eq!(operational_expenses_asset_balance(11), 60);
 		assert_eq!(operational_expenses_asset_balance(12), 90);

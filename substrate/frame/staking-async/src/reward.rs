@@ -109,7 +109,7 @@ impl<T: Config> EraRewardManager<T> {
 			Preservation::Preserve,
 			Fortitude::Polite,
 		);
-		let operational_expenses_balance = T::ValidatorExpencesCurrency::reducible_balance(
+		let operational_expenses_balance = T::OperationalExpencesCurrency::reducible_balance(
 			&general_operational_expenses_pot,
 			Preservation::Preserve,
 			Fortitude::Polite,
@@ -152,7 +152,7 @@ impl<T: Config> EraRewardManager<T> {
 		};
 
 		let actual_operational_expenses = if !operational_expenses_balance.is_zero() {
-			match T::ValidatorExpencesCurrency::transfer(
+			match T::OperationalExpencesCurrency::transfer(
 				&general_operational_expenses_pot,
 				&operational_expenses_pot,
 				operational_expenses_balance,
@@ -243,13 +243,13 @@ impl<T: Config> EraRewardManager<T> {
 		let pot_account =
 			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
 
-		let remaining = T::ValidatorExpencesCurrency::balance(&pot_account);
+		let remaining = T::OperationalExpencesCurrency::balance(&pot_account);
 
 		if remaining.is_zero() {
 			return;
 		}
 
-		match T::ValidatorExpencesCurrency::withdraw(
+		match T::OperationalExpencesCurrency::withdraw(
 			&pot_account,
 			remaining,
 			Precision::BestEffort,

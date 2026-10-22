@@ -50,7 +50,7 @@ use std::collections::BTreeMap;
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;
-pub(crate) const MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE: u128 = 1;
+pub(crate) const MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE: u128 = 1;
 
 frame_support::construct_runtime!(
 	pub enum Test {
@@ -555,13 +555,13 @@ pub(crate) fn setup_dap() {
 }
 
 parameter_types! {
-	pub static ValidatorExpensesAssetId: u32 = 10;
+	pub static OperationalExpensesAssetId: u32 = 10;
 	pub static UnclaimedOperationalExpensesAccount: AccountId = 123_456;
 }
 
-type ValidatorExpensesCurrency = ItemOf<Assets, ValidatorExpensesAssetId, AccountId>;
+type OperationalExpensesCurrency = ItemOf<Assets, OperationalExpensesAssetId, AccountId>;
 type UnclaimedOperationalExpensesHandler =
-	ResolveTo<UnclaimedOperationalExpensesAccount, ValidatorExpensesCurrency>;
+	ResolveTo<UnclaimedOperationalExpensesAccount, OperationalExpensesCurrency>;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub struct BenchHelper {}
@@ -575,30 +575,30 @@ impl BenchmarkHelper<AccountId, Balance> for BenchHelper {
 		use frame_benchmarking::whitelisted_caller;
 		use frame_support::traits::fungibles::{Create, Inspect, Mutate};
 
-		if !Assets::asset_exists(ValidatorExpensesAssetId::get()) {
+		if !Assets::asset_exists(OperationalExpensesAssetId::get()) {
 			let caller: AccountId = whitelisted_caller();
 			<Assets as Create<_>>::create(
-				ValidatorExpensesAssetId::get(),
+				OperationalExpensesAssetId::get(),
 				caller,
 				false,
-				MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE.into(),
+				MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE.into(),
 			)?;
 		}
 
-		Assets::mint_into(ValidatorExpensesAssetId::get(), to, amount).map(|_| ())
+		Assets::mint_into(OperationalExpensesAssetId::get(), to, amount).map(|_| ())
 	}
 
 	fn operational_expenses_token_min_balance() -> Balance {
 		use frame_support::traits::fungibles::Inspect;
 
-		Assets::minimum_balance(ValidatorExpensesAssetId::get())
+		Assets::minimum_balance(OperationalExpensesAssetId::get())
 	}
 }
 
 impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
-	type ValidatorExpencesCurrency = ValidatorExpensesCurrency;
+	type OperationalExpencesCurrency = OperationalExpensesCurrency;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = BenchHelper;
 	type RewardRemainder = RewardRemainderMock;
@@ -903,10 +903,10 @@ impl ExtBuilder {
 
 		ext.execute_with(|| {
 			use frame_support::traits::fungible::Create;
-			assert_ok!(<Test as Config>::ValidatorExpencesCurrency::create(
+			assert_ok!(<Test as Config>::OperationalExpencesCurrency::create(
 				0,
 				false,
-				MIN_VALIDATOR_EXPENSES_CURRENCY_BALANCE
+				MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
 			));
 
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);

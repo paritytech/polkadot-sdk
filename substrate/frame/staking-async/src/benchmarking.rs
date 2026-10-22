@@ -152,7 +152,7 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		&operational_expenses_pot,
 		payout + min_balance,
 	));
-	ErasValidatorExpensesReward::<T>::insert(planned_era, payout);
+	ErasOperationalExpensesReward::<T>::insert(planned_era, payout);
 
 	// Single-validator benchmark setup: sum == this validator's weight.
 	let incentive_weight = BalanceOf::<T>::from(100u64);
@@ -1395,7 +1395,7 @@ mod benchmarks {
 			total_incentive_weight.saturating_mul(BalanceOf::<T>::from(7u32)),
 		);
 		ErasValidatorIncentiveBudget::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
-		ErasValidatorExpensesReward::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
+		ErasOperationalExpensesReward::<T>::insert(era, BalanceOf::<T>::from(1_000_000u64));
 
 		era
 	}

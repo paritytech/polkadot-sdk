@@ -169,7 +169,7 @@ pub mod pallet {
 
 		/// Validator expenses may be paid in a non-native currency, so it's configured separately.
 		#[pallet::no_default]
-		type ValidatorExpencesCurrency: FunInspect<Self::AccountId>
+		type OperationalExpencesCurrency: FunInspect<Self::AccountId>
 			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
 			+ FunBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
 
@@ -954,7 +954,7 @@ pub mod pallet {
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	#[pallet::storage]
-	pub type ErasValidatorExpensesReward<T: Config> =
+	pub type ErasOperationalExpensesReward<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
@@ -1759,7 +1759,7 @@ pub mod pallet {
 					ErasTotalStake::<T>::remove(era);
 					ErasNominatorsSlashable::<T>::remove(era);
 					ErasValidatorIncentiveBudget::<T>::remove(era);
-					ErasValidatorExpensesReward::<T>::remove(era);
+					ErasOperationalExpensesReward::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					ErasSumWeightedPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
@@ -3361,7 +3361,7 @@ pub mod pallet {
 			crate::reward::EraRewardAllocation {
 				staker_rewards: ErasValidatorReward::<T>::get(era).unwrap_or_else(Zero::zero),
 				validator_incentive: ErasValidatorIncentiveBudget::<T>::get(era),
-				operational_expenses: ErasValidatorExpensesReward::<T>::get(era)
+				operational_expenses: ErasOperationalExpensesReward::<T>::get(era)
 					.unwrap_or_else(Zero::zero),
 			}
 		}
