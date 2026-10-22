@@ -22,15 +22,17 @@ path = "src/call.rs"
 
 [dependencies]
 honggfuzz = { workspace = true }
-
 pallet-nomination-pools = { features = ["fuzzing"], workspace = true, default-features = true }
-
-frame-support = { workspace = true, default-features = true }
-frame-system = { workspace = true, default-features = true }
-
-sp-io = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-tracing = { workspace = true, default-features = true }
+frame-support.workspace = true
+frame-support.default-features = true
+frame-system.workspace = true
+frame-system.default-features = true
+sp-io.workspace = true
+sp-io.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-tracing.workspace = true
+sp-tracing.default-features = true
 
 log = { workspace = true, default-features = true }
 rand = { features = ["small_rng"], workspace = true, default-features = true }
