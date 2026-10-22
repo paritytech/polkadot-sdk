@@ -105,6 +105,15 @@ pub enum MarketFailure {
 	Deadline,
 }
 
+impl std::fmt::Display for MarketFailure {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Query(tag, e) => write!(f, "query {}: {e}", tag.0),
+			Self::Deadline => write!(f, "tick deadline reached"),
+		}
+	}
+}
+
 impl Fetcher {
 	/// Create the client.
 	pub fn new() -> std::io::Result<Self> {

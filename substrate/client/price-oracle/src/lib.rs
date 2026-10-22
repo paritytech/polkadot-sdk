@@ -51,7 +51,7 @@ use std::{
 };
 use tokio::time::{Instant, MissedTickBehavior};
 
-const LOG_TARGET: &str = "price-oracle";
+pub(crate) const LOG_TARGET: &str = "price-oracle";
 /// Lower bound on the tick interval. A shorter interval configured in the runtime is raised to
 /// this value.
 const MIN_TICK_INTERVAL: Duration = Duration::from_secs(1);
@@ -125,7 +125,10 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 	let fetcher = match Fetcher::new() {
 		Ok(fetcher) => fetcher,
 		Err(e) => {
-			log::error!(target: LOG_TARGET, "Cannot create the HTTPS client, price oracle disabled: {e}");
+			log::error!(
+				target: LOG_TARGET,
+				"Cannot create the HTTPS client, price oracle disabled: {e}",
+			);
 			return;
 		},
 	};
@@ -248,7 +251,10 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 			(Ok(settings), Ok(markets)) => (settings, markets),
 			(Err(e), _) | (_, Err(e)) => {
 				if !*api_missing_logged {
-					log::error!(target: LOG_TARGET, "Runtime does not serve the price oracle API: {e}");
+					log::error!(
+						target: LOG_TARGET,
+						"Runtime does not serve the price oracle API: {e}",
+					);
 					*api_missing_logged = true;
 				}
 				return None;
@@ -322,7 +328,7 @@ where
 	};
 	let (failures, prices) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
-		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure:?}");
+		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
 	}
 	log::debug!(target: LOG_TARGET, "Priced {} of {} markets", prices.len(), markets.len());
 	if prices.is_empty() {

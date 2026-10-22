@@ -18,13 +18,12 @@
 
 //! The local signer key and signing of reports.
 
+use crate::LOG_TARGET;
 use codec::Decode;
 use sp_application_crypto::AppCrypto;
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::{PriceReport, SignedPriceReport};
 use sp_runtime::RuntimeAppPublic;
-
-const LOG_TARGET: &str = "price-oracle";
 
 /// The key among `signers` whose private part the keystore holds. The first such key in the
 /// order of `signers`, or `None` if the keystore holds none of them.
