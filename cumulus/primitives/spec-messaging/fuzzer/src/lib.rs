@@ -207,10 +207,7 @@ impl Oracle {
 	}
 
 	fn hash(&self, choice: HashChoice) -> Hash {
-		match choice {
-			HashChoice::Palette(i) => self.palette[i as usize % self.palette.len()],
-			HashChoice::Raw(bytes) => Hash(bytes),
-		}
+		choice.resolve(&self.palette)
 	}
 
 	fn from(&self, choice: &FromChoice) -> Option<MmrFrontier> {
@@ -223,31 +220,12 @@ impl Oracle {
 		}
 	}
 
-	/// [`Self::apply`] on a bounded list. An edit that would pass the bound is dropped: such a
-	/// list cannot decode, which `lift_decode` covers.
 	fn apply_bounded<S: Get<u32>>(&self, items: &mut BoundedVec<Hash, S>, edits: &[Edit]) {
-		let mut edited = items.to_vec();
-		self.apply(&mut edited, edits);
-		if let Ok(edited) = BoundedVec::try_from(edited) {
-			*items = edited;
-		}
+		apply_bounded(&self.palette, items, edits)
 	}
 
 	fn apply(&self, items: &mut Vec<Hash>, edits: &[Edit]) {
-		for edit in edits {
-			let len = items.len();
-			match *edit {
-				Edit::Set { slot, hash } if len > 0 => items[slot as usize % len] = self.hash(hash),
-				Edit::Insert { slot, hash } => {
-					items.insert(slot as usize % (len + 1), self.hash(hash))
-				},
-				Edit::Remove { slot } if len > 0 => {
-					items.remove(slot as usize % len);
-				},
-				Edit::Swap { a, b } if len > 0 => items.swap(a as usize % len, b as usize % len),
-				_ => {},
-			}
-		}
+		apply(&self.palette, items, edits)
 	}
 
 	/// Fuzz entry point for [`MMRExtensionProof::verify`].
@@ -425,11 +403,53 @@ impl Oracle {
 	}
 }
 
+/// [`apply`] on a bounded list. An edit that would pass the bound is dropped: such a list cannot
+/// decode, which the `*_decode` targets cover.
+pub(crate) fn apply_bounded<S: Get<u32>>(
+	palette: &[Hash],
+	items: &mut BoundedVec<Hash, S>,
+	edits: &[Edit],
+) {
+	let mut edited = items.to_vec();
+	apply(palette, &mut edited, edits);
+	if let Ok(edited) = BoundedVec::try_from(edited) {
+		*items = edited;
+	}
+}
+
+pub(crate) fn apply(palette: &[Hash], items: &mut Vec<Hash>, edits: &[Edit]) {
+	for edit in edits {
+		let len = items.len();
+		match *edit {
+			Edit::Set { slot, hash } if len > 0 => {
+				items[slot as usize % len] = hash.resolve(palette)
+			},
+			Edit::Insert { slot, hash } => {
+				items.insert(slot as usize % (len + 1), hash.resolve(palette))
+			},
+			Edit::Remove { slot } if len > 0 => {
+				items.remove(slot as usize % len);
+			},
+			Edit::Swap { a, b } if len > 0 => items.swap(a as usize % len, b as usize % len),
+			_ => {},
+		}
+	}
+}
+
 /// A palette index (wraps) or raw bytes.
 #[derive(Arbitrary, Clone, Copy, Debug)]
 pub enum HashChoice {
 	Palette(u16),
 	Raw([u8; 32]),
+}
+
+impl HashChoice {
+	pub(crate) fn resolve(self, palette: &[Hash]) -> Hash {
+		match self {
+			HashChoice::Palette(i) => palette[i as usize % palette.len()],
+			HashChoice::Raw(bytes) => Hash(bytes),
+		}
+	}
 }
 
 /// A count, size or position. `Near` stays in `0..=N + 1`, where the interesting values are.
@@ -442,7 +462,7 @@ pub enum Count {
 }
 
 impl Count {
-	fn get(self) -> u64 {
+	pub(crate) fn get(self) -> u64 {
 		let near = |x: u8| x as u64 % (N as u64 + 2);
 		match self {
 			Count::Near(x) => near(x),
