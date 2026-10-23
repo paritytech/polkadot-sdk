@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792763920701,
+  "lastUpdate": 1792775371599,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a3f0e923b94c50aac0876fdee40de823c2dd8d4c",
-          "message": "[eth-rpc] Handle event decode errors across runtime upgrades (#11655)\n\n### Motivation\nDuring backward sync, eth-rpc processes historical blocks using the\ncurrent runtime's metadata. If the event layout differs between the\ncurrent runtime and the runtime that produced those blocks (e.g., the\nBalances pallet gained new event variants in #7250), event decoding\nfails and receipts are lost.\n\n### Changes\nReplace events.has::<EthExtrinsicRevert>() with an event iterator that\nlogs and skips decode errors, checks revert status by pallet/variant\nname, and collects ContractEmitted logs in a single pass — so that\nundecodable events no longer cause the entire receipt to be lost.\n\nBehavior change: Previously, any undecodable event in a block caused the\nentire receipt to be lost. Now, decode errors are logged and skipped —\nthe receipt is stored with best-effort revert status and logs.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T15:35:51Z",
-          "tree_id": "9eb5052e02bacb2d0befc23c97dd5c4d36deacc3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a3f0e923b94c50aac0876fdee40de823c2dd8d4c"
-        },
-        "date": 1775753742622,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025636417899999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14914470766666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009955835906666637,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007412737526666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009552214399999967,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "783fad4513ee558fec558151c0fc00beee443ff7",
+          "message": "statement-store: v2 soak repeats outage and join at random (#13489)\n\nPart of #13162.\n\nThe v2 DHT soak ran the outage and join steps once each. After those two\nmandatory steps, every later wave is now followed by another outage or\njoin with odds 1 in 14 each, up to 4 joins. A long soak thus covers\nrepeated restarts, outages of joined nodes and joins after outages.\n\nEach step takes its topics from its wave, so a repeated step submits\nfresh statements, and the outage node, picked through those topics,\nvaries. The draw is seeded per run: peer keys derive from node names, so\nan unseeded draw would repeat the same schedule every run",
+          "timestamp": "2026-10-23T14:36:21Z",
+          "tree_id": "94235d96704e1c89cd538d74fb5d5b515d02acf2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/783fad4513ee558fec558151c0fc00beee443ff7"
+        },
+        "date": 1792775341187,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14207305355333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025059629706666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00975553577333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007722809833333333,
             "unit": "seconds"
           }
         ]
