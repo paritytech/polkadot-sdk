@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792753297086,
+  "lastUpdate": 1792764028024,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf0fb0117518f02b2b97fab162265e2be71ef990",
-          "message": "Add disk cleanup option to publish crates workflow (#11693)\n\n## Summary\n- Adds `clean_every` workflow input to the publish crates workflow that\nruns `cargo clean` after every N published crates to free disk space\n- Recommended value of 50 for major releases with 100+ crates, where the\nrunner disk would otherwise fill up\n- Default is 0 (disabled), so no change to existing behavior\n- Bumps parity-publish to 0.10.15 which adds the `--clean-every` CLI\nflag\n\n## Issue\n- https://github.com/paritytech/release-engineering/issues/291\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-04-08T18:09:31Z",
-          "tree_id": "0314d38ab7f5e8b9c880ee4bec3413fb301786ca",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf0fb0117518f02b2b97fab162265e2be71ef990"
-        },
-        "date": 1775676750408,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08468021105799994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03884924882,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039273536148000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74b0ba5914888631b0111fafd5e2f42eb9ef325f",
+          "message": "zombienet: download only the binaries a test family spawns (#13558)\n\n# Description\n\nEach zombienet test job downloads all seven binary artifacts, 1.4 GB,\none after the other, which takes about 330 seconds and is 40 to 75\npercent of a typical job. A test family spawns only a subset: cumulus\ntests need polkadot, polkadot-parachain and test-parachain (488 MB),\nsubstrate tests need only substrate (36 MB), the template tests need the\ntemplate nodes and polkadot, and polkadot tests need everything except\nsubstrate and the template nodes.\n\nThe download action now takes a prefix, the same value the zombienet-sdk\naction already receives, and skips the artifacts that family never\nspawns. Without a prefix it downloads everything as before, so the\nlegacy v1 action keeps its behaviour.\n\nOver a run of 96 jobs this saves about three runner hours. On PR runs,\nwhere the jobs queue for the spot pool, that is roughly ten minutes of\nwall time.\n\n## Rough results\n\nMeasured on this PR's first full CI run (96 zombienet jobs) against\nthree recent master runs, matching jobs by name. One run each, so these\nare rough numbers, not a benchmark.\n\n| Family | Download time per job |\n|---|---|\n| substrate | 318 s → 27 s |\n| cumulus | 280 s → 112 s |\n| templates | 268 s → 82 s |\n| polkadot | 300 s → 233 s |\n\n\n## Integration\n\nCI-only change.\n\n## Review Notes\n\nWhich binaries each family spawns was taken from the test sources:\npolkadot/zombienet-sdk-tests, cumulus/zombienet/zombienet-sdk,\nsubstrate/zombienet/zombienet-sdk and templates/zombienet.",
+          "timestamp": "2026-10-23T12:26:49Z",
+          "tree_id": "c65018a4804784d9edc10ecd3ba762b4a02ce0f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74b0ba5914888631b0111fafd5e2f42eb9ef325f"
+        },
+        "date": 1792763999781,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.17199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038470966630000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08574648566199997,
             "unit": "seconds"
           }
         ]
