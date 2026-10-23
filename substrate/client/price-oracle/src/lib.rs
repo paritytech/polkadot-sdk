@@ -175,7 +175,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					validator.clear_acceptance();
 					continue;
 				};
-				// Warn once, not on every tick, while the keystore holds no signer key.
+				// Warn only once until a signer key is found.
 				if setup.signer.is_some() {
 					no_signer_logged = false;
 				} else if !no_signer_logged {
