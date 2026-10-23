@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792764081908,
+  "lastUpdate": 1792775516583,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "bf0fb0117518f02b2b97fab162265e2be71ef990",
-          "message": "Add disk cleanup option to publish crates workflow (#11693)\n\n## Summary\n- Adds `clean_every` workflow input to the publish crates workflow that\nruns `cargo clean` after every N published crates to free disk space\n- Recommended value of 50 for major releases with 100+ crates, where the\nrunner disk would otherwise fill up\n- Default is 0 (disabled), so no change to existing behavior\n- Bumps parity-publish to 0.10.15 which adds the `--clean-every` CLI\nflag\n\n## Issue\n- https://github.com/paritytech/release-engineering/issues/291\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-04-08T18:09:31Z",
-          "tree_id": "0314d38ab7f5e8b9c880ee4bec3413fb301786ca",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bf0fb0117518f02b2b97fab162265e2be71ef990"
-        },
-        "date": 1775676779810,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009943678609999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026419134800000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009379035359999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002486954510000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "783fad4513ee558fec558151c0fc00beee443ff7",
+          "message": "statement-store: v2 soak repeats outage and join at random (#13489)\n\nPart of #13162.\n\nThe v2 DHT soak ran the outage and join steps once each. After those two\nmandatory steps, every later wave is now followed by another outage or\njoin with odds 1 in 14 each, up to 4 joins. A long soak thus covers\nrepeated restarts, outages of joined nodes and joins after outages.\n\nEach step takes its topics from its wave, so a repeated step submits\nfresh statements, and the outage node, picked through those topics,\nvaries. The draw is seeded per run: peer keys derive from node names, so\nan unseeded draw would repeat the same schedule every run",
+          "timestamp": "2026-10-23T14:36:21Z",
+          "tree_id": "94235d96704e1c89cd538d74fb5d5b515d02acf2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/783fad4513ee558fec558151c0fc00beee443ff7"
+        },
+        "date": 1792775485401,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010512556179999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009427387629999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025185163300000006,
             "unit": "seconds"
           }
         ]
