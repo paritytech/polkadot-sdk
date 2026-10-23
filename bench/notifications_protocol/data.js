@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792751730723,
+  "lastUpdate": 1792762986472,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -244799,6 +244799,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2294792306,
             "range": "± 23697110",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74b0ba5914888631b0111fafd5e2f42eb9ef325f",
+          "message": "zombienet: download only the binaries a test family spawns (#13558)\n\n# Description\n\nEach zombienet test job downloads all seven binary artifacts, 1.4 GB,\none after the other, which takes about 330 seconds and is 40 to 75\npercent of a typical job. A test family spawns only a subset: cumulus\ntests need polkadot, polkadot-parachain and test-parachain (488 MB),\nsubstrate tests need only substrate (36 MB), the template tests need the\ntemplate nodes and polkadot, and polkadot tests need everything except\nsubstrate and the template nodes.\n\nThe download action now takes a prefix, the same value the zombienet-sdk\naction already receives, and skips the artifacts that family never\nspawns. Without a prefix it downloads everything as before, so the\nlegacy v1 action keeps its behaviour.\n\nOver a run of 96 jobs this saves about three runner hours. On PR runs,\nwhere the jobs queue for the spot pool, that is roughly ten minutes of\nwall time.\n\n## Rough results\n\nMeasured on this PR's first full CI run (96 zombienet jobs) against\nthree recent master runs, matching jobs by name. One run each, so these\nare rough numbers, not a benchmark.\n\n| Family | Download time per job |\n|---|---|\n| substrate | 318 s → 27 s |\n| cumulus | 280 s → 112 s |\n| templates | 268 s → 82 s |\n| polkadot | 300 s → 233 s |\n\n\n## Integration\n\nCI-only change.\n\n## Review Notes\n\nWhich binaries each family spawns was taken from the test sources:\npolkadot/zombienet-sdk-tests, cumulus/zombienet/zombienet-sdk,\nsubstrate/zombienet/zombienet-sdk and templates/zombienet.",
+          "timestamp": "2026-10-23T12:26:49Z",
+          "tree_id": "c65018a4804784d9edc10ecd3ba762b4a02ce0f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74b0ba5914888631b0111fafd5e2f42eb9ef325f"
+        },
+        "date": 1792762954284,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4110846,
+            "range": "± 29243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297971,
+            "range": "± 2286",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4200877,
+            "range": "± 29596",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 368837,
+            "range": "± 2531",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4830180,
+            "range": "± 21426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 888671,
+            "range": "± 7202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10389123,
+            "range": "± 43447",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4829123,
+            "range": "± 58535",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 43641094,
+            "range": "± 222136",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 36543629,
+            "range": "± 208964",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 340239043,
+            "range": "± 2938281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 289136458,
+            "range": "± 1260486",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2509409318,
+            "range": "± 7726704",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2273314099,
+            "range": "± 17350289",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3414062,
+            "range": "± 20430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1896212,
+            "range": "± 8630",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3473752,
+            "range": "± 38492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1986204,
+            "range": "± 5609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4067847,
+            "range": "± 11866",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2273623,
+            "range": "± 9946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7730318,
+            "range": "± 69993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5196391,
+            "range": "± 35752",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 37090561,
+            "range": "± 167044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 35710905,
+            "range": "± 391499",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 308555720,
+            "range": "± 1569079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 279441878,
+            "range": "± 1269425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2523674931,
+            "range": "± 32197670",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2489679311,
+            "range": "± 74163874",
             "unit": "ns/iter"
           }
         ]
