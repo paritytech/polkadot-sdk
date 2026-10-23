@@ -48,7 +48,7 @@ const RELAY_RPC_PORT: u16 = 30_510;
 const SENDER_RPC_PORT: u16 = 30_511;
 const RECEIVER_RPC_PORT: u16 = 30_512;
 
-/// The XCM channel: domain 0, number 0.
+/// The XCM channel with `peer`.
 fn channel(peer: u32) -> ChannelId {
 	ChannelId { peer: peer.into(), domain: 0, num: 0 }
 }
@@ -732,7 +732,7 @@ async fn committed_stream_roots(
 		.collect())
 }
 
-/// Poll `check` every 6 s for up to 5 minutes.
+/// Poll `check` until it holds, or fail.
 async fn wait_for<F, Fut>(what: &str, check: F) -> Result<(), anyhow::Error>
 where
 	F: Fn() -> Fut,
