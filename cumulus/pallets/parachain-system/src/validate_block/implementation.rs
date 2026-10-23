@@ -388,7 +388,6 @@ where
 		SpecMessagingSignals::build(&upward_message_signals, &consumption_records, lifts.as_ref())
 			.unwrap_or_else(|error| panic!("{}", error));
 
-	// The same assembly the collator uses, so the two tails can't drift.
 	for message in ump_signal_tail(scheduling_signals, spec_msg_signals) {
 		upward_messages
 			.try_push(message)
