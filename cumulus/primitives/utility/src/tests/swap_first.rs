@@ -143,6 +143,8 @@ fn buy_and_refund_twice_for_target() {
 	let holding_asset = create_holding_asset(CLIENT_ASSET, client_asset_total);
 	let holding_change = create_holding_asset(CLIENT_ASSET, client_asset_total - fee);
 	let refund_asset = create_holding_asset(CLIENT_ASSET, refund1);
+	// the second refund is capped at what is left.
+	let refund_asset_2 = create_holding_asset(CLIENT_ASSET, fee - refund1);
 
 	let target_total = Fungibles::total_issuance(TARGET_ASSET);
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
@@ -160,9 +162,10 @@ fn buy_and_refund_twice_for_target() {
 	assert_eq!(trader.total_fee.peek(), fee - refund1);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
-	assert_eq!(trader.refund_weight(weight_worth_of(refund2), &xcm_context()), None);
+	let refund = trader.refund_weight(weight_worth_of(refund2), &xcm_context());
+	assert_eq!(refund.as_ref(), Some(&refund_asset_2));
 
-	assert_eq!(trader.total_fee.peek(), fee - refund1);
+	assert_eq!(trader.total_fee.peek(), 0);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
@@ -268,28 +271,34 @@ fn buy_and_refund_whole_fee_for_target() {
 }
 
 #[test]
-fn not_enough_to_refund() {
+fn refund_more_than_held_refunds_whole_fee() {
 	let client_asset_total = 15;
 	let fee = 5;
 	let refund = 6;
 
 	setup_pool(CLIENT_ASSET, 1000, TARGET_ASSET, 1000);
+	// create pool for refund swap.
+	setup_pool(TARGET_ASSET, 1000, CLIENT_ASSET, 1000);
 
 	let holding_asset = create_holding_asset(CLIENT_ASSET, client_asset_total);
 	let holding_change = create_holding_asset(CLIENT_ASSET, client_asset_total - fee);
+	let refund_asset = create_holding_asset(CLIENT_ASSET, fee);
 
 	let target_total = Fungibles::total_issuance(TARGET_ASSET);
 	let client_total = Fungibles::total_issuance(CLIENT_ASSET);
 
 	let mut trader = Trader::new();
-	let refund_holding =
-		trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
-	assert_eq!(&refund_holding, &holding_change);
+	let change = trader.buy_weight(weight_worth_of(fee), holding_asset, &xcm_context()).unwrap();
+	assert_eq!(&change, &holding_change);
 
 	assert_eq!(trader.total_fee.peek(), fee);
 	assert_eq!(trader.last_fee_asset, Some(create_asset_id(CLIENT_ASSET)));
 
-	assert_eq!(trader.refund_weight(weight_worth_of(refund), &xcm_context()), None);
+	let refund = trader.refund_weight(weight_worth_of(refund), &xcm_context());
+	assert_eq!(refund.as_ref(), Some(&refund_asset));
+
+	assert_eq!(trader.total_fee.peek(), 0);
+	assert_eq!(trader.refund_weight(weight_worth_of(1), &xcm_context()), None);
 
 	assert_eq!(Fungibles::total_issuance(TARGET_ASSET), target_total);
 	assert_eq!(Fungibles::total_issuance(CLIENT_ASSET), client_total);
