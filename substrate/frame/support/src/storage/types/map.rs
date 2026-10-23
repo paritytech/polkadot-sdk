@@ -762,7 +762,7 @@ mod test {
 
 			A::insert(3, 10);
 			A::insert(4, 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key(3), false);
 			assert_eq!(A::contains_key(4), false);
 
@@ -836,7 +836,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len(3), None);
 			WithLen::append(0, 10);
 			assert_eq!(WithLen::decode_len(0), Some(1));
