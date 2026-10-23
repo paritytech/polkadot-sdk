@@ -1,8 +1,8 @@
-title: Bump ark-vrf to 0.6.0
+title: Bump ark-vrf to 0.6.1
 doc:
 - audience: Runtime Dev
   description: |-
-    Bumps `ark-vrf` from 0.5.3 to 0.6.0. The Bandersnatch VRF primitives in `sp-core` use the new
+    Bumps `ark-vrf` from 0.5.3 to 0.6.1. The Bandersnatch VRF primitives in `sp-core` use the new
     API and its stricter decoders:
 
     - All points and proofs decode with the `_exact` decoders, which reject trailing bytes.

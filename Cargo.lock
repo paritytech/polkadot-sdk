@@ -1664,9 +1664,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vrf"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "578e43862345b4c7900667809bc0b3664dea55aa79c1d8448d853d1d8ee98a6a"
+checksum = "974cf0b193d5097bad0fcc8ffdc9dfc49c63cd5677278104b8960ee374744553"
 dependencies = [
  "ark-bls12-381 0.6.0",
  "ark-ec 0.6.0",
@@ -1676,7 +1676,7 @@ dependencies = [
  "ark-std 0.6.0",
  "digest 0.10.7",
  "sha2 0.10.9",
- "w3f-ring-proof 0.0.10",
+ "w3f-ring-proof 0.0.11",
  "zeroize",
 ]
 
@@ -25598,7 +25598,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
- "ark-vrf 0.6.0",
+ "ark-vrf 0.6.1",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
@@ -30072,6 +30072,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "w3f-plonk-common"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b87f79489cacacb6abe6a41e240bbf73edb517a9bf418a83f218fb72c178481e"
+dependencies = [
+ "ark-ec 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-poly 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "getrandom_or_panic",
+ "rand_core 0.6.4",
+ "subtle 2.6.1",
+ "w3f-pcs 0.0.7",
+]
+
+[[package]]
 name = "w3f-ring-proof"
 version = "0.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -30118,6 +30135,22 @@ dependencies = [
  "ark-transcript 0.0.6",
  "w3f-pcs 0.0.7",
  "w3f-plonk-common 0.0.10",
+]
+
+[[package]]
+name = "w3f-ring-proof"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baebbd0c660fe839a59b6b230a680276504b16d52ab635e2cc11c7a631e5ef4e"
+dependencies = [
+ "ark-ec 0.6.0",
+ "ark-ff 0.6.0",
+ "ark-poly 0.6.0",
+ "ark-serialize 0.6.0",
+ "ark-std 0.6.0",
+ "ark-transcript 0.0.6",
+ "w3f-pcs 0.0.7",
+ "w3f-plonk-common 0.0.11",
 ]
 
 [[package]]
