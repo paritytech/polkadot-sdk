@@ -90,12 +90,11 @@ pub trait WeightInfo {
 	fn drop_contribution() -> Weight;
 	fn drop_history() -> Weight;
 	fn drop_renewal() -> Weight;
+	fn drop_renewal_rights() -> Weight;
 	fn request_core_count(n: u32, ) -> Weight;
 	fn process_core_count(n: u32, ) -> Weight;
 	fn process_revenue() -> Weight;
-	fn rotate_sale(n: u32, ) -> Weight;
-	fn process_pool() -> Weight;
-	fn process_core_schedule() -> Weight;
+	fn timeslice_commited() -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
 	fn notify_revenue() -> Weight;
@@ -108,6 +107,11 @@ pub trait WeightInfo {
 	fn remove_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
 	fn force_transfer() -> Weight;
+	fn process_tick_action_renew_region() -> Weight;
+	fn process_tick_action_sell_region() -> Weight;
+	fn process_tick_action_refund() -> Weight;
+	fn process_tick_action_process_auto_renewals(n: u32) -> Weight;
+	fn process_tick_action_sale_rotated(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -405,6 +409,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	fn drop_renewal_rights() -> Weight {
+		Weight::zero()
+	}
 	/// The range of component `n` is `[0, 1000]`.
 	fn request_core_count(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -442,66 +449,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
-	/// Storage: `Broker::InstaPoolIo` (r:3 w:3)
-	/// Proof: `Broker::InstaPoolIo` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Reservations` (r:1 w:0)
-	/// Proof: `Broker::Reservations` (`max_values`: Some(1), `max_size`: Some(6011), added: 6506, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::ForceReservations` (r:1 w:0)
-	/// Proof: `Broker::ForceReservations` (`max_values`: Some(1), `max_size`: Some(6011), added: 6506, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Leases` (r:1 w:1)
-	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AutoRenewals` (r:1 w:1)
-	/// Proof: `Broker::AutoRenewals` (`max_values`: Some(1), `max_size`: Some(101), added: 596, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::PotentialRenewals` (r:10 w:20)
-	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Configuration` (r:1 w:0)
-	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Status` (r:1 w:0)
-	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:10 w:10)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::SaleInfo` (r:0 w:1)
-	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(61), added: 556, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Workplan` (r:0 w:1000)
-	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[0, 1000]`.
-	fn rotate_sale(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `8090`
-		//  Estimated: `38070`
-		// Minimum execution time: 28_248_000 picoseconds.
-		Weight::from_parts(389_519_219, 38070)
-			// Standard Error: 6_419
-			.saturating_add(Weight::from_parts(1_485_202, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(27_u64))
-			.saturating_add(T::DbWeight::get().writes(34_u64))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
-	}
-	/// Storage: `Broker::InstaPoolIo` (r:1 w:0)
-	/// Proof: `Broker::InstaPoolIo` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::InstaPoolHistory` (r:0 w:1)
-	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-	fn process_pool() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `180`
-		//  Estimated: `3493`
-		// Minimum execution time: 8_356_000 picoseconds.
-		Weight::from_parts(9_086_000, 3493)
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Broker::Workplan` (r:1 w:1)
-	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Workload` (r:1 w:1)
-	/// Proof: `Broker::Workload` (`max_values`: None, `max_size`: Some(1212), added: 3687, mode: `MaxEncodedLen`)
-	fn process_core_schedule() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1423`
-		//  Estimated: `4681`
-		// Minimum execution time: 15_734_000 picoseconds.
-		Weight::from_parts(16_906_000, 4681)
-			.saturating_add(T::DbWeight::get().reads(2_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+	fn timeslice_commited() -> Weight {
+		Weight::zero()
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:
@@ -650,6 +599,26 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(22_967_000, 3551)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+
+	fn process_tick_action_renew_region() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_sell_region() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_refund() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_process_auto_renewals(_n: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_sale_rotated(_n: u32) -> Weight {
+		Weight::zero()
 	}
 }
 
@@ -947,6 +916,9 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
+	fn drop_renewal_rights() -> Weight {
+		Weight::zero()
+	}
 	/// The range of component `n` is `[0, 1000]`.
 	fn request_core_count(_n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
@@ -984,66 +956,8 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
-	/// Storage: `Broker::InstaPoolIo` (r:3 w:3)
-	/// Proof: `Broker::InstaPoolIo` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Reservations` (r:1 w:0)
-	/// Proof: `Broker::Reservations` (`max_values`: Some(1), `max_size`: Some(6011), added: 6506, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::ForceReservations` (r:1 w:0)
-	/// Proof: `Broker::ForceReservations` (`max_values`: Some(1), `max_size`: Some(6011), added: 6506, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Leases` (r:1 w:1)
-	/// Proof: `Broker::Leases` (`max_values`: Some(1), `max_size`: Some(41), added: 536, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::AutoRenewals` (r:1 w:1)
-	/// Proof: `Broker::AutoRenewals` (`max_values`: Some(1), `max_size`: Some(101), added: 596, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::PotentialRenewals` (r:10 w:20)
-	/// Proof: `Broker::PotentialRenewals` (`max_values`: None, `max_size`: Some(1233), added: 3708, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Configuration` (r:1 w:0)
-	/// Proof: `Broker::Configuration` (`max_values`: Some(1), `max_size`: Some(31), added: 526, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Status` (r:1 w:0)
-	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
-	/// Storage: `System::Account` (r:10 w:10)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::SaleInfo` (r:0 w:1)
-	/// Proof: `Broker::SaleInfo` (`max_values`: Some(1), `max_size`: Some(61), added: 556, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Workplan` (r:0 w:1000)
-	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[0, 1000]`.
-	fn rotate_sale(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `8090`
-		//  Estimated: `38070`
-		// Minimum execution time: 28_248_000 picoseconds.
-		Weight::from_parts(389_519_219, 38070)
-			// Standard Error: 6_419
-			.saturating_add(Weight::from_parts(1_485_202, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(27_u64))
-			.saturating_add(RocksDbWeight::get().writes(34_u64))
-			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(n.into())))
-	}
-	/// Storage: `Broker::InstaPoolIo` (r:1 w:0)
-	/// Proof: `Broker::InstaPoolIo` (`max_values`: None, `max_size`: Some(28), added: 2503, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::InstaPoolHistory` (r:0 w:1)
-	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-	fn process_pool() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `180`
-		//  Estimated: `3493`
-		// Minimum execution time: 8_356_000 picoseconds.
-		Weight::from_parts(9_086_000, 3493)
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `Broker::Workplan` (r:1 w:1)
-	/// Proof: `Broker::Workplan` (`max_values`: None, `max_size`: Some(1216), added: 3691, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::Workload` (r:1 w:1)
-	/// Proof: `Broker::Workload` (`max_values`: None, `max_size`: Some(1212), added: 3687, mode: `MaxEncodedLen`)
-	fn process_core_schedule() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `1423`
-		//  Estimated: `4681`
-		// Minimum execution time: 15_734_000 picoseconds.
-		Weight::from_parts(16_906_000, 4681)
-			.saturating_add(RocksDbWeight::get().reads(2_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	fn timeslice_commited() -> Weight {
+		Weight::zero()
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:
@@ -1192,5 +1106,25 @@ impl WeightInfo for () {
 		Weight::from_parts(22_967_000, 3551)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+
+	fn process_tick_action_renew_region() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_sell_region() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_refund() -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_process_auto_renewals(_n: u32) -> Weight {
+		Weight::zero()
+	}
+
+	fn process_tick_action_sale_rotated(_n: u32) -> Weight {
+		Weight::zero()
 	}
 }

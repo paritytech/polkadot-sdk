@@ -18,16 +18,16 @@
 #![cfg(test)]
 
 use crate::{mock::*, *};
+use fp_coretime::market::{Market, RenewalRightsProvider};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
-use frame_system::RawOrigin::Root;
 use pretty_assertions::assert_eq;
 use sp_runtime::{
 	traits::{BadOrigin, Get},
-	DispatchError, Perbill, TokenError,
+	DispatchError, TokenError,
 };
 use CoreAssignment::*;
 use CoretimeTraceItem::*;
@@ -36,7 +36,7 @@ use Finality::*;
 #[test]
 fn basic_initialize_works() {
 	TestExt::new().execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		assert_eq!(CoretimeTrace::get(), vec![]);
 		assert_eq!(Broker::current_timeslice(), 0);
 	});
@@ -45,9 +45,9 @@ fn basic_initialize_works() {
 #[test]
 fn drop_region_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
 		advance_to(11);
 		assert_noop!(Broker::do_drop_region(region), Error::<Test>::StillValid);
@@ -73,9 +73,9 @@ fn drop_region_works() {
 #[test]
 fn drop_renewal_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
 		advance_to(11);
 		let e = Error::<Test>::StillValid;
@@ -92,9 +92,9 @@ fn drop_renewal_works() {
 #[test]
 fn drop_contribution_works() {
 	TestExt::new().contribution_timeout(3).endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
 		// expect the contribution record to timeout 3 timeslices following 7 = 14
 		//
@@ -118,9 +118,9 @@ fn drop_history_works() {
 		.endow(1, 1000)
 		.endow(2, 50)
 		.execute_with(|| {
-			assert_ok!(Broker::do_start_sales(100, 1));
+			assert_ok!(Broker::do_start_sales((), 1));
 			advance_to(2);
-			let mut region = Broker::do_purchase(1, u64::max_value()).unwrap();
+			let mut region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 			// Place region in pool. Active in pool timeslices 4, 5, 6 = rcblocks 8, 10, 12; we
 			// expect to make/receive revenue reports on blocks 10, 12, 14.
 			assert_ok!(Broker::do_pool(region, Some(1), 1, Final));
@@ -178,7 +178,7 @@ fn drop_history_works() {
 #[test]
 fn request_core_count_works() {
 	TestExt::new().execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 0));
+		assert_ok!(Broker::do_start_sales((), 0));
 		assert_ok!(Broker::request_core_count(RuntimeOrigin::root(), 1));
 		advance_to(12);
 		let assignment = vec![(Pool, 57600)];
@@ -192,9 +192,9 @@ fn request_core_count_works() {
 #[test]
 fn transfer_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(<Broker as Transfer<_>>::transfer(&region.into(), &2));
 		assert_eq!(<Broker as NftInspect<_>>::owner(&region.into()), Some(2));
 		assert_noop!(Broker::do_assign(region, Some(1), 1001, Final), Error::<Test>::NotOwner);
@@ -211,9 +211,9 @@ fn mutate_operations_work() {
 			Error::<Test>::UnknownRegion
 		);
 
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_noop!(
 			<Broker as Mutate<_>>::mint_into(&region_id.into(), &2),
 			Error::<Test>::NotAllowed
@@ -246,9 +246,9 @@ fn mutate_operations_work() {
 #[test]
 fn mutate_operations_work_with_partitioned_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, _region2) = Broker::do_partition(region, None, 2).unwrap();
 		let record_1 = Regions::<Test>::get(region1).unwrap();
 
@@ -267,9 +267,9 @@ fn mutate_operations_work_with_partitioned_region() {
 #[test]
 fn mutate_operations_work_with_interlaced_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, _region2) =
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 40)).unwrap();
 		let record_1 = Regions::<Test>::get(region1).unwrap();
@@ -289,9 +289,9 @@ fn mutate_operations_work_with_interlaced_region() {
 #[test]
 fn permanent_is_not_reassignable() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
 		assert_noop!(Broker::do_assign(region, Some(1), 1002, Final), Error::<Test>::UnknownRegion);
 		assert_noop!(Broker::do_pool(region, Some(1), 1002, Final), Error::<Test>::UnknownRegion);
@@ -306,9 +306,9 @@ fn permanent_is_not_reassignable() {
 #[test]
 fn provisional_is_reassignable() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
 		let (region1, region) = Broker::do_partition(region, Some(1), 1).unwrap();
 		let (region2, region3) =
@@ -346,16 +346,16 @@ fn provisional_is_reassignable() {
 #[test]
 fn nft_metadata_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_eq!(attribute::<Timeslice>(region, b"begin"), 4);
 		assert_eq!(attribute::<Timeslice>(region, b"length"), 3);
 		assert_eq!(attribute::<Timeslice>(region, b"end"), 7);
 		assert_eq!(attribute::<Option<u64>>(region, b"owner"), Some(1));
 		assert_eq!(attribute::<CoreMask>(region, b"part"), 0xfffff_fffff_fffff_fffff.into());
 		assert_eq!(attribute::<CoreIndex>(region, b"core"), 0);
-		assert_eq!(attribute::<Option<u64>>(region, b"paid"), Some(100));
+		assert_eq!(attribute::<Option<u64>>(region, b"paid"), Some(REGION_PRICE));
 
 		assert_ok!(Broker::do_transfer(region, None, 42));
 		let (_, region) = Broker::do_partition(region, None, 2).unwrap();
@@ -375,7 +375,7 @@ fn nft_metadata_works() {
 fn migration_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_set_lease(1000, 8));
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 
 		// Sale is for regions from TS4..7
 		// Not ending in this sale period.
@@ -386,7 +386,7 @@ fn migration_works() {
 		// Ending in this sale period.
 		// Should now be renewable.
 		assert_ok!(Broker::do_renew(1, 0));
-		assert_eq!(balance(1), 900);
+		assert_eq!(balance(1), 1000 - REGION_RENEWAL_PRICE);
 		advance_to(18);
 
 		let just_pool = || vec![(Pool, 57600)];
@@ -407,7 +407,9 @@ fn migration_works() {
 
 #[test]
 fn migration_v5_reconstructs_sale_index_from_region_begin() {
-	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
+	use crate::migration::v5::{
+		FirstSaleRegion, MigrateToV5Impl, SaleInfo, SaleInfoRecordV4, SaleInfoV4,
+	};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 
 	struct FirstRegion;
@@ -418,23 +420,20 @@ fn migration_v5_reconstructs_sale_index_from_region_begin() {
 	}
 
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
 		let region_length = Configuration::<Test>::get().unwrap().region_length;
-		let template = SaleInfo::<Test>::get().unwrap();
 
 		let migrate_with_region_begin = |region_begin: Timeslice| {
-			// Write the pre-v5 record (old layout, no `sale_index`) that the migration reads.
-			old::SaleInfo::<Test>::put(old::SaleInfoRecord {
-				sale_start: template.sale_start,
-				leadin_length: template.leadin_length,
-				end_price: template.end_price,
+			SaleInfoV4::<Test>::put(SaleInfoRecordV4 {
+				sale_start: 0,
+				leadin_length: 0,
+				end_price: 0,
 				region_begin,
 				region_end: region_begin + region_length,
-				ideal_cores_sold: template.ideal_cores_sold,
-				cores_offered: template.cores_offered,
-				first_core: template.first_core,
-				sellout_price: template.sellout_price,
-				cores_sold: template.cores_sold,
+				ideal_cores_sold: 0,
+				cores_offered: 0,
+				first_core: 0,
+				sellout_price: None,
+				cores_sold: 0,
 			});
 
 			let _ = <MigrateToV5Impl<Test, FirstRegion> as UncheckedOnRuntimeUpgrade>::on_runtime_upgrade();
@@ -451,7 +450,9 @@ fn migration_v5_reconstructs_sale_index_from_region_begin() {
 
 #[test]
 fn migration_v5_defaults_sale_index_when_configuration_missing() {
-	use crate::migration::v5::{old, FirstSaleRegion, MigrateToV5Impl};
+	use crate::migration::v5::{
+		FirstSaleRegion, MigrateToV5Impl, SaleInfo, SaleInfoRecordV4, SaleInfoV4,
+	};
 	use frame_support::traits::UncheckedOnRuntimeUpgrade;
 	use sp_tracing::{
 		test_log_capture::init_log_capture,
@@ -466,22 +467,19 @@ fn migration_v5_defaults_sale_index_when_configuration_missing() {
 	}
 
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
 		let region_length = Configuration::<Test>::get().unwrap().region_length;
-		let template = SaleInfo::<Test>::get().unwrap();
 
-		// Pre-v5 record present, Configuration gone: migration must not panic, still rewrites it.
-		old::SaleInfo::<Test>::put(old::SaleInfoRecord {
-			sale_start: template.sale_start,
-			leadin_length: template.leadin_length,
-			end_price: template.end_price,
+		SaleInfoV4::<Test>::put(SaleInfoRecordV4 {
+			sale_start: 0,
+			leadin_length: 0,
+			end_price: 0,
 			region_begin: 100 + 5 * region_length,
 			region_end: 100 + 6 * region_length,
-			ideal_cores_sold: template.ideal_cores_sold,
-			cores_offered: template.cores_offered,
-			first_core: template.first_core,
-			sellout_price: template.sellout_price,
-			cores_sold: template.cores_sold,
+			ideal_cores_sold: 0,
+			cores_offered: 0,
+			first_core: 0,
+			sellout_price: None,
+			cores_sold: 0,
 		});
 		Configuration::<Test>::kill();
 
@@ -529,159 +527,21 @@ fn migration_v5_post_upgrade_accepts_missing_sale_info() {
 fn renewal_works() {
 	let b = 100_000;
 	TestExt::new().endow(1, b).execute_with(move || {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(balance(1), 99_900);
+
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
-		// Should now be renewable.
-		advance_to(6);
-		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
-		let core = Broker::do_renew(1, region.core).unwrap();
-		assert_eq!(balance(1), 99_800);
-		advance_to(8);
-		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
-		advance_to(12);
+
+		advance_sale_period();
+
+		let core = do_renew_and_get_the_new_core(1, region.core).unwrap();
+		assert_noop!(Broker::do_renew(1, core), Error::<Test>::NotAllowed);
+
+		advance_sale_period();
+
 		assert_ok!(Broker::do_renew(1, core));
-		assert_eq!(balance(1), 99_690);
 	});
-}
-
-#[test]
-/// Renewals have to affect price as well. Otherwise a market where everything is a renewal would
-/// not work. Renewals happening in the leadin or after are effectively competing with the open
-/// market and it makes sense to adjust the price to what was paid here. Assuming all renewals were
-/// done in the interlude and only normal sales happen in the leadin, renewals will have no effect
-/// on price. If there are no cores left for sale on the open markent, renewals will affect price
-/// even in the interlude, making sure renewal prices stay in the range of the open market.
-fn renewals_affect_price() {
-	sp_tracing::try_init_simple();
-	let b = 100_000;
-	let config = ConfigRecord {
-		advance_notice: 2,
-		interlude_length: 10,
-		leadin_length: 20,
-		ideal_bulk_proportion: Perbill::from_percent(100),
-		limit_cores_offered: None,
-		// Region length is in time slices (2 blocks):
-		region_length: 20,
-		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
-	};
-	TestExt::new_with_config(config).endow(1, b).execute_with(|| {
-		let price = 910;
-		assert_ok!(Broker::do_start_sales(10, 1));
-		advance_to(11);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		// Price is lower, because already one block in:
-		let b = b - price;
-		assert_eq!(balance(1), b);
-		assert_ok!(Broker::do_assign(region, None, 1001, Final));
-		advance_to(40);
-		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
-		let core = Broker::do_renew(1, region.core).unwrap();
-		// First renewal has same price as initial purchase.
-		let b = b - price;
-		assert_eq!(balance(1), b);
-		advance_to(51);
-		assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::SoldOut);
-		advance_to(81);
-		assert_ok!(Broker::do_renew(1, core));
-		// Renewal bump in effect
-		let price = price + Perbill::from_percent(10) * price;
-		let b = b - price;
-		assert_eq!(balance(1), b);
-
-		// Move after interlude and leadin - should reduce price.
-		advance_to(159);
-		Broker::do_renew(1, region.core).unwrap();
-		let price = price + Perbill::from_percent(10) * price;
-		let b = b - price;
-		assert_eq!(balance(1), b);
-
-		advance_to(161);
-		// Should have the reduced price now:
-		Broker::do_renew(1, region.core).unwrap();
-		let price = 100;
-		let b = b - price;
-		assert_eq!(balance(1), b);
-
-		// Price should be bumped normally again:
-		advance_to(201);
-		Broker::do_renew(1, region.core).unwrap();
-		let price = 110;
-		let b = b - price;
-		assert_eq!(balance(1), b);
-	});
-}
-
-#[test]
-/// Renewals adjust to lower end of market
-fn renewal_price_adjusts_to_lower_market_end() {
-	sp_tracing::try_init_simple();
-	let b = 100_000_000;
-	let region_length_blocks = 40;
-	let config = ConfigRecord {
-		advance_notice: 2,
-		interlude_length: 10,
-		leadin_length: 20,
-		ideal_bulk_proportion: Perbill::from_percent(100),
-		limit_cores_offered: None,
-		// Region length is in time slices (2 blocks):
-		region_length: 20,
-		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
-	};
-	TestExt::new_with_config(config.clone())
-		.endow(1, b)
-		.endow(2, b)
-		.execute_with(|| {
-			let price = 910;
-			assert_ok!(Broker::do_start_sales(10, 2));
-			advance_to(11);
-			let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-			// Price is lower, because already one block in:
-			let b = b - price;
-			assert_eq!(balance(1), b);
-			assert_ok!(Broker::do_assign(region, None, 1001, Final));
-			advance_to(region_length_blocks);
-			assert_noop!(Broker::do_purchase(1, u64::max_value()), Error::<Test>::TooEarly);
-
-			let core = Broker::do_renew(1, region.core).unwrap();
-			// First renewal has same price as initial purchase.
-			let b = b - price;
-			assert_eq!(balance(1), b);
-			// Ramp up price:
-			advance_to(region_length_blocks + config.interlude_length + 1);
-			Broker::do_purchase(2, u64::max_value()).unwrap();
-
-			advance_to(2 * region_length_blocks);
-			assert_ok!(Broker::do_renew(1, core));
-			// Renewal bump in effect
-			let price = price + Perbill::from_percent(10) * price;
-			let b = b - price;
-			assert_eq!(balance(1), b);
-			// Ramp up price again:
-			advance_to(2 * region_length_blocks + config.interlude_length + 1);
-			Broker::do_purchase(2, u64::max_value()).unwrap();
-
-			advance_to(3 * region_length_blocks);
-			assert_ok!(Broker::do_renew(1, core));
-			// Renewal bump still in effect
-			let price = price + Perbill::from_percent(10) * price;
-			let b = b - price;
-			assert_eq!(balance(1), b);
-			// No further price ramp up necessary - the price of this sale is relevant for next
-			// renewal.
-			let end_price = SaleInfo::<Test>::get().unwrap().end_price;
-
-			advance_to(4 * region_length_blocks);
-			assert_ok!(Broker::do_renew(1, core));
-			// Renewal bump trumped by end price of previous sale.
-			let price = end_price;
-			let b = b - price;
-			assert_eq!(balance(1), b);
-		});
 }
 
 #[test]
@@ -689,21 +549,21 @@ fn instapool_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), REGION_PRICE);
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		// Should get revenue amount 10 from RC, from which 6 is system payout (goes to account0
 		// instantly) and the rest is private (kept in the pot until claimed)
 		assert_eq!(pot(), 4);
-		assert_eq!(revenue(), 106);
+		assert_eq!(revenue(), REGION_PRICE + 6);
 
 		// Cannot claim for 0 timeslices.
 		assert_noop!(Broker::do_claim_revenue(region, 0), Error::<Test>::NoClaimTimeslices);
@@ -711,7 +571,7 @@ fn instapool_payouts_work() {
 		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 106);
+		assert_eq!(revenue(), REGION_PRICE + 6);
 		assert_eq!(balance(2), 4);
 	});
 }
@@ -721,9 +581,9 @@ fn instapool_partial_core_payouts_work() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, region2) =
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 20)).unwrap();
 		assert_ok!(Broker::do_pool(region1, None, 2, Final));
@@ -731,7 +591,7 @@ fn instapool_partial_core_payouts_work() {
 		// Buy and spend 40 credits to make the interlaced region payouts a nice round number.
 		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
 		advance_to(11);
@@ -744,17 +604,17 @@ fn instapool_partial_core_payouts_work() {
 		assert_eq!(balance(3), 15);
 		// And the bookkeeping is correct.
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 120);
+		assert_eq!(revenue(), REGION_PRICE + 20);
 	});
 }
 
 #[test]
 fn instapool_core_payouts_work_with_partitioned_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), REGION_PRICE);
 		let (region1, region2) = Broker::do_partition(region, None, 2).unwrap();
 		// `region1` duration is from rcblock 8 to rcblock 12. This means that the
 		// coretime purchased during this time period will be purchased from `region1`
@@ -765,12 +625,12 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		assert_eq!(pot(), 10);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
 		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 10);
@@ -791,12 +651,12 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 3));
+		assert_ok!(Broker::do_start_sales((), 3));
 		advance_to(2);
 
 		// Buy core to add to pool. This adds 100 to revenue.
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), REGION_PRICE);
 
 		// Ensure InstaPoolIo corresponds to one full region provided by the system.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -837,17 +697,17 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 
 		// Revenue cannot be claimed for the old region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 		assert_eq!(balance(2), 0);
 	});
 }
@@ -857,11 +717,11 @@ fn insta_pool_history_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		// We'll be calling get() on this a lot.
 		type Io = InstaPoolIo<Test>;
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 
 		// Buy core to add to pool.
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 
 		// Ensure InstaPoolIo is zeroed.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -928,7 +788,7 @@ fn force_unpool_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		// We'll be calling get() on this a lot.
 		type Io = InstaPoolIo<Test>;
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 
 		// Started with nothing in pool.
@@ -937,7 +797,7 @@ fn force_unpool_works() {
 		);
 
 		// Buy core to add to pool.
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 
 		// Ensure InstaPoolIo is zeroed.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -1022,12 +882,12 @@ fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
 
 		// Buy core to add to pool. This adds 100 to revenue.
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), REGION_PRICE);
 
 		// Ensure InstaPoolIo corresponds to one full region provided by the system.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -1068,18 +928,18 @@ fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		// Pot is still zero and the 10 is all system revenue.
 		advance_to(11);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 
 		// Revenue cannot be claimed for the old region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 		assert_eq!(balance(2), 0);
 	});
 }
@@ -1089,12 +949,12 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
 
 		// Buy core to add to pool. This adds 100 to revenue.
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(revenue(), REGION_PRICE);
 
 		// Ensure InstaPoolIo corresponds to one full region provided by the system.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -1135,18 +995,18 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		// Pot is still zero and the 10 is all system revenue.
 		advance_to(11);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 
 		// Revenue cannot be claimed for the reassigned region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 		assert_eq!(balance(2), 0);
 	});
 }
@@ -1154,10 +1014,10 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 #[test]
 fn instapool_contributions_cannot_be_duplicated_through_repooling() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let region = Regions::<Test>::get(&region_id).unwrap();
 
 		// Pooling the same region provisionally twice only counts it once.
@@ -1182,7 +1042,7 @@ fn initialize_with_system_paras_works() {
 			ScheduleItem { assignment: Task(4u32), mask: 0x00000_00000_00000_fffff.into() },
 		];
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(items)));
-		assert_ok!(Broker::do_start_sales(100, 0));
+		assert_ok!(Broker::do_start_sales((), 0));
 		advance_to(10);
 		assert_eq!(
 			CoretimeTrace::get(),
@@ -1215,8 +1075,12 @@ fn initialize_with_leased_slots_works() {
 	TestExt::new().execute_with(|| {
 		assert_ok!(Broker::do_set_lease(1000, 6));
 		assert_ok!(Broker::do_set_lease(1001, 7));
-		assert_ok!(Broker::do_start_sales(100, 0));
-		advance_to(18);
+		assert_ok!(Broker::do_start_sales((), 0));
+
+		advance_sale_period();
+		advance_sale_period();
+		advance_sale_period();
+
 		let end_hint = None;
 		assert_eq!(
 			CoretimeTrace::get(),
@@ -1259,9 +1123,9 @@ fn initialize_with_leased_slots_works() {
 #[test]
 fn purchase_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, None, 1000, Final));
 		advance_to(6);
 		assert_eq!(
@@ -1282,7 +1146,7 @@ fn purchase_works() {
 #[test]
 fn purchase_credit_works() {
 	TestExt::new().endow(1, 50).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 
 		let credits = CoretimeCredit::get();
@@ -1300,9 +1164,9 @@ fn purchase_credit_works() {
 #[test]
 fn partition_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, region) = Broker::do_partition(region, None, 1).unwrap();
 		let (region2, region3) = Broker::do_partition(region, None, 1).unwrap();
 		assert_ok!(Broker::do_assign(region1, None, 1001, Final));
@@ -1347,9 +1211,9 @@ fn partition_works() {
 #[test]
 fn interlace_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, region) =
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 30)).unwrap();
 		let (region2, region3) =
@@ -1376,9 +1240,9 @@ fn interlace_works() {
 #[test]
 fn cant_assign_unowned_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, region2) =
 			Broker::do_interlace(region, Some(1), CoreMask::from_chunk(0, 30)).unwrap();
 
@@ -1413,9 +1277,9 @@ fn cant_assign_unowned_region() {
 #[test]
 fn interlace_then_partition_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, region2) =
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 20)).unwrap();
 		let (region1, region3) = Broker::do_partition(region1, None, 1).unwrap();
@@ -1463,9 +1327,9 @@ fn interlace_then_partition_works() {
 #[test]
 fn partition_then_interlace_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, region2) = Broker::do_partition(region, None, 1).unwrap();
 		let (region1, region3) =
 			Broker::do_interlace(region1, None, CoreMask::from_chunk(0, 20)).unwrap();
@@ -1505,11 +1369,11 @@ fn partition_then_interlace_works() {
 #[test]
 fn partitioning_after_assignment_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 		// We will initially allocate a task to a purchased region, and after that
 		// we will proceed to partition the region.
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, None, 1001, Provisional));
 		let (_region, region1) = Broker::do_partition(region, None, 2).unwrap();
 		// After the partitioning if we assign a new task to `region` the other region
@@ -1545,11 +1409,11 @@ fn partitioning_after_assignment_works() {
 #[test]
 fn interlacing_after_assignment_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 		// We will initially allocate a task to a purchased region, and after that
 		// we will proceed to interlace the region.
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, None, 1001, Provisional));
 		let (region1, _region) =
 			Broker::do_interlace(region, None, CoreMask::from_chunk(0, 40)).unwrap();
@@ -1617,7 +1481,7 @@ fn cannot_set_expired_lease() {
 #[test]
 fn short_leases_are_cleaned() {
 	TestExt::new().region_length(3).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(200, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 
 		// New leases are allowed to expire within this region given expiry > `current_timeslice`.
@@ -1629,10 +1493,8 @@ fn short_leases_are_cleaned() {
 		assert_ok!(Broker::do_set_lease(1000, Broker::current_timeslice().saturating_add(1)));
 		assert_eq!(Leases::<Test>::get().len(), 1);
 
-		// But are cleaned up in the next rotate_sale.
-		let config = Configuration::<Test>::get().unwrap();
-		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
-		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
+		advance_sale_period();
+
 		assert_eq!(Leases::<Test>::get().len(), 0);
 	});
 }
@@ -1649,7 +1511,7 @@ fn leases_can_be_renewed() {
 		assert_ok!(Broker::do_set_lease(2001, 9));
 		assert_eq!(Leases::<Test>::get().len(), 1);
 		// Start the sales with only one core for this lease.
-		assert_ok!(Broker::do_start_sales(100, 0));
+		assert_ok!(Broker::do_start_sales((), 0));
 
 		// Advance to sale period 1, we should get an PotentialRenewal for task 2001 for the next
 		// sale.
@@ -1657,7 +1519,6 @@ fn leases_can_be_renewed() {
 		assert_eq!(
 			PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 10 }),
 			Some(PotentialRenewalRecord {
-				price: 1000,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
 						.try_into()
@@ -1671,8 +1532,7 @@ fn leases_can_be_renewed() {
 		// Advance to sale period 2, where we can renew.
 		advance_sale_period();
 		assert_ok!(Broker::do_renew(1, 0));
-		// We renew for the price of the previous sale period.
-		assert_eq!(balance(1), initial_balance - 1000);
+		assert_eq!(balance(1), initial_balance - REGION_RENEWAL_PRICE);
 
 		// We just renewed for this period.
 		advance_sale_period();
@@ -1729,8 +1589,8 @@ fn leases_can_be_renewed() {
 	});
 }
 
-// We understand that this does not work as intended for leases that expire within `region_length`
-// timeslices after calling `start_sales`.
+// We understand that this does not work as intended for leases that expire within
+// `region_length` timeslices after calling `start_sales`.
 #[test]
 fn short_leases_cannot_be_renewed() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
@@ -1742,7 +1602,7 @@ fn short_leases_cannot_be_renewed() {
 		assert_ok!(Broker::do_set_lease(2001, 3));
 		assert_eq!(Leases::<Test>::get().len(), 1);
 		// Start the sales with one core for this lease.
-		assert_ok!(Broker::do_start_sales(100, 0));
+		assert_ok!(Broker::do_start_sales((), 0));
 
 		// The lease is removed.
 		assert_eq!(Leases::<Test>::get().len(), 0);
@@ -1759,7 +1619,9 @@ fn short_leases_cannot_be_renewed() {
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
 		// Advance to sale period 2, where we now cannot renew.
-		advance_to(13);
+		advance_sale_period();
+		advance_sale_period();
+
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
 
 		// Check the trace.
@@ -1821,99 +1683,9 @@ fn remove_lease_works() {
 }
 
 #[test]
-fn purchase_requires_valid_status_and_sale_info() {
-	TestExt::new().execute_with(|| {
-		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Uninitialized);
-
-		let status = StatusRecord {
-			core_count: 2,
-			private_pool_size: 0,
-			system_pool_size: 0,
-			last_committed_timeslice: 0,
-			last_timeslice: 1,
-		};
-		Status::<Test>::put(&status);
-		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::NoSales);
-
-		let mut dummy_sale = SaleInfoRecord {
-			sale_start: 0,
-			leadin_length: 0,
-			end_price: 200,
-			sellout_price: None,
-			region_begin: 0,
-			region_end: 3,
-			first_core: 3,
-			ideal_cores_sold: 0,
-			cores_offered: 1,
-			cores_sold: 2,
-			sale_index: 0,
-		};
-		SaleInfo::<Test>::put(&dummy_sale);
-		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Unavailable);
-
-		dummy_sale.first_core = 1;
-		SaleInfo::<Test>::put(&dummy_sale);
-		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::SoldOut);
-
-		assert_ok!(Broker::do_start_sales(200, 1));
-		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::TooEarly);
-
-		advance_to(2);
-		assert_noop!(Broker::do_purchase(1, 100), Error::<Test>::Overpriced);
-	});
-}
-
-#[test]
-fn renewal_requires_valid_status_and_sale_info() {
-	TestExt::new().execute_with(|| {
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Uninitialized);
-
-		let status = StatusRecord {
-			core_count: 2,
-			private_pool_size: 0,
-			system_pool_size: 0,
-			last_committed_timeslice: 0,
-			last_timeslice: 1,
-		};
-		Status::<Test>::put(&status);
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NoSales);
-
-		let mut dummy_sale = SaleInfoRecord {
-			sale_start: 0,
-			leadin_length: 0,
-			end_price: 200,
-			sellout_price: None,
-			region_begin: 0,
-			region_end: 3,
-			first_core: 3,
-			ideal_cores_sold: 0,
-			cores_offered: 1,
-			cores_sold: 2,
-			sale_index: 0,
-		};
-		SaleInfo::<Test>::put(&dummy_sale);
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);
-
-		dummy_sale.first_core = 1;
-		SaleInfo::<Test>::put(&dummy_sale);
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
-
-		assert_ok!(Broker::do_start_sales(200, 1));
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
-
-		let record = PotentialRenewalRecord {
-			price: 100,
-			completion: CompletionStatus::Partial(CoreMask::from_chunk(0, 20)),
-		};
-		PotentialRenewals::<Test>::insert(PotentialRenewalId { core: 1, when: 4 }, &record);
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::IncompleteAssignment);
-	});
-}
-
-#[test]
 fn cannot_transfer_or_partition_or_interlace_unknown() {
 	TestExt::new().execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 		let region_id = RegionId { begin: 0, core: 0, mask: CoreMask::complete() };
 		assert_noop!(Broker::do_transfer(region_id, None, 2), Error::<Test>::UnknownRegion);
@@ -1928,9 +1700,9 @@ fn cannot_transfer_or_partition_or_interlace_unknown() {
 #[test]
 fn check_ownership_for_transfer_or_partition_or_interlace() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_noop!(Broker::do_transfer(region, Some(2), 2), Error::<Test>::NotOwner);
 		assert_noop!(Broker::do_partition(region, Some(2), 2), Error::<Test>::NotOwner);
 		assert_noop!(
@@ -1943,9 +1715,9 @@ fn check_ownership_for_transfer_or_partition_or_interlace() {
 #[test]
 fn cannot_partition_invalid_offset() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_noop!(Broker::do_partition(region, None, 0), Error::<Test>::PivotTooEarly);
 		assert_noop!(Broker::do_partition(region, None, 5), Error::<Test>::PivotTooLate);
 	});
@@ -1954,9 +1726,9 @@ fn cannot_partition_invalid_offset() {
 #[test]
 fn cannot_interlace_invalid_pivot() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let (region1, _) = Broker::do_interlace(region, None, CoreMask::from_chunk(0, 20)).unwrap();
 		assert_noop!(
 			Broker::do_interlace(region1, None, CoreMask::from_chunk(20, 40)),
@@ -1976,9 +1748,9 @@ fn cannot_interlace_invalid_pivot() {
 #[test]
 fn assign_should_drop_invalid_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let mut region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let mut region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		advance_to(10);
 		assert_ok!(Broker::do_assign(region, Some(1), 1001, Provisional));
 		region.begin = 7;
@@ -1989,25 +1761,13 @@ fn assign_should_drop_invalid_region() {
 #[test]
 fn pool_should_drop_invalid_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let mut region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let mut region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		advance_to(10);
 		assert_ok!(Broker::do_pool(region, Some(1), 1001, Provisional));
 		region.begin = 7;
 		System::assert_last_event(Event::RegionDropped { region_id: region, duration: 3 }.into());
-	});
-}
-
-#[test]
-fn config_works() {
-	TestExt::new().execute_with(|| {
-		let mut cfg = new_config();
-		// Good config works:
-		assert_ok!(Broker::configure(Root.into(), cfg.clone()));
-		// Bad config is a noop:
-		cfg.leadin_length = 0;
-		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
 	});
 }
 
@@ -2030,9 +1790,9 @@ fn renewal_works_leases_ended_before_start_sales() {
 		));
 
 		// This intializes the first sale and the period 0.
-		assert_ok!(Broker::do_start_sales(100, 0));
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::Unavailable);
-		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::Unavailable);
+		assert_ok!(Broker::do_start_sales((), 0));
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
 
 		// Lease for task 1 should have been dropped.
 		assert!(Leases::<Test>::get().iter().any(|l| l.task == 2));
@@ -2041,18 +1801,16 @@ fn renewal_works_leases_ended_before_start_sales() {
 		advance_sale_period();
 
 		// Now we can finally renew the core 0 of task 1.
-		let new_core = Broker::do_renew(1, 0).unwrap();
+		let new_core = do_renew_and_get_the_new_core(1, 0).unwrap();
 		// Renewing the active lease doesn't work.
-		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 99000);
+		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
 
 		// This intializes the third sale and the period 2.
 		advance_sale_period();
-		let new_core = Broker::do_renew(1, new_core).unwrap();
+		let new_core = do_renew_and_get_the_new_core(1, new_core).unwrap();
 
 		// Renewing the active lease doesn't work.
-		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::SoldOut);
-		assert_eq!(balance(1), 98900);
+		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
 
 		// All leases should have ended
 		assert!(Leases::<Test>::get().is_empty());
@@ -2061,10 +1819,9 @@ fn renewal_works_leases_ended_before_start_sales() {
 		advance_sale_period();
 
 		// Renew again
-		assert_eq!(0, Broker::do_renew(1, new_core).unwrap());
+		assert_eq!(0, do_renew_and_get_the_new_core(1, new_core).unwrap());
 		// Renew the task 2.
-		assert_eq!(1, Broker::do_renew(1, 0).unwrap());
-		assert_eq!(balance(1), 98790);
+		assert_eq!(1, do_renew_and_get_the_new_core(1, 0).unwrap());
 
 		// This intializes the fifth sale and the period 4.
 		advance_sale_period();
@@ -2151,10 +1908,10 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 #[test]
 fn enable_auto_renew_works() {
-	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 5));
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales((), 5));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let record = Regions::<Test>::get(region_id).unwrap();
 
 		// Cannot enable auto renewal with provisional finality:
@@ -2189,8 +1946,8 @@ fn enable_auto_renew_works() {
 		);
 
 		// Enabling auto-renewal for more cores to ensure they are sorted based on core index.
-		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
-		let region_3 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_2 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_3 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
 		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
 		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(7)));
@@ -2207,7 +1964,7 @@ fn enable_auto_renew_works() {
 
 		// Ensure that we cannot enable more auto renewals than `MaxAutoRenewals`.
 		// We already enabled it for three cores, and the limit is set to 3.
-		let region_4 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_4 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_4, Some(1), 1004, Final));
 
 		assert_noop!(
@@ -2223,11 +1980,10 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 		// With this test, we ensure that we don't renew unnecessarily if the task has Coretime
 		// reserved (due to having a lease)
 
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 
 		let record = PotentialRenewalRecord {
-			price: 100,
 			completion: CompletionStatus::Complete(
 				vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1001) }]
 					.try_into()
@@ -2254,17 +2010,14 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 		);
 		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 0, task: 1001 }.into());
 
-		// Next cycle starting at 7.
-		advance_to(7);
+		advance_sale_period();
 
 		// Ensure that the renewal didn't happen by checking that the balance remained the same, as
 		// there is still no need to renew.
 		assert_eq!(balance(1001), 1000);
 
-		// The next sale starts at 13. The renewal should happen now and the account should be
-		// charged.
-		advance_to(13);
-		assert_eq!(balance(1001), 900);
+		// The renewal should happen now.
+		advance_sale_period();
 
 		// Make sure that the renewal happened:
 		System::assert_has_event(
@@ -2272,7 +2025,7 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 				who: 1001, // sovereign account
 				old_core: 0,
 				core: 0,
-				price: 100,
+				price: REGION_RENEWAL_PRICE,
 				begin: 10,
 				duration: 3,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
@@ -2288,9 +2041,9 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 #[test]
 fn enable_auto_renew_renews() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
 		// advance to next bulk sale:
@@ -2328,25 +2081,30 @@ fn enable_auto_renew_renews() {
 #[test]
 fn auto_renewal_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 3));
+		assert_ok!(Broker::do_start_sales((), 3));
 		advance_to(2);
-		let region_1 = Broker::do_purchase(1, u64::max_value()).unwrap();
-		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
-		let region_3 = Broker::do_purchase(1, u64::max_value()).unwrap();
+
+		let region_1 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_2 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_3 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 
 		// Eligible for renewal after final assignment:
 		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
 		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
 		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
-		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(7)));
-		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(7)));
-		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(7)));
+
+		let workload_end = MarketMock::get_sale_info().unwrap().region_end;
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(workload_end)));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(workload_end)));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(workload_end)));
+
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 },
-				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
-				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: workload_end },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: workload_end },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: workload_end },
 			]
 		);
 
@@ -2355,16 +2113,15 @@ fn auto_renewal_works() {
 		// We skip funding the sovereign account of task 1002 on purpose.
 		endow(1003, 1000);
 
-		// Next cycle starting at 7.
-		advance_to(7);
+		advance_sale_period();
 		System::assert_has_event(
 			Event::<Test>::Renewed {
 				who: 1001, // sovereign account
 				old_core: 0,
 				core: 0,
-				price: 100,
-				begin: 7,
-				duration: 3,
+				price: REGION_RENEWAL_PRICE,
+				begin: workload_end,
+				duration: REGION_LENGTH,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
 					assignment: Task(1001),
 					mask: CoreMask::complete(),
@@ -2381,9 +2138,9 @@ fn auto_renewal_works() {
 				who: 1003, // sovereign account
 				old_core: 2,
 				core: 1, // Core #1 didn't get renewed, so core #2 will take its place.
-				price: 100,
-				begin: 7,
-				duration: 3,
+				price: REGION_RENEWAL_PRICE,
+				begin: workload_end,
+				duration: REGION_LENGTH,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
 					assignment: Task(1003),
 					mask: CoreMask::complete(),
@@ -2392,13 +2149,15 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
+		let next_renewal = MarketMock::get_sale_info().unwrap().region_end;
+
 		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
-				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal },
+				AutoRenewalRecord { core: 1, task: 1003, next_renewal },
 			]
 		);
 	});
@@ -2407,26 +2166,17 @@ fn auto_renewal_works() {
 #[test]
 fn enable_auto_renew_immediate_updates_core_and_renews() {
 	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
 
 		// Rotate into the next sale where this region is renewable.
-		let sale = SaleInfo::<Test>::get().unwrap();
-		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
-		let next_sale_block = sale.region_begin as u64 * timeslice_period;
-		advance_to(next_sale_block);
-
-		let sale = SaleInfo::<Test>::get().unwrap();
-		if System::block_number() <= sale.sale_start {
-			advance_to(sale.sale_start + 1);
-		}
+		advance_sale_period();
 
 		// Pre-sell a core to ensure the renewal allocates a different core index.
-		let _ = Broker::do_purchase(2, u64::max_value()).unwrap();
-		let sale_before_renew = SaleInfo::<Test>::get().unwrap();
-		let expected_new_core = sale_before_renew.first_core + sale_before_renew.cores_sold;
+		let _ = do_purchase_and_get_region_id(2, u64::max_value()).unwrap();
+		let expected_new_core = 1;
 		assert_ne!(expected_new_core, region_id.core);
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, None));
@@ -2437,33 +2187,34 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 			vec![AutoRenewalRecord {
 				core: expected_new_core,
 				task: 1001,
-				next_renewal: sale_before_renew.region_end
+				next_renewal: MarketMock::get_sale_info().unwrap().region_end
 			}]
 		);
 
 		// Potential renewal moved to the new core index.
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: expected_new_core,
-			when: sale_before_renew.region_end
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_some());
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: region_id.core,
-			when: sale_before_renew.region_end
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_none());
 
 		// Next rotation should renew again and keep auto-renewal enabled.
-		let next_block = sale_before_renew.region_end as u64 * timeslice_period;
-		advance_to(next_block);
-		let sale_after_renew = SaleInfo::<Test>::get().unwrap();
+		advance_sale_period();
 		let auto_after_renew = AutoRenewals::<Test>::get().to_vec();
 		assert_eq!(auto_after_renew.len(), 1);
 		assert_eq!(auto_after_renew[0].task, 1001);
-		assert_eq!(auto_after_renew[0].next_renewal, sale_after_renew.region_end);
+		assert_eq!(
+			auto_after_renew[0].next_renewal,
+			MarketMock::get_sale_info().unwrap().region_end
+		);
 		assert!(PotentialRenewals::<Test>::get(PotentialRenewalId {
 			core: auto_after_renew[0].core,
-			when: sale_after_renew.region_end
+			when: MarketMock::get_sale_info().unwrap().region_end
 		})
 		.is_some());
 	});
@@ -2472,24 +2223,25 @@ fn enable_auto_renew_immediate_updates_core_and_renews() {
 #[test]
 fn enable_auto_renew_fails_for_workload_of_another_task() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
-		let region_1 = Broker::do_purchase(1, u64::max_value()).unwrap();
-		let region_2 = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_1 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_2 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
 		assert_ok!(Broker::do_assign(region_2, Some(1), 2001, Final));
 		endow(1001, 1000);
+		let workload_end = MarketMock::get_sale_info().unwrap().region_end;
 
 		// Task 1001 cannot enable auto-renewal for the core running task 2001's workload, even
 		// with a valid workload end hint:
 		assert_noop!(
-			Broker::do_enable_auto_renew(1001, region_2.core, 1001, Some(7)),
+			Broker::do_enable_auto_renew(1001, region_2.core, 1001, Some(workload_end)),
 			Error::<Test>::TaskNotInWorkload
 		);
 
 		// Now both cores are expiring, so enabling auto-renewal would renew immediately. Task
 		// 1001 must not renew (and pay for) task 2001's workload:
-		advance_to(6);
+		advance_sale_period();
 		assert_noop!(
 			Broker::do_enable_auto_renew(1001, region_2.core, 1001, None),
 			Error::<Test>::TaskNotInWorkload
@@ -2499,27 +2251,26 @@ fn enable_auto_renew_fails_for_workload_of_another_task() {
 
 		// Works for the core running its own workload:
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, None));
-		assert_eq!(balance(1001), 900);
+		assert_eq!(balance(1001), 1000 - REGION_RENEWAL_PRICE);
 	});
 }
 
 #[test]
 fn enable_auto_renew_falls_back_to_hint_when_core_carries_foreign_renewal() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
 		endow(2001, 1000);
 
 		// The core is expiring with task 1001's workload, while task 2001 has its own renewal
 		// record on the same core index further in the future:
-		advance_to(6);
-		let sale = SaleInfo::<Test>::get().unwrap();
+		advance_sale_period();
+		let sale = MarketMock::get_sale_info().unwrap();
 		PotentialRenewals::<Test>::insert(
 			PotentialRenewalId { core: region_id.core, when: sale.region_end },
 			PotentialRenewalRecord {
-				price: 100,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
 						.try_into()
@@ -2552,7 +2303,7 @@ fn enable_auto_renew_falls_back_to_hint_when_core_carries_foreign_renewal() {
 #[test]
 fn enable_auto_renew_fails_for_incomplete_workload() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 		endow(1001, 1000);
 
@@ -2561,7 +2312,6 @@ fn enable_auto_renew_fails_for_incomplete_workload() {
 		PotentialRenewals::<Test>::insert(
 			PotentialRenewalId { core: 0, when: 10 },
 			PotentialRenewalRecord {
-				price: 100,
 				completion: CompletionStatus::Partial(CoreMask::from_chunk(0, 40)),
 			},
 		);
@@ -2575,21 +2325,19 @@ fn enable_auto_renew_fails_for_incomplete_workload() {
 #[test]
 fn auto_renewal_fails_for_workload_of_another_task() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
-		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(7)));
+		let workload_end = MarketMock::get_sale_info().unwrap().region_end;
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(workload_end)));
 		endow(1001, 1000);
 
 		// The workload on the core changes hands before the renewal is processed (e.g. a stale
 		// record created before the task-workload check existed):
-		let renewal_id = PotentialRenewalId { core: region_id.core, when: 7 };
-		let record = PotentialRenewals::<Test>::get(renewal_id).unwrap();
 		PotentialRenewals::<Test>::insert(
-			renewal_id,
+			PotentialRenewalId { core: region_id.core, when: workload_end },
 			PotentialRenewalRecord {
-				price: record.price,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
 						.try_into()
@@ -2599,7 +2347,7 @@ fn auto_renewal_fails_for_workload_of_another_task() {
 		);
 
 		// The renewal fails instead of charging task 1001 for task 2001's workload:
-		advance_to(7);
+		advance_sale_period();
 		assert_eq!(balance(1001), 1000);
 		System::assert_has_event(
 			Event::<Test>::AutoRenewalFailed { core: region_id.core, payer: Some(1001) }.into(),
@@ -2612,15 +2360,16 @@ fn auto_renewal_fails_for_workload_of_another_task() {
 #[test]
 fn auto_renewal_skips_record_with_future_next_renewal() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
+		let sale = MarketMock::get_sale_info().unwrap();
+		let later = sale.region_end + REGION_LENGTH;
 
 		// Task 1001 has a renewal record further in the future (e.g. due to holding a lease)
 		// and enables auto-renewal with a hint:
 		PotentialRenewals::<Test>::insert(
-			PotentialRenewalId { core: 0, when: 10 },
+			PotentialRenewalId { core: 0, when: later },
 			PotentialRenewalRecord {
-				price: 100,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(1001) }]
 						.try_into()
@@ -2629,13 +2378,12 @@ fn auto_renewal_skips_record_with_future_next_renewal() {
 			},
 		);
 		endow(1001, 1000);
-		assert_ok!(Broker::do_enable_auto_renew(1001, 0, 1001, Some(10)));
+		assert_ok!(Broker::do_enable_auto_renew(1001, 0, 1001, Some(later)));
 
 		// In the meantime, the same core index carries another task's expiring workload:
 		PotentialRenewals::<Test>::insert(
-			PotentialRenewalId { core: 0, when: 7 },
+			PotentialRenewalId { core: 0, when: sale.region_end },
 			PotentialRenewalRecord {
-				price: 100,
 				completion: CompletionStatus::Complete(
 					vec![ScheduleItem { mask: CoreMask::complete(), assignment: Task(2001) }]
 						.try_into()
@@ -2646,44 +2394,48 @@ fn auto_renewal_skips_record_with_future_next_renewal() {
 
 		// The record is not due for renewal yet, so it must be skipped and left untouched
 		// rather than dropped because of the foreign workload:
-		advance_to(7);
+		advance_sale_period();
 		assert_eq!(balance(1001), 1000);
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: later }]
 		);
 
 		// Once due, the renewal is processed normally:
-		advance_to(13);
-		assert_eq!(balance(1001), 900);
+		advance_sale_period();
+		assert_eq!(balance(1001), 1000 - REGION_RENEWAL_PRICE);
 	});
 }
 
 #[test]
 fn enable_auto_renew_immediate_ignores_hint_for_next_renewal() {
 	TestExt::new().endow(1, 1000).endow(1001, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
-		advance_to(6);
+		advance_sale_period();
 
 		// The core is renewable now, so enabling auto-renewal renews immediately. The hint must
 		// not delay the next renewal past the period just renewed for:
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_id.core, 1001, Some(100)));
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
-			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 }]
+			vec![AutoRenewalRecord {
+				core: 0,
+				task: 1001,
+				next_renewal: MarketMock::get_sale_info().unwrap().region_end
+			}]
 		);
 	});
 }
 
 #[test]
 fn disable_auto_renew_works() {
-	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 3));
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales((), 3));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 
 		// Eligible for renewal after final assignment:
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
@@ -2717,9 +2469,9 @@ fn disable_auto_renew_works() {
 #[test]
 fn remove_assignment_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 1));
+		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region_id, Some(1), 1001, Final));
 		let workplan_key = (region_id.begin, region_id.core);
 		assert_ne!(Workplan::<Test>::get(workplan_key), None);
@@ -2747,7 +2499,7 @@ fn start_sales_sets_correct_core_count() {
 		}]))
 		.unwrap();
 
-		Broker::do_start_sales(5, 5).unwrap();
+		Broker::do_start_sales((), 5).unwrap();
 
 		System::assert_has_event(Event::<Test>::CoreCountRequested { core_count: 9 }.into());
 	})
@@ -2757,7 +2509,7 @@ fn start_sales_sets_correct_core_count() {
 #[test]
 fn reserve_works() {
 	TestExt::new().execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 0));
+		assert_ok!(Broker::do_start_sales((), 0));
 		// Advance forward from start_sales, but not into the first sale.
 		advance_to(1);
 
@@ -2830,7 +2582,7 @@ fn reserve_works() {
 fn can_reserve_workloads_quickly() {
 	TestExt::new().execute_with(|| {
 		// Start sales.
-		assert_ok!(Broker::do_start_sales(100, 0));
+		assert_ok!(Broker::do_start_sales((), 0));
 		advance_to(2);
 
 		let system_workload = Schedule::truncate_from(vec![ScheduleItem {
@@ -2950,13 +2702,13 @@ fn force_reserve_works() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(
 			Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0),
-			Error::<Test>::NoSales
+			Error::<Test>::Uninitialized
 		);
 	});
 
 	// With active reservation and purchased coretime - ForceReservation should not overwrite.
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 4));
+		assert_ok!(Broker::do_start_sales((), 4));
 		advance_to(2);
 
 		let existing_reservation = Schedule::truncate_from(vec![ScheduleItem {
@@ -2969,9 +2721,10 @@ fn force_reserve_works() {
 		advance_sale_period();
 		advance_sale_period();
 
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
 
+		assert_eq!(frame_system::Pallet::<Test>::block_number(), 12);
 		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 3));
 
 		assert_eq!(
@@ -3068,10 +2821,10 @@ fn force_reserve_works() {
 				),
 				// Immediate assignment from force_reserve
 				(
-					16,
+					14,
 					AssignCore {
 						core: 3,
-						begin: 18,
+						begin: 16,
 						assignment: vec![(Task(1004), 57600)],
 						end_hint: None
 					}
@@ -3173,12 +2926,12 @@ fn remove_potential_renewal_rejects_non_admin_origin() {
 #[test]
 fn remove_potential_renewal_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
 
 		assert_eq!(PotentialRenewals::<Test>::iter().count(), 0);
 
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let region = Regions::<Test>::get(region_id).unwrap();
 		const TASK_ID: TaskId = 1111;
 		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
@@ -3197,7 +2950,7 @@ fn remove_potential_renewal_works() {
 			Error::<Test>::UnknownRenewal
 		);
 
-		let new_region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let new_region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let new_region = Regions::<Test>::get(new_region_id).unwrap();
 		const NEW_TASK_ID: TaskId = 2222;
 		Broker::do_assign(new_region_id, None, NEW_TASK_ID, Finality::Final).unwrap();
@@ -3231,14 +2984,14 @@ fn remove_potential_renewal_works() {
 #[test]
 fn remove_potential_renewal_makes_auto_renewal_die() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
 
-		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		const TASK_ID: TaskId = 1111;
 		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
 
-		advance_to(6);
+		advance_sale_period();
 
 		Broker::do_enable_auto_renew(1, region_id.core, TASK_ID, None).unwrap();
 
@@ -3250,7 +3003,7 @@ fn remove_potential_renewal_makes_auto_renewal_die() {
 
 		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
 
-		advance_to(12);
+		advance_sale_period();
 
 		assert_eq!(AutoRenewals::<Test>::get().len(), 0);
 	})
@@ -3259,13 +3012,13 @@ fn remove_potential_renewal_makes_auto_renewal_die() {
 #[test]
 fn force_transfer_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 4));
+		assert_ok!(Broker::do_start_sales((), 4));
 		advance_to(2);
 
 		const OLD_OWNER: u64 = 1;
 		const NEW_OWNER: u64 = 222;
 
-		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(OLD_OWNER, u64::max_value()).unwrap();
 		let region = Regions::<Test>::get(region_id).unwrap();
 
 		assert_noop!(
@@ -3315,13 +3068,13 @@ fn force_transfer_works() {
 #[test]
 fn force_transfer_can_transfer_burned_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 4));
+		assert_ok!(Broker::do_start_sales((), 4));
 		advance_to(2);
 
 		const OLD_OWNER: u64 = 1;
 		const NEW_OWNER: u64 = 222;
 
-		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(OLD_OWNER, u64::max_value()).unwrap();
 
 		assert_ok!(<Broker as Mutate<u64>>::burn(&region_id.into(), None));
 
@@ -3352,13 +3105,13 @@ fn force_transfer_can_transfer_burned_region() {
 #[test]
 fn force_transfer_can_transfer_provisionally_assigned_region() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 4));
+		assert_ok!(Broker::do_start_sales((), 4));
 		advance_to(2);
 
 		const OLD_OWNER: u64 = 1;
 		const NEW_OWNER: u64 = 222;
 
-		let region_id = Broker::do_purchase(OLD_OWNER, u64::max_value()).unwrap();
+		let region_id = do_purchase_and_get_region_id(OLD_OWNER, u64::max_value()).unwrap();
 
 		assert_ok!(Broker::assign(RuntimeOrigin::signed(OLD_OWNER), region_id, 1001, Provisional));
 
@@ -3377,6 +3130,88 @@ fn force_transfer_can_transfer_provisionally_assigned_region() {
 	});
 }
 
+#[test]
+fn renewal_rights_are_updated() {
+	TestExt::new().endow(1, 100_000).execute_with(move || {
+		assert_ok!(Broker::do_start_sales((), 2));
+		advance_to(2);
+
+		let region_1 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_2 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		assert_eq!(region_1.begin, region_2.begin);
+		let regions_end = region_1.begin + REGION_LENGTH;
+
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 0);
+		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 1);
+		assert_ok!(Broker::do_assign(region_2, Some(1), 1001, Final));
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 2);
+
+		advance_sale_period();
+
+		let new_region_end = do_renew_and_get_region_end(1, region_1.core).unwrap();
+		assert_eq!(Broker::renewal_rights_count(&1, regions_end), 2);
+		assert_eq!(Broker::renewal_rights_count(&1, new_region_end), 1);
+	});
+}
+
+#[test]
+fn cant_drop_renewal_rights_too_early() {
+	TestExt::new().endow(1, 100_000).execute_with(move || {
+		assert_ok!(Broker::do_start_sales((), 2));
+		advance_to(2);
+
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
+		let region_end = region.begin + REGION_LENGTH;
+
+		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
+		assert_eq!(Broker::renewal_rights_count(&1, region_end), 1);
+
+		assert_noop!(Broker::do_drop_renewal_rights(1, region_end), Error::<Test>::StillValid);
+
+		advance_sale_period();
+
+		assert_noop!(Broker::do_drop_renewal_rights(1, region_end), Error::<Test>::StillValid);
+
+		advance_sale_period();
+
+		assert_ok!(Broker::do_drop_renewal_rights(1, region_end));
+	});
+}
+
+fn do_renew_and_get_the_new_core(
+	who: <Test as frame_system::Config>::AccountId,
+	core: CoreIndex,
+) -> Result<CoreIndex, DispatchError> {
+	let RenewResult::Renewed { new_region_id, .. } = Broker::do_renew(who, core)? else {
+		panic!("It's expected that do_renew will immediately resolve")
+	};
+
+	Ok(new_region_id.core)
+}
+
+fn do_renew_and_get_region_end(
+	who: <Test as frame_system::Config>::AccountId,
+	core: CoreIndex,
+) -> Result<Timeslice, DispatchError> {
+	let RenewResult::Renewed { region_end, .. } = Broker::do_renew(who, core)? else {
+		panic!("It's expected that do_renew will immediately resolve")
+	};
+
+	Ok(region_end)
+}
+
+fn do_purchase_and_get_region_id(
+	who: <Test as frame_system::Config>::AccountId,
+	price_limit: u64,
+) -> Result<RegionId, DispatchError> {
+	let PurchaseResult::Purchased { region_id, .. } = Broker::do_purchase(who, price_limit)? else {
+		panic!("It's expected that do_renew will purchase region right away");
+	};
+
+	Ok(region_id)
+}
+
 /// A claim removes the contribution and reduces the stored payouts before it pays the payee.
 /// If the payment fails, all of these changes must revert. If they do not, the payee keeps no
 /// claim and receives no money, and a later attempt reports `UnknownContribution`.
@@ -3387,9 +3222,9 @@ fn claim_revenue_reverts_when_pot_cannot_pay() {
 		// account 1, and pool that region with account 2 as the payee.
 		let item = ScheduleItem { assignment: Pool, mask: CoreMask::complete() };
 		assert_ok!(Broker::do_reserve(Schedule::truncate_from(vec![item])));
-		assert_ok!(Broker::do_start_sales(100, 2));
+		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
 
 		// Account 1 buys and spends credit. This sends revenue to the pot, where 4 units
