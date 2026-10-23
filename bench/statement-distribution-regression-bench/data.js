@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792764028024,
+  "lastUpdate": 1792775468575,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0ec94c97e2599a90b43abee84104133793caf5fe",
-          "message": "fix links: 404 individuality private repo. (#11644)",
-          "timestamp": "2026-04-09T03:25:19Z",
-          "tree_id": "d2ed74146d689c990bb42d4436ec62c6fe27928b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0ec94c97e2599a90b43abee84104133793caf5fe"
-        },
-        "date": 1775710142961,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038619150277999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08152578965599991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08574648566199997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "783fad4513ee558fec558151c0fc00beee443ff7",
+          "message": "statement-store: v2 soak repeats outage and join at random (#13489)\n\nPart of #13162.\n\nThe v2 DHT soak ran the outage and join steps once each. After those two\nmandatory steps, every later wave is now followed by another outage or\njoin with odds 1 in 14 each, up to 4 joins. A long soak thus covers\nrepeated restarts, outages of joined nodes and joins after outages.\n\nEach step takes its topics from its wave, so a repeated step submits\nfresh statements, and the outage node, picked through those topics,\nvaries. The draw is seeded per run: peer keys derive from node names, so\nan unseeded draw would repeat the same schedule every run",
+          "timestamp": "2026-10-23T14:36:21Z",
+          "tree_id": "94235d96704e1c89cd538d74fb5d5b515d02acf2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/783fad4513ee558fec558151c0fc00beee443ff7"
+        },
+        "date": 1792775438214,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.116,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03898412424399999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08930914844599994,
             "unit": "seconds"
           }
         ]
