@@ -221,7 +221,7 @@ mod tests {
 	use alloc::vec;
 	use codec::Encode;
 	use polkadot_primitives::{
-		ApprovedPeerId, ClaimQueueOffset, CoreSelector, UMPSignal, UMP_SEPARATOR,
+		ApprovedPeerId, ClaimQueueOffset, CoreSelector, Hash, StreamsRoot, UMPSignal, UMP_SEPARATOR,
 	};
 
 	fn peer(byte: u8) -> ApprovedPeerId {
@@ -373,6 +373,24 @@ mod tests {
 		// always produces its tail.
 		let signed = signed_with(CoreSelector(0), 0, peer(0xCC));
 		assert!(!SchedulingSignals::from_scheduling_info(&signed).into_ump_messages().is_empty());
+	}
+
+	#[test]
+	fn an_override_keeps_the_blocks_provides() {
+		// A resubmission replaces only the scheduling signals; `Provides` comes from its own pass.
+		use crate::spec_messaging::{ump_signal_tail, SpecMessagingSignals};
+		let provides = UMPSignal::Provides(StreamsRoot(Hash::repeat_byte(4))).encode();
+		let raw =
+			vec![UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(), provides];
+		let signed = signed_with(CoreSelector(1), 1, peer(0xCC));
+
+		let tail = ump_signal_tail(
+			SchedulingSignals::from_scheduling_info(&signed),
+			SpecMessagingSignals::build(&raw, &[], None).unwrap(),
+		);
+		let mut expected = SchedulingSignals::from_scheduling_info(&signed).into_ump_messages();
+		expected.push(raw[1].clone());
+		assert_eq!(tail, expected);
 	}
 
 	/// Stops compiling when a `UMPSignal` variant is added. Then decide whether it must survive
