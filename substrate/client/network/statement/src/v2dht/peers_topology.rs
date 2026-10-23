@@ -137,7 +137,7 @@ impl PeersTopology {
 	}
 
 	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
-	/// DHT path. Identify keeps it out, the next substream open puts it back.
+	/// DHT path. Identify keeps it out until the substream closes.
 	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };
 		let key = info.key;
@@ -147,13 +147,22 @@ impl PeersTopology {
 		self.connected.remove(key, &peer);
 	}
 
-	/// Record that the statement notification substream closed.
-	pub fn on_substream_closed(&mut self, peer: PeerId) {
-		let Some(info) = self.discovered.get_mut(&peer) else { return };
+	/// Record that the statement notification substream closed. A peer without the DHT path
+	/// returns to the DHT index, as it may restart with the path on. Returns whether the DHT
+	/// index changed.
+	pub fn on_substream_closed(&mut self, peer: PeerId) -> bool {
+		let Some(info) = self.discovered.get_mut(&peer) else { return false };
 		let key = info.key;
 		info.connected = false;
 		info.last_seen = Instant::now();
 		self.connected.remove(key, &peer);
+		if !info.without_dht {
+			return false;
+		}
+		info.without_dht = false;
+		info.supports_protocol = true;
+		self.discovered_index.insert(key, peer);
+		true
 	}
 
 	#[cfg(test)]
@@ -511,7 +520,7 @@ mod tests {
 	}
 
 	#[test]
-	fn a_peer_without_dht_stays_out_of_the_index_until_its_next_substream_open() {
+	fn a_peer_without_dht_stays_out_of_the_index_while_its_substream_is_open() {
 		let mut topology = topology(1);
 		let peer = peer(2);
 		topology.on_substream_opened(peer);
@@ -524,14 +533,10 @@ mod tests {
 		topology.on_peer_identified(peer, true);
 		assert_eq!(topology.dht_eligible_peers_count(), 0);
 
-		topology.on_substream_closed(peer);
+		assert!(topology.on_substream_closed(peer));
 		assert!(!topology.is_connected(&peer));
-		assert!(!topology.evict(Instant::now() + PEER_STALENESS_TTL));
-		assert_eq!(topology.known_peers_count(), 0);
-
-		topology.on_substream_opened(peer);
-		assert_eq!(topology.connected_peers().collect::<Vec<_>>(), vec![peer]);
 		assert_eq!(topology.dht_eligible_peers_count(), 1);
+		assert!(topology.evict(Instant::now() + PEER_STALENESS_TTL));
 	}
 
 	#[test]
