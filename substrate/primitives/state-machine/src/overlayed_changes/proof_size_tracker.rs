@@ -94,7 +94,7 @@ pub type KeyHashBuilder = BuildHasherDefault<KeyHashHasher>;
 /// Maps key hash -> (key, last op) for keys staged in the current transaction layer.
 type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 
-/// Maps key hash -> last emitted `DeltaKeyOp` for keys already reported in an incremental delta.
+/// Maps key hash -> the op a `take_delta` call last decided for the key, reported or not.
 /// Used to suppress redundant re-emissions across `take_delta` calls.
 type CapturedMap = HashMap<KeyHash, DeltaKeyOp, KeyHashBuilder>;
 
@@ -112,9 +112,11 @@ pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 /// # Operation Semantics
 ///
 /// - **Updated**: Standard key insertion/update
-/// - **Deleted**: Key deletion that prevents future `Updated` operations from appearing
-/// - Updated → Deleted: Both operations appear in separate deltas
-/// - Deleted → Updated: Only `Deleted` appears, `Updated` is filtered
+/// - **Deleted**: Key deletion
+/// - A key is reported when its newest op differs from the op last decided for it, so Updated →
+///   Deleted and Deleted → Updated both appear in separate deltas, while a repeated op does not. A
+///   key deleted and created again is reported as `Updated` again; that only reads nodes the
+///   estimation already recorded.
 ///
 /// # Estimation trie
 ///
@@ -151,11 +153,7 @@ pub struct ProofSizeTracker<K, H: Hasher> {
 struct TransactionLayer<K, H: Hasher> {
 	/// base hash -> key map of all new keys that were not yet included into any delta.
 	dirty_keys: KeyMap<K>,
-	/// Maps key hash -> last emitted op for keys already reported in an incremental delta.
-	///
-	/// Stores the op so that suppression can be asymmetric:
-	/// - Previously `Deleted`: suppress all future ops (Updated and Deleted).
-	/// - Previously `Updated`: suppress future `Updated` only; allow a subsequent `Deleted`.
+	/// Maps key hash -> the op last decided for keys `take_delta` saw in this layer.
 	snapshot: Option<CapturedMap>,
 	/// The trie as it was when this transaction started, `None` if the trie did not exist when the
 	/// transaction started.
@@ -215,9 +213,8 @@ impl<K, H: Hasher> ProofSizeTracker<K, H> {
 impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
-	/// A key added as `Deleted` prevents future `Updated` operations on the same key
-	/// from appearing in snapshots. If a key is captured as `Updated` in one snapshot,
-	/// it can still appear as `Deleted` in a subsequent snapshot.
+	/// A later op on the same key replaces this one; the next delta reports the key only if its
+	/// newest op differs from the op last decided for it.
 	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
 	where
 		K: TrackedKey,
@@ -294,10 +291,11 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		&mut self.estimation_trie
 	}
 
-	/// Returns keys not in any previous delta, respecting Updated/Deleted semantics.
+	/// Returns the keys whose newest op differs from the op last decided for them.
 	///
 	/// Dirty keys are collected from current layer and parent layers up to the first captured
-	/// delta. After taking a delta:
+	/// delta, and each key's newest op is decided once and recorded, even when it is not
+	/// reported. After taking a delta:
 	/// - On commit: captured keys are merged into parent, dirty keys become unavailable in parent
 	/// - On rollback: captured keys are discarded, dirty keys become available again in parent
 	///
@@ -307,71 +305,38 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	where
 		K: Clone,
 	{
-		let mut delta: DeltaKeys<K> = HashMap::with_hasher(KeyHashBuilder::default());
+		let TransactionLayer { dirty_keys, snapshot, .. } = &mut self.current;
 
-		// A key pending in several open layers is reported with the op of the newest layer, its
-		// final state. Layers are visited newest first, so the first op seen is kept.
-		let mut process_key = |hash: KeyHash, key: K, op: DeltaKeyOp, from_outer_layer: bool| {
-			let reported_in_current =
-				self.current.snapshot.as_ref().and_then(|s| s.get(&hash).copied());
-			// An outer write is older than anything the current layer reported, so a report of
-			// its key supersedes it. The walk below stops at the first outer layer with a
-			// snapshot, so no other layer between the write and here holds a report.
-			if from_outer_layer && reported_in_current.is_some() {
-				return;
-			}
-			// Find the last emitted op for this key: check current snapshot first (most
-			// recent), then layers from innermost to outermost.
-			let prev_op = reported_in_current.or_else(|| {
-				self.layers
-					.iter()
-					.rev()
-					.find_map(|layer| layer.snapshot.as_ref()?.get(&hash).copied())
-			});
-
-			let suppress = match (prev_op, op) {
-				// Previously deleted → suppress all future ops.
-				(Some(DeltaKeyOp::Deleted), _) => true,
-				// Previously updated → suppress another Updated, but allow Deleted through.
-				(Some(DeltaKeyOp::Updated), DeltaKeyOp::Updated) => true,
-				_ => false,
-			};
-
-			if !suppress {
-				delta.entry(hash).or_insert((key, op));
-			}
-		};
-
-		for (hash, (key, op)) in self.current.dirty_keys.drain(..) {
-			process_key(hash, key, op, false);
-		}
-
+		// 1. The newest pending op of every key: the current layer's writes, then those of the
+		//    outer layers down to the first one with a snapshot. An outer write loses to a newer
+		//    one already collected, and to any op the current layer already decided.
+		let mut newest = mem::take(dirty_keys);
 		for layer in self.layers.iter().rev() {
-			for (&hash, (key, op)) in &layer.dirty_keys {
-				process_key(hash, key.clone(), *op, true);
+			for (&hash, entry) in &layer.dirty_keys {
+				let decided_by_current = snapshot.as_ref().is_some_and(|s| s.contains_key(&hash));
+				if !newest.contains_key(&hash) && !decided_by_current {
+					newest.insert(hash, entry.clone());
+				}
 			}
-
-			// Stop after processing the first layer with a snapshot
 			if layer.snapshot.is_some() {
 				break;
 			}
 		}
 
-		trace!(target:LOG_TARGET, "get_delta: {:?}", delta.values().collect::<Vec<_>>());
-
-		// Merge delta into current layer's snapshot, recording the emitted op per key.
-		if !delta.is_empty() {
-			match &mut self.current.snapshot {
-				Some(snapshot) => {
-					snapshot.extend(delta.iter().map(|(&h, (_, op))| (h, *op)));
-				},
-				None => {
-					self.current.snapshot =
-						Some(delta.iter().map(|(&h, (_, op))| (h, *op)).collect());
-				},
+		// 2. A key is emitted when its newest op differs from the op standing in the snapshots.
+		//    Every decided key is recorded in the current snapshot, emitted or not.
+		let mut delta: DeltaKeys<K> = HashMap::with_hasher(KeyHashBuilder::default());
+		for (hash, (key, op)) in newest {
+			let standing_op = snapshot.as_ref().and_then(|s| s.get(&hash).copied()).or_else(|| {
+				self.layers.iter().rev().find_map(|l| l.snapshot.as_ref()?.get(&hash).copied())
+			});
+			snapshot.get_or_insert_with(Default::default).insert(hash, op);
+			if standing_op != Some(op) {
+				delta.insert(hash, (key, op));
 			}
 		}
 
+		trace!(target:LOG_TARGET, "get_delta: {:?}", delta.values().collect::<Vec<_>>());
 		delta
 	}
 }
@@ -886,10 +851,62 @@ mod tests {
 		assert!(second.is_empty(), "stale outer write reported again: {:?}", second.values());
 	}
 
+	/// The newest op of a key decides, even when it is not reported. The inner `Updated` matches
+	/// the reported `Updated`, so nothing is reported; the older outer `Deleted` must not be
+	/// reported in its place, the key exists in the final state.
+	#[test]
+	fn suppressed_newer_update_still_supersedes_older_pending_delete() {
+		let mut tracker = Tracker::default();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		let _ = tracker.take_delta();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
+		tracker.start_transaction();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+
+		let delta = tracker.take_delta();
+		assert!(delta.is_empty(), "older delete reported: {:?}", delta.values());
+	}
+
+	/// Committing the inner layer must not revive the older outer `Deleted` either.
+	#[test]
+	fn suppressed_newer_update_still_supersedes_older_pending_delete_after_commit() {
+		let mut tracker = Tracker::default();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		let _ = tracker.take_delta();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
+		tracker.start_transaction();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		let inner = tracker.take_delta();
+		assert!(inner.is_empty(), "older delete reported: {:?}", inner.values());
+		tracker.commit_transaction();
+
+		let delta = tracker.take_delta();
+		assert!(delta.is_empty(), "older delete reported: {:?}", delta.values());
+	}
+
+	/// Rolling back the inner `Updated` leaves the outer `Deleted` as the key's final state, so
+	/// the next estimation must report it.
+	#[test]
+	fn rolled_back_newer_update_lets_older_pending_delete_through() {
+		let mut tracker = Tracker::default();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		let _ = tracker.take_delta();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
+		tracker.start_transaction();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		let inner = tracker.take_delta();
+		assert!(inner.is_empty(), "older delete reported: {:?}", inner.values());
+		tracker.rollback_transaction();
+
+		let delta = tracker.take_delta();
+		delta_assert_eq_with_ops!(delta, [("a", DeltaKeyOp::Deleted)]);
+	}
+
 	/// The collator wraps every runtime call in a host transaction, the validator runs the
 	/// block in one layer; both must report the same ops at every estimation or they disagree
 	/// on the block weight. The script writes a key, then writes it again inside a layer and
-	/// estimates while the layer is open and after it commits.
+	/// estimates while the layer is open and after it commits. It also deletes a reported key and
+	/// writes it again inside a layer.
 	#[test]
 	fn nested_layers_report_the_same_ops_as_a_single_layer() {
 		#[derive(Clone, Copy)]
@@ -912,6 +929,14 @@ mod tests {
 			Estimate,
 			Begin,
 			Write("c", DeltaKeyOp::Updated),
+			Commit,
+			Estimate,
+			Write("d", DeltaKeyOp::Updated),
+			Estimate,
+			Write("d", DeltaKeyOp::Deleted),
+			Begin,
+			Write("d", DeltaKeyOp::Updated),
+			Estimate,
 			Commit,
 			Estimate,
 		];
@@ -938,8 +963,8 @@ mod tests {
 	}
 
 	#[test]
-	fn test_deleted_then_updated_filters_updated() {
-		// Deleted then Updated - Updated should be filtered
+	fn test_deleted_then_updated_reports_updated() {
+		// Deleted then Updated - Updated is reported, it differs from the reported Deleted
 		let mut tracker = Tracker::default();
 		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
 		let delta1 = tracker.take_delta();
@@ -947,7 +972,7 @@ mod tests {
 
 		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let delta2 = tracker.take_delta();
-		assert!(delta2.is_empty());
+		delta_assert_eq_with_ops!(delta2, [("a", DeltaKeyOp::Updated)]);
 	}
 
 	#[test]

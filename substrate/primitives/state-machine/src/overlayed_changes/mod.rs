@@ -1286,8 +1286,9 @@ mod tests {
 		overlay.set_child_storage(&child_info, vec![1], None);
 		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
 
+		// The child exists again, which differs from the reported deletion.
 		overlay.set_child_storage(&child_info, vec![3], Some(vec![3]));
-		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Updated));
 	}
 
 	#[test]
