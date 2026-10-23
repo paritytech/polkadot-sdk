@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792753194459,
+  "lastUpdate": 1792763920701,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monica@parity.io",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2ca26a002cfe1cd5e04c5ccb988fdf3126d55105",
-          "message": "[asset-hub-westend] Add revive_debug cfg for DebugEnabled (#11507)\n\n## Description\n\n`debug_trace*` RPCs (`debug_traceTransaction`,\n`debug_traceBlockByNumber`, `debug_traceCall`) only work when\npallet-revive's `DebugEnabled` config is set to `true`. Currently only\nthe dev-node has this enabled, but the dev-node is a simplified\nenvironment that doesn't fully replicate parachain runtime behavior\n(e.g. no PoV deduplication, different weight/fee configuration). To get\naccurate debug tracing data, it needs to run on actual parachain\nruntimes.\n\nPreviously this required editing the runtime's source code to flip\n`ConstBool<false>` to `ConstBool<true>`. This PR uses a plain `cfg` flag\nso debug mode can be toggled at build time without code changes.\nBuild with:\n```bash\nRUSTFLAGS=\"--cfg revive_debug\" cargo build -p asset-hub-westend-runtime --release\n```\n\n## Integration\n\nNo integration required for downstream projects. This change is\nself-contained within `asset-hub-westend-runtime`.\n\nOther runtimes can adopt the same pattern by using `ConstBool<{\ncfg!(revive_debug) }>` for `DebugEnabled`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2026-04-09T09:51:54Z",
-          "tree_id": "5991841f3549897591ff1aed2066b21d6b9447e3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ca26a002cfe1cd5e04c5ccb988fdf3126d55105"
-        },
-        "date": 1775734481828,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007138374686666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010210937673333316,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02545206986666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14680383932000007,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009764011839999974,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74b0ba5914888631b0111fafd5e2f42eb9ef325f",
+          "message": "zombienet: download only the binaries a test family spawns (#13558)\n\n# Description\n\nEach zombienet test job downloads all seven binary artifacts, 1.4 GB,\none after the other, which takes about 330 seconds and is 40 to 75\npercent of a typical job. A test family spawns only a subset: cumulus\ntests need polkadot, polkadot-parachain and test-parachain (488 MB),\nsubstrate tests need only substrate (36 MB), the template tests need the\ntemplate nodes and polkadot, and polkadot tests need everything except\nsubstrate and the template nodes.\n\nThe download action now takes a prefix, the same value the zombienet-sdk\naction already receives, and skips the artifacts that family never\nspawns. Without a prefix it downloads everything as before, so the\nlegacy v1 action keeps its behaviour.\n\nOver a run of 96 jobs this saves about three runner hours. On PR runs,\nwhere the jobs queue for the spot pool, that is roughly ten minutes of\nwall time.\n\n## Rough results\n\nMeasured on this PR's first full CI run (96 zombienet jobs) against\nthree recent master runs, matching jobs by name. One run each, so these\nare rough numbers, not a benchmark.\n\n| Family | Download time per job |\n|---|---|\n| substrate | 318 s → 27 s |\n| cumulus | 280 s → 112 s |\n| templates | 268 s → 82 s |\n| polkadot | 300 s → 233 s |\n\n\n## Integration\n\nCI-only change.\n\n## Review Notes\n\nWhich binaries each family spawns was taken from the test sources:\npolkadot/zombienet-sdk-tests, cumulus/zombienet/zombienet-sdk,\nsubstrate/zombienet/zombienet-sdk and templates/zombienet.",
+          "timestamp": "2026-10-23T12:26:49Z",
+          "tree_id": "c65018a4804784d9edc10ecd3ba762b4a02ce0f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74b0ba5914888631b0111fafd5e2f42eb9ef325f"
+        },
+        "date": 1792763892079,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14088506802000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007350890600000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024868557799999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009552214399999967,
             "unit": "seconds"
           }
         ]
