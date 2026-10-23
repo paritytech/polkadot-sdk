@@ -5,19 +5,32 @@ doc:
     `CallSetup` no longer whitelists the executing contract's `System::Account`, so its accesses
     are now included in the weights of `seal_call_transfer`, `seal_instantiate`,
     `seal_instantiate_transfer`, `evm_instantiate`, `evm_instantiate_transfer`, `seal_terminate`
-    and `seal_terminate_logic`. Runtimes with their own `pallet_revive` weights
+    and `seal_terminate_logic`. Runtimes on the pallet's default weights need no action, and the
+    `WeightInfo` trait is unchanged. Runtimes with their own `pallet_revive` weights
     have to re-run the benchmarks. So do precompile benchmarks built with
+    `pallet_revive::call_builder::CallSetup` or its re-export
     `pallet_revive::precompiles::run::CallSetup` that access the executing contract's account.
     A benchmark that relied on the previous behavior of `CallSetup::new` or `CallSetup::default`
-    now has to whitelist the account explicitly.
+    now has to whitelist the account explicitly, and only where another weight already pays for
+    the account (`seal_balance` is the one exception, until #12673). For example:
+    ```rust
+    let account_id = &call_setup.contract().account_id;
+    frame_benchmarking::whitelist_account!(account_id);
+    ```
 - audience: Runtime User
   description: |-
-    A call with value, creating a contract, `SELFDESTRUCT` and the System precompile's
-    `terminate` now also pay for the contract's own account: one read, a write where the balance
-    or the nonce changes, and its proof size. `SELFDESTRUCT` and `terminate` pay for the read
-    twice. Previously, a nested contract called without value did not pay for it.
+    A contract that calls another contract with value or creates a contract, `SELFDESTRUCT`, the
+    PolkaVM `terminate` syscall and the System precompile's `terminate` now also pay for the
+    contract's own account: one read, a write where the balance or the nonce changes, and its
+    proof size. Terminating a contract pays for reading the account twice, in `seal_terminate` and
+    `seal_terminate_logic`, and for writing it once, in `seal_terminate_logic`. The `call` and
+    `instantiate` extrinsics are unchanged. Previously, a nested contract called without value did
+    not pay for it. `SELFBALANCE` and the `balance` syscall still do not pay for reading the
+    contract's own account when another contract called it without value, until #12673.
 crates:
 - name: pallet-revive
   bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
 - name: asset-hub-westend-runtime
   bump: patch
