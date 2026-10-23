@@ -2271,6 +2271,43 @@ mod staking_bounds_chill_other {
 	}
 
 	#[test]
+	fn chill_inactive_is_disabled_by_default() {
+		const VALIDATOR: AccountId = 11;
+
+		ExtBuilder::default().build_and_execute(|| {
+			// GIVEN no inactivity threshold, and 11 exposed and inactive in eras 1 and 2
+			assert_eq!(ChillInactiveThreshold::<Test>::get(), None);
+			Session::roll_until_active_era(3);
+			let proof = BoundedVec::truncate_from(vec![1, 2]);
+
+			// WHEN anyone tries to chill 11
+			// THEN it fails, and 11 stays a validator
+			assert_noop!(
+				Staking::chill_inactive(RuntimeOrigin::signed(10), VALIDATOR, proof.clone()),
+				Error::<Test>::ChillInactiveDisabled
+			);
+			assert!(Validators::<Test>::contains_key(VALIDATOR));
+
+			// WHEN the threshold is set
+			assert_ok!(Staking::set_staking_configs(
+				RuntimeOrigin::root(),
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Noop,
+				ConfigOp::Set(2)
+			));
+			// THEN 11 can be chilled
+			assert_ok!(Staking::chill_inactive(RuntimeOrigin::signed(10), VALIDATOR, proof));
+			System::assert_last_event(Event::<Test>::Chilled { stash: VALIDATOR }.into());
+		});
+	}
+
+	#[test]
 	fn capped_stakers_works() {
 		ExtBuilder::default().build_and_execute(|| {
 			let validator_count = Validators::<Test>::count();

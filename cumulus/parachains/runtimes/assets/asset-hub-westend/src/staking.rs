@@ -322,7 +322,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = pallet_staking_async::AllZero;
 	type OnEraStart = AnnounceValidatorSet;
 }
 

@@ -521,8 +521,20 @@ pub trait IsValidatorInactive<AccountId> {
 	) -> bool;
 }
 
-/// A validator is inactive if it earned no points for any service.
+/// A validator is never inactive, so no validator can be chilled for inactivity.
 impl<AccountId> IsValidatorInactive<AccountId> for () {
+	fn is_inactive(
+		_era: EraIndex,
+		_stash: &AccountId,
+		_points: &[(ValidatorServiceKind, RewardPoint)],
+	) -> bool {
+		false
+	}
+}
+
+/// A validator is inactive if it earned no points for any service.
+pub struct AllZero;
+impl<AccountId> IsValidatorInactive<AccountId> for AllZero {
 	fn is_inactive(
 		_era: EraIndex,
 		_stash: &AccountId,

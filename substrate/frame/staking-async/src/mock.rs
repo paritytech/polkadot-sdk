@@ -81,6 +81,7 @@ impl Get<SessionIndex> for PlanningEraOffset {
 }
 
 parameter_types! {
+	pub static BlockWeights: frame_system::limits::BlockWeights = Default::default();
 	pub static ExistentialDeposit: Balance = 1;
 	pub static SlashDeferDuration: EraIndex = 0;
 	pub static MaxControllersInDeprecationBatch: u32 = 5900;
@@ -102,6 +103,7 @@ parameter_types! {
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
+	type BlockWeights = BlockWeights;
 	type DbWeight = RocksDbWeight;
 	type Block = frame_system::mocking::MockBlock<Test>;
 	type AccountData = pallet_balances::AccountData<Balance>;
