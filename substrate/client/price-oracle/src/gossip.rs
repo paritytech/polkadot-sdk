@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! Gossip of price reports between the oracle nodes.
 
-use crate::pool::ReportPool;
+use crate::{pool::ReportPool, LOG_TARGET};
 use codec::{Decode, DecodeAll};
 use parking_lot::RwLock;
 use sc_network::{
@@ -34,7 +34,6 @@ use sp_runtime::{
 };
 use std::{marker::PhantomData, sync::Arc};
 
-const LOG_TARGET: &str = "price-oracle";
 /// Suffix of the protocol name, after the genesis hash and the optional fork id.
 const PROTOCOL_SUFFIX: &str = "/price-oracle/1";
 /// Largest gossip message accepted, in bytes.
@@ -196,7 +195,10 @@ where
 
 		let guard = self.acceptance.read();
 		let Some(acceptance) = guard.as_ref() else {
-			log::trace!(target: LOG_TARGET, "No acceptance rules yet, ignoring report from {sender}");
+			log::trace!(
+				target: LOG_TARGET,
+				"No acceptance rules yet, ignoring report from {sender}",
+			);
 			return ValidationResult::Discard;
 		};
 		let Ok(report) = SignedPriceReport::<Id, Signature>::decode_all(&mut data) else {

@@ -314,11 +314,19 @@ pub mod pallet {
 			DidProcess::<T>::put(true);
 
 			let Some(params) = Params::<T>::get() else {
-				log::debug!(target: LOG_TARGET, "Parameters unset, ignoring {} reports", reports.len());
+				log::debug!(
+					target: LOG_TARGET,
+					"Parameters unset, ignoring {} reports",
+					reports.len(),
+				);
 				return Ok(());
 			};
 			if Paused::<T>::get().processing {
-				log::debug!(target: LOG_TARGET, "Processing paused, ignoring {} reports", reports.len());
+				log::debug!(
+					target: LOG_TARGET,
+					"Processing paused, ignoring {} reports",
+					reports.len(),
+				);
 				return Ok(());
 			}
 			let anchor = T::AnchorProvider::current_anchor();
@@ -471,7 +479,10 @@ pub mod pallet {
 			let reports =
 				PriceOracleInherentDataExt::<T::SignerId, T::SignerSignature>::price_reports(data)
 					.unwrap_or_else(|e| {
-						log::warn!(target: LOG_TARGET, "Malformed price oracle inherent data: {e:?}");
+						log::warn!(
+							target: LOG_TARGET,
+							"Malformed price oracle inherent data: {e:?}",
+						);
 						None
 					})
 					.unwrap_or_default();
@@ -613,7 +624,11 @@ impl<T: Config> Pallet<T> {
 
 		for report in reports {
 			if !is_live(report.report.anchor, current, window) {
-				log::debug!(target: LOG_TARGET, "Stale report anchored at {:?}, current anchor {current:?}", report.report.anchor);
+				log::debug!(
+					target: LOG_TARGET,
+					"Stale report anchored at {:?}, current anchor {current:?}",
+					report.report.anchor,
+				);
 				continue;
 			}
 			if !signers.contains(&report.signer) {
@@ -659,7 +674,11 @@ impl<T: Config> Pallet<T> {
 					Ok(_) => {},
 					Err(i) => {
 						if pair_votes.try_insert(i, vote).is_err() {
-							log::warn!(target: LOG_TARGET, "Vote storage of {:?} is full", quote.pair);
+							log::warn!(
+								target: LOG_TARGET,
+								"Vote storage of {:?} is full",
+								quote.pair,
+							);
 						}
 					},
 				}
@@ -670,7 +689,16 @@ impl<T: Config> Pallet<T> {
 		let updated_at = T::BlockNumberProvider::current_block_number();
 
 		for (pair, pair_votes) in votes.iter() {
-			if pair_votes.is_empty() || (pair_votes.len() as u32) < params.quorum {
+			if pair_votes.is_empty() {
+				continue;
+			}
+			if (pair_votes.len() as u32) < params.quorum {
+				log::debug!(
+					target: LOG_TARGET,
+					"{pair:?} has {} of {} votes, not priced",
+					pair_votes.len(),
+					params.quorum,
+				);
 				continue;
 			}
 			let mut prices: Vec<Price> = pair_votes.iter().map(|v| v.price).collect();

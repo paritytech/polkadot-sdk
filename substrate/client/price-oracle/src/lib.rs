@@ -51,7 +51,7 @@ use std::{
 };
 use tokio::time::{Instant, MissedTickBehavior};
 
-const LOG_TARGET: &str = "price-oracle";
+pub(crate) const LOG_TARGET: &str = "price-oracle";
 /// Lower bound on the tick interval. A shorter interval configured in the runtime is raised to
 /// this value.
 const MIN_TICK_INTERVAL: Duration = Duration::from_secs(1);
@@ -125,7 +125,10 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 	let fetcher = match Fetcher::new() {
 		Ok(fetcher) => fetcher,
 		Err(e) => {
-			log::error!(target: LOG_TARGET, "Cannot create the HTTPS client, price oracle disabled: {e}");
+			log::error!(
+				target: LOG_TARGET,
+				"Cannot create the HTTPS client, price oracle disabled: {e}",
+			);
 			return;
 		},
 	};
@@ -149,6 +152,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
 	let mut api_missing_logged = false;
+	let mut no_signer_logged = false;
 
 	log::info!(target: LOG_TARGET, "Price oracle service started on {protocol_name}");
 	loop {
@@ -171,6 +175,13 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					validator.clear_acceptance();
 					continue;
 				};
+				// Warn only once until a signer key is found.
+				if setup.signer.is_some() {
+					no_signer_logged = false;
+				} else if !no_signer_logged {
+					log::warn!(target: LOG_TARGET, "No signer key in the keystore, not reporting");
+					no_signer_logged = true;
+				}
 				let acceptance = setup.acceptance();
 				// Drop pooled reports that fell out of the report window.
 				pool.prune(acceptance.oldest());
@@ -248,7 +259,10 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 			(Ok(settings), Ok(markets)) => (settings, markets),
 			(Err(e), _) | (_, Err(e)) => {
 				if !*api_missing_logged {
-					log::error!(target: LOG_TARGET, "Runtime does not serve the price oracle API: {e}");
+					log::error!(
+						target: LOG_TARGET,
+						"Runtime does not serve the price oracle API: {e}",
+					);
 					*api_missing_logged = true;
 				}
 				return None;
@@ -302,7 +316,8 @@ where
 		return None;
 	}
 
-	let deadline = Instant::now() + interval.saturating_sub(TICK_MARGIN);
+	let started = Instant::now();
+	let deadline = started + interval.saturating_sub(TICK_MARGIN);
 	let (tx, mut rx) = mpsc::unbounded();
 	let fetch = fetcher.fetch_markets(&markets, deadline, tx);
 	let parse = async {
@@ -322,7 +337,7 @@ where
 	};
 	let (failures, prices) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
-		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure:?}");
+		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
 	}
 	log::debug!(target: LOG_TARGET, "Priced {} of {} markets", prices.len(), markets.len());
 	if prices.is_empty() {
@@ -340,13 +355,15 @@ where
 		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
 		return None;
 	}
+	log::debug!(target: LOG_TARGET, "Aggregated quotes: {quotes:?}");
 
 	let report = PriceReport { anchor, quotes };
 	let signed = signer::sign_report(&keystore, signer, report)?;
 	log::info!(
 		target: LOG_TARGET,
-		"Reporting {} pair prices at anchor {anchor:?}",
+		"Reporting {} pair prices at anchor {anchor:?}, tick took {:?}",
 		signed.report.quotes.len(),
+		started.elapsed(),
 	);
 	let encoded = signed.encode();
 	pool.insert(signed);
