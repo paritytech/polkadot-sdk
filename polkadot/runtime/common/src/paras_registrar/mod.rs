@@ -689,7 +689,8 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	fn check_code_upgrade(para_id: u32, code_len: u32) -> Result<(), ()> {
 		let max = configuration::ActiveConfig::<T>::get().max_code_size as u32;
 		if !polkadot_runtime_parachains::can_upgrade_validation_code::<T>(ParaId::from(para_id)) ||
-			code_len > max || code_len < MIN_CODE_SIZE
+			code_len > max ||
+			code_len < MIN_CODE_SIZE
 		{
 			return Err(());
 		}

@@ -145,10 +145,6 @@ pub struct PendingCodeUpgrade<BlockNumber> {
 	/// Exact length the validation code must have.
 	pub code_len: u32,
 	/// The block from which the blob is no longer accepted.
-	///
-	/// Unlike a registration this does time out: whether an upgrade may be scheduled at all
-	/// depends on relay-chain state that moves on its own, so an old authorization is no longer
-	/// something this chain has really agreed to.
 	pub expire_at: BlockNumber,
 }
 
@@ -193,10 +189,6 @@ pub mod pallet {
 		type MaxPendingRegistrations: Get<u32>;
 
 		/// How long an authorized code upgrade stays valid for.
-		///
-		/// [`PendingCodeUpgrades`] is not capped: an entry needs a para this chain has already
-		/// registered, is a single fixed-size item, and a fresh request from the same para
-		/// replaces it. So no sweep runs here; an expired entry simply stops being applicable.
 		#[pallet::constant]
 		type CodeUpgradeValidPeriod: Get<BlockNumberFor<Self>>;
 
