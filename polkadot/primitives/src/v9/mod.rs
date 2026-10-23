@@ -3379,6 +3379,58 @@ pub mod tests {
 	}
 
 	#[test]
+	fn ump_signals_accept_any_order() {
+		let provides = StreamsRoot(Hash::repeat_byte(1));
+		let requires =
+			RequiresSet::try_from_iter([(Id::from(2u32), StreamsRoot(Hash::repeat_byte(2)))])
+				.unwrap();
+		let upward_messages = alloc::vec![
+			UMP_SEPARATOR,
+			UMPSignal::Requires(requires.clone()).encode(),
+			UMPSignal::SelectCore(CoreSelector(1), ClaimQueueOffset(0)).encode(),
+			UMPSignal::Provides(provides).encode(),
+			UMPSignal::ApprovedPeer(Default::default()).encode(),
+		];
+		let commitments = CandidateCommitments {
+			upward_messages: upward_messages.try_into().unwrap(),
+			..Default::default()
+		};
+
+		let signals = commitments.ump_signals().expect("one of each, in any order");
+		assert_eq!(signals.provides(), Some(&provides));
+		assert_eq!(signals.requires(), Some(&requires));
+		assert_eq!(signals.core_selector(), Some((CoreSelector(1), ClaimQueueOffset(0))));
+	}
+
+	#[test]
+	fn ump_signals_reject_a_repeated_spec_msg_signal() {
+		let requires =
+			RequiresSet::try_from_iter([(Id::from(2u32), StreamsRoot(Hash::repeat_byte(2)))])
+				.unwrap();
+		let provides = |b| UMPSignal::Provides(StreamsRoot(Hash::repeat_byte(b))).encode();
+		for repeated in [
+			alloc::vec![provides(1), provides(1)],
+			alloc::vec![provides(1), provides(2)],
+			alloc::vec![
+				UMPSignal::Requires(requires.clone()).encode(),
+				provides(1),
+				UMPSignal::Requires(requires.clone()).encode(),
+			],
+		] {
+			let mut upward_messages = alloc::vec![UMP_SEPARATOR];
+			upward_messages.extend(repeated);
+			let commitments = CandidateCommitments {
+				upward_messages: upward_messages.try_into().unwrap(),
+				..Default::default()
+			};
+			assert_eq!(
+				commitments.ump_signals(),
+				Err(CommittedCandidateReceiptError::DuplicateUMPSignal)
+			);
+		}
+	}
+
+	#[test]
 	fn ump_signals_rejects_more_than_max_signals() {
 		// One of every variant (== `MAX_UMP_SIGNALS`) plus one extra is rejected.
 		let upward_messages = alloc::vec![

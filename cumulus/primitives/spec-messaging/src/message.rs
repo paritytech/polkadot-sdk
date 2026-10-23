@@ -1028,4 +1028,154 @@ mod tests {
 			Err(VerifyError::VariantMismatch),
 		);
 	}
+
+	/// Two committed 6-leaf streams with distinct payloads, and the `StreamsRoot` over both.
+	struct TwoStreams {
+		under: StreamsRoot,
+		/// Per stream: payloads, leaves, tree proof.
+		streams: [(StreamId, Vec<Vec<u8>>, Vec<Hash>, StreamProof); 2],
+	}
+
+	fn two_streams() -> TwoStreams {
+		let ids = [ch(2000), ch(3000)];
+		let payloads: [Vec<Vec<u8>>; 2] =
+			core::array::from_fn(|s| (0..6u8).map(|i| vec![s as u8, i]).collect());
+		let leaves: [Vec<Hash>; 2] =
+			core::array::from_fn(|s| payloads[s].iter().map(|p| leaf_hash(0, p)).collect());
+		let entries: BTreeMap<_, _> =
+			(0..2).map(|s| (ids[s], frontier_at(&leaves[s], 6).root().0)).collect();
+		let under = streams_root(&entries).unwrap();
+		let streams = core::array::from_fn(|s| {
+			let (_, proof) = gen_stream_proof(&entries, ids[s]).unwrap();
+			(ids[s], payloads[s].clone(), leaves[s].clone(), proof)
+		});
+		TwoStreams { under, streams }
+	}
+
+	/// The honest fetch of `payloads[base..end]` with a real extension from `end` to 6.
+	fn fetch(
+		(_, payloads, leaves, tree_proof): &(StreamId, Vec<Vec<u8>>, Vec<Hash>, StreamProof),
+		base: usize,
+		end: usize,
+	) -> MessagesResponse {
+		MessagesResponse {
+			base: MessagePosition(base as u64),
+			leaf_version: 0,
+			payloads: payloads[base..end].to_vec().try_into().unwrap(),
+			start_peaks: BoundedVec::truncate_from(frontier_at(leaves, base).peaks().to_vec()),
+			extension: ancestry(leaves, end, 6),
+			tree_proof: tree_proof.clone(),
+		}
+	}
+
+	/// The honest head read of a 6-leaf stream.
+	fn head(
+		(_, payloads, leaves, tree_proof): &(StreamId, Vec<Vec<u8>>, Vec<Hash>, StreamProof),
+	) -> EventResponse {
+		let store = MemStore::<Hash>::default();
+		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
+		let positions: Vec<u64> = leaves.iter().map(|l| mmr.push(*l).unwrap()).collect();
+		let proof = mmr.gen_proof(vec![positions[5]]).unwrap();
+		EventResponse {
+			payload: payloads[5].clone(),
+			leaf_version: 0,
+			inclusion: MmrInclusionProof {
+				mmr_size: mmr_size(6),
+				items: BoundedVec::truncate_from(proof.proof_items().to_vec()),
+			},
+			tree_proof: tree_proof.clone(),
+		}
+	}
+
+	#[test]
+	fn a_forged_tail_after_a_genuine_prefix_does_not_verify() {
+		let t = two_streams();
+		let (stream, ..) = t.streams[0];
+		let honest = fetch(&t.streams[0], 2, 4);
+		assert_eq!(verify_messages_response(stream, t.under, &honest), Ok(()));
+
+		// Leaf 2 is genuine and leaf 3 forged; the extension from 4 to 6 is the real one.
+		let mut forged = honest.clone();
+		forged.payloads[1] = vec![0xAA];
+		assert_eq!(
+			verify_messages_response(stream, t.under, &forged),
+			Err(VerifyError::RootMismatch)
+		);
+
+		// A forged leaf appended past the genuine ones, with the real extension from 5 to 6.
+		let mut appended = fetch(&t.streams[0], 2, 4);
+		appended.payloads.try_push(vec![0xAA]).unwrap();
+		appended.extension = ancestry(&t.streams[0].2, 5, 6);
+		assert_eq!(
+			verify_messages_response(stream, t.under, &appended),
+			Err(VerifyError::RootMismatch)
+		);
+	}
+
+	#[test]
+	fn a_messages_payload_past_the_bound_is_too_large() {
+		let t = two_streams();
+		let (stream, ..) = t.streams[0];
+		let mut resp = fetch(&t.streams[0], 2, 4);
+		resp.payloads[1] = vec![0; MAX_SPECULATIVE_MESSAGE_LEN as usize + 1];
+		let req = MessagesRequest {
+			stream,
+			start: MessagePosition(2),
+			under: t.under,
+			max_bytes: u32::MAX,
+		};
+		assert_eq!(verify_messages(&req, &resp), Err(VerifyError::PayloadTooLarge));
+	}
+
+	#[test]
+	fn a_wrong_leaf_version_is_a_root_mismatch() {
+		let t = two_streams();
+		let (stream, ..) = t.streams[0];
+		let mut resp = fetch(&t.streams[0], 2, 4);
+		resp.leaf_version = 1;
+		assert_eq!(
+			verify_messages_response(stream, t.under, &resp),
+			Err(VerifyError::RootMismatch)
+		);
+
+		let mut event = head(&t.streams[0]);
+		event.leaf_version = 1;
+		assert_eq!(verify_event_response(stream, t.under, &event), Err(VerifyError::RootMismatch));
+	}
+
+	#[test]
+	fn material_of_another_stream_is_a_root_mismatch() {
+		let t = two_streams();
+		let (a, ..) = t.streams[0];
+		let (b, ..) = t.streams[1];
+
+		// Stream A's payloads and MMR proofs with stream B's tree proof.
+		let mut resp = fetch(&t.streams[0], 2, 4);
+		resp.tree_proof = t.streams[1].3.clone();
+		assert_eq!(verify_messages_response(a, t.under, &resp), Err(VerifyError::RootMismatch));
+
+		// Stream B's whole response, offered as stream A.
+		let resp = fetch(&t.streams[1], 2, 4);
+		assert_eq!(verify_messages_response(b, t.under, &resp), Ok(()));
+		assert_eq!(verify_messages_response(a, t.under, &resp), Err(VerifyError::RootMismatch));
+
+		let event = head(&t.streams[1]);
+		assert!(verify_event_response(b, t.under, &event).is_ok());
+		assert_eq!(verify_event_response(a, t.under, &event), Err(VerifyError::RootMismatch));
+	}
+
+	#[test]
+	fn a_response_without_payloads_verifies_and_advances_nothing() {
+		// Valid lift material, so a server can always answer this way; the consumer's frontier
+		// stays at `base`, and it must fetch again.
+		let t = two_streams();
+		let (stream, ..) = t.streams[0];
+		let resp = fetch(&t.streams[0], 2, 2);
+		assert!(resp.payloads.is_empty());
+		for max_bytes in [0, u32::MAX] {
+			let req =
+				MessagesRequest { stream, start: MessagePosition(2), under: t.under, max_bytes };
+			assert_eq!(verify_messages(&req, &resp), Ok(()));
+		}
+	}
 }
