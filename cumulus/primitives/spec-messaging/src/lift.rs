@@ -689,9 +689,30 @@ mod tests {
 	}
 
 	#[test]
+	fn stitch_rejects_a_backward_step() {
+		// A later block read an older context. Extensions only go forward, so nothing can bridge
+		// it; the pallet does not record an ignored stale read for this reason.
+		let all = leaves(5);
+		let i1 = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 4) };
+		let i2 = Interval { start: root_at(&all, 2), end: frontier_at(&all, 2) };
+		assert_eq!(stitch(&[i1.clone(), i2.clone()], &[]), Err(LiftError::MissingAdvance));
+		assert_eq!(stitch(&[i1, i2], &[extension(&all, 4, 5)]), Err(LiftError::BrokenChain));
+	}
+
+	#[test]
 	fn nothing_recorded_lifts_nothing() {
 		assert_eq!(stitch(&[], &[]), Err(LiftError::EmptyRecord));
 		assert_eq!(build_requires_entry(&SourceStreams::new(), &[]), Err(LiftError::EmptyRecord));
+	}
+
+	#[test]
+	fn an_empty_source_entry_fails_closed() {
+		// The pallet records a source only with a stream. An entry with none has nothing to lift,
+		// so the candidate is invalid rather than silently requiring nothing from that source.
+		let source = ParaId::from(1000);
+		let record = ConsumptionRecord { entries: BTreeMap::from([(source, BTreeMap::new())]) };
+		let lifts = LiftsBySource::try_from(BTreeMap::from([(source, Vec::new())])).unwrap();
+		assert_eq!(build_requires(&[record], &lifts), Err(LiftError::EmptyRecord));
 	}
 
 	#[test]

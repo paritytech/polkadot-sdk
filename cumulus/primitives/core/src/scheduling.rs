@@ -111,7 +111,7 @@ impl SchedulingSignals {
 
 	/// Build the tail from a verified `SignedSchedulingInfo`, replacing the block's own signals
 	/// wholesale. Assumes every `UMPSignal` is a scheduling signal; guarded by
-	/// `all_ump_signals_are_scheduling_signals`.
+	/// `every_ump_signal_is_classified`.
 	pub fn from_scheduling_info(signed_info: &SignedSchedulingInfo) -> Self {
 		let payload = &signed_info.payload;
 		Self {
@@ -379,7 +379,7 @@ mod tests {
 	/// Stops compiling when a `UMPSignal` variant is added. Then decide whether it must survive
 	/// [`SchedulingSignals::from_scheduling_info`], which keeps only scheduling signals.
 	#[test]
-	fn all_ump_signals_are_scheduling_signals() {
+	fn every_ump_signal_is_classified() {
 		fn classify(signal: UMPSignal) {
 			match signal {
 				UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
