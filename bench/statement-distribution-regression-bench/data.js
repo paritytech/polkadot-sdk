@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792710569697,
+  "lastUpdate": 1792753297086,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ae43774747e1d54c617d30dc5573570d0e6f7c6",
-          "message": "eth-rpc: Add trace logging for receipt lookup debugging (#11522)\n\nAdd trace logging to receipt handling to help diagnose intermittent\nreceipt retrieval failures for finalized transactions, observed while\nrunning revive differential test benchmarks.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-08T16:45:55Z",
-          "tree_id": "7b0a5e0ac611eadb5d74f4fc4f29baec64e616eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ae43774747e1d54c617d30dc5573570d0e6f7c6"
-        },
-        "date": 1775671835843,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08579352040599993,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.039463597128,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03851998874799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4c8023dfdf12acbfff4710d4e6006233e44790d7",
+          "message": "cumulus: add resubmittable-segment hydration API (#13383)\n\n# Description\n\nPrevious to last baby step towards resubmissions pipeline final glue.\nThe purpose of this PR is to introduce the logic that creates the\ncollation parts from a resubmittable segment as headers (computed during\nthe parent search in #13355). Now the resubmission store becomes\nrelevant to get the blocks and their PoVs (since the current collator\ncan miss the block due to prunning, and the PoV that is usually added to\nthe resubmission store during the block import). We also make use of the\nrelay chain data like relay parent session and storage root (usually\nretrievable via the relay client, but the query result depends on\nwhether the RC blocks are present, which can not be guaranteed for any\nblock pruning setting).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-10-23T09:20:51Z",
+          "tree_id": "e1bbdafe87cdb3b7ad34e79abc199d2c9e1918d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c8023dfdf12acbfff4710d4e6006233e44790d7"
+        },
+        "date": 1792753269759,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.116,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09049806692599992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039273536148000006,
             "unit": "seconds"
           }
         ]
