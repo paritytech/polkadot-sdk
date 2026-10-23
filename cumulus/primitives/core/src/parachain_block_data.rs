@@ -155,8 +155,7 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 					let blocks = Vec::<Block>::decode(input)?;
 					let proof = CompactProof::decode(input)?;
 					let scheduling_proof = Option::<crate::SchedulingProof>::decode(input)?;
-					// `LiftsBySource::decode` enforces the canonical form at the untrusted
-					// boundary: strictly increasing `ParaId`s, bounded source count.
+					// The canonical form is enforced here, at the untrusted boundary.
 					let lifts = LiftsBySource::decode(input)?;
 
 					Ok(Self::V3 { blocks, proof, scheduling_proof, lifts })

@@ -1960,8 +1960,7 @@ fn provides_follows_the_scheduling_signals() {
 		);
 }
 
-/// Two sending blocks in one bundle: one `Provides`, the last root, on the last block. The MVP sent
-/// one per sending block, which its collator declared as duplicates.
+/// Two sending blocks in one bundle: one `Provides`, the last root, on the last block.
 #[test]
 fn a_bundle_sends_one_provides_on_its_last_block() {
 	BlockTests::new()
