@@ -879,17 +879,8 @@ async fn run_node_join(
 		load_started_rx.await?;
 		info!("Lifecycle join: adding {joiner_name} to {} statement nodes", nodes.len());
 		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
-<<<<<<< HEAD
-		let joiner_options = AddCollatorOptions {
-			env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
-			..Default::default()
-		};
-		network.add_collator(&joiner_name, joiner_options, 1004).await?;
+		network.add_collator(&joiner_name, AddCollatorOptions::default(), 1004).await?;
 		let node = network.get_node(&joiner_name)?.clone();
-=======
-		network.add_collator(JOINER_NAME, AddCollatorOptions::default(), 1004).await?;
-		let node = network.get_node(JOINER_NAME)?.clone();
->>>>>>> origin/master
 		let rpc = node.rpc().await?;
 		nodes_after_join.push(NodeHandle { node, rpc });
 		wait_for_topology("joined", &nodes_after_join, None).await?;
