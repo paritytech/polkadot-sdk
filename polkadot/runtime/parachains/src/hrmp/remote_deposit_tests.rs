@@ -530,9 +530,54 @@ fn poke_answered_after_the_channel_closed() {
 		Remote::process_request(0);
 		assert_eq!(held(A, B, ChannelSide::Sender), 0);
 
+		// The late poke is refused and gives back what it took, which the close already did.
 		System::reset_events();
 		Remote::settle();
-		assert!(hrmp_events().is_empty());
+		assert!(has_event(Event::DepositReturned {
+			channel_id: id.clone(),
+			error: Error::<Test>::OpenHrmpChannelDoesntExist.into(),
+		}));
+		assert_eq!(held(A, B, ChannelSide::Sender), 0);
+		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
+		assert_eq!(Remote::remote_free(A), REMOTE_FREE);
+		assert_eq!(Remote::remote_free(B), REMOTE_FREE);
+	});
+}
+
+/// The channel was opened free of deposits, and a poke takes the deposits of a new price while
+/// the channel is closed. The close gives back nothing, as the channel recorded nothing, so the
+/// late poke gives back what it took.
+#[test]
+fn poke_answered_after_the_free_channel_closed() {
+	new_remote_test_ext(|| {
+		let id = channel(A, B);
+		set_deposits(0, 0);
+		request_and_accept(A, B);
+		next_session();
+		let channel = HrmpChannels::<Test>::get(&id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (0, 0));
+
+		set_deposits(DEPOSIT, DEPOSIT);
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), A, B));
+		assert_ok!(Hrmp::hrmp_close_channel(origin(A), id.clone()));
+		next_session();
+		assert!(HrmpChannels::<Test>::get(&id).is_none());
+		// The close had nothing recorded to give back: only the poke was sent.
+		assert_eq!(Remote::requests().len(), 1);
+
+		Remote::process_requests();
+		assert_eq!(held(A, B, ChannelSide::Sender), DEPOSIT);
+		assert_eq!(held(A, B, ChannelSide::Recipient), DEPOSIT);
+
+		// The late poke is refused and gives back what it took.
+		System::reset_events();
+		Remote::settle();
+		assert!(has_event(Event::DepositReturned {
+			channel_id: id.clone(),
+			error: Error::<Test>::OpenHrmpChannelDoesntExist.into(),
+		}));
+		assert!(HrmpChannels::<Test>::get(&id).is_none());
+		assert_eq!(held(A, B, ChannelSide::Sender), 0);
 		assert_eq!(held(A, B, ChannelSide::Recipient), 0);
 		assert_eq!(Remote::remote_free(A), REMOTE_FREE);
 		assert_eq!(Remote::remote_free(B), REMOTE_FREE);

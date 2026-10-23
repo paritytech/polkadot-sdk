@@ -36,7 +36,13 @@ use frame_support::transactional;
 /// refuses another request for that side.
 ///
 /// A request whose action is [`DepositAction::Release`] must not fail: the provider always
-/// applies it.
+/// applies it. It gives back everything the provider holds for each side the request names,
+/// whatever the request says the side holds.
+///
+/// A provider that answers later keeps its own records of what each side holds, and applies the
+/// requests for a side in the order they were made, releases included: a release made while a
+/// request for the side is pending takes effect after that request does, so that it gives back
+/// what the request took.
 pub trait ChannelDepositProvider {
 	/// Receives the report of a pending request once it is done.
 	type OnDepositSet: OnDepositSet;
