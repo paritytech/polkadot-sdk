@@ -17,6 +17,10 @@
 use super::{
 	AccountId, AuraId, BalancesConfig, ParachainInfoConfig, RuntimeGenesisConfig, SudoConfig,
 };
+#[cfg(feature = "with-authority-discovery")]
+use sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId as BeefyId;
+#[cfg(feature = "with-authority-discovery")]
+use sp_core::Pair as _;
 use alloc::{vec, vec::Vec};
 
 use cumulus_primitives_core::ParaId;
@@ -66,7 +70,12 @@ fn cumulus_test_runtime(
 			let account: AccountId = AccountId::from(raw);
 			let aura_key: AuraId = aura.clone();
 			let ad_key: AuthorityDiscoveryId = inner.into();
-			(account.clone(), account, SessionKeys { aura: aura_key, authority_discovery: ad_key })
+			// Deterministic BEEFY key derived from the validator's sr25519 key
+			// material (the DKG reuses BEEFY keys). The node must insert the same
+			// key into its keystore (key type `beef`) to deal; the test service
+			// derives it identically.
+			let beefy_key: BeefyId = sp_core::ecdsa_bls381::Pair::from_seed(&raw).public().into();
+			(account.clone(), account, SessionKeys { aura: aura_key, authority_discovery: ad_key, beefy: beefy_key })
 		})
 		.collect();
 

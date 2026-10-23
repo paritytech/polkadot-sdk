@@ -279,6 +279,7 @@ members = [
 	"substrate/client/consensus/pow",
 	"substrate/client/consensus/slots",
 	"substrate/client/db",
+	"substrate/client/dkg",
 	"substrate/client/executor",
 	"substrate/client/executor/common",
 	"substrate/client/executor/polkavm",
@@ -1246,6 +1247,7 @@ sc-cli = { path = "substrate/client/cli", default-features = false }
 sc-client-api = { path = "substrate/client/api", default-features = false }
 sc-client-db = { path = "substrate/client/db", default-features = false }
 sc-consensus = { path = "substrate/client/consensus/common", default-features = false }
+sc-dkg = { path = "substrate/client/dkg", default-features = false }
 sc-consensus-aura = { path = "substrate/client/consensus/aura", default-features = false }
 sc-consensus-babe = { path = "substrate/client/consensus/babe", default-features = false }
 sc-consensus-babe-rpc = { path = "substrate/client/consensus/babe/rpc", default-features = false }

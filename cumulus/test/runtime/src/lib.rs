@@ -25,6 +25,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod features;
 mod flavors;
 mod genesis_config_presets;
+mod key_gen;
 pub mod test_pallet;
 
 extern crate alloc;
@@ -37,6 +38,8 @@ use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
+#[cfg(feature = "with-authority-discovery")]
+use sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId as BeefyId;
 
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -68,6 +71,7 @@ pub use frame_support::{
 	StorageValue,
 };
 pub use frame_system::Call as SystemCall;
+pub use key_gen::{Call as KeyGenCall, ThresholdKey};
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
@@ -95,6 +99,7 @@ impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
 		pub authority_discovery: AuthorityDiscovery,
+		pub beefy: KeyGen,
 	}
 }
 
@@ -375,6 +380,49 @@ impl pallet_aura::Config for Runtime {
 
 impl test_pallet::Config for Runtime {}
 
+#[cfg(feature = "with-authority-discovery")]
+pub struct SessionDkgKeys;
+
+#[cfg(feature = "with-authority-discovery")]
+impl key_gen::DkgKeyLookup<AccountId> for SessionDkgKeys {
+	fn dkg_key(who: &AccountId) -> Option<Vec<u8>> {
+		use sp_runtime::traits::OpaqueKeys;
+		pallet_session::QueuedKeys::<Runtime>::get()
+			.into_iter()
+			.find(|(validator, _)| validator == who)
+			.and_then(|(_, keys)| {
+				let raw = keys.get_raw(sp_core::crypto::key_types::BEEFY);
+				(!raw.is_empty()).then(|| raw.to_vec())
+			})
+	}
+}
+
+#[cfg(feature = "with-authority-discovery")]
+pub struct CurrentSessionIndex;
+
+#[cfg(feature = "with-authority-discovery")]
+impl Get<key_gen::SessionIndex> for CurrentSessionIndex {
+	fn get() -> key_gen::SessionIndex {
+		pallet_session::CurrentIndex::<Runtime>::get()
+	}
+}
+
+impl key_gen::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+
+	#[cfg(feature = "with-authority-discovery")]
+	type DkgKeyOf = SessionDkgKeys;
+	#[cfg(not(feature = "with-authority-discovery"))]
+	type DkgKeyOf = ();
+
+	#[cfg(feature = "with-authority-discovery")]
+	type CurrentSessionIndex = CurrentSessionIndex;
+	#[cfg(not(feature = "with-authority-discovery"))]
+	type CurrentSessionIndex = ConstU32<0>;
+
+	type KeyHistoryDepth = ConstU32<8>;
+}
+
 parameter_types! {
 	pub const Period: u32 = 10;
 }
@@ -422,6 +470,7 @@ construct_runtime! {
 		AuthorityDiscovery: pallet_authority_discovery,
 		AuraExt: cumulus_pallet_aura_ext,
 		WeightReclaim: cumulus_pallet_weight_reclaim,
+		KeyGen: key_gen,
 	}
 }
 
@@ -518,7 +567,7 @@ pub type SingleBlockMigrations = (VerifyRuntimeUpgrade,);
 #[cfg(feature = "with-authority-discovery")]
 pub mod migrations {
 	use super::*;
-	use sp_core::crypto::key_types;
+	use sp_core::crypto::{key_types, ByteArray};
 
 	pub struct EnableAuthorityDiscovery;
 
@@ -546,7 +595,17 @@ pub mod migrations {
 				let account: AccountId = sp_core::sr25519::Public::from_raw(raw).into();
 				let aura_key = AuraId::from(sp_core::sr25519::Public::from_raw(raw));
 				let audi_key = AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(raw));
-				let session_keys = SessionKeys { aura: aura_key, authority_discovery: audi_key };
+				// The migration cannot derive BLS secret keys (it runs on-chain), so the
+				// BEEFY key starts as a zero placeholder: validators must `set_keys` a
+				// real BEEFY key before they can deal (the key_gen pallet rejects the
+				// placeholder via its dealer-key binding).
+				let beefy_key =
+					BeefyId::from_slice(&[0u8; 177]).expect("177 bytes is a valid BEEFY key");
+				let session_keys = SessionKeys {
+					aura: aura_key,
+					authority_discovery: audi_key,
+					beefy: beefy_key,
+				};
 
 				// Populate NextKeys and KeyOwner (mirrors pallet_session genesis logic).
 				pallet_session::NextKeys::<Runtime>::insert(&account, &session_keys);

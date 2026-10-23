@@ -82,17 +82,34 @@ cumulus-client-service = { workspace = true, default-features = true }
 cumulus-pallet-parachain-system = { workspace = true }
 cumulus-pallet-weight-reclaim = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
+array-bytes = { workspace = true }
 cumulus-relay-chain-inprocess-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }
 cumulus-relay-chain-minimal-node = { workspace = true, default-features = true }
 cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 cumulus-test-runtime = { workspace = true }
 pallet-timestamp = { workspace = true, default-features = true }
+sc-dkg = { workspace = true }
+sp-keystore = { workspace = true, default-features = true }
 
 [dev-dependencies]
+# Pinned fork, same as sc-dkg (see substrate/client/dkg/Cargo.toml).
+adkg-vrf = { git = "https://github.com/coax1d/adkg-vrf.git", rev = "d254558650cba8457a6fc0862796e76a1757869f" }
+ark-bls12-381 = { version = "0.5", features = ["curve"] }
+ark-serialize = { version = "0.5" }
 cumulus-test-client = { workspace = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 
 [features]
+# Enables the runtime's authority-discovery variant (adds pallet_session with
+# the `beef` BEEFY session key) and wires the DKG gadget into the node:
+# gossip protocol, derived BEEFY keystore keys, and the DKG worker task.
+with-authority-discovery = [
+	"cumulus-test-runtime/with-authority-discovery",
+	"sc-dkg/bls-experimental",
+	"sp-core/bls-experimental",
+]
+
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",

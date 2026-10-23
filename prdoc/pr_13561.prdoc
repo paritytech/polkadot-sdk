@@ -1,0 +1,18 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: 'sc-dkg: aggregatable DKG gadget over BEEFY BLS keys (prototype)'
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds `sc-dkg`, a prototype gadget for an aggregatable distributed key generation
+      (a-DKG, `adkg-vrf`) among validators that reuses their paired ECDSA,BLS12-381 BEEFY
+      keys. At each session change the node deals, gossips signed dealings with
+      session-scoped validation, and hands its own dealing to a pluggable submitter, which
+      sends it to a pallet that aggregates the dealings into a per-session threshold key.
+      Experimental: test-network only, not wired into the polkadot node yet.
+
+crates:
+  - name: sc-dkg
+    bump: major

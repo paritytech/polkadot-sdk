@@ -34,6 +34,7 @@ sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
+sp-consensus-beefy = { workspace = true, features = ["bls-experimental"] }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
@@ -57,12 +58,25 @@ cumulus-primitives-core = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
 parachain-info = { workspace = true }
 
+# a-DKG / threshold VUF
+ark-bls12-381 = { version = "0.5", default-features = false, features = ["curve"] }
+ark-serialize = { version = "0.5", default-features = false }
+# Pinned fork with the current adkg-vrf API; TODO: switch back to w3f/paritytech once merged.
+adkg-vrf = { git = "https://github.com/coax1d/adkg-vrf.git", rev = "d254558650cba8457a6fc0862796e76a1757869f", default-features = false }
+
+[dev-dependencies]
+ark-ec = { version = "0.5", default-features = false }
+ark-std = { version = "0.5", default-features = false }
+
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
 default = ["std"]
 std = [
+	"adkg-vrf/std",
+	"ark-bls12-381/std",
+	"ark-serialize/std",
 	"codec/std",
 	"cumulus-pallet-aura-ext/std",
 	"cumulus-pallet-parachain-system/std",
@@ -93,6 +107,7 @@ std = [
 	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
+	"sp-consensus-beefy/std",
 	"sp-core/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",

@@ -74,6 +74,10 @@ use polkadot_runtime_common::{
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature};
+// The validators' BEEFY session keys are paired (ECDSA,BLS12-381) keys, as on
+// Westend; the DKG reuses them. The `BeefyApi` below stays a stub, so the
+// node-side BEEFY gadget never starts on this runtime.
+use sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId as BlsBeefyId;
 use sp_core::{ConstBool, ConstU32, ConstUint, Get, OpaqueMetadata};
 use sp_mmr_primitives as mmr;
 use sp_runtime::{
@@ -330,6 +334,7 @@ impl_opaque_keys! {
 		pub para_validator: Initializer,
 		pub para_assignment: ParaSessionInfo,
 		pub authority_discovery: AuthorityDiscovery,
+		pub beefy: Beefy,
 	}
 }
 
@@ -446,6 +451,60 @@ impl pallet_grandpa::Config for Runtime {
 	type MaxSetIdSessionEntries = MaxSetIdSessionEntries;
 
 	type KeyOwnerProof = sp_core::Void;
+	type EquivocationReportSystem = ();
+}
+
+parameter_types! {
+	pub BeefySetIdSessionEntries: u64 = MaxSetIdSessionEntries::get().into();
+}
+
+/// `pallet_beefy` tracks the validators' BEEFY keys (`Beefy::Authorities` and
+/// `Beefy::NextAuthorities`, as on Westend). There is no MMR, so no fork
+/// equivocation proof is ever accepted.
+pub struct NoAncestryProofs;
+
+impl<H: sp_runtime::traits::Header> sp_consensus_beefy::AncestryHelper<H> for NoAncestryProofs {
+	type Proof = ();
+	type ValidationContext = ();
+
+	fn is_proof_optimal(_: &()) -> bool {
+		false
+	}
+
+	fn extract_validation_context(_: H) -> Option<()> {
+		None
+	}
+
+	fn is_non_canonical(_: &sp_consensus_beefy::Commitment<H::Number>, _: (), _: ()) -> bool {
+		false
+	}
+}
+
+impl<H: sp_runtime::traits::Header> sp_consensus_beefy::AncestryHelperWeightInfo<H>
+	for NoAncestryProofs
+{
+	fn is_proof_optimal(_: &()) -> Weight {
+		Weight::zero()
+	}
+
+	fn extract_validation_context() -> Weight {
+		Weight::zero()
+	}
+
+	fn is_non_canonical(_: &()) -> Weight {
+		Weight::zero()
+	}
+}
+
+impl pallet_beefy::Config for Runtime {
+	type BeefyId = BlsBeefyId;
+	type MaxAuthorities = MaxAuthorities;
+	type MaxNominators = MaxNominators;
+	type MaxSetIdSessionEntries = BeefySetIdSessionEntries;
+	type OnNewValidatorSet = ();
+	type AncestryHelper = NoAncestryProofs;
+	type WeightInfo = ();
+	type KeyOwnerProof = sp_session::MembershipProof;
 	type EquivocationReportSystem = ();
 }
 
@@ -848,6 +907,9 @@ construct_runtime! {
 		Sudo: pallet_sudo,
 
 		TestNotifier: pallet_test_notifier,
+
+		// Last, so the existing pallet indices are unchanged.
+		Beefy: pallet_beefy,
 	}
 }
 

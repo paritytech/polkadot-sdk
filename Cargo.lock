@@ -40,6 +40,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "adkg-vrf"
+version = "0.1.0"
+source = "git+https://github.com/coax1d/adkg-vrf.git?rev=d254558650cba8457a6fc0862796e76a1757869f#d254558650cba8457a6fc0862796e76a1757869f"
+dependencies = [
+ "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "ark-transcript 0.0.5",
+ "derivative",
+ "hashbrown 0.15.3",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "adler"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1377,6 +1394,18 @@ dependencies = [
  "ark-std 0.5.0",
  "digest 0.10.7",
  "rand_core 0.6.4",
+ "sha3 0.10.8",
+]
+
+[[package]]
+name = "ark-transcript"
+version = "0.0.5"
+source = "git+https://github.com/w3f/ark-transcript?rev=f7e27015#f7e2701560683b17fee2afe80e3558b78f0f0593"
+dependencies = [
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "digest 0.10.7",
  "sha3 0.10.8",
 ]
 
@@ -5681,6 +5710,11 @@ dependencies = [
 name = "cumulus-test-runtime"
 version = "0.1.0"
 dependencies = [
+ "adkg-vrf",
+ "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-weight-reclaim",
@@ -5710,6 +5744,7 @@ dependencies = [
  "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
+ "sp-consensus-beefy",
  "sp-core 28.0.0",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
@@ -5729,6 +5764,10 @@ dependencies = [
 name = "cumulus-test-service"
 version = "0.1.0"
 dependencies = [
+ "adkg-vrf",
+ "ark-bls12-381 0.5.0",
+ "ark-serialize 0.5.0",
+ "array-bytes 6.2.2",
  "async-trait",
  "clap",
  "criterion",
@@ -5771,6 +5810,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-consensus",
  "sc-consensus-aura",
+ "sc-dkg",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-executor-wasmtime 0.29.0",
@@ -5788,9 +5828,11 @@ dependencies = [
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
  "sp-genesis-builder 0.8.0",
  "sp-io 30.0.0",
  "sp-keyring",
+ "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-timestamp",
@@ -18324,6 +18366,7 @@ dependencies = [
  "pallet-authorship",
  "pallet-babe",
  "pallet-balances",
+ "pallet-beefy",
  "pallet-grandpa",
  "pallet-indices",
  "pallet-offences",
@@ -18398,6 +18441,7 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-consensus-babe",
+ "sp-consensus-beefy",
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-runtime 31.0.1",
@@ -21534,6 +21578,54 @@ dependencies = [
  "sp-state-machine 0.35.0",
  "sp-trie 29.0.0",
  "substrate-test-runtime-client",
+]
+
+[[package]]
+name = "sc-dkg"
+version = "1.0.0"
+dependencies = [
+ "adkg-vrf",
+ "ark-bls12-381 0.5.0",
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-serialize 0.5.0",
+ "ark-std 0.5.0",
+ "array-bytes 6.2.2",
+ "async-channel 1.9.0",
+ "async-trait",
+ "futures",
+ "log",
+ "parity-scale-codec",
+ "parking_lot 0.12.3",
+ "rand 0.8.5",
+ "sc-block-builder",
+ "sc-client-api 28.0.0",
+ "sc-consensus",
+ "sc-network 0.34.0",
+ "sc-network-gossip",
+ "sc-network-sync",
+ "sc-network-test",
+ "sc-network-types 0.10.0",
+ "sc-utils 14.0.0",
+ "scale-info",
+ "serde",
+ "sp-api 26.0.0",
+ "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-consensus-beefy",
+ "sp-core 28.0.0",
+ "sp-crypto-hashing 0.1.0",
+ "sp-keystore 0.34.0",
+ "sp-runtime 31.0.1",
+ "sp-storage 19.0.0",
+ "sp-tracing 16.0.0",
+ "substrate-prometheus-endpoint 0.17.0",
+ "substrate-test-runtime-client",
+ "thiserror 1.0.65",
+ "tokio",
+ "wasm-timer",
 ]
 
 [[package]]
@@ -29218,7 +29310,7 @@ dependencies = [
  "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
- "ark-transcript",
+ "ark-transcript 0.0.3",
  "rayon",
  "w3f-pcs 0.0.2",
  "w3f-plonk-common 0.0.2",
@@ -29235,7 +29327,7 @@ dependencies = [
  "ark-poly 0.5.0",
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
- "ark-transcript",
+ "ark-transcript 0.0.3",
  "w3f-pcs 0.0.5",
  "w3f-plonk-common 0.0.7",
 ]

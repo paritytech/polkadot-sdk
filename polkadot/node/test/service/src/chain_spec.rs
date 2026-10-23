@@ -27,6 +27,7 @@ use sc_chain_spec::{ChainSpec, ChainType};
 use sc_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId as BeefyId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
@@ -71,10 +72,20 @@ pub fn polkadot_local_testnet_genesis() -> serde_json::Value {
 	)
 }
 
+/// Session keys of a genesis authority.
+type AuthorityKeys = (
+	AccountId,
+	AccountId,
+	BabeId,
+	GrandpaId,
+	ValidatorId,
+	AssignmentId,
+	AuthorityDiscoveryId,
+	BeefyId,
+);
+
 /// Helper function to generate stash, controller and session key from seed
-fn get_authority_keys_from_seed(
-	seed: &str,
-) -> (AccountId, AccountId, BabeId, GrandpaId, ValidatorId, AssignmentId, AuthorityDiscoveryId) {
+fn get_authority_keys_from_seed(seed: &str) -> AuthorityKeys {
 	(
 		get_public_from_string_or_panic::<sr25519::Public>(&format!("{}//stash", seed)).into(),
 		get_public_from_string_or_panic::<sr25519::Public>(seed).into(),
@@ -83,6 +94,7 @@ fn get_authority_keys_from_seed(
 		get_public_from_string_or_panic::<ValidatorId>(seed),
 		get_public_from_string_or_panic::<AssignmentId>(seed),
 		get_public_from_string_or_panic::<AuthorityDiscoveryId>(seed),
+		get_public_from_string_or_panic::<BeefyId>(seed),
 	)
 }
 
@@ -92,15 +104,7 @@ fn testnet_accounts() -> Vec<AccountId> {
 
 /// Helper function to create polkadot `RuntimeGenesisConfig` for testing
 fn polkadot_testnet_genesis(
-	initial_authorities: Vec<(
-		AccountId,
-		AccountId,
-		BabeId,
-		GrandpaId,
-		ValidatorId,
-		AssignmentId,
-		AuthorityDiscoveryId,
-	)>,
+	initial_authorities: Vec<AuthorityKeys>,
 	root_key: AccountId,
 	endowed_accounts: Option<Vec<AccountId>>,
 ) -> serde_json::Value {
@@ -136,6 +140,7 @@ fn polkadot_testnet_genesis(
 							para_validator: x.4.clone(),
 							para_assignment: x.5.clone(),
 							authority_discovery: x.6.clone(),
+							beefy: x.7.clone(),
 						},
 					)
 				})
