@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792751783188,
+  "lastUpdate": 1792763035825,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -137051,6 +137051,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2684640012,
             "range": "± 15675679",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74b0ba5914888631b0111fafd5e2f42eb9ef325f",
+          "message": "zombienet: download only the binaries a test family spawns (#13558)\n\n# Description\n\nEach zombienet test job downloads all seven binary artifacts, 1.4 GB,\none after the other, which takes about 330 seconds and is 40 to 75\npercent of a typical job. A test family spawns only a subset: cumulus\ntests need polkadot, polkadot-parachain and test-parachain (488 MB),\nsubstrate tests need only substrate (36 MB), the template tests need the\ntemplate nodes and polkadot, and polkadot tests need everything except\nsubstrate and the template nodes.\n\nThe download action now takes a prefix, the same value the zombienet-sdk\naction already receives, and skips the artifacts that family never\nspawns. Without a prefix it downloads everything as before, so the\nlegacy v1 action keeps its behaviour.\n\nOver a run of 96 jobs this saves about three runner hours. On PR runs,\nwhere the jobs queue for the spot pool, that is roughly ten minutes of\nwall time.\n\n## Rough results\n\nMeasured on this PR's first full CI run (96 zombienet jobs) against\nthree recent master runs, matching jobs by name. One run each, so these\nare rough numbers, not a benchmark.\n\n| Family | Download time per job |\n|---|---|\n| substrate | 318 s → 27 s |\n| cumulus | 280 s → 112 s |\n| templates | 268 s → 82 s |\n| polkadot | 300 s → 233 s |\n\n\n## Integration\n\nCI-only change.\n\n## Review Notes\n\nWhich binaries each family spawns was taken from the test sources:\npolkadot/zombienet-sdk-tests, cumulus/zombienet/zombienet-sdk,\nsubstrate/zombienet/zombienet-sdk and templates/zombienet.",
+          "timestamp": "2026-10-23T12:26:49Z",
+          "tree_id": "c65018a4804784d9edc10ecd3ba762b4a02ce0f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74b0ba5914888631b0111fafd5e2f42eb9ef325f"
+        },
+        "date": 1792763004582,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19543149,
+            "range": "± 168912",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19834789,
+            "range": "± 102229",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21514522,
+            "range": "± 164294",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25497658,
+            "range": "± 204468",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57050273,
+            "range": "± 1074297",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 343425613,
+            "range": "± 3296573",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2507417623,
+            "range": "± 62973410",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16975722,
+            "range": "± 69695",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17322847,
+            "range": "± 189910",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17837415,
+            "range": "± 170517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22319301,
+            "range": "± 183798",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59836540,
+            "range": "± 633188",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 342617090,
+            "range": "± 2457071",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2701658893,
+            "range": "± 18112208",
             "unit": "ns/iter"
           }
         ]
