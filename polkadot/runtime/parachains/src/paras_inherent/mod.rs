@@ -1132,12 +1132,6 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 			continue;
 		}
 
-		// Drop a candidate whose `Requires` miss the provides windows; its descendants follow in
-		// `filter_unchained_candidates`.
-		if !check_speculative_messaging::<T>(&candidate) {
-			continue;
-		}
-
 		candidates_per_para
 			.entry(candidate.descriptor().para_id())
 			.or_default()
@@ -1176,6 +1170,12 @@ fn sanitize_backed_candidates<T: crate::inclusion::Config>(
 		&mut backed_candidates_with_core,
 		&allowed_scheduling_parents,
 	);
+
+	// Drop a candidate whose `Requires` miss the provides windows, with its descendants. Last, so
+	// only candidates that pass every other filter cost the window reads.
+	retain_candidates::<T, _, _>(&mut backed_candidates_with_core, |_, (candidate, _)| {
+		check_speculative_messaging::<T>(candidate)
+	});
 
 	backed_candidates_with_core
 }
