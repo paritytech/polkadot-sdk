@@ -1,0 +1,20 @@
+title: 'people-westend, yet-another-parachain: add the missing parachain-system storage migrations'
+
+doc:
+  - audience: [Runtime Dev, Node Operator]
+    description: |
+      `cumulus-pallet-parachain-system` is at storage version 4 (`LastProcessedHrmpMessage`
+      became `InboundHrmpMessageId` in #12876), but the People Westend and Yet Another
+      Parachain runtimes never listed `migration::v3::Migration` and
+      `migration::MigrateV3ToV4`, unlike the other Westend system chains. They now run both as
+      permanent migrations. Without them, the first runtime upgrade of such a chain leaves the
+      pallet at its old storage version with a value the new code cannot decode: every block
+      that processes inbound HRMP messages logs `Corrupted state` until the value is rewritten,
+      and `try-runtime` rejects the upgrade on the storage-version mismatch. Both migrations
+      are no-ops once the on-chain version is current.
+
+crates:
+  - name: people-westend-runtime
+    bump: minor
+  - name: yet-another-parachain-runtime
+    bump: minor
