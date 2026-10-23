@@ -384,11 +384,12 @@ async fn update_parachain_authorities<Block, AD>(
 	let (addrs, unresolved) =
 		resolve_authority_addresses(&selected, authority_discovery_service, local_peer_id).await;
 	let resolved = target_count.saturating_sub(unresolved);
+	let peer_ids: HashSet<PeerId> = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
 
 	if let Some(m) = metrics {
 		m.target_authorities.set(target_count as u64);
 		m.unresolved_authorities.set(unresolved as u64);
-		m.resolved_peers.set(addrs.len() as u64);
+		m.resolved_peers.set(peer_ids.len() as u64);
 	}
 
 	log_low_connectivity_if_stuck(target_count, resolved, &mut state.low_connectivity_since);
@@ -404,7 +405,6 @@ async fn update_parachain_authorities<Block, AD>(
 	// Diff against the last known state and apply additively.
 	let (to_add, to_remove) = compute_reserved_diff(&addrs, state.last_addrs.as_ref());
 
-	let peer_ids: HashSet<PeerId> = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
 	log::debug!(
 		target: LOG_TARGET,
 		"Refreshing reserved peers at {at:?}: target={target_count} unresolved={unresolved} multiaddrs={} peer_ids={} (+{} -{})",
@@ -537,7 +537,7 @@ impl Metrics {
 			resolved_peers: register(
 				Gauge::with_opts(Opts::new(
 					"collator_discovery_resolved_peers",
-					"Number of multiaddrs pushed to the collator-sync reserved set.",
+					"Number of distinct peers resolved for the collator-sync reserved set.",
 				))?,
 				registry,
 			)?,
