@@ -395,7 +395,7 @@ pub mod pallet {
 const LOG_TARGET: &str = "runtime::inclusion";
 
 /// Length of a sender's provides window. It must cover the authoring→inclusion pipeline, including
-/// elastic-scaling bursts; 128 leaves ample slack.
+/// elastic-scaling bursts, with ample slack.
 pub const MAX_PROVIDES_WINDOW_SIZE: u32 = 128;
 
 /// The reason that a candidate's outputs were rejected for.
@@ -507,7 +507,6 @@ impl<T: Config> Pallet<T> {
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
 
-		// Drop the offboarded senders' provides windows.
 		for outgoing_para in outgoing_paras {
 			RecentProvides::<T>::remove(outgoing_para);
 		}
@@ -944,7 +943,6 @@ impl<T: Config> Pallet<T> {
 			commitments.horizontal_messages,
 		);
 
-		// Record the sender's `StreamsRoot` for later receivers' `Requires`.
 		if let Some(root) = provides {
 			Self::record_provides(receipt.descriptor.para_id(), root);
 		}
@@ -966,8 +964,7 @@ impl<T: Config> Pallet<T> {
 	/// Whether `root` is present in `source`'s provides window.
 	fn provides_contains(source: ParaId, root: &StreamsRoot) -> bool {
 		// Scan newest-first: a `requires` almost always references a recent commitment, which sits
-		// at the tail of the drop-oldest window, so this short-circuits sooner on a match. (A miss
-		// still scans the whole window; the storage cost is one `get` either way.)
+		// at the tail of the drop-oldest window, so this short-circuits sooner on a match.
 		RecentProvides::<T>::get(source).iter().rev().any(|committed| committed == root)
 	}
 
@@ -980,7 +977,7 @@ impl<T: Config> Pallet<T> {
 	/// Whether every `(source, root)` of `requires` is in that source's window; `Err` names the
 	/// first miss.
 	pub(crate) fn requires_satisfied(requires: &RequiresSet) -> Result<(), (ParaId, StreamsRoot)> {
-		// Does one `RecentProvides` read per required source (≤ `MAX_COMMITMENT_ENTRIES` = 256).
+		// One `RecentProvides` read per required source.
 		for (source, expected) in requires.iter() {
 			if !Self::provides_contains(*source, expected) {
 				return Err((*source, *expected));
