@@ -2171,10 +2171,11 @@ mod staking_bounds_chill_other {
 	#[test]
 	fn chill_inactive_checks_the_points_of_each_service() {
 		const VALIDATOR: AccountId = 11;
+		use sp_staking::RewardPoints;
 		use ValidatorServiceKind::{Collation, RelayConsensus};
 
 		ExtBuilder::default().build_and_execute(|| {
-			// GIVEN an inactivity threshold of two eras, and 11 exposed in eras 1 to 4
+			// GIVEN an inactivity threshold of two eras
 			assert_ok!(Staking::set_staking_configs(
 				RuntimeOrigin::root(),
 				ConfigOp::Noop,
@@ -2187,60 +2188,65 @@ mod staking_bounds_chill_other {
 				ConfigOp::Noop,
 				ConfigOp::Set(2)
 			));
-			Session::roll_until_active_era(5);
-			let points = || {
-				let mut individual = BoundedBTreeMap::new();
-				individual.try_insert(VALIDATOR, 100).unwrap();
-				EraRewardPoints { total: 100, individual }
-			};
-			// AND in eras 1 and 2, 11 earned points recorded in the tally only, as before points
-			// were recorded per service
-			for era in [1, 2] {
-				ErasRewardPoints::<Test>::insert(era, points());
+			// AND 11 exposed in eras 1 to 6, earning points in each pair of eras as they are
+			// recorded over time:
+			// - 1 and 2: in the tally only, before points were recorded per service.
+			// - 3 and 4: in the tally and per service, relay consensus only, before any validator
+			//   collates.
+			// - 5 and 6: in the tally and per service, relay consensus and collation.
+			for era in 1..=6 {
+				Session::roll_until_active_era(era);
+				match era {
+					1 | 2 => {
+						let mut individual = BoundedBTreeMap::new();
+						individual.try_insert(VALIDATOR, 100).unwrap();
+						ErasRewardPoints::<Test>::insert(
+							era,
+							EraRewardPoints { total: 100, individual },
+						);
+					},
+					3 | 4 => Staking::reward_by_ids(vec![(VALIDATOR, 100)]),
+					_ => {
+						Staking::reward_by_ids(vec![(VALIDATOR, 60)]);
+						Staking::reward(Collation, vec![(VALIDATOR, 40)]);
+					},
+				}
 			}
-			// AND in eras 3 and 4, 11 earned collation points, recorded in the tally and per
-			// service
-			for era in [3, 4] {
-				ErasRewardPoints::<Test>::insert(era, points());
-				ErasRewardPointsByService::<Test>::insert(era, Collation, points());
-			}
-			// AND the points not recorded per service count as relay consensus points
-			assert_eq!(
-				crate::session_rotation::Eras::<Test>::get_reward_points_by_service_for_validator(
-					1, &VALIDATOR
-				),
-				vec![(RelayConsensus, 100)]
-			);
-			assert_eq!(
-				crate::session_rotation::Eras::<Test>::get_reward_points_by_service_for_validator(
-					3, &VALIDATOR
-				),
-				vec![(Collation, 100)]
-			);
-			let chill = |eras: [EraIndex; 2]| {
-				Staking::chill_inactive(
-					RuntimeOrigin::signed(10),
-					VALIDATOR,
-					BoundedVec::truncate_from(eras.to_vec()),
-				)
+			Session::roll_until_active_era(7);
+			assert!(!ErasRewardPointsByService::<Test>::contains_key(1, RelayConsensus));
+			assert!(ErasRewardPointsByService::<Test>::contains_key(3, RelayConsensus));
+			assert!(!ErasRewardPointsByService::<Test>::contains_key(3, Collation));
+
+			// AND the points of the tally not recorded per service count as relay consensus points
+			let points_of = |era| {
+				let mut points =
+					crate::session_rotation::Eras::<Test>::get_reward_points_by_service_for_validator(
+						era, &VALIDATOR,
+					);
+				points.sort_by_key(|(service, _)| *service as u8);
+				points
 			};
-			let active = || {
-				Error::<Test>::InvalidInactivityProof(InvalidInactivityProofError::ValidatorActive)
+			assert_eq!(points_of(1), vec![(RelayConsensus, 100)]);
+			assert_eq!(points_of(3), vec![(RelayConsensus, 100)]);
+			assert_eq!(points_of(5), vec![(RelayConsensus, 60), (Collation, 40)]);
+
+			// Whether 11 can be chilled with each pair of eras as proof.
+			let chillable = || {
+				[[1, 2], [3, 4], [5, 6]].map(|eras: [EraIndex; 2]| {
+					hypothetically!({
+						Staking::chill_inactive(
+							RuntimeOrigin::signed(10),
+							VALIDATOR,
+							BoundedVec::truncate_from(eras.to_vec()),
+						)
+						.is_ok()
+					})
+				})
 			};
 
 			// WHEN a validator is inactive only without points of any service, as by default
-			// THEN 11 is active in both pairs of eras
-			assert_noop!(chill([1, 2]), active());
-			assert_noop!(chill([3, 4]), active());
-
-			// WHEN a validator is inactive if the total of its points is zero, as before points
-			// were recorded per service
-			InactivityCheck::set(|points| {
-				points.iter().map(|(_, points)| points).sum::<u32>() == 0
-			});
-			// THEN the points of each pair add up to the same total, so 11 is active in both
-			assert_noop!(chill([1, 2]), active());
-			assert_noop!(chill([3, 4]), active());
+			// THEN 11 is active in every pair of eras
+			assert_eq!(chillable(), [false, false, false]);
 
 			// WHEN a validator is inactive without relay consensus points
 			InactivityCheck::set(|points| {
@@ -2248,25 +2254,16 @@ mod staking_bounds_chill_other {
 					.iter()
 					.all(|(service, points)| *service != RelayConsensus || *points == 0)
 			});
-			// THEN the points of eras 1 and 2 count as relay consensus points and keep 11 active
-			assert_noop!(chill([1, 2]), active());
-			// AND the collation points of eras 3 and 4 do not, so 11 is chilled
-			hypothetically!({
-				assert_ok!(chill([3, 4]));
-				System::assert_last_event(Event::<Test>::Chilled { stash: VALIDATOR }.into());
-			});
+			// THEN 11 is active in every pair of eras, including the eras of points in the tally
+			// only
+			assert_eq!(chillable(), [false, false, false]);
 
 			// WHEN a validator is inactive without collation points
 			InactivityCheck::set(|points| {
 				points.iter().all(|(service, points)| *service != Collation || *points == 0)
 			});
-			// THEN the collation points of eras 3 and 4 keep 11 active
-			assert_noop!(chill([3, 4]), active());
-			// AND eras 1 and 2 hold no collation points, so 11 is chilled
-			hypothetically!({
-				assert_ok!(chill([1, 2]));
-				System::assert_last_event(Event::<Test>::Chilled { stash: VALIDATOR }.into());
-			});
+			// THEN 11 can be chilled with the eras before it collated
+			assert_eq!(chillable(), [true, true, false]);
 		});
 	}
 
