@@ -65,7 +65,7 @@ use std::{
 	collections::BTreeMap,
 	fmt,
 	panic::{self, AssertUnwindSafe},
-	sync::Once,
+	sync::{Once, OnceLock},
 };
 
 /// Maximum number of blocks per script.
@@ -754,13 +754,16 @@ struct WarningCapture;
 
 impl log::Log for WarningCapture {
 	fn enabled(&self, metadata: &log::Metadata) -> bool {
-		metadata.level() <= log::Level::Warn
+		metadata.level() <= log::Level::Warn || log_enabled(metadata)
 	}
 
 	fn log(&self, record: &log::Record) {
 		let target = record.target();
 		if record.level() <= log::Level::Warn && (target == "trie" || target == "state") {
 			WARNINGS.with(|w| w.borrow_mut().push(format!("{target}: {}", record.args())));
+		}
+		if log_enabled(record.metadata()) {
+			eprintln!("{} {target}: {}", record.level(), record.args());
 		}
 	}
 
@@ -769,11 +772,60 @@ impl log::Log for WarningCapture {
 
 static LOGGER: WarningCapture = WarningCapture;
 
+/// `POV_FUZZ_LOG`, in `RUST_LOG` syntax. Empty when logging is off.
+fn log_spec() -> &'static str {
+	static SPEC: OnceLock<String> = OnceLock::new();
+	SPEC.get_or_init(|| std::env::var("POV_FUZZ_LOG").unwrap_or_default())
+}
+
+/// The `target=level` and bare `level` directives of [`log_spec`], applied to `log` records.
+fn log_directives() -> &'static [(Option<String>, log::LevelFilter)] {
+	static DIRECTIVES: OnceLock<Vec<(Option<String>, log::LevelFilter)>> = OnceLock::new();
+	DIRECTIVES.get_or_init(|| {
+		log_spec()
+			.split(',')
+			.filter_map(|directive| match directive.split_once('=') {
+				Some((target, level)) => Some((Some(target.to_string()), level.parse().ok()?)),
+				None => Some((None, directive.parse().ok()?)),
+			})
+			.collect()
+	})
+}
+
+fn log_enabled(metadata: &log::Metadata) -> bool {
+	log_directives().iter().any(|(target, level)| {
+		target
+			.as_ref()
+			.map_or(true, |target| metadata.target().starts_with(target.as_str())) &&
+			metadata.level() <= *level
+	})
+}
+
+/// Prints a progress marker between the log lines, so that the passes and runtime calls of a
+/// script can be told apart.
+fn mark(message: fmt::Arguments) {
+	if !log_spec().is_empty() {
+		eprintln!("pov-fuzz: {message}");
+	}
+}
+
 fn install_hooks() {
 	static ONCE: Once = Once::new();
 	ONCE.call_once(|| {
 		if log::set_logger(&LOGGER).is_ok() {
-			log::set_max_level(log::LevelFilter::Warn);
+			log::set_max_level(if log_spec().is_empty() {
+				log::LevelFilter::Warn
+			} else {
+				log::LevelFilter::Trace
+			});
+		}
+		if !log_spec().is_empty() {
+			use sp_tracing::tracing_subscriber::{fmt, EnvFilter};
+			let subscriber = fmt()
+				.with_env_filter(EnvFilter::new(log_spec()))
+				.with_writer(std::io::stderr)
+				.finish();
+			let _ = sp_tracing::tracing::subscriber::set_global_default(subscriber);
 		}
 		let previous = panic::take_hook();
 		panic::set_hook(Box::new(move |info| {
@@ -850,6 +902,7 @@ impl Ctx {
 	}
 
 	fn enter(&mut self, phase: Phase) {
+		mark(format_args!("{phase:?}"));
 		self.phase = phase;
 		self.free_estimates = 0;
 	}
@@ -869,6 +922,7 @@ impl Ctx {
 				);
 			}
 		}
+		mark(format_args!("estimate {pos:?} = {size}"));
 		self.last_estimate = Some(size);
 		self.trace.push((pos, size));
 		if self.first_warning_at.is_none() && WARNINGS.with(|w| !w.borrow().is_empty()) {
@@ -927,6 +981,7 @@ impl Ctx {
 		} else {
 			0
 		};
+		mark(format_args!("storage_root"));
 		(e_last, sp_io::storage::root(self.root_version))
 	}
 
@@ -1132,6 +1187,10 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 	let mut runs = Vec::with_capacity(script.blocks.len());
 	for (block_index, block) in script.blocks.iter().enumerate() {
 		CURRENT_BLOCK.with(|b| b.set(block_index));
+		mark(format_args!(
+			"{} pass, block {block_index}",
+			if estimate { "collator" } else { "truth" }
+		));
 		let pre_root = *state.root();
 		let mut ctx = Ctx::new(config, estimate, block_index);
 		let mut env = BlockEnv::new(&state, shared_cache.as_ref(), root_version);
@@ -1257,6 +1316,7 @@ fn validate_block(
 			.build();
 	let mut overlay = OverlayedChanges::<Hasher>::default();
 	let mut ctx = Ctx::new(config, true, block_index);
+	mark(format_args!("validator pass, block {block_index}"));
 
 	let _ = take_warnings();
 	let quiet = QUIET_PANICS.with(|q| q.replace(true));

@@ -139,8 +139,12 @@ fn validator_position(failure: &Failure) -> Option<String> {
 
 #[test]
 fn pinned_reproductions() {
+	let only = std::env::var("POV_FUZZ_PINNED").ok();
 	let mut failed = Vec::new();
 	for (name, script) in pinned_scripts() {
+		if only.as_deref().is_some_and(|only| only != name) {
+			continue;
+		}
 		match panic::catch_unwind(AssertUnwindSafe(|| try_run_script(&script))) {
 			Ok(Ok(report)) => println!("pinned {name}: ok {:?}", report.blocks),
 			Ok(Err(failure)) => {

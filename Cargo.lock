@@ -5595,6 +5595,7 @@ dependencies = [
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
  "sp-state-machine 0.35.0",
+ "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
 ]
 
