@@ -392,7 +392,7 @@ impl<T: Config> Pallet<T> {
 
 		// Input data seems good, no errors allowed after this point
 
-		let era_reward_points = Eras::<T>::get_total_reward_points(era);
+		let era_reward_points = Eras::<T>::get_reward_points(era);
 		let total_reward_points = era_reward_points.total;
 		let validator_reward_points =
 			era_reward_points.individual.get(&stash).copied().unwrap_or_else(Zero::zero);

@@ -497,7 +497,7 @@ impl<T: Config> Eras<T> {
 		}
 	}
 
-	pub(crate) fn get_total_reward_points(era: EraIndex) -> EraRewardPoints<T> {
+	pub(crate) fn get_reward_points(era: EraIndex) -> EraRewardPoints<T> {
 		ErasRewardPoints::<T>::get(era)
 	}
 
