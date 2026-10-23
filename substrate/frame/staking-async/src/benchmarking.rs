@@ -1685,10 +1685,16 @@ mod benchmarks {
 		set_active_era::<T>(l);
 
 		// Fill `EraRewardPoints::individual` of every service, and of the tally that adds them
-		// up, to hit the worst-case scenario. A new `ValidatorServiceKind` must be added here.
-		// Every era and service gets different points: the proof holds equal values only once,
-		// which would hide the size of all but one of them.
-		let services = [ValidatorServiceKind::RelayConsensus, ValidatorServiceKind::Collation];
+		// up, to hit the worst-case scenario. Every era and service gets different points: the
+		// proof holds equal values only once, which would hide the size of all but one of them.
+		let services = {
+			use ValidatorServiceKind::*;
+			// A new `ValidatorServiceKind` fails to compile here, and must be added to `services`.
+			let _ = |kind: ValidatorServiceKind| match kind {
+				RelayConsensus | Collation => (),
+			};
+			[RelayConsensus, Collation]
+		};
 		let points_of_each = |points: RewardPoint| {
 			let mut individual = BoundedBTreeMap::new();
 			for index in 0..T::MaxValidatorSet::get() {
