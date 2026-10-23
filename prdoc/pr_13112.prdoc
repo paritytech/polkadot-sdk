@@ -8,8 +8,8 @@ doc:
       call it. Only the code hash and length are sent, no deposit is taken, and the answer comes
       back as an event.
 
-      `pallet-registrar-relay` checks the request through `ParachainRegistrar::check_code_upgrade`,
-      which now returns a `FailureReason`, and stores the authorization in `PendingCodeUpgrades`,
+      `pallet-registrar-relay` checks the request through `ParachainRegistrar::check_code_upgrade`
+      and stores the authorization in `PendingCodeUpgrades`,
       replacing any earlier one for that para. Anyone can then upload the matching code with the
       new unsigned, fee-free `apply_authorized_code_upgrade`, which schedules the upgrade and
       reports back to the parachain. Unlike registrations, the authorization expires after the new

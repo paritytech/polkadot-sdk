@@ -633,8 +633,12 @@ pub mod pallet {
 		) {
 			let reason = if code_len > T::MaxCodeSize::get() {
 				Some(FailureReason::InvalidCodeSize)
+			} else if !T::Registrar::is_registered(para_id) {
+				Some(FailureReason::NotRegistered)
+			} else if T::Registrar::check_code_upgrade(para_id, code_len).is_err() {
+				Some(FailureReason::CannotUpgradeCode)
 			} else {
-				T::Registrar::check_code_upgrade(para_id, code_len).err()
+				None
 			};
 
 			if let Some(reason) = reason {

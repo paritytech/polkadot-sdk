@@ -2754,7 +2754,7 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	fn check_code_upgrade(
 		_para_id: registrar_primitives::ParaId,
 		_code_len: u32,
-	) -> Result<(), registrar_primitives::FailureReason> {
+	) -> Result<(), ()> {
 		Ok(())
 	}
 

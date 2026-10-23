@@ -775,10 +775,10 @@ mod receive_authorize_code_upgrade {
 	}
 
 	#[test]
-	fn the_registrys_own_refusal_is_forwarded_verbatim() {
+	fn the_registrys_refusal_is_reported() {
 		new_test_ext().execute_with(|| {
 			AlreadyKnown::mutate(|known| known.push(PARA_A));
-			UpgradeRefusal::set(Some(FailureReason::CannotUpgradeCode));
+			UpgradeCheckFails::set(true);
 			let (msg, _) = upgrade_msg(PARA_A, 300);
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
@@ -798,7 +798,7 @@ mod receive_authorize_code_upgrade {
 
 			for (code_len, reason) in [
 				(MAX_CODE_SIZE as usize + 1, FailureReason::InvalidCodeSize),
-				(MIN_CODE_SIZE as usize - 1, FailureReason::InvalidCodeSize),
+				(MIN_CODE_SIZE as usize - 1, FailureReason::CannotUpgradeCode),
 			] {
 				let (msg, _) = upgrade_msg(PARA_A, code_len);
 				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));

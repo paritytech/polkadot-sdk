@@ -25,7 +25,7 @@
 
 use crate::{self as pallet_registrar_relay, SendToPara};
 use frame_support::{derive_impl, parameter_types, traits::ConstU32};
-use registrar_primitives::{FailureReason, MessageToPara, ParaId, ParachainRegistrar};
+use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
 pub type AccountId = u64;
@@ -83,8 +83,8 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
-	/// What `MockRegistrar::check_code_upgrade` refuses with, if anything.
-	pub static UpgradeRefusal: Option<FailureReason> = None;
+	/// When true, `MockRegistrar::check_code_upgrade` fails.
+	pub static UpgradeCheckFails: bool = false;
 	/// Code upgrades `MockRegistrar` has scheduled, in order.
 	pub static ScheduledUpgrades: Vec<(ParaId, Vec<u8>)> = Vec::new();
 	/// When true, `MockRegistrar::schedule_code_upgrade` fails.
@@ -146,15 +146,12 @@ impl ParachainRegistrar for MockRegistrar {
 		// TODO(ahm-v2): record the head update in the mock.
 	}
 
-	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), FailureReason> {
-		if !Self::is_registered(para_id) {
-			return Err(FailureReason::NotRegistered);
-		}
-		if let Some(reason) = UpgradeRefusal::get() {
-			return Err(reason);
-		}
-		if !(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len) {
-			return Err(FailureReason::InvalidCodeSize);
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()> {
+		if !Self::is_registered(para_id) ||
+			UpgradeCheckFails::get() ||
+			!(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len)
+		{
+			return Err(());
 		}
 		Ok(())
 	}
@@ -215,7 +212,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	DeregisterFails::set(false);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
-	UpgradeRefusal::set(None);
+	UpgradeCheckFails::set(false);
 	ScheduledUpgrades::set(Vec::new());
 	ScheduleFails::set(false);
 

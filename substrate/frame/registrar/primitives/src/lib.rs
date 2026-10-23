@@ -280,7 +280,8 @@ pub enum FailureReason {
 	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
 	NotDeregisterable,
-	/// An upgrade is already in flight for this para, or it is in its post-upgrade cooldown.
+	/// The registry will not take this upgrade now, e.g. one is already in flight or the para is
+	/// in its post-upgrade cooldown.
 	#[codec(index = 5)]
 	CannotUpgradeCode,
 	/// The declared validation code length is outside what the relay chain accepts.
@@ -337,11 +338,9 @@ pub trait ParachainRegistrar {
 	/// Set the current head of `para_id`.
 	fn set_current_head(para_id: ParaId, head: Vec<u8>);
 
-	/// Whether `para_id` could have a code upgrade of this size scheduled right now.
-	///
-	/// Covers the para being unknown as well, so a doomed request is refused with the reason it
-	/// deserves before the user uploads megabytes of code.
-	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), FailureReason>;
+	/// Whether `para_id` could take a code upgrade of this size right now.
+	#[allow(clippy::result_unit_err)]
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()>;
 
 	/// Schedule a validation code upgrade for `para_id`.
 	fn schedule_code_upgrade(
