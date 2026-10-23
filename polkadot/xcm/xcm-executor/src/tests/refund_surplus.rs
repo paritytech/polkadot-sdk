@@ -98,17 +98,33 @@ fn refund_lands_in_holding_when_it_fits() {
 }
 
 #[test]
-fn refund_holding_cannot_take_is_trapped() {
+fn refund_holding_cannot_take_is_trapped_and_fails() {
 	let mut vm = executor_with_leftover_fees();
 	vm.set_total_surplus(Weight::from_parts(2, 2));
 	// Holding is empty and its limit zero, so a refund in `Here` cannot be added to it.
 	vm.set_holding_limit(0);
 
-	assert!(vm.bench_process(Xcm(vec![RefundSurplus])).is_ok());
+	let error = vm.bench_process(Xcm(vec![RefundSurplus, RefundSurplus])).unwrap_err();
 
+	// The first `RefundSurplus` fails, so the second never runs and only one refund is trapped.
+	assert_eq!(error.index, 0);
+	assert_eq!(error.xcm_error, XcmError::HoldingWouldOverflow);
 	assert_eq!(vm.total_refunded(), &Weight::from_parts(2, 2));
-	// The refund of `4` went to the trap; the leftover fees still moved into holding.
-	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 4u128).into()]);
-	assert_eq!(get_first_fungible(vm.holding()).unwrap(), (Here, 6u128).into());
+	// The refund of `4` and the leftover fees of `6` are trapped together; holding stays empty.
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 10u128).into()]);
+	assert_eq!(get_first_fungible(vm.holding()), None);
 	assert_eq!(get_first_fungible(vm.fees()), None);
+}
+
+#[test]
+fn implicit_refund_holding_cannot_take_is_trapped() {
+	let mut vm = executor_with_leftover_fees();
+	vm.set_total_surplus(Weight::from_parts(4, 4));
+	vm.set_holding_limit(0);
+
+	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
+	assert!(matches!(outcome, Outcome::Complete { .. }));
+
+	assert_eq!(outcome.weight_used(), Weight::from_parts(8, 8));
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 10u128).into()]);
 }

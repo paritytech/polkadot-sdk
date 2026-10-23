@@ -536,7 +536,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	/// Refund any unused weight. `charge` is the weight of the refund itself when the message was
 	/// not weighed for it: it is kept out of the refund and counted as used, but only when the
-	/// trader refunds something.
+	/// trader refunds something. A refund holding cannot take is trapped with any leftover `fees`
+	/// and fails with `HoldingWouldOverflow`.
 	fn refund_surplus(&mut self, charge: Weight) -> Result<(), XcmError> {
 		let current_surplus = self.total_surplus.saturating_sub(self.total_refunded);
 		let refundable = current_surplus.saturating_sub(charge);
@@ -561,12 +562,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					})
 					.unwrap_or(false);
 				if holding_cannot_take_refund {
-					// Trapped for the claimer like holding is after the message, so the trader is
-					// not asked to buy the weight back, which would be another swap for a trader
-					// that swapped. The trap is charged against the surplus.
+					// Trapped rather than bought back from the trader, which would be another swap
+					// for a trader that swapped. The error still ends the program, so a message
+					// cannot trap once per `RefundSurplus`.
+					let mut trapped = refund;
+					trapped.subsume_assets(self.fees.saturating_take(Wild(All)));
 					tracing::trace!(
 						target: "xcm::refund_surplus",
-						?refund,
+						?trapped,
 						"Holding is at capacity, trapping refund",
 					);
 					let claimer = self
@@ -575,11 +578,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						.or(self.context.origin.as_ref())
 						.unwrap_or(&self.original_origin);
 					let trap_weight =
-						Config::AssetTrap::drop_assets(claimer, refund, &self.context);
+						Config::AssetTrap::drop_assets(claimer, trapped, &self.context);
 					self.total_surplus.saturating_reduce(trap_weight);
-				} else {
-					self.holding.subsume_assets(refund);
+					return Err(XcmError::HoldingWouldOverflow);
 				}
+				self.holding.subsume_assets(refund);
 			}
 		}
 		// If there are any leftover `fees`, merge them with `holding`.
