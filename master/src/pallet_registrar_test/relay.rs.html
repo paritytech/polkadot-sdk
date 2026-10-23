@@ -283,7 +283,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#133 id=133 data-nosnippet>133</a>}
 <a href=#134 id=134 data-nosnippet>134</a>
 <a href=#135 id=135 data-nosnippet>135</a><span class="macro">parameter_types!</span> {
-<a href=#136 id=136 data-nosnippet>136</a>	<span class="kw">pub const </span>ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+<a href=#136 id=136 data-nosnippet>136</a>	<span class="kw">pub const </span>ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 <a href=#137 id=137 data-nosnippet>137</a>}
 <a href=#138 id=138 data-nosnippet>138</a>
 <a href=#139 id=139 data-nosnippet>139</a><span class="kw">impl </span>paras::Config <span class="kw">for </span>Runtime {
@@ -333,7 +333,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#183 id=183 data-nosnippet>183</a>}
 <a href=#184 id=184 data-nosnippet>184</a>
 <a href=#185 id=185 data-nosnippet>185</a><span class="macro">parameter_types!</span> {
-<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">pub const </span>RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / <span class="number">2</span>;
+<a href=#186 id=186 data-nosnippet>186</a>	<span class="kw">pub const </span>RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::MAX / <span class="number">2</span>;
 <a href=#187 id=187 data-nosnippet>187</a>}
 <a href=#188 id=188 data-nosnippet>188</a>
 <a href=#189 id=189 data-nosnippet>189</a><span class="kw">impl </span>pallet_registrar_relay::Config <span class="kw">for </span>Runtime {

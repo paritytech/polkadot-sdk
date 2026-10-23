@@ -1008,7 +1008,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#858 id=858 data-nosnippet>858</a>			A::insert((<span class="number">3</span>,), <span class="number">10</span>);
 <a href=#859 id=859 data-nosnippet>859</a>			A::insert((<span class="number">4</span>,), <span class="number">10</span>);
 <a href=#860 id=860 data-nosnippet>860</a>			<span class="macro">assert_eq!</span>(A::count(), <span class="number">3</span>);
-<a href=#861 id=861 data-nosnippet>861</a>			<span class="kw">let _ </span>= A::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#861 id=861 data-nosnippet>861</a>			<span class="kw">let _ </span>= A::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#862 id=862 data-nosnippet>862</a>			<span class="macro">assert!</span>(!A::contains_key((<span class="number">2</span>,)) &amp;&amp; !A::contains_key((<span class="number">3</span>,)) &amp;&amp; !A::contains_key((<span class="number">4</span>,)));
 <a href=#863 id=863 data-nosnippet>863</a>			<span class="macro">assert_eq!</span>(A::count(), <span class="number">0</span>);
 <a href=#864 id=864 data-nosnippet>864</a>
@@ -1101,7 +1101,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#951 id=951 data-nosnippet>951</a>				]
 <a href=#952 id=952 data-nosnippet>952</a>			);
 <a href=#953 id=953 data-nosnippet>953</a>
-<a href=#954 id=954 data-nosnippet>954</a>			<span class="kw">let _ </span>= WithLen::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#954 id=954 data-nosnippet>954</a>			<span class="kw">let _ </span>= WithLen::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#955 id=955 data-nosnippet>955</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len((<span class="number">3</span>,)), <span class="prelude-val">None</span>);
 <a href=#956 id=956 data-nosnippet>956</a>			WithLen::append((<span class="number">0</span>,), <span class="number">10</span>);
 <a href=#957 id=957 data-nosnippet>957</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len((<span class="number">0</span>,)), <span class="prelude-val">Some</span>(<span class="number">1</span>));
@@ -1264,7 +1264,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1114 id=1114 data-nosnippet>1114</a>			A::insert((<span class="number">3</span>, <span class="number">30</span>), <span class="number">10</span>);
 <a href=#1115 id=1115 data-nosnippet>1115</a>			A::insert((<span class="number">4</span>, <span class="number">40</span>), <span class="number">10</span>);
 <a href=#1116 id=1116 data-nosnippet>1116</a>			<span class="macro">assert_eq!</span>(A::count(), <span class="number">3</span>);
-<a href=#1117 id=1117 data-nosnippet>1117</a>			<span class="kw">let _ </span>= A::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1117 id=1117 data-nosnippet>1117</a>			<span class="kw">let _ </span>= A::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1118 id=1118 data-nosnippet>1118</a>			<span class="comment">// one of the item has been removed
 <a href=#1119 id=1119 data-nosnippet>1119</a>			</span><span class="macro">assert!</span>(
 <a href=#1120 id=1120 data-nosnippet>1120</a>				!A::contains_key((<span class="number">2</span>, <span class="number">20</span>)) &amp;&amp; !A::contains_key((<span class="number">3</span>, <span class="number">30</span>)) &amp;&amp; !A::contains_key((<span class="number">4</span>, <span class="number">40</span>))
@@ -1368,7 +1368,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1218 id=1218 data-nosnippet>1218</a>				]
 <a href=#1219 id=1219 data-nosnippet>1219</a>			);
 <a href=#1220 id=1220 data-nosnippet>1220</a>
-<a href=#1221 id=1221 data-nosnippet>1221</a>			<span class="kw">let _ </span>= WithLen::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1221 id=1221 data-nosnippet>1221</a>			<span class="kw">let _ </span>= WithLen::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1222 id=1222 data-nosnippet>1222</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len((<span class="number">3</span>, <span class="number">30</span>)), <span class="prelude-val">None</span>);
 <a href=#1223 id=1223 data-nosnippet>1223</a>			WithLen::append((<span class="number">0</span>, <span class="number">100</span>), <span class="number">10</span>);
 <a href=#1224 id=1224 data-nosnippet>1224</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len((<span class="number">0</span>, <span class="number">100</span>)), <span class="prelude-val">Some</span>(<span class="number">1</span>));
@@ -1557,7 +1557,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1407 id=1407 data-nosnippet>1407</a>			A::insert((<span class="number">3</span>, <span class="number">30</span>, <span class="number">300</span>), <span class="number">10</span>);
 <a href=#1408 id=1408 data-nosnippet>1408</a>			A::insert((<span class="number">4</span>, <span class="number">40</span>, <span class="number">400</span>), <span class="number">10</span>);
 <a href=#1409 id=1409 data-nosnippet>1409</a>			<span class="macro">assert_eq!</span>(A::count(), <span class="number">3</span>);
-<a href=#1410 id=1410 data-nosnippet>1410</a>			<span class="kw">let _ </span>= A::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1410 id=1410 data-nosnippet>1410</a>			<span class="kw">let _ </span>= A::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1411 id=1411 data-nosnippet>1411</a>			<span class="comment">// one of the item has been removed
 <a href=#1412 id=1412 data-nosnippet>1412</a>			</span><span class="macro">assert!</span>(
 <a href=#1413 id=1413 data-nosnippet>1413</a>				!A::contains_key((<span class="number">2</span>, <span class="number">20</span>, <span class="number">200</span>)) &amp;&amp;
@@ -1668,7 +1668,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1518 id=1518 data-nosnippet>1518</a>				]
 <a href=#1519 id=1519 data-nosnippet>1519</a>			);
 <a href=#1520 id=1520 data-nosnippet>1520</a>
-<a href=#1521 id=1521 data-nosnippet>1521</a>			<span class="kw">let _ </span>= WithLen::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1521 id=1521 data-nosnippet>1521</a>			<span class="kw">let _ </span>= WithLen::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1522 id=1522 data-nosnippet>1522</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len((<span class="number">3</span>, <span class="number">30</span>, <span class="number">300</span>)), <span class="prelude-val">None</span>);
 <a href=#1523 id=1523 data-nosnippet>1523</a>			WithLen::append((<span class="number">0</span>, <span class="number">100</span>, <span class="number">1000</span>), <span class="number">10</span>);
 <a href=#1524 id=1524 data-nosnippet>1524</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len((<span class="number">0</span>, <span class="number">100</span>, <span class="number">1000</span>)), <span class="prelude-val">Some</span>(<span class="number">1</span>));

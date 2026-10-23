@@ -377,7 +377,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#227 id=227 data-nosnippet>227</a>
 <a href=#228 id=228 data-nosnippet>228</a>			ValidTransaction::with_tag_prefix(<span class="string">"BabeEquivocation"</span>)
 <a href=#229 id=229 data-nosnippet>229</a>				<span class="comment">// We assign the maximum priority for any equivocation report.
-<a href=#230 id=230 data-nosnippet>230</a>				</span>.priority(TransactionPriority::max_value())
+<a href=#230 id=230 data-nosnippet>230</a>				</span>.priority(TransactionPriority::MAX)
 <a href=#231 id=231 data-nosnippet>231</a>				<span class="comment">// Only one equivocation report for the same offender at the same slot.
 <a href=#232 id=232 data-nosnippet>232</a>				</span>.and_provides((equivocation_proof.offender.clone(), <span class="kw-2">*</span>equivocation_proof.slot))
 <a href=#233 id=233 data-nosnippet>233</a>				.longevity(longevity)

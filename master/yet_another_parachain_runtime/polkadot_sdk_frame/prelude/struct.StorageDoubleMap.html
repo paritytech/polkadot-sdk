@@ -210,7 +210,7 @@ can be used to partially iterate over keys and values of the double map, and to 
 		<span class="macro">assert_eq!</span>(collected_k2_values, [<span class="number">42</span>, <span class="number">43</span>].iter().copied().collect::&lt;BTreeSet&lt;<span class="kw">_</span>&gt;&gt;());
 
 		<span class="comment">// Remove items from the map using k1 = 0
-		</span><span class="kw">let _ </span>= FooDoubleMap::clear_prefix(<span class="number">0</span>, u32::max_value(), <span class="prelude-val">None</span>);
+		</span><span class="kw">let _ </span>= FooDoubleMap::clear_prefix(<span class="number">0</span>, u32::MAX, <span class="prelude-val">None</span>);
 		<span class="comment">// Values associated with (0, _) should have been removed
 		</span><span class="macro">assert_eq!</span>(FooDoubleMap::iter_prefix(<span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
 	});

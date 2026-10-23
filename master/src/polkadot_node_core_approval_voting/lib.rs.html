@@ -3314,7 +3314,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#3164 id=3164 data-nosnippet>3164</a>					RequiredTranches::All,
 <a href=#3165 id=3165 data-nosnippet>3165</a>				)
 <a href=#3166 id=3166 data-nosnippet>3166</a>				<span class="comment">// when all are required, we are just waiting for the first 1/3+
-<a href=#3167 id=3167 data-nosnippet>3167</a>				</span>.is_approved(Tick::max_value()),
+<a href=#3167 id=3167 data-nosnippet>3167</a>				</span>.is_approved(Tick::MAX),
 <a href=#3168 id=3168 data-nosnippet>3168</a>				RequiredTranches::Pending { maximum_broadcast, clock_drift, .. } =&gt; {
 <a href=#3169 id=3169 data-nosnippet>3169</a>					<span class="kw">let </span>drifted_tranche_now =
 <a href=#3170 id=3170 data-nosnippet>3170</a>						tranche_now.saturating_sub(clock_drift <span class="kw">as </span>DelayTranche);

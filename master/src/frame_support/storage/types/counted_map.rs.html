@@ -945,7 +945,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#795 id=795 data-nosnippet>795</a>			<span class="macro">assert_eq!</span>(A::count(), <span class="number">2</span>);
 <a href=#796 id=796 data-nosnippet>796</a>
 <a href=#797 id=797 data-nosnippet>797</a>			<span class="comment">// Remove all.
-<a href=#798 id=798 data-nosnippet>798</a>			</span><span class="kw">let _ </span>= A::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#798 id=798 data-nosnippet>798</a>			</span><span class="kw">let _ </span>= A::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#799 id=799 data-nosnippet>799</a>
 <a href=#800 id=800 data-nosnippet>800</a>			<span class="macro">assert_eq!</span>(A::count(), <span class="number">0</span>);
 <a href=#801 id=801 data-nosnippet>801</a>			<span class="macro">assert_eq!</span>(A::initialize_counter(), <span class="number">0</span>);
@@ -1192,7 +1192,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1042 id=1042 data-nosnippet>1042</a>			<span class="macro">assert_eq!</span>(B::count(), <span class="number">2</span>);
 <a href=#1043 id=1043 data-nosnippet>1043</a>
 <a href=#1044 id=1044 data-nosnippet>1044</a>			<span class="comment">// Remove all.
-<a href=#1045 id=1045 data-nosnippet>1045</a>			</span><span class="kw">let _ </span>= B::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1045 id=1045 data-nosnippet>1045</a>			</span><span class="kw">let _ </span>= B::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1046 id=1046 data-nosnippet>1046</a>
 <a href=#1047 id=1047 data-nosnippet>1047</a>			<span class="macro">assert_eq!</span>(B::count(), <span class="number">0</span>);
 <a href=#1048 id=1048 data-nosnippet>1048</a>			<span class="macro">assert_eq!</span>(B::initialize_counter(), <span class="number">0</span>);

@@ -1952,7 +1952,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1802 id=1802 data-nosnippet>1802</a>			<span class="macro">assert_eq!</span>(MyStorage::iter_values().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>]);
 <a href=#1803 id=1803 data-nosnippet>1803</a>
 <a href=#1804 id=1804 data-nosnippet>1804</a>			<span class="comment">// test removal
-<a href=#1805 id=1805 data-nosnippet>1805</a>			</span><span class="kw">let _ </span>= MyStorage::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1805 id=1805 data-nosnippet>1805</a>			</span><span class="kw">let _ </span>= MyStorage::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1806 id=1806 data-nosnippet>1806</a>			<span class="macro">assert!</span>(MyStorage::iter_values().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().is_empty());
 <a href=#1807 id=1807 data-nosnippet>1807</a>
 <a href=#1808 id=1808 data-nosnippet>1808</a>			<span class="comment">// test migration
@@ -1962,7 +1962,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1812 id=1812 data-nosnippet>1812</a>			<span class="macro">assert!</span>(MyStorage::iter_values().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().is_empty());
 <a href=#1813 id=1813 data-nosnippet>1813</a>			MyStorage::translate_values(|v: u32| <span class="prelude-val">Some</span>(v <span class="kw">as </span>u64));
 <a href=#1814 id=1814 data-nosnippet>1814</a>			<span class="macro">assert_eq!</span>(MyStorage::iter_values().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>]);
-<a href=#1815 id=1815 data-nosnippet>1815</a>			<span class="kw">let _ </span>= MyStorage::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1815 id=1815 data-nosnippet>1815</a>			<span class="kw">let _ </span>= MyStorage::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1816 id=1816 data-nosnippet>1816</a>
 <a href=#1817 id=1817 data-nosnippet>1817</a>			<span class="comment">// test migration 2
 <a href=#1818 id=1818 data-nosnippet>1818</a>			</span>unhashed::put(<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>k[..], <span class="kw-2">&amp;</span><span class="macro">vec!</span>[<span class="number">1</span>][..]].concat(), <span class="kw-2">&amp;</span><span class="number">1u128</span>);
@@ -1974,7 +1974,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#1824 id=1824 data-nosnippet>1824</a>			</span><span class="macro">assert_eq!</span>(MyStorage::iter_values().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
 <a href=#1825 id=1825 data-nosnippet>1825</a>			MyStorage::translate_values(|v: u128| <span class="prelude-val">Some</span>(v <span class="kw">as </span>u64));
 <a href=#1826 id=1826 data-nosnippet>1826</a>			<span class="macro">assert_eq!</span>(MyStorage::iter_values().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
-<a href=#1827 id=1827 data-nosnippet>1827</a>			<span class="kw">let _ </span>= MyStorage::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1827 id=1827 data-nosnippet>1827</a>			<span class="kw">let _ </span>= MyStorage::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1828 id=1828 data-nosnippet>1828</a>
 <a href=#1829 id=1829 data-nosnippet>1829</a>			<span class="comment">// test that other values are not modified.
 <a href=#1830 id=1830 data-nosnippet>1830</a>			</span><span class="macro">assert_eq!</span>(unhashed::get(<span class="kw-2">&amp;</span>key_before[..]), <span class="prelude-val">Some</span>(<span class="number">32u64</span>));

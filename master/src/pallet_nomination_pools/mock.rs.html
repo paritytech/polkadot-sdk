@@ -896,19 +896,19 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#746 id=746 data-nosnippet>746</a>	<span class="attr">#[test]
 <a href=#747 id=747 data-nosnippet>747</a>	</span><span class="kw">fn </span>u256_to_balance_convert_works() {
 <a href=#748 id=748 data-nosnippet>748</a>		<span class="macro">assert_eq!</span>(U256ToBalance::convert(<span class="number">0u32</span>.into()), Zero::zero());
-<a href=#749 id=749 data-nosnippet>749</a>		<span class="macro">assert_eq!</span>(U256ToBalance::convert(Balance::max_value().into()), Balance::max_value())
+<a href=#749 id=749 data-nosnippet>749</a>		<span class="macro">assert_eq!</span>(U256ToBalance::convert(Balance::MAX.into()), Balance::MAX)
 <a href=#750 id=750 data-nosnippet>750</a>	}
 <a href=#751 id=751 data-nosnippet>751</a>
 <a href=#752 id=752 data-nosnippet>752</a>	<span class="attr">#[test]
 <a href=#753 id=753 data-nosnippet>753</a>	#[should_panic]
 <a href=#754 id=754 data-nosnippet>754</a>	</span><span class="kw">fn </span>u256_to_balance_convert_panics_correctly() {
-<a href=#755 id=755 data-nosnippet>755</a>		U256ToBalance::convert(U256::from(Balance::max_value()).saturating_add(<span class="number">1u32</span>.into()));
+<a href=#755 id=755 data-nosnippet>755</a>		U256ToBalance::convert(U256::from(Balance::MAX).saturating_add(<span class="number">1u32</span>.into()));
 <a href=#756 id=756 data-nosnippet>756</a>	}
 <a href=#757 id=757 data-nosnippet>757</a>
 <a href=#758 id=758 data-nosnippet>758</a>	<span class="attr">#[test]
 <a href=#759 id=759 data-nosnippet>759</a>	</span><span class="kw">fn </span>balance_to_u256_convert_works() {
 <a href=#760 id=760 data-nosnippet>760</a>		<span class="macro">assert_eq!</span>(BalanceToU256::convert(<span class="number">0u32</span>.into()), U256::zero());
-<a href=#761 id=761 data-nosnippet>761</a>		<span class="macro">assert_eq!</span>(BalanceToU256::convert(Balance::max_value()), Balance::max_value().into())
+<a href=#761 id=761 data-nosnippet>761</a>		<span class="macro">assert_eq!</span>(BalanceToU256::convert(Balance::MAX), Balance::MAX.into())
 <a href=#762 id=762 data-nosnippet>762</a>	}
 <a href=#763 id=763 data-nosnippet>763</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

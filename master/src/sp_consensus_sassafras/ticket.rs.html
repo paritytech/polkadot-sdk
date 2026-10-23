@@ -244,7 +244,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#94 id=94 data-nosnippet>94</a>) -&gt; TicketId {
 <a href=#95 id=95 data-nosnippet>95</a>	<span class="kw">let </span>num = redundancy <span class="kw">as </span>u64 * slots <span class="kw">as </span>u64;
 <a href=#96 id=96 data-nosnippet>96</a>	<span class="kw">let </span>den = attempts <span class="kw">as </span>u64 * validators <span class="kw">as </span>u64;
-<a href=#97 id=97 data-nosnippet>97</a>	TicketId::max_value()
+<a href=#97 id=97 data-nosnippet>97</a>	TicketId::MAX
 <a href=#98 id=98 data-nosnippet>98</a>		.checked_div(den.into())
 <a href=#99 id=99 data-nosnippet>99</a>		.unwrap_or_default()
 <a href=#100 id=100 data-nosnippet>100</a>		.saturating_mul(num.into())

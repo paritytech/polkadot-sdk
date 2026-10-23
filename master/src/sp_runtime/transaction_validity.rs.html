@@ -179,7 +179,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub type </span>TransactionPriority = u64;
 <a href=#30 id=30 data-nosnippet>30</a>
 <a href=#31 id=31 data-nosnippet>31</a><span class="doccomment">/// Minimum number of blocks a transaction will remain valid for.
-<a href=#32 id=32 data-nosnippet>32</a>/// `TransactionLongevity::max_value()` means "forever".
+<a href=#32 id=32 data-nosnippet>32</a>/// `TransactionLongevity::MAX` means "forever".
 <a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">pub type </span>TransactionLongevity = u64;
 <a href=#34 id=34 data-nosnippet>34</a>
 <a href=#35 id=35 data-nosnippet>35</a><span class="doccomment">/// Tag for a transaction. No two transactions with the same tag should be placed on-chain.
@@ -477,7 +477,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#327 id=327 data-nosnippet>327</a>			priority: <span class="number">0</span>,
 <a href=#328 id=328 data-nosnippet>328</a>			requires: <span class="macro">vec!</span>[],
 <a href=#329 id=329 data-nosnippet>329</a>			provides: <span class="macro">vec!</span>[],
-<a href=#330 id=330 data-nosnippet>330</a>			longevity: TransactionLongevity::max_value(),
+<a href=#330 id=330 data-nosnippet>330</a>			longevity: TransactionLongevity::MAX,
 <a href=#331 id=331 data-nosnippet>331</a>			propagate: <span class="bool-val">true</span>,
 <a href=#332 id=332 data-nosnippet>332</a>		}
 <a href=#333 id=333 data-nosnippet>333</a>	}

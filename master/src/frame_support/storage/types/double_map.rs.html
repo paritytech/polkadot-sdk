@@ -1116,7 +1116,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#966 id=966 data-nosnippet>966</a>
 <a href=#967 id=967 data-nosnippet>967</a>			A::insert(<span class="number">3</span>, <span class="number">30</span>, <span class="number">10</span>);
 <a href=#968 id=968 data-nosnippet>968</a>			A::insert(<span class="number">4</span>, <span class="number">40</span>, <span class="number">10</span>);
-<a href=#969 id=969 data-nosnippet>969</a>			<span class="kw">let _ </span>= A::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#969 id=969 data-nosnippet>969</a>			<span class="kw">let _ </span>= A::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#970 id=970 data-nosnippet>970</a>			<span class="macro">assert_eq!</span>(A::contains_key(<span class="number">3</span>, <span class="number">30</span>), <span class="bool-val">false</span>);
 <a href=#971 id=971 data-nosnippet>971</a>			<span class="macro">assert_eq!</span>(A::contains_key(<span class="number">4</span>, <span class="number">40</span>), <span class="bool-val">false</span>);
 <a href=#972 id=972 data-nosnippet>972</a>
@@ -1187,7 +1187,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1037 id=1037 data-nosnippet>1037</a>				]
 <a href=#1038 id=1038 data-nosnippet>1038</a>			);
 <a href=#1039 id=1039 data-nosnippet>1039</a>
-<a href=#1040 id=1040 data-nosnippet>1040</a>			<span class="kw">let _ </span>= WithLen::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1040 id=1040 data-nosnippet>1040</a>			<span class="kw">let _ </span>= WithLen::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1041 id=1041 data-nosnippet>1041</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len(<span class="number">3</span>, <span class="number">30</span>), <span class="prelude-val">None</span>);
 <a href=#1042 id=1042 data-nosnippet>1042</a>			WithLen::append(<span class="number">0</span>, <span class="number">100</span>, <span class="number">10</span>);
 <a href=#1043 id=1043 data-nosnippet>1043</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len(<span class="number">0</span>, <span class="number">100</span>), <span class="prelude-val">Some</span>(<span class="number">1</span>));
@@ -1201,7 +1201,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1051 id=1051 data-nosnippet>1051</a>			<span class="macro">assert_eq!</span>(A::iter_prefix_values(<span class="number">4</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[<span class="number">13</span>, <span class="number">14</span>]);
 <a href=#1052 id=1052 data-nosnippet>1052</a>			<span class="macro">assert_eq!</span>(A::iter_prefix(<span class="number">4</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="number">40</span>, <span class="number">13</span>), (<span class="number">41</span>, <span class="number">14</span>)]);
 <a href=#1053 id=1053 data-nosnippet>1053</a>
-<a href=#1054 id=1054 data-nosnippet>1054</a>			<span class="kw">let _ </span>= A::clear_prefix(<span class="number">3</span>, u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1054 id=1054 data-nosnippet>1054</a>			<span class="kw">let _ </span>= A::clear_prefix(<span class="number">3</span>, u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1055 id=1055 data-nosnippet>1055</a>			<span class="macro">assert_eq!</span>(A::iter_prefix(<span class="number">3</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
 <a href=#1056 id=1056 data-nosnippet>1056</a>			<span class="macro">assert_eq!</span>(A::iter_prefix(<span class="number">4</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[(<span class="number">40</span>, <span class="number">13</span>), (<span class="number">41</span>, <span class="number">14</span>)]);
 <a href=#1057 id=1057 data-nosnippet>1057</a>
@@ -1231,7 +1231,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#1081 id=1081 data-nosnippet>1081</a>			<span class="macro">assert_eq!</span>(collected_k2_values, [<span class="number">42</span>, <span class="number">43</span>].iter().copied().collect::&lt;BTreeSet&lt;<span class="kw">_</span>&gt;&gt;());
 <a href=#1082 id=1082 data-nosnippet>1082</a>
 <a href=#1083 id=1083 data-nosnippet>1083</a>			<span class="comment">// Remove items from the map using k1 = 0
-<a href=#1084 id=1084 data-nosnippet>1084</a>			</span><span class="kw">let _ </span>= FooDoubleMap::clear_prefix(<span class="number">0</span>, u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#1084 id=1084 data-nosnippet>1084</a>			</span><span class="kw">let _ </span>= FooDoubleMap::clear_prefix(<span class="number">0</span>, u32::MAX, <span class="prelude-val">None</span>);
 <a href=#1085 id=1085 data-nosnippet>1085</a>			<span class="comment">// Values associated with (0, _) should have been removed
 <a href=#1086 id=1086 data-nosnippet>1086</a>			</span><span class="macro">assert_eq!</span>(FooDoubleMap::iter_prefix(<span class="number">0</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(), <span class="macro">vec!</span>[]);
 <a href=#1087 id=1087 data-nosnippet>1087</a>		});

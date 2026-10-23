@@ -272,10 +272,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#122 id=122 data-nosnippet>122</a>	</span><span class="kw">fn </span>end_ongoing(index: <span class="self">Self</span>::Index, approved: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), ()&gt;;
 <a href=#123 id=123 data-nosnippet>123</a>
 <a href=#124 id=124 data-nosnippet>124</a>	<span class="doccomment">/// The maximum amount of ongoing polls within any single class. By default it practically
-<a href=#125 id=125 data-nosnippet>125</a>	/// unlimited (`u32::max_value()`).
+<a href=#125 id=125 data-nosnippet>125</a>	/// unlimited (`u32::MAX`).
 <a href=#126 id=126 data-nosnippet>126</a>	</span><span class="attr">#[cfg(feature = <span class="string">"runtime-benchmarks"</span>)]
 <a href=#127 id=127 data-nosnippet>127</a>	</span><span class="kw">fn </span>max_ongoing() -&gt; (<span class="self">Self</span>::Class, u32) {
-<a href=#128 id=128 data-nosnippet>128</a>		(<span class="self">Self</span>::classes().into_iter().next().expect(<span class="string">"Always one class"</span>), u32::max_value())
+<a href=#128 id=128 data-nosnippet>128</a>		(<span class="self">Self</span>::classes().into_iter().next().expect(<span class="string">"Always one class"</span>), u32::MAX)
 <a href=#129 id=129 data-nosnippet>129</a>	}
 <a href=#130 id=130 data-nosnippet>130</a>}
 <a href=#131 id=131 data-nosnippet>131</a>

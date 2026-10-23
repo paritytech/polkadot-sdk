@@ -464,7 +464,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#314 id=314 data-nosnippet>314</a>		add_slashing_spans::&lt;T&gt;(<span class="kw-2">&amp;</span>stash, s);
 <a href=#315 id=315 data-nosnippet>315</a>		<span class="kw">let </span>amount = asset::existential_deposit::&lt;T&gt;() * <span class="number">5u32</span>.into(); <span class="comment">// Half of total
 <a href=#316 id=316 data-nosnippet>316</a>		</span>Staking::&lt;T&gt;::unbond(RawOrigin::Signed(controller.clone()).into(), amount)<span class="question-mark">?</span>;
-<a href=#317 id=317 data-nosnippet>317</a>		CurrentEra::&lt;T&gt;::put(EraIndex::max_value());
+<a href=#317 id=317 data-nosnippet>317</a>		CurrentEra::&lt;T&gt;::put(EraIndex::MAX);
 <a href=#318 id=318 data-nosnippet>318</a>		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created before"</span>)<span class="question-mark">?</span>;
 <a href=#319 id=319 data-nosnippet>319</a>		<span class="kw">let </span>original_total: BalanceOf&lt;T&gt; = ledger.total;
 <a href=#320 id=320 data-nosnippet>320</a>		<span class="macro">whitelist_account!</span>(controller);
@@ -502,7 +502,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#352 id=352 data-nosnippet>352</a>		<span class="kw">let </span><span class="kw-2">mut </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).unwrap();
 <a href=#353 id=353 data-nosnippet>353</a>		ledger.active = ed - One::one();
 <a href=#354 id=354 data-nosnippet>354</a>		Ledger::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>controller, ledger);
-<a href=#355 id=355 data-nosnippet>355</a>		CurrentEra::&lt;T&gt;::put(EraIndex::max_value());
+<a href=#355 id=355 data-nosnippet>355</a>		CurrentEra::&lt;T&gt;::put(EraIndex::MAX);
 <a href=#356 id=356 data-nosnippet>356</a>
 <a href=#357 id=357 data-nosnippet>357</a>		<span class="macro">whitelist_account!</span>(controller);
 <a href=#358 id=358 data-nosnippet>358</a>

@@ -645,7 +645,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#495 id=495 data-nosnippet>495</a>			<span class="kw">let </span>tickets_tag = tickets.using_encoded(|bytes| hashing::blake2_256(bytes));
 <a href=#496 id=496 data-nosnippet>496</a>
 <a href=#497 id=497 data-nosnippet>497</a>			ValidTransaction::with_tag_prefix(<span class="string">"Sassafras"</span>)
-<a href=#498 id=498 data-nosnippet>498</a>				.priority(TransactionPriority::max_value())
+<a href=#498 id=498 data-nosnippet>498</a>				.priority(TransactionPriority::MAX)
 <a href=#499 id=499 data-nosnippet>499</a>				.longevity(tickets_longevity <span class="kw">as </span>u64)
 <a href=#500 id=500 data-nosnippet>500</a>				.and_provides(tickets_tag)
 <a href=#501 id=501 data-nosnippet>501</a>				.propagate(<span class="bool-val">true</span>)

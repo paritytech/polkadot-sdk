@@ -237,7 +237,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#87 id=87 data-nosnippet>87</a>{
 <a href=#88 id=88 data-nosnippet>88</a>	<span class="doccomment">/// Create new `TestClientBuilder` with default backend.
 <a href=#89 id=89 data-nosnippet>89</a>	</span><span class="kw">pub fn </span>with_default_backend() -&gt; <span class="self">Self </span>{
-<a href=#90 id=90 data-nosnippet>90</a>		<span class="kw">let </span>backend = Arc::new(Backend::new_test(std::u32::MAX, std::u64::MAX));
+<a href=#90 id=90 data-nosnippet>90</a>		<span class="kw">let </span>backend = Arc::new(Backend::new_test(u32::MAX, u64::MAX));
 <a href=#91 id=91 data-nosnippet>91</a>		<span class="self">Self</span>::with_backend(backend)
 <a href=#92 id=92 data-nosnippet>92</a>	}
 <a href=#93 id=93 data-nosnippet>93</a>

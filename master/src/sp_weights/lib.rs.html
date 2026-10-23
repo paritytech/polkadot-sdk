@@ -472,14 +472,14 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#322 id=322 data-nosnippet>322</a>
 <a href=#323 id=323 data-nosnippet>323</a>	<span class="attr">#[test]
 <a href=#324 id=324 data-nosnippet>324</a>	</span><span class="kw">fn </span>polynomial_does_not_overflow() {
-<a href=#325 id=325 data-nosnippet>325</a>		<span class="macro">assert_eq!</span>(Poly::weight_to_fee(<span class="kw-2">&amp;</span>Weight::MAX), Balance::max_value() - <span class="number">10_000</span>);
+<a href=#325 id=325 data-nosnippet>325</a>		<span class="macro">assert_eq!</span>(Poly::weight_to_fee(<span class="kw-2">&amp;</span>Weight::MAX), Balance::MAX - <span class="number">10_000</span>);
 <a href=#326 id=326 data-nosnippet>326</a>	}
 <a href=#327 id=327 data-nosnippet>327</a>
 <a href=#328 id=328 data-nosnippet>328</a>	<span class="attr">#[test]
 <a href=#329 id=329 data-nosnippet>329</a>	</span><span class="kw">fn </span>identity_fee_works() {
 <a href=#330 id=330 data-nosnippet>330</a>		<span class="macro">assert_eq!</span>(IdentityFee::&lt;Balance&gt;::weight_to_fee(<span class="kw-2">&amp;</span>Weight::zero()), <span class="number">0</span>);
 <a href=#331 id=331 data-nosnippet>331</a>		<span class="macro">assert_eq!</span>(IdentityFee::&lt;Balance&gt;::weight_to_fee(<span class="kw-2">&amp;</span>Weight::from_parts(<span class="number">50</span>, <span class="number">0</span>)), <span class="number">50</span>);
-<a href=#332 id=332 data-nosnippet>332</a>		<span class="macro">assert_eq!</span>(IdentityFee::&lt;Balance&gt;::weight_to_fee(<span class="kw-2">&amp;</span>Weight::MAX), Balance::max_value());
+<a href=#332 id=332 data-nosnippet>332</a>		<span class="macro">assert_eq!</span>(IdentityFee::&lt;Balance&gt;::weight_to_fee(<span class="kw-2">&amp;</span>Weight::MAX), Balance::MAX);
 <a href=#333 id=333 data-nosnippet>333</a>	}
 <a href=#334 id=334 data-nosnippet>334</a>
 <a href=#335 id=335 data-nosnippet>335</a>	<span class="attr">#[test]

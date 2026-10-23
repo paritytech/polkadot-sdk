@@ -738,7 +738,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#588 id=588 data-nosnippet>588</a>			metrics.publish.inc();
 <a href=#589 id=589 data-nosnippet>589</a>			metrics
 <a href=#590 id=590 data-nosnippet>590</a>				.amount_addresses_last_published
-<a href=#591 id=591 data-nosnippet>591</a>				.set(addresses.len().try_into().unwrap_or(std::u64::MAX));
+<a href=#591 id=591 data-nosnippet>591</a>				.set(addresses.len().try_into().unwrap_or(u64::MAX));
 <a href=#592 id=592 data-nosnippet>592</a>		}
 <a href=#593 id=593 data-nosnippet>593</a>
 <a href=#594 id=594 data-nosnippet>594</a>		<span class="kw">let </span>serialized_record = serialize_authority_record(addresses, <span class="prelude-val">Some</span>(build_creation_time()))<span class="question-mark">?</span>;
@@ -807,7 +807,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#657 id=657 data-nosnippet>657</a>		<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 <a href=#658 id=658 data-nosnippet>658</a>			metrics
 <a href=#659 id=659 data-nosnippet>659</a>				.requests_pending
-<a href=#660 id=660 data-nosnippet>660</a>				.set(<span class="self">self</span>.pending_lookups.len().try_into().unwrap_or(std::u64::MAX));
+<a href=#660 id=660 data-nosnippet>660</a>				.set(<span class="self">self</span>.pending_lookups.len().try_into().unwrap_or(u64::MAX));
 <a href=#661 id=661 data-nosnippet>661</a>		}
 <a href=#662 id=662 data-nosnippet>662</a>
 <a href=#663 id=663 data-nosnippet>663</a>		<span class="prelude-val">Ok</span>(())
@@ -827,7 +827,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#677 id=677 data-nosnippet>677</a>				metrics.requests.inc();
 <a href=#678 id=678 data-nosnippet>678</a>				metrics
 <a href=#679 id=679 data-nosnippet>679</a>					.requests_pending
-<a href=#680 id=680 data-nosnippet>680</a>					.set(<span class="self">self</span>.pending_lookups.len().try_into().unwrap_or(std::u64::MAX));
+<a href=#680 id=680 data-nosnippet>680</a>					.set(<span class="self">self</span>.pending_lookups.len().try_into().unwrap_or(u64::MAX));
 <a href=#681 id=681 data-nosnippet>681</a>			}
 <a href=#682 id=682 data-nosnippet>682</a>		}
 <a href=#683 id=683 data-nosnippet>683</a>	}
@@ -1111,7 +1111,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#961 id=961 data-nosnippet>961</a>			<span class="kw">if let </span><span class="prelude-val">Some</span>(metrics) = <span class="kw-2">&amp;</span><span class="self">self</span>.metrics {
 <a href=#962 id=962 data-nosnippet>962</a>				metrics
 <a href=#963 id=963 data-nosnippet>963</a>					.known_authorities_count
-<a href=#964 id=964 data-nosnippet>964</a>					.set(<span class="self">self</span>.addr_cache.num_authority_ids().try_into().unwrap_or(std::u64::MAX));
+<a href=#964 id=964 data-nosnippet>964</a>					.set(<span class="self">self</span>.addr_cache.num_authority_ids().try_into().unwrap_or(u64::MAX));
 <a href=#965 id=965 data-nosnippet>965</a>			}
 <a href=#966 id=966 data-nosnippet>966</a>		}
 <a href=#967 id=967 data-nosnippet>967</a>		<span class="prelude-val">Ok</span>(())

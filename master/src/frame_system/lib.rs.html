@@ -1291,10 +1291,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1141 id=1141 data-nosnippet>1141</a>				<span class="kw">if let </span><span class="prelude-val">Ok</span>(res) = <span class="self">Self</span>::validate_code_is_authorized(<span class="kw-2">&amp;</span>code[..]) {
 <a href=#1142 id=1142 data-nosnippet>1142</a>					<span class="kw">if </span><span class="self">Self</span>::can_set_code(<span class="kw-2">&amp;</span>code, <span class="bool-val">false</span>).is_ok() {
 <a href=#1143 id=1143 data-nosnippet>1143</a>						<span class="kw">return </span><span class="prelude-val">Ok</span>(ValidTransaction {
-<a href=#1144 id=1144 data-nosnippet>1144</a>							priority: u64::max_value(),
+<a href=#1144 id=1144 data-nosnippet>1144</a>							priority: u64::MAX,
 <a href=#1145 id=1145 data-nosnippet>1145</a>							requires: Vec::new(),
 <a href=#1146 id=1146 data-nosnippet>1146</a>							provides: <span class="macro">vec!</span>[res.code_hash.encode()],
-<a href=#1147 id=1147 data-nosnippet>1147</a>							longevity: TransactionLongevity::max_value(),
+<a href=#1147 id=1147 data-nosnippet>1147</a>							longevity: TransactionLongevity::MAX,
 <a href=#1148 id=1148 data-nosnippet>1148</a>							propagate: <span class="bool-val">true</span>,
 <a href=#1149 id=1149 data-nosnippet>1149</a>						});
 <a href=#1150 id=1150 data-nosnippet>1150</a>					}
@@ -1313,10 +1313,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1163 id=1163 data-nosnippet>1163</a>				</span><span class="kw">if </span>source == TransactionSource::InBlock || source == TransactionSource::Local {
 <a href=#1164 id=1164 data-nosnippet>1164</a>					<span class="kw">if </span>task.is_valid() {
 <a href=#1165 id=1165 data-nosnippet>1165</a>						<span class="kw">return </span><span class="prelude-val">Ok</span>(ValidTransaction {
-<a href=#1166 id=1166 data-nosnippet>1166</a>							priority: u64::max_value(),
+<a href=#1166 id=1166 data-nosnippet>1166</a>							priority: u64::MAX,
 <a href=#1167 id=1167 data-nosnippet>1167</a>							requires: Vec::new(),
 <a href=#1168 id=1168 data-nosnippet>1168</a>							provides: <span class="macro">vec!</span>[T::Hashing::hash_of(<span class="kw-2">&amp;</span>task.encode()).as_ref().to_vec()],
-<a href=#1169 id=1169 data-nosnippet>1169</a>							longevity: TransactionLongevity::max_value(),
+<a href=#1169 id=1169 data-nosnippet>1169</a>							longevity: TransactionLongevity::MAX,
 <a href=#1170 id=1170 data-nosnippet>1170</a>							propagate: <span class="bool-val">false</span>,
 <a href=#1171 id=1171 data-nosnippet>1171</a>						});
 <a href=#1172 id=1172 data-nosnippet>1172</a>					}
@@ -2415,7 +2415,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2265 id=2265 data-nosnippet>2265</a>	</span><span class="kw">pub fn </span>reset_events() {
 <a href=#2266 id=2266 data-nosnippet>2266</a>		&lt;Events&lt;T&gt;&gt;::kill();
 <a href=#2267 id=2267 data-nosnippet>2267</a>		EventCount::&lt;T&gt;::kill();
-<a href=#2268 id=2268 data-nosnippet>2268</a>		<span class="kw">let _ </span>= &lt;EventTopics&lt;T&gt;&gt;::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#2268 id=2268 data-nosnippet>2268</a>		<span class="kw">let _ </span>= &lt;EventTopics&lt;T&gt;&gt;::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#2269 id=2269 data-nosnippet>2269</a>	}
 <a href=#2270 id=2270 data-nosnippet>2270</a>
 <a href=#2271 id=2271 data-nosnippet>2271</a>	<span class="doccomment">/// Assert the given `event` exists.

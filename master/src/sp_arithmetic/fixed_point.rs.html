@@ -665,7 +665,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#515 id=515 data-nosnippet>515</a>						Rounding::NearestPrefDown,
 <a href=#516 id=516 data-nosnippet>516</a>					) {
 <a href=#517 id=517 data-nosnippet>517</a>						<span class="prelude-val">Some</span>(value) =&gt; {
-<a href=#518 id=518 data-nosnippet>518</a>							<span class="kw">if </span>value &gt; (u32::max_value() <span class="kw">as </span>u128) {
+<a href=#518 id=518 data-nosnippet>518</a>							<span class="kw">if </span>value &gt; (u32::MAX <span class="kw">as </span>u128) {
 <a href=#519 id=519 data-nosnippet>519</a>								<span class="macro">panic!</span>(
 <a href=#520 id=520 data-nosnippet>520</a>									<span class="string">"prior logic ensures 0&lt;self.0&lt;DIV; \
 <a href=#521 id=521 data-nosnippet>521</a>									multiply ensures 0&lt;self.0&lt;1000000000; \
@@ -806,7 +806,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#656 id=656 data-nosnippet>656</a>				</span><span class="kw">if </span><span class="self">self</span>.<span class="number">0 </span>&lt; <span class="number">0 </span>{
 <a href=#657 id=657 data-nosnippet>657</a>					<span class="kw">let </span>value = <span class="kw">match </span><span class="self">self</span>.<span class="number">0</span>.checked_neg() {
 <a href=#658 id=658 data-nosnippet>658</a>						<span class="prelude-val">Some</span>(n) =&gt; n <span class="kw">as </span>u128,
-<a href=#659 id=659 data-nosnippet>659</a>						<span class="prelude-val">None </span>=&gt; u128::saturating_add(&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::max_value() <span class="kw">as </span>u128, <span class="number">1</span>),
+<a href=#659 id=659 data-nosnippet>659</a>						<span class="prelude-val">None </span>=&gt; u128::saturating_add(&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::MAX <span class="kw">as </span>u128, <span class="number">1</span>),
 <a href=#660 id=660 data-nosnippet>660</a>					};
 <a href=#661 id=661 data-nosnippet>661</a>					I129 { value, negative: <span class="bool-val">true </span>}
 <a href=#662 id=662 data-nosnippet>662</a>				} <span class="kw">else </span>{
@@ -819,10 +819,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#669 id=669 data-nosnippet>669</a>			/// WARNING: This is a `const` function designed for convenient use at build time and
 <a href=#670 id=670 data-nosnippet>670</a>			/// will panic on overflow. Ensure that any inputs are sensible.
 <a href=#671 id=671 data-nosnippet>671</a>			</span><span class="kw">const fn </span>from_i129(n: I129) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
-<a href=#672 id=672 data-nosnippet>672</a>				<span class="kw">let </span>max_plus_one = u128::saturating_add(&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::max_value() <span class="kw">as </span>u128, <span class="number">1</span>);
+<a href=#672 id=672 data-nosnippet>672</a>				<span class="kw">let </span>max_plus_one = u128::saturating_add(&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::MAX <span class="kw">as </span>u128, <span class="number">1</span>);
 <a href=#673 id=673 data-nosnippet>673</a>				<span class="attr">#[allow(unused_comparisons)]
-<a href=#674 id=674 data-nosnippet>674</a>				</span><span class="kw">let </span>inner = <span class="kw">if </span>n.negative &amp;&amp; &lt;<span class="macro-nonterminal">$inner_type</span>&gt;::min_value() &lt; <span class="number">0 </span>&amp;&amp; n.value == max_plus_one {
-<a href=#675 id=675 data-nosnippet>675</a>					&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::min_value()
+<a href=#674 id=674 data-nosnippet>674</a>				</span><span class="kw">let </span>inner = <span class="kw">if </span>n.negative &amp;&amp; &lt;<span class="macro-nonterminal">$inner_type</span>&gt;::MIN &lt; <span class="number">0 </span>&amp;&amp; n.value == max_plus_one {
+<a href=#675 id=675 data-nosnippet>675</a>					&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::MIN
 <a href=#676 id=676 data-nosnippet>676</a>				} <span class="kw">else </span>{
 <a href=#677 id=677 data-nosnippet>677</a>					<span class="kw">let </span>unsigned_inner = n.value <span class="kw">as </span><span class="macro-nonterminal">$inner_type</span>;
 <a href=#678 id=678 data-nosnippet>678</a>					<span class="kw">if </span>unsigned_inner <span class="kw">as </span><span class="macro">u128 !</span>= n.value || (unsigned_inner &gt; <span class="number">0</span>) != (n.value &gt; <span class="number">0</span>) {
@@ -1073,11 +1073,11 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#923 id=923 data-nosnippet>923</a>
 <a href=#924 id=924 data-nosnippet>924</a>		<span class="kw">impl </span>Bounded <span class="kw">for </span><span class="macro-nonterminal">$name </span>{
 <a href=#925 id=925 data-nosnippet>925</a>			<span class="kw">fn </span>min_value() -&gt; <span class="self">Self </span>{
-<a href=#926 id=926 data-nosnippet>926</a>				<span class="self">Self</span>(&lt;<span class="self">Self </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value())
+<a href=#926 id=926 data-nosnippet>926</a>				<span class="self">Self</span>(&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::MIN)
 <a href=#927 id=927 data-nosnippet>927</a>			}
 <a href=#928 id=928 data-nosnippet>928</a>
 <a href=#929 id=929 data-nosnippet>929</a>			<span class="kw">fn </span>max_value() -&gt; <span class="self">Self </span>{
-<a href=#930 id=930 data-nosnippet>930</a>				<span class="self">Self</span>(&lt;<span class="self">Self </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value())
+<a href=#930 id=930 data-nosnippet>930</a>				<span class="self">Self</span>(&lt;<span class="macro-nonterminal">$inner_type</span>&gt;::MAX)
 <a href=#931 id=931 data-nosnippet>931</a>			}
 <a href=#932 id=932 data-nosnippet>932</a>		}
 <a href=#933 id=933 data-nosnippet>933</a>
@@ -1493,8 +1493,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1343 id=1343 data-nosnippet>1343</a>
 <a href=#1344 id=1344 data-nosnippet>1344</a>			<span class="attr">#[test]
 <a href=#1345 id=1345 data-nosnippet>1345</a>			</span><span class="kw">fn </span>saturating_from_integer_works() {
-<a href=#1346 id=1346 data-nosnippet>1346</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1347 id=1347 data-nosnippet>1347</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1346 id=1346 data-nosnippet>1346</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1347 id=1347 data-nosnippet>1347</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1348 id=1348 data-nosnippet>1348</a>				<span class="kw">let </span>accuracy = <span class="macro-nonterminal">$name::accuracy</span>();
 <a href=#1349 id=1349 data-nosnippet>1349</a>
 <a href=#1350 id=1350 data-nosnippet>1350</a>				<span class="comment">// Cases where integer fits.
@@ -1521,8 +1521,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1371 id=1371 data-nosnippet>1371</a>
 <a href=#1372 id=1372 data-nosnippet>1372</a>			<span class="attr">#[test]
 <a href=#1373 id=1373 data-nosnippet>1373</a>			</span><span class="kw">fn </span>checked_from_integer_works() {
-<a href=#1374 id=1374 data-nosnippet>1374</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1375 id=1375 data-nosnippet>1375</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1374 id=1374 data-nosnippet>1374</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1375 id=1375 data-nosnippet>1375</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1376 id=1376 data-nosnippet>1376</a>				<span class="kw">let </span>accuracy = <span class="macro-nonterminal">$name::accuracy</span>();
 <a href=#1377 id=1377 data-nosnippet>1377</a>
 <a href=#1378 id=1378 data-nosnippet>1378</a>				<span class="comment">// Case where integer fits.
@@ -1558,8 +1558,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1408 id=1408 data-nosnippet>1408</a>
 <a href=#1409 id=1409 data-nosnippet>1409</a>			<span class="attr">#[test]
 <a href=#1410 id=1410 data-nosnippet>1410</a>			</span><span class="kw">fn </span>from_inner_works() {
-<a href=#1411 id=1411 data-nosnippet>1411</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1412 id=1412 data-nosnippet>1412</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1411 id=1411 data-nosnippet>1411</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1412 id=1412 data-nosnippet>1412</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1413 id=1413 data-nosnippet>1413</a>
 <a href=#1414 id=1414 data-nosnippet>1414</a>				<span class="macro">assert_eq!</span>(max(), <span class="macro-nonterminal">$name::from_inner</span>(inner_max));
 <a href=#1415 id=1415 data-nosnippet>1415</a>				<span class="macro">assert_eq!</span>(min(), <span class="macro-nonterminal">$name::from_inner</span>(inner_min));
@@ -1573,8 +1573,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1423 id=1423 data-nosnippet>1423</a>
 <a href=#1424 id=1424 data-nosnippet>1424</a>			<span class="attr">#[test]
 <a href=#1425 id=1425 data-nosnippet>1425</a>			</span><span class="kw">fn </span>saturating_from_rational_works() {
-<a href=#1426 id=1426 data-nosnippet>1426</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1427 id=1427 data-nosnippet>1427</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1426 id=1426 data-nosnippet>1426</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1427 id=1427 data-nosnippet>1427</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1428 id=1428 data-nosnippet>1428</a>				<span class="kw">let </span>accuracy = <span class="macro-nonterminal">$name::accuracy</span>();
 <a href=#1429 id=1429 data-nosnippet>1429</a>
 <a href=#1430 id=1430 data-nosnippet>1430</a>				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_rational</span>(<span class="number">5</span>, <span class="number">2</span>);
@@ -1695,8 +1695,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1545 id=1545 data-nosnippet>1545</a>
 <a href=#1546 id=1546 data-nosnippet>1546</a>			<span class="attr">#[test]
 <a href=#1547 id=1547 data-nosnippet>1547</a>			</span><span class="kw">fn </span>checked_from_rational_works() {
-<a href=#1548 id=1548 data-nosnippet>1548</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1549 id=1549 data-nosnippet>1549</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1548 id=1548 data-nosnippet>1548</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1549 id=1549 data-nosnippet>1549</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1550 id=1550 data-nosnippet>1550</a>				<span class="kw">let </span>accuracy = <span class="macro-nonterminal">$name::accuracy</span>();
 <a href=#1551 id=1551 data-nosnippet>1551</a>
 <a href=#1552 id=1552 data-nosnippet>1552</a>				<span class="comment">// Divide by zero =&gt; None.
@@ -1762,7 +1762,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1612 id=1612 data-nosnippet>1612</a>
 <a href=#1613 id=1613 data-nosnippet>1613</a>			<span class="attr">#[test]
 <a href=#1614 id=1614 data-nosnippet>1614</a>			</span><span class="kw">fn </span>from_rational_works() {
-<a href=#1615 id=1615 data-nosnippet>1615</a>				<span class="kw">let </span>inner_max: u128 = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value() <span class="kw">as </span>u128;
+<a href=#1615 id=1615 data-nosnippet>1615</a>				<span class="kw">let </span>inner_max: u128 = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX <span class="kw">as </span>u128;
 <a href=#1616 id=1616 data-nosnippet>1616</a>				<span class="kw">let </span>inner_min: u128 = <span class="number">0</span>;
 <a href=#1617 id=1617 data-nosnippet>1617</a>				<span class="kw">let </span>accuracy: u128 = <span class="macro-nonterminal">$name::accuracy</span>() <span class="kw">as </span>u128;
 <a href=#1618 id=1618 data-nosnippet>1618</a>
@@ -1871,8 +1871,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1721 id=1721 data-nosnippet>1721</a>
 <a href=#1722 id=1722 data-nosnippet>1722</a>			<span class="attr">#[test]
 <a href=#1723 id=1723 data-nosnippet>1723</a>			</span><span class="kw">fn </span>checked_mul_works() {
-<a href=#1724 id=1724 data-nosnippet>1724</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1725 id=1725 data-nosnippet>1725</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1724 id=1724 data-nosnippet>1724</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1725 id=1725 data-nosnippet>1725</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1726 id=1726 data-nosnippet>1726</a>
 <a href=#1727 id=1727 data-nosnippet>1727</a>				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_integer</span>(<span class="number">2</span>);
 <a href=#1728 id=1728 data-nosnippet>1728</a>
@@ -1936,8 +1936,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1786 id=1786 data-nosnippet>1786</a>
 <a href=#1787 id=1787 data-nosnippet>1787</a>			<span class="attr">#[test]
 <a href=#1788 id=1788 data-nosnippet>1788</a>			</span><span class="kw">fn </span>const_checked_mul_works() {
-<a href=#1789 id=1789 data-nosnippet>1789</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1790 id=1790 data-nosnippet>1790</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1789 id=1789 data-nosnippet>1789</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1790 id=1790 data-nosnippet>1790</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1791 id=1791 data-nosnippet>1791</a>
 <a href=#1792 id=1792 data-nosnippet>1792</a>				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_integer</span>(<span class="number">2u32</span>);
 <a href=#1793 id=1793 data-nosnippet>1793</a>
@@ -2006,8 +2006,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1856 id=1856 data-nosnippet>1856</a>
 <a href=#1857 id=1857 data-nosnippet>1857</a>			<span class="attr">#[test]
 <a href=#1858 id=1858 data-nosnippet>1858</a>			</span><span class="kw">fn </span>checked_div_int_works() {
-<a href=#1859 id=1859 data-nosnippet>1859</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1860 id=1860 data-nosnippet>1860</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1859 id=1859 data-nosnippet>1859</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1860 id=1860 data-nosnippet>1860</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1861 id=1861 data-nosnippet>1861</a>				<span class="kw">let </span>accuracy = <span class="macro-nonterminal">$name::accuracy</span>();
 <a href=#1862 id=1862 data-nosnippet>1862</a>
 <a href=#1863 id=1863 data-nosnippet>1863</a>				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::from_inner</span>(inner_max);
@@ -2074,8 +2074,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1924 id=1924 data-nosnippet>1924</a>
 <a href=#1925 id=1925 data-nosnippet>1925</a>			<span class="attr">#[test]
 <a href=#1926 id=1926 data-nosnippet>1926</a>			</span><span class="kw">fn </span>saturating_div_int_works() {
-<a href=#1927 id=1927 data-nosnippet>1927</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1928 id=1928 data-nosnippet>1928</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1927 id=1927 data-nosnippet>1927</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1928 id=1928 data-nosnippet>1928</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1929 id=1929 data-nosnippet>1929</a>				<span class="kw">let </span>accuracy = <span class="macro-nonterminal">$name::accuracy</span>();
 <a href=#1930 id=1930 data-nosnippet>1930</a>
 <a href=#1931 id=1931 data-nosnippet>1931</a>				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::saturating_from_integer</span>(<span class="number">5</span>);
@@ -2095,8 +2095,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1945 id=1945 data-nosnippet>1945</a>
 <a href=#1946 id=1946 data-nosnippet>1946</a>			<span class="attr">#[test]
 <a href=#1947 id=1947 data-nosnippet>1947</a>			</span><span class="kw">fn </span>saturating_abs_works() {
-<a href=#1948 id=1948 data-nosnippet>1948</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#1949 id=1949 data-nosnippet>1949</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#1948 id=1948 data-nosnippet>1948</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#1949 id=1949 data-nosnippet>1949</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#1950 id=1950 data-nosnippet>1950</a>
 <a href=#1951 id=1951 data-nosnippet>1951</a>				<span class="macro">assert_eq!</span>(<span class="macro-nonterminal">$name::from_inner</span>(inner_max).saturating_abs(), <span class="macro-nonterminal">$name::max_value</span>());
 <a href=#1952 id=1952 data-nosnippet>1952</a>				<span class="macro">assert_eq!</span>(<span class="macro-nonterminal">$name::zero</span>().saturating_abs(), <span class="number">0</span>.into());
@@ -2201,8 +2201,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#2051 id=2051 data-nosnippet>2051</a>
 <a href=#2052 id=2052 data-nosnippet>2052</a>			<span class="attr">#[test]
 <a href=#2053 id=2053 data-nosnippet>2053</a>			</span><span class="kw">fn </span>checked_div_works() {
-<a href=#2054 id=2054 data-nosnippet>2054</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::max_value();
-<a href=#2055 id=2055 data-nosnippet>2055</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::min_value();
+<a href=#2054 id=2054 data-nosnippet>2054</a>				<span class="kw">let </span>inner_max = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MAX;
+<a href=#2055 id=2055 data-nosnippet>2055</a>				<span class="kw">let </span>inner_min = &lt;<span class="macro-nonterminal">$name </span><span class="kw">as </span>FixedPointNumber&gt;::Inner::MIN;
 <a href=#2056 id=2056 data-nosnippet>2056</a>
 <a href=#2057 id=2057 data-nosnippet>2057</a>				<span class="kw">let </span>a = <span class="macro-nonterminal">$name::from_inner</span>(inner_max);
 <a href=#2058 id=2058 data-nosnippet>2058</a>				<span class="kw">let </span>b = <span class="macro-nonterminal">$name::from_inner</span>(inner_min);

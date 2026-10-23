@@ -1155,7 +1155,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1005 id=1005 data-nosnippet>1005</a>	<span class="kw">pub const </span>MaxAuthorities: u32 = <span class="number">100_000</span>;
 <a href=#1006 id=1006 data-nosnippet>1006</a>	<span class="kw">pub const </span>MaxKeys: u32 = <span class="number">10_000</span>;
 <a href=#1007 id=1007 data-nosnippet>1007</a>	<span class="kw">pub const </span>MaxPeerInHeartbeats: u32 = <span class="number">10_000</span>;
-<a href=#1008 id=1008 data-nosnippet>1008</a>	<span class="kw">pub const </span>MaxBalance: Balance = Balance::max_value();
+<a href=#1008 id=1008 data-nosnippet>1008</a>	<span class="kw">pub const </span>MaxBalance: Balance = Balance::MAX;
 <a href=#1009 id=1009 data-nosnippet>1009</a>}
 <a href=#1010 id=1010 data-nosnippet>1010</a>
 <a href=#1011 id=1011 data-nosnippet>1011</a><span class="kw">impl </span>pallet_treasury::Config <span class="kw">for </span>Runtime {
@@ -1209,7 +1209,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1059 id=1059 data-nosnippet>1059</a>}
 <a href=#1060 id=1060 data-nosnippet>1060</a>
 <a href=#1061 id=1061 data-nosnippet>1061</a><span class="macro">parameter_types!</span> {
-<a href=#1062 id=1062 data-nosnippet>1062</a>	<span class="kw">pub const </span>NposSolutionPriority: TransactionPriority = TransactionPriority::max_value() / <span class="number">2</span>;
+<a href=#1062 id=1062 data-nosnippet>1062</a>	<span class="kw">pub const </span>NposSolutionPriority: TransactionPriority = TransactionPriority::MAX / <span class="number">2</span>;
 <a href=#1063 id=1063 data-nosnippet>1063</a>}
 <a href=#1064 id=1064 data-nosnippet>1064</a>
 <a href=#1065 id=1065 data-nosnippet>1065</a><span class="macro">parameter_types!</span> {
@@ -1610,7 +1610,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1460 id=1460 data-nosnippet>1460</a>}
 <a href=#1461 id=1461 data-nosnippet>1461</a>
 <a href=#1462 id=1462 data-nosnippet>1462</a><span class="macro">parameter_types!</span> {
-<a href=#1463 id=1463 data-nosnippet>1463</a>	<span class="kw">pub const </span>ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+<a href=#1463 id=1463 data-nosnippet>1463</a>	<span class="kw">pub const </span>ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 <a href=#1464 id=1464 data-nosnippet>1464</a>}
 <a href=#1465 id=1465 data-nosnippet>1465</a>
 <a href=#1466 id=1466 data-nosnippet>1466</a><span class="kw">impl </span>parachains_paras::Config <span class="kw">for </span>Runtime {

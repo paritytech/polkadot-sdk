@@ -625,7 +625,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#475 id=475 data-nosnippet>475</a>			<span class="number">1
 <a href=#476 id=476 data-nosnippet>476</a>		</span>);
 <a href=#477 id=477 data-nosnippet>477</a>		<span class="comment">// Set the current era
-<a href=#478 id=478 data-nosnippet>478</a>		</span>&lt;T::StakeAdapter <span class="kw">as </span>StakeStrategy&gt;::CoreStaking::set_era(EraIndex::max_value());
+<a href=#478 id=478 data-nosnippet>478</a>		</span>&lt;T::StakeAdapter <span class="kw">as </span>StakeStrategy&gt;::CoreStaking::set_era(EraIndex::MAX);
 <a href=#479 id=479 data-nosnippet>479</a>
 <a href=#480 id=480 data-nosnippet>480</a>		<span class="macro">whitelist_account!</span>(pool_account);
 <a href=#481 id=481 data-nosnippet>481</a>
@@ -675,7 +675,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#525 id=525 data-nosnippet>525</a>		</span>);
 <a href=#526 id=526 data-nosnippet>526</a>
 <a href=#527 id=527 data-nosnippet>527</a>		<span class="comment">// Set the current era to ensure we can withdraw unbonded funds
-<a href=#528 id=528 data-nosnippet>528</a>		</span>&lt;T::StakeAdapter <span class="kw">as </span>StakeStrategy&gt;::CoreStaking::set_era(EraIndex::max_value());
+<a href=#528 id=528 data-nosnippet>528</a>		</span>&lt;T::StakeAdapter <span class="kw">as </span>StakeStrategy&gt;::CoreStaking::set_era(EraIndex::MAX);
 <a href=#529 id=529 data-nosnippet>529</a>
 <a href=#530 id=530 data-nosnippet>530</a>		<span class="macro">whitelist_account!</span>(joiner);
 <a href=#531 id=531 data-nosnippet>531</a>
@@ -730,7 +730,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#580 id=580 data-nosnippet>580</a>		</span>);
 <a href=#581 id=581 data-nosnippet>581</a>
 <a href=#582 id=582 data-nosnippet>582</a>		<span class="comment">// Set the current era to ensure we can withdraw unbonded funds
-<a href=#583 id=583 data-nosnippet>583</a>		</span>&lt;T::StakeAdapter <span class="kw">as </span>StakeStrategy&gt;::CoreStaking::set_era(EraIndex::max_value());
+<a href=#583 id=583 data-nosnippet>583</a>		</span>&lt;T::StakeAdapter <span class="kw">as </span>StakeStrategy&gt;::CoreStaking::set_era(EraIndex::MAX);
 <a href=#584 id=584 data-nosnippet>584</a>
 <a href=#585 id=585 data-nosnippet>585</a>		<span class="comment">// Some last checks that storage items we expect to get cleaned up are present
 <a href=#586 id=586 data-nosnippet>586</a>		</span><span class="macro">assert!</span>(pallet_staking_async::Ledger::&lt;T&gt;::contains_key(<span class="kw-2">&amp;</span>pool_account));

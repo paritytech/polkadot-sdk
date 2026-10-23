@@ -414,7 +414,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#264 id=264 data-nosnippet>264</a>
 <a href=#265 id=265 data-nosnippet>265</a>			ValidTransaction::with_tag_prefix(<span class="string">"GrandpaEquivocation"</span>)
 <a href=#266 id=266 data-nosnippet>266</a>				<span class="comment">// We assign the maximum priority for any equivocation report.
-<a href=#267 id=267 data-nosnippet>267</a>				</span>.priority(TransactionPriority::max_value())
+<a href=#267 id=267 data-nosnippet>267</a>				</span>.priority(TransactionPriority::MAX)
 <a href=#268 id=268 data-nosnippet>268</a>				<span class="comment">// Only one equivocation report for the same offender at the same slot.
 <a href=#269 id=269 data-nosnippet>269</a>				</span>.and_provides((
 <a href=#270 id=270 data-nosnippet>270</a>					equivocation_proof.offender().clone(),

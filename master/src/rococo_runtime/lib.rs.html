@@ -671,7 +671,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#521 id=521 data-nosnippet>521</a>	<span class="kw">pub const </span>MaxAuthorities: u32 = <span class="number">100_000</span>;
 <a href=#522 id=522 data-nosnippet>522</a>	<span class="kw">pub const </span>MaxKeys: u32 = <span class="number">10_000</span>;
 <a href=#523 id=523 data-nosnippet>523</a>	<span class="kw">pub const </span>MaxPeerInHeartbeats: u32 = <span class="number">10_000</span>;
-<a href=#524 id=524 data-nosnippet>524</a>	<span class="kw">pub const </span>MaxBalance: Balance = Balance::max_value();
+<a href=#524 id=524 data-nosnippet>524</a>	<span class="kw">pub const </span>MaxBalance: Balance = Balance::MAX;
 <a href=#525 id=525 data-nosnippet>525</a>}
 <a href=#526 id=526 data-nosnippet>526</a>
 <a href=#527 id=527 data-nosnippet>527</a><span class="kw">impl </span>pallet_treasury::Config <span class="kw">for </span>Runtime {
@@ -1202,7 +1202,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1052 id=1052 data-nosnippet>1052</a>}
 <a href=#1053 id=1053 data-nosnippet>1053</a>
 <a href=#1054 id=1054 data-nosnippet>1054</a><span class="macro">parameter_types!</span> {
-<a href=#1055 id=1055 data-nosnippet>1055</a>	<span class="kw">pub const </span>ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+<a href=#1055 id=1055 data-nosnippet>1055</a>	<span class="kw">pub const </span>ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 <a href=#1056 id=1056 data-nosnippet>1056</a>}
 <a href=#1057 id=1057 data-nosnippet>1057</a>
 <a href=#1058 id=1058 data-nosnippet>1058</a><span class="kw">impl </span>parachains_paras::Config <span class="kw">for </span>Runtime {

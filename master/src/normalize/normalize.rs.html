@@ -179,8 +179,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#29 id=29 data-nosnippet>29</a><span class="kw">type </span>Ty = u64;
 <a href=#30 id=30 data-nosnippet>30</a>
 <a href=#31 id=31 data-nosnippet>31</a><span class="kw">fn </span>main() {
-<a href=#32 id=32 data-nosnippet>32</a>	<span class="kw">let </span>sum_limit = Ty::max_value() <span class="kw">as </span>u128;
-<a href=#33 id=33 data-nosnippet>33</a>	<span class="kw">let </span>len_limit: usize = Ty::max_value().try_into().unwrap();
+<a href=#32 id=32 data-nosnippet>32</a>	<span class="kw">let </span>sum_limit = Ty::MAX <span class="kw">as </span>u128;
+<a href=#33 id=33 data-nosnippet>33</a>	<span class="kw">let </span>len_limit: usize = Ty::MAX.try_into().unwrap();
 <a href=#34 id=34 data-nosnippet>34</a>
 <a href=#35 id=35 data-nosnippet>35</a>	<span class="kw">loop </span>{
 <a href=#36 id=36 data-nosnippet>36</a>		<span class="macro">fuzz!</span>(|data: (Vec&lt;Ty&gt;, Ty)| {
@@ -203,7 +203,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#53 id=53 data-nosnippet>53</a>			} <span class="kw">else </span>{
 <a href=#54 id=54 data-nosnippet>54</a>				<span class="macro">panic!</span>(<span class="string">"Should have returned Ok for input = {:?}, target = {:?}"</span>, data, norm);
 <a href=#55 id=55 data-nosnippet>55</a>			}
-<a href=#56 id=56 data-nosnippet>56</a>		})
+<a href=#56 id=56 data-nosnippet>56</a>		});
 <a href=#57 id=57 data-nosnippet>57</a>	}
 <a href=#58 id=58 data-nosnippet>58</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>

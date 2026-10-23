@@ -184,7 +184,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#34 id=34 data-nosnippet>34</a><span class="doccomment">/// The denominator used for loads. Since votes are collected as u64, the smallest ratio that we
 <a href=#35 id=35 data-nosnippet>35</a>/// might collect is `1/approval_stake` where approval stake is the sum of votes. Hence, some number
 <a href=#36 id=36 data-nosnippet>36</a>/// bigger than u64::MAX is needed. For maximum accuracy we simply use u128;
-<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">const </span>DEN: ExtendedBalance = ExtendedBalance::max_value();
+<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">const </span>DEN: ExtendedBalance = ExtendedBalance::MAX;
 <a href=#38 id=38 data-nosnippet>38</a>
 <a href=#39 id=39 data-nosnippet>39</a><span class="doccomment">/// Execute sequential phragmen with potentially some rounds of `balancing`. The return type is list
 <a href=#40 id=40 data-nosnippet>40</a>/// of winners and a weight distribution vector of all voters who contribute to the winners.

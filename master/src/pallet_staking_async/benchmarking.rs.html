@@ -493,7 +493,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#343 id=343 data-nosnippet>343</a>		<span class="kw">let </span>(<span class="kw">_</span>, controller) = create_stash_controller::&lt;T&gt;(<span class="number">0</span>, <span class="number">100</span>, RewardDestination::Staked)<span class="question-mark">?</span>;
 <a href=#344 id=344 data-nosnippet>344</a>		<span class="kw">let </span>amount = asset::existential_deposit::&lt;T&gt;() * <span class="number">5u32</span>.into(); <span class="comment">// Half of total
 <a href=#345 id=345 data-nosnippet>345</a>		</span>Staking::&lt;T&gt;::unbond(RawOrigin::Signed(controller.clone()).into(), amount)<span class="question-mark">?</span>;
-<a href=#346 id=346 data-nosnippet>346</a>		set_active_era::&lt;T&gt;(EraIndex::max_value());
+<a href=#346 id=346 data-nosnippet>346</a>		set_active_era::&lt;T&gt;(EraIndex::MAX);
 <a href=#347 id=347 data-nosnippet>347</a>		<span class="kw">let </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).ok_or(<span class="string">"ledger not created before"</span>)<span class="question-mark">?</span>;
 <a href=#348 id=348 data-nosnippet>348</a>		<span class="kw">let </span>original_total: BalanceOf&lt;T&gt; = ledger.total;
 <a href=#349 id=349 data-nosnippet>349</a>		<span class="macro">whitelist_account!</span>(controller);
@@ -527,7 +527,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#377 id=377 data-nosnippet>377</a>		<span class="kw">let </span><span class="kw-2">mut </span>ledger = Ledger::&lt;T&gt;::get(<span class="kw-2">&amp;</span>controller).unwrap();
 <a href=#378 id=378 data-nosnippet>378</a>		ledger.active = ed - One::one();
 <a href=#379 id=379 data-nosnippet>379</a>		Ledger::&lt;T&gt;::insert(<span class="kw-2">&amp;</span>controller, ledger);
-<a href=#380 id=380 data-nosnippet>380</a>		set_active_era::&lt;T&gt;(EraIndex::max_value());
+<a href=#380 id=380 data-nosnippet>380</a>		set_active_era::&lt;T&gt;(EraIndex::MAX);
 <a href=#381 id=381 data-nosnippet>381</a>
 <a href=#382 id=382 data-nosnippet>382</a>		<span class="macro">whitelist_account!</span>(controller);
 <a href=#383 id=383 data-nosnippet>383</a>

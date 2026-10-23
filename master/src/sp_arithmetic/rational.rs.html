@@ -461,7 +461,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#311 id=311 data-nosnippet>311</a>						<span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
 <a href=#312 id=312 data-nosnippet>312</a>					};
 <a href=#313 id=313 data-nosnippet>313</a>				}
-<a href=#314 id=314 data-nosnippet>314</a>				<span class="kw">if </span>result &gt; (&lt;<span class="macro-nonterminal">$ulow</span>&gt;::max_value() <span class="kw">as </span><span class="macro-nonterminal">$uhi</span>) {
+<a href=#314 id=314 data-nosnippet>314</a>				<span class="kw">if </span>result &gt; (&lt;<span class="macro-nonterminal">$ulow</span>&gt;::MAX <span class="kw">as </span><span class="macro-nonterminal">$uhi</span>) {
 <a href=#315 id=315 data-nosnippet>315</a>					<span class="prelude-val">None
 <a href=#316 id=316 data-nosnippet>316</a>				</span>} <span class="kw">else </span>{
 <a href=#317 id=317 data-nosnippet>317</a>					<span class="prelude-val">Some</span>(result <span class="kw">as </span><span class="macro-nonterminal">$ulow</span>)
@@ -508,7 +508,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#358 id=358 data-nosnippet>358</a>		<span class="kw">let </span>ce: U256 = c.into();
 <a href=#359 id=359 data-nosnippet>359</a>
 <a href=#360 id=360 data-nosnippet>360</a>		<span class="kw">let </span>r = ae * be / ce;
-<a href=#361 id=361 data-nosnippet>361</a>		<span class="kw">if </span>r &gt; u128::max_value().into() {
+<a href=#361 id=361 data-nosnippet>361</a>		<span class="kw">if </span>r &gt; u128::MAX.into() {
 <a href=#362 id=362 data-nosnippet>362</a>			a
 <a href=#363 id=363 data-nosnippet>363</a>		} <span class="kw">else </span>{
 <a href=#364 id=364 data-nosnippet>364</a>			r.as_u128()

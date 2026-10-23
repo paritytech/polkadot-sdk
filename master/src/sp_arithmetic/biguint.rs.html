@@ -183,7 +183,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// Difference in the number of bits of [`Single`] and [`Double`].
 <a href=#34 id=34 data-nosnippet>34</a></span><span class="kw">const </span>SHIFT: usize = <span class="number">32</span>;
 <a href=#35 id=35 data-nosnippet>35</a><span class="doccomment">/// short form of _Base_. Analogous to the value 10 in base-10 decimal numbers.
-<a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">const </span>B: Double = Single::max_value() <span class="kw">as </span>Double + <span class="number">1</span>;
+<a href=#36 id=36 data-nosnippet>36</a></span><span class="kw">const </span>B: Double = Single::MAX <span class="kw">as </span>Double + <span class="number">1</span>;
 <a href=#37 id=37 data-nosnippet>37</a>
 <a href=#38 id=38 data-nosnippet>38</a><span class="macro">static_assertions::const_assert!</span>(
 <a href=#39 id=39 data-nosnippet>39</a>	core::mem::size_of::&lt;Double&gt;() - core::mem::size_of::&lt;Single&gt;() == SHIFT / <span class="number">8

@@ -912,7 +912,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#762 id=762 data-nosnippet>762</a>
 <a href=#763 id=763 data-nosnippet>763</a>			A::insert(<span class="number">3</span>, <span class="number">10</span>);
 <a href=#764 id=764 data-nosnippet>764</a>			A::insert(<span class="number">4</span>, <span class="number">10</span>);
-<a href=#765 id=765 data-nosnippet>765</a>			<span class="kw">let _ </span>= A::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#765 id=765 data-nosnippet>765</a>			<span class="kw">let _ </span>= A::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#766 id=766 data-nosnippet>766</a>			<span class="macro">assert_eq!</span>(A::contains_key(<span class="number">3</span>), <span class="bool-val">false</span>);
 <a href=#767 id=767 data-nosnippet>767</a>			<span class="macro">assert_eq!</span>(A::contains_key(<span class="number">4</span>), <span class="bool-val">false</span>);
 <a href=#768 id=768 data-nosnippet>768</a>
@@ -986,7 +986,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#836 id=836 data-nosnippet>836</a>				]
 <a href=#837 id=837 data-nosnippet>837</a>			);
 <a href=#838 id=838 data-nosnippet>838</a>
-<a href=#839 id=839 data-nosnippet>839</a>			<span class="kw">let _ </span>= WithLen::clear(u32::max_value(), <span class="prelude-val">None</span>);
+<a href=#839 id=839 data-nosnippet>839</a>			<span class="kw">let _ </span>= WithLen::clear(u32::MAX, <span class="prelude-val">None</span>);
 <a href=#840 id=840 data-nosnippet>840</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len(<span class="number">3</span>), <span class="prelude-val">None</span>);
 <a href=#841 id=841 data-nosnippet>841</a>			WithLen::append(<span class="number">0</span>, <span class="number">10</span>);
 <a href=#842 id=842 data-nosnippet>842</a>			<span class="macro">assert_eq!</span>(WithLen::decode_len(<span class="number">0</span>), <span class="prelude-val">Some</span>(<span class="number">1</span>));
