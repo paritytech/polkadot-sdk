@@ -880,7 +880,7 @@ mod benchmarks {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
-		assert_eq!(ChillInactiveThreshold::<T>::get(), 10);
+		assert_eq!(ChillInactiveThreshold::<T>::get(), Some(10));
 	}
 
 	#[benchmark]
@@ -1668,25 +1668,14 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn chill_inactive(
-		l: Linear<2, { ChillInactiveThreshold::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn chill_inactive(l: Linear<2, { T::HistoryDepth::get() }>) -> Result<(), BenchmarkError> {
 		let (stash, _, _) =
 			create_validator_with_nominators::<T>(0, 0, false, true, RewardDestination::Staked)?;
 		assert!(T::VoterList::contains(&stash));
 
-		Staking::<T>::set_staking_configs(
-			RawOrigin::Root.into(),
-			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(0),
-			ConfigOp::Set(0),
-			ConfigOp::Set(Percent::from_percent(0)),
-			ConfigOp::Set(Zero::zero()),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(l),
-		)?;
+		// Not set through `set_staking_configs`, which rejects a threshold whose weight does not
+		// fit in a block. Benchmarking up to `HistoryDepth` is what tells this weight.
+		ChillInactiveThreshold::<T>::put(l);
 
 		let caller = whitelisted_caller();
 
@@ -1697,6 +1686,8 @@ mod benchmarks {
 
 		// Fill `EraRewardPoints::individual` of every service, and of the tally that adds them
 		// up, to hit the worst-case scenario. A new `ValidatorServiceKind` must be added here.
+		// Every era and service gets different points: the proof holds equal values only once,
+		// which would hide the size of all but one of them.
 		let services = [ValidatorServiceKind::RelayConsensus, ValidatorServiceKind::Collation];
 		let points_of_each = |points: RewardPoint| {
 			let mut individual = BoundedBTreeMap::new();
@@ -1707,16 +1698,20 @@ mod benchmarks {
 			}
 			EraRewardPoints { total: points * T::MaxValidatorSet::get(), individual }
 		};
-		let per_service = 100;
-		let tally = per_service * services.len() as RewardPoint;
+		let per_service = |era: EraIndex, index: usize| {
+			100 + era * services.len() as RewardPoint + index as RewardPoint
+		};
 
 		// Set the validator has been inactive for `l` eras.
 		let proof = (0..l)
 			.inspect(|&era| {
-				ErasRewardPoints::<T>::insert(era, points_of_each(tally));
-				for kind in services {
-					ErasRewardPointsByService::<T>::insert(era, kind, points_of_each(per_service));
+				let mut tally = 0;
+				for (index, kind) in services.into_iter().enumerate() {
+					let points = per_service(era, index);
+					ErasRewardPointsByService::<T>::insert(era, kind, points_of_each(points));
+					tally += points;
 				}
+				ErasRewardPoints::<T>::insert(era, points_of_each(tally));
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 			})
 			.collect::<Vec<_>>();
