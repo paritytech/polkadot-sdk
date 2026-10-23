@@ -270,12 +270,6 @@ pub type Executive = frame_executive::Executive<
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct CheckSubstrateCall;
 
-impl sp_runtime::traits::Printable for CheckSubstrateCall {
-	fn print(&self) {
-		"CheckSubstrateCall".print()
-	}
-}
-
 impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
 	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
 }

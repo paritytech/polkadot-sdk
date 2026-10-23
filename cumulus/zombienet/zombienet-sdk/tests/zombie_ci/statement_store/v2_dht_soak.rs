@@ -22,6 +22,8 @@
 //! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
 //! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
 //! each are mandatory even with a zero duration.
+//! Every node keeps at least `replication_factor` statement peers, so the lifecycle checks that
+//! floor, not a full mesh.
 //!
 //! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
 //! locally — against the cluster given a kubeconfig:
@@ -67,7 +69,6 @@ const DEFAULT_SOAK_SECS: u64 = 900;
 /// the rest.
 const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
-const CONNECTED_PEER_FLOOR: usize = 50;
 const STATEMENT_TTL: Duration = Duration::from_secs(900);
 const MAX_RECONNECTS: usize = 5;
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
@@ -184,14 +185,7 @@ async fn launch_soak_network(
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
-	launch_network_with_commands(
-		&collators,
-		&full_nodes,
-		&chain_spec_path,
-		args,
-		&[("STATEMENT_STORE_V2_DHT_ENABLED", "1")],
-	)
-	.await
+	launch_network_with_commands(&collators, &full_nodes, &chain_spec_path, args).await
 }
 
 /// Reads each node's peer id and maps it into the XOR topic space: `blake2_256` of the peer id
@@ -368,7 +362,9 @@ async fn topology_mismatch(
 ) -> Result<Option<String>, anyhow::Error> {
 	let expected_eligible = nodes.len() - 1;
 	let online_peers = expected_eligible - usize::from(offline_node_idx.is_some());
-	let connected_floor = online_peers.min(CONNECTED_PEER_FLOOR);
+	// A node's routing peers may include the offline one.
+	let connected_floor =
+		expected_eligible.min(REPLICATION_FACTOR) - usize::from(offline_node_idx.is_some());
 	let observations = futures::future::try_join_all(
 		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline_node_idx).map(
 			|(_, handle)| async move {
@@ -416,7 +412,46 @@ async fn wait_for_topology(
 	})
 	.await
 	.map_err(|_| anyhow!("{phase}: topology deadline: {last}"))??;
-	info!("Lifecycle {phase}: full eligible topology, expected open substreams, no major sync");
+	info!("Lifecycle {phase}: full eligible topology, open substreams at the floor, no major sync");
+	Ok(())
+}
+
+/// Open statement substreams summed over the online nodes, each connection counted at both ends.
+async fn connected_sum(
+	nodes: &[NodeHandle],
+	offline_node_idx: Option<usize>,
+) -> Result<f64, anyhow::Error> {
+	let mut sum = 0.0;
+	for (idx, handle) in nodes.iter().enumerate() {
+		if Some(idx) != offline_node_idx {
+			sum += handle.node.reports(CONNECTED_PEERS_METRIC).await?;
+		}
+	}
+	Ok(sum)
+}
+
+/// Wait until every substream to the offline node is closed: the online nodes' substreams sum
+/// to `expected_sum`, the pre-outage sum less both ends of the offline node's connections.
+async fn wait_for_disconnect(
+	nodes: &[NodeHandle],
+	offline_node_idx: usize,
+	expected_sum: f64,
+) -> Result<(), anyhow::Error> {
+	let mut last = 0.0;
+	tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
+		loop {
+			last = connected_sum(nodes, Some(offline_node_idx)).await?;
+			if last == expected_sum {
+				return Ok::<_, anyhow::Error>(());
+			}
+			tokio::time::sleep(Duration::from_secs(2)).await;
+		}
+	})
+	.await
+	.map_err(|_| {
+		anyhow!("disconnected: substreams deadline: sum {last}, expected {expected_sum}")
+	})??;
+	info!("Lifecycle disconnected: every substream to the offline node closed");
 	Ok(())
 }
 
@@ -616,6 +651,8 @@ async fn run_replica_outage(
 		Duration::from_secs(OUTAGE_TIMEOUT_SECS),
 		AssertUnwindSafe(async {
 			info!("Lifecycle stop: {} peer={original_peer_id}", outage_node.name());
+			let outage_node_connected = outage_node.reports(CONNECTED_PEERS_METRIC).await?;
+			let expected_sum = connected_sum(nodes, None).await? - 2.0 * outage_node_connected;
 			outage_node
 				.restart_with(
 					vec![AssetLocation::FilePath(offline_path)],
@@ -628,6 +665,7 @@ async fn run_replica_outage(
 			// Pause only the idle replacement so the SDK monitor treats the node as offline.
 			outage_node.pause().await?;
 			wait_for_topology("disconnected", nodes, Some(outage_node_idx)).await?;
+			wait_for_disconnect(nodes, outage_node_idx, expected_sum).await?;
 
 			// Send data during the outage
 			for batch in 0..OUTAGE_BATCHES {
@@ -841,12 +879,17 @@ async fn run_node_join(
 		load_started_rx.await?;
 		info!("Lifecycle join: adding {joiner_name} to {} statement nodes", nodes.len());
 		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
+<<<<<<< HEAD
 		let joiner_options = AddCollatorOptions {
 			env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
 			..Default::default()
 		};
 		network.add_collator(&joiner_name, joiner_options, 1004).await?;
 		let node = network.get_node(&joiner_name)?.clone();
+=======
+		network.add_collator(JOINER_NAME, AddCollatorOptions::default(), 1004).await?;
+		let node = network.get_node(JOINER_NAME)?.clone();
+>>>>>>> origin/master
 		let rpc = node.rpc().await?;
 		nodes_after_join.push(NodeHandle { node, rpc });
 		wait_for_topology("joined", &nodes_after_join, None).await?;
@@ -1082,7 +1125,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	// them, and the load needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
 	let eligible_floor = (statement_node_count - 1) as f64;
-	let connected_floor = (statement_node_count - 1).min(CONNECTED_PEER_FLOOR) as f64;
+	let connected_floor = (statement_node_count - 1).min(REPLICATION_FACTOR) as f64;
 	for handle in &nodes {
 		handle
 			.node
