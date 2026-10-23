@@ -1179,7 +1179,8 @@ mod tests {
 
 	/// Deleting from a child trie may leave it empty, which removes its root from the main trie.
 	/// The estimation cannot know whether that happens, so it assumes the removal and may record
-	/// one extra sibling node. It must still never record less than the real computation.
+	/// one extra sibling node, and it records the empty root in case the emptied trie is refilled.
+	/// It must still never record less than the real computation.
 	fn assert_estimation_covers_storage_root(
 		backend: TestBackend,
 		apply_changes: impl FnOnce(&mut dyn Externalities),
@@ -1439,6 +1440,61 @@ mod tests {
 		assert_eq!(estimation, storage_root);
 	}
 
+	/// Inserting into an emptied child trie reads its 2-byte empty root node, which the
+	/// estimation must record although it never inserts.
+	#[test]
+	fn emptied_and_refilled_child_trie_is_estimated_exactly() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_root_key_first_byte = child_info.prefixed_storage_key().as_slice()[0];
+		let top = (0..4u8).map(|nibble| {
+			(vec![child_root_key_first_byte, nibble << 4, 0x22, 0x33], vec![nibble; 64])
+		});
+		for state_version in [StateVersion::V1, StateVersion::V0] {
+			let backend = (
+				Storage {
+					top: top.clone().collect(),
+					children_default: map![
+						child_info.storage_key().to_vec() => StorageChild {
+							data: map![vec![0x01] => vec![1u8; 64]],
+							child_info: child_info.clone(),
+						}
+					],
+				},
+				state_version,
+			)
+				.into();
+
+			let (estimation, storage_root) =
+				estimation_and_storage_root_proof_sizes_at(backend, state_version, |ext, _| {
+					let _ = ext.kill_child_storage(&child_info, None, None);
+					ext.place_child_storage(&child_info, vec![0x77], Some(vec![7u8; 64]));
+				});
+			assert_eq!(estimation, storage_root, "{state_version:?}");
+		}
+	}
+
+	/// Inserting into an emptied top trie reads its 2-byte empty root node, which the estimation
+	/// must record although it never inserts.
+	#[test]
+	fn emptied_and_refilled_top_trie_is_estimated_exactly() {
+		let keys = [vec![0x10], vec![0x20], vec![0x30]];
+		let backend = (
+			Storage {
+				top: keys.iter().map(|key| (key.clone(), vec![1u8; 64])).collect(),
+				children_default: Default::default(),
+			},
+			StateVersion::V1,
+		)
+			.into();
+
+		assert_estimation_matches_storage_root(backend, |ext| {
+			for key in &keys {
+				ext.clear_storage(key);
+			}
+			ext.set_storage(vec![0x77], vec![7u8; 64]);
+		});
+	}
+
 	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_for_main_trie_changes() {
 		let child_info = ChildInfo::new_default(b"Child1");
@@ -1624,7 +1680,7 @@ mod tests {
 		)
 			.into();
 
-		assert_estimation_matches_storage_root(backend, |ext| {
+		assert_estimation_covers_storage_root(backend, |ext| {
 			for key in &child_keys {
 				ext.place_child_storage(&child_info, key.clone(), None);
 			}

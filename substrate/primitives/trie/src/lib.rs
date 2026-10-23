@@ -344,6 +344,10 @@ where
 	for key in delta {
 		trie.remove(key.borrow())?;
 	}
+	// The storage root computation reads the empty root before an insert into an emptied trie.
+	if trie.is_empty() {
+		trie.get(&[])?;
+	}
 
 	Ok(trie.detach())
 }
