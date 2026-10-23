@@ -242,13 +242,8 @@ impl MessageOracle {
 
 	/// What an accepted fetch claims: the requested range of the committed stream, from the honest
 	/// proof.
-	fn fetch_claim(
-		&self,
-		req: &MessagesRequest,
-		resp: &MessagesResponse,
-		payloads: &[Vec<u8>],
-	) -> Outcome {
-		assert_eq!(payloads, &resp.payloads[..], "verify_messages returned other payloads");
+	fn fetch_claim(&self, req: &MessagesRequest, resp: &MessagesResponse) -> Outcome {
+		let payloads = &resp.payloads[..];
 		assert_eq!(resp.base, req.start, "accepted a response that does not start at the request");
 		let total: u64 = payloads.iter().map(|p| p.len() as u64).sum();
 		assert!(
@@ -303,22 +298,21 @@ impl MessageOracle {
 		resp: &EventResponse,
 		verified: &VerifiedEvent,
 	) -> Outcome {
-		let (position, payload_out) = match verified {
-			VerifiedEvent::Head { position, frontier, payload } => {
+		let position = match verified {
+			VerifiedEvent::Head { position, frontier } => {
 				assert!(req.at.is_none(), "a positional request verified as a head read");
 				assert_eq!(
 					frontier.leaf_count(),
 					position.0 + 1,
 					"a head read's frontier does not end at its position"
 				);
-				(*position, payload)
+				*position
 			},
-			VerifiedEvent::Positional { position, payload } => {
+			VerifiedEvent::Positional { position } => {
 				assert_eq!(req.at, Some(*position), "a positional read at another position");
-				(*position, payload)
+				*position
 			},
 		};
-		assert_eq!(payload_out, &resp.payload, "verify_event returned another payload");
 		assert!(
 			resp.payload.len() <= MAX_SPECULATIVE_MESSAGE_LEN as usize,
 			"accepted a payload over the single-message bound"
@@ -365,7 +359,7 @@ impl MessageOracle {
 	/// Verify a fetch, and check the claim behind it if accepted.
 	pub fn check_fetch(&self, req: &MessagesRequest, resp: &MessagesResponse) -> Outcome {
 		match verify_messages(req, resp) {
-			Ok(payloads) => self.fetch_claim(req, resp, &payloads),
+			Ok(()) => self.fetch_claim(req, resp),
 			Err(_) => Outcome::Rejected,
 		}
 	}
@@ -384,7 +378,7 @@ impl MessageOracle {
 		let result = verify_exchange(req, resp);
 		match (req, resp) {
 			(ExchangeRequest::Messages(req), ExchangeResponse::Messages(resp)) => {
-				let direct = verify_messages(req, resp).map(ExchangeVerified::Messages);
+				let direct = verify_messages(req, resp).map(|()| ExchangeVerified::Messages);
 				assert_eq!(result, direct, "verify_exchange disagrees with verify_messages");
 				self.check_fetch(req, resp)
 			},
