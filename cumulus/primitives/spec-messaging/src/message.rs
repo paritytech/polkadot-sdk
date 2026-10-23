@@ -144,8 +144,6 @@ pub fn verify_messages(req: &MessagesRequest, resp: &MessagesResponse) -> Result
 	if resp.base != req.start {
 		return Err(VerifyError::UnexpectedBase);
 	}
-	// Total payload bytes must fit the requester's budget (the server may cap harder, i.e. return
-	// less). `max_bytes == 0` requests proofs only, so any payload trips this, even an empty one.
 	let total = resp.payloads.iter().map(|p| p.len() as u64).fold(0u64, u64::saturating_add);
 	if total > req.max_bytes as u64 || (req.max_bytes == 0 && !resp.payloads.is_empty()) {
 		return Err(VerifyError::ExceedsBudget);
@@ -153,21 +151,16 @@ pub fn verify_messages(req: &MessagesRequest, resp: &MessagesResponse) -> Result
 	verify_messages_response(req.stream, req.under, resp)
 }
 
-/// Verify a [`MessagesResponse`] for `stream` under `under`.
-/// Crate-internal: it does not bind `resp.base` to a requested start; [`verify_messages`] does.
-///
-/// Recomputes the frontier from `start_peaks` and the hashed payloads, extends it to the stream's
-/// current root, and walks the tree to a `StreamsRoot` that must equal `under`. The same check the
-/// requires-lift performs.
+/// Verify a [`MessagesResponse`] for `stream` under `under`: the same check the requires-lift
+/// performs. Crate-internal: it does not bind `resp.base` to a requested start; [`verify_messages`]
+/// does.
 pub(crate) fn verify_messages_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &MessagesResponse,
 ) -> Result<(), VerifyError> {
-	// `start_peaks` and `base` are untrusted. `MmrFrontier::from_parts` rejects an inconsistent
-	// shape (one peak per set bit of `base`, which also caps `start_peaks` at 64) and a `base` past
-	// `MAX_MMR_LEAF_COUNT`, so a crafted response can neither make `append` pop from an empty vec
-	// nor reach the node-position arithmetic. A rejected response is unverifiable, without a panic.
+	// `base` and `start_peaks` are untrusted; `from_parts` rejects an inconsistent shape and a
+	// `base` past the ceiling.
 	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.to_vec(), resp.base.0)
 		.ok_or(VerifyError::MalformedResponse)?;
 	// The frontier after the payloads must stay within `MAX_MMR_LEAF_COUNT`, or it would not
@@ -181,19 +174,16 @@ pub(crate) fn verify_messages_response(
 	// caps total response size.
 	resp.payloads.iter().try_for_each(|p| check_payload_len(p))?;
 
-	// Append the response's payloads as leaves onto the frontier at `base`.
 	for payload in &resp.payloads {
 		frontier
 			.try_append(leaf_hash(resp.leaf_version, payload))
 			.map_err(|_| VerifyError::MalformedResponse)?;
 	}
 
-	// Extend to the stream's current root, then walk the tree to the committed `StreamsRoot`.
 	let current = resp.extension.verify(&frontier)?;
 	bind_under(stream, under, current, &resp.tree_proof)
 }
 
-/// Reject a payload above the protocol's single-message bound.
 fn check_payload_len(payload: &[u8]) -> Result<(), VerifyError> {
 	if payload.len() as u64 > MAX_SPECULATIVE_MESSAGE_LEN as u64 {
 		return Err(VerifyError::PayloadTooLarge);
@@ -215,7 +205,6 @@ fn bind_under(
 	(root == under).then_some(()).ok_or(VerifyError::RootMismatch)
 }
 
-/// The MMR leaf of an event response's payload.
 fn event_leaf(resp: &EventResponse) -> Result<Hash, VerifyError> {
 	check_payload_len(&resp.payload)?;
 	Ok(leaf_hash(resp.leaf_version, &resp.payload))
@@ -307,10 +296,7 @@ pub fn verify_event(
 /// Verify an [`EventResponse`] as the head of `stream` under `under`; returns the position and the
 /// frontier at that head. Crate-internal; [`verify_event`] is the public entry.
 ///
-/// Hashes the payload, verifies it as the last leaf ([`MmrInclusionProof::verify_head`]), computes
-/// the frontier's root, and walks the tree to a `StreamsRoot` that must equal `under`. The
-/// frontier is returned because lossy consumption needs it as the interval endpoint and it is not
-/// reconstructible from the response alone.
+/// The frontier is returned because lossy consumption needs it as the interval endpoint.
 pub(crate) fn verify_event_response(
 	stream: StreamId,
 	under: StreamsRoot,

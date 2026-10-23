@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Requires-lift and consumption-record primitives (spec-msg v0.5).
+//! Requires-lift and consumption-record primitives.
 //!
 //! Blocks never emit `Requires` and never see a `StreamsRoot`. Processing the messaging inherent
 //! writes a [`ConsumptionRecord`]: which streams the block touched and the [`Interval`] consumed on
@@ -85,15 +85,15 @@ pub enum ProofError {
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MMRExtensionProof {
 	/// Leaf count of the extended MMR. The `mmr_lib` node count is derived from it, so no
-	/// independent size can be smuggled in; the derivation is total up to [`MAX_MMR_LEAF_COUNT`],
-	/// which `verify` checks first. `0` with empty `connecting_nodes` is the identity extension.
+	/// independent size can be smuggled in. `0` with empty `connecting_nodes` is the identity
+	/// extension.
 	/// Compact-encoded, since this is PoV-carried.
 	#[codec(compact)]
 	pub leaf_count: u64,
 	/// The connecting-node hashes, in `mmr_lib`'s proof order. Positions are not stored: an MMR's
 	/// shape is fixed by its size, so they are derived at verify time from the two leaf counts
 	/// (`ancestry_positions`). Empty for the identity. At most [`MAX_MMR_HASHES`], enforced at
-	/// decode; a valid proof needs one node per bit of the leaf count, so at most 48.
+	/// decode.
 	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
 }
 
@@ -106,8 +106,7 @@ impl MMRExtensionProof {
 	/// Extend `from` and return the new root, computed from `from`'s peaks and the connecting
 	/// nodes; `Err` if the proof does not fit that placement. The identity extension yields
 	/// `from`'s own root. `from`'s contents are not re-checked: a forged peak yields a root no
-	/// committed `StreamsRoot` can bind. The proof's own leaf count is checked against
-	/// [`MAX_MMR_LEAF_COUNT`] first; within it, the derived `mmr_lib` size is always valid.
+	/// committed `StreamsRoot` can bind.
 	pub fn verify(&self, from: &MmrFrontier) -> Result<MmrRoot, ProofError> {
 		// `mmr_lib` accepts counts up to 2^63; bound the proof's to `MAX_MMR_LEAF_COUNT` first.
 		// `from` is already in range by construction.
@@ -201,7 +200,7 @@ impl MmrInclusionProof {
 	/// defect.
 	///
 	/// The expected shape is what `gen_proof` produces for the last leaf: the other peaks left to
-	/// right, then the head's `leaf_count.trailing_zeros()` left siblings bottom up. The item count
+	/// right, then the head's left siblings bottom up. The item count
 	/// is checked exactly.
 	///
 	/// Only reconstructs a frontier; does not bind it to any committed `StreamsRoot`. `Ok` is not

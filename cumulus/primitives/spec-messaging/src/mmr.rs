@@ -36,16 +36,15 @@ use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{SpecHasher, INNER_TAG, PEAK_TAG, ROOT_TAG};
 
-/// Upper bound on any leaf count node positions are derived from. `mmr_lib`'s node count, `2 *
-/// leaf_count - leaf_count.count_ones()`, overflows `u64` above `2^63`. Peer-supplied counts are
-/// checked against this first. `2^48` is far beyond any real stream.
+/// Upper bound on any leaf count node positions are derived from; `mmr_lib`'s node count overflows
+/// `u64` above 2^63. Peer-supplied counts are checked against this first.
 pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
 
 /// Upper bound on a peak set or other hash list that a leaf count determines: one per bit of a
 /// `u64`.
 pub const MAX_MMR_HASHES: u32 = 64;
 
-/// A leaf position within a stream's MMR. Defined here because both `lift` and `message` use it.
+/// A leaf position within a stream's MMR.
 #[derive(
 	Clone,
 	Copy,
@@ -93,8 +92,8 @@ pub fn empty_root() -> MmrRoot {
 }
 
 /// Bag the peaks (highest to lowest) with `mmr_lib`'s own bagging, so the result equals
-/// `MMR::get_root`: a right fold, `bag([p1..pn]) = H(PEAK_TAG ++ bag([p2..pn]) ++ p1)`. Not a
-/// stream root: [`MmrRoot::from_bag`] binds the leaf count over it. No peaks bag to zero.
+/// `MMR::get_root`. Not a stream root: [`MmrRoot::from_bag`] binds the leaf count over it. No peaks
+/// bag to zero.
 pub fn bag_peaks(peaks: &[Hash]) -> Hash {
 	// `SpecMerge` is infallible, so `Err` means no peaks.
 	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).unwrap_or_default()
@@ -110,9 +109,9 @@ pub struct FrontierFull;
 pub struct MmrRoot(pub Hash);
 
 impl MmrRoot {
-	/// `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag)`. Peak hashes do not commit their heights, so the
-	/// same peaks bag identically at many leaf counts; binding the count makes a forged count, and
-	/// so a forged position, yield a root nothing commits to.
+	/// Peak hashes do not commit their heights, so the same peaks bag identically at many leaf
+	/// counts; binding the count makes a forged count, and so a forged position, yield a root
+	/// nothing commits to.
 	pub fn from_bag(leaf_count: u64, bag: Hash) -> Self {
 		let mut preimage = [0u8; 1 + 8 + 32];
 		preimage[0] = ROOT_TAG;
@@ -166,11 +165,8 @@ impl MmrFrontier {
 		self.leaf_count
 	}
 
-	/// Append a leaf, merging equal-height peaks via [`SpecMerge`] (matching `mmr_lib`'s
-	/// internal node construction). Preserves both constructor invariants: a frontier already at
-	/// [`MAX_MMR_LEAF_COUNT`] is left unchanged and the leaf refused, so every frontier still
-	/// decodes. A frontier built from untrusted parts can be at the ceiling, so its appends must
-	/// go through here.
+	/// Append a leaf, merging equal-height peaks as `mmr_lib` does. At [`MAX_MMR_LEAF_COUNT`] the
+	/// leaf is refused and the frontier left unchanged, so every frontier still decodes.
 	pub fn try_append(&mut self, leaf: Hash) -> Result<(), FrontierFull> {
 		if self.leaf_count >= MAX_MMR_LEAF_COUNT {
 			return Err(FrontierFull);
@@ -231,7 +227,7 @@ pub(crate) fn mmr_size(leaf_count: u64) -> u64 {
 
 /// Field order matches the derived `Encode`. The decoded pair goes through
 /// [`from_parts`](MmrFrontier::from_parts), so a frontier off the wire holds the same invariants as
-/// one built here. The bound rejects a bad length prefix before any peak is read.
+/// one built here.
 impl Decode for MmrFrontier {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
 		let leaf_count = u64::decode(input)?;

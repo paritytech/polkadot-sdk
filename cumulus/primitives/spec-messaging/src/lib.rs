@@ -22,20 +22,6 @@
 //!
 //! The relay-visible types (`StreamsRoot`, `RequiresSet`) are in `polkadot-primitives`. This crate
 //! has the parachain-side types and the off-chain wire format.
-//!
-//! # Modules
-//!
-//! - [`stream`] — `StreamId` and its canonical 8-byte encoding.
-//! - [`streams_root`] — the keyed commitment tree and its membership proofs.
-//! - [`mmr`] — `MmrFrontier`, the peaks-only per-stream MMR state; `SpecMerge`, the tagged
-//!   `mmr_lib::Merge` behind it.
-//! - [`message`] — the off-chain protocol: fetch (`MessagesRequest`/`MessagesResponse`), event read
-//!   (`EventRequest`/`EventResponse`), the `/spec-msg/exchange` envelope, and their verifiers.
-//! - [`lift`] — the PoV-carried requires lifts, the consumption record, and `build_requires`.
-//! - [`inherent`] — the node/runtime consumption interface: `ConsumedStream` out,
-//!   `MessagingInherentData` in.
-//! - [`channel`] — `ChannelId` and the per-direction channel states.
-//! - [`flow_control`] — the channel-stream leaf payload and the receiver's `Register`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

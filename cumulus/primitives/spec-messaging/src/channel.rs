@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Channel state primitives (spec-msg v0.5): the key and the two per-direction states the messaging
+//! Channel state primitives: the key and the two per-direction states the messaging
 //! pallet keeps in `OutChannels` / `InChannels` and returns from the runtime API's `out_channels()`
 //! / `in_channels()`.
 //!

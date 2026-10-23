@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The node/runtime consumption interface (spec-msg v0.5): what the runtime asks the node to fetch
+//! The node/runtime consumption interface: what the runtime asks the node to fetch
 //! ([`ConsumedStream`], via the `consumed_streams()` runtime API) and what the node delivers in the
 //! messaging inherent ([`MessagingInherentData`] / [`ConsumeItem`]).
 //!
@@ -88,7 +88,6 @@ impl ConsumedStream {
 		}
 	}
 
-	/// The fetch cursor: positions `>= from` are wanted.
 	pub fn from(&self) -> MessagePosition {
 		match *self {
 			Self::Channel { from, .. } | Self::Broadcast { from, .. } => from,

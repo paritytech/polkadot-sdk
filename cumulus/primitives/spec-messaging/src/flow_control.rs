@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Channel flow-control types (spec-msg v0.5): the sender's channel-stream leaf payload
+//! Channel flow-control types: the sender's channel-stream leaf payload
 //! ([`SpecMsgKind`] / [`SpecMsgSignal`]) and the receiver's out-of-band confirmation [`Register`]
 //! with its advisory [`WindowGrant`]. The pallet owns the logic: windowing, version enforcement,
 //! channel storage, the accept extrinsic.

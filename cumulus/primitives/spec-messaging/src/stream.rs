@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `StreamId`: the parachain-structured stream key (spec-msg v0.5).
+//! `StreamId`: the parachain-structured stream key.
 //!
 //! Each stream a chain maintains is one MMR keyed by a `StreamId`. The relay chain never sees an
 //! id; only the `StreamsRoot` reaches it. Ids live in tree paths, proofs and networking. The full
@@ -26,15 +26,8 @@
 //! cluster and sequential ids are neighbours. The encoding is the commitment-tree key, and there
 //! is no second format. That is why the impl is manual: default SCALE integers are little-endian.
 //!
-//! ```text
-//! Channel   → 0x00 ++ recipient(be32) ++ domain(u8) ++ num(be16)
-//! Ack       → 0x01 ++ recipient(be32) ++ domain(u8) ++ num(be16)
-//! Broadcast → 0x02 ++ domain(be16) ++ subdomain(u8) ++ num(be32)
-//! Private   → kind(0x80..=0xFF) ++ body[7]
-//! ```
-//!
-//! `Decode` enforces canonicality and rejects the reserved kinds `0x03..=0x7F`. `Ord` equals the
-//! encoding order (tested).
+//! `Decode` enforces canonicality and rejects the reserved kinds. `Ord` equals the encoding order
+//! (tested).
 
 use codec::{
 	Decode, DecodeWithMemTracking, Encode, EncodeLike, Error as CodecError, Input, MaxEncodedLen,
@@ -64,7 +57,6 @@ impl PrivateKind {
 		}
 	}
 
-	/// The underlying byte, as it appears at offset 0 of the encoding.
 	pub const fn get(self) -> u8 {
 		self.0
 	}
@@ -83,7 +75,7 @@ pub enum StreamId {
 	Ack { recipient: ParaId, domain: u8, num: u16 },
 	/// Sender-wide event stream (pub-sub), no addressee.
 	Broadcast { domain: u16, subdomain: u8, num: u32 },
-	/// Private-use kind (`0x80..=0xFF`); 7 chain-defined body bytes.
+	/// Private-use kind; 7 chain-defined body bytes.
 	Private { kind: PrivateKind, body: [u8; 7] },
 }
 
@@ -153,7 +145,6 @@ impl StreamId {
 				let kind = PrivateKind::new(kind).ok_or("StreamId: private kind out of range")?;
 				Ok(StreamId::Private { kind, body: rest })
 			},
-			// 0x03..=0x7F are reserved for future standard kinds.
 			_ => Err(CodecError::from("StreamId: reserved/unknown kind")),
 		}
 	}

@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `StreamsRoot`: the sender's stream commitment (spec-msg v0.5).
+//! `StreamsRoot`: the sender's stream commitment.
 //!
 //! Each block that sends commits one hash, the root of a keyed binary Patricia trie over
 //! `(StreamId, current stream root)` for every active stream. The relay records it as the sender's
@@ -34,10 +34,7 @@
 //! ([`gen_stream_proof`]), checking its own header digest ([`read_streams_root`]); a receiver's
 //! lift walks a proof up to the committed root ([`streams_root_from_proof`]).
 //!
-//! Hashing (`blake2_256` via [`SpecHasher`]):
-//! - leaf `= H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])`, binding the full key;
-//! - inner `= H(TREE_INNER_TAG ++ split_bit[1] ++ left[32] ++ right[32])`, binding the branch
-//! depth.
+//! A leaf hash binds the full key, an inner hash its split bit.
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode};
@@ -88,7 +85,6 @@ fn first_diverging_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> usiz
 	(u64::from_be_bytes(*a) ^ u64::from_be_bytes(*b)).leading_zeros() as usize
 }
 
-/// `H(TREE_LEAF_TAG ++ key ++ stream_root)`.
 fn hash_leaf(key: &[u8; STREAM_ID_LEN], stream_root: &Hash) -> Hash {
 	let mut pre = [0u8; 1 + STREAM_ID_LEN + 32];
 	pre[0] = TREE_LEAF_TAG;
@@ -97,7 +93,6 @@ fn hash_leaf(key: &[u8; STREAM_ID_LEN], stream_root: &Hash) -> Hash {
 	<SpecHasher as HashT>::hash(&pre)
 }
 
-/// `H(TREE_INNER_TAG ++ split_bit ++ left ++ right)`.
 fn hash_inner(split_bit: u8, left: &Hash, right: &Hash) -> Hash {
 	let mut pre = [0u8; 1 + 1 + 32 + 32];
 	pre[0] = TREE_INNER_TAG;
@@ -144,11 +139,8 @@ fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)>
 /// side. Takes a `BTreeMap` so keys are unique; duplicates would reach `first_diverging_bit` with
 /// identical keys.
 ///
-/// TODO(spec-msg): add an incremental updater here — apply one changed `(stream, stream_root)` to a
-/// cached root in O(log S) instead of rebuilding the whole trie in O(S). The sender pallet
-/// (`cumulus-pallet-spec-messaging`) currently recomputes this every touched block over all
-/// (eternal) streams, which grows without bound; a canonical incremental updater in this primitive
-/// would fix both the root and the `gen_stream_proof` paths without a second trie in the pallet.
+/// TODO(spec-msg): update one changed stream in O(log S) instead of rebuilding in O(S); the sender
+/// pallet rebuilds this every touched block over all its streams.
 pub fn streams_root(entries: &BTreeMap<StreamId, Hash>) -> Option<StreamsRoot> {
 	let entries = keyed(entries);
 	if entries.is_empty() {
