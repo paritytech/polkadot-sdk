@@ -2090,6 +2090,58 @@ pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 			},
 		),
 		(
+			// Found by `random_smoke` (seed 0x5eed0f1027b, shrunk). Each child write also marks
+			// the child root key in the main trie: `Updated` in extrinsic 0 (reported by its
+			// post-dispatch estimation), `Deleted` in extrinsic 1 (pending), `Updated` in
+			// `finalize`. The final estimation suppresses the newest `Updated` as already reported
+			// and then reports the older pending `Deleted`: the collator removes the root key, the
+			// validator, with all three in one layer, does not (124 against 122).
+			"fuzz_child_writes_around_absent_delete",
+			Script {
+				config: Config { mode: Mode::Executive, ..free_v1() },
+				initial: InitialTrie {
+					seed: 8802166379867635177,
+					top: 0,
+					extra_top: vec![],
+					children: vec![ChildInit {
+						id: 0,
+						bulk: 0,
+						extra: vec![(Key::Map(151, 67, 42483), Val(Size::Small, 39))],
+					}],
+				},
+				blocks: vec![Block {
+					init: vec![],
+					xts: vec![
+						Xt {
+							pre: vec![],
+							body: vec![],
+							body_outcome: Outcome::Commit,
+							post: vec![Op::ChildSet(
+								0,
+								Key::Map(145, 35, 12337),
+								Val(Size::Exact32, 142),
+							)],
+							client_outcome: Outcome::Commit,
+							with_reclaim: true,
+						},
+						Xt {
+							pre: vec![],
+							body: vec![],
+							body_outcome: Outcome::Commit,
+							post: vec![Op::ChildClear(0, Key::Map(202, 180, 46417))],
+							client_outcome: Outcome::Commit,
+							with_reclaim: false,
+						},
+					],
+					finalize: vec![Op::ChildSet(
+						0,
+						Key::Map(127, 165, 12844),
+						Val(Size::Large, 192),
+					)],
+				}],
+			},
+		),
+		(
 			// ext.rs `calculating_storage_root_should_not_change_storage_proof_for_main_trie_
 			// changes`: updates, an insert and deletions, estimated once.
 			"pr_main_trie_changes",
