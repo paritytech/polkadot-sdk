@@ -1517,6 +1517,10 @@ pub trait ExtrinsicMetadata {
 pub type HashingFor<B> = <<B as Block>::Header as Header>::Hashing;
 /// Extract the number type for a block.
 pub type NumberFor<B> = <<B as Block>::Header as Header>::Number;
+/// The state sync chunk of a block, the verified nodes of one range of its state and the range
+/// they cover, over the block's hashing.
+#[cfg(feature = "std")]
+pub type PartialStateFor<B> = sp_trie::partial_state::PartialState<HashingFor<B>>;
 /// Extract the digest type for a block.
 
 /// A "checkable" piece of information, used by the standard Substrate Executive in order to
@@ -2611,9 +2615,6 @@ impl BlockNumberProvider for () {
 		0
 	}
 }
-
-#[cfg(feature = "std")]
-pub type PartialStateFor<B> = sp_trie::partial_state::PartialState<HashingFor<B>>;
 
 #[cfg(test)]
 mod tests {
