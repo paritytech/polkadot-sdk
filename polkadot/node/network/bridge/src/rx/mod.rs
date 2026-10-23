@@ -56,7 +56,6 @@ use polkadot_primitives::{AuthorityDiscoveryId, BlockNumber, Hash, ValidatorInde
 use std::{
 	collections::{hash_map, HashMap},
 	iter::ExactSizeIterator,
-	u32,
 };
 
 use super::validator_discovery;
