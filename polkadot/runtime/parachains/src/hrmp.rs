@@ -706,7 +706,7 @@ pub mod pallet {
 		/// Origin must be the `ChannelManager`.
 		#[pallet::call_index(7)]
 		#[pallet::weight(
-			// A cancel and the open each ask the provider.
+			// A cancel and an init_and_accept_open each ask the provider.
 			<T as Config>::WeightInfo::force_open_hrmp_channel(1)
 				.saturating_add(T::DepositProvider::weight_of_try_set_deposit().saturating_mul(2))
 		)]
@@ -1669,52 +1669,40 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::OpenChannelAccepted { sender, recipient });
 	}
 
-	/// Whether the channel still exists and records the deposits a poke set out from.
+	/// Second half of [`Self::poke_channel_deposits`], run once both deposits are changed.
 	///
-	/// A channel closed meanwhile is refused so that what the poke took is given back: its close
-	/// gave back what the channel recorded, which is nothing when it was opened free of
+	/// Fails if the channel no longer exists or no longer records the deposits the poke set out
+	/// from. A channel closed meanwhile is refused so that what the poke took is given back: its
+	/// close gave back what the channel recorded, which is nothing when it was opened free of
 	/// deposits, while the poke may have taken some by then. A channel closed and opened anew
 	/// meanwhile records the deposits of its new opening, and the poke took other amounts: it is
 	/// refused for the same reason.
-	fn check_poke_channel_deposits(
-		channel_id: &HrmpChannelId,
-		sender: Option<DepositChange>,
-		recipient: Option<DepositChange>,
-	) -> DispatchResult {
-		let channel =
-			HrmpChannels::<T>::get(channel_id).ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
-		let unchanged = |change: Option<DepositChange>, recorded: Balance| {
-			change.is_none_or(|c| c.current == recorded)
-		};
-		ensure!(
-			unchanged(sender, channel.sender_deposit) &&
-				unchanged(recipient, channel.recipient_deposit),
-			Error::<T>::ChannelDepositsChanged
-		);
-		Ok(())
-	}
-
-	/// Second half of [`Self::poke_channel_deposits`], run once both deposits are changed.
 	fn finish_poke_channel_deposits(
 		channel_id: &HrmpChannelId,
 		sender: Option<DepositChange>,
 		recipient: Option<DepositChange>,
-	) {
-		HrmpChannels::<T>::mutate(channel_id, |channel| {
-			let Some(channel) = channel else {
-				// `check_poke_channel_deposits` passed right before.
-				frame_support::defensive!("poked channel is missing", channel_id);
-				return;
+	) -> DispatchResult {
+		HrmpChannels::<T>::try_mutate(channel_id, |channel| -> DispatchResult {
+			let channel = channel.as_mut().ok_or(Error::<T>::OpenHrmpChannelDoesntExist)?;
+			let unchanged = |change: Option<DepositChange>, recorded: Balance| {
+				change.is_none_or(|c| c.current == recorded)
 			};
+			ensure!(
+				unchanged(sender, channel.sender_deposit) &&
+					unchanged(recipient, channel.recipient_deposit),
+				Error::<T>::ChannelDepositsChanged
+			);
 			if let Some(change) = sender {
 				channel.sender_deposit = change.target;
 			}
 			if let Some(change) = recipient {
 				channel.recipient_deposit = change.target;
 			}
-		});
+			Ok(())
+		})?;
 		let HrmpChannelId { sender, recipient } = *channel_id;
 		Self::deposit_event(Event::OpenChannelDepositsUpdated { sender, recipient });
+		Ok(())
 	}
 
 	fn cancel_open_request(origin: ParaId, channel_id: HrmpChannelId) -> DispatchResult {

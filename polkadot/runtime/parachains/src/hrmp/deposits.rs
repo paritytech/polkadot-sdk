@@ -40,9 +40,7 @@ use frame_support::transactional;
 /// whatever the request says the side holds.
 ///
 /// A provider that answers later keeps its own records of what each side holds, and applies the
-/// requests for a side in the order they were made, releases included: a release made while a
-/// request for the side is pending takes effect after that request does, so that it gives back
-/// what the request took.
+/// requests for a side in the order they were made, releases included.
 pub trait ChannelDepositProvider {
 	/// Receives the report of a pending request once it is done.
 	type OnDepositSet: OnDepositSet;
@@ -63,10 +61,10 @@ pub trait ChannelDepositProvider {
 pub trait OnDepositSet {
 	/// Called once `request` is applied, or refused with `Err`.
 	///
-	/// The worse-case weight of this call is [`Self::weight_of_on_deposit_set`].
+	/// The worst-case weight of this call is [`Self::weight_of_on_deposit_set`].
 	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>);
 
-	/// Worse-case weight of [`Self::on_deposit_set`] for an `action`.
+	/// Worst-case weight of [`Self::on_deposit_set`] for an `action`.
 	fn weight_of_on_deposit_set(action: &DepositAction) -> Weight;
 }
 
@@ -336,9 +334,7 @@ impl<T: Config> Pallet<T> {
 				Ok(())
 			},
 			DepositAction::PokeChannelDeposits => {
-				Self::check_poke_channel_deposits(channel_id, request.sender, request.recipient)?;
-				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient);
-				Ok(())
+				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient)
 			},
 			DepositAction::Release => Ok(()),
 		}
