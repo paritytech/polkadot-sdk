@@ -102,7 +102,8 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 	/// The range of component `u` is `[0, 2]`.
 	/// The range of component `h` is `[0, 2]`.
 	/// The range of component `c` is `[0, 1]`.
-	fn enact_candidate(u: u32, h: u32, c: u32, ) -> Weight {
+	/// The range of component `p` is `[0, 1]`.
+	fn enact_candidate(u: u32, h: u32, c: u32, p: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `330 + c * (16114 ±0) + h * (92 ±0) + u * (32955 ±0)`
 		//  Estimated: `36283 + c * (16122 ±370) + h * (7594 ±341) + u * (20798 ±341)`
@@ -126,6 +127,11 @@ impl<T: frame_system::Config> polkadot_runtime_parachains::inclusion::WeightInfo
 			.saturating_add(Weight::from_parts(0, 16122).saturating_mul(c.into()))
 			.saturating_add(Weight::from_parts(0, 7594).saturating_mul(h.into()))
 			.saturating_add(Weight::from_parts(0, 20798).saturating_mul(u.into()))
+			// Placeholder until `/cmd bench`: one full-window `RecentProvides` read and write, at
+			// `requires_satisfied`'s per-window cost.
+			.saturating_add(Weight::from_parts(7_792_478, 0).saturating_mul(p.into()))
+			.saturating_add(T::DbWeight::get().reads_writes(1, 1).saturating_mul(p.into()))
+			.saturating_add(Weight::from_parts(0, 6593).saturating_mul(p.into()))
 	}
 	// Copied from Westend's local measurement (10 steps, 1 repeat); regenerate with `/cmd bench`.
 	/// Storage: `ParaInclusion::RecentProvides` (r:256 w:0)

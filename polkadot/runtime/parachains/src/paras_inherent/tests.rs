@@ -1093,7 +1093,7 @@ mod enter {
 			// of the mock runtime together with the `enact_candidate`s weight.
 			let num_candidates = 5u32;
 			let max_weight = <Test as frame_system::Config>::BlockWeights::get().max_block;
-			assert!(<Test as inclusion::Config>::WeightInfo::enact_candidate(0, 0, 0)
+			assert!(<Test as inclusion::Config>::WeightInfo::enact_candidate(0, 0, 0, 0)
 				.saturating_mul(u64::from(num_candidates))
 				.any_gt(max_weight));
 

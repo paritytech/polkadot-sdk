@@ -66,18 +66,19 @@ pub mod migration;
 
 pub trait WeightInfo {
 	/// Weight for `enact_candidate` extrinsic given the number of sent messages
-	/// (ump, hrmp) and whether there is a new code for a runtime upgrade.
+	/// (ump, hrmp), whether there is a new code for a runtime upgrade, and whether the candidate
+	/// records a `Provides` root.
 	///
 	/// NOTE: due to a shortcoming of the current benchmarking framework,
-	/// we use `u32` for the code upgrade, even though it is a `bool`.
-	fn enact_candidate(u: u32, h: u32, c: u32) -> Weight;
+	/// we use `u32` for the code upgrade and `Provides` flags, even though they are `bool`s.
+	fn enact_candidate(u: u32, h: u32, c: u32, p: u32) -> Weight;
 	/// Weight of matching a `Requires` set of `r` entries against the provides windows.
 	fn requires_satisfied(r: u32) -> Weight;
 }
 
 pub struct TestWeightInfo;
 impl WeightInfo for TestWeightInfo {
-	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32, _p: u32) -> Weight {
 		Weight::zero()
 	}
 	fn requires_satisfied(_r: u32) -> Weight {
@@ -86,7 +87,7 @@ impl WeightInfo for TestWeightInfo {
 }
 
 impl WeightInfo for () {
-	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32, _p: u32) -> Weight {
 		Weight::zero()
 	}
 	fn requires_satisfied(_r: u32) -> Weight {
@@ -621,10 +622,15 @@ impl<T: Config> Pallet<T> {
 								receipt.commitments.new_validation_code.as_ref().map_or(0, |_| 1);
 							let u = receipt.commitments.upward_messages.len() as u32;
 							let h = receipt.commitments.horizontal_messages.len() as u32;
+							let has_provides = receipt
+								.commitments
+								.ump_signals()
+								.is_ok_and(|signals| signals.provides().is_some());
 							let enact_weight = <T as Config>::WeightInfo::enact_candidate(
 								u,
 								h,
 								has_runtime_upgrade,
+								has_provides as u32,
 							);
 							Self::enact_candidate(
 								candidate.relay_parent_number,
