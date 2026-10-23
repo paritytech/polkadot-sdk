@@ -625,7 +625,7 @@ impl SendXcm for DummyXcmSender {
 pub struct InclusionWeightInfo;
 
 impl crate::inclusion::WeightInfo for InclusionWeightInfo {
-	fn enact_candidate(_u: u32, _h: u32, _c: u32) -> Weight {
+	fn enact_candidate(_u: u32, _h: u32, _c: u32, _p: u32) -> Weight {
 		Weight::from_parts(1024 * 1024, 0)
 	}
 	fn requires_satisfied(_r: u32) -> Weight {

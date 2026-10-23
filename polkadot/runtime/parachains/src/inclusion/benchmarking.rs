@@ -103,7 +103,7 @@ mod benchmarks {
 	use super::*;
 
 	#[benchmark]
-	fn enact_candidate(u: Linear<0, 2>, h: Linear<0, 2>, c: Linear<0, 1>) {
+	fn enact_candidate(u: Linear<0, 2>, h: Linear<0, 2>, c: Linear<0, 1>, p: Linear<0, 1>) {
 		let para = 42_u32.into(); // not especially important.
 
 		let max_len = mq::MaxMessageLenOf::<T>::get() as usize;
@@ -126,15 +126,16 @@ mod benchmarks {
 		let mut commitments =
 			create_candidate_commitments::<T>(para, head_data, max_len, u, h, c != 0);
 
-		// Speculative messaging: carry a `Provides` signal so `enact_candidate` records it into the
-		// sender's provides window, and pre-fill that window so the record hits its worst case (a
-		// full-window `RecentProvides` read + drop-oldest + write).
-		commitments.upward_messages.force_push(UMP_SEPARATOR);
-		commitments
-			.upward_messages
-			.force_push(UMPSignal::Provides(root(u64::MAX)).encode());
-		for i in 0..MAX_PROVIDES_WINDOW_SIZE {
-			Pallet::<T>::record_provides(para, root(i as u64));
+		// With `p`, carry a `Provides` into a full window, so the record reads the whole window,
+		// drops the oldest root and writes it back.
+		if p != 0 {
+			commitments.upward_messages.force_push(UMP_SEPARATOR);
+			commitments
+				.upward_messages
+				.force_push(UMPSignal::Provides(root(u64::MAX)).encode());
+			for i in 0..MAX_PROVIDES_WINDOW_SIZE {
+				Pallet::<T>::record_provides(para, root(i as u64));
+			}
 		}
 		let backers = bitvec![u8, Lsb0; 1; backing_group_size as usize];
 		let availability_votes = bitvec![u8, Lsb0; 1; n_validators as usize];

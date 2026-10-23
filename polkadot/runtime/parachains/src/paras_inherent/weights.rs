@@ -176,6 +176,7 @@ pub fn enact_candidates_max_weight<T: Config>(
 			max_ump_msgs,
 			max_hrmp_msgs,
 			1, // runtime upgrade
+			1, // `Provides` record
 		)
 		.saturating_mul(bitfield_size as u64),
 		bitfields,
