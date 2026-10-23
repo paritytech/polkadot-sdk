@@ -7,7 +7,11 @@ doc:
     collator membership proofs, and work-package signing and verification for JAM.
     Update jam-std-common to 0.1.29 to match jam-types and keep Zombienet dependencies
     compatible when building workspace documentation.
+    Qualify the std-only Storage references in sp-state-machine to avoid an unused
+    import when checking the authorizer utilities without std.
 crates:
+- name: sp-state-machine
+  bump: patch
 - name: cumulus-aura-authorizer-utils
   bump: major
 - name: polkadot-sdk

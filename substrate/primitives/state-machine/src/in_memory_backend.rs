@@ -24,7 +24,7 @@ use crate::{
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Codec;
 use hash_db::Hasher;
-use sp_core::storage::{ChildInfo, StateVersion, Storage};
+use sp_core::storage::{ChildInfo, StateVersion};
 use sp_trie::{empty_trie_root, LayoutV1, PrefixedMemoryDB, RandomState};
 
 #[cfg(feature = "std")]
@@ -143,11 +143,12 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<H: Hasher> From<(Storage, StateVersion)> for TrieBackend<PrefixedMemoryDB<H>, H>
+impl<H: Hasher> From<(sp_core::storage::Storage, StateVersion)>
+	for TrieBackend<PrefixedMemoryDB<H>, H>
 where
 	H::Out: Codec + Ord,
 {
-	fn from((inners, state_version): (Storage, StateVersion)) -> Self {
+	fn from((inners, state_version): (sp_core::storage::Storage, StateVersion)) -> Self {
 		let mut inner: MapType<Option<ChildInfo>, BTreeMap<StorageKey, StorageValue>> = inners
 			.children_default
 			.into_values()
