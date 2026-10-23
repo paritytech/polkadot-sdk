@@ -165,7 +165,7 @@ struct TransactionLayer<K, H: Hasher> {
 impl<K, H: Hasher> Default for TransactionLayer<K, H> {
 	fn default() -> Self {
 		Self {
-			dirty_keys: KeyMap::with_capacity_and_hasher(16, KeyHashBuilder::default()),
+			dirty_keys: KeyMap::with_hasher(KeyHashBuilder::default()),
 			snapshot: None,
 			trie_snapshot: None,
 		}
@@ -300,8 +300,7 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	where
 		K: Clone,
 	{
-		let mut delta: DeltaKeys<K> =
-			HashMap::with_capacity_and_hasher(16, KeyHashBuilder::default());
+		let mut delta: DeltaKeys<K> = HashMap::with_hasher(KeyHashBuilder::default());
 
 		// A key pending in several open layers is reported with the op of the newest layer, its
 		// final state. Layers are visited newest first, so the first op seen is kept.
