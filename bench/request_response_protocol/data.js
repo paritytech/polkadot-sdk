@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792763035825,
+  "lastUpdate": 1792774324270,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -137159,6 +137159,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2701658893,
             "range": "± 18112208",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "783fad4513ee558fec558151c0fc00beee443ff7",
+          "message": "statement-store: v2 soak repeats outage and join at random (#13489)\n\nPart of #13162.\n\nThe v2 DHT soak ran the outage and join steps once each. After those two\nmandatory steps, every later wave is now followed by another outage or\njoin with odds 1 in 14 each, up to 4 joins. A long soak thus covers\nrepeated restarts, outages of joined nodes and joins after outages.\n\nEach step takes its topics from its wave, so a repeated step submits\nfresh statements, and the outage node, picked through those topics,\nvaries. The draw is seeded per run: peer keys derive from node names, so\nan unseeded draw would repeat the same schedule every run",
+          "timestamp": "2026-10-23T14:36:21Z",
+          "tree_id": "94235d96704e1c89cd538d74fb5d5b515d02acf2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/783fad4513ee558fec558151c0fc00beee443ff7"
+        },
+        "date": 1792774291384,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21119220,
+            "range": "± 280921",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21043183,
+            "range": "± 432775",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22405392,
+            "range": "± 322426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26287362,
+            "range": "± 203841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60737955,
+            "range": "± 923506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 371219729,
+            "range": "± 7705079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2655592022,
+            "range": "± 223382239",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17629480,
+            "range": "± 98347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17724836,
+            "range": "± 123402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18242569,
+            "range": "± 226158",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22985190,
+            "range": "± 64783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61634663,
+            "range": "± 402652",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 363510835,
+            "range": "± 3719450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2790903525,
+            "range": "± 22930531",
             "unit": "ns/iter"
           }
         ]
