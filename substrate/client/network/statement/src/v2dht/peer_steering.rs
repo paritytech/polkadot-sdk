@@ -138,6 +138,11 @@ impl PeerSteering {
 		self.desired = peers.into_iter().collect();
 	}
 
+	/// Whether `peer` is held in the statement protocol's reserved set.
+	pub(crate) fn is_reserved(&self, peer: &PeerId) -> bool {
+		self.reserved.contains(peer)
+	}
+
 	#[cfg(test)]
 	pub(crate) fn reserve(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		self.reserved.extend(peers);
