@@ -20,7 +20,7 @@
 //! signals. But the two ends of each protocol are different chains' collators, so the encodings and
 //! the envelope variant indices are part of the wire format.
 //!
-//! - [`leaf_hash`] turns a payload into an MMR leaf. A v0.5 message is a bounded payload keyed by
+//! - [`leaf_hash`] turns a payload into an MMR leaf. A message is a bounded payload keyed by
 //! `StreamId`; source, stream and position are structural, so there is no message struct.
 //! - Fetch: [`MessagesRequest`] / [`MessagesResponse`], verified by [`verify_messages`] against a
 //! `StreamsRoot` the requester has already verified. The `extension` + `tree_proof` check is the
