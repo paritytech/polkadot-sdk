@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792748750275,
+  "lastUpdate": 1792753144206,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a3f0e923b94c50aac0876fdee40de823c2dd8d4c",
-          "message": "[eth-rpc] Handle event decode errors across runtime upgrades (#11655)\n\n### Motivation\nDuring backward sync, eth-rpc processes historical blocks using the\ncurrent runtime's metadata. If the event layout differs between the\ncurrent runtime and the runtime that produced those blocks (e.g., the\nBalances pallet gained new event variants in #7250), event decoding\nfails and receipts are lost.\n\n### Changes\nReplace events.has::<EthExtrinsicRevert>() with an event iterator that\nlogs and skips decode errors, checks revert status by pallet/variant\nname, and collects ContractEmitted logs in a single pass — so that\nundecodable events no longer cause the entire receipt to be lost.\n\nBehavior change: Previously, any undecodable event in a block caused the\nentire receipt to be lost. Now, decode errors are logged and skipped —\nthe receipt is stored with best-effort revert status and logs.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T15:35:51Z",
-          "tree_id": "9eb5052e02bacb2d0befc23c97dd5c4d36deacc3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a3f0e923b94c50aac0876fdee40de823c2dd8d4c"
-        },
-        "date": 1775753711669,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.096714340533339,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13182227256666662,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.640035269533337,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4c8023dfdf12acbfff4710d4e6006233e44790d7",
+          "message": "cumulus: add resubmittable-segment hydration API (#13383)\n\n# Description\n\nPrevious to last baby step towards resubmissions pipeline final glue.\nThe purpose of this PR is to introduce the logic that creates the\ncollation parts from a resubmittable segment as headers (computed during\nthe parent search in #13355). Now the resubmission store becomes\nrelevant to get the blocks and their PoVs (since the current collator\ncan miss the block due to prunning, and the PoV that is usually added to\nthe resubmission store during the block import). We also make use of the\nrelay chain data like relay parent session and storage root (usually\nretrievable via the relay client, but the query result depends on\nwhether the RC blocks are present, which can not be guaranteed for any\nblock pruning setting).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-10-23T09:20:51Z",
+          "tree_id": "e1bbdafe87cdb3b7ad34e79abc199d2c9e1918d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c8023dfdf12acbfff4710d4e6006233e44790d7"
+        },
+        "date": 1792753117089,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.5151435936,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1289570979,
             "unit": "seconds"
           }
         ]
