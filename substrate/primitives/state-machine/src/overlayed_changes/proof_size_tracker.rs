@@ -242,13 +242,20 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		self.layers.push(old_current);
 	}
 
-	/// Commits the current transaction, merging dirty keys and snapshot into parent.
+	/// Commits the current transaction, merging dirty keys and snapshot into parent. Pending
+	/// writes of the parent for keys the current transaction reported are dropped, since that
+	/// report already covered them.
 	///
 	/// The estimation trie keeps its changes and the layer's trie snapshot is discarded.
 	pub fn commit_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "commit_transaction empty:{}", self.layers.len());
 		if let Some(mut parent) = self.layers.pop() {
 			if let Some(current_snapshot) = self.current.snapshot.take() {
+				// The child's reports are newer than the parent's pending writes; keeping both
+				// would let the older write be reported later as if it were new.
+				for hash in current_snapshot.keys() {
+					parent.dirty_keys.swap_remove(hash);
+				}
 				match &mut parent.snapshot {
 					// Child ops overwrite parent ops for the same key (child is more recent).
 					Some(parent_snapshot) => parent_snapshot.extend(current_snapshot),
@@ -304,16 +311,23 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 
 		// A key pending in several open layers is reported with the op of the newest layer, its
 		// final state. Layers are visited newest first, so the first op seen is kept.
-		let mut process_key = |hash: KeyHash, key: K, op: DeltaKeyOp| {
+		let mut process_key = |hash: KeyHash, key: K, op: DeltaKeyOp, from_outer_layer: bool| {
+			let reported_in_current =
+				self.current.snapshot.as_ref().and_then(|s| s.get(&hash).copied());
+			// An outer write is older than anything the current layer reported, so a report of
+			// its key supersedes it. The walk below stops at the first outer layer with a
+			// snapshot, so no other layer between the write and here holds a report.
+			if from_outer_layer && reported_in_current.is_some() {
+				return;
+			}
 			// Find the last emitted op for this key: check current snapshot first (most
 			// recent), then layers from innermost to outermost.
-			let prev_op =
-				self.current.snapshot.as_ref().and_then(|s| s.get(&hash).copied()).or_else(|| {
-					self.layers
-						.iter()
-						.rev()
-						.find_map(|layer| layer.snapshot.as_ref()?.get(&hash).copied())
-				});
+			let prev_op = reported_in_current.or_else(|| {
+				self.layers
+					.iter()
+					.rev()
+					.find_map(|layer| layer.snapshot.as_ref()?.get(&hash).copied())
+			});
 
 			let suppress = match (prev_op, op) {
 				// Previously deleted → suppress all future ops.
@@ -329,12 +343,12 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		};
 
 		for (hash, (key, op)) in self.current.dirty_keys.drain(..) {
-			process_key(hash, key, op);
+			process_key(hash, key, op, false);
 		}
 
 		for layer in self.layers.iter().rev() {
 			for (&hash, (key, op)) in &layer.dirty_keys {
-				process_key(hash, key.clone(), *op);
+				process_key(hash, key.clone(), *op, true);
 			}
 
 			// Stop after processing the first layer with a snapshot
@@ -837,6 +851,90 @@ mod tests {
 		let delta = tracker.take_delta();
 		let expected = KeyHash::from_le_bytes(blake2_128(b"a"));
 		assert_eq!(delta.keys().copied().collect::<Vec<_>>(), vec![expected]);
+	}
+
+	/// An estimation that reports a key from the inner layer has accounted for the older write
+	/// of that key still pending in the outer layer. The next estimation must not report that
+	/// older write: it would remove a key that exists in the final state.
+	#[test]
+	fn outer_write_reported_by_the_inner_layer_is_not_reported_again() {
+		let mut tracker = Tracker::default();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
+		tracker.start_transaction();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+
+		let first = tracker.take_delta();
+		delta_assert_eq_with_ops!(first, [("a", DeltaKeyOp::Updated)]);
+
+		let second = tracker.take_delta();
+		assert!(second.is_empty(), "stale outer write reported again: {:?}", second.values());
+	}
+
+	/// Committing the inner layer merges its report into the outer one, next to the older
+	/// pending write it covered; that write must not be reported afterwards either.
+	#[test]
+	fn outer_write_reported_by_the_inner_layer_is_not_reported_after_commit() {
+		let mut tracker = Tracker::default();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Deleted);
+		tracker.start_transaction();
+		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
+		let first = tracker.take_delta();
+		delta_assert_eq_with_ops!(first, [("a", DeltaKeyOp::Updated)]);
+		tracker.commit_transaction();
+
+		let second = tracker.take_delta();
+		assert!(second.is_empty(), "stale outer write reported again: {:?}", second.values());
+	}
+
+	/// The collator wraps every runtime call in a host transaction, the validator runs the
+	/// block in one layer; both must report the same ops at every estimation or they disagree
+	/// on the block weight. The script writes a key, then writes it again inside a layer and
+	/// estimates while the layer is open and after it commits.
+	#[test]
+	fn nested_layers_report_the_same_ops_as_a_single_layer() {
+		#[derive(Clone, Copy)]
+		enum Step {
+			Write(&'static str, DeltaKeyOp),
+			Begin,
+			Commit,
+			Estimate,
+		}
+		use Step::*;
+		let script = [
+			Write("a", DeltaKeyOp::Deleted),
+			Write("b", DeltaKeyOp::Updated),
+			Begin,
+			Write("a", DeltaKeyOp::Updated),
+			Estimate,
+			Estimate,
+			Write("b", DeltaKeyOp::Deleted),
+			Commit,
+			Estimate,
+			Begin,
+			Write("c", DeltaKeyOp::Updated),
+			Commit,
+			Estimate,
+		];
+		let reports = |with_layers: bool| {
+			let mut tracker = Tracker::default();
+			let mut reports = Vec::new();
+			for step in script {
+				match step {
+					Write(key, op) => tracker.add_key(key.to_string(), op),
+					Begin if with_layers => tracker.start_transaction(),
+					Commit if with_layers => tracker.commit_transaction(),
+					Begin | Commit => {},
+					Estimate => {
+						let mut delta: Vec<_> =
+							tracker.take_delta().values().map(|(k, op)| (k.clone(), *op)).collect();
+						delta.sort();
+						reports.push(delta);
+					},
+				}
+			}
+			reports
+		};
+		assert_eq!(reports(true), reports(false));
 	}
 
 	#[test]
