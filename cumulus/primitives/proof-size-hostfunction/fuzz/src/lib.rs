@@ -1015,14 +1015,26 @@ struct BlockEnv<'a> {
 	state: &'a State,
 	cache: Option<&'a SharedTrieCache<Hasher>>,
 	overlay: OverlayedChanges<Hasher>,
+	state_version: StateVersion,
 }
 
 impl<'a> BlockEnv<'a> {
-	fn new(state: &'a State, cache: Option<&'a SharedTrieCache<Hasher>>) -> Self {
+	fn new(
+		state: &'a State,
+		cache: Option<&'a SharedTrieCache<Hasher>>,
+		state_version: StateVersion,
+	) -> Self {
 		let recorder = Recorder::<Hasher>::default();
 		let mut extensions = Extensions::new();
 		extensions.register(ProofSizeExt::new(recorder.clone()));
-		BlockEnv { recorder, extensions, state, cache, overlay: OverlayedChanges::default() }
+		BlockEnv {
+			recorder,
+			extensions,
+			state,
+			cache,
+			overlay: OverlayedChanges::default(),
+			state_version,
+		}
 	}
 
 	/// A fresh backend for one runtime call, recording into the block's recorder.
@@ -1063,7 +1075,12 @@ impl<'a> BlockEnv<'a> {
 		self.overlay.enter_runtime().expect("not in runtime; qed");
 		let res = {
 			let backend = self.backend();
-			let mut ext = Ext::new(&mut self.overlay, &backend, Some(&mut self.extensions));
+			let mut ext = Ext::new(
+				&mut self.overlay,
+				&backend,
+				Some(&mut self.extensions),
+				self.state_version,
+			);
 			sp_externalities::set_and_run_with_externalities(&mut ext, f)
 		};
 		self.overlay.exit_runtime().expect("in runtime; qed");
@@ -1117,7 +1134,7 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 		CURRENT_BLOCK.with(|b| b.set(block_index));
 		let pre_root = *state.root();
 		let mut ctx = Ctx::new(config, estimate, block_index);
-		let mut env = BlockEnv::new(&state, shared_cache.as_ref());
+		let mut env = BlockEnv::new(&state, shared_cache.as_ref(), root_version);
 
 		// `initialize_block`.
 		env.client_start();
@@ -1244,7 +1261,12 @@ fn validate_block(
 	let _ = take_warnings();
 	let quiet = QUIET_PANICS.with(|q| q.replace(true));
 	let result = panic::catch_unwind(AssertUnwindSafe(|| {
-		let mut ext = Ext::new(&mut overlay, &backend, Some(&mut extensions));
+		let mut ext = Ext::new(
+			&mut overlay,
+			&backend,
+			Some(&mut extensions),
+			config.root_version.state_version(),
+		);
 		sp_externalities::set_and_run_with_externalities(&mut ext, || {
 			ctx.initialize_block(&block.init);
 			for (xt_index, xt) in block.xts.iter().enumerate() {
