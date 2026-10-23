@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792710620954,
+  "lastUpdate": 1792753348928,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "lrazovic@gmail.com",
-            "name": "Leonardo Razovic",
-            "username": "lrazovic"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dd79f9668c46bd439cec8a916eabbb02ce74bba1",
-          "message": "Introduce PSM pallet (part of the pUSD Project) (#11068)\n\n## Description\n\nThis PR introduces `pallet-psm`, a new FRAME pallet that implements a\nPeg Stability Module (PSM) for pUSD. The pallet enables 1:1 swaps\nbetween pUSD and approved external stablecoins (e.g. USDC/USDT), with\nconfigurable mint/redeem fees and per-asset circuit breakers.\n\nThe pallet enforces a three-tier debt ceiling model before minting:\n- System-wide cap from Vaults (`MaximumIssuance`)\n- Aggregate PSM cap (`MaxPsmDebtOfTotal`)\n- Per-asset normalized ceiling (`AssetCeilingWeight`)\n\nIt also adds cross-pallet interfaces in\n`frame_support::traits::tokens::stable`:\n- `VaultsInterface` (PSM -> Vaults): query system issuance ceiling\n- `PsmInterface` (Vaults/others -> PSM): query reserved PSM capacity\n\n## Integration\n\n### For Runtime Developers\n\nTo integrate `pallet-psm` into your runtime:\n\n1. Add dependency to your runtime `Cargo.toml`:\n\n```toml\npallet-psm = { version = \"0.1.0\", default-features = false }\n```\n\n2. Implement the Config trait in your runtime:\n\n```rust\nimpl pallet_psm::Config for Runtime {\n    type Fungibles = Assets;                     // fungibles impl (must impl metadata::Inspect)\n    type AssetId = u32;                          // asset identifier type\n    type VaultsInterface = Vaults;               // must implement VaultsInterface\n    type ManagerOrigin = EnsurePsmManager;       // returns PsmManagerLevel (Full/Emergency)\n    type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;\n    type StableAsset = ItemOf<Assets, StablecoinAssetId, AccountId>;  // pUSD as fungible\n    type FeeHandler = ResolveTo<InsuranceFundAccount, Self::StableAsset>;\n    type PalletId = PsmPalletId;                 // PSM reserve account derivation\n    type MinSwapAmount = MinSwapAmount;          // minimum mint/redeem amount\n    type MaxExternalAssets = ConstU32<10>;        // max approved external assets\n}\n```\n\n3. Add to `construct_runtime!`:\n\n```rust\nconstruct_runtime!(\n    pub enum Runtime {\n        // ... other pallets\n        Psm: pallet_psm,\n    }\n);\n```\n\n4. Ensure Vaults exposes issuance ceiling to PSM:\n\n```rust\nuse frame_support::traits::tokens::stable::VaultsInterface;\n\nimpl VaultsInterface for Vaults {\n    type Balance = Balance;\n    fn get_maximum_issuance() -> Balance {\n        // return system-wide pUSD ceiling\n    }\n}\n```\n\n5. For existing chains, include the migration:\n\n```rust\npub struct PsmInitialConfig;\n\nimpl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {\n    fn max_psm_debt_of_total() -> Permill { Permill::from_percent(10) }\n    fn external_asset_ids() -> Vec<AssetId> { vec![USDC_ASSET_ID, USDT_ASSET_ID] }\n    fn asset_configs() -> BTreeMap<AssetId, (Permill, Permill, Permill)> {\n        // asset -> (mint_fee, redeem_fee, ceiling_weight)\n        [\n            (USDC_ASSET_ID, (Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(50))),\n            (USDT_ASSET_ID, (Permill::from_percent(1), Permill::from_percent(1), Permill::from_percent(50))),\n        ].into_iter().collect()\n    }\n}\n\npub type Migrations = (\n    pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,\n);\n```\n\n### For Pallet Developers\n\nOther pallets can query PSM-reserved issuance capacity via\n`PsmInterface`:\n\n```rust\nuse frame_support::traits::tokens::stable::PsmInterface;\n\nlet reserved = <Psm as PsmInterface>::reserved_capacity();\n```\n\nThis can be used to account for PSM-reserved issuance when computing\nvault minting headroom.\n\n## Review Notes\n\n### Key Features\n\n- 1:1 swaps: `mint` (external -> pUSD) and `redeem` (pUSD -> external)\n- Multi-asset support with explicit approval list (`add_external_asset`\n/ `remove_external_asset`)\n- Three-tier debt ceiling enforcement (system-wide, aggregate PSM,\nper-asset normalized)\n- Per-asset circuit breaker: `AllEnabled` -> `MintingDisabled` ->\n`AllDisabled`\n- Tiered governance origin:\n  - `Full`: all parameter and asset-management operations\n  - `Emergency`: can only set circuit breaker status\n- Fee model:\n- Mint fee: deducted from minted pUSD, fee credit issued to `FeeHandler`\n- Redeem fee: deducted from pUSD input, fee withdrawn as credit to\n`FeeHandler`\n- Safety invariant on redeem: limited by tracked `PsmDebt` (not just raw\nreserve), preventing withdrawal of donated reserves\n- Includes benchmarks and V0 -> V1 migration for post-genesis deployment\n\n### Swap Lifecycle\n\n**Mint (External -> pUSD):**\n1. User calls `mint(asset_id, external_amount)`\n2. Checks: approved asset, circuit breaker, min amount\n3. Enforces ceilings in order: system-wide -> aggregate PSM -> per-asset\n4. Transfers external asset into PSM account\n5. Mints pUSD to user minus fee\n6. Issues fee as pUSD credit to `FeeHandler`\n7. Increases `PsmDebt[asset_id]`\n\n**Redeem (pUSD -> External):**\n1. User calls `redeem(asset_id, pusd_amount)`\n2. Checks: approved asset, circuit breaker, min amount\n3. Calculates fee and external output amount\n4. Verifies tracked debt and reserve are sufficient\n5. Burns pUSD principal portion from user\n6. Withdraws pUSD fee from user as credit to `FeeHandler`\n7. Transfers external asset from PSM account to user\n8. Decreases `PsmDebt[asset_id]`\n\n### Governance/Operations\n\n- `set_minting_fee`\n- `set_redemption_fee`\n- `set_max_psm_debt`\n- `set_asset_ceiling_weight`\n- `set_asset_status`\n- `add_external_asset`\n- `remove_external_asset` (requires zero debt; cleans up config storage)\n\n### Config Trait\n\n| Type | Purpose |\n|---|---|\n| `Fungibles` | Fungibles impl for pUSD + external assets. |\n| `AssetId` | Asset identifier type. |\n| `VaultsInterface` | Query system-wide issuance ceiling. |\n| `ManagerOrigin` | Returns `PsmManagerLevel` (`Full` / `Emergency`). |\n| `WeightInfo` | Benchmark weights. |\n| `StableAsset` | pUSD as a single-asset `fungible` type (typically\n`ItemOf<Assets, StablecoinAssetId>`). Must implement `FungibleMutate` +\n`FungibleBalanced`. |\n| `FeeHandler` | `OnUnbalanced` handler for fee credits. |\n| `PalletId` | Derives the PSM reserve account. |\n| `MinSwapAmount` | Minimum mint/redeem amount. |\n| `MaxExternalAssets` | Maximum number of approved external assets. |\n\n### Testing\n\nThe pallet includes comprehensive coverage for:\n- Mint/redeem success paths and failure modes\n- Fee edge cases (0%, non-zero, 100%)\n- Three-tier ceiling enforcement and boundary conditions\n- Per-asset ceiling redistribution when weight is set to 0%\n- Circuit breaker behavior per asset\n- Full vs emergency governance permissions\n- Asset onboarding/offboarding invariants and cleanup\n- Reserve-vs-debt safety (donated reserve cannot be redeemed)\n- Long-running mint/redeem cycles and accounting invariants\n- Migration tests (`v0 -> v1` and skip-when-already-v1)\n\n---------\n\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
-          "timestamp": "2026-04-08T14:25:35Z",
-          "tree_id": "b9194793351e60e7fa3eae559a87a4da9f17a92a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dd79f9668c46bd439cec8a916eabbb02ce74bba1"
-        },
-        "date": 1775668050308,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002760997849999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00967012104999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010286014229999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010452291149999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4c8023dfdf12acbfff4710d4e6006233e44790d7",
+          "message": "cumulus: add resubmittable-segment hydration API (#13383)\n\n# Description\n\nPrevious to last baby step towards resubmissions pipeline final glue.\nThe purpose of this PR is to introduce the logic that creates the\ncollation parts from a resubmittable segment as headers (computed during\nthe parent search in #13355). Now the resubmission store becomes\nrelevant to get the blocks and their PoVs (since the current collator\ncan miss the block due to prunning, and the PoV that is usually added to\nthe resubmission store during the block import). We also make use of the\nrelay chain data like relay parent session and storage root (usually\nretrievable via the relay client, but the query result depends on\nwhether the RC blocks are present, which can not be guaranteed for any\nblock pruning setting).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-10-23T09:20:51Z",
+          "tree_id": "e1bbdafe87cdb3b7ad34e79abc199d2c9e1918d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c8023dfdf12acbfff4710d4e6006233e44790d7"
+        },
+        "date": 1792753320803,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025570513199999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00957235522999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010901591890000008,
             "unit": "seconds"
           }
         ]
