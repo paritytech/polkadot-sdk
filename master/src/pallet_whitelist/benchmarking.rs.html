@@ -172,9 +172,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#23 id=23 data-nosnippet>23</a><span class="attr">#[cfg(test)]
 <a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">use </span><span class="kw">crate</span>::Pallet <span class="kw">as </span>Whitelist;
-<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>frame::benchmarking::prelude::<span class="kw-2">*</span>;
+<a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>frame::{benchmarking::prelude::<span class="kw-2">*</span>, traits::Authorize};
 <a href=#26 id=26 data-nosnippet>26</a>
-<a href=#27 id=27 data-nosnippet>27</a><span class="attr">#[benchmarks]
+<a href=#27 id=27 data-nosnippet>27</a><span class="attr">#[benchmarks(<span class="kw">where </span>&lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall: From&lt;Call&lt;T&gt;&gt;)]
 <a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">mod </span>benchmarks {
 <a href=#29 id=29 data-nosnippet>29</a>	<span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#30 id=30 data-nosnippet>30</a>
@@ -310,8 +310,94 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#160 id=160 data-nosnippet>160</a>		<span class="prelude-val">Ok</span>(())
 <a href=#161 id=161 data-nosnippet>161</a>	}
 <a href=#162 id=162 data-nosnippet>162</a>
-<a href=#163 id=163 data-nosnippet>163</a>	<span class="macro">impl_benchmark_test_suite!</span>(Whitelist, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
-<a href=#164 id=164 data-nosnippet>164</a>}
+<a href=#163 id=163 data-nosnippet>163</a>	<span class="comment">// Worst case: hash whitelisted and preimage present at the witnessed length, so the callback
+<a href=#164 id=164 data-nosnippet>164</a>	// fetches and decodes the `n`-byte call to check the weight witness.
+<a href=#165 id=165 data-nosnippet>165</a>	</span><span class="attr">#[benchmark(pov_mode = Measured {
+<a href=#166 id=166 data-nosnippet>166</a>		Whitelist: MaxEncodedLen,
+<a href=#167 id=167 data-nosnippet>167</a>		Preimage: MaxEncodedLen,
+<a href=#168 id=168 data-nosnippet>168</a>		<span class="comment">// Use measured PoV size for the Preimages since we pass in a length witness.
+<a href=#169 id=169 data-nosnippet>169</a>		</span>Preimage::PreimageFor: Measured
+<a href=#170 id=170 data-nosnippet>170</a>	})]
+<a href=#171 id=171 data-nosnippet>171</a>	</span><span class="comment">// NOTE: we remove `10` because we need some bytes to encode the variants and vec length
+<a href=#172 id=172 data-nosnippet>172</a>	</span><span class="kw">fn </span>authorize_dispatch_whitelisted_call(
+<a href=#173 id=173 data-nosnippet>173</a>		n: Linear&lt;<span class="number">1</span>, { T::Preimages::MAX_LENGTH <span class="kw">as </span>u32 - <span class="number">10 </span>}&gt;,
+<a href=#174 id=174 data-nosnippet>174</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#175 id=175 data-nosnippet>175</a>		<span class="comment">// Skip on runtimes that have not opted into permissionless dispatch.
+<a href=#176 id=176 data-nosnippet>176</a>		</span><span class="kw">let </span>authorized: T::RuntimeOrigin =
+<a href=#177 id=177 data-nosnippet>177</a>			frame_system::RawOrigin::&lt;T::AccountId&gt;::Authorized.into();
+<a href=#178 id=178 data-nosnippet>178</a>		<span class="kw">if </span>T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
+<a href=#179 id=179 data-nosnippet>179</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(BenchmarkError::Weightless);
+<a href=#180 id=180 data-nosnippet>180</a>		}
+<a href=#181 id=181 data-nosnippet>181</a>
+<a href=#182 id=182 data-nosnippet>182</a>		<span class="kw">let </span>whitelist_origin =
+<a href=#183 id=183 data-nosnippet>183</a>			T::WhitelistOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+<a href=#184 id=184 data-nosnippet>184</a>		<span class="kw">let </span>remark = <span class="macro">alloc::vec!</span>[<span class="number">1u8</span>; n <span class="kw">as </span>usize];
+<a href=#185 id=185 data-nosnippet>185</a>		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall = frame_system::Call::remark { remark }.into();
+<a href=#186 id=186 data-nosnippet>186</a>		<span class="kw">let </span>call_weight_witness = call.get_dispatch_info().call_weight;
+<a href=#187 id=187 data-nosnippet>187</a>		<span class="kw">let </span>encoded_call = call.encode();
+<a href=#188 id=188 data-nosnippet>188</a>		<span class="kw">let </span>call_encoded_len = encoded_call.len() <span class="kw">as </span>u32;
+<a href=#189 id=189 data-nosnippet>189</a>		<span class="kw">let </span>call_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>call);
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a>		Pallet::&lt;T&gt;::whitelist_call(whitelist_origin, call_hash)
+<a href=#192 id=192 data-nosnippet>192</a>			.expect(<span class="string">"whitelisting call must be successful"</span>);
+<a href=#193 id=193 data-nosnippet>193</a>		T::Preimages::note(encoded_call.into()).unwrap();
+<a href=#194 id=194 data-nosnippet>194</a>
+<a href=#195 id=195 data-nosnippet>195</a>		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall = Call::&lt;T&gt;::dispatch_whitelisted_call {
+<a href=#196 id=196 data-nosnippet>196</a>			call_hash,
+<a href=#197 id=197 data-nosnippet>197</a>			call_encoded_len,
+<a href=#198 id=198 data-nosnippet>198</a>			call_weight_witness,
+<a href=#199 id=199 data-nosnippet>199</a>		}
+<a href=#200 id=200 data-nosnippet>200</a>		.into();
+<a href=#201 id=201 data-nosnippet>201</a>
+<a href=#202 id=202 data-nosnippet>202</a>		<span class="attr">#[block]
+<a href=#203 id=203 data-nosnippet>203</a>		</span>{
+<a href=#204 id=204 data-nosnippet>204</a>			<span class="kw">let </span>result = call
+<a href=#205 id=205 data-nosnippet>205</a>				.authorize(TransactionSource::InBlock)
+<a href=#206 id=206 data-nosnippet>206</a>				.expect(<span class="string">"dispatch_whitelisted_call declares an authorize callback; qed"</span>);
+<a href=#207 id=207 data-nosnippet>207</a>			<span class="macro">assert!</span>(result.is_ok());
+<a href=#208 id=208 data-nosnippet>208</a>		}
+<a href=#209 id=209 data-nosnippet>209</a>
+<a href=#210 id=210 data-nosnippet>210</a>		<span class="prelude-val">Ok</span>(())
+<a href=#211 id=211 data-nosnippet>211</a>	}
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a>	<span class="comment">// Includes hashing the `n`-byte call and reading its dispatch info. A single remark is one
+<a href=#214 id=214 data-nosnippet>214</a>	// call node at any `n`; the fit assumes a flat payload.
+<a href=#215 id=215 data-nosnippet>215</a>	</span><span class="attr">#[benchmark]
+<a href=#216 id=216 data-nosnippet>216</a>	</span><span class="kw">fn </span>authorize_dispatch_whitelisted_call_with_preimage(
+<a href=#217 id=217 data-nosnippet>217</a>		n: Linear&lt;<span class="number">1</span>, { <span class="kw-2">*</span>T::BlockLength::get().max.get(DispatchClass::Normal) - <span class="number">10 </span>}&gt;,
+<a href=#218 id=218 data-nosnippet>218</a>	) -&gt; <span class="prelude-ty">Result</span>&lt;(), BenchmarkError&gt; {
+<a href=#219 id=219 data-nosnippet>219</a>		<span class="comment">// Skip on runtimes that have not opted into permissionless dispatch.
+<a href=#220 id=220 data-nosnippet>220</a>		</span><span class="kw">let </span>authorized: T::RuntimeOrigin =
+<a href=#221 id=221 data-nosnippet>221</a>			frame_system::RawOrigin::&lt;T::AccountId&gt;::Authorized.into();
+<a href=#222 id=222 data-nosnippet>222</a>		<span class="kw">if </span>T::DispatchWhitelistedOrigin::try_origin(authorized).is_err() {
+<a href=#223 id=223 data-nosnippet>223</a>			<span class="kw">return </span><span class="prelude-val">Err</span>(BenchmarkError::Weightless);
+<a href=#224 id=224 data-nosnippet>224</a>		}
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a>		<span class="kw">let </span>whitelist_origin =
+<a href=#227 id=227 data-nosnippet>227</a>			T::WhitelistOrigin::try_successful_origin().map_err(|<span class="kw">_</span>| BenchmarkError::Weightless)<span class="question-mark">?</span>;
+<a href=#228 id=228 data-nosnippet>228</a>		<span class="kw">let </span>remark = <span class="macro">alloc::vec!</span>[<span class="number">1u8</span>; n <span class="kw">as </span>usize];
+<a href=#229 id=229 data-nosnippet>229</a>		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>Config&gt;::RuntimeCall = frame_system::Call::remark { remark }.into();
+<a href=#230 id=230 data-nosnippet>230</a>		<span class="kw">let </span>call_hash = T::Hashing::hash_of(<span class="kw-2">&amp;</span>call);
+<a href=#231 id=231 data-nosnippet>231</a>
+<a href=#232 id=232 data-nosnippet>232</a>		Pallet::&lt;T&gt;::whitelist_call(whitelist_origin, call_hash)
+<a href=#233 id=233 data-nosnippet>233</a>			.expect(<span class="string">"whitelisting call must be successful"</span>);
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a>		<span class="kw">let </span>call: &lt;T <span class="kw">as </span>frame_system::Config&gt;::RuntimeCall =
+<a href=#236 id=236 data-nosnippet>236</a>			Call::&lt;T&gt;::dispatch_whitelisted_call_with_preimage { call: Box::new(call) }.into();
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a>		<span class="attr">#[block]
+<a href=#239 id=239 data-nosnippet>239</a>		</span>{
+<a href=#240 id=240 data-nosnippet>240</a>			<span class="kw">let </span>result = call.authorize(TransactionSource::InBlock).expect(
+<a href=#241 id=241 data-nosnippet>241</a>				<span class="string">"dispatch_whitelisted_call_with_preimage declares an authorize callback; qed"</span>,
+<a href=#242 id=242 data-nosnippet>242</a>			);
+<a href=#243 id=243 data-nosnippet>243</a>			<span class="macro">assert!</span>(result.is_ok());
+<a href=#244 id=244 data-nosnippet>244</a>		}
+<a href=#245 id=245 data-nosnippet>245</a>
+<a href=#246 id=246 data-nosnippet>246</a>		<span class="prelude-val">Ok</span>(())
+<a href=#247 id=247 data-nosnippet>247</a>	}
+<a href=#248 id=248 data-nosnippet>248</a>
+<a href=#249 id=249 data-nosnippet>249</a>	<span class="macro">impl_benchmark_test_suite!</span>(Whitelist, <span class="kw">crate</span>::mock::new_test_ext(), <span class="kw">crate</span>::mock::Test);
+<a href=#250 id=250 data-nosnippet>250</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
