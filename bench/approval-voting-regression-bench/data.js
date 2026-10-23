@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792710518891,
+  "lastUpdate": 1792753243350,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bc4a4c40c7c46868b7e041a3e8de9f45e39e64f1",
-          "message": "Add virtualization host functions (#3520)\n\nThis PR adds experimental support for the virtualization host functions.\nThose allow the runtime to spawn and run PolkaVM instances. It is\nexperimental because the behaviour is subject to change until PolkaVM\nand the host functions have a spec. However, we need to merge the code\nto go on with development. Docs and tests are all there and hence I\nargue it is good enough to be merged. I added a note that users should\nnot use those functions in production.\n\nThis PR adds or changes the following components:\n\n* `sc-executor-wasmtime`: Just exposing our virtualization manager to\nhost functions. Needs to be added here to be available for the whole\nlifetime of a runtime call.\n* `sp-virtualization`: New crate that abstracts away the host functions.\nMeaning that a user (like pallet-contracts) will interface only with\nthis crate and not with the host functions directly. This is necessary\nso that the natively running test code still works. The host functions\nalso depend on this crate. Those also contain all the tests. Everything\nPolkaVM is neatly organized into one crate. It also contains the\ndefinition of the new host functions.\n* `sp-wasm-interface`: We added an interface mirroring the host\nfunctions here. This is necessary in order for the host functions to be\nable to call into the executor.\n\n---------\n\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: Dmitry Sinyavin <dmitry.sinyavin@parity.io>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T08:52:00Z",
-          "tree_id": "5a5107904f41cfc7fe4b718aa4ceb5ad99ad831e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bc4a4c40c7c46868b7e041a3e8de9f45e39e64f1"
-        },
-        "date": 1775730695180,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52946.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63630.84000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.316485359682833,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002195756,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9004054689200007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8737338048499987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002546276,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.873857932639999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.465025396210002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002195756,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002546276,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.831843622319969,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005576658860000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.941189897110001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.772054463729969,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 4.75889520394287,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "14218860+iulianbarbu@users.noreply.github.com",
+            "name": "Iulian Barbu",
+            "username": "iulianbarbu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4c8023dfdf12acbfff4710d4e6006233e44790d7",
+          "message": "cumulus: add resubmittable-segment hydration API (#13383)\n\n# Description\n\nPrevious to last baby step towards resubmissions pipeline final glue.\nThe purpose of this PR is to introduce the logic that creates the\ncollation parts from a resubmittable segment as headers (computed during\nthe parent search in #13355). Now the resubmission store becomes\nrelevant to get the blocks and their PoVs (since the current collator\ncan miss the block due to prunning, and the PoV that is usually added to\nthe resubmission store during the block import). We also make use of the\nrelay chain data like relay parent session and storage root (usually\nretrievable via the relay client, but the query result depends on\nwhether the RC blocks are present, which can not be guaranteed for any\nblock pruning setting).\n\n---------\n\nSigned-off-by: Iulian Barbu <iulian.barbu@parity.io>",
+          "timestamp": "2026-10-23T09:20:51Z",
+          "tree_id": "e1bbdafe87cdb3b7ad34e79abc199d2c9e1918d4",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4c8023dfdf12acbfff4710d4e6006233e44790d7"
+        },
+        "date": 1792753215670,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63569.15,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52942.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3090031325000018,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.501205102602574,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.101456188180018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005310223789999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.716057078419999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8034277448400207,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7771663819400003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002356818,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7239420552,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020126870000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020126870000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002356818,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.766549571489997,
             "unit": "seconds"
           }
         ]
