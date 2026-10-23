@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792753243350,
+  "lastUpdate": 1792763973814,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "monica@parity.io",
-            "name": "Monica Jin",
-            "username": "mokita-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "2ca26a002cfe1cd5e04c5ccb988fdf3126d55105",
-          "message": "[asset-hub-westend] Add revive_debug cfg for DebugEnabled (#11507)\n\n## Description\n\n`debug_trace*` RPCs (`debug_traceTransaction`,\n`debug_traceBlockByNumber`, `debug_traceCall`) only work when\npallet-revive's `DebugEnabled` config is set to `true`. Currently only\nthe dev-node has this enabled, but the dev-node is a simplified\nenvironment that doesn't fully replicate parachain runtime behavior\n(e.g. no PoV deduplication, different weight/fee configuration). To get\naccurate debug tracing data, it needs to run on actual parachain\nruntimes.\n\nPreviously this required editing the runtime's source code to flip\n`ConstBool<false>` to `ConstBool<true>`. This PR uses a plain `cfg` flag\nso debug mode can be toggled at build time without code changes.\nBuild with:\n```bash\nRUSTFLAGS=\"--cfg revive_debug\" cargo build -p asset-hub-westend-runtime --release\n```\n\n## Integration\n\nNo integration required for downstream projects. This change is\nself-contained within `asset-hub-westend-runtime`.\n\nOther runtimes can adopt the same pattern by using `ConstBool<{\ncfg!(revive_debug) }>` for `DebugEnabled`.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Alexander Theißen <alex.theissen@me.com>",
-          "timestamp": "2026-04-09T09:51:54Z",
-          "tree_id": "5991841f3549897591ff1aed2066b21d6b9447e3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ca26a002cfe1cd5e04c5ccb988fdf3126d55105"
-        },
-        "date": 1775734512368,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52942.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63639.29,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.863402790270001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022572829999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.877097455089991,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.938573240160001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000026182029999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.93274026138,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.5159191461100088,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.393751386632977,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022572829999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005780242800000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000026182029999999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.851185159370003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7694966149999762,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.766549571489997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "eresav@me.com",
+            "name": "Andrei Eres",
+            "username": "AndreiEres"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "74b0ba5914888631b0111fafd5e2f42eb9ef325f",
+          "message": "zombienet: download only the binaries a test family spawns (#13558)\n\n# Description\n\nEach zombienet test job downloads all seven binary artifacts, 1.4 GB,\none after the other, which takes about 330 seconds and is 40 to 75\npercent of a typical job. A test family spawns only a subset: cumulus\ntests need polkadot, polkadot-parachain and test-parachain (488 MB),\nsubstrate tests need only substrate (36 MB), the template tests need the\ntemplate nodes and polkadot, and polkadot tests need everything except\nsubstrate and the template nodes.\n\nThe download action now takes a prefix, the same value the zombienet-sdk\naction already receives, and skips the artifacts that family never\nspawns. Without a prefix it downloads everything as before, so the\nlegacy v1 action keeps its behaviour.\n\nOver a run of 96 jobs this saves about three runner hours. On PR runs,\nwhere the jobs queue for the spot pool, that is roughly ten minutes of\nwall time.\n\n## Rough results\n\nMeasured on this PR's first full CI run (96 zombienet jobs) against\nthree recent master runs, matching jobs by name. One run each, so these\nare rough numbers, not a benchmark.\n\n| Family | Download time per job |\n|---|---|\n| substrate | 318 s → 27 s |\n| cumulus | 280 s → 112 s |\n| templates | 268 s → 82 s |\n| polkadot | 300 s → 233 s |\n\n\n## Integration\n\nCI-only change.\n\n## Review Notes\n\nWhich binaries each family spawns was taken from the test sources:\npolkadot/zombienet-sdk-tests, cumulus/zombienet/zombienet-sdk,\nsubstrate/zombienet/zombienet-sdk and templates/zombienet.",
+          "timestamp": "2026-10-23T12:26:49Z",
+          "tree_id": "c65018a4804784d9edc10ecd3ba762b4a02ce0f9",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/74b0ba5914888631b0111fafd5e2f42eb9ef325f"
+        },
+        "date": 1792763945102,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52938.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.14999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7612811772599986,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7937346660000303,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.487661784302892,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000019050599999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.76567364141,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019080399999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019080399999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7962000941799987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.269027606410024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.743937201339999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000019050599999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.4027896906199975,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005411135599999993,
             "unit": "seconds"
           }
         ]
