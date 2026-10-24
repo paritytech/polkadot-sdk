@@ -7,6 +7,7 @@ import {
 	GlobalTimeout,
 } from "../src/utils";
 import { commonSignedSteps } from "./common";
+import { exportWeightDiagram } from "../src/export-diagram";
 
 const PRESET: Presets = Presets.FakeDev;
 test(
@@ -26,6 +27,7 @@ test(
 		);
 
 		const outcome = await runTest(testCase, apis, paraLog);
+		exportWeightDiagram(testCase.summary, `./signed-dev.html`);
 		expect(outcome).toEqual(EventOutcome.Done);
 	},
 	{ timeout: GlobalTimeout }
