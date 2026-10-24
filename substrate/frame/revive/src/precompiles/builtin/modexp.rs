@@ -91,54 +91,46 @@ impl<T: Config> PrimitivePrecompile for Modexp<T> {
 		let exp_len = exp_len_big.to_usize().expect("exp_len out of bounds");
 		let mod_len = mod_len_big.to_usize().expect("mod_len out of bounds");
 
+		// read the numbers themselves.
+		let mut base_buf = vec![0u8; base_len];
+		read_input(&input, &mut base_buf, &mut input_offset);
+		let base = BigUint::from_bytes_be(&base_buf);
+
+		let mut exp_buf = vec![0u8; exp_len];
+		read_input(&input, &mut exp_buf, &mut input_offset);
+		let exponent = BigUint::from_bytes_be(&exp_buf);
+
+		let mut mod_buf = vec![0u8; mod_len];
+		read_input(&input, &mut mod_buf, &mut input_offset);
+		let modulus = BigUint::from_bytes_be(&mod_buf);
+
+		// do our gas accounting
+		// `BigUint::is_even` is true for zero, but an empty modulus never reaches `modpow`.
+		let gas_cost = calculate_gas_cost(
+			base_len as u64,
+			mod_len as u64,
+			&exponent,
+			&exp_buf,
+			mod_len != 0 && modulus.is_even(),
+		);
+
+		env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
+
 		// if mod_len is 0 output must be empty
 		if mod_len == 0 {
 			return Ok(Vec::new());
 		}
 
-		// Gas formula allows arbitrary large exp_len when base and modulus are empty, so we need to
-		// handle empty base first.
-		let r = if base_len == 0 && mod_len == 0 {
-			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(MIN_GAS_COST))?;
-
+		let r = if modulus.is_zero() || modulus.is_one() {
 			BigUint::zero()
 		} else {
-			// read the numbers themselves.
-			let mut base_buf = vec![0u8; base_len];
-			read_input(&input, &mut base_buf, &mut input_offset);
-			let base = BigUint::from_bytes_be(&base_buf);
-
-			let mut exp_buf = vec![0u8; exp_len];
-			read_input(&input, &mut exp_buf, &mut input_offset);
-			let exponent = BigUint::from_bytes_be(&exp_buf);
-
-			let mut mod_buf = vec![0u8; mod_len];
-			read_input(&input, &mut mod_buf, &mut input_offset);
-			let modulus = BigUint::from_bytes_be(&mod_buf);
-
-			// do our gas accounting
-			let gas_cost = calculate_gas_cost(
-				base_len as u64,
-				mod_len as u64,
-				&exponent,
-				&exp_buf,
-				modulus.is_even(),
-			);
-
-			env.frame_meter_mut().charge_weight_token(RuntimeCosts::Modexp(gas_cost))?;
-
-			if modulus.is_zero() || modulus.is_one() {
-				BigUint::zero()
-			} else {
-				base.modpow(&exponent, &modulus)
-			}
+			base.modpow(&exponent, &modulus)
 		};
 
 		// write output to given memory, left padded and same length as the modulus.
 		let bytes = r.to_bytes_be();
 
-		// always true except in the case of zero-length modulus, which leads to
-		// output of length and value 1.
+		// `r < modulus`, so it always fits in `mod_len` bytes.
 		if bytes.len() == mod_len {
 			Ok(bytes.to_vec())
 		} else if bytes.len() < mod_len {
@@ -396,5 +388,38 @@ mod tests {
 			// 7104 * 20 gas used when ran in geth (x20)
 			assert_eq!(after - before, Token::<Test>::weight(&RuntimeCosts::Modexp(7104 * 20)));
 		})
+	}
+
+	#[test]
+	fn test_zero_modulus_charges_eip2565_cost() {
+		use crate::{call_builder::CallSetup, metering::Token, tests::ExtBuilder};
+
+		// EIP-2565 cost for an all-0xff base and exponent.
+		for (base_len, exp_len, gas) in
+			[(0u16, 0u16, 200), (0, 32, 200), (32, 32, 1360), (1024, 1024, 44_733_781)]
+		{
+			let mut input = vec![0u8; 96];
+			input[30..32].copy_from_slice(&base_len.to_be_bytes());
+			input[62..64].copy_from_slice(&exp_len.to_be_bytes());
+			input.extend(vec![0xff; base_len as usize + exp_len as usize]);
+
+			ExtBuilder::default().build().execute_with(|| {
+				let mut call_setup = CallSetup::<Test>::default();
+				let (mut ext, _) = call_setup.ext();
+
+				let before = ext.frame_meter().weight_consumed();
+				let output =
+					<Modexp<Test>>::call(&<Modexp<Test>>::MATCHER.base_address(), input, &mut ext)
+						.unwrap();
+				let after = ext.frame_meter().weight_consumed();
+
+				assert!(output.is_empty());
+				assert_eq!(
+					after - before,
+					Token::<Test>::weight(&RuntimeCosts::Modexp(gas)),
+					"base_len={base_len} exp_len={exp_len}",
+				);
+			})
+		}
 	}
 }

@@ -1,0 +1,12 @@
+title: '[pallet-revive] Charge the EIP-2565 modexp cost when the modulus length is zero'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    The modexp precompile returned an empty output for a zero-length modulus without charging
+    its own EIP-2565 cost. The caller still paid the precompile call base cost and the input
+    decode. Calls with a zero-length modulus are now charged the EIP-2565 cost like every other
+    input, which matches geth and revm. Contracts calling modexp with a zero-length modulus see
+    higher gas usage, and such calls can now run out of gas. No migration is needed.
+crates:
+- name: pallet-revive
+  bump: patch
