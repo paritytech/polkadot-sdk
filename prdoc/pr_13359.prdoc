@@ -1,0 +1,68 @@
+title: 'Transfer on-demand coretime revenue to the broker pallet locally'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-on-demand-para` now books the revenue from the on-demand coretime orders it
+    sells, and hands it over to `pallet-broker`, replicating what the Relay Chain's
+    on-demand pallet does for the Coretime chain today.
+
+    The spot price paid for an order is kept in the pallet's pot and booked against
+    the timeslice the order was placed in, which the pallet derives from the new
+    `TimeslicePeriod` config item. That must match the `TimeslicePeriod` of
+    `pallet-broker`. The unclaimed revenue of at most `MaxUnclaimedTimeslices` (a new
+    config item) timeslices is kept apart; beyond that, the revenue of the oldest
+    timeslice is merged into the next oldest one.
+
+    `pallet-broker` claims that revenue through the new `OnDemandRevenue` trait in
+    `fp-coretime`, which `pallet-on-demand-para` implements, and which its new
+    `OnDemandRevenue` config item names. Once a timeslice ends, `pallet-broker` claims
+    the revenue of that timeslice and of every earlier timeslice not claimed yet, and
+    gets the amount paid out for each timeslice back, so the revenue is attributed
+    correctly even while the broker is catching up with timeslices after the chain has
+    stalled. The revenue of a timeslice is only paid out in full, oldest first. If the
+    pot happens to hold less than the revenue booked, the revenue of as many timeslices
+    as it can cover is paid out, an `UnexpectedLowFunds` event is emitted, and the rest
+    stays booked until the pot has been topped up. Revenue which is not paid out, for
+    this or any other reason, is claimed along with a later timeslice, and `pallet-broker`
+    keeps the history of the ended timeslice until then.
+
+    Since both pallets live on the same chain there is no need for XCM: the funds are
+    transferred straight into the broker pot, and the revenue is distributed among the
+    contributors to the Instantaneous Coretime Pool within the same block. This replaces
+    the round-trip in which the Relay Chain teleports the revenue to the Coretime chain
+    and reports it with `notify_revenue`, so the payouts are ready one block earlier than
+    they used to be.
+
+    On-demand coretime sales in `pallet-on-demand-para` can be enabled and disabled with the
+    new `set_enabled` call, which requires Root or `AdminOrigin`, is free, and emits an
+    `EnabledSet` event. They are disabled until enabled that way. While they are disabled,
+    `place_order` fails with the new `Disabled` error, so no revenue is booked which would
+    never be distributed; revenue booked before they were disabled stays booked until they
+    are enabled again.
+
+    `pallet-broker` follows that switch through the new `OnDemandRevenue::is_enabled`. While
+    the on-demand market is disabled, `pallet-broker` behaves as before: it requests the
+    revenue from the Relay Chain with `CoretimeInterface::request_revenue_info_at` and
+    distributes what the Relay Chain reports with `notify_revenue`. While it is enabled,
+    `pallet-broker` only claims the revenue locally, makes no requests to the Relay Chain,
+    and ignores the `RevenueInbox`. Runtimes which keep requesting the revenue from the
+    Relay Chain can set `OnDemandRevenue` to `()`, which is never enabled.
+
+    `pallet-on-demand-para` is also wired into the coretime-westend runtime. It starts out
+    disabled, so the broker keeps requesting the revenue from the Relay Chain until on-demand
+    coretime sales are enabled with `set_enabled`, without a runtime upgrade.
+
+    With the `runtime-benchmarks` feature enabled, `PoolCapacityProvider` has a new
+    `ensure_pool_cores` method, which the benchmarks use to make sure the pool is not
+    empty before they place orders, and `QueueOnDemandOrders` has a new
+    `ensure_successful_delivery` method, which makes sure the batch of orders sent on
+    finalization reaches the Relay Chain.
+crates:
+- name: fp-coretime
+  bump: minor
+- name: pallet-broker
+  bump: major
+- name: pallet-on-demand-para
+  bump: major
+- name: coretime-westend-runtime
+  bump: major

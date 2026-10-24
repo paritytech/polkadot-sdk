@@ -45,7 +45,9 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use coretime_interface::*;
 pub use fp_coretime::{
-	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	market,
+	revenue::{OnDemandRevenue, RevenueClaim},
+	CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
 	CORE_MASK_BITS,
 };
 pub use types::*;
@@ -96,6 +98,17 @@ pub mod pallet {
 		/// Relay chain's Coretime API used to interact with and instruct the low-level scheduling
 		/// system.
 		type Coretime: CoretimeInterface;
+
+		/// The on-demand Coretime market whose revenue is distributed among the contributors to
+		/// the Instantaneous Coretime Pool. Expected to live on the same chain as this pallet, so
+		/// the revenue can be claimed directly.
+		///
+		/// While it is enabled, the revenue of each timeslice is claimed from it once that
+		/// timeslice has ended, along with that of any earlier timeslice which could not be paid
+		/// out before, and revenue reports from the Relay chain are ignored. While it is not, the
+		/// revenue is requested from the Relay chain through [`Config::Coretime`], which reports
+		/// it back with `notify_revenue`.
+		type OnDemandRevenue: OnDemandRevenue<BalanceOf<Self>, Self::AccountId>;
 
 		/// The algorithm to determine the next price on the basis of market performance.
 		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
