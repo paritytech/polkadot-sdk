@@ -110,6 +110,10 @@ pub struct CollationManager {
 	// Key store.
 	keystore: KeystorePtr,
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
+	// Rate-limiting state for the (potentially frequent) collation-fetch error warnings, so a
+	// flaky network or a buggy `Canceled` loop can't flood the logs.
+	network_error_freq: gum::Freq,
+	canceled_freq: gum::Freq,
 }
 
 impl CollationManager {
@@ -127,6 +131,8 @@ impl CollationManager {
 			fetching: PendingRequests::default(),
 			keystore,
 			leaf_scheduling_info: HashMap::default(),
+			network_error_freq: gum::Freq::new(),
+			canceled_freq: gum::Freq::new(),
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -199,6 +205,13 @@ impl CollationManager {
 				if !self.implicit_view.paths_via_relay_parent(&sp).is_empty() {
 					return Some((sp, per_sp));
 				}
+
+				gum::trace!(
+					target: LOG_TARGET,
+					scheduling_parent = ?sp,
+					"Scheduling parent no longer reachable from any leaf; dropping it and cancelling its in-flight fetches",
+				);
+
 				for (advertisement, _) in per_sp.all_advertisements() {
 					self.fetching.cancel(advertisement);
 				}
@@ -246,6 +259,13 @@ impl CollationManager {
 						continue;
 					},
 				};
+				gum::trace!(
+					target: LOG_TARGET,
+					scheduling_parent = ?ancestor,
+					?core,
+					session_index,
+					"Registered scheduling parent on our assigned core",
+				);
 				self.per_scheduling_parent
 					.insert(*ancestor, PerSchedulingParent::new(session_index, core));
 			}
@@ -597,7 +617,11 @@ impl CollationManager {
 			return CanSecond::No(None, reject_info);
 		};
 
-		match process_collation_fetch_result(res) {
+		match process_collation_fetch_result(
+			res,
+			&mut self.network_error_freq,
+			&mut self.canceled_freq,
+		) {
 			Ok(fetched_collation) => {
 				let candidate_hash = fetched_collation.candidate_receipt.hash();
 				// It can't be a duplicate, because we check before initiating fetch. For the old
@@ -841,7 +865,14 @@ impl CollationManager {
 			.collect();
 
 		// `Ord` is custom: descending by score, so first = best.
-		let Some(best) = advertisements.first() else { return Either::Left(None) };
+		let Some(best) = advertisements.first() else {
+			gum::trace!(
+				target: LOG_TARGET,
+				?para_id,
+				"No fetchable advertisement for a free claim-queue slot",
+			);
+			return Either::Left(None);
+		};
 
 		let delay = Self::calculate_delay(best.score, highest_rep_of_para);
 
@@ -863,6 +894,14 @@ impl CollationManager {
 			);
 			Either::Left(Some(*best.adv))
 		} else {
+			gum::trace!(
+				target: LOG_TARGET,
+				peer_id = ?best.adv.peer_id,
+				scheduling_parent = ?best.adv.scheduling_parent,
+				?para_id,
+				?remaining,
+				"Best advertisement is fetch-delayed; will fetch once the delay elapses",
+			);
 			Either::Right(remaining)
 		}
 	}
@@ -1352,6 +1391,8 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 
 fn process_collation_fetch_result(
 	(advertisement, res): CollationFetchResponse,
+	network_error_freq: &mut gum::Freq,
+	canceled_freq: &mut gum::Freq,
 ) -> std::result::Result<FetchedCollation, Option<Score>> {
 	match res {
 		Err(CollationFetchError::Cancelled) => {
@@ -1376,7 +1417,9 @@ fn process_collation_fetch_result(
 			Err(Some(FAILED_FETCH_SLASH))
 		},
 		Err(CollationFetchError::Request(RequestError::NetworkError(err))) => {
-			gum::warn!(
+			gum::warn_if_frequent!(
+				freq: network_error_freq,
+				max_rate: gum::Times::PerHour(100),
 				target: LOG_TARGET,
 				?advertisement,
 				err = ?err,
@@ -1385,7 +1428,9 @@ fn process_collation_fetch_result(
 			Err(None)
 		},
 		Err(CollationFetchError::Request(RequestError::Canceled(err))) => {
-			gum::warn!(
+			gum::warn_if_frequent!(
+				freq: canceled_freq,
+				max_rate: gum::Times::PerHour(100),
 				target: LOG_TARGET,
 				?advertisement,
 				err = ?err,
@@ -1681,6 +1726,8 @@ mod tests {
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::default(),
+			network_error_freq: gum::Freq::new(),
+			canceled_freq: gum::Freq::new(),
 		};
 
 		// No advertisements - returns Left(None).
