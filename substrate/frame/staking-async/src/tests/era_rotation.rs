@@ -241,7 +241,7 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 		assert_eq!(active_era(), 1);
 		// Era 1 holds points of both services, which the `ErasRewardPoints` step removes.
 		Staking::reward_by_ids(vec![(11, 1)]);
-		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(11, 1)]);
+		Staking::reward_service_points(ServiceKind::Collation, vec![(11, 1)]);
 		assert_eq!(crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(), 2);
 
 		Session::roll_until_active_era(HistoryDepth::get() - 1);

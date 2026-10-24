@@ -18,7 +18,7 @@ use frame_support::{assert_noop, assert_ok, weights::Weight};
 use sp_runtime::traits::BadOrigin;
 use sp_staking::{
 	RewardPoints,
-	ValidatorServiceKind::{self, Collation, RelayConsensus},
+	ServiceKind::{self, Collation, RelayConsensus},
 };
 
 fn events() -> Vec<Event<Test>> {
@@ -105,10 +105,9 @@ fn blocks_are_credited_with_the_weight_of_their_source() {
 #[test]
 fn calls_reject_wrong_origin_and_points_over_the_cap() {
 	new_test_ext().execute_with(|| {
-		let set =
-			|origin: RuntimeOrigin, source: u64, service: ValidatorServiceKind, points: u32| {
-				StakingPointsConverter::set_points_per_service(origin, source, service, points)
-			};
+		let set = |origin: RuntimeOrigin, source: u64, service: ServiceKind, points: u32| {
+			StakingPointsConverter::set_points_per_service(origin, source, service, points)
+		};
 		// GIVEN account 4, which is neither root nor a reporting chain
 		let other = RuntimeOrigin::signed(4);
 		// WHEN it sets points per service or reports blocks

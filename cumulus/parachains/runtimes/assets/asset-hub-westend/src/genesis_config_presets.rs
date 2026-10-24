@@ -28,7 +28,7 @@ use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::traits::AccountIdConversion;
-use sp_staking::ValidatorServiceKind;
+use sp_staking::ServiceKind;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, locations::PeopleParaId, xcm_version::SAFE_XCM_VERSION,
 };
@@ -46,7 +46,7 @@ fn asset_hub_westend_genesis(
 	id: ParaId,
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
-	points_per_service: Vec<(ParaId, ValidatorServiceKind, u32)>,
+	points_per_service: Vec<(ParaId, ServiceKind, u32)>,
 ) -> serde_json::Value {
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	// The DAP buffer receives slashes and is the signed-phase reward pot. Payouts transfer with
@@ -192,8 +192,8 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 				],
 				// Era points per block authored on each chain that reports its blocks.
 				vec![
-					(id, ValidatorServiceKind::Collation, 20),
-					(PeopleParaId::get(), ValidatorServiceKind::Collation, 20),
+					(id, ServiceKind::Collation, 20),
+					(PeopleParaId::get(), ServiceKind::Collation, 20),
 				],
 			)
 		},

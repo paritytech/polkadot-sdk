@@ -22,7 +22,7 @@ use frame_support::{
 };
 use frame_system::{EnsureRoot, EnsureSignedBy};
 use sp_runtime::BuildStorage;
-use sp_staking::{RewardPoints, ValidatorServiceKind};
+use sp_staking::{RewardPoints, ServiceKind};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -58,12 +58,12 @@ impl SortedMembers<u64> for Reporters {
 }
 
 parameter_types! {
-	pub static Rewarded: Vec<(ValidatorServiceKind, Vec<(u64, u32)>)> = Vec::new();
+	pub static Rewarded: Vec<(ServiceKind, Vec<(u64, u32)>)> = Vec::new();
 }
 
 pub struct MockRewardPoints;
 impl RewardPoints<u64> for MockRewardPoints {
-	fn reward(service: ValidatorServiceKind, points: Vec<(u64, u32)>) {
+	fn reward(service: ServiceKind, points: Vec<(u64, u32)>) {
 		Rewarded::mutate(|rewarded| rewarded.push((service, points)));
 	}
 

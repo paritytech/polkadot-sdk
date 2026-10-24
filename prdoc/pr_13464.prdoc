@@ -5,7 +5,7 @@ doc:
     Validators earn era points for the blocks they author on system chains, weighted per chain and
     service by governance.
 
-    `sp-staking` gains `ValidatorServiceKind` (`RelayConsensus`, `Collation`) and `RewardPoints`,
+    `sp-staking` gains `ServiceKind` (`RelayConsensus`, `Collation`) and `RewardPoints`,
     and now holds `RewardsReporter`, which `frame-support` re-exports at the same path.
 
     `pallet-staking-async` gains `reward_service_points`, which credits points for a service other

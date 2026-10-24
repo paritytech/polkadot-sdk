@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::{currency_to_vote::CurrencyToVote, ValidatorServiceKind};
+use sp_staking::{currency_to_vote::CurrencyToVote, ServiceKind};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -1313,11 +1313,7 @@ mod benchmarks {
 			})
 		};
 		ErasRewardPoints::<T>::insert(era, full_record()?);
-		ErasRewardPointsByService::<T>::insert(
-			era,
-			ValidatorServiceKind::Collation,
-			full_record()?,
-		);
+		ErasRewardPointsByService::<T>::insert(era, ServiceKind::Collation, full_record()?);
 		ErasSumWeightedPoints::<T>::insert(
 			era,
 			BalanceOf::<T>::from(100u64 * max_validators as u64),
@@ -1331,12 +1327,12 @@ mod benchmarks {
 			.collect::<Vec<_>>();
 		let total_before = ErasRewardPoints::<T>::get(era).total;
 		let collation_before =
-			ErasRewardPointsByService::<T>::get(era, ValidatorServiceKind::Collation).total;
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total;
 		let reported: RewardPoint = points.iter().map(|(_, p)| p).sum();
 
 		#[block]
 		{
-			Pallet::<T>::reward_service_points(ValidatorServiceKind::Collation, points);
+			Pallet::<T>::reward_service_points(ServiceKind::Collation, points);
 		}
 
 		ensure!(
@@ -1344,7 +1340,7 @@ mod benchmarks {
 			"the points were not credited"
 		);
 		ensure!(
-			ErasRewardPointsByService::<T>::get(era, ValidatorServiceKind::Collation).total ==
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total ==
 				collation_before + reported,
 			"the points were not recorded under their service"
 		);
@@ -1428,10 +1424,10 @@ mod benchmarks {
 			},
 		);
 		// The 7 points of each validator split as 4 for relay consensus and 3 for collation. One
-		// entry per `ValidatorServiceKind` variant, so the weight of `prune_era_reward_points`
+		// entry per `ServiceKind` variant, so the weight of `prune_era_reward_points`
 		// covers all of them. A new variant must be added here.
 		for (service, points) in
-			[(ValidatorServiceKind::RelayConsensus, 4u32), (ValidatorServiceKind::Collation, 3u32)]
+			[(ServiceKind::RelayConsensus, 4u32), (ServiceKind::Collation, 3u32)]
 		{
 			let individual = reward_points_individual
 				.keys()

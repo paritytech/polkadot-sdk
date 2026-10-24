@@ -60,9 +60,8 @@ pub type Page = u32;
 	MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum ValidatorServiceKind {
-	/// Relay chain consensus: validating and authoring on the relay chain, as reported by the
-	/// relay chain session report.
+pub enum ServiceKind {
+	/// Relay chain consensus: validating and authoring on the relay chain.
 	#[codec(index = 0)]
 	RelayConsensus,
 	/// Authoring blocks on system chains.
@@ -73,7 +72,7 @@ pub enum ValidatorServiceKind {
 /// Credits era points to validators.
 pub trait RewardPoints<AccountId> {
 	/// Credit `points` earned for `service` to the active era.
-	fn reward(service: ValidatorServiceKind, points: Vec<(AccountId, u32)>);
+	fn reward(service: ServiceKind, points: Vec<(AccountId, u32)>);
 
 	/// Weight of [`Self::reward`] for `entries` entries.
 	fn weight(entries: u32) -> Weight;

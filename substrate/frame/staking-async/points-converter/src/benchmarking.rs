@@ -26,7 +26,7 @@ use codec::Decode;
 use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::traits::{EnsureOrigin, Get};
 use sp_runtime::traits::TrailingZeroInput;
-use sp_staking::ValidatorServiceKind;
+use sp_staking::ServiceKind;
 
 fn any_source<T: Config>() -> T::Source {
 	T::Source::decode(&mut TrailingZeroInput::zeroes())
@@ -45,9 +45,9 @@ mod benchmarks {
 		let points = T::MaxPointsPerService::get();
 
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, source, ValidatorServiceKind::Collation, points);
+		_(origin as T::RuntimeOrigin, source, ServiceKind::Collation, points);
 
-		assert_eq!(PointsPerService::<T>::get(source, ValidatorServiceKind::Collation), points);
+		assert_eq!(PointsPerService::<T>::get(source, ServiceKind::Collation), points);
 		Ok(())
 	}
 
@@ -56,7 +56,7 @@ mod benchmarks {
 	#[benchmark]
 	fn report_authored_blocks() {
 		let source = any_source::<T>();
-		PointsPerService::<T>::remove(source, ValidatorServiceKind::Collation);
+		PointsPerService::<T>::remove(source, ServiceKind::Collation);
 		let blocks = (0..1_000)
 			.map(|i| (account::<T::AccountId>("validator", i, 0), 1))
 			.collect::<Vec<_>>();
