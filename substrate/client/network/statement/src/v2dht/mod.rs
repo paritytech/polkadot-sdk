@@ -280,7 +280,9 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
-		self.peers_topology.on_substream_closed(peer);
+		if self.peers_topology.on_substream_closed(peer) {
+			self.publish_dht_affinity();
+		}
 		self.peer_steering.on_substream_closed(peer);
 		// The filter arrived over this substream, so it lives exactly as long.
 		self.explicit_affinity.on_substream_closed(peer);
@@ -744,6 +746,24 @@ mod tests {
 		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
 		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
 		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
+	}
+
+	#[test]
+	fn a_peer_without_dht_returns_to_the_index_when_its_substream_closes() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_peer_without_dht(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
 	}
 
 	#[test]
