@@ -1,0 +1,13 @@
+title: 'frame-system: apply the call filter to the AuthorizeCall origin'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `AuthorizeCall` now checks the runtime call filter against the `Authorized` origin it creates
+    for a call whose `#[pallet::authorize]` callback succeeds, and rejects the transaction with
+    `InvalidTransaction::Call` if the filter does not allow the call. Such calls already failed at
+    dispatch with `CallFiltered`; they are now rejected at transaction validation, before they can
+    be included. Runtimes that want an authorized call to stay usable while e.g. safe mode or
+    tx-pause is active must allow it in their call filter, as they already had to for dispatch.
+crates:
+- name: frame-system
+  bump: patch
