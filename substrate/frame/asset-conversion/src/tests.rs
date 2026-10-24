@@ -3102,3 +3102,208 @@ fn per_pool_fee_is_applied_to_swaps() {
 		assert_eq!(balance(user, token_1), with_pool_fee + ed);
 	});
 }
+
+#[test]
+fn swap_exact_tokens_for_tokens_takes_exactly_amount_in() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		// An `ed` above 1 gives asset 2 a window of balances that no account may hold, which is
+		// what tempts the fungible into sweeping a remainder out along with the swap input.
+		let ed = 100;
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			20000 + get_native_ed()
+		));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+		assert_eq!(balance(user, token_2.clone()), 800);
+
+		// Swapping 750 leaves 50 the user may not keep, so an expendable withdrawal would hand
+		// the pool all 800 while pricing the output on 750 — 50 paid in for nothing.
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2.clone(), token_1.clone()],
+				750,
+				1,
+				user,
+				false,
+			),
+			DispatchError::Token(TokenError::BelowMinimum)
+		);
+		assert_eq!(balance(user, token_2.clone()), 800);
+
+		// A remainder the user can hold is swapped for exactly what was named.
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_2.clone(), token_1.clone()],
+			700,
+			1,
+			user,
+			false,
+		));
+		assert_eq!(balance(user, token_2.clone()), 100);
+
+		// So is spending the balance down to nothing.
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_2.clone(), token_1.clone()],
+			100,
+			1,
+			user,
+			false,
+		));
+		assert_eq!(balance(user, token_2.clone()), 0);
+	});
+}
+
+#[test]
+fn swap_tokens_for_exact_tokens_takes_exactly_amount_in() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		let ed = 100;
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			20000 + get_native_ed()
+		));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+		assert_eq!(balance(user, token_2.clone()), 800);
+
+		// Ask for an output that would require 750 of token_2 — the same dust window as
+		// `swap_exact_tokens_for_tokens_takes_exactly_amount_in`. The quoted input is what
+		// `withdraw` sees, so the same surplus would otherwise be donated to the pool.
+		let amount_out = AssetConversion::quote_price_exact_tokens_for_tokens(
+			token_2.clone(),
+			token_1.clone(),
+			750,
+			true,
+		)
+		.expect("quote");
+		let quoted_in = AssetConversion::quote_price_tokens_for_exact_tokens(
+			token_2.clone(),
+			token_1.clone(),
+			amount_out,
+			true,
+		)
+		.expect("reverse quote");
+		assert!(
+			quoted_in > 700 && quoted_in < 800,
+			"quoted input {quoted_in} must stay in the dust window against balance 800 / ed 100",
+		);
+
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2.clone(), token_1.clone()],
+				amount_out,
+				800,
+				user,
+				false,
+			),
+			DispatchError::Token(TokenError::BelowMinimum)
+		);
+		assert_eq!(balance(user, token_2.clone()), 800);
+	});
+}
+
+/// A native withdrawal is always exact: pallet-balances returns exactly `value` and handles a
+/// remainder below the existential deposit as dust. So an expendable swap that leaves the sender
+/// below the ED succeeds, and the pool receives exactly `amount_in`. `withdraw` must not refuse it.
+#[test]
+fn native_swap_leaving_less_than_ed_succeeds() {
+	new_test_ext().execute_with(|| {
+		let provider = 1;
+		let swapper = 2;
+		let recipient = 3;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let ed = get_native_ed();
+
+		create_tokens(provider, vec![token_2.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), provider, 20000 + ed));
+		// More than is added, since `add_liquidity` keeps the provider alive.
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 2, provider, 20000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			10000,
+			1,
+			1,
+			provider,
+		));
+
+		// The swapper holds only native funds, so nothing keeps its account alive.
+		let free = 1000 + ed;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), swapper, free));
+		assert_eq!(System::consumers(&swapper), 0);
+		// The recipient needs its own native ED to hold the non-sufficient asset.
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), recipient, ed));
+
+		let pool =
+			<Test as Config>::PoolLocator::address(&(token_1.clone(), token_2.clone())).unwrap();
+		let pool_native_before = balance(pool, token_1.clone());
+
+		// Leaves half the ED behind, which the swapper may not keep.
+		let amount_in = free - ed / 2;
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(swapper),
+			bvec![token_1.clone(), token_2.clone()],
+			amount_in,
+			1,
+			recipient,
+			false,
+		));
+
+		assert_eq!(balance(pool, token_1.clone()) - pool_native_before, amount_in);
+		assert_eq!(balance(swapper, token_1), 0);
+		assert!(balance(recipient, token_2) > 0);
+	});
+}

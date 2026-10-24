@@ -36,7 +36,10 @@ use pallet_revive::precompiles::{
 	},
 	AddressMapper, AddressMatcher, Error, Ext, Precompile, RuntimeCosts, H160, H256,
 };
-use sp_runtime::traits::{UniqueSaturatedInto, Zero};
+use sp_runtime::{
+	traits::{UniqueSaturatedInto, Zero},
+	DispatchError,
+};
 
 pub mod foreign_assets;
 pub mod migration;
@@ -182,10 +185,11 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		frame_support::ensure!(
-			!env.is_delegate_call(),
-			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
-		);
+		if env.is_delegate_call() {
+			return Err(Error::try_to_revert::<Self::T>(
+				pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into(),
+			));
+		}
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
@@ -379,6 +383,7 @@ const TRANSFER_LOG_DATA_LEN: u32 = 32;
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_WOULD_SWEEP_REMAINDER: &str = "Transfer would leave sender below minimum balance";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -414,6 +419,43 @@ where
 	) -> Result<alloy::primitives::U256, Error> {
 		alloy::primitives::U256::try_from(value)
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
+	}
+
+	/// Every pallet or token failure of a state-changing call is a Solidity revert, with the
+	/// reason sp-runtime gives the error: the variant name for a module error, so a contract sees
+	/// the same name whichever precompile surfaced it. `Error::Error` comes from the blanket
+	/// `From<DispatchError>`; only charging failures should reach it.
+	fn revert_dispatch(e: DispatchError) -> Error {
+		Error::Revert(Revert { reason: <&'static str>::from(e).into() })
+	}
+
+	/// ERC-20 requires a transfer to move exactly `value`, but pallet-assets debits the whole
+	/// balance when debiting `amount` would leave `from` a non-zero remainder below the minimum
+	/// balance, and credits all of it to the destination. Refuse such a transfer instead.
+	///
+	/// `can_withdraw` is the `can_decrease` that `prep_debit` runs right after, so this reads only
+	/// keys the transfer reads anyway. Sending the whole balance leaves no remainder and is
+	/// allowed. A self-transfer moves exactly `amount` in pallet-assets, so it is exempt.
+	fn ensure_no_sweep(
+		asset_id: &<Runtime as Config<Instance>>::AssetId,
+		from: &<Runtime as frame_system::Config>::AccountId,
+		to: &<Runtime as frame_system::Config>::AccountId,
+		amount: <Runtime as Config<Instance>>::Balance,
+	) -> Result<(), Error> {
+		use frame_support::traits::{fungibles::Inspect, tokens::WithdrawConsequence};
+		if from == to {
+			return Ok(());
+		}
+		match pallet_assets::Pallet::<Runtime, Instance>::can_withdraw(
+			asset_id.clone(),
+			from,
+			amount,
+		) {
+			WithdrawConsequence::ReducedToZero(rest) if !rest.is_zero() => {
+				Err(Error::Revert(Revert { reason: ERR_WOULD_SWEEP_REMAINDER.into() }))
+			},
+			_ => Ok(()),
+		}
 	}
 
 	/// Deposit an event to the runtime.
@@ -454,6 +496,7 @@ where
 			&call.to.into_array().into(),
 		);
 		let amount = Self::to_balance(call.value)?;
+		Self::ensure_no_sweep(&asset_id, &from_account, &dest, amount)?;
 
 		let f = TransferFlags { keep_alive: false, best_effort: false, burn_dust: false };
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer(
@@ -463,7 +506,8 @@ where
 			amount,
 			None,
 			f,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		// A zero-value transfer is a no-op in `do_transfer` and fires no callback, but EIP-20
 		// requires it to still emit a `Transfer` log. Emitted here rather than through
@@ -576,7 +620,8 @@ where
 					&asset_id,
 					&owner_account,
 					&spender_account,
-				)?;
+				)
+				.map_err(Self::revert_dispatch)?;
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
 					.saturating_add(<Runtime as Config<Instance>>::WeightInfo::cancel_approval());
 			} else {
@@ -594,7 +639,8 @@ where
 					&asset_id,
 					&owner_account,
 					&spender_account,
-				)?;
+				)
+				.map_err(Self::revert_dispatch)?;
 				actual_weight = worst_case;
 			} else {
 				actual_weight = <Runtime as Config<Instance>>::WeightInfo::allowance()
@@ -605,7 +651,8 @@ where
 				&owner_account,
 				&spender_account,
 				new_amount,
-			)?;
+			)
+			.map_err(Self::revert_dispatch)?;
 		}
 		env.adjust_gas(charged, actual_weight);
 
@@ -648,13 +695,16 @@ where
 		let to = <Runtime as pallet_revive::Config>::AddressMapper::to_account_id(&to);
 
 		let approval_amount = Self::to_balance(call.value)?;
+		Self::ensure_no_sweep(&asset_id, &from, &to, approval_amount)?;
+
 		pallet_assets::Pallet::<Runtime, Instance>::do_transfer_approved(
 			asset_id,
 			&from,
 			&spender,
 			&to,
 			approval_amount,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		// A zero-value transfer is a no-op in `do_transfer_approved` and fires no callback, but
 		// EIP-20 requires it to still emit a `Transfer` log; see `transfer` for why this is emitted
@@ -754,7 +804,8 @@ where
 							&asset_id,
 							&owner_account,
 							&spender_account,
-						)?;
+						)
+						.map_err(Self::revert_dispatch)?;
 						actual_weight = use_permit_weight
 							.saturating_add(<Runtime as Config<Instance>>::WeightInfo::allowance())
 							.saturating_add(
@@ -772,7 +823,8 @@ where
 							&asset_id,
 							&owner_account,
 							&spender_account,
-						)?;
+						)
+						.map_err(Self::revert_dispatch)?;
 						actual_weight = worst_case;
 					} else {
 						// set new approval
@@ -787,7 +839,8 @@ where
 						&owner_account,
 						&spender_account,
 						new_amount,
-					)?;
+					)
+					.map_err(Self::revert_dispatch)?;
 				}
 
 				// Emit Approval event

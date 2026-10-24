@@ -27,7 +27,10 @@ use frame_support::{
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
 use pallet_revive::{
-	precompiles::{alloy::sol_types::SolCall, TransactionLimits},
+	precompiles::{
+		alloy::sol_types::{Revert, SolCall, SolError},
+		TransactionLimits,
+	},
 	AddressMapper, Code, ExecConfig,
 };
 use sp_runtime::Weight;
@@ -100,6 +103,36 @@ fn did_fail(result: &pallet_revive::ContractResult<pallet_revive::ExecReturnValu
 	result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert())
 }
 
+/// The delegate-call guard reverts with this reason. It comes from
+/// `Error::try_to_revert`, not from a string local to this precompile.
+const DELEGATE_DENIED: &str = "illegal to call this pre-compile via delegate call";
+
+/// Assert a precompile call reverted with `Error(string)` and this exact reason.
+fn assert_revert_reason(
+	result: &pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64>,
+	reason: &str,
+) {
+	let exec = result.result.as_ref().expect("must not trap");
+	assert!(exec.did_revert(), "expected revert with {reason:?}, got {exec:?}");
+	let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+	assert_eq!(decoded.reason, reason);
+}
+
+/// Assert return data from the Caller fixture is an `Error(string)` revert.
+fn assert_output_reason(output: &[u8], reason: &str) {
+	let decoded = Revert::abi_decode(output).expect("Error(string) revert");
+	assert_eq!(decoded.reason, reason);
+}
+
+/// Assert a failed call's return data: an `Error(string)` revert with `reason`, or no data at
+/// all for `None`.
+fn assert_failure_output(output: &[u8], reason: Option<&str>) {
+	match reason {
+		Some(reason) => assert_output_reason(output, reason),
+		None => assert!(output.is_empty(), "expected no return data, got {output:?}"),
+	}
+}
+
 #[test]
 fn swap_exact_tokens_for_tokens_works() {
 	new_test_ext().execute_with(|| {
@@ -144,6 +177,33 @@ fn swap_exact_tokens_for_tokens_works() {
 			amount_out,
 			"received amount must match return value"
 		);
+	});
+}
+
+/// A swap that fails inside `pallet-assets` must revert with that pallet's error name.
+/// Freezing the asset makes the debit return `AssetNotLive`. That is not an
+/// asset-conversion error, so the precompile reports the module message.
+#[test]
+fn swap_reverts_with_the_inner_pallets_message() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+
+		setup_pool(provider, 10_000, 10_000);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 1_000));
+		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(provider), asset_id));
+
+		let data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountIn: U256::from(100),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		assert_revert_reason(&bare_call(swapper, data), "AssetNotLive");
 	});
 }
 
@@ -332,7 +392,124 @@ fn quote_fails_for_nonexistent_pool() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		assert!(did_fail(&result), "quote for nonexistent pool must fail");
+		assert_revert_reason(&result, "Pool does not exist");
+
+		let exact_out = IAssetConversion::quoteTokensForExactTokensCall {
+			asset1: encode_asset(99).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(caller, exact_out), "Pool does not exist");
+	});
+}
+
+#[test]
+fn quote_reverts_for_zero_amount() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 10_000);
+
+		let exact = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::ZERO,
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(provider, exact), "Amount can't be zero");
+
+		let exact_out = IAssetConversion::quoteTokensForExactTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::ZERO,
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(provider, exact_out), "Amount can't be zero");
+	});
+}
+
+#[test]
+fn quote_reverts_for_empty_pool() {
+	new_test_ext().execute_with(|| {
+		let creator = 1u64;
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1u32, creator, true, 1));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(creator),
+			Box::new(NativeOrWithId::Native),
+			Box::new(NativeOrWithId::WithId(1)),
+		));
+
+		let exact = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(creator, exact), "Pool exists but has no liquidity");
+
+		let exact_out = IAssetConversion::quoteTokensForExactTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(creator, exact_out), "Pool exists but has no liquidity");
+	});
+}
+
+/// The pool exists and is funded, but the reserves cannot fill the quote. `QuotePrice` returns
+/// `None` without saying why, so the reason does not name a cause.
+#[test]
+fn quote_reverts_when_reserves_cannot_fill_it() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let asset_id = 1u32;
+		// min_balance sits close to the reserve so a modest exact-in quote asks for more of the
+		// asset than the pool can withdraw while staying alive.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 8_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 20_000));
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native),
+			Box::new(token),
+			10_000,
+			10_000,
+			0,
+			0,
+			provider,
+		));
+
+		// More than either reserve. The pool is funded, so this is not an empty pool.
+		let exact_out = IAssetConversion::quoteTokensForExactTokensCall {
+			asset1: encode_asset(asset_id).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100_000),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(provider, exact_out), "Quote failed");
+
+		// Output exceeds the asset the pool can withdraw above `min_balance`.
+		let exact_in = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(asset_id).into(),
+			amount: U256::from(10_000),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(provider, exact_in), "Quote failed");
 	});
 }
 
@@ -352,7 +529,7 @@ fn quote_fails_with_invalid_encoding() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		assert!(did_fail(&result), "quote with invalid SCALE encoding must fail");
+		assert_revert_reason(&result, "Failed to SCALE-decode asset kind");
 	});
 }
 
@@ -537,6 +714,34 @@ fn remove_liquidity_fails_with_excessive_lp_burn() {
 	});
 }
 
+/// Paying out less than the native minimum balance to a new account fails with
+/// `Token(BelowMinimum)`. That is not a swap, so the reason must not be the swap's.
+#[test]
+fn remove_liquidity_below_minimum_reverts_with_token_reason() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let fresh = 99u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		// 50 LP of 10_000 redeems 50 native, below the existential deposit of 100.
+		let data = IAssetConversion::removeLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			lpTokenBurn: U256::from(50),
+			amount1MinReceive: U256::from(1),
+			amount2MinReceive: U256::from(1),
+			withdrawTo: account_addr(&fresh),
+		}
+		.abi_encode();
+
+		assert_revert_reason(
+			&bare_call(provider, data),
+			"Account cannot exist with the funds that would be given",
+		);
+	});
+}
+
 #[test]
 fn get_reserves_works() {
 	new_test_ext().execute_with(|| {
@@ -573,7 +778,47 @@ fn get_reserves_fails_for_nonexistent_pool() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		assert!(did_fail(&result), "get_reserves for nonexistent pool must fail");
+		assert_revert_reason(&result, "Pool does not exist");
+	});
+}
+
+/// `get_reserves()` only weighs the two balance reads. Telling a missing pool from an empty one
+/// reads `Pools` as well, so those paths must also pay `pool_exists()`, and the success path,
+/// which never reads `Pools`, must not.
+#[test]
+fn get_reserves_charges_pool_lookup_only_when_reserves_are_empty() {
+	use pallet_asset_conversion::WeightInfo;
+
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let reserves = <() as WeightInfo>::get_reserves();
+		let with_lookup = reserves.saturating_add(<() as WeightInfo>::pool_exists());
+		let call = |asset2: u32| {
+			IAssetConversion::getReservesCall {
+				asset1: encode_native().into(),
+				asset2: encode_asset(asset2).into(),
+			}
+			.abi_encode()
+		};
+
+		setup_pool(provider, 10_000, 20_000);
+		let result = bare_call(provider, call(1));
+		assert!(!did_fail(&result), "get_reserves must succeed");
+		assert_eq!(result.weight_consumed, reserves, "success path must not pay the lookup");
+
+		let result = bare_call(provider, call(99));
+		assert_revert_reason(&result, "Pool does not exist");
+		assert_eq!(result.weight_consumed, with_lookup, "missing pool must pay the lookup");
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 2u32, provider, true, 1));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(NativeOrWithId::Native),
+			Box::new(NativeOrWithId::WithId(2)),
+		));
+		let result = bare_call(provider, call(2));
+		assert_revert_reason(&result, "Pool exists but has no liquidity");
+		assert_eq!(result.weight_consumed, with_lookup, "empty pool must pay the lookup");
 	});
 }
 
@@ -655,9 +900,11 @@ fn call_fixture(caller_contract: sp_core::H160, calldata: Vec<u8>) -> (bool, Vec
 
 use test_case::test_case;
 
-#[test_case(encode_static_call ; "staticcall")]
-#[test_case(encode_delegate_call ; "delegatecall")]
-fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
+/// A state change under STATICCALL fails with no return data, as on Ethereum and elsewhere in
+/// revive; the delegate-call guard reverts with a reason.
+#[test_case(encode_static_call, None ; "staticcall")]
+#[test_case(encode_delegate_call, Some(DELEGATE_DENIED) ; "delegatecall")]
+fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: Option<&str>) {
 	new_test_ext().execute_with(|| {
 		let caller_contract = deploy_caller();
 
@@ -670,8 +917,9 @@ fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
 		}
 		.abi_encode();
 
-		let (success, _) = call_fixture(caller_contract, encode(swap_data));
+		let (success, output) = call_fixture(caller_contract, encode(swap_data));
 		assert!(!success, "swap must fail in indirect call context");
+		assert_failure_output(&output, reason);
 	});
 }
 
@@ -692,8 +940,11 @@ fn quote_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
 		}
 		.abi_encode();
 
-		let (success, _) = call_fixture(caller_contract, encode(quote_data));
+		let (success, output) = call_fixture(caller_contract, encode(quote_data));
 		assert_eq!(success, expect_success);
+		if !expect_success {
+			assert_output_reason(&output, DELEGATE_DENIED);
+		}
 	});
 }
 
@@ -712,14 +963,17 @@ fn get_reserves_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
 		}
 		.abi_encode();
 
-		let (success, _) = call_fixture(caller_contract, encode(data));
+		let (success, output) = call_fixture(caller_contract, encode(data));
 		assert_eq!(success, expect_success);
+		if !expect_success {
+			assert_output_reason(&output, DELEGATE_DENIED);
+		}
 	});
 }
 
-#[test_case(encode_static_call ; "staticcall")]
-#[test_case(encode_delegate_call ; "delegatecall")]
-fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
+#[test_case(encode_static_call, None ; "staticcall")]
+#[test_case(encode_delegate_call, Some(DELEGATE_DENIED) ; "delegatecall")]
+fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>, reason: Option<&str>) {
 	new_test_ext().execute_with(|| {
 		let caller_contract = deploy_caller();
 
@@ -729,12 +983,13 @@ fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
 		}
 		.abi_encode();
 
-		let (success, _) = call_fixture(caller_contract, encode(data));
+		let (success, output) = call_fixture(caller_contract, encode(data));
 		assert!(!success, "create_pool must fail in indirect call context");
+		assert_failure_output(&output, reason);
 	});
 }
 
-/// The delegatecall guard rejects all calls via delegatecall and returns empty output.
+/// The delegatecall guard reverts with the host's delegate-call reason.
 #[test]
 fn delegatecall_is_rejected() {
 	new_test_ext().execute_with(|| {
@@ -750,10 +1005,244 @@ fn delegatecall_is_rejected() {
 
 		let (success, output) = call_fixture(caller_contract, encode_delegate_call(quote_data));
 		assert!(!success, "DELEGATECALL to asset-conversion precompile must be rejected");
+		assert_output_reason(&output, DELEGATE_DENIED);
+	});
+}
+
+/// A swap against a pair with no liquidity must revert with a reason, not trap.
+/// A swap on a pair with no pool fails in `get_reserves`, which reports `PoolEmpty` for a missing
+/// pool as well: the swap path never reads `Pools`. The reason is the pallet's variant name, not a
+/// sentence claiming the pool exists.
+#[test]
+fn swap_exact_tokens_for_tokens_reverts_when_pool_does_not_exist() {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, swapper, true, 1));
+
+		let data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountIn: U256::from(10),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&swapper),
+			keepAlive: true,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let exec = result.result.expect("must not trap");
+		assert!(exec.did_revert(), "a swap without a pool must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "PoolEmpty");
+	});
+}
+
+/// `keepAlive: false` plus a `min_balance` above 1 opens a window of remainders the fungible
+/// used to sweep into the pool while still quoting the output on `amountIn`. The precompile
+/// must revert with a stable reason and leave balances untouched.
+#[test]
+fn swap_exact_tokens_for_tokens_reverts_when_it_would_sweep_remainder() {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 400));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native),
+			Box::new(token),
+			10_000,
+			200,
+			0,
+			0,
+			provider,
+		));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 800));
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+
+		let data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountIn: U256::from(750),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let exec = result.result.expect("must not trap");
+		assert!(exec.did_revert(), "dust-producing swap must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Swap amount cannot be withdrawn exactly");
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+	});
+}
+
+/// Same dust window as `swap_exact_tokens_for_tokens_reverts_when_it_would_sweep_remainder`,
+/// but the debit is the *quoted* input for `amountOut`, not `amountIn`. Checking
+/// `amountInMax` here would be wrong: that value is only a ceiling.
+#[test]
+fn swap_tokens_for_exact_tokens_reverts_when_it_would_sweep_remainder() {
+	use pallet_revive::precompiles::alloy::sol_types::{Revert, SolError};
+
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 400));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+			10_000,
+			200,
+			0,
+			0,
+			provider,
+		));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 800));
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+
+		let amount_out = AssetConversionPallet::quote_price_exact_tokens_for_tokens(
+			token.clone(),
+			native.clone(),
+			750,
+			true,
+		)
+		.expect("quote");
+		let quoted_in = AssetConversionPallet::quote_price_tokens_for_exact_tokens(
+			token.clone(),
+			native,
+			amount_out,
+			true,
+		)
+		.expect("reverse quote");
 		assert!(
-			output.is_empty(),
-			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
-			output.len(),
+			quoted_in > 700 && quoted_in < 800,
+			"quoted input {quoted_in} must stay in the dust window against balance 800 / ed 100",
+		);
+
+		let data = IAssetConversion::swapTokensForExactTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountOut: U256::from(amount_out),
+			amountInMax: U256::from(800),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let exec = result.result.expect("must not trap");
+		assert!(exec.did_revert(), "dust-producing exact-out swap must revert");
+		let decoded = Revert::abi_decode(&exec.data).expect("Error(string) revert");
+		assert_eq!(decoded.reason, "Swap amount cannot be withdrawn exactly");
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800
+		);
+	});
+}
+
+/// `amountInMax` can sit in the dust window while the quoted debit does not. The swap
+/// must still succeed; the precompile must not treat the ceiling as the debit.
+#[test]
+fn swap_tokens_for_exact_tokens_ignores_amount_in_max_for_dust() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		let swapper = 2u64;
+		let asset_id = 1u32;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(asset_id);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, provider, true, 100));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, provider, 400));
+		assert_ok!(AssetConversionPallet::create_pool(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+		));
+		assert_ok!(AssetConversionPallet::add_liquidity(
+			RuntimeOrigin::signed(provider),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+			10_000,
+			200,
+			0,
+			0,
+			provider,
+		));
+
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 800));
+
+		let amount_out = AssetConversionPallet::quote_price_exact_tokens_for_tokens(
+			token.clone(),
+			native.clone(),
+			50,
+			true,
+		)
+		.expect("quote");
+		let quoted_in = AssetConversionPallet::quote_price_tokens_for_exact_tokens(
+			token.clone(),
+			native,
+			amount_out,
+			true,
+		)
+		.expect("reverse quote");
+		assert!(quoted_in < 100, "quoted input {quoted_in} must leave remainder >= ed");
+
+		let data = IAssetConversion::swapTokensForExactTokensCall {
+			path: vec![encode_asset(asset_id).into(), encode_native().into()],
+			amountOut: U256::from(amount_out),
+			// Would leave dust if this were the debit; it is only a ceiling.
+			amountInMax: U256::from(750),
+			sendTo: account_addr(&swapper),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let result = bare_call(swapper, data);
+		let return_data = result.result.expect("swap must succeed");
+		assert!(!return_data.did_revert(), "quoted debit leaves a legal remainder");
+		let amount_in =
+			IAssetConversion::swapTokensForExactTokensCall::abi_decode_returns(&return_data.data)
+				.expect("return data must decode");
+		assert_eq!(amount_in, U256::from(quoted_in));
+		assert_eq!(
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(asset_id), &swapper),
+			800 - quoted_in
 		);
 	});
 }
