@@ -1968,13 +1968,12 @@ where
 			});
 		}
 
-			// A sufficient (e.g. an asset) can keep the account alive. Its nonce must go too or
-			// the address can never be redeployed.
-			if System::<T>::account_exists(contract_account) {
-				frame_system::Account::<T>::mutate(contract_account, |info| {
-					info.nonce = Zero::zero()
-				});
-			}
+		// The account can outlive the contract, with a balance left on it or kept alive by a
+		// sufficient such as an asset. Its nonce must go too, or the EIP-684 check would stop a
+		// later deploy from taking it over.
+		if System::<T>::account_exists(contract_account) {
+			frame_system::Account::<T>::mutate(contract_account, |info| info.nonce = Zero::zero());
+		}
 
 		if let Some(info) = account_info.account_type.contract_info() {
 			// this deletes the code if refcount drops to zero
