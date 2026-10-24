@@ -237,9 +237,7 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
-use sp_staking::{
-	EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex, ValidatorServiceKind,
-};
+use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, ServiceKind, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
 pub use weights::WeightInfo;
 
@@ -508,17 +506,14 @@ pub trait NominationsQuota<Balance> {
 /// Check if validator was inactive at some era.
 ///
 /// The check is based on the [`RewardPoint`]s the validator received during the era, per
-/// [`ValidatorServiceKind`].
+/// [`ServiceKind`].
 pub trait IsValidatorInactive<AccountId> {
 	/// Tell if the validator is considered inactive in `era`, given its `points` per service.
 	///
 	/// A service the validator earned nothing for may be missing from `points`. Points of eras
-	/// before they were recorded per service count as [`ValidatorServiceKind::RelayConsensus`].
-	fn is_inactive(
-		era: EraIndex,
-		stash: &AccountId,
-		points: &[(ValidatorServiceKind, RewardPoint)],
-	) -> bool;
+	/// before they were recorded per service count as [`ServiceKind::RelayConsensus`].
+	fn is_inactive(era: EraIndex, stash: &AccountId, points: &[(ServiceKind, RewardPoint)])
+		-> bool;
 }
 
 /// A validator is never inactive, so no validator can be chilled for inactivity.
@@ -526,7 +521,7 @@ impl<AccountId> IsValidatorInactive<AccountId> for () {
 	fn is_inactive(
 		_era: EraIndex,
 		_stash: &AccountId,
-		_points: &[(ValidatorServiceKind, RewardPoint)],
+		_points: &[(ServiceKind, RewardPoint)],
 	) -> bool {
 		false
 	}
@@ -538,7 +533,7 @@ impl<AccountId> IsValidatorInactive<AccountId> for AllZero {
 	fn is_inactive(
 		_era: EraIndex,
 		_stash: &AccountId,
-		points: &[(ValidatorServiceKind, RewardPoint)],
+		points: &[(ServiceKind, RewardPoint)],
 	) -> bool {
 		points.iter().all(|(_, points)| *points == 0)
 	}

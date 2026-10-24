@@ -512,14 +512,14 @@ impl<T: Config> Eras<T> {
 	/// The points of `validator` in `era` per service.
 	///
 	/// Points of the tally not recorded per service count as
-	/// [`ValidatorServiceKind::RelayConsensus`]: they are from before points were recorded per
+	/// [`ServiceKind::RelayConsensus`]: they are from before points were recorded per
 	/// service, when only the relay chain session report credited points.
 	pub(crate) fn get_reward_points_by_service_for_validator(
 		era: EraIndex,
 		validator: &T::AccountId,
-	) -> Vec<(ValidatorServiceKind, RewardPoint)> {
+	) -> Vec<(ServiceKind, RewardPoint)> {
 		let tally = Self::get_total_reward_points_for_validator(era, validator);
-		// At most one entry per `ValidatorServiceKind`.
+		// At most one entry per `ServiceKind`.
 		let mut points = ErasRewardPointsByService::<T>::iter_prefix(era)
 			.filter_map(|(service, points)| {
 				points.individual.get(validator).map(|points| (service, *points))
@@ -530,12 +530,9 @@ impl<T: Config> Eras<T> {
 			.fold(RewardPoint::zero(), |sum, (_, points)| sum.saturating_add(*points));
 		let unrecorded = tally.saturating_sub(recorded);
 		if !unrecorded.is_zero() {
-			match points
-				.iter_mut()
-				.find(|(service, _)| *service == ValidatorServiceKind::RelayConsensus)
-			{
+			match points.iter_mut().find(|(service, _)| *service == ServiceKind::RelayConsensus) {
 				Some((_, points)) => points.saturating_accrue(unrecorded),
-				None => points.push((ValidatorServiceKind::RelayConsensus, unrecorded)),
+				None => points.push((ServiceKind::RelayConsensus, unrecorded)),
 			}
 		}
 		points
