@@ -255,6 +255,9 @@ impl_runtime_apis! {
 			block: <Block as frame::traits::Block>::LazyBlock,
 			data: InherentData,
 		) -> CheckInherentsResult {
+			// The first block after a runtime upgrade is checked by the new runtime on top of the
+			// state the old runtime left behind: apply the upgrade's migrations first.
+			RuntimeExecutive::ensure_runtime_upgrade_applied();
 			data.check_extrinsics(&block)
 		}
 	}
