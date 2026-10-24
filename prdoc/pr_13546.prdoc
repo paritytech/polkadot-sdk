@@ -1,0 +1,15 @@
+title: 'bridge-grandpa: return dedicated error for justifications signed by previous authority set'
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |-
+      `bp-header-chain` adds `JustificationVerificationError::OutdatedAuthoritySet`. The strict
+      justification verifier returns it when a precommit is signed by the previous authority set.
+      `pallet-bridge-grandpa` maps it to `InvalidAuthoritySetId` instead of `InvalidJustification`.
+      The justification optimizer and the equivocations collector are unchanged.
+
+crates:
+  - name: bp-header-chain
+    bump: major
+  - name: pallet-bridge-grandpa
+    bump: patch
