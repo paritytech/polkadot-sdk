@@ -259,6 +259,7 @@ executed the message.
               found in the configuration `config.hrmp_recipient_deposit`.
               1. Insert `sender` into the set `HrmpIngressChannelsIndex` for the `recipient`.
               1. Insert `recipient` into the set `HrmpEgressChannelsIndex` for the `sender`.
+        1. otherwise, unreserve the sender's deposit `R.sender_deposit` and the recipient's deposit.
         1. decrement `HrmpOpenChannelRequestCount` for `D.sender` by 1.
         1. decrement `HrmpAcceptedChannelRequestCount` for `D.recipient` by 1.
         1. remove `R`

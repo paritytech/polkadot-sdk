@@ -1,0 +1,17 @@
+title: 'hrmp: return deposits of a confirmed request that cannot be enacted'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    A confirmed open channel request whose sender or recipient is no longer a valid para when it
+    is enacted at a session change was dropped without giving back either deposit. This happens
+    when either para deregisters in the session in which the request is accepted: the para is
+    marked offboarding immediately but only becomes outgoing two sessions later, so the request
+    cleanup for outgoing paras never sees it.
+
+    Both deposits are now given back through the deposit provider, as when a channel is closed.
+
+    No storage, API or configuration change. Deposits already left reserved by earlier versions
+    are not touched.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
