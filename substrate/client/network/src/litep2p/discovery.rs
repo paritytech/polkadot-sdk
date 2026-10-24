@@ -37,7 +37,7 @@ use litep2p::{
 			kademlia::{
 				Config as KademliaConfig, ConfigBuilder as KademliaConfigBuilder, ContentProvider,
 				IncomingRecordValidationMode, KademliaEvent, KademliaHandle, PeerRecord, QueryId,
-				Quorum, Record, RecordKey,
+				Quorum, Record, RecordKey, RemoteAddressMode, RoutingTableUpdateMode,
 			},
 			ping::{Config as PingConfig, PingEvent},
 		},
@@ -240,7 +240,10 @@ pub struct Discovery {
 	pending_events: VecDeque<DiscoveryEvent>,
 
 	/// Allow non-global addresses in the DHT.
-	allow_non_global_addresses: bool,
+	allow_non_globals_in_dht: bool,
+
+	/// Allow dialing private IP addresses discovered via DHT and mDNS.
+	allow_private_ip: bool,
 
 	/// Protocols supported by the local node.
 	local_protocols: HashSet<ProtocolName>,
@@ -299,15 +302,18 @@ impl Discovery {
 		let (identify_config, identify_event_stream) =
 			IdentifyConfig::new("/substrate/1.0".to_string(), Some(user_agent));
 
-		let (mdns_config, mdns_event_stream) = match config.transport {
-			crate::config::TransportConfig::Normal { enable_mdns, .. } => match enable_mdns {
-				true => {
-					let (mdns_config, mdns_event_stream) = MdnsConfig::new(MDNS_QUERY_INTERVAL);
-					(Some(mdns_config), Some(mdns_event_stream))
-				},
-				false => (None, None),
+		let crate::config::TransportConfig::Normal { enable_mdns, allow_private_ip } =
+			config.transport
+		else {
+			panic!("memory transport not supported")
+		};
+
+		let (mdns_config, mdns_event_stream) = match enable_mdns {
+			true => {
+				let (mdns_config, mdns_event_stream) = MdnsConfig::new(MDNS_QUERY_INTERVAL);
+				(Some(mdns_config), Some(mdns_event_stream))
 			},
-			_ => panic!("memory transport not supported"),
+			false => (None, None),
 		};
 
 		let (kademlia_config, kademlia_handle) = {
@@ -316,9 +322,18 @@ impl Discovery {
 				legacy_kademlia_protocol_name(protocol_id),
 			];
 
+			// Peers are added to the routing table manually with their self-reported addresses
+			// (see `add_self_reported_address`), as opposed to the addresses reported by third
+			// parties in query responses.
 			KademliaConfigBuilder::new()
 				.with_known_peers(known_peers)
 				.with_protocol_names(protocol_names)
+				.with_routing_table_update_mode(RoutingTableUpdateMode::Manual)
+				.with_remote_address_mode(if allow_private_ip {
+					RemoteAddressMode::All
+				} else {
+					RemoteAddressMode::GlobalOnly
+				})
 				.with_incoming_records_validation_mode(IncomingRecordValidationMode::Manual)
 				.with_provider_record_ttl(KADEMLIA_PROVIDER_RECORD_TTL)
 				.with_provider_refresh_interval(KADEMLIA_PROVIDER_REPUBLISH_INTERVAL)
@@ -339,7 +354,8 @@ impl Discovery {
 				pending_events: VecDeque::new(),
 				duration_to_next_find_query: Duration::from_secs(1),
 				address_confirmations: LruMap::new(ByLength::new(MAX_EXTERNAL_ADDRESSES)),
-				allow_non_global_addresses: config.allow_non_globals_in_dht,
+				allow_non_globals_in_dht: config.allow_non_globals_in_dht,
+				allow_private_ip,
 				public_addresses: config.public_addresses.iter().cloned().map(Into::into).collect(),
 				next_kad_query: Some(Delay::new(KADEMLIA_QUERY_INTERVAL)),
 				local_protocols: HashSet::from_iter([kademlia_protocol_name(
@@ -377,19 +393,20 @@ impl Discovery {
 			return;
 		}
 
+		// Self-reported addresses are both advertised in the DHT and dialed by Kademlia.
+		let allow_non_global = self.allow_non_globals_in_dht && self.allow_private_ip;
+
 		let addresses = addresses
 			.into_iter()
-			.filter_map(|address| {
-				if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+			.filter(|address| {
+				let allowed = allow_non_global || Discovery::can_add_to_dht(address);
+				if !allowed {
 					log::trace!(
 						target: LOG_TARGET,
 						"ignoring self-reported non-global address {address} from {peer}."
 					);
-
-					return None;
 				}
-
-				Some(address)
+				allowed
 			})
 			.collect();
 
@@ -526,7 +543,7 @@ impl Discovery {
 	) -> (bool, Option<Multiaddr>) {
 		log::trace!(target: LOG_TARGET, "verify new external address: {address}");
 
-		if !self.allow_non_global_addresses && !Discovery::can_add_to_dht(&address) {
+		if !self.allow_non_globals_in_dht && !Discovery::can_add_to_dht(&address) {
 			log::trace!(
 				target: LOG_TARGET,
 				"ignoring externally reported non-global address {address} from {peer}."
@@ -623,9 +640,8 @@ impl Stream for Discovery {
 			Poll::Ready(Some(KademliaEvent::FindNodeSuccess { query_id, peers, .. }))
 				if Some(query_id) == this.random_walk_query_id =>
 			{
-				// the addresses are already inserted into the DHT and in `TransportManager` so
-				// there is no need to add them again. The found peers must be registered to
-				// `Peerstore` so other protocols are aware of them through `Peerset`.
+				// the addresses are already known to `TransportManager`. The found peers must be
+				// registered to `Peerstore` so other protocols are aware of them through `Peerset`.
 				log::trace!(target: LOG_TARGET, "dht random walk yielded {} peers", peers.len());
 
 				this.next_kad_query = Some(Delay::new(KADEMLIA_QUERY_INTERVAL));
@@ -799,8 +815,12 @@ impl Stream for Discovery {
 			match Pin::new(mdns_event_stream).poll_next(cx) {
 				Poll::Pending => {},
 				Poll::Ready(None) => return Poll::Ready(None),
-				Poll::Ready(Some(MdnsEvent::Discovered(addresses))) => {
-					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses }))
+				Poll::Ready(Some(MdnsEvent::Discovered(mut addresses))) => {
+					if !this.allow_private_ip {
+						addresses.retain(Discovery::can_add_to_dht);
+					}
+
+					return Poll::Ready(Some(DiscoveryEvent::Discovered { addresses }));
 				},
 			}
 		}
@@ -941,8 +961,21 @@ mod tests {
 							match event.unwrap() {
 								// We have discovered the peer via kademlia and established
 								// a connection on the identify protocol.
-								DiscoveryEvent::Identified { peer, .. } => {
+								DiscoveryEvent::Identified {
+									peer,
+									listen_addresses,
+									supported_protocols,
+								} => {
 									log::info!(target: LOG_TARGET, "{peer_id:?} Peer {peer} identified");
+
+									// Populate the routing table as the network backend does.
+									discovery
+										.add_self_reported_address(
+											peer,
+											supported_protocols,
+											listen_addresses,
+										)
+										.await;
 
 									remaining_peers.remove(&peer);
 

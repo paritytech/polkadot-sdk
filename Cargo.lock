@@ -11173,8 +11173,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9395e843af557d592cbde1a17f4070b2cbaa2fe4e518cdcb29c3a36dbfb7bd9b"
+source = "git+https://github.com/paritytech/litep2p.git?branch=dm-only-globals-in-dht#608fb6a42f07247e0e87f0bfc6bb171e2fac1e17"
 dependencies = [
  "async-trait",
  "bs58",
