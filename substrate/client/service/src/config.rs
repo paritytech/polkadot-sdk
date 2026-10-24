@@ -43,7 +43,7 @@ use std::{
 	io, iter,
 	net::SocketAddr,
 	num::NonZeroU32,
-	path::{Path, PathBuf},
+	path::{Component, Path, PathBuf},
 };
 use tempfile::TempDir;
 
@@ -298,7 +298,60 @@ impl BasePath {
 	///
 	/// The path looks like `$base_path/chains/$chain_id`
 	pub fn config_dir(&self, chain_id: &str) -> PathBuf {
+		assert!(
+			is_chain_id_path_safe(chain_id),
+			"chain_id must be a single valid path segment, but {:?} was provided",
+			chain_id,
+		);
 		self.path().join("chains").join(chain_id)
+	}
+}
+
+/// Returns `true` if `chain_id` may safely be used as a single directory name under `chains/`.
+///
+/// Path separators and relative path components (such as `..`) are rejected to prevent placing
+/// node data outside of the configured base path.
+pub fn is_chain_id_path_safe(chain_id: &str) -> bool {
+	let mut components = Path::new(chain_id).components();
+	matches!((components.next(), components.next()), (Some(Component::Normal(_)), None))
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn chain_id_path_safety() {
+		for valid in ["polkadot", "dev", "rococo-local", "westend", "chain_v2"] {
+			assert!(is_chain_id_path_safe(valid));
+		}
+
+		for invalid in [
+			"",
+			".",
+			"..",
+			"foo/bar",
+			"foo\\bar",
+			"../../../../tmp/foo",
+			"/absolute",
+		] {
+			assert!(!is_chain_id_path_safe(invalid));
+		}
+	}
+
+	#[test]
+	fn config_dir_rejects_path_traversal() {
+		let base = BasePath::new(std::env::temp_dir().join("substrate-config-dir-test"));
+		let result = std::panic::catch_unwind(|| base.config_dir("../../../../tmp/foo"));
+		assert!(result.is_err());
+	}
+
+	#[test]
+	fn config_dir_stays_under_base_path() {
+		let base_dir = std::env::temp_dir().join("substrate-config-dir-test-valid");
+		let base = BasePath::new(&base_dir);
+		let config_dir = base.config_dir("polkadot");
+		assert!(config_dir.starts_with(base_dir.join("chains")));
 	}
 }
 
