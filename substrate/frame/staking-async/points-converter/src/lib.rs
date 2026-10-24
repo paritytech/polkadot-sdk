@@ -56,7 +56,7 @@ pub mod pallet {
 	use alloc::vec::Vec;
 	use frame_support::{pallet_prelude::*, DefaultNoBound};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::traits::MaybeSerializeDeserialize;
+	use sp_runtime::traits::{MaybeSerializeDeserialize, Saturating};
 	use sp_staking::{RewardPoints, ServiceKind};
 
 	#[pallet::pallet]
@@ -133,11 +133,11 @@ pub mod pallet {
 	pub enum Event<T: Config> {
 		/// Validators earn `points` era points for each unit of `service` on `source`.
 		PointsPerServiceSet { source: T::Source, service: ServiceKind, points: u32 },
-		/// Era points for the blocks of `entries` entries from `source` were handed to
+		/// Era points for `blocks` blocks authored on `source` were handed to
 		/// [`Config::RewardPoints`].
-		BlocksCredited { source: T::Source, entries: u32 },
-		/// The blocks of `entries` entries from `source` earned no points and were not credited.
-		BlocksIgnored { source: T::Source, entries: u32 },
+		BlocksCredited { source: T::Source, blocks: u32 },
+		/// `blocks` blocks authored on `source` earned no points and were not credited.
+		BlocksIgnored { source: T::Source, blocks: u32 },
 	}
 
 	#[pallet::error]
@@ -221,21 +221,22 @@ pub mod pallet {
 				return 0;
 			}
 			if points_per_service == 0 {
-				Self::deposit_event(Event::BlocksIgnored {
-					source,
-					entries: blocks.count() as u32,
-				});
+				let blocks = blocks.fold(0u32, |total, (_, blocks)| total.saturating_add(blocks));
+				Self::deposit_event(Event::BlocksIgnored { source, blocks });
 				return 0;
 			}
 			let max_blocks = T::MaxBlocksPerEntry::get();
+			let mut credited_blocks = 0u32;
 			let points: Vec<_> = blocks
 				.map(|(who, blocks)| {
-					(who, blocks.min(max_blocks).saturating_mul(points_per_service))
+					let blocks = blocks.min(max_blocks);
+					credited_blocks.saturating_accrue(blocks);
+					(who, blocks.saturating_mul(points_per_service))
 				})
 				.collect();
 			let entries = points.len() as u32;
 			T::RewardPoints::reward(ServiceKind::Collation, points);
-			Self::deposit_event(Event::BlocksCredited { source, entries });
+			Self::deposit_event(Event::BlocksCredited { source, blocks: credited_blocks });
 			entries
 		}
 

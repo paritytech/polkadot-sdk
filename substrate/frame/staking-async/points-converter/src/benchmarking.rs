@@ -60,7 +60,7 @@ mod benchmarks {
 		let blocks = (0..1_000)
 			.map(|i| (account::<T::AccountId>("validator", i, 0), 1))
 			.collect::<Vec<_>>();
-		let entries = blocks.len() as u32;
+		let total_blocks = blocks.len() as u32;
 
 		#[block]
 		{
@@ -70,7 +70,7 @@ mod benchmarks {
 		frame_system::Pallet::<T>::assert_last_event(
 			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::BlocksIgnored {
 				source,
-				entries,
+				blocks: total_blocks,
 			}),
 		);
 	}
