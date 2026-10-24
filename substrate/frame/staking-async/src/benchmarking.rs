@@ -1684,9 +1684,9 @@ mod benchmarks {
 		// little sneaky way to get service variants as a list, without external deps like `strum`,
 		// while ensuring a new variant fails at compile time.
 		let services = {
-			use ValidatorServiceKind::*;
-			// A new `ValidatorServiceKind` fails to compile here, and must be added to `services`.
-			let _ = |kind: ValidatorServiceKind| match kind {
+			use ServiceKind::*;
+			// A new `ServiceKind` fails to compile here, and must be added to `services`.
+			let _ = |kind: ServiceKind| match kind {
 				RelayConsensus | Collation => (),
 			};
 			[RelayConsensus, Collation]

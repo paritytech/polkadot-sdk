@@ -246,7 +246,7 @@ parameter_types! {
 parameter_types! {
 	/// The check of [`MockIsValidatorInactive`]: whether a validator with these points per service
 	/// is inactive. By default, if it earned no points at all.
-	pub static InactivityCheck: fn(&[(ValidatorServiceKind, RewardPoint)]) -> bool =
+	pub static InactivityCheck: fn(&[(ServiceKind, RewardPoint)]) -> bool =
 		|points| points.iter().all(|(_, points)| *points == 0);
 }
 
@@ -256,7 +256,7 @@ impl crate::IsValidatorInactive<AccountId> for MockIsValidatorInactive {
 	fn is_inactive(
 		_era: EraIndex,
 		_stash: &AccountId,
-		points: &[(ValidatorServiceKind, RewardPoint)],
+		points: &[(ServiceKind, RewardPoint)],
 	) -> bool {
 		InactivityCheck::get()(points)
 	}

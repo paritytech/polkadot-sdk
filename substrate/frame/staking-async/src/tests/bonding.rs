@@ -2172,7 +2172,7 @@ mod staking_bounds_chill_other {
 	fn chill_inactive_checks_the_points_of_each_service() {
 		const VALIDATOR: AccountId = 11;
 		use sp_staking::RewardPoints;
-		use ValidatorServiceKind::{Collation, RelayConsensus};
+		use ServiceKind::{Collation, RelayConsensus};
 
 		ExtBuilder::default().build_and_execute(|| {
 			// GIVEN an inactivity threshold of two eras

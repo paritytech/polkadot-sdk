@@ -3,7 +3,7 @@ doc:
 - audience: Runtime Dev
   description: |-
     `IsValidatorInactive::is_inactive` now receives the era points of the validator per
-    `ValidatorServiceKind`, as `&[(ValidatorServiceKind, RewardPoint)]`, instead of a single total.
+    `ServiceKind`, as `&[(ServiceKind, RewardPoint)]`, instead of a single total.
     A runtime can so decide inactivity per service, for example that only relay consensus points
     keep a validator active.
 
