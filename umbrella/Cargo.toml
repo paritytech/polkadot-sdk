@@ -133,6 +133,8 @@ std = [
 	"pallet-people?/std",
 	"pallet-pgas-allowance?/std",
 	"pallet-preimage?/std",
+	"pallet-price-oracle-venues?/std",
+	"pallet-price-oracle?/std",
 	"pallet-proxy?/std",
 	"pallet-psm?/std",
 	"pallet-ranked-collective?/std",
@@ -221,6 +223,7 @@ std = [
 	"sp-mmr-primitives?/std",
 	"sp-npos-elections?/std",
 	"sp-offchain?/std",
+	"sp-price-oracle?/std",
 	"sp-runtime-interface?/std",
 	"sp-runtime?/std",
 	"sp-session?/std",
@@ -334,6 +337,8 @@ runtime-benchmarks = [
 	"pallet-people?/runtime-benchmarks",
 	"pallet-pgas-allowance?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
+	"pallet-price-oracle-venues?/runtime-benchmarks",
+	"pallet-price-oracle?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
 	"pallet-psm?/runtime-benchmarks",
 	"pallet-ranked-collective?/runtime-benchmarks",
@@ -487,6 +492,8 @@ try-runtime = [
 	"pallet-people?/try-runtime",
 	"pallet-pgas-allowance?/try-runtime",
 	"pallet-preimage?/try-runtime",
+	"pallet-price-oracle-venues?/try-runtime",
+	"pallet-price-oracle?/try-runtime",
 	"pallet-proxy?/try-runtime",
 	"pallet-psm?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
@@ -713,6 +720,8 @@ runtime-full = [
 	"pallet-people",
 	"pallet-pgas-allowance",
 	"pallet-preimage",
+	"pallet-price-oracle",
+	"pallet-price-oracle-venues",
 	"pallet-proxy",
 	"pallet-psm",
 	"pallet-ranked-collective",
@@ -804,6 +813,7 @@ runtime-full = [
 	"sp-mmr-primitives",
 	"sp-npos-elections",
 	"sp-offchain",
+	"sp-price-oracle",
 	"sp-runtime",
 	"sp-runtime-interface",
 	"sp-runtime-interface-proc-macro",
@@ -879,6 +889,7 @@ runtime = [
 	"sp-mmr-primitives",
 	"sp-npos-elections",
 	"sp-offchain",
+	"sp-price-oracle",
 	"sp-runtime",
 	"sp-runtime-interface",
 	"sp-runtime-interface-proc-macro",
@@ -1011,6 +1022,7 @@ node = [
 	"sc-network-transactions",
 	"sc-network-types",
 	"sc-offchain",
+	"sc-price-oracle",
 	"sc-proposer-metrics",
 	"sc-rpc",
 	"sc-rpc-api",
@@ -1702,6 +1714,16 @@ default-features = false
 optional = true
 path = "../substrate/frame/preimage"
 
+[dependencies.pallet-price-oracle]
+default-features = false
+optional = true
+path = "../substrate/frame/price-oracle"
+
+[dependencies.pallet-price-oracle-venues]
+default-features = false
+optional = true
+path = "../substrate/frame/price-oracle/venues"
+
 [dependencies.pallet-proxy]
 default-features = false
 optional = true
@@ -2156,6 +2178,11 @@ path = "../substrate/primitives/npos-elections"
 default-features = false
 optional = true
 path = "../substrate/primitives/offchain"
+
+[dependencies.sp-price-oracle]
+default-features = false
+optional = true
+path = "../substrate/primitives/price-oracle"
 
 [dependencies.sp-runtime]
 default-features = false
@@ -2851,6 +2878,11 @@ path = "../substrate/client/network/types"
 default-features = false
 optional = true
 path = "../substrate/client/offchain"
+
+[dependencies.sc-price-oracle]
+default-features = false
+optional = true
+path = "../substrate/client/price-oracle"
 
 [dependencies.sc-proposer-metrics]
 default-features = false
