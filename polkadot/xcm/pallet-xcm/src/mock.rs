@@ -151,6 +151,7 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
+		Utility: pallet_utility,
 	}
 );
 
@@ -287,6 +288,15 @@ impl pallet_balances::Config for Test {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+
+// Lets the `weigh_message` benchmark build the same batched worst case real runtimes do;
+// see `benchmarking::Config::batch_call`.
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -691,6 +701,28 @@ impl super::benchmarking::Config for Test {
 
 	fn get_asset() -> Asset {
 		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
+	}
+
+	fn get_assets(n: u32) -> Assets {
+		let owner: AccountId = frame_benchmarking::whitelisted_caller();
+		let mut assets: Vec<Asset> = vec![Self::get_asset()];
+		for i in 1..n {
+			// Distinct, depositable foreign assets handled by the `FungiblesAdapter`.
+			let asset_id_location = Location::new(0, [Parachain(2_000 + i)]);
+			frame_support::assert_ok!(AssetsPallet::force_create(
+				RuntimeOrigin::root(),
+				asset_id_location.clone(),
+				owner.clone(),
+				true, // sufficient, so the beneficiary needs no provider reference
+				1,
+			));
+			assets.push(Asset { id: AssetId(asset_id_location), fun: Fungible(100) });
+		}
+		assets.into()
+	}
+
+	fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+		Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
 	}
 }
 
