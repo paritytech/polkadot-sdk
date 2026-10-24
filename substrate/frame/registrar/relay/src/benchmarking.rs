@@ -166,5 +166,22 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// Setting a head. Dominated by the head data.
+	#[benchmark]
+	fn receive_set_current_head(
+		h: Linear<0, { T::MaxHeadDataSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+			para_id: PARA_ID,
+			message_id: 0,
+			head: alloc::vec![2u8; h as usize],
+		});
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

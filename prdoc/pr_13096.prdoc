@@ -1,0 +1,23 @@
+title: 'Registrar: set current head'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements `set_current_head` in the registrar. Root, the para itself, or its manager while
+    the para is unlocked can call it on `pallet-registrar-para` (CT in Polkadot, AH in Kusama). The
+    parachain checks that the para is registered and that the head fits `MaxHeadDataSize`, then
+    sends `SetCurrentHead` to the relay chain. Nothing is stored on the parachain, since setting a
+    head holds no deposit and can simply be asked again.
+
+    On the relay chain, `pallet-registrar-relay` checks the head against the live
+    `max_head_data_size`, sets it through `paras_registrar` and reports back. A head that is too
+    large is refused with the new `FailureReason::HeadDataTooLarge`. The parachain surfaces the
+    answer as `HeadUpdated` or `HeadUpdateFailed`.
+crates:
+- name: registrar-primitives
+  bump: major
+- name: pallet-registrar-para
+  bump: major
+- name: pallet-registrar-relay
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch

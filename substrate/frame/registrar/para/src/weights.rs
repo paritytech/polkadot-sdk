@@ -80,6 +80,7 @@ pub trait WeightInfo {
 	fn deregister_retry() -> Weight;
 	fn add_lock() -> Weight;
 	fn remove_lock() -> Weight;
+	fn set_current_head(h: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_registrar_para` using the Substrate node and recommended hardware.
@@ -213,6 +214,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(1_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `RegistrarPara::Paras` (r:1 w:0)
+	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	/// Storage: `RegistrarPara::NextMessageId` (r:1 w:1)
+	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// The range of component `h` is `[0, 1048576]`.
+	fn set_current_head(h: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `149`
+		//  Estimated: `3555`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(13_692_731, 3555)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(167, 0).saturating_mul(h.into()))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -343,6 +360,22 @@ impl WeightInfo for () {
 		// Minimum execution time: 7_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 3564)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `RegistrarPara::Paras` (r:1 w:0)
+	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(90), added: 2565, mode: `MaxEncodedLen`)
+	/// Storage: `RegistrarPara::NextMessageId` (r:1 w:1)
+	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
+	/// The range of component `h` is `[0, 1048576]`.
+	fn set_current_head(h: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `149`
+		//  Estimated: `3555`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(13_692_731, 3555)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(167, 0).saturating_mul(h.into()))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

@@ -124,6 +124,21 @@ fn onboard(para_id: ParaId) {
 	let _ = take_sent();
 }
 
+/// The message id every test head update carries.
+const HEAD_ID: u64 = 8;
+
+fn set_head_msg(para_id: ParaId, head_len: usize) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+		para_id,
+		message_id: HEAD_ID,
+		head: head(head_len),
+	})
+}
+
+fn set_head_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::SetHeadResponse { para_id, message_id: HEAD_ID, outcome })
+}
+
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
 ///
 /// Returns both verdicts so a test can assert the pool and the block agree.
@@ -632,6 +647,67 @@ mod receive_deregister {
 				DispatchError::BadOrigin
 			);
 			assert!(MockRegistrar::is_registered(PARA_A));
+		});
+	}
+}
+
+mod receive_set_current_head {
+	use super::*;
+
+	#[test]
+	fn sets_the_head_and_confirms_it() {
+		new_test_ext().execute_with(|| {
+			// The parachain vouches for the request, so the para need not be known here.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
+
+			assert_eq!(Heads::get(), vec![(PARA_A, head(20))]);
+			assert_eq!(take_sent(), vec![set_head_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdated { para_id: PARA_A, message_id: HEAD_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn refuses_a_head_the_relay_chain_will_not_take() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				set_head_msg(PARA_A, MAX_HEAD_SIZE as usize + 1)
+			));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![set_head_report(PARA_A, Err(FailureReason::HeadDataTooLarge))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRejected {
+					para_id: PARA_A,
+					message_id: HEAD_ID,
+					reason: FailureReason::HeadDataTooLarge,
+				}]
+			);
+
+			// The bound itself is fine.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				set_head_msg(PARA_A, MAX_HEAD_SIZE as usize)
+			));
+			assert_eq!(Heads::get(), vec![(PARA_A, head(MAX_HEAD_SIZE as usize))]);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_set_heads() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				Registrar::receive(RuntimeOrigin::signed(ALICE), set_head_msg(PARA_A, 20)),
+				DispatchError::BadOrigin
+			);
+			assert!(Heads::get().is_empty());
 		});
 	}
 }
