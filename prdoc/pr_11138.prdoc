@@ -1,0 +1,10 @@
+title: 'feat(pallet-identity): make `Data` raw size limit generic via `Get<u32>`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    closes https://github.com/paritytech/polkadot-sdk/issues/3977
+
+    Makes the `identity::Data` raw field length limit runtime-configurable by replacing the hardcoded ConstU32<32> bound with a generic `Get<u32>` parameter. Introduces a new `MaxRawSize` associated type in the pallet `Config`, updates storage and extrinsics to use Data<T::MaxRawSize>, and keeps all existing runtimes at 32 bytes.
+crates:
+- name: pallet-identity
+  bump: minor
