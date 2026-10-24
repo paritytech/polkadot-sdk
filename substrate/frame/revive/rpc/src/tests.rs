@@ -436,6 +436,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_balance_zero,
 		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
+		test_subscription_gap_filler_failure_stays_pending,
 	);
 
 	log::debug!(target: LOG_TARGET, "All tests completed successfully!");
@@ -3830,6 +3831,32 @@ async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result
 
 	// bg_client holds the channel sender, so abort instead of dropping.
 	subscription_gap_queue_handle.abort();
+
+	Ok(())
+}
+
+/// A gap fill that keeps failing must stay pending, so the sync head cannot advance over
+/// blocks that were never indexed.
+async fn test_subscription_gap_filler_failure_stays_pending() -> anyhow::Result<()> {
+	let (sync_client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let queue = sync_client.subscription_gap_queue();
+
+	// Blocks above the chain tip do not exist, so every attempt fails.
+	let tip = sync_client.api().at_current_block().await?.block_number();
+	let last = tip + 1_000;
+	let current = last + 3;
+	queue.detect_and_queue(current, last);
+	assert!(queue.has_pending());
+
+	sync_client
+		.fill_subscription_gap(
+			GapFillRequest { from_inclusive: current - 1, to_inclusive: last + 1 },
+			2,
+			tokio::time::Duration::ZERO,
+		)
+		.await;
+
+	assert!(queue.has_pending(), "failed gap fill must keep the sync head from advancing");
 
 	Ok(())
 }

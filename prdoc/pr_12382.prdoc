@@ -1,0 +1,10 @@
+title: 'eth-rpc: keep the sync head behind un-indexed subscription gaps'
+doc:
+- audience: Node Operator
+  description: |-
+    The subscription gap filler no longer lets the `sync-head` label advance over blocks it failed to index. Previously a gap fill that errored, or a gap dropped because the gap queue was full, still counted as done, so the head moved past the missing blocks and a restart never filled them. `eth_getLogs` and `eth_getBlockReceipts` then returned incomplete results for those blocks.
+
+    A failed gap fill is now retried up to 3 times with exponential backoff starting at 2 seconds. A gap that still fails, or that did not fit in the queue, keeps the sync head at its current block until the next restart, whose backward sync fills the gap. Operators who see the error "Sync head stays at its current block until a restart fills the gap" should restart eth-rpc. No configuration changes are needed.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
