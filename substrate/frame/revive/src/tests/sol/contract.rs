@@ -1052,3 +1052,96 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 		assert_eq!(echo_result, 42, "echo must return the magic number");
 	});
 }
+
+/// EIP-684: a factory's `try new Child{salt}()` onto a taken address lands in `catch`, leaves
+/// the target untouched and still consumes the factory's nonce, as does a reverting constructor.
+#[test_case(FixtureType::Solc; "solc")]
+#[test_case(FixtureType::Resolc; "resolc")]
+fn factory_create2_collision_consumes_nonce(fixture_type: FixtureType) {
+	use crate::{
+		AccountInfo, AccountInfoOf, Pallet,
+		tests::{Contracts, System},
+	};
+	use alloy_core::primitives::Address;
+	use frame_support::{
+		assert_ok,
+		storage::{TransactionOutcome, with_transaction},
+	};
+	use pallet_revive_fixtures::CreateCollisionFactory::{deployCall, deployRevertingCall};
+
+	let (code, _) = compile_module_with_type("CreateCollisionFactory", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
+
+		if fixture_type == FixtureType::Resolc {
+			for child in ["CreateCollisionChild", "CreateCollisionRevertingChild"] {
+				let (child_code, _) = compile_module_with_type(child, fixture_type).unwrap();
+				Pallet::<Test>::upload_code(
+					RuntimeOrigin::signed(ALICE.clone()),
+					child_code,
+					<BalanceOf<Test>>::MAX,
+				)
+				.unwrap();
+			}
+		}
+
+		let Contract { addr: factory, account_id: factory_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let _ = <Test as Config>::Currency::set_balance(&factory_id, 100_000_000_000_000);
+
+		let call_factory = |data: Vec<u8>| -> H160 {
+			let result = builder::bare_call(factory).data(data).build_and_unwrap_result();
+			assert!(!result.did_revert());
+			let returned: Address = deployCall::abi_decode_returns(&result.data).unwrap();
+			H160::from_slice(returned.as_slice())
+		};
+		let deploy = |salt: [u8; 32]| call_factory(deployCall { salt: salt.into() }.abi_encode());
+		// The CREATE2 address depends on the child's code, so ask the factory and roll back.
+		let target_of = |salt: [u8; 32]| {
+			with_transaction(|| TransactionOutcome::Rollback(Ok::<_, DispatchError>(deploy(salt))))
+				.unwrap()
+		};
+		let assert_collides = |salt: [u8; 32], target: H160| {
+			let before = AccountInfoOf::<Test>::get(target);
+			let nonce = System::account_nonce(&factory_id);
+			assert_eq!(deploy(salt), H160::zero());
+			assert_eq!(AccountInfoOf::<Test>::get(target), before);
+			assert_eq!(System::account_nonce(&factory_id), nonce + 1);
+		};
+
+		// Active delegation.
+		let target = target_of([1; 32]);
+		AccountInfo::<Test>::set_delegation(&target, Some(factory), &ALICE).unwrap();
+		assert_collides([1; 32], target);
+
+		// Cleared delegation.
+		let target = target_of([2; 32]);
+		AccountInfo::<Test>::set_delegation(&target, Some(factory), &ALICE).unwrap();
+		AccountInfo::<Test>::set_delegation(&target, None, &ALICE).unwrap();
+		assert_collides([2; 32], target);
+
+		// Nonce 1 without code.
+		let target = target_of([3; 32]);
+		let target_id = <Test as Config>::AddressMapper::to_account_id(&target);
+		let _ = <Test as Config>::Currency::set_balance(&target_id, Contracts::min_balance());
+		frame_system::Account::<Test>::mutate(&target_id, |a| a.nonce = 1);
+		assert_collides([3; 32], target);
+
+		// Funded with nonce 0 is free to deploy to.
+		let target = target_of([4; 32]);
+		assert_ok!(Contracts::set_evm_balance(&target, sp_core::U256::from(1_000_000_000u64)));
+		let nonce = System::account_nonce(&factory_id);
+		assert_eq!(deploy([4; 32]), target);
+		assert!(AccountInfo::<Test>::is_contract(&target));
+		assert_eq!(System::account_nonce(&factory_id), nonce + 1);
+
+		// A reverting constructor still consumes the nonce.
+		let nonce = System::account_nonce(&factory_id);
+		assert_eq!(
+			call_factory(deployRevertingCall { salt: [5; 32].into() }.abi_encode()),
+			H160::zero()
+		);
+		assert_eq!(System::account_nonce(&factory_id), nonce + 1);
+	});
+}

@@ -1521,6 +1521,28 @@ fn lazy_removal_works() {
 	});
 }
 
+/// A sufficient keeps a terminated contract's account alive. Its nonce must be cleared, or
+/// the EIP-684 check would block a CREATE2 redeploy forever.
+#[test]
+fn terminate_with_sufficient_clears_nonce() {
+	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+
+		let contract = builder::bare_instantiate(Code::Upload(code))
+			.native_value(min_balance * 100)
+			.build_and_unwrap_contract();
+		System::inc_sufficients(&contract.account_id);
+
+		assert_ok!(builder::call(contract.addr).build());
+		assert!(!<AccountInfoOf<Test>>::contains_key(&contract.addr));
+		assert!(System::account_exists(&contract.account_id));
+		assert_eq!(System::account_nonce(&contract.account_id), 0);
+		assert!(!AccountInfo::<Test>::is_create_collision(&contract.addr));
+	});
+}
+
 #[test]
 fn lazy_batch_removal_works() {
 	let (code, _hash) = compile_module("self_destruct_by_precompile").unwrap();
