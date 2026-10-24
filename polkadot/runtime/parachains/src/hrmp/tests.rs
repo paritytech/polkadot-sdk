@@ -1298,3 +1298,124 @@ fn hrmp_notifications_works() {
 		);
 	});
 }
+
+#[test]
+fn pending_request_to_offboarded_recipient_releases_sender_request_count() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		register_parachain(para_a);
+		register_parachain(para_b);
+
+		run_to_block(5, Some(vec![4, 5]));
+		// Not accepted.
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(&para_a), 1);
+		deregister_parachain(para_b);
+
+		run_to_block(8, Some(vec![6, 7, 8]));
+		assert!(!Paras::is_valid_para(para_b));
+		assert!(HrmpOpenChannelRequests::<Test>::get(&HrmpChannelId {
+			sender: para_a,
+			recipient: para_b
+		})
+		.is_none());
+		// The request is gone, so it must no longer count against `para_a`'s outbound limit.
+		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(&para_a), 0);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn offboarding_sender_of_system_channel_does_not_unreserve_system_recipient_funds() {
+	use frame_support::traits::ReservableCurrency;
+	let para_a = 2032.into();
+	let system_para = 3.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(system_para, 100);
+		run_to_block(5, Some(vec![4, 5]));
+
+		// The system para's sovereign account holds a reserve that is unrelated to HRMP.
+		let system_account = system_para.into_account_truncating();
+		assert_ok!(<Test as Config>::Currency::reserve(&system_account, 50));
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&system_account), 50);
+
+		// `para_a` requests a channel to the system para. No sender deposit is taken.
+		Hrmp::init_open_channel(para_a, system_para, 2, 8).unwrap();
+		// `para_a` is scheduled for offboarding; the system para confirms the request in the
+		// session in which the offboarding takes effect. No recipient deposit is taken.
+		deregister_parachain(para_a);
+		run_to_block(9, Some(vec![9]));
+		Hrmp::accept_open_channel(system_para, para_a).unwrap();
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&system_account), 50);
+		assert!(!channel_exists(para_a, system_para));
+
+		// Next session: `para_a` is outgoing, the confirmed request is cleaned up.
+		run_to_block(10, Some(vec![10]));
+		assert!(!Paras::is_valid_para(para_a));
+		assert!(!channel_exists(para_a, system_para));
+
+		// Nothing was reserved by HRMP on the system para, so nothing must be unreserved.
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&system_account), 50);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
+fn cleanup_at_a_deposit_config_change_refunds_what_was_reserved() {
+	use frame_support::traits::ReservableCurrency;
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 200);
+		run_to_block(5, Some(vec![4, 5]));
+
+		// `para_b` holds a reserve unrelated to HRMP.
+		let b_account = para_b.into_account_truncating();
+		assert_ok!(<Test as Config>::Currency::reserve(&b_account, 50));
+
+		Hrmp::init_open_channel(para_a, para_b, 2, 8).unwrap();
+		deregister_parachain(para_a);
+		// `para_a` is offboarding now; `para_b` accepts in this session (15 reserved).
+		run_to_block(9, Some(vec![9]));
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&b_account), 65);
+
+		// Next session: `para_a` is outgoing and the recipient deposit changes 15 -> 40. As in
+		// the relay's `initializer`, `ActiveConfig` already holds the new config and
+		// `prev_config` the old one when HRMP runs.
+		let old = configuration::ActiveConfig::<Test>::get();
+		let mut new = old.clone();
+		new.hrmp_recipient_deposit = 40;
+		configuration::ActiveConfig::<Test>::put(new.clone());
+		let notification = crate::initializer::SessionChangeNotification {
+			prev_config: old,
+			new_config: new,
+			session_index: shared::CurrentSessionIndex::<Test>::get() + 1,
+			..Default::default()
+		};
+		ParasShared::initializer_on_new_session(
+			notification.session_index,
+			notification.random_seed,
+			&notification.new_config,
+			notification.validators.clone(),
+		);
+		let outgoing = Paras::initializer_on_new_session(&notification);
+		assert!(outgoing.contains(&para_a), "para_a must be outgoing at this session");
+		Hrmp::initializer_on_new_session(&notification, &outgoing);
+
+		// Exactly the 15 taken at accept comes back; the unrelated 50 stays reserved.
+		assert_eq!(<Test as Config>::Currency::reserved_balance(&b_account), 50);
+	});
+}
