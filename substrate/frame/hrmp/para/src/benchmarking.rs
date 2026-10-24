@@ -77,5 +77,22 @@ mod benchmarks {
 		assert_eq!(Deposits::<T>::iter().count(), 0);
 	}
 
+	/// A deposit taken over, on top of one the side holds.
+	#[benchmark]
+	fn receive_deposit() {
+		let deposit = endow::<T>();
+		let side = DepositSide::Sender;
+		Pallet::<T>::set_side(CHANNEL, side, deposit).expect("endowed; qed");
+		let result;
+
+		#[block]
+		{
+			result = Pallet::<T>::receive_deposit(DepositKey { channel: CHANNEL, side }, deposit);
+		}
+
+		assert!(result.is_ok());
+		assert_eq!(Deposits::<T>::get((CHANNEL, side)), Some(2 * deposit));
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);
 }

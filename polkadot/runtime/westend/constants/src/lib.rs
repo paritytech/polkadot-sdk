@@ -172,6 +172,18 @@ pub mod system_parachain {
 /// Westend Treasury pallet instance.
 pub const TREASURY_PALLET_ID: u8 = 37;
 
+/// HRMP channel deposits, held on the Coretime chain for the relay chain.
+pub mod hrmp_deposits {
+	/// Index of `pallet-hrmp-relay` in the relay chain runtime.
+	///
+	/// WARNING: this must match the index in the relay chain runtime.
+	pub const RELAY_PALLET_INDEX: u8 = 68;
+	/// Index of `pallet-hrmp-para` in the Coretime chain runtime.
+	///
+	/// WARNING: this must match the index in the Coretime chain runtime.
+	pub const CORETIME_PALLET_INDEX: u8 = 61;
+}
+
 /// XCM protocol related constants.
 pub mod xcm {
 	/// Pluralistic bodies existing within the consensus.

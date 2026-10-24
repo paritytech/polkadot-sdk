@@ -50,6 +50,7 @@ frame-metadata-hash-extension = { workspace = true }
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
+hrmp-primitives = { workspace = true }
 pallet-accumulate-and-forward = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-authority-discovery = { workspace = true }
@@ -59,6 +60,8 @@ pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
 pallet-grandpa = { workspace = true }
+pallet-hrmp-para = { workspace = true }
+pallet-hrmp-relay = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-message-queue = { workspace = true }
@@ -125,6 +128,7 @@ std = [
 	"frame-system-rpc-runtime-api/std",
 	"frame-system/std",
 	"frame-try-runtime/std",
+	"hrmp-primitives/std",
 	"log/std",
 	"pallet-accumulate-and-forward/std",
 	"pallet-asset-rate/std",
@@ -135,6 +139,8 @@ std = [
 	"pallet-beefy-mmr/std",
 	"pallet-beefy/std",
 	"pallet-grandpa/std",
+	"pallet-hrmp-para/std",
+	"pallet-hrmp-relay/std",
 	"pallet-identity/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
@@ -206,6 +212,8 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-beefy-mmr/runtime-benchmarks",
 	"pallet-grandpa/runtime-benchmarks",
+	"pallet-hrmp-para/runtime-benchmarks",
+	"pallet-hrmp-relay/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
@@ -255,6 +263,8 @@ try-runtime = [
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-beefy/try-runtime",
 	"pallet-grandpa/try-runtime",
+	"pallet-hrmp-para/try-runtime",
+	"pallet-hrmp-relay/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",

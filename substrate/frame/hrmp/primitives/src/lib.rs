@@ -180,30 +180,50 @@ pub enum MessageToRelayV1 {
 	},
 }
 
-/// One channel, as it arrives at the destination from the chain that used to hold its deposits.
-///
-/// Carries no deposit. [`ReceiveMigratedChannels::receive_channel`] takes the sender's, and for a
-/// confirmed channel the recipient's, deposit at the destination's own prices.
-///
-/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC channel
-/// is dropped.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub struct MigratedChannel {
-	/// Which channel.
+/// What a deposit is held for: one side of one channel.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct DepositKey {
+	/// The channel the deposit is for.
 	pub channel: ChannelId,
-	/// Whether the source chain has the channel itself, or only an open request the recipient
-	/// has not accepted.
-	pub confirmed: bool,
+	/// The side that pays it.
+	pub side: DepositSide,
 }
 
-/// Takes migrated channels into the pallet that owns HRMP on the destination.
-pub trait ReceiveMigratedChannels {
-	/// Take one channel, charging its deposits at this chain's prices.
-	fn receive_channel(channel: MigratedChannel) -> sp_runtime::DispatchResult;
+impl DepositKey {
+	/// The para that pays this deposit.
+	pub fn para(&self) -> ParaId {
+		self.side.para(&self.channel)
+	}
 }
 
-impl ReceiveMigratedChannels for () {
-	fn receive_channel(_: MigratedChannel) -> sp_runtime::DispatchResult {
+/// Receive a migrated HRMP deposit.
+pub trait ReceiveMigratedDeposits {
+	/// Hold up to `amount` more for `key`: as much of it as the paying para can cover.
+	fn receive_deposit(key: DepositKey, amount: Balance) -> sp_runtime::DispatchResult;
+
+	/// The weight of [`Self::receive_deposit`].
+	fn weight_of_receive_deposit() -> sp_runtime::Weight;
+}
+
+impl ReceiveMigratedDeposits for () {
+	fn receive_deposit(_: DepositKey, _: Balance) -> sp_runtime::DispatchResult {
 		Err(sp_runtime::DispatchError::Unavailable)
+	}
+
+	fn weight_of_receive_deposit() -> sp_runtime::Weight {
+		sp_runtime::Weight::zero()
 	}
 }
