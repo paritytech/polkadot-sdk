@@ -1,0 +1,58 @@
+title: 'Era points for blocks validators author on system chains'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Validators earn era points for the blocks they author on system chains, weighted per chain and
+    service by governance.
+
+    `sp-staking` gains `ServiceKind` (`RelayConsensus`, `Collation`) and `RewardPoints`,
+    and now holds `RewardsReporter`, which `frame-support` re-exports at the same path.
+
+    `pallet-staking-async` gains `reward_service_points`, which credits points for a service other
+    than relay chain consensus to the active era, dropping accounts not exposed in it. Points also
+    go to the new `ErasRewardPointsByService`, next to the unchanged combined tally. No migration.
+    External `WeightInfo` implementors must add `reward_service_points`.
+
+    `pallet-validator-collators` counts the blocks each author produces and reports the counts of
+    the validators in the stored set every `ReportPeriod` blocks, and once per set shortly before
+    the expected era end. A report reads at most `MaxEntriesPerReport` counted authors and hands
+    the counts of the stored validators to `BlockReporter` in one message, which is never split:
+    the pallet's `integrity_test` checks that a report of `MaxValidators` entries fits the
+    reporter's message size, and that a report of `MaxEntriesPerReport` entries fits a block. The
+    counts of other authors are dropped. If the reporter rejects a report, the counts of the
+    stored validators are kept for the next one and `BlocksReportFailed { kept, dropped }` is
+    emitted. `MaxEntriesPerReport` should be `MaxValidators`, plus the most other collators the
+    chain may have, plus a small buffer. New config items: `BlockReporter`, `DefaultReportPeriod`,
+    `MaxEntriesPerReport`, `UnixTime`, `DefaultExpectedEraDuration`, `DefaultReportMargin` and
+    `MaxReportMargin`. The runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
+
+    New `pallet-staking-async-points-converter`, for Asset Hub, converts the reported counts into
+    era points using `PointsPerService`, set by governance. A count is credited up to
+    `MaxBlocksPerEntry`.
+crates:
+- name: sp-staking
+  bump: minor
+- name: frame-support
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: pallet-validator-collators
+  bump: major
+- name: pallet-staking-async-points-converter
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: minor
+- name: testnet-parachains-constants
+  bump: patch
+- name: pallet-ahm-test
+  bump: none
+- name: pallet-validator-set-announcer
+  bump: patch
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none
+- name: polkadot-sdk
+  bump: minor

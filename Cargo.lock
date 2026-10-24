@@ -2036,6 +2036,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-staking-async",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
@@ -15271,6 +15272,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-async-points-converter"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking",
+]
+
+[[package]]
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
 dependencies = [
@@ -15700,6 +15715,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-session",
@@ -16305,11 +16321,13 @@ version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-session",
  "pallet-staking-async",
+ "pallet-staking-async-points-converter",
  "pallet-validator-collators",
  "pallet-validator-set-announcer",
  "pallet-xcm",
@@ -16319,6 +16337,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
+ "sp-staking",
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime",
@@ -18183,6 +18202,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
  "pallet-staking-reward-curve",

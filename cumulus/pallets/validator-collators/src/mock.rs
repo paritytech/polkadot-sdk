@@ -17,7 +17,9 @@ use super::*;
 use crate as pallet_validator_collators;
 use cumulus_pallet_parachain_system::OnSystemEvent;
 use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types, traits::ConstU32, PalletId,
+	derive_impl, ord_parameter_types, parameter_types,
+	traits::{ConstU32, ConstU64},
+	PalletId,
 };
 use frame_system::EnsureSignedBy;
 use pallet_collator_selection::IdentityCollator;
@@ -123,8 +125,59 @@ impl Config for Test {
 	type UpdateOrigin = EnsureSignedBy<RootAccount, u64>;
 	type ValidatorRegistration = Session;
 	type MaxValidators = ConstU32<50>;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = MockReporter;
+	type DefaultReportPeriod = ConstU64<5>;
+	type UnixTime = MockTime;
+	type DefaultExpectedEraDuration = ConstU64<1000>;
+	type DefaultReportMargin = ConstU64<100>;
+	type MaxReportMargin = ConstU64<500>;
 	type WeightInfo = ();
+}
+
+parameter_types! {
+	/// The time [`MockTime`] returns, in milliseconds.
+	pub static Now: u64 = 0;
+}
+
+pub struct MockTime;
+impl frame_support::traits::UnixTime for MockTime {
+	fn now() -> core::time::Duration {
+		core::time::Duration::from_millis(Now::get())
+	}
+}
+
+parameter_types! {
+	/// The validators, the invulnerables and candidates of collator selection, and a buffer.
+	pub static MaxEntriesPerReport: u32 = 50 + 20 + 20 + 10;
+	/// Number of calls to [`MockReporter`] so far.
+	pub static ReportCalls: u32 = 0;
+	/// The call to [`MockReporter`], counted from one, that is rejected.
+	pub static FailingReportCall: Option<u32> = None;
+}
+
+const REPORTED_KEY: &[u8] = b"reported";
+
+/// The reports [`MockReporter`] accepted, kept in storage so that a rollback removes them.
+pub fn reported() -> Vec<Vec<(u64, u32)>> {
+	frame_support::storage::unhashed::get(REPORTED_KEY).unwrap_or_default()
+}
+
+/// Records every report in storage, and rejects the one of [`FailingReportCall`] after recording
+/// it, so that only a rollback removes it.
+pub struct MockReporter;
+impl ReportAuthoredBlocks<u64> for MockReporter {
+	fn report(blocks: &[(u64, u32)]) -> Result<(), ()> {
+		ReportCalls::mutate(|calls| *calls += 1);
+		let mut reports = reported();
+		reports.push(blocks.to_vec());
+		frame_support::storage::unhashed::put(REPORTED_KEY, &reports);
+		match FailingReportCall::get() == Some(ReportCalls::get()) {
+			true => Err(()),
+			false => Ok(()),
+		}
+	}
 }
 
 /// Standalone collators, funded and with session keys at genesis.
@@ -134,6 +187,10 @@ pub const VALIDATORS: [u64; 6] = [10, 11, 12, 13, 14, 15];
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
+	Now::set(0);
+	MaxEntriesPerReport::set(100);
+	ReportCalls::set(0);
+	FailingReportCall::set(None);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances = COLLATORS.iter().chain(VALIDATORS.iter()).map(|&a| (a, 100)).collect();
@@ -158,6 +215,16 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	t.into()
 }
 
+/// Run `test` in [`new_test_ext`] and check the invariants of the pallet once it is done.
+///
+/// A test that leaves the pallet in a broken state on purpose uses [`new_test_ext`] directly.
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		ValidatorCollators::do_try_state().expect("the invariants hold after the test");
+	});
+}
+
 parameter_types! {
 	/// The relay chain epoch randomness in the state proof of every block, `None` for no proof.
 	pub static RelayEpochRandomness: Option<[u8; 32]> = Some([7; 32]);
@@ -169,10 +236,18 @@ pub fn initialize_to_block(n: u64) {
 	for i in System::block_number() + 1..=n {
 		System::set_block_number(i);
 		<AllPalletsWithSystem as frame_support::traits::OnInitialize<u64>>::on_initialize(i);
+		<AllPalletsWithSystem as frame_support::traits::OnPoll<u64>>::on_poll(
+			i,
+			&mut frame_support::weights::WeightMeter::new(),
+		);
+		// Without a proof the mock is a runtime without the `OnSystemEvent` wiring, which the
+		// invariants flag once collators are drawn, so they are only checked with a proof.
 		if let Some(randomness) = RelayEpochRandomness::get() {
 			<ValidatorCollators as OnSystemEvent>::on_relay_state_proof(
 				&crate::relay_proof::with_epoch_randomness(randomness),
 			);
+			ValidatorCollators::do_try_state()
+				.unwrap_or_else(|e| panic!("the invariants hold after block {i}: {e:?}"));
 		}
 	}
 }
