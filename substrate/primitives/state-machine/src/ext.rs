@@ -503,6 +503,18 @@ where
 		root.encode()
 	}
 
+	fn record_proof_for_dirty_keys(&mut self) {
+		let _guard = guard();
+
+		self.overlay.record_proof_for_dirty_keys(self.backend);
+
+		trace!(
+			target: "state",
+			method = "RecordProofForDirtyKeys",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+		);
+	}
+
 	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		self.child_storage_root_with_version(child_info, self.state_version)
 	}
@@ -846,14 +858,14 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::InMemoryBackend;
+	use crate::{InMemoryBackend, TrieBackendBuilder};
 	use codec::{Decode, Encode};
 	use sp_core::{
 		map,
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
-	use sp_trie::{LayoutV0, TrieConfiguration};
+	use sp_trie::{recorder::Recorder, LayoutV0, TrieConfiguration};
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
 	type TestExt<'a> = Ext<'a, Blake2Hasher, TestBackend>;
@@ -1079,6 +1091,501 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	fn large_values(count: u32) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> + Clone {
+		(0..count)
+			.map(|i| (i.encode(), vec![i; 100].encode()))
+			.chain((0..1000u32).map(|i| {
+				let mut key = 1u32.encode();
+				key.extend(i.encode());
+				(key, vec![i; 100].encode())
+			}))
+	}
+
+	fn backend_with_child(
+		child_info: &ChildInfo,
+		top: impl Iterator<Item = (Vec<u8>, Vec<u8>)>,
+		child: impl Iterator<Item = (Vec<u8>, Vec<u8>)>,
+	) -> TestBackend {
+		(
+			Storage {
+				top: top.collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: child.collect(),
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into()
+	}
+
+	fn estimation_and_storage_root_proof_sizes(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) -> (usize, usize) {
+		estimation_and_storage_root_proof_sizes_with_recorder(backend, |ext, _| apply_changes(ext))
+	}
+
+	fn estimation_and_storage_root_proof_sizes_with_recorder(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities, &Recorder<Blake2Hasher>),
+	) -> (usize, usize) {
+		estimation_and_storage_root_proof_sizes_at(backend, StateVersion::V1, apply_changes)
+	}
+
+	fn estimation_and_storage_root_proof_sizes_at(
+		backend: TestBackend,
+		state_version: StateVersion,
+		apply_changes: impl FnOnce(&mut dyn Externalities, &Recorder<Blake2Hasher>),
+	) -> (usize, usize) {
+		let mut overlay = OverlayedChanges::default();
+
+		let estimation_recorder = Recorder::<Blake2Hasher>::default();
+		{
+			let backend = TrieBackendBuilder::wrap(&backend)
+				.with_recorder(estimation_recorder.clone())
+				.build();
+			let mut ext = Ext::new(&mut overlay, &backend, None, state_version);
+			apply_changes(&mut ext, &estimation_recorder);
+			ext.record_proof_for_dirty_keys();
+		}
+
+		let storage_root_recorder = Recorder::<Blake2Hasher>::default();
+		{
+			let backend = TrieBackendBuilder::wrap(&backend)
+				.with_recorder(storage_root_recorder.clone())
+				.build();
+			let mut ext = Ext::new(&mut overlay, &backend, None, state_version);
+			ext.storage_root();
+		}
+
+		(estimation_recorder.estimate_encoded_size(), storage_root_recorder.estimate_encoded_size())
+	}
+
+	/// The estimation must record exactly the nodes the real storage root computation touches:
+	/// too few would let a block overshoot its PoV budget, too many would waste it.
+	fn assert_estimation_matches_storage_root(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) {
+		let (estimation, storage_root) =
+			estimation_and_storage_root_proof_sizes(backend, apply_changes);
+		assert_eq!(estimation, storage_root);
+	}
+
+	/// Deleting from a child trie may leave it empty, which removes its root from the main trie.
+	/// The estimation cannot know whether that happens, so it assumes the removal and may record
+	/// one extra sibling node. It must still never record less than the real computation.
+	fn assert_estimation_covers_storage_root(
+		backend: TestBackend,
+		apply_changes: impl FnOnce(&mut dyn Externalities),
+	) {
+		let (estimation, storage_root) =
+			estimation_and_storage_root_proof_sizes(backend, apply_changes);
+		assert!(estimation >= storage_root, "{estimation} < {storage_root}");
+	}
+
+	/// Nibble paths of the block-start trie: root -5- A -0- B -0- L1 (K1), B -1- L2 (K2),
+	/// A -1- L3 (K3). Deleting K1 and K2 collapses B into L2 and then A into L3, so L3 is loaded
+	/// only when both deletes are seen by one trie.
+	const K1: &[u8] = &[0x50, 0x00, 0xAA, 0xAA];
+	const K2: &[u8] = &[0x50, 0x10, 0xBB, 0xBB];
+	const K3: &[u8] = &[0x51, 0x00, 0xCC, 0xCC];
+	const FILLER: &[u8] = &[0x00, 0x11, 0x22, 0x33];
+
+	fn collapse_scenario_keys() -> Vec<(Vec<u8>, Vec<u8>)> {
+		let fillers = [0x0u8, 0x1, 0x2, 0x3, 0xA, 0xB, 0xC, 0xD]
+			.into_iter()
+			.map(|nibble| (vec![nibble << 4, 0x11, 0x22, 0x33], vec![nibble; 64]));
+		fillers
+			.chain([
+				(K1.to_vec(), vec![1u8; 64]),
+				(K2.to_vec(), vec![2u8; 64]),
+				(K3.to_vec(), vec![3u8; 64]),
+			])
+			.collect()
+	}
+
+	fn collapse_scenario_backend() -> TestBackend {
+		collapse_scenario_backend_at(StateVersion::V1)
+	}
+
+	fn collapse_scenario_backend_at(state_version: StateVersion) -> TestBackend {
+		(
+			Storage {
+				top: collapse_scenario_keys().into_iter().collect(),
+				children_default: Default::default(),
+			},
+			state_version,
+		)
+			.into()
+	}
+
+	/// Deleting in a child trie marks its root key as deleted in the top trie. The top keys share
+	/// the first byte of that key, so its branch keeps enough siblings not to collapse and the
+	/// top trie adds nothing beyond what the real root touches.
+	fn collapse_scenario_child_backend(child_info: &ChildInfo) -> TestBackend {
+		let child_root_key_first_byte = child_info.prefixed_storage_key().as_slice()[0];
+		let top = (0..4u8).map(|nibble| {
+			(vec![child_root_key_first_byte, nibble << 4, 0x22, 0x33], vec![nibble; 64])
+		});
+		backend_with_child(child_info, top, collapse_scenario_keys().into_iter())
+	}
+
+	/// A host transaction rolls back the recorder as well, as the runtime API glue does.
+	fn start_host_transaction(ext: &mut dyn Externalities, recorder: &Recorder<Blake2Hasher>) {
+		recorder.start_transaction();
+		ext.storage_start_transaction();
+	}
+
+	fn rollback_host_transaction(ext: &mut dyn Externalities, recorder: &Recorder<Blake2Hasher>) {
+		ext.storage_rollback_transaction().expect("transaction is open");
+		recorder.rollback_transaction().expect("transaction is open");
+	}
+
+	/// Each size estimation call must see the deletes of the earlier ones, otherwise a collapse
+	/// that only happens jointly is never recorded and the block may overshoot its PoV budget.
+	#[test]
+	fn joint_collapse_across_size_estimations_is_estimated_exactly() {
+		for (first, second) in [(K1, K2), (K2, K1)] {
+			assert_estimation_matches_storage_root(collapse_scenario_backend(), |ext| {
+				ext.clear_storage(first);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(second);
+			});
+		}
+	}
+
+	/// The estimation walks the trie with `LayoutV1` whatever the chain's state version. On a V0
+	/// chain the real storage root computation uses `LayoutV0`, and the estimation must still
+	/// record the same nodes, since reading and collapsing nodes do not depend on the layout.
+	#[test]
+	fn joint_collapse_is_estimated_exactly_on_a_v0_chain() {
+		for (first, second) in [(K1, K2), (K2, K1)] {
+			let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_at(
+				collapse_scenario_backend_at(StateVersion::V0),
+				StateVersion::V0,
+				|ext, _| {
+					ext.clear_storage(first);
+					ext.record_proof_for_dirty_keys();
+					ext.clear_storage(second);
+				},
+			);
+			assert_eq!(estimation, storage_root);
+		}
+	}
+
+	/// A host rollback drops the nodes recorded inside the transaction from the proof. The
+	/// estimation trie must forget the deletes too, otherwise re-deleting the key is served from
+	/// memory and records nothing.
+	#[test]
+	fn host_rollback_restores_the_estimation_trie() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_backend(),
+			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	/// A runtime rollback keeps the recorded nodes, but the estimation trie must still undo the
+	/// collapse, otherwise the next delete collapses one level further than the real root does.
+	#[test]
+	fn runtime_rollback_restores_the_estimation_trie() {
+		assert_estimation_matches_storage_root(collapse_scenario_backend(), |ext| {
+			ext.storage_start_transaction();
+			ext.clear_storage(K1);
+			ext.record_proof_for_dirty_keys();
+			ext.storage_rollback_transaction().expect("transaction is open");
+
+			ext.clear_storage(K2);
+		});
+	}
+
+	/// Committing an inner transaction hands its deletes to the outer one, so an outer rollback
+	/// must undo them along with its own, back to the size estimation made before it started.
+	#[test]
+	fn outer_host_rollback_undoes_committed_inner_transaction() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_backend(),
+			|ext, recorder| {
+				ext.clear_storage(FILLER);
+				ext.record_proof_for_dirty_keys();
+
+				start_host_transaction(ext, recorder);
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.storage_start_transaction();
+				ext.clear_storage(K2);
+				ext.record_proof_for_dirty_keys();
+				ext.storage_commit_transaction().expect("transaction is open");
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	/// Removing the last key turns the trie into the empty trie, which has no in-memory node to
+	/// roll back to; the rollback must still restore the full trie.
+	#[test]
+	fn emptied_estimation_trie_is_restored_by_rollback() {
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_backend(),
+			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				for (key, _) in collapse_scenario_keys() {
+					ext.clear_storage(&key);
+				}
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_storage(K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_storage(K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	#[test]
+	fn joint_collapse_across_size_estimations_in_child_trie_is_estimated_exactly() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		for (first, second) in [(K1, K2), (K2, K1)] {
+			assert_estimation_matches_storage_root(
+				collapse_scenario_child_backend(&child_info),
+				|ext| {
+					ext.clear_child_storage(&child_info, first);
+					ext.record_proof_for_dirty_keys();
+					ext.clear_child_storage(&child_info, second);
+				},
+			);
+		}
+	}
+
+	#[test]
+	fn host_rollback_restores_the_child_estimation_trie() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_with_recorder(
+			collapse_scenario_child_backend(&child_info),
+			|ext, recorder| {
+				start_host_transaction(ext, recorder);
+				ext.clear_child_storage(&child_info, K1);
+				ext.record_proof_for_dirty_keys();
+				rollback_host_transaction(ext, recorder);
+
+				ext.clear_child_storage(&child_info, K1);
+				ext.record_proof_for_dirty_keys();
+				ext.clear_child_storage(&child_info, K2);
+			},
+		);
+		assert_eq!(estimation, storage_root);
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_for_main_trie_changes() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
+
+		assert_estimation_matches_storage_root(backend, |ext| {
+			ext.place_storage(5000u32.encode(), Some(vec![30]));
+			ext.place_storage(100000u32.encode(), Some(vec![40]));
+
+			ext.place_storage(1u32.encode(), None);
+			ext.place_storage(6000u32.encode(), None);
+		});
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_for_child_inserts() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
+
+		assert_estimation_matches_storage_root(backend, |ext| {
+			ext.place_child_storage(&child_info, 5000u32.encode(), Some(vec![30]));
+			ext.place_child_storage(&child_info, 100000u32.encode(), Some(vec![40]));
+		});
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
+
+		assert_estimation_covers_storage_root(backend, |ext| {
+			ext.place_storage(5000u32.encode(), Some(vec![30]));
+			ext.place_storage(100000u32.encode(), Some(vec![40]));
+
+			ext.place_storage(1u32.encode(), None);
+			ext.place_storage(6000u32.encode(), None);
+
+			ext.place_child_storage(&child_info, 5000u32.encode(), Some(vec![30]));
+			ext.place_child_storage(&child_info, 100000u32.encode(), Some(vec![40]));
+
+			ext.place_child_storage(&child_info, 1u32.encode(), None);
+			ext.place_child_storage(&child_info, 6000u32.encode(), None);
+		});
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_2() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = backend_with_child(&child_info, large_values(100000), large_values(100000));
+
+		assert_estimation_covers_storage_root(backend, |ext| {
+			let key1 = 5000u32;
+			let key2 = 100000u32;
+			ext.storage_start_transaction();
+			ext.place_storage(key1.encode(), Some(vec![30]));
+			ext.place_storage(key2.encode(), Some(vec![40]));
+
+			ext.place_child_storage(&child_info, key1.encode(), Some(vec![30]));
+			ext.place_child_storage(&child_info, key2.encode(), Some(vec![40]));
+			let _ = ext.storage_commit_transaction();
+
+			ext.record_proof_for_dirty_keys();
+
+			ext.storage_start_transaction();
+			ext.place_storage(key1.encode(), None);
+			ext.place_storage(key2.encode(), None);
+
+			ext.place_child_storage(&child_info, key1.encode(), None);
+			ext.place_child_storage(&child_info, key2.encode(), None);
+			let _ = ext.storage_commit_transaction();
+		});
+	}
+
+	#[test]
+	fn untouched_child_trie_is_not_re_estimated() {
+		let keys = (0..10000u32).map(|i| (i.encode(), vec![i; 100].encode()));
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_info = &child_info;
+
+		let backend: TestBackend = (
+			Storage {
+				top: keys.clone().collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: keys.collect(),
+						child_info: child_info.to_owned(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		let estimate_top_only_change = |overlay: &mut OverlayedChanges<Blake2Hasher>| {
+			let recorder = Recorder::<Blake2Hasher>::default();
+			let backend =
+				TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+			let mut ext = Ext::new(overlay, &backend, None, StateVersion::V1);
+			ext.place_storage(5000u32.encode(), Some(vec![30]));
+			ext.record_proof_for_dirty_keys();
+			recorder.estimate_encoded_size()
+		};
+
+		let mut overlay_with_estimated_child = OverlayedChanges::default();
+		{
+			let backend =
+				TrieBackendBuilder::wrap(&backend).with_recorder(Recorder::default()).build();
+			let mut ext =
+				Ext::new(&mut overlay_with_estimated_child, &backend, None, StateVersion::V1);
+			ext.place_child_storage(child_info, 5000u32.encode(), Some(vec![30]));
+			ext.record_proof_for_dirty_keys();
+		}
+
+		// The child was already estimated and is untouched since, so it must not add any
+		// trie nodes to the proof of a later estimation.
+		assert_eq!(
+			estimate_top_only_change(&mut overlay_with_estimated_child),
+			estimate_top_only_change(&mut OverlayedChanges::default()),
+		);
+	}
+
+	#[test]
+	fn empty_child_delta_records_nothing() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend: TestBackend = (
+			Storage {
+				top: map![vec![1] => vec![1]],
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: map![vec![1] => vec![1]],
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+		let recorder = Recorder::<Blake2Hasher>::default();
+		let backend = TrieBackendBuilder::wrap(&backend).with_recorder(recorder.clone()).build();
+
+		backend.record_proof_for_child_dirty_keys(
+			&child_info,
+			core::iter::empty::<(&[u8], crate::DeltaKeyOp)>(),
+			&mut None,
+		);
+
+		assert_eq!(recorder.estimate_encoded_size(), 0);
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_when_child_is_created() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = (
+			Storage {
+				top: (0..10000u32).map(|i| (i.encode(), vec![i; 100].encode())).collect(),
+				children_default: Default::default(),
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		assert_estimation_matches_storage_root(backend, |ext| {
+			ext.place_child_storage(&child_info, 1u32.encode(), Some(vec![30]));
+		});
+	}
+
+	#[test]
+	fn calculating_storage_root_should_not_change_storage_proof_when_child_is_emptied() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let child_keys = (0..3u32).map(|i| i.encode()).collect::<Vec<_>>();
+		let backend = (
+			Storage {
+				top: (0..10000u32).map(|i| (i.encode(), vec![i; 100].encode())).collect(),
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: child_keys.iter().map(|k| (k.clone(), vec![30])).collect(),
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			StateVersion::default(),
+		)
+			.into();
+
+		assert_estimation_matches_storage_root(backend, |ext| {
+			for key in &child_keys {
+				ext.place_child_storage(&child_info, key.clone(), None);
+			}
+		});
 	}
 
 	#[test]

@@ -39,6 +39,21 @@ pub trait StorageProofSize {
 		self.extension::<ProofSizeExt>()
 			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
 	}
+
+	/// Returns the current storage proof size after computing PoV size for storage root.
+	///
+	/// This function first triggers the computation of PoV size for storage root changes
+	/// (recording trie nodes that would be accessed during storage root calculation),
+	/// then returns the updated proof size.
+	#[version(2)]
+	fn storage_proof_size(&mut self) -> u64 {
+		if self.extension::<ProofSizeExt>().is_some() {
+			self.record_proof_for_dirty_keys();
+		}
+
+		self.extension::<ProofSizeExt>()
+			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+	}
 }
 
 #[cfg(test)]

@@ -66,9 +66,9 @@ pub use trie_db::{
 	nibble_ops,
 	node::{NodePlan, ValuePlan},
 	triedb::{TrieDBDoubleEndedIterator, TrieDBKeyDoubleEndedIterator},
-	CError, DBValue, Query, Recorder, Trie, TrieCache, TrieConfiguration, TrieDBIterator,
-	TrieDBKeyIterator, TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut,
-	TrieRecorder,
+	AppendOnlyTrieDBMutBuilder, CError, DBValue, DetachedTrieDBMut, Query, Recorder, Trie,
+	TrieCache, TrieConfiguration, TrieDBIterator, TrieDBKeyIterator, TrieDBMutSnapshot,
+	TrieDBNodeDoubleEndedIterator, TrieDBRawIterator, TrieLayout, TrieMut, TrieRecorder,
 };
 pub use trie_db::{proof::VerifyError, MerkleValue};
 /// The Substrate format implementation of `TrieStream`.
@@ -317,6 +317,76 @@ where
 	verify_proof::<L, _, _, _>(root, proof, items)
 }
 
+/// Removes keys from a trie based on the provided delta, recording the nodes for proof size
+/// calculation.
+///
+/// The in-memory trie is created on `root` by the first call that applies a removal and is kept
+/// in `detached` between calls, so that removals spread over several calls collapse the same nodes
+/// as a single removal of all of them would. The trie storage is never altered.
+pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
+	db: &DB,
+	root: TrieHash<L>,
+	delta: I,
+	detached: &mut Option<DetachedTrieDBMut<L>>,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = A>,
+	A: Borrow<[u8]>,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let mut delta = delta.into_iter().peekable();
+	if delta.peek().is_none() {
+		return Ok(());
+	}
+
+	let trie = detached.take().unwrap_or_else(|| DetachedTrieDBMut::new(root));
+	let mut trie = AppendOnlyTrieDBMutBuilder::<L>::from_detached(db, trie)
+		.with_optional_cache(cache)
+		.with_optional_recorder(recorder)
+		.build();
+
+	let result = delta.try_for_each(|key| trie.remove(key.borrow()).map(|_| ()));
+	*detached = Some(trie.detach());
+	result
+}
+
+/// Executes a trie node accesses based on the provided delta, recording the nodes for proof size
+/// calculation.
+///
+/// This function replicates the trie operations that would occur for the given delta, recording
+/// trie nodes accessed. It is intended for calculating proof size without altering the actual trie
+/// storage.
+///
+/// Only the value hash is looked up: an insert overwrites the old value without reading it, so a
+/// hashed-out old value must not end up in the proof.
+pub fn read_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
+	db: &DB,
+	root: TrieHash<L>,
+	delta: I,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = A>,
+	A: Borrow<[u8]>,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	{
+		let trie = TrieDBBuilder::<L>::new(db, &root)
+			.with_optional_cache(cache)
+			.with_optional_recorder(recorder)
+			.build();
+
+		for key in delta {
+			trie.get_hash(key.borrow())?;
+		}
+	}
+
+	Ok(())
+}
+
 /// Determine a trie root given a hash DB and delta values.
 pub fn delta_trie_root<L: TrieConfiguration, I, A, B, DB, V>(
 	db: &mut DB,
@@ -445,6 +515,53 @@ where
 
 	let mut db = KeySpacedDBMut::new(db, keyspace);
 	delta_trie_root::<L, _, _, _, _, _>(&mut db, root, delta, recorder, cache)
+}
+
+/// Child trie variant of [`remove_trie_keys_from_delta`].
+pub fn child_remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB, RD>(
+	keyspace: &[u8],
+	db: &DB,
+	root_data: RD,
+	delta: I,
+	detached: &mut Option<DetachedTrieDBMut<L>>,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = A>,
+	A: Borrow<[u8]>,
+	RD: AsRef<[u8]>,
+	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let mut root = TrieHash::<L>::default();
+	// root is fetched from DB, not writable by runtime, so it's always valid.
+	root.as_mut().copy_from_slice(root_data.as_ref());
+
+	let db = KeySpacedDB::new(db, keyspace);
+	remove_trie_keys_from_delta::<L, _, _, _>(&db, root, delta, detached, recorder, cache)
+}
+
+/// Child trie variant of [`read_trie_keys_from_delta`].
+pub fn child_read_trie_keys_from_delta<L: TrieConfiguration, I, A, DB, RD>(
+	keyspace: &[u8],
+	db: &DB,
+	root_data: RD,
+	delta: I,
+	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
+	cache: Option<&mut dyn TrieCache<L::Codec>>,
+) -> Result<(), Box<TrieError<L>>>
+where
+	I: IntoIterator<Item = A>,
+	A: Borrow<[u8]>,
+	RD: AsRef<[u8]>,
+	DB: hash_db::HashDB<L::Hash, trie_db::DBValue> + hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
+{
+	let mut root = TrieHash::<L>::default();
+	// root is fetched from DB, not writable by runtime, so it's always valid.
+	root.as_mut().copy_from_slice(root_data.as_ref());
+
+	let db = KeySpacedDB::new(db, keyspace);
+	read_trie_keys_from_delta::<L, _, _, _>(&db, root, delta, recorder, cache)
 }
 
 /// Read a value from the child trie.

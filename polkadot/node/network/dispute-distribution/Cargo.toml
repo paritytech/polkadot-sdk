@@ -17,7 +17,7 @@ fatality = { workspace = true }
 futures = { workspace = true }
 futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
-indexmap = { workspace = true }
+indexmap = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }

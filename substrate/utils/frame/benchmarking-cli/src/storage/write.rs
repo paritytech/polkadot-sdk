@@ -25,7 +25,7 @@ use sc_client_db::{DbHash, DbState, DbStateBuilder};
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
-use sp_state_machine::Backend as StateBackend;
+use sp_state_machine::{Backend as StateBackend, DeltaKeyOp};
 use sp_storage::{ChildInfo, StateVersion};
 use sp_trie::{recorder::Recorder, PrefixedMemoryDB};
 use std::{
@@ -70,6 +70,13 @@ impl StorageCmd {
 			self.params.batch_size > MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION
 		{
 			return Err(format!("Batch size is too large. This may cause problems with runtime memory allocation. Better set `--batch-size {}` or less.", MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION).into());
+		}
+		if self.params.estimation_batch_size > self.params.batch_size {
+			return Err(format!(
+				"estimation_batch_size ({}) must be 0 or <= batch_size ({})",
+				self.params.estimation_batch_size, self.params.batch_size
+			)
+			.into());
 		}
 
 		// Store the time that it took to write each value.
@@ -304,6 +311,31 @@ impl StorageCmd {
 			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
 
 		let start = Instant::now();
+
+		// Call record_proof_for_dirty_keys if enabled
+		if self.params.estimation_batch_size > 0 {
+			let mut estimation_trie = None;
+
+			for trigger_changes in estimation_tiles(&changes, self.params.estimation_batch_size) {
+				let trigger_delta =
+					trigger_changes.iter().map(|(key, _)| (key.as_ref(), DeltaKeyOp::Updated));
+
+				match child_info {
+					Some(info) => {
+						let _ = trie.record_proof_for_child_dirty_keys(
+							info,
+							trigger_delta,
+							&mut estimation_trie,
+						);
+					},
+					None => {
+						let _ =
+							trie.record_proof_for_dirty_keys(trigger_delta, &mut estimation_trie);
+					},
+				}
+			}
+		}
+
 		// Create a TX that will modify the Trie in the DB and
 		// calculate the root hash of the Trie after the modification.
 		let replace = changes
@@ -363,6 +395,7 @@ impl StorageCmd {
 			*root,
 			storage_proof,
 			(changes, maybe_child_info.cloned()),
+			self.params.estimation_batch_size as u32,
 		);
 
 		let mut durations_in_nanos = Vec::new();
@@ -413,6 +446,12 @@ impl StorageCmd {
 /// Converts a Trie transaction into a DB transaction.
 /// Removals are ignored and will not be included in the final tx.
 /// `invert_inserts` replaces all inserts with removals.
+/// The slices of `changes` that each size estimation call covers, up to `triggers_per_batch`
+/// of them spread evenly over the batch.
+fn estimation_tiles<T>(changes: &[T], triggers_per_batch: usize) -> impl Iterator<Item = &[T]> {
+	changes.chunks(changes.len().div_ceil(triggers_per_batch).max(1))
+}
+
 fn convert_tx<B: BlockT>(
 	db: Arc<dyn sp_database::Database<DbHash>>,
 	mut tx: PrefixedMemoryDB<HashingFor<B>>,
@@ -463,4 +502,22 @@ fn check_new_value<Block: BlockT>(
 		}
 	}
 	true
+}
+
+#[cfg(test)]
+mod tests {
+	use super::estimation_tiles;
+
+	/// Any trigger count the CLI accepts must tile the batch without indexing past its end;
+	/// rounding the interval up used to make the last tiles start beyond the batch.
+	#[test]
+	fn every_trigger_count_tiles_the_whole_batch() {
+		let changes: Vec<usize> = (0..100).collect();
+		for triggers_per_batch in 1..=150 {
+			let tiles: Vec<_> = estimation_tiles(&changes, triggers_per_batch).collect();
+			assert!(tiles.len() <= triggers_per_batch);
+			assert!(tiles.iter().all(|tile| !tile.is_empty()));
+			assert_eq!(tiles.concat(), changes);
+		}
+	}
 }

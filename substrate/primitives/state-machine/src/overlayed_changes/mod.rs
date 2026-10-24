@@ -19,6 +19,7 @@
 
 mod changeset;
 mod offchain;
+mod proof_size_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
@@ -46,6 +47,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
+pub use proof_size_tracker::{DeltaKeyOp, TrackedKey};
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -93,11 +95,11 @@ impl Extrinsics {
 /// It allows changes to be modified using nestable transactions.
 pub struct OverlayedChanges<H: Hasher> {
 	/// Top level storage changes.
-	top: OverlayedChangeSet,
+	top: OverlayedChangeSet<H>,
 	/// Child storage changes. The map key is the child storage key without the common prefix.
-	children: Map<StorageKey, (OverlayedChangeSet, ChildInfo)>,
+	children: Map<StorageKey, (OverlayedChangeSet<H>, ChildInfo)>,
 	/// Offchain related changes.
-	offchain: OffchainOverlayedChanges,
+	offchain: OffchainOverlayedChanges<H>,
 	/// Transaction index changes,
 	transaction_index_ops: Vec<IndexOperation>,
 	/// True if extrinsics stats must be collected.
@@ -120,20 +122,6 @@ impl<H: Hasher> Default for OverlayedChanges<H> {
 			collect_extrinsics: Default::default(),
 			stats: Default::default(),
 			storage_transaction_cache: None,
-		}
-	}
-}
-
-impl<H: Hasher> Clone for OverlayedChanges<H> {
-	fn clone(&self) -> Self {
-		Self {
-			top: self.top.clone(),
-			children: self.children.clone(),
-			offchain: self.offchain.clone(),
-			transaction_index_ops: self.transaction_index_ops.clone(),
-			collect_extrinsics: self.collect_extrinsics,
-			stats: self.stats.clone(),
-			storage_transaction_cache: self.storage_transaction_cache.clone(),
 		}
 	}
 }
@@ -254,16 +242,6 @@ impl<H: Hasher> StorageTransactionCache<H> {
 	}
 }
 
-impl<H: Hasher> Clone for StorageTransactionCache<H> {
-	fn clone(&self) -> Self {
-		Self {
-			transaction: self.transaction.clone(),
-			transaction_storage_root: self.transaction_storage_root,
-			state_version: self.state_version,
-		}
-	}
-}
-
 impl<H: Hasher> core::fmt::Debug for StorageTransactionCache<H> {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		let mut debug = f.debug_struct("StorageTransactionCache");
@@ -337,6 +315,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		element: StorageValue,
 		init: impl Fn() -> StorageValue,
 	) {
+		self.mark_dirty();
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = element.len() as u64;
 		self.stats.tally_write_overlay(size_write);
@@ -359,15 +338,28 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let extrinsic_index = self.extrinsic_index();
 		let size_write = val.as_ref().map(|x| x.len() as u64).unwrap_or(0);
 		self.stats.tally_write_overlay(size_write);
-		let storage_key = child_info.storage_key().to_vec();
+		let root_key_op = if val.is_some() { DeltaKeyOp::Updated } else { DeltaKeyOp::Deleted };
+		let changeset = self.child_changeset(child_info);
+		changeset.set(key, val, extrinsic_index);
+		self.track_child_root_key(child_info, root_key_op);
+	}
+
+	fn child_changeset(&mut self, child_info: &ChildInfo) -> &mut OverlayedChangeSet<H> {
 		let top = &self.top;
 		let (changeset, info) = self
 			.children
-			.entry(storage_key)
+			.entry(child_info.storage_key().to_vec())
 			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
 		let updatable = info.try_update(child_info);
 		debug_assert!(updatable);
-		changeset.set(key, val, extrinsic_index);
+		changeset
+	}
+
+	/// The child root lives in the main trie, so changing the child changes that key too. Only a
+	/// write with a value proves the child stays non-empty; otherwise assume its root is removed.
+	fn track_child_root_key(&mut self, child_info: &ChildInfo, op: DeltaKeyOp) {
+		self.top
+			.track_storage_root_key(child_info.prefixed_storage_key().into_inner(), op);
 	}
 
 	/// Clear child storage of given storage key.
@@ -377,15 +369,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
-		let storage_key = child_info.storage_key().to_vec();
-		let top = &self.top;
-		let (changeset, info) = self
-			.children
-			.entry(storage_key)
-			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
-		let updatable = info.try_update(child_info);
-		debug_assert!(updatable);
-		changeset.clear_where(|_, _| true, extrinsic_index)
+		let changeset = self.child_changeset(child_info);
+		let cleared = changeset.clear_where(|_, _| true, extrinsic_index);
+		self.track_child_root_key(child_info, DeltaKeyOp::Deleted);
+		cleared
 	}
 
 	/// Removes all key-value pairs which keys share the given prefix.
@@ -405,15 +392,10 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.mark_dirty();
 
 		let extrinsic_index = self.extrinsic_index();
-		let storage_key = child_info.storage_key().to_vec();
-		let top = &self.top;
-		let (changeset, info) = self
-			.children
-			.entry(storage_key)
-			.or_insert_with(|| (top.spawn_child(), child_info.clone()));
-		let updatable = info.try_update(child_info);
-		debug_assert!(updatable);
-		changeset.clear_where(|key, _| key.starts_with(prefix), extrinsic_index)
+		let changeset = self.child_changeset(child_info);
+		let cleared = changeset.clear_where(|key, _| key.starts_with(prefix), extrinsic_index);
+		self.track_child_root_key(child_info, DeltaKeyOp::Deleted);
+		cleared
 	}
 
 	/// Returns the current nesting depth of the transaction stack.
@@ -530,7 +512,8 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Get an iterator over all child changes as seen by the current transaction.
 	pub fn children(
 		&self,
-	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)> {
+	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)>
+	{
 		self.children.values().map(|v| (v.0.changes(), &v.1))
 	}
 
@@ -677,6 +660,34 @@ impl<H: Hasher> OverlayedChanges<H> {
 		(root, false)
 	}
 
+	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
+	/// as seen by the current transaction.
+	pub fn record_proof_for_dirty_keys<B: Backend<H>>(&mut self, backend: &B)
+	where
+		H::Out: Ord + Encode + codec::Codec,
+	{
+		let delta_keys = self.top.take_delta();
+
+		let mut child_delta_keys: Vec<_> = self
+			.children
+			.values_mut()
+			.map(|(changeset, info)| {
+				(&*info, changeset.take_delta(), changeset.estimation_trie_mut())
+			})
+			.collect();
+
+		let delta = delta_keys.values().map(|(key, op)| (&key[..], *op));
+		let child_delta = child_delta_keys.iter_mut().map(|(info, keys, estimation_trie)| {
+			(*info, keys.values().map(|(key, op)| (&key[..], *op)), &mut **estimation_trie)
+		});
+
+		backend.record_proof_for_dirty_keys_full(
+			delta,
+			child_delta,
+			self.top.estimation_trie_mut(),
+		);
+	}
+
 	/// Generate the child storage root using `backend` and all child changes
 	/// as seen by the current transaction.
 	///
@@ -760,7 +771,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	}
 
 	/// Read only access ot offchain overlay.
-	pub fn offchain(&self) -> &OffchainOverlayedChanges {
+	pub fn offchain(&self) -> &OffchainOverlayedChanges<H> {
 		&self.offchain
 	}
 
@@ -821,7 +832,9 @@ where
 /// or an owned extension.
 #[cfg(feature = "std")]
 pub enum OverlayedExtension<'a> {
+	/// A mutable reference to an extension owned elsewhere.
 	MutRef(&'a mut Box<dyn Extension>),
+	/// An extension owned by this overlay.
 	Owned(Box<dyn Extension>),
 }
 
@@ -922,7 +935,7 @@ mod tests {
 	use std::collections::BTreeMap;
 
 	fn assert_extrinsics(
-		overlay: &mut OverlayedChangeSet,
+		overlay: &mut OverlayedChangeSet<Blake2Hasher>,
 		key: impl AsRef<[u8]>,
 		expected: Vec<u32>,
 	) {
@@ -970,14 +983,14 @@ mod tests {
 		use sp_core::offchain::STORAGE_PREFIX;
 		fn check_offchain_content(
 			state: &OverlayedChanges<Blake2Hasher>,
-			nb_commit: usize,
 			expected: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 		) {
-			let mut state = state.clone();
-			for _ in 0..nb_commit {
-				state.commit_transaction().unwrap();
-			}
-			let offchain_data: Vec<_> = state.offchain_drain_committed().collect();
+			let offchain_data: Vec<_> = state
+				.offchain()
+				.overlay()
+				.changes()
+				.map(|(key, entry)| (key.clone(), entry.value_ref().clone()))
+				.collect();
 			let expected: Vec<_> = expected
 				.into_iter()
 				.map(|(key, value)| {
@@ -995,31 +1008,31 @@ mod tests {
 
 		let key = vec![42, 69, 169, 142];
 
-		check_offchain_content(&overlayed, 0, vec![]);
+		check_offchain_content(&overlayed, vec![]);
 
 		overlayed.start_transaction();
 
 		overlayed.set_offchain_storage(key.as_slice(), Some(&[1, 2, 3][..]));
-		check_offchain_content(&overlayed, 1, vec![(key.clone(), Some(vec![1, 2, 3]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![1, 2, 3]))]);
 
 		overlayed.commit_transaction().unwrap();
 
-		check_offchain_content(&overlayed, 0, vec![(key.clone(), Some(vec![1, 2, 3]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![1, 2, 3]))]);
 
 		overlayed.start_transaction();
 
 		overlayed.set_offchain_storage(key.as_slice(), Some(&[][..]));
-		check_offchain_content(&overlayed, 1, vec![(key.clone(), Some(vec![]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![]))]);
 
 		overlayed.set_offchain_storage(key.as_slice(), None);
-		check_offchain_content(&overlayed, 1, vec![(key.clone(), None)]);
+		check_offchain_content(&overlayed, vec![(key.clone(), None)]);
 
 		overlayed.rollback_transaction().unwrap();
 
-		check_offchain_content(&overlayed, 0, vec![(key.clone(), Some(vec![1, 2, 3]))]);
+		check_offchain_content(&overlayed, vec![(key.clone(), Some(vec![1, 2, 3]))]);
 
 		overlayed.set_offchain_storage(key.as_slice(), None);
-		check_offchain_content(&overlayed, 0, vec![(key.clone(), None)]);
+		check_offchain_content(&overlayed, vec![(key.clone(), None)]);
 	}
 
 	#[test]
@@ -1239,5 +1252,69 @@ mod tests {
 		let next_to_40 = overlay.child_iter_after(child, &[40]).next().unwrap();
 		assert_eq!(next_to_40.0.to_vec(), vec![50]);
 		assert_eq!(next_to_40.1.value(), Some(&vec![50]));
+	}
+
+	fn top_delta_op(
+		overlay: &mut OverlayedChanges<Blake2Hasher>,
+		key: &[u8],
+	) -> Option<DeltaKeyOp> {
+		overlay.top.take_delta().values().find(|(k, _)| k == key).map(|(_, op)| *op)
+	}
+
+	#[test]
+	fn child_write_reports_child_root_key_once_in_top_delta() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let root_key = child_info.prefixed_storage_key().into_inner();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Updated));
+
+		overlay.set_child_storage(&child_info, vec![2], Some(vec![2]));
+		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+
+		// The child may end up empty, so its root key may be removed from the main trie.
+		overlay.set_child_storage(&child_info, vec![1], None);
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
+
+		overlay.set_child_storage(&child_info, vec![3], Some(vec![3]));
+		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+	}
+
+	#[test]
+	fn clearing_child_reports_child_root_key_as_deleted_in_top_delta() {
+		let clears: [fn(&mut OverlayedChanges<Blake2Hasher>, &ChildInfo); 2] = [
+			|overlay, child_info| {
+				overlay.clear_child_storage(child_info);
+			},
+			|overlay, child_info| {
+				overlay.clear_child_prefix(child_info, &[1]);
+			},
+		];
+		for clear in clears {
+			let child_info = ChildInfo::new_default(b"Child1");
+			let root_key = child_info.prefixed_storage_key().into_inner();
+			let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+			clear(&mut overlay, &child_info);
+			assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
+		}
+	}
+
+	#[test]
+	fn rolled_back_child_write_does_not_report_child_root_key() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let root_key = child_info.prefixed_storage_key().into_inner();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+		overlay.start_transaction();
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+		overlay.rollback_transaction().unwrap();
+		assert_eq!(top_delta_op(&mut overlay, &root_key), None);
+
+		overlay.start_transaction();
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+		overlay.commit_transaction().unwrap();
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Updated));
 	}
 }

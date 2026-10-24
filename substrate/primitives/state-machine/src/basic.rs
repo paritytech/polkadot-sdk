@@ -329,6 +329,10 @@ impl Externalities for BasicExternalities {
 		.encode()
 	}
 
+	fn record_proof_for_dirty_keys(&mut self) {
+		unimplemented!("record_proof_for_dirty_keys not supported for Basic")
+	}
+
 	fn storage_start_transaction(&mut self) {
 		self.overlay.start_transaction()
 	}
