@@ -16,7 +16,8 @@
 
 //! XCM adapters for the accumulate-and-forward pallet.
 //!
-//! - [`TeleportForwarderForAccountId32`]: accumulation-account-side forwarding adapter.
+//! - [`TeleportForwarderForAccountId32`]: teleports to a destination and deposits there.
+//! - [`TeleportAndBurnForwarderForAccountId32`]: teleports to a destination and burns there.
 
 use alloc::vec;
 use core::marker::PhantomData;
@@ -62,46 +63,93 @@ where
 
 		let remote_xcm = Xcm(vec![DepositAsset { assets: Wild(AllCounted(1)), beneficiary }]);
 
-		// The XCM flow: `ReceiveTeleportedAsset → AliasOrigin(source) → UnpaidExecution →
-		// DepositAsset`. `preserve_origin: true` causes `InitiateTransfer` to prepend
-		// `AliasOrigin(source_location)` to the remote XCM.
-		let xcm: Xcm<XcmConfig::RuntimeCall> = Xcm(vec![
-			UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
-			DescendOrigin(Junction::AccountId32 { network: None, id: source.into() }.into()),
-			WithdrawAsset(asset.into()),
-			InitiateTransfer {
-				destination: dest,
-				remote_fees: None,
-				preserve_origin: true,
-				assets: BoundedVec::truncate_from(alloc::vec![AssetTransferFilter::Teleport(
-					Wild(AllCounted(1))
-				),]),
-				remote_xcm,
-			},
-		]);
-
-		with_transaction(|| -> TransactionOutcome<Result<(), DispatchError>> {
-			let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
-				Location::here(),
-				xcm,
-				&mut [0u8; 32],
-				Weight::MAX,
-				Weight::MAX,
-			);
-
-			match outcome {
-				Outcome::Complete { .. } => TransactionOutcome::Commit(Ok(())),
-				exec_error => {
-					tracing::debug!(
-						target: LOG_TARGET,
-						?exec_error,
-						"accumulate-forward: XCM execution failed"
-					);
-
-					TransactionOutcome::Rollback(Err(DispatchError::Other("XCM execution failed")))
-				},
-			}
-		})
-		.map_err(|_| ())
+		teleport_from_account::<XcmConfig>(source.into(), asset, dest, remote_xcm)
 	}
+}
+
+/// Like [`TeleportForwarderForAccountId32`], but burns the teleported tokens at the destination
+/// instead of depositing them. For networks without a DAP.
+pub struct TeleportAndBurnForwarderForAccountId32<XcmConfig, Dest, NativeAsset>(
+	PhantomData<(XcmConfig, Dest, NativeAsset)>,
+);
+
+impl<XcmConfig, Dest, NativeAsset, AccountId, Balance>
+	pallet_accumulate_and_forward::Forwarder<AccountId, Balance>
+	for TeleportAndBurnForwarderForAccountId32<XcmConfig, Dest, NativeAsset>
+where
+	XcmConfig: xcm_executor::Config,
+	Dest: Get<Location>,
+	NativeAsset: Get<Location>,
+	AccountId: Into<[u8; 32]> + Clone,
+	Balance: Into<u128> + Copy,
+{
+	fn forward(source: AccountId, amount: Balance) -> Result<(), ()> {
+		let dest = Dest::get();
+		let asset = Asset { id: AssetId(NativeAsset::get()), fun: Fungible(amount.into()) };
+
+		// `BurnAsset` takes concrete assets, so name them as the destination sees them.
+		let remote_asset = asset
+			.clone()
+			.reanchored(&dest, &XcmConfig::UniversalLocation::get())
+			.map_err(|asset| {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?asset,
+					?dest,
+					"accumulate-forward: failed to reanchor asset to destination"
+				);
+			})?;
+
+		let remote_xcm = Xcm(vec![BurnAsset(remote_asset.into())]);
+
+		teleport_from_account::<XcmConfig>(source.into(), asset, dest, remote_xcm)
+	}
+}
+
+/// Teleports `asset` from `source` to `dest` with `preserve_origin`, followed by `remote_xcm`.
+/// Rolls back local changes on failure.
+fn teleport_from_account<XcmConfig: xcm_executor::Config>(
+	source: [u8; 32],
+	asset: Asset,
+	dest: Location,
+	remote_xcm: Xcm<()>,
+) -> Result<(), ()> {
+	let xcm: Xcm<XcmConfig::RuntimeCall> = Xcm(vec![
+		UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
+		DescendOrigin(Junction::AccountId32 { network: None, id: source }.into()),
+		WithdrawAsset(asset.into()),
+		InitiateTransfer {
+			destination: dest,
+			remote_fees: None,
+			preserve_origin: true,
+			assets: BoundedVec::truncate_from(vec![AssetTransferFilter::Teleport(Wild(
+				AllCounted(1),
+			))]),
+			remote_xcm,
+		},
+	]);
+
+	with_transaction(|| -> TransactionOutcome<Result<(), DispatchError>> {
+		let outcome = XcmExecutor::<XcmConfig>::prepare_and_execute(
+			Location::here(),
+			xcm,
+			&mut [0u8; 32],
+			Weight::MAX,
+			Weight::MAX,
+		);
+
+		match outcome {
+			Outcome::Complete { .. } => TransactionOutcome::Commit(Ok(())),
+			exec_error => {
+				tracing::debug!(
+					target: LOG_TARGET,
+					?exec_error,
+					"accumulate-forward: XCM execution failed"
+				);
+
+				TransactionOutcome::Rollback(Err(DispatchError::Other("XCM execution failed")))
+			},
+		}
+	})
+	.map_err(|_| ())
 }
