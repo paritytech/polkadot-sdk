@@ -880,7 +880,7 @@ mod benchmarks {
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
-		assert_eq!(ChillInactiveThreshold::<T>::get(), 10);
+		assert_eq!(ChillInactiveThreshold::<T>::get(), Some(10));
 	}
 
 	#[benchmark]
@@ -1668,54 +1668,80 @@ mod benchmarks {
 	}
 
 	#[benchmark(pov_mode = Measured)]
-	fn chill_inactive(
-		l: Linear<2, { ChillInactiveThreshold::<T>::get() }>,
-	) -> Result<(), BenchmarkError> {
+	fn chill_inactive(l: Linear<2, { T::HistoryDepth::get() }>) -> Result<(), BenchmarkError> {
 		let (stash, _, _) =
 			create_validator_with_nominators::<T>(0, 0, false, true, RewardDestination::Staked)?;
 		assert!(T::VoterList::contains(&stash));
 
-		Staking::<T>::set_staking_configs(
-			RawOrigin::Root.into(),
-			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(BalanceOf::<T>::max_value()),
-			ConfigOp::Set(0),
-			ConfigOp::Set(0),
-			ConfigOp::Set(Percent::from_percent(0)),
-			ConfigOp::Set(Zero::zero()),
-			ConfigOp::Noop,
-			ConfigOp::Noop,
-			ConfigOp::Set(l),
-		)?;
+		// We set the value here, and not through `set_staking_configs`, because it might reject it
+		// due to weight limits. Nonetheless, benchmarking it up to `HistoryDepth` makes the
+		// benchmark more accurate.
+		ChillInactiveThreshold::<T>::put(l);
 
-		let caller = whitelisted_caller();
-
-		// Proof eras `0..l` must sit in `[active_era - HistoryDepth, active_era)`. `l <=
-		// HistoryDepth`, so `active_era = l` keeps the lower bound at 0 while the most recent
-		// proof era (`l - 1`) stays below the active era.
+		// Set active era to `l`, the upper bound, and the proof is within `0..l`.
 		set_active_era::<T>(l);
 
-		// Fill the `EraRewardPoints::individual` to hit the worst-case scenario.
-		let mut individual_points = BoundedBTreeMap::new();
-		for index in 0..T::MaxValidatorSet::get() {
-			individual_points
-				.try_insert(account::<T::AccountId>("validator", index, 0), 100)
-				.unwrap();
-		}
+		// little sneaky way to get service variants as a list, without external deps like `strum`,
+		// while ensuring a new variant fails at compile time.
+		let services = {
+			use ServiceKind::*;
+			// A new `ServiceKind` fails to compile here, and must be added to `services`.
+			let _ = |kind: ServiceKind| match kind {
+				RelayConsensus | Collation => (),
+			};
+			[RelayConsensus, Collation]
+		};
+
+		// Fill `EraRewardPoints::individual` of every service, and of the tally that adds them
+		// up, to hit the worst-case scenario. Every era and service gets different points: the
+		// proof holds equal values only once, which would hide the size of all but one of them.
+		let points_of_each = |points: RewardPoint| {
+			let mut individual = BoundedBTreeMap::new();
+			for index in 0..T::MaxValidatorSet::get() {
+				individual
+					.try_insert(account::<T::AccountId>("validator", index, 0), points)
+					.unwrap();
+			}
+			EraRewardPoints { total: points * T::MaxValidatorSet::get(), individual }
+		};
+
+		// The points of each service are in `[base, 2 * base)`, and a tally adds up at least two
+		// of them, so it is at least `2 * base`: no tally equals the points of a service.
+		let service_count = services.len() as RewardPoint;
+		let base = T::HistoryDepth::get() * service_count;
+		let per_service =
+			|era: EraIndex, index: usize| base + era * service_count + index as RewardPoint;
+
+		// Every value written to `ErasRewardPoints` and `ErasRewardPointsByService`, encoded, as
+		// the proof holds them.
+		let mut written = alloc::collections::BTreeSet::new();
+		let mut assert_unique = |points: EraRewardPoints<T>| {
+			assert!(written.insert(codec::Encode::encode(&points)), "every value must differ");
+			points
+		};
 
 		// Set the validator has been inactive for `l` eras.
-		let proof = (0..l)
+		let proof: BoundedVec<_, _> = (0..l)
 			.inspect(|&era| {
-				ErasRewardPoints::<T>::insert(
-					era,
-					EraRewardPoints { total: 0, individual: individual_points.clone() },
-				);
+				let mut tally = 0;
+				for (index, kind) in services.into_iter().enumerate() {
+					let points = per_service(era, index);
+					ErasRewardPointsByService::<T>::insert(
+						era,
+						kind,
+						assert_unique(points_of_each(points)),
+					);
+					tally += points;
+				}
+				ErasRewardPoints::<T>::insert(era, assert_unique(points_of_each(tally)));
 				Eras::<T>::upsert_exposure(era, &stash, Exposure::default());
 			})
-			.collect::<Vec<_>>();
-		let proof = BoundedVec::truncate_from(proof);
+			.collect::<Vec<_>>()
+			.try_into()
+			.unwrap();
 
 		assert!(Validators::<T>::contains_key(&stash));
+		let caller = whitelisted_caller();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), stash.clone(), proof);
