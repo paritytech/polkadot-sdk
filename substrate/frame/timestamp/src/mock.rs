@@ -71,3 +71,11 @@ pub(crate) fn new_test_ext() -> TestExternalities {
 	clear_captured_moment();
 	TestExternalities::new(t)
 }
+
+pub(crate) fn build_ext_and_execute_test(test: impl FnOnce() -> ()) {
+	let mut ext = new_test_ext();
+	ext.execute_with(|| {
+		test();
+		Timestamp::do_try_state().expect("Storage invariants should hold")
+	});
+}
