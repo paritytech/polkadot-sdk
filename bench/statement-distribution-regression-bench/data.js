@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792775468575,
+  "lastUpdate": 1792837661146,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "99670e9703224aa06c5c1e863034841d58525c1f",
-          "message": "[eth-rpc] Detect and backfill gaps in finalized block subscriptions (#11538)\n\nTemporary connection drops can result in missed blocks, leaving gaps in\nthe local database and causing incomplete results for RPC methods such\nas eth_getLogs and eth_getBlockByNumber. This PR introduces automatic\ngap detection in the finalized block subscription and backfills missing\nranges via a background worker.\n\n- Gap detection: When a newly finalized block arrives with a number\nhigher than expected, the skipped range is queued for backfill.\n- Gap-fill queue: A bounded in-memory channel (capacity: 32),\nnon-blocking; a separate atomic counter tracks queued and in-flight\nrequests.\n- Gap-filler task: A background worker processes requests sequentially,\nreusing sync_backward_range; it does not update Head/Tail sync labels or\nthe first_evm_block boundary.\n- Sync state (Head advancement): The sync head does not advance while\ngap fills are in flight, ensuring continuity of the synced block range.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T07:57:02Z",
-          "tree_id": "35e9ca9e924e613bff73c9d49c462d81c8b5918b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/99670e9703224aa06c5c1e863034841d58525c1f"
-        },
-        "date": 1775726635403,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.10000000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03920191926000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08535578905799987,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08930914844599994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "davxy@datawok.net",
+            "name": "Davide Galassi",
+            "username": "davxy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14f57c4e28081367fbfb21cf845eb34d043865d5",
+          "message": "Bump ark-vrf version to 0.6.1 (#13528)\n\nThe Bandersnatch primitives in `sp-core` use the new API and its\nstricter decoders:\n\n- All points and proofs decode with the `_exact` decoders, which reject\ntrailing bytes.\n- The `RingVerifierKey` decoder now checks the curve points.\n- Ring member keys decode with the subgroup and identity checks. A key\nthat fails takes the padding slot. Before, an identity key made\n`RingContext::prover` and `verifier_key` panic.\n\nPerformance: `vrf_sign` and `vrf_verify` (Thin VRF, one I/O pair) are\nabout 25-30% faster\n(but we're talking about microseconds :-D )\n\nSo this release is mostly about security fixes",
+          "timestamp": "2026-10-24T08:52:54Z",
+          "tree_id": "cc3415f62f66ef15ff97058f75a893fa8b4a42f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/14f57c4e28081367fbfb21cf845eb34d043865d5"
+        },
+        "date": 1792837629805,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08573109522399992,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038689476587999996,
             "unit": "seconds"
           }
         ]
