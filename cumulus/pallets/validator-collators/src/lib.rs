@@ -499,8 +499,7 @@ pub mod pallet {
 			);
 			// `on_poll` postpones a report that does not fit, so one that does not fit an empty
 			// block is never made.
-			let report = T::WeightInfo::on_poll()
-				.saturating_add(Self::report_weight(max_items));
+			let report = T::WeightInfo::on_poll().saturating_add(Self::report_weight(max_items));
 			let max_block = T::BlockWeights::get().max_block;
 			assert!(
 				report.all_lte(max_block),
@@ -709,8 +708,8 @@ pub mod pallet {
 		/// rejects them. Without a stored set every count is removed.
 		///
 		/// `authors` is the number of entries in [`AuthoredBlocks`], which the caller reads to
-		/// weigh the report with [`Self::report_weight`] before making it. A rejected report removes
-		/// fewer counts than an accepted one, which is the weighed case.
+		/// weigh the report with [`Self::report_weight`] before making it. A rejected report
+		/// removes fewer counts than an accepted one, which is the weighed case.
 		pub(crate) fn report_blocks(authors: u32) {
 			if authors == 0 {
 				return;
@@ -720,10 +719,9 @@ pub mod pallet {
 
 			// read all authored-blocks, and partition them in those that we send and those we may
 			// drop.
-			let (to_send, others): (Vec<_>, Vec<_>) =
-				AuthoredBlocks::<T>::iter()
-					.take(T::MaxEntriesPerReport::get() as usize)
-					.partition(|(who, _)| validators.contains(who));
+			let (to_send, others): (Vec<_>, Vec<_>) = AuthoredBlocks::<T>::iter()
+				.take(T::MaxEntriesPerReport::get() as usize)
+				.partition(|(who, _)| validators.contains(who));
 			let (kept, dropped) = (to_send.len() as u32, others.len() as u32);
 
 			// We definitely want to delete these ones.
