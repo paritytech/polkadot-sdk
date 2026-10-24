@@ -268,6 +268,7 @@ where
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
+				ss_config,
 				&metrics,
 				&mut net_config,
 			);
@@ -710,7 +711,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolHandle<Block>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,
@@ -879,7 +880,7 @@ where
 		telemetry: Option<TelemetryHandle>,
 		task_manager: &TaskManager,
 		relay_chain_interface: Arc<dyn RelayChainInterface>,
-		transaction_pool: Arc<TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>>,
+		transaction_pool: Arc<TransactionPoolHandle<Block>>,
 		keystore: KeystorePtr,
 		relay_chain_slot_duration: Duration,
 		para_id: ParaId,

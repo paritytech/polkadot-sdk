@@ -22,28 +22,24 @@
 //! #### Generating Custom Chain Specification
 //! ```bash
 //! ./target/debug/node-template \
-//! build-spec \
-//! --disable-default-bootnode \
+//! export-chain-spec \
 //! --chain local \
 //! > customSpec.json
 //! ```
 //!
-//! - `build-spec`: A subcommand to generate a chain specification file.
-//! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
+//! - `export-chain-spec`: A subcommand to generate a chain specification file.
 //! - `--chain local`: Indicates the chain specification is for a local development chain.
 //! - `> customSpec.json`: Redirects the output into a customSpec.json file.
 //!
 //! #### Converting Chain Specification to Raw Format
 //! ```bash
-//! ./target/debug/node-template build-spec \
+//! ./target/debug/node-template export-chain-spec \
 //! --chain=customSpec.json \
 //! --raw \
-//! --disable-default-bootnode \
 //! > customSpecRaw.json
 //! ```
 //!
 //! - `--chain=customSpec.json`: Uses the custom chain specification as input.
-//! - `--disable-default-bootnode`: Disables the default bootnodes in the node template.
 //! - `--raw`: Converts the chain specification into a raw format with encoded storage keys.
 //! - `> customSpecRaw.json`: Outputs to `customSpecRaw.json`.
 //!

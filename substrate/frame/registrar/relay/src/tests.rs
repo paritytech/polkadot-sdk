@@ -17,10 +17,11 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{mock::*, Error, Event, PendingRegistrations};
+use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
+	ParachainRegistrar,
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
@@ -68,7 +69,7 @@ fn register_msg(
 /// Push a valid registration request through and return the code that will satisfy it.
 fn request(para_id: ParaId, head_len: usize, code_len: usize) -> Vec<u8> {
 	let (msg, blob) = register_msg(para_id, head_len, code_len);
-	assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+	assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 	blob
 }
 
@@ -94,6 +95,33 @@ fn cancel_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
 
 fn cancel_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
 	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id: CANCEL_ID, outcome })
+}
+
+/// The message id every test deregistration carries, distinct from the ids above.
+const DEREGISTER_ID: u64 = 7;
+
+fn deregister_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id: DEREGISTER_ID })
+}
+
+fn deregister_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+		para_id,
+		message_id: DEREGISTER_ID,
+		outcome,
+	})
+}
+
+/// Onboard `para_id` for real, so the registry knows it.
+fn onboard(para_id: ParaId) {
+	let blob = request(para_id, 20, 300);
+	assert_ok!(Registrar::apply_authorized_code(
+		frame_system::RawOrigin::Authorized.into(),
+		para_id,
+		blob
+	));
+	let _ = registrar_events();
+	let _ = take_sent();
 }
 
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
@@ -125,7 +153,7 @@ fn authorize_and_dispatch(
 	(authorized, dispatched)
 }
 
-mod authorize_code {
+mod receive_register {
 	use super::*;
 
 	#[test]
@@ -159,7 +187,7 @@ mod authorize_code {
 		new_test_ext().execute_with(|| {
 			let (msg, _) = register_msg(PARA_A, 20, 300);
 			assert_noop!(
-				Registrar::authorize_code(RuntimeOrigin::signed(ALICE), msg),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), msg),
 				DispatchError::BadOrigin
 			);
 		});
@@ -173,7 +201,7 @@ mod authorize_code {
 
 			// A business rejection is not an extrinsic failure: erroring would roll back the
 			// report and strand the parachain's deposit.
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -196,7 +224,7 @@ mod authorize_code {
 			let _ = take_sent();
 
 			let (msg, _) = register_msg(PARA_A, 20, 300);
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert_eq!(PendingRegistrations::<Test>::count(), 1);
 			assert_eq!(take_sent(), vec![failure_report(PARA_A, FailureReason::AlreadyRegistered)]);
@@ -210,7 +238,7 @@ mod authorize_code {
 				[(MAX_HEAD_SIZE as usize + 1, 300), (20, MAX_CODE_SIZE as usize + 1), (20, 1)]
 			{
 				let (msg, _) = register_msg(PARA_A, head_len, code_len);
-				assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 				assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 				assert_eq!(
@@ -233,7 +261,7 @@ mod authorize_code {
 
 			let overflow = PARA_A + MAX_PENDING;
 			let (msg, _) = register_msg(overflow, 20, 300);
-			assert_ok!(Registrar::authorize_code(RuntimeOrigin::root(), msg));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
 
 			assert!(PendingRegistrations::<Test>::get(overflow).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING);
@@ -406,7 +434,7 @@ mod apply_authorized_code {
 	}
 }
 
-mod cancel_authorization {
+mod receive_cancel_registration {
 	use super::*;
 
 	#[test]
@@ -416,7 +444,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
@@ -444,7 +472,7 @@ mod cancel_authorization {
 			}
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
 			assert!(PendingRegistrations::<Test>::get(PARA_B).is_some());
@@ -464,7 +492,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			// The para is registered, so the deposit is owed and the parachain is told so.
 			assert_eq!(
@@ -488,7 +516,7 @@ mod cancel_authorization {
 			let _ = registrar_events();
 			let _ = take_sent();
 
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(PendingRegistrations::<Test>::count(), 0);
 			assert_eq!(
@@ -507,7 +535,7 @@ mod cancel_authorization {
 		new_test_ext().execute_with(|| {
 			// The request may have been rejected here and the report lost; the parachain still has
 			// a deposit to release, so silence would strand it.
-			assert_ok!(Registrar::cancel_authorization(RuntimeOrigin::root(), cancel_msg(PARA_A)));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_msg(PARA_A)));
 
 			assert_eq!(take_sent(), vec![cancel_report(PARA_A, Ok(()))]);
 			assert_eq!(
@@ -523,32 +551,113 @@ mod cancel_authorization {
 			request(PARA_A, 20, 300);
 
 			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::signed(ALICE), cancel_msg(PARA_A)),
+				Registrar::receive(RuntimeOrigin::signed(ALICE), cancel_msg(PARA_A)),
 				DispatchError::BadOrigin
 			);
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_some());
 		});
 	}
+}
+
+mod receive_deregister {
+	use super::*;
 
 	#[test]
-	fn each_call_serves_only_its_own_message() {
+	fn drops_the_para_and_confirms_it() {
 		new_test_ext().execute_with(|| {
-			let (register, _) = register_msg(PARA_A, 20, 300);
+			onboard(PARA_A);
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			// Dropped before its first head, so nothing is left waiting on one.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_retry_after_a_lost_answer_is_confirmed_again() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_registry_that_will_not_let_the_para_go_is_reported_not_dispatch_failed() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			DeregisterFails::set(true);
+
+			// `Ok`, not `Err`: failing would roll the refusal report back with it.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Err(FailureReason::NotDeregisterable))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_ask() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
 
 			assert_noop!(
-				Registrar::cancel_authorization(RuntimeOrigin::root(), register),
-				Error::<Test>::UnexpectedMessage
+				Registrar::receive(RuntimeOrigin::signed(ALICE), deregister_msg(PARA_A)),
+				DispatchError::BadOrigin
 			);
-			assert_noop!(
-				Registrar::authorize_code(RuntimeOrigin::root(), cancel_msg(PARA_A)),
-				Error::<Test>::UnexpectedMessage
-			);
+			assert!(MockRegistrar::is_registered(PARA_A));
 		});
 	}
 }
 
 mod reporting {
 	use super::*;
+
+	#[test]
+	fn a_bounced_report_does_not_undo_the_deregistration() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			// The para is gone here regardless; the parachain retries and is confirmed then.
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
+				]
+			);
+		});
+	}
 
 	#[test]
 	fn a_bounced_report_does_not_undo_the_onboarding() {
@@ -574,6 +683,133 @@ mod reporting {
 					Event::Registered { para_id: PARA_A, message_id: MSG_ID, manager: ALICE },
 				]
 			);
+		});
+	}
+}
+
+mod head_noted {
+	use super::*;
+	use polkadot_runtime_parachains::paras::OnNewHead;
+
+	/// Leave `para_id` in the state a registration leaves behind: waiting on its first head.
+	fn awaiting(para_id: ParaId) {
+		AwaitingFirstHead::<Test>::insert(para_id, ());
+	}
+
+	#[test]
+	fn a_registration_leaves_the_para_awaiting_its_first_head() {
+		new_test_ext().execute_with(|| {
+			request(PARA_A, 20, 300);
+
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+		});
+	}
+
+	#[test]
+	fn tells_the_parachain_about_a_new_head() {
+		new_test_ext().execute_with(|| {
+			request(PARA_A, 20, 300);
+			let _ = registrar_events();
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn a_para_this_pallet_never_registered_is_skipped() {
+		new_test_ext().execute_with(|| {
+			// Only paras registered through here are waiting on a notification; every other para
+			// on this chain locks itself and must not be told anything.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_later_head_is_not_reported_again() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			assert_eq!(take_sent().len(), 1);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn each_para_is_reported_once() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			awaiting(PARA_B);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			Registrar::on_new_head(PARA_B.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A }),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_B }),
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_bounced_notification_is_only_surfaced() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			SendFails::set(true);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn a_bounced_notification_is_retried_on_the_next_head() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			SendFails::set(true);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			// A bounced notification keeps the para waiting, otherwise it would never learn about
+			// its first head and could stay unlocked forever.
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+
+			SendFails::set(false);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			// And once it lands it is not sent again.
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
 		});
 	}
 }
