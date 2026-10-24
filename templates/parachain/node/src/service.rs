@@ -303,7 +303,7 @@ pub async fn start_parachain_node(
 			),
 		})
 		.await?;
-	let collator_peer_id = network.local_peer_id();
+	let collator_peer_id = relay_chain_network.local_peer_id();
 
 	if parachain_config.offchain_worker.enabled {
 		use futures::FutureExt;
