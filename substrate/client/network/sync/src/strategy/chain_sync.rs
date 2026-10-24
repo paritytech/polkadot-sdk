@@ -36,7 +36,7 @@ use crate::{
 	service::network::NetworkServiceHandle,
 	strategy::{
 		disconnected_peers::DisconnectedPeers,
-		state_sync::{ImportResult, StateSync, StateSyncProvider},
+		state_sync::{resumable_state_sync, ImportResult, StateSync, StateSyncProvider},
 		warp::{WarpSyncPhase, WarpSyncProgress},
 		StrategyKey, SyncingAction, SyncingStrategy,
 	},
@@ -49,7 +49,7 @@ use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
 use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
-use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
+use sc_client_api::{blockchain::BlockGap, BlockBackend, PartialStateImport, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
 use sc_network::{IfDisconnected, ProtocolName};
 use sc_network_common::sync::message::{
@@ -298,11 +298,9 @@ struct GapSync<B: BlockT> {
 pub enum ChainSyncMode {
 	/// Full block download and verification.
 	Full,
-	/// Download blocks and the latest state.
-	LightState {
-		/// Skip state proof download and verification.
-		skip_proofs: bool,
-	},
+	/// Download blocks and the latest state. The state comes with proofs and is written to the
+	/// database as it arrives.
+	LightState,
 }
 
 /// Returns the base block attributes required for chain sync.
@@ -439,7 +437,7 @@ pub struct ChainSync<B: BlockT, Client> {
 	/// when `queue_blocks` is not empty or there are no peers. This field holds the
 	/// necessary information to attempt the state sync at a later point when
 	/// conditions are satisfied.
-	pending_state_sync_attempt: Option<(B::Hash, NumberFor<B>, bool)>,
+	pending_state_sync_attempt: Option<(B::Hash, NumberFor<B>)>,
 	/// Fork sync targets.
 	fork_targets: HashMap<B::Hash, ForkTarget<B>>,
 	/// A set of peers for which there might be potential block requests
@@ -476,6 +474,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -940,13 +939,11 @@ where
 			is_descendent_of(&**client, base, block)
 		});
 
-		if let ChainSyncMode::LightState { skip_proofs, .. } = &self.mode {
-			if self.state_sync.is_none() {
-				if !self.peers.is_empty() && self.queue_blocks.is_empty() {
-					self.attempt_state_sync(*hash, number, *skip_proofs);
-				} else {
-					self.pending_state_sync_attempt.replace((*hash, number, *skip_proofs));
-				}
+		if matches!(self.mode, ChainSyncMode::LightState { .. }) && self.state_sync.is_none() {
+			if !self.peers.is_empty() && self.queue_blocks.is_empty() {
+				self.attempt_state_sync(*hash, number);
+			} else {
+				self.pending_state_sync_attempt.replace((*hash, number));
 			}
 		}
 
@@ -1025,9 +1022,20 @@ where
 		network_service: &NetworkServiceHandle,
 	) -> Result<Vec<SyncingAction<B>>, ClientError> {
 		if !self.peers.is_empty() && self.queue_blocks.is_empty() {
-			if let Some((hash, number, skip_proofs)) = self.pending_state_sync_attempt.take() {
-				self.attempt_state_sync(hash, number, skip_proofs);
+			if let Some((hash, number)) = self.pending_state_sync_attempt.take() {
+				self.attempt_state_sync(hash, number);
 			}
+		}
+		// Retry a pending chunk write.
+		match self.state_sync.as_mut().and_then(|sync| sync.retry_pending_write()) {
+			Some(ImportResult::Import(block)) => self.queue_target_import(block),
+			Some(ImportResult::Abort) => self.abort_state_sync(),
+			// A justification request may have cleared the allowed requests during the wait.
+			// Let the next state request go out.
+			Some(ImportResult::Continue | ImportResult::BadResponse) => {
+				self.allowed_requests.set_all()
+			},
+			None => {},
 		}
 
 		let block_requests = self
@@ -1084,6 +1092,7 @@ where
 		+ BlockBackend<B>
 		+ HeaderMetadata<B, Error = sp_blockchain::Error>
 		+ ProofProvider<B>
+		+ PartialStateImport<B>
 		+ Send
 		+ Sync
 		+ 'static,
@@ -2228,7 +2237,8 @@ where
 			return None;
 		}
 		if let Some(sync) = &self.state_sync {
-			if sync.is_complete() {
+			// Nothing to ask while a chunk waits to be written: its retry decides what is next.
+			if sync.is_complete() || sync.has_pending_write() {
 				return None;
 			}
 
@@ -2271,9 +2281,8 @@ where
 		let import_result = if let Some(sync) = &mut self.state_sync {
 			debug!(
 				target: LOG_TARGET,
-				"Importing state data from {} with {} keys, {} proof nodes.",
+				"Importing state data from {}, {} bytes of proof.",
 				peer_id,
-				response.entries.len(),
 				response.proof.len(),
 			);
 			sync.import(response)
@@ -2283,24 +2292,15 @@ where
 		};
 
 		match import_result {
-			ImportResult::Import(hash, header, state, body, justifications) => {
-				let origin = BlockOrigin::NetworkInitialSync;
-				let block = IncomingBlock {
-					hash,
-					header: Some(header),
-					body,
-					justifications,
-					origin: None,
-					allow_missing_state: true,
-					import_existing: true,
-					skip_execution: self.skip_execution(),
-					state: Some(state),
-				};
-				debug!(target: LOG_TARGET, "State download is complete. Import is queued");
-				self.actions.push(SyncingAction::ImportBlocks { origin, blocks: vec![block] });
+			ImportResult::Import(block) => {
+				self.queue_target_import(block);
 				Ok(())
 			},
 			ImportResult::Continue => Ok(()),
+			ImportResult::Abort => {
+				self.abort_state_sync();
+				Ok(())
+			},
 			ImportResult::BadResponse => {
 				debug!(target: LOG_TARGET, "Bad state data received from {peer_id}");
 				Err(BadPeer(*peer_id, rep::BAD_BLOCK))
@@ -2308,24 +2308,70 @@ where
 		}
 	}
 
-	fn attempt_state_sync(
-		&mut self,
-		finalized_hash: B::Hash,
-		finalized_number: NumberFor<B>,
-		skip_proofs: bool,
-	) {
+	/// Give up on the state sync target and start the block sync over.
+	fn abort_state_sync(&mut self) {
+		error!(
+			target: LOG_TARGET,
+			"State sync aborted: the state could not be written to the database.",
+		);
+		self.state_sync = None;
+		self.restart();
+	}
+
+	/// Queue the import of the state sync target. Its whole state is in the database, and the
+	/// block import checks that it is complete and marks it present.
+	fn queue_target_import(&mut self, block: IncomingBlock<B>) {
+		debug!(target: LOG_TARGET, "State download is complete. Import is queued");
+		self.actions.push(SyncingAction::ImportBlocks {
+			origin: BlockOrigin::NetworkInitialSync,
+			blocks: vec![block],
+		});
+	}
+
+	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
+		if self.client.info().finalized_state.is_some() {
+			// There is state already, from a sync that completed without us noticing or from an
+			// earlier run. A new download would write next to it, so sync the blocks instead.
+			warn!(
+				target: LOG_TARGET,
+				"The database already holds a finalized state, switching to full sync.",
+			);
+			self.mode = ChainSyncMode::Full;
+			self.restart();
+			return;
+		}
 		let mut heads: Vec<_> = self.peers.values().map(|peer| peer.best_number).collect();
 		heads.sort();
 		let median = heads[heads.len() / 2];
 		if finalized_number + STATE_SYNC_FINALITY_THRESHOLD.saturated_into() >= median {
 			if let Ok(Some(header)) = self.client.header(finalized_hash) {
-				log::debug!(
-					target: LOG_TARGET,
-					"Starting state sync for #{finalized_number} ({finalized_hash})",
-				);
-				self.state_sync =
-					Some(StateSync::new(self.client.clone(), header, None, None, skip_proofs));
-				self.allowed_requests.set_all();
+				// Pick up where an earlier run stopped.
+				let state_sync =
+					resumable_state_sync(&*self.client).and_then(|resumable| match resumable {
+						Some(resumable) => Ok(StateSync::resume(self.client.clone(), resumable)),
+						None => {
+							log::debug!(
+								target: LOG_TARGET,
+								"Starting state sync for #{finalized_number} ({finalized_hash})",
+							);
+							StateSync::new(self.client.clone(), header, None, None)
+						},
+					});
+				match state_sync {
+					Ok(mut state_sync) => {
+						// Every chunk was written before the restart, so only the import is left.
+						// Queue it and wait for it like for the import of a final chunk.
+						if let Some(block) = state_sync.take_target_import() {
+							self.queue_target_import(block);
+						}
+						self.state_sync = Some(state_sync);
+						self.allowed_requests.set_all();
+					},
+					Err(e) => log::error!(
+						target: LOG_TARGET,
+						"Failed to start state sync for #{finalized_number} ({finalized_hash}): {e}",
+					),
+				}
 			} else {
 				log::error!(
 					target: LOG_TARGET,

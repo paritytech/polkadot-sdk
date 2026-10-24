@@ -123,24 +123,21 @@ pub struct BlockCheckParams<Block: BlockT> {
 pub enum StorageChanges<Block: BlockT> {
 	/// Changes coming from block execution.
 	Changes(sp_state_machine::StorageChanges<HashingFor<Block>>),
-	/// Whole new state.
-	Import(ImportedState<Block>),
+	/// The state was written to the database by state sync before the block.
+	Import(ImportedState),
 }
 
-/// Imported state data. A vector of key-value pairs that should form a trie.
-#[derive(PartialEq, Eq, Clone)]
-pub struct ImportedState<B: BlockT> {
-	/// Target block hash.
-	pub block: B::Hash,
-	/// State keys and values.
-	pub state: sp_state_machine::KeyValueStates,
-}
-
-impl<B: BlockT> std::fmt::Debug for ImportedState<B> {
-	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
-		fmt.debug_struct("ImportedState").field("block", &self.block).finish()
-	}
-}
+/// Marker for a block whose state was already written to the database by state sync, chunk by
+/// chunk, before the block itself. Importing it executes nothing: the client checks that the
+/// state is complete and marks it present (`PartialStateStore::check_complete` and
+/// `BlockImportOperation::mark_state_synced` in `sc_client_api`), and GRANDPA rebuilds its
+/// authority set from it.
+///
+/// This used to carry the downloaded key-values, which the import turned into a trie in memory.
+/// Now it only keeps the shape of `StorageChanges` and `IncomingBlock`, which still tell a
+/// state-synced block apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ImportedState;
 
 /// Defines how a new state is computed for a given imported block.
 pub enum StateAction<Block: BlockT> {

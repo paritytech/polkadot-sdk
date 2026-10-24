@@ -34,6 +34,7 @@ pub mod bench;
 
 mod children;
 mod parity_db;
+mod partial_state;
 mod pinned_blocks_cache;
 mod record_stats_state;
 mod stats;
@@ -46,6 +47,7 @@ use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
+	borrow::Cow,
 	collections::{HashMap, HashSet},
 	io,
 	path::{Path, PathBuf},
@@ -53,6 +55,7 @@ use std::{
 };
 
 use crate::{
+	partial_state::{remove_partial_state_records, DbPartialState, PartialStateStatus},
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -64,6 +67,7 @@ use sc_client_api::{
 	backend::NewBlockState,
 	blockchain::{BlockGap, BlockGapType},
 	leaves::{FinalizationOutcome, LeafSet},
+	partial_state::PartialStateStore,
 	utils::is_descendent_of,
 	IoInfo, MemoryInfo, MemorySize, TrieCacheContext, UsageInfo,
 };
@@ -916,6 +920,7 @@ pub struct BlockImportOperation<Block: BlockT> {
 	commit_state: bool,
 	create_gap: bool,
 	reset_storage: bool,
+	synced_state: bool,
 	index_ops: Vec<IndexOperation>,
 	prefetched_indexed_transactions: HashMap<DbHash, Vec<u8>>,
 }
@@ -1082,6 +1087,15 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	fn set_create_gap(&mut self, create_gap: bool) {
 		self.create_gap = create_gap;
 	}
+
+	fn mark_state_synced(&mut self) -> ClientResult<()> {
+		// Commit it like a state import with no changes. The block gets recorded as having
+		// state, and `reset_storage` makes the commit drop the attempt's records.
+		self.commit_state = true;
+		self.reset_storage = true;
+		self.synced_state = true;
+		Ok(())
+	}
 }
 
 struct StorageDb<Block: BlockT> {
@@ -1090,15 +1104,24 @@ struct StorageDb<Block: BlockT> {
 	prefix_keys: bool,
 }
 
+impl<Block: BlockT> StorageDb<Block> {
+	/// The key a state node lives under in `STATE`. parity-db counts references itself and stores a
+	/// node once, by hash. The other databases put the trie position in front of the hash, so the
+	/// same node at two positions gets two entries. Reads and state sync writes both use this.
+	fn state_key<'a>(&self, hash: &'a Block::Hash, prefix: Prefix) -> Cow<'a, [u8]> {
+		if self.prefix_keys {
+			Cow::Owned(prefixed_key::<HashingFor<Block>>(hash, prefix))
+		} else {
+			Cow::Borrowed(hash.as_ref())
+		}
+	}
+}
+
 impl<Block: BlockT> sp_state_machine::Storage<HashingFor<Block>> for StorageDb<Block> {
 	fn get(&self, key: &Block::Hash, prefix: Prefix) -> Result<Option<DBValue>, String> {
-		if self.prefix_keys {
-			let key = prefixed_key::<HashingFor<Block>>(key, prefix);
-			self.state_db.get(&key, self)
-		} else {
-			self.state_db.get(key.as_ref(), self)
-		}
-		.map_err(|e| format!("Database backend error: {e:?}"))
+		self.state_db
+			.get(&*self.state_key(key, prefix), self)
+			.map_err(|e| format!("Database backend error: {e:?}"))
 	}
 }
 
@@ -1204,6 +1227,7 @@ pub struct Backend<Block: BlockT> {
 	io_stats: FrozenForDuration<(kvdb::IoStats, StateUsageInfo)>,
 	state_usage: Arc<StateUsageStats>,
 	genesis_state: RwLock<Option<Arc<DbGenesisStorage<Block>>>>,
+	partial_state: DbPartialState<Block>,
 	shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	pruning_filters: Vec<Arc<dyn PruningFilter>>,
 }
@@ -1387,17 +1411,22 @@ impl<Block: BlockT> Backend<Block> {
 			SharedTrieCache::new(sp_trie::cache::CacheSize::new(maximum_size), config.metrics_registry.as_ref())
 		});
 
+		let storage = Arc::new(storage_db);
+		let state_usage = Arc::new(StateUsageStats::new());
+		let partial_state =
+			DbPartialState::new(storage.clone(), blockchain.meta.clone(), state_usage.clone());
 		let backend = Backend {
-			storage: Arc::new(storage_db),
+			storage,
 			offchain_storage,
 			blockchain,
 			canonicalization_delay,
 			import_lock: Default::default(),
 			is_archive: is_archive_pruning,
 			io_stats: FrozenForDuration::new(std::time::Duration::from_secs(1)),
-			state_usage: Arc::new(StateUsageStats::new()),
+			state_usage,
 			blocks_pruning: config.blocks_pruning,
 			genesis_state: RwLock::new(None),
+			partial_state,
 			shared_trie_cache,
 			pruning_filters: config.pruning_filters.clone(),
 		};
@@ -1443,6 +1472,8 @@ impl<Block: BlockT> Backend<Block> {
 			},
 			_ => {},
 		}
+
+		backend.partial_state.load()?;
 
 		db.commit(db_init_transaction)?;
 
@@ -1628,16 +1659,40 @@ impl<Block: BlockT> Backend<Block> {
 	}
 
 	fn try_commit_operation(&self, mut operation: BlockImportOperation<Block>) -> ClientResult<()> {
+		let (
+			best_num,
+			mut last_finalized_hash,
+			mut last_finalized_num,
+			mut block_gap,
+			has_finalized_state,
+		) = {
+			let meta = self.blockchain.meta.read();
+			(
+				meta.best_number,
+				meta.finalized_hash,
+				meta.finalized_number,
+				meta.block_gap,
+				meta.finalized_state.is_some(),
+			)
+		};
+
+		// Once a finalized block has state no state sync can begin (see `DbPartialState::begin`),
+		// so nothing is recorded and the commit skips this. Until then the lock is held for the
+		// whole commit, so that removing the records and clearing the status happen as one.
+		let mut status = (!has_finalized_state).then(|| self.partial_state.lock());
+		// A recorded status means a state sync is pending, or the discard of one.
+		if let Some(status) = &mut status {
+			if operation.commit_state && !operation.reset_storage && status.is_some() {
+				self.partial_state.discard(status)?;
+			}
+		}
+
 		let mut transaction = Transaction::new();
 
 		operation.apply_aux(&mut transaction);
 		operation.apply_offchain(&mut transaction);
 
 		let mut meta_updates = Vec::with_capacity(operation.finalized_blocks.len());
-		let (best_num, mut last_finalized_hash, mut last_finalized_num, mut block_gap) = {
-			let meta = self.blockchain.meta.read();
-			(meta.best_number, meta.finalized_hash, meta.finalized_number, meta.block_gap)
-		};
 
 		let mut block_gap_updated = false;
 
@@ -1725,6 +1780,39 @@ impl<Block: BlockT> Backend<Block> {
 						*pending_block.header.state_root(),
 						operation.db_updates.clone(),
 					)));
+				}
+			}
+
+			if operation.reset_storage {
+				// This is the block the state sync was for. Its records go in the same commit, the
+				// attempt is complete. Unlocked means nothing recorded, see above.
+				match status.as_deref().copied().flatten() {
+					Some(PartialStateStatus::Syncing { hash: target, .. }) if target == hash => {
+						remove_partial_state_records(&mut transaction)
+					},
+					Some(PartialStateStatus::Syncing { hash: target, .. }) => {
+						return Err(ClientError::Backend(format!(
+							"Block {hash:?} imports with a synced state while the recorded state \
+							 sync targets {target:?}"
+						)))
+					},
+					Some(PartialStateStatus::Discarding { .. }) => {
+						return Err(ClientError::Backend(format!(
+							"Block {hash:?} imports with a synced state while the recorded state \
+							 sync is being discarded"
+						)))
+					},
+					// A synced state with nothing recorded never happens: the mark presumes a
+					// completeness check, which needs the record.
+					None if operation.synced_state => {
+						return Err(ClientError::Backend(format!(
+							"Block {hash:?} imports with a synced state while no state sync is \
+							 recorded"
+						)))
+					},
+					// Nothing recorded. `BlockImportOperation::reset_storage` can also import a
+					// whole state outside a state sync, which only tests do.
+					None => {},
 				}
 			}
 
@@ -2028,6 +2116,13 @@ impl<Block: BlockT> Backend<Block> {
 
 		if let Some((header, hash)) = imported {
 			trace!(target: "db", "DB Commit done {hash:?}");
+			if operation.reset_storage {
+				// The block is in, and with it the state the attempt downloaded: the match before
+				// the commit let only the recorded target through.
+				if let Some(status) = &mut status {
+					**status = None;
+				}
+			}
 			let header_metadata = CachedHeaderMetadata::from(&header);
 			self.blockchain.insert_header_metadata(header_metadata.hash, header_metadata);
 			cache_header(&mut self.blockchain.header_cache.lock(), hash, Some(header));
@@ -2396,6 +2491,7 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			commit_state: false,
 			create_gap: true,
 			reset_storage: false,
+			synced_state: false,
 			index_ops: Default::default(),
 			prefetched_indexed_transactions: Default::default(),
 		})
@@ -2866,6 +2962,10 @@ impl<Block: BlockT> sc_client_api::backend::Backend<Block> for Backend<Block> {
 			self.storage.state_db.pruning_mode(),
 			PruningMode::ArchiveAll | PruningMode::ArchiveCanonical
 		)
+	}
+
+	fn partial_state(&self) -> Option<&dyn PartialStateStore<Block>> {
+		Some(&self.partial_state)
 	}
 
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> sp_blockchain::Result<()> {
@@ -6408,7 +6508,7 @@ pub(crate) mod tests {
 	}
 
 	/// Re-open a backend from an existing database with the given blocks pruning mode.
-	fn reopen_backend(
+	pub(crate) fn reopen_backend(
 		db: Arc<dyn sp_database::Database<DbHash>>,
 		blocks_pruning: BlocksPruning,
 	) -> Backend<Block> {

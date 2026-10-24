@@ -369,6 +369,11 @@ impl<BlockHash: Hash, Key: Hash> NonCanonicalOverlay<BlockHash, Key> {
 		self.last_canonicalized.as_ref().map(|&(_, n)| n)
 	}
 
+	/// True while no block is recorded: nothing canonicalized, no non-canonical level.
+	pub fn is_empty(&self) -> bool {
+		self.last_canonicalized.is_none() && self.levels.is_empty()
+	}
+
 	/// Confirm that all changes made to commit sets are on disk. Allows for temporarily pinned
 	/// blocks to be released.
 	pub fn sync(&mut self) {
