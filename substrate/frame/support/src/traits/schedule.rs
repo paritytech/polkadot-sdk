@@ -65,8 +65,15 @@ impl<BlockNumber: Saturating + Copy> DispatchTime<BlockNumber> {
 /// The highest priority. We invert the value so that normal sorting will place the highest
 /// priority at the beginning of the list.
 pub const HIGHEST_PRIORITY: Priority = 0;
-/// Anything of this value or lower will definitely be scheduled on the block that they ask for,
-/// even if it breaches the `MaximumWeight` limitation.
+/// Conventional priority for tasks that should run as close as possible to the block they ask
+/// for, e.g. the enactment of a passed referendum.
+///
+/// `pallet-scheduler` gives this value no special treatment: priority only decides the order in
+/// which the tasks of an agenda are tried. It never lets a task exceed the weight available to the
+/// scheduler in a block (at most its `MaximumWeight`). A task that does not fit is postponed to a
+/// later block whatever its priority, so a lighter task of lower priority may run before it. In
+/// some cases, e.g. when no other task could run before it, such a task is instead marked as
+/// permanently overweight and not executed.
 pub const HARD_DEADLINE: Priority = 63;
 /// The lowest priority. Most stuff should be around here.
 pub const LOWEST_PRIORITY: Priority = 255;

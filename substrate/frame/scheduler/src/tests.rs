@@ -1710,6 +1710,41 @@ fn scheduler_handles_periodic_unavailable_preimage() {
 }
 
 #[test]
+fn hard_deadline_priority_does_not_bypass_weight_limit() {
+	new_test_ext().execute_with(|| {
+		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
+		// Three tasks of the most urgent priorities, which together exceed `MaximumWeight`.
+		for (i, priority) in [
+			(42u32, schedule::HARD_DEADLINE),
+			(69, schedule::HIGHEST_PRIORITY),
+			(2600, schedule::HARD_DEADLINE),
+		] {
+			let call = RuntimeCall::Logger(LoggerCall::log { i, weight: max_weight / 5 * 2 });
+			assert_ok!(Scheduler::do_schedule(
+				DispatchTime::At(4),
+				None,
+				priority,
+				root(),
+				Preimage::bound(call).unwrap(),
+			));
+		}
+
+		// Only two fit into the block, the third is postponed rather than breaching the limit.
+		System::run_to_block::<AllPalletsWithSystem>(4);
+		assert_eq!(logger::log(), vec![(root(), 69u32), (root(), 42u32)]);
+		assert_eq!(IncompleteSince::<Test>::get(), Some(4));
+		System::assert_last_event(crate::Event::AgendaIncomplete { when: 4 }.into());
+		assert!(!System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::Scheduler(crate::Event::PermanentlyOverweight { .. })
+		)));
+		System::run_to_block::<AllPalletsWithSystem>(5);
+		assert_eq!(logger::log(), vec![(root(), 69u32), (root(), 42u32), (root(), 2600u32)]);
+		assert!(Agenda::<Test>::get(4).is_empty());
+	});
+}
+
+#[test]
 fn scheduler_respects_priority_ordering() {
 	new_test_ext().execute_with(|| {
 		let max_weight: Weight = <Test as Config>::MaximumWeight::get();
