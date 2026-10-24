@@ -1764,6 +1764,8 @@ where
 			for retracted in tree_route.retracted().iter().rev() {
 				let hash = retracted.hash;
 
+				view.pool.validated_pool().on_block_retracted(hash);
+
 				let block_transactions = api
 					.block_body(hash)
 					.await
