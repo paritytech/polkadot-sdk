@@ -55,3 +55,8 @@ tempfile = { workspace = true }
 name = "statement_network"
 harness = false
 required-features = ["test-helpers"]
+
+[[bench]]
+name = "peers_topology"
+harness = false
+required-features = ["test-helpers"]

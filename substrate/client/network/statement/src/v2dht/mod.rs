@@ -22,35 +22,41 @@ mod explicit_affinity;
 mod metrics;
 mod peer_steering;
 mod peers_index;
-pub mod peers_topology;
+pub(crate) mod peers_topology;
 
 pub(crate) use metrics::V2DhtMetrics;
 
 use crate::{affinity::AffinityFilter, LOG_TARGET};
 use explicit_affinity::{AffinitySource, ExplicitAffinity, TopicAffinity};
-use peer_steering::PeerSteering;
+use peer_steering::{score, PeerSteering};
 use peers_topology::{DhtAffinity, PeersTopology, PeersTopologyConfig};
 use sc_network::{types::ProtocolName, NetworkPeers};
 use sc_network_types::PeerId;
 use sp_statement_store::{Hash, Statement, SubmitResult, Topic};
 use std::{
+	cell::RefCell,
 	collections::{HashMap, HashSet},
 	num::NonZeroUsize,
 	sync::{Arc, RwLock},
-	time::Instant,
+	time::{Duration, Instant},
 };
+
+/// How long the node must stay out of major sync before it re-advertises its filter, so a sync
+/// that flaps around its threshold asks peers for one replay, not one per flap.
+const MAJOR_SYNC_SETTLE_PERIOD: Duration = Duration::from_secs(5);
 
 /// The reasons a received statement is retained, as a bitmask of independent flags.
 ///
 /// Each set bit records one reason the local node keeps the statement (DHT affinity, explicit
 /// affinity). A non-empty mask persists the statement under the normal retention rules. An empty
-/// mask marks it transient: held in memory until the next propagation, forwarded once, then dropped
-/// without ever reaching the database.
+/// mask marks it transient: admitted like any other statement and removed by the maintenance sweep
+/// once propagated, with the usual re-acceptance ban, unless affinity has arrived by then.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RetentionReasonMask(u8);
 
 impl RetentionReasonMask {
-	/// No reason to persist: the store keeps the statement only until the next propagation.
+	/// No reason to persist: the store keeps the statement only until the first maintenance sweep
+	/// after its propagation.
 	pub const TRANSIENT: RetentionReasonMask = RetentionReasonMask(0b00);
 	/// The local node is one of the closest DHT replicas for one of the statement's topics.
 	pub const DHT_AFFINITY: RetentionReasonMask = RetentionReasonMask(0b01);
@@ -75,6 +81,18 @@ impl RetentionReasonMask {
 	/// Whether the statement should be persisted.
 	pub fn is_persistent(&self) -> bool {
 		self.0 != 0
+	}
+
+	pub fn label(&self) -> &'static str {
+		if *self == Self::persistent() {
+			return "persistent";
+		}
+		match (self.contains(Self::DHT_AFFINITY), self.contains(Self::EXPLICIT_AFFINITY)) {
+			(false, false) => "transient",
+			(true, false) => "dht",
+			(false, true) => "explicit",
+			(true, true) => "both",
+		}
 	}
 }
 
@@ -140,12 +158,14 @@ pub(crate) struct V2DhtOrchestrator {
 	peers_topology: PeersTopology,
 	/// Tracks the local node's topic affinity and the filters peers advertise.
 	explicit_affinity: ExplicitAffinity,
-	/// Keeps the connected peer set aligned with the peers needed to cover subscriptions.
+	/// Keeps the connected peer set aligned with the peers the node needs connected.
 	peer_steering: PeerSteering,
 	/// Shared affinity view the store reads to decide statement retention.
 	retention: Option<RetentionHandle>,
 	/// Prometheus metrics.
 	metrics: Option<V2DhtMetrics>,
+	/// When the node was last seen major-syncing.
+	major_sync_seen_at: Option<Instant>,
 }
 
 impl V2DhtOrchestrator {
@@ -168,6 +188,7 @@ impl V2DhtOrchestrator {
 			peer_steering: PeerSteering::new(protocol),
 			retention: None,
 			metrics,
+			major_sync_seen_at: None,
 		}
 	}
 
@@ -247,23 +268,7 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.take_local_filter_if_changed()
 	}
 
-	// === Peer-set events ===
-
-	pub(crate) fn on_peer_connected(&mut self, peer: PeerId) {
-		// TODO: we may need it for the topology, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_peer_connected {peer} (stub)");
-	}
-
-	pub(crate) fn on_peer_disconnected(&mut self, peer: PeerId) {
-		self.explicit_affinity.on_peer_disconnected(peer);
-	}
-
 	// === Notification-substream events ===
-
-	pub(crate) fn on_validate_inbound_substream(&mut self, peer: PeerId) {
-		// TODO: we may need it for the peer steering, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_validate_inbound_substream {peer} (stub)");
-	}
 
 	pub(crate) fn on_substream_opened(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_opened(peer);
@@ -277,6 +282,8 @@ impl V2DhtOrchestrator {
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
 		self.peers_topology.on_substream_closed(peer);
 		self.peer_steering.on_substream_closed(peer);
+		// The filter arrived over this substream, so it lives exactly as long.
+		self.explicit_affinity.on_substream_closed(peer);
 		self.report_topology_size();
 		log::trace!(target: LOG_TARGET, "v2dht: on_substream_closed {peer}");
 	}
@@ -285,13 +292,52 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.on_peer_filter_update(peer, filter);
 	}
 
+	/// Exclude `peer` from the DHT index but keep its filter: steering would otherwise dial it and
+	/// routing would count it as a replica, while the propagation plan must still serve it.
+	pub(crate) fn on_peer_without_dht(&mut self, peer: PeerId) {
+		self.peers_topology.on_peer_without_dht(peer);
+		// Changes the DHT peer index, hence affinity.
+		self.publish_dht_affinity();
+		self.report_topology_size();
+	}
+
 	// === Forward decision ===
+
+	/// Whether `peer` is a DHT routing target for a statement.
+	///
+	/// Checking a topic scans the connected peers, so the answer is cached per topic for the
+	/// predicate's lifetime.
+	pub(crate) fn dht_target_predicate(&self, peer: PeerId) -> impl Fn(&Statement) -> bool + '_ {
+		let topics = RefCell::new(HashMap::new());
+		move |stmt: &Statement| {
+			stmt.topics().iter().any(|topic| {
+				*topics
+					.borrow_mut()
+					.entry(*topic)
+					.or_insert_with(|| self.peers_topology.routing_targets(*topic).contains(&peer))
+			})
+		}
+	}
 
 	// === Post-submit hook ===
 
-	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, _result: &SubmitResult) {
-		// TODO: We may need to reflect the import result in the peer's score, remove if not
-		log::trace!(target: LOG_TARGET, "v2dht: on_statement_imported {peer} (stub)");
+	/// Score peer on the outcome of importing a statement it sent: a valid statement rewards it, an
+	/// invalid one punishes it, a resend of a removed and banned statement (`KnownExpired`) costs
+	/// it a little, and our-side outcomes (`Rejected`, `InternalError`) leave it untouched.
+	pub(crate) fn on_statement_imported(&mut self, peer: PeerId, result: &SubmitResult) {
+		let change = match result {
+			SubmitResult::New | SubmitResult::Known => score::GOOD_ACTION,
+			SubmitResult::Invalid(_) => score::BAD_ACTION,
+			SubmitResult::KnownExpired => score::WASTEFUL_ACTION,
+			SubmitResult::Rejected(_) | SubmitResult::InternalError(_) => return,
+		};
+		self.peer_steering.update_score(peer, change);
+	}
+
+	/// Punish peer for a protocol-level fault detected before import: a duplicate statement or an
+	/// undecodable message.
+	pub(crate) fn on_peer_misbehaved(&mut self, peer: PeerId) {
+		self.peer_steering.update_score(peer, score::BAD_ACTION);
 	}
 
 	// === Periodic ticks & post-iteration hooks ===
@@ -300,7 +346,7 @@ impl V2DhtOrchestrator {
 	///
 	/// A peer is a target for a statement when it is a DHT routing target for one of the
 	/// statement's topics ([`PeersTopology::routing_targets`]) or its advertised filter matches the
-	/// statement ([`ExplicitAffinity::peer_has_explicit_affinity`]).
+	/// statement ([`ExplicitAffinity::peers_with_explicit_affinity`]).
 	pub(crate) fn propagation_plan(
 		&self,
 		statements: &[(u64, Hash, Statement)],
@@ -313,11 +359,7 @@ impl V2DhtOrchestrator {
 			for topic in statement.topics() {
 				targets.extend(self.peers_topology.routing_targets(*topic));
 			}
-			for peer in self.peers_topology.connected_peers() {
-				if self.explicit_affinity.peer_has_explicit_affinity(peer, statement) {
-					targets.insert(peer);
-				}
-			}
+			targets.extend(self.explicit_affinity.peers_with_explicit_affinity(statement));
 
 			for peer_id in targets {
 				statements_by_peer.entry(peer_id).or_default().push(index);
@@ -327,32 +369,53 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	pub(crate) async fn on_initial_sync(&mut self) {
-		// TODO: We need to know what to propagate
-		log::trace!(target: LOG_TARGET, "v2dht: on_initial_sync (stub)");
-	}
-
-	/// Recompute the peers needed to cover the node's topics and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics and its routing
+	/// peers, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
-		let desired = self.peers_topology.peers_for_topics(&topics);
+		let mut desired = self.peers_topology.peers_for_topics(&topics);
+		desired.extend(self.peers_topology.peers_for_routing());
 		self.peer_steering.update_peers_needing_connections(desired);
+		if let Some(metrics) = &self.metrics {
+			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
+		}
 	}
 
-	/// Align the connected peers with the peers needed to cover the node's subscriptions, opening
-	/// and closing connections through the statement protocol's reserved set on `network`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+	/// Reserve the peers the node needs connected and release the rest, through the statement
+	/// protocol's reserved set on `network`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
 	}
 
+	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
+	pub(crate) fn is_reserved(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_reserved(peer)
+	}
+
+	#[cfg(test)]
+	pub(crate) fn update_peers_needing_connections(
+		&mut self,
+		peers: impl IntoIterator<Item = PeerId>,
+	) {
+		self.peer_steering.update_peers_needing_connections(peers);
+	}
+
 	pub(crate) fn evict_stale_peers(&mut self) {
-		self.peers_topology.evict(Instant::now());
+		if self.peers_topology.evict(Instant::now()) {
+			self.publish_dht_affinity();
+		}
 		self.report_topology_size();
 	}
 
-	pub(crate) fn on_major_sync_end(&mut self) {
-		// TODO: The major sync processing may be different
-		log::trace!(target: LOG_TARGET, "v2dht: on_major_sync_end (stub)");
+	pub(crate) fn on_major_sync(&mut self) {
+		self.major_sync_seen_at = Some(Instant::now());
+		self.explicit_affinity.mark_local_filter_stale();
+	}
+
+	/// Whether the node has stayed out of major sync for `MAJOR_SYNC_SETTLE_PERIOD`.
+	pub(crate) fn major_sync_settled(&self) -> bool {
+		self.major_sync_seen_at
+			.is_none_or(|seen_at| seen_at.elapsed() >= MAJOR_SYNC_SETTLE_PERIOD)
 	}
 }
 #[cfg(test)]
@@ -362,6 +425,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, nz, peer, statement_on, topic, topology_config},
 	};
+	use sp_statement_store::{InvalidReason, RejectionReason};
 
 	fn orchestrator() -> V2DhtOrchestrator {
 		V2DhtOrchestrator::new(
@@ -550,6 +614,37 @@ mod tests {
 	}
 
 	#[test]
+	fn evicting_peers_refreshes_published_dht_affinity() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_peer_identified(remote, true);
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		// Exceed the 8192-peer cap using discovery alone
+		orchestrator.on_peers_discovered((0u64..8192).map(|seed| {
+			let mut bytes = [0u8; 34];
+			bytes[1] = 32;
+			bytes[2..10].copy_from_slice(&seed.to_le_bytes());
+			PeerId::from_bytes(&bytes).expect("identity multihash peer id; qed")
+		}));
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8193);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 1);
+
+		orchestrator.evict_stale_peers();
+
+		assert_eq!(orchestrator.peers_topology.known_peers_count(), 8192);
+		assert_eq!(orchestrator.peers_topology.dht_eligible_peers_count(), 0);
+		assert!(orchestrator.peers_topology.dht_affinity().is_affine(&statement));
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+	}
+
+	#[test]
 	fn set_retention_handle_publishes_configured_topics() {
 		// Configured topics must drive retention from the moment the handle is installed, before
 		// any peer or subscription event.
@@ -625,12 +720,40 @@ mod tests {
 	}
 
 	#[test]
-	fn on_peer_disconnected_drops_the_filter() {
+	fn plans_a_light_peer_by_its_filter_alone() {
+		let mut orchestrator = orchestrator();
+		let light_peer = PeerId::random();
+		orchestrator.on_peer_filter_update(light_peer, filter_over(&[topic(1)]));
+		let statements = [statement(1, &[topic(1)]), statement(2, &[topic(2)])];
+
+		let plan = orchestrator.propagation_plan(&statements);
+
+		assert_eq!(plan, vec![(light_peer, vec![0])]);
+	}
+
+	#[test]
+	fn a_peer_without_dht_leaves_routing_but_keeps_its_filter() {
 		let mut orchestrator = orchestrator();
 		let peer = PeerId::random();
+		orchestrator.on_substream_opened(peer);
+		orchestrator.on_peer_filter_update(peer, AffinityFilter::match_all(0));
+		let statements = [statement(1, &[topic(1)])];
+
+		orchestrator.on_peer_without_dht(peer);
+
+		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
+		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
+		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
+	}
+
+	#[test]
+	fn substream_close_drops_the_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+		orchestrator.on_substream_opened(peer);
 		orchestrator.on_peer_filter_update(peer, filter_over(&[topic(1)]));
 
-		orchestrator.on_peer_disconnected(peer);
+		orchestrator.on_substream_closed(peer);
 
 		assert!(!orchestrator
 			.explicit_affinity
@@ -656,26 +779,98 @@ mod tests {
 			&[topic(1)],
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
-			PeerId::random(),
-			topology_config(20, 3),
+			peer(1),
+			topology_config(1, 3),
 			"/statement/test".into(),
 			None,
 		);
 
-		let peers: Vec<PeerId> = (0..5).map(|_| PeerId::random()).collect();
-		orchestrator.on_peers_discovered(peers.clone());
-		for peer in &peers {
-			orchestrator.on_peer_identified(*peer, true);
+		for seed in 2..=30 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
 		}
 
-		// The tick turns the configured topic into a coverage target.
+		// The tick turns the configured topic into a coverage target. With k=1 the routing peers
+		// are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
-		assert!(!desired.is_empty());
+		let routing = orchestrator.peers_topology.peers_for_routing();
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// Every coverage peer is queued for a connection, since none are connected yet.
 		let connect = orchestrator.peer_steering.peers_to_connect();
-		assert!(desired.iter().all(|peer| connect.contains(peer)));
+		assert!(coverage.iter().all(|peer| connect.contains(peer)));
+	}
+
+	#[test]
+	fn affinity_tick_marks_routing_peers_for_connection() {
+		let mut orchestrator = orchestrator_with(1, topology_config(3, 3));
+		for seed in 2..=6 {
+			orchestrator.on_peers_discovered([peer(seed)]);
+			orchestrator.on_peer_identified(peer(seed), true);
+		}
+
+		// Without topics the desired set is the routing peers alone, none connected yet.
+		orchestrator.on_pending_affinities();
+		let mut routing = orchestrator.peers_topology.peers_for_routing();
+		let mut connect = orchestrator.peer_steering.peers_to_connect();
+		routing.sort();
+		connect.sort();
+		assert!(routing.len() >= 3, "the three nearest, plus the far buckets they leave uncovered");
+		assert_eq!(connect, routing);
+	}
+
+	#[test]
+	fn valid_statements_reward_the_sender() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// A new statement and one we already hold are both honest relays, each rewarded.
+		orchestrator.on_statement_imported(peer, &SubmitResult::New);
+		orchestrator.on_statement_imported(peer, &SubmitResult::Known);
+
+		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(2 * score::GOOD_ACTION));
+	}
+
+	#[test]
+	fn faults_punish_the_peer() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// An invalid statement and a pre-import fault (duplicate or bad message) both punish.
+		orchestrator.on_statement_imported(peer, &SubmitResult::Invalid(InvalidReason::BadProof));
+		orchestrator.on_peer_misbehaved(peer);
+
+		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(2 * score::BAD_ACTION));
+	}
+
+	#[test]
+	fn resent_banned_statement_costs_the_sender_a_little() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// A forwarded transient statement comes back after the store swept and banned it.
+		orchestrator.on_statement_imported(peer, &SubmitResult::KnownExpired);
+
+		let peer_score = orchestrator.peer_steering.score_of(&peer);
+		assert_eq!(peer_score, Some(score::WASTEFUL_ACTION));
+		assert!(peer_score.is_some_and(|value| score::BAD_ACTION < value && value < 0));
+	}
+
+	#[test]
+	fn our_side_outcomes_leave_the_score_unchanged() {
+		let mut orchestrator = orchestrator_with(1, topology_config(20, 3));
+		let peer = peer(2);
+		orchestrator.on_substream_opened(peer);
+
+		// A full store is our condition, not the peer's fault, so no score moves.
+		orchestrator
+			.on_statement_imported(peer, &SubmitResult::Rejected(RejectionReason::StoreFull));
+
+		assert_eq!(orchestrator.peer_steering.score_of(&peer), Some(0));
 	}
 
 	#[test]
@@ -685,31 +880,34 @@ mod tests {
 			None,
 			DEFAULT_BLOOM_FALSE_POS_RATE,
 			peer(1),
-			topology_config(20, 3),
+			topology_config(1, 3),
 			"/statement/test".into(),
 			None,
 		);
 
-		for seed in 2..=10 {
+		for seed in 2..=30 {
 			orchestrator.on_peers_discovered([peer(seed)]);
 			orchestrator.on_peer_identified(peer(seed), true);
 		}
 
-		// The first tick selects the coverage peers and queues them for connection.
+		// The first tick selects the coverage peers and queues them for connection. With k=1 the
+		// routing peers are few, so the test needs a coverage peer outside them.
 		orchestrator.on_pending_affinities();
-		let desired = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
-		assert!(!desired.is_empty());
+		let routing = orchestrator.peers_topology.peers_for_routing();
+		let coverage = orchestrator.peers_topology.peers_for_topics(&[topic(1)]);
+		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
-		// The coverage peers connect, then the next tick recomputes the target.
-		for peer in &desired {
-			orchestrator.on_substream_opened(*peer);
+		// The desired peers connect, then the next tick recomputes the target.
+		for peer in orchestrator.peer_steering.peers_to_reserve() {
+			orchestrator.on_substream_opened(peer);
+			orchestrator.peer_steering.reserve([peer]);
 		}
 		orchestrator.on_pending_affinities();
 
 		// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
-		// connect, nothing to disconnect.
-		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
-		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+		// reserve, nothing to release.
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
+		assert!(orchestrator.peer_steering.peers_to_release().is_empty());
 	}
 
 	#[test]

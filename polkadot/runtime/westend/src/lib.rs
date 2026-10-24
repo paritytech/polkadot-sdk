@@ -36,7 +36,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration, ConstU32, Contains, EnsureOriginWithArg, InstanceFilter,
 		KeyOwnerProofSystem, LinearStoragePrice, ProcessMessage, ProcessMessageError,
-		VariantCountOf, WithdrawReasons,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -155,7 +155,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_024_001,
+	spec_version: 1_025_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -388,8 +388,6 @@ impl pallet_balances::Config for Runtime {
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type DoneSlashHandler = ();
 }
 
@@ -683,7 +681,7 @@ impl pallet_authority_discovery::Config for Runtime {
 }
 
 parameter_types! {
-	pub const NposSolutionPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const NposSolutionPriority: TransactionPriority = TransactionPriority::MAX / 2;
 }
 
 parameter_types! {
@@ -1063,14 +1061,17 @@ impl parachains_session_info::Config for Runtime {
 impl parachains_inclusion::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type DisputesHandler = ParasDisputes;
-	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
+	type RewardValidators = parachains_reward_points::RewardValidatorsWithEraPoints<
+		Runtime,
+		StakingAhClient,
+		ConstU32<20>,
+	>;
 	type MessageQueue = MessageQueue;
 	type WeightInfo = weights::polkadot_runtime_parachains_inclusion::WeightInfo<Runtime>;
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl parachains_paras::Config for Runtime {
@@ -1150,6 +1151,7 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type DepositProvider = Hrmp;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
@@ -1236,8 +1238,11 @@ impl assigned_slots::Config for Runtime {
 
 impl parachains_disputes::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type RewardValidators =
-		parachains_reward_points::RewardValidatorsWithEraPoints<Runtime, StakingAhClient>;
+	type RewardValidators = parachains_reward_points::RewardValidatorsWithEraPoints<
+		Runtime,
+		StakingAhClient,
+		ConstU32<20>,
+	>;
 	type SlashingHandler = parachains_slashing::SlashValidatorsForDisputes<ParasSlashing>;
 	type WeightInfo = weights::polkadot_runtime_parachains_disputes::WeightInfo<Runtime>;
 }
