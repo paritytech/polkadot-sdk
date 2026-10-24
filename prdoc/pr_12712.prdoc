@@ -1,0 +1,10 @@
+title: 'pallet-vesting: add try_state invariant checks'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a `try_state` hook to `pallet-vesting` (issue #239) that asserts every stored account has a non empty list of vesting schedules and that each stored schedule is valid. The vesting lock is intentionally not checked against the schedules, since `LockableCurrency` exposes no way to read the current lock amount. The checks run under the `try-runtime` feature, and also after every unit test. The change is additive with no migration or weight changes.
+
+crates:
+- name: pallet-vesting
+  bump: minor
