@@ -1,0 +1,10 @@
+title: Refine the help message of `--state-version` in storage benchmark command
+
+doc:
+  - audience: Node Dev
+    description: |
+      Enhanced documentation in the help message on how to specify the `--state-version` flag in the storage benchmark command.
+
+crates:
+  - name: frame-benchmarking-cli
+    bump: minor
