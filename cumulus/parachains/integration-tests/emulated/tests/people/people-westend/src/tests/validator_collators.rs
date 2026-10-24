@@ -321,7 +321,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::StakingPointsConverter(
-					pallet_staking_async_points_converter::Event::BlocksCredited { source, entries: 2 }
+					pallet_staking_async_points_converter::Event::BlocksCredited { source, blocks: 4 }
 				) => { source: *source == people, },
 				RuntimeEvent::Staking(
 					pallet_staking_async::Event::ServicePointsCredited {

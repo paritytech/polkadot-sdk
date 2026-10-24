@@ -72,8 +72,8 @@ fn blocks_are_credited_with_the_weight_of_their_source() {
 			vec![
 				Event::PointsPerServiceSet { source: 2, service: Collation, points: 5 },
 				Event::PointsPerServiceSet { source: 3, service: Collation, points: 0 },
-				Event::BlocksCredited { source: 2, entries: 1 },
-				Event::BlocksIgnored { source: 3, entries: 1 },
+				Event::BlocksCredited { source: 2, blocks: 3 },
+				Event::BlocksIgnored { source: 3, blocks: 4 },
 			]
 		);
 		let own = <() as WeightInfo>::report_authored_blocks();
