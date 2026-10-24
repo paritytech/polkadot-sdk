@@ -291,6 +291,7 @@ pub mod pallet {
 		type BenchmarkHelper: ArgumentsFactory<Self::AssetKind, Self::Beneficiary>;
 
 		/// Provider for the block number. Normally this is the `frame_system` pallet.
+		#[pallet::constant(::IDENTIFIER)]
 		type BlockNumberProvider: BlockNumberProvider;
 	}
 
