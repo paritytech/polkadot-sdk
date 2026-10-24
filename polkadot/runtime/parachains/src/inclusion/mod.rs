@@ -1194,10 +1194,7 @@ impl<T: Config> OnQueueChanged<AggregateMessageOrigin> for Pallet<T> {
 			AggregateMessageOrigin::Ump(UmpQueueId::Para(p)) => p,
 		};
 		let QueueFootprint { storage: Footprint { count, size }, .. } = fp;
-		let (count, size) = (count.saturated_into(), size.saturated_into());
-		// TODO paritytech/polkadot#6283: Remove all usages of `relay_dispatch_queue_size`
-		#[allow(deprecated)]
-		well_known_keys::relay_dispatch_queue_size_typed(para).set((count, size));
+		let (count, size): (u32, u32) = (count.saturated_into(), size.saturated_into());
 
 		let config = configuration::ActiveConfig::<T>::get();
 		let remaining_count = config.max_upward_queue_count.saturating_sub(count);
