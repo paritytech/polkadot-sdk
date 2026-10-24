@@ -152,6 +152,12 @@ pub mod pallet {
 		/// The points per service exceed [`Config::MaxPointsPerService`].
 		PointsPerServiceTooHigh,
 		/// Relay consensus points are weighted by the relay chain, not by this pallet.
+		///
+		/// Note: This is because relay-chain issues its own points, and never sends its units of
+		/// work to this pallet to be converted to points. This is for legacy reasons, and while
+		/// unifying the interface would be more ergonomic, we keep it as-is for now due to JAM
+		/// being on the horizon, and the effort of altering relay chain not being considered
+		/// worthwhile.
 		RelayConsensusNotWeighted,
 	}
 
