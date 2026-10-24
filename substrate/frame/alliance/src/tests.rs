@@ -614,6 +614,57 @@ fn add_unscrupulous_items_works() {
 }
 
 #[test]
+fn add_unscrupulous_items_rejects_duplicates_within_a_batch() {
+	build_and_execute(|| {
+		let web: UrlOf<Test, ()> = "abc".as_bytes().to_vec().try_into().unwrap();
+
+		assert_noop!(
+			Alliance::add_unscrupulous_items(
+				RuntimeOrigin::signed(3),
+				vec![UnscrupulousItem::AccountId(42), UnscrupulousItem::AccountId(42)]
+			),
+			Error::<Test, ()>::AlreadyUnscrupulous
+		);
+		assert_noop!(
+			Alliance::add_unscrupulous_items(
+				RuntimeOrigin::signed(3),
+				vec![
+					UnscrupulousItem::Website(web.clone()),
+					UnscrupulousItem::Website(web.clone())
+				]
+			),
+			Error::<Test, ()>::AlreadyUnscrupulous
+		);
+		// The duplicate does not have to be adjacent.
+		assert_noop!(
+			Alliance::add_unscrupulous_items(
+				RuntimeOrigin::signed(3),
+				vec![
+					UnscrupulousItem::AccountId(42),
+					UnscrupulousItem::Website(web.clone()),
+					UnscrupulousItem::AccountId(42),
+				]
+			),
+			Error::<Test, ()>::AlreadyUnscrupulous
+		);
+
+		// The same items once each are accepted, and a single removal clears them.
+		assert_ok!(Alliance::add_unscrupulous_items(
+			RuntimeOrigin::signed(3),
+			vec![UnscrupulousItem::AccountId(42), UnscrupulousItem::Website(web.clone())]
+		));
+		assert_eq!(alliance::UnscrupulousAccounts::<Test>::get().into_inner(), vec![42]);
+		assert_eq!(alliance::UnscrupulousWebsites::<Test>::get().into_inner(), vec![web.clone()]);
+		assert_ok!(Alliance::remove_unscrupulous_items(
+			RuntimeOrigin::signed(3),
+			vec![UnscrupulousItem::AccountId(42), UnscrupulousItem::Website(web)]
+		));
+		assert!(alliance::UnscrupulousAccounts::<Test>::get().is_empty());
+		assert!(alliance::UnscrupulousWebsites::<Test>::get().is_empty());
+	});
+}
+
+#[test]
 fn remove_unscrupulous_items_works() {
 	build_and_execute(|| {
 		assert_noop!(
