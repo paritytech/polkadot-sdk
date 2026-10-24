@@ -447,8 +447,6 @@ impl pallet_validator_collators::Config for Runtime {
 	type BlockReporter = ReportBlocksToAssetHub;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	type UnixTime = Timestamp;
-	type DefaultExpectedEraDuration =
-		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
 	type DefaultReportMargin = ConstU64<300_000>;
 	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;

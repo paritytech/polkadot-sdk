@@ -32,7 +32,6 @@ pub trait WeightInfo {
 	fn set_max_collators() -> Weight;
 	fn on_relay_state_proof() -> Weight;
 	fn set_report_period() -> Weight;
-	fn set_expected_era_duration() -> Weight;
 	fn set_report_margin() -> Weight;
 	fn note_author() -> Weight;
 	fn report_blocks(v: u32, o: u32) -> Weight;
@@ -90,12 +89,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4),
 	/// added: 499, mode: `MaxEncodedLen`)
 	fn set_report_period() -> Weight {
-		Weight::from_parts(5_761_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
-	}
-	/// Storage: `ValidatorCollators::ExpectedEraDuration` (r:0 w:1)
-	/// Proof: `ValidatorCollators::ExpectedEraDuration` (`max_values`: Some(1), `max_size`:
-	/// Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn set_expected_era_duration() -> Weight {
 		Weight::from_parts(5_761_000, 0).saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `ValidatorCollators::ReportMargin` (r:0 w:1)
@@ -216,12 +209,6 @@ impl WeightInfo for () {
 	/// Proof: `ValidatorCollators::ReportPeriod` (`max_values`: Some(1), `max_size`: Some(4),
 	/// added: 499, mode: `MaxEncodedLen`)
 	fn set_report_period() -> Weight {
-		Weight::from_parts(5_761_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
-	}
-	/// Storage: `ValidatorCollators::ExpectedEraDuration` (r:0 w:1)
-	/// Proof: `ValidatorCollators::ExpectedEraDuration` (`max_values`: Some(1), `max_size`:
-	/// Some(8), added: 503, mode: `MaxEncodedLen`)
-	fn set_expected_era_duration() -> Weight {
 		Weight::from_parts(5_761_000, 0).saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `ValidatorCollators::ReportMargin` (r:0 w:1)

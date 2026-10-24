@@ -448,16 +448,23 @@ parameter_types! {
 	pub RemoteKeysExecutionWeight: Weight = Weight::from_parts(200_000_000, 20_000);
 }
 
-/// Announces the validators of every new era to this chain and to the other system chains.
+/// Announces the validators of every new era to this chain and to the other system chains, with
+/// the expected end of the era: its start plus `MaxEraDuration`, the length of an era.
 pub struct AnnounceValidatorSet;
 impl pallet_staking_async::OnEraStart<AccountId> for AnnounceValidatorSet {
 	fn on_era_start(era: EraIndex, validators: &[AccountId]) {
+		// Staking stores the start of the era before calling this hook.
+		let start = pallet_staking_async::ActiveEra::<Runtime>::get()
+			.and_then(|active| active.start)
+			.unwrap_or_else(|| pallet_timestamp::Now::<Runtime>::get());
+		let expected_era_end = start.saturating_add(MaxEraDuration::get());
 		// A rejected set is reported by the announcer with `AnnouncementRejected`.
-		let _ = ValidatorSetAnnouncer::announce(era, validators);
+		let _ = ValidatorSetAnnouncer::announce(era, expected_era_end, validators);
 	}
 
 	fn weight(validators: u32) -> Weight {
 		ValidatorSetAnnouncer::announce_weight(validators)
+			.saturating_add(<Runtime as frame_system::Config>::DbWeight::get().reads(1))
 	}
 }
 
@@ -487,7 +494,7 @@ enum PeopleRuntimePallets {
 enum ValidatorCollatorsCalls {
 	// index of `fn set_validators` in `pallet-validator-collators`.
 	#[codec(index = 0)]
-	SetValidators { era: EraIndex, validators: Vec<AccountId> },
+	SetValidators { era: EraIndex, expected_era_end: u64, validators: Vec<AccountId> },
 }
 
 /// Sends the validator set to a system chain as an unpaid `Transact` of `set_validators`, which the
@@ -499,6 +506,7 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 	fn send(
 		destination: &ValidatorSetDestination,
 		era: EraIndex,
+		expected_era_end: u64,
 		validators: &[AccountId],
 	) -> Result<(), ()> {
 		let (location, call) = match destination {
@@ -506,6 +514,7 @@ impl pallet_validator_set_announcer::SendValidatorSet<AccountId> for ValidatorSe
 				PeopleLocation::get(),
 				PeopleRuntimePallets::ValidatorCollators(ValidatorCollatorsCalls::SetValidators {
 					era,
+					expected_era_end,
 					validators: validators.to_vec(),
 				})
 				.encode(),

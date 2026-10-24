@@ -1221,8 +1221,6 @@ impl pallet_validator_collators::Config for Runtime {
 	type BlockReporter = staking::CreditBlocksLocally;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	type UnixTime = Timestamp;
-	type DefaultExpectedEraDuration =
-		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
 	type DefaultReportMargin = ConstU64<300_000>;
 	type MaxReportMargin = ConstU64<1_800_000>;
 	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
@@ -1235,9 +1233,8 @@ impl pallet_validator_set_announcer::Config for Runtime {
 }
 
 parameter_types! {
-	/// Twice the blocks a system chain can author in an expected era duration.
-	pub const MaxBlocksPerEntry: u32 = (2 *
-		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
+	/// Twice the blocks a system chain can author in an era.
+	pub const MaxBlocksPerEntry: u32 = (2 * staking::MaxEraDuration::get() /
 		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
 	/// The sibling system chains that run `pallet-validator-collators` and report their authored
 	/// blocks here.

@@ -35,13 +35,14 @@ mod benchmarks {
 		let stored = (0..T::MaxValidators::get())
 			.map(|i| account("stored", i, 0))
 			.collect::<Vec<_>>();
-		pallet_validator_collators::Pallet::<T>::receive_validator_set(0, stored)?;
+		pallet_validator_collators::Pallet::<T>::receive_validator_set(0, 0, stored)?;
 		let validators = (0..n).map(|i| account("validator", i, 0)).collect::<Vec<T::AccountId>>();
 
 		#[block]
 		{
 			pallet_validator_collators::Pallet::<T>::receive_validator_set(
 				1,
+				0,
 				validators.iter().cloned(),
 			)?;
 		}
@@ -62,12 +63,12 @@ mod benchmarks {
 		T::Sender::ensure_successful_send(&destination);
 		// Leave a set queued for the destination, the worst case for a transport that appends
 		// to queued messages.
-		T::Sender::send(&destination, 0, &validators)
+		T::Sender::send(&destination, 0, 0, &validators)
 			.map_err(|_| BenchmarkError::Stop("the sender rejected the set"))?;
 
 		#[block]
 		{
-			Pallet::<T>::send_to(destination.clone(), 1, &validators);
+			Pallet::<T>::send_to(destination.clone(), 1, 0, &validators);
 		}
 
 		frame_system::Pallet::<T>::assert_last_event(

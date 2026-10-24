@@ -85,14 +85,14 @@
 //! authors since the last report. Without a stored set every count is dropped.
 //!
 //! A report runs in every block whose number is a multiple of [`ReportPeriod`], and once per
-//! stored set shortly before the expected end of its era. The pallet records the arrival time of
-//! each set in [`SetReceivedAt`], from [`Config::UnixTime`], and expects the era to end
-//! [`ExpectedEraDuration`] after it. The early report runs in the first block at or after
-//! [`ReportMargin`] before that end, so that in a normal era the counts reach the chain that runs
-//! `pallet-staking-async` before the era rotates. The margin used is at most
-//! [`Config::MaxReportMargin`] and at most half of [`ExpectedEraDuration`]. The early report
-//! removes [`SetReceivedAt`] and is not retried: if the reporter rejects it, its counts go out with
-//! the next [`ReportPeriod`] report. The periodic report also covers eras that end earlier or later
+//! stored set shortly before the expected end of its era. The announcing chain sends that end with
+//! each set, and the pallet stores it in [`ExpectedEraEnd`]. The early report runs in the first
+//! block whose [`Config::UnixTime`] is at or after [`ReportMargin`] before that end, so that in a
+//! normal era the counts reach the chain that runs `pallet-staking-async` before the era rotates.
+//! The margin covers the delivery of the report to that chain, and the difference between the
+//! clocks of both chains. The margin used is at most [`Config::MaxReportMargin`]. The early report
+//! removes [`ExpectedEraEnd`] and is not retried: if the reporter rejects it, its counts go out
+//! with the next [`ReportPeriod`] report. The periodic report also covers eras that end earlier or later
 //! than expected, a set that never arrives, and the time before the first set arrives. If both
 //! reports fall in the same block, the pallet reports once.
 //!
@@ -244,8 +244,7 @@ pub mod pallet {
 		/// Origin allowed to submit a validator set.
 		type SetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Origin allowed to change [`MaxCollators`], [`ReportPeriod`], [`ExpectedEraDuration`]
-		/// and [`ReportMargin`].
+		/// Origin allowed to change [`MaxCollators`], [`ReportPeriod`] and [`ReportMargin`].
 		type UpdateOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// Lookup of registered session keys.
@@ -278,10 +277,6 @@ pub mod pallet {
 
 		/// Wall clock time, to time the report before the expected end of an era.
 		type UnixTime: UnixTime;
-
-		/// Value of [`ExpectedEraDuration`] until governance sets it, in milliseconds.
-		#[pallet::constant]
-		type DefaultExpectedEraDuration: Get<u64>;
 
 		/// Value of [`ReportMargin`] until governance sets it, in milliseconds.
 		#[pallet::constant]
@@ -352,18 +347,16 @@ pub mod pallet {
 	pub type AuthoredBlocks<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
 
-	/// Time at which the stored validator set arrived, in milliseconds. Removed when the report
-	/// before the expected end of its era is made.
+	/// Expected end of the era of the stored validator set, as a unix time in milliseconds, sent
+	/// by the announcing chain with the set. Removed when the report before it is made.
 	#[pallet::storage]
-	pub type SetReceivedAt<T: Config> = StorageValue<_, u64, OptionQuery>;
+	pub type ExpectedEraEnd<T: Config> = StorageValue<_, u64, OptionQuery>;
 
-	/// Expected time from the arrival of a validator set to the end of its era, in milliseconds.
-	#[pallet::storage]
-	pub type ExpectedEraDuration<T: Config> =
-		StorageValue<_, u64, ValueQuery, T::DefaultExpectedEraDuration>;
-
-	/// Time before the expected end of an era at which the counts are reported, in milliseconds.
-	/// Used up to [`Config::MaxReportMargin`] and up to half of [`ExpectedEraDuration`].
+	/// Time before [`ExpectedEraEnd`] at which the counts are reported, in milliseconds. Used up
+	/// to [`Config::MaxReportMargin`].
+	///
+	/// It must cover the delivery of the report to the chain that runs `pallet-staking-async`,
+	/// and the difference between the clocks of both chains.
 	#[pallet::storage]
 	pub type ReportMargin<T: Config> = StorageValue<_, u64, ValueQuery, T::DefaultReportMargin>;
 
@@ -388,8 +381,6 @@ pub mod pallet {
 		/// set are kept for the next report, and those of the `dropped` other authors were
 		/// removed.
 		BlocksReportFailed { kept: u32, dropped: u32 },
-		/// The expected time from the arrival of a set to the end of its era was changed.
-		ExpectedEraDurationSet { duration: u64 },
 		/// The time before the expected end of an era at which the counts are reported was
 		/// changed.
 		ReportMarginSet { margin: u64 },
@@ -403,8 +394,6 @@ pub mod pallet {
 		TooManyValidators,
 		/// The report period must be greater than zero.
 		ZeroReportPeriod,
-		/// The expected era duration must be greater than zero.
-		ZeroExpectedEraDuration,
 		/// The report margin must be greater than zero.
 		ZeroReportMargin,
 		/// The report margin is above [`Config::MaxReportMargin`].
@@ -421,9 +410,9 @@ pub mod pallet {
 
 		/// Reports [`AuthoredBlocks`] at every multiple of [`ReportPeriod`] (`periodic_send` in the
 		/// code), and once per stored set when [`ReportMargin`] or less remains until
-		/// [`SetReceivedAt`] plus [`ExpectedEraDuration`] (`early_send` in the code).
+		/// [`ExpectedEraEnd`] (`early_send` in the code).
 		///
-		/// The early report removes [`SetReceivedAt`], so it is made once per set and not
+		/// The early report removes [`ExpectedEraEnd`], so it is made once per set and not
 		/// retried. If the reporter rejects it, the counts go out with the next [`ReportPeriod`]
 		/// report. Both rules in the same block make one report.
 		///
@@ -438,12 +427,10 @@ pub mod pallet {
 				return;
 			}
 
-			let early_send = SetReceivedAt::<T>::get().is_some_and(|received_at| {
-				let duration = ExpectedEraDuration::<T>::get();
-				let margin =
-					ReportMargin::<T>::get().min(T::MaxReportMargin::get()).min(duration / 2);
+			let early_send = ExpectedEraEnd::<T>::get().is_some_and(|end| {
+				let margin = ReportMargin::<T>::get().min(T::MaxReportMargin::get());
 				let now_ms: u64 = T::UnixTime::now().as_millis().saturated_into();
-				now_ms >= received_at.saturating_add(duration.saturating_sub(margin))
+				now_ms >= end.saturating_sub(margin)
 			});
 			let periodic_send = {
 				let period = ReportPeriod::<T>::get();
@@ -469,10 +456,10 @@ pub mod pallet {
 				return;
 			}
 
-			// Remove the arrival only once the report is made, so the early report is made once
-			// per set.
+			// Remove the expected end only once the report is made, so the early report is made
+			// once per set.
 			if early_send {
-				SetReceivedAt::<T>::kill();
+				ExpectedEraEnd::<T>::kill();
 			}
 			Self::report_blocks(authors);
 			meter.consume(base_weight.saturating_add(report_weight));
@@ -482,10 +469,6 @@ pub mod pallet {
 			assert!(
 				!T::DefaultReportPeriod::get().is_zero(),
 				"`DefaultReportPeriod` must not be zero"
-			);
-			assert!(
-				T::DefaultExpectedEraDuration::get() > 0,
-				"`DefaultExpectedEraDuration` must not be zero"
 			);
 			let margin = T::DefaultReportMargin::get();
 			assert!(
@@ -536,16 +519,18 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Store the validator set of `era`.
+		/// Store the validator set of `era`, whose end is expected at `expected_era_end`, a unix
+		/// time in milliseconds.
 		#[pallet::call_index(0)]
 		#[pallet::weight(T::WeightInfo::set_validators(validators.len() as u32))]
 		pub fn set_validators(
 			origin: OriginFor<T>,
 			era: EraIndex,
+			expected_era_end: u64,
 			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {
 			T::SetOrigin::ensure_origin(origin)?;
-			Self::do_receive_validator_set(era, validators)
+			Self::do_receive_validator_set(era, expected_era_end, validators)
 		}
 
 		/// Set the maximum number of validators returned as collators.
@@ -583,24 +568,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set the expected time from the arrival of a validator set to the end of its era, in
-		/// milliseconds.
-		///
-		/// It applies to the stored set too, whose arrival time is kept.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::set_expected_era_duration())]
-		pub fn set_expected_era_duration(origin: OriginFor<T>, duration: u64) -> DispatchResult {
-			T::UpdateOrigin::ensure_origin(origin)?;
-			ensure!(duration > 0, Error::<T>::ZeroExpectedEraDuration);
-			ExpectedEraDuration::<T>::put(duration);
-			Self::deposit_event(Event::ExpectedEraDurationSet { duration });
-			Ok(())
-		}
-
 		/// Set the time before the expected end of an era at which the counts are reported, in
 		/// milliseconds.
 		///
-		/// It applies to the stored set too, whose arrival time is kept.
+		/// It applies to the stored set too.
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::WeightInfo::set_report_margin())]
 		pub fn set_report_margin(origin: OriginFor<T>, margin: u64) -> DispatchResult {
@@ -614,23 +585,25 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Store the validator set of `era` and its arrival time, and schedule the rotations that
-		/// bring it into force.
+		/// Store the validator set of `era` and the expected end of its era, a unix time in
+		/// milliseconds, and schedule the rotations that bring the set into force.
 		///
 		/// An account listed more than once is kept once, and the set is checked against
 		/// [`Config::MaxValidators`] after that.
 		pub fn receive_validator_set(
 			era: EraIndex,
+			expected_era_end: u64,
 			validators: impl IntoIterator<Item = T::AccountId>,
 		) -> DispatchResult {
 			let validators =
 				BoundedBTreeSet::try_from(validators.into_iter().collect::<BTreeSet<_>>())
 					.map_err(|_| Error::<T>::TooManyValidators)?;
-			Self::do_receive_validator_set(era, validators)
+			Self::do_receive_validator_set(era, expected_era_end, validators)
 		}
 
 		pub(crate) fn do_receive_validator_set(
 			era: EraIndex,
+			expected_era_end: u64,
 			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {
 			ensure!(
@@ -639,7 +612,7 @@ pub mod pallet {
 			);
 			let count = validators.len() as u32;
 			ValidatorSet::<T>::put(EraValidatorSet { era, validators });
-			SetReceivedAt::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
+			ExpectedEraEnd::<T>::put(expected_era_end);
 			PendingRotation::<T>::put(RotationState::AwaitingQueue);
 			Self::deposit_event(Event::ValidatorSetReceived { era, count });
 			Ok(())
@@ -787,7 +760,6 @@ pub mod pallet {
 				AuthoredBlocks::<T>::iter_values().all(|blocks| blocks > 0),
 				"an author is counted with zero blocks"
 			);
-			ensure!(ExpectedEraDuration::<T>::get() > 0, "the expected era duration is zero");
 			ensure!(ReportMargin::<T>::get() > 0, "the report margin is zero");
 			// Until the first forced rotation the drawn collators may be missing or belong to a
 			// previous set or cap.

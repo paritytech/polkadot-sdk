@@ -44,12 +44,12 @@ mod benchmarks {
 			)
 			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))
 		};
-		Pallet::<T>::do_receive_validator_set(0, set("stored", T::MaxValidators::get())?)?;
+		Pallet::<T>::do_receive_validator_set(0, 0, set("stored", T::MaxValidators::get())?)?;
 		let validators = set("validator", n)?;
 
 		#[block]
 		{
-			Pallet::<T>::do_receive_validator_set(1, validators)?;
+			Pallet::<T>::do_receive_validator_set(1, 0, validators)?;
 		}
 
 		assert_eq!(
@@ -71,7 +71,7 @@ mod benchmarks {
 		)
 		.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
 		let drawn = BoundedVec::truncate_from(stored.iter().cloned().collect());
-		Pallet::<T>::do_receive_validator_set(0, stored)?;
+		Pallet::<T>::do_receive_validator_set(0, 0, stored)?;
 		Collators::<T>::put(DrawnCollators { era: 0, validators: drawn });
 
 		#[extrinsic_call]
@@ -111,19 +111,6 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn set_expected_era_duration() -> Result<(), BenchmarkError> {
-		let origin =
-			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let duration = T::DefaultExpectedEraDuration::get().saturating_add(1);
-
-		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, duration);
-
-		assert_eq!(ExpectedEraDuration::<T>::get(), duration);
-		Ok(())
-	}
-
-	#[benchmark]
 	fn set_report_margin() -> Result<(), BenchmarkError> {
 		let origin =
 			T::UpdateOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
@@ -157,9 +144,8 @@ mod benchmarks {
 	fn on_poll() -> Result<(), BenchmarkError> {
 		let validators = BoundedBTreeSet::try_from(BTreeSet::from([account("validator", 0, 0)]))
 			.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
-		Pallet::<T>::do_receive_validator_set(0, validators)?;
-		// The early report is due at any time with a zero expected era duration.
-		ExpectedEraDuration::<T>::put(0);
+		// The early report is due at any time with an expected era end at zero.
+		Pallet::<T>::do_receive_validator_set(0, 0, validators)?;
 		let now = ReportPeriod::<T>::get();
 		// Events are recorded from block 1 on, so that the check below sees them.
 		frame_system::Pallet::<T>::set_block_number(now);
@@ -171,7 +157,7 @@ mod benchmarks {
 			<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_poll(now, &mut WeightMeter::new());
 		}
 
-		assert_eq!(SetReceivedAt::<T>::get(), None);
+		assert_eq!(ExpectedEraEnd::<T>::get(), None);
 		// The reporter was not reached: every call to it ends in `BlocksReported` or
 		// `BlocksReportFailed`, and the poll deposited no event.
 		assert_eq!(frame_system::Pallet::<T>::events().len(), events);
@@ -188,7 +174,7 @@ mod benchmarks {
 		let validators = (0..T::MaxValidators::get())
 			.map(|i| account("validator", i, 0))
 			.collect::<Vec<T::AccountId>>();
-		Pallet::<T>::receive_validator_set(0, validators.iter().cloned())?;
+		Pallet::<T>::receive_validator_set(0, 0, validators.iter().cloned())?;
 		let blocks = validators.into_iter().take(v as usize).map(|v| (v, 1)).collect::<Vec<_>>();
 		let others = (0..o).map(|i| (account::<T::AccountId>("author", i, 0), 1));
 		for (who, count) in blocks.iter().cloned().chain(others) {

@@ -98,7 +98,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	});
 
 	// WHEN Asset Hub starts era 1 with Alice, Bob and Charlie
-	let asset_hub_session_before = AssetHubWestend::execute_with(|| {
+	let (asset_hub_session_before, expected_era_end) = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		type Runtime = <AssetHubWestend as Chain>::Runtime;
 		asset_hub_westend_runtime::staking::AnnounceValidatorSet::on_era_start(1, &validators);
@@ -119,9 +119,10 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 				pallet_validator_set_announcer::Event::AnnouncementFailed { .. }
 			)
 		)));
-		// AND both chains record the arrival of the set to time the report before the era end
-		assert!(pallet_validator_collators::SetReceivedAt::<Runtime>::get().is_some());
-		pallet_session::Pallet::<Runtime>::current_index()
+		// AND both chains store the same expected end of the era, to time the report before it
+		let expected_era_end = pallet_validator_collators::ExpectedEraEnd::<Runtime>::get();
+		assert!(expected_era_end.is_some());
+		(pallet_session::Pallet::<Runtime>::current_index(), expected_era_end)
 	});
 	PeopleWestend::execute_with(|| {
 		type RuntimeEvent = <PeopleWestend as Chain>::RuntimeEvent;
@@ -134,7 +135,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 			]
 		);
 		type Runtime = <PeopleWestend as Chain>::Runtime;
-		assert!(pallet_validator_collators::SetReceivedAt::<Runtime>::get().is_some());
+		assert_eq!(pallet_validator_collators::ExpectedEraEnd::<Runtime>::get(), expected_era_end);
 	});
 
 	// THEN after two forced rotations both chains collate with the invulnerables, Alice and Bob
@@ -183,6 +184,7 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 		assert_ok!(ValidatorCollators::set_validators(
 			RuntimeOrigin::root(),
 			1,
+			u64::MAX,
 			[alice.clone(), bob.clone()]
 				.into_iter()
 				.collect::<std::collections::BTreeSet<_>>()
@@ -272,6 +274,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		assert_ok!(PeopleValidatorCollators::set_validators(
 			<PeopleWestend as Chain>::RuntimeOrigin::root(),
 			1,
+			u64::MAX,
 			[alice.clone(), bob.clone()]
 				.into_iter()
 				.collect::<std::collections::BTreeSet<_>>()

@@ -16,8 +16,11 @@
 use crate::{mock::*, weights::WeightInfo, Event};
 use frame_support::{assert_err, assert_ok};
 use pallet_validator_collators::{
-	Error as ReceiverError, PendingRotation, RotationState, ValidatorSet,
+	Error as ReceiverError, ExpectedEraEnd, PendingRotation, RotationState, ValidatorSet,
 };
+
+/// Expected end of the era of the first announced set, in milliseconds.
+const END: u64 = 1000;
 
 fn announcement_events() -> Vec<Event<Test>> {
 	System::events()
@@ -47,11 +50,13 @@ fn announce_stores_the_set_and_sends_it_once_to_every_destination() {
 		// GIVEN destination 2 rejects every send
 		FailingDestinations::set(vec![2]);
 		// WHEN the era 1 set is announced
-		assert_ok!(ValidatorSetAnnouncer::announce(1, &[10, 11]));
-		// THEN it is stored locally, destination 1 got it, and each send is reported
+		assert_ok!(ValidatorSetAnnouncer::announce(1, END, &[10, 11]));
+		// THEN it is stored locally with its expected end, destination 1 got it, and each send is
+		// reported
 		assert_eq!(stored(), Some((1, vec![10, 11])));
+		assert_eq!(ExpectedEraEnd::<Test>::get(), Some(END));
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
-		assert_eq!(Sent::get(), vec![(1, 1, vec![10, 11])]);
+		assert_eq!(Sent::get(), vec![(1, 1, END, vec![10, 11])]);
 		assert_eq!(
 			announcement_events(),
 			vec![
@@ -65,8 +70,11 @@ fn announce_stores_the_set_and_sends_it_once_to_every_destination() {
 		// THEN the failed send is not retried, only the next era's set reaches destination 2
 		assert_eq!(Sent::get().len(), 1);
 		assert_eq!(announcement_events().len(), 2);
-		assert_ok!(ValidatorSetAnnouncer::announce(2, &[12]));
-		assert_eq!(Sent::get(), vec![(1, 1, vec![10, 11]), (1, 2, vec![12]), (2, 2, vec![12])]);
+		assert_ok!(ValidatorSetAnnouncer::announce(2, 2 * END, &[12]));
+		assert_eq!(
+			Sent::get(),
+			vec![(1, 1, END, vec![10, 11]), (1, 2, 2 * END, vec![12]), (2, 2, 2 * END, vec![12])]
+		);
 	});
 }
 
@@ -74,11 +82,11 @@ fn announce_stores_the_set_and_sends_it_once_to_every_destination() {
 fn rejected_set_is_reported_and_neither_stored_nor_sent() {
 	new_test_ext().execute_with(|| {
 		// GIVEN the era 1 set is stored and sent
-		assert_ok!(ValidatorSetAnnouncer::announce(1, &[10]));
+		assert_ok!(ValidatorSetAnnouncer::announce(1, END, &[10]));
 		let sent = Sent::get();
 		// WHEN the same era is announced again
 		// THEN it fails with StaleEra, is reported, and nothing is stored or sent
-		assert_err!(ValidatorSetAnnouncer::announce(1, &[11]), ReceiverError::<Test>::StaleEra);
+		assert_err!(ValidatorSetAnnouncer::announce(1, END, &[11]), ReceiverError::<Test>::StaleEra);
 		System::assert_last_event(
 			Event::AnnouncementRejected { era: 1, error: ReceiverError::<Test>::StaleEra.into() }
 				.into(),
@@ -87,7 +95,7 @@ fn rejected_set_is_reported_and_neither_stored_nor_sent() {
 		// THEN it fails with TooManyValidators, is reported, and nothing is stored or sent
 		let too_many = (100..151).collect::<Vec<u64>>();
 		assert_err!(
-			ValidatorSetAnnouncer::announce(2, &too_many),
+			ValidatorSetAnnouncer::announce(2, 2 * END, &too_many),
 			ReceiverError::<Test>::TooManyValidators
 		);
 		System::assert_last_event(

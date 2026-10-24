@@ -130,7 +130,6 @@ impl Config for Test {
 	type BlockReporter = MockReporter;
 	type DefaultReportPeriod = ConstU64<5>;
 	type UnixTime = MockTime;
-	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
 	type WeightInfo = ();

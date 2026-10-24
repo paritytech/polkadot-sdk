@@ -61,7 +61,6 @@ impl pallet_validator_collators::Config for Test {
 	type DefaultReportPeriod = Period;
 	type MaxEntriesPerReport = ConstU32<100>;
 	type UnixTime = ZeroTime;
-	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
 	type MaxReportMargin = ConstU64<500>;
 	type WeightInfo = ();
@@ -84,18 +83,23 @@ impl Config for Test {
 parameter_types! {
 	pub static Destinations: Vec<u32> = vec![1, 2];
 	pub static FailingDestinations: Vec<u32> = Vec::new();
-	pub static Sent: Vec<(u32, EraIndex, Vec<u64>)> = Vec::new();
+	pub static Sent: Vec<(u32, EraIndex, u64, Vec<u64>)> = Vec::new();
 }
 
 pub struct MockSender;
 impl SendValidatorSet<u64> for MockSender {
 	type Destination = u32;
 
-	fn send(destination: &u32, era: EraIndex, validators: &[u64]) -> Result<(), ()> {
+	fn send(
+		destination: &u32,
+		era: EraIndex,
+		expected_era_end: u64,
+		validators: &[u64],
+	) -> Result<(), ()> {
 		if FailingDestinations::get().contains(destination) {
 			return Err(());
 		}
-		Sent::mutate(|sent| sent.push((*destination, era, validators.to_vec())));
+		Sent::mutate(|sent| sent.push((*destination, era, expected_era_end, validators.to_vec())));
 		Ok(())
 	}
 }

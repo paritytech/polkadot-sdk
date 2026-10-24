@@ -45,31 +45,34 @@ pub trait SendValidatorSet<AccountId> {
 	/// Identifies a destination.
 	type Destination: Parameter;
 
-	/// Hand the validator set of `era` to the transport for `destination`.
+	/// Hand the validator set of `era`, whose end is expected at `expected_era_end`, a unix time
+	/// in milliseconds, to the transport for `destination`.
 	///
 	/// `Ok` means the set was accepted for delivery, not that the destination applied it.
 	#[allow(clippy::result_unit_err)]
 	fn send(
 		destination: &Self::Destination,
 		era: EraIndex,
+		expected_era_end: u64,
 		validators: &[AccountId],
 	) -> Result<(), ()>;
 
 	/// The encoded size of what [`Self::send`] sends to `destination`.
 	///
-	/// By default the encoded `era` and `validators`, as if the transport added nothing: an XCM
-	/// envelope adds a few bytes. Checked against [`Self::max_message_size`] in the pallet's
-	/// `integrity_test`.
+	/// By default the encoded `era`, `expected_era_end` and `validators`, as if the transport
+	/// added nothing: an XCM envelope adds a few bytes. Checked against
+	/// [`Self::max_message_size`] in the pallet's `integrity_test`.
 	#[cfg(feature = "std")]
 	fn message_size(
 		_destination: &Self::Destination,
 		era: EraIndex,
+		expected_era_end: u64,
 		validators: &[AccountId],
 	) -> usize
 	where
 		AccountId: codec::Encode,
 	{
-		codec::Encode::encoded_size(&(era, validators))
+		codec::Encode::encoded_size(&(era, expected_era_end, validators))
 	}
 
 	/// The largest message the transport accepts for `destination`, `None` without a limit.
@@ -86,7 +89,7 @@ pub trait SendValidatorSet<AccountId> {
 impl<AccountId> SendValidatorSet<AccountId> for () {
 	type Destination = ();
 
-	fn send(_: &(), _: EraIndex, _: &[AccountId]) -> Result<(), ()> {
+	fn send(_: &(), _: EraIndex, _: u64, _: &[AccountId]) -> Result<(), ()> {
 		Err(())
 	}
 }
@@ -171,7 +174,12 @@ pub mod pallet {
 					.collect::<Vec<_>>();
 				for destination in T::Destinations::get() {
 					let Some(max) = T::Sender::max_message_size(&destination) else { continue };
-					let size = T::Sender::message_size(&destination, EraIndex::MAX, &accounts);
+					let size = T::Sender::message_size(
+						&destination,
+						EraIndex::MAX,
+						u64::MAX,
+						&accounts,
+					);
 					assert!(
 						size <= max,
 						"announcing {validators} validators to {destination:?} is {size} bytes, above \
@@ -183,19 +191,25 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Store the validator set of `era` locally and send it once to every destination.
+		/// Store the validator set of `era` locally and send it once to every destination, with
+		/// `expected_era_end`, the unix time in milliseconds at which the era is expected to end.
 		///
 		/// A rejected set is reported with [`Event::AnnouncementRejected`] and not sent.
-		pub fn announce(era: EraIndex, validators: &[T::AccountId]) -> DispatchResult {
+		pub fn announce(
+			era: EraIndex,
+			expected_era_end: u64,
+			validators: &[T::AccountId],
+		) -> DispatchResult {
 			pallet_validator_collators::Pallet::<T>::receive_validator_set(
 				era,
+				expected_era_end,
 				validators.iter().cloned(),
 			)
 			.inspect_err(|&error| {
 				Self::deposit_event(Event::AnnouncementRejected { era, error });
 			})?;
 			for destination in T::Destinations::get() {
-				Self::send_to(destination, era, validators);
+				Self::send_to(destination, era, expected_era_end, validators);
 			}
 			Ok(())
 		}
@@ -211,9 +225,10 @@ pub mod pallet {
 		pub(crate) fn send_to(
 			destination: DestinationOf<T>,
 			era: EraIndex,
+			expected_era_end: u64,
 			validators: &[T::AccountId],
 		) {
-			let event = match T::Sender::send(&destination, era, validators) {
+			let event = match T::Sender::send(&destination, era, expected_era_end, validators) {
 				Ok(()) => Event::AnnouncementSent { destination, era },
 				Err(()) => Event::AnnouncementFailed { destination, era },
 			};

@@ -3893,24 +3893,6 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }
 
-// `fast-runtime` shortens the era, not the expected era duration.
-#[cfg(not(feature = "fast-runtime"))]
-#[test]
-fn expected_era_duration_matches_the_staking_era() {
-	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
-	// GIVEN the era length of Asset Hub's staking
-	let era = staking::SessionsPerEra::get() as u64 *
-		staking::RelaySessionDuration::get() as u64 *
-		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
-	// WHEN system chains expect the end of an era after the arrival of its set
-	// THEN they expect it after one era, so they report shortly before the rotation
-	assert_eq!(
-		EXPECTED_ERA_DURATION_MILLIS, era,
-		"update `testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS` \
-		to the era length of {era} ms",
-	);
-}
-
 #[test]
 fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 	use asset_hub_westend_runtime::{ParachainInfo, StakingPointsConverter, ValidatorCollators};
@@ -3935,7 +3917,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 			sp_staking::ValidatorServiceKind::Collation,
 			5
 		));
-		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
+		assert_ok!(ValidatorCollators::receive_validator_set(1, u64::MAX, [alice.clone(), bob.clone()]));
 		// AND Alice authored 3 blocks here
 		for _ in 0..3 {
 			<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(

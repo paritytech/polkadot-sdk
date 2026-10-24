@@ -15,8 +15,8 @@
 
 use crate::{
 	mock::*, relay_proof::relay_state_proof, weights::WeightInfo, AuthoredBlocks, Call, Collators,
-	Config, DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraDuration,
-	MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState, SetReceivedAt,
+	Config, DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraEnd,
+	MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState,
 	ValidatorSet,
 };
 use codec::{Decode, Encode};
@@ -55,12 +55,22 @@ fn bounded(validators: Vec<u64>) -> BoundedBTreeSet<u64, <Test as Config>::MaxVa
 		.unwrap()
 }
 
-fn receive(era: EraIndex, validators: Vec<u64>) -> DispatchResult {
+/// Length of an era in the tests, in milliseconds.
+const ERA: u64 = 1000;
+
+/// Receive the set of `era`, whose end is expected at `end`.
+fn receive_ending(era: EraIndex, end: u64, validators: Vec<u64>) -> DispatchResult {
 	ValidatorCollators::set_validators(
 		RuntimeOrigin::signed(SetAccount::get()),
 		era,
+		end,
 		bounded(validators),
 	)
+}
+
+/// Receive the set of `era`, whose end is expected [`ERA`] after now.
+fn receive(era: EraIndex, validators: Vec<u64>) -> DispatchResult {
+	receive_ending(era, Now::get() + ERA, validators)
 }
 
 fn register_candidate(who: u64) {
@@ -111,6 +121,7 @@ fn calls_reject_wrong_origin() {
 			ValidatorCollators::set_validators(
 				RuntimeOrigin::signed(not_set_origin),
 				1,
+				ERA,
 				bounded(vec![10])
 			),
 			BadOrigin
@@ -124,13 +135,6 @@ fn calls_reject_wrong_origin() {
 		);
 		assert_noop!(
 			ValidatorCollators::set_report_period(RuntimeOrigin::signed(not_update_origin), 3),
-			BadOrigin
-		);
-		assert_noop!(
-			ValidatorCollators::set_expected_era_duration(
-				RuntimeOrigin::signed(not_update_origin),
-				1
-			),
 			BadOrigin
 		);
 		assert_noop!(
@@ -159,12 +163,12 @@ fn set_is_checked_against_the_stored_era_and_max_validators() {
 		// WHEN a newer set has one account more than MaxValidators
 		// THEN it fails with TooManyValidators and storage is unchanged
 		assert_noop!(
-			ValidatorCollators::receive_validator_set(6, 100..151),
+			ValidatorCollators::receive_validator_set(6, ERA, 100..151),
 			Error::<Test>::TooManyValidators
 		);
 		// WHEN a newer list has MaxValidators accounts plus one listed twice
 		// THEN it fits once merged and is stored with MaxValidators accounts
-		assert_ok!(ValidatorCollators::receive_validator_set(6, (100..150).chain([100])));
+		assert_ok!(ValidatorCollators::receive_validator_set(6, ERA, (100..150).chain([100])));
 		System::assert_last_event(Event::ValidatorSetReceived { era: 6, count: 50 }.into());
 	});
 }
@@ -173,7 +177,8 @@ fn set_is_checked_against_the_stored_era_and_max_validators() {
 fn call_with_more_than_max_validators_does_not_decode() {
 	build_and_execute(|| {
 		// GIVEN encoded set_validators calls with MaxValidators and one more accounts
-		let encoded = |n: u64| (0u8, 1 as EraIndex, (100..100 + n).collect::<Vec<u64>>()).encode();
+		let encoded =
+			|n: u64| (0u8, 1 as EraIndex, ERA, (100..100 + n).collect::<Vec<u64>>()).encode();
 		// WHEN they are decoded
 		// THEN only the call within the bound decodes
 		assert!(Call::<Test>::decode(&mut &encoded(51)[..]).is_err());
@@ -188,7 +193,7 @@ fn call_with_more_than_max_validators_does_not_decode() {
 fn call_listing_an_account_twice_stores_it_once() {
 	build_and_execute(|| {
 		// GIVEN a set_validators call encoded with validator 10 listed twice
-		let encoded = (0u8, 1 as EraIndex, vec![11u64, 10, 10]).encode();
+		let encoded = (0u8, 1 as EraIndex, ERA, vec![11u64, 10, 10]).encode();
 		// WHEN it is decoded and dispatched
 		let call = Call::<Test>::decode(&mut &encoded[..]).unwrap();
 		assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::signed(SetAccount::get())));
@@ -924,27 +929,27 @@ fn block_at(time: u64) {
 #[test]
 fn reports_once_before_the_expected_era_end() {
 	build_and_execute(|| {
-		// GIVEN an expected era of 1000 ms, a margin of 100 ms, no report period in the test
-		// blocks, and the set of 10 received at time 0
+		// GIVEN a margin of 100 ms, no report period in the test blocks, and the set of 10 whose
+		// era is expected to end at time 1000
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
-		assert_eq!((ExpectedEraDuration::<Test>::get(), ReportMargin::<Test>::get()), (1000, 100));
+		assert_eq!(ReportMargin::<Test>::get(), 100);
 		assert_ok!(receive(1, vec![10]));
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExpectedEraEnd::<Test>::get(), Some(1000));
 
 		// WHEN blocks run up to time 899
 		block_at(500);
 		block_at(899);
-		// THEN nothing is reported and the arrival is kept
+		// THEN nothing is reported and the expected end is kept
 		assert_eq!(reports(), 0);
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExpectedEraEnd::<Test>::get(), Some(1000));
 
 		// WHEN a block runs at time 900
 		block_at(900);
-		// THEN the counts are reported once and the arrival is removed
+		// THEN the counts are reported once and the expected end is removed
 		assert_eq!(reports(), 1);
 		assert_eq!(reported_entries(), vec![(10, 3)]);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExpectedEraEnd::<Test>::get(), None);
 		assert_ok!(ValidatorCollators::do_try_state());
 
 		// WHEN later blocks run past the expected era end
@@ -953,16 +958,16 @@ fn reports_once_before_the_expected_era_end() {
 		// THEN there is no second early report
 		assert_eq!(reports(), 1);
 
-		// WHEN the next set arrives
+		// WHEN the next set arrives, with its era expected to end at 2600
 		Now::set(1600);
 		assert_ok!(receive(2, vec![10]));
-		// THEN its arrival is recorded and times the next early report
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(1600));
+		// THEN its expected end is stored and times the next early report
+		assert_eq!(ExpectedEraEnd::<Test>::get(), Some(2600));
 		block_at(2499);
 		assert_eq!(reports(), 1);
 		block_at(2500);
 		assert_eq!(reports(), 2);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExpectedEraEnd::<Test>::get(), None);
 	});
 }
 
@@ -970,7 +975,7 @@ fn reports_once_before_the_expected_era_end() {
 fn report_timing_edge_cases() {
 	// The early report and a `ReportPeriod` block in the same block report once.
 	build_and_execute(|| {
-		// GIVEN the default period of 5 blocks and a set received at time 0
+		// GIVEN the default period of 5 blocks and a set whose era is expected to end at 1000
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10]));
 		block_at(0);
@@ -992,25 +997,25 @@ fn report_timing_edge_cases() {
 		});
 		// WHEN block 5 runs at the due time
 		let both = poll();
-		// THEN one report is made and charged, and the arrival is removed
+		// THEN one report is made and charged, and the expected end is removed
 		assert_eq!(both, early_only);
 		assert_eq!(reports(), 1);
 		assert_eq!(reported().len(), 1);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExpectedEraEnd::<Test>::get(), None);
 	});
 
 	// A rejected early report is not retried, and the next `ReportPeriod` block carries its counts.
 	build_and_execute(|| {
-		// GIVEN the default period of 5 blocks, a set received at time 0 and a reporter that
-		// rejects its first call
+		// GIVEN the default period of 5 blocks, a set whose era is expected to end at 1000 and a
+		// reporter that rejects its first call
 		FailingReportCall::set(Some(1));
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10]));
 		// WHEN block 2 runs at the due time
 		block_at(900);
-		// THEN the report fails, the arrival is removed and the counts are kept
+		// THEN the report fails, the expected end is removed and the counts are kept
 		System::assert_has_event(Event::BlocksReportFailed { kept: 1, dropped: 0 }.into());
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExpectedEraEnd::<Test>::get(), None);
 		assert_eq!(counts(), vec![(10, 1)]);
 		// WHEN blocks 3 and 4 run
 		block_at(1000);
@@ -1026,44 +1031,28 @@ fn report_timing_edge_cases() {
 		System::assert_has_event(Event::BlocksReported { authors: 1, reported: 1 }.into());
 	});
 
-	// A margin above half of the expected era reports in the middle of the expected era.
+	// A set that arrives before the due time of the previous one replaces its expected end.
 	build_and_execute(|| {
-		// GIVEN an expected era of 100 ms, a margin of 200 ms and a set received at time 0
-		initialize_to_block(1);
-		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
-		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 100));
-		assert_ok!(ValidatorCollators::set_report_margin(root(), 200));
-		assert_ok!(receive(1, vec![10]));
-		// WHEN blocks run at 49 and 50 ms
-		// THEN the report is made at 50 ms, after the arrival
-		block_at(49);
-		assert_eq!(reports(), 0);
-		block_at(50);
-		assert_eq!(reports(), 1);
-	});
-
-	// A set that arrives before the due time of the previous one replaces its arrival.
-	build_and_execute(|| {
-		// GIVEN a set received at time 0, due at 900
+		// GIVEN a set whose era is expected to end at 1000, due at 900
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
 		assert_ok!(receive(1, vec![10]));
-		// WHEN the next set arrives at 500
+		// WHEN the next set arrives at 500, with its era expected to end at 1500
 		Now::set(500);
 		assert_ok!(receive(2, vec![10]));
-		// THEN the early report follows the new arrival, due at 1400
+		// THEN the early report follows the new expected end, due at 1400
 		block_at(900);
 		assert_eq!(reports(), 0);
 		block_at(1400);
 		assert_eq!(reports(), 1);
 	});
 
-	// Without an arrival, only `ReportPeriod` blocks report.
+	// Without an expected end, only `ReportPeriod` blocks report.
 	build_and_execute(|| {
-		// GIVEN a stored set without an arrival, as after the upgrade that adds the timing
+		// GIVEN a stored set without an expected end, as after its early report
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10]));
-		SetReceivedAt::<Test>::kill();
+		ExpectedEraEnd::<Test>::kill();
 		// WHEN blocks 2 to 4 run long past any due time
 		block_at(10_000);
 		block_at(10_000);
@@ -1075,9 +1064,9 @@ fn report_timing_edge_cases() {
 		assert_eq!(reported_entries(), vec![(10, 4)]);
 	});
 
-	// A change of `ReportMargin` after the arrival moves the due time.
+	// A change of `ReportMargin` after the set arrives moves the due time.
 	build_and_execute(|| {
-		// GIVEN a set received at time 0, due at 900 with the default margin
+		// GIVEN a set whose era is expected to end at 1000, due at 900 with the default margin
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
 		assert_ok!(receive(1, vec![10]));
@@ -1093,13 +1082,12 @@ fn report_timing_edge_cases() {
 	// A stored margin above `MaxReportMargin`, as after a runtime upgrade that lowers it, is
 	// used up to `MaxReportMargin`.
 	build_and_execute(|| {
-		// GIVEN an expected era of 2000 ms, a stored margin of 600 ms above the maximum of
-		// 500 ms, and a set received at time 0
+		// GIVEN a stored margin of 600 ms above the maximum of 500 ms, and a set whose era is
+		// expected to end at 2000
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
-		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 2000));
 		ReportMargin::<Test>::put(600);
-		assert_ok!(receive(1, vec![10]));
+		assert_ok!(receive_ending(1, 2000, vec![10]));
 		// WHEN blocks run at 1499 and 1500 ms
 		// THEN the report is made at 1500 ms, with the margin capped
 		block_at(1499);
@@ -1113,8 +1101,8 @@ fn report_timing_edge_cases() {
 #[test]
 fn report_that_does_not_fit_the_meter_is_postponed() {
 	build_and_execute(|| {
-		// GIVEN 10 authored a block, and the early report of its set, received at time 0, is due
-		// at time 900
+		// GIVEN 10 authored a block, and the early report of its set, whose era is expected to
+		// end at 1000, is due at time 900
 		initialize_to_block(1);
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
 		assert_ok!(receive(1, vec![10]));
@@ -1130,7 +1118,7 @@ fn report_that_does_not_fit_the_meter_is_postponed() {
 		// THEN the reporter is not called, nothing is charged and the early report stays due
 		assert_eq!(ReportCalls::get(), 0);
 		assert_eq!(meter.consumed(), Weight::zero());
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExpectedEraEnd::<Test>::get(), Some(1000));
 
 		// WHEN block 3 has room for the checks only
 		System::set_block_number(3);
@@ -1141,18 +1129,18 @@ fn report_that_does_not_fit_the_meter_is_postponed() {
 		assert_eq!(ReportCalls::get(), 0);
 		assert_eq!(meter.consumed(), checks);
 		assert_eq!(counts(), vec![(10, 1)]);
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExpectedEraEnd::<Test>::get(), Some(1000));
 
 		// WHEN block 4 has room for the report
 		System::set_block_number(4);
 		let mut meter = WeightMeter::with_limit(full);
 		ValidatorCollators::on_poll(4, &mut meter);
-		// THEN the reporter gets the counts once, the report is charged, and the arrival is
+		// THEN the reporter gets the counts once, the report is charged, and the expected end is
 		// removed
 		assert_eq!(ReportCalls::get(), 1);
 		assert_eq!(reported_entries(), vec![(10, 1)]);
 		assert_eq!(meter.consumed(), full);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExpectedEraEnd::<Test>::get(), None);
 	});
 }
 
@@ -1166,8 +1154,7 @@ fn setters_are_bounded_and_announced() {
 		assert_ok!(receive(1, vec![10]));
 		note_blocks(10, 1);
 
-		// WHEN the update origin sets a zero period, a zero margin, a margin above the maximum
-		// or a zero duration
+		// WHEN the update origin sets a zero period, a zero margin or a margin above the maximum
 		// THEN each call fails and the stored values are unchanged
 		assert_noop!(
 			ValidatorCollators::set_report_period(root(), 0),
@@ -1181,10 +1168,6 @@ fn setters_are_bounded_and_announced() {
 			ValidatorCollators::set_report_margin(root(), max_margin + 1),
 			Error::<Test>::ReportMarginTooHigh
 		);
-		assert_noop!(
-			ValidatorCollators::set_expected_era_duration(root(), 0),
-			Error::<Test>::ZeroExpectedEraDuration
-		);
 
 		// WHEN it sets a period of 3 instead of the default 5
 		assert_ok!(ValidatorCollators::set_report_period(root(), 3));
@@ -1196,27 +1179,22 @@ fn setters_are_bounded_and_announced() {
 		initialize_to_block(3);
 		assert_eq!(reported_entries(), vec![(10, 1)]);
 
-		// WHEN it sets the smallest and the largest margin, and the smallest duration
+		// WHEN it sets the smallest and the largest margin
 		// THEN each is stored and announced
 		assert_ok!(ValidatorCollators::set_report_margin(root(), 1));
 		System::assert_last_event(Event::ReportMarginSet { margin: 1 }.into());
 		assert_ok!(ValidatorCollators::set_report_margin(root(), max_margin));
 		System::assert_last_event(Event::ReportMarginSet { margin: max_margin }.into());
 		assert_eq!(ReportMargin::<Test>::get(), max_margin);
-		assert_ok!(ValidatorCollators::set_expected_era_duration(root(), 1));
-		System::assert_last_event(Event::ExpectedEraDurationSet { duration: 1 }.into());
-		assert_eq!(ExpectedEraDuration::<Test>::get(), 1);
 		assert_ok!(ValidatorCollators::do_try_state());
 
-		// AND the invariants reject the zero values the calls refuse
-		for (duration, margin, error) in
-			[(0, 1, "the expected era duration is zero"), (1, 0, "the report margin is zero")]
-		{
-			frame_support::hypothetically!({
-				ExpectedEraDuration::<Test>::put(duration);
-				ReportMargin::<Test>::put(margin);
-				assert_eq!(ValidatorCollators::do_try_state(), Err(error.into()));
-			});
-		}
+		// AND the invariants reject the zero margin the call refuses
+		frame_support::hypothetically!({
+			ReportMargin::<Test>::put(0);
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("the report margin is zero".into())
+			);
+		});
 	});
 }
