@@ -28,9 +28,9 @@ use crate::{
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
 use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
+use sp_arithmetic::MultiplyRational;
 use sp_runtime::{
-	DispatchError, Rounding, SaturatedConversion,
-	helpers_128bit::multiply_by_rational_with_rounding,
+	DispatchError, Rounding,
 	traits::{Saturating, Zero},
 };
 
@@ -144,16 +144,24 @@ impl Diff {
 		// Refunds are calculated pro rata based on the accumulated storage within the contract
 		let bytes_removed = self.bytes_removed.saturating_sub(self.bytes_added);
 		let items_removed = self.items_removed.saturating_sub(self.items_added);
-		bytes_deposit = bytes_deposit.saturating_add(&Deposit::Refund(Self::pro_rata::<T>(
-			info.storage_byte_deposit,
-			bytes_removed,
-			info.storage_bytes,
-		)));
-		items_deposit = items_deposit.saturating_add(&Deposit::Refund(Self::pro_rata::<T>(
-			info.storage_item_deposit,
-			items_removed,
-			info.storage_items,
-		)));
+		bytes_deposit = bytes_deposit.saturating_add(&Deposit::Refund(
+			info.storage_byte_deposit
+				.multiply_rational(
+					bytes_removed.min(info.storage_bytes).into(),
+					info.storage_bytes.into(),
+					Rounding::Down,
+				)
+				.unwrap_or_default(),
+		));
+		items_deposit = items_deposit.saturating_add(&Deposit::Refund(
+			info.storage_item_deposit
+				.multiply_rational(
+					items_removed.min(info.storage_items).into(),
+					info.storage_items.into(),
+					Rounding::Down,
+				)
+				.unwrap_or_default(),
+		));
 
 		// We need to update the contract info structure with the new deposits
 		info.storage_bytes =
@@ -178,18 +186,6 @@ impl Diff {
 		}
 
 		bytes_deposit.saturating_add(&items_deposit)
-	}
-
-	/// `deposit * removed / stored`, rounded down and capped at `deposit`.
-	fn pro_rata<T: Config>(deposit: BalanceOf<T>, removed: u32, stored: u32) -> BalanceOf<T> {
-		multiply_by_rational_with_rounding(
-			deposit.saturated_into(),
-			removed.min(stored).into(),
-			stored.into(),
-			Rounding::Down,
-		)
-		.unwrap_or_default()
-		.saturated_into()
 	}
 }
 

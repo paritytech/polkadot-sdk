@@ -974,6 +974,41 @@ fn sstore_deposit_after_rate_change(fixture_type: FixtureType) {
 	});
 }
 
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn sstore_partial_refund_is_exact(fixture_type: FixtureType) {
+	let (host_code, _) = compile_module_with_type("Host", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreTwoCall { slotA: 1, valueA: 1, slotB: 2, valueB: 1 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreTwoCall reverted");
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreOpCall { slot: 3, value: 1 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreOpCall reverted");
+
+		let info = get_contract(&host_addr);
+		assert_eq!((info.storage_bytes, info.storage_byte_deposit), (192, 192));
+		assert_eq!((info.storage_items, info.storage_item_deposit), (3, 6));
+		let deposit = info.total_deposit();
+
+		let result = builder::bare_call(host_addr)
+			.data(Host::sstoreOpCall { slot: 1, value: 0 }.abi_encode())
+			.build_and_unwrap_result();
+		assert!(!result.did_revert(), "sstoreOpCall reverted");
+
+		// A third of each deposit, with no rounding loss.
+		assert_eq!(get_contract(&host_addr).total_deposit(), deposit - 64 - 2);
+	});
+}
+
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
