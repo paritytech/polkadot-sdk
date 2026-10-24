@@ -58,7 +58,7 @@ parameter_types! {
 impl Config for Test {
 	type PalletId = LotteryPalletId;
 	type RuntimeCall = RuntimeCall;
-	type Currency = Balances;
+	type Fungible = Balances;
 	type Randomness = TestRandomness<Self>;
 	type RuntimeEvent = RuntimeEvent;
 	type ManagerOrigin = EnsureRoot<u64>;
