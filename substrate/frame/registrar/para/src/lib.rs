@@ -54,6 +54,11 @@
 //! first, so both deposits stay held until it answers. If the answer never arrives, the manager
 //! calls [`Pallet::deregister`] again.
 //!
+//! ## Forcing
+//!
+//! [`Pallet::force_register`] is the same request from root, for an id that need not have been
+//! reserved first. The manager still pays.
+//!
 //! ## Locking
 //!
 //! [`Pallet::add_lock`] shuts the manager out of a registered para, leaving it to the para's own
@@ -743,8 +748,13 @@ pub mod pallet {
 			Err(Error::<T>::Unimplemented.into())
 		}
 
+		/// Ask the relay chain to register a para id under `manager`, on root's say-so.
+		///
+		/// The relay chain's `paras_registrar::force_register`, moved here: the same checks and the
+		/// same deposits, except that the id need not have been reserved first, so root can onboard
+		/// an id nobody holds, the system range included.
 		#[pallet::call_index(9)]
-		#[pallet::weight(Weight::MAX)]
+		#[pallet::weight(T::WeightInfo::force_register(genesis_head.len() as u32))]
 		pub fn force_register(
 			origin: OriginFor<T>,
 			para_id: ParaId,
@@ -753,9 +763,61 @@ pub mod pallet {
 			code_len: u32,
 			code_hash: H256,
 		) -> DispatchResult {
-			let _ = (origin, para_id, manager, genesis_head, code_len, code_hash);
-			// TODO(ahm-v2): send a root-authorized registration to the relay chain.
-			Err(Error::<T>::Unimplemented.into())
+			ensure_root(origin)?;
+
+			let reservation = match Paras::<T>::get(para_id) {
+				Some(info) => {
+					ensure!(info.manager == manager, Error::<T>::NotOwner);
+					ensure!(!info.is_locked(), Error::<T>::ParaLocked);
+					ensure!(
+						matches!(info.state, RegistrationState::Reserved),
+						Error::<T>::AlreadyRegistered
+					);
+					info.reservation
+				},
+				// Unreserved ids are the point of this call, so take the reservation now.
+				None => T::ReservationConsideration::new(&manager, Footprint::from_parts(1, 0))?,
+			};
+
+			let head_len = genesis_head.len() as u32;
+			ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
+			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+
+			let ticket = T::RegistrationConsideration::new(
+				&manager,
+				Self::registration_footprint(head_len, code_len),
+			)?;
+
+			let cancellable_at = T::BlockNumberProvider::current_block_number()
+				.saturating_add(T::PendingDeadline::get());
+			let message_id = Self::next_message_id();
+			Paras::<T>::insert(
+				para_id,
+				ParaInfo {
+					manager: manager.clone(),
+					reservation,
+					state: RegistrationState::Pending { ticket, cancellable_at, message_id },
+					locked: None,
+				},
+			);
+			// `reserve` errors rather than skipping an id it finds taken, so leaving the counter
+			// behind a forced id would brick it for good.
+			NextFreeParaId::<T>::mutate(|next| *next = (*next).max(para_id.saturating_add(1)));
+
+			// A transport failure returns `Err` and unwinds everything above, tickets included.
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
+				para_id,
+				message_id,
+				manager: manager.clone(),
+				genesis_head,
+				code_hash,
+				code_len,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::RegisterRequested { para_id, message_id, manager });
+			Ok(())
 		}
 	}
 }
