@@ -411,7 +411,7 @@ where
 		trace!(target: LOG_TARGET, "Received {} transactions from {}", transactions.len(), who);
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
 			for t in transactions {
-				if self.pending_transactions.len() > MAX_PENDING_TRANSACTIONS {
+				if self.pending_transactions.len() >= MAX_PENDING_TRANSACTIONS {
 					debug!(
 						target: LOG_TARGET,
 						"Ignoring any further transactions that exceed `MAX_PENDING_TRANSACTIONS`({}) limit",
