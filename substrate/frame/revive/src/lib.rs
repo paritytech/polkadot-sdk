@@ -888,10 +888,6 @@ pub mod pallet {
 					let _ = T::Currency::mint_into(&account_id, T::Currency::minimum_balance());
 				}
 
-				frame_system::Account::<T>::mutate(&account_id, |info| {
-					info.nonce = (*nonce).into();
-				});
-
 				match contract_data {
 					None => {
 						AccountInfoOf::<T>::insert(
@@ -906,7 +902,7 @@ pub mod pallet {
 									log::error!(target: LOG_TARGET, "Failed to create PVM ContractBlob for {address:?}: {err:?}");
 								})
 						} else {
-							ContractBlob::<T>::from_evm_runtime_code(code.0.clone(), account_id)
+							ContractBlob::<T>::from_evm_runtime_code(code.0.clone(), account_id.clone())
 								.inspect_err(|err| {
 									log::error!(target: LOG_TARGET, "Failed to create EVM ContractBlob for {address:?}: {err:?}");
 								})
@@ -917,14 +913,11 @@ pub mod pallet {
 						};
 
 						let code_hash = *blob.code_hash();
-						let Ok(info) = <ContractInfo<T>>::new_without_collision_check(
-							&address,
-							0u32.into(),
-							code_hash,
-						)
-						.inspect_err(|err| {
-							log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
-						}) else {
+						let Ok(info) = <ContractInfo<T>>::new(&address, 0u32.into(), code_hash)
+							.inspect_err(|err| {
+								log::error!(target: LOG_TARGET, "Failed to create ContractInfo for {address:?}: {err:?}");
+							})
+						else {
 							continue;
 						};
 
@@ -942,6 +935,10 @@ pub mod pallet {
 						}
 					},
 				}
+
+				frame_system::Account::<T>::mutate(&account_id, |info| {
+					info.nonce = (*nonce).into();
+				});
 
 				let _ = Pallet::<T>::set_evm_balance(address, *balance).inspect_err(|err| {
 					log::error!(target: LOG_TARGET, "Failed to set EVM balance for {address:?}: {err:?}");

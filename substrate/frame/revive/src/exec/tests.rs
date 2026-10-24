@@ -1437,66 +1437,6 @@ fn termination_from_instantiate_succeeds() {
 		});
 }
 
-/// `SELFDESTRUCT` by a delegated EOA only moves balance, even if the address shows up as
-/// created in the same transaction.
-#[test]
-fn termination_of_delegated_eoa_created_in_same_tx_is_skipped() {
-	let terminate_ch = MockLoader::insert(Constructor, |ctx, _| {
-		let address = <Test as Config>::AddressMapper::to_address(ctx.ext.account_id());
-		crate::storage::AccountInfo::<Test>::set_delegation(&address, Some(CHARLIE_ADDR), &ALICE)
-			.unwrap();
-		let _ = ctx.ext.terminate_if_same_tx(&ALICE_ADDR)?;
-		exec_success()
-	});
-	let instantiated = Rc::new(RefCell::new(None::<H160>));
-	let factory_ch = MockLoader::insert(Call, {
-		let instantiated = Rc::clone(&instantiated);
-		move |ctx, _| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			let address = ctx
-				.ext
-				.instantiate(
-					&CallResources::NoLimits,
-					Code::Existing(terminate_ch),
-					Pallet::<Test>::convert_native_to_evm(min_balance),
-					vec![],
-					Some(&[0; 32]),
-				)
-				.unwrap();
-			*instantiated.borrow_mut() = Some(address);
-			exec_success()
-		}
-	});
-
-	ExtBuilder::default()
-		.with_code_hashes(MockLoader::code_hashes())
-		.existential_deposit(15)
-		.build()
-		.execute_with(|| {
-			let min_balance = <Test as Config>::Currency::minimum_balance();
-			set_balance(&ALICE, min_balance * 1000);
-			place_contract(&BOB, factory_ch);
-			let mut meter =
-				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 100).unwrap();
-
-			assert_ok!(MockStack::run_call(
-				Origin::from_account_id(ALICE),
-				BOB_ADDR,
-				&mut meter,
-				Pallet::<Test>::convert_native_to_evm(min_balance * 100),
-				vec![],
-				&ExecConfig::new_substrate_tx(),
-			));
-
-			let address = instantiated.borrow().unwrap();
-			assert_eq!(
-				crate::storage::AccountInfo::<Test>::get_delegation_target(&address),
-				Some(CHARLIE_ADDR)
-			);
-			assert_eq!(Pallet::<Test>::evm_balance(&address), U256::zero());
-		});
-}
-
 #[test]
 fn in_memory_changes_not_discarded() {
 	// Call stack: BOB -> CHARLIE (trap) -> BOB' (success)
@@ -2048,7 +1988,8 @@ fn nonce() {
 			set_balance(&ALICE, min_balance * 10_000);
 			set_balance(&BOB, min_balance * 10_000);
 
-			// fail should not increment
+			// EIP-684: a failed create still consumes the nonce. A real dispatch rolls back
+			// the whole extrinsic on a trap, so only a revert keeps it.
 			MockStack::run_instantiate(
 				ALICE,
 				fail_executable,
@@ -2059,7 +2000,7 @@ fn nonce() {
 				&ExecConfig::new_substrate_tx(),
 			)
 			.ok();
-			assert_eq!(System::account_nonce(&ALICE), 0);
+			assert_eq!(System::account_nonce(&ALICE), 1);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
@@ -2070,7 +2011,7 @@ fn nonce() {
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),
 			));
-			assert_eq!(System::account_nonce(&ALICE), 1);
+			assert_eq!(System::account_nonce(&ALICE), 2);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
@@ -2081,7 +2022,7 @@ fn nonce() {
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),
 			));
-			assert_eq!(System::account_nonce(&ALICE), 2);
+			assert_eq!(System::account_nonce(&ALICE), 3);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
@@ -2092,7 +2033,7 @@ fn nonce() {
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),
 			));
-			assert_eq!(System::account_nonce(&ALICE), 3);
+			assert_eq!(System::account_nonce(&ALICE), 4);
 		});
 }
 

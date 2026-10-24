@@ -1144,7 +1144,11 @@ where
 						if let Some(info) = info {
 							CachedContract::Cached(info)
 						} else {
-							let info = ContractInfo::new(&address, 0u32.into(), H256::zero())?;
+							let info = ContractInfo::new_without_collision_check(
+								&address,
+								0u32.into(),
+								H256::zero(),
+							)?;
 							CachedContract::Cached(info)
 						}
 					},
@@ -1219,11 +1223,17 @@ where
 						},
 					)
 				};
-				let contract = ContractInfo::new(
-					&address,
-					<System<T>>::account_nonce(&sender),
-					*executable.code_hash(),
-				)?;
+				// EIP-684: the nonce is consumed even if the address collides or the
+				// constructor reverts.
+				if exec_config.bump_nonce || !origin_is_caller {
+					// The origin is not traced until its frame is entered, so record it before
+					// the bump to keep the old nonce in the prestate.
+					if origin_is_caller {
+						if_tracing(|t| t.watch_address(&deployer));
+					}
+					<System<T>>::inc_account_nonce(&sender);
+				}
+				let contract = ContractInfo::new(&address, account_nonce, *executable.code_hash())?;
 				(
 					T::AddressMapper::to_fallback_account_id(&address),
 					CachedContract::Cached(contract),
@@ -1316,15 +1326,6 @@ where
 			input_data,
 			self.exec_config,
 		)? {
-			// EIP-684: an in-construction address is not in `AccountInfoOf` yet, so the
-			// collision check in `ContractInfo::new` can miss this re-entrant collision.
-			if frame.entry_point == ExportedFunction::Constructor &&
-				self.frames().any(|f| {
-					f.entry_point == ExportedFunction::Constructor &&
-						f.account_id == frame.account_id
-				}) {
-				return Err(Error::<T>::DuplicateContract.into());
-			}
 			self.frames.try_push(frame).map_err(|_| Error::<T>::MaxCallDepthReached)?;
 			Ok(Some(executable))
 		} else {
@@ -1412,7 +1413,6 @@ where
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
 
@@ -1439,11 +1439,6 @@ where
 				// Contracts nonce starts at 1
 				<System<T>>::inc_account_nonce(account_id);
 
-				if bump_nonce || !is_first_frame {
-					// Needs to be incremented before calling into the code so that it is visible
-					// in case of recursion.
-					<System<T>>::inc_account_nonce(caller.account_id()?);
-				}
 				// The incremented refcount should be visible to the constructor.
 				if is_pvm {
 					<CodeInfo<T>>::increment_refcount(
@@ -1921,6 +1916,14 @@ where
 				exec_config,
 			)?;
 
+			// A sufficient (e.g. an asset) can keep the account alive. Its nonce must go too or
+			// the address can never be redeployed.
+			if System::<T>::account_exists(contract_account) {
+				frame_system::Account::<T>::mutate(contract_account, |info| {
+					info.nonce = Zero::zero()
+				});
+			}
+
 			// this deletes the code if refcount drops to zero
 			let _code_removed = <CodeInfo<T>>::decrement_refcount(*code_hash)?;
 
@@ -2128,12 +2131,6 @@ where
 			&mut frame.frame_meter,
 			self.exec_config,
 		)?;
-
-		// EIP-7702: the balance still moves, but a delegated EOA is never destroyed. Its
-		// `contract_info` is the authority's delegation trie and the target's code hash.
-		if AccountInfo::<T>::is_delegated(&contract_address) {
-			return Ok(CodeRemoved::No);
-		}
 
 		// schedule for delayed deletion
 		let account_id = frame.account_id.clone();
