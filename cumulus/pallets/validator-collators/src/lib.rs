@@ -74,13 +74,15 @@
 //! handler pays them from its pot and records them in `LastAuthoredBlock`.
 //!
 //! The pallet is also a `pallet_authorship::EventHandler` and counts the blocks each author
-//! produces in [`AuthoredBlocks`]. At a report it hands the counts of the authors in the stored set
-//! to [`Config::BlockReporter`], in chunks of at most [`Config::MaxEntriesPerReport`] entries, and
-//! drops the counts of other authors. The reporter delivers them to the chain that runs
-//! `pallet-staking-async`, where they become era points. All chunks of one report are handed over
-//! in one storage layer. If the reporter rejects any of them, every count is kept for the next
-//! report and the chunks already handed over are rolled back. Without a stored set every count is
-//! dropped.
+//! produces in [`AuthoredBlocks`]. At a report-time, it removes the counts of the authors outside
+//! the stored set, and hands the counts of the others to [`Config::BlockReporter`] in one call. The
+//! reporter delivers them to the chain that runs `pallet-staking-async` + `points-convertor`, where
+//! they become era points. A report has at most one entry per validator of the stored set, and the
+//! pallet's `integrity_test` checks that [`Config::MaxValidators`] entries fit the reporter's
+//! [`ReportAuthoredBlocks::max_message_size`], so a full report is never too large to send and is
+//! not split. If the reporter rejects it, the counts of ONLY the _currently stored validators_ are
+//! kept for the next report, so [`AuthoredBlocks`] never holds more than the stored set plus the
+//! authors since the last report. Without a stored set every count is dropped.
 //!
 //! A report runs in every block whose number is a multiple of [`ReportPeriod`], and once per
 //! stored set shortly before the expected end of its era. The pallet records the arrival time of
@@ -253,6 +255,17 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxValidators: Get<u32>;
 
+		/// Maximum number of entries of [`AuthoredBlocks`] that one report reads.
+		///
+		/// Authors are counted between two reports: the validators of the stored set, and the
+		/// other collators of the chain, such as invulnerables and candidates. A sensible value is
+		/// [`Config::MaxValidators`], plus the maximum number of other collators the chain may
+		/// have, plus a small buffer for the authors that leave the collators before the next
+		/// report. Entries beyond it wait for the next report. The `integrity_test` checks that a
+		/// report of this many entries fits a block.
+		#[pallet::constant]
+		type MaxEntriesPerReport: Get<u32>;
+
 		/// The regular session rotation rule kept next to the forced rotations.
 		type PeriodicSession: ShouldEndSession<BlockNumberFor<Self>>;
 
@@ -262,12 +275,6 @@ pub mod pallet {
 		/// Number of blocks between two reports until governance sets [`ReportPeriod`].
 		#[pallet::constant]
 		type DefaultReportPeriod: Get<BlockNumberFor<Self>>;
-
-		/// Maximum number of entries handed to [`Config::BlockReporter`] in one call.
-		///
-		/// A chunk of this size must fit what the receiving chain can process in one message.
-		#[pallet::constant]
-		type MaxEntriesPerReport: Get<u32>;
 
 		/// Wall clock time, to time the report before the expected end of an era.
 		type UnixTime: UnixTime;
@@ -377,8 +384,10 @@ pub mod pallet {
 		/// The block counts of `authors` authors were removed. The `reported` of them in the
 		/// stored set were handed to the reporter and the others were dropped.
 		BlocksReported { authors: u32, reported: u32 },
-		/// The reporter rejected the block counts, which are kept for the next report.
-		BlocksReportFailed { authors: u32 },
+		/// The reporter rejected the block counts. The counts of the `kept` authors in the stored
+		/// set are kept for the next report, and those of the `dropped` other authors were
+		/// removed.
+		BlocksReportFailed { kept: u32, dropped: u32 },
 		/// The expected time from the arrival of a set to the end of its era was changed.
 		ExpectedEraDurationSet { duration: u64 },
 		/// The time before the expected end of an era at which the counts are reported was
@@ -449,8 +458,8 @@ pub mod pallet {
 
 			// either periodic send, or early send, which we don't care to distinguish anymore, and
 			// just send the report.
-			let authors = AuthoredBlocks::<T>::count();
-			let report_weight = T::WeightInfo::report_blocks(authors);
+			let authors = AuthoredBlocks::<T>::count().min(T::MaxEntriesPerReport::get());
+			let report_weight = Self::report_weight(authors);
 			if !meter.can_consume(base_weight.saturating_add(report_weight)) {
 				log::warn!(
 					target: crate::LOG_TARGET,
@@ -470,7 +479,6 @@ pub mod pallet {
 		}
 
 		fn integrity_test() {
-			assert!(T::MaxEntriesPerReport::get() > 0, "`MaxEntriesPerReport` must not be zero");
 			assert!(
 				!T::DefaultReportPeriod::get().is_zero(),
 				"`DefaultReportPeriod` must not be zero"
@@ -484,19 +492,25 @@ pub mod pallet {
 				margin > 0 && margin <= T::MaxReportMargin::get(),
 				"`DefaultReportMargin` must not be zero and at most `MaxReportMargin`"
 			);
+			let max_items = T::MaxEntriesPerReport::get();
+			assert!(
+				max_items >= T::MaxValidators::get(),
+				"`MaxEntriesPerReport` must leave room for every validator of a set"
+			);
 			// `on_poll` postpones a report that does not fit, so one that does not fit an empty
 			// block is never made.
 			let report = T::WeightInfo::on_poll()
-				.saturating_add(T::WeightInfo::report_blocks(T::MaxValidators::get()));
+				.saturating_add(Self::report_weight(max_items));
 			let max_block = T::BlockWeights::get().max_block;
 			assert!(
 				report.all_lte(max_block),
-				"a report of `MaxValidators` authors weighs {report:?}, above the block {max_block:?}"
+				"a report of {max_items} authors weighs {report:?}, above the block {max_block:?}"
 			);
 
 			#[cfg(feature = "std")]
 			if let Some(max) = T::BlockReporter::max_message_size() {
-				let entries = (0..T::MaxEntriesPerReport::get())
+				// biggest possible report we could send.
+				let entries = (0..T::MaxValidators::get())
 					.map(|i| {
 						let who = T::AccountId::decode(
 							&mut sp_runtime::traits::TrailingZeroInput::new(&i.encode()),
@@ -677,38 +691,66 @@ pub mod pallet {
 			validators
 		}
 
+		/// Weight of [`Self::report_blocks`] with `authors` entries read from [`AuthoredBlocks`].
+		///
+		/// An entry of a validator in the stored set is handed to the reporter and removed, while
+		/// an entry of another author is only removed, which costs less. So the weight assumes as
+		/// many validators as the set holds, and the other authors beyond them.
+		pub(crate) fn report_weight(authors: u32) -> Weight {
+			let validators = authors.min(T::MaxValidators::get());
+			T::WeightInfo::report_blocks(validators, authors.saturating_sub(validators))
+		}
+
 		/// Hand the counted blocks of the stored validators to [`Config::BlockReporter`].
 		///
-		/// Sends at most [`Config::MaxEntriesPerReport`] entries per call to the reporter. Counts
-		/// are removed only if the reporter accepts every chunk. Authors outside the stored set
-		/// are dropped.
+		/// Hands the counts of every author in the stored set to the reporter in one call, and
+		/// removes the counts of the other authors. The counts handed over are removed only if
+		/// the reporter accepts them, and the reporter's storage changes are rolled back if it
+		/// rejects them. Without a stored set every count is removed.
 		///
 		/// `authors` is the number of entries in [`AuthoredBlocks`], which the caller reads to
-		/// weigh the report with [`WeightInfo::report_blocks`] before making it.
+		/// weigh the report with [`Self::report_weight`] before making it. A rejected report removes
+		/// fewer counts than an accepted one, which is the weighed case.
 		pub(crate) fn report_blocks(authors: u32) {
 			if authors == 0 {
 				return;
 			}
-			let validators = ValidatorSet::<T>::get().map(|set| set.validators);
-			let chunk_size = T::MaxEntriesPerReport::get().max(1) as usize;
-			let result = with_storage_layer(|| -> Result<u32, DispatchError> {
-				let blocks = AuthoredBlocks::<T>::drain()
-					.filter(|(who, _)| validators.as_ref().is_some_and(|set| set.contains(who)))
-					.collect::<Vec<_>>();
-				blocks.chunks(chunk_size).try_for_each(|chunk| {
-					T::BlockReporter::report(chunk)
-						.map_err(|()| DispatchError::Other("the reporter rejected the counts"))
-				})?;
-				Ok(blocks.len() as u32)
+
+			let validators = ValidatorSet::<T>::get().map(|set| set.validators).unwrap_or_default();
+
+			// read all authored-blocks, and partition them in those that we send and those we may
+			// drop.
+			let (to_send, others): (Vec<_>, Vec<_>) =
+				AuthoredBlocks::<T>::iter()
+					.take(T::MaxEntriesPerReport::get() as usize)
+					.partition(|(who, _)| validators.contains(who));
+			let (kept, dropped) = (to_send.len() as u32, others.len() as u32);
+
+			// We definitely want to delete these ones.
+			others.iter().for_each(|(who, _)| AuthoredBlocks::<T>::remove(who));
+
+			// No message is sent for a report with no entries.
+			let result = with_storage_layer(|| match to_send.is_empty() {
+				true => Ok(()),
+				false => T::BlockReporter::report(&to_send)
+					.map_err(|()| DispatchError::Other("the reporter rejected the counts")),
 			});
+
 			let event = match result {
-				Ok(reported) => Event::BlocksReported { authors, reported },
+				Ok(()) => {
+					// we managed to send, delete the sent ones as well.
+					to_send.iter().for_each(|(who, _)| AuthoredBlocks::<T>::remove(who));
+					Event::BlocksReported { authors, reported: kept }
+				},
 				Err(_) => {
+					// we failed to send, we keep the ones that were authors now, having already
+					// dropped the rest.
 					log::warn!(
 						target: crate::LOG_TARGET,
-						"the reporter rejected the counts of {authors} authors, keeping them"
+						"the reporter rejected the counts of {kept} authors, keeping them and \
+						dropping those of {dropped} authors outside the stored set"
 					);
-					Event::BlocksReportFailed { authors }
+					Event::BlocksReportFailed { kept, dropped }
 				},
 			};
 			Self::deposit_event(event);

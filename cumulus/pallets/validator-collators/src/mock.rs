@@ -125,10 +125,10 @@ impl Config for Test {
 	type UpdateOrigin = EnsureSignedBy<RootAccount, u64>;
 	type ValidatorRegistration = Session;
 	type MaxValidators = ConstU32<50>;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = MockReporter;
 	type DefaultReportPeriod = ConstU64<5>;
-	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type UnixTime = MockTime;
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;
@@ -149,7 +149,8 @@ impl frame_support::traits::UnixTime for MockTime {
 }
 
 parameter_types! {
-	pub static MaxEntriesPerReport: u32 = 10;
+	/// The validators, the invulnerables and candidates of collator selection, and a buffer.
+	pub static MaxEntriesPerReport: u32 = 50 + 20 + 20 + 10;
 	/// Number of calls to [`MockReporter`] so far.
 	pub static ReportCalls: u32 = 0;
 	/// The call to [`MockReporter`], counted from one, that is rejected.
@@ -158,22 +159,24 @@ parameter_types! {
 
 const REPORTED_KEY: &[u8] = b"reported";
 
-/// The chunks [`MockReporter`] accepted, kept in storage so that a rollback removes them.
+/// The reports [`MockReporter`] accepted, kept in storage so that a rollback removes them.
 pub fn reported() -> Vec<Vec<(u64, u32)>> {
 	frame_support::storage::unhashed::get(REPORTED_KEY).unwrap_or_default()
 }
 
+/// Records every report in storage, and rejects the one of [`FailingReportCall`] after recording
+/// it, so that only a rollback removes it.
 pub struct MockReporter;
 impl ReportAuthoredBlocks<u64> for MockReporter {
 	fn report(blocks: &[(u64, u32)]) -> Result<(), ()> {
 		ReportCalls::mutate(|calls| *calls += 1);
-		if FailingReportCall::get() == Some(ReportCalls::get()) {
-			return Err(());
+		let mut reports = reported();
+		reports.push(blocks.to_vec());
+		frame_support::storage::unhashed::put(REPORTED_KEY, &reports);
+		match FailingReportCall::get() == Some(ReportCalls::get()) {
+			true => Err(()),
+			false => Ok(()),
 		}
-		let mut chunks = reported();
-		chunks.push(blocks.to_vec());
-		frame_support::storage::unhashed::put(REPORTED_KEY, &chunks);
-		Ok(())
 	}
 }
 
@@ -185,7 +188,7 @@ pub const VALIDATORS: [u64; 6] = [10, 11, 12, 13, 14, 15];
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	sp_tracing::try_init_simple();
 	Now::set(0);
-	MaxEntriesPerReport::set(10);
+	MaxEntriesPerReport::set(100);
 	ReportCalls::set(0);
 	FailingReportCall::set(None);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

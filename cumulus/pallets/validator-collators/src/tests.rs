@@ -775,59 +775,83 @@ fn report_sends_counts_of_stored_validators_only() {
 }
 
 #[test]
-fn report_is_split_into_chunks() {
+fn report_of_the_whole_set_is_one_call() {
 	build_and_execute(|| {
-		// GIVEN at most two entries per report and three validators with counts
-		MaxEntriesPerReport::set(2);
+		// GIVEN a set of `MaxValidators` validators, each of which authored a block
+		let max = <<Test as Config>::MaxValidators as frame_support::traits::Get<u32>>::get();
+		let validators = (100..100 + max as u64).collect::<Vec<_>>();
 		initialize_to_block(1);
-		assert_ok!(receive(1, vec![10, 11, 12]));
-		note_blocks(10, 1);
-		note_blocks(11, 2);
-		note_blocks(12, 3);
+		assert_ok!(receive(1, validators.clone()));
+		validators.iter().for_each(|&v| note_blocks(v, 1));
 
 		// WHEN the report block comes
 		initialize_to_block(5);
 
-		// THEN every validator is reported in this period, in a chunk of two and one of one
-		assert_eq!(reported().iter().map(Vec::len).collect::<Vec<_>>(), vec![2, 1]);
-		assert_eq!(reported_entries(), vec![(10, 1), (11, 2), (12, 3)]);
+		// THEN the reporter gets every count in one call
+		assert_eq!(ReportCalls::get(), 1);
+		assert_eq!(reported_entries(), validators.iter().map(|&v| (v, 1)).collect::<Vec<_>>());
+
+		// AND the counts are dropped
 		assert_eq!(counts(), vec![]);
 	});
 }
 
 #[test]
-fn failed_report_keeps_the_counts_for_the_next_period() {
+fn failed_report_keeps_the_counts_of_the_stored_set_only() {
 	build_and_execute(|| {
-		// GIVEN counts of three validators over two chunks, of invulnerable 1, and a reporter
-		// that rejects the second chunk
-		MaxEntriesPerReport::set(2);
-		FailingReportCall::set(Some(2));
+		// GIVEN counts of three validators and of invulnerable 1, and a reporter that rejects its
+		// first call after recording it
+		FailingReportCall::set(Some(1));
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10, 11, 12]));
 		note_blocks(10, 1);
 		note_blocks(11, 2);
 		note_blocks(12, 3);
+		// non-validator who authored a block.
 		note_blocks(1, 1);
-		let before = counts();
 
 		// WHEN the report block comes
 		initialize_to_block(5);
 
-		// THEN the first chunk is rolled back and every count is kept, invulnerable 1 included
-		assert_eq!(ReportCalls::get(), 2);
+		// THEN the rejected report is rolled back, the counts of the validators are kept and the
+		// count of invulnerable 1 is dropped
+		assert_eq!(ReportCalls::get(), 1);
 		assert!(reported().is_empty());
-		assert_eq!(counts(), before);
-		assert_eq!(AuthoredBlocks::<Test>::count(), 4);
-		System::assert_has_event(Event::BlocksReportFailed { authors: 4 }.into());
+		assert_eq!(counts(), vec![(10, 1), (11, 2), (12, 3)]);
+		System::assert_has_event(Event::BlocksReportFailed { kept: 3, dropped: 1 }.into());
 
 		// WHEN more blocks are authored and the reporter accepts the next report
 		note_blocks(10, 4);
+		note_blocks(1, 2);
 		initialize_to_block(10);
 
 		// THEN it carries the sum of both periods, so nothing is lost or reported twice
 		assert_eq!(reported_entries(), vec![(10, 5), (11, 2), (12, 3)]);
 		assert_eq!(counts(), vec![]);
 		System::assert_has_event(Event::BlocksReported { authors: 4, reported: 3 }.into());
+	});
+}
+
+#[test]
+fn report_handles_at_most_max_entries_per_report_entries() {
+	build_and_execute(|| {
+		// GIVEN four counted validators, and a `MaxEntriesPerReport` of two
+		initialize_to_block(1);
+		assert_ok!(receive(1, vec![10, 11, 12, 13]));
+		[10, 11, 12, 13].into_iter().for_each(|v| note_blocks(v, 1));
+		MaxEntriesPerReport::set(2);
+
+		// WHEN the counts are reported
+		ValidatorCollators::report_blocks(2);
+
+		// THEN two of them are reported and removed, and the other two wait for the next report
+		assert_eq!(ReportCalls::get(), 1);
+		assert_eq!(reported_entries().len(), 2);
+		assert_eq!(AuthoredBlocks::<Test>::count(), 2);
+		let mut all = reported_entries();
+		all.extend(counts());
+		all.sort();
+		assert_eq!(all, vec![(10, 1), (11, 1), (12, 1), (13, 1)]);
 	});
 }
 
@@ -985,7 +1009,7 @@ fn report_timing_edge_cases() {
 		// WHEN block 2 runs at the due time
 		block_at(900);
 		// THEN the report fails, the arrival is removed and the counts are kept
-		System::assert_has_event(Event::BlocksReportFailed { authors: 1 }.into());
+		System::assert_has_event(Event::BlocksReportFailed { kept: 1, dropped: 0 }.into());
 		assert_eq!(SetReceivedAt::<Test>::get(), None);
 		assert_eq!(counts(), vec![(10, 1)]);
 		// WHEN blocks 3 and 4 run
@@ -1097,7 +1121,7 @@ fn report_that_does_not_fit_the_meter_is_postponed() {
 		note_blocks(10, 1);
 		Now::set(900);
 		let checks = <Test as Config>::WeightInfo::on_poll();
-		let full = checks.saturating_add(<Test as Config>::WeightInfo::report_blocks(1));
+		let full = checks.saturating_add(ValidatorCollators::report_weight(1));
 
 		// WHEN block 2 has no room for the checks
 		System::set_block_number(2);

@@ -15,7 +15,14 @@ doc:
 
     `pallet-validator-collators` counts the blocks each author produces and reports the counts of
     the validators in the stored set every `ReportPeriod` blocks, and once per set shortly before
-    the expected era end. New config items: `BlockReporter`, `DefaultReportPeriod`,
+    the expected era end. A report reads at most `MaxEntriesPerReport` counted authors and hands
+    the counts of the stored validators to `BlockReporter` in one message, which is never split:
+    the pallet's `integrity_test` checks that a report of `MaxValidators` entries fits the
+    reporter's message size, and that a report of `MaxEntriesPerReport` entries fits a block. The
+    counts of other authors are dropped. If the reporter rejects a report, the counts of the
+    stored validators are kept for the next one and `BlocksReportFailed { kept, dropped }` is
+    emitted. `MaxEntriesPerReport` should be `MaxValidators`, plus the most other collators the
+    chain may have, plus a small buffer. New config items: `BlockReporter`, `DefaultReportPeriod`,
     `MaxEntriesPerReport`, `UnixTime`, `DefaultExpectedEraDuration`, `DefaultReportMargin` and
     `MaxReportMargin`. The runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
 
