@@ -1,0 +1,18 @@
+title: '[RWF] `sc-mixnet`: fix empty `fork_id` producing malformed protocol name'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes #12462.
+
+    ### Problem
+
+    `protocol_name` branched on `Option<&str>` without guarding against the empty string. A chain-spec that sets `fork_id` to `""` (which is represented as `Some("")`) hit the `Some` branch and inserts the empty string directly into the format string, producing a double slash.
+
+    The malformed name caused the notification service to fail on startup, which terminated the event stream and panicked the mixnet run loop.
+
+    ### Fix
+
+    Apply `.filter(|id| !id.is_empty())` to `fork_id` before matching, so `Some("")` is treated identically to `None`. Three unit tests in a new `#[cfg(test)]` block cover the non-empty, absent, and empty-string cases.
+crates:
+- name: sc-mixnet
+  bump: patch

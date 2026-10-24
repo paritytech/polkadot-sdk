@@ -28,12 +28,12 @@ use sp_runtime::traits::Block as BlockT;
 
 /// Returns the protocol name to use for the mixnet controlled by the given chain.
 pub fn protocol_name(genesis_hash: &[u8], fork_id: Option<&str>) -> ProtocolName {
-	let name = if let Some(fork_id) = fork_id {
-		format!("/{}/{}/mixnet/1", array_bytes::bytes2hex("", genesis_hash), fork_id)
-	} else {
-		format!("/{}/mixnet/1", array_bytes::bytes2hex("", genesis_hash))
-	};
-	name.into()
+	let genesis_hash = array_bytes::bytes2hex("", genesis_hash);
+	match fork_id.filter(|id| !id.is_empty()) {
+		Some(fork_id) => format!("/{genesis_hash}/{fork_id}/mixnet/1"),
+		None => format!("/{genesis_hash}/mixnet/1"),
+	}
+	.into()
 }
 
 /// Returns the peers set configuration for the mixnet protocol.
@@ -70,4 +70,28 @@ pub fn peers_set_config<Block: BlockT, Network: NetworkBackend<Block, <Block as 
 		metrics,
 		peerstore_handle,
 	)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn protocol_name_with_fork_id() {
+		let hash = [0xde, 0xad];
+		assert_eq!(protocol_name(&hash, Some("foo")).as_ref(), "/dead/foo/mixnet/1");
+	}
+
+	#[test]
+	fn protocol_name_without_fork_id() {
+		let hash = [0xde, 0xad];
+		assert_eq!(protocol_name(&hash, None).as_ref(), "/dead/mixnet/1");
+	}
+
+	#[test]
+	fn protocol_name_empty_fork_id_treated_as_none() {
+		let hash = [0xde, 0xad];
+		// Some("") must produce the same name as None — no double slash.
+		assert_eq!(protocol_name(&hash, Some("")), protocol_name(&hash, None),);
+	}
 }
