@@ -188,20 +188,25 @@ impl<T: frame_system::Config> pallet_validator_collators::WeightInfo for WeightI
 	/// Proof: `ParachainSystem::RelevantMessagingState` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmpQueue::OutboundXcmpMessages` (r:0 w:1)
 	/// Proof: `XcmpQueue::OutboundXcmpMessages` (`max_values`: None, `max_size`: Some(105506), added: 107981, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[1, 1000]`.
-	fn report_blocks(n: u32, ) -> Weight {
+	/// The range of component `v` is `[1, 1000]`.
+	/// The range of component `o` is `[0, 150]`.
+	fn report_blocks(v: u32, o: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `32261 + n * (49 ±0)`
-		//  Estimated: `35734 + n * (2519 ±0)`
+		//  Measured:  `32261 + v * (49 ±0)`
+		//  Estimated: `35734 + v * (2519 ±0)`
 		// Minimum execution time: 111_690_000 picoseconds.
 		Weight::from_parts(14_494_478, 0)
 			.saturating_add(Weight::from_parts(0, 35734))
 			// Standard Error: 19_959
-			.saturating_add(Weight::from_parts(6_164_700, 0).saturating_mul(n.into()))
+			.saturating_add(Weight::from_parts(6_164_700, 0).saturating_mul(v.into()))
 			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(v.into())))
 			.saturating_add(T::DbWeight::get().writes(3))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2519).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(v.into())))
+			.saturating_add(Weight::from_parts(0, 2519).saturating_mul(v.into()))
+			// Until benchmarked, an author outside the set is priced as a validator.
+			.saturating_add(Weight::from_parts(6_164_700, 2519).saturating_mul(o.into()))
+			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(o.into())))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(o.into())))
 	}
 }

@@ -426,20 +426,26 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	/// The validators of a set, the invulnerables and candidates of collator selection, and a
+	/// buffer for the authors that leave the collators before the next report.
+	pub MaxEntriesPerReport: u32 =
+		testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET
+			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
+			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
+			+ 30;
+}
+
 impl pallet_validator_collators::Config for Runtime {
 	type SetOrigin = EitherOfDiverse<EnsureRoot<AccountId>, EnsureXcm<Equals<AssetHubLocation>>>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
 	type MaxValidators =
 		ConstU32<{ testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET }>;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
 	type BlockReporter = ReportBlocksToAssetHub;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
-	// Asset Hub's message queue must process a report of this many entries within its service
-	// weight, which the emulated tests check. A heavier report is set aside as overweight on Asset
-	// Hub, after this chain has already removed its counts. The report must also fit an HRMP
-	// message, which the pallet's `integrity_test` checks.
-	type MaxEntriesPerReport = ConstU32<500>;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;

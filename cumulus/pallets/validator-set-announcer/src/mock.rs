@@ -59,7 +59,7 @@ impl pallet_validator_collators::Config for Test {
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = ();
 	type DefaultReportPeriod = Period;
-	type MaxEntriesPerReport = ConstU32<4>;
+	type MaxEntriesPerReport = ConstU32<100>;
 	type UnixTime = ZeroTime;
 	type DefaultExpectedEraDuration = ConstU64<1000>;
 	type DefaultReportMargin = ConstU64<100>;

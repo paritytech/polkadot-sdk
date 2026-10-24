@@ -351,7 +351,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 fn people_report_call_decodes_on_asset_hub() {
 	// GIVEN the largest call People sends to report blocks
 	type MaxEntries =
-		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxEntriesPerReport;
+		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxValidators;
 	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
 	let blocks = (0..max_entries)
 		.map(|i| {
@@ -377,7 +377,7 @@ fn people_report_call_decodes_on_asset_hub() {
 fn people_full_report_fits_the_message_queue_of_asset_hub() {
 	// GIVEN the largest report People sends, all credited
 	type MaxEntries =
-		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxEntriesPerReport;
+		<people_westend_runtime::Runtime as pallet_validator_collators::Config>::MaxValidators;
 	let max_entries = <MaxEntries as frame_support::traits::Get<u32>>::get();
 	let message = asset_hub_westend_runtime::StakingPointsConverter::report_authored_blocks_weight(
 		max_entries,

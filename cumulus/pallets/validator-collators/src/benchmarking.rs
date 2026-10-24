@@ -178,30 +178,34 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// A stored set of `MaxValidators` validators, `n` of them with counts, every count handed
-	/// to the runtime's reporter.
+	/// A stored set of `MaxValidators` validators, `v` of them with counts, all handed to the
+	/// runtime's reporter, and `o` authors outside the set with counts, which are removed.
 	#[benchmark]
-	fn report_blocks(n: Linear<1, { T::MaxValidators::get() }>) -> Result<(), BenchmarkError> {
+	fn report_blocks(
+		v: Linear<1, { T::MaxValidators::get() }>,
+		o: Linear<0, { T::MaxEntriesPerReport::get().saturating_sub(T::MaxValidators::get()) }>,
+	) -> Result<(), BenchmarkError> {
 		let validators = (0..T::MaxValidators::get())
 			.map(|i| account("validator", i, 0))
 			.collect::<Vec<T::AccountId>>();
 		Pallet::<T>::receive_validator_set(0, validators.iter().cloned())?;
-		let blocks = validators.into_iter().take(n as usize).map(|v| (v, 1)).collect::<Vec<_>>();
-		for (who, count) in &blocks {
+		let blocks = validators.into_iter().take(v as usize).map(|v| (v, 1)).collect::<Vec<_>>();
+		let others = (0..o).map(|i| (account::<T::AccountId>("author", i, 0), 1));
+		for (who, count) in blocks.iter().cloned().chain(others) {
 			AuthoredBlocks::<T>::insert(who, count);
 		}
 		T::BlockReporter::ensure_successful_report(&blocks);
 
 		#[block]
 		{
-			Pallet::<T>::report_blocks(n);
+			Pallet::<T>::report_blocks(v + o);
 		}
 
 		assert_eq!(AuthoredBlocks::<T>::count(), 0);
 		frame_system::Pallet::<T>::assert_last_event(
 			<T as frame_system::Config>::RuntimeEvent::from(Event::<T>::BlocksReported {
-				authors: n,
-				reported: n,
+				authors: v + o,
+				reported: v,
 			}),
 		);
 		Ok(())

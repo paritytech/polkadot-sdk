@@ -1200,17 +1200,26 @@ impl pallet_collator_selection::Config for Runtime {
 	type WeightInfo = weights::pallet_collator_selection::WeightInfo<Runtime>;
 }
 
+parameter_types! {
+	/// The validators of a set, the invulnerables and candidates of collator selection, and a
+	/// buffer for the authors that leave the collators before the next report.
+	pub MaxEntriesPerReport: u32 =
+		testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET
+			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
+			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
+			+ 30;
+}
+
 impl pallet_validator_collators::Config for Runtime {
 	// The set is written only by the staking era-start hook.
 	type SetOrigin = frame_system::EnsureNever<AccountId>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
 	type MaxValidators = staking::MaxValidatorSet;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = staking::CreditBlocksLocally;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
-	// The local report is credited directly, so the whole set fits one chunk.
-	type MaxEntriesPerReport = staking::MaxValidatorSet;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
 		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
