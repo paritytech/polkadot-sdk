@@ -33,10 +33,10 @@ where
 	fn process_message(
 		relayer: AccountId,
 		message: Message,
-	) -> Result<[u8; 32], MessageProcessorError> {
+	) -> Result<([u8; 32], Option<Weight>), MessageProcessorError> {
 		// Process the message and return its ID
 		let id = Self::process_xcm(relayer, message)?;
-		Ok(id)
+		Ok((id, None))
 	}
 }
 
