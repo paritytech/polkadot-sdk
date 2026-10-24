@@ -2142,6 +2142,125 @@ pub fn pinned_scripts() -> Vec<(&'static str, Script)> {
 			},
 		),
 		(
+			// Found by `random_smoke` (seed 0x5f65cac, shrunk). The mid-block child root of the
+			// emptied child writes `None` for its root key into the main overlay. The final root
+			// applies that stale `None` and then the refilled child's root: it removes and
+			// reinserts the root key, reading a sibling the estimation never sees (+87 bytes).
+			"fuzz_child_emptied_root_computed_then_refilled",
+			Script {
+				config: Config {
+					mode: Mode::Executive,
+					backend_version: Version::V1,
+					root_version: Version::V0,
+					..free_v1()
+				},
+				initial: InitialTrie {
+					seed: 13069962731770108540,
+					top: 0,
+					extra_top: vec![(
+						Key::Sibling(105, 200, 4261, 100, 132),
+						Val(Size::Exact32, 220),
+					)],
+					children: vec![ChildInit {
+						id: 1,
+						bulk: 0,
+						extra: vec![(Key::Map(204, 225, 20958), Val(Size::Exact32, 244))],
+					}],
+				},
+				blocks: vec![Block {
+					init: vec![],
+					xts: vec![],
+					finalize: vec![
+						Op::ChildKill(1, None),
+						Op::ChildRoot(1),
+						Op::ChildSet(1, Key::Map(45, 219, 41671), Val(Size::Empty, 191)),
+					],
+				}],
+			},
+		),
+		(
+			// Found by `random_smoke` (seed 0x612359a, shrunk). The kill removes nothing, which
+			// leaves an empty child change set and marks the child root key `Deleted`. Only the
+			// collator rolls back the dropped extrinsic, which discards the empty change set, so
+			// only the validator's later child root writes the root key (127 against 125).
+			"fuzz_dropped_extrinsic_discards_empty_child_changes",
+			Script {
+				config: Config { mode: Mode::Executive, backend_version: Version::V0, ..free_v1() },
+				initial: InitialTrie {
+					seed: 9535333911132529172,
+					top: 0,
+					extra_top: vec![],
+					children: vec![ChildInit {
+						id: 1,
+						bulk: 0,
+						extra: vec![(Key::Map(72, 88, 26398), Val(Size::Small, 72))],
+					}],
+				},
+				blocks: vec![Block {
+					init: vec![Op::ChildKill(1, Some(10624))],
+					xts: vec![Xt {
+						pre: vec![],
+						body: vec![],
+						body_outcome: Outcome::Commit,
+						post: vec![],
+						client_outcome: Outcome::Rollback,
+						with_reclaim: false,
+					}],
+					finalize: vec![Op::ChildRoot(1)],
+				}],
+			},
+		),
+		(
+			// Found by `random_smoke` (seed 0x5fde0d7, shrunk). The mid-block storage root fills
+			// the overlay's root cache; only the collator's rollback of the dropped extrinsic
+			// clears it. The validator's child root then comes from the cache and writes nothing,
+			// so the root key stays `Deleted` and its estimation reads nodes missing from the
+			// proof: the validator panics.
+			"fuzz_dropped_extrinsic_clears_root_cache",
+			Script {
+				config: Config { mode: Mode::Executive, backend_version: Version::V0, ..free_v1() },
+				initial: InitialTrie {
+					seed: 16601158210426672330,
+					top: 0,
+					extra_top: vec![(Key::Short(55, 0), Val(Size::Large, 162))],
+					children: vec![],
+				},
+				blocks: vec![
+					Block {
+						init: vec![],
+						xts: vec![],
+						finalize: vec![Op::ChildSet(
+							2,
+							Key::Sibling(167, 202, 475, 15, 109),
+							Val(Size::Small, 49),
+						)],
+					},
+					Block {
+						init: vec![Op::ChildClear(2, Key::Short(0, 0)), Op::Root],
+						xts: vec![
+							Xt {
+								pre: vec![],
+								body: vec![],
+								body_outcome: Outcome::Commit,
+								post: vec![],
+								client_outcome: Outcome::Rollback,
+								with_reclaim: false,
+							},
+							Xt {
+								pre: vec![Op::ChildRoot(2)],
+								body: vec![],
+								body_outcome: Outcome::Commit,
+								post: vec![],
+								client_outcome: Outcome::Commit,
+								with_reclaim: false,
+							},
+						],
+						finalize: vec![],
+					},
+				],
+			},
+		),
+		(
 			// ext.rs `calculating_storage_root_should_not_change_storage_proof_for_main_trie_
 			// changes`: updates, an insert and deletions, estimated once.
 			"pr_main_trie_changes",
