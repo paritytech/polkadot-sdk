@@ -1,0 +1,19 @@
+title: 'transaction-pool: resubmit retracted transactions to existing views'
+doc:
+- audience: Node Dev
+  description: |-
+    Fixes two cases in the fork-aware transaction pool where transactions could get lost or never
+    be reported as finalized:
+
+    - When a re-org (or finalization) enacted a block that already had a view, the transactions
+      from the retracted blocks were not resubmitted to that view. Transactions only known from
+      the retracted block bodies were lost for this view and all views built on top of it. This
+      became more likely since views are created for every imported block. The transactions from
+      the retracted blocks are now resubmitted to the existing view.
+    - A late `NewBlock` notification for an old fork block could cause the maintenance of a
+      following `Finalized` event to be skipped (tree route longer than the skip threshold). In
+      that case transactions in the finalized blocks never received the `Finalized` event and
+      were not purged from the mempool. Finalization is now never skipped.
+crates:
+- name: sc-transaction-pool
+  bump: patch

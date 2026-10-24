@@ -104,6 +104,12 @@ where
 		let new_hash = event.hash();
 		let finalized = event.is_finalized();
 
+		// block was already finalized
+		if self.recent_finalized_block == new_hash {
+			trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
+			return Ok(EnactmentAction::Skip);
+		}
+
 		// do not proceed with txpool maintain if block distance is too high
 		let skip_maintenance =
 			match (hash_to_number(new_hash), hash_to_number(self.recent_processed_block)) {
@@ -116,12 +122,12 @@ where
 		if skip_maintenance {
 			debug!(target: LOG_TARGET, "skip maintain: tree_route would be too long");
 			self.force_update(event);
-			return Ok(EnactmentAction::Skip);
-		}
-
-		// block was already finalized
-		if self.recent_finalized_block == new_hash {
-			trace!(target: LOG_TARGET, "handle_enactment: block already finalized");
+			// Finalization must never be skipped, otherwise transactions included in the
+			// finalized blocks would never be reported as finalized.
+			if finalized {
+				self.recent_processed_block = new_hash;
+				return Ok(EnactmentAction::HandleFinalization);
+			}
 			return Ok(EnactmentAction::Skip);
 		}
 
@@ -726,6 +732,21 @@ mod enactment_state_tests {
 		let result = trigger_new_best_block(&mut es, a(), x1());
 		assert!(matches!(result, EnactmentAction::Skip));
 		assert_es_eq(&es, x1(), a());
+	}
+
+	#[test]
+	fn test_enactment_long_finalized_path_is_not_skipped() {
+		sp_tracing::try_init_simple();
+		let mut es = EnactmentState::new(a().hash, a().hash);
+
+		// A-B1-C1-..-X1
+		let result = trigger_finalized(&mut es, a(), x1());
+		assert!(matches!(result, EnactmentAction::HandleFinalization));
+		assert_es_eq(&es, x1(), x1());
+
+		let result = trigger_finalized(&mut es, a(), x1());
+		assert!(matches!(result, EnactmentAction::Skip));
+		assert_es_eq(&es, x1(), x1());
 	}
 
 	#[test]
