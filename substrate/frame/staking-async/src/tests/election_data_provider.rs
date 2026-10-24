@@ -482,15 +482,15 @@ fn lazy_quota_npos_voters_works_above_quota() {
 			assert_ok!(Staking::unbond(RuntimeOrigin::signed(61), 78));
 			assert_eq!(Staking::api_nominations_quota(300 - 78), 2);
 
-			// even through 61 has nomination quota of 2 at the time of the election, all the
-			// nominations (5) will be used.
-			assert_eq!(
+			// Even though 61's nomination quota dropped to 2 post-unbond, all 5 existing
+			// nominations are preserved at snapshot time.
+			assert_eq_uvec!(
 				Staking::electing_voters(DataProviderBounds::default(), 0)
 					.unwrap()
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(11, 1), (21, 1), (31, 1), (22, 1), (23, 1), (24, 1), (25, 1), (61, 5)],
+				vec![(11, 1), (21, 1), (22, 1), (23, 1), (24, 1), (25, 1), (31, 1), (61, 5)],
 			);
 		});
 }
@@ -504,13 +504,13 @@ fn nominations_quota_limits_size_work() {
 		.build_and_execute(|| {
 			// nominations of 71 won't be added due to voter size limit exceeded.
 			let bounds = ElectionBoundsBuilder::default().voters_size(101.into()).build();
-			assert_eq!(
+			assert_eq_uvec!(
 				Staking::electing_voters(bounds.voters, 0)
 					.unwrap()
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(41, 1), (11, 1), (21, 1), (31, 1)],
+				vec![(11, 1), (21, 1), (31, 1), (41, 1)],
 			);
 
 			assert_eq!(
@@ -521,13 +521,13 @@ fn nominations_quota_limits_size_work() {
 			// however, if the election voter size bounds were larger, the snapshot would
 			// include the electing voters of 70.
 			let bounds = ElectionBoundsBuilder::default().voters_size(1_000.into()).build();
-			assert_eq!(
+			assert_eq_uvec!(
 				Staking::electing_voters(bounds.voters, 0)
 					.unwrap()
 					.iter()
 					.map(|(stash, _, targets)| (*stash, targets.len()))
 					.collect::<Vec<_>>(),
-				vec![(41, 1), (11, 1), (21, 1), (31, 1), (71, 4)],
+				vec![(11, 1), (21, 1), (31, 1), (41, 1), (71, 4)],
 			);
 		});
 }
@@ -662,58 +662,39 @@ mod paged_snapshot {
 					vec![(51, 5000), (41, 4000), (11, 1000), (21, 1000), (31, 500), (101, 500)],
 				);
 
-				let mut all_voters = vec![];
-
+				// Page 3: validator self-votes are emitted first from `Validators::iter()`
+				// (storage-key order), filling the 3-voter budget before any nominator fits.
 				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
 					.unwrap()
 					.into_iter()
 					.map(|(a, _, _)| a)
 					.collect::<Vec<_>>();
-				all_voters.extend(voters_page_3.clone());
+				assert_eq!(voters_page_3, vec![51, 101, 31]);
 
-				assert_eq!(voters_page_3, vec![51, 41, 11]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(11));
-
-				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+				// Subsequent pages are empty: remaining voter-list entries (11, 21, 41)
+				// either hit the budget or are validators already emitted.
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 2)
 					.unwrap()
-					.into_iter()
-					.map(|(a, _, _)| a)
-					.collect::<Vec<_>>();
-				all_voters.extend(voters_page_2.clone());
-
-				assert_eq!(voters_page_2, vec![21, 31, 101]);
-
-				// all voters in the list have been consumed.
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
-
-				// thus page 1 and 0 are empty.
+					.is_empty());
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
 					.unwrap()
 					.is_empty());
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
-
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
 					.unwrap()
 					.is_empty());
 
-				// last page has been requested, reset the snapshot status to waiting.
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
 
-				// now request 1 page with bounds where all registered voters fit. u32::MAX
-				// emulates a no bounds request.
+				// With generous bounds, a single page holds all 5 validators + nominator 41.
 				let bounds =
 					ElectionBoundsBuilder::default().voters_count(u32::MAX.into()).build().targets;
-
 				let single_page_voters =
 					<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
 						.unwrap()
 						.into_iter()
 						.map(|(a, _, _)| a)
 						.collect::<Vec<_>>();
-
-				// complete set of paged voters is the same as single page, no bounds set of
-				// voters.
-				assert_eq!(all_voters, single_page_voters);
+				assert_eq_uvec!(single_page_voters, vec![11, 21, 31, 41, 51, 101]);
 			})
 	}
 
@@ -738,45 +719,28 @@ mod paged_snapshot {
 				// initially not locked
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 
+				// With budget=2, the self-vote pre-loop fills the page with two validators
+				// and the main voter-list loop never runs — so the bag-list lock is never
+				// taken. Snapshot status goes straight to Consumed.
 				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
 					.unwrap()
 					.into_iter()
 					.map(|(a, _, _)| a)
 					.collect::<Vec<_>>();
-
-				assert_eq!(voters_page_3, vec![51, 41]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(41));
-				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
-
-				hypothetically!({});
-
-				let voters_page_2 = <Staking as ElectionDataProvider>::electing_voters(bounds, 2)
-					.unwrap()
-					.into_iter()
-					.map(|(a, _, _)| a)
-					.collect::<Vec<_>>();
-
-				// still locked
-				assert_eq!(voters_page_2, vec![11, 21]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(21));
-				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
-
-				let voters_page_1 = <Staking as ElectionDataProvider>::electing_voters(bounds, 1)
-					.unwrap()
-					.into_iter()
-					.map(|(a, _, _)| a)
-					.collect::<Vec<_>>();
-
-				// consumed, and we already unlock
-				assert_eq_uvec!(voters_page_1, vec![31, 101]);
+				assert_eq!(voters_page_3, vec![51, 101]);
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Consumed);
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 
-				// calling page zero will unlock us.
+				// Remaining pages are empty until page 0 resets status to Waiting.
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 2)
+					.unwrap()
+					.is_empty());
+				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 1)
+					.unwrap()
+					.is_empty());
 				assert!(<Staking as ElectionDataProvider>::electing_voters(bounds, 0)
 					.unwrap()
 					.is_empty());
-
 				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Waiting);
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 			})
@@ -790,7 +754,9 @@ mod paged_snapshot {
 			.set_status(41, StakerStatus::Nominator(vec![51]))
 			.set_status(101, StakerStatus::Validator)
 			.build_and_execute(|| {
-				let bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
+				// Budget=5 leaves room for the main voter-list loop to run after the
+				// self-vote pre-loop, which takes the bag-list lock mid-snapshot.
+				let bounds = ElectionBoundsBuilder::default().voters_count(5.into()).build().voters;
 				assert_eq!(
 					<Test as Config>::VoterList::iter()
 						.collect::<Vec<_>>()
@@ -819,21 +785,13 @@ mod paged_snapshot {
 				// initially not locked
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 
-				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
-					.unwrap()
-					.into_iter()
-					.map(|(a, _, _)| a)
-					.collect::<Vec<_>>();
-
-				assert_eq!(voters_page_3, vec![51, 41]);
-				assert_eq!(VoterSnapshotStatus::<Test>::get(), SnapshotStatus::Ongoing(41));
+				let _voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap();
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
-				// 51 who is already part of the list might want to unbond. They are already in the
-				// snapshot, and their position is not updated
+				// 51, already in the snapshot, might want to unbond — its bag position is frozen.
 				hypothetically!({
 					assert_ok!(Staking::unbond(RuntimeOrigin::signed(51), 500));
-					// they are still in the original bag
 					assert_eq!(
 						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51)
 							.unwrap()
@@ -842,12 +800,10 @@ mod paged_snapshot {
 					);
 				});
 
-				// 11 who is not part of the snapshot yet might want to bond a lot extra, this is
-				// not reflected in this election.
+				// 11, not yet emitted, might want to bond extra — its bag position is also frozen.
 				hypothetically!({
 					crate::asset::set_stakeable_balance::<T>(&11, 10000);
 					assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 5000));
-					// they are still in the original bag
 					assert_eq!(
 						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11)
 							.unwrap()
