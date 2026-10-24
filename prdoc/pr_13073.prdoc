@@ -1,0 +1,21 @@
+title: 'fix(benchmarking): do not emit exabyte proof_size from rank-deficient OLS'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `benchmark pallet` could write a `proof_size` in the 10^18 range into `weights.rs` when a
+    benchmark touched storage without `MaxEncodedLen` (`UNKNOWN KEY`). A storage prefix observed
+    at only one component value made `min_squares_iqr` rank-deficient; the pseudo-inverse then
+    emitted intercepts that silently poisoned block-weight accounting.
+
+    The analyzer now falls back to the constant (median) model when there is only one unique `x`,
+    proof-size arithmetic saturates instead of wrapping, and a `proof_size` that cannot fit in
+    `u32` fails the run instead of being written to a compiling weight file.
+
+    Re-run any benchmark whose generated weights contained an implausible `proof_size`.
+
+crates:
+- name: frame-benchmarking
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: patch
