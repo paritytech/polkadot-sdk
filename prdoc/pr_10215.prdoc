@@ -15,6 +15,11 @@ doc:
     node accesses that would occur during storage root calculation, without actually
     computing the root hash. This is triggered after each extrinsic via the weight reclaim
     pallet using a new version 2 of the storage_proof_size host function.
+
+    A child trie root computed in the middle of a block no longer writes that root into the
+    main storage overlay. Proofs of blocks that compute child roots mid-block therefore contain
+    fewer nodes, so the collator node and the runtime must run matching state-machine code,
+    which the estimation already requires.
 crates:
 - name: sp-state-machine
   bump: major
