@@ -1,0 +1,16 @@
+title: 'eth-rpc: add a CLI option to rate-limit the historical block sync'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    eth-rpc has a new option, `--historical-sync-max-blocks-per-sec <N>`, that limits the
+    historical block sync to at most `N` blocks per second on average, to reduce the load on the
+    node. It requires `--eth-pruning archive` (the default); with any other value, eth-rpc fails
+    to start. Without the option there is no limit, so existing deployments need no change.
+
+    The log line that starts the historical sync now also shows the stored first EVM block.
+
+    `CliCommand` has a new public field, `historical_sync_max_blocks_per_sec`. Code that constructs
+    it with a struct literal must set the field; `None` keeps the previous behavior.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major

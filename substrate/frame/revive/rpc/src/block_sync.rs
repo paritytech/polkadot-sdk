@@ -21,7 +21,9 @@ use crate::{
 	BlockInfoProvider,
 	client::{Client, ClientError, GapFillRequest, SubstrateBlockNumber},
 };
+use governor::{DefaultDirectRateLimiter, Quota, RateLimiter};
 use pallet_revive::evm::H256;
+use std::num::NonZeroU32;
 use tokio::sync::mpsc;
 
 const LOG_TARGET: &str = "eth-rpc::block-sync";
@@ -78,6 +80,13 @@ impl SyncCheckpoint {
 /// How often (in blocks) the backward sync checkpoints are persisted to the database.
 const BLOCK_INTERVAL: u32 = 128;
 
+/// Returns a limiter that lets through at most `max_blocks_per_sec` blocks per second on average.
+pub fn new_historical_sync_rate_limiter(
+	max_blocks_per_sec: NonZeroU32,
+) -> DefaultDirectRateLimiter {
+	RateLimiter::direct(Quota::per_second(max_blocks_per_sec).allow_burst(NonZeroU32::MIN))
+}
+
 /// Options for [`Client::sync_backward_range`].
 struct BackwardSyncRange {
 	from: SubstrateBlockNumber,
@@ -88,6 +97,8 @@ struct BackwardSyncRange {
 	checkpoint_tail: bool,
 	/// When true, persist the first EVM block boundary if a non-EVM block is encountered.
 	persist_first_evm_block: bool,
+	/// Whether this range is subject to rate limiting.
+	rate_limit: bool,
 }
 
 impl Client {
@@ -183,11 +194,19 @@ impl Client {
 			self.receipt_provider().get_sync_label(SyncLabel::Head),
 			self.receipt_provider().get_sync_label(SyncLabel::Tail),
 		)?;
+		let first_evm_block = self
+			.receipt_provider()
+			.first_evm_block()
+			.map_or_else(|| "not stored".to_string(), |number| format!("#{number}"));
 
 		match (tail, head) {
 			(Some(tail), Some(head)) => {
 				// Verify boundary hashes still match the finalized chain.
 				tokio::try_join!(self.verify_boundary(&tail), self.verify_boundary(&head),)?;
+				log::info!(target: LOG_TARGET,
+					"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}, \
+					 first EVM block {first_evm_block}",
+					tail.block_number, head.block_number, latest_finalized.block_number);
 				self.sync_backward_resume(tail, head, latest_finalized).await?;
 			},
 			(Some(_), None) => {
@@ -198,7 +217,8 @@ impl Client {
 			},
 			_ => {
 				log::info!(target: LOG_TARGET,
-					"🗄️ Fresh sync: syncing backward from #{}", latest_finalized.block_number);
+					"🗄️ Fresh sync: syncing backward from #{}, first EVM block {first_evm_block}",
+					latest_finalized.block_number);
 				self.sync_backward_fresh(latest_finalized.block_number).await?;
 			},
 		}
@@ -221,6 +241,7 @@ impl Client {
 			set_head: true,
 			checkpoint_tail: true,
 			persist_first_evm_block: true,
+			rate_limit: true,
 		})
 		.await
 	}
@@ -232,10 +253,6 @@ impl Client {
 		head: SyncCheckpoint,
 		latest_finalized: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		log::info!(target: LOG_TARGET,
-			"🗄️ Resuming sync: DB has blocks #{}..#{}, chain head is #{}",
-			tail.block_number, head.block_number, latest_finalized.block_number);
-
 		let top_gap = async {
 			// Top gap: sync from latest_finalized down to head + 1.
 			if head.block_number < latest_finalized.block_number {
@@ -245,6 +262,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: true,
 				})
 				.await?;
 
@@ -266,6 +284,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: true,
 					persist_first_evm_block: true,
+					rate_limit: true,
 				})
 				.await?;
 			} else {
@@ -289,6 +308,7 @@ impl Client {
 			set_head,
 			checkpoint_tail,
 			persist_first_evm_block,
+			rate_limit,
 		}: BackwardSyncRange,
 	) -> Result<(), ClientError> {
 		if from < to {
@@ -310,6 +330,10 @@ impl Client {
 			|synced: u64| synced <= 1 || synced.is_multiple_of(u64::from(BLOCK_INTERVAL));
 
 		let loop_result: Result<(), ClientError> = loop {
+			if rate_limit {
+				self.throttle_historical_sync().await;
+			}
+
 			let block_number = block.block_number();
 			let block_hash = block.block_hash();
 
@@ -428,6 +452,7 @@ impl Client {
 					set_head: false,
 					checkpoint_tail: false,
 					persist_first_evm_block: false,
+					rate_limit: false,
 				})
 				.await
 			{
