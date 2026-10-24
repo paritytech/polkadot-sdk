@@ -4290,6 +4290,293 @@ async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
 	assert_eq!(state.advertisements(), [adv].into());
 }
 
+<<<<<<< HEAD
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
+=======
+// Lookahead-truncation regression (the bug this PR fixes): the leaf-CQ window must be bounded
+// by the runtime scheduling lookahead, NOT by the implicit-view ancestry path length.
+//
+// After a session change the implicit view clamps ancestry at the session boundary (the relay
+// chain cannot back candidates from a previous session), so the allowed-ancestry path is
+// shorter than the lookahead. Here leaf 10 (session 1) has ancestors 9 and 8 in session 0, so
+// the path under the leaf is just `[10]` (length 1) even though the lookahead is 3.
+//
+// leaf-10's CQ for our core is `[100, 200, 100]` — para 100 owns positions 0 and 2. The leaf
+// SP (depth 0) reaches positions `0 .. lookahead = 0..3`, so both 100-slots are fetchable.
+//
+// Pre-fix the window length was the ancestry path length (1), so only position 0 was reached
+// and para 100 got a single fetch; the position-2 slot was silently dropped. With the lookahead
+// sourced from the runtime, both para-100 ads must fetch.
+#[tokio::test]
+async fn lookahead_not_truncated_by_short_ancestry_after_session_change() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	// Sanity: leaf-10 CQ for our core has para 100 at positions 0 and 2, lookahead is 3.
+	assert_eq!(
+		test_state.rp_info[&active_leaf].claim_queue[&core],
+		vec![100.into(), 200.into(), 100.into()]
+	);
+	assert_eq!(test_state.session_info[&1].scheduling_lookahead, 3);
+
+	// Put the ancestors in a previous session so the implicit view truncates ancestry at the
+	// session boundary, leaving the leaf as the only relay parent in its own allowed ancestry.
+	for h in [get_hash(9), get_hash(8)] {
+		test_state.rp_info.get_mut(&h).unwrap().session_index = 0;
+	}
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// Two peers, both for para 100, advertising two distinct candidates at the leaf SP.
+	let peers: Vec<_> = (0..2).map(peer_id).collect();
+	for &p in &peers {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+	for (i, &p) in peers.iter().enumerate() {
+		let (_, adv) = dummy_candidate(
+			active_leaf,
+			100.into(),
+			p,
+			core,
+			1,
+			Hash::from_low_u64_be(i as u64 + 100),
+		);
+		test_state.handle_advertisement(&mut state, adv).await;
+	}
+
+	// Both para-100 slots (positions 0 and 2) are reachable from the leaf SP, so both ads fetch.
+	// Pre-fix the truncated window (length 1) would have produced only a single fetch.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(
+				reqs.len(), 2,
+				"both para-100 slots must be fetchable from the leaf; lookahead must not be \
+				 truncated to the ancestry path length, got {} fetch(es)",
+				reqs.len()
+			);
+		}
+	);
+	test_state.assert_no_messages().await;
+}
+
+#[tokio::test]
+async fn startup_populates_db_from_finalized_chain() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	let first_peer = peer_id(1);
+	let second_peer = peer_id(2);
+	let third_peer = peer_id(3);
+
+	// The node starts with finalized block 6 and a DB which hasn't processed any blocks yet.
+	test_state.finalized_block = 6;
+	test_state.set_candidates_pending_availability(
+		[
+			(get_hash(2), vec![(ParaId::from(100), first_peer)]),
+			(
+				get_hash(5),
+				vec![
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), first_peer),
+					(ParaId::from(200), second_peer),
+				],
+			),
+			(get_hash(6), vec![(ParaId::from(100), third_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let db = MockDb::default();
+	let state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(first_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(third_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	expected_bumps.insert(
+		ParaId::new(200),
+		[
+			(first_peer, Score::new(2 * VALID_INCLUDED_CANDIDATE_BUMP)),
+			(second_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
+	// The DB has caught up with the finalized chain.
+	assert_eq!(db.processed_finalized_block_number().await, Some(6));
+	// Startup doesn't prune the registered paras.
+	assert!(db.witnessed_prunes().is_empty());
+
+	drop(state);
+
+	// Simulate a restart with the same DB: the already processed blocks are not re-processed,
+	// so the candidates of the ancestry don't produce bumps again.
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	assert!(db.witnessed_bumps().is_empty());
+	assert_eq!(db.processed_finalized_block_number().await, Some(6));
+}
+
+#[tokio::test]
+async fn startup_lookback_is_capped() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	let outside_peer = peer_id(1);
+	let oldest_peer = peer_id(2);
+	let newest_peer = peer_id(3);
+
+	let finalized = MAX_STARTUP_ANCESTRY_LOOKBACK + 10;
+	// The oldest block whose included candidates are within the lookback window.
+	let window_start = finalized - MAX_STARTUP_ANCESTRY_LOOKBACK + 1;
+
+	test_state.finalized_block = finalized;
+	test_state.set_candidates_pending_availability(
+		[
+			// Right outside of the lookback window.
+			(get_hash(window_start - 1), vec![(ParaId::from(100), outside_peer)]),
+			(get_hash(window_start), vec![(ParaId::from(100), oldest_peer)]),
+			(get_hash(finalized), vec![(ParaId::from(100), newest_peer)]),
+		]
+		.into_iter()
+		.collect(),
+	);
+
+	let db = MockDb::default();
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	let mut expected_bumps = BTreeMap::new();
+	expected_bumps.insert(
+		ParaId::new(100),
+		[
+			(oldest_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+			(newest_peer, Score::new(VALID_INCLUDED_CANDIDATE_BUMP)),
+		]
+		.into_iter()
+		.collect(),
+	);
+	assert_eq!(db.witnessed_bumps(), expected_bumps);
+	assert_eq!(db.processed_finalized_block_number().await, Some(finalized));
+}
+
+// Should never happen but verify that the case is handled gracefully.
+#[tokio::test]
+async fn startup_with_db_ahead_of_finalized_chain() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+
+	test_state.finalized_block = 8;
+	let db = MockDb::default();
+	db.set_processed_finalized_block_number(15);
+	// A candidate on the finalized chain which must not be processed.
+	test_state.set_candidates_pending_availability(
+		[(get_hash(5), vec![(ParaId::from(100), peer_id(1))])].into_iter().collect(),
+	);
+
+	let _state = make_state(db.clone(), &mut test_state, active_leaf).await;
+
+	assert!(db.witnessed_bumps().is_empty());
+	assert_eq!(db.processed_finalized_block_number().await, Some(15));
+}
+
+// Test the registered paras processing on finalized block notifications: the registered paras
+// are queried once per session and the DB is told to prune the paras that are no longer
+// registered.
+#[tokio::test]
+async fn registered_paras_pruned_on_new_session() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// The first finalized block notification always queries the registered paras.
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 2), async {
+		state.handle_finalized_block(&mut sender, get_hash(2), 2).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 200.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
+
+	// A subsequent finalized block in the same session doesn't re-query the registered paras
+	// (the harness panics on an unexpected `ParaIds` request).
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 3), async {
+		state.handle_finalized_block(&mut sender, get_hash(3), 3).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+
+	// Start session 2, where para 200 is deregistered.
+	let mut session_2_info = test_state.session_info.get(&1).unwrap().clone();
+	session_2_info.paras = vec![100.into(), 600.into()];
+	test_state.session_info.insert(2, session_2_info);
+	test_state.rp_info.insert(
+		get_hash(4),
+		RelayParentInfo {
+			number: 4,
+			parent: get_parent_hash(4),
+			session_index: 2,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 4), async {
+		state.handle_finalized_block(&mut sender, get_hash(4), 4).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert_eq!(
+		db.witnessed_prunes(),
+		vec![[100.into(), 600.into()].into_iter().collect::<BTreeSet<ParaId>>()]
+	);
+
+	// A finalized block with an older session index doesn't trigger a query.
+	// (block 5 is not in `rp_info`, so the harness reports session 1 for it)
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 5), async {
+		state.handle_finalized_block(&mut sender, get_hash(5), 5).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+
+	// Same for an equal session index.
+	test_state.rp_info.insert(
+		get_hash(6),
+		RelayParentInfo {
+			number: 6,
+			parent: get_parent_hash(6),
+			session_index: 2,
+			claim_queue: leaf_info.claim_queue.clone(),
+			assigned_core: leaf_info.assigned_core,
+		},
+	);
+	let processed = state.processed_finalized_block_number().await.unwrap_or_default();
+	futures::join!(test_state.handle_finalized_block(processed, 6), async {
+		state.handle_finalized_block(&mut sender, get_hash(6), 6).await.unwrap()
+	});
+	test_state.assert_no_messages().await;
+	assert!(db.witnessed_prunes().is_empty());
+}
+>>>>>>> ffaca8cc (Fix inconsistency on session boundaries (#12255))

@@ -116,6 +116,18 @@ pub(super) async fn update_view_with_slot(
 			}
 		);
 
+		// handle_our_view_change fetches the leaf's scheduling lookahead and claim queue together
+		// via `LeafClaimQueues::fetch` — the lookahead request comes first.
+		assert_matches!(
+			overseer_recv(virtual_overseer).await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				parent,
+				RuntimeApiRequest::SchedulingLookahead(_, tx),
+			)) if parent == leaf_hash => {
+				tx.send(Ok(test_state.scheduling_lookahead)).unwrap();
+			}
+		);
+
 		// handle_our_view_change fetches claim queue for the leaf
 		// (stored in leaf_claim_queues for the new offset-based validation)
 		assert_matches!(
@@ -862,6 +874,95 @@ fn last_claim_queue_position_accepted_at_leaf() {
 				CandidateBackingMessage::CanSecond(request, tx),
 			) => {
 				assert_eq!(request.candidate_hash, candidate_hash);
+				tx.send(true).expect("receiving side should be alive");
+			}
+		);
+
+		assert_fetch_collation_request(
+			&mut virtual_overseer,
+			head_r,
+			test_state.chain_ids[0],
+			Some(candidate_hash),
+		)
+		.await;
+
+		virtual_overseer
+	});
+}
+
+/// Lookahead-truncation regression (the bug this PR fixes): the per-relay-parent valid range must
+/// be bounded by the runtime scheduling lookahead, NOT by the claim-queue length.
+///
+/// The runtime CQ can be shorter than the scheduling lookahead (near genesis, after a session
+/// change, or for on-demand cores). `is_slot_available` computes `valid_len = lookahead - offset`
+/// per relay parent; pre-fix it used `lookahead = leaf_cq.len()`, which underestimates the valid
+/// range for ancestor SPs and wrongly rejects otherwise-fetchable advertisements.
+///
+/// Setup: lookahead 3, but leaf CQ for our core is the short `[B, A]` (length 2). Para A sits at
+/// position 1. Advertise A at the ancestor R (offset 1):
+/// * Pre-fix: `valid_len = cq.len() - offset = 2 - 1 = 1` → only CQ position 0 checked → A at
+///   position 1 is rejected.
+/// * Fixed: `valid_len = lookahead - offset = 3 - 1 = 2` → positions [0, 1] checked → A accepted.
+#[test]
+fn short_claim_queue_does_not_truncate_ancestor_valid_range() {
+	let mut test_state = TestState::with_one_scheduled_para();
+
+	// Lookahead 3, but a CQ of length 2 (shorter than the lookahead).
+	test_state.scheduling_lookahead = 3;
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		VecDeque::from_iter(
+			[
+				ParaId::from(999),       // Position 0: Para B (dummy)
+				test_state.chain_ids[0], // Position 1: Para A
+			]
+			.into_iter(),
+		),
+	);
+	test_state.claim_queue = claim_queue;
+
+	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+		let TestHarness { mut virtual_overseer, .. } = test_harness;
+
+		let pair = CollatorPair::generate().0;
+
+		// R is the ancestor, L is the leaf (child of R).
+		let head_l = Hash::from_low_u64_be(128);
+		let head_l_num: u32 = 5;
+		let head_r = get_parent_hash(head_l);
+
+		update_view(&mut virtual_overseer, &mut test_state, vec![(head_l, head_l_num)]).await;
+
+		let peer = PeerId::random();
+		connect_and_declare_collator(
+			&mut virtual_overseer,
+			peer,
+			pair.clone(),
+			test_state.chain_ids[0],
+			CollationVersion::V2,
+		)
+		.await;
+
+		// Advertise Para A at the ancestor R (offset 1). A is at CQ position 1, reachable only
+		// when the valid range is bounded by the lookahead (2 positions), not the CQ length
+		// truncated by the offset (1 position).
+		let candidate_hash = CandidateHash(Hash::repeat_byte(0xEE));
+		advertise_collation(
+			&mut virtual_overseer,
+			peer,
+			AdvertisementPayload::v2(head_r, candidate_hash, Hash::zero()),
+		)
+		.await;
+
+		// Must be accepted (pre-fix this was rejected by the CQ-length-truncated valid range).
+		assert_matches!(
+			overseer_recv(&mut virtual_overseer).await,
+			AllMessages::CandidateBacking(
+				CandidateBackingMessage::CanSecond(request, tx),
+			) => {
+				assert_eq!(request.candidate_hash, candidate_hash);
+				assert_eq!(request.candidate_para_id, test_state.chain_ids[0]);
 				tx.send(true).expect("receiving side should be alive");
 			}
 		);
