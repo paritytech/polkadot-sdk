@@ -22,7 +22,7 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use registrar_primitives::{MessageToRelay, MessageToRelayV1};
-use sp_runtime::traits::{BlakeTwo256, Hash};
+use sp_runtime::traits::{BlakeTwo256, Hash, Saturating};
 
 /// A para id no benchmark setup will collide on.
 const PARA_ID: ParaId = 4_242;
@@ -48,6 +48,22 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 
 	PendingRegistrations::<T>::insert(PARA_ID, pending);
 	Ok(())
+}
+
+/// Authorize a code upgrade for `PARA_ID` expecting exactly `code`, written straight to storage
+/// for the same reason as [`park`].
+fn authorize<T: Config>(code: &[u8]) {
+	let expire_at =
+		frame_system::Pallet::<T>::block_number().saturating_add(T::CodeUpgradeValidPeriod::get());
+	PendingCodeUpgrades::<T>::insert(
+		PARA_ID,
+		PendingCodeUpgrade {
+			message_id: 0,
+			code_hash: BlakeTwo256::hash(code),
+			code_len: code.len() as u32,
+			expire_at,
+		},
+	);
 }
 
 #[benchmarks]
@@ -126,6 +142,58 @@ mod benchmarks {
 		receive(RawOrigin::Root, message);
 
 		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Authorizing a code upgrade. One look at the registry, one write, one report.
+	#[benchmark]
+	fn receive_authorize_code_upgrade() -> Result<(), BenchmarkError> {
+		let code = code_of(T::MaxCodeSize::get());
+		let message = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
+			para_id: PARA_ID,
+			message_id: 0,
+			code_hash: BlakeTwo256::hash(&code),
+			code_len: code.len() as u32,
+		});
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		Ok(())
+	}
+
+	/// Uploading the new validation code. Dominated by hashing and scheduling the blob.
+	#[benchmark]
+	fn apply_authorized_code_upgrade(
+		c: Linear<0, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let code = code_of(c);
+		authorize::<T>(&code);
+
+		#[extrinsic_call]
+		_(RawOrigin::Authorized, PARA_ID, code);
+
+		assert!(!PendingCodeUpgrades::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
+	/// Deciding whether an unsigned `apply_authorized_code_upgrade` may enter the pool.
+	#[benchmark]
+	fn authorize_apply_authorized_code_upgrade(
+		c: Linear<0, { T::MaxCodeSize::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let code = code_of(c);
+		authorize::<T>(&code);
+		let call =
+			Call::<T>::apply_authorized_code_upgrade { para_id: PARA_ID, validation_code: code };
+
+		#[block]
+		{
+			use frame_support::pallet_prelude::Authorize;
+			call.authorize(sp_runtime::transaction_validity::TransactionSource::External)
+				.ok_or("call must give some authorization")??;
+		}
+
 		Ok(())
 	}
 
