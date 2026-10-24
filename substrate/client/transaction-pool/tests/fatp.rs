@@ -668,6 +668,23 @@ fn fatp_fork_reorg_respects_priority_over_order() {
 }
 
 #[test]
+fn fatp_fork_reorg_adds_unknown_retracted_txs_to_mempool() {
+	sp_tracing::try_init_simple();
+
+	let (api, [ta0, tb0, ta1, tb1], retracted_tip, enacted_tip) =
+		fork_with_interleaved_retracted_txs();
+	let (pool, _) = pool_with_api(api.clone());
+
+	block_on(pool.maintain(new_best_block_event(&pool, None, retracted_tip)));
+	assert_eq!(block_on(pool.mempool_len()), (0, 0));
+
+	block_on(pool.maintain(new_best_block_event(&pool, Some(retracted_tip), enacted_tip)));
+
+	assert_eq!(block_on(pool.mempool_len()), (4, 0));
+	assert_ready_iterator!(enacted_tip, &pool, [ta0, tb0, ta1, tb1]);
+}
+
+#[test]
 fn fatp_fork_do_resubmit_same_tx() {
 	let xt = uxt(Alice, 200);
 
@@ -1495,6 +1512,96 @@ fn fatp_retract_all_forks() {
 		ChainEvent::Finalized { hash: header02c.hash(), tree_route: Arc::from(vec![genesis]) };
 	block_on(pool.maintain(event));
 	assert_pool_status!(header02c.hash(), &pool, 2, 0);
+}
+
+/// Transactions from a retracted block must be resubmitted even if the newly enacted block already
+/// has a view (e.g. it was imported as non-best before, or it gets finalized while a sibling is the
+/// best block).
+///
+/// `xt0` is known only from the block body (it was never submitted to this pool), so the only way
+/// to get it back after the re-org is the resubmission of retracted transactions.
+///
+/// ```text
+///    01a[xt0]  <- best, then retracted
+///   /
+/// G
+///   \
+///    01b - 02b <- 01b has a view before 01a was notified, 01b gets finalized
+/// ```
+#[test]
+fn fatp_retracted_txs_are_resubmitted_to_existing_view() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+
+	let xt0 = uxt(Alice, 200);
+
+	let header01b = api.push_block_with_parent(genesis, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(genesis), header01b.hash())));
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt0.clone()], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01b.hash()), header01a.hash())));
+	assert_pool_status!(header01a.hash(), &pool, 0, 0);
+
+	// 01a is retracted by finalizing 01b, xt0 shall be ready again on 01b.
+	block_on(pool.maintain(finalized_block_event(&pool, genesis, header01b.hash())));
+
+	// The iterator used by block production must provide xt0 when building on 01b and 02b.
+	let block_production_ready = |at| {
+		block_on(pool.ready_at_with_timeout(at, Duration::ZERO))
+			.map(|tx| tx.hash)
+			.collect::<Vec<_>>()
+	};
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+
+	assert_eq!(block_production_ready(header01b.hash()), vec![xt0_hash]);
+	assert_pool_status!(header01b.hash(), &pool, 1, 0);
+
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01b.hash()), header02b.hash())));
+	assert_eq!(block_production_ready(header02b.hash()), vec![xt0_hash]);
+	assert_pool_status!(header02b.hash(), &pool, 1, 0);
+}
+
+/// Like [`fatp_retracted_txs_are_resubmitted_to_existing_view`], but the view of the descendant
+/// 02b already exists when 01a gets retracted, so xt0 can only reach 03b through the mempool.
+///
+/// ```text
+///    01a[xt0]           <- imported (non-best) after 02b, then retracted by finalizing 01b
+///   /
+/// G
+///   \
+///    01b - 02b - 03b    <- 01b, 02b have views before 01a is notified, 01b finalized, 03b best
+/// ```
+#[test]
+fn fatp_retracted_txs_reach_existing_descendant_view() {
+	sp_tracing::try_init_simple();
+
+	let (pool, api, _) = pool();
+	let genesis = api.genesis_hash();
+	let xt0 = uxt(Alice, 200);
+	let xt0_hash = pool.api().hash_and_length(&xt0).0;
+
+	let header01b = api.push_block_with_parent(genesis, vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(genesis), header01b.hash())));
+	let header02b = api.push_block_with_parent(header01b.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header01b.hash()), header02b.hash())));
+
+	let header01a = api.push_block_with_parent(genesis, vec![xt0.clone()], false);
+	block_on(pool.maintain(ChainEvent::NewBlock { hash: header01a.hash() }));
+	assert_pool_status!(header01a.hash(), &pool, 0, 0);
+
+	block_on(pool.maintain(finalized_block_event(&pool, genesis, header01b.hash())));
+	assert_pool_status!(header01b.hash(), &pool, 1, 0);
+
+	let header03b = api.push_block_with_parent(header02b.hash(), vec![], true);
+	block_on(pool.maintain(new_best_block_event(&pool, Some(header02b.hash()), header03b.hash())));
+
+	let ready = block_on(pool.ready_at_with_timeout(header03b.hash(), Duration::ZERO))
+		.map(|tx| tx.hash)
+		.collect::<Vec<_>>();
+	assert_eq!(ready, vec![xt0_hash], "xt0 lost in 03b");
 }
 
 #[test]
