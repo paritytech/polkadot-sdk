@@ -22,6 +22,7 @@ std = [
 	"bridge-hub-common?/std",
 	"bridge-hub-test-utils?/std",
 	"bridge-runtime-common?/std",
+	"cumulus-aura-authorizer-utils?/std",
 	"cumulus-pallet-aura-ext?/std",
 	"cumulus-pallet-parachain-system-proc-macro?/std",
 	"cumulus-pallet-parachain-system?/std",
@@ -600,6 +601,7 @@ runtime-full = [
 	"bp-xcm-bridge-hub-router",
 	"bridge-hub-common",
 	"bridge-runtime-common",
+	"cumulus-aura-authorizer-utils",
 	"cumulus-pallet-aura-ext",
 	"cumulus-pallet-parachain-system",
 	"cumulus-pallet-parachain-system-proc-macro",
@@ -1136,6 +1138,11 @@ path = "../cumulus/parachains/runtimes/bridge-hubs/common"
 default-features = false
 optional = true
 path = "../bridges/bin/runtime-common"
+
+[dependencies.cumulus-aura-authorizer-utils]
+default-features = false
+optional = true
+path = "../cumulus/jam/aura-authorizer-utils"
 
 [dependencies.cumulus-pallet-aura-ext]
 default-features = false
