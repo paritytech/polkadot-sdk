@@ -119,7 +119,7 @@ where
 			let start = Instant::now();
 
 			runtime_api
-				.execute_block(parent_hash, block.into())
+				.execute_block(parent_hash, block)
 				.map_err(|e| Error::Client(RuntimeApiError(e)))?;
 
 			record.push(start.elapsed().as_nanos() as NanoSeconds);

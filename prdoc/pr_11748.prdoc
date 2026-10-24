@@ -1,0 +1,57 @@
+title: 'sp-api: Allow runtime API parameters to opt into EncodeLike'
+
+doc:
+- audience: Node Dev
+  description: |-
+    Parameters of a runtime API are forwarded to the runtime as SCALE bytes, so the client side
+    does not need the declared type, only something that encodes to the same bytes. A parameter of
+    a trait declared with `decl_runtime_apis!` can now be marked with `#[encode_like]`, which makes
+    the generated client side method generic over `parity_scale_codec::EncodeLike<DeclaredType>`
+    for that parameter. Callers can then pass a value they already hold instead of converting it
+    first.
+
+    The marker is opt in per parameter, because a generic parameter cannot be inferred at the call
+    site: expressions such as `value.into()`, `None` or `vec![]` would have to be named explicitly.
+    Unmarked parameters keep their declared type, so existing call sites and their type inference
+    are unaffected.
+
+    `Core::execute_block` and `BlockBuilder::check_inherents` take their block parameter this way.
+    Both declare `Block::LazyBlock`, which has the same encoding as `Block`, so callers holding a
+    `Block` no longer have to convert it with `.into()` first.
+
+    Only the client side is affected. The runtime side decodes the parameter into the declared
+    type, so `impl_runtime_apis!` is unchanged. A mock does not see the declaration, so
+    `mock_impl_runtime_apis!` requires the `#[encode_like]` marker to be repeated on the same
+    parameter; the value is decoded back into the declared type before the body of the mock runs.
+
+crates:
+# The generated client side signature of `Core::execute_block` and `BlockBuilder::check_inherents`
+# gained a generic parameter. Any caller that passes the declared type keeps compiling, so
+# `validate: false`.
+- name: sp-api
+  bump: major
+  validate: false
+- name: sp-api-proc-macro
+  bump: patch
+- name: sp-block-builder
+  bump: major
+  validate: false
+# Crates that only dropped a now unnecessary conversion at their call sites.
+- name: sc-service
+  bump: none
+- name: sc-storage-chain-sync
+  bump: none
+- name: sc-rpc
+  bump: none
+- name: sc-basic-authorship
+  bump: none
+- name: sc-tracing
+  bump: none
+- name: frame-benchmarking-cli
+  bump: none
+- name: cumulus-client-consensus-aura
+  bump: none
+- name: cumulus-client-service
+  bump: none
+- name: cumulus-pallet-parachain-system
+  bump: none
