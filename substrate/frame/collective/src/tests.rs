@@ -20,12 +20,14 @@ use crate as pallet_collective;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl,
 	dispatch::Pays,
+	migrations::SteppedMigration,
 	parameter_types,
 	traits::{
 		fungible::{HoldConsideration, Inspect, Mutate},
 		ConstU32, ConstU64, StorageVersion,
 	},
-	Hashable,
+	weights::WeightMeter,
+	BoundedVec, Hashable,
 };
 use frame_system::{EnsureRoot, EventRecord, Phase};
 use sp_core::{ConstU128, H256};
@@ -34,6 +36,7 @@ use sp_runtime::{
 	traits::{BlakeTwo256, Convert, Zero},
 	BuildStorage, FixedU128,
 };
+use std::{borrow::Cow, cell::RefCell, collections::HashMap};
 
 pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 pub type UncheckedExtrinsic = sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
@@ -47,6 +50,7 @@ frame_support::construct_runtime!(
 		CollectiveMajority: pallet_collective::<Instance2>,
 		DefaultCollective: pallet_collective,
 		Democracy: mock_democracy,
+		Preimage: pallet_preimage,
 	}
 );
 
@@ -85,6 +89,14 @@ mod mock_democracy {
 	}
 }
 
+impl pallet_preimage::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type WeightInfo = ();
+	type Currency = Balances;
+	type ManagerOrigin = EnsureRoot<u64>;
+	type Consideration = ();
+}
+
 pub type MaxMembers = ConstU32<100>;
 type AccountId = u64;
 
@@ -121,7 +133,6 @@ type CollectiveDeposit =
 
 impl Config<Instance1> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -134,13 +145,13 @@ impl Config<Instance1> for Test {
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
 		HoldConsideration<AccountId, Balances, ProposalHoldReason, CollectiveDeposit, u32>;
+	type Preimages = Preimage;
 }
 
 type CollectiveMajorityDeposit = deposit::Linear<ConstU32<2>, ProposalDepositBase>;
 
 impl Config<Instance2> for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -154,6 +165,7 @@ impl Config<Instance2> for Test {
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
 		HoldConsideration<AccountId, Balances, ProposalHoldReason, CollectiveMajorityDeposit, u32>;
+	type Preimages = Preimage;
 }
 impl mock_democracy::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
@@ -167,7 +179,6 @@ type DefaultCollectiveDeposit =
 	deposit::WithCeil<ProposalDepositCeil, deposit::Geometric<Ratio2, ProposalDepositBase>>;
 impl Config for Test {
 	type RuntimeOrigin = RuntimeOrigin;
-	type Proposal = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type MotionDuration = ConstU64<3>;
 	type MaxProposals = MaxProposals;
@@ -182,6 +193,7 @@ impl Config for Test {
 	type KillOrigin = EnsureRoot<AccountId>;
 	type Consideration =
 		HoldConsideration<AccountId, Balances, ProposalHoldReason, DefaultCollectiveDeposit, u32>;
+	type Preimages = Preimage;
 }
 
 pub struct ExtBuilder {
@@ -357,6 +369,7 @@ fn close_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -384,7 +397,8 @@ fn close_works() {
 				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Disapproved {
 					proposal_hash: hash
-				}))
+				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	});
@@ -504,6 +518,7 @@ fn close_with_prime_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -531,7 +546,8 @@ fn close_with_prime_works() {
 				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Disapproved {
 					proposal_hash: hash
-				}))
+				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	});
@@ -579,6 +595,7 @@ fn close_with_voting_prime_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -608,7 +625,8 @@ fn close_with_voting_prime_works() {
 				record(RuntimeEvent::Collective(CollectiveEvent::Executed {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
-				}))
+				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	});
@@ -672,6 +690,7 @@ fn close_with_no_prime_but_majority_works() {
 					who: 5,
 					amount: 2,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::CollectiveMajority(CollectiveEvent::Proposed {
 					account: 5,
 					proposal_index: 0,
@@ -711,6 +730,7 @@ fn close_with_no_prime_but_majority_works() {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 				record(RuntimeEvent::Balances(pallet_balances::Event::Released {
 					reason: <Test as pallet_balances::Config>::RuntimeHoldReason::Collective(
 						HoldReason::ProposalSubmission,
@@ -847,7 +867,6 @@ fn propose_works() {
 			proposal_len
 		));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
-		assert_eq!(ProposalOf::<Test, Instance1>::get(&hash), Some(proposal));
 		assert_eq!(
 			Voting::<Test, Instance1>::get(&hash),
 			Some(Votes { index: 0, threshold: 3, ayes: vec![], nays: vec![], end })
@@ -863,6 +882,7 @@ fn propose_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1058,6 +1078,7 @@ fn motions_vote_after_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1210,6 +1231,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0, // 0 is the proposal that failed to execute?
@@ -1240,6 +1262,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 
@@ -1272,6 +1295,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 1,
@@ -1312,6 +1336,7 @@ fn motions_approval_with_enough_votes_and_lower_voting_threshold_works() {
 					proposal_hash: hash,
 					result: Ok(())
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	});
@@ -1350,6 +1375,7 @@ fn motions_disapproval_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1378,6 +1404,7 @@ fn motions_disapproval_works() {
 				record(RuntimeEvent::Collective(CollectiveEvent::Disapproved {
 					proposal_hash: hash
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	});
@@ -1416,6 +1443,7 @@ fn motions_approval_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1446,6 +1474,7 @@ fn motions_approval_works() {
 					proposal_hash: hash,
 					result: Err(DispatchError::BadOrigin)
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	});
@@ -1497,15 +1526,19 @@ fn motion_with_no_votes_closes_with_disapproval() {
 		// Events show that the close ended in a disapproval.
 		assert_eq!(
 			System::events()[1],
+			record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
+		);
+		assert_eq!(
+			System::events()[2],
 			record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 				account: 1,
 				proposal_index: 0,
 				proposal_hash: hash,
 				threshold: 3
-			}))
+			})),
 		);
 		assert_eq!(
-			System::events()[2],
+			System::events()[3],
 			record(RuntimeEvent::Collective(CollectiveEvent::Closed {
 				proposal_hash: hash,
 				yes: 0,
@@ -1513,7 +1546,7 @@ fn motion_with_no_votes_closes_with_disapproval() {
 			}))
 		);
 		assert_eq!(
-			System::events()[3],
+			System::events()[4],
 			record(RuntimeEvent::Collective(CollectiveEvent::Disapproved { proposal_hash: hash }))
 		);
 	})
@@ -1581,6 +1614,7 @@ fn disapprove_proposal_works() {
 					who: 1,
 					amount: 0,
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Noted { hash })),
 				record(RuntimeEvent::Collective(CollectiveEvent::Proposed {
 					account: 1,
 					proposal_index: 0,
@@ -1604,6 +1638,7 @@ fn disapprove_proposal_works() {
 				record(RuntimeEvent::Collective(CollectiveEvent::Disapproved {
 					proposal_hash: hash
 				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared { hash })),
 			]
 		);
 	})
@@ -1727,6 +1762,9 @@ fn kill_proposal_with_deposit() {
 				record(RuntimeEvent::Collective(CollectiveEvent::ProposalCostBurned {
 					proposal_hash: last_hash.unwrap(),
 					who: 1,
+				})),
+				record(RuntimeEvent::Preimage(pallet_preimage::Event::Cleared {
+					hash: last_hash.unwrap()
 				})),
 				record(RuntimeEvent::Collective(CollectiveEvent::Killed {
 					proposal_hash: last_hash.unwrap(),
@@ -1861,4 +1899,52 @@ fn constant_deposit_work() {
 	assert_eq!(<Constant12 as Convert<_, u128>>::convert(0), 12);
 	assert_eq!(<Constant12 as Convert<_, u128>>::convert(1), 12);
 	assert_eq!(<Constant12 as Convert<_, u128>>::convert(2), 12);
+}
+
+#[test]
+fn test_proposal_migration_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(100);
+		let proposal_hash = BlakeTwo256::hash_of(&proposal);
+
+		crate::migrations::v5::OldProposalOf::<Test, Instance1>::insert(
+			proposal_hash,
+			proposal.clone(),
+		);
+
+		let proposals: BoundedVec<_, MaxProposals> = vec![proposal_hash].try_into().unwrap();
+		Proposals::<Test, Instance1>::put(proposals);
+		ProposalCount::<Test, Instance1>::put(1u32);
+
+		let votes = Votes { index: 0, threshold: 1, ayes: vec![], nays: vec![], end: 100 };
+		Voting::<Test, Instance1>::insert(proposal_hash, votes);
+
+		StorageVersion::new(0).put::<Collective>();
+
+		let mut cursor = None;
+		let mut meter = WeightMeter::with_limit(Weight::MAX);
+
+		loop {
+			let result =
+				crate::migrations::v5::MigrateToV5::<Test, Instance1>::step(cursor, &mut meter);
+
+			match result {
+				Ok(maybe_next) => {
+					if maybe_next.is_none() {
+						break;
+					}
+					cursor = maybe_next;
+				},
+				Err(e) => {
+					panic!("Migration failed: {:?}", e);
+				},
+			}
+		}
+
+		assert!(pallet_preimage::RequestStatusFor::<Test>::contains_key(proposal_hash));
+
+		assert!(
+			crate::migrations::v5::OldProposalOf::<Test, Instance1>::get(proposal_hash).is_none()
+		);
+	});
 }
