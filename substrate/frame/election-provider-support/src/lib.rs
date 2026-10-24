@@ -827,6 +827,9 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 				.iter()
 				.filter(|w| votes.clone().into_iter().any(|v| v == **w))
 				.collect::<Vec<_>>();
+			if our_winners.is_empty() {
+				continue;
+			}
 			let our_winners_len = our_winners.len();
 			// will get `1/n` of our stake/weight.
 			let distribution = our_winners
@@ -838,6 +841,7 @@ impl<AccountId: IdentifierT, Accuracy: PerThing128> NposSolver
 				.collect::<Vec<_>>();
 
 			let mut assignment = Assignment { who: voter, distribution };
+			// Each assignment splits one unit evenly among its winners; qed
 			assignment.try_normalize().unwrap();
 			assignments.push(assignment);
 		}
