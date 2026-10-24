@@ -281,6 +281,11 @@ pub mod pallet {
 				T::DbWeight::get().reads(1)
 			})
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -519,5 +524,71 @@ impl<T: Config> Pallet<T> {
 		let random_number = <u32>::decode(&mut random_seed.as_ref())
 			.expect("secure hashes should always be bigger than u32; qed");
 		random_number
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_tickets()?;
+		Self::try_state_lottery()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every ticket of the current lottery, i.e. every index below `TicketsCount`, has an owner.
+	///   `Tickets` may hold residual entries of previous lotteries, which is why only the tickets
+	///   below `TicketsCount` are valid mappings.
+	/// * The owner of a ticket of the current lottery participates in the current lottery.
+	fn try_state_tickets() -> Result<(), sp_runtime::TryRuntimeError> {
+		let lottery_index = LotteryIndex::<T>::get();
+
+		for ticket in 0..TicketsCount::<T>::get() {
+			let owner = Tickets::<T>::get(ticket).ok_or("every sold ticket must have an owner")?;
+			ensure!(
+				Participants::<T>::get(&owner).0 == lottery_index,
+				"the owner of a sold ticket must participate in the current lottery"
+			);
+		}
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * A lottery is only ever started with an index greater than zero, as the index of the first
+	///   lottery is one.
+	/// * The pot holds the price of every ticket sold in the current lottery, on top of the
+	///   existential deposit that keeps the pot account alive. It may hold more, since anyone can
+	///   fund the pot.
+	/// * No ticket is sold while no lottery is configured, since the tickets of a lottery are
+	///   cleared once it has paid out.
+	fn try_state_lottery() -> Result<(), sp_runtime::TryRuntimeError> {
+		let tickets_count = TicketsCount::<T>::get();
+
+		let Some(config) = Lottery::<T>::get() else {
+			ensure!(
+				tickets_count.is_zero(),
+				"no ticket must be sold while no lottery is configured"
+			);
+
+			return Ok(());
+		};
+
+		ensure!(!LotteryIndex::<T>::get().is_zero(), "an ongoing lottery must have an index");
+
+		let sold = config.price.saturating_mul(tickets_count.into());
+		let minimum_pot = T::Currency::minimum_balance().saturating_add(sold);
+		ensure!(
+			T::Currency::free_balance(&Self::account_id()) >= minimum_pot,
+			"the pot must hold the price of every ticket sold in the current lottery"
+		);
+
+		Ok(())
 	}
 }
