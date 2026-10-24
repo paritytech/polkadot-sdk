@@ -5908,6 +5908,132 @@ mod sorted_list_provider {
 	}
 }
 
+mod score_provider {
+	use super::*;
+	use frame_election_provider_support::ScoreProvider;
+	use pallet_bags_list::{Error as BagsListError, ListError, NextNodeAutoRebagged};
+
+	type VoterBagsListInstance = pallet_bags_list::Instance1;
+
+	/// `VoterList` holds exactly the nominators and validators.
+	fn assert_voter_list_consistent() {
+		assert_eq!(
+			<Test as Config>::VoterList::count(),
+			Nominators::<Test>::count() + Validators::<Test>::count()
+		);
+		for voter in <Test as Config>::VoterList::iter() {
+			assert!(
+				Nominators::<Test>::contains_key(voter) || Validators::<Test>::contains_key(voter),
+				"{voter} is in the voter list but is neither a nominator nor a validator",
+			);
+		}
+	}
+
+	#[test]
+	fn no_score_for_chilled_stakers() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given 41 being a chilled staker
+			assert!(
+				Ledger::<Test>::get(41).is_some() &&
+					!Validators::<Test>::contains_key(41) &&
+					!Nominators::<Test>::contains_key(41)
+			);
+
+			// then they will not have a score when bags-list wants to update it.
+			assert!(<Staking as ScoreProvider<_>>::score(&41).is_none());
+		});
+	}
+
+	#[test]
+	fn no_score_for_non_stakers() {
+		ExtBuilder::default().build_and_execute(|| {
+			// given 777 being neither a nominator nor a validator in this pallet.
+			assert!(
+				Ledger::<Test>::get(777).is_none() &&
+					!Validators::<Test>::contains_key(777) &&
+					!Nominators::<Test>::contains_key(777)
+			);
+
+			// then it will not have a score when bags-list wants to update it.
+			assert!(<Staking as ScoreProvider<_>>::score(&777).is_none());
+		});
+	}
+
+	#[test]
+	fn score_for_validators_nominators() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			// given 101 being a nominator
+			assert!(
+				Ledger::<Test>::get(101).unwrap().active == 500 &&
+					!Validators::<Test>::contains_key(101) &&
+					Nominators::<Test>::contains_key(101)
+			);
+
+			// then it will have a score.
+			assert_eq!(<Staking as ScoreProvider<_>>::score(&101), Some(500));
+
+			// given 11 being a validator
+			assert!(
+				Ledger::<Test>::get(11).unwrap().active == 1000 &&
+					Validators::<Test>::contains_key(11) &&
+					!Nominators::<Test>::contains_key(11)
+			);
+
+			// then it will have a score.
+			assert_eq!(<Staking as ScoreProvider<_>>::score(&11), Some(1000));
+		});
+	}
+
+	#[test]
+	fn rebag_cannot_reinsert_chilled_staker() {
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			// given 21 chilling, which removes them from the voter list.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
+			assert!(!<Test as Config>::VoterList::contains(&21));
+
+			// when anyone tries to `rebag` them back in, it fails
+			assert_noop!(
+				VoterBagsList::rebag(RuntimeOrigin::signed(1), 21),
+				BagsListError::<Test, VoterBagsListInstance>::List(ListError::NodeNotFound)
+			);
+
+			// then the voter list stays in sync with staking.
+			assert!(!<Test as Config>::VoterList::contains(&21));
+			assert_voter_list_consistent();
+		});
+	}
+
+	#[test]
+	fn auto_rebag_cannot_reinsert_chilled_staker_at_cursor() {
+		// The auto-rebag cursor yields its account first even if it has since left the list. A
+		// staker that chills while the cursor points at them must not be put back.
+		ExtBuilder::default().nominate(true).build_and_execute(|| {
+			MaxAutoRebagPerBlock::set(1);
+			let on_idle = || {
+				<VoterBagsList as Hooks<BlockNumber>>::on_idle(System::block_number(), Weight::MAX)
+			};
+
+			// given the cursor pointing at validator 21.
+			for _ in 0..<Test as Config>::VoterList::count() {
+				if NextNodeAutoRebagged::<Test, VoterBagsListInstance>::get() == Some(21) {
+					break;
+				}
+				on_idle();
+			}
+			assert_eq!(NextNodeAutoRebagged::<Test, VoterBagsListInstance>::get(), Some(21));
+
+			// when 21 chills, and the auto-rebag runs in the same block.
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(21)));
+			assert!(!<Test as Config>::VoterList::contains(&21));
+			on_idle();
+
+			// then 21 is still out of the voter list.
+			assert!(!<Test as Config>::VoterList::contains(&21));
+			assert_voter_list_consistent();
+		});
+	}
+}
+
 #[test]
 fn force_apply_min_commission_works() {
 	let prefs = |c| ValidatorPrefs { commission: Perbill::from_percent(c), blocked: false };
