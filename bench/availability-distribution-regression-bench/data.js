@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792775371599,
+  "lastUpdate": 1792837566326,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bf65ec8994dd0477995451e5db4695ba40a7e39",
-          "message": "statement-store: test crash mid-sync (#11691)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11536: covers\nnode crash mid-sync.\n\nAdds a zombienet integration test that verifies statement store recovery\nafter a node crash mid-sync. The test submits statements concurrently to\nmultiple nodes, kills one mid-gossip, submits more while it's down, then\nasserts all recoverable statements converge after restart.\n\n## Integration\n\nNo integration needed.\n\n## Review Notes\n                                                           \n- Three-node setup (alice, bob, charlie) with ~0.6 MiB statements to\nforce one-per-gossip-notification pacing\n- Bob is restarted immediately after receiving at least one alice\nstatement (mid-sync window)\n- Recovery verified by parsing 'Statement loaded' log lines (requires\nstatement-store=trace)\n- Tolerates at most 1 lost bob statement due to ParityDB's async fsync\non SIGKILL\n- Refactored subscribe_topic into subscribe_topic +\nsubscribe_topic_filter for MatchAny support\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T16:29:52Z",
-          "tree_id": "13dba3ac0133316c54c72a8d4f82fbbe890b2e4a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bf65ec8994dd0477995451e5db4695ba40a7e39"
-        },
-        "date": 1775756967145,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025443939266666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007016399173333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14664704488000008,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009440632646666645,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007722809833333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "davxy@datawok.net",
+            "name": "Davide Galassi",
+            "username": "davxy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14f57c4e28081367fbfb21cf845eb34d043865d5",
+          "message": "Bump ark-vrf version to 0.6.1 (#13528)\n\nThe Bandersnatch primitives in `sp-core` use the new API and its\nstricter decoders:\n\n- All points and proofs decode with the `_exact` decoders, which reject\ntrailing bytes.\n- The `RingVerifierKey` decoder now checks the curve points.\n- Ring member keys decode with the subgroup and identity checks. A key\nthat fails takes the padding slot. Before, an identity key made\n`RingContext::prover` and `verifier_key` panic.\n\nPerformance: `vrf_sign` and `vrf_verify` (Thin VRF, one I/O pair) are\nabout 25-30% faster\n(but we're talking about microseconds :-D )\n\nSo this release is mostly about security fixes",
+          "timestamp": "2026-10-24T08:52:54Z",
+          "tree_id": "cc3415f62f66ef15ff97058f75a893fa8b4a42f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/14f57c4e28081367fbfb21cf845eb34d043865d5"
+        },
+        "date": 1792837534813,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009616695986666642,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14252018004666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025127233039999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007408484513333333,
             "unit": "seconds"
           }
         ]
