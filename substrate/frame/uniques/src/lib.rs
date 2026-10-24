@@ -276,6 +276,14 @@ pub mod pallet {
 	pub type CollectionMaxSupply<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Blake2_128Concat, T::CollectionId, u32, OptionQuery>;
 
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<BlockNumberFor<T>> for Pallet<T, I> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+	}
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config<I>, I: 'static = ()> {
@@ -1552,6 +1560,168 @@ pub mod pallet {
 		) -> DispatchResult {
 			let origin = ensure_signed(origin)?;
 			Self::do_buy_item(collection, item, origin, bid_price)
+		}
+	}
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Ensure the correctness of the state of this pallet.
+		///
+		/// This should be valid before or after each state transition of this pallet.
+		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::try_state_collection_counters()?;
+			Self::try_state_collection_references()?;
+			Self::try_state_item_accounts()?;
+			Self::try_state_collection_accounts()?;
+			Self::try_state_item_prices()?;
+			Self::try_state_max_supply()?;
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A collection caches how many items, item metadata entries and attributes it holds.
+		///   `destroy` takes those counts as its witness and refuses to run against a witness that
+		///   disagrees, so a stale count either blocks the collection from ever being destroyed or
+		///   lets it be torn down while entries are still left behind.
+		fn try_state_collection_counters() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, details) in Collection::<T, I>::iter() {
+				ensure!(
+					details.items as usize == Item::<T, I>::iter_prefix(&collection).count(),
+					"`items` must match the number of items held by the collection"
+				);
+
+				ensure!(
+					details.item_metadatas as usize ==
+						ItemMetadataOf::<T, I>::iter_prefix(&collection).count(),
+					"`item_metadatas` must match the number of item metadata entries"
+				);
+
+				ensure!(
+					details.attributes as usize ==
+						Attribute::<T, I>::iter_prefix((&collection,)).count(),
+					"`attributes` must match the number of attributes of the collection"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * Destroying a collection clears everything keyed by it, so no item, metadata entry,
+		///   attribute, price or max supply may name a collection which no longer exists.
+		fn try_state_collection_references() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, _) in Item::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"an item must belong to a collection that exists"
+				);
+			}
+
+			for (collection, _) in ItemMetadataOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"item metadata must belong to a collection that exists"
+				);
+			}
+
+			for collection in CollectionMetadataOf::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"collection metadata must belong to a collection that exists"
+				);
+			}
+
+			for (collection, _, _) in Attribute::<T, I>::iter_keys() {
+				ensure!(
+					Collection::<T, I>::contains_key(&collection),
+					"an attribute must belong to a collection that exists"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `Account` is the reverse index used to enumerate the items held by an account. It must
+		///   name exactly the owner recorded against each item, otherwise an item is either missing
+		///   from that enumeration or attributed to the wrong account.
+		fn try_state_item_accounts() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, item, details) in Item::<T, I>::iter() {
+				ensure!(
+					Account::<T, I>::contains_key((&details.owner, &collection, &item)),
+					"an item's owner must be recorded in `Account`"
+				);
+			}
+
+			for (owner, collection, item) in Account::<T, I>::iter_keys() {
+				let details = Item::<T, I>::get(&collection, &item)
+					.ok_or("`Account` must not name an item which does not exist")?;
+
+				ensure!(details.owner == owner, "`Account` must name the owner of the item");
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * `CollectionAccount` is the same reverse index one level up, used to enumerate the
+		///   collections owned by an account, and must agree with the owner of each collection.
+		fn try_state_collection_accounts() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, details) in Collection::<T, I>::iter() {
+				ensure!(
+					CollectionAccount::<T, I>::contains_key(&details.owner, &collection),
+					"a collection's owner must be recorded in `CollectionAccount`"
+				);
+			}
+
+			for (owner, collection) in CollectionAccount::<T, I>::iter_keys() {
+				let details = Collection::<T, I>::get(&collection)
+					.ok_or("`CollectionAccount` must not name a collection which does not exist")?;
+
+				ensure!(
+					details.owner == owner,
+					"`CollectionAccount` must name the owner of the collection"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A price is cleared whenever the item it belongs to is transferred, burned or
+		///   destroyed, so a price may never outlive its item and be paid against nothing.
+		fn try_state_item_prices() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, item) in ItemPriceOf::<T, I>::iter_keys() {
+				ensure!(
+					Item::<T, I>::contains_key(&collection, &item),
+					"a price must belong to an item that exists"
+				);
+			}
+
+			Ok(())
+		}
+
+		/// # Invariants
+		///
+		/// * A max supply may only be set once and never below the items already minted, and
+		///   minting checks it, so a collection can never hold more items than it allows.
+		fn try_state_max_supply() -> Result<(), sp_runtime::TryRuntimeError> {
+			for (collection, max_supply) in CollectionMaxSupply::<T, I>::iter() {
+				let details = Collection::<T, I>::get(&collection)
+					.ok_or("a max supply must belong to a collection that exists")?;
+
+				ensure!(
+					details.items <= max_supply,
+					"a collection must not hold more items than its max supply"
+				);
+			}
+
+			Ok(())
 		}
 	}
 }
