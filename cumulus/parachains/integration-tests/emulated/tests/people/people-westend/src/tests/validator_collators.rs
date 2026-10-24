@@ -21,7 +21,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
-use sp_staking::ValidatorServiceKind;
+use sp_staking::ServiceKind;
 use westend_system_emulated_network::asset_hub_westend_emulated_chain::asset_hub_westend_runtime;
 
 fn use_memory_keystore() {
@@ -260,7 +260,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 		assert_ok!(pallet_staking_async_points_converter::Pallet::<AssetHubRuntime>::set_points_per_service(
 			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
 			people,
-			ValidatorServiceKind::Collation,
+			ServiceKind::Collation,
 			5,
 		));
 	});
@@ -325,7 +325,7 @@ fn people_reports_authored_blocks_to_asset_hub() {
 				) => { source: *source == people, },
 				RuntimeEvent::Staking(
 					pallet_staking_async::Event::ServicePointsCredited {
-						service: ValidatorServiceKind::Collation,
+						service: ServiceKind::Collation,
 						era: 1,
 						credited: 1,
 						dropped: 1,
@@ -342,8 +342,8 @@ fn people_reports_authored_blocks_to_asset_hub() {
 				pallet_staking_async::ErasRewardPointsByService::<AssetHubRuntime>::get(1, service);
 			(points.total, points.individual.into_iter().collect::<Vec<_>>())
 		};
-		assert_eq!(by_service(ValidatorServiceKind::Collation), (15, vec![(alice, 15)]));
-		assert_eq!(by_service(ValidatorServiceKind::RelayConsensus), (0, vec![]));
+		assert_eq!(by_service(ServiceKind::Collation), (15, vec![(alice, 15)]));
+		assert_eq!(by_service(ServiceKind::RelayConsensus), (0, vec![]));
 	});
 }
 

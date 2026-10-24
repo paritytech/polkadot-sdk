@@ -156,18 +156,14 @@ fn try_state_detects_points_per_service_above_the_tally() {
 		// GIVEN era 1 with relay chain points for 11 and collation points for 21
 		Session::roll_until_active_era(1);
 		Staking::reward_by_ids(vec![(11, 20)]);
-		Staking::reward_service_points(ValidatorServiceKind::Collation, vec![(21, 5)]);
+		Staking::reward_service_points(ServiceKind::Collation, vec![(21, 5)]);
 		assert_ok!(Staking::do_try_state(System::block_number()));
 
 		// WHEN the collation entry of 21 holds more than the tally does
-		ErasRewardPointsByService::<Test>::mutate(
-			1,
-			ValidatorServiceKind::Collation,
-			|collation| {
-				*collation.individual.get_mut(&21).unwrap() = 6;
-				collation.total = 6;
-			},
-		);
+		ErasRewardPointsByService::<Test>::mutate(1, ServiceKind::Collation, |collation| {
+			*collation.individual.get_mut(&21).unwrap() = 6;
+			collation.total = 6;
+		});
 
 		// THEN try-state detects it
 		assert_eq!(
@@ -176,13 +172,9 @@ fn try_state_detects_points_per_service_above_the_tally() {
 		);
 
 		// Restore valid state so build_and_execute post-check passes.
-		ErasRewardPointsByService::<Test>::mutate(
-			1,
-			ValidatorServiceKind::Collation,
-			|collation| {
-				*collation.individual.get_mut(&21).unwrap() = 5;
-				collation.total = 5;
-			},
-		);
+		ErasRewardPointsByService::<Test>::mutate(1, ServiceKind::Collation, |collation| {
+			*collation.individual.get_mut(&21).unwrap() = 5;
+			collation.total = 5;
+		});
 	});
 }

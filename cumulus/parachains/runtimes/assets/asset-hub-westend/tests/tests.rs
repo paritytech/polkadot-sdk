@@ -3932,7 +3932,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 		assert_ok!(StakingPointsConverter::set_points_per_service(
 			RuntimeOrigin::root(),
 			own,
-			sp_staking::ValidatorServiceKind::Collation,
+			sp_staking::ServiceKind::Collation,
 			5
 		));
 		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
@@ -3958,7 +3958,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 		assert_eq!(
 			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
 				1,
-				sp_staking::ValidatorServiceKind::Collation
+				sp_staking::ServiceKind::Collation
 			)
 			.individual
 			.into_iter()
@@ -3977,7 +3977,7 @@ fn own_blocks_are_credited_to_staking_under_this_chain_id() {
 		)));
 		assert!(events.contains(&RuntimeEvent::Staking(
 			pallet_staking_async::Event::ServicePointsCredited {
-				service: sp_staking::ValidatorServiceKind::Collation,
+				service: sp_staking::ServiceKind::Collation,
 				era: 1,
 				credited: 1,
 				dropped: 0

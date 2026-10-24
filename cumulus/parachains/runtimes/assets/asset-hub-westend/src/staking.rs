@@ -587,7 +587,7 @@ impl pallet_validator_collators::ReportAuthoredBlocks<AccountId> for CreditBlock
 		// credit reaches staking and accrues every entry.
 		pallet_staking_async_points_converter::PointsPerService::<Runtime>::insert(
 			ParachainInfo::parachain_id(),
-			sp_staking::ValidatorServiceKind::Collation,
+			sp_staking::ServiceKind::Collation,
 			1,
 		);
 		let era = pallet_staking_async::ActiveEra::<Runtime>::get()

@@ -54,9 +54,9 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, ServiceKind, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
-	StakingInterface, ValidatorServiceKind,
+	StakingInterface,
 };
 
 mod impls;
@@ -945,7 +945,7 @@ pub mod pallet {
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
-		ValidatorServiceKind,
+		ServiceKind,
 		EraRewardPoints<T>,
 		ValueQuery,
 	>;
@@ -1500,7 +1500,7 @@ pub mod pallet {
 		/// Points earned for `service` were credited to `era`. `credited` entries were exposed in
 		/// `era` and `dropped` entries were not.
 		ServicePointsCredited {
-			service: ValidatorServiceKind,
+			service: ServiceKind,
 			era: EraIndex,
 			credited: u32,
 			dropped: u32,
@@ -1730,7 +1730,7 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					// At most one entry per `ValidatorServiceKind`.
+					// At most one entry per `ServiceKind`.
 					let _ = ErasRewardPointsByService::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()

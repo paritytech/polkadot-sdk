@@ -87,8 +87,8 @@ use frame_support::{
 use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
-	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
-	StakerRewardCalculator, ValidatorServiceKind,
+	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, ServiceKind,
+	SessionIndex, StakerRewardCalculator,
 };
 
 /// A handler for all era-based storage items.
@@ -423,7 +423,7 @@ impl<T: Config> Eras<T> {
 	/// keeps the denominator of the weighted-points share up to date without iterating every
 	/// validator at payout time.
 	pub(crate) fn reward_active_era(
-		service: ValidatorServiceKind,
+		service: ServiceKind,
 		validators_points: impl IntoIterator<Item = (T::AccountId, u32)>,
 	) {
 		if let Some(active_era) = ActiveEra::<T>::get() {
