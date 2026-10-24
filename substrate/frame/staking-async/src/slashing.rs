@@ -594,11 +594,16 @@ pub fn do_slash<T: Config>(
 			Err(_) => return, // nothing to do.
 		};
 
+	let old_active = ledger.active;
 	let value = ledger.slash(value, asset::existential_deposit::<T>(), offence_era);
 	if value.is_zero() {
 		// nothing to do
 		return;
 	}
+
+	// Only bonded incentive backs `active` stake and is genuinely at risk; idle incentive is
+	// never slashed. Scale it by the same ratio `active` was just reduced.
+	Pallet::<T>::scale_bonded_incentive_buckets(stash, old_active, ledger.active);
 
 	// Skip slashing for virtual stakers. The pallets managing them should handle the slashing.
 	if !Pallet::<T>::is_virtual_staker(stash) {

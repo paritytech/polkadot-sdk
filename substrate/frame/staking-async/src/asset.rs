@@ -57,6 +57,11 @@ pub fn staked<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
 	T::Currency::balance_on_hold(&HoldReason::Staking.into(), who)
 }
 
+/// Idle validator incentive still vesting on `who`, held under [`HoldReason::ValidatorIncentive`].
+pub fn incentive_on_hold<T: Config>(who: &T::AccountId) -> BalanceOf<T> {
+	T::Currency::balance_on_hold(&HoldReason::ValidatorIncentive.into(), who)
+}
+
 /// Balance of who that can be staked additionally.
 ///
 /// Does not include the current stake.
