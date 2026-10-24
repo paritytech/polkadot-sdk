@@ -1495,6 +1495,97 @@ mod tests {
 		});
 	}
 
+	/// The top trie holds the child root key and a single sibling under its branch, so removing
+	/// the child root key collapses the branch and reads the sibling.
+	fn single_sibling_child_backend(
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> TestBackend {
+		let child_root_key_first_byte = child_info.prefixed_storage_key().as_slice()[0];
+		(
+			Storage {
+				top: map![vec![child_root_key_first_byte, 0x00, 0x22, 0x33] => vec![0u8; 64]],
+				children_default: map![
+					child_info.storage_key().to_vec() => StorageChild {
+						data: map![vec![0x01] => vec![1u8; 64]],
+						child_info: child_info.clone(),
+					}
+				],
+			},
+			state_version,
+		)
+			.into()
+	}
+
+	/// A child root computed while the child is empty must not leave a removal of the child root
+	/// key behind: once the child is refilled, the final root would remove and reinsert the key,
+	/// reading a collapse sibling the estimation never sees, and the block could overshoot its
+	/// PoV budget.
+	#[test]
+	fn mid_block_child_root_of_emptied_and_refilled_child_is_estimated_exactly() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		for state_version in [StateVersion::V1, StateVersion::V0] {
+			let (estimation, storage_root) = estimation_and_storage_root_proof_sizes_at(
+				single_sibling_child_backend(&child_info, state_version),
+				state_version,
+				|ext, _| {
+					let _ = ext.kill_child_storage(&child_info, None, None);
+					ext.child_storage_root(&child_info);
+					ext.place_child_storage(&child_info, vec![0x77], Some(vec![7u8; 64]));
+				},
+			);
+			assert_eq!(estimation, storage_root, "{state_version:?}");
+		}
+	}
+
+	/// Only the collator rolls back a dropped extrinsic, and that rollback discards an empty
+	/// child change set. A later mid-block child root must not depend on it, or the collator and
+	/// the validator estimate different proof sizes for the same block.
+	#[test]
+	fn dropped_extrinsic_discarding_empty_child_changes_does_not_change_the_estimation() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let [collator, validator] = [true, false].map(|drops_extrinsic| {
+			estimation_and_storage_root_proof_sizes_with_recorder(
+				single_sibling_child_backend(&child_info, StateVersion::V1),
+				|ext, recorder| {
+					let _ = ext.clear_child_prefix(&child_info, &[0xFF], None, None);
+					if drops_extrinsic {
+						start_host_transaction(ext, recorder);
+						rollback_host_transaction(ext, recorder);
+					}
+					ext.child_storage_root(&child_info);
+				},
+			)
+		});
+		assert_eq!(collator.0, validator.0);
+		for (estimation, storage_root) in [collator, validator] {
+			assert!(estimation >= storage_root, "{estimation} < {storage_root}");
+		}
+	}
+
+	/// Only the collator rolls back a dropped extrinsic, and that rollback discards the cached
+	/// storage root. A later mid-block child root must not depend on it, or the validator may
+	/// estimate nodes the collator never put into the proof and reject the block.
+	#[test]
+	fn dropped_extrinsic_discarding_cached_storage_root_does_not_change_the_estimation() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let [collator, validator] = [true, false].map(|drops_extrinsic| {
+			estimation_and_storage_root_proof_sizes_with_recorder(
+				single_sibling_child_backend(&child_info, StateVersion::V1),
+				|ext, recorder| {
+					ext.place_child_storage(&child_info, vec![0xFF], None);
+					ext.storage_root();
+					if drops_extrinsic {
+						start_host_transaction(ext, recorder);
+						rollback_host_transaction(ext, recorder);
+					}
+					ext.child_storage_root(&child_info);
+				},
+			)
+		});
+		assert_eq!(collator.0, validator.0);
+	}
+
 	#[test]
 	fn calculating_storage_root_should_not_change_storage_proof_for_main_trie_changes() {
 		let child_info = ChildInfo::new_default(b"Child1");

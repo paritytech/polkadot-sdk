@@ -1143,6 +1143,30 @@ mod tests {
 		}
 	}
 
+	/// A cached child root must be the one the cached storage root was built from: a root
+	/// computed before later child writes is stale and would disagree with the block's state.
+	#[test]
+	fn cached_child_storage_root_includes_writes_after_an_earlier_child_root() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = new_in_mem::<Blake2Hasher>();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+		overlay.set_child_storage(&child_info, vec![10], Some(vec![10]));
+		overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+		overlay.set_child_storage(&child_info, vec![20], Some(vec![20]));
+		overlay.storage_root(&backend, StateVersion::V1);
+
+		let mut both_keys = OverlayedChanges::<Blake2Hasher>::default();
+		both_keys.set_child_storage(&child_info, vec![10], Some(vec![10]));
+		both_keys.set_child_storage(&child_info, vec![20], Some(vec![20]));
+		let (expected_root, _) =
+			both_keys.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+
+		assert_eq!(
+			overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap(),
+			(expected_root, true),
+		);
+	}
+
 	#[test]
 	fn extrinsic_changes_are_collected() {
 		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
@@ -1309,6 +1333,26 @@ mod tests {
 			clear(&mut overlay, &child_info);
 			assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
 		}
+	}
+
+	/// A mid-block child root only reads. Writing the root into the main overlay would turn the
+	/// child root key's tracked op into one that depends on overlay housekeeping, which host
+	/// rollbacks change on the collator only, so collator and validator estimates would differ.
+	#[test]
+	fn child_storage_root_leaves_child_root_key_untouched() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let root_key = child_info.prefixed_storage_key().into_inner();
+		let backend = InMemoryBackend::<Blake2Hasher>::from((
+			vec![(Some(child_info.clone()), vec![(vec![1], Some(vec![1]))])],
+			StateVersion::V1,
+		));
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+
+		overlay.clear_child_prefix(&child_info, &[2]);
+		overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+
+		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
+		assert_eq!(overlay.storage(&root_key), None);
 	}
 
 	#[test]
