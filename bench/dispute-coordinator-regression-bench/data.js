@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792775516583,
+  "lastUpdate": 1792837707969,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0ec94c97e2599a90b43abee84104133793caf5fe",
-          "message": "fix links: 404 individuality private repo. (#11644)",
-          "timestamp": "2026-04-09T03:25:19Z",
-          "tree_id": "d2ed74146d689c990bb42d4436ec62c6fe27928b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0ec94c97e2599a90b43abee84104133793caf5fe"
-        },
-        "date": 1775710173765,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00267422794,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009462443899999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010847268429999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025185163300000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "davxy@datawok.net",
+            "name": "Davide Galassi",
+            "username": "davxy"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "14f57c4e28081367fbfb21cf845eb34d043865d5",
+          "message": "Bump ark-vrf version to 0.6.1 (#13528)\n\nThe Bandersnatch primitives in `sp-core` use the new API and its\nstricter decoders:\n\n- All points and proofs decode with the `_exact` decoders, which reject\ntrailing bytes.\n- The `RingVerifierKey` decoder now checks the curve points.\n- Ring member keys decode with the subgroup and identity checks. A key\nthat fails takes the padding slot. Before, an identity key made\n`RingContext::prover` and `verifier_key` panic.\n\nPerformance: `vrf_sign` and `vrf_verify` (Thin VRF, one I/O pair) are\nabout 25-30% faster\n(but we're talking about microseconds :-D )\n\nSo this release is mostly about security fixes",
+          "timestamp": "2026-10-24T08:52:54Z",
+          "tree_id": "cc3415f62f66ef15ff97058f75a893fa8b4a42f8",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/14f57c4e28081367fbfb21cf845eb34d043865d5"
+        },
+        "date": 1792837677254,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010584665620000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002502502500000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00942026222999998,
             "unit": "seconds"
           }
         ]
