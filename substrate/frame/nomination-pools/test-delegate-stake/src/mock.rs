@@ -122,6 +122,7 @@ impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type OperationalExpencesCurrency = Balances;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type EraPayout = TestEraPayout;
 	type DisableMinting = ConstBool<false>;

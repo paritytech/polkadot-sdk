@@ -29,10 +29,13 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{EitherOfDiverse, Get, Imbalance, OnUnbalanced},
+	traits::{
+		fungible::ItemOf, tokens::imbalance::ResolveTo, AsEnsureOriginWithArg, EitherOfDiverse,
+		Get, Imbalance, OnUnbalanced,
+	},
 	weights::constants::RocksDbWeight,
 };
-use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSignedBy};
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureRoot, EnsureSigned, EnsureSignedBy};
 use pallet_staking_async_rc_client as rc_client;
 use sp_core::{ConstBool, ConstU64};
 use sp_io;
@@ -47,11 +50,13 @@ use std::collections::BTreeMap;
 
 pub(crate) const INIT_TIMESTAMP: u64 = 30_000;
 pub(crate) const BLOCK_TIME: u64 = 1000;
+pub(crate) const MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE: u128 = 1;
 
 frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
+		Assets: pallet_assets,
 		Dap: pallet_dap,
 		Staking: pallet_staking_async,
 		VoterBagsList: pallet_bags_list::<Instance1>,
@@ -112,6 +117,14 @@ impl pallet_balances::Config for Test {
 	type Balance = u128;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
+}
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type Balance = u128;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -541,9 +554,53 @@ pub(crate) fn setup_dap() {
 		.expect("mint dap buffer");
 }
 
+parameter_types! {
+	pub static OperationalExpensesAssetId: u32 = 10;
+	pub static UnclaimedOperationalExpensesAccount: AccountId = 123_456;
+}
+
+type OperationalExpensesCurrency = ItemOf<Assets, OperationalExpensesAssetId, AccountId>;
+type UnclaimedOperationalExpensesHandler =
+	ResolveTo<UnclaimedOperationalExpensesAccount, OperationalExpensesCurrency>;
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchHelper {}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper<AccountId, Balance> for BenchHelper {
+	fn mint_operational_expenses_token(
+		to: &AccountId,
+		amount: Balance,
+	) -> frame_support::dispatch::DispatchResult {
+		use frame_benchmarking::whitelisted_caller;
+		use frame_support::traits::fungibles::{Create, Inspect, Mutate};
+
+		if !Assets::asset_exists(OperationalExpensesAssetId::get()) {
+			let caller: AccountId = whitelisted_caller();
+			<Assets as Create<_>>::create(
+				OperationalExpensesAssetId::get(),
+				caller,
+				false,
+				MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE.into(),
+			)?;
+		}
+
+		Assets::mint_into(OperationalExpensesAssetId::get(), to, amount).map(|_| ())
+	}
+
+	fn operational_expenses_token_min_balance() -> Balance {
+		use frame_support::traits::fungibles::Inspect;
+
+		Assets::minimum_balance(OperationalExpensesAssetId::get())
+	}
+}
+
 impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type OperationalExpencesCurrency = OperationalExpensesCurrency;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchHelper;
 	type RewardRemainder = RewardRemainderMock;
 	type Reward = MockReward;
 	type SessionsPerEra = SessionsPerEra;
@@ -565,6 +622,7 @@ impl Config for Test {
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = DisableMintingMode;
 	type UnclaimedRewardHandler = Dap;
+	type UnclaimedOperationalExpensesHandler = UnclaimedOperationalExpensesHandler;
 	type RewardPots = SequentialTest;
 	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
 	type MaxPruningItems = MaxPruningItems;
@@ -844,6 +902,13 @@ impl ExtBuilder {
 		let nominators_slashable = self.nominators_slashable;
 
 		ext.execute_with(|| {
+			use frame_support::traits::fungible::Create;
+			assert_ok!(<Test as Config>::OperationalExpencesCurrency::create(
+				0,
+				false,
+				MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+			));
+
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 
 			if !UseLegacyEraPayout::get() {

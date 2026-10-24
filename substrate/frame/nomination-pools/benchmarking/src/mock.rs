@@ -71,10 +71,34 @@ impl pallet_staking_async_rc_client::RcClientInterface for MockRcClient {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+struct StakingAsyncBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_staking_async::BenchmarkHelper<AccountId, Balance> for StakingAsyncBenchmarkHelper {
+	fn mint_operational_expenses_token(
+		to: &AccountId,
+		amount: Balance,
+	) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
+		Balances::mint_into(to, amount).map(|_| ())
+	}
+
+	fn operational_expenses_token_min_balance() -> Balance {
+		use frame_support::traits::fungible::Inspect;
+
+		Balances::minimum_balance()
+	}
+}
+
 #[derive_impl(pallet_staking_async::config_preludes::TestDefaultConfig)]
 impl pallet_staking_async::Config for Runtime {
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type OperationalExpencesCurrency = Balances;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = StakingAsyncBenchmarkHelper;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type EraPayout = ();
 	type DisableMinting = ConstBool<true>;
