@@ -160,9 +160,10 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 </div><span id="structfield.collator" class="structfield section-header"><a href="#structfield.collator" class="anchor field">§</a><code>collator: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.bool.html">bool</a></code></span><div class="docblock"><p>Run node as collator.</p>
 <p>Note that this is the same as running with <code>--validator</code>.</p>
 </div><span id="structfield.relay_chain_rpc_urls" class="structfield section-header"><a href="#structfield.relay_chain_rpc_urls" class="anchor field">§</a><code>relay_chain_rpc_urls: <a class="struct" href="../pallet_referenda/struct.Vec.html" title="struct yet_another_parachain_runtime::pallet_referenda::Vec">Vec</a>&lt;<a class="struct" href="../cumulus_relay_chain_rpc_interface/struct.Url.html" title="struct yet_another_parachain_runtime::cumulus_relay_chain_rpc_interface::Url">Url</a>&gt;</code></span><div class="docblock"><p>Creates a less resource-hungry node that retrieves relay chain data from an RPC endpoint.</p>
-<p>The provided URLs should point to RPC endpoints of the relay chain.
-This node connects to the remote nodes following the order they were specified in. If the
-connection fails, it attempts to connect to the next endpoint in the list.</p>
+<p>The provided URLs should point to RPC endpoints of the relay chain and are used in order of
+preference. The node connects to the first endpoint it can reach and, if that connection
+fails, to the next one in the list. While on a later endpoint, it periodically checks the
+earlier ones and switches back to the first that is reachable and has caught up.</p>
 <p>Note: This option doesn’t stop the node from connecting to the relay chain network but
 reduces bandwidth use.</p>
 </div><span id="structfield.experimental_max_pov_percentage" class="structfield section-header"><a href="#structfield.experimental_max_pov_percentage" class="anchor field">§</a><code>experimental_max_pov_percentage: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a>&gt;</code></span><div class="docblock"><p>EXPERIMENTAL: This is meant to be used only if collator is overshooting the PoV size, and
