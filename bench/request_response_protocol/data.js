@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792836550295,
+  "lastUpdate": 1792928301351,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -137375,6 +137375,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2848755711,
             "range": "± 13874711",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5ca9c9f2d4d701b7a0ef11a9d7d6652dc31638ef",
+          "message": "relay-chain-rpc: go back to prefered connection (#13525)\n\nCurrently when any connection in `--relay-chain-rpc-urls`, fails the\nnode just moves to the next on in the list. This doesn't work well for\nlong running nodes where if the rpc node briefly restarts for an upgrade\nor something else, the parachain nodes will gravitate towards the end of\nthe list.\n\nTo fix this I introduced logic so that every 5min we check if earlier\nURL's in the list are in a good state and if they are we switch back to\nthem. I think this change in behaviour is actually consistent with the\ncurrent documentation of the cli argument.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-10-25T10:23:12Z",
+          "tree_id": "d268b4e8a06210e08c192546b81a15c0be2a5d84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5ca9c9f2d4d701b7a0ef11a9d7d6652dc31638ef"
+        },
+        "date": 1792928271468,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20585897,
+            "range": "± 282044",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20757841,
+            "range": "± 258911",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22136155,
+            "range": "± 273041",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26386039,
+            "range": "± 181398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61110088,
+            "range": "± 1031532",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 372053706,
+            "range": "± 8172026",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 3064529826,
+            "range": "± 138075732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17424989,
+            "range": "± 194673",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17743680,
+            "range": "± 164958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18103156,
+            "range": "± 254334",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22643846,
+            "range": "± 225528",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64348944,
+            "range": "± 1052012",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 383759606,
+            "range": "± 4112653",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2829973837,
+            "range": "± 27760669",
             "unit": "ns/iter"
           }
         ]
