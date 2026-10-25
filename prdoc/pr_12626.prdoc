@@ -1,0 +1,15 @@
+title: 'pallet-revive: enforce eth_subscribe log topic length like eth_getLogs'
+
+doc:
+- audience: Node Dev
+  description: |-
+    The `eth_subscribe` logs filter did not enforce go-ethereum's topic length rule: a `null`
+    (or empty-set) wildcard position passed even when the log had no topic there, because the
+    resolved filter was padded to a fixed length that could not distinguish an explicit `null`
+    from an unspecified position. The filter now preserves its length, so a filter of length `N`
+    only matches logs with at least `N` topics, matching go-ethereum and the `eth_getLogs`
+    behaviour.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
