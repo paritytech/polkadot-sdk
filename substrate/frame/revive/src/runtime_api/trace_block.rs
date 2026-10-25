@@ -30,6 +30,7 @@ impl<Block> From<TraceBlockVersionedInputPayload<Block>> for TraceBlockInputPayl
 		match value {
 			TraceBlockVersionedInputPayload::V1(payload) => payload.into(),
 			TraceBlockVersionedInputPayload::V2(payload) => payload.into(),
+			TraceBlockVersionedInputPayload::V3(payload) => payload.into(),
 		}
 	}
 }
@@ -42,6 +43,12 @@ impl<Block> From<TraceBlockInputPayloadV1<Block>> for TraceBlockInputPayload<Blo
 
 impl<Block> From<TraceBlockInputPayloadV2<Block>> for TraceBlockInputPayload<Block> {
 	fn from(value: TraceBlockInputPayloadV2<Block>) -> Self {
+		Self { block: value.block, config: value.config.into() }
+	}
+}
+
+impl<Block> From<TraceBlockInputPayloadV3<Block>> for TraceBlockInputPayload<Block> {
+	fn from(value: TraceBlockInputPayloadV3<Block>) -> Self {
 		Self { block: value.block, config: value.config.into() }
 	}
 }
@@ -67,6 +74,18 @@ impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV1 {
 }
 
 impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV2 {
+	fn from(value: TraceBlockOutputPayload) -> Self {
+		Self {
+			entries: value
+				.entries
+				.into_iter()
+				.map(|(index, entry)| (index, entry.into()))
+				.collect(),
+		}
+	}
+}
+
+impl From<TraceBlockOutputPayload> for TraceBlockOutputPayloadV3 {
 	fn from(value: TraceBlockOutputPayload) -> Self {
 		Self {
 			entries: value

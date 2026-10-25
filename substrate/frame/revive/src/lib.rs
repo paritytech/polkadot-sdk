@@ -3979,9 +3979,9 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						.insert("new_balance_with_dust_versioned", 1)
 						.insert("block_author_versioned", 1)
 						.insert("address_versioned", 1)
-						.insert("trace_block_versioned", 2)
-						.insert("trace_tx_versioned", 2)
-						.insert("trace_call_versioned", 2)
+						.insert("trace_block_versioned", 3)
+						.insert("trace_tx_versioned", 3)
+						.insert("trace_call_versioned", 3)
 				}
 
 				fn eth_block_versioned(
@@ -4569,6 +4569,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 							TraceBlockInputPayload::from(payload),
 							Box::new(|output| TraceBlockVersionedOutputPayload::V2(output.into()))
 						),
+						TraceBlockVersionedInputPayload::V3(payload) => (
+							TraceBlockInputPayload::from(payload),
+							Box::new(|output| TraceBlockVersionedOutputPayload::V3(output.into()))
+						),
 					};
 
 					if matches!(input.config, $crate::evm::TracerType::ExecutionTracer(_)) &&
@@ -4618,6 +4622,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						TraceTxVersionedInputPayload::V2(payload) => (
 							TraceTxInputPayload::from(payload),
 							Box::new(|output| TraceTxVersionedOutputPayload::V2(output.into())),
+						),
+						TraceTxVersionedInputPayload::V3(payload) => (
+							TraceTxInputPayload::from(payload),
+							Box::new(|output| TraceTxVersionedOutputPayload::V3(output.into())),
 						),
 					};
 
@@ -4675,6 +4683,10 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						TraceCallVersionedInputPayload::V2(payload) => (
 							TraceCallInputPayload::from(payload),
 							Box::new(|output| TraceCallVersionedOutputPayload::V2(output.into())),
+						),
+						TraceCallVersionedInputPayload::V3(payload) => (
+							TraceCallInputPayload::from(payload),
+							Box::new(|output| TraceCallVersionedOutputPayload::V3(output.into())),
 						),
 					};
 
