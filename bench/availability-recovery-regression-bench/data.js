@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792929198279,
+  "lastUpdate": 1792971200411,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f8156c184007ace837d38b496eb660ea30b667d0",
-          "message": "Make pallet_xcm_bridge_hub_router exporter configurable for paid/unpaid (#11694)\n\nAdd `type Exporter: SendXcm` to the pallet's Config trait so runtimes\ncan choose between `SovereignPaidRemoteExporter` (paid) and\n`UnpaidRemoteExporter` (unpaid) bridging. Provide convenience type\naliases `PaidRemoteExporter` and `UnpaidRemoteExporterAdapter`.\n\nAsset Hub runtimes are configured to now use `UnpaidRemoteExporter` to\nreduce deployment complexity\n(no more need to manage/top-up AH sov account on BH).\n\nSimpler fix for https://github.com/polkadot-fellows/runtimes/issues/392\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-10T17:35:45Z",
-          "tree_id": "332881d692bdaec87d68e3dda4c3a4c8500c809e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8156c184007ace837d38b496eb660ea30b667d0"
-        },
-        "date": 1775848267769,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.803749334700003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12868320016666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.653368072866664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "324f1ae8f411277832621a3ee7ba61518f87b7c4",
+          "message": "collator-discovery: keep a reserved peer whose address set changed (#13562)\n\nThe collator-discovery reserved-peer refresh removed peers by multiaddr:\nwhen a selected peer republished its authority-discovery record with a\ndifferent address set, every address that disappeared turned into a\nremoval of that peer, while the addresses that stayed produced no\naddition, so the peer silently lost its reservation until its record\nchanged again. A collator restart triggers exactly this, because the\nnode publishes its record before it has discovered all of its external\naddresses.\n\nThe refresh now removes only the peers that have no address left in the\ncurrent selection; a peer whose addresses changed keeps its reservation\nand receives the new addresses.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-25T22:02:42Z",
+          "tree_id": "0a9d1a1981707556d526c59b76cb4213c459213c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/324f1ae8f411277832621a3ee7ba61518f87b7c4"
+        },
+        "date": 1792971167884,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.549952233900003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12326008493333332,
             "unit": "seconds"
           }
         ]
