@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792837661146,
+  "lastUpdate": 1792929351745,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bc4a4c40c7c46868b7e041a3e8de9f45e39e64f1",
-          "message": "Add virtualization host functions (#3520)\n\nThis PR adds experimental support for the virtualization host functions.\nThose allow the runtime to spawn and run PolkaVM instances. It is\nexperimental because the behaviour is subject to change until PolkaVM\nand the host functions have a spec. However, we need to merge the code\nto go on with development. Docs and tests are all there and hence I\nargue it is good enough to be merged. I added a note that users should\nnot use those functions in production.\n\nThis PR adds or changes the following components:\n\n* `sc-executor-wasmtime`: Just exposing our virtualization manager to\nhost functions. Needs to be added here to be available for the whole\nlifetime of a runtime call.\n* `sp-virtualization`: New crate that abstracts away the host functions.\nMeaning that a user (like pallet-contracts) will interface only with\nthis crate and not with the host functions directly. This is necessary\nso that the natively running test code still works. The host functions\nalso depend on this crate. Those also contain all the tests. Everything\nPolkaVM is neatly organized into one crate. It also contains the\ndefinition of the new host functions.\n* `sp-wasm-interface`: We added an interface mirroring the host\nfunctions here. This is necessary in order for the host functions to be\nable to call into the executor.\n\n---------\n\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: Dmitry Sinyavin <dmitry.sinyavin@parity.io>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T08:52:00Z",
-          "tree_id": "5a5107904f41cfc7fe4b718aa4ceb5ad99ad831e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bc4a4c40c7c46868b7e041a3e8de9f45e39e64f1"
-        },
-        "date": 1775730726932,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.09599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0880206087919999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03859038682799997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038689476587999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5ca9c9f2d4d701b7a0ef11a9d7d6652dc31638ef",
+          "message": "relay-chain-rpc: go back to prefered connection (#13525)\n\nCurrently when any connection in `--relay-chain-rpc-urls`, fails the\nnode just moves to the next on in the list. This doesn't work well for\nlong running nodes where if the rpc node briefly restarts for an upgrade\nor something else, the parachain nodes will gravitate towards the end of\nthe list.\n\nTo fix this I introduced logic so that every 5min we check if earlier\nURL's in the list are in a good state and if they are we switch back to\nthem. I think this change in behaviour is actually consistent with the\ncurrent documentation of the cli argument.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-10-25T10:23:12Z",
+          "tree_id": "d268b4e8a06210e08c192546b81a15c0be2a5d84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5ca9c9f2d4d701b7a0ef11a9d7d6652dc31638ef"
+        },
+        "date": 1792929324254,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03937075894600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.09150711344199991,
             "unit": "seconds"
           }
         ]
