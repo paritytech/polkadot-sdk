@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792929403761,
+  "lastUpdate": 1792971392839,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "alex.theissen@me.com",
-            "name": "Alexander Theißen",
-            "username": "athei"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bc4a4c40c7c46868b7e041a3e8de9f45e39e64f1",
-          "message": "Add virtualization host functions (#3520)\n\nThis PR adds experimental support for the virtualization host functions.\nThose allow the runtime to spawn and run PolkaVM instances. It is\nexperimental because the behaviour is subject to change until PolkaVM\nand the host functions have a spec. However, we need to merge the code\nto go on with development. Docs and tests are all there and hence I\nargue it is good enough to be merged. I added a note that users should\nnot use those functions in production.\n\nThis PR adds or changes the following components:\n\n* `sc-executor-wasmtime`: Just exposing our virtualization manager to\nhost functions. Needs to be added here to be available for the whole\nlifetime of a runtime call.\n* `sp-virtualization`: New crate that abstracts away the host functions.\nMeaning that a user (like pallet-contracts) will interface only with\nthis crate and not with the host functions directly. This is necessary\nso that the natively running test code still works. The host functions\nalso depend on this crate. Those also contain all the tests. Everything\nPolkaVM is neatly organized into one crate. It also contains the\ndefinition of the new host functions.\n* `sp-wasm-interface`: We added an interface mirroring the host\nfunctions here. This is necessary in order for the host functions to be\nable to call into the executor.\n\n---------\n\nCo-authored-by: PG Herveou <pgherveou@gmail.com>\nCo-authored-by: Dmitry Sinyavin <dmitry.sinyavin@parity.io>\nCo-authored-by: s0me0ne-unkn0wn <48632512+s0me0ne-unkn0wn@users.noreply.github.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T08:52:00Z",
-          "tree_id": "5a5107904f41cfc7fe4b718aa4ceb5ad99ad831e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bc4a4c40c7c46868b7e041a3e8de9f45e39e64f1"
-        },
-        "date": 1775730759435,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002696262209999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009950985399999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009449536089999976,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.011253017460000011,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "324f1ae8f411277832621a3ee7ba61518f87b7c4",
+          "message": "collator-discovery: keep a reserved peer whose address set changed (#13562)\n\nThe collator-discovery reserved-peer refresh removed peers by multiaddr:\nwhen a selected peer republished its authority-discovery record with a\ndifferent address set, every address that disappeared turned into a\nremoval of that peer, while the addresses that stayed produced no\naddition, so the peer silently lost its reservation until its record\nchanged again. A collator restart triggers exactly this, because the\nnode publishes its record before it has discovered all of its external\naddresses.\n\nThe refresh now removes only the peers that have no address left in the\ncurrent selection; a peer whose addresses changed keeps its reservation\nand receives the new addresses.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-25T22:02:42Z",
+          "tree_id": "0a9d1a1981707556d526c59b76cb4213c459213c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/324f1ae8f411277832621a3ee7ba61518f87b7c4"
+        },
+        "date": 1792971360136,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009422934459999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010526862040000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025508423399999993,
             "unit": "seconds"
           }
         ]
