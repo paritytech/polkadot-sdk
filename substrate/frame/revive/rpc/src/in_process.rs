@@ -16,15 +16,16 @@
 // limitations under the License.
 //! Serving the ETH RPC from inside the node it indexes.
 //!
-//! [`InProcessRpcClient`] is a [`subxt`] transport that dispatches JSON-RPC calls into a node
-//! running in the same process, replacing the loopback WebSocket connection. Only the transport
+//! [`start_embedded`] runs the ETH RPC server on a transport that dispatches JSON-RPC calls into
+//! the node's own `RpcModule`, replacing the loopback WebSocket connection. Only the transport
 //! changes; subxt still serializes and decodes as normal. Skipping that needs subxt's sealed
-//! `Backend` trait. [`start_embedded`] builds the ETH RPC server on top of it.
+//! `Backend` trait.
 
 use crate::{
-	cli::{EthPruningMode, resolve_db_options},
+	LOG_TARGET,
+	cli::EthPruningMode,
 	client::SubscriptionGapQueue,
-	service::{build_client, rpc_module, spawn_indexing_tasks},
+	service::{build_client, index_blocks, resolve_db_options, rpc_module},
 };
 use futures::{Stream, stream};
 use jsonrpsee::{
@@ -33,7 +34,7 @@ use jsonrpsee::{
 };
 use prometheus_endpoint::Registry;
 use sc_service::{
-	TaskManager,
+	SpawnTaskHandle,
 	config::{BasePath, RpcConfiguration},
 	create_rpc_runtime, start_rpc_servers,
 };
@@ -49,22 +50,16 @@ use subxt::rpcs::{
 	client::{RawRpcFuture, RawRpcSubscription, RpcClientT},
 };
 
-/// Matches subxt's WS client: <https://docs.rs/subxt-rpcs/0.50.2/src/subxt_rpcs/client/jsonrpsee_impl.rs.html#107>
+/// Matches subxt's WS client:
+/// <https://docs.rs/subxt-rpcs/0.50.2/src/subxt_rpcs/client/jsonrpsee_impl.rs.html#107>
 const SUBSCRIPTION_BUFFER_CAPACITY: usize = 4096;
 
 /// The `rpc_methods` RPC method's name.
 const RPC_METHODS: &str = "rpc_methods";
 
 /// A [`RpcClientT`] that calls into a node's `RpcModule` directly.
-///
-/// ```ignore
-/// let rpc_handlers = sc_service::spawn_tasks(params)?;
-/// let methods: Methods = rpc_handlers.handle().as_ref().clone().into();
-/// let rpc_client = RpcClient::new(InProcessRpcClient::new(methods));
-/// let api = OnlineClient::<SrcChainConfig>::from_rpc_client(rpc_client).await?;
-/// ```
 #[derive(Clone, Debug)]
-pub struct InProcessRpcClient {
+struct InProcessRpcClient {
 	methods: Methods,
 	/// The wrapped module never answers `rpc_methods` itself, but `OnlineClient` needs it.
 	rpc_methods_response: Box<RawValue>,
@@ -73,7 +68,7 @@ pub struct InProcessRpcClient {
 impl InProcessRpcClient {
 	/// Wrap a node's RPC methods, e.g. from `RpcModule` or
 	/// [`RpcHandlers::handle`](sc_service::RpcHandlers::handle).
-	pub fn new(methods: impl Into<Methods>) -> Self {
+	fn new(methods: impl Into<Methods>) -> Self {
 		let methods = methods.into();
 
 		// `rpc_methods`'s response shape isn't ours to change.
@@ -214,11 +209,26 @@ pub struct EmbeddedConfig {
 }
 
 /// Start an ETH RPC server that talks to the node it runs inside.
-pub async fn start_embedded(
+///
+/// Building the client, serving and indexing all run in one non-essential task, so a failure is
+/// logged and stops only the ETH RPC: it can neither hold up the node's startup nor take it down.
+pub fn start_embedded(
 	node_methods: Methods,
-	task_manager: &mut TaskManager,
+	spawn_handle: &SpawnTaskHandle,
 	config: EmbeddedConfig,
-	prometheus_registry: Option<&Registry>,
+	prometheus_registry: Option<Registry>,
+) {
+	spawn_handle.spawn("eth-rpc", None, async move {
+		if let Err(err) = run_embedded(node_methods, config, prometheus_registry).await {
+			log::error!(target: LOG_TARGET, "❌ The embedded ETH RPC server stopped: {err:?}");
+		}
+	});
+}
+
+async fn run_embedded(
+	node_methods: Methods,
+	config: EmbeddedConfig,
+	prometheus_registry: Option<Registry>,
 ) -> anyhow::Result<()> {
 	let EmbeddedConfig { rpc, eth_pruning, base_path, allow_unprotected_txs, dev_accounts } =
 		config;
@@ -231,18 +241,16 @@ pub async fn start_embedded(
 
 	let rpc_runtime = create_rpc_runtime(rpc.max_connections)
 		.map_err(|e| anyhow::anyhow!("Failed to create the ETH RPC runtime: {e}"))?;
-	let server_handle = start_rpc_servers(
+	let _server = start_rpc_servers(
 		&rpc,
-		prometheus_registry,
+		prometheus_registry.as_ref(),
 		&tokio::runtime::Handle::current(),
 		rpc_module(dev_accounts, client.clone(), allow_unprotected_txs)?,
 		rpc_runtime,
 		None,
 	)?;
 
-	spawn_indexing_tasks(&task_manager.spawn_essential_handle(), client, eth_pruning, gap_fill_rx);
-	task_manager.keep_alive(server_handle);
-
+	index_blocks(client, eth_pruning, gap_fill_rx).await?;
 	Ok(())
 }
 
@@ -381,42 +389,34 @@ mod tests {
 			.unwrap();
 	}
 
-	/// Only an explicit `unsub` call can end this subscription, proving `UnsubscribeOnDrop`
-	/// makes one instead of relying on the notification channel closing.
 	#[tokio::test]
 	async fn dropping_a_subscription_calls_unsubscribe() {
-		let mut module = RpcModule::new(());
+		let (unsubscribed_tx, unsubscribed_rx) = tokio::sync::oneshot::channel::<Vec<u64>>();
+		let unsubscribed_tx = std::sync::Mutex::new(Some(unsubscribed_tx));
+
+		let mut module = test_module();
 		module
-			.register_subscription(
-				"test_subscribe",
-				"test_item",
-				"test_unsubscribe",
-				move |_, pending, _, _| async move {
-					let _sink = pending.accept().await?;
-					// Held but never checked, so only an explicit `test_unsubscribe` call (not
-					// the notification channel closing) can end this subscription.
-					std::future::pending::<()>().await;
-					Ok(())
-				},
-			)
+			.register_method::<RpcResult<bool>, _>("test_spy_unsubscribe", move |params, _, _| {
+				let ids = params.parse::<Vec<u64>>()?;
+				if let Some(tx) = unsubscribed_tx.lock().unwrap().take() {
+					let _ = tx.send(ids);
+				}
+				Ok(true)
+			})
 			.unwrap();
 
-		let methods: Methods = module.into();
-		let client = RpcClient::new(InProcessRpcClient::new(methods.clone()));
+		let client = RpcClient::new(InProcessRpcClient::new(module));
 		let subscription = client
-			.subscribe::<u64>("test_subscribe", rpc_params![], "test_unsubscribe")
+			.subscribe::<u64>("test_subscribe", rpc_params![], "test_spy_unsubscribe")
 			.await
 			.unwrap();
 		let sub_id: u64 = subscription.subscription_id().unwrap().parse().unwrap();
 		drop(subscription);
 
-		// `UnsubscribeOnDrop` calls `test_unsubscribe` from a spawned task; give it a moment.
-		tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
-		// A second call is destructive, so it doubles as the assertion.
-		let params = serde_json::value::to_raw_value(&[sub_id]).ok();
-		let still_subscribed: bool =
-			methods.call("test_unsubscribe", Params(params)).await.unwrap();
-		assert!(!still_subscribed, "drop should have already called `test_unsubscribe`");
+		let ids = tokio::time::timeout(std::time::Duration::from_secs(5), unsubscribed_rx)
+			.await
+			.expect("drop should call the unsubscribe method")
+			.unwrap();
+		assert_eq!(ids, vec![sub_id]);
 	}
 }

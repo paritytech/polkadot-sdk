@@ -18,18 +18,17 @@
 use crate::{
 	LOG_TARGET,
 	client::{Client, SubscriptionGapQueue, connect},
-	service::{build_client, rpc_module, spawn_indexing_tasks},
+	service::{build_client, index_blocks, resolve_db_options, rpc_module},
 };
 use clap::{CommandFactory, FromArgMatches, Parser};
 use futures::{FutureExt, pin_mut};
 use sc_cli::{PrometheusParams, RpcParams, SharedParams, Signals};
 use sc_service::{
 	TaskManager,
-	config::{BasePath, PrometheusConfig, RpcConfiguration},
+	config::{PrometheusConfig, RpcConfiguration},
 	create_rpc_runtime, start_rpc_servers,
 };
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
-use std::path::PathBuf;
+use sqlx::sqlite::SqliteConnectOptions;
 
 /// Specifies the eth-rpc pruning mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -83,8 +82,6 @@ const DEFAULT_PROMETHEUS_PORT: u16 = 9616;
 
 // Default port if --rpc-port is not specified
 const DEFAULT_RPC_PORT: u16 = 8545;
-
-const DEFAULT_DATABASE_NAME: &str = "eth-rpc.db";
 
 // Parsed command instructions from the command line
 #[derive(Parser, Debug)]
@@ -175,43 +172,6 @@ fn init_logger(params: &SharedParams) -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Resolve the base directory for persistent database storage.
-///
-/// - If `base_path` is `Some` (explicit `--base-path` or `--dev` temp dir), use it directly.
-/// - If `base_path` is `None`, use the platform default:
-///   - macOS: `~/Library/Application Support/eth-rpc/`
-///   - Linux: `~/.local/share/eth-rpc/`
-///   - Windows: `%APPDATA%\eth-rpc\`
-fn resolve_db_dir(base_path: Option<BasePath>) -> PathBuf {
-	match base_path {
-		Some(path) => path.path().to_path_buf(),
-		None => BasePath::from_project("", "", "eth-rpc").path().to_path_buf(),
-	}
-}
-
-/// Resolve SQLite connection options from CLI arguments.
-pub(crate) fn resolve_db_options(
-	eth_pruning: EthPruningMode,
-	base_path: Option<BasePath>,
-) -> anyhow::Result<SqliteConnectOptions> {
-	if eth_pruning.is_archive() {
-		let db_dir = resolve_db_dir(base_path);
-		std::fs::create_dir_all(&db_dir).map_err(|e| {
-			anyhow::anyhow!("Failed to create database directory {}: {e}", db_dir.display())
-		})?;
-		let db_path = db_dir.join(DEFAULT_DATABASE_NAME);
-		log::info!(target: LOG_TARGET, "💾 Database path: {}", db_path.display());
-		// WAL mode allows concurrent writes from the live subscription
-		// and the backward sync without SQLITE_BUSY errors.
-		Ok(SqliteConnectOptions::new()
-			.filename(&db_path)
-			.create_if_missing(true)
-			.journal_mode(SqliteJournalMode::Wal))
-	} else {
-		Ok(SqliteConnectOptions::new().in_memory(true))
-	}
-}
-
 fn connect_and_build_client(
 	tokio_handle: &tokio::runtime::Handle,
 	eth_pruning: EthPruningMode,
@@ -226,56 +186,6 @@ fn connect_and_build_client(
 		let rpc_client = connect(node_rpc_url, max_request_size, max_response_size).await?;
 		let client =
 			build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
-		let (api, rpc_client, rpc) =
-			connect(node_rpc_url, max_request_size, max_response_size).await?;
-		let block_provider = SubxtBlockInfoProvider::new(api.clone(), rpc.clone()).await?;
-
-		let (pool, keep_latest_n_blocks) = match eth_pruning {
-			EthPruningMode::Archive => {
-				(SqlitePoolOptions::new().connect_with(db_options).await?, None)
-			},
-			EthPruningMode::KeepLatest(max_blocks) => {
-				log::info!(target: LOG_TARGET,
-					"💾 Using in-memory database, keeping only {max_blocks} blocks");
-				// see sqlite in-memory issue: https://github.com/transact-rs/sqlx/issues/2510
-				let pool = SqlitePoolOptions::new()
-					.max_connections(1)
-					.idle_timeout(None)
-					.max_lifetime(None)
-					.connect_with(db_options)
-					.await?;
-				(pool, Some(max_blocks))
-			},
-		};
-
-		let runtime_api_provider =
-			VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
-		let chain_id = crate::chain_id(&api).await?;
-		let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
-		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
-		let db_ctx = DbContext::new(pool, max_variable_number);
-
-		let receipt_provider = ReceiptProvider::new(
-			db_ctx,
-			block_provider.clone(),
-			receipt_extractor.clone(),
-			keep_latest_n_blocks,
-		)
-		.await?;
-
-		let client = Client::new(
-			api,
-			rpc_client,
-			rpc,
-			block_provider,
-			receipt_provider,
-			eth_pruning.is_archive(),
-			subscription_gap_queue,
-			runtime_api_provider,
-			chain_id,
-		)
-		.await?;
-
 		Ok(client)
 	}
 	.fuse();
@@ -381,7 +291,13 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		None,
 	)?;
 
-	spawn_indexing_tasks(&task_manager.spawn_essential_handle(), client, eth_pruning, gap_fill_rx);
+	task_manager
+		.spawn_essential_handle()
+		.spawn("block-subscription", None, async move {
+			if let Err(err) = index_blocks(client, eth_pruning, gap_fill_rx).await {
+				panic!("Block subscription task failed: {err:?}",)
+			}
+		});
 
 	task_manager.keep_alive(rpc_server_handle);
 	let signals = tokio_runtime.block_on(async { Signals::capture() })?;
@@ -392,41 +308,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use tempfile::TempDir;
-
-	#[test]
-	fn in_memory_returns_memory_options() {
-		let opts = resolve_db_options(EthPruningMode::KeepLatest(256), None).unwrap();
-		// In-memory options produce `:memory:` filename.
-		let filename = opts.get_filename();
-		assert_eq!(filename, std::path::Path::new(":memory:"));
-	}
-
-	#[test]
-	fn persistent_with_explicit_base_path() {
-		let tmp = TempDir::new().unwrap();
-		let base = BasePath::new(tmp.path());
-		let opts = resolve_db_options(EthPruningMode::Archive, Some(base)).unwrap();
-		assert_eq!(opts.get_filename(), tmp.path().join(DEFAULT_DATABASE_NAME));
-		assert!(tmp.path().exists());
-	}
-
-	#[test]
-	fn persistent_default_path() {
-		let opts = resolve_db_options(EthPruningMode::Archive, None).unwrap();
-		let filename = opts.get_filename().to_string_lossy().to_string();
-		assert!(filename.contains("eth-rpc"));
-		assert!(filename.contains(DEFAULT_DATABASE_NAME));
-	}
-
-	#[test]
-	fn persistent_creates_nested_directories() {
-		let tmp = TempDir::new().unwrap();
-		let nested = tmp.path().join("a").join("b");
-		let base = BasePath::new(&nested);
-		resolve_db_options(EthPruningMode::Archive, Some(base)).unwrap();
-		assert!(nested.exists());
-	}
 
 	#[test]
 	fn eth_pruning_mode() {

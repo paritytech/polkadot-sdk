@@ -746,15 +746,14 @@ mod tests {
 	}
 
 	#[cfg(feature = "experimental-eth-rpc-in-node")]
-	fn extra_args(args: &[&str]) -> NodeExtraArgs {
-		let matches = Cli::<TestCliConfig>::command()
-			.version("0.0.0")
-			.try_get_matches_from(std::iter::once("polkadot-omni-node").chain(args.iter().copied()))
-			.expect("arguments parse");
+	fn try_extra_args(args: &[&str]) -> Result<NodeExtraArgs, clap::Error> {
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").try_get_matches_from(
+			std::iter::once("polkadot-omni-node").chain(args.iter().copied()),
+		)?;
 
-		Cli::<TestCliConfig>::from_arg_matches(&matches)
+		Ok(Cli::<TestCliConfig>::from_arg_matches(&matches)
 			.expect("arguments map onto the struct")
-			.node_extra_args()
+			.node_extra_args())
 	}
 
 	/// `experimental-eth-rpc-in-node` only compiles the server in. Cargo unifies features across
@@ -763,18 +762,37 @@ mod tests {
 	#[cfg(feature = "experimental-eth-rpc-in-node")]
 	#[test]
 	fn eth_rpc_stays_off_without_the_flag() {
-		assert!(extra_args(&[]).eth_rpc.is_none());
-		assert!(extra_args(&["--eth-rpc-port", "1234"]).eth_rpc.is_none());
+		assert!(try_extra_args(&[]).unwrap().eth_rpc.is_none());
+
+		for args in [
+			&["--eth-rpc-port", "1234"][..],
+			&["--eth-rpc-external"],
+			&["--eth-rpc-cors", "all"],
+			&["--eth-rpc-pruning", "256"],
+			&["--eth-rpc-allow-unprotected-txs"],
+		] {
+			let err = try_extra_args(args).err().expect("options need --eth-rpc");
+			assert_eq!(err.kind(), clap::error::ErrorKind::MissingRequiredArgument, "{args:?}");
+		}
 	}
 
 	#[cfg(feature = "experimental-eth-rpc-in-node")]
 	#[test]
 	fn eth_rpc_flag_carries_its_options() {
-		let params = extra_args(&["--eth-rpc", "--eth-rpc-port", "1234", "--eth-rpc-external"])
-			.eth_rpc
-			.expect("--eth-rpc switches the server on");
+		let params = try_extra_args(&[
+			"--eth-rpc",
+			"--eth-rpc-port",
+			"1234",
+			"--eth-rpc-external",
+			"--eth-rpc-cors",
+			"all",
+		])
+		.unwrap()
+		.eth_rpc
+		.expect("--eth-rpc switches the server on");
 
 		assert_eq!(params.eth_rpc_port, 1234);
 		assert!(params.eth_rpc_external);
+		assert!(matches!(params.eth_rpc_cors, Some(sc_cli::Cors::All)));
 	}
 }

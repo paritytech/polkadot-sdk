@@ -586,10 +586,9 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
 			#[cfg(feature = "experimental-eth-rpc-in-node")]
-			let eth_rpc_config = node_extra_args
-				.eth_rpc
-				.as_ref()
-				.map(|params| crate::common::eth_rpc::embedded_config(params, &parachain_config));
+			let eth_rpc_config = node_extra_args.eth_rpc.as_ref().map(|params| {
+				crate::common::eth_rpc::embedded_config(params, &parachain_config, false)
+			});
 
 			let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
@@ -611,8 +610,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			#[cfg(feature = "experimental-eth-rpc-in-node")]
 			if let Some(eth_rpc_config) = eth_rpc_config {
-				crate::common::eth_rpc::start(eth_rpc_config, &_rpc_handlers, &mut task_manager)
-					.await?;
+				crate::common::eth_rpc::start(
+					eth_rpc_config,
+					&_rpc_handlers,
+					&task_manager.spawn_handle(),
+				);
 			}
 
 			// Spawn the storage monitor

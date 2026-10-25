@@ -29,9 +29,10 @@ use pallet_revive_eth_rpc::{
 	cli::EthPruningMode,
 	in_process::{start_embedded, EmbeddedConfig},
 };
+use sc_cli::Cors;
 use sc_service::{
 	config::{BasePath, RpcConfiguration, RpcEndpoint},
-	ChainType, Configuration, RpcHandlers, TaskManager,
+	Configuration, RpcHandlers, SpawnTaskHandle,
 };
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
@@ -49,27 +50,39 @@ pub struct EthRpcParams {
 	pub enabled: bool,
 
 	/// Port of the Ethereum JSON-RPC server.
-	#[arg(long, value_name = "PORT", default_value_t = DEFAULT_PORT)]
+	#[arg(long, value_name = "PORT", default_value_t = DEFAULT_PORT, requires = "eth-rpc")]
 	pub eth_rpc_port: u16,
 
 	/// Listen on all interfaces rather than localhost only.
-	#[arg(long)]
+	#[arg(long, requires = "eth-rpc")]
 	pub eth_rpc_external: bool,
+
+	/// Browser origins allowed to access the Ethereum JSON-RPC server, as a comma-separated list
+	/// or `all`. Defaults to the node's `--rpc-cors`.
+	#[arg(long, value_name = "ORIGINS", requires = "eth-rpc")]
+	pub eth_rpc_cors: Option<Cors>,
 
 	/// Pruning mode of the Ethereum receipt database: either `archive` to index every block, or
 	/// a positive number of recent blocks to keep in an in-memory database.
-	#[arg(long, value_name = "MODE", default_value = "archive")]
+	#[arg(long, value_name = "MODE", default_value = "archive", requires = "eth-rpc")]
 	pub eth_rpc_pruning: EthPruningMode,
 
 	/// Accept Ethereum transactions that carry no chain id.
-	#[arg(long)]
+	#[arg(long, requires = "eth-rpc")]
 	pub eth_rpc_allow_unprotected_txs: bool,
 }
 
 /// Build the embedded server's config. Called before `sc_service::spawn_tasks` consumes the node
 /// configuration, which happens before the in-memory RPC handlers exist.
-pub(crate) fn embedded_config(params: &EthRpcParams, config: &Configuration) -> EmbeddedConfig {
+///
+/// `dev` preloads the well-known development accounts, so only a `--dev` node may set it.
+pub(crate) fn embedded_config(
+	params: &EthRpcParams,
+	config: &Configuration,
+	dev: bool,
+) -> EmbeddedConfig {
 	let node_rpc = &config.rpc;
+	let cors = params.eth_rpc_cors.clone().map_or_else(|| node_rpc.cors.clone(), Into::into);
 
 	// `None` leaves `sc-service` to bind localhost, so the endpoint is never reachable from
 	// outside just because the node's own RPC is.
@@ -77,7 +90,7 @@ pub(crate) fn embedded_config(params: &EthRpcParams, config: &Configuration) -> 
 		let endpoint = |ip: IpAddr, is_optional: bool| RpcEndpoint {
 			listen_addr: SocketAddr::new(ip, params.eth_rpc_port),
 			batch_config: node_rpc.batch_config,
-			cors: node_rpc.cors.clone(),
+			cors: cors.clone(),
 			max_buffer_capacity_per_connection: node_rpc.message_buffer_capacity,
 			max_connections: node_rpc.max_connections,
 			max_payload_in_mb: node_rpc.max_request_size,
@@ -102,7 +115,7 @@ pub(crate) fn embedded_config(params: &EthRpcParams, config: &Configuration) -> 
 			addr,
 			port: params.eth_rpc_port,
 			max_connections: node_rpc.max_connections,
-			cors: node_rpc.cors.clone(),
+			cors,
 			methods: node_rpc.methods,
 			max_request_size: node_rpc.max_request_size,
 			max_response_size: node_rpc.max_response_size,
@@ -118,19 +131,17 @@ pub(crate) fn embedded_config(params: &EthRpcParams, config: &Configuration) -> 
 		eth_pruning: params.eth_rpc_pruning,
 		base_path: Some(BasePath::new(config.data_path.join(DB_DIR))),
 		allow_unprotected_txs: params.eth_rpc_allow_unprotected_txs,
-		dev_accounts: config.chain_spec.chain_type() == ChainType::Development,
+		dev_accounts: dev,
 	}
 }
 
-/// Start the server. Must be called from a tokio runtime, after `sc_service::spawn_tasks`.
-pub(crate) async fn start(
+/// Start the server in the background. Call after `sc_service::spawn_tasks`.
+pub(crate) fn start(
 	config: EmbeddedConfig,
 	rpc_handlers: &RpcHandlers,
-	task_manager: &mut TaskManager,
-) -> sc_service::error::Result<()> {
+	spawn_handle: &SpawnTaskHandle,
+) {
 	let node_methods: Methods = rpc_handlers.handle().as_ref().clone().into();
 	// `None`: the node's own RPC server already registered these metric names on this registry.
-	start_embedded(node_methods, task_manager, config, None)
-		.await
-		.map_err(|err| sc_service::Error::Application(err.into()))
+	start_embedded(node_methods, spawn_handle, config, None);
 }

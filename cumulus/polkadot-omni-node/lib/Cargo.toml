@@ -95,7 +95,6 @@ sp-version = { workspace = true, default-features = true }
 sp-weights = { workspace = true, default-features = true }
 substrate-frame-rpc-system = { workspace = true, default-features = true }
 substrate-state-trie-migration-rpc = { workspace = true, default-features = true }
-tokio = { optional = true, features = ["rt-multi-thread"], workspace = true }
 
 # Polkadot
 polkadot-cli = { workspace = true, default-features = true, features = [
@@ -130,7 +129,6 @@ wait-timeout = { workspace = true }
 default = []
 experimental-eth-rpc-in-node = [
 	"dep:pallet-revive-eth-rpc",
-	"dep:tokio",
 	"pallet-revive-eth-rpc?/experimental-eth-rpc-in-node",
 ]
 rococo-native = ["polkadot-cli/rococo-native"]

@@ -443,8 +443,8 @@ pub async fn connect(
 	Ok(RpcClient::new(rpc_client))
 }
 
-/// Build the subxt clients that the ETH RPC server drives, on top of any transport.
-pub async fn connect_with(
+/// Wrap a transport in the subxt clients that the ETH RPC server drives.
+pub async fn subxt_clients(
 	rpc_client: RpcClient,
 ) -> Result<
 	(OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
