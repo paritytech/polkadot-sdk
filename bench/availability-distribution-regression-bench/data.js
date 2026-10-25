@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792929249308,
+  "lastUpdate": 1792971248467,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de4709b0914c8290f0092c919d841b79249db836",
-          "message": "revive: Skip redundant eth_block_hash RPC call in block subscription (#11475)\n\nCo-authored-by: Marian Radu <marian@parity.io>",
-          "timestamp": "2026-04-10T14:54:26Z",
-          "tree_id": "d3087adcddf7732785d390a9c1c3935b215d66f1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de4709b0914c8290f0092c919d841b79249db836"
-        },
-        "date": 1775837835547,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02573594027333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00984428543999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007176114713333329,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14259755456666673,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009877640866666638,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "324f1ae8f411277832621a3ee7ba61518f87b7c4",
+          "message": "collator-discovery: keep a reserved peer whose address set changed (#13562)\n\nThe collator-discovery reserved-peer refresh removed peers by multiaddr:\nwhen a selected peer republished its authority-discovery record with a\ndifferent address set, every address that disappeared turned into a\nremoval of that peer, while the addresses that stayed produced no\naddition, so the peer silently lost its reservation until its record\nchanged again. A collator restart triggers exactly this, because the\nnode publishes its record before it has discovered all of its external\naddresses.\n\nThe refresh now removes only the peers that have no address left in the\ncurrent selection; a peer whose addresses changed keeps its reservation\nand receives the new addresses.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-25T22:02:42Z",
+          "tree_id": "0a9d1a1981707556d526c59b76cb4213c459213c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/324f1ae8f411277832621a3ee7ba61518f87b7c4"
+        },
+        "date": 1792971216058,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024967304773333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14107790184666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007554611486666671,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009729772553333309,
             "unit": "seconds"
           }
         ]
