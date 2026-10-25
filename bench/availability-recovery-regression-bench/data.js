@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792837518769,
+  "lastUpdate": 1792929198279,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b96d1afb5e99dc118336c78beb5231dc5d9f6d8e",
-          "message": "[Release|CI/CD] Fix git push in Post Crates Activities flow (#11723)\n\nThis PR fixes issue, that commited changes were not pushed to\npost-crates-release branch as there was a check, that was looking for\nuncommited changes",
-          "timestamp": "2026-04-10T16:40:00Z",
-          "tree_id": "d9f6538613df2c66bb25c1994bd022a465897d10",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b96d1afb5e99dc118336c78beb5231dc5d9f6d8e"
-        },
-        "date": 1775844043140,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.854541097266665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13250824430000002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1293397602,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "5ca9c9f2d4d701b7a0ef11a9d7d6652dc31638ef",
+          "message": "relay-chain-rpc: go back to prefered connection (#13525)\n\nCurrently when any connection in `--relay-chain-rpc-urls`, fails the\nnode just moves to the next on in the list. This doesn't work well for\nlong running nodes where if the rpc node briefly restarts for an upgrade\nor something else, the parachain nodes will gravitate towards the end of\nthe list.\n\nTo fix this I introduced logic so that every 5min we check if earlier\nURL's in the list are in a good state and if they are we switch back to\nthem. I think this change in behaviour is actually consistent with the\ncurrent documentation of the cli argument.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
+          "timestamp": "2026-10-25T10:23:12Z",
+          "tree_id": "d268b4e8a06210e08c192546b81a15c0be2a5d84",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5ca9c9f2d4d701b7a0ef11a9d7d6652dc31638ef"
+        },
+        "date": 1792929169669,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12542163356666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.653368072866664,
             "unit": "seconds"
           }
         ]
