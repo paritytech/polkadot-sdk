@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792989200182,
+  "lastUpdate": 1793003203760,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -245951,6 +245951,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2582739314,
             "range": "± 61136894",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8a076f72bacf525a4515277b95005b15f061f87",
+          "message": "Fix ETH RPC Log Filtering Logic (#13002)\n\n# Description\n\nWe have had a number of issues in the eth-rpc related to the log\nfiltering logic and to its data representation such as:\n\n- https://github.com/paritytech/polkadot-sdk/pull/12626\n- https://github.com/paritytech/polkadot-sdk/pull/12483\n- https://github.com/alloy-rs/alloy/pull/4153\n\nSome of the issues that I link to here can't be fixed without changing\nthe models we're using since there are certain things which alloy's\n`Filter` type can't represent\n(https://github.com/alloy-rs/alloy/pull/4153).\n\nThis PR does the following:\n- Introduces our own `Filter` type which we use instead of alloy's\nfilter type (due to the issues it has with what data it can't represent\nas seen in https://github.com/alloy-rs/alloy/pull/4153).\n- Implement `Filter` matching logic on the `Filter` type itself as an\nauthoritative implementation that can be used anywhere in the codebase.\n- Removes the duplicated subscription filter type that we used to have\nin favor of this new `Filter` type.\n- Updates the `ReceiptProvider::logs` implementation to match the\nfiltering logic implemented on the `Filter` type.\n\nThis PR fixes all of the github issues/PRs linked to above and should\nclose them once its merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-26T07:08:50Z",
+          "tree_id": "ecc342976b82eb8db230e28ec116fc67fc202300",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8a076f72bacf525a4515277b95005b15f061f87"
+        },
+        "date": 1793003171690,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4263208,
+            "range": "± 40674",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 303338,
+            "range": "± 1962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4300406,
+            "range": "± 23782",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 378679,
+            "range": "± 4473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5002279,
+            "range": "± 30271",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 899904,
+            "range": "± 9513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10632467,
+            "range": "± 54556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4950227,
+            "range": "± 62204",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45201596,
+            "range": "± 562745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38699865,
+            "range": "± 193011",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 368073743,
+            "range": "± 2828021",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 306706836,
+            "range": "± 3584659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2592810322,
+            "range": "± 10772795",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2342588181,
+            "range": "± 10866473",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3499640,
+            "range": "± 22030",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1928966,
+            "range": "± 15208",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3621501,
+            "range": "± 27570",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2014752,
+            "range": "± 9958",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4320795,
+            "range": "± 59300",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2344994,
+            "range": "± 20739",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8337108,
+            "range": "± 77232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5609881,
+            "range": "± 76398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 40804473,
+            "range": "± 473098",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39035406,
+            "range": "± 568644",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 330426435,
+            "range": "± 2364424",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 294254820,
+            "range": "± 2418095",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2561628545,
+            "range": "± 20724702",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2439028897,
+            "range": "± 23200839",
             "unit": "ns/iter"
           }
         ]
