@@ -360,8 +360,12 @@ impl<H: Hasher> OverlayedChanges<H> {
 		changeset
 	}
 
-	/// The child root lives in the main trie, so changing the child changes that key too. Only a
-	/// write with a value proves the child stays non-empty; otherwise assume its root is removed.
+	/// Marks the root key of a child trie as changed in the main trie.
+	///
+	/// Every child trie stores its root under a key in the main trie, so any change to the child
+	/// changes that key as well. A deletion may leave the child empty, and then the key is removed.
+	/// The tracker cannot know that in advance, so callers pass `Deleted` for every deletion and
+	/// `Updated` only for a write with a value.
 	fn track_child_root_key(&mut self, child_info: &ChildInfo, op: DeltaKeyOp) {
 		self.top
 			.track_storage_root_key(child_info.prefixed_storage_key().into_inner(), op);

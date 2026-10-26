@@ -94,31 +94,34 @@ pub type KeyHashBuilder = BuildHasherDefault<KeyHashHasher>;
 /// Maps key hash -> (key, last op) for keys staged in the current transaction layer.
 type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 
-/// Maps key hash -> the op a `take_delta` call last decided for the key, reported or not.
-/// Used to suppress redundant re-emissions across `take_delta` calls.
-type CapturedMap = HashMap<KeyHash, DeltaKeyOp, KeyHashBuilder>;
+/// Maps key hash -> the latest op `take_delta` saw for the key, reported or not. Lets later
+/// `take_delta` calls skip ops they already reported.
+type SnapshotMap = HashMap<KeyHash, DeltaKeyOp, KeyHashBuilder>;
 
-/// Incremental snapshot result: map of key hash -> (key, op) for all new keys since last snapshot.
+/// Key operations returned by [`ProofSizeTracker::take_delta`].
 ///
-/// KeyHash is for internal use and shall be ignored. The `DeltaKeyOp` indicates whether the key was
-/// updated or deleted, allowing the trie layer to decide whether to read or remove the key.
+/// Keyed by [`KeyHash`], which callers ignore; the values carry the key and its op.
 pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 
 /// Tracks storage key modifications with transaction support and incremental delta extraction.
 ///
-/// Provides nested transactions and efficient incremental deltas that avoid duplicating
-/// previously captured keys. Keys can be tracked as `Updated` or `Deleted` operations.
+/// Supports nested transactions and incremental deltas. Keys are tracked as `Updated` or
+/// `Deleted`. Repeated operations are omitted from later deltas.
 ///
-/// # Operation Semantics
+/// # Reporting
 ///
-/// - **Updated**: Standard key insertion/update
-/// - **Deleted**: Key deletion
-/// - A key is reported when its newest op differs from the op last decided for it, so Updated →
-///   Deleted and Deleted → Updated both appear in separate deltas, while a repeated op does not. A
-///   key deleted and created again is reported as `Updated` again; that only reads nodes the
-///   estimation already recorded.
+/// [`Self::take_delta`] reports pending key operations. A key is included if its latest operation
+/// differs from the operation previously reported for it in a transaction that has not been rolled
+/// back. Multiple changes between calls are collapsed into one operation.
+///
+/// A key can therefore be reported as `Updated`, then `Deleted`, then `Updated` across separate
+/// calls. The second `Updated` report adds no nodes to the proof: the deletion already loaded the
+/// key's path in the block-start trie.
 ///
 /// # Estimation trie
+///
+/// The estimation trie is an in-memory trie used to estimate the proof size needed for storage
+/// root computation.
 ///
 /// Only removals are applied to the estimation trie. An update is estimated by reading the key's
 /// path in the block-start trie, while a removal restructures the trie and may load sibling nodes
@@ -137,8 +140,9 @@ pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 /// hash. Their own hasher, [`KeyHashHasher`], does no hashing at all: the key is already a
 /// hash, so it just returns the low 64 bits as the bucket index.
 ///
-/// The hash is Blake2. It is the same on the collator and in the PVF, so both sides agree
-/// on every key. A 128-bit collision is out of reach, so two keys never share an identity.
+/// The hash is Blake2-128. It is deterministic, so the collator and the PVF derive the same
+/// identities. Collisions are assumed to be computationally infeasible; a collision would merge
+/// two keys and could drop a report.
 pub struct ProofSizeTracker<K, H: Hasher> {
 	/// Stack of parent transaction layers (outermost first).
 	layers: Vec<TransactionLayer<K, H>>,
@@ -151,10 +155,14 @@ pub struct ProofSizeTracker<K, H: Hasher> {
 }
 
 struct TransactionLayer<K, H: Hasher> {
-	/// base hash -> key map of all new keys that were not yet included into any delta.
+	/// Pending operations stored in this layer, keyed by key hash.
+	///
+	/// Each entry holds the key and its latest operation. An entry leaves this map when a delta is
+	/// taken for this layer, or when a child transaction whose snapshot holds the key commits.
 	dirty_keys: KeyMap<K>,
-	/// Maps key hash -> the op last decided for keys `take_delta` saw in this layer.
-	snapshot: Option<CapturedMap>,
+	/// Latest operation `take_delta` saw for each key, reported or not. Snapshots of child
+	/// transactions are merged into it on commit.
+	snapshot: Option<SnapshotMap>,
 	/// The trie as it was when this transaction started, `None` if the trie did not exist when the
 	/// transaction started.
 	trie_snapshot: Option<EstimationTrieSnapshot<H>>,
@@ -214,7 +222,7 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
 	/// A later op on the same key replaces this one; the next delta reports the key only if its
-	/// newest op differs from the op last decided for it.
+	/// newest op differs from the one in the snapshot.
 	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
 	where
 		K: TrackedKey,
@@ -239,17 +247,16 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		self.layers.push(old_current);
 	}
 
-	/// Commits the current transaction, merging dirty keys and snapshot into parent. Pending
-	/// writes of the parent for keys the current transaction reported are dropped, since that
-	/// report already covered them.
+	/// Commits the current transaction, merging its pending operations and snapshot into the
+	/// parent. Parent operations are removed for keys in the child's snapshot.
 	///
 	/// The estimation trie keeps its changes and the layer's trie snapshot is discarded.
 	pub fn commit_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "commit_transaction empty:{}", self.layers.len());
 		if let Some(mut parent) = self.layers.pop() {
 			if let Some(current_snapshot) = self.current.snapshot.take() {
-				// The child's reports are newer than the parent's pending writes; keeping both
-				// would let the older write be reported later as if it were new.
+				// The child's snapshot supersedes the parent's pending operations for the same
+				// keys. Remove those operations so they cannot be reported later.
 				for hash in current_snapshot.keys() {
 					parent.dirty_keys.swap_remove(hash);
 				}
@@ -266,7 +273,7 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		}
 	}
 
-	/// Rolls back the current transaction, discarding dirty keys, updated and deleted key sets.
+	/// Rolls back the current transaction, discarding its pending operations and snapshot.
 	///
 	/// The estimation trie is rolled back to the trie snapshot of the discarded layer, or dropped
 	/// if it did not exist when that layer started.
@@ -291,13 +298,13 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		&mut self.estimation_trie
 	}
 
-	/// Returns the keys whose newest op differs from the op last decided for them.
+	/// Returns pending key operations. Only the latest operation for each key is considered. It is
+	/// returned if it differs from the operation in the snapshot, or if the key is not in the
+	/// snapshot yet. Either way the snapshot records it.
 	///
-	/// Dirty keys are collected from current layer and parent layers up to the first captured
-	/// delta, and each key's newest op is decided once and recorded, even when it is not
-	/// reported. After taking a delta:
-	/// - On commit: captured keys are merged into parent, dirty keys become unavailable in parent
-	/// - On rollback: captured keys are discarded, dirty keys become available again in parent
+	/// Snapshots follow transaction commits and rollbacks. Rolling back discards the snapshot of
+	/// that transaction, so pending operations of outer layers that it covered can be returned
+	/// again.
 	///
 	/// Does not touch the estimation trie.
 	#[must_use]
@@ -307,14 +314,14 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	{
 		let TransactionLayer { dirty_keys, snapshot, .. } = &mut self.current;
 
-		// 1. The newest pending op of every key: the current layer's writes, then those of the
-		//    outer layers down to the first one with a snapshot. An outer write loses to a newer
-		//    one already collected, and to any op the current layer already decided.
+		// Collect the newest pending op for each key. Start with the current layer, then walk
+		// outwards. Stop after processing the first layer with a snapshot. Skip keys already
+		// collected or already in the current layer's snapshot.
 		let mut newest = mem::take(dirty_keys);
 		for layer in self.layers.iter().rev() {
 			for (&hash, entry) in &layer.dirty_keys {
-				let decided_by_current = snapshot.as_ref().is_some_and(|s| s.contains_key(&hash));
-				if !newest.contains_key(&hash) && !decided_by_current {
+				let in_current_snapshot = snapshot.as_ref().is_some_and(|s| s.contains_key(&hash));
+				if !newest.contains_key(&hash) && !in_current_snapshot {
 					newest.insert(hash, entry.clone());
 				}
 			}
@@ -323,8 +330,8 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 			}
 		}
 
-		// 2. A key is emitted when its newest op differs from the op standing in the snapshots.
-		//    Every decided key is recorded in the current snapshot, emitted or not.
+		// Report a key when its newest op differs from the op in the snapshots. Record every
+		// key's newest op in the current snapshot, reported or not.
 		let mut delta: DeltaKeys<K> = HashMap::with_hasher(KeyHashBuilder::default());
 		for (hash, (key, op)) in newest {
 			let standing_op = snapshot.as_ref().and_then(|s| s.get(&hash).copied()).or_else(|| {
@@ -851,9 +858,9 @@ mod tests {
 		assert!(second.is_empty(), "stale outer write reported again: {:?}", second.values());
 	}
 
-	/// The newest op of a key decides, even when it is not reported. The inner `Updated` matches
-	/// the reported `Updated`, so nothing is reported; the older outer `Deleted` must not be
-	/// reported in its place, the key exists in the final state.
+	/// The newest op of a key enters the snapshot, even when it is not reported. The inner
+	/// `Updated` matches the reported `Updated`, so nothing is reported; the older outer `Deleted`
+	/// must not be reported in its place, the key exists in the final state.
 	#[test]
 	fn suppressed_newer_update_still_supersedes_older_pending_delete() {
 		let mut tracker = Tracker::default();

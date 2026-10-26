@@ -178,11 +178,7 @@ where
 /// state for a new block.
 pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
-/// In-memory trie kept across PoV size estimation calls, so removals accumulate as they do in the
-/// real storage root computation.
-///
-/// Created by the first size estimation call that applies a removal, in the layout of the state
-/// version in force at that point. Later calls follow the trie's layout.
+/// In-memory trie kept across PoV size estimation calls, so removals accumulate.
 pub enum EstimationTrie<H: Hasher> {
 	/// The trie of a chain with state version 0.
 	V0(DetachedTrieDBMut<LayoutV0<H>>),
@@ -216,6 +212,8 @@ impl<H: Hasher> EstimationTrie<H> {
 	}
 
 	/// Roll back to `snapshot`, see [`DetachedTrieDBMut::rollback_to`].
+	///
+	/// Panics if the snapshot was taken from a trie with a different layout.
 	pub fn rollback_to(
 		&mut self,
 		snapshot: &EstimationTrieSnapshot<H>,
