@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793029564434,
+  "lastUpdate": 1793037978507,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de4709b0914c8290f0092c919d841b79249db836",
-          "message": "revive: Skip redundant eth_block_hash RPC call in block subscription (#11475)\n\nCo-authored-by: Marian Radu <marian@parity.io>",
-          "timestamp": "2026-04-10T14:54:26Z",
-          "tree_id": "d3087adcddf7732785d390a9c1c3935b215d66f1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de4709b0914c8290f0092c919d841b79249db836"
-        },
-        "date": 1775837896336,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.094,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08709488744599994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038536812462,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03846740504199999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f20de3de1c5f9624a33209466968e35c1228c0f4",
+          "message": "Remove unused `node-template` artifacts and release tooling (#13550)\n\nRemoves `substrate/scripts/ci/node-template-release` and\n`substrate/docker`. Both still point at `substrate/bin/node-template`,\nwhich [#3460](https://github.com/paritytech/polkadot-sdk/pull/3460)\nmoved to `templates/solochain` (as `solochain-template-node`).\n\nTemplates are now released by\n[misc-sync-templates.yml](https://github.com/paritytech/polkadot-sdk/blob/master/.github/workflows/misc-sync-templates.yml).\nAll the tooling around node-templates is therefore not needed anymore.",
+          "timestamp": "2026-10-26T16:30:54Z",
+          "tree_id": "cec04f1996a8e203524394816398dd50b35b4eb6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f20de3de1c5f9624a33209466968e35c1228c0f4"
+        },
+        "date": 1793037946475,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12600000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038661505354000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08831845856199994,
             "unit": "seconds"
           }
         ]
