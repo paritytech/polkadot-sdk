@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793004364500,
+  "lastUpdate": 1793029617751,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bf65ec8994dd0477995451e5db4695ba40a7e39",
-          "message": "statement-store: test crash mid-sync (#11691)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11536: covers\nnode crash mid-sync.\n\nAdds a zombienet integration test that verifies statement store recovery\nafter a node crash mid-sync. The test submits statements concurrently to\nmultiple nodes, kills one mid-gossip, submits more while it's down, then\nasserts all recoverable statements converge after restart.\n\n## Integration\n\nNo integration needed.\n\n## Review Notes\n                                                           \n- Three-node setup (alice, bob, charlie) with ~0.6 MiB statements to\nforce one-per-gossip-notification pacing\n- Bob is restarted immediately after receiving at least one alice\nstatement (mid-sync window)\n- Recovery verified by parsing 'Statement loaded' log lines (requires\nstatement-store=trace)\n- Tolerates at most 1 lost bob statement due to ParityDB's async fsync\non SIGKILL\n- Refactored subscribe_topic into subscribe_topic +\nsubscribe_topic_filter for MatchAny support\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T16:29:52Z",
-          "tree_id": "13dba3ac0133316c54c72a8d4f82fbbe890b2e4a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bf65ec8994dd0477995451e5db4695ba40a7e39"
-        },
-        "date": 1775757059506,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009438961719999975,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010624074070000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002636904830000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009368893919999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d83fe2acc1fecef54e45f7ce6aa72a4ed7da4d28",
+          "message": "`pallet-broker`: reject duplicate auto-renewal for a core (#12689)\n\n`do_enable_auto_renew` computed the insertion index with\n`binary_search_by(..).unwrap_or_else(|e| e)`, which collapses the\n\"already present\" (`Ok`) and \"not present\" (`Err`) cases into the same\nposition and then calls `try_insert`. Enabling auto-renewal twice for\nthe same core inserted a duplicate `AutoRenewalRecord`, breaking the\nsorted-unique invariant documented on the `AutoRenewals` storage. The\n`workload_end_hint` branch only reads `PotentialRenewals` (it does not\nconsume the record), so the preconditions pass on every call and the\npath is user-reachable.\n\nDuplicate entries cause `rotate_sale`/`renew_cores` to renew and charge\nthe payer once per duplicate, consume the `MaxAutoRenewals` bound with\nspurious records, and leave orphans after `disable_auto_renew` (which\nremoves a single position).\n\nA second enable for an already-enrolled core now returns the new\n`AutoRenewalAlreadyEnabled` error.\n\nCloses #12602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sergej Sakac <73715684+Szegoo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-26T14:10:11Z",
+          "tree_id": "a1502ad014bdbb2b5f3e83dc2e3ccdfef10f0cfa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d83fe2acc1fecef54e45f7ce6aa72a4ed7da4d28"
+        },
+        "date": 1793029588292,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025620077500000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00958910884999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01067208974,
             "unit": "seconds"
           }
         ]
