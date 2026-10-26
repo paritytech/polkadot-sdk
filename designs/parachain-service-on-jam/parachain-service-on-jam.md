@@ -851,8 +851,8 @@ Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a cor
 `pending_assigns` entry only when that core is due.
 
 - If the call succeeds, the core is dropped from both maps. The exception is a core that
-  stays assigned to this service and whose queue needs rewriting every 80 blocks (§7.1). It
-  is re-armed 80 blocks out with its rotation advanced.
+  stays assigned to this service and whose queue needs rewriting every 80 timeslots (§7.1). It
+  is re-armed 80 timeslots out with its rotation advanced.
 - If JAM rejects it because this service is no longer the core's assigner, the core is
   dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
   Coretime chain's log.
@@ -1709,7 +1709,7 @@ slots with the next 80 entries of that set repeated endlessly:
   `Some` assigner demands an exact 80-hash queue (§4.3).
 - X < 80 with `80 % X != 0`: 80 slots do not land on a set boundary, so each cycle must
   resume where the last one stopped. The service keeps the queue and rewrites it every
-  80 blocks, shifting its start forward by `80 % X` each time. For X = 11 the first
+  80 slots, shifting its start forward by `80 % X` each time. For X = 11 the first
   cycle is 7 full passes (77) plus authorizers 1 to 3. The next starts at the 4th, runs
   to the 11th, then repeats. The stored order is the schedule, so there is no separate cursor.
 
