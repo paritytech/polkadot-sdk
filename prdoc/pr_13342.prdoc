@@ -17,8 +17,8 @@ doc:
     `CLONE_INPUT` flag, while previously it always cloned an empty input.
     Unlike the previous `seal_call` benchmark, `seal_call_transfer` also covers the cost of
     creating the callee's account.
-    With dust, the transfer benchmarks also cover the receiver's dust adding up to a whole plank,
-    which the transfer then mints.
+    When the value sent includes dust, the transfer benchmarks also cover the receiver's dust
+    adding up to a whole plank, which the transfer then mints.
     `call_with_evm_code_per_byte` now benchmarks code up to `MAX_CODE_SIZE`.
 - audience: Runtime User
   description: |-
