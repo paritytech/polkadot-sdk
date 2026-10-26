@@ -17,3 +17,8 @@
   soak-nodes: "40"
   soak-dht-off-nodes: "4"
   soak-secs: "600"
+
+- job-name: "zombienet-statement-store-soak-0003-v2-dht-rollout"
+  test-filter: "zombie_ci::statement_store::v2_dht_mixed_soak::statement_store_v2_dht_rollout_soak"
+  cumulus-image: "polkadot-parachain-debug"
+  soak-nodes: "40"

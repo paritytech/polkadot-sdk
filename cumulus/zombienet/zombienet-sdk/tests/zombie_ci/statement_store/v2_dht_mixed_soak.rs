@@ -37,20 +37,25 @@
 //!
 //! Sized by `STATEMENT_V2_SOAK_NODES` (default 16), `STATEMENT_V2_SOAK_DHT_OFF_NODES` (default 4)
 //! and `STATEMENT_V2_SOAK_SECS` (default 900)
+//!
+//! The rollout soak walks a network through turning the DHT path on: only the collators start on
+//! it, then full nodes restart onto it, with their keys and databases, until half and then 90% of
+//! the nodes run it, and one goes back off it. A wave checks delivery and placement after each
+//! step, so the other nodes must see the switched nodes for what they now run
 
 use super::{
 	common::{
-		base_dir, collator_args, submit_at_rate, submit_statement, subscribe_topic,
-		wait_for_first_block, Load,
+		base_dir, collator_args, collator_args_v2, submit_at_rate, submit_statement,
+		subscribe_topic, wait_for_first_block, Load,
 	},
 	v2_dht_soak::{
-		bring_online, collect_peer_keys, env_parsed, is_dropped_connection, launch_soak_network,
-		nodes_with_statement_errors, placement_mismatch, ranked_by_distance, soak_topic,
-		store_snapshot, take_offline, ExpectedPlacement, NodeHandle, AUTHORING_COLLATORS,
-		CONNECTED_PEERS_METRIC, DEFAULT_SOAK_SECS, DELIVERY_TIMEOUT_SECS, ELIGIBLE_PEERS_METRIC,
-		LOG_FILTER, MAX_RECONNECTS, NODES_ENV, PARTICIPANTS, PLACEMENT_TIMEOUT_SECS,
-		PRE_JOIN_TOPICS, REPLICATION_FACTOR, RING_RATE_PER_SECOND, RING_SECS, SOAK_SECS_ENV,
-		STATEMENT_TTL,
+		bring_online, bring_online_with, collect_peer_keys, env_parsed, is_dropped_connection,
+		launch_soak_network, nodes_with_statement_errors, placement_mismatch, ranked_by_distance,
+		soak_topic, store_snapshot, take_offline, ExpectedPlacement, NodeHandle,
+		AUTHORING_COLLATORS, CONNECTED_PEERS_METRIC, DEFAULT_SOAK_SECS, DELIVERY_TIMEOUT_SECS,
+		ELIGIBLE_PEERS_METRIC, GOSSIP_TARGET, LOG_FILTER, MAX_RECONNECTS, NODES_ENV, PARTICIPANTS,
+		PLACEMENT_TIMEOUT_SECS, PRE_JOIN_TOPICS, REPLICATION_FACTOR, RING_RATE_PER_SECOND,
+		RING_SECS, SOAK_SECS_ENV, STATEMENT_TTL,
 	},
 };
 use anyhow::{anyhow, bail, ensure, Context};
@@ -71,27 +76,18 @@ use zombienet_sdk::{
 
 const DHT_OFF_NODES_ENV: &str = "STATEMENT_V2_SOAK_DHT_OFF_NODES";
 const DEFAULT_DHT_OFF_NODES: usize = 4;
-/// Leaves more DHT nodes than K beside the default DHT-off ones, so topics with only DHT replicas
-/// exist
 const DEFAULT_NODES: usize = 16;
-/// Open statement substreams; the v2 DHT metrics are absent on a DHT-off node, this one is not
 const PEERS_CONNECTED_METRIC: &str = "substrate_sync_statement_peers_connected{kind=\"full\"}";
 const DESIRED_UNCONNECTED_METRIC: &str = "substrate_sync_statement_v2dht_desired_unconnected_peers";
 const BYTES_SENT_METRIC: &str = "substrate_sync_statement_bytes_sent_total";
 const BYTES_RECEIVED_METRIC: &str = "substrate_sync_statement_bytes_received_total";
-/// A DHT node waits 10 s for a filter from a new peer, then sends the peer everything it stores. A
-/// probe slower than this came that way after a reconnect, not by normal sending. Late is
-/// reported, not failed
 const LATE_AFTER: Duration = Duration::from_secs(10);
 const RESTART_EVERY_WAVES: u64 = 4;
-/// A DHT-off and a DHT restart run even with a zero soak duration
 const MANDATORY_RESTARTS: u64 = 2;
-/// A DHT-off joiner, then a DHT one, after the mandatory restarts
 const JOINS: u64 = 2;
+const ROLLOUT_DHT_PERCENT: [usize; 2] = [50, 90];
 const BACKLOG_RATE_PER_SECOND: usize = 4;
 const BACKLOG_SECS: u64 = 2;
-/// The backlog spreads to its holders before the node returns or joins, so the node catches up from
-/// statements at rest
 const BACKLOG_SETTLE: Duration = Duration::from_secs(15);
 const RESTART_OUTAGE_TIMEOUT_SECS: u64 = 600;
 const RESTART_ONLINE_TIMEOUT_SECS: u64 = 240;
@@ -105,8 +101,6 @@ const PROBE_UNLINKED_DHT: &str = "probe dht-off→dht, subscriber unlinked from 
 const PROBE_OTHER_GROUP: &str = "probe dht-off→dht-off, subscriber outside the entry's group";
 const JOIN_TAKEOVER: &str = "join dht, statements of the replica topics it entered";
 
-/// The DHT node farthest from a topic in its `order`, the entry with the longest route into the
-/// topic's replica set
 fn farthest_dht(order: &[usize], dht_off: &[bool]) -> usize {
 	*order
 		.iter()
@@ -115,10 +109,16 @@ fn farthest_dht(order: &[usize], dht_off: &[bool]) -> usize {
 		.expect("the network has DHT nodes; qed")
 }
 
-/// A DHT-off node runs the network's args without the v2 DHT ones, the flag that turns the path on
-/// among them
+fn node_args(dht: bool) -> Vec<zombienet_sdk::Arg> {
+	if dht {
+		collator_args_v2(PARTICIPANTS, LOG_FILTER, REPLICATION_FACTOR as u32, GOSSIP_TARGET)
+	} else {
+		collator_args(PARTICIPANTS, LOG_FILTER)
+	}
+}
+
 fn dht_off_options() -> AddCollatorOptions {
-	AddCollatorOptions { args: collator_args(PARTICIPANTS, LOG_FILTER), ..Default::default() }
+	AddCollatorOptions { args: node_args(false), ..Default::default() }
 }
 
 fn kind(dht_off: &[bool], idx: usize) -> &'static str {
@@ -331,7 +331,7 @@ async fn wait_for_mixed_topology(
 ) -> Result<(), anyhow::Error> {
 	let deadline = Instant::now() + Duration::from_secs(300 + 5 * nodes.len() as u64);
 	let dht_peers = (dht_off.iter().filter(|&&off| !off).count() - 1) as f64;
-	let connected_floor = (nodes.len() - 1).min(REPLICATION_FACTOR) as f64;
+	let connected_floor = dht_peers.min(REPLICATION_FACTOR as f64);
 	loop {
 		let mut unaware = Vec::new();
 		let mut short = Vec::new();
@@ -1113,5 +1113,86 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 		 delivered",
 		soak_started.elapsed().as_secs_f64(),
 	);
+	Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_v2_dht_rollout_soak() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+	// 1. Start the collators on the DHT path and every full node off it, as before a rollout
+	let statement_node_count = env_parsed::<usize>(NODES_ENV)?.unwrap_or(DEFAULT_NODES);
+	let full_node_names: Vec<String> = (0..statement_node_count - AUTHORING_COLLATORS.len())
+		.map(|i| format!("rollout-{i}"))
+		.collect();
+	let mut network = launch_soak_network(&[]).await?;
+	for name in &full_node_names {
+		network.add_collator(name.as_str(), dht_off_options(), 1004).await?;
+	}
+	let mut nodes = Vec::with_capacity(statement_node_count);
+	for name in AUTHORING_COLLATORS.iter().map(|n| n.to_string()).chain(full_node_names) {
+		let node = network.get_node(name.as_str())?.clone();
+		let rpc = node.rpc().await?;
+		nodes.push(NodeHandle { node, rpc });
+	}
+	let mut dht_off: Vec<bool> =
+		(0..nodes.len()).map(|idx| idx >= AUTHORING_COLLATORS.len()).collect();
+
+	info!("Waiting for the parachain to produce blocks...");
+	wait_for_first_block(&[&nodes[0].node], 300).await?;
+	let mut report = Report::default();
+	wait_for_mixed_topology(&nodes, &dht_off, true, &mut report).await?;
+	let peer_keys = collect_peer_keys(&nodes).await?;
+	let peer_ids = collect_peer_ids(&nodes).await?;
+
+	// 2. A wave before the rollout and one after each step. The full nodes switch in order
+	let mut load = Load::expiring(PARTICIPANTS, STATEMENT_TTL);
+	let (mut wave, mut switches) = (0u64, 0u64);
+	let rollout = async {
+		run_wave(wave, &nodes, &dht_off, &peer_keys, &peer_ids, &mut load, &mut report).await?;
+		wave += 1;
+		for percent in ROLLOUT_DHT_PERCENT {
+			let target = nodes.len() * percent / 100;
+			while dht_off.iter().filter(|&&off| !off).count() < target {
+				let idx =
+					dht_off.iter().position(|&off| off).expect("below 100% a node is off; qed");
+				nodes[idx].rpc = bring_online_with(&nodes[idx].node, Some(node_args(true))).await?;
+				dht_off[idx] = false;
+				switches += 1;
+			}
+			report.progress(format!("Rollout: {target} of {} nodes on the DHT path", nodes.len()));
+			wait_for_mixed_topology(&nodes, &dht_off, false, &mut report).await?;
+			run_wave(wave, &nodes, &dht_off, &peer_keys, &peer_ids, &mut load, &mut report).await?;
+			wave += 1;
+		}
+
+		// 3. The last node switched goes back off the DHT path
+		let idx = dht_off.iter().rposition(|&off| !off).expect("the collators run it; qed");
+		nodes[idx].rpc = bring_online_with(&nodes[idx].node, Some(node_args(false))).await?;
+		dht_off[idx] = true;
+		switches += 1;
+		report.progress(format!("Rollback: {} goes back off the DHT path", nodes[idx].name()));
+		wait_for_mixed_topology(&nodes, &dht_off, false, &mut report).await?;
+		run_wave(wave, &nodes, &dht_off, &peer_keys, &peer_ids, &mut load, &mut report).await?;
+		wave += 1;
+
+		// 4. Check the logs for statement errors and print the traffic
+		let failing = nodes_with_statement_errors(&nodes).await?;
+		if !failing.is_empty() {
+			report.finding(format!("{failing:?} logged statement errors during the soak"));
+		}
+		log_traffic(&nodes, &dht_off).await
+	}
+	.await;
+	// 5. Print the report, also after an error, and fail on any miss or finding
+	report.log(wave, switches, 0);
+	rollout?;
+	ensure!(
+		report.failures() == 0,
+		"rollout soak found {} problems, listed in the report above",
+		report.failures()
+	);
+	info!("Rollout soak done: {wave} waves, {switches} switches, every statement delivered");
 	Ok(())
 }
