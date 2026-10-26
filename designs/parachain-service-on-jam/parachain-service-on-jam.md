@@ -464,7 +464,7 @@ type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 /// `set_messages_streams_root`. See §8.
 type StreamsRoot = [u8; 32];
 
-/// Current parachain's settlement ring. See §8.
+/// Parachain's settlement cursor. See §8.
 struct SettlementCursor {
     oldest: StreamsRoot,
     newest: StreamsRoot,
@@ -1762,16 +1762,13 @@ sender's ring.
 
 ### 8.1 Settlement Ring
 
-The settlement ring is represented using three separate structures.
+The settlement ring is represented by a linked list.
 
-The `SettlementCursor`'s head is the position at which the next root is written and the tail
-is the oldest position of the ring. Both are incremented with wrapping arithmetic.
+The `SettlementCursor` contains the oldest and newest roots, together with the size of the ring.
 
 The `messages_member` holds every settled root in the ring. This is represented by a `Map` to
-ensure that membership checks happen in `O(1)`. The value of the map is a plain 0x00 byte, since
-writing a zero-length value is a deletion in JAM.
-
-The `messages_queue` maps a `u32` position to a `StreamsRoot`. It is used only for eviction.
+ensure that membership checks happen in `O(1)`. The value of the map points to the next entry
+in the list. The newest entry points to itself.
 
 **Checking Membership**
 
@@ -1779,17 +1776,35 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
 
 **Pushing a Root**
 
-1. Stop if the `messages_member` already holds `(para_id, new_root)`.
-2. If the ring is at capacity, remove the oldest entry at `tail` from both the `messages_member`
-   and `messages_queue`. Then, advance the `tail`.
-3. Write `new_root` to `messages_queue` at `head` and insert it into `messages_member`.
-   Then, advance the `head`.
+1. Read `messages_member` under `(para_id, new_root)`. Stop if the ring already contains the new root.
+
+2. Read `SettlementCursor` for `para_id`. If the value is absent, write the `new_root` to
+`messages_member` and the `SettlementCursor` with `oldest = newest = new_root` and `len = 1`, then stop.
+
+3. If the ring is at capacity (`SettlementCursor::len == MAX_SETTLEMENT_RING_CAPACITY`):
+    1. Read `messages_member[(para_id, oldest)]` to preserve the linked list.
+    2. Delete `messages_member[(para_id, oldest)]`.
+
+4. Point the previous root to the new one `messages_member[(para_id, newest)] = new_root`.
+
+4. Write the `messages_member[(para_id, new_root)] = new_root`.
+
+5. Write the updated `SettlementCursor`.
+    - `oldest` is the value obtained in step 3.1 if a root was evicted.
+    - `newest` is the `new_root`.
+    - `len` is incremented until capacity.
 
 **Ring Cleanup**
 
-1. Iterate through all positions in the ring and remove the entries from both `messages_member`
-   and `messages_queue`.
-2. Delete the `messages_cursor` entry for the parachain.
+When a parachain is removed, its ring is cleared by walking the list from the oldest
+root to the newest.
+
+1. Read the `SettlementCursor`. Stop if it is absent.
+
+2. From the `oldest` root read its entry in `messages_member` to find the next root,
+then delete the entry. Stop when the entry pointing at `newest` root is deleted.
+
+3. Delete the `SettlementCursor`.
 
 
 ---
