@@ -204,7 +204,7 @@ impl<H: Hasher> EstimationTrie<H> {
 	}
 
 	/// Take a snapshot to roll back to, see [`DetachedTrieDBMut::snapshot`].
-	pub fn snapshot(&self) -> EstimationTrieSnapshot<H> {
+	pub fn snapshot(&mut self) -> EstimationTrieSnapshot<H> {
 		match self {
 			Self::V0(trie) => EstimationTrieSnapshot::V0(trie.snapshot()),
 			Self::V1(trie) => EstimationTrieSnapshot::V1(trie.snapshot()),

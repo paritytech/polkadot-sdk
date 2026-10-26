@@ -238,7 +238,7 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 	/// exists.
 	pub fn start_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "start_transaction {}", self.layers.len());
-		let trie_snapshot = self.estimation_trie.as_ref().map(|trie| trie.snapshot());
+		let trie_snapshot = self.estimation_trie.as_mut().map(|trie| trie.snapshot());
 		// Push current layer onto stack
 		let old_current = mem::replace(
 			&mut self.current,
