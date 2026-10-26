@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792971248467,
+  "lastUpdate": 1792990117803,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b96d1afb5e99dc118336c78beb5231dc5d9f6d8e",
-          "message": "[Release|CI/CD] Fix git push in Post Crates Activities flow (#11723)\n\nThis PR fixes issue, that commited changes were not pushed to\npost-crates-release branch as there was a check, that was looking for\nuncommited changes",
-          "timestamp": "2026-04-10T16:40:00Z",
-          "tree_id": "d9f6538613df2c66bb25c1994bd022a465897d10",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b96d1afb5e99dc118336c78beb5231dc5d9f6d8e"
-        },
-        "date": 1775844068747,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14093271304000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006929164633333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00966455080666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025339938906666658,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009729772553333309,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1a6951dba9a97f2b74d69aa956c65afb3b993bf3",
+          "message": "pallet-revive: drop cfg-gated host functions from the upload import allowlist (#13395)\n\n`list_syscalls()` now respects each host function's `#[cfg]`, so builds\nwithout `runtime-benchmarks` reject uploads that import the\nbenchmark-only noop syscall instead of accepting code that traps with\n`InvalidSyscall` when it calls it (fixes #13392).",
+          "timestamp": "2026-10-26T03:18:16Z",
+          "tree_id": "c0b7cc7b6a2f5c2b4db9d28b7a7df4a4cd06fd9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a6951dba9a97f2b74d69aa956c65afb3b993bf3"
+        },
+        "date": 1792990087996,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025655385760000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009955517653333312,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007853108773333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14390796050000007,
             "unit": "seconds"
           }
         ]
