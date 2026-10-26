@@ -746,18 +746,18 @@ mod test {
 	#[test]
 	fn u256_to_balance_convert_works() {
 		assert_eq!(U256ToBalance::convert(0u32.into()), Zero::zero());
-		assert_eq!(U256ToBalance::convert(Balance::max_value().into()), Balance::max_value())
+		assert_eq!(U256ToBalance::convert(Balance::MAX.into()), Balance::MAX)
 	}
 
 	#[test]
 	#[should_panic]
 	fn u256_to_balance_convert_panics_correctly() {
-		U256ToBalance::convert(U256::from(Balance::max_value()).saturating_add(1u32.into()));
+		U256ToBalance::convert(U256::from(Balance::MAX).saturating_add(1u32.into()));
 	}
 
 	#[test]
 	fn balance_to_u256_convert_works() {
 		assert_eq!(BalanceToU256::convert(0u32.into()), U256::zero());
-		assert_eq!(BalanceToU256::convert(Balance::max_value()), Balance::max_value().into())
+		assert_eq!(BalanceToU256::convert(Balance::MAX), Balance::MAX.into())
 	}
 }

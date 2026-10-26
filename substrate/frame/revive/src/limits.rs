@@ -176,9 +176,11 @@ pub mod code {
 	/// that tooling can find out ahead of deployment whether a blob would be accepted.
 	///
 	/// The verdict only matches a production runtime when `pallet-revive` is built without the
-	/// `runtime-benchmarks` feature. With it, the reserved benchmarking syscall is allowed, so a
-	/// blob using it passes here but is rejected with [`CodeRejection::InvalidInstruction`] on
-	/// upload. Features unify across the build, so a dependency can enable it unasked.
+	/// `runtime-benchmarks` feature. With it, a blob that uses the reserved `SENTINEL` ecalli
+	/// passes here but is rejected with [`CodeRejection::InvalidInstruction`] on upload, and a
+	/// blob that imports the benchmark-only `noop` syscall passes here but is rejected with
+	/// [`CodeRejection::Malformed`]. Features unify across the build, so a dependency can
+	/// enable it unasked.
 	pub fn check_pvm_code(pvm_blob: &[u8]) -> Result<(), CodeRejection> {
 		use polkavm_common::program::{
 			EstimateInterpreterMemoryUsageArgs, ISA_ReviveV1, InstructionSetKind,
