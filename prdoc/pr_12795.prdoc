@@ -1,0 +1,27 @@
+title: 'Migrate `pallet-sassafras` from the deprecated `ValidateUnsigned` trait to `#[pallet::authorize]`'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-sassafras` no longer uses the deprecated `ValidateUnsigned` trait and the
+    `#[pallet::validate_unsigned]` attribute. The validation of `submit_tickets` moved to a
+    `#[pallet::authorize]` callback.
+
+    The validation semantics do not change. The callback rejects a call from
+    `TransactionSource::External`, it rejects a call made after the first half of the epoch, and it
+    builds the same transaction validity as before.
+
+    Two changes affect a runtime that includes this pallet. The `Config` supertrait changed from
+    `CreateBare<Call<Self>>` to `CreateAuthorizedTransaction<Call<Self>>`, and the runtime must put
+    `frame_system::AuthorizeCall` in its transaction extension pipeline. `submit_tickets` now needs
+    an authorized origin.
+
+    `submit_tickets_unsigned_extrinsic` keeps its name, because it is a runtime API method and the
+    `_unsigned_extrinsic` suffix is shared with `BabeApi`, `GrandpaApi` and `BeefyApi`. Only its
+    documentation changed.
+
+crates:
+- name: pallet-sassafras
+  bump: major
+- name: sp-consensus-sassafras
+  bump: patch
