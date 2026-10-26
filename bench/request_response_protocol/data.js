@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793028654784,
+  "lastUpdate": 1793036724292,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -137915,6 +137915,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2876837820,
             "range": "± 29153042",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f20de3de1c5f9624a33209466968e35c1228c0f4",
+          "message": "Remove unused `node-template` artifacts and release tooling (#13550)\n\nRemoves `substrate/scripts/ci/node-template-release` and\n`substrate/docker`. Both still point at `substrate/bin/node-template`,\nwhich [#3460](https://github.com/paritytech/polkadot-sdk/pull/3460)\nmoved to `templates/solochain` (as `solochain-template-node`).\n\nTemplates are now released by\n[misc-sync-templates.yml](https://github.com/paritytech/polkadot-sdk/blob/master/.github/workflows/misc-sync-templates.yml).\nAll the tooling around node-templates is therefore not needed anymore.",
+          "timestamp": "2026-10-26T16:30:54Z",
+          "tree_id": "cec04f1996a8e203524394816398dd50b35b4eb6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f20de3de1c5f9624a33209466968e35c1228c0f4"
+        },
+        "date": 1793036696713,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20329500,
+            "range": "± 83087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20428691,
+            "range": "± 90201",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22047962,
+            "range": "± 120576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25935043,
+            "range": "± 143699",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57622630,
+            "range": "± 450955",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 328501831,
+            "range": "± 2849402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2496643665,
+            "range": "± 124174922",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17580733,
+            "range": "± 173312",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17941123,
+            "range": "± 242589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18782983,
+            "range": "± 207601",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23111014,
+            "range": "± 211304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61636751,
+            "range": "± 867319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 364279168,
+            "range": "± 3146130",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2745828000,
+            "range": "± 22846755",
             "unit": "ns/iter"
           }
         ]
