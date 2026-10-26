@@ -133,8 +133,7 @@ pub enum EvmOpcodeCosts {
 
 /// An op-code in one block of the `evm_dispatch_mix` benchmark.
 pub struct DispatchMixOpcode {
-	/// The op-code's byte, which only the `evm_dispatch_mix` benchmark reads.
-	#[cfg(feature = "runtime-benchmarks")]
+	/// The op-code's byte.
 	pub opcode: u8,
 	/// What the op-code is charged.
 	cost: EvmOpcodeCosts,
@@ -143,16 +142,9 @@ pub struct DispatchMixOpcode {
 }
 
 impl DispatchMixOpcode {
-	/// Takes the op-code's byte in every build, but keeps it only for the benchmark.
+	/// Creates an entry for the dispatch mix.
 	const fn new(opcode: u8, cost: EvmOpcodeCosts, repetitions: u64) -> Self {
-		#[cfg(not(feature = "runtime-benchmarks"))]
-		let _ = opcode;
-		Self {
-			#[cfg(feature = "runtime-benchmarks")]
-			opcode,
-			cost,
-			repetitions,
-		}
+		Self { opcode, cost, repetitions }
 	}
 }
 
@@ -302,10 +294,17 @@ impl<T: Config> Token<T> for EvmOpcodeCosts {
 pub struct EvmDispatch;
 
 impl EvmDispatch {
-	/// Checks that the weights leave a dispatch charge above zero. Otherwise `evm_dispatch_mix`
-	/// measured no more than the charges of its op-codes, and the dispatch charge would silently
-	/// be zero.
+	/// Checks that every op-code in the mix pays dispatch and the weights leave a charge above
+	/// zero. Otherwise `evm_dispatch_mix` measured no more than the charges of its op-codes, and
+	/// the dispatch charge would silently be zero.
 	pub fn integrity_test<T: Config>() {
+		for entry in EvmOpcodeCosts::DISPATCH_MIX {
+			assert!(
+				instructions::pays_dispatch(entry.opcode),
+				"op-code {:#04x} in `evm_dispatch_mix` must pay the dispatch charge",
+				entry.opcode,
+			);
+		}
 		assert!(
 			Token::<T>::weight(&Self).ref_time() > 0,
 			"`evm_dispatch_mix` must measure more than the charges of its op-codes",

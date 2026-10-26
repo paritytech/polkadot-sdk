@@ -108,7 +108,8 @@ doc:
 
     The pallet's `integrity_test` requires the `ref_time` of the dispatch
     charge above to be greater than zero. If it fails for your runtime,
-    regenerate its pallet-revive weights.
+    regenerate its pallet-revive weights. It also checks that every
+    op-code in the dispatch mix pays the dispatch charge.
 
     No storage migration is required.
 - audience: Runtime User
