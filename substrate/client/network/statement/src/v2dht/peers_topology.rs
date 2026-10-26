@@ -165,6 +165,12 @@ impl PeersTopology {
 		true
 	}
 
+	/// Whether `peer` speaks the protocol without the DHT path. The mark lasts while its substream
+	/// is open.
+	pub fn is_without_dht(&self, peer: &PeerId) -> bool {
+		self.discovered.get(peer).is_some_and(|info| info.without_dht)
+	}
+
 	#[cfg(test)]
 	fn is_connected(&self, peer: &PeerId) -> bool {
 		self.discovered.get(peer).is_some_and(|info| info.connected)

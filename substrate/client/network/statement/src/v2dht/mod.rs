@@ -371,12 +371,19 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	/// Recompute the peers the node needs connected, those covering its topics and its routing
-	/// peers, and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics, its routing peers
+	/// and the reserved peers without the DHT path, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
 		let mut desired = self.peers_topology.peers_for_topics(&topics);
 		desired.extend(self.peers_topology.peers_for_routing());
+		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
+		// closes its substream, which returns the peer to the index and gets it dialed again.
+		desired.extend(
+			self.peer_steering
+				.reserved_peers()
+				.filter(|peer| self.peers_topology.is_without_dht(peer)),
+		);
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
@@ -387,6 +394,15 @@ impl V2DhtOrchestrator {
 	/// protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	/// Release `peer` if steering holds it reserved as a peer without the DHT path, so that a
+	/// disconnect sent next closes its substream. The litep2p peerset ignores a disconnect of a
+	/// reserved peer, and it takes both commands from one queue, in order.
+	pub(crate) fn release_peer_without_dht<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
+		if self.peer_steering.is_reserved(&peer) && self.peers_topology.is_without_dht(&peer) {
+			self.peer_steering.release_peer(network, peer);
+		}
 	}
 
 	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
@@ -764,6 +780,24 @@ mod tests {
 
 		orchestrator.on_peer_identified(remote, true);
 		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn a_reserved_peer_without_dht_stays_reserved() {
+		let mut orchestrator = orchestrator();
+		let dialed = peer(2);
+		let dialed_in = peer(3);
+		let no_longer_needed = peer(4);
+		for remote in [dialed, dialed_in] {
+			orchestrator.on_substream_opened(remote);
+			orchestrator.on_peer_without_dht(remote);
+		}
+		orchestrator.peer_steering.reserve([dialed, no_longer_needed]);
+
+		orchestrator.on_pending_affinities();
+
+		assert_eq!(orchestrator.peer_steering.peers_to_release(), vec![no_longer_needed]);
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
 	}
 
 	#[test]
