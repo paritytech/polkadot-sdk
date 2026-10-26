@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792989249113,
+  "lastUpdate": 1793003254133,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -137699,6 +137699,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2783119249,
             "range": "± 32790738",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8a076f72bacf525a4515277b95005b15f061f87",
+          "message": "Fix ETH RPC Log Filtering Logic (#13002)\n\n# Description\n\nWe have had a number of issues in the eth-rpc related to the log\nfiltering logic and to its data representation such as:\n\n- https://github.com/paritytech/polkadot-sdk/pull/12626\n- https://github.com/paritytech/polkadot-sdk/pull/12483\n- https://github.com/alloy-rs/alloy/pull/4153\n\nSome of the issues that I link to here can't be fixed without changing\nthe models we're using since there are certain things which alloy's\n`Filter` type can't represent\n(https://github.com/alloy-rs/alloy/pull/4153).\n\nThis PR does the following:\n- Introduces our own `Filter` type which we use instead of alloy's\nfilter type (due to the issues it has with what data it can't represent\nas seen in https://github.com/alloy-rs/alloy/pull/4153).\n- Implement `Filter` matching logic on the `Filter` type itself as an\nauthoritative implementation that can be used anywhere in the codebase.\n- Removes the duplicated subscription filter type that we used to have\nin favor of this new `Filter` type.\n- Updates the `ReceiptProvider::logs` implementation to match the\nfiltering logic implemented on the `Filter` type.\n\nThis PR fixes all of the github issues/PRs linked to above and should\nclose them once its merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-26T07:08:50Z",
+          "tree_id": "ecc342976b82eb8db230e28ec116fc67fc202300",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8a076f72bacf525a4515277b95005b15f061f87"
+        },
+        "date": 1793003221943,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20904161,
+            "range": "± 179006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21366228,
+            "range": "± 190690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22895309,
+            "range": "± 154700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27188739,
+            "range": "± 238761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61045097,
+            "range": "± 782134",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 372425325,
+            "range": "± 7159831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2700491956,
+            "range": "± 196794784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18284101,
+            "range": "± 132781",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18467480,
+            "range": "± 150147",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18867106,
+            "range": "± 224591",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23880397,
+            "range": "± 230003",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64283114,
+            "range": "± 594477",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 378113086,
+            "range": "± 3498492",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2884302063,
+            "range": "± 23521000",
             "unit": "ns/iter"
           }
         ]
