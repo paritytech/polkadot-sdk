@@ -398,6 +398,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge { dust_transfer } => {
 				T::WeightInfo::seal_call_transfer(dust_transfer.into())
+					.max(T::WeightInfo::seal_call_transfer_to_existing(dust_transfer.into()))
 					.saturating_sub(T::WeightInfo::seal_call(0))
 			},
 			CallInputCloned(len) => cost_args!(seal_call, len),

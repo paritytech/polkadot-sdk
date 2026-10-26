@@ -8,8 +8,8 @@ doc:
     - `seal_call(t, d, i)` becomes `seal_call(i)`
     - `seal_instantiate(t, d, i)` becomes `seal_instantiate(i)`
     - `evm_instantiate(t, d, i)` becomes `evm_instantiate(i)`
-    - `seal_call_transfer(d)`, `seal_instantiate_transfer(d)` and `evm_instantiate_transfer(d)`
-      are new
+    - `seal_call_transfer(d)`, `seal_call_transfer_to_existing(d)`,
+      `seal_instantiate_transfer(d)` and `evm_instantiate_transfer(d)` are new
 
     A runtime with its own `pallet_revive` weights has to re-run the benchmarks.
 
@@ -17,6 +17,8 @@ doc:
     `CLONE_INPUT` flag, while previously it always cloned an empty input.
     Unlike the previous `seal_call` benchmark, `seal_call_transfer` also covers the cost of
     creating the callee's account.
+    `seal_call_transfer_to_existing` measures the same call when the callee's account already
+    exists. A call with value pays the larger ref time and the larger proof size of the two.
     When the value sent includes dust, the transfer benchmarks also cover the receiver's dust
     adding up to a whole plank, which the transfer then mints.
     `call_with_evm_code_per_byte` now benchmarks code up to `MAX_CODE_SIZE`.
