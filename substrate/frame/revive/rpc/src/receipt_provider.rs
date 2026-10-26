@@ -1546,6 +1546,19 @@ mod tests {
 			.await;
 		assert!(result.is_err(), "block number beyond latest should be rejected");
 
+		let error = provider
+			.logs(
+				Some(
+					Filter::new()
+						.from_block(log2.block_number.as_u64())
+						.to_block(log2.block_number.as_u64() + 100),
+				),
+				&resolve_block_number,
+			)
+			.await
+			.unwrap_err();
+		assert_eq!(error.downcast_ref::<FilterError>(), Some(&FilterError::BlockRangeFuture));
+
 		let failing = |_: BlockNumberOrTag| {
 			std::future::ready(Err::<U256, anyhow::Error>(anyhow::anyhow!("resolver failed")))
 		};
