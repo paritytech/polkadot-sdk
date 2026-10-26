@@ -117,12 +117,8 @@ doc:
     gas costs change. The exact prices depend on the weights of each
     runtime.
 
-    - Cheaper: `JUMP`, `JUMPI`, `EXP` with small exponents, and long
-      `MCOPY` copies.
-    - Much more expensive: `DIV`, `SDIV`, `MOD`, `SMOD`, `ADDMOD` and
-      `MULMOD`.
-    - More expensive: `CALLDATALOAD`, `MLOAD`, `MSTORE`, `EQ`, `MUL`, `EXP`
-      with large exponents, and short `MCOPY` copies.
+    Most EVM op-codes cost more. `JUMP`, `JUMPI`, `NOT`, `EXP` with small
+    exponents, and long `MCOPY` copies are cheaper.
 
     Existing contracts do not need migration or redeployment. Re-estimate
     gas limits after the runtime upgrade; calls using previous limits
