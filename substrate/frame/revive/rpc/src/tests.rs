@@ -60,7 +60,7 @@ use pallet_revive_types::runtime_api::{
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{sync::Arc, thread};
+use std::{num::NonZeroU32, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -406,6 +406,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_gas_estimation_with_no_funds_and_with_gas_specified,
 		test_block_sync_fresh,
 		test_block_sync_resume_interrupted,
+		test_block_sync_honors_rate_limit,
 		test_block_sync_detects_corruption,
 		test_block_sync_picks_up_new_blocks,
 		test_state_override_balance,
@@ -2378,12 +2379,14 @@ async fn submit_evm_transfers(count: usize) -> anyhow::Result<()> {
 /// in-memory SQLite database so that sync labels written by the test do not interfere
 /// with the eth-rpc server's internal database (and vice versa).
 async fn create_sync_test_client() -> anyhow::Result<Client> {
-	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (client, _gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue(None).await?;
 	Ok(client)
 }
 
-async fn create_sync_test_client_with_subscription_gap_queue()
--> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
+/// `max_blocks_per_sec` has the same meaning as [`CliCommand::historical_sync_max_blocks_per_sec`].
+async fn create_sync_test_client_with_subscription_gap_queue(
+	max_blocks_per_sec: Option<NonZeroU32>,
+) -> anyhow::Result<(Client, mpsc::Receiver<GapFillRequest>)> {
 	use sc_cli::{RPC_DEFAULT_MAX_REQUEST_SIZE_MB, RPC_DEFAULT_MAX_RESPONSE_SIZE_MB};
 
 	let node_url = SharedResources::node_rpc_url();
@@ -2420,6 +2423,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		true,
 		subscription_gap_queue,
 		runtime_api_provider,
+		max_blocks_per_sec.map(crate::block_sync::new_historical_sync_rate_limiter),
 		chain_id,
 	)
 	.await?;
@@ -2644,6 +2648,48 @@ async fn test_block_sync_resume_interrupted() -> anyhow::Result<()> {
 		interrupted_head.block_number,
 		new_tail.block_number,
 		new_head.block_number,
+	);
+
+	Ok(())
+}
+
+/// Checks that the historical block sync honors the rate limit.
+async fn test_block_sync_honors_rate_limit() -> anyhow::Result<()> {
+	use crate::block_sync::SyncCheckpoint;
+
+	const GAP_BLOCKS: u64 = 3;
+	// At 1 block/s, the first block passes at once and each other block waits a second.
+	let min_sync_time = std::time::Duration::from_secs(GAP_BLOCKS - 1);
+
+	// The gap needs this many blocks above genesis, also when the test runs on its own.
+	submit_evm_transfers(GAP_BLOCKS as usize).await?;
+
+	let (client, _gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(Some(NonZeroU32::MIN)).await?;
+
+	// With Tail at genesis and Head `GAP_BLOCKS` below the finalized block, the resume syncs only
+	// the blocks above Head.
+	let finalized = client.latest_finalized_block().await.block_number();
+	for (label, block_number) in [(SyncLabel::Tail, 0), (SyncLabel::Head, finalized - GAP_BLOCKS)] {
+		let block = client
+			.block_provider()
+			.block_by_number(block_number)
+			.await?
+			.expect("the block is below the finalized block");
+		client
+			.receipt_provider()
+			.set_sync_label(label, SyncCheckpoint::new(block_number, block.block_hash()))
+			.await?;
+	}
+
+	let start = std::time::Instant::now();
+	client.sync_backward().await?;
+	let sync_elapsed = start.elapsed();
+
+	// 100ms of slack: the limiter and the test read different clocks.
+	assert!(
+		sync_elapsed + std::time::Duration::from_millis(100) >= min_sync_time,
+		"the sync took {sync_elapsed:?}, expected at least {min_sync_time:?}",
 	);
 
 	Ok(())
@@ -3759,7 +3805,8 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 async fn test_subscription_gap_filler_backfills_queued_range() -> anyhow::Result<()> {
 	submit_evm_transfers(1).await?;
 
-	let (sync_client, gap_fill_rx) = create_sync_test_client_with_subscription_gap_queue().await?;
+	let (sync_client, gap_fill_rx) =
+		create_sync_test_client_with_subscription_gap_queue(None).await?;
 	sync_client.sync_backward().await?;
 
 	let head_after_sync = sync_client
