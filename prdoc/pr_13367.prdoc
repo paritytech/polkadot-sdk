@@ -1,0 +1,10 @@
+title: 'sc-network-transactions: respect `MAX_PENDING_TRANSACTIONS` exactly'
+doc:
+- audience: Node Dev
+  description: |-
+    The pending-validation guard in `TransactionsHandler::on_transactions` used `>`, which
+    allowed `MAX_PENDING_TRANSACTIONS + 1` transactions to be queued for validation. It now
+    uses `>=`, so the cap is enforced exactly.
+crates:
+- name: sc-network-transactions
+  bump: patch
