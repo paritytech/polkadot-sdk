@@ -139,4 +139,22 @@ impl<T: frame_system::Config> pallet_whitelist::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// The range of component `n` is `[1, 4194294]`.
+	fn authorize_dispatch_whitelisted_call(_n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 0_000 picoseconds.
+		Weight::from_parts(0, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
+	/// The range of component `n` is `[1, 10000]`.
+	fn authorize_dispatch_whitelisted_call_with_preimage(_n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 0_000 picoseconds.
+		Weight::from_parts(0, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 }

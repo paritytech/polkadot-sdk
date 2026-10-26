@@ -141,6 +141,7 @@ fn record_proof_works() {
 		"Core_execute_block",
 		&block.encode(),
 		&runtime_code,
+		substrate_test_runtime_client::runtime::VERSION.state_version(),
 	)
 	.expect("Executes block while using the proof backend");
 }
