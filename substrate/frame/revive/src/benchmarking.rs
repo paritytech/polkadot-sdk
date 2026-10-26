@@ -1359,8 +1359,8 @@ mod benchmarks {
 			42u32,
 		));
 		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
-		// still be able to read its own balance. The read is unpaid if another contract called it
-		// without value, until #12673 removes this whitelist.
+		// still be able to read its own balance. In a contract called without value by another
+		// contract, the read is unpaid until #12673 removes this whitelist.
 		let account_id = &contract.account_id;
 		whitelist_account!(account_id);
 

@@ -19,13 +19,12 @@ doc:
     ```
 - audience: Runtime User
   description: |-
-    - A contract that calls another contract with value or creates a contract, `SELFDESTRUCT`,
-      the PolkaVM `terminate` syscall and the System precompile's `terminate` now also pay for
-      the contract's own account: one read, a write where the balance or the nonce changes, and
-      its proof size. Terminating a contract pays for reading the account twice, in
-      `seal_terminate` and `seal_terminate_logic`, and for writing it once, in
-      `seal_terminate_logic`. The `call` and `instantiate` extrinsics are unchanged. Previously,
-      a nested contract called without value did not pay for its own account.
+    - A contract that sends value or creates a contract, `SELFDESTRUCT`, the PolkaVM `terminate`
+      syscall and the System precompile's `terminate` now also pay for the contract's own account:
+      one read, a write where the balance or the nonce changes, and its proof size. Previously,
+      their weights left the account out. Terminating a contract pays for reading the account
+      twice, in `seal_terminate` and `seal_terminate_logic`, and for writing it once, in
+      `seal_terminate_logic`. The `call` and `instantiate` extrinsics are unchanged.
     - Reading the contract's own balance with `BALANCE` or the `balance_of` syscall now does the
       same work and costs the same as with `SELFBALANCE` or the `balance` syscall, so a
       `transfer` or `send` receiver can afford it. The weight of these reads excludes the
