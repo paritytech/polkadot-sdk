@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792971295920,
+  "lastUpdate": 1792990170118,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b96d1afb5e99dc118336c78beb5231dc5d9f6d8e",
-          "message": "[Release|CI/CD] Fix git push in Post Crates Activities flow (#11723)\n\nThis PR fixes issue, that commited changes were not pushed to\npost-crates-release branch as there was a check, that was looking for\nuncommited changes",
-          "timestamp": "2026-04-10T16:40:00Z",
-          "tree_id": "d9f6538613df2c66bb25c1994bd022a465897d10",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b96d1afb5e99dc118336c78beb5231dc5d9f6d8e"
-        },
-        "date": 1775844095013,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63627.68999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.490246207499999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7503623255499539,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025391619999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000024474829999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8680463602499993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.93798786522,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8664301674599995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.3392920341927965,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025391619999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000024474829999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.933087199069999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005300857460000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.851460982509952,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8698131712000258,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1a6951dba9a97f2b74d69aa956c65afb3b993bf3",
+          "message": "pallet-revive: drop cfg-gated host functions from the upload import allowlist (#13395)\n\n`list_syscalls()` now respects each host function's `#[cfg]`, so builds\nwithout `runtime-benchmarks` reject uploads that import the\nbenchmark-only noop syscall instead of accepting code that traps with\n`InvalidSyscall` when it calls it (fixes #13392).",
+          "timestamp": "2026-10-26T03:18:16Z",
+          "tree_id": "c0b7cc7b6a2f5c2b4db9d28b7a7df4a4cd06fd9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a6951dba9a97f2b74d69aa956c65afb3b993bf3"
+        },
+        "date": 1792990140593,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52942.2,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63562.95000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021622639999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001845816,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005876400849999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.247403397969999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7377384756999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3367748568599973,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7901219280599987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8423171684800046,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021622639999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001845816,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7696832766799986,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.472359536372882,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7648912913399997,
             "unit": "seconds"
           }
         ]
