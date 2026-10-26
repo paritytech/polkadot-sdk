@@ -228,7 +228,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#78 id=78 data-nosnippet>78</a>				<span class="kw">return </span><span class="prelude-val">Some</span>(ReviveEvent::Log(Log {
 <a href=#79 id=79 data-nosnippet>79</a>					address: evt.contract,
 <a href=#80 id=80 data-nosnippet>80</a>					topics: evt.topics,
-<a href=#81 id=81 data-nosnippet>81</a>					data: <span class="prelude-val">Some</span>(evt.data.into()),
+<a href=#81 id=81 data-nosnippet>81</a>					data: evt.data.into(),
 <a href=#82 id=82 data-nosnippet>82</a>					block_number,
 <a href=#83 id=83 data-nosnippet>83</a>					transaction_hash,
 <a href=#84 id=84 data-nosnippet>84</a>					transaction_index: transaction_index.into(),
@@ -1253,7 +1253,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1103 id=1103 data-nosnippet>1103</a>		<span class="kw">let </span>log = <span class="kw-2">&amp;</span>logs[<span class="kw-2">&amp;</span><span class="number">5</span>][<span class="number">0</span>];
 <a href=#1104 id=1104 data-nosnippet>1104</a>		<span class="macro">assert_eq!</span>(log.address, contract);
 <a href=#1105 id=1105 data-nosnippet>1105</a>		<span class="macro">assert_eq!</span>(log.topics, topics);
-<a href=#1106 id=1106 data-nosnippet>1106</a>		<span class="macro">assert_eq!</span>(log.data.as_ref().unwrap().<span class="number">0</span>, data);
+<a href=#1106 id=1106 data-nosnippet>1106</a>		<span class="macro">assert_eq!</span>(log.data.<span class="number">0</span>, data);
 <a href=#1107 id=1107 data-nosnippet>1107</a>		<span class="macro">assert_eq!</span>(log.block_hash, eth_block_hash);
 <a href=#1108 id=1108 data-nosnippet>1108</a>		<span class="macro">assert_eq!</span>(log.block_number, eth_block_number);
 <a href=#1109 id=1109 data-nosnippet>1109</a>		<span class="macro">assert_eq!</span>(log.transaction_hash, tx_hash);

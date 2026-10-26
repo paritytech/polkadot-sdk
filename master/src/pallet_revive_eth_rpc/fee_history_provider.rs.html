@@ -255,7 +255,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#105 id=105 data-nosnippet>105</a>				(gas_used, effective_reward)
 <a href=#106 id=106 data-nosnippet>106</a>			})
 <a href=#107 id=107 data-nosnippet>107</a>			.collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#108 id=108 data-nosnippet>108</a>		receipts.sort_by(|(<span class="kw">_</span>, a), (<span class="kw">_</span>, b)| a.cmp(b));
+<a href=#108 id=108 data-nosnippet>108</a>		receipts.sort_by_key(|(<span class="kw">_</span>, a)| <span class="kw-2">*</span>a);
 <a href=#109 id=109 data-nosnippet>109</a>
 <a href=#110 id=110 data-nosnippet>110</a>		<span class="comment">// Calculate percentile rewards.
 <a href=#111 id=111 data-nosnippet>111</a>		</span>result.rewards = reward_percentiles
