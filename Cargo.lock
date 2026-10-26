@@ -3426,6 +3426,7 @@ dependencies = [
  "parity-scale-codec",
  "rococo-westend-system-emulated-network",
  "scale-info",
+ "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
@@ -5546,12 +5547,9 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "cumulus-test-runtime",
  "docify",
- "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
- "parity-scale-codec",
- "scale-info",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-trie 29.0.0",
@@ -22877,6 +22875,7 @@ dependencies = [
 name = "sc-runtime-test"
 version = "2.0.0"
 dependencies = [
+ "log",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -24577,6 +24576,7 @@ dependencies = [
 name = "snowbridge-beacon-primitives"
 version = "0.2.0"
 dependencies = [
+ "alloy-rlp",
  "byte-slice-cast",
  "frame-support",
  "hex",
@@ -26106,6 +26106,7 @@ dependencies = [
 name = "sp-npos-elections"
 version = "26.0.0"
 dependencies = [
+ "log",
  "parity-scale-codec",
  "scale-info",
  "serde",

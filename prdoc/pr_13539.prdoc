@@ -1,0 +1,8 @@
+title: 'Zombienet: Reduce flakyness of AD full-mesh test'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `collator_discovery_resolved_peers` metric now counts only distinct peers.
+crates:
+- name: cumulus-client-collator-discovery
+  bump: patch

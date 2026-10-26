@@ -51,6 +51,8 @@ enum HydrateError {
 	NoValidationCodeHash,
 	#[error("bundle starts at index {0}, not 0 (skipped index or partial bundle)")]
 	MalformedBundleStart(u8),
+	#[error("bundle has no blocks")]
+	EmptyBundle,
 }
 
 /// A core's resubmittable parablocks (oldest first), ready to be hydrated back into
@@ -183,25 +185,11 @@ where
 		.code_hash_at(bundle_parent_hash)
 		.ok_or(HydrateError::NoValidationCodeHash)?;
 
-	// Anchor on the first block; its store row carries the shared relay parent header and the
-	// `max_pov_size`, used to rebuild the PVD.
-	let first_hash = bundle[0].hash();
-	let anchor = store
-		.load(first_hash)
-		.map_err(HydrateError::StoreLoad)?
-		.ok_or(HydrateError::StoredEntryMissing)?;
-	let relay_parent_header = anchor.relay_parent_header;
-	let relay_parent = relay_parent_header.hash();
-
-	let validation_data = PersistedValidationData {
-		parent_head: HeadData(parent_header.encode()),
-		relay_parent_number: *relay_parent_header.number(),
-		relay_parent_storage_root: *relay_parent_header.state_root(),
-		max_pov_size: anchor.max_pov_size,
-	};
-
 	let mut blocks = Vec::with_capacity(bundle.len());
 	let mut proofs = Vec::with_capacity(bundle.len());
+	// The first block's store row is the anchor: it carries the shared relay parent header and the
+	// `max_pov_size`, used to rebuild the PVD.
+	let mut anchor = None;
 	for header in bundle {
 		let block_hash = header.hash();
 		let stored = store
@@ -215,9 +203,24 @@ where
 			.map_err(HydrateError::BodyBackend)?
 			.ok_or(HydrateError::BodyMissing)?;
 
+		if anchor.is_none() {
+			anchor = Some((stored.relay_parent_header, stored.max_pov_size));
+		}
+
 		blocks.push(Block::new(header, body));
 		proofs.push(Arc::unwrap_or_clone(stored.proof));
 	}
+
+	// `into_bundles` never emits an empty bundle, so the anchor is always set.
+	let (relay_parent_header, max_pov_size) = anchor.ok_or(HydrateError::EmptyBundle)?;
+	let relay_parent = relay_parent_header.hash();
+
+	let validation_data = PersistedValidationData {
+		parent_head: HeadData(parent_header.encode()),
+		relay_parent_number: *relay_parent_header.number(),
+		relay_parent_storage_root: *relay_parent_header.state_root(),
+		max_pov_size,
+	};
 
 	Ok(CollationParts {
 		relay_parent,
