@@ -3,7 +3,8 @@ name: Zombienet Statement Store Soak
 # On-demand statement-store soak on the zombienet k8s cluster, run by hand through a workflow
 # dispatch; not part of the default per-PR zombienet matrix. The node images and the test archive
 # come from a "Build and push images" run of the branch: the one given as input, or else the
-# latest fully successful one.
+# latest fully successful one. The node images can come from another build, such as another pull
+# request's, to soak its node code with this branch's tests.
 on:
   workflow_dispatch:
     inputs:
@@ -30,6 +31,11 @@ on:
       build_run_id:
         type: string
         description: "Build run to take the node images and the test archive from (default: the branch's latest fully successful one)"
+        default: ""
+        required: false
+      image_build_run_id:
+        type: string
+        description: "Build run to take only the node images from (default: the build run above)"
         default: ""
         required: false
 
@@ -86,7 +92,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BUILD_RUN_ID: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
+          BUILD_RUN_ID: ${{ inputs.image_build_run_id || needs.preflight.outputs.BUILD_RUN_ID }}
           CUMULUS_IMAGE_NAME: ${{ matrix.test.cumulus-image }}
         run: |
           # The build tags them <pr>-<short sha> off a pull request and master-<short sha> off master.
