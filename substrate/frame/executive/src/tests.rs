@@ -978,6 +978,48 @@ fn runtime_upgraded_should_work() {
 }
 
 #[test]
+fn ensure_runtime_upgrade_applied_runs_the_upgrade_once() {
+	new_test_ext(1).execute_with(|| {
+		RuntimeVersionTestValues::mutate(|v| {
+			*v = sp_version::RuntimeVersion { spec_version: 1, ..Default::default() }
+		});
+		assert!(Executive::runtime_upgraded());
+		assert!(sp_io::storage::get(TEST_KEY).is_none());
+
+		// The runtime was upgraded: the migrations run and the upgrade is recorded.
+		assert!(Executive::ensure_runtime_upgrade_applied().any_gt(Weight::zero()));
+		assert_eq!(&sp_io::storage::get(TEST_KEY).unwrap()[..], *b"module");
+		assert_eq!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).unwrap(), true.encode());
+		assert_eq!(
+			Some(RuntimeVersionTestValues::get().into()),
+			LastRuntimeUpgrade::<Runtime>::get(),
+		);
+		assert!(!Executive::runtime_upgraded());
+
+		// The upgrade is applied: nothing runs a second time.
+		sp_io::storage::clear(TEST_KEY);
+		sp_io::storage::clear(CUSTOM_ON_RUNTIME_KEY);
+		assert_eq!(Executive::ensure_runtime_upgrade_applied(), Weight::zero());
+		assert!(sp_io::storage::get(TEST_KEY).is_none());
+		assert!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).is_none());
+	});
+}
+
+#[test]
+fn ensure_runtime_upgrade_applied_is_a_noop_without_an_upgrade() {
+	new_test_ext(1).execute_with(|| {
+		RuntimeVersionTestValues::mutate(|v| *v = Default::default());
+		assert!(!Executive::runtime_upgraded());
+		let last_runtime_upgrade = LastRuntimeUpgrade::<Runtime>::get();
+
+		assert_eq!(Executive::ensure_runtime_upgrade_applied(), Weight::zero());
+		assert!(sp_io::storage::get(TEST_KEY).is_none());
+		assert!(sp_io::storage::get(CUSTOM_ON_RUNTIME_KEY).is_none());
+		assert_eq!(last_runtime_upgrade, LastRuntimeUpgrade::<Runtime>::get());
+	});
+}
+
+#[test]
 fn last_runtime_upgrade_was_upgraded_works() {
 	let test_data = vec![
 		(0, "", 1, "", true),
