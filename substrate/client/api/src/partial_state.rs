@@ -66,14 +66,6 @@ pub struct ResumablePartialState<Block: BlockT> {
 ///
 /// The database records the target and the cursor every chunk leaves, so after a restart
 /// `resumable_partial_state` says where to continue.
-///
-/// A state that never completes is not left behind. A sync only runs on a database with no block
-/// state, so its nodes are all the state column holds, and the database drops them, records
-/// included, as soon as anything else needs that column: a new sync beginning over it (a safety
-/// net, the syncing strategies resume a recorded sync instead), the first block state committed
-/// by other means (a restart in another sync mode), or the target import finding a node missing
-/// after the last chunk. A download that stalls, because every peer pruned the target or the node
-/// went offline, keeps its records until one of those happens. Nothing reads the nodes meanwhile.
 pub trait PartialStateImport<Block: BlockT> {
 	/// Record the target of a new sync. An earlier sync that never completed is discarded first.
 	/// Fails, and records nothing, if the database already holds block state.

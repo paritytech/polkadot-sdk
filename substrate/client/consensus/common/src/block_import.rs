@@ -133,9 +133,8 @@ pub enum StorageChanges<Block: BlockT> {
 /// `BlockImportOperation::mark_state_synced` in `sc_client_api`), and GRANDPA rebuilds its
 /// authority set from it.
 ///
-/// This used to carry the downloaded key-values, which the import turned into a trie in memory.
-/// Now it only keeps the shape of `StorageChanges` and `IncomingBlock`, which still tell a
-/// state-synced block apart.
+/// It once carried the downloaded key-values; now it only keeps the shape of `StorageChanges` and
+/// `IncomingBlock`, which still tell a state-synced block apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ImportedState;
 

@@ -18,15 +18,11 @@
 
 //! The database side of a state sync: the trie nodes of a block's state go into `STATE` chunk by
 //! chunk before the block is imported, and `STATE_META` records enough for a restart to resume
-//! the download or to finish an interrupted discard. [`DbPartialState`] is the
-//! [`PartialStateStore`] the backend hands out. It holds the backend's own database, blockchain
-//! metadata and write statistics (clones of the same `Arc`s), and one mutex over the status of
-//! the attempt. `begin`, `import`, `check_complete` and discards hold that mutex. So does
-//! `Backend::try_commit_operation`, through [`DbPartialState::lock`], until the status is
-//! cleared: the commit of the target block removes the records `begin` wrote, in
-//! the block's own transaction, and nothing else touching the attempt can run in between.
+//! the download or to finish an interrupted discard. 
 
-use crate::{columns, stats::StateUsageStats, utils::Meta, DbHash, StorageDb};
+use crate::{
+	columns, stats::StateUsageStats, utils::Meta, BlockImportOperation, DbHash, StorageDb,
+};
 use codec::{Decode, Encode};
 use hash_db::EMPTY_PREFIX;
 use log::{info, warn};
@@ -66,9 +62,9 @@ enum DiscardStep<H: hash_db::Hasher> {
 	Remove(Vec<u8>),
 }
 
-/// Where the state sync that `STATE_META` records stands, mirrored in memory. One mutex guards it,
-/// so a chunk write, a discard and the completing commit never interleave. It changes right after
-/// the commit that changes the keys, and `load` reads it at start.
+/// Where the state sync that `STATE_META` records stands, mirrored in memory under the mutex of
+/// [`DbPartialState`]. It changes right after the commit that changes the keys, and `load` reads
+/// it at start.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PartialStateStatus<Hash> {
 	/// `TARGET` is set: chunks of this block are accepted.
@@ -109,7 +105,7 @@ fn decode_partial_state_marker<Block: BlockT>(raw: &[u8]) -> ClientResult<Block:
 }
 
 /// Removes the target, the cursor and the downloaded marker of an attempt.
-pub(crate) fn remove_partial_state_records(transaction: &mut Transaction<DbHash>) {
+fn remove_partial_state_records(transaction: &mut Transaction<DbHash>) {
 	transaction.remove(columns::STATE_META, partial_state_keys::TARGET);
 	transaction.remove(columns::STATE_META, partial_state_keys::CURSOR);
 	transaction.remove(columns::STATE_META, partial_state_keys::DOWNLOADED);
@@ -119,9 +115,17 @@ pub(crate) fn remove_partial_state_records(transaction: &mut Transaction<DbHash>
 /// in memory, and the operations that write and remove its nodes in `STATE`.
 ///
 /// The fields are the backend's own, shared: the storage the trie backend reads nodes from, the
-/// blockchain metadata the guard against block state reads, and the write statistics. One mutex
-/// guards the status, held across every chunk write, every discard and the whole of the commit
-/// that completes the sync, so none of them interleave.
+/// blockchain metadata that says whether block state exists, and the write statistics.
+///
+/// One mutex guards the status. Every operation here holds it across its commits, and
+/// `Backend::try_commit_operation` holds it, through [`DbPartialState::maybe_lock`], for a whole
+/// block commit as long as no finalized block has state. So a chunk write, a discard and the
+/// commit of the target block never interleave, and that commit removes the records in the
+/// block's own transaction ([`DbPartialState::complete`]) and clears the status in one go.
+///
+/// An attempt that never completes is dropped, nodes and records, as soon as anything else needs
+/// `STATE`: a new target in `begin`, the first block state committed by other means, or
+/// `check_complete` finding a node missing. A stalled download keeps its records until then.
 pub(crate) struct DbPartialState<Block: BlockT> {
 	storage: Arc<StorageDb<Block>>,
 	meta: Arc<RwLock<Meta<NumberFor<Block>, Block::Hash>>>,
@@ -138,10 +142,55 @@ impl<Block: BlockT> DbPartialState<Block> {
 		Self { storage, meta, state_usage, status: Mutex::new(None) }
 	}
 
-	/// The status, locked. A block commit holds it for the whole commit, as long as no finalized
-	/// block has state: afterwards nothing is recorded and the commit does not look.
-	pub(crate) fn lock(&self) -> MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>> {
-		self.status.lock()
+	/// Locks the status for a whole block commit, but only while a state sync may be in progress:
+	/// once a finalized block has state `begin` refuses, so nothing is recorded, nothing is locked
+	/// and `None` comes back. Under the lock, a state commit other than the target's own import
+	/// discards a recorded attempt first. 
+	pub(crate) fn maybe_lock(
+		&self,
+		operation: &BlockImportOperation<Block>,
+	) -> ClientResult<Option<MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>>>> {
+		// With finalized block state no sync is in progress, nor can one begin: nothing to lock.
+		if self.meta.read().finalized_state.is_some() {
+			return Ok(None);
+		}
+		let mut status = self.status.lock();
+		if operation.commit_state && !operation.synced_state && status.is_some() {
+			self.discard(&mut status)?;
+		}
+		Ok(Some(status))
+	}
+
+	/// The target block imports under the guard `maybe_lock` gave: its records go into the
+	/// block's own transaction, and the caller clears the status once the commit is through.
+	/// Refused unless `hash` is the recorded target: a synced state never lands on the wrong
+	/// attempt, a discarded one, or none at all.
+	pub(crate) fn complete(
+		&self,
+		status: &Option<MutexGuard<'_, Option<PartialStateStatus<Block::Hash>>>>,
+		hash: Block::Hash,
+		transaction: &mut Transaction<DbHash>,
+	) -> ClientResult<()> {
+		match status.as_ref().and_then(|guard| **guard) {
+			Some(PartialStateStatus::Syncing { hash: target, .. }) if target == hash => {
+				remove_partial_state_records(transaction);
+				Ok(())
+			},
+			Some(PartialStateStatus::Syncing { hash: target, .. }) => {
+				Err(ClientError::Backend(format!(
+					"Block {hash:?} imports with a synced state while the recorded state sync \
+					 targets {target:?}"
+				)))
+			},
+			Some(PartialStateStatus::Discarding { .. }) => Err(ClientError::Backend(format!(
+				"Block {hash:?} imports with a synced state while the recorded state sync is \
+				 being discarded"
+			))),
+			// Never happens: the mark presumes a completeness check, which needs the record.
+			None => Err(ClientError::Backend(format!(
+				"Block {hash:?} imports with a synced state while no state sync is recorded"
+			))),
+		}
 	}
 
 	/// Picks up a state sync left by the previous run. If a discard was interrupted, the marker
@@ -334,15 +383,15 @@ impl<Block: BlockT> DbPartialState<Block> {
 		transaction.remove(columns::STATE_META, partial_state_keys::DISCARDING);
 		self.storage.db.commit(transaction)?;
 
-        // The next attempt must not see nodes of this one. So wait until the removal lands.
-        //
-        // On parity-db, `commit` returns before anything is written: a worker thread writes the
-        // transactions later, in order, and until it has, a removal from a reference-counted
-        // column such as `STATE` still reads as present. On rocksdb, `commit` writes before
-        // returning, so the first read below misses and the loop ends at once.
-        //
-        // Polling the root is enough: it is the last node removed, and commits are written in
-        // order, so once the root reads as gone, everything removed before it is gone too.
+		// The next attempt must not see nodes of this one. So wait until the removal lands.
+		//
+		// On parity-db, `commit` returns before anything is written: a worker thread writes the
+		// transactions later, in order, and until it has, a removal from a reference-counted
+		// column such as `STATE` still reads as present. On rocksdb, `commit` writes before
+		// returning, so the first read below misses and the loop ends at once.
+		//
+		// Polling the root is enough: it is the last node removed, and commits are written in
+		// order, so once the root reads as gone, everything removed before it is gone too.
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
 		while self.storage.db.get(columns::STATE, &root_key).is_some() {
 			if std::time::Instant::now() > deadline {

@@ -55,7 +55,7 @@ use std::{
 };
 
 use crate::{
-	partial_state::{remove_partial_state_records, DbPartialState, PartialStateStatus},
+	partial_state::DbPartialState,
 	pinned_blocks_cache::PinnedBlocksCache,
 	record_stats_state::RecordStatsState,
 	stats::StateUsageStats,
@@ -1661,35 +1661,8 @@ impl<Block: BlockT> Backend<Block> {
 	}
 
 	fn try_commit_operation(&self, mut operation: BlockImportOperation<Block>) -> ClientResult<()> {
-		let (
-			best_num,
-			mut last_finalized_hash,
-			mut last_finalized_num,
-			mut block_gap,
-			has_finalized_state,
-		) = {
-			let meta = self.blockchain.meta.read();
-			(
-				meta.best_number,
-				meta.finalized_hash,
-				meta.finalized_number,
-				meta.block_gap,
-				meta.finalized_state.is_some(),
-			)
-		};
-
-		// Once a finalized block has state no state sync can begin (see `DbPartialState::begin`),
-		// so nothing is recorded and the commit skips this. Until then the lock is held for the
-		// whole commit, so that removing the records and clearing the status happen as one.
-		let mut status = (!has_finalized_state).then(|| self.partial_state.lock());
-		// A recorded status means a state sync is pending, or the discard of one. Any state
-		// commit discards it, except the one marked synced: that is the attempt completing, and
-		// the match below checks it is.
-		if let Some(status) = &mut status {
-			if operation.commit_state && !operation.synced_state && status.is_some() {
-				self.partial_state.discard(status)?;
-			}
-		}
+		// Locked while a state sync may be in progress.
+		let mut partial_state_status = self.partial_state.maybe_lock(&operation)?;
 
 		let mut transaction = Transaction::new();
 
@@ -1697,6 +1670,10 @@ impl<Block: BlockT> Backend<Block> {
 		operation.apply_offchain(&mut transaction);
 
 		let mut meta_updates = Vec::with_capacity(operation.finalized_blocks.len());
+		let (best_num, mut last_finalized_hash, mut last_finalized_num, mut block_gap) = {
+			let meta = self.blockchain.meta.read();
+			(meta.best_number, meta.finalized_hash, meta.finalized_number, meta.block_gap)
+		};
 
 		let mut block_gap_updated = false;
 
@@ -1788,33 +1765,7 @@ impl<Block: BlockT> Backend<Block> {
 			}
 
 			if operation.synced_state {
-				// This is the block the state sync was for. Its records go in the same commit, the
-				// attempt is complete. Unlocked means nothing recorded, see above.
-				match status.as_ref().and_then(|guard| **guard) {
-					Some(PartialStateStatus::Syncing { hash: target, .. }) if target == hash => {
-						remove_partial_state_records(&mut transaction)
-					},
-					Some(PartialStateStatus::Syncing { hash: target, .. }) => {
-						return Err(ClientError::Backend(format!(
-							"Block {hash:?} imports with a synced state while the recorded state \
-							 sync targets {target:?}"
-						)))
-					},
-					Some(PartialStateStatus::Discarding { .. }) => {
-						return Err(ClientError::Backend(format!(
-							"Block {hash:?} imports with a synced state while the recorded state \
-							 sync is being discarded"
-						)))
-					},
-					// A synced state with nothing recorded never happens: the mark presumes a
-					// completeness check, which needs the record.
-					None => {
-						return Err(ClientError::Backend(format!(
-							"Block {hash:?} imports with a synced state while no state sync is \
-							 recorded"
-						)))
-					},
-				}
+				self.partial_state.complete(&partial_state_status, hash, &mut transaction)?;
 			}
 
 			let finalized = if operation.commit_state {
@@ -2118,9 +2069,8 @@ impl<Block: BlockT> Backend<Block> {
 		if let Some((header, hash)) = imported {
 			trace!(target: "db", "DB Commit done {hash:?}");
 			if operation.synced_state {
-				// The block is in, and with it the state the attempt downloaded: the match before
-				// the commit let only the recorded target through.
-				if let Some(status) = &mut status {
+				// The target block is in, the attempt is over.
+				if let Some(status) = &mut partial_state_status {
 					**status = None;
 				}
 			}
