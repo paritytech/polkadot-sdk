@@ -1,0 +1,17 @@
+title: 'paras: drop the validation-code sentinel from UpcomingParasGenesis'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `UpcomingParasGenesis` stored a full `ParaGenesisArgs`. Onboarding overwrote its
+    `validation_code` with an empty vector and then read that emptiness back as a signal that the
+    code had already been inserted. It now stores `UpcomingParaGenesis`, holding only the genesis
+    head and para kind, and `schedule_para_initialize` drops the `mem::replace`. The code is still
+    inserted eagerly via `CurrentCodeHash`. `ParaGenesisArgs` is unchanged and still used by
+    chain-spec genesis, the registrar and the sudo wrapper.
+crates:
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: rococo-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
