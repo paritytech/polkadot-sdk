@@ -755,7 +755,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Does **not** include the tip.
 	///
-	/// If noone calls `charge_from_txfee` it is the same as the pre dispatch fee.
+	/// If no one calls `withdraw_txfee` it is the same as the pre-dispatch fee.
 	pub fn remaining_txfee<Balance>() -> Balance
 	where
 		CreditOf<T>: Imbalance<Balance>,
@@ -942,7 +942,7 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-/// The info passed between the validate and prepare steps for the `ChargeAssetTxPayment` extension.
+/// The info passed between the validate and prepare steps for the `ChargeTransactionPayment` extension.
 #[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	Charge {
@@ -955,7 +955,7 @@ pub enum Val<T: Config> {
 	NoCharge,
 }
 
-/// The info passed between the prepare and post-dispatch steps for the `ChargeAssetTxPayment`
+/// The info passed between the prepare and post-dispatch steps for the `ChargeTransactionPayment`
 /// extension.
 pub enum Pre<T: Config> {
 	Charge {
