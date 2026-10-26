@@ -1089,8 +1089,10 @@ impl<Block: BlockT> sc_client_api::backend::BlockImportOperation<Block>
 	}
 
 	fn mark_state_synced(&mut self) -> ClientResult<()> {
-		// Commit it like a state import with no changes. The block gets recorded as having
-		// state, and `reset_storage` makes the commit drop the attempt's records.
+		// Commit it like a state import with no changes: `commit_state` records the block as
+		// having state and `reset_storage` optimizes the column as after any whole-state import.
+		// `synced_state` makes the commit check the block is the recorded target and drop the
+		// attempt's records.
 		self.commit_state = true;
 		self.reset_storage = true;
 		self.synced_state = true;
@@ -1680,9 +1682,11 @@ impl<Block: BlockT> Backend<Block> {
 		// so nothing is recorded and the commit skips this. Until then the lock is held for the
 		// whole commit, so that removing the records and clearing the status happen as one.
 		let mut status = (!has_finalized_state).then(|| self.partial_state.lock());
-		// A recorded status means a state sync is pending, or the discard of one.
+		// A recorded status means a state sync is pending, or the discard of one. Any state
+		// commit discards it, except the one marked synced: that is the attempt completing, and
+		// the match below checks it is.
 		if let Some(status) = &mut status {
-			if operation.commit_state && !operation.reset_storage && status.is_some() {
+			if operation.commit_state && !operation.synced_state && status.is_some() {
 				self.partial_state.discard(status)?;
 			}
 		}
@@ -1783,10 +1787,10 @@ impl<Block: BlockT> Backend<Block> {
 				}
 			}
 
-			if operation.reset_storage {
+			if operation.synced_state {
 				// This is the block the state sync was for. Its records go in the same commit, the
 				// attempt is complete. Unlocked means nothing recorded, see above.
-				match status.as_deref().copied().flatten() {
+				match status.as_ref().and_then(|guard| **guard) {
 					Some(PartialStateStatus::Syncing { hash: target, .. }) if target == hash => {
 						remove_partial_state_records(&mut transaction)
 					},
@@ -1804,15 +1808,12 @@ impl<Block: BlockT> Backend<Block> {
 					},
 					// A synced state with nothing recorded never happens: the mark presumes a
 					// completeness check, which needs the record.
-					None if operation.synced_state => {
+					None => {
 						return Err(ClientError::Backend(format!(
 							"Block {hash:?} imports with a synced state while no state sync is \
 							 recorded"
 						)))
 					},
-					// Nothing recorded. `BlockImportOperation::reset_storage` can also import a
-					// whole state outside a state sync, which only tests do.
-					None => {},
 				}
 			}
 
@@ -2116,7 +2117,7 @@ impl<Block: BlockT> Backend<Block> {
 
 		if let Some((header, hash)) = imported {
 			trace!(target: "db", "DB Commit done {hash:?}");
-			if operation.reset_storage {
+			if operation.synced_state {
 				// The block is in, and with it the state the attempt downloaded: the match before
 				// the commit let only the recorded target through.
 				if let Some(status) = &mut status {

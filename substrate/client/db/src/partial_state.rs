@@ -544,10 +544,14 @@ mod tests {
 		backend.storage.state_key(&header.state_root, EMPTY_PREFIX).to_vec()
 	}
 
-	/// Commits a genesis block with its (empty) state, as a full node does at its first start.
-	fn commit_genesis_state(backend: &Backend<Block>) -> ClientResult<Header> {
+	/// Puts a whole (empty) state in a block import operation, returning its root.
+	type SetWholeState =
+		fn(&mut crate::BlockImportOperation<Block>) -> ClientResult<<Block as BlockT>::Hash>;
+
+	/// Commits block 0 with the state `set_state` puts in the operation.
+	fn commit_block_0(backend: &Backend<Block>, set_state: SetWholeState) -> ClientResult<Header> {
 		let mut op = backend.begin_operation()?;
-		let state_root = op.set_genesis_state(Storage::default(), true, StateVersion::V0)?;
+		let state_root = set_state(&mut op)?;
 		let header = Header {
 			number: 0,
 			parent_hash: Default::default(),
@@ -769,32 +773,42 @@ mod tests {
 		assert_eq!(state_pairs(&backend, &header), key_values);
 	}
 
-	/// The first real state commit, here a genesis state as a `--sync full` restart writes it,
-	/// discards the attempt it finds recorded: afterwards `STATE` is shared with block state and
-	/// could never be emptied.
+	/// The first real state commit discards the attempt it finds recorded: afterwards `STATE` is
+	/// shared with block state and could never be emptied. A whole state arrives either as the
+	/// genesis state a `--sync full` restart writes, or through `reset_storage`, which only tests
+	/// use; both discard.
 	#[test]
 	fn first_state_commit_discards_a_recorded_attempt() {
-		let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
-		let (backend, db) = test_backend();
-		backend.partial_state.begin(partial_state_target(&header)).unwrap();
-		backend
-			.partial_state
-			.import(&with_end(chunk(&header, nodes), &[vec![0x80]]))
-			.unwrap();
-		let root_key = root_key(&backend, &header);
+		let whole_state_commits: [SetWholeState; 2] = [
+			|op| op.set_genesis_state(Storage::default(), true, StateVersion::V0),
+			|op| op.reset_storage(Storage::default(), StateVersion::V0),
+		];
+		for set_state in whole_state_commits {
+			let (nodes, header) = partial_state_chunk(&[(vec![0u8; 40], vec![0u8; 1])]);
+			let (backend, db) = test_backend();
+			backend.partial_state.begin(partial_state_target(&header)).unwrap();
+			backend
+				.partial_state
+				.import(&with_end(chunk(&header, nodes), &[vec![0x80]]))
+				.unwrap();
+			let root_key = root_key(&backend, &header);
 
-		let genesis = commit_genesis_state(&backend).unwrap();
-		assert_eq!(backend.partial_state.resumable().unwrap(), None);
-		assert!(db.get(columns::STATE, &root_key).is_none(), "the attempt's nodes are gone");
-		assert!(db.get(columns::STATE_META, partial_state_keys::TARGET).is_none());
-		assert!(backend.have_state_at(genesis.hash(), 0));
-		// From now on a state sync only ever runs on a database that holds no block state.
-		assert!(backend.partial_state.begin(partial_state_target(&header)).is_err());
-		assert!(commit_synced_block(&backend, &header).is_err(), "nothing recorded, lock skipped");
+			let block_0 = commit_block_0(&backend, set_state).unwrap();
+			assert_eq!(backend.partial_state.resumable().unwrap(), None);
+			assert!(db.get(columns::STATE, &root_key).is_none(), "the attempt's nodes are gone");
+			assert!(db.get(columns::STATE_META, partial_state_keys::TARGET).is_none());
+			assert!(backend.have_state_at(block_0.hash(), 0));
+			// From now on a state sync only ever runs on a database that holds no block state.
+			assert!(backend.partial_state.begin(partial_state_target(&header)).is_err());
+			assert!(
+				commit_synced_block(&backend, &header).is_err(),
+				"nothing recorded, lock skipped"
+			);
 
-		drop(backend);
-		let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
-		assert!(backend.have_state_at(genesis.hash(), 0), "the genesis state is intact");
+			drop(backend);
+			let backend = reopen_backend(db.clone(), BlocksPruning::Some(10));
+			assert!(backend.have_state_at(block_0.hash(), 0), "the block state is intact");
+		}
 	}
 
 	/// Every chunk was written and still a node is missing: the attempt cannot complete and is
