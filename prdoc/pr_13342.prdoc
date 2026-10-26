@@ -17,6 +17,8 @@ doc:
     `CLONE_INPUT` flag, while previously it always cloned an empty input.
     Unlike the previous `seal_call` benchmark, `seal_call_transfer` also covers the cost of
     creating the callee's account.
+    With dust, the transfer benchmarks also cover the receiver's dust adding up to a whole plank,
+    which the transfer then mints.
     `call_with_evm_code_per_byte` now benchmarks code up to `MAX_CODE_SIZE`.
 - audience: Runtime User
   description: |-
@@ -24,6 +26,8 @@ doc:
     - A call without value costs less and does one fewer storage read. Cloning the input with
       the `CLONE_INPUT` flag costs about 150 picoseconds per byte instead of 3.
     - The weight of a call with value now includes creating the callee's account.
+    - A transfer with dust is now priced for the case where the receiver's dust adds up to a
+      whole plank and the transfer mints it.
     - The weights of a PolkaVM instantiate and of an EVM `CREATE` or `CREATE2` change, with and
       without value.
     - An instantiate, `CREATE` or `CREATE2` that sends only dust now pays the full transfer cost,
