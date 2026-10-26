@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792990224335,
+  "lastUpdate": 1793004317138,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0bf65ec8994dd0477995451e5db4695ba40a7e39",
-          "message": "statement-store: test crash mid-sync (#11691)\n\n# Description\n\nPart of https://github.com/paritytech/polkadot-sdk/issues/11536: covers\nnode crash mid-sync.\n\nAdds a zombienet integration test that verifies statement store recovery\nafter a node crash mid-sync. The test submits statements concurrently to\nmultiple nodes, kills one mid-gossip, submits more while it's down, then\nasserts all recoverable statements converge after restart.\n\n## Integration\n\nNo integration needed.\n\n## Review Notes\n                                                           \n- Three-node setup (alice, bob, charlie) with ~0.6 MiB statements to\nforce one-per-gossip-notification pacing\n- Bob is restarted immediately after receiving at least one alice\nstatement (mid-sync window)\n- Recovery verified by parsing 'Statement loaded' log lines (requires\nstatement-store=trace)\n- Tolerates at most 1 lost bob statement due to ParityDB's async fsync\non SIGKILL\n- Refactored subscribe_topic into subscribe_topic +\nsubscribe_topic_filter for MatchAny support\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T16:29:52Z",
-          "tree_id": "13dba3ac0133316c54c72a8d4f82fbbe890b2e4a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0bf65ec8994dd0477995451e5db4695ba40a7e39"
-        },
-        "date": 1775757028649,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.07,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038310017727999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07949779584799993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08311019112599988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8a076f72bacf525a4515277b95005b15f061f87",
+          "message": "Fix ETH RPC Log Filtering Logic (#13002)\n\n# Description\n\nWe have had a number of issues in the eth-rpc related to the log\nfiltering logic and to its data representation such as:\n\n- https://github.com/paritytech/polkadot-sdk/pull/12626\n- https://github.com/paritytech/polkadot-sdk/pull/12483\n- https://github.com/alloy-rs/alloy/pull/4153\n\nSome of the issues that I link to here can't be fixed without changing\nthe models we're using since there are certain things which alloy's\n`Filter` type can't represent\n(https://github.com/alloy-rs/alloy/pull/4153).\n\nThis PR does the following:\n- Introduces our own `Filter` type which we use instead of alloy's\nfilter type (due to the issues it has with what data it can't represent\nas seen in https://github.com/alloy-rs/alloy/pull/4153).\n- Implement `Filter` matching logic on the `Filter` type itself as an\nauthoritative implementation that can be used anywhere in the codebase.\n- Removes the duplicated subscription filter type that we used to have\nin favor of this new `Filter` type.\n- Updates the `ReceiptProvider::logs` implementation to match the\nfiltering logic implemented on the `Filter` type.\n\nThis PR fixes all of the github issues/PRs linked to above and should\nclose them once its merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-26T07:08:50Z",
+          "tree_id": "ecc342976b82eb8db230e28ec116fc67fc202300",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8a076f72bacf525a4515277b95005b15f061f87"
+        },
+        "date": 1793004283751,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14199999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03889172967599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0877792552659999,
             "unit": "seconds"
           }
         ]
