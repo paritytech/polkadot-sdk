@@ -6,13 +6,13 @@
 //!
 //! #### Checking the available CLI arguments
 //! ```bash
-//! ./target/debug/node-template --help
+//! ./target/debug/solochain-template-node --help
 //! ```
 //! - `--help`: Displays the available CLI arguments.
 //!
 //! #### Starting a Local Substrate Node in Development Mode
 //! ```bash
-//! ./target/release/node-template \
+//! ./target/release/solochain-template-node \
 //! --dev
 //! ```
 //! - `--dev`: Runs the node in development mode, using a pre-defined development chain
@@ -21,7 +21,7 @@
 //!
 //! #### Generating Custom Chain Specification
 //! ```bash
-//! ./target/debug/node-template \
+//! ./target/debug/solochain-template-node \
 //! export-chain-spec \
 //! --chain local \
 //! > customSpec.json
@@ -33,7 +33,7 @@
 //!
 //! #### Converting Chain Specification to Raw Format
 //! ```bash
-//! ./target/debug/node-template export-chain-spec \
+//! ./target/debug/solochain-template-node export-chain-spec \
 //! --chain=customSpec.json \
 //! --raw \
 //! > customSpecRaw.json
@@ -45,7 +45,7 @@
 //!
 //! #### Starting the First Node in a Private Network
 //! ```bash
-//! ./target/debug/node-template \
+//! ./target/debug/solochain-template-node \
 //!   --base-path /tmp/node01 \
 //!   --chain ./customSpecRaw.json \
 //!   --port 30333 \
@@ -69,7 +69,7 @@
 //!
 //! #### Adding a Second Node to the Network
 //! ```bash
-//! ./target/release/node-template \
+//! ./target/release/solochain-template-node \
 //!   --base-path /tmp/bob \
 //!   --chain local \
 //!   --bob \
