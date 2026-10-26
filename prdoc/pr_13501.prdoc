@@ -19,14 +19,20 @@ doc:
     ```
 - audience: Runtime User
   description: |-
-    A contract that calls another contract with value or creates a contract, `SELFDESTRUCT`, the
-    PolkaVM `terminate` syscall and the System precompile's `terminate` now also pay for the
-    contract's own account: one read, a write where the balance or the nonce changes, and its
-    proof size. Terminating a contract pays for reading the account twice, in `seal_terminate` and
-    `seal_terminate_logic`, and for writing it once, in `seal_terminate_logic`. The `call` and
-    `instantiate` extrinsics are unchanged. Previously, a nested contract called without value did
-    not pay for it. `SELFBALANCE` and the `balance` syscall still do not pay for reading the
-    contract's own account when another contract called it without value, until #12673.
+    - A contract that calls another contract with value or creates a contract, `SELFDESTRUCT`,
+      the PolkaVM `terminate` syscall and the System precompile's `terminate` now also pay for
+      the contract's own account: one read, a write where the balance or the nonce changes, and
+      its proof size. Terminating a contract pays for reading the account twice, in
+      `seal_terminate` and `seal_terminate_logic`, and for writing it once, in
+      `seal_terminate_logic`. The `call` and `instantiate` extrinsics are unchanged. Previously,
+      a nested contract called without value did not pay for its own account.
+    - Reading the contract's own balance with `BALANCE` or the `balance_of` syscall now does the
+      same work and costs the same as with `SELFBALANCE` or the `balance` syscall, so a
+      `transfer` or `send` receiver can afford it. The weight of these reads excludes the
+      contract's own account, so a nested contract called without value reads it without paying,
+      until #12673.
+    - In the prestate tracer's diff mode, a contract whose constructor reads its own balance with
+      `BALANCE` and then reverts no longer appears in the post state, as in geth.
 crates:
 - name: pallet-revive
   bump: patch

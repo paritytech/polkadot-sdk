@@ -37,14 +37,24 @@ contract ComplexReceiver {
 
 /**
  * @title BalanceReader
- * @dev Receiver contract 4: reads its own balance (SELFBALANCE)
+ * @dev Receiver contract 4: reads `address(this).balance`, which solc compiles to SELFBALANCE
+ * and unoptimized resolc to BALANCE on its own address
  */
 contract BalanceReader {
     receive() external payable {
+        require(address(this).balance >= msg.value);
+    }
+}
+
+/**
+ * @title BalanceOfReader
+ * @dev Receiver contract 5: reads its own balance with the BALANCE opcode, which solc never
+ * emits for `address(this).balance`, so the read is written in assembly
+ */
+contract BalanceOfReader {
+    receive() external payable {
         uint256 ownBalance;
-        // Fixtures are built without the solc optimizer, so resolc would compile
-        // `address(this).balance` to BALANCE.
-        assembly { ownBalance := selfbalance() }
+        assembly { ownBalance := balance(address()) }
         require(ownBalance >= msg.value);
     }
 }
@@ -240,16 +250,21 @@ contract StipendTest {
 }
 
 /**
- * @title BalanceReadTest
- * @dev Test contract that verifies the stipend covers a receiver reading its own balance
+ * @title SendAndTransferTest
+ * @dev Calls `send` and `transfer` on the given receiver and checks that the balances moved
  */
-contract BalanceReadTest {
-    function testBalanceRead(address payable to) public payable {
-        require(to.send(0), "BalanceReader send zero failed");
+contract SendAndTransferTest {
+    function testSendAndTransfer(address payable to) public payable {
+        require(to.send(0), "send zero failed");
         to.transfer(0);
 
         uint256 amount = msg.value / 2;
-        require(to.send(amount), "BalanceReader send failed");
+        uint256 balanceBefore = to.balance;
+        uint256 ownBalanceBefore = address(this).balance;
+        require(to.send(amount), "send failed");
+        require(to.balance == balanceBefore + amount, "balance not updated after send");
         to.transfer(amount);
+        require(to.balance == balanceBefore + 2 * amount, "balance not updated after transfer");
+        require(address(this).balance == ownBalanceBefore - 2 * amount, "sender balance not updated");
     }
 }
