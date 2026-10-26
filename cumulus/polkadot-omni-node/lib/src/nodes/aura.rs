@@ -268,6 +268,7 @@ where
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
+				ss_config,
 				&metrics,
 				&mut net_config,
 			);
