@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792990064690,
+  "lastUpdate": 1793004173774,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "shawntabrizi@gmail.com",
-            "name": "Shawn Tabrizi",
-            "username": "shawntabrizi"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e7332c1aa702038ba72664290bb148d5d5a49ceb",
-          "message": "Pass NodeExtraArgs through Dev Chain (#11685)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11684\n\nThis is useful if you are trying to build / prototype on top of\nstatement store, but don't want to set up or maintain a whole zombienet.",
-          "timestamp": "2026-04-11T13:46:43Z",
-          "tree_id": "cf3003b4016cf9a9a36ab40054a1d036c4eef28b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7332c1aa702038ba72664290bb148d5d5a49ceb"
-        },
-        "date": 1775920112322,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.800293422233333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13729499946666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13654981153333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8a076f72bacf525a4515277b95005b15f061f87",
+          "message": "Fix ETH RPC Log Filtering Logic (#13002)\n\n# Description\n\nWe have had a number of issues in the eth-rpc related to the log\nfiltering logic and to its data representation such as:\n\n- https://github.com/paritytech/polkadot-sdk/pull/12626\n- https://github.com/paritytech/polkadot-sdk/pull/12483\n- https://github.com/alloy-rs/alloy/pull/4153\n\nSome of the issues that I link to here can't be fixed without changing\nthe models we're using since there are certain things which alloy's\n`Filter` type can't represent\n(https://github.com/alloy-rs/alloy/pull/4153).\n\nThis PR does the following:\n- Introduces our own `Filter` type which we use instead of alloy's\nfilter type (due to the issues it has with what data it can't represent\nas seen in https://github.com/alloy-rs/alloy/pull/4153).\n- Implement `Filter` matching logic on the `Filter` type itself as an\nauthoritative implementation that can be used anywhere in the codebase.\n- Removes the duplicated subscription filter type that we used to have\nin favor of this new `Filter` type.\n- Updates the `ReceiptProvider::logs` implementation to match the\nfiltering logic implemented on the `Filter` type.\n\nThis PR fixes all of the github issues/PRs linked to above and should\nclose them once its merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-26T07:08:50Z",
+          "tree_id": "ecc342976b82eb8db230e28ec116fc67fc202300",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8a076f72bacf525a4515277b95005b15f061f87"
+        },
+        "date": 1793004140360,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.742935859933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1216867755,
             "unit": "seconds"
           }
         ]
