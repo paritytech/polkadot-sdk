@@ -46,11 +46,9 @@ use sp_io::{
 	storage, wasm_tracing,
 };
 #[cfg(not(feature = "std"))]
-use sp_runtime::{
-	print,
-	traits::{BlakeTwo256, Hash},
-};
+use sp_runtime::traits::{BlakeTwo256, Hash};
 
+#[cfg_attr(target_arch = "wasm32", link(wasm_import_module = "env"))]
 extern "C" {
 	#[allow(dead_code)]
 	fn missing_external();
@@ -86,16 +84,16 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_data_in(input: Vec<u8>) -> Vec<u8> {
-		print("set_storage");
+		log::info!("set_storage");
 		storage::set(b"input", &input);
 
-		print("storage");
+		log::info!("storage");
 		let foo = storage::get(b"foo").unwrap();
 
-		print("set_storage");
+		log::info!("set_storage");
 		storage::set(b"baz", &foo);
 
-		print("finished!");
+		log::info!("finished!");
 		b"all ok!".to_vec()
 	}
 
@@ -105,6 +103,13 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_empty_return() {}
+
+	fn test_spin() {
+		let mut i = 0u64;
+		loop {
+			i = core::hint::black_box(i).wrapping_add(1);
+		}
+	}
 
 	fn test_dirty_plenty_memory(heap_base: u32, heap_pages: u32) {
 		// This piece of code will dirty multiple pages of memory. The number of pages is given by
