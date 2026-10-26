@@ -217,7 +217,7 @@ pub fn memory_resize<'a, E: Ext>(
 		return ControlFlow::Continue(None);
 	}
 
-	interpreter.ext.charge_or_halt(RuntimeCosts::CopyToContract(len as u32))?;
+	interpreter.ext.charge_or_halt(RuntimeCosts::EvmCopyToContract(len as u32))?;
 	let memory_offset = as_usize_or_halt::<E::T>(memory_offset)?;
 	interpreter.memory.resize(memory_offset, len, interpreter.ext)?;
 	ControlFlow::Continue(Some(memory_offset))

@@ -49,6 +49,8 @@ pub enum RuntimeCosts {
 	EvmMemoryGrow { words: u32, allocation_words: u32 },
 	/// Weight of allocating and copying EVM output data, in bytes.
 	EvmMemoryCopyOut(u32),
+	/// Per-byte weight of copying data into EVM memory; the op-code pays its fixed cost.
+	EvmCopyToContract(u32),
 	/// Weight charged for executing the extcodecopy instruction.
 	ExtCodeCopy(u32),
 	/// Weight charged for copying data from the sandbox.
@@ -331,6 +333,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				T::WeightInfo::extcodecopy(len).saturating_sub(T::WeightInfo::seal_code_size())
 			},
 			CopyToContract(len) => T::WeightInfo::seal_copy_to_contract(len),
+			EvmCopyToContract(len) => cost_args!(seal_copy_to_contract, len),
 			CopyFromContract(len) => T::WeightInfo::seal_return(len),
 			CallDataSize => T::WeightInfo::seal_call_data_size(),
 			ReturnDataSize => T::WeightInfo::seal_return_data_size(),

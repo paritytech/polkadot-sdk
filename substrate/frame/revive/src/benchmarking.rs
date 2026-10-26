@@ -4103,13 +4103,15 @@ mod benchmarks {
 		assert_eq!(interpreter.stack.top(), Some(&END_OF_WALK));
 	}
 
-	/// Benchmarks `r` EVM `CALLDATACOPY` op-codes that copy zero bytes.
+	/// Benchmarks `r` EVM `CALLDATACOPY` op-codes that copy one byte into expanded memory.
 	///
 	/// This is the fixed cost of a `CALLDATACOPY`, which it pays at any length.
+	/// The non-zero copy includes the offset conversions and memory bounds check.
 	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract: a zero-length copy skips part of the measured work.
+	/// See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_calldatacopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		let code = Bytecode::new_raw(vec![CALLDATACOPY; r as usize].into());
@@ -4117,9 +4119,17 @@ mod benchmarks {
 		let (mut ext, _) = setup.ext();
 		let calldata = vec![42; CALLDATA_BYTES as usize];
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), calldata, &mut ext);
-		// Each copy pops its memory offset, its call data offset and a zero length, which makes
-		// it ignore both offsets.
-		setup_stack(&mut interpreter, (0..r).flat_map(|_| [U256::zero(), U256::MAX, U256::MAX]));
+		interpreter
+			.memory
+			.resize(0, 32, interpreter.ext)
+			.continue_value()
+			.expect("the benchmark memory fits within the limit");
+		interpreter.memory.slice_mut(0, 32).fill(0xa5);
+		// Each copy writes one byte from call data to the last byte of expanded memory.
+		setup_stack(
+			&mut interpreter,
+			(0..r).flat_map(|_| [U256::one(), U256::zero(), U256::from(31)]),
+		);
 
 		evict_caches();
 		let result;
@@ -4131,25 +4141,42 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.memory.size(), 0);
+		assert_eq!(interpreter.memory.size(), 32);
+		let mut expected = [0xa5; 32];
+		if r > 0 {
+			expected[31] = 42;
+		}
+		assert_eq!(interpreter.memory.slice(0..32), &expected);
 	}
 
-	/// Benchmarks `r` EVM `CODECOPY` op-codes that copy zero bytes.
+	/// Benchmarks `r` EVM `CODECOPY` op-codes that copy one byte into expanded memory.
 	///
 	/// This is the fixed cost of a `CODECOPY`, which it pays at any length.
+	/// The non-zero copy includes the offset conversions and memory bounds check.
 	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract: a zero-length copy skips part of the measured work.
+	/// See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_codecopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
-		let code = Bytecode::new_raw(vec![CODECOPY; r as usize].into());
+		let mut code = vec![CODECOPY; r as usize];
+		code.extend_from_slice(&[STOP, 42]);
+		let code = Bytecode::new_raw(code.into());
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_noop(0));
 		let (mut ext, _) = setup.ext();
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		// Each copy pops its memory offset, its code offset and a zero length, which makes it
-		// ignore both offsets.
-		setup_stack(&mut interpreter, (0..r).flat_map(|_| [U256::zero(), U256::MAX, U256::MAX]));
+		interpreter
+			.memory
+			.resize(0, 32, interpreter.ext)
+			.continue_value()
+			.expect("the benchmark memory fits within the limit");
+		interpreter.memory.slice_mut(0, 32).fill(0xa5);
+		// The source byte follows STOP, so it is copied without being executed.
+		setup_stack(
+			&mut interpreter,
+			(0..r).flat_map(|_| [U256::one(), U256::from(r + 1), U256::from(31)]),
+		);
 
 		evict_caches();
 		let result;
@@ -4161,16 +4188,23 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.memory.size(), 0);
+		assert_eq!(interpreter.memory.size(), 32);
+		let mut expected = [0xa5; 32];
+		if r > 0 {
+			expected[31] = 42;
+		}
+		assert_eq!(interpreter.memory.slice(0..32), &expected);
 	}
 
-	/// Benchmarks `r` EVM `RETURNDATACOPY` op-codes that copy zero bytes.
+	/// Benchmarks `r` EVM `RETURNDATACOPY` op-codes that copy one byte into expanded memory.
 	///
 	/// This is the fixed cost of a `RETURNDATACOPY`, which it pays at any length.
+	/// The non-zero copy includes the return data bounds check and offset conversions.
 	///
 	/// # Subtraction Safety
 	///
-	/// Safe to subtract. See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
+	/// Not safe to subtract: a zero-length copy skips part of the measured work.
+	/// See [`benchmarks`](mod@benchmarks) for what subtraction safety means.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_returndatacopy_opcode(r: Linear<0, { EVM_STACK_LIMIT / 3 }>) {
 		let code = Bytecode::new_raw(vec![RETURNDATACOPY; r as usize].into());
@@ -4179,10 +4213,16 @@ mod benchmarks {
 		*ext.last_frame_output_mut() =
 			ExecReturnValue { data: vec![42; CALLDATA_BYTES as usize], ..Default::default() };
 		let mut interpreter = Interpreter::new(ExtBytecode::new(code), Vec::new(), &mut ext);
-		// Each copy pops its memory offset, a return data offset and a zero length. The return
-		// data offset still has to be in bounds, but the zero length makes it ignore the memory
-		// offset.
-		setup_stack(&mut interpreter, (0..r).flat_map(|_| [U256::zero(), U256::zero(), U256::MAX]));
+		interpreter
+			.memory
+			.resize(0, 32, interpreter.ext)
+			.continue_value()
+			.expect("the benchmark memory fits within the limit");
+		interpreter.memory.slice_mut(0, 32).fill(0xa5);
+		setup_stack(
+			&mut interpreter,
+			(0..r).flat_map(|_| [U256::one(), U256::zero(), U256::from(31)]),
+		);
 
 		evict_caches();
 		let result;
@@ -4194,7 +4234,12 @@ mod benchmarks {
 		let ControlFlow::Break(halt) = result;
 		assert!(matches!(halt, Halt::Stop));
 		assert_eq!(interpreter.stack.len(), 0);
-		assert_eq!(interpreter.memory.size(), 0);
+		assert_eq!(interpreter.memory.size(), 32);
+		let mut expected = [0xa5; 32];
+		if r > 0 {
+			expected[31] = 42;
+		}
+		assert_eq!(interpreter.memory.slice(0..32), &expected);
 	}
 
 	/// Benchmarks `Memory::grow`, which only zeroes newly exposed bytes.

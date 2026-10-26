@@ -89,8 +89,12 @@ doc:
     - `CALLDATACOPY`, `CODECOPY` and `RETURNDATACOPY`: the slope of
       `evm_calldatacopy_opcode`, `evm_codecopy_opcode` and
       `evm_returndatacopy_opcode` respectively, plus the dispatch charge,
-      also at zero length. A non-zero length also pays
-      `seal_copy_to_contract(len)` and the memory growth.
+      also at zero length. These benchmarks copy one byte into memory
+      expanded before measurement, covering the non-zero copy path's
+      fixed work. A non-zero length also pays
+      `seal_copy_to_contract(len) - seal_copy_to_contract(0)` and the
+      memory growth. PVM copies and CALL output copies continue to pay
+      the full `seal_copy_to_contract(len)` weight.
     - Memory growth from `current` to `target` bytes, with `target`
       rounded up to a multiple of 32:
       `slope(evm_memory_grow) * (target - current) / 32`. When `target`

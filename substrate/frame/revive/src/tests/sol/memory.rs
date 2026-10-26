@@ -22,7 +22,7 @@ use crate::{
 	limits::EVM_MEMORY_BYTES,
 	precompiles::Token,
 	test_utils::{ALICE, builder::Contract},
-	tests::{ExtBuilder, Test, builder},
+	tests::{Contracts, ExtBuilder, Test, builder},
 	vm::evm::EvmDispatch,
 	weights::WeightInfo,
 };
@@ -31,7 +31,7 @@ use alloy_core::{
 	sol_types::{SolCall, SolInterface},
 };
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, Memory, compile_module_with_type};
+use pallet_revive_fixtures::{FixtureType, Memory, MemoryEvmOnly, compile_module_with_type};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use revm::bytecode::opcode::{CALLDATACOPY, CODECOPY, MCOPY, PUSH0, RETURNDATACOPY, STOP};
@@ -200,19 +200,47 @@ fn return_charges_copying_its_output() {
 	assert_eq!(large, empty.saturating_add(Weights::evm_memory_copy_out(LEN)));
 }
 
-#[test]
-fn zero_length_calldatacopy_skips_the_copy_charge() {
+#[test_case(CALLDATACOPY; "calldatacopy")]
+#[test_case(CODECOPY; "codecopy")]
+#[test_case(RETURNDATACOPY; "returndatacopy")]
+fn copy_opcodes_charge_only_per_byte_work(opcode: u8) {
+	let (code, _) = compile_module_with_type("MemoryEvmOnly", FixtureType::Solc)
+		.expect("the EVM copy fixture compiled");
 	let weight_of = |len: u32| {
-		weight_of_solc_call(
-			"Memory",
-			Memory::calldatacopyWithoutGrowthCall { len: U256::from(len) }.abi_encode(),
-		)
+		let len = U256::from(len);
+		let data = match opcode {
+			CALLDATACOPY => MemoryEvmOnly::calldatacopyWithoutGrowthCall { len }.abi_encode(),
+			CODECOPY => MemoryEvmOnly::codecopyWithoutGrowthCall { len }.abi_encode(),
+			RETURNDATACOPY => MemoryEvmOnly::returndatacopyWithoutGrowthCall { len }.abi_encode(),
+			_ => unreachable!("only the three EVM copy op-codes are tested"),
+		};
+		ExtBuilder::default().build().execute_with(|| {
+			<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+			let source = match opcode {
+				CALLDATACOPY => data.clone(),
+				CODECOPY => Contracts::code(&addr),
+				RETURNDATACOPY => vec![0x2a; 64],
+				_ => unreachable!("only the three EVM copy op-codes are tested"),
+			};
+			let output = builder::bare_call(addr).data(data).build();
+			let result = output.result.expect("the copy call succeeded");
+			assert!(!result.did_revert(), "the copy call reverted");
+			let mut expected = vec![0; 64];
+			let copied = len.to::<usize>().min(source.len());
+			expected[..copied].copy_from_slice(&source[..copied]);
+			assert_eq!(result.data, expected);
+			output.weight_consumed
+		})
 	};
 
 	let empty = weight_of(0);
-	let word = weight_of(32);
-
-	assert_eq!(word, empty.saturating_add(Weights::seal_copy_to_contract(32)));
+	for len in [1, 32, 64] {
+		let per_byte =
+			Weights::seal_copy_to_contract(len).saturating_sub(Weights::seal_copy_to_contract(0));
+		assert_eq!(weight_of(len), empty.saturating_add(per_byte), "copy length {len}");
+	}
 }
 
 #[test_case(CALLDATACOPY, Weights::evm_calldatacopy_opcode; "calldatacopy")]
