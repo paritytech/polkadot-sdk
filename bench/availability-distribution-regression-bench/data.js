@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792990117803,
+  "lastUpdate": 1793004221671,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f8156c184007ace837d38b496eb660ea30b667d0",
-          "message": "Make pallet_xcm_bridge_hub_router exporter configurable for paid/unpaid (#11694)\n\nAdd `type Exporter: SendXcm` to the pallet's Config trait so runtimes\ncan choose between `SovereignPaidRemoteExporter` (paid) and\n`UnpaidRemoteExporter` (unpaid) bridging. Provide convenience type\naliases `PaidRemoteExporter` and `UnpaidRemoteExporterAdapter`.\n\nAsset Hub runtimes are configured to now use `UnpaidRemoteExporter` to\nreduce deployment complexity\n(no more need to manage/top-up AH sov account on BH).\n\nSimpler fix for https://github.com/polkadot-fellows/runtimes/issues/392\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-10T17:35:45Z",
-          "tree_id": "332881d692bdaec87d68e3dda4c3a4c8500c809e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8156c184007ace837d38b496eb660ea30b667d0"
-        },
-        "date": 1775848296919,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14089074308666671,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025343978633333344,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006956912926666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00970976837999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14390796050000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "OmarAbdulla7@hotmail.com",
+            "name": "Omar",
+            "username": "0xOmarA"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8a076f72bacf525a4515277b95005b15f061f87",
+          "message": "Fix ETH RPC Log Filtering Logic (#13002)\n\n# Description\n\nWe have had a number of issues in the eth-rpc related to the log\nfiltering logic and to its data representation such as:\n\n- https://github.com/paritytech/polkadot-sdk/pull/12626\n- https://github.com/paritytech/polkadot-sdk/pull/12483\n- https://github.com/alloy-rs/alloy/pull/4153\n\nSome of the issues that I link to here can't be fixed without changing\nthe models we're using since there are certain things which alloy's\n`Filter` type can't represent\n(https://github.com/alloy-rs/alloy/pull/4153).\n\nThis PR does the following:\n- Introduces our own `Filter` type which we use instead of alloy's\nfilter type (due to the issues it has with what data it can't represent\nas seen in https://github.com/alloy-rs/alloy/pull/4153).\n- Implement `Filter` matching logic on the `Filter` type itself as an\nauthoritative implementation that can be used anywhere in the codebase.\n- Removes the duplicated subscription filter type that we used to have\nin favor of this new `Filter` type.\n- Updates the `ReceiptProvider::logs` implementation to match the\nfiltering logic implemented on the `Filter` type.\n\nThis PR fixes all of the github issues/PRs linked to above and should\nclose them once its merged.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-26T07:08:50Z",
+          "tree_id": "ecc342976b82eb8db230e28ec116fc67fc202300",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8a076f72bacf525a4515277b95005b15f061f87"
+        },
+        "date": 1793004187976,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14164211917333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02508614479333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009660353719999973,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007658374046666667,
             "unit": "seconds"
           }
         ]
