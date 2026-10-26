@@ -66,12 +66,9 @@ pub const MAX_ACCESS_LIST_ENTRIES: usize = 4_096;
 // grows by moving to a buffer twice the size, and the buffers it frees add up to about one final
 // buffer. The allocator keeps each for requests of the same size, which the list does not make.
 
-/// Worst-case memory of a storage slot entry: the slot total above, rounded up.
+/// Worst-case memory of a storage slot entry, the slot total above rounded up. Nothing bounds
+/// how many of the entries are slots, so the budget takes this size for all of them.
 const SLOT_ENTRY_BYTES: usize = 1_024;
-
-/// Worst-case memory of an address or code entry, or a storage slot with an inline key: the
-/// address total above, rounded up.
-const ADDRESS_ENTRY_BYTES: usize = 512;
 
 const _: () = assert!(
 	core::mem::size_of::<AccessEntry>() <= 64 &&
@@ -80,16 +77,8 @@ const _: () = assert!(
 	"the memory usage table above is based on these sizes and requires remeasuring",
 );
 
-/// Storage slot entries that fit into a block's PoV.
-///
-/// Set ~1.3× above the current PoV-reachable ceiling: each cold slot access charges ~10 KB
-/// `proof_size`, capping a transaction (~7.5 MiB PoV) at ~770 cold slots.
-pub const MAX_SLOT_ENTRIES: usize = 1_024;
-
 /// Worst-case total memory the access list can hold per transaction.
-pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_SLOT_ENTRIES * SLOT_ENTRY_BYTES +
-	(MAX_ACCESS_LIST_ENTRIES - MAX_SLOT_ENTRIES) * ADDRESS_ENTRY_BYTES)
-	as u32;
+pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_ACCESS_LIST_ENTRIES * SLOT_ENTRY_BYTES) as u32;
 
 /// A contract's storage key, in the form the access list keeps it.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
