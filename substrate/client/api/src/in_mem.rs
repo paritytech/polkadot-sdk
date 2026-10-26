@@ -25,14 +25,13 @@ use sp_core::{
 };
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, PartialStateFor, Zero},
+	traits::{Block as BlockT, HashingFor, Header as HeaderT, NumberFor, Zero},
 	Justification, Justifications, StateVersion, Storage,
 };
 use sp_state_machine::{
 	Backend as StateBackend, BackendTransaction, ChildStorageCollection, InMemoryBackend,
-	IndexOperation, StorageCollection, TrieBackendBuilder,
+	IndexOperation, StorageCollection,
 };
-use sp_trie::{partial_state::chunk_nodes, HashDBT, PrefixedMemoryDB};
 use std::{
 	collections::{HashMap, HashSet},
 	ptr,
@@ -43,7 +42,6 @@ use crate::{
 	backend::{self, NewBlockState},
 	blockchain::{self, BlockStatus, HeaderBackend},
 	leaves::LeafSet,
-	partial_state::{PartialStateStore, PartialStateTarget, ResumablePartialState},
 	TrieCacheContext, UsageInfo,
 };
 
@@ -51,21 +49,6 @@ struct PendingBlock<B: BlockT> {
 	block: StoredBlock<B>,
 	state: NewBlockState,
 	register_as_leaf: bool,
-}
-
-/// A state sync in progress: its record and the nodes its chunks wrote, kept apart from the
-/// block states until the target block commits. Only tests sync state into this backend, so
-/// chunks are written as they come, without the ordering checks the real database makes.
-struct PartialStateAttempt<Block: BlockT> {
-	record: ResumablePartialState<Block>,
-	nodes: PrefixedMemoryDB<HashingFor<Block>>,
-}
-
-/// The in-memory [`PartialStateStore`]: the attempt lives in memory, and `commit_operation`
-/// installs its nodes as the target block's state.
-struct InMemPartialState<Block: BlockT> {
-	/// The state sync begun and not completed, if any.
-	attempt: RwLock<Option<PartialStateAttempt<Block>>>,
 }
 
 #[derive(PartialEq, Eq, Clone)]
@@ -492,9 +475,6 @@ pub struct BlockImportOperation<Block: BlockT> {
 	pending_block: Option<PendingBlock<Block>>,
 	old_state: InMemoryBackend<HashingFor<Block>>,
 	new_state: Option<BackendTransaction<HashingFor<Block>>>,
-	/// The pending block's state was delivered by a state sync: `commit_operation` installs the
-	/// attempt's nodes as is instead of deriving a state from `old_state` and `new_state`.
-	synced_state: bool,
 	aux: Vec<(Vec<u8>, Option<Vec<u8>>)>,
 	finalized_blocks: Vec<(Block::Hash, Option<Justification>)>,
 	set_head: Option<Block::Hash>,
@@ -624,11 +604,6 @@ impl<Block: BlockT> backend::BlockImportOperation<Block> for BlockImportOperatio
 	}
 
 	fn set_create_gap(&mut self, _create_gap: bool) {}
-
-	fn mark_state_synced(&mut self) -> sp_blockchain::Result<()> {
-		self.synced_state = true;
-		Ok(())
-	}
 }
 
 /// In-memory backend. Keeps all states and blocks in memory.
@@ -640,7 +615,6 @@ pub struct Backend<Block: BlockT> {
 	blockchain: Blockchain<Block>,
 	import_lock: RwLock<()>,
 	pinned_blocks: RwLock<HashMap<Block::Hash, i64>>,
-	partial_state: InMemPartialState<Block>,
 }
 
 impl<Block: BlockT> Backend<Block> {
@@ -655,7 +629,6 @@ impl<Block: BlockT> Backend<Block> {
 			blockchain: Blockchain::new(),
 			import_lock: Default::default(),
 			pinned_blocks: Default::default(),
-			partial_state: InMemPartialState { attempt: RwLock::new(None) },
 		}
 	}
 
@@ -702,7 +675,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			pending_block: None,
 			old_state,
 			new_state: None,
-			synced_state: false,
 			aux: Default::default(),
 			finalized_blocks: Default::default(),
 			set_head: None,
@@ -731,18 +703,9 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 
 			let hash = header.hash();
 
-			let new_state = if operation.synced_state {
-				// A completed state sync: the downloaded nodes are the block's whole state, and
-				// the sync is forgotten. Only the recorded target can complete it.
-				let state_root = *header.state_root();
-				let mut guard = self.partial_state.attempt.write();
-				recorded_attempt(guard.as_ref(), state_root)?;
-				let attempt = guard.take().expect("checked to be `Some` just above; qed");
-				TrieBackendBuilder::new(attempt.nodes, state_root).build()
-			} else if let Some(state) = operation.new_state {
-				old_state.update_backend(*header.state_root(), state)
-			} else {
-				old_state.clone()
+			let new_state = match operation.new_state {
+				Some(state) => old_state.update_backend(*header.state_root(), state),
+				None => old_state.clone(),
 			};
 
 			self.states.write().insert(hash, new_state);
@@ -809,7 +772,7 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 			.read()
 			.get(&hash)
 			.cloned()
-			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{hash}")))
+			.ok_or_else(|| sp_blockchain::Error::UnknownBlock(format!("{}", hash)))
 	}
 
 	fn revert(
@@ -832,10 +795,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 		false
 	}
 
-	fn partial_state(&self) -> Option<&dyn PartialStateStore<Block>> {
-		Some(&self.partial_state)
-	}
-
 	fn pin_block(&self, hash: <Block as BlockT>::Hash) -> blockchain::Result<()> {
 		let mut blocks = self.pinned_blocks.write();
 		*blocks.entry(hash).or_default() += 1;
@@ -849,74 +808,6 @@ impl<Block: BlockT> backend::Backend<Block> for Backend<Block> {
 }
 
 impl<Block: BlockT> backend::LocalBackend<Block> for Backend<Block> {}
-
-impl<Block: BlockT> PartialStateStore<Block> for InMemPartialState<Block> {
-	fn begin(&self, target: PartialStateTarget<Block>) -> sp_blockchain::Result<()> {
-		// Replacing an earlier sync drops its nodes. That is all a discard is here.
-		*self.attempt.write() = Some(PartialStateAttempt {
-			record: ResumablePartialState { target, cursor: Vec::new(), complete: false },
-			nodes: PrefixedMemoryDB::default(),
-		});
-		Ok(())
-	}
-
-	fn import(&self, chunk: &PartialStateFor<Block>) -> sp_blockchain::Result<()> {
-		let block_hash = chunk.block_hash;
-		let refused = |what: String| {
-			sp_blockchain::Error::Storage(format!("State chunk of {block_hash:?} {what}"))
-		};
-		let mut guard = self.attempt.write();
-		let Some(attempt) = guard.as_mut() else {
-			return Err(refused("arrives while no state sync is recorded".into()));
-		};
-		// A copied child trie is read back from what earlier chunks wrote.
-		let nodes = chunk_nodes(chunk, |hash, prefix| attempt.nodes.get(hash, prefix))
-			.map_err(|e| refused(format!("does not decode: {e}")))?;
-		for node in nodes {
-			attempt.nodes.emplace(node.hash, node.prefix.as_prefix(), node.encoded);
-		}
-		match &chunk.end {
-			Some(end) => attempt.record.cursor = end.clone(),
-			None => attempt.record.complete = true,
-		}
-		Ok(())
-	}
-
-	fn resumable(&self) -> sp_blockchain::Result<Option<ResumablePartialState<Block>>> {
-		Ok(self.attempt.read().as_ref().map(|attempt| attempt.record.clone()))
-	}
-
-	fn check_complete(&self, state_root: Block::Hash) -> sp_blockchain::Result<()> {
-		let mut guard = self.attempt.write();
-		let attempt = recorded_attempt(guard.as_ref(), state_root)?;
-		if let Err(e) = crate::partial_state::check_trie_complete::<HashingFor<Block>, _>(
-			TrieBackendBuilder::new(&attempt.nodes, state_root).build(),
-		) {
-			// With a node missing the sync can never complete: its nodes are dropped.
-			*guard = None;
-			return Err(e);
-		}
-		Ok(())
-	}
-}
-
-/// The recorded attempt, if `state_root` is its target's.
-fn recorded_attempt<Block: BlockT>(
-	attempt: Option<&PartialStateAttempt<Block>>,
-	state_root: Block::Hash,
-) -> sp_blockchain::Result<&PartialStateAttempt<Block>> {
-	let not_recorded = |why: &str| {
-		sp_blockchain::Error::Backend(format!(
-			"State root {state_root:?} is not the recorded state sync target's: {why}"
-		))
-	};
-	let attempt = attempt.ok_or_else(|| not_recorded("none is recorded"))?;
-	let recorded_root = *attempt.record.target.header.state_root();
-	if recorded_root != state_root {
-		return Err(not_recorded(&format!("it has state root {recorded_root:?}")));
-	}
-	Ok(attempt)
-}
 
 /// Check that genesis storage is valid.
 pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
@@ -937,19 +828,9 @@ pub fn check_genesis_storage(storage: &Storage) -> sp_blockchain::Result<()> {
 
 #[cfg(test)]
 mod tests {
-	use crate::{
-		backend::{Backend as ScClientApiBackend, BlockImportOperation},
-		in_mem::{BlockT, Blockchain},
-		partial_state::{PartialStateTarget, ResumablePartialState},
-		NewBlockState, TrieCacheContext,
-	};
+	use crate::{in_mem::Blockchain, NewBlockState};
 	use sp_blockchain::Backend;
-	use sp_runtime::{
-		traits::{HashingFor, Header as HeaderT},
-		ConsensusEngineId, Justifications,
-	};
-	use sp_state_machine::{Backend as SpStateMachineBackend, InMemoryBackend};
-	use sp_trie::{partial_state::PartialState, LayoutV0, MemoryDB, TrieDBMutBuilder, TrieMut};
+	use sp_runtime::{traits::Header as HeaderT, ConsensusEngineId, Justifications};
 	use substrate_test_runtime::{Block, Header, H256};
 
 	pub const ID1: ConsensusEngineId = *b"TST1";
@@ -1014,98 +895,5 @@ mod tests {
 			blockchain.append_justification(last_finalized, (ID2, vec![1])),
 			Err(sp_blockchain::Error::BadJustification(_)),
 		));
-	}
-
-	/// The nodes of a state holding `key_values`, keyed by hash as a chunk carries them, with a
-	/// header at that state root.
-	fn partial_state_chunk(
-		key_values: &[(Vec<u8>, Vec<u8>)],
-	) -> (MemoryDB<HashingFor<Block>>, Header) {
-		let mut nodes = MemoryDB::default();
-		let mut state_root: <Block as BlockT>::Hash = Default::default();
-		{
-			let mut trie =
-				TrieDBMutBuilder::<LayoutV0<HashingFor<Block>>>::new(&mut nodes, &mut state_root)
-					.build();
-			for (k, v) in key_values {
-				trie.insert(k, v).expect("an in-memory trie accepts every key");
-			}
-			trie.commit();
-		}
-		let header = Header {
-			number: 1,
-			parent_hash: Default::default(),
-			state_root,
-			digest: Default::default(),
-			extrinsics_root: Default::default(),
-		};
-		(nodes, header)
-	}
-
-	fn target(header: &Header) -> PartialStateTarget<Block> {
-		PartialStateTarget { header: header.clone(), body: None, justifications: None }
-	}
-
-	/// A chunk of the whole state of `header`: from the start, no range end, no copies.
-	fn chunk(
-		header: &Header,
-		nodes: MemoryDB<HashingFor<Block>>,
-	) -> PartialState<HashingFor<Block>> {
-		PartialState {
-			block_hash: header.hash(),
-			state_root: header.state_root,
-			nodes,
-			start: vec![],
-			end: None,
-			child_trie_copies: vec![],
-		}
-	}
-
-	fn storage_err(e: impl ToString) -> sp_blockchain::Error {
-		sp_blockchain::Error::Storage(e.to_string())
-	}
-
-	fn pairs_of(
-		state: &InMemoryBackend<HashingFor<Block>>,
-	) -> sp_blockchain::Result<Vec<(Vec<u8>, Vec<u8>)>> {
-		state
-			.pairs(Default::default())
-			.map_err(storage_err)?
-			.map(|kv| kv.map_err(storage_err))
-			.collect()
-	}
-
-	#[test]
-	fn import_completes_at_the_target_commit() -> sp_blockchain::Result<()> {
-		let expected_key_values =
-			vec![(vec![0u8; 40], vec![0u8; 1]), (vec![1u8; 40], vec![1u8; 1])];
-		let (nodes, header) = partial_state_chunk(&expected_key_values);
-		let backend = super::Backend::<Block>::new();
-		let store = backend.partial_state().expect("the in-memory backend has a store");
-		store.begin(target(&header))?;
-		store.import(&chunk(&header, nodes))?;
-		assert_eq!(
-			store.resumable()?,
-			Some(ResumablePartialState { target: target(&header), cursor: vec![], complete: true }),
-			"the only chunk had no range end"
-		);
-		assert!(
-			matches!(
-				backend.state_at(header.hash(), TrieCacheContext::Untrusted),
-				Err(sp_blockchain::Error::UnknownBlock(_))
-			),
-			"the state is not visible before the block imports"
-		);
-
-		let mut op = backend.begin_operation()?;
-		op.set_block_data(header.clone(), None, None, NewBlockState::Normal, true)?;
-		store.check_complete(header.state_root)?;
-		op.mark_state_synced()?;
-		backend.commit_operation(op)?;
-
-		let state = backend.state_at(header.hash(), TrieCacheContext::Untrusted)?;
-		assert_eq!(pairs_of(&state)?, expected_key_values);
-		assert_eq!(store.resumable()?, None, "completion forgets the attempt");
-		Ok(())
 	}
 }
