@@ -250,49 +250,50 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#100 id=100 data-nosnippet>100</a>//!
 <a href=#101 id=101 data-nosnippet>101</a>//! ### Anatomy of a Binary Crate
 <a href=#102 id=102 data-nosnippet>102</a>//!
-<a href=#103 id=103 data-nosnippet>103</a>//! From the above, [`node_cli`]/[`kitchensink_runtime`] and `node-template` are essentially
-<a href=#104 id=104 data-nosnippet>104</a>//! blueprints of a Substrate-based project, as the name of the latter is implying. Each
-<a href=#105 id=105 data-nosnippet>105</a>//! Substrate-based project typically contains the following:
-<a href=#106 id=106 data-nosnippet>106</a>//!
-<a href=#107 id=107 data-nosnippet>107</a>//! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.
-<a href=#108 id=108 data-nosnippet>108</a>//!   This file typically contains the [`frame::runtime::prelude::construct_runtime`] and
-<a href=#109 id=109 data-nosnippet>109</a>//!   [`frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the final definition of a
-<a href=#110 id=110 data-nosnippet>110</a>//!   runtime.
-<a href=#111 id=111 data-nosnippet>111</a>//!
-<a href=#112 id=112 data-nosnippet>112</a>//! * Under `./node`, a `main.rs`, which is the starting point, and a `./service.rs`, which contains
-<a href=#113 id=113 data-nosnippet>113</a>//!   all the node side components. Skimming this file yields an overview of the networking,
-<a href=#114 id=114 data-nosnippet>114</a>//!   database, consensus and similar node side components.
-<a href=#115 id=115 data-nosnippet>115</a>//!
-<a href=#116 id=116 data-nosnippet>116</a>//! &gt; The above two are conventions, not rules.
-<a href=#117 id=117 data-nosnippet>117</a>//!
-<a href=#118 id=118 data-nosnippet>118</a>//! &gt; See &lt;https://github.com/paritytech/polkadot-sdk/issues/5&gt; for an update on how the node side
-<a href=#119 id=119 data-nosnippet>119</a>//! &gt; components are being amalgamated.
-<a href=#120 id=120 data-nosnippet>120</a>//!
-<a href=#121 id=121 data-nosnippet>121</a>//! ## Parachain?
-<a href=#122 id=122 data-nosnippet>122</a>//!
-<a href=#123 id=123 data-nosnippet>123</a>//! As noted above, Substrate is the main engine behind the Polkadot ecosystem. One of the ways
-<a href=#124 id=124 data-nosnippet>124</a>//! through which Polkadot can be utilized is by building "parachains", blockchains that are
-<a href=#125 id=125 data-nosnippet>125</a>//! connected to Polkadot's shared security.
-<a href=#126 id=126 data-nosnippet>126</a>//!
-<a href=#127 id=127 data-nosnippet>127</a>//! To build a parachain, one could use [Cumulus](crate::polkadot_sdk::cumulus), the library on
-<a href=#128 id=128 data-nosnippet>128</a>//! top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
-<a href=#129 id=129 data-nosnippet>129</a>//!
-<a href=#130 id=130 data-nosnippet>130</a>//! ## Where To Go Next?
-<a href=#131 id=131 data-nosnippet>131</a>//!
-<a href=#132 id=132 data-nosnippet>132</a>//! Additional noteworthy crates within substrate:
-<a href=#133 id=133 data-nosnippet>133</a>//!
-<a href=#134 id=134 data-nosnippet>134</a>//! - RPC APIs of a Substrate node: [`sc_rpc_api`]/[`sc_rpc`]
-<a href=#135 id=135 data-nosnippet>135</a>//! - CLI Options of a Substrate node: [`sc_cli`]
-<a href=#136 id=136 data-nosnippet>136</a>//! - All of the consensus related crates provided by Substrate:
-<a href=#137 id=137 data-nosnippet>137</a>//!     - [`sc_consensus_aura`]
-<a href=#138 id=138 data-nosnippet>138</a>//!     - [`sc_consensus_babe`]
-<a href=#139 id=139 data-nosnippet>139</a>//!     - [`sc_consensus_grandpa`]
-<a href=#140 id=140 data-nosnippet>140</a>//!     - [`sc_consensus_beefy`] (TODO: @adrian, add some high level docs &lt;https://github.com/paritytech/polkadot-sdk-docs/issues/57&gt;)
-<a href=#141 id=141 data-nosnippet>141</a>//!     - [`sc_consensus_manual_seal`]
-<a href=#142 id=142 data-nosnippet>142</a>//!     - [`sc_consensus_pow`]
-<a href=#143 id=143 data-nosnippet>143</a>
-<a href=#144 id=144 data-nosnippet>144</a></span><span class="attr">#[doc(hidden)]
-<a href=#145 id=145 data-nosnippet>145</a></span><span class="kw">pub use </span><span class="kw">crate</span>::polkadot_sdk;
+<a href=#103 id=103 data-nosnippet>103</a>//! From the above, [`node_cli`]/[`kitchensink_runtime`] and the solochain template
+<a href=#104 id=104 data-nosnippet>104</a>//! (`templates/solochain`) are essentially blueprints of a Substrate-based project, as the name of
+<a href=#105 id=105 data-nosnippet>105</a>//! the latter is implying. Each
+<a href=#106 id=106 data-nosnippet>106</a>//! Substrate-based project typically contains the following:
+<a href=#107 id=107 data-nosnippet>107</a>//!
+<a href=#108 id=108 data-nosnippet>108</a>//! * Under `./runtime`, a `./runtime/src/lib.rs` which is the top level runtime amalgamator file.
+<a href=#109 id=109 data-nosnippet>109</a>//!   This file typically contains the [`frame::runtime::prelude::construct_runtime`] and
+<a href=#110 id=110 data-nosnippet>110</a>//!   [`frame::runtime::prelude::impl_runtime_apis`] macro calls, which is the final definition of a
+<a href=#111 id=111 data-nosnippet>111</a>//!   runtime.
+<a href=#112 id=112 data-nosnippet>112</a>//!
+<a href=#113 id=113 data-nosnippet>113</a>//! * Under `./node`, a `main.rs`, which is the starting point, and a `./service.rs`, which contains
+<a href=#114 id=114 data-nosnippet>114</a>//!   all the node side components. Skimming this file yields an overview of the networking,
+<a href=#115 id=115 data-nosnippet>115</a>//!   database, consensus and similar node side components.
+<a href=#116 id=116 data-nosnippet>116</a>//!
+<a href=#117 id=117 data-nosnippet>117</a>//! &gt; The above two are conventions, not rules.
+<a href=#118 id=118 data-nosnippet>118</a>//!
+<a href=#119 id=119 data-nosnippet>119</a>//! &gt; See &lt;https://github.com/paritytech/polkadot-sdk/issues/5&gt; for an update on how the node side
+<a href=#120 id=120 data-nosnippet>120</a>//! &gt; components are being amalgamated.
+<a href=#121 id=121 data-nosnippet>121</a>//!
+<a href=#122 id=122 data-nosnippet>122</a>//! ## Parachain?
+<a href=#123 id=123 data-nosnippet>123</a>//!
+<a href=#124 id=124 data-nosnippet>124</a>//! As noted above, Substrate is the main engine behind the Polkadot ecosystem. One of the ways
+<a href=#125 id=125 data-nosnippet>125</a>//! through which Polkadot can be utilized is by building "parachains", blockchains that are
+<a href=#126 id=126 data-nosnippet>126</a>//! connected to Polkadot's shared security.
+<a href=#127 id=127 data-nosnippet>127</a>//!
+<a href=#128 id=128 data-nosnippet>128</a>//! To build a parachain, one could use [Cumulus](crate::polkadot_sdk::cumulus), the library on
+<a href=#129 id=129 data-nosnippet>129</a>//! top of Substrate, empowering any substrate-based chain to be a Polkadot parachain.
+<a href=#130 id=130 data-nosnippet>130</a>//!
+<a href=#131 id=131 data-nosnippet>131</a>//! ## Where To Go Next?
+<a href=#132 id=132 data-nosnippet>132</a>//!
+<a href=#133 id=133 data-nosnippet>133</a>//! Additional noteworthy crates within substrate:
+<a href=#134 id=134 data-nosnippet>134</a>//!
+<a href=#135 id=135 data-nosnippet>135</a>//! - RPC APIs of a Substrate node: [`sc_rpc_api`]/[`sc_rpc`]
+<a href=#136 id=136 data-nosnippet>136</a>//! - CLI Options of a Substrate node: [`sc_cli`]
+<a href=#137 id=137 data-nosnippet>137</a>//! - All of the consensus related crates provided by Substrate:
+<a href=#138 id=138 data-nosnippet>138</a>//!     - [`sc_consensus_aura`]
+<a href=#139 id=139 data-nosnippet>139</a>//!     - [`sc_consensus_babe`]
+<a href=#140 id=140 data-nosnippet>140</a>//!     - [`sc_consensus_grandpa`]
+<a href=#141 id=141 data-nosnippet>141</a>//!     - [`sc_consensus_beefy`] (TODO: @adrian, add some high level docs &lt;https://github.com/paritytech/polkadot-sdk-docs/issues/57&gt;)
+<a href=#142 id=142 data-nosnippet>142</a>//!     - [`sc_consensus_manual_seal`]
+<a href=#143 id=143 data-nosnippet>143</a>//!     - [`sc_consensus_pow`]
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a></span><span class="attr">#[doc(hidden)]
+<a href=#146 id=146 data-nosnippet>146</a></span><span class="kw">pub use </span><span class="kw">crate</span>::polkadot_sdk;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -210,7 +210,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#60 id=60 data-nosnippet>60</a>	<span class="kw">use </span>sc_cli::SubstrateCli;
 <a href=#61 id=61 data-nosnippet>61</a>
 <a href=#62 id=62 data-nosnippet>62</a>	<span class="comment">// Prepend the args with some dummy value because the first arg is skipped.
-<a href=#63 id=63 data-nosnippet>63</a>	</span><span class="kw">let </span>cli_call = std::iter::once(<span class="string">"node-template"</span>).chain(args);
+<a href=#63 id=63 data-nosnippet>63</a>	</span><span class="kw">let </span>cli_call = std::iter::once(<span class="string">"substrate-node"</span>).chain(args);
 <a href=#64 id=64 data-nosnippet>64</a>	<span class="kw">let </span>cli = node_cli::Cli::from_iter(cli_call);
 <a href=#65 id=65 data-nosnippet>65</a>	<span class="kw">let </span>runner = cli.create_runner(<span class="kw-2">&amp;</span>cli.run).unwrap();
 <a href=#66 id=66 data-nosnippet>66</a>	runner.run_node_until_exit(|config| <span class="kw">async move </span>{ node_cli::service::new_full(config, cli) })

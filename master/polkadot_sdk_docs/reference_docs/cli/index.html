@@ -153,18 +153,18 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <p>Let’s see some examples of typical CLI arguments used when setting up and running a
 Substrate-based blockchain. We use the <a href="https://github.com/paritytech/polkadot-sdk-solochain-template"><code>solochain-template</code></a>
 on these examples.</p>
-<h5 id="checking-the-available-cli-arguments"><a class="doc-anchor" href="#checking-the-available-cli-arguments">§</a>Checking the available CLI arguments</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/node-template --help</code></pre></div>
+<h5 id="checking-the-available-cli-arguments"><a class="doc-anchor" href="#checking-the-available-cli-arguments">§</a>Checking the available CLI arguments</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/solochain-template-node --help</code></pre></div>
 <ul>
 <li><code>--help</code>: Displays the available CLI arguments.</li>
 </ul>
-<h5 id="starting-a-local-substrate-node-in-development-mode"><a class="doc-anchor" href="#starting-a-local-substrate-node-in-development-mode">§</a>Starting a Local Substrate Node in Development Mode</h5><div class="example-wrap"><pre class="language-bash"><code>./target/release/node-template \
+<h5 id="starting-a-local-substrate-node-in-development-mode"><a class="doc-anchor" href="#starting-a-local-substrate-node-in-development-mode">§</a>Starting a Local Substrate Node in Development Mode</h5><div class="example-wrap"><pre class="language-bash"><code>./target/release/solochain-template-node \
 --dev</code></pre></div>
 <ul>
 <li><code>--dev</code>: Runs the node in development mode, using a pre-defined development chain
 specification.
 This mode ensures a fresh state by deleting existing data on restart.</li>
 </ul>
-<h5 id="generating-custom-chain-specification"><a class="doc-anchor" href="#generating-custom-chain-specification">§</a>Generating Custom Chain Specification</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/node-template \
+<h5 id="generating-custom-chain-specification"><a class="doc-anchor" href="#generating-custom-chain-specification">§</a>Generating Custom Chain Specification</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/solochain-template-node \
 export-chain-spec \
 --chain local \
 &gt; customSpec.json</code></pre></div>
@@ -173,7 +173,7 @@ export-chain-spec \
 <li><code>--chain local</code>: Indicates the chain specification is for a local development chain.</li>
 <li><code>&gt; customSpec.json</code>: Redirects the output into a customSpec.json file.</li>
 </ul>
-<h5 id="converting-chain-specification-to-raw-format"><a class="doc-anchor" href="#converting-chain-specification-to-raw-format">§</a>Converting Chain Specification to Raw Format</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/node-template export-chain-spec \
+<h5 id="converting-chain-specification-to-raw-format"><a class="doc-anchor" href="#converting-chain-specification-to-raw-format">§</a>Converting Chain Specification to Raw Format</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/solochain-template-node export-chain-spec \
 --chain=customSpec.json \
 --raw \
 &gt; customSpecRaw.json</code></pre></div>
@@ -182,7 +182,7 @@ export-chain-spec \
 <li><code>--raw</code>: Converts the chain specification into a raw format with encoded storage keys.</li>
 <li><code>&gt; customSpecRaw.json</code>: Outputs to <code>customSpecRaw.json</code>.</li>
 </ul>
-<h5 id="starting-the-first-node-in-a-private-network"><a class="doc-anchor" href="#starting-the-first-node-in-a-private-network">§</a>Starting the First Node in a Private Network</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/node-template \
+<h5 id="starting-the-first-node-in-a-private-network"><a class="doc-anchor" href="#starting-the-first-node-in-a-private-network">§</a>Starting the First Node in a Private Network</h5><div class="example-wrap"><pre class="language-bash"><code>./target/debug/solochain-template-node \
   --base-path /tmp/node01 \
   --chain ./customSpecRaw.json \
   --port 30333 \
@@ -203,7 +203,7 @@ export-chain-spec \
 <li><code>--rpc-methods Unsafe</code>: Allows potentially unsafe RPC methods.</li>
 <li><code>--name</code>: Sets a human-readable name for the node.</li>
 </ul>
-<h5 id="adding-a-second-node-to-the-network"><a class="doc-anchor" href="#adding-a-second-node-to-the-network">§</a>Adding a Second Node to the Network</h5><div class="example-wrap"><pre class="language-bash"><code>./target/release/node-template \
+<h5 id="adding-a-second-node-to-the-network"><a class="doc-anchor" href="#adding-a-second-node-to-the-network">§</a>Adding a Second Node to the Network</h5><div class="example-wrap"><pre class="language-bash"><code>./target/release/solochain-template-node \
   --base-path /tmp/bob \
   --chain local \
   --bob \
