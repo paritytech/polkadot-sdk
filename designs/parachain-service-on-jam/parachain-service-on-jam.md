@@ -199,12 +199,10 @@ struct ParachainServiceState {
     /// Per-parachain key/value store. See §6.1 for the per-entry footprint.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
 
-    /// Head and tail of each parachain's settlement ring. See §8.
+    /// The cursor of the parachain's settlement ring. See §8.
     messages_cursor: Map<ParaId, SettlementCursor>,
     /// Contains every `StreamsRoot` currently live in the settlement ring. See §8.
-    messages_member: Map<(ParaId, StreamsRoot), u8>,
-    /// Maps `position` to `StreamsRoot`. See §8.
-    messages_queue: Map<(ParaId, u32), StreamsRoot>,
+    messages_member: Map<(ParaId, StreamsRoot), StreamsRoot>,
 }
 
 enum LogEntry {
@@ -466,12 +464,11 @@ type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 /// `set_messages_streams_root`. See §8.
 type StreamsRoot = [u8; 32];
 
-/// Positions of a parachain's settlement ring. See §8.
+/// Current parachain's settlement ring. See §8.
 struct SettlementCursor {
-    /// Position the next root is written at.
-    head: u32,
-    /// Oldest live position.
-    tail: u32,
+    oldest: StreamsRoot,
+    newest: StreamsRoot,
+    len: u8,
 }
 
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
@@ -522,7 +519,6 @@ encoded map key for a map entry, and the tag alone for a singleton. The exceptio
 | `0x08` | `key_value_storage` |
 | `0x09` | `messages_cursor` |
 | `0x0a` | `messages_member` |
-| `0x0b` | `messages_queue` |
 
 ### 3.2 Work Items
 
@@ -1371,26 +1367,21 @@ Settlement ring:
 messages_cursor
     JAM per-entry octet overhead                                       =      34
     storage key (1 B map tag + 4 B ParaId)                             =       5
-    SettlementCursor (head and tail of u32)                            =       8
-                                                                              47
+    SettlementCursor (oldest 32 B + newest 32 B + len 1 B)             =      65
+                                                                             104
 messages_member (64 entries)
     JAM per-entry octet overhead                                       =      34
-    storage key (1 B map tag + 4 B ParaId + 32B StreamsRoot)           =      37
-    marker (0x00)                                                      =       1
-                                                            64 * 72        4 608
-messages_queue (64 entries)
-    JAM per-entry octet overhead                                       =      34
-    storage key (1 B map tag + 4 B ParaId + 4B position)               =       9
-    StreamsRoot (32B)                                                  =      32
-                                                            64 * 75        4 800
+    storage key (1 B map tag + 4 B ParaId + 32 B StreamsRoot)          =      37
+    link (32 B StreamsRoot)                                            =      32
+                                                            64 * 103       6 592
 
-                                                              octets       9 455
-                                                              129 items    1 290
+                                                              octets       6 696
+                                                              65 items       650
                                                                          -------
-                                                                          10 745
+                                                                           7 346
 ```
 
-**`baseline_footprint = 4 240 + 65 585 + 10 745 = 80 570`** balance units per
+**`baseline_footprint = 4 240 + 65 585 + 7 346 = 77 171`** balance units per
 parachain.
 
 #### Asset Hub baseline footprint
