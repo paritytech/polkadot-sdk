@@ -456,6 +456,73 @@ fn poke_deposits_works() {
 	});
 }
 
+fn insert_channel_without_deposits(channel_id: &HrmpChannelId) {
+	let config = configuration::ActiveConfig::<Test>::get();
+	HrmpChannels::<Test>::insert(
+		channel_id,
+		HrmpChannel {
+			sender_deposit: 0,
+			recipient_deposit: 0,
+			max_capacity: config.hrmp_channel_max_capacity,
+			max_total_size: config.hrmp_channel_max_total_size,
+			max_message_size: config.hrmp_channel_max_message_size,
+			msg_count: 0,
+			total_size: 0,
+			mqc_head: None,
+		},
+	);
+}
+
+#[test]
+fn poke_deposits_increase_works() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		let channel = HrmpChannels::<Test>::get(&channel_id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (20, 15));
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			20
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			15
+		);
+	});
+}
+
+#[test]
+fn poke_deposits_increase_without_balance_fails() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 0);
+		insert_channel_without_deposits(&HrmpChannelId { sender: para_a, recipient: para_b });
+
+		// The sender's deposit is taken first and must be rolled back too.
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b),
+			pallet_balances::Error::<Test, _>::InsufficientBalance
+		);
+	});
+}
+
 #[test]
 fn close_channel_works() {
 	let para_a = 2005.into();

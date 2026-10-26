@@ -438,12 +438,12 @@ impl Curve {
 			(
 				FixedI64::from_u32(0),
 				Self::reciprocal_from_parts(FixedI64::from_u32(0), floor, ceil),
-				FixedI64::from_inner(i64::max_value()),
+				FixedI64::from_inner(i64::MAX),
 			),
 			(
 				FixedI64::from_u32(1),
 				Self::reciprocal_from_parts(FixedI64::from_u32(1), floor, ceil),
-				FixedI64::from_inner(i64::max_value()),
+				FixedI64::from_inner(i64::MAX),
 			),
 		);
 		const TWO: FixedI64 = FixedI64::from_u32(2);
