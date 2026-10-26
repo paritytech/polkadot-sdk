@@ -260,10 +260,11 @@ enum RefineLog {
     /// A `SetKV` or `RemoveKV` carried an empty key, or a `SetKV` an empty value.
     /// See §3.3.
     EmptyKVKeyOrValue,
-    /// Messages roots were set more than once in a single Refine invocation. See §4.3.
+    /// `set_messages_streams_root` or `set_messages_requires_roots` was called more than once
+    /// in a single Refine invocation. See §4.3.
     MessagesCallRepeated,
-    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (32)` or contained a repeated `ParaId` or
-    /// the candidate's own `ParaId`. See §4.3.
+    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (32)` or contained a
+    /// repeated `ParaId` or the candidate's own `ParaId`. See §4.3.
     MessagesInvalidRequires,
 }
 
@@ -1787,9 +1788,9 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
 
 4. Point the previous root to the new one `messages_member[(para_id, newest)] = new_root`.
 
-4. Write the `messages_member[(para_id, new_root)] = new_root`.
+5. Write the `messages_member[(para_id, new_root)] = new_root`.
 
-5. Write the updated `SettlementCursor`.
+6. Write the updated `SettlementCursor`.
     - `oldest` is the value obtained in step 3.1 if a root was evicted.
     - `newest` is the `new_root`.
     - `len` is incremented until capacity.
@@ -1802,7 +1803,7 @@ root to the newest.
 1. Read the `SettlementCursor`. Stop if it is absent.
 
 2. From the `oldest` root read its entry in `messages_member` to find the next root,
-then delete the entry. Stop when the entry pointing at `newest` root is deleted.
+    then delete the entry. Stop after deleting the entry that points to itself.
 
 3. Delete the `SettlementCursor`.
 
