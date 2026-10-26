@@ -334,13 +334,15 @@ impl<Block: BlockT> DbPartialState<Block> {
 		transaction.remove(columns::STATE_META, partial_state_keys::DISCARDING);
 		self.storage.db.commit(transaction)?;
 
-		// Wait until the removal is visible. On parity-db, `STATE` is reference counted, and a
-		// removal only shows up to `get` once the background thread has planned its commit. The
-		// next attempt reads `STATE` for the child tries it copies, so nothing of this one may
-		// still be readable when we return.
-		//
-		// Polling the root is enough: it is the last node removed, and commits are planned in
-		// order, so once the root reads as gone, everything removed before it is gone too.
+        // The next attempt must not see nodes of this one. So wait until the removal lands.
+        //
+        // On parity-db, `commit` returns before anything is written: a worker thread writes the
+        // transactions later, in order, and until it has, a removal from a reference-counted
+        // column such as `STATE` still reads as present. On rocksdb, `commit` writes before
+        // returning, so the first read below misses and the loop ends at once.
+        //
+        // Polling the root is enough: it is the last node removed, and commits are written in
+        // order, so once the root reads as gone, everything removed before it is gone too.
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
 		while self.storage.db.get(columns::STATE, &root_key).is_some() {
 			if std::time::Instant::now() > deadline {
