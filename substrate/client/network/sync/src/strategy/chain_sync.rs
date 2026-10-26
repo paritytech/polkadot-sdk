@@ -2331,12 +2331,8 @@ where
 	fn attempt_state_sync(&mut self, finalized_hash: B::Hash, finalized_number: NumberFor<B>) {
 		if self.client.info().finalized_state.is_some() {
 			// There is state already, from a sync that completed without us noticing or from an
-			// earlier run. A new download would write next to it, so sync the blocks instead.
-			warn!(
-				target: LOG_TARGET,
-				"The database already holds a finalized state, switching to full sync.",
-			);
-			self.mode = ChainSyncMode::Full;
+			// earlier run. A new download would write next to it. The restart sees the state and
+			// switches to full sync.
 			self.restart();
 			return;
 		}

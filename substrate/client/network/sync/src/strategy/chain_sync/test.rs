@@ -27,7 +27,9 @@ use futures::{channel::oneshot::Canceled, executor::block_on};
 use rstest::rstest;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::partial_state::PartialStateTarget;
-use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, StateAction};
+use sc_consensus::{
+	BlockImport, BlockImportParams, ForkChoiceStrategy, ImportedState, StateAction, StorageChanges,
+};
 use sc_network::RequestFailure;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 use sp_blockchain::HeaderBackend;
@@ -1762,15 +1764,28 @@ fn record_complete_state(
 	})
 }
 
-/// A node whose database already holds a finalized state never begins a state sync: it switches
-/// to full sync instead.
+/// A node whose database already holds a finalized state never begins a state sync: the attempt
+/// restarts the block sync, which switches to full sync.
 #[test]
 fn state_sync_is_not_attempted_over_an_existing_state() {
-	let client = Arc::new(TestClientBuilder::new().build());
-	let block = build_block(&client, None, false);
-	assert!(client.info().finalized_state.is_some());
-	let mut sync = new_test_sync_with_mode(client, ChainSyncMode::LightState);
+	let remote = TestClientBuilder::new().build();
+	let block = build_block(&remote, None, true);
+	let header = block.header().clone();
+	let client = client_knowing_header_only(&header);
+	// Built before the state exists, so `ChainSync::new` keeps fast sync.
+	let mut sync = new_test_sync_with_mode(client.clone(), ChainSyncMode::LightState);
 	sync.add_peer(PeerId::random(), block.hash(), 1);
+	assert!(matches!(sync.mode, ChainSyncMode::LightState));
+
+	// The state lands as the import of a state sync target lands it.
+	record_complete_state(&remote, &client, &header).unwrap();
+	let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+	params.state_action = StateAction::ApplyChanges(StorageChanges::Import(ImportedState));
+	params.import_existing = true;
+	params.finalized = true;
+	params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	block_on((&*client).import_block(params)).unwrap();
+	assert!(client.info().finalized_state.is_some());
 
 	sync.attempt_state_sync(block.hash(), 1);
 	assert!(sync.state_sync.is_none());
