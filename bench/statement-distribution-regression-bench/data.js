@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1792971344085,
+  "lastUpdate": 1792990224335,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a3f0e923b94c50aac0876fdee40de823c2dd8d4c",
-          "message": "[eth-rpc] Handle event decode errors across runtime upgrades (#11655)\n\n### Motivation\nDuring backward sync, eth-rpc processes historical blocks using the\ncurrent runtime's metadata. If the event layout differs between the\ncurrent runtime and the runtime that produced those blocks (e.g., the\nBalances pallet gained new event variants in #7250), event decoding\nfails and receipts are lost.\n\n### Changes\nReplace events.has::<EthExtrinsicRevert>() with an event iterator that\nlogs and skips decode errors, checks revert status by pallet/variant\nname, and collects ContractEmitted logs in a single pass — so that\nundecodable events no longer cause the entire receipt to be lost.\n\nBehavior change: Previously, any undecodable event in a block caused the\nentire receipt to be lost. Now, decode errors are logged and skipped —\nthe receipt is stored with best-effort revert status and logs.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-09T15:35:51Z",
-          "tree_id": "9eb5052e02bacb2d0befc23c97dd5c4d36deacc3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a3f0e923b94c50aac0876fdee40de823c2dd8d4c"
-        },
-        "date": 1775753803248,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.072,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038563071812000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08405664991799994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08760418895999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1a6951dba9a97f2b74d69aa956c65afb3b993bf3",
+          "message": "pallet-revive: drop cfg-gated host functions from the upload import allowlist (#13395)\n\n`list_syscalls()` now respects each host function's `#[cfg]`, so builds\nwithout `runtime-benchmarks` reject uploads that import the\nbenchmark-only noop syscall instead of accepting code that traps with\n`InvalidSyscall` when it calls it (fixes #13392).",
+          "timestamp": "2026-10-26T03:18:16Z",
+          "tree_id": "c0b7cc7b6a2f5c2b4db9d28b7a7df4a4cd06fd9d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1a6951dba9a97f2b74d69aa956c65afb3b993bf3"
+        },
+        "date": 1792990194326,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12199999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038942716700000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08311019112599988,
             "unit": "seconds"
           }
         ]
