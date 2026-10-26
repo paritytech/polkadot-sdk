@@ -95,9 +95,43 @@ fn weight_of_solc_call(fixture: &str, data: Vec<u8>) -> Weight {
 	})
 }
 
+/// The weight consumed by calling hand-built EVM runtime code on a fresh chain.
+fn weight_of_evm_call(runtime_code: Vec<u8>) -> Weight {
+	let code = make_initcode_from_runtime_code(&runtime_code);
+	ExtBuilder::default().build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let output = builder::bare_call(addr).build();
+		assert!(!output.result.expect("the call failed").did_revert(), "the call reverted");
+		output.weight_consumed
+	})
+}
+
 /// The weight of one repetition of a benchmark that is linear in its component.
 fn slope(weight_fn: fn(u32) -> Weight) -> Weight {
 	weight_fn(1).saturating_sub(weight_fn(0))
+}
+
+#[test]
+fn evm_dispatch_is_charged_once_per_instruction() {
+	use crate::{
+		precompiles::Token,
+		vm::{
+			RuntimeCosts,
+			evm::{EvmDispatch, EvmOpcodeCosts},
+		},
+	};
+
+	// Padding after STOP keeps the code lengths equal without executing extra op-codes.
+	let baseline = weight_of_evm_call(vec![STOP, STOP, STOP]);
+	let with_pair = weight_of_evm_call(vec![ADDRESS, POP, STOP]);
+	let expected = <EvmDispatch as Token<Test>>::weight(&EvmDispatch)
+		.saturating_mul(2)
+		.saturating_add(<RuntimeCosts as Token<Test>>::weight(&RuntimeCosts::Address))
+		.saturating_add(<EvmOpcodeCosts as Token<Test>>::weight(&EvmOpcodeCosts::Pop));
+
+	assert_eq!(with_pair, baseline.saturating_add(expected));
 }
 
 /// Init code for a contract that `EXTCODECOPY`s `copy_len` bytes from the address in calldata.
