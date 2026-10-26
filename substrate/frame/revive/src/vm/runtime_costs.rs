@@ -125,8 +125,8 @@ pub enum RuntimeCosts {
 	TakeStorage { len: u32, kind: StorageAccessKind },
 	/// Base weight of a call-family operation.
 	CallBase(Summarized<CallWarmth>),
-	/// Weight of reading an `AccountInfoOf` entry.
-	AccountInfoRead(Summarized<Warmth>),
+	/// Weight of the chained-delegation check.
+	ChainedDelegationCheck(Summarized<Warmth>),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -468,9 +468,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_delegate_call_hot,
 				),
 			},
-			AccountInfoRead(warmth) => weight_from_warmth_summary::<T>(
+			ChainedDelegationCheck(warmth) => weight_from_warmth_summary::<T>(
 				warmth.summary(),
-				T::WeightInfo::account_info_read,
+				T::WeightInfo::chained_delegation_check,
 				// Nothing on top of the base hot access.
 				Weight::zero,
 			),
@@ -932,16 +932,16 @@ mod tests {
 	}
 
 	#[test]
-	fn account_info_read_cold_hot_pricing() {
-		let account_info_read_weight = |warmth| {
-			weight(&RuntimeCosts::AccountInfoRead(Summarized::from_warmth(
+	fn chained_delegation_check_cold_hot_pricing() {
+		let chained_delegation_check_weight = |warmth| {
+			weight(&RuntimeCosts::ChainedDelegationCheck(Summarized::from_warmth(
 				KeyFamily::PalletStorageSlot,
 				warmth,
 				StorageOp::Read,
 			)))
 		};
-		let cold_weight = account_info_read_weight(Warmth::new_cold_non_revertible());
-		let hot_weight = account_info_read_weight(Warmth::new_read_paid());
+		let cold_weight = chained_delegation_check_weight(Warmth::new_cold_non_revertible());
+		let hot_weight = chained_delegation_check_weight(Warmth::new_read_paid());
 
 		assert!(
 			cold_weight.ref_time() > hot_weight.ref_time(),

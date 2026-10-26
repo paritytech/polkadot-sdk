@@ -9,12 +9,13 @@ doc:
     cold benchmark if any of the items it accesses is cold, and the hot benchmark if all are hot.
 - audience: Runtime Dev
   description: |-
-    `WeightInfo` has 14 new required methods: `code_load`, `account_info_read`, `seal_call_hot`,
-    `seal_call_transfer_hot`, `seal_delegate_call_hot`, `call_with_pvm_code_per_byte_hot`,
-    `call_with_evm_code_per_byte_hot`, `access_list_touch_hot_upgrade`,
-    `access_list_touch_hot_address_upgrade`, `access_list_touch_cold_address_empty`,
-    `access_list_touch_cold_address_full`, `access_list_touch_hot_address_nearly_empty`,
-    `access_list_touch_hot_address_full` and `access_list_rollback_address_amortization`.
+    `WeightInfo` has 14 new required methods: `code_load`, `chained_delegation_check`,
+    `seal_call_hot`, `seal_call_transfer_hot`, `seal_delegate_call_hot`,
+    `call_with_pvm_code_per_byte_hot`, `call_with_evm_code_per_byte_hot`,
+    `access_list_touch_hot_upgrade`, `access_list_touch_hot_address_upgrade`,
+    `access_list_touch_cold_address_empty`, `access_list_touch_cold_address_full`,
+    `access_list_touch_hot_address_nearly_empty`, `access_list_touch_hot_address_full` and
+    `access_list_rollback_address_amortization`.
     Some existing benchmarks also measure different work now, so runtimes with their own
     `pallet_revive` weights must regenerate them:
     - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
@@ -47,7 +48,7 @@ doc:
     - `StorageOp` and `Warmth` are no longer re-exported.
     - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
       entries as a new parameter, `CallTransferSurcharge` takes the transfer's warmth in place of
-      `dust_transfer`, and `AccountInfoRead` and `AccessListRegistration` are new. Code that
+      `dust_transfer`, and `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that
       charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
       variants; it should charge the cold price from `WeightInfo` instead, for example
       `env.charge(T::WeightInfo::seal_call(transfer, dust, 0))`, or `seal_delegate_call()` for a
@@ -64,7 +65,7 @@ doc:
     `call` and `eth_call` set it. Code that calls `bare_call` directly should leave it unset,
     unless its weight already covers these reads too. Code that builds an `ExecConfig` by listing
     all its fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`,
-    must add the new one.
+    must add `first_frame_reads_paid`.
 
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB

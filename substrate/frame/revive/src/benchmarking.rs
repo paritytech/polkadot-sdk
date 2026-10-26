@@ -30,7 +30,7 @@ use crate::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{BuiltinPrecompileExt, Ext, Key, Origin as ExecOrigin, PrecompileExt},
+	exec::{BuiltinPrecompileExt, Ext, Key, Origin as ExecOrigin, PrecompileExt, Stack},
 	limits::{self, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
@@ -89,7 +89,8 @@ const API_BENCHMARK_RUNS: u32 = 1600;
 
 /// How many touches an access-list touch bench makes per run at most: longer runs price a touch
 /// cheaper, as the caches warm up, while shorter ones leave more of the timer's noise in the slope.
-const ACCESS_LIST_MAX_TOUCHES_PER_RUN: u32 = 32;
+/// One per step of the benchmark CLI's default 50 steps.
+const ACCESS_LIST_MAX_TOUCHES_PER_RUN: u32 = 50;
 
 const _: () = assert!((ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize) < MAX_ACCESS_LIST_ENTRIES);
 
@@ -1016,24 +1017,27 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// A read of an `AccountInfoOf` entry.
 	#[benchmark(pov_mode = Measured)]
-	fn account_info_read() -> Result<(), BenchmarkError> {
+	fn chained_delegation_check() -> Result<(), BenchmarkError> {
 		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		// A delegated EOA is the worst case: its entry carries a contract info and the target.
 		let address = H160([0x42; 20]);
 		delegated_eoa::<T>(address, contract.address)?;
+		let mut access_list = AccessList::new();
+		let mut meter =
+			TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+				.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
 
-		let info;
+		let result;
 		#[block]
 		{
-			info = AccountInfoOf::<T>::get(&address);
+			result = Stack::<T, ContractBlob<T>>::ensure_not_chained_delegation(
+				&mut access_list,
+				&mut meter,
+				Some(address),
+			);
 		}
-		let is_delegated_eoa = matches!(
-			info.map(|info| info.account_type),
-			Some(crate::storage::AccountType::DelegatedEOA { .. })
-		);
-		assert!(is_delegated_eoa);
+		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
+		assert_eq!(access_list.metrics().cold, 1, "the check touched the target's entry");
 		Ok(())
 	}
 

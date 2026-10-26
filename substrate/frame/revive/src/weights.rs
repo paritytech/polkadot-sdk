@@ -88,7 +88,7 @@ pub trait WeightInfo {
 	fn deposit_eth_extrinsic_revert_event() -> Weight;
 	fn instantiate(i: u32, ) -> Weight;
 	fn code_load(w: u32, ) -> Weight;
-	fn account_info_read() -> Weight;
+	fn chained_delegation_check() -> Weight;
 	fn call() -> Weight;
 	fn eth_call(d: u32, ) -> Weight;
 	fn eth_substrate_call(c: u32, ) -> Weight;
@@ -570,7 +570,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
-	fn account_info_read() -> Weight {
+	fn chained_delegation_check() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `269`
 		//  Estimated: `3734`
@@ -1285,7 +1285,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 12
 			.saturating_add(Weight::from_parts(768, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1294,7 +1294,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(620_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1303,7 +1303,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(492_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1312,7 +1312,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(529_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1321,7 +1321,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(354_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1330,7 +1330,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(5_164_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1339,7 +1339,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(5_290_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_address_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1348,7 +1348,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(1_407_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1357,7 +1357,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(1_458_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_upgrade(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1366,7 +1366,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(5_878_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_upgrade(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -2587,7 +2587,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
-	fn account_info_read() -> Weight {
+	fn chained_delegation_check() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `269`
 		//  Estimated: `3734`
@@ -3302,7 +3302,7 @@ impl WeightInfo for () {
 			// Standard Error: 12
 			.saturating_add(Weight::from_parts(768, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3311,7 +3311,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(620_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3320,7 +3320,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(492_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3329,7 +3329,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(529_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3338,7 +3338,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(354_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3347,7 +3347,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(5_164_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3356,7 +3356,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(5_290_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_address_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3365,7 +3365,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(1_407_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3374,7 +3374,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(1_458_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_upgrade(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3383,7 +3383,7 @@ impl WeightInfo for () {
 		Weight::from_parts(0, 0)
 			.saturating_add(Weight::from_parts(5_878_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_upgrade(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

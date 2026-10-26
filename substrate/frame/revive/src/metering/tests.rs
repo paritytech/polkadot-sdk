@@ -335,10 +335,9 @@ fn max_storage_deposit_reported_for_unfunded_dry_run(
 			funded.max_storage_deposit,
 		);
 
-		// Same call from CHARLIE, who has no balance, through the `call` runtime API's dry
-		// run. Collecting the deposit fails because CHARLIE cannot fund it, but
-		// the reported `max_storage_deposit` must still match the funded run so the
-		// caller can size the allowance needed to cover the deposit.
+		// Same call from CHARLIE, who has no balance. Collecting the deposit fails because
+		// CHARLIE cannot fund it, but the reported `max_storage_deposit` must still match the
+		// funded run so the caller can size the allowance needed to cover the deposit.
 		let unfunded = run_in_rollback(&|| {
 			dry_run_call::<Test>(CallInputPayload {
 				origin: CHARLIE,

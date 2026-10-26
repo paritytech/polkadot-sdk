@@ -3671,12 +3671,13 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 				Warmth::Cold { revertible: nested },
 				"{frame_type}: nothing reads EVE's account info before the call",
 			);
-			let expected_charge =
-				Token::<Test>::weight(&RuntimeCosts::AccountInfoRead(Summarized::from_warmth(
+			let expected_charge = Token::<Test>::weight(&RuntimeCosts::ChainedDelegationCheck(
+				Summarized::from_warmth(
 					KeyFamily::PalletStorageSlot,
 					warmth_before,
 					StorageOp::Read,
-				)));
+				),
+			));
 			let weight_before = ctx.ext.frame_meter().weight_consumed();
 
 			let call_django = ctx.ext.call(

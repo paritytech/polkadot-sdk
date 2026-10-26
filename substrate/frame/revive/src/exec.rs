@@ -1140,7 +1140,7 @@ where
 	/// delegated, the spec resolves one hop, retrieves the target's indicator bytes
 	/// `0xef0100 || ..`, and traps on the leading `0xef` invalid opcode. Otherwise the
 	/// resolved code is genuinely empty and the call falls through to the transfer path.
-	fn ensure_not_chained_delegation<S: State>(
+	pub fn ensure_not_chained_delegation<S: State>(
 		access_list: &mut AccessList,
 		meter: &mut ResourceMeter<T, S>,
 		target: Option<H160>,
@@ -1149,7 +1149,7 @@ where
 		access_list.charge_and_warm(
 			access_list::AccessEntry::AccountInfo { address: target },
 			StorageOp::Read,
-			|warmth| meter.charge_weight_token(RuntimeCosts::AccountInfoRead(warmth)),
+			|warmth| meter.charge_weight_token(RuntimeCosts::ChainedDelegationCheck(warmth)),
 		)?;
 		if AccountInfo::<T>::is_delegated(&target) {
 			return Err(ExecError {

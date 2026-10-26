@@ -437,7 +437,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
-	fn account_info_read() -> Weight {
+	fn chained_delegation_check() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `269`
 		//  Estimated: `3734`
@@ -1230,7 +1230,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 20
 			.saturating_add(Weight::from_parts(799, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1240,7 +1240,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(639_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1250,7 +1250,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(471_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1260,7 +1260,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(553_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1270,7 +1270,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(357_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1280,7 +1280,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(5_495_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1290,7 +1290,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(5_572_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_cold_address_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1300,7 +1300,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(1_492_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_full(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1310,7 +1310,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(1_490_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_upgrade(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1320,7 +1320,7 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 0))
 			.saturating_add(Weight::from_parts(6_212_000, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 32]`.
+	/// The range of component `n` is `[1, 50]`.
 	fn access_list_touch_hot_address_upgrade(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
