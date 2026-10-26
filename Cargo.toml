@@ -365,7 +365,6 @@ members = [
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/derivatives",
-	"substrate/frame/dummy-dim",
 	"substrate/frame/election-provider-multi-block",
 	"substrate/frame/election-provider-multi-phase",
 	"substrate/frame/election-provider-multi-phase/test-staking-e2e",
@@ -427,7 +426,6 @@ members = [
 	"substrate/frame/paged-list",
 	"substrate/frame/paged-list/fuzzer",
 	"substrate/frame/parameters",
-	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/primitives/coretime",
 	"substrate/frame/proxy",
@@ -1061,7 +1059,6 @@ pallet-on-demand-para = { path = "substrate/frame/on-demand", default-features =
 pallet-paged-list = { path = "substrate/frame/paged-list", default-features = false }
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
-pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-pgas-allowance = { path = "substrate/frame/transaction-payment/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }

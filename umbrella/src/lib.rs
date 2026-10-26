@@ -484,10 +484,6 @@ pub use pallet_derivatives;
 #[cfg(feature = "pallet-dev-mode")]
 pub use pallet_dev_mode;
 
-/// Dummy DIM Pallet.
-#[cfg(feature = "pallet-dummy-dim")]
-pub use pallet_dummy_dim;
-
 /// PALLET multi phase+block election providers.
 #[cfg(feature = "pallet-election-provider-multi-block")]
 pub use pallet_election_provider_multi_block;
@@ -631,10 +627,6 @@ pub use pallet_paged_list;
 /// Pallet to store and configure parameters.
 #[cfg(feature = "pallet-parameters")]
 pub use pallet_parameters;
-
-/// Personhood-tracking pallet.
-#[cfg(feature = "pallet-people")]
-pub use pallet_people;
 
 /// Transaction extension that pays transaction fees with a gas allowance asset.
 #[cfg(feature = "pallet-pgas-allowance")]
