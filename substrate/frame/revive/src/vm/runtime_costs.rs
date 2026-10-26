@@ -269,11 +269,12 @@ fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 		),
 	};
 
+	let upgrade_weight = access_list_upgrade_overhead::<T>(summary.key_family());
 	let (per_entry_weight, per_upgrade_weight) = if summary.all_hot() {
-		(hot_weight, access_list_upgrade_overhead::<T>(summary.key_family()))
+		(hot_weight, upgrade_weight)
 	} else {
-		// A cold touch does all a hot one does plus a push and an insert, so it covers every entry.
-		(cold_weight, Weight::zero())
+		// Mixed warmth is priced as all-cold, which must be enough for a hot entry being upgraded.
+		(cold_weight.max(hot_weight.saturating_add(upgrade_weight)), Weight::zero())
 	};
 	per_entry_weight
 		.saturating_mul(summary.total().into())
@@ -640,6 +641,27 @@ mod tests {
 				overhead(key_family, [cold, read_paid]),
 				overhead(key_family, [cold, cold]),
 				"{key_family:?}: the cold bench's price covers the hot entry and its upgrade",
+			);
+		}
+	}
+
+	#[test]
+	fn a_mixed_warmth_access_never_underpays_an_upgraded_entry() {
+		let cold = Warmth::new_cold_non_revertible();
+		let read_paid = Warmth::new_read_paid();
+		let overhead = |key_family, warmths: &[Warmth]| {
+			let summary = warmths.iter().fold(WarmthSummary::new(key_family), |summary, warmth| {
+				summary.add(*warmth, StorageOp::Write)
+			});
+			access_list_overhead::<Test>(summary)
+		};
+		for key_family in [KeyFamily::ContractStorageSlot, KeyFamily::PalletStorageSlot] {
+			let upgraded_entry_in_mixed_access = overhead(key_family, &[cold, read_paid])
+				.saturating_sub(overhead(key_family, &[cold]));
+			let upgraded_entry_alone = overhead(key_family, &[read_paid]);
+			assert!(
+				upgraded_entry_in_mixed_access.all_gte(upgraded_entry_alone),
+				"{key_family:?}: mixed={upgraded_entry_in_mixed_access:?} alone={upgraded_entry_alone:?}",
 			);
 		}
 	}
