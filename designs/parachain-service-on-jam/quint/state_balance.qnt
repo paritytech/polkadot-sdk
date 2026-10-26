@@ -15,20 +15,19 @@ module state_balance {
 
   /// §6.1 / §8.1: a parachain's settlement ring at capacity, reserved in the
   /// baseline so pushes are never charged, in BALANCE UNITS. The
-  /// `(ParaId, SettlementCursor)` entry is `34 + 5 (tag + ParaId) + 8` octets;
-  /// each of the `MaxSettlementRingCapacity` `messages_member` entries is
-  /// `34 + 37 (tag + ParaId + root) + 1 (marker)` and each `messages_queue` entry
-  /// `34 + 9 (tag + ParaId + u32) + 32 (root)`; every entry is one storage
-  /// item at `C_itemdeposit = 10`. At capacity 64: 9 455 octets + 129 items
-  /// = 10 745.
+  /// `(ParaId, SettlementCursor)` entry is
+  /// `34 + 5 (tag + ParaId) + 65 (oldest + newest + u8 len)` octets; each of the
+  /// `MaxSettlementRingCapacity` `messages_member` entries is
+  /// `34 + 37 (tag + ParaId + root) + 32 (next root)`; every entry is one
+  /// storage item at `C_itemdeposit = 10`. At capacity 64: 6 696 octets +
+  /// 65 items = 7 346.
   pure val SettlementRingFootprint: int =
-    (34 + 5 + 8)
-    + MaxSettlementRingCapacity * (34 + 37 + 1)
-    + MaxSettlementRingCapacity * (34 + 9 + 32)
-    + (1 + 2 * MaxSettlementRingCapacity) * 10
+    (34 + 5 + 65)
+    + MaxSettlementRingCapacity * (34 + 37 + 32)
+    + (1 + MaxSettlementRingCapacity) * 10
 
   /// Per-para baseline footprint, in BALANCE UNITS: 4 240 (ParaInfo entry)
-  /// + 65 585 (log reserve) + 10 745 (settlement ring at capacity) = 80 570.
+  /// + 65 585 (log reserve) + 7 346 (settlement ring at capacity) = 77 171.
   /// The first two are one storage item each, so each carries
   /// `C_itemdeposit = 10` on top of its octets (4 230 / 65 575). Derivation in
   /// §6.1. Balances are `Compact<u64>` sized at their 9 B worst case here.

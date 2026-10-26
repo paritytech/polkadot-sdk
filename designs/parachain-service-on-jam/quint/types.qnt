@@ -168,22 +168,10 @@ module types {
   pure val MaxRequiresSources: int = 32
 
   /// §8.1 (`MAX_SETTLEMENT_RING_CAPACITY`): per-parachain settlement-ring
-  /// capacity, the last 64 roots the parachain declared in enacted blocks.
-  /// Eviction is strictly position-based: a root leaves the ring only after
-  /// this many newer pushes.
+  /// capacity, the 64 most recent distinct roots the parachain declared in
+  /// enacted blocks. Eviction is in insertion order: a root leaves the ring
+  /// only after this many newer distinct pushes.
   pure val MaxSettlementRingCapacity: int = 64
-
-  /// §8.1: settlement-ring positions are `u32` counters advanced with wrapping
-  /// arithmetic, so `head` and `tail` live in `[0, U32Modulus)` and the live
-  /// window `[tail, head)` is a wrapping range.
-  pure val U32Modulus: int = 4294967296
-
-  /// `a.wrapping_add(b)` on `u32`, for `a`, `b` in `[0, U32Modulus)`.
-  pure def wrappingAddU32(a: int, b: int): int = (a + b) % U32Modulus
-
-  /// `a.wrapping_sub(b)` on `u32`, for `a`, `b` in `[0, U32Modulus)`.
-  pure def wrappingSubU32(a: int, b: int): int =
-    if (a >= b) a - b else a - b + U32Modulus
 
   /// §3.1: bounded cap on `staged_validator_keys` (= `CoreCount * 3 = 1023`).
   pure val MaxStagedValidatorKeys: int = CoreCount * 3

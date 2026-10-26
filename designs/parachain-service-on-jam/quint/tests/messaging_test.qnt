@@ -2,7 +2,7 @@
 //
 // - Refine-side `set_messages_streams_root` / `set_messages_requires_roots` declarations (§4.3).
 // - Accumulate settlement check (§5.1 step 5).
-// - Settlement ring push, eviction and `u32` wrapping (§8.1).
+// - Settlement ring push, eviction and list links (§8.1).
 // - Ring reservation in the baseline footprint (§6.1) and teardown on clean-up (§6.4).
 module messaging_test {
   import types.* from "../types"
@@ -164,7 +164,7 @@ module messaging_test {
       .then(expectThat(all {
         svc.paraInfo(sender).headData == 1,
         svc.settlementCheck(List((sender, StreamsRootA))),
-        svc.messagesCursor.get(sender) == { head: 1, tail: 0 },
+        svc.messagesCursor.get(sender) == { oldest: StreamsRootA, newest: StreamsRootA, len: 1 },
         settlement_ring_coherent,
         settlement_ring_only_for_live
       }))
@@ -214,35 +214,44 @@ module messaging_test {
     }
   }
 
-  /// §8.1 eviction is strictly position-based: a root leaves the ring only
-  /// after `MaxSettlementRingCapacity` newer pushes. At capacity the ring
-  /// holds exactly the last `MaxSettlementRingCapacity` roots: the oldest
-  /// stops settling, its `messages_queue` entry at the old `tail` is deleted,
-  /// every younger root still settles, and the footprint stays at
-  /// `1 + 2 × MaxSettlementRingCapacity` entries across the three maps.
+  /// §8.1 eviction is in insertion order: a root leaves the ring only after
+  /// `MaxSettlementRingCapacity` newer distinct pushes. At capacity the ring holds
+  /// exactly the last `MaxSettlementRingCapacity` roots: the oldest stops settling,
+  /// its `messages_member` entry is deleted and its link becomes the new
+  /// `oldest`, every younger root still settles, and the footprint stays at
+  /// `1 + MaxSettlementRingCapacity` entries.
   run settlementRingEvictionTest = {
     val para = CoretimeParaId
     val full = pushMany(initialState, para, MaxSettlementRingCapacity)
     val over = settlementRingPush(full, para, rootNo(MaxSettlementRingCapacity))
     all {
       // At capacity: every pushed root still settles.
-      assert(full.messagesCursor.get(para) == { head: MaxSettlementRingCapacity, tail: 0 }),
-      assert(ringLive(full.messagesCursor.get(para)) == MaxSettlementRingCapacity),
+      assert(full.messagesCursor.get(para) == {
+        oldest: rootNo(0),
+        newest: rootNo(MaxSettlementRingCapacity - 1),
+        len: MaxSettlementRingCapacity
+      }),
       assert(full.settlementCheck(List((para, rootNo(0))))),
-      // One past capacity: position 0 is evicted, its root no longer
-      // settles, and both younger neighbours still do.
-      assert(over.messagesCursor.get(para) == { head: MaxSettlementRingCapacity + 1, tail: 1 }),
+      // One past capacity: the oldest root is evicted and no longer settles,
+      // and both younger neighbours still do.
+      assert(over.messagesCursor.get(para) == {
+        oldest: rootNo(1), newest: rootNo(MaxSettlementRingCapacity), len: MaxSettlementRingCapacity
+      }),
       assert(not(over.settlementCheck(List((para, rootNo(0)))))),
       assert(over.settlementCheck(List((para, rootNo(1))))),
       assert(over.settlementCheck(List((para, rootNo(MaxSettlementRingCapacity))))),
-      // The `(para_id, tail)` queue entry is deleted on eviction (§8.1).
-      assert(not(over.messagesQueue.keys().contains((para, 0)))),
       assert(not(over.messagesMember.keys().contains((para, rootNo(0))))),
-      // The ratcheted footprint: one cursor + capacity× (member + queue).
+      // The previous newest now links to the new root, which links to itself.
+      assert(over.messagesMember.get((para, rootNo(MaxSettlementRingCapacity - 1)))
+        == rootNo(MaxSettlementRingCapacity)),
+      assert(over.messagesMember.get((para, rootNo(MaxSettlementRingCapacity)))
+        == rootNo(MaxSettlementRingCapacity)),
+      // The ratcheted footprint: one cursor + capacity× member.
       assert(over.messagesMember.keys().size() == MaxSettlementRingCapacity),
-      assert(over.messagesQueue.keys().size() == MaxSettlementRingCapacity),
       init
     }
+      .then(setSvc(over))
+      .then(expectThat(settlement_ring_coherent))
   }
 
   /// Repeated roots are skipped (§8.1).
@@ -254,23 +263,23 @@ module messaging_test {
     val x: StreamsRoot = { streamsRootBytes: 7777 }
     val once = settlementRingPush(initialState, para, x)
     val twice = settlementRingPush(once, para, x)
-    // Fill the ring to capacity behind `x` at position 0.
+    // Fill the ring to capacity behind `x`, which stays the oldest root.
     val s1 = range(0, MaxSettlementRingCapacity - 1).foldl(twice, (acc, i) =>
       settlementRingPush(acc, para, rootNo(i)))
     val s1Repush = settlementRingPush(s1, para, x)
-    // Evicts position 0, which still holds `x`.
+    // Evicts the oldest root, which is still `x`.
     val s2 = settlementRingPush(s1Repush, para, rootNo(MaxSettlementRingCapacity - 1))
     all {
       // Repeated push is a no-op.
       assert(twice == once),
-      assert(twice.messagesCursor.get(para) == { head: 1, tail: 0 }),
-      assert(twice.messagesQueue == Map((para, 0) -> x)),
+      assert(twice.messagesCursor.get(para) == { oldest: x, newest: x, len: 1 }),
+      assert(twice.messagesMember == Map((para, x) -> x)),
       // Repeated push at capacity is a no-op.
-      assert(ringLive(s1.messagesCursor.get(para)) == MaxSettlementRingCapacity),
+      assert(s1.messagesCursor.get(para).len == MaxSettlementRingCapacity),
       assert(s1Repush == s1),
-      // `x` leaves with its original position, membership included.
-      assert(s2.messagesCursor.get(para).tail == 1),
-      assert(not(s2.messagesQueue.keys().contains((para, 0)))),
+      // `x` leaves on its original schedule, membership included.
+      assert(s2.messagesCursor.get(para).oldest == rootNo(0)),
+      assert(not(s2.messagesMember.keys().contains((para, x)))),
       assert(not(s2.settlementCheck(List((para, x))))),
       assert(s2.settlementCheck(List((para, rootNo(0))))),
       init
@@ -281,53 +290,27 @@ module messaging_test {
       .then(expectThat(settlement_ring_coherent))
   }
 
-  /// §8.1: `head` and `tail` are `u32` counters advanced with wrapping
-  /// arithmetic, and the live window `[tail, head)` is a wrapping range. A
-  /// ring whose cursor sits just below `u32::MAX` keeps working across the
-  /// wrap: positions run `U32Modulus - 2, U32Modulus - 1, 0, 1, ...`, the
-  /// window length is `head.wrapping_sub(tail)`, eviction still takes the
-  /// oldest position, and the ring invariant holds throughout.
-  run settlementRingWrapsAroundTest = {
+  /// §8.1: the ring is a singly linked list in insertion order. Following
+  /// the links from `oldest` visits every pushed root once, in push order,
+  /// and ends at `newest`, which links to itself. Eviction moves `oldest`
+  /// along its link and leaves the rest of the list untouched.
+  run settlementRingLinksInPushOrderTest = {
     val para = CoretimeParaId
-    val start = U32Modulus - 2
-    // An empty ring whose next write lands two positions before the wrap.
-    val nearWrap: ParachainServiceState = { ...initialState,
-      messagesCursor: Map(para -> { head: start, tail: start }) }
-    val two = settlementRingPush(settlementRingPush(nearWrap, para, rootNo(0)), para, rootNo(1))
-    val three = settlementRingPush(two, para, rootNo(2))
-    // Fill to capacity, then one past it, across the wrap.
-    val full = range(3, MaxSettlementRingCapacity).foldl(three, (acc, i) =>
-      settlementRingPush(acc, para, rootNo(i)))
+    val three = pushMany(initialState, para, 3)
+    val full = pushMany(initialState, para, MaxSettlementRingCapacity)
     val over = settlementRingPush(full, para, rootNo(MaxSettlementRingCapacity))
     all {
-      // The second push wraps `head` to 0; `tail` stays put.
-      assert(two.messagesCursor.get(para) == { head: 0, tail: start }),
-      assert(two.messagesQueue.get((para, start)) == rootNo(0)),
-      assert(two.messagesQueue.get((para, U32Modulus - 1)) == rootNo(1)),
-      assert(ringLive(two.messagesCursor.get(para)) == 2),
-      // Positions continue at 0 after the wrap.
-      assert(three.messagesCursor.get(para) == { head: 1, tail: start }),
-      assert(three.messagesQueue.get((para, 0)) == rootNo(2)),
-      assert(ringLive(three.messagesCursor.get(para)) == 3),
-      // At capacity the window spans the wrap.
-      assert(full.messagesCursor.get(para)
-        == { head: MaxSettlementRingCapacity - 2, tail: start }),
-      assert(ringLive(full.messagesCursor.get(para)) == MaxSettlementRingCapacity),
-      assert(full.settlementCheck(List((para, rootNo(0))))),
-      // One past: the oldest position (just below the wrap) is evicted.
-      assert(over.messagesCursor.get(para)
-        == { head: MaxSettlementRingCapacity - 1, tail: U32Modulus - 1 }),
-      assert(not(over.messagesQueue.keys().contains((para, start)))),
-      assert(not(over.settlementCheck(List((para, rootNo(0)))))),
-      assert(over.settlementCheck(List((para, rootNo(1))))),
-      assert(over.settlementCheck(List((para, rootNo(MaxSettlementRingCapacity))))),
-      assert(over.messagesQueue.keys().size() == MaxSettlementRingCapacity),
+      assert(three.messagesCursor.get(para) == { oldest: rootNo(0), newest: rootNo(2), len: 3 }),
+      assert(three.messagesMember == Map(
+        (para, rootNo(0)) -> rootNo(1),
+        (para, rootNo(1)) -> rootNo(2),
+        (para, rootNo(2)) -> rootNo(2))),
+      assert(ringRoots(three, para) == List(rootNo(0), rootNo(1), rootNo(2))),
+      assert(ringRoots(over, para) == range(1, MaxSettlementRingCapacity + 1)
+        .foldl(List(), (acc, i) => acc.append(rootNo(i)))),
       init
     }
-      // The ring invariant is satisfied on both sides of the wrap.
-      .then(setSvc(two))
-      .then(expectThat(settlement_ring_coherent))
-      .then(setSvc(full))
+      .then(setSvc(three))
       .then(expectThat(settlement_ring_coherent))
       .then(setSvc(over))
       .then(expectThat(settlement_ring_coherent and settlement_ring_only_for_live))
@@ -336,14 +319,14 @@ module messaging_test {
   /// §6.1 / §8.1: the settlement ring at capacity is reserved in the baseline
   /// footprint, so pushes never move `usedStateBalance` and the accounting
   /// invariant keeps holding with a full ring. The figures pin the design
-  /// doc's derivation: 10 745 for the ring, 80 570 for the baseline.
+  /// doc's derivation: 7 346 for the ring, 77 171 for the baseline.
   run settlementRingReservedInBaselineTest = {
     val para = CoretimeParaId
     val before = initialState.paraInfo(para).usedStateBalance
     val pushed = pushMany(initialState, para, MaxSettlementRingCapacity + 1)
     all {
-      assert(SettlementRingFootprint == 10745),
-      assert(BaselineFootprint == 80570),
+      assert(SettlementRingFootprint == 7346),
+      assert(BaselineFootprint == 77171),
       assert(pushed.paraInfo(para).usedStateBalance == before),
       init
     }
@@ -506,7 +489,8 @@ module messaging_test {
       Map())
     all {
       assert(out.state.paraInfo(sender).headData == 2),
-      assert(out.state.messagesCursor.get(sender) == { head: 2, tail: 0 }),
+      assert(out.state.messagesCursor.get(sender)
+        == { oldest: rootNo(1), newest: rootNo(2), len: 2 }),
       assert(out.state.settlementCheck(List((sender, rootNo(1))))),
       assert(out.state.settlementCheck(List((sender, rootNo(2))))),
       init
@@ -535,10 +519,9 @@ module messaging_test {
       Map())
     all {
       assert(rolled.paraInfo(ah).headData == 42),
-      // The ring is exactly as before: cursor, membership, and queue.
+      // The ring is exactly as before: cursor and membership.
       assert(rolled.messagesCursor == seeded.messagesCursor),
       assert(rolled.messagesMember == seeded.messagesMember),
-      assert(rolled.messagesQueue == seeded.messagesQueue),
       assert(rolled.settlementCheck(List((ah, rootNo(0))))),
       assert(rolled.settlementCheck(List((ah, rootNo(2))))),
       // Both candidates enact: the receiver settles against the surviving ring.
@@ -567,7 +550,6 @@ module messaging_test {
       // The doomed para's ring is gone with it...
       assert(not(cleaned.messagesCursor.keys().contains(doomed))),
       assert(cleaned.messagesMember.keys().filter(k => k._1 == doomed) == Set()),
-      assert(cleaned.messagesQueue.keys().filter(k => k._1 == doomed) == Set()),
       // ...while the bystander's ring still settles.
       assert(cleaned.settlementCheck(List((bystander, rootNo(0))))),
       init
@@ -598,7 +580,6 @@ module messaging_test {
       // The ring is nonetheless gone already.
       assert(not(out.messagesCursor.keys().contains(doomed))),
       assert(out.messagesMember.keys().filter(k => k._1 == doomed) == Set()),
-      assert(out.messagesQueue.keys().filter(k => k._1 == doomed) == Set()),
       assert(not(out.settlementCheck(List((doomed, rootNo(5)))))),
       init
     }
@@ -650,42 +631,59 @@ module messaging_test {
 
   /// `settlement_ring_coherent` rejects corrupted rings:
   ///
-  /// - An entry with no cursor.
-  /// - A window past capacity (plain or wrapped).
-  /// - A queue root with no membership.
-  /// - A root at two positions.
+  /// - A member entry with no cursor.
+  /// - A `len` of zero or past capacity.
+  /// - A link to a root with no member entry.
+  /// - A member entry the list never reaches.
+  /// - A `newest` root that does not link to itself.
+  /// - A live root re-pushed without the §8.1 step 1 skip, which strands
+  ///   every root after it.
   ///
   /// A ring built through pushes still passes.
   run settlementRingInvariantCatchesCorruptionTest = {
     val ct = CoretimeParaId
+    val r0 = rootNo(0)
+    val r1 = rootNo(1)
+    val r2 = rootNo(2)
     val orphanMember: ParachainServiceState = { ...initialState,
-      messagesMember: Map((ct, rootNo(0)) -> MemberMarker) }
-    val overWideWindow: ParachainServiceState = { ...initialState,
-      messagesCursor: Map(ct -> { head: MaxSettlementRingCapacity + 1, tail: 0 }) }
-    // `head` behind `tail` by one is a wrapping window of `U32Modulus - 1`
-    // positions, far past capacity.
-    val wrappedOverWide: ParachainServiceState = { ...initialState,
-      messagesCursor: Map(ct -> { head: 0, tail: 1 }) }
-    val memberlessQueue: ParachainServiceState = { ...initialState,
-      messagesCursor: Map(ct -> { head: 1, tail: 0 }),
-      messagesQueue: Map((ct, 0) -> rootNo(0)) }
-    // Same root at two live positions. Pushes never produce this (§8.1).
-    val duplicateRoot: ParachainServiceState = { ...initialState,
-      messagesCursor: Map(ct -> { head: 2, tail: 0 }),
-      messagesQueue: Map((ct, 0) -> rootNo(0), (ct, 1) -> rootNo(0)),
-      messagesMember: Map((ct, rootNo(0)) -> MemberMarker) }
+      messagesMember: Map((ct, r0) -> r0) }
+    val emptyLen: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { oldest: r0, newest: r0, len: 0 }) }
+    val lenPastCapacity: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { oldest: r0, newest: r0, len: MaxSettlementRingCapacity + 1 }),
+      messagesMember: Map((ct, r0) -> r0) }
+    val brokenLink: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { oldest: r0, newest: r1, len: 2 }),
+      messagesMember: Map((ct, r0) -> r1) }
+    val strandedMember: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { oldest: r0, newest: r0, len: 1 }),
+      messagesMember: Map((ct, r0) -> r0, (ct, r1) -> r1) }
+    val newestNotSelfLinked: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { oldest: r0, newest: r1, len: 2 }),
+      messagesMember: Map((ct, r0) -> r1, (ct, r1) -> r0) }
+    // `r0 -> r1 -> r2` with `r1` pushed again and no skip: `r2` now links to
+    // `r1`, `r1` to itself, and the walk from `r0` never reaches `r2`.
+    val repushedWithoutSkip: ParachainServiceState = { ...initialState,
+      messagesCursor: Map(ct -> { oldest: r0, newest: r1, len: 4 }),
+      messagesMember: Map((ct, r0) -> r1, (ct, r1) -> r1, (ct, r2) -> r1) }
     init
       .then(setSvc(orphanMember))
       .then(expectThat(not(settlement_ring_coherent)))
-      .then(setSvc(overWideWindow))
+      .then(setSvc(emptyLen))
       .then(expectThat(not(settlement_ring_coherent)))
-      .then(setSvc(wrappedOverWide))
+      .then(setSvc(lenPastCapacity))
       .then(expectThat(not(settlement_ring_coherent)))
-      .then(setSvc(memberlessQueue))
+      .then(setSvc(brokenLink))
       .then(expectThat(not(settlement_ring_coherent)))
-      .then(setSvc(duplicateRoot))
+      .then(setSvc(strandedMember))
       .then(expectThat(not(settlement_ring_coherent)))
-      .then(setSvc(settlementRingPush(initialState, ct, rootNo(0))))
+      .then(setSvc(newestNotSelfLinked))
+      .then(expectThat(not(settlement_ring_coherent)))
+      .then(setSvc(repushedWithoutSkip))
+      .then(expectThat(not(settlement_ring_coherent)))
+      .then(setSvc(settlementRingPush(initialState, ct, r0)))
+      .then(expectThat(settlement_ring_coherent and settlement_ring_only_for_live))
+      .then(setSvc(pushMany(initialState, ct, 5)))
       .then(expectThat(settlement_ring_coherent and settlement_ring_only_for_live))
   }
 

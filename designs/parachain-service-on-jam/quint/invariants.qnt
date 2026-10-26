@@ -371,35 +371,32 @@ module invariants {
         | _ => true
       })
 
-  /// §8.1 settlement-ring shape. For every para with a cursor, both positions
-  /// are `u32` values, the live window `[tail, head)` (a wrapping range of
-  /// `head.wrapping_sub(tail)` positions) holds at most
-  /// `MaxSettlementRingCapacity` entries, and `messagesQueue` holds exactly
-  /// those positions; every queue or member entry belongs to a para with a
-  /// cursor; membership is exactly the set of roots in the live window.
-  /// Each root holds a single position, since pushes skip duplicates.
+  /// §8.1 settlement-ring shape. For every para with a cursor, `len` is in
+  /// `1..MaxSettlementRingCapacity`; following `len` links from `oldest`
+  /// visits `len` distinct roots and ends at `newest`, which links to itself;
+  /// and the visited roots are exactly the para's `messagesMember` keys, so
+  /// no entry is stranded off the list. Every member entry belongs to a para
+  /// with a cursor.
   val settlement_ring_coherent: bool = and {
     svc.messagesCursor.keys().forall(p => {
       val c = svc.messagesCursor.get(p)
-      val live = ringLive(c)
-      and {
-        0 <= c.head and c.head < U32Modulus,
-        0 <= c.tail and c.tail < U32Modulus,
-        live <= MaxSettlementRingCapacity,
-        svc.messagesQueue.keys().filter(k => k._1 == p)
-          == 0.to(live - 1).map(i => (p, wrappingAddU32(c.tail, i)))
+      if (c.len < 1 or c.len > MaxSettlementRingCapacity) false
+      else {
+        val roots = ringRoots(svc, p)
+        val rootSet = roots.foldl(Set(), (acc, r) => acc.union(Set(r)))
+        and {
+          rootSet.size() == c.len,
+          roots[c.len - 1] == c.newest,
+          svc.messagesMember.keys().contains((p, c.newest)),
+          svc.messagesMember.keys().filter(k => k._1 == p) == rootSet.map(r => (p, r)),
+        }
       }
     }),
-    svc.messagesQueue.keys().forall(k => svc.messagesCursor.keys().contains(k._1)),
-    svc.messagesMember.keys().forall(k => svc.messagesCursor.keys().contains(k._1)),
-    svc.messagesMember.keys().forall(k =>
-      svc.messagesMember.get(k) == MemberMarker and
-      svc.messagesQueue.keys().exists(q => q._1 == k._1 and svc.messagesQueue.get(q) == k._2)),
-    svc.messagesQueue.keys().forall(k =>
-      svc.messagesMember.keys().contains((k._1, svc.messagesQueue.get(k)))),
     svc.messagesCursor.keys().forall(p =>
-      svc.messagesMember.keys().filter(k => k._1 == p).size()
-        == svc.messagesQueue.keys().filter(k => k._1 == p).size())
+      not(svc.messagesMember.keys().contains((p, svc.messagesCursor.get(p).newest)))
+        or svc.messagesMember.get((p, svc.messagesCursor.get(p).newest))
+          == svc.messagesCursor.get(p).newest),
+    svc.messagesMember.keys().forall(k => svc.messagesCursor.keys().contains(k._1)),
   }
 
   /// §8.1: a settlement ring exists only for a live parachain. Deletion runs
