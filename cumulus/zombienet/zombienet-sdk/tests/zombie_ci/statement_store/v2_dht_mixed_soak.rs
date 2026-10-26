@@ -49,24 +49,22 @@ use super::{
 		subscribe_topic, wait_for_first_block, Load,
 	},
 	v2_dht_soak::{
-		bring_online, bring_online_with, collect_peer_keys, env_parsed, is_dropped_connection,
-		launch_soak_network, nodes_with_statement_errors, placement_mismatch, ranked_by_distance,
-		soak_topic, store_snapshot, take_offline, ExpectedPlacement, NodeHandle,
-		AUTHORING_COLLATORS, CONNECTED_PEERS_METRIC, DEFAULT_SOAK_SECS, DELIVERY_TIMEOUT_SECS,
-		ELIGIBLE_PEERS_METRIC, GOSSIP_TARGET, LOG_FILTER, MAX_RECONNECTS, NODES_ENV, PARTICIPANTS,
-		PLACEMENT_TIMEOUT_SECS, PRE_JOIN_TOPICS, REPLICATION_FACTOR, RING_RATE_PER_SECOND,
-		RING_SECS, SOAK_SECS_ENV, STATEMENT_TTL,
+		bring_online, collect_peer_keys, env_parsed, is_dropped_connection, launch_soak_network,
+		nodes_with_statement_errors, placement_mismatch, ranked_by_distance, soak_topic,
+		store_snapshot, take_offline, ExpectedPlacement, NodeHandle, AUTHORING_COLLATORS,
+		CONNECTED_PEERS_METRIC, DEFAULT_SOAK_SECS, DELIVERY_TIMEOUT_SECS, ELIGIBLE_PEERS_METRIC,
+		GOSSIP_TARGET, LOG_FILTER, MAX_RECONNECTS, NODES_ENV, PARTICIPANTS, PLACEMENT_TIMEOUT_SECS,
+		PRE_JOIN_TOPICS, REPLICATION_FACTOR, RING_RATE_PER_SECOND, RING_SECS, SOAK_SECS_ENV,
+		STATEMENT_TTL,
 	},
 };
-use anyhow::{anyhow, bail, ensure, Context};
+use anyhow::{anyhow, ensure, Context};
 use codec::Encode;
-use futures::FutureExt;
 use log::{info, warn};
 use sp_crypto_hashing::blake2_256;
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic};
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
-	panic::AssertUnwindSafe,
 	time::{Duration, Instant},
 };
 use zombienet_sdk::{
@@ -384,7 +382,6 @@ struct ProbeStatement {
 	entry: usize,
 	/// Index in `nodes` of the node subscribed to `topic`, which must receive the statement
 	subscriber: usize,
-	/// The statement itself on `topic`, signed by one of the load's accounts
 	statement: Statement,
 }
 
@@ -669,7 +666,6 @@ async fn run_wave(
 	//    `ring dht-off→dht` counts statements sent through a DHT-off node to the DHT subscriber
 	let mut summary = Vec::new();
 	for (&subscriber, arrivals) in ring_subscribers.iter().zip(&ring_arrivals) {
-		// Misses by the node they were sent through, for the warning below
 		let mut missed_by_entry: BTreeMap<&str, usize> = BTreeMap::new();
 		for (idx, statement) in ring.iter().enumerate() {
 			// `submit_at_rate` sends statement `i` through node `i % nodes.len()`
@@ -748,8 +744,6 @@ async fn run_wave(
 	if let Some(problem) = dht_placement(wave, nodes, dht_off, &expectations).await? {
 		report.finding(format!("placement: {problem}, {PLACEMENT_TIMEOUT_SECS}s after the wave"));
 	}
-	drop(ring_subscriptions);
-	drop(probe_subscriptions);
 	Ok(())
 }
 
@@ -820,48 +814,29 @@ async fn run_restart(
 		entries.iter().map(|&idx| nodes[idx].name()).collect::<Vec<_>>(),
 	);
 
-	// Subscribed before the outage, like a client of the node
-	let pre_outage_subscription = subscribe_topic(&nodes[target_idx].rpc, topic).await?;
 	let targets: Vec<_> = entries.iter().map(|&idx| (nodes[idx].name(), &nodes[idx].rpc)).collect();
-	let outage_result = tokio::time::timeout(
-		Duration::from_secs(RESTART_OUTAGE_TIMEOUT_SECS),
-		AssertUnwindSafe(async {
-			take_offline(&target).await?;
-			// The node is down once its RPC stops answering: from then on the backlog cannot reach
-			// it
-			while target.is_responsive().await {
-				tokio::time::sleep(Duration::from_secs(1)).await;
-			}
-			let batch = submit_at_rate(
-				load,
-				restart,
-				topic,
-				BACKLOG_RATE_PER_SECOND,
-				BACKLOG_SECS,
-				&targets,
-			)
-			.await?;
-			tokio::time::sleep(BACKLOG_SETTLE).await;
-			Ok::<_, anyhow::Error>(batch)
-		})
-		.catch_unwind(),
-	)
-	.await;
-
-	let online_result = tokio::time::timeout(
+	let batch = tokio::time::timeout(Duration::from_secs(RESTART_OUTAGE_TIMEOUT_SECS), async {
+		take_offline(&target).await?;
+		// The node is down once its RPC stops answering: from then on the backlog cannot reach it
+		while target.is_responsive().await {
+			tokio::time::sleep(Duration::from_secs(1)).await;
+		}
+		let batch =
+			submit_at_rate(load, restart, topic, BACKLOG_RATE_PER_SECOND, BACKLOG_SECS, &targets)
+				.await?;
+		tokio::time::sleep(BACKLOG_SETTLE).await;
+		Ok::<_, anyhow::Error>(batch)
+	})
+	.await
+	.with_context(|| {
+		format!("restart {restart} outage exceeded {RESTART_OUTAGE_TIMEOUT_SECS}s")
+	})??;
+	nodes[target_idx].rpc = tokio::time::timeout(
 		Duration::from_secs(RESTART_ONLINE_TIMEOUT_SECS),
-		bring_online(&target),
+		bring_online(&target, None),
 	)
 	.await
-	.context("restarted node up deadline")
-	.and_then(|result| result);
-	let batch = match outage_result {
-		Err(_) => bail!("restart {restart} outage exceeded {RESTART_OUTAGE_TIMEOUT_SECS}s"),
-		Ok(Err(panic)) => std::panic::resume_unwind(panic),
-		Ok(Ok(result)) => result?,
-	};
-	nodes[target_idx].rpc = online_result?;
-	drop(pre_outage_subscription);
+	.context("restarted node up deadline")??;
 
 	let mut subscription = subscribe_topic(&nodes[target_idx].rpc, topic).await?;
 	let arrivals = collect_arrivals(
@@ -891,6 +866,7 @@ async fn run_join(
 	network: &mut Network<LocalFileSystem>,
 	nodes: &mut Vec<NodeHandle>,
 	dht_off: &mut Vec<bool>,
+	peer_keys: &[[u8; 32]],
 	load: &mut Load,
 	report: &mut Report,
 ) -> Result<(), anyhow::Error> {
@@ -904,19 +880,20 @@ async fn run_join(
 			.await?;
 	// One statement per topic, through the topic's farthest DHT node, for the DHT joiner to take
 	// over where it enters the replica set
-	let peer_keys = collect_peer_keys(nodes).await?;
-	let mut pre_join = Vec::with_capacity(PRE_JOIN_TOPICS as usize);
-	for idx in 0..PRE_JOIN_TOPICS {
-		let topic = soak_topic(b"mixed-pre-join", join, idx);
-		let entry = &nodes[farthest_dht(&ranked_by_distance(&peer_keys, topic), dht_off)];
-		let statement = load.next_statement(join, topic);
-		let result = submit_statement(&entry.rpc, &statement).await?;
-		ensure!(
-			result == SubmitResult::New,
-			"{} rejected a pre-join statement: {result:?}",
-			entry.name()
-		);
-		pre_join.push((topic, statement.encode()));
+	let mut pre_join = Vec::new();
+	if !joiner_is_dht_off {
+		for idx in 0..PRE_JOIN_TOPICS {
+			let topic = soak_topic(b"mixed-pre-join", join, idx);
+			let entry = &nodes[farthest_dht(&ranked_by_distance(peer_keys, topic), dht_off)];
+			let statement = load.next_statement(join, topic);
+			let result = submit_statement(&entry.rpc, &statement).await?;
+			ensure!(
+				result == SubmitResult::New,
+				"{} rejected a pre-join statement: {result:?}",
+				entry.name()
+			);
+			pre_join.push((topic, statement.encode()));
+		}
 	}
 	tokio::time::sleep(BACKLOG_SETTLE).await;
 
@@ -950,7 +927,8 @@ async fn run_join(
 		return Ok(());
 	}
 
-	let peer_keys = collect_peer_keys(nodes).await?;
+	let mut peer_keys = peer_keys.to_vec();
+	peer_keys.extend(collect_peer_keys(&nodes[joiner..]).await?);
 	let entered: Vec<&Vec<u8>> = pre_join
 		.iter()
 		.filter(|(topic, _)| {
@@ -1035,7 +1013,6 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 		let rpc = node.rpc().await?;
 		nodes.push(NodeHandle { node, rpc });
 	}
-	// The DHT-off nodes come last
 	let mut dht_off: Vec<bool> =
 		(0..nodes.len()).map(|idx| idx >= nodes.len() - dht_off_count).collect();
 
@@ -1084,8 +1061,16 @@ async fn statement_store_v2_dht_mixed_soak() -> Result<(), anyhow::Error> {
 				run_restart(restarts, &mut nodes, &dht_off, &mut load, &mut report).await?;
 				restarts += 1;
 			} else if joins < JOINS {
-				run_join(joins, &mut network, &mut nodes, &mut dht_off, &mut load, &mut report)
-					.await?;
+				run_join(
+					joins,
+					&mut network,
+					&mut nodes,
+					&mut dht_off,
+					&peer_keys,
+					&mut load,
+					&mut report,
+				)
+				.await?;
 				joins += 1;
 				// The joiner shifts replica sets and links
 				peer_keys = collect_peer_keys(&nodes).await?;
@@ -1157,7 +1142,7 @@ async fn statement_store_v2_dht_rollout_soak() -> Result<(), anyhow::Error> {
 			while dht_off.iter().filter(|&&off| !off).count() < target {
 				let idx =
 					dht_off.iter().position(|&off| off).expect("below 100% a node is off; qed");
-				nodes[idx].rpc = bring_online_with(&nodes[idx].node, Some(node_args(true))).await?;
+				nodes[idx].rpc = bring_online(&nodes[idx].node, Some(node_args(true))).await?;
 				dht_off[idx] = false;
 				switches += 1;
 			}
@@ -1169,7 +1154,7 @@ async fn statement_store_v2_dht_rollout_soak() -> Result<(), anyhow::Error> {
 
 		// 3. The last node switched goes back off the DHT path
 		let idx = dht_off.iter().rposition(|&off| !off).expect("the collators run it; qed");
-		nodes[idx].rpc = bring_online_with(&nodes[idx].node, Some(node_args(false))).await?;
+		nodes[idx].rpc = bring_online(&nodes[idx].node, Some(node_args(false))).await?;
 		dht_off[idx] = true;
 		switches += 1;
 		report.progress(format!("Rollback: {} goes back off the DHT path", nodes[idx].name()));

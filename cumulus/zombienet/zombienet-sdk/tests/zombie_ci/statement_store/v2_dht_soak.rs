@@ -557,26 +557,20 @@ async fn admissions_by_reason(node: &NetworkNode) -> Result<String, anyhow::Erro
 /// treats the node as offline until [`bring_online`]
 pub(super) async fn take_offline(node: &NetworkNode) -> Result<(), anyhow::Error> {
 	// Both providers upload these assets as executables; k8s requires a /scripts command even
-	// when restoring. restart_with regenerates the original node arguments for each invocation.
+	// when restoring.
 	let program = "soak-replica-offline.sh";
 	let path = base_dir()?.join(program);
 	std::fs::write(&path, "#!/bin/sh\nexec sleep 3600\n")?;
 	node.restart_with(vec![AssetLocation::FilePath(path)], Some(program.into()), None, None)
 		.await?;
-	// Pause only the idle replacement so the SDK monitor treats the node as offline.
 	node.pause().await?;
 	Ok(())
 }
 
-/// Restarts a node stopped by [`take_offline`] with its original command and arguments, and
-/// returns an RPC client once the node answers
-pub(super) async fn bring_online(node: &NetworkNode) -> Result<RpcClient, anyhow::Error> {
-	bring_online_with(node, None).await
-}
-
-/// [`bring_online`] with `args` in place of the original arguments when given. A running node
-/// restarts the same way, keeping its key and database
-pub(super) async fn bring_online_with(
+/// Restarts a node stopped by [`take_offline`] with its original command, and with `args` in
+/// place of its original arguments when given, and returns an RPC client once the node answers.
+/// A running node restarts the same way, keeping its key and database
+pub(super) async fn bring_online(
 	node: &NetworkNode,
 	args: Option<Vec<zombienet_sdk::Arg>>,
 ) -> Result<RpcClient, anyhow::Error> {
@@ -773,11 +767,13 @@ async fn run_replica_outage(
 	)
 	.await;
 
-	let restart_rpc_result =
-		tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), bring_online(&outage_node))
-			.await
-			.context("outage node restart/up deadline")
-			.and_then(|result| result);
+	let restart_rpc_result = tokio::time::timeout(
+		Duration::from_secs(LIFECYCLE_WAIT_SECS),
+		bring_online(&outage_node, None),
+	)
+	.await
+	.context("outage node restart/up deadline")
+	.and_then(|result| result);
 	if let Err(error) = &restart_rpc_result {
 		warn!("Lifecycle recovery failed: {error:#}; original node is not confirmed running");
 	}
