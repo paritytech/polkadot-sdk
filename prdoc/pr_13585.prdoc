@@ -2,9 +2,7 @@ title: Remove the stale pallet-people and pallet-dummy-dim crates
 doc:
 - audience: Runtime Dev
   description: |-
-    Per gui1117 on #13513: pallet-people's development continued in paritytech/individuality-community, nothing in this repo or in polkadot-fellows/runtimes depends on it anymore (People Polkadot pulls `indiv-pallet-people`/`indiv-pallet-people-lite` from that repo instead). `pallet-dummy-dim` only existed to depend on `pallet-people` and has no other dependents.
-
-    Removes both crates entirely rather than just flagging them stale, since nothing uses them. `cargo metadata`, `zepter run check`, and `cargo check -p polkadot-sdk` all pass clean after the removal.
-
-    Closes #13513
+    `pallet-people` and `pallet-dummy-dim` are unused: development of pallet-people continued in
+    `paritytech/individuality-community`, and nothing in this repo or in
+    `polkadot-fellows/runtimes` depends on either crate anymore. Removes both.
 crates: []
