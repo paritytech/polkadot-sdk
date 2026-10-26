@@ -1752,13 +1752,13 @@ The speculative messaging design specifies how these messages travel off-chain a
 runtime verifies them against a sender's root.
 
 The parachain runtimes commit their outbound messages under a single 32-byte `StreamsRoot`,
-via a `set_messages_streams_root` host call. The receiver parachain declares its consumed
-messages against the sender's root via a `set_messages_requires_roots` host call.
+via a `set_messages_streams_root` host call. The receiver parachain declares one
+`(ParaId, StreamsRoot)` pair per sender it consumed from via a `set_messages_requires_roots` host call.
 
 The parachain service is responsible only for settling these roots. To achieve this, it maintains
-a settlement ring for every parachain which holds the last 64 (`MAX_SETTLEMENT_RING_CAPACITY`)
-enacted `StreamsRoot`. The receiver block enacts only if every declared consumed root is in the
-sender's ring.
+a settlement ring for every parachain which holds its 64 (`MAX_SETTLEMENT_RING_CAPACITY`) most
+recent and distinct enacted `StreamsRoot`. The receiver block enacts only if every declared consumed
+root is in the sender's ring.
 
 ### 8.1 Settlement Ring
 
@@ -1820,4 +1820,4 @@ then delete the entry. Stop when the entry pointing at `newest` root is deleted.
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/): Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
-- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/blob/9d0a0daee40e6e350209aaf4b3e3bdf1fb9a8793/docs/speculative-messaging-design.md): The speculative messaging design document
+- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/pull/12659): The speculative messaging design document
