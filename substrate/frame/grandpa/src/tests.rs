@@ -713,7 +713,7 @@ fn report_equivocation_validate_unsigned_prevents_duplicates() {
 				&call,
 			),
 			TransactionValidity::Ok(ValidTransaction {
-				priority: TransactionPriority::max_value(),
+				priority: TransactionPriority::MAX,
 				requires: vec![],
 				provides: vec![("GrandpaEquivocation", tx_tag).encode()],
 				longevity: ReportLongevity::get(),

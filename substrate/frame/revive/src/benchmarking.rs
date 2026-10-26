@@ -140,6 +140,13 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
+/// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
+fn set_dust_so_transfer_mints<T: Config>(address: &H160, dust: u32) {
+	AccountInfoOf::<T>::mutate(address, |info| {
+		info.get_or_insert_default().dust = T::NativeToEthRatio::get() - dust;
+	});
+}
+
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
 /// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
@@ -1751,6 +1758,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The balance work of `System.terminate`: the storage deposit refund when it is called and
+	/// the teardown at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
@@ -1779,8 +1788,6 @@ mod benchmarks {
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
 		let beneficiary_clone = beneficiary.clone();
-		let trie_id = instance.info()?.trie_id.clone();
-		let code_hash = instance.info()?.code_hash;
 		let only_if_same_tx = false;
 		assert_account_not_whitelisted::<T>(contract_account);
 
@@ -1793,8 +1800,6 @@ mod benchmarks {
 				contract_account,
 				&origin,
 				beneficiary_clone,
-				trie_id,
-				code_hash,
 				only_if_same_tx,
 			);
 		}
@@ -2818,6 +2823,10 @@ mod benchmarks {
 				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 			}
 			assert_eq!(System::<T>::account_exists(&callee), $callee_exists);
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, $dust);
+			}
+			let callee_balance_before = Pallet::<T>::evm_balance(&callee_addr);
 
 			let callee_bytes = callee.encode();
 			let callee_len = callee_bytes.len() as u32;
@@ -2865,9 +2874,10 @@ mod benchmarks {
 				assert!(System::<T>::account_exists(&callee), "{callee_addr:?} should exist");
 				assert_eq!(
 					Pallet::<T>::evm_balance(&callee_addr),
-					evm_value,
-					"{callee_addr:?} should hold {evm_value:?}"
+					callee_balance_before + evm_value,
+					"{callee_addr:?} balance should grow by {evm_value:?}"
 				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
 				assert_eq!(
 					Pallet::<T>::evm_balance(&caller_addr),
 					caller_balance_before - evm_value - callee_ed_paid,
@@ -2990,7 +3000,6 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		// Delegated code source: worst case for the callee resolution in `new_frame`.
-		// See `seal_call`.
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
@@ -3070,6 +3079,10 @@ mod benchmarks {
 			let salt_ptr = value_ptr + value_len;
 
 			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
 
 			let mut $do_instantiate = || {
 				runtime.bench_instantiate(
@@ -3086,8 +3099,12 @@ mod benchmarks {
 				assert!(AccountInfo::<T>::load_contract(&new_contract_addr).is_some());
 				assert_eq!(
 					Pallet::<T>::evm_balance(&new_contract_addr),
-					evm_value,
-					"{new_contract_addr:?} balance should hold {evm_value:?}"
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
 				);
 				assert_eq!(
 					Pallet::<T>::evm_balance(&deployer),
@@ -3174,6 +3191,10 @@ mod benchmarks {
 			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
 			let new_contract_addr =
 				crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
 
 			// Setup stack for create instruction [value, offset, size, salt]
 			let _ = interpreter.stack.push(salt);
@@ -3189,8 +3210,12 @@ mod benchmarks {
 				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
 				assert_eq!(
 					Pallet::<T>::evm_balance(&new_contract_addr),
-					evm_value,
-					"balance should hold {evm_value:?}"
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
 				);
 				let code_deposit = Pallet::<T>::convert_native_to_evm(
 					CodeInfoOf::<T>::get(new_contract.code_hash)
