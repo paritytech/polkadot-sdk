@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793029456049,
+  "lastUpdate": 1793037880219,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "shawntabrizi@gmail.com",
-            "name": "Shawn Tabrizi",
-            "username": "shawntabrizi"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e7332c1aa702038ba72664290bb148d5d5a49ceb",
-          "message": "Pass NodeExtraArgs through Dev Chain (#11685)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11684\n\nThis is useful if you are trying to build / prototype on top of\nstatement store, but don't want to set up or maintain a whole zombienet.",
-          "timestamp": "2026-04-11T13:46:43Z",
-          "tree_id": "cf3003b4016cf9a9a36ab40054a1d036c4eef28b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7332c1aa702038ba72664290bb148d5d5a49ceb"
-        },
-        "date": 1775920142377,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00723299006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009664428746666653,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14079036624000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025447945766666667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14275458703333344,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f20de3de1c5f9624a33209466968e35c1228c0f4",
+          "message": "Remove unused `node-template` artifacts and release tooling (#13550)\n\nRemoves `substrate/scripts/ci/node-template-release` and\n`substrate/docker`. Both still point at `substrate/bin/node-template`,\nwhich [#3460](https://github.com/paritytech/polkadot-sdk/pull/3460)\nmoved to `templates/solochain` (as `solochain-template-node`).\n\nTemplates are now released by\n[misc-sync-templates.yml](https://github.com/paritytech/polkadot-sdk/blob/master/.github/workflows/misc-sync-templates.yml).\nAll the tooling around node-templates is therefore not needed anymore.",
+          "timestamp": "2026-10-26T16:30:54Z",
+          "tree_id": "cec04f1996a8e203524394816398dd50b35b4eb6",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f20de3de1c5f9624a33209466968e35c1228c0f4"
+        },
+        "date": 1793037847886,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00980136149999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02503990149333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14121240384666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007377958060000003,
             "unit": "seconds"
           }
         ]
