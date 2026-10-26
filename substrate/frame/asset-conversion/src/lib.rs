@@ -1259,12 +1259,12 @@ pub mod pallet {
 		///
 		/// An expendable withdrawal from `pallet-assets` may take *more* than `value`: where
 		/// debiting `value` would strand a remainder too small for `who` to keep, it sweeps that
-		/// remainder out too and reports the larger figure in the returned credit. Every caller
-		/// here resolves the whole credit into a pool while pricing the swap on `value`, so the
-		/// surplus would be paid into the pool for nothing in return. Such a credit is refused,
-		/// and since every path into this function is transactional, the withdrawal is rolled
-		/// back with it. `pallet-balances` returns exactly `value` and handles the remainder as
-		/// dust, so native withdrawals pass.
+		/// remainder out too and reports the larger figure in the returned credit. A swap pays the
+		/// whole credit into the pool while pricing it on `value`, so the surplus would be paid in
+		/// for nothing. Such a credit is refused, and since every path into this function is
+		/// transactional, the withdrawal is rolled back with it. Keep-alive withdrawals, such as
+		/// the pool's side of a swap and the pool setup fee, never sweep. `pallet-balances`
+		/// returns exactly `value` and handles the remainder as dust, so native withdrawals pass.
 		fn withdraw(
 			asset: T::AssetKind,
 			who: &T::AccountId,

@@ -436,6 +436,9 @@ where
 	/// `can_withdraw` is the `can_decrease` that `prep_debit` runs right after, so this reads only
 	/// keys the transfer reads anyway. Sending the whole balance leaves no remainder and is
 	/// allowed. A self-transfer moves exactly `amount` in pallet-assets, so it is exempt.
+	///
+	/// Anyone can push a sender into this range by sending it a small amount, so a contract that
+	/// tracks deposits should pay out `balanceOf(this)` on its last withdrawal.
 	fn ensure_no_sweep(
 		asset_id: &<Runtime as Config<Instance>>::AssetId,
 		from: &<Runtime as frame_system::Config>::AccountId,

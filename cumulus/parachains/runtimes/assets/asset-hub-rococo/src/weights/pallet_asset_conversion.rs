@@ -217,8 +217,9 @@ impl<T: frame_system::Config> pallet_asset_conversion::WeightInfo for WeightInfo
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
 	fn pool_exists() -> Weight {
-		// Placeholder: will be replaced by running benchmarks.
-		Weight::from_parts(10_000_000, 3699)
+		// Taken from the asset-hub-westend benchmark: one read of `AssetConversion::Pools`.
+		Weight::from_parts(11_677_000, 0)
+			.saturating_add(Weight::from_parts(0, 4689))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
 }

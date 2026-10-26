@@ -1599,9 +1599,8 @@ fn setup_asset_with_min_balance(
 	assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, owner, mint));
 }
 
-/// Control for the two exactness pins: when the sender keeps at least `min_balance` the
-/// dust path is never reached, so this asserts the same invariants unconditionally and
-/// proves the setup itself is sound.
+/// A transfer that leaves the sender exactly `min_balance` is outside the dust window, so the
+/// guard lets it through and the log reports `value`.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 fn transfer_is_exact_when_remainder_covers_min_balance(asset_index: u16) {
@@ -1700,52 +1699,6 @@ fn transfer_from_of_full_balance_is_allowed(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, owner), 0);
 		assert_eq!(Assets::balance(asset_id, to), 100);
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 100);
-	});
-}
-
-/// The precompile's `Transfer` log and `pallet_assets`' own `Transferred` event describe
-/// the same movement, so they must agree on the amount. `Transferred` carries `credit`
-/// (what actually landed in `dest`) while the log carries `call.value`, which is how the
-/// dust sweep becomes observable from two different indexing surfaces at once.
-///
-/// `min_balance = 10`, sender holds `100`, `transfer(90)` leaves exactly `10` — at, not
-/// below, `min_balance` — so this stays outside the dust window and must succeed; a value
-/// inside the window (e.g. 95) would revert before either surface reports anything, which
-/// would make the agreement assertion below vacuous.
-#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
-#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn transfer_log_agrees_with_pallet_event(asset_index: u16) {
-	use crate::mock::{RuntimeEvent, System};
-
-	new_test_ext().execute_with(|| {
-		let asset_id = 0u32;
-		let asset_addr = H160::from(set_prefix_in_address(asset_index));
-		let from = 123456789u64;
-		let to = 987654321u64;
-		Balances::make_free_balance_be(&from, 1000);
-		Balances::make_free_balance_be(&to, 1000);
-		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
-		setup_asset_with_min_balance(asset_id, asset_index, from, 10, 100);
-
-		let exec = raw_transfer(from, asset_addr, to_addr, U256::from(90u64))
-			.result
-			.expect("must not trap");
-		assert!(!exec.did_revert(), "a transfer outside the dust window must not revert");
-
-		let pallet_amount = System::events()
-			.into_iter()
-			.find_map(|record| match record.event {
-				RuntimeEvent::Assets(pallet_assets::Event::Transferred { amount, .. }) => {
-					Some(amount)
-				},
-				_ => None,
-			})
-			.expect("pallet_assets::Event::Transferred must be emitted");
-		assert_eq!(
-			pallet_amount, 90,
-			"pallet_assets reported a transfer of {pallet_amount} while the ERC-20 \
-			 Transfer log reports 90",
-		);
 	});
 }
 
@@ -1929,22 +1882,13 @@ fn transfer_above_balance_still_fails_on_funds(asset_index: u16) {
 	});
 }
 
-/// XCM accounting depends on this exactness too, not just contracts.
-///
-/// `assets_common::ERC20Transactor` (used by Asset Hub's `AssetTransactors`) implements
-/// `withdraw_asset` as an `IERC20::transfer` from the user to a checking account and then
-/// credits the XCM holding register with the *requested* amount. `deposit_asset` is the
-/// mirror image, transferring out of the checking account. `ERC20Matcher` accepts any
-/// local `AccountKey20`, so an asset precompile address routes through it.
-///
-/// A dust sweep on the way in silently strands the remainder in the checking account
-/// (holding is credited less than the checking account received); a sweep on the way out
-/// hands the checking account's residue to whoever happens to deposit last. Both break the
-/// invariant this test pins: the checking account's balance moves by exactly the amount
-/// the holding register is credited.
+/// `ERC20Transactor` implements an XCM `withdraw_asset` as an `IERC20::transfer` into a checking
+/// account and credits the holding register with the declared amount. A withdraw that would
+/// sweep a remainder must revert and credit the checking account nothing. The asset-hub-westend
+/// XCM tests cover the full path.
 #[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 #[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
-fn checking_account_round_trip_is_exact(asset_index: u16) {
+fn checking_account_withdraw_reverts_instead_of_sweeping(asset_index: u16) {
 	new_test_ext().execute_with(|| {
 		let asset_id = 0u32;
 		let asset_addr = H160::from(set_prefix_in_address(asset_index));

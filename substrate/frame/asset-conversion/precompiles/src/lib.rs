@@ -241,8 +241,8 @@ const ERR_ZERO_AMOUNT: &str = "Amount can't be zero";
 const ERR_QUOTE_FAILED: &str = "Quote failed";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
-/// In a swap, `Token(BelowMinimum)` comes from both the sender's and the pool's withdraw, so the
-/// reason cannot name the account. Only swaps use it; see `revert_swap`.
+/// In a swap, only the sender's expendable withdraw can return `Token(BelowMinimum)`: the pool's
+/// withdraw keeps the pool alive and never sweeps. Only swaps use it, see `revert_swap`.
 const ERR_INEXACT_WITHDRAW: &str = "Swap amount cannot be withdrawn exactly";
 
 impl<const ADDRESS: u16, Runtime> AssetConversion<ADDRESS, Runtime>

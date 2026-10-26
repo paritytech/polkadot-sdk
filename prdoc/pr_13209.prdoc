@@ -1,74 +1,41 @@
-title: Exact ERC-20 transfers and readable reverts in the assets and asset-conversion precompiles
+title: Exact ERC-20 transfers and revert reasons in the assets and asset-conversion precompiles
 
 doc:
 - audience: Runtime Dev
   description: |-
-    Since #13230, a `pallet-assets` transfer that would leave the source a remainder below the
-    asset's `min_balance` sweeps that remainder to the destination and reports the whole amount.
-    ERC-20 requires `transfer(to, value)` and `transferFrom(from, to, value)` to move exactly
-    `value`, so the assets ERC-20 precompile now refuses such a transfer instead. Before
-    `do_transfer` / `do_transfer_approved` it calls `fungibles::Inspect::can_withdraw` and
-    reverts with "Transfer would leave sender below minimum balance" when that returns
-    `ReducedToZero` with a non-zero remainder. Sending the whole balance and self-transfers are
-    unaffected. `pallet-assets` itself is unchanged. XCM reaches this path through
-    `ERC20Transactor` when it names a precompile address, so such an XCM now fails instead of
-    moving more than it declared.
+    The assets ERC-20 precompile now reverts a `transfer` or `transferFrom` that would leave the
+    sender a non-zero balance below `min_balance`, instead of letting pallet-assets sweep the
+    remainder to the recipient. `pallet-assets` is unchanged.
 
-    Both precompiles now revert, with the reason sp-runtime gives a `DispatchError`, for every
-    pallet failure of a state-changing call. Module errors carry their variant name (for example
-    "AssetNotLive", "BalanceLow", "PoolEmpty"), so a contract sees the same name whichever
-    precompile surfaced it. These used to trap with empty return data. `Error::Error` remains
-    for charging failures, and for a state change under `STATICCALL`, which fails with no return
-    data as it does on Ethereum and elsewhere in revive.
+    Pallet errors from both precompiles now revert with the `DispatchError` reason, which is the
+    variant name for module errors. A state change under `STATICCALL` still fails with no return
+    data.
 
-    The asset-conversion precompile keeps a few deliberate reasons. `getReserves` and the quote
-    calls tell a missing pool ("Pool does not exist") from one without liquidity ("Pool exists
-    but has no liquidity"), which reads `AssetConversion::Pools`; `pallet-asset-conversion`
-    gains `Pallet::pool_exists` and a `WeightInfo::pool_exists` benchmark, charged only when the
-    reserves come back empty. A zero quote amount reverts with "Amount can't be zero", and any
-    other failed quote with "Quote failed". A swap whose withdrawal would not be exact reverts
-    with "Swap amount cannot be withdrawn exactly".
-
-    `pallet_asset_conversion`'s `withdraw` helper now refuses a credit that differs from the
-    requested value. An expendable `pallet-assets` withdrawal could sweep a remainder into the
-    credit, which was then paid into the pool while the swap was priced on the requested amount.
-    Every path into `withdraw` is transactional, so the refused withdrawal is rolled back. Native
-    withdrawals are exact and unaffected.
-
-    The `pallet_revive::Error::PrecompileDelegateDenied` doc no longer claims the calling
-    contract is trapped.
+    `pallet-asset-conversion` adds `Pallet::pool_exists` and `WeightInfo::pool_exists`, used by
+    the precompile to tell a missing pool from an empty one. Its swap `withdraw` refuses a credit
+    that differs from the requested amount.
 
 - audience: Runtime User
   description: |-
-    ERC-20 `transfer` and `transferFrom` on `pallet-assets` tokens now revert with "Transfer
-    would leave sender below minimum balance" instead of moving more than `value` when the
-    sender would be left holding less than the asset's minimum balance. Send the whole balance,
-    or leave at least the minimum. The same applies to XCM that moves such a token through its
-    precompile address.
+    ERC-20 `transfer` and `transferFrom` on pallet-assets tokens revert with "Transfer would leave
+    sender below minimum balance" rather than sending more than `value`. Send the full balance or
+    keep at least the minimum. A contract that tracks deposits should pay out `balanceOf(this)` on
+    the last withdrawal, since anyone can send it a small amount that puts the tracked total in
+    that range.
 
-    Contracts calling the assets ERC-20 or the asset-conversion precompile can now catch
-    `Error(string)` for pallet failures. Reasons are error variant names such as
-    "AssetNotLive", "BalanceLow", "Unapproved" or "PoolEmpty". A `DELEGATECALL` reverts with
-    "illegal to call this pre-compile via delegate call". A state-changing call under
-    `STATICCALL` still fails with empty return data.
-
-    Asset-conversion quotes no longer share "Pool does not exist or has no liquidity". They
-    report "Amount can't be zero", "Pool does not exist", "Pool exists but has no liquidity", or
-    "Quote failed"; `getReserves` reports the same pool reasons. Update any caller that matched
-    the old string or the old empty return data.
+    Precompile reverts now use error names such as "AssetNotLive" or "PoolEmpty". Quotes report
+    "Amount can't be zero", "Pool does not exist", "Pool exists but has no liquidity" or
+    "Quote failed".
 
 crates:
-# `WeightInfo` gains `pool_exists`, which every implementor must add.
 - name: pallet-asset-conversion
   bump: major
 - name: pallet-assets-precompiles
   bump: patch
 - name: pallet-asset-conversion-precompiles
   bump: patch
-# Doc comment only.
 - name: pallet-revive
   bump: none
-# Implement the new `pallet_asset_conversion::WeightInfo::pool_exists`.
 - name: asset-hub-westend-runtime
   bump: patch
 - name: asset-hub-rococo-runtime
