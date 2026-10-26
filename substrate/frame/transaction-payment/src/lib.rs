@@ -942,7 +942,8 @@ impl<T: Config> core::fmt::Debug for ChargeTransactionPayment<T> {
 	}
 }
 
-/// The info passed between the validate and prepare steps for the `ChargeTransactionPayment` extension.
+/// The info passed between the validate and prepare steps for the `ChargeTransactionPayment`
+/// extension.
 #[derive(DebugNoBound)]
 pub enum Val<T: Config> {
 	Charge {
