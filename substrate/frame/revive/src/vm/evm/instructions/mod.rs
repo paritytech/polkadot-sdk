@@ -53,8 +53,7 @@ pub const BENCH_INIT_CODE: u8 = 0x1F; // Arbitrary unused opcode for benchmarkin
 ///
 /// The benchmarks of `PUSH`, `DUP` and `SWAP` already run their op-codes in a pseudo-random order,
 /// so their charges include a mispredicted dispatch. Every other op-code pays it, including those
-/// charged through `RuntimeCosts`. Every byte is listed, so each new op-code has to be placed on
-/// one side.
+/// charged through `RuntimeCosts`. Every defined op-code is listed by name.
 pub fn pays_dispatch(opcode: u8) -> bool {
 	match opcode {
 		PUSH0..=PUSH32 | DUP1..=DUP16 | SWAP1..=SWAP16 => false,
