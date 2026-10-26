@@ -14,6 +14,8 @@ doc:
 crates:
 - name: sp-arithmetic
   bump: patch
+- name: pallet-staking-reward-fn
+  bump: patch
 - name: sp-npos-elections
   bump: patch
 - name: frame-election-provider-support
