@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793004221671,
+  "lastUpdate": 1793029456049,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f9855db6280b9b2d21200a046e6acc2f8903944e",
-          "message": "Add legacy NegativeImbalance support to DAP and DAP satellite (#11716)\n\nAdd `DapLegacyAdapter` and `DapSatelliteLegacyAdapter` wrapper structs\nthat implement `OnUnbalanced<NegativeImbalance>` from the legacy\n`Currency` trait, bridging pallets not yet migrated to fungible traits.\n\nWire Westend runtimes: AH referenda slash to DAP, collectives\n(fellowship, ambassador, alliance) and people identity slash to DAP\nsatellite.\n\nCloses #11704.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-11T12:12:45Z",
-          "tree_id": "10e93d9741f1ab779f88df7e7ddebca006b76600",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f9855db6280b9b2d21200a046e6acc2f8903944e"
-        },
-        "date": 1775914437613,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007129041973333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14049415170000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009853895539999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025446679213333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007658374046666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d83fe2acc1fecef54e45f7ce6aa72a4ed7da4d28",
+          "message": "`pallet-broker`: reject duplicate auto-renewal for a core (#12689)\n\n`do_enable_auto_renew` computed the insertion index with\n`binary_search_by(..).unwrap_or_else(|e| e)`, which collapses the\n\"already present\" (`Ok`) and \"not present\" (`Err`) cases into the same\nposition and then calls `try_insert`. Enabling auto-renewal twice for\nthe same core inserted a duplicate `AutoRenewalRecord`, breaking the\nsorted-unique invariant documented on the `AutoRenewals` storage. The\n`workload_end_hint` branch only reads `PotentialRenewals` (it does not\nconsume the record), so the preconditions pass on every call and the\npath is user-reachable.\n\nDuplicate entries cause `rotate_sale`/`renew_cores` to renew and charge\nthe payer once per duplicate, consume the `MaxAutoRenewals` bound with\nspurious records, and leave orphans after `disable_auto_renew` (which\nremoves a single position).\n\nA second enable for an already-enrolled core now returns the new\n`AutoRenewalAlreadyEnabled` error.\n\nCloses #12602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sergej Sakac <73715684+Szegoo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-26T14:10:11Z",
+          "tree_id": "a1502ad014bdbb2b5f3e83dc2e3ccdfef10f0cfa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d83fe2acc1fecef54e45f7ce6aa72a4ed7da4d28"
+        },
+        "date": 1793029426794,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025273265126666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010100152999999976,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00790612391333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14275458703333344,
             "unit": "seconds"
           }
         ]
