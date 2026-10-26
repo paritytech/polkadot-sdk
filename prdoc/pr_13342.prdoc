@@ -3,8 +3,8 @@ doc:
 - audience: Runtime Dev
   description: |-
     `seal_call`, `seal_instantiate` and `evm_instantiate` now measure the operation without a
-    value transfer. Each of the three also gets a new benchmark that measures it with a value
-    transfer. `WeightInfo` changes accordingly:
+    value transfer. New benchmarks measure the same operations with a value transfer. `WeightInfo`
+    changes accordingly:
     - `seal_call(t, d, i)` becomes `seal_call(i)`
     - `seal_instantiate(t, d, i)` becomes `seal_instantiate(i)`
     - `evm_instantiate(t, d, i)` becomes `evm_instantiate(i)`
@@ -17,19 +17,20 @@ doc:
     `CLONE_INPUT` flag, while previously it always cloned an empty input.
     Unlike the previous `seal_call` benchmark, `seal_call_transfer` also covers the cost of
     creating the callee's account.
-    `seal_call_transfer_to_existing` measures the same call when the callee's account already
-    exists. A call with value pays the larger ref time and the larger proof size of the two.
+    `seal_call_transfer_to_existing` measures a call with value to a callee whose account already
+    exists.
+    A call with value pays the larger ref time and the larger proof size of the two.
     When the value sent includes dust, the transfer benchmarks also cover the receiver's dust
     adding up to a whole plank, which the transfer then mints.
     `call_with_evm_code_per_byte` now benchmarks code up to `MAX_CODE_SIZE`.
 - audience: Runtime User
   description: |-
     The weight charged for calls and instantiations changes. With the pallet's default weights:
-    - A call without value costs less and does one fewer storage read. Cloning the input with
-      the `CLONE_INPUT` flag costs about 150 picoseconds per byte instead of 3.
+    - A call without value costs less and is charged for one fewer storage read. Cloning the
+      input with the `CLONE_INPUT` flag costs about 150 picoseconds per byte instead of 3.
     - The weight of a call with value now includes creating the callee's account.
-    - A transfer with dust is now priced for the case where the receiver's dust adds up to a
-      whole plank and the transfer mints it.
+    - A transfer whose value includes dust is now priced for the case where the receiver's dust
+      adds up to a whole plank and the transfer mints it.
     - The weights of a PolkaVM instantiate and of an EVM `CREATE` or `CREATE2` change, with and
       without value.
     - An instantiate, `CREATE` or `CREATE2` that sends only dust now pays the full transfer cost,
