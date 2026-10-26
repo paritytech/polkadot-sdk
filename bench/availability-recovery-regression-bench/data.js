@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793004173774,
+  "lastUpdate": 1793029401899,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a5a89478428fb46b8cc378e9003a046bc4a0eece",
-          "message": "Westend AH: Add PSM (#11529)\n\n## Summary\n\nThis PR adds the PSM pallet to the Westend Asset Hub runtime and\nintroduces remote integration tests that run against live on-chain\nstate.\n\n**Runtime configuration:**\n\npUSD asset ID: 50000342\nPSM cap: 5 mil\nFee destination: pUSD insurance fund (`PalletId(*b\"pusd/ins\")`)\nV1 migration initializes USDT (1984) as the first external asset with 0%\nminting fee and 0.01% redemption fee\n\n### Remote tests\nThe tests fetch the Assets pallet state from a live Asset Hub node via\nRPC, inject PSM configuration and check the core functionality:\n\n`mint_and_redeem`: mints pUSD by depositing an external stablecoin, then\nredeems it back. Verifies balances, debt tracking, and fee accounting.\n`circuit_breaker`: tests all three circuit breaker levels\n(MintingDisabled, AllDisabled, AllEnabled) and verifies the correct\noperations are blocked/allowed at each level.\n\nState is fetched once from the RPC node and cached to a local snapshot\nfile so the second test doesn't need another round trip.\n\n### Running\nWith USDT as the external asset:\n```\nRUST_LOG=runtime::psm=info cargo run -p remote-ext-tests-psm -- --asset-id 1984\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-13T06:39:56Z",
-          "tree_id": "9c8dab6e8dd86ccfd8e9776723646427d5559ea4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a5a89478428fb46b8cc378e9003a046bc4a0eece"
-        },
-        "date": 1776068058845,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.739259300100004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13303963683333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1216867755,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "runcomet@protonmail.com",
+            "name": "Enoch",
+            "username": "runcomet"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d83fe2acc1fecef54e45f7ce6aa72a4ed7da4d28",
+          "message": "`pallet-broker`: reject duplicate auto-renewal for a core (#12689)\n\n`do_enable_auto_renew` computed the insertion index with\n`binary_search_by(..).unwrap_or_else(|e| e)`, which collapses the\n\"already present\" (`Ok`) and \"not present\" (`Err`) cases into the same\nposition and then calls `try_insert`. Enabling auto-renewal twice for\nthe same core inserted a duplicate `AutoRenewalRecord`, breaking the\nsorted-unique invariant documented on the `AutoRenewals` storage. The\n`workload_end_hint` branch only reads `PotentialRenewals` (it does not\nconsume the record), so the preconditions pass on every call and the\npath is user-reachable.\n\nDuplicate entries cause `rotate_sale`/`renew_cores` to renew and charge\nthe payer once per duplicate, consume the `MaxAutoRenewals` bound with\nspurious records, and leave orphans after `disable_auto_renew` (which\nremoves a single position).\n\nA second enable for an already-enrolled core now returns the new\n`AutoRenewalAlreadyEnabled` error.\n\nCloses #12602.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sergej Sakac <73715684+Szegoo@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-26T14:10:11Z",
+          "tree_id": "a1502ad014bdbb2b5f3e83dc2e3ccdfef10f0cfa",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d83fe2acc1fecef54e45f7ce6aa72a4ed7da4d28"
+        },
+        "date": 1793029371027,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.688808315933333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13317160946666667,
             "unit": "seconds"
           }
         ]
