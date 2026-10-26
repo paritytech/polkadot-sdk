@@ -22,8 +22,7 @@ use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
 
-/// Decoded compact proof.
-/// Used to return `MemoryDB` from `verify_range_proof`.
+/// The trie nodes a compact proof decodes to, keyed by hash, for state sync to write.
 pub type DecodedCompactProof<H> = sp_state_machine::MemoryDB<H>;
 
 /// Interface for providing block proving utilities.

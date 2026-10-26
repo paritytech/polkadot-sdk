@@ -126,6 +126,8 @@ where
 	B: Backend<H>,
 {
 	let map_err = |e| sp_blockchain::Error::Storage(format!("{e}"));
+	// Pairs, not keys: under state version 1 a large value is a node of its own, which only a
+	// value read fetches.
 	for kv in state.pairs(IterArgs::default()).map_err(map_err)? {
 		let (key, _value) = kv.map_err(map_err)?;
 		let child_info = match ChildType::from_prefixed_key(PrefixedStorageKey::new_ref(&key)) {

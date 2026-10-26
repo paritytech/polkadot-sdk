@@ -939,7 +939,7 @@ where
 			is_descendent_of(&**client, base, block)
 		});
 
-		if matches!(self.mode, ChainSyncMode::LightState { .. }) && self.state_sync.is_none() {
+		if matches!(self.mode, ChainSyncMode::LightState) && self.state_sync.is_none() {
 			if !self.peers.is_empty() && self.queue_blocks.is_empty() {
 				self.attempt_state_sync(*hash, number);
 			} else {

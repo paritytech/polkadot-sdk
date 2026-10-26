@@ -85,8 +85,8 @@ pub fn chunk_nodes<H: Hasher>(
 			None => None,
 		};
 		// The chunk keys its nodes by hash alone, so look them up without a prefix. A node of a
-		// copied child trie is not in the chunk at all: the server sends a root's content once per
-		// request, and the source key comes first in key order. So we read it from what the
+		// copied child trie may be missing from the chunk: the server sends a root's content once
+		// per request, and the source key comes first in key order. Then we read it from what an
 		// earlier chunk wrote under the source keyspace.
 		let Some(encoded) = chunk
 			.nodes

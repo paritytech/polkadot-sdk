@@ -1833,7 +1833,7 @@ fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
 /// the retry completes the download and the target import lands. The refusal comes from another
 /// target recorded under the sync's feet, right before the response arrives.
 #[test]
-fn failed_chunk_write_is_retried_from_memory() {
+fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
 	let remote = TestClientBuilder::new().build();
 	let header = build_block(&remote, None, true).header().clone();
 	let target = |header: &Header| PartialStateTarget {

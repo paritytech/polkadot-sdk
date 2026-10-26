@@ -1016,7 +1016,7 @@ mod execution {
 
 		// Roots we already entered, with the index of their level. A root's content is read only
 		// once: a later key holding the same root just gets noted on that level.
-		let mut child_roots: std::collections::HashMap<Vec<u8>, usize> = Default::default();
+		let mut child_roots = HashMap::new();
 		let (mut child_key, mut start_at) = if start_at.len() == 2 {
 			let storage_key = start_at.get(0).expect("Checked length.").clone();
 			let child_key = if let Some(state_root) = proving_backend
