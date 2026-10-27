@@ -12,9 +12,12 @@ doc:
     settlement is measured as the balance update it is on a live chain rather than as an account
     creation or a burn.
 
-    The `refund_surplus` benchmark buys twice the surplus it then refunds. A trader that swapped
-    the fee asset refunds less than it was paid, so refunding the whole purchase refunded nothing
-    and the benchmark's assertion failed against such a trader.
+    `SwapFirstAssetTrader::refund_weight` refused any refund worth the fee it held or more, so a
+    `RefundSurplus` of the whole purchase, or of a surplus larger than what this trader bought,
+    refunded nothing and the fee went to `OnUnbalanced`. It now caps the refund at the fee held
+    and refunds that, as `UsingComponents`, `FixedRateOfFungible` and `TakeFirstAssetTrader` do.
+    The `refund_surplus` benchmark, which refunds the whole purchase, runs against this trader
+    unchanged.
 
     A runtime wiring `SwapFirstAssetTrader` prices the swap only if its own `worst_case_for_trader`
     returns a foreign asset with a pool against the native asset and `worst_case_holding` carries
@@ -30,7 +33,7 @@ doc:
     covering these instructions may now fail with `Overweight` and should raise it; senders using
     `Unlimited` or `XcmPaymentApi::query_xcm_weight` need no change.
 crates:
-- name: pallet-xcm-benchmarks
+- name: cumulus-primitives-utility
   bump: patch
 - name: asset-hub-westend-runtime
   bump: patch
