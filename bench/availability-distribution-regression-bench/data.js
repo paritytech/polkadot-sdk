@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793096619674,
+  "lastUpdate": 1793102267813,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "24c4f96edc5f6383013a308c0c45f9b3a6604d47",
-          "message": "Reject delegatecall into precompiles via PrecompileDelegateDenied (#11715)\n\n## Summary\n\n- Add delegatecall guard to the ERC20 assets precompile and XCM\nprecompile, matching the existing pattern in the vesting and\nasset-conversion precompiles\n- Converge asset-conversion precompile from `Error::Revert(string)` to\n`Error::Error(PrecompileDelegateDenied)` for consistency across all\nprecompiles\n- Add delegatecall rejection test for the XCM precompile\n\n## Motivation\n\nDelegatecall to precompiles allows a malicious contract to execute\nprecompile logic in a misleading caller context. The precompiles derive\ncaller identity from `env.caller()`, which during delegatecall returns\nthe original caller — letting the intermediary contract act on the\ncaller's assets or send XCM on their behalf. There is no legitimate use\ncase for delegatecalling into these precompiles.\n\n## Changes\n\n- `substrate/frame/assets/precompiles/src/lib.rs` — add\n`PrecompileDelegateDenied` guard\n- `substrate/frame/asset-conversion/precompiles/src/lib.rs` — replace\n`Error::Revert(ERR_DELEGATE_CALL)` with `PrecompileDelegateDenied`,\nremove unused const\n- `polkadot/xcm/pallet-xcm/precompiles/src/lib.rs` — add\n`PrecompileDelegateDenied` guard\n- `polkadot/xcm/pallet-xcm/precompiles/src/tests.rs` — add\n`delegatecall_is_rejected` test\n- `polkadot/xcm/pallet-xcm/precompiles/Cargo.toml` — add\n`pallet-revive-fixtures` dev-dependency\n\n## Test plan\n\n- [x] `cargo test -p pallet-xcm-precompiles` — 13 tests pass, including\nnew `delegatecall_is_rejected`\n- [x] `cargo test -p pallet-asset-conversion-precompiles` — 18 tests\npass\n- [x] `cargo test -p pallet-assets-precompiles` — 66 tests pass\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-13T09:11:14Z",
-          "tree_id": "8429396e9bad7cb0aa441acef321dcbd9e21966a",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/24c4f96edc5f6383013a308c0c45f9b3a6604d47"
-        },
-        "date": 1776076434107,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007117435893333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025652635913333346,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14164790724000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00977458299333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.024939546560000005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "andrei.arlou@gmail.com",
+            "name": "Andrei Arlou",
+            "username": "Captain1653"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b",
+          "message": "staking-async: remove obsolete TODO comment about StakingLedger (#13271)\n\n# Description\nFixes #402 \n\nThe issue referenced in the legacy TODO was for the `pallet-staking`.\nThat pallet is already deprecated via #11940, so no changes are needed\nthere.\n\nFor `pallet-staking-async`, the moving `StakingLedger` has already been\ncompleted via #8127, but the old `TODO` comment was left behind during\nthe copy-paste process.\n\n\n## Review Notes\n\nI'm just removing those lines of the `TODO` comment and that's it.\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T10:25:53Z",
+          "tree_id": "07c6342c1089e0bbb747ecc739235cda9c8886be",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b"
+        },
+        "date": 1793102236002,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02514219698666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00985514842666664,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007444163373333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14325579708000002,
             "unit": "seconds"
           }
         ]
