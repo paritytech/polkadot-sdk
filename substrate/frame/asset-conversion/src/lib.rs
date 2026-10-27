@@ -415,6 +415,8 @@ pub mod pallet {
 		PoolEmpty,
 		/// The fee exceeds [`Config::MaxSwapFee`].
 		FeeTooHigh,
+		/// The pool account can't send one of its assets (e.g. it is frozen or blocked for it).
+		PoolUnavailable,
 	}
 
 	#[pallet::hooks]
@@ -1269,7 +1271,7 @@ pub mod pallet {
 			T::Assets::balance(asset, owner)
 		}
 
-		/// Whether `pool_account` can send any of its `asset` (e.g. it isn't frozen or blocked for it).
+		/// Whether `pool_account` can send `asset` (it can't if frozen or blocked for it).
 		pub(crate) fn pool_can_send(pool_account: &T::AccountId, asset: T::AssetKind) -> bool {
 			!T::Assets::reducible_balance(asset, pool_account, Expendable, Polite).is_zero()
 		}
@@ -1532,7 +1534,7 @@ pub mod pallet {
 			if !Self::pool_can_send(&pool_account, asset1) ||
 				!Self::pool_can_send(&pool_account, asset2)
 			{
-				Err(Error::<T>::PoolEmpty)?;
+				Err(Error::<T>::PoolUnavailable)?;
 			}
 
 			Ok((balance1, balance2))
