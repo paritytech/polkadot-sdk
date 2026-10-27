@@ -1294,6 +1294,17 @@ fn quote_price_returns_none_when_pool_cannot_receive_input() {
 		// Frozen pool can't send token_2, so it's halted in both directions.
 		assert_ok!(Assets::freeze(RuntimeOrigin::signed(user), 2, pool_account));
 		assert_eq!(quote_token_2_to_native(), [None, None]);
+		assert_noop!(
+			AssetConversion::swap_exact_tokens_for_tokens(
+				RuntimeOrigin::signed(user),
+				bvec![token_2.clone(), token_1.clone()],
+				100,
+				1,
+				user,
+				false,
+			),
+			Error::<Test>::PoolUnavailable
+		);
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
 				token_1.clone(),
