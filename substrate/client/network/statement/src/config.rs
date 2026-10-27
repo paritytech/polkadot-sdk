@@ -25,6 +25,14 @@ use std::{
 	time,
 };
 
+/// Default inbound slots for full peers on the statement protocol with the v2 DHT path on. Light
+/// peers get the node's `--in-peers-light` on top.
+pub const DEFAULT_IN_PEERS: u32 = 50;
+
+/// Default outbound slots on the statement protocol with the v2 DHT path on. Peer steering dials
+/// its peers through the reserved set, so the protocol controller dials none of its own.
+pub const DEFAULT_OUT_PEERS: u32 = 0;
+
 /// Interval at which we propagate statements;
 pub(crate) const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(1000);
 
@@ -106,6 +114,8 @@ pub struct V2DhtConfig {
 	/// Maximum total data size in bytes of the transient statements, kept until propagated, or the
 	/// store's size limit when `None`.
 	pub transient_max_size: Option<usize>,
+	/// Inbound slots for full peers on the statement protocol.
+	pub in_peers: u32,
 }
 
 impl Default for V2DhtConfig {
@@ -119,6 +129,7 @@ impl Default for V2DhtConfig {
 			gossip_target: DEFAULT_GOSSIP_TARGET,
 			dht_affinity_max_size: None,
 			transient_max_size: None,
+			in_peers: DEFAULT_IN_PEERS,
 		}
 	}
 }

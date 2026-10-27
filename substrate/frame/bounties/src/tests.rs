@@ -1636,7 +1636,7 @@ fn accept_curator_sets_update_due_correctly() {
 		);
 
 		// Given (BountyUpdatePeriod = BlockNumber::max_value())
-		BountyUpdatePeriod::set(BlockNumberFor::<Test>::max_value());
+		BountyUpdatePeriod::set(BlockNumberFor::<Test>::MAX);
 		Balances::make_free_balance_be(&Treasury1::account_id(), 101);
 		assert_ok!(Bounties1::propose_bounty(
 			RuntimeOrigin::signed(proposer),
@@ -1654,7 +1654,7 @@ fn accept_curator_sets_update_due_correctly() {
 		// Then
 		assert_eq!(
 			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
-			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::MAX }
 		);
 
 		// When
@@ -1667,7 +1667,7 @@ fn accept_curator_sets_update_due_correctly() {
 		// Then
 		assert_eq!(
 			pallet_bounties::Bounties::<Test, Instance1>::get(bounty_id).unwrap().status,
-			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::max_value() }
+			BountyStatus::Active { curator, update_due: BlockNumberFor::<Test>::MAX }
 		);
 	});
 }
