@@ -324,6 +324,7 @@ pub mod exploit {
 			deneb: Fork { version: hex!("04000000"), epoch: 0 },
 			electra: Fork { version: hex!("05000000"), epoch: 0 },
 			fulu: Fork { version: hex!("06000000"), epoch: 100_000_000 },
+			gloas: Fork { version: hex!("07000000"), epoch: 100_000_000 },
 		};
 	}
 
