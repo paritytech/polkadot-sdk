@@ -38,7 +38,7 @@ use crate::{
 use alloy_core::sol_types::SolCall;
 use frame_support::{assert_ok, traits::fungible::Mutate};
 use pallet_revive_fixtures::{
-	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse, SendBack,
+	CallEach, CallThenRevert, Caller, Counter, Factory, FixtureType, Recurse, SendBackOrForward,
 	compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
@@ -210,7 +210,7 @@ fn a_call_back_into_the_target_is_hot_only_after_call_or_eth_call(fixture_type: 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn a_transfer_back_to_the_sender_is_hot_only_after_call_or_eth_call(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("SendBack", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("SendBackOrForward", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let Contract { addr, .. } =
@@ -218,7 +218,7 @@ fn a_transfer_back_to_the_sender_is_hot_only_after_call_or_eth_call(fixture_type
 		let _ = crate::Pallet::<Test>::set_evm_balance(&addr, 100_000_000_000u128.into());
 		let value_sent: BalanceOf<Test> = 1_000;
 		let access_list_metrics_of_transfer = |run: &dyn Fn(Vec<u8>)| {
-			let send_back = |amount| SendBack::sendBackCall { amount }.abi_encode();
+			let send_back = |amount| SendBackOrForward::sendBackCall { amount }.abi_encode();
 			let without_value = access_list_metrics_of(|| run(send_back(0)));
 			let with_value = access_list_metrics_of(|| run(send_back(1_000_000)));
 			AccessListMetrics {
@@ -851,12 +851,13 @@ mod dry_run {
 
 	#[test]
 	fn a_call_fits_a_bare_call_dry_run_estimate() {
-		let (code, _) = compile_module_with_type("SendBack", FixtureType::Solc).unwrap();
+		let (code, _) = compile_module_with_type("SendBackOrForward", FixtureType::Solc).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
 			let addr =
 				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract().addr;
-			let data = pallet_revive_fixtures::SendBack::sendBackCall { amount: 0 }.abi_encode();
+			let data =
+				pallet_revive_fixtures::SendBackOrForward::sendBackCall { amount: 0 }.abi_encode();
 
 			let dry_run = builder::bare_call(addr)
 				.native_value(1_000)
@@ -885,7 +886,7 @@ mod dry_run {
 		}
 
 		let [send_back_code, recurse_code, caller_code, call_each_code, reverter_code] =
-			["SendBack", "Recurse", "Caller", "CallEach", "CallThenRevert"]
+			["SendBackOrForward", "Recurse", "Caller", "CallEach", "CallThenRevert"]
 				.map(|name| compile_module_with_type(name, fixture_type).unwrap().0);
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
@@ -913,8 +914,9 @@ mod dry_run {
 			let value_sent_in_wei = crate::Pallet::<Test>::convert_native_to_evm(value_sent);
 			let value_with_dust = value_sent_in_wei + U256::one();
 
-			let send_back =
-				|amount: U256| SendBack::sendBackCall { amount: amount.as_u64() }.abi_encode();
+			let send_back = |amount: U256| {
+				SendBackOrForward::sendBackCall { amount: amount.as_u64() }.abi_encode()
+			};
 			let call_back_once =
 				Recurse::recurseCall { callsLeft: 1, finalTarget: H160::zero().0.into() }
 					.abi_encode();
@@ -1004,7 +1006,7 @@ mod dry_run {
 					name: "a payment forwarded to another account",
 					dest: send_back_contract,
 					value: value_sent,
-					data: SendBack::sendToCall {
+					data: SendBackOrForward::sendToCall {
 						to: BOB_ADDR.0.into(),
 						amount: value_sent_in_wei.as_u64(),
 					}
