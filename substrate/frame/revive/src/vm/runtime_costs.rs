@@ -252,23 +252,20 @@ impl RuntimeCosts {
 /// Computes the overhead the access list adds to an access.
 fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 	// The touch benches make `n` touches per run, so `cost_args!` at 1 is one touch.
-	let (cold_weight, hot_weight, rollback_weight) = match summary.key_family() {
+	let (cold_weight, rollback_weight) = match summary.key_family() {
 		KeyFamily::ContractStorageSlot => (
 			cost_args!(access_list_touch_cold_full, 1)
 				.saturating_sub(cost_args!(access_list_touch_cold_empty, 1)),
-			cost_args!(access_list_touch_hot_full, 1)
-				.saturating_sub(cost_args!(access_list_touch_hot_nearly_empty, 1)),
 			T::WeightInfo::access_list_rollback_amortization(),
 		),
 		KeyFamily::PalletStorageSlot => (
 			cost_args!(access_list_touch_cold_address_full, 1)
 				.saturating_sub(cost_args!(access_list_touch_cold_address_empty, 1)),
-			cost_args!(access_list_touch_hot_address_full, 1)
-				.saturating_sub(cost_args!(access_list_touch_hot_address_nearly_empty, 1)),
 			T::WeightInfo::access_list_rollback_address_amortization(),
 		),
 	};
 
+	let hot_weight = access_list_hot_touch_overhead::<T>(summary.key_family());
 	let upgrade_weight = access_list_upgrade_overhead::<T>(summary.key_family());
 	let (per_entry_weight, per_upgrade_weight) = if summary.all_hot() {
 		(hot_weight, upgrade_weight)
@@ -280,6 +277,16 @@ fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 		.saturating_mul(summary.total().into())
 		.saturating_add(rollback_weight.saturating_mul(summary.cold_revertible().into()))
 		.saturating_add(per_upgrade_weight.saturating_mul(summary.upgrades().into()))
+}
+
+/// Computes how much more a hot touch costs on a full list than on a nearly empty one.
+pub fn access_list_hot_touch_overhead<T: Config>(key_family: KeyFamily) -> Weight {
+	match key_family {
+		KeyFamily::ContractStorageSlot => cost_args!(access_list_touch_hot_full, 1)
+			.saturating_sub(cost_args!(access_list_touch_hot_nearly_empty, 1)),
+		KeyFamily::PalletStorageSlot => cost_args!(access_list_touch_hot_address_full, 1)
+			.saturating_sub(cost_args!(access_list_touch_hot_address_nearly_empty, 1)),
+	}
 }
 
 /// Computes the cost of journaling a `Read` to `Write` upgrade, on top of the touch itself.
@@ -473,7 +480,9 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				warmth.summary(),
 				T::WeightInfo::chained_delegation_check,
 				T::WeightInfo::chained_delegation_check_hot,
-			),
+			)
+			// The check searches its entry twice, but the access-list overhead prices only one.
+			.saturating_add(access_list_hot_touch_overhead::<T>(warmth.summary().key_family())),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),

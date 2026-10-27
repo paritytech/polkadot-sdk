@@ -138,6 +138,11 @@ impl CodeLoadToken {
 			// Nothing on top of the base hot access.
 			Weight::zero,
 		)
+		// A load searches each entry twice, but the access-list overhead prices only one search.
+		.saturating_add(
+			runtime_costs::access_list_hot_touch_overhead::<T>(summary.key_family())
+				.saturating_mul(summary.total().into()),
+		)
 	}
 
 	/// Computes the cost of the code's bytes at the blob's warmth, plus PVM compilation.
