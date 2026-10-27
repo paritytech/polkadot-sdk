@@ -22630,8 +22630,10 @@ name = "sc-network-transactions"
 version = "0.33.0"
 dependencies = [
  "array-bytes 6.2.2",
+ "async-trait",
  "futures",
  "log",
+ "mockall",
  "parity-scale-codec",
  "sc-network 0.34.0",
  "sc-network-common 0.33.0",
