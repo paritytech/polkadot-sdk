@@ -1,0 +1,11 @@
+title: 'sp-keystore: MemoryKeystore signs only with a secret URI that derives the queried key'
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |
+      The testing MemoryKeystore no longer signs with a stored secret URI that derives a
+      different public key than the one queried, and no longer panics on an unparseable secret
+      URI. Such an entry is treated as absent: sign and VRF methods return Ok(None) and the
+      public key listings skip it.
+crates:
+  - name: sp-keystore
+    bump: patch
