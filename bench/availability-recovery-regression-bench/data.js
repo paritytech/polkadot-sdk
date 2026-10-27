@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793106577230,
+  "lastUpdate": 1793125317138,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "728514a8eb057de1b75bb62068d09f032cf1c1e3",
-          "message": "Snowbride: Fix alloy receipt verification (#11739)\n\n### Context\n\nHardens Snowbridge receipt proof verification by only accepting the\n`ValueMismatch { got: Some(_), expected: None }` extraction path when\nthe mismatch path equals the queried trie key.",
-          "timestamp": "2026-04-14T07:12:38Z",
-          "tree_id": "5969e64309265cead3cc9da652e221425c1d2ebc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/728514a8eb057de1b75bb62068d09f032cf1c1e3"
-        },
-        "date": 1776155672435,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1268877474,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.8614411558,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.606458975366667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "111317723512d237327aa0dadfdcea054533675c",
+          "message": "Fix user losing remainder of swapped funds when pool liquidity goes below ED (#13601)\n\n`pallet-asset-conversion`'s `SwapCredit::swap_tokens_for_exact_tokens`\nsplit `credit_in` into the amount to swap and the change, and returned\nonly the amount to swap if the swap then failed. The change was dropped\ninside the storage transaction that is rolled back on failure, so the\ncaller lost it. The full `credit_in` is now returned on failure, as\ndocumented.",
+          "timestamp": "2026-10-27T16:47:48Z",
+          "tree_id": "d43404685681e16f124003bb271339ca1c0cc2cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/111317723512d237327aa0dadfdcea054533675c"
+        },
+        "date": 1793125288757,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.592407381466666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1280309450333333,
             "unit": "seconds"
           }
         ]
