@@ -1,0 +1,17 @@
+title: 'hrmp: give back the open request deposits of an offboarding para'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    When a para offboards, the deposits of its channels are given back to its account, but the
+    deposits of its pending open channel requests were kept reserved, with nothing left to release
+    them. The request cleanup now gives back both deposits of a removed request, including those of
+    the outgoing para itself.
+
+    This changes behaviour specified in the implementers' guide, which said deposits of the
+    outgoing para are not returned; the guide is updated accordingly.
+
+    No storage, API or configuration change. Deposits already left reserved by earlier versions
+    are not touched.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch

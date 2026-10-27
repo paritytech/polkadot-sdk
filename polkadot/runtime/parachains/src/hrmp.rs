@@ -942,7 +942,8 @@ impl<T: Config> Pallet<T> {
 
 	// Go over the HRMP open channel requests and remove all in which offboarding paras participate.
 	//
-	// This will also perform the refunds for the counterparty if it doesn't offboard.
+	// This will also give back the deposits of both sides, including a para that is itself
+	// offboarding, the same way `close_hrmp_channel` does for the channels of an outgoing para.
 	pub(crate) fn clean_open_channel_requests(
 		config: &HostConfiguration<BlockNumberFor<T>>,
 		outgoing: &[ParaId],
@@ -969,19 +970,15 @@ impl<T: Config> Pallet<T> {
 				},
 			};
 
-			// Return the deposit of the sender, but only if it is not the para being offboarded.
-			let unless_offboarding =
-				|para: ParaId, deposit: Balance| (!outgoing.contains(&para)).then_some(deposit);
-			let sender_deposit = unless_offboarding(req_id.sender, req_data.sender_deposit);
+			// Return the deposit of the sender, also to a sender that is offboarding.
+			let sender_deposit = Some(req_data.sender_deposit);
 
 			// If the request was confirmed, then it means it was confirmed in the finished session.
 			// Therefore, the config's hrmp_recipient_deposit represents the actual value of the
-			// deposit.
-			//
-			// We still want to refund the deposit only if the para is not being offboarded.
+			// deposit. It is returned also to a recipient that is offboarding.
 			let recipient_deposit = if req_data.confirmed {
 				Self::decrease_accepted_channel_request_count(req_id.recipient);
-				unless_offboarding(req_id.recipient, config.hrmp_recipient_deposit)
+				Some(config.hrmp_recipient_deposit)
 			} else {
 				None
 			};
