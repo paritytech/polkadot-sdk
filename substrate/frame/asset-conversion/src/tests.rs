@@ -3102,3 +3102,64 @@ fn per_pool_fee_is_applied_to_swaps() {
 		assert_eq!(balance(user, token_1), with_pool_fee + ed);
 	});
 }
+
+#[test]
+fn swap_credit_for_exact_tokens_returns_whole_credit_on_failure() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let asset_ed = 150;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], asset_ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		let ed = get_native_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// The path prices fine, but the pool withdrawal fails: the pool would end up below the
+		// asset's minimum balance.
+		let amount_out = liquidity2 - asset_ed + 1;
+		let amount_in = AssetConversion::balance_path_from_amount_out(
+			amount_out,
+			vec![token_1.clone(), token_2.clone()],
+		)
+		.unwrap()[0]
+			.1;
+		// Pay more than needed so the swap has to split off change.
+		let change = 5000;
+		let credit_in = NativeAndAssets::issue(token_1.clone(), amount_in + change);
+		let expected_credit_in = NativeAndAssets::issue(token_1.clone(), amount_in + change);
+		let issuance_before = Balances::total_issuance();
+
+		let error = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1.clone(), token_2.clone()],
+			credit_in,
+			amount_out,
+		)
+		.unwrap_err();
+
+		// Both credits are still alive here, so issuance must not have moved.
+		assert_eq!(Balances::total_issuance(), issuance_before);
+		// The whole credit comes back, including the change.
+		assert_eq!(error, (expected_credit_in, TokenError::NotExpendable.into()));
+	});
+}
