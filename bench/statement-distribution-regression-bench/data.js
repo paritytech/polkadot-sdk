@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793037978507,
+  "lastUpdate": 1793096718950,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b96d1afb5e99dc118336c78beb5231dc5d9f6d8e",
-          "message": "[Release|CI/CD] Fix git push in Post Crates Activities flow (#11723)\n\nThis PR fixes issue, that commited changes were not pushed to\npost-crates-release branch as there was a check, that was looking for\nuncommited changes",
-          "timestamp": "2026-04-10T16:40:00Z",
-          "tree_id": "d9f6538613df2c66bb25c1994bd022a465897d10",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b96d1afb5e99dc118336c78beb5231dc5d9f6d8e"
-        },
-        "date": 1775844120371,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.09799999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038468813208,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08663708934999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08831845856199994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1",
+          "message": "bags-list: fix on_idle cursor skipping nodes on weight exhaustion (#13184)\n\n`Pallet::on_idle `chose the persistent rebag cursor from a count-based\nsplit computed before the per-item loop ran, so it always pointed to\n`accounts[rebag_budget]`. The loop itself can stop earlier than that for\ntwo separate reasons: the weight meter runs out, or the pallet becomes\nlocked mid-run. In both cases processed ends up smaller than\n`rebag_budget`, and the nodes between the point the loop actually\nstopped and `accounts[rebag_budget]` were never touched, yet the cursor\nstill jumped past them. Those nodes stayed misplaced until an unrelated\nend-of-list wrap-around eventually restarted the scan from the head.\n\nThis computes the resume point after the loop instead, as\n`accounts[processed..]`. Since processed is the true count of items the\nloop actually got through, this slice is correct for every way the loop\ncan end: the count budget being reached, the weight meter running out,\nor a lock, as well as the loop finishing the whole collected batch\nnaturally. That also makes the old pre-loop split redundant, so it's\nremoved rather than kept alongside the new logic.\n\nAdded a test with five misplaced nodes, a count budget of four, and a\nweight limit that only covers two rebags. It asserts the cursor resumes\nat the third node, the first one the weight limit actually forced it to\nskip, rather than jumping to the fifth as the old count-based logic\nwould.\n\nCloses #13138\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T08:53:19Z",
+          "tree_id": "178d668632bc41d6ca268ef4a231e8543d087764",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1"
+        },
+        "date": 1793096691424,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12599999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038638874384,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08700802825399984,
             "unit": "seconds"
           }
         ]
