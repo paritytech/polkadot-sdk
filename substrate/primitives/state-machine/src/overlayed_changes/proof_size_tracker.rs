@@ -24,11 +24,11 @@ use crate::{
 use alloc::vec::Vec;
 use core::{
 	fmt::{self, Debug},
+	hash::Hash,
 	mem,
 };
 use hash_db::Hasher;
 use indexmap::IndexMap as HashMap;
-use sp_crypto_hashing::blake2_128;
 
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "proof_size_tracker";
@@ -46,52 +46,27 @@ pub enum DeltaKeyOp {
 	Deleted,
 }
 
-/// Identity of a storage key inside the tracker: the Blake2 hash of its bytes.
-pub type KeyHash = u128;
-
-/// A key the tracker can identify, see [`KeyHash`].
-pub trait TrackedKey {
-	/// The identity of the key.
-	fn key_hash(&self) -> KeyHash;
-}
-
-impl TrackedKey for Vec<u8> {
-	fn key_hash(&self) -> KeyHash {
-		KeyHash::from_le_bytes(blake2_128(self))
-	}
-}
-
-impl TrackedKey for (Vec<u8>, Vec<u8>) {
-	fn key_hash(&self) -> KeyHash {
-		let (prefix, key) = self;
-		let prefix_len = (prefix.len() as u32).to_le_bytes();
-		KeyHash::from_le_bytes(blake2_128(&[&prefix_len[..], prefix, key].concat()))
-	}
-}
-
-/// Map hasher of [`DeltaKeys`] and tracker's internal maps.
+/// Map hasher of [`DeltaKeys`] and the tracker's internal maps.
 ///
-/// A key's identity is public, so its bucket must depend on a secret or a sender could choose it.
-/// Seeded from process randomness in std and from block randomness in the PVF. Seeds only move
+/// Keys are public, so a bucket must depend on a seed or a sender could grind keys that share
+/// one. Seeded per process in std and from block randomness in the PVF. The seed only moves
 /// entries between buckets.
 #[cfg(feature = "std")]
 pub type KeyHashBuilder = foldhash::quality::RandomState;
 
-/// Map hasher of [`DeltaKeys`] and tracker's internal maps.
+/// Map hasher of [`DeltaKeys`] and the tracker's internal maps, see the std variant.
 #[cfg(not(feature = "std"))]
 pub type KeyHashBuilder = sp_trie::RandomState;
 
-/// Maps key hash -> (key, last op) for keys staged in the current transaction layer.
-type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
+/// Maps key -> last op for keys staged in the current transaction layer.
+type KeyMap<K> = HashMap<K, DeltaKeyOp, KeyHashBuilder>;
 
-/// Maps key hash -> the latest op `take_delta` saw for the key, reported or not. Lets later
+/// Maps key -> the latest op `take_delta` saw for the key, reported or not. Lets later
 /// `take_delta` calls skip ops they already reported.
-type SnapshotMap = HashMap<KeyHash, DeltaKeyOp, KeyHashBuilder>;
+type SnapshotMap<K> = HashMap<K, DeltaKeyOp, KeyHashBuilder>;
 
 /// Key operations returned by [`ProofSizeTracker::take_delta`].
-///
-/// Keyed by [`KeyHash`], which callers ignore; the values carry the key and its op.
-pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
+pub type DeltaKeys<K> = HashMap<K, DeltaKeyOp, KeyHashBuilder>;
 
 /// Tracks storage key modifications with transaction support and incremental delta extraction.
 ///
@@ -117,22 +92,6 @@ pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 /// path in the block-start trie, while a removal restructures the trie and may load sibling nodes
 /// that later removals depend on. The trie therefore accumulates removals across size estimation
 /// calls.
-///
-/// # Key identity
-///
-/// Keys are 64 to 162 byte arrays, and a block writes thousands of them. The tracker looks
-/// each key up many times: on every write, on every size estimation call, and once per open
-/// layer when it checks whether the key was already reported. Hashing the full key bytes on
-/// each of those lookups was measured at 6-7% of block production time.
-///
-/// So the tracker hashes a key once, when it is written, and uses the hash as the key's
-/// identity from then on. See [`KeyHash`] and [`TrackedKey`]. All maps are keyed by that
-/// hash. Their own hasher, [`KeyHashBuilder`], hashes the 16-byte identity with a secret seed
-/// so a sender cannot choose a bucket. Collator and validator seeds differ; no result does.
-///
-/// The hash is Blake2-128. It is deterministic, so the collator and the PVF derive the same
-/// identities. Collisions are assumed to be computationally infeasible; a collision would merge
-/// two keys and could drop a report.
 pub struct ProofSizeTracker<K, H: Hasher> {
 	/// Stack of parent transaction layers (outermost first).
 	layers: Vec<TransactionLayer<K, H>>,
@@ -145,14 +104,14 @@ pub struct ProofSizeTracker<K, H: Hasher> {
 }
 
 struct TransactionLayer<K, H: Hasher> {
-	/// Pending operations stored in this layer, keyed by key hash.
+	/// Pending operations stored in this layer.
 	///
-	/// Each entry holds the key and its latest operation. An entry leaves this map when a delta is
+	/// Each entry is a key and its latest operation. An entry leaves this map when a delta is
 	/// taken for this layer, or when a child transaction whose snapshot holds the key commits.
 	dirty_keys: KeyMap<K>,
 	/// Latest operation `take_delta` saw for each key, reported or not. Snapshots of child
 	/// transactions are merged into it on commit.
-	snapshot: Option<SnapshotMap>,
+	snapshot: Option<SnapshotMap<K>>,
 	/// The trie as it was when this transaction started, `None` if the trie did not exist when the
 	/// transaction started.
 	trie_snapshot: Option<EstimationTrieSnapshot<H>>,
@@ -208,18 +167,14 @@ impl<K, H: Hasher> ProofSizeTracker<K, H> {
 	}
 }
 
-impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
+impl<K: Debug + Eq + Hash, H: Hasher> ProofSizeTracker<K, H> {
 	/// Adds a `key` to the tracker with an operation `op` type.
 	///
 	/// A later op on the same key replaces this one; the next delta reports the key only if its
 	/// newest op differs from the one in the snapshot.
-	pub fn add_key(&mut self, key: K, op: DeltaKeyOp)
-	where
-		K: TrackedKey,
-	{
+	pub fn add_key(&mut self, key: K, op: DeltaKeyOp) {
 		trace!(target:LOG_TARGET, "add_key: {:?}/{:?}", key, op);
-		let hash = key.key_hash();
-		self.current.dirty_keys.insert(hash, (key, op));
+		self.current.dirty_keys.insert(key, op);
 	}
 
 	/// Starts a new transaction layer for atomic operations.
@@ -247,8 +202,8 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 			if let Some(current_snapshot) = self.current.snapshot.take() {
 				// The child's snapshot supersedes the parent's pending operations for the same
 				// keys. Remove those operations so they cannot be reported later.
-				for hash in current_snapshot.keys() {
-					parent.dirty_keys.swap_remove(hash);
+				for key in current_snapshot.keys() {
+					parent.dirty_keys.swap_remove(key);
 				}
 				match &mut parent.snapshot {
 					// Child ops overwrite parent ops for the same key (child is more recent).
@@ -309,10 +264,10 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		// collected or already in the current layer's snapshot.
 		let mut newest = mem::take(dirty_keys);
 		for layer in self.layers.iter().rev() {
-			for (&hash, entry) in &layer.dirty_keys {
-				let in_current_snapshot = snapshot.as_ref().is_some_and(|s| s.contains_key(&hash));
-				if !newest.contains_key(&hash) && !in_current_snapshot {
-					newest.insert(hash, entry.clone());
+			for (key, op) in &layer.dirty_keys {
+				let in_current_snapshot = snapshot.as_ref().is_some_and(|s| s.contains_key(key));
+				if !newest.contains_key(key) && !in_current_snapshot {
+					newest.insert(key.clone(), *op);
 				}
 			}
 			if layer.snapshot.is_some() {
@@ -323,31 +278,25 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 		// Report a key when its newest op differs from the op in the snapshots. Record every
 		// key's newest op in the current snapshot, reported or not.
 		let mut delta: DeltaKeys<K> = HashMap::with_hasher(KeyHashBuilder::default());
-		for (hash, (key, op)) in newest {
-			let standing_op = snapshot.as_ref().and_then(|s| s.get(&hash).copied()).or_else(|| {
-				self.layers.iter().rev().find_map(|l| l.snapshot.as_ref()?.get(&hash).copied())
+		for (key, op) in newest {
+			let standing_op = snapshot.as_ref().and_then(|s| s.get(&key).copied()).or_else(|| {
+				self.layers.iter().rev().find_map(|l| l.snapshot.as_ref()?.get(&key).copied())
 			});
-			snapshot.get_or_insert_with(Default::default).insert(hash, op);
+			snapshot.get_or_insert_with(Default::default).insert(key.clone(), op);
 			if standing_op != Some(op) {
-				delta.insert(hash, (key, op));
+				delta.insert(key, op);
 			}
 		}
 
-		trace!(target:LOG_TARGET, "get_delta: {:?}", delta.values().collect::<Vec<_>>());
+		trace!(target:LOG_TARGET, "get_delta: {:?}", delta.iter().collect::<Vec<_>>());
 		delta
 	}
 }
 
 #[cfg(test)]
 mod tests {
-	use super::{blake2_128, DeltaKeyOp, KeyHash, KeyHashBuilder, TrackedKey, LOG_TARGET};
+	use super::{DeltaKeyOp, KeyHashBuilder, LOG_TARGET};
 	use sp_core::Blake2Hasher;
-
-	impl TrackedKey for String {
-		fn key_hash(&self) -> KeyHash {
-			KeyHash::from_le_bytes(blake2_128(self.as_bytes()))
-		}
-	}
 	use tracing::debug;
 
 	macro_rules! delta_assert_eq {
@@ -356,7 +305,7 @@ mod tests {
                 let expected: ::std::collections::HashSet<String> =
                     [$($val),*].iter().cloned().map(String::from).collect();
                 let actual: ::std::collections::HashSet<String> =
-                    $delta.values().map(|(k, _)| k.clone()).collect();
+                    $delta.iter().map(|(k, _)| k.clone()).collect();
                 assert_eq!(actual, expected);
             }
         };
@@ -368,7 +317,7 @@ mod tests {
                 let expected: ::std::collections::HashSet<(String, DeltaKeyOp)> =
                     [$(($key.to_string(), $op)),*].into_iter().collect();
                 let actual: ::std::collections::HashSet<(String, DeltaKeyOp)> =
-                    $delta.values().map(|(k, op)| (k.clone(), *op)).collect();
+                    $delta.iter().map(|(k, op)| (k.clone(), *op)).collect();
                 assert_eq!(actual, expected);
             }
         };
@@ -802,19 +751,6 @@ mod tests {
 		}
 	}
 
-	/// The collator and the PVF must identify keys the same way, otherwise they could disagree
-	/// on which keys collide and estimate different sizes for the same block. Blake2 of the key
-	/// bytes is the same on every build and needs no seed.
-	#[test]
-	fn key_identity_is_blake2_128_of_the_key_bytes() {
-		let mut tracker = Tracker::default();
-		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
-
-		let delta = tracker.take_delta();
-		let expected = KeyHash::from_le_bytes(blake2_128(b"a"));
-		assert_eq!(delta.keys().copied().collect::<Vec<_>>(), vec![expected]);
-	}
-
 	/// An estimation that reports a key from the inner layer has accounted for the older write
 	/// of that key still pending in the outer layer. The next estimation must not report that
 	/// older write: it would remove a key that exists in the final state.
@@ -829,7 +765,7 @@ mod tests {
 		delta_assert_eq_with_ops!(first, [("a", DeltaKeyOp::Updated)]);
 
 		let second = tracker.take_delta();
-		assert!(second.is_empty(), "stale outer write reported again: {:?}", second.values());
+		assert!(second.is_empty(), "stale outer write reported again: {:?}", second);
 	}
 
 	/// Committing the inner layer merges its report into the outer one, next to the older
@@ -845,7 +781,7 @@ mod tests {
 		tracker.commit_transaction();
 
 		let second = tracker.take_delta();
-		assert!(second.is_empty(), "stale outer write reported again: {:?}", second.values());
+		assert!(second.is_empty(), "stale outer write reported again: {:?}", second);
 	}
 
 	/// The newest op of a key enters the snapshot, even when it is not reported. The inner
@@ -861,7 +797,7 @@ mod tests {
 		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 
 		let delta = tracker.take_delta();
-		assert!(delta.is_empty(), "older delete reported: {:?}", delta.values());
+		assert!(delta.is_empty(), "older delete reported: {:?}", delta);
 	}
 
 	/// Committing the inner layer must not revive the older outer `Deleted` either.
@@ -874,11 +810,11 @@ mod tests {
 		tracker.start_transaction();
 		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let inner = tracker.take_delta();
-		assert!(inner.is_empty(), "older delete reported: {:?}", inner.values());
+		assert!(inner.is_empty(), "older delete reported: {:?}", inner);
 		tracker.commit_transaction();
 
 		let delta = tracker.take_delta();
-		assert!(delta.is_empty(), "older delete reported: {:?}", delta.values());
+		assert!(delta.is_empty(), "older delete reported: {:?}", delta);
 	}
 
 	/// Rolling back the inner `Updated` leaves the outer `Deleted` as the key's final state, so
@@ -892,7 +828,7 @@ mod tests {
 		tracker.start_transaction();
 		tracker.add_key("a".to_string(), DeltaKeyOp::Updated);
 		let inner = tracker.take_delta();
-		assert!(inner.is_empty(), "older delete reported: {:?}", inner.values());
+		assert!(inner.is_empty(), "older delete reported: {:?}", inner);
 		tracker.rollback_transaction();
 
 		let delta = tracker.take_delta();
@@ -948,7 +884,7 @@ mod tests {
 					Begin | Commit => {},
 					Estimate => {
 						let mut delta: Vec<_> =
-							tracker.take_delta().values().map(|(k, op)| (k.clone(), *op)).collect();
+							tracker.take_delta().iter().map(|(k, op)| (k.clone(), *op)).collect();
 						delta.sort();
 						reports.push(delta);
 					},
@@ -1284,19 +1220,5 @@ mod tests {
 			assert!(fixture.tracker.estimation_trie_mut().is_none());
 			assert!(fixture.contains(FIRST));
 		}
-	}
-
-	#[test]
-	fn keys_sharing_low_identity_bits_spread_over_buckets() {
-		use core::hash::BuildHasher;
-		let builder = KeyHashBuilder::default();
-		let shared_low_half = 0x1234u128;
-		let buckets: std::collections::BTreeSet<u64> = (0..4096u128)
-			.map(|high_half| builder.hash_one((high_half << 64) | shared_low_half) & 0xffff)
-			.collect();
-		assert!(
-			buckets.len() > 1,
-			"keys with equal low identity bits must still spread over buckets"
-		);
 	}
 }

@@ -50,7 +50,7 @@ use std::{
 };
 
 pub use self::changeset::{AlreadyInRuntime, NoOpenTransaction, NotInRuntime, OverlayedValue};
-pub use proof_size_tracker::{DeltaKeyOp, TrackedKey};
+pub use proof_size_tracker::DeltaKeyOp;
 
 /// Changes that are made outside of extrinsics are marked with this index;
 pub const NO_EXTRINSIC_INDEX: u32 = 0xffffffff;
@@ -695,9 +695,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 			})
 			.collect();
 
-		let delta = delta_keys.values().map(|(key, op)| (&key[..], *op));
+		let delta = delta_keys.iter().map(|(key, op)| (&key[..], *op));
 		let child_delta = child_delta_keys.iter_mut().map(|(info, keys, estimation_trie)| {
-			(*info, keys.values().map(|(key, op)| (&key[..], *op)), &mut **estimation_trie)
+			(*info, keys.iter().map(|(key, op)| (&key[..], *op)), &mut **estimation_trie)
 		});
 
 		backend.record_proof_for_dirty_keys_full(
@@ -1281,7 +1281,7 @@ mod tests {
 		overlay: &mut OverlayedChanges<Blake2Hasher>,
 		key: &[u8],
 	) -> Option<DeltaKeyOp> {
-		overlay.top.take_delta().values().find(|(k, _)| k == key).map(|(_, op)| *op)
+		overlay.top.take_delta().iter().find(|(k, _)| *k == key).map(|(_, op)| *op)
 	}
 
 	#[test]
