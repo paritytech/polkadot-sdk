@@ -28,6 +28,7 @@ use frame_support::{
 		fungible::HoldConsideration, ConstU128, ConstU32, ConstantStoragePrice, LinearStoragePrice,
 	},
 };
+use polkadot_primitives::{AbridgedHostConfiguration, AsyncBackingParams};
 use registrar_primitives::MessageToRelay;
 use sp_runtime::BuildStorage;
 
@@ -159,6 +160,38 @@ pub fn para_origin(para_id: u32) -> RuntimeOrigin {
 	RuntimeOrigin::signed(account)
 }
 
+/// A host configuration with the given size limits and everything else zeroed.
+pub fn host_config(max_code_size: u32, max_head_data_size: u32) -> AbridgedHostConfiguration {
+	AbridgedHostConfiguration {
+		max_code_size,
+		max_head_data_size,
+		max_upward_queue_count: 0,
+		max_upward_queue_size: 0,
+		max_upward_message_size: 0,
+		max_upward_message_num_per_candidate: 0,
+		hrmp_max_message_num_per_candidate: 0,
+		validation_upgrade_cooldown: 0,
+		validation_upgrade_delay: 0,
+		async_backing_params: AsyncBackingParams {
+			allowed_ancestry_len: 0,
+			max_candidate_depth: 0,
+		},
+	}
+}
+
+parameter_types! {
+	/// The relay chain's host configuration, as parachain-system would report it.
+	pub static HostConfig: Option<AbridgedHostConfiguration> =
+		Some(host_config(MAX_CODE_SIZE, MAX_HEAD_SIZE));
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper for HostConfig {
+	fn set_host_configuration(config: AbridgedHostConfiguration) {
+		HostConfig::set(Some(config));
+	}
+}
+
 parameter_types! {
 	pub const ParaDeposit: Balance = PARA_DEPOSIT;
 	pub const DataDepositPerByte: Balance = PER_BYTE;
@@ -187,11 +220,12 @@ impl pallet_registrar_para::Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
-	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
-	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
+	type HostConfiguration = HostConfig;
 	type PendingDeadline = ConstU32<PENDING_DEADLINE>;
 	type BlockNumberProvider = System;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = HostConfig;
 }
 
 /// Externalities with Alice and Bob funded, and the message log cleared.
@@ -199,6 +233,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 	ParaOriginAccounts::set(Vec::new());
+	HostConfig::set(Some(host_config(MAX_CODE_SIZE, MAX_HEAD_SIZE)));
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {

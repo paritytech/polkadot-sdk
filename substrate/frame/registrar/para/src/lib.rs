@@ -32,9 +32,9 @@
 //! length and the blob is uploaded to the relay chain directly:
 //!
 //! 1. [`Pallet::reserve`] allocates a para id here and takes [`Config::ReservationConsideration`].
-//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and the
-//!    *declared* code length, then asks the relay chain to accept the registration. Only the code
-//!    hash and length are sent.
+//! 2. [`Pallet::register`] takes [`Config::RegistrationConsideration`] for the head data and a
+//!    full-sized validation code, then asks the relay chain to accept the registration. Only the
+//!    code hash and length are sent.
 //! 3. The manager uploads the validation code to the relay chain, which accepts it only if it
 //!    matches the hash and length committed to in step 2.
 //! 4. The verdict arrives back as [`Pallet::receive`], which either finalises the registration or
@@ -82,6 +82,7 @@ use frame_support::{
 	ensure,
 	traits::{Consideration, EnsureOrigin, Footprint, Get},
 };
+use polkadot_primitives::AbridgedHostConfiguration;
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
 	ParaId,
@@ -133,6 +134,13 @@ impl SendToRelay for () {
 	fn send(_message: MessageToRelay<Self::AccountId>) -> Result<(), ()> {
 		Ok(())
 	}
+}
+
+/// Benchmark setup the runtime provides.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	/// Make [`Config::HostConfiguration`] return `Some(config)`.
+	fn set_host_configuration(config: AbridgedHostConfiguration);
 }
 
 /// Where a para id sits in the registration flow.
@@ -228,7 +236,7 @@ pub mod pallet {
 		type ReservationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// The cost of a registration, on top of the reservation. The footprint is one item sized
-		/// as head data plus *declared* code length, so a per-byte price fits.
+		/// as head data plus the relay chain's `max_code_size`, so a per-byte price fits.
 		type RegistrationConsideration: Consideration<Self::AccountId, Footprint>;
 
 		/// Sends messages to the relay chain.
@@ -257,17 +265,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MinCodeSize: Get<u32>;
 
-		/// The largest validation code the relay chain will accept.
+		/// The relay chain's host configuration, `None` until this chain has received it.
 		///
-		/// A local mirror of the relay chain's `max_code_size`. See [`Config::MinCodeSize`].
-		#[pallet::constant]
-		type MaxCodeSize: Get<u32>;
-
-		/// The largest head data the relay chain will accept.
-		///
-		/// A local mirror of the relay chain's `max_head_data_size`. See [`Config::MinCodeSize`].
-		#[pallet::constant]
-		type MaxHeadDataSize: Get<u32>;
+		/// On a parachain, read `cumulus_pallet_parachain_system::HostConfiguration`.
+		type HostConfiguration: Get<Option<AbridgedHostConfiguration>>;
 
 		/// How long a manager waits for the relay chain before giving up on a registration.
 		///
@@ -285,6 +286,10 @@ pub mod pallet {
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Puts a [`Config::HostConfiguration`] in place for the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	#[pallet::pallet]
@@ -426,20 +431,12 @@ pub mod pallet {
 		CannotRetryYet,
 		/// System para ids are only registered through [`Pallet::force_register`].
 		SystemParaId,
+		/// The relay chain's host configuration has not been received yet.
+		NoHostConfiguration,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn integrity_test() {
-			// Otherwise no validation code could ever pass `register`.
-			assert!(
-				T::MinCodeSize::get() <= T::MaxCodeSize::get(),
-				"MinCodeSize ({}) must not exceed MaxCodeSize ({})",
-				T::MinCodeSize::get(),
-				T::MaxCodeSize::get(),
-			);
-		}
-
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()
@@ -531,9 +528,10 @@ pub mod pallet {
 		///
 		/// ## Costs
 		///
-		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
-		/// length, on top of the para id reservation. It is returned if the relay chain rejects
-		/// the registration or if the caller later abandons it.
+		/// Takes [`Config::RegistrationConsideration`] for the head data and a code of the relay
+		/// chain's `max_code_size`, on top of the para id reservation: a para pays for the largest
+		/// code it could ever have on chain, not the one it registers with. It is returned if the
+		/// relay chain rejects the registration or if the caller later abandons it.
 		///
 		/// Ids below [`Config::FirstPublicParaId`] are refused, see [`Pallet::force_register`].
 		#[pallet::call_index(2)]
@@ -801,9 +799,10 @@ impl<T: Config> Pallet<T> {
 		Footprint::from_parts(1, 0)
 	}
 
-	/// The footprint a registration is charged for: the head data plus the *declared* code length.
-	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
-		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
+	/// The footprint a registration is charged for: the head data plus a full-sized validation
+	/// code, whatever length the registration itself declares.
+	pub fn registration_footprint(head_len: u32, config: &AbridgedHostConfiguration) -> Footprint {
+		Footprint::from_parts(1, head_len.saturating_add(config.max_code_size) as usize)
 	}
 
 	/// Whether `para_id` is in the system range, below [`Config::FirstPublicParaId`].
@@ -846,10 +845,11 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(matches!(info.state, RegistrationState::Reserved), Error::<T>::AlreadyRegistered);
 
+		let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
 		let head_len = genesis_head.len() as u32;
-		ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+		ensure!(head_len <= config.max_head_data_size, Error::<T>::HeadDataTooLarge);
 		ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
-		ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+		ensure!(code_len <= config.max_code_size, Error::<T>::CodeTooLarge);
 
 		let manager = info.manager.clone();
 		let ticket = if skip_deposit {
@@ -857,7 +857,7 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Some(T::RegistrationConsideration::new(
 				&manager,
-				Self::registration_footprint(head_len, code_len),
+				Self::registration_footprint(head_len, &config),
 			)?)
 		};
 

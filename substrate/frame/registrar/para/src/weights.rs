@@ -98,29 +98,31 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `52`
 		//  Estimated: `4054`
-		// Minimum execution time: 33_000_000 picoseconds.
-		Weight::from_parts(37_000_000, 4054)
+		// Minimum execution time: 32_000_000 picoseconds.
+		Weight::from_parts(36_000_000, 4054)
 			.saturating_add(T::DbWeight::get().reads(4_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `RegistrarPara::Paras` (r:1 w:1)
 	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
+	/// Storage: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
 	/// Storage: `RegistrarPara::NextMessageId` (r:1 w:1)
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// The range of component `h` is `[0, 1048576]`.
+	/// The range of component `h` is `[0, 32768]`.
 	fn register(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `213`
+		//  Measured:  `246`
 		//  Estimated: `4054`
-		// Minimum execution time: 38_000_000 picoseconds.
-		Weight::from_parts(46_403_576, 4054)
+		// Minimum execution time: 37_000_000 picoseconds.
+		Weight::from_parts(41_624_049, 4054)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(165, 0).saturating_mul(h.into()))
-			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(Weight::from_parts(154, 0).saturating_mul(h.into()))
+			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `RegistrarPara::Paras` (r:1 w:1)
@@ -129,20 +131,22 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
+	/// Storage: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
 	/// Storage: `RegistrarPara::NextMessageId` (r:1 w:1)
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `RegistrarPara::NextFreeParaId` (r:1 w:1)
 	/// Proof: `RegistrarPara::NextFreeParaId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `h` is `[0, 1048576]`.
+	/// The range of component `h` is `[0, 32768]`.
 	fn force_register(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `52`
+		//  Measured:  `86`
 		//  Estimated: `4054`
 		// Minimum execution time: 59_000_000 picoseconds.
-		Weight::from_parts(71_403_239, 4054)
+		Weight::from_parts(66_123_922, 4054)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(165, 0).saturating_mul(h.into()))
-			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(Weight::from_parts(149, 0).saturating_mul(h.into()))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
 			.saturating_add(T::DbWeight::get().writes(5_u64))
 	}
 	/// Storage: `RegistrarPara::Paras` (r:1 w:1)
@@ -151,10 +155,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn cancel_registration() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `163`
+		//  Measured:  `162`
 		//  Estimated: `3566`
 		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 3566)
+		Weight::from_parts(15_000_000, 3566)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -166,9 +170,9 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
 	fn receive() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `291`
+		//  Measured:  `290`
 		//  Estimated: `4054`
-		// Minimum execution time: 49_000_000 picoseconds.
+		// Minimum execution time: 48_000_000 picoseconds.
 		Weight::from_parts(55_000_000, 4054)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(3_u64))
@@ -181,7 +185,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
 	fn deregister_reserved() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `213`
+		//  Measured:  `212`
 		//  Estimated: `4054`
 		// Minimum execution time: 28_000_000 picoseconds.
 		Weight::from_parts(32_000_000, 4054)
@@ -194,10 +198,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn deregister_registered() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `151`
+		//  Measured:  `150`
 		//  Estimated: `3566`
 		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 3566)
+		Weight::from_parts(9_000_000, 3566)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -207,10 +211,10 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn deregister_retry() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `163`
+		//  Measured:  `162`
 		//  Estimated: `3566`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 3566)
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(15_000_000, 3566)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
@@ -218,7 +222,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
 	fn add_lock() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `151`
+		//  Measured:  `150`
 		//  Estimated: `3566`
 		// Minimum execution time: 7_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 3566)
@@ -229,7 +233,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
 	fn remove_lock() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `152`
+		//  Measured:  `151`
 		//  Estimated: `3566`
 		// Minimum execution time: 7_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 3566)
@@ -252,29 +256,31 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `52`
 		//  Estimated: `4054`
-		// Minimum execution time: 33_000_000 picoseconds.
-		Weight::from_parts(37_000_000, 4054)
+		// Minimum execution time: 32_000_000 picoseconds.
+		Weight::from_parts(36_000_000, 4054)
 			.saturating_add(RocksDbWeight::get().reads(4_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `RegistrarPara::Paras` (r:1 w:1)
 	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
+	/// Storage: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
 	/// Storage: `RegistrarPara::NextMessageId` (r:1 w:1)
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
-	/// The range of component `h` is `[0, 1048576]`.
+	/// The range of component `h` is `[0, 32768]`.
 	fn register(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `213`
+		//  Measured:  `246`
 		//  Estimated: `4054`
-		// Minimum execution time: 38_000_000 picoseconds.
-		Weight::from_parts(46_403_576, 4054)
+		// Minimum execution time: 37_000_000 picoseconds.
+		Weight::from_parts(41_624_049, 4054)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(165, 0).saturating_mul(h.into()))
-			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(Weight::from_parts(154, 0).saturating_mul(h.into()))
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `RegistrarPara::Paras` (r:1 w:1)
@@ -283,20 +289,22 @@ impl WeightInfo for () {
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Holds` (r:1 w:1)
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
+	/// Storage: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x1dd6182039ea56f42050dc3614a47efa` (r:1 w:0)
 	/// Storage: `RegistrarPara::NextMessageId` (r:1 w:1)
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `RegistrarPara::NextFreeParaId` (r:1 w:1)
 	/// Proof: `RegistrarPara::NextFreeParaId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	/// The range of component `h` is `[0, 1048576]`.
+	/// The range of component `h` is `[0, 32768]`.
 	fn force_register(h: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `52`
+		//  Measured:  `86`
 		//  Estimated: `4054`
 		// Minimum execution time: 59_000_000 picoseconds.
-		Weight::from_parts(71_403_239, 4054)
+		Weight::from_parts(66_123_922, 4054)
 			// Standard Error: 0
-			.saturating_add(Weight::from_parts(165, 0).saturating_mul(h.into()))
-			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(Weight::from_parts(149, 0).saturating_mul(h.into()))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
 			.saturating_add(RocksDbWeight::get().writes(5_u64))
 	}
 	/// Storage: `RegistrarPara::Paras` (r:1 w:1)
@@ -305,10 +313,10 @@ impl WeightInfo for () {
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn cancel_registration() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `163`
+		//  Measured:  `162`
 		//  Estimated: `3566`
 		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 3566)
+		Weight::from_parts(15_000_000, 3566)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -320,9 +328,9 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
 	fn receive() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `291`
+		//  Measured:  `290`
 		//  Estimated: `4054`
-		// Minimum execution time: 49_000_000 picoseconds.
+		// Minimum execution time: 48_000_000 picoseconds.
 		Weight::from_parts(55_000_000, 4054)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(3_u64))
@@ -335,7 +343,7 @@ impl WeightInfo for () {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(589), added: 3064, mode: `MaxEncodedLen`)
 	fn deregister_reserved() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `213`
+		//  Measured:  `212`
 		//  Estimated: `4054`
 		// Minimum execution time: 28_000_000 picoseconds.
 		Weight::from_parts(32_000_000, 4054)
@@ -348,10 +356,10 @@ impl WeightInfo for () {
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn deregister_registered() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `151`
+		//  Measured:  `150`
 		//  Estimated: `3566`
 		// Minimum execution time: 8_000_000 picoseconds.
-		Weight::from_parts(10_000_000, 3566)
+		Weight::from_parts(9_000_000, 3566)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -361,10 +369,10 @@ impl WeightInfo for () {
 	/// Proof: `RegistrarPara::NextMessageId` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode: `MaxEncodedLen`)
 	fn deregister_retry() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `163`
+		//  Measured:  `162`
 		//  Estimated: `3566`
-		// Minimum execution time: 13_000_000 picoseconds.
-		Weight::from_parts(16_000_000, 3566)
+		// Minimum execution time: 12_000_000 picoseconds.
+		Weight::from_parts(15_000_000, 3566)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
@@ -372,7 +380,7 @@ impl WeightInfo for () {
 	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
 	fn add_lock() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `151`
+		//  Measured:  `150`
 		//  Estimated: `3566`
 		// Minimum execution time: 7_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 3566)
@@ -383,7 +391,7 @@ impl WeightInfo for () {
 	/// Proof: `RegistrarPara::Paras` (`max_values`: None, `max_size`: Some(101), added: 2576, mode: `MaxEncodedLen`)
 	fn remove_lock() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `152`
+		//  Measured:  `151`
 		//  Estimated: `3566`
 		// Minimum execution time: 7_000_000 picoseconds.
 		Weight::from_parts(8_000_000, 3566)

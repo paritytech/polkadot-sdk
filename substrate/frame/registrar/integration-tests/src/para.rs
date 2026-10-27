@@ -30,6 +30,7 @@ use frame_support::{
 	weights::Weight,
 };
 use frame_system::EnsureRoot;
+use polkadot_primitives::{AbridgedHostConfiguration, AsyncBackingParams};
 use sp_runtime::{traits::IdentityLookup, AccountId32};
 use xcm::latest::prelude::*;
 use xcm_builder::{
@@ -171,6 +172,29 @@ impl pallet_xcm::Config for Runtime {
 }
 
 parameter_types! {
+	/// What parachain-system would report: the same limits the relay chain's genesis uses.
+	pub static HostConfig: Option<AbridgedHostConfiguration> = Some(AbridgedHostConfiguration {
+		max_code_size: MAX_CODE_SIZE,
+		max_head_data_size: MAX_HEAD_SIZE,
+		max_upward_queue_count: 0,
+		max_upward_queue_size: 0,
+		max_upward_message_size: 0,
+		max_upward_message_num_per_candidate: 0,
+		hrmp_max_message_num_per_candidate: 0,
+		validation_upgrade_cooldown: 0,
+		validation_upgrade_delay: 0,
+		async_backing_params: AsyncBackingParams { allowed_ancestry_len: 0, max_candidate_depth: 0 },
+	});
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_registrar_para::BenchmarkHelper for HostConfig {
+	fn set_host_configuration(config: AbridgedHostConfiguration) {
+		HostConfig::set(Some(config));
+	}
+}
+
+parameter_types! {
 	pub const ParaDeposit: Balance = PARA_DEPOSIT;
 	pub const DataDepositPerByte: Balance = PER_BYTE;
 	pub const ReservationHoldReason: RuntimeHoldReason =
@@ -200,13 +224,14 @@ impl pallet_registrar_para::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
-	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
-	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
+	type HostConfiguration = HostConfig;
 	type PendingDeadline = ConstU64<PENDING_DEADLINE>;
 	// No parachain-system in this simulator; production runtimes should use
 	// `cumulus_pallet_parachain_system::RelaychainDataProvider`.
 	type BlockNumberProvider = System;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = HostConfig;
 }
 
 use frame_support::traits::ConstU64;

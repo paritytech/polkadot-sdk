@@ -10,6 +10,11 @@ doc:
       pays the usual deposits, as with `reserve` + `register`, unless the id is a system one or
       `skip_deposit` is set. That replaces the old `deposit` override, which Polkadot set to 0 for
       system chains. Deposit tickets in `ParaInfo` and `RegistrationState` are now `Option`s.
+      The `MaxCodeSize` and `MaxHeadDataSize` config items are replaced by `HostConfiguration`,
+      which reads the relay chain's limits (on a parachain, parachain-system's `HostConfiguration`).
+      `register` fails with `NoHostConfiguration` until it is set. The registration deposit is now
+      taken for the relay chain's `max_code_size` rather than the declared code length. Benchmarks
+      need the new `BenchmarkHelper` config item.
       `NextFreeParaId` moves past a forced public id so `reserve` doesn't collide with it.
       A forced system id the relay chain turns down, or whose registration is cancelled, is
       dropped rather than left reserved, and `register` refuses system ids with the new
