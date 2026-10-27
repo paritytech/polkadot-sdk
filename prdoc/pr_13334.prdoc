@@ -36,9 +36,11 @@ doc:
     `InMemoryDbWeight`, `BuyExecution` goes from about 28 µs to about 316 µs and `PayFees` from
     about 104 µs to about 316 µs for foreign-asset payers, and `RefundSurplus` from about 2 µs to
     about 328 µs for everyone, each with a proof size of 6196 bytes. WND payers are charged as
-    before for `BuyExecution` and `PayFees`. Senders of such messages that hard-code the weight
-    limit or the fee amount may now fail with `Overweight` or `TooExpensive` and should raise
-    them; senders using `XcmPaymentApi::query_xcm_weight` need no change.
+    before for `BuyExecution` and `PayFees`. Senders of such messages with a hard-coded `Limited`
+    weight limit may now fail with `Overweight` and should raise it. A hard-coded fee amount is
+    affected whatever the weight limit, `Unlimited` included: the barrier raises the limit to the
+    message weight and `PayFees` always buys the message weight, so a fixed amount can now fail
+    with `TooExpensive`. Senders that quote both through `XcmPaymentApi` need no change.
 crates:
 - name: pallet-xcm-benchmarks
   bump: minor
