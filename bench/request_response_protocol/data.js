@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793036724292,
+  "lastUpdate": 1793095723741,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138023,6 +138023,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2745828000,
             "range": "± 22846755",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1",
+          "message": "bags-list: fix on_idle cursor skipping nodes on weight exhaustion (#13184)\n\n`Pallet::on_idle `chose the persistent rebag cursor from a count-based\nsplit computed before the per-item loop ran, so it always pointed to\n`accounts[rebag_budget]`. The loop itself can stop earlier than that for\ntwo separate reasons: the weight meter runs out, or the pallet becomes\nlocked mid-run. In both cases processed ends up smaller than\n`rebag_budget`, and the nodes between the point the loop actually\nstopped and `accounts[rebag_budget]` were never touched, yet the cursor\nstill jumped past them. Those nodes stayed misplaced until an unrelated\nend-of-list wrap-around eventually restarted the scan from the head.\n\nThis computes the resume point after the loop instead, as\n`accounts[processed..]`. Since processed is the true count of items the\nloop actually got through, this slice is correct for every way the loop\ncan end: the count budget being reached, the weight meter running out,\nor a lock, as well as the loop finishing the whole collected batch\nnaturally. That also makes the old pre-loop split redundant, so it's\nremoved rather than kept alongside the new logic.\n\nAdded a test with five misplaced nodes, a count budget of four, and a\nweight limit that only covers two rebags. It asserts the cursor resumes\nat the third node, the first one the weight limit actually forced it to\nskip, rather than jumping to the fifth as the old count-based logic\nwould.\n\nCloses #13138\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T08:53:19Z",
+          "tree_id": "178d668632bc41d6ca268ef4a231e8543d087764",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1"
+        },
+        "date": 1793095694075,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20184628,
+            "range": "± 176090",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20334614,
+            "range": "± 198347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22046443,
+            "range": "± 145471",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26229769,
+            "range": "± 205306",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59098016,
+            "range": "± 479373",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 377594250,
+            "range": "± 6265035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2632669898,
+            "range": "± 200600857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17445957,
+            "range": "± 141004",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17692912,
+            "range": "± 114609",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18137124,
+            "range": "± 241226",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22906275,
+            "range": "± 176780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61858382,
+            "range": "± 1026718",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 364461954,
+            "range": "± 4365376",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2833584862,
+            "range": "± 18752521",
             "unit": "ns/iter"
           }
         ]
