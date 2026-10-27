@@ -47,6 +47,7 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
+use cumulus_client_service::ParachainTracingExecuteBlock;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
@@ -462,6 +463,9 @@ where
 
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
+		// Keep a client for the tracing executor before spawn_tasks takes ownership of client.
+		let tracing_client = client.clone();
+
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
 			client,
@@ -475,7 +479,9 @@ where
 			sync_service,
 			config,
 			telemetry: telemetry.as_mut(),
-			tracing_execute_block: None,
+			tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
+				tracing_client,
+			))),
 		})?;
 
 		// Spawn the storage monitor.
