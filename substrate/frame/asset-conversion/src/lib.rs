@@ -80,10 +80,11 @@ use frame_support::{
 	traits::{
 		fungibles::{Balanced, Create, Credit, Inspect, Mutate},
 		tokens::{
-			AssetId, Balance,
+			AssetId, Balance, DepositConsequence,
 			Fortitude::Polite,
 			Precision::Exact,
 			Preservation::{Expendable, Preserve},
+			Provenance,
 		},
 		AccountTouch, Incrementable, OnUnbalanced,
 	},
@@ -1268,6 +1269,24 @@ pub mod pallet {
 			T::Assets::balance(asset, owner)
 		}
 
+		/// Whether `pool_account` can send any of its `asset` (e.g. it isn't frozen or blocked for it).
+		pub(crate) fn pool_can_send(pool_account: &T::AccountId, asset: T::AssetKind) -> bool {
+			!T::Assets::reducible_balance(asset, pool_account, Expendable, Polite).is_zero()
+		}
+
+		/// Whether `pool_account` can receive `amount` of `asset_in`.
+		///
+		/// Swaps deposit their input into the pool, so a pool that can't receive it (e.g. its
+		/// account is blocked for `asset_in`) can't execute the swap and must not be quoted.
+		pub(crate) fn pool_can_receive(
+			pool_account: &T::AccountId,
+			asset_in: T::AssetKind,
+			amount: T::Balance,
+		) -> bool {
+			T::Assets::can_deposit(asset_in, pool_account, amount, Provenance::Extant) ==
+				DepositConsequence::Success
+		}
+
 		/// Resolve the effective swap fee for `pool_id`.
 		///
 		/// Returns the per-pool override from [`PoolFees`] if one is set, otherwise falls back to
@@ -1503,10 +1522,16 @@ pub mod pallet {
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
 				.map_err(|_| Error::<T>::InvalidAssetPair)?;
 
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
+			let balance1 = Self::get_balance(&pool_account, asset1.clone());
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
 
 			if balance1.is_zero() || balance2.is_zero() {
+				Err(Error::<T>::PoolEmpty)?;
+			}
+
+			if !Self::pool_can_send(&pool_account, asset1) ||
+				!Self::pool_can_send(&pool_account, asset2)
+			{
 				Err(Error::<T>::PoolEmpty)?;
 			}
 
@@ -1558,6 +1583,10 @@ pub mod pallet {
 				return None;
 			}
 
+			if !Self::pool_can_receive(&pool_account, asset1, amount) {
+				return None;
+			}
+
 			Some(amount_out)
 		}
 
@@ -1594,12 +1623,18 @@ pub mod pallet {
 				return None;
 			}
 
-			if include_fee {
+			let amount_in = if include_fee {
 				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
-				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()
+				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()?
 			} else {
-				Self::quote(&amount, &balance2, &balance1).ok()
+				Self::quote(&amount, &balance2, &balance1).ok()?
+			};
+
+			if !Self::pool_can_receive(&pool_account, asset1, amount_in) {
+				return None;
 			}
+
+			Some(amount_in)
 		}
 	}
 }

@@ -1231,6 +1231,91 @@ fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
 }
 
 #[test]
+fn quote_price_returns_none_when_pool_cannot_receive_input() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		// Set up a native/token_2 pool. `user` creates token_2, which makes it the token's
+		// freezer and lets it block and freeze the pool account later.
+		create_tokens_with_ed(user, vec![token_2.clone()], 1);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10_000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			2_000,
+			1,
+			1,
+			user,
+		));
+
+		let pool_id = (token_1.clone(), token_2.clone());
+		let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
+
+		// Quotes for selling token_2 to the pool, using both the exact input and the exact
+		// output quote functions.
+		let quote_token_2_to_native = || {
+			[
+				AssetConversion::quote_price_exact_tokens_for_tokens(
+					token_2.clone(),
+					token_1.clone(),
+					100,
+					true,
+				),
+				AssetConversion::quote_price_tokens_for_exact_tokens(
+					token_2.clone(),
+					token_1.clone(),
+					100,
+					true,
+				),
+			]
+		};
+
+		// Normal pool: both quotes return a price.
+		assert!(quote_token_2_to_native().iter().all(Option::is_some));
+
+		// Blocked pool can't receive token_2, so no quote.
+		assert_ok!(Assets::block(RuntimeOrigin::signed(user), 2, pool_account));
+		assert_eq!(quote_token_2_to_native(), [None, None]);
+
+		// Unblocked: quotes work again.
+		assert_ok!(Assets::thaw(RuntimeOrigin::signed(user), 2, pool_account));
+		assert!(quote_token_2_to_native().iter().all(Option::is_some));
+
+		// Frozen pool can't send token_2, so it's halted in both directions.
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(user), 2, pool_account));
+		assert_eq!(quote_token_2_to_native(), [None, None]);
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				100,
+				true,
+			),
+			None
+		);
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				100,
+				true,
+			),
+			None
+		);
+	});
+}
+
+#[test]
 fn quote_price_returns_none_swap_fails() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
