@@ -1,0 +1,15 @@
+title: Keep trace events when state_traceBlock filters are empty
+doc:
+  - audience:
+      - Node Dev
+      - Node Operator
+    description: |
+      Treat an explicitly empty storage key or method filter in state_traceBlock as no
+      filtering for that field, matching the documented RPC contract. This preserves events
+      without the filtered field, including keyless storage events such as ClearPrefix and
+      StorageRoot, and the state machine's Call event (which has a method but no key).
+      Non-empty filters continue to match only the named field.
+      Omitted filters (None) retain their existing behavior of dropping every event.
+crates:
+  - name: sc-tracing
+    bump: patch
