@@ -12,6 +12,12 @@ doc:
     settlement is measured as the balance update it is on a live chain rather than as an account
     creation or a burn.
 
+    `pallet_xcm_benchmarks::generic::Config` gains `worst_case_for_native_trader`, with a default
+    of `Skip`, and the benchmarks `buy_execution_native` and `pay_fees_native` that use it. Asset
+    Hub Westend pays WND there, and its weigher charges `BuyExecution` and `PayFees` the native
+    weight when the fee asset is WND and the swap weight otherwise. `RefundSurplus` has no asset
+    operand and is charged the swap weight.
+
     `SwapFirstAssetTrader::refund_weight` refused any refund worth the fee it held or more, so a
     `RefundSurplus` of the whole purchase, or of a surplus larger than what this trader bought,
     refunded nothing and the fee went to `OnUnbalanced`. It now caps the refund at the fee held
@@ -25,14 +31,17 @@ doc:
     Runtimes with only `UsingComponents` need no regeneration.
 - audience: Runtime User
   description: |-
-    Asset Hub Westend charges `BuyExecution`, `PayFees` and `RefundSurplus` the weight of the swap
-    path whatever the fee asset, so messages paying in WND are charged more as well. With this
-    runtime's `InMemoryDbWeight`, `BuyExecution` goes from about 28 µs to about 254 µs,
-    `PayFees` from about 104 µs to about 330 µs and `RefundSurplus` from about 2 µs to about
-    267 µs, each with a proof size of 6196 bytes. Senders with a hard-coded `Limited` weight limit
-    covering these instructions may now fail with `Overweight` and should raise it; senders using
-    `Unlimited` or `XcmPaymentApi::query_xcm_weight` need no change.
+    Asset Hub Westend charges `BuyExecution` and `PayFees` paid in a foreign asset the weight of
+    the swap path, and `RefundSurplus` that weight whatever the fee asset. With this runtime's
+    `InMemoryDbWeight`, `BuyExecution` goes from about 28 µs to about 316 µs and `PayFees` from
+    about 104 µs to about 316 µs for foreign-asset payers, and `RefundSurplus` from about 2 µs to
+    about 328 µs for everyone, each with a proof size of 6196 bytes. WND payers are charged as
+    before for `BuyExecution` and `PayFees`. Senders of such messages that hard-code the weight
+    limit or the fee amount may now fail with `Overweight` or `TooExpensive` and should raise
+    them; senders using `XcmPaymentApi::query_xcm_weight` need no change.
 crates:
+- name: pallet-xcm-benchmarks
+  bump: minor
 - name: cumulus-primitives-utility
   bump: patch
 - name: asset-hub-westend-runtime

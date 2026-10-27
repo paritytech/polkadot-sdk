@@ -3072,10 +3072,18 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
 					// Paying in a foreign asset falls through `UsingComponents` to the
 					// `SwapFirstAssetTrader`, whose pool swap is the expensive path. The weigher
-					// charges this worst case whatever the fee asset, native payers included.
+					// charges it for every fee asset but WND, which `worst_case_for_native_trader`
+					// measures.
 					set_up_benchmark_fee_asset_pool();
 					Ok((Asset {
 						id: AssetId(benchmark_fee_asset_location()),
+						fun: Fungible(1_000 * UNITS),
+					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
+				}
+
+				fn worst_case_for_native_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					Ok((Asset {
+						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000 * UNITS),
 					}, WeightLimit::Limited(Weight::from_parts(5000, 5000))))
 				}

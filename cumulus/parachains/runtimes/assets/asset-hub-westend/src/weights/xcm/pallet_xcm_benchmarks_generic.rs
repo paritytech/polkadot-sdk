@@ -111,6 +111,29 @@ impl<T: frame_system::Config> WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	// Storage: `System::Account` (r:1 w:0)
+	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	pub fn buy_execution_native() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 13_503_000 picoseconds.
+		Weight::from_parts(14_651_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
+	// Storage: `System::Account` (r:1 w:1)
+	// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	// Storage: `Revive::OriginalAccount` (r:1 w:1)
+	// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	pub fn pay_fees_native() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `3593`
+		// Minimum execution time: 14_102_000 picoseconds.
+		Weight::from_parts(15_499_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(2))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
 	pub fn asset_claimer() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

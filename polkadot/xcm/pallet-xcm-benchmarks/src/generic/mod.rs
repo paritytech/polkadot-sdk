@@ -81,6 +81,16 @@ pub mod pallet {
 		/// `refund_surplus`.
 		fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError>;
 
+		/// The fee asset and weight limit that take the native path of the `Trader`, when the
+		/// runtime's `Trader` is a tuple whose cheap arm handles the native asset and whose
+		/// expensive arm, measured by `worst_case_for_trader`, handles the others. Lets the
+		/// weigher charge `BuyExecution` and `PayFees` by the fee asset.
+		///
+		/// If set to `Err`, `buy_execution_native` and `pay_fees_native` are skipped.
+		fn worst_case_for_native_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+			Err(BenchmarkError::Skip)
+		}
+
 		/// Return an unlocker, owner and assets that can be locked and unlocked.
 		fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError>;
 
