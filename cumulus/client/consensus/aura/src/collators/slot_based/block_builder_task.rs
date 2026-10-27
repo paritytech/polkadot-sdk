@@ -1247,6 +1247,7 @@ where
 				proof.clone(),
 				relay_parent_header.clone(),
 				relay_parent_session,
+				max_pov_size,
 			)
 			.for_each(|(k, v)| {
 				import_block.auxiliary.push((k, Some(v)));
