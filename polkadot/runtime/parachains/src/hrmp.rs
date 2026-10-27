@@ -1064,9 +1064,8 @@ impl<T: Config> Pallet<T> {
 				"can't be `None` due to the invariant that the list contains the same items as the set; qed",
 			);
 
-			let system_channel = channel_id.sender.is_system() || channel_id.recipient.is_system();
 			let sender_deposit = request.sender_deposit;
-			let recipient_deposit = if system_channel { 0 } else { config.hrmp_recipient_deposit };
+			let (_, recipient_deposit) = Self::required_deposits(&channel_id, config);
 
 			if request.confirmed {
 				if paras::Pallet::<T>::is_valid_para(channel_id.sender) &&
