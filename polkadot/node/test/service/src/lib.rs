@@ -81,9 +81,27 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 	overseer_gen: OverseerGenerator,
 	custom_log_prefix: Option<&'static str>,
 ) -> Result<NewFull, Error> {
+	let params = new_full_params(is_parachain_node, workers_path, overseer_gen);
+
+	match config.network.network_backend {
+		sc_network::config::NetworkBackendType::Libp2p => {
+			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params)
+		},
+		sc_network::config::NetworkBackendType::Litep2p => {
+			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params)
+		},
+	}
+}
+
+/// The service parameters of a test node.
+fn new_full_params<OverseerGenerator: OverseerGen>(
+	is_parachain_node: IsParachainNode,
+	workers_path: Option<PathBuf>,
+	overseer_gen: OverseerGenerator,
+) -> polkadot_service::NewFullParams<OverseerGenerator> {
 	let workers_path = Some(workers_path.unwrap_or_else(get_relative_workers_path_for_test));
 
-	let params = polkadot_service::NewFullParams {
+	polkadot_service::NewFullParams {
 		is_parachain_node,
 		enable_beefy: true,
 		force_authoring_backoff: false,
@@ -104,15 +122,6 @@ pub fn new_full<OverseerGenerator: OverseerGen>(
 		collator_protocol_hold_off: None,
 		experimental_collator_protocol: false,
 		collator_reputation_persist_interval: None,
-	};
-
-	match config.network.network_backend {
-		sc_network::config::NetworkBackendType::Libp2p => {
-			polkadot_service::new_full::<_, sc_network::NetworkWorker<_, _>>(config, params)
-		},
-		sc_network::config::NetworkBackendType::Litep2p => {
-			polkadot_service::new_full::<_, sc_network::Litep2pNetworkBackend>(config, params)
-		},
 	}
 }
 
@@ -279,6 +288,108 @@ pub async fn run_validator_node(
 	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
 
 	PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }
+}
+
+/// Configuration of the DKG gadget of a test validator.
+#[cfg(feature = "dkg")]
+pub struct DkgConfig {
+	/// The validator's BEEFY paired keypair. Dev/test only: the dealing's proof of
+	/// possession needs the secret key, which the keystore cannot export.
+	pub dealing_pair: sp_core::ecdsa_bls381::Pair,
+	/// Makes the submitter of the validator's own dealings (e.g.
+	/// [`sc_dkg::submit::rpc_dealing_submitter`]) from the node's task spawner.
+	pub dealing_submitter: Option<
+		Box<
+			dyn FnOnce(Arc<dyn sp_core::traits::SpawnNamed>) -> sc_dkg::worker::DealingSubmitter
+				+ Send,
+		>,
+	>,
+}
+
+/// Run a test validator node that also runs the DKG gadget: it deals with its
+/// BEEFY key in every session, gossips its dealing to the other validators and
+/// hands it to the configured submitter.
+///
+/// Returns the node and the gadget's statistics of dealings collected over gossip.
+#[cfg(feature = "dkg")]
+pub async fn run_validator_node_with_dkg(
+	config: Configuration,
+	worker_program_path: Option<PathBuf>,
+	dkg: DkgConfig,
+) -> (PolkadotTestNode, sc_dkg::CollectionStatsHandle) {
+	let (NewFull { task_manager, client, network, rpc_handlers, overseer_handle, .. }, stats) =
+		match config.network.network_backend {
+			sc_network::config::NetworkBackendType::Libp2p => new_full_with_dkg::<
+				sc_network::NetworkWorker<_, _>,
+			>(config, worker_program_path, dkg),
+			sc_network::config::NetworkBackendType::Litep2p => new_full_with_dkg::<
+				sc_network::Litep2pNetworkBackend,
+			>(
+				config, worker_program_path, dkg
+			),
+		}
+		.expect("could not create Polkadot test service");
+
+	let overseer_handle = overseer_handle.expect("test node must have an overseer handle");
+	let peer_id = network.local_peer_id();
+	let multiaddr = get_listen_address(network).await;
+	let addr = MultiaddrWithPeerId { multiaddr, peer_id };
+
+	(PolkadotTestNode { task_manager, client, overseer_handle, addr, rpc_handlers }, stats)
+}
+
+/// Like [`new_full`] for a validator, with the DKG gossip protocol registered and
+/// the DKG worker running.
+#[cfg(feature = "dkg")]
+fn new_full_with_dkg<Network>(
+	config: Configuration,
+	workers_path: Option<PathBuf>,
+	dkg: DkgConfig,
+) -> Result<(NewFull, sc_dkg::CollectionStatsHandle), Error>
+where
+	Network: sc_network::NetworkBackend<polkadot_service::Block, polkadot_service::Hash>,
+{
+	let params =
+		new_full_params(IsParachainNode::No, workers_path, polkadot_service::ValidatorOverseerGen);
+	let mut builder =
+		polkadot_service::builder::PolkadotServiceBuilder::<_, Network>::new(config, params)?;
+
+	let gossip_protocol_name = sc_dkg::communication::dkg_protocol_name::gossip_protocol_name(
+		builder.genesis_hash(),
+		None,
+	);
+	let (protocol_config, notification_service) =
+		sc_dkg::communication::dkg_peers_set_config::<_, Network>(
+			gossip_protocol_name.clone(),
+			builder.notification_metrics(),
+			builder.peer_store_handle(),
+		);
+	builder.add_extra_notification_protocol(protocol_config);
+	let keystore = builder.keystore();
+
+	let new_full = builder.build()?;
+	let dealing_submitter = dkg
+		.dealing_submitter
+		.map(|make| make(Arc::new(new_full.task_manager.spawn_handle())));
+	let worker = sc_dkg::worker::DkgWorker::new(sc_dkg::worker::WorkerParams {
+		client: new_full.client.clone(),
+		keystore,
+		dealing_pair: Some(dkg.dealing_pair),
+		dealing_submitter,
+		network: new_full.network.clone(),
+		sync: new_full.sync_service.clone(),
+		notification_service,
+		gossip_protocol_name,
+		prometheus_registry: None,
+		_phantom: std::marker::PhantomData::<polkadot_service::FullBackend>,
+	});
+	let stats = worker.collection_stats();
+	new_full
+		.task_manager
+		.spawn_essential_handle()
+		.spawn("dkg-gadget", Some("dkg"), worker.run());
+
+	Ok((new_full, stats))
 }
 
 /// Run a test collator node that uses the test runtime.

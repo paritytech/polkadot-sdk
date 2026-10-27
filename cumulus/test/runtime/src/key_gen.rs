@@ -1,73 +1,83 @@
-//! On-chain aggregation of a-DKG dealings into per-session threshold keys.
+//! On-chain aggregation of the relay-chain validators' a-DKG dealings into
+//! per-session threshold keys.
 //!
-//! Every session is one DKG round: during session `s` the validators queued in
-//! it (the validator set of session `s + 1`) submit their dealings, which are
-//! verified and merged into the round's aggregate. The pallet is the session
-//! handler of the BEEFY session key the DKG reuses, so at the rotation to
-//! `s + 1` it ends the round — storing the threshold key under
-//! [`ThresholdKeys`]`[s + 1]` if enough validators dealt — and starts a fresh
-//! round for the newly queued set.
+//! The dealers are the relay-chain validators. Every relay session is one DKG
+//! round: during relay session `s` the validators queued in it (relay
+//! `Beefy::NextAuthorities`, the validator set of session `s + 1`) deal, and
+//! each sends its dealing to this parachain as an unsigned
+//! [`Call::submit_dealing`]. A dealing authenticates itself: its contribution
+//! receipt is a proof of possession binding it to the dealer key, the G1
+//! component of the dealer's BEEFY (ECDSA,BLS12-381) session key, so the pallet
+//! only checks that the dealer is in the round's validator set.
+//!
+//! The pallet follows the relay chain through the relay state proof: the
+//! collator includes the relay keys from [`relay_keys_to_prove`], and
+//! [`OnSystemEvent::on_relay_state_proof`] reads the relay session index and,
+//! once per session, the queued validators' BEEFY keys. When the relay session
+//! advances the round ends, storing the threshold key under
+//! [`ThresholdKeys`]`[s + 1]` if enough validators dealt.
 
 pub use pallet::*;
 
-use alloc::vec::Vec;
+use alloc::{vec, vec::Vec};
 
-use frame_support::traits::{Get, OneSessionHandler};
-use sp_runtime::{BoundToRuntimeAppPublic, SaturatedConversion};
+use cumulus_pallet_parachain_system::{relay_state_snapshot::RelayChainStateProof, OnSystemEvent};
+use frame_support::{storage::storage_prefix, traits::Get, weights::Weight};
 
 /// Index of a session (same as `sp_staking::SessionIndex`).
 pub type SessionIndex = u32;
 
-impl<T: Config> BoundToRuntimeAppPublic for Pallet<T> {
-	type Public = sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId;
+/// A relay-chain validator's BEEFY key (paired ECDSA,BLS12-381), as stored in
+/// the relay chain's `Beefy::NextAuthorities`.
+pub type BeefyId = sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId;
+
+/// A dealer key: the compressed G1 component of a BEEFY paired key.
+pub type DealerKey = [u8; G1_COMPRESSED_SIZE];
+
+/// Relay-chain storage key of `Session::CurrentIndex`.
+pub fn relay_session_index_key() -> Vec<u8> {
+	storage_prefix(b"Session", b"CurrentIndex").to_vec()
 }
 
-/// Session handler for the BEEFY session key in runtimes without `pallet_beefy`.
-///
-/// The DKG reuses the validators' BEEFY (ECDSA,BLS12-381) session keys
-/// (decision: Alistair, 2026-09-29). Validator keys are looked up through
-/// [`Config::DkgKeyOf`]; the handler only drives the round lifecycle.
-impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
-	type Key = sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId;
+/// Relay-chain storage key of `Beefy::NextAuthorities`: the BEEFY keys of the
+/// validator set queued for the next session.
+pub fn relay_next_authorities_key() -> Vec<u8> {
+	storage_prefix(b"Beefy", b"NextAuthorities").to_vec()
+}
 
-	fn on_genesis_session<'a, I: 'a>(validators: I)
-	where
-		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
-		T::AccountId: 'a,
-	{
-		// The genesis set is also the set queued for the second session.
-		Self::start_round(T::CurrentSessionIndex::get(), validators.count().saturated_into());
+/// The relay-chain storage keys the collator must include in the relay state
+/// proof: always the session index, and the queued validators' BEEFY keys
+/// until the round of the latest relay session has started (so the dealer set
+/// is in the proof once per session, not in every block).
+pub fn relay_keys_to_prove<T: Config>() -> Vec<Vec<u8>> {
+	let mut keys = vec![relay_session_index_key()];
+	if Pallet::<T>::awaiting_dealers() {
+		keys.push(relay_next_authorities_key());
 	}
-
-	fn on_new_session<'a, I: 'a>(_changed: bool, _validators: I, queued_validators: I)
-	where
-		I: Iterator<Item = (&'a T::AccountId, Self::Key)>,
-		T::AccountId: 'a,
-	{
-		// `pallet_session` bumps the session index before notifying handlers.
-		Self::end_round();
-		Self::start_round(
-			T::CurrentSessionIndex::get(),
-			queued_validators.count().saturated_into(),
-		);
-	}
-
-	fn on_disabled(_: u32) {}
+	keys
 }
 
-/// Look up an account's registered BEEFY session key.
-///
-/// Implemented by the runtime; backed by the session pallet's queued keys when the
-/// runtime has one. The `()` impl models "no session pallet": nobody is a validator.
-pub trait DkgKeyLookup<AccountId> {
-	/// The account's registered BEEFY session key, or `None` if `who` is not a
-	/// (queued) validator or has no BEEFY key registered.
-	fn dkg_key(who: &AccountId) -> Option<Vec<u8>>;
-}
+impl<T: Config> OnSystemEvent for Pallet<T> {
+	fn on_validation_data(_: &cumulus_primitives_core::PersistedValidationData) {}
 
-impl<AccountId> DkgKeyLookup<AccountId> for () {
-	fn dkg_key(_: &AccountId) -> Option<Vec<u8>> {
-		None
+	fn on_validation_code_applied() {}
+
+	fn on_relay_state_proof(relay_state_proof: &RelayChainStateProof) -> Weight {
+		// An absent `CurrentIndex` is the relay genesis session; an error means
+		// the collator did not include the key.
+		let Ok(session) =
+			relay_state_proof.read_entry::<SessionIndex>(&relay_session_index_key(), Some(0))
+		else {
+			return Weight::zero();
+		};
+		// `Err` when the key was not requested for this block.
+		let next_authorities = relay_state_proof
+			.read_optional_entry::<Vec<BeefyId>>(&relay_next_authorities_key())
+			.ok()
+			.flatten();
+		Self::on_relay_session(session, next_authorities);
+		// TODO: benchmark (ending a round decodes the aggregate).
+		T::DbWeight::get().reads_writes(4, 5)
 	}
 }
 
@@ -101,7 +111,7 @@ pub fn session_key_g1(raw: &[u8]) -> Option<&[u8]> {
 
 #[frame_support::pallet(dev_mode)]
 pub mod pallet {
-	use alloc::vec::Vec;
+	use alloc::{vec, vec::Vec};
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::SaturatedConversion;
@@ -110,21 +120,32 @@ pub mod pallet {
 	use ark_bls12_381::Bls12_381;
 	use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 
-	use super::{dealing_threshold, session_key_g1, DkgKeyLookup, SessionIndex};
+	use super::{dealing_threshold, session_key_g1, BeefyId, DealerKey, SessionIndex};
 
 	type DkgTranscript = Transcript<Bls12_381>;
 
+	/// How long (in blocks) a dealing stays valid in the transaction pool.
+	const DEALING_LONGEVITY: u64 = 64;
+
 	/// The DKG round in progress.
 	///
-	/// Round `session` collects the dealings submitted during that session for
-	/// the validator set queued in it, i.e. the validators of session
+	/// Round `session` collects the dealings made during relay session `session`
+	/// by the validator set queued in it, i.e. the relay validators of session
 	/// `session + 1`.
 	#[derive(Encode, Decode, TypeInfo, Clone, PartialEq, Eq, Debug)]
 	pub struct Round {
-		/// The session in which the round's dealings are submitted.
+		/// The relay session in which the round's dealings are made.
 		pub session: SessionIndex,
-		/// Size of the validator set being dealt to.
-		pub participants: u32,
+		/// The dealers' keys, in relay validator order.
+		pub dealers: Vec<DealerKey>,
+		/// Whether each dealer already dealt in this round.
+		pub dealt: Vec<bool>,
+	}
+
+	impl Round {
+		fn dealer_index(&self, dealer: &[u8]) -> Option<usize> {
+			self.dealers.iter().position(|key| key[..] == *dealer)
+		}
 	}
 
 	/// The threshold key produced by a successful DKG round.
@@ -146,23 +167,23 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
-		/// Look up the registered BEEFY session key of a validator account, if any.
-		type DkgKeyOf: DkgKeyLookup<Self::AccountId>;
-
-		/// The current session index (e.g. `pallet_session::CurrentIndex`).
-		type CurrentSessionIndex: Get<SessionIndex>;
-
 		/// Number of most recent sessions whose threshold keys are kept in
 		/// [`ThresholdKeys`].
 		#[pallet::constant]
 		type KeyHistoryDepth: Get<SessionIndex>;
+
+		/// Transaction pool priority of dealings.
+		#[pallet::constant]
+		type UnsignedPriority: Get<TransactionPriority>;
 	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A valid dealing was merged into the aggregate of round `session`.
-		TranscriptAdded { who: T::AccountId, session: SessionIndex },
+		/// The round of relay session `session` started with `participants` dealers.
+		RoundStarted { session: SessionIndex, participants: u32 },
+		/// The dealing of the `dealer`-th validator was merged into round `session`.
+		DealingAdded { session: SessionIndex, dealer: u32 },
 		/// A round ended with enough dealers: the threshold key of the validator
 		/// set of `session` is in [`ThresholdKeys`]; `c` is the group public key.
 		KeyGenerated { session: SessionIndex, dealers: u32, c: Vec<u8> },
@@ -176,98 +197,65 @@ pub mod pallet {
 		VerificationFailed,
 		DeserializationFailed,
 		SerializationFailed,
-		/// No DKG round is in progress (the session handler has not run yet).
+		/// No DKG round is in progress (the relay validator set is not known yet).
 		NoRound,
-		/// The dealing was made for another session than the current round's.
+		/// The dealing was made for another relay session than the current round's.
 		WrongSession,
-		/// The origin is not a queued validator with a registered BEEFY session key.
-		NotAValidator,
 		/// The transcript has no contribution receipts.
 		NoDealers,
-		/// The transcript must come from a single dealer, dealing with the
-		/// submitter's own BEEFY session key.
+		/// The transcript must be a single validator's fresh dealing.
 		NotSingleDealer,
-		/// The transcript's dealer key does not match the submitter's BEEFY session key.
+		/// The dealer is not a validator of the current round.
 		UnknownDealer,
-		/// The submitter already dealt in the current round.
+		/// The dealer already dealt in the current round.
 		DuplicateDealer,
 	}
+
+	/// The latest relay session index seen in the relay state proof.
+	#[pallet::storage]
+	pub type RelaySession<T: Config> = StorageValue<_, SessionIndex, OptionQuery>;
 
 	/// The DKG round in progress.
 	#[pallet::storage]
 	pub type CurrentRound<T: Config> = StorageValue<_, Round, OptionQuery>;
 
-	/// Aggregate of the current round's dealings; reset at every session rotation.
+	/// Aggregate of the current round's dealings; reset with every new round.
 	#[pallet::storage]
-	#[pallet::getter(fn aggregated_transcript)]
 	pub type AggregatedTranscript<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
 
-	/// Threshold keys by the session whose validator set holds them, for the
-	/// last [`Config::KeyHistoryDepth`] sessions.
+	/// Threshold keys by the relay session whose validator set holds them, for
+	/// the last [`Config::KeyHistoryDepth`] sessions.
 	#[pallet::storage]
 	pub type ThresholdKeys<T: Config> =
 		StorageMap<_, Twox64Concat, SessionIndex, ThresholdKey, OptionQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Submit a dealing for the current round; it is verified and merged into
-		/// the round's aggregate.
+		/// Submit a relay validator's dealing for the current round (unsigned).
 		///
-		/// `session_index` is the session the dealing was made in and must be the
-		/// current round's: a dealing is made for the validator set queued in its
-		/// session, so one landing after the next rotation is stale.
-		///
-		/// Only queued validators can submit, once per round, and the transcript
-		/// must be a fresh (single-dealer) dealing created with the submitter's own
-		/// BEEFY session key: the `ContributionReceipt` proof of possession binds
-		/// the dealer key, which must equal the G1 component of the submitter's
-		/// BEEFY paired key. Aggregation of multiple dealings happens on-chain via
-		/// this pallet's own merge logic.
+		/// `session_index` is the relay session the dealing was made in and must
+		/// be the current round's: a dealing is made for the validator set queued
+		/// in its session, so one landing after the next relay session started is
+		/// stale. The transcript must be a single validator's fresh dealing; its
+		/// receipt's proof of possession binds it to the dealer key, which must
+		/// belong to a validator of the round that has not dealt yet.
 		#[pallet::call_index(0)]
 		#[pallet::weight(10_000_000)] // TODO: benchmark
-		pub fn add_transcript(
+		pub fn submit_dealing(
 			origin: OriginFor<T>,
 			session_index: SessionIndex,
 			transcript_bytes: Vec<u8>,
 		) -> DispatchResult {
-			let who = ensure_signed(origin)?;
+			ensure_none(origin)?;
+			let (dealer, new_transcript) = Self::check_dealing(session_index, &transcript_bytes)?;
 
-			let round = CurrentRound::<T>::get().ok_or(Error::<T>::NoRound)?;
-			ensure!(session_index == round.session, Error::<T>::WrongSession);
-
-			let session_key = T::DkgKeyOf::dkg_key(&who).ok_or(Error::<T>::NotAValidator)?;
-			let session_g1 = session_key_g1(&session_key).ok_or(Error::<T>::NotAValidator)?;
-
-			let new_transcript = DkgTranscript::deserialize_compressed(&transcript_bytes[..])
-				.map_err(|_| Error::<T>::DeserializationFailed)?;
-
-			// TODO: full PVSS verification needs deterministic Fiat-Shamir challenges
-			// (adkg-vrf `verify_with_fs`); until then only the deterministic checks run.
-			for (receipt, _w) in &new_transcript.receipts {
-				receipt.verify_all_sigs().map_err(|_| Error::<T>::VerificationFailed)?;
-			}
-			new_transcript.check_consistency().map_err(|_| Error::<T>::VerificationFailed)?;
-
-			// Bind the dealing to the submitter: it must be a fresh, single-dealer
-			// transcript whose dealer key is the G1 component of the submitter's
-			// BEEFY paired session key.
-			let dealers = new_transcript.list_dealers();
-			let dealer_pk = dealers.first().ok_or(Error::<T>::NoDealers)?;
-			ensure!(dealers.iter().all(|d| d == dealer_pk), Error::<T>::NotSingleDealer);
-			let mut dealer_bytes = Vec::new();
-			dealer_pk
-				.serialize_compressed(&mut dealer_bytes)
-				.map_err(|_| Error::<T>::SerializationFailed)?;
-			ensure!(dealer_bytes == session_g1, Error::<T>::UnknownDealer);
-
-			let mut aggregated = if let Some(existing_bytes) = AggregatedTranscript::<T>::get() {
-				let existing = DkgTranscript::deserialize_compressed(&existing_bytes[..])
-					.map_err(|_| Error::<T>::DeserializationFailed)?;
-				// A second dealing would count the dealer's weight twice.
-				ensure!(!existing.list_dealers().contains(dealer_pk), Error::<T>::DuplicateDealer);
-				Dkg::<Bls12_381>::aggregate(alloc::vec![existing, new_transcript])
-			} else {
-				new_transcript
+			let mut aggregated = match AggregatedTranscript::<T>::get() {
+				Some(existing_bytes) => {
+					let existing = DkgTranscript::deserialize_compressed(&existing_bytes[..])
+						.map_err(|_| Error::<T>::DeserializationFailed)?;
+					Dkg::<Bls12_381>::aggregate(vec![existing, new_transcript])
+				},
+				None => new_transcript,
 			};
 			// `Dkg::aggregate` collects the receipts through a `HashMap` whose
 			// iteration order depends on a per-hasher seed (foldhash seeds from the
@@ -283,27 +271,101 @@ pub mod pallet {
 				.serialize_compressed(&mut aggregated_bytes)
 				.map_err(|_| Error::<T>::SerializationFailed)?;
 			AggregatedTranscript::<T>::put(aggregated_bytes);
+			CurrentRound::<T>::mutate(|round| {
+				if let Some(flag) = round.as_mut().and_then(|round| round.dealt.get_mut(dealer)) {
+					*flag = true;
+				}
+			});
 
-			Self::deposit_event(Event::TranscriptAdded { who, session: session_index });
+			Self::deposit_event(Event::DealingAdded {
+				session: session_index,
+				dealer: dealer.saturated_into(),
+			});
 			Ok(())
 		}
 	}
 
+	#[allow(deprecated)]
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			// Dealings come from the relay validators over RPC (external source).
+			let Call::submit_dealing { session_index, transcript_bytes } = call else {
+				return InvalidTransaction::Call.into();
+			};
+			let (dealer, _) = Self::check_dealing(*session_index, transcript_bytes).map_err(
+				|error| match error {
+					Error::<T>::NoRound => InvalidTransaction::Future,
+					Error::<T>::WrongSession
+						if CurrentRound::<T>::get()
+							.is_some_and(|round| *session_index > round.session) =>
+					{
+						InvalidTransaction::Future
+					},
+					Error::<T>::WrongSession | Error::<T>::DuplicateDealer => {
+						InvalidTransaction::Stale
+					},
+					Error::<T>::UnknownDealer => InvalidTransaction::BadSigner,
+					_ => InvalidTransaction::BadProof,
+				},
+			)?;
+
+			ValidTransaction::with_tag_prefix("KeyGenDealing")
+				.priority(T::UnsignedPriority::get())
+				.and_provides((session_index, dealer as u32))
+				.longevity(DEALING_LONGEVITY)
+				.propagate(true)
+				.build()
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
-		/// Starts round `session`, dealing to `participants` validators.
-		pub(crate) fn start_round(session: SessionIndex, participants: u32) {
+		/// Whether the dealer set of the latest relay session still has to be read
+		/// from the relay state proof.
+		pub fn awaiting_dealers() -> bool {
+			RelaySession::<T>::get() != CurrentRound::<T>::get().map(|round| round.session)
+		}
+
+		/// Follows the relay chain: a new relay `session` ends the current round,
+		/// and the next round starts once the queued validators' BEEFY keys
+		/// (`next_authorities`, read from the same relay state) are available.
+		pub(crate) fn on_relay_session(
+			session: SessionIndex,
+			next_authorities: Option<Vec<BeefyId>>,
+		) {
+			if RelaySession::<T>::get() != Some(session) {
+				RelaySession::<T>::put(session);
+				if CurrentRound::<T>::get().is_some_and(|round| round.session < session) {
+					Self::end_round();
+				}
+			}
+			if let (true, Some(authorities)) = (Self::awaiting_dealers(), next_authorities) {
+				Self::start_round(session, &authorities);
+			}
+		}
+
+		/// Starts round `session`, dealt by the holders of `authorities`.
+		fn start_round(session: SessionIndex, authorities: &[BeefyId]) {
+			let dealers = authorities
+				.iter()
+				.filter_map(|authority| session_key_g1(authority.as_ref())?.try_into().ok())
+				.collect::<Vec<DealerKey>>();
+			let participants = dealers.len().saturated_into();
 			AggregatedTranscript::<T>::kill();
-			CurrentRound::<T>::put(Round { session, participants });
+			CurrentRound::<T>::put(Round { session, dealt: vec![false; dealers.len()], dealers });
+			Self::deposit_event(Event::RoundStarted { session, participants });
 		}
 
 		/// Ends the current round: stores its threshold key if enough validators
 		/// dealt, and prunes keys older than [`Config::KeyHistoryDepth`] sessions.
-		pub(crate) fn end_round() {
+		fn end_round() {
 			let Some(round) = CurrentRound::<T>::take() else { return };
 			let session = round.session.saturating_add(1);
-			let threshold = dealing_threshold(round.participants);
+			let threshold = dealing_threshold(round.dealers.len().saturated_into());
 
-			// The aggregate is written by `add_transcript` from validated
+			// The aggregate is written by `submit_dealing` from validated
 			// transcripts; were it ever undecodable, the round fails with 0 dealers.
 			match AggregatedTranscript::<T>::take().and_then(|bytes| Self::threshold_key(&bytes)) {
 				Some((key, c)) if key.dealers >= threshold => {
@@ -320,6 +382,39 @@ pub mod pallet {
 			if let Some(expired) = session.checked_sub(T::KeyHistoryDepth::get()) {
 				ThresholdKeys::<T>::remove(expired);
 			}
+		}
+
+		/// Checks a dealing for the current round; returns the dealer's index in
+		/// the round and the transcript. Cheap checks run before the proof of
+		/// possession, since dealings arrive unsigned from outside.
+		pub(crate) fn check_dealing(
+			session_index: SessionIndex,
+			transcript_bytes: &[u8],
+		) -> Result<(usize, DkgTranscript), Error<T>> {
+			let round = CurrentRound::<T>::get().ok_or(Error::<T>::NoRound)?;
+			ensure!(session_index == round.session, Error::<T>::WrongSession);
+
+			let transcript = DkgTranscript::deserialize_compressed(transcript_bytes)
+				.map_err(|_| Error::<T>::DeserializationFailed)?;
+
+			let dealers = transcript.list_dealers();
+			let dealer_pk = dealers.first().ok_or(Error::<T>::NoDealers)?;
+			ensure!(dealers.iter().all(|d| d == dealer_pk), Error::<T>::NotSingleDealer);
+			let mut dealer_bytes = Vec::new();
+			dealer_pk
+				.serialize_compressed(&mut dealer_bytes)
+				.map_err(|_| Error::<T>::SerializationFailed)?;
+			let dealer = round.dealer_index(&dealer_bytes).ok_or(Error::<T>::UnknownDealer)?;
+			ensure!(round.dealt.get(dealer) != Some(&true), Error::<T>::DuplicateDealer);
+
+			// TODO: full PVSS verification needs deterministic Fiat-Shamir challenges
+			// (adkg-vrf `verify_with_fs`); until then only the deterministic checks run.
+			for (receipt, _w) in &transcript.receipts {
+				receipt.verify_all_sigs().map_err(|_| Error::<T>::VerificationFailed)?;
+			}
+			transcript.check_consistency().map_err(|_| Error::<T>::VerificationFailed)?;
+
+			Ok((dealer, transcript))
 		}
 
 		/// The threshold key and the group public key `c` of a serialized aggregate.
@@ -345,11 +440,15 @@ mod tests {
 	use ark_ec::{CurveGroup, PrimeGroup};
 	use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 	use ark_std::rand::{rngs::StdRng, SeedableRng};
-	use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types, traits::ConstU32};
-	use sp_core::crypto::ByteArray;
-	use sp_runtime::BuildStorage;
-
-	type AuthorityId = sp_consensus_beefy::ecdsa_bls_crypto::AuthorityId;
+	use codec::Encode;
+	use frame_support::{assert_noop, assert_ok, derive_impl, traits::ConstU32};
+	use sp_core::{crypto::ByteArray, ConstU64};
+	#[allow(deprecated)]
+	use sp_runtime::traits::ValidateUnsigned;
+	use sp_runtime::{
+		transaction_validity::{InvalidTransaction, TransactionSource},
+		BuildStorage,
+	};
 
 	frame_support::construct_runtime!(
 		pub enum Test {
@@ -363,28 +462,15 @@ mod tests {
 		type Block = frame_system::mocking::MockBlock<Test>;
 	}
 
-	parameter_types! {
-		pub storage CurrentSession: SessionIndex = 0;
-	}
-
-	/// Accounts `1..=VALIDATORS` are the queued validators; account `v`'s BLS
-	/// secret is `Fr::from(v)`. With `n = 4`, `f = 1` and 2 dealers are needed.
-	const VALIDATORS: u64 = 4;
-
-	pub struct TestDkgKeys;
-
-	impl DkgKeyLookup<u64> for TestDkgKeys {
-		fn dkg_key(who: &u64) -> Option<Vec<u8>> {
-			(1..=VALIDATORS).contains(who).then(|| paired_key_bytes(Fr::from(*who)))
-		}
-	}
-
 	impl Config for Test {
 		type RuntimeEvent = RuntimeEvent;
-		type DkgKeyOf = TestDkgKeys;
-		type CurrentSessionIndex = CurrentSession;
 		type KeyHistoryDepth = ConstU32<2>;
+		type UnsignedPriority = ConstU64<100>;
 	}
+
+	/// The relay validators `1..=VALIDATORS`; validator `v`'s BLS secret is
+	/// `Fr::from(v)`. With `n = 4`, `f = 1` and 2 dealers are needed.
+	const VALIDATORS: u64 = 4;
 
 	fn g1(sk: Fr) -> G1Affine {
 		(G1Projective::generator() * sk).into_affine()
@@ -394,14 +480,21 @@ mod tests {
 		(G2Projective::generator() * sk).into_affine()
 	}
 
-	/// Builds a serialized BEEFY paired key `[ecdsa (33B) || pk_G1 (48B) || pk_G2 (96B)]`
-	/// for the given BLS secret, as stored in the session key store. The ECDSA
-	/// component is opaque filler (irrelevant to the DKG).
+	/// Builds a BEEFY paired key `[ecdsa (33B) || pk_G1 (48B) || pk_G2 (96B)]` for
+	/// the given BLS secret. The ECDSA component is opaque filler (irrelevant to
+	/// the DKG).
 	fn paired_key_bytes(sk: Fr) -> Vec<u8> {
 		let mut raw = vec![7u8; 33];
 		g1(sk).serialize_compressed(&mut raw).unwrap();
 		g2(sk).serialize_compressed(&mut raw).unwrap();
 		raw
+	}
+
+	/// The relay `Beefy::NextAuthorities` of the test validator set.
+	fn next_authorities() -> Vec<BeefyId> {
+		(1..=VALIDATORS)
+			.map(|v| BeefyId::from_slice(&paired_key_bytes(Fr::from(v))).unwrap())
+			.collect()
 	}
 
 	/// A fresh (randomized) single-dealer transcript by validator `dealer`,
@@ -428,26 +521,19 @@ mod tests {
 		bytes
 	}
 
-	fn add(who: u64, session: SessionIndex) -> frame_support::dispatch::DispatchResult {
-		KeyGen::add_transcript(RuntimeOrigin::signed(who), session, dealing(who))
+	fn submit(session: SessionIndex, transcript_bytes: Vec<u8>) -> sp_runtime::DispatchResult {
+		KeyGen::submit_dealing(RuntimeOrigin::none(), session, transcript_bytes)
 	}
 
-	fn validator_keys() -> Vec<(u64, AuthorityId)> {
-		(1..=VALIDATORS)
-			.map(|v| (v, AuthorityId::from_slice(&paired_key_bytes(Fr::from(v))).unwrap()))
-			.collect()
+	fn add(dealer: u64, session: SessionIndex) -> sp_runtime::DispatchResult {
+		submit(session, dealing(dealer))
 	}
 
-	fn keyed(keys: &[(u64, AuthorityId)]) -> impl Iterator<Item = (&u64, AuthorityId)> {
-		keys.iter().map(|(who, key)| (who, key.clone()))
-	}
-
-	/// Rotates to `session` with an unchanged validator set; like `pallet_session`,
-	/// the session index is bumped before the handlers run.
-	fn rotate_to(session: SessionIndex) {
-		CurrentSession::set(&session);
-		let keys = validator_keys();
-		<KeyGen as OneSessionHandler<u64>>::on_new_session(true, keyed(&keys), keyed(&keys));
+	/// The relay chain enters `session`; the dealer set arrives with the
+	/// following block's relay state proof, as with the real collator.
+	fn relay_session(session: SessionIndex) {
+		KeyGen::on_relay_session(session, None);
+		KeyGen::on_relay_session(session, Some(next_authorities()));
 	}
 
 	fn new_test_ext() -> sp_io::TestExternalities {
@@ -455,8 +541,7 @@ mod tests {
 		let mut ext = sp_io::TestExternalities::new(storage);
 		ext.execute_with(|| {
 			System::set_block_number(1);
-			let keys = validator_keys();
-			<KeyGen as OneSessionHandler<u64>>::on_genesis_session(keyed(&keys));
+			relay_session(0);
 		});
 		ext
 	}
@@ -467,15 +552,36 @@ mod tests {
 	}
 
 	#[test]
+	fn dealer_set_is_requested_until_the_round_starts() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(relay_keys_to_prove::<Test>(), vec![relay_session_index_key()]);
+
+			// A new relay session ends the round; the next one needs the dealer set.
+			KeyGen::on_relay_session(1, None);
+			assert!(CurrentRound::<Test>::get().is_none());
+			assert_eq!(
+				relay_keys_to_prove::<Test>(),
+				vec![relay_session_index_key(), relay_next_authorities_key()]
+			);
+
+			KeyGen::on_relay_session(1, Some(next_authorities()));
+			assert_eq!(CurrentRound::<Test>::get().map(|round| round.session), Some(1));
+			assert_eq!(relay_keys_to_prove::<Test>(), vec![relay_session_index_key()]);
+		});
+	}
+
+	#[test]
 	fn round_ends_with_threshold_key_for_next_validator_set() {
 		new_test_ext().execute_with(|| {
-			assert_eq!(CurrentRound::<Test>::get(), Some(Round { session: 0, participants: 4 }));
+			System::assert_has_event(
+				Event::<Test>::RoundStarted { session: 0, participants: 4 }.into(),
+			);
 			assert_ok!(add(1, 0));
 			assert_ok!(add(2, 0));
 
-			rotate_to(1);
+			relay_session(1);
 
-			// Round 0 dealt to the validators of session 1.
+			// Round 0 dealt to the validators of relay session 1.
 			let key = ThresholdKeys::<Test>::get(1).expect("2 of 4 dealers suffice");
 			assert_eq!(key.dealers, 2);
 			let secret_sharing =
@@ -491,7 +597,7 @@ mod tests {
 
 			// A fresh round started for the next queued set.
 			assert!(AggregatedTranscript::<Test>::get().is_none());
-			assert_eq!(CurrentRound::<Test>::get(), Some(Round { session: 1, participants: 4 }));
+			assert_eq!(CurrentRound::<Test>::get().map(|round| round.session), Some(1));
 		});
 	}
 
@@ -500,12 +606,12 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			assert_ok!(add(1, 0));
 			assert_ok!(add(2, 0));
-			rotate_to(1);
+			relay_session(1);
 
 			// Dealing again in the next session is a fresh round, not a duplicate;
 			// a single dealer is below the threshold.
 			assert_ok!(add(1, 1));
-			rotate_to(2);
+			relay_session(2);
 
 			assert!(ThresholdKeys::<Test>::get(2).is_none());
 			System::assert_has_event(
@@ -519,17 +625,11 @@ mod tests {
 	fn rejects_stale_foreign_and_duplicate_dealings() {
 		new_test_ext().execute_with(|| {
 			assert_noop!(add(1, 1), Error::<Test>::WrongSession);
+			assert_noop!(add(9, 0), Error::<Test>::UnknownDealer);
+			assert_noop!(submit(0, vec![1, 2, 3]), Error::<Test>::DeserializationFailed);
 			assert_noop!(
-				KeyGen::add_transcript(RuntimeOrigin::signed(9), 0, dealing(1)),
-				Error::<Test>::NotAValidator
-			);
-			assert_noop!(
-				KeyGen::add_transcript(RuntimeOrigin::signed(2), 0, dealing(1)),
-				Error::<Test>::UnknownDealer
-			);
-			assert_noop!(
-				KeyGen::add_transcript(RuntimeOrigin::signed(1), 0, vec![1, 2, 3]),
-				Error::<Test>::DeserializationFailed
+				KeyGen::submit_dealing(RuntimeOrigin::signed(1), 0, dealing(1)),
+				sp_runtime::DispatchError::BadOrigin
 			);
 
 			// At most one dealing per validator and round, even a fresh one.
@@ -539,13 +639,63 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
+	fn unsigned_validation_accepts_external_dealings_once_per_dealer() {
+		new_test_ext().execute_with(|| {
+			let call = |dealer, session| Call::<Test>::submit_dealing {
+				session_index: session,
+				transcript_bytes: dealing(dealer),
+			};
+			let validate = |call| KeyGen::validate_unsigned(TransactionSource::External, &call);
+
+			let valid = validate(call(1, 0)).expect("a validator's dealing is valid");
+			assert_eq!(valid.provides, vec![("KeyGenDealing", (0u32, 0u32)).encode()]);
+
+			assert_eq!(validate(call(1, 1)), Err(InvalidTransaction::Future.into()));
+			assert_eq!(validate(call(9, 0)), Err(InvalidTransaction::BadSigner.into()));
+			assert_ok!(add(1, 0));
+			assert_eq!(validate(call(1, 0)), Err(InvalidTransaction::Stale.into()));
+		});
+	}
+
+	#[test]
+	fn reads_the_relay_session_and_dealer_set_from_the_relay_state_proof() {
+		use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
+
+		new_test_ext().execute_with(|| {
+			let proof = |session: SessionIndex, with_dealers: bool| {
+				let mut builder = RelayStateSproofBuilder::default();
+				builder
+					.additional_key_values
+					.push((relay_session_index_key(), session.encode()));
+				if with_dealers {
+					builder
+						.additional_key_values
+						.push((relay_next_authorities_key(), next_authorities().encode()));
+				}
+				let para_id = builder.para_id;
+				let (root, proof) = builder.into_state_root_and_proof();
+				RelayChainStateProof::new(para_id, root, proof).expect("valid relay proof")
+			};
+
+			assert_ok!(add(1, 0));
+			assert_ok!(add(2, 0));
+			KeyGen::on_relay_state_proof(&proof(1, false));
+			assert!(ThresholdKeys::<Test>::contains_key(1));
+			assert!(CurrentRound::<Test>::get().is_none());
+
+			KeyGen::on_relay_state_proof(&proof(1, true));
+			assert_eq!(CurrentRound::<Test>::get().map(|round| round.dealers.len()), Some(4));
+		});
+	}
+
+	#[test]
 	fn stored_aggregate_is_independent_of_submission_order() {
-		let dealings = (1..=VALIDATORS).map(|v| (v, dealing(v))).collect::<Vec<_>>();
+		let dealings = (1..=VALIDATORS).map(dealing).collect::<Vec<_>>();
 		let aggregate_after = |order: &[usize]| {
 			new_test_ext().execute_with(|| {
 				for &i in order {
-					let (who, transcript) = dealings[i].clone();
-					assert_ok!(KeyGen::add_transcript(RuntimeOrigin::signed(who), 0, transcript));
+					assert_ok!(submit(0, dealings[i].clone()));
 				}
 				AggregatedTranscript::<Test>::get().expect("dealings were aggregated")
 			})
@@ -565,7 +715,7 @@ mod tests {
 			for session in 0..4 {
 				assert_ok!(add(1, session));
 				assert_ok!(add(2, session));
-				rotate_to(session + 1);
+				relay_session(session + 1);
 			}
 
 			// `KeyHistoryDepth = 2`: only the keys of sessions 3 and 4 are kept.

@@ -98,7 +98,7 @@ fn main() -> Result<(), sc_cli::Error> {
 
 			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
 			let collator_reserved_slots = cli.collator_reserved_slots;
-			let (mut task_manager, _, _, _, _, _, _) = tokio_runtime
+			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match relay_chain_config.network.network_backend {
 						sc_network::config::NetworkBackendType::Libp2p => {

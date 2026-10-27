@@ -3,6 +3,8 @@ pub mod communication;
 #[cfg(feature = "bls-experimental")]
 pub mod keys;
 #[cfg(feature = "bls-experimental")]
+pub mod submit;
+#[cfg(feature = "bls-experimental")]
 pub mod worker;
 
 use std::{marker::PhantomData, sync::Arc};

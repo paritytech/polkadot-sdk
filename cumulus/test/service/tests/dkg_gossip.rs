@@ -1,22 +1,18 @@
-//! In-process multi-node test for the DKG gadget.
+//! In-process multi-node test for the DKG between relay-chain validators.
 //!
-//! Spins up relay validators (Alice, Bob) and two parachain collators
-//! (Charlie, Dave — deliberately different keyring identities than the relay
-//! validators, same pattern as the transaction-throughput bench) and asserts
-//! that the collators' DKG workers deal once per session and collect each
-//! other's dealings over gossip, and that every session's round ends with an
-//! on-chain threshold key aggregated from both collators' dealings.
+//! Spins up relay validators (Alice, Bob) running the DKG gadget and two
+//! parachain collators (Charlie, Dave) of the aggregation parachain. In every
+//! relay session the validators deal with their BEEFY keys, gossip their
+//! dealings to each other and submit them over JSON-RPC (Charlie's endpoint)
+//! as unsigned extrinsics; the parachain's `key_gen` pallet follows the relay
+//! session and validator set through the relay state proof and aggregates the
+//! dealings into the threshold key of the next relay validator set.
 //!
-//! Only compiled with `with-authority-discovery`: that runtime variant
-//! registers the BEEFY session key the DKG reuses, and the service wires the
-//! gossip protocol, the derived BEEFY keystore key, and the worker task for
-//! collators. Without the feature this test target is empty.
-//!
-//! Run with:
-//! `cargo test -p cumulus-test-service --features with-authority-discovery --test dkg_gossip`
-#![cfg(feature = "with-authority-discovery")]
+//! Only compiled with the `dkg` feature. Run with:
+//! `cargo test -p cumulus-test-service --features dkg --test dkg_gossip`
+#![cfg(feature = "dkg")]
 
-use std::{sync::atomic::Ordering, time::Duration};
+use std::{ops::RangeInclusive, sync::atomic::Ordering, time::Duration};
 
 use adkg_vrf::{bls::threshold::ThresholdVk, pvss::SecretSharing};
 use ark_bls12_381::Bls12_381;
@@ -25,7 +21,7 @@ use codec::{Decode, Encode};
 use cumulus_client_cli::get_raw_genesis_header;
 use cumulus_primitives_core::ParaId;
 use cumulus_test_service::{
-	run_relay_chain_validator_node,
+	run_relay_chain_validator_node_with_dkg,
 	runtime::ThresholdKey,
 	Keyring::{Alice, Bob, Charlie, Dave},
 	TestNodeBuilder,
@@ -38,65 +34,78 @@ use sp_crypto_hashing::{twox_128, twox_64};
 
 const PARA_ID: u32 = 100;
 
-/// Poll `stats` until the node collected at least `min_dealings` dealings and
-/// saw a dealing for at least session `min_session`.
-async fn wait_for_collection(
-	node: &str,
-	stats: &CollectionStatsHandle,
-	min_dealings: u64,
-	min_session: u32,
-) -> (u64, u32) {
-	tokio::time::timeout(Duration::from_secs(600), async {
+/// Relay sessions (BABE epochs) of 20 six-second slots instead of the test
+/// runtime's 5, so that each round has room for the parachain to see the new
+/// session and its validator set, and for the dealings to be included.
+const RELAY_EPOCH_SLOTS: u64 = 20;
+
+/// Relay-chain genesis tweak, applied by every relay node (validators and the
+/// collators' embedded relay nodes) so they agree on the genesis.
+fn longer_relay_sessions() {
+	polkadot_test_runtime::EpochDuration::set(&RELAY_EPOCH_SLOTS);
+}
+
+/// A currently free local TCP port.
+fn free_port() -> u16 {
+	std::net::TcpListener::bind("127.0.0.1:0")
+		.and_then(|listener| listener.local_addr())
+		.expect("can bind a local port")
+		.port()
+}
+
+/// Poll `stats` until the validator collected at least one dealing over gossip.
+async fn wait_for_collection(node: &str, stats: &CollectionStatsHandle) -> u32 {
+	tokio::time::timeout(Duration::from_secs(300), async {
 		loop {
-			let dealings = stats.dealings.load(Ordering::Relaxed);
-			let latest_session = stats.latest_session.load(Ordering::Relaxed);
-			if dealings >= min_dealings && latest_session >= min_session {
-				return (dealings, latest_session);
+			if stats.dealings.load(Ordering::Relaxed) > 0 {
+				return stats.latest_session.load(Ordering::Relaxed);
 			}
-			tokio::time::sleep(Duration::from_secs(5)).await;
+			tokio::time::sleep(Duration::from_secs(1)).await;
 		}
 	})
 	.await
-	.unwrap_or_else(|_| {
-		panic!(
-			"{node}: timed out waiting for >= {min_dealings} dealings in session >= {min_session} \
-			 (have {} dealings, latest session {})",
-			stats.dealings.load(Ordering::Relaxed),
-			stats.latest_session.load(Ordering::Relaxed),
-		)
-	})
+	.unwrap_or_else(|_| panic!("{node}: timed out waiting for a gossiped dealing"))
 }
 
-/// Poll `KeyGen::ThresholdKeys` until the threshold key of the validator set of
-/// `session` is on-chain; returns its number of dealers.
-async fn wait_for_threshold_key(client: &cumulus_test_service::Client, session: u32) -> u32 {
-	let session_key = session.encode();
-	let key = StorageKey(
-		[
-			&twox_128(b"KeyGen")[..],
-			&twox_128(b"ThresholdKeys")[..],
-			&twox_64(&session_key)[..],
-			&session_key[..],
-		]
-		.concat(),
-	);
-	tokio::time::timeout(Duration::from_secs(600), async {
+/// Poll `KeyGen::ThresholdKeys` until the threshold key of the relay validator
+/// set of a session in `sessions` is on-chain; returns the session and the
+/// key's number of dealers.
+async fn wait_for_threshold_key(
+	client: &cumulus_test_service::Client,
+	sessions: RangeInclusive<u32>,
+	timeout: Duration,
+) -> (u32, u32) {
+	let storage_key = |session: u32| {
+		let session = session.encode();
+		StorageKey(
+			[
+				&twox_128(b"KeyGen")[..],
+				&twox_128(b"ThresholdKeys")[..],
+				&twox_64(&session)[..],
+				&session[..],
+			]
+			.concat(),
+		)
+	};
+	tokio::time::timeout(timeout, async {
 		loop {
 			let best_hash = client.chain_info().best_hash;
-			let threshold_key = client
-				.storage(best_hash, &key)
-				.ok()
-				.flatten()
-				.and_then(|data| ThresholdKey::decode(&mut &data.0[..]).ok());
-			if let Some(threshold_key) = threshold_key {
-				// The stored key material is a valid secret sharing, from which
-				// the VUF verification key derives.
-				let secret_sharing = SecretSharing::<Bls12_381>::deserialize_compressed(
-					&threshold_key.secret_sharing[..],
-				)
-				.expect("stored secret sharing deserializes");
-				let _vk = ThresholdVk::from_share(&secret_sharing);
-				return threshold_key.dealers;
+			for session in sessions.clone() {
+				let threshold_key = client
+					.storage(best_hash, &storage_key(session))
+					.ok()
+					.flatten()
+					.and_then(|data| ThresholdKey::decode(&mut &data.0[..]).ok());
+				if let Some(threshold_key) = threshold_key {
+					// The stored key material is a valid secret sharing, from which
+					// the VUF verification key derives.
+					let secret_sharing = SecretSharing::<Bls12_381>::deserialize_compressed(
+						&threshold_key.secret_sharing[..],
+					)
+					.expect("stored secret sharing deserializes");
+					let _vk = ThresholdVk::from_share(&secret_sharing);
+					return (session, threshold_key.dealers);
+				}
 			}
 			tokio::time::sleep(Duration::from_secs(2)).await;
 		}
@@ -104,7 +113,7 @@ async fn wait_for_threshold_key(client: &cumulus_test_service::Client, session: 
 	.await
 	.unwrap_or_else(|_| {
 		dump_key_gen_events(client);
-		panic!("timed out waiting for the threshold key of session {session}")
+		panic!("timed out waiting for a threshold key of a session in {sessions:?}")
 	})
 }
 
@@ -148,33 +157,45 @@ fn dump_key_gen_events(client: &cumulus_test_service::Client) {
 }
 
 #[test]
-fn dkg_dealings_gossiped_and_collected_per_session() {
+fn relay_validators_deal_and_the_parachain_aggregates() {
 	sp_tracing::try_init_simple();
 	let mut builder = sc_cli::LoggerBuilder::new("");
 	builder.with_colors(false);
 	let _ = builder.init();
 
 	let para_id = ParaId::from(PARA_ID);
-	// `run_relay_chain_validator_node` does `handle.block_on` internally, so
-	// it must be called from outside the runtime (same pattern as the
-	// transaction-throughput bench).
+	// `run_relay_chain_validator_node_with_dkg` does `handle.block_on`
+	// internally, so it must be called from outside the runtime (same pattern
+	// as the transaction-throughput bench).
 	let runtime = tokio::runtime::Runtime::new().expect("Creates tokio runtime");
 	let tokio_handle = runtime.handle().clone();
 
-	// Relay validators.
-	let alice = run_relay_chain_validator_node(tokio_handle.clone(), Alice, || {}, vec![], None);
-	let bob = run_relay_chain_validator_node(
+	// The relay validators submit their dealings to Charlie's RPC endpoint
+	// (retrying until Charlie is up and the parachain has started the round).
+	let rpc_port = free_port();
+	let dealings_rpc_url = format!("ws://127.0.0.1:{rpc_port}");
+
+	let (alice, alice_stats) = run_relay_chain_validator_node_with_dkg(
+		tokio_handle.clone(),
+		Alice,
+		longer_relay_sessions,
+		vec![],
+		dealings_rpc_url.clone(),
+	);
+	let (bob, bob_stats) = run_relay_chain_validator_node_with_dkg(
 		tokio_handle.clone(),
 		Bob,
-		|| {},
+		longer_relay_sessions,
 		vec![alice.addr.clone()],
-		None,
+		dealings_rpc_url,
 	);
 
-	// First collator.
+	// First collator, serving the JSON-RPC endpoint the validators submit to.
 	let charlie = runtime.block_on(
 		TestNodeBuilder::new(para_id, tokio_handle.clone(), Charlie)
 			.enable_collator()
+			.enable_rpc(rpc_port)
+			.update_storage_relay_chain(longer_relay_sessions)
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.build(),
 	);
@@ -195,52 +216,44 @@ fn dkg_dealings_gossiped_and_collected_per_session() {
 		)
 		.unwrap();
 
-	// Second collator, peered with the first on the parachain network (the
-	// DKG gossip protocol rides on the same network).
+	// Second collator (the test runtime's Aura authorities include both).
 	let dave = runtime.block_on(
 		TestNodeBuilder::new(para_id, tokio_handle.clone(), Dave)
 			.enable_collator()
+			.update_storage_relay_chain(longer_relay_sessions)
 			.connect_to_parachain_node(&charlie)
 			.connect_to_relay_chain_nodes(vec![&alice, &bob])
 			.build(),
 	);
 
-	runtime.block_on(dave.wait_for_blocks(1));
-
-	let charlie_stats = charlie.dkg_collection_stats.clone().expect("collator runs the DKG worker");
-	let dave_stats = dave.dkg_collection_stats.clone().expect("collator runs the DKG worker");
-
 	runtime.block_on(async {
-		// Phase 1: both collators deal in the current session and collect the
-		// other's dealing over gossip.
-		let (c_dealings, c_session) = wait_for_collection("charlie", &charlie_stats, 1, 0).await;
-		let (d_dealings, d_session) = wait_for_collection("dave", &dave_stats, 1, 0).await;
+		// Phase 1: the validators deal to each other: each collects the other's
+		// dealing over gossip.
+		let alice_session = wait_for_collection("alice", &alice_stats).await;
+		let bob_session = wait_for_collection("bob", &bob_stats).await;
 		tracing::info!(
-			"phase 1 done: charlie {c_dealings} dealings (session {c_session}), \
-			 dave {d_dealings} dealings (session {d_session})"
+			"phase 1 done: alice collected a dealing of session {alice_session}, \
+			 bob one of session {bob_session}"
 		);
 
-		// Phase 2: both collators submitted their own dealings to the `key_gen`
-		// pallet; at the session rotation (10 parachain blocks) the round ends
-		// with the threshold key of the next validator set (6 invulnerables:
-		// f = 1, so the 2 collator dealers meet the threshold).
-		let first_session = c_session.max(d_session);
-		let next_session = first_session + 1;
-		let dealers = wait_for_threshold_key(&charlie.client, next_session).await;
-		assert_eq!(dealers, 2, "both collators' dealings are in the key of session {next_session}");
-		tracing::info!("phase 2 done: threshold key for session {next_session} on-chain");
+		// Phase 2: once the parachain runs, a round ends with the threshold key
+		// of the next relay validator set, aggregated from both validators'
+		// dealings (2 validators: f = 0, so one dealer would suffice).
+		dave.wait_for_blocks(1).await;
+		let (first, dealers) =
+			wait_for_threshold_key(&charlie.client, 1..=30, Duration::from_secs(900)).await;
+		assert_eq!(dealers, 2, "both validators' dealings are in the key of session {first}");
+		tracing::info!("phase 2 done: threshold key for relay session {first} on-chain");
 
-		// Phase 3: both collators deal again and collect a dealing from the new
-		// session.
-		wait_for_collection("charlie", &charlie_stats, c_dealings + 1, next_session).await;
-		wait_for_collection("dave", &dave_stats, d_dealings + 1, next_session).await;
-		tracing::info!("phase 3 done: dealings collected for session {next_session}");
-
-		// Phase 4: the new round is independent of the previous one (the
-		// pallet would reject the re-deals as duplicates otherwise) and
-		// produces the next session's key from the same two dealers.
-		let dealers = wait_for_threshold_key(&charlie.client, next_session + 1).await;
-		assert_eq!(dealers, 2, "the round of session {next_session} starts from scratch");
-		tracing::info!("phase 4 done: threshold key for session {} on-chain", next_session + 1);
+		// Phase 3: the next round starts from scratch (the pallet would reject
+		// the re-deals as duplicates otherwise) and yields the next session's key.
+		let (next, dealers) = wait_for_threshold_key(
+			&charlie.client,
+			first + 1..=first + 1,
+			Duration::from_secs(600),
+		)
+		.await;
+		assert_eq!(dealers, 2, "the round of relay session {} starts from scratch", next - 1);
+		tracing::info!("phase 3 done: threshold key for relay session {next} on-chain");
 	});
 }

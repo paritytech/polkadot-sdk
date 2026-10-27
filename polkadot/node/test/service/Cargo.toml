@@ -37,6 +37,7 @@ sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
+sc-dkg = { workspace = true, optional = true, features = ["bls-experimental"] }
 sc-network = { workspace = true, default-features = true }
 sc-service = { workspace = true }
 sc-tracing = { workspace = true, default-features = true }
@@ -57,6 +58,8 @@ pallet-balances = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]
+# Runs the DKG gadget on validators started with `run_validator_node_with_dkg`.
+dkg = ["dep:sc-dkg"]
 runtime-metrics = ["polkadot-test-runtime/runtime-metrics"]
 runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",

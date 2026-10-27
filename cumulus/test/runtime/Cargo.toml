@@ -67,6 +67,7 @@ adkg-vrf = { git = "https://github.com/coax1d/adkg-vrf.git", rev = "d254558650cb
 [dev-dependencies]
 ark-ec = { version = "0.5", default-features = false }
 ark-std = { version = "0.5", default-features = false }
+cumulus-test-relay-sproof-builder = { workspace = true, default-features = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }

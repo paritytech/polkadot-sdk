@@ -3,8 +3,8 @@
 //!
 //! Flow per session (triggered by `Session::CurrentIndex` changes observed at
 //! finalized blocks):
-//! 1. Rebuild the DKG authority set from `Session::QueuedKeys` storage
-//!    ([`crate::keys::queued_dkg_public_keys`]) and update the gossip filter.
+//! 1. Rebuild the DKG authority set from `Beefy::NextAuthorities` storage
+//!    ([`crate::keys::next_beefy_authorities`]) and update the gossip filter.
 //! 2. If the node's own BEEFY key is in the set and it has not dealt yet this
 //!    session, produce a fresh a-DKG transcript ([`deal`]) and gossip it as a
 //!    signed `DealingMessage`.
@@ -33,7 +33,7 @@ use sc_network::{NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network as GossipNetwork, Syncing as GossipSyncing};
 use sp_blockchain::HeaderBackend;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, OpaqueKeys};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
 
 use adkg_vrf::bls::vanilla::BlsSigner;
 use adkg_vrf::dkg::{transcript::Transcript, Dkg};
@@ -58,7 +58,7 @@ use crate::{
 };
 
 /// DKG worker parameters.
-pub struct WorkerParams<Client, Network, S, Bc, AccountId, Keys> {
+pub struct WorkerParams<Client, Network, S, Bc> {
 	/// The blockchain client; used to read session state at finalized blocks.
 	pub client: Arc<Client>,
 	/// Keystore holding the node's BEEFY paired key (used to sign dealings).
@@ -83,7 +83,7 @@ pub struct WorkerParams<Client, Network, S, Bc, AccountId, Keys> {
 	pub gossip_protocol_name: ProtocolName,
 	/// Prometheus metrics registry, if any.
 	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
-	pub _phantom: PhantomData<(Bc, AccountId, Keys)>,
+	pub _phantom: PhantomData<Bc>,
 }
 
 /// Callback invoked with the session index and the node's own serialized
@@ -161,7 +161,7 @@ pub(crate) fn deal(
 }
 
 /// The DKG worker.
-pub struct DkgWorker<B, Client, Network, S, Bc, AccountId, Keys>
+pub struct DkgWorker<B, Client, Network, S, Bc>
 where
 	B: BlockT,
 {
@@ -181,22 +181,20 @@ where
 	collected: Vec<(u32, Dealing<Vec<u8>>)>,
 	/// Collection observability shared with the node that spawned the worker.
 	collection_stats: CollectionStatsHandle,
-	_phantom: PhantomData<(S, Bc, AccountId, Keys)>,
+	_phantom: PhantomData<(S, Bc)>,
 }
 
-impl<B, Client, Network, S, Bc, AccountId, Keys> DkgWorker<B, Client, Network, S, Bc, AccountId, Keys>
+impl<B, Client, Network, S, Bc> DkgWorker<B, Client, Network, S, Bc>
 where
 	B: BlockT,
 	Bc: sc_client_api::backend::Backend<B>,
 	Client: HeaderBackend<B> + BlockchainEvents<B> + sc_client_api::StorageProvider<B, Bc> + 'static,
 	Network: GossipNetwork<B> + sc_network::NetworkPeers + Clone + Send + Sync + 'static,
 	S: GossipSyncing<B> + Clone + Send + Sync + 'static,
-	AccountId: Decode + Ord,
-	Keys: OpaqueKeys + Decode,
 {
 	/// Returns a new instance under the form of a `Future` that must be polled
 	/// regularly to drive the DKG.
-	pub fn new(worker_params: WorkerParams<Client, Network, S, Bc, AccountId, Keys>) -> Self {
+	pub fn new(worker_params: WorkerParams<Client, Network, S, Bc>) -> Self {
 		let WorkerParams {
 			client,
 			keystore,
@@ -287,7 +285,7 @@ where
 		}
 
 		let authority_set =
-			match keys::queued_dkg_public_keys::<_, _, _, AccountId, Keys>(&*self.client, hash) {
+			match keys::next_beefy_authorities(&*self.client, hash) {
 				Ok(set) => set,
 				Err(e) => {
 					debug!(target: LOG_TARGET, "🎲 DKG: authority set unavailable at {hash:?}: {e}");

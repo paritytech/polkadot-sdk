@@ -40,6 +40,7 @@ sp-crypto-hashing = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
+substrate-rpc-client = { workspace = true, default-features = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, default-features = true }
 wasm-timer = { workspace = true }

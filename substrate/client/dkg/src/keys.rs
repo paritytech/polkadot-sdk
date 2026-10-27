@@ -1,60 +1,43 @@
-//! DKG authority set: the validator accounts and their BEEFY paired session keys.
+//! DKG authority set: the relay-chain validators' BEEFY paired session keys.
 //!
 //! The DKG reuses the validators' BEEFY (ECDSA,BLS12-381) session keys
-//! (decision: Alistair, 2026-09-29), so the gadget reads them straight from the
-//! session pallet's `QueuedKeys` storage item — no dedicated runtime API
-//! required. `QueuedKeys` holds the keys of the upcoming session; the worker
-//! loop (re)builds the authority set whenever the session rotates.
+//! (decision: Alistair, 2026-09-29), so the gadget reads them straight from
+//! `pallet_beefy`'s `NextAuthorities` storage item — no dedicated runtime API
+//! required, and no runtime-specific session key types. `NextAuthorities` holds
+//! the keys of the validator set queued for the next session; the worker loop
+//! (re)builds the authority set whenever the session rotates.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use codec::Decode;
 use sc_client_api::{StorageKey, StorageProvider};
 use sp_blockchain::Error as BlockchainError;
 use sp_consensus_beefy::ecdsa_bls_crypto::Public;
-use sp_core::crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
-use sp_core::crypto::ByteArray;
 use sp_crypto_hashing::twox_128;
-use sp_runtime::traits::{Block as BlockT, OpaqueKeys};
+use sp_runtime::traits::Block as BlockT;
 
 use thiserror::Error;
 
 /// Error while fetching the DKG authority set from chain state.
 #[derive(Debug, Error)]
 pub enum AuthoritySetError {
-	/// `Session::QueuedKeys` is not present at the given block.
-	#[error("Session::QueuedKeys not found at block")]
-	MissingQueuedKeys,
-	/// `Session::QueuedKeys` failed to SCALE-decode.
-	#[error("failed to decode Session::QueuedKeys")]
-	DecodeFailed,
-	/// No validator has a registered DKG session key.
-	#[error("no BEEFY session keys registered (is the 'beef' key in the runtime SessionKeys?)")]
+	/// `Beefy::NextAuthorities` is not present at the given block.
+	#[error("Beefy::NextAuthorities not found at block (is pallet_beefy in the runtime?)")]
+	MissingNextAuthorities,
+	/// A storage item failed to SCALE-decode.
+	#[error("failed to decode {0}")]
+	DecodeFailed(&'static str),
+	/// The queued validator set has no BEEFY keys.
+	#[error("no BEEFY keys in Beefy::NextAuthorities")]
 	NoDkgKeys,
 	/// Backend error.
 	#[error(transparent)]
 	Blockchain(#[from] BlockchainError),
 }
 
-/// The DKG authority set: validator account id -> BEEFY paired public key.
-pub type AuthoritySet<AccountId> = BTreeMap<AccountId, Public>;
-
-/// Fetches the queued validators' BEEFY public keys (the DKG authority set).
-///
-/// Same as [`queued_dkg_keys`], but dropping the account ids — the gadget only
-/// needs the set of keys.
-pub fn queued_dkg_public_keys<Client, Block, Backend, AccountId, Keys>(
-	client: &Client,
-	hash: Block::Hash,
-) -> Result<BTreeSet<Public>, AuthoritySetError>
-where
-	Block: BlockT,
-	Backend: sc_client_api::backend::Backend<Block>,
-	Client: StorageProvider<Block, Backend>,
-	AccountId: Decode + Ord,
-	Keys: OpaqueKeys + Decode,
-{
-	Ok(queued_dkg_keys::<_, _, _, AccountId, Keys>(client, hash)?.into_values().collect())
+/// Storage key of the given pallet's storage value.
+fn storage_value_key(pallet: &[u8], item: &[u8]) -> StorageKey {
+	StorageKey([twox_128(pallet), twox_128(item)].concat())
 }
 
 /// Reads the current session index (`Session::CurrentIndex`) at `hash`.
@@ -70,102 +53,66 @@ where
 	Backend: sc_client_api::backend::Backend<Block>,
 	Client: StorageProvider<Block, Backend>,
 {
-	let mut storage_key = twox_128(b"Session").to_vec();
-	storage_key.extend_from_slice(&twox_128(b"CurrentIndex"));
-	match client.storage(hash, &StorageKey(storage_key))? {
-		Some(data) => u32::decode(&mut &data.0[..]).map_err(|_| AuthoritySetError::DecodeFailed),
+	match client.storage(hash, &storage_value_key(b"Session", b"CurrentIndex"))? {
+		Some(data) => u32::decode(&mut &data.0[..])
+			.map_err(|_| AuthoritySetError::DecodeFailed("Session::CurrentIndex")),
 		None => Ok(0),
 	}
 }
 
-///
-/// Fetches the queued validators' BEEFY keys from `Session::QueuedKeys` at `hash`.
-///
-/// `AccountId` and `Keys` are the runtime's session types, supplied by the caller
-/// integrating the gadget (e.g. `cumulus_test_runtime::SessionKeys`). Validators
-/// without a registered BEEFY key are skipped.
-pub fn queued_dkg_keys<Client, Block, Backend, AccountId, Keys>(
+/// Fetches the queued validators' BEEFY public keys (the DKG authority set)
+/// from `Beefy::NextAuthorities` at `hash`.
+pub fn next_beefy_authorities<Client, Block, Backend>(
 	client: &Client,
 	hash: Block::Hash,
-) -> Result<AuthoritySet<AccountId>, AuthoritySetError>
+) -> Result<BTreeSet<Public>, AuthoritySetError>
 where
 	Block: BlockT,
 	Backend: sc_client_api::backend::Backend<Block>,
 	Client: StorageProvider<Block, Backend>,
-	AccountId: Decode + Ord,
-	Keys: OpaqueKeys + Decode,
 {
-	let mut storage_key = twox_128(b"Session").to_vec();
-	storage_key.extend_from_slice(&twox_128(b"QueuedKeys"));
 	let data = client
-		.storage(hash, &StorageKey(storage_key))?
-		.ok_or(AuthoritySetError::MissingQueuedKeys)?;
+		.storage(hash, &storage_value_key(b"Beefy", b"NextAuthorities"))?
+		.ok_or(AuthoritySetError::MissingNextAuthorities)?;
+	decode_authorities(&data.0)
+}
 
-	let queued: Vec<(AccountId, Keys)> =
-		Decode::decode(&mut &data.0[..]).map_err(|_| AuthoritySetError::DecodeFailed)?;
-
-	let set: AuthoritySet<AccountId> = queued
-		.into_iter()
-		.filter_map(|(who, keys)| {
-			Public::from_slice(keys.get_raw(BEEFY_KEY_TYPE))
-				.ok()
-				.map(|public| (who, public))
-		})
-		.collect();
-
-	if set.is_empty() {
-		return Err(AuthoritySetError::NoDkgKeys)
+/// Decodes `Beefy::NextAuthorities` (a `BoundedVec`, encoded like a `Vec`).
+fn decode_authorities(mut data: &[u8]) -> Result<BTreeSet<Public>, AuthoritySetError> {
+	let authorities = Vec::<Public>::decode(&mut data)
+		.map_err(|_| AuthoritySetError::DecodeFailed("Beefy::NextAuthorities"))?;
+	if authorities.is_empty() {
+		return Err(AuthoritySetError::NoDkgKeys);
 	}
-	Ok(set)
+	Ok(authorities.into_iter().collect())
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use codec::Encode;
+	use sp_core::crypto::ByteArray;
 
-	mod test_aura {
-		use sp_application_crypto::{app_crypto, sr25519};
-		use sp_core::crypto::KeyTypeId;
+	#[test]
+	fn decodes_the_queued_beefy_keys() {
+		let keys =
+			[1u8, 2].map(|b| Public::from_slice(&[b; 177]).expect("177-byte paired BEEFY key"));
 
-		pub const TEST_AURA: KeyTypeId = KeyTypeId(*b"aura");
-
-		app_crypto!(sr25519, TEST_AURA);
-	}
-
-	mod test_beefy {
-		use sp_application_crypto::{app_crypto, ecdsa_bls381};
-		use sp_core::crypto::KeyTypeId;
-
-		pub const TEST_BEEFY: KeyTypeId = KeyTypeId(*b"beef");
-
-		app_crypto!(ecdsa_bls381, TEST_BEEFY);
-	}
-
-	sp_runtime::impl_opaque_keys! {
-		pub struct TestSessionKeys {
-			pub aura: test_aura::Public,
-			pub beefy: test_beefy::Public,
-		}
+		let set = decode_authorities(&keys.to_vec().encode()).unwrap();
+		assert_eq!(set, keys.into_iter().collect());
+		assert!(matches!(
+			decode_authorities(&Vec::<Public>::new().encode()),
+			Err(AuthoritySetError::NoDkgKeys)
+		));
+		assert!(matches!(decode_authorities(&[1, 2, 3]), Err(AuthoritySetError::DecodeFailed(_))));
 	}
 
 	#[test]
-	fn extracts_beefy_key_from_opaque_session_keys() {
-		let beefy_raw = [7u8; 177];
-		let keys = TestSessionKeys {
-			aura: test_aura::Public::from_slice(&[1u8; 32]).unwrap(),
-			beefy: test_beefy::Public::from_slice(&beefy_raw).unwrap(),
-		};
-
-		// The full struct must round-trip through SCALE (this is how it is stored
-		// inside `Session::QueuedKeys`), and the `beef` key must land at the right
-		// offset, next to the other session keys.
-		let encoded = keys.encode();
-		let decoded = TestSessionKeys::decode(&mut &encoded[..]).unwrap();
-
-		let extracted = Public::from_slice(decoded.get_raw(BEEFY_KEY_TYPE)).unwrap();
-		assert_eq!(AsRef::<[u8]>::as_ref(&extracted), &beefy_raw[..]);
-		// Sanity: the aura key must not collide with the beefy offset.
-		assert_eq!(decoded.get_raw(test_aura::TEST_AURA), &[1u8; 32][..]);
+	fn storage_keys_match_frame_storage_value_layout() {
+		// `twox128(pallet) ++ twox128(item)`, as FRAME lays out storage values.
+		let key = storage_value_key(b"Beefy", b"NextAuthorities");
+		assert_eq!(key.0.len(), 32);
+		assert_eq!(&key.0[..16], &twox_128(b"Beefy"));
+		assert_eq!(&key.0[16..], &twox_128(b"NextAuthorities"));
 	}
 }

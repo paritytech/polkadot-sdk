@@ -52,6 +52,7 @@ sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-session = { workspace = true, default-features = true }

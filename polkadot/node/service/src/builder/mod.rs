@@ -125,6 +125,9 @@ where
 	overseer_connector: OverseerConnector,
 	partial_components: PolkadotPartialComponents<SelectRelayChain<FullBackend>>,
 	net_config: FullNetworkConfiguration<Block, <Block as BlockT>::Hash, Network>,
+	/// Shared by all notification protocols (registering the metrics twice on the
+	/// same registry would silently drop the second set).
+	notification_metrics: sc_network::service::NotificationMetrics,
 }
 
 impl<OverseerGenerator, Network> PolkadotServiceBuilder<OverseerGenerator, Network>
@@ -166,6 +169,9 @@ where
 			&config.network,
 			config.prometheus_config.as_ref().map(|cfg| cfg.registry.clone()),
 		);
+		let notification_metrics = Network::register_notification_metrics(
+			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
+		);
 
 		Ok(PolkadotServiceBuilder {
 			config,
@@ -173,6 +179,7 @@ where
 			overseer_connector,
 			partial_components,
 			net_config,
+			notification_metrics,
 		})
 	}
 
@@ -187,6 +194,27 @@ where
 		config: Network::RequestResponseProtocolConfig,
 	) {
 		self.net_config.add_request_response_protocol(config);
+	}
+
+	/// The notification metrics an extra notification protocol must be built with.
+	pub fn notification_metrics(&self) -> sc_network::service::NotificationMetrics {
+		self.notification_metrics.clone()
+	}
+
+	/// The peer store handle an extra notification protocol must be built with.
+	pub fn peer_store_handle(&self) -> Arc<dyn sc_network::peer_store::PeerStoreProvider> {
+		self.net_config.peer_store_handle()
+	}
+
+	/// Add extra notification protocol to the polkadot service, built with
+	/// [`Self::notification_metrics`] and [`Self::peer_store_handle`].
+	pub fn add_extra_notification_protocol(&mut self, config: Network::NotificationProtocolConfig) {
+		self.net_config.add_notification_protocol(config);
+	}
+
+	/// The keystore of the polkadot service being built.
+	pub fn keystore(&self) -> sp_keystore::KeystorePtr {
+		self.partial_components.keystore_container.keystore()
 	}
 
 	/// Build polkadot service.
@@ -230,6 +258,7 @@ where
 						(rpc_extensions_builder, import_setup, rpc_setup, slot_duration, mut telemetry),
 				},
 			mut net_config,
+			notification_metrics: metrics,
 		} = self;
 
 		let role = config.role;
@@ -266,9 +295,6 @@ where
 		let peer_store_handle = net_config.peer_store_handle();
 
 		let prometheus_registry = config.prometheus_registry().cloned();
-		let metrics = Network::register_notification_metrics(
-			config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
-		);
 
 		// Note: GrandPa is pushed before the Polkadot-specific protocols. This doesn't change
 		// anything in terms of behaviour, but makes the logs more consistent with the other
