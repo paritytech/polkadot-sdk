@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793106626857,
+  "lastUpdate": 1793125369425,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "122cb84b6467dbb95640d50ae3d937627603728f",
-          "message": "MMR: check `verify_ancestor()` output (#11738)\n\nMMR: check `verify_ancestor()` output\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-13T15:29:53Z",
-          "tree_id": "cba321ddab3afc46ee7b9a60973075b8ba547423",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/122cb84b6467dbb95640d50ae3d937627603728f"
-        },
-        "date": 1776099814071,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009475883359999982,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025412716453333338,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1409951002466667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007182131600000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14312360569333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "111317723512d237327aa0dadfdcea054533675c",
+          "message": "Fix user losing remainder of swapped funds when pool liquidity goes below ED (#13601)\n\n`pallet-asset-conversion`'s `SwapCredit::swap_tokens_for_exact_tokens`\nsplit `credit_in` into the amount to swap and the change, and returned\nonly the amount to swap if the swap then failed. The change was dropped\ninside the storage transaction that is rolled back on failure, so the\ncaller lost it. The full `credit_in` is now returned on failure, as\ndocumented.",
+          "timestamp": "2026-10-27T16:47:48Z",
+          "tree_id": "d43404685681e16f124003bb271339ca1c0cc2cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/111317723512d237327aa0dadfdcea054533675c"
+        },
+        "date": 1793125340774,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14386194891333337,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.00783723962,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025437645219999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010554346979999976,
             "unit": "seconds"
           }
         ]
