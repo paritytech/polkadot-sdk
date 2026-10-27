@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793102364217,
+  "lastUpdate": 1793106726274,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f9855db6280b9b2d21200a046e6acc2f8903944e",
-          "message": "Add legacy NegativeImbalance support to DAP and DAP satellite (#11716)\n\nAdd `DapLegacyAdapter` and `DapSatelliteLegacyAdapter` wrapper structs\nthat implement `OnUnbalanced<NegativeImbalance>` from the legacy\n`Currency` trait, bridging pallets not yet migrated to fungible traits.\n\nWire Westend runtimes: AH referenda slash to DAP, collectives\n(fellowship, ambassador, alliance) and people identity slash to DAP\nsatellite.\n\nCloses #11704.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-11T12:12:45Z",
-          "tree_id": "10e93d9741f1ab779f88df7e7ddebca006b76600",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f9855db6280b9b2d21200a046e6acc2f8903944e"
-        },
-        "date": 1775914497347,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.08800000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038752732815999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08611752599199991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08118296128799987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6812e669754dc9f473e3adf277d4532c42e27ac9",
+          "message": "`bitswap_unstable_stream` implementation added (#12029)\n\nImplement `bitswap_unstable_stream` RPC methods according to the\n[spec](https://github.com/paritytech/json-rpc-interface-spec/pull/186).\n\nKinda follow-up work of:\nhttps://github.com/paritytech/polkadot-sdk/pull/11521\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>",
+          "timestamp": "2026-10-27T11:37:22Z",
+          "tree_id": "2df725c3bf99a1d395b5edd183cd16ecce7c89fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6812e669754dc9f473e3adf277d4532c42e27ac9"
+        },
+        "date": 1793106693807,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.136,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038935703362,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08915555638199997,
             "unit": "seconds"
           }
         ]
