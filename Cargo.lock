@@ -8588,7 +8588,7 @@ dependencies = [
 [[package]]
 name = "hash-db"
 version = "0.16.0"
-source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#a3c92a0498569477a75739437ae1b17116117091"
+source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#71b17086e1044499306a517d9af8258a61480a53"
 
 [[package]]
 name = "hash256-std-hasher"
@@ -26386,8 +26386,9 @@ dependencies = [
  "arbitrary",
  "array-bytes 6.2.2",
  "assert_matches",
+ "foldhash 0.1.5",
  "hash-db",
- "indexmap 2.9.0",
+ "indexmap 2.14.2",
  "log",
  "parity-scale-codec",
  "parking_lot 0.12.3",
@@ -29523,19 +29524,7 @@ dependencies = [
 [[package]]
 name = "trie-db"
 version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "559b3902fbd74c14b64ea1690792be25bd5ccd3820f8b6b6228754e00fe3c1d6"
-dependencies = [
- "hash-db",
- "log",
- "rustc-hex",
- "smallvec",
-]
-
-[[package]]
-name = "trie-db"
-version = "0.32.0"
-source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#a3c92a0498569477a75739437ae1b17116117091"
+source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#71b17086e1044499306a517d9af8258a61480a53"
 dependencies = [
  "hash-db",
  "log",
