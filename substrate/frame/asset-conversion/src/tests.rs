@@ -2491,3 +2491,337 @@ fn swap_credit_invalid_path() {
 		assert_eq!(error, (expected_credit_in, Error::<Test>::InvalidPath.into()));
 	});
 }
+<<<<<<< HEAD
+=======
+
+#[test]
+fn swap_credit_returns_change_when_swap_fails() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let token_2_ed = 150;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], token_2_ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		let ed = get_native_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// The path prices fine, but taking `amount_out` from the pool would leave it below the
+		// minimum balance of `token_2`, so the swap fails after `credit_in` was split.
+		let amount_out = liquidity2 - token_2_ed + 1;
+		let amount_in =
+			AssetConversion::get_amount_in(LpFee::get(), &amount_out, &liquidity1, &liquidity2)
+				.unwrap();
+		let change = 100;
+
+		let total_issuance = Balances::total_issuance();
+		let credit_in = NativeAndAssets::issue(token_1.clone(), amount_in + change);
+		let (credit_in, error) = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1.clone(), token_2.clone()],
+			credit_in,
+			amount_out,
+		)
+		.unwrap_err();
+		assert_eq!(error, TokenError::NotExpendable.into());
+		// The whole `credit_in` comes back, including the change.
+		assert_eq!(credit_in.peek(), amount_in + change);
+		drop(credit_in);
+		assert_eq!(Balances::total_issuance(), total_issuance);
+	});
+}
+
+fn new_test_ext_with_genesis_pools(
+	pools: Vec<(NativeOrWithId<u32>, NativeOrWithId<u32>, u128, u128, u128)>,
+) -> sp_io::TestExternalities {
+	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(1, 10000), (2, 20000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	pallet_assets::GenesisConfig::<Test, Instance1> {
+		assets: vec![(1, 0, true, 1)],
+		accounts: vec![(1, 1, 10000), (1, 2, 10000)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
+
+	crate::GenesisConfig::<Test> { pools }.assimilate_storage(&mut t).unwrap();
+
+	let mut ext = sp_io::TestExternalities::new(t);
+	ext.execute_with(|| System::set_block_number(1));
+	ext
+}
+
+#[test]
+fn genesis_pool_with_liquidity() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![(Native, WithId(1), 1, 1000, 2000)]).execute_with(|| {
+		assert_eq!(pools(), vec![(Native, WithId(1))]);
+		assert_eq!(pool_assets(), vec![0]);
+		// Provider's native balance decreased by pool contribution.
+		assert_eq!(balance(1, Native), 10000 - 1000);
+		// Provider's asset balance decreased by pool contribution.
+		assert_eq!(balance(1, WithId(1)), 10000 - 2000);
+		// Provider received LP tokens.
+		assert!(pool_balance(1, 0) > 0);
+		// No pool setup fee charged (balance is exactly 10000 - 1000).
+	});
+}
+
+#[test]
+fn genesis_pool_without_liquidity() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![(Native, WithId(1), 1, 0, 0)]).execute_with(|| {
+		assert_eq!(pools(), vec![(Native, WithId(1))]);
+		assert_eq!(pool_assets(), vec![0]);
+		assert_eq!(balance(1, Native), 10000);
+		assert_eq!(balance(1, WithId(1)), 10000);
+		assert_eq!(pool_balance(1, 0), 0);
+	});
+}
+
+#[test]
+#[should_panic(expected = "PoolExists")]
+fn genesis_duplicate_pool_panics() {
+	use NativeOrWithId::{Native, WithId};
+	new_test_ext_with_genesis_pools(vec![
+		(Native, WithId(1), 1, 1000, 2000),
+		(Native, WithId(1), 1, 1000, 2000),
+	]);
+}
+
+#[test]
+#[should_panic(expected = "InvalidAssetPair")]
+fn genesis_same_assets_panics() {
+	use NativeOrWithId::WithId;
+	new_test_ext_with_genesis_pools(vec![(WithId(1), WithId(1), 1, 1000, 2000)]);
+}
+
+#[test]
+fn pool_fee_falls_back_to_global_lp_fee() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let pool_id = (token_1.clone(), token_2.clone());
+
+		create_tokens(user, vec![token_2.clone()]);
+		Balances::force_set_balance(RuntimeOrigin::root(), user, 1000).unwrap();
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+		));
+
+		// No override set, so the global `LPFee` applies.
+		assert_eq!(PoolFees::<Test>::get(&pool_id), None);
+		assert_eq!(AssetConversion::pool_fee(&pool_id), <Test as Config>::LPFee::get());
+	});
+}
+
+#[test]
+fn create_pool_with_fee_sets_override() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let pool_id = (token_1.clone(), token_2.clone());
+		let fee = Permill::from_percent(1);
+
+		create_tokens(user, vec![token_2.clone()]);
+		Balances::force_set_balance(RuntimeOrigin::root(), user, 1000).unwrap();
+
+		// A signed (non-admin) origin cannot create a pool with a custom fee.
+		assert_noop!(
+			AssetConversion::create_pool_with_fee(
+				RuntimeOrigin::signed(user),
+				user,
+				Box::new(token_1.clone()),
+				Box::new(token_2.clone()),
+				fee,
+			),
+			DispatchError::BadOrigin,
+		);
+
+		// A fee above `MaxSwapFee` is rejected.
+		assert_noop!(
+			AssetConversion::create_pool_with_fee(
+				RuntimeOrigin::root(),
+				user,
+				Box::new(token_1.clone()),
+				Box::new(token_2.clone()),
+				MaxSwapFee::get() + Permill::from_percent(1),
+			),
+			Error::<Test>::FeeTooHigh,
+		);
+
+		assert_ok!(AssetConversion::create_pool_with_fee(
+			RuntimeOrigin::root(),
+			user,
+			Box::new(token_1),
+			Box::new(token_2),
+			fee,
+		));
+
+		assert_eq!(PoolFees::<Test>::get(&pool_id), Some(fee));
+		assert_eq!(AssetConversion::pool_fee(&pool_id), fee);
+
+		// Both `PoolCreated` and `PoolFeeSet` are emitted, in that order.
+		assert!(events().iter().any(|e| matches!(
+			e,
+			Event::PoolFeeSet { pool_id: p, fee: f } if *p == pool_id && *f == fee
+		)));
+	});
+}
+
+#[test]
+fn set_pool_fee_requires_admin_origin_and_overrides() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let pool_id = (token_1.clone(), token_2.clone());
+		let fee = Permill::from_percent(5);
+
+		create_tokens(user, vec![token_2.clone()]);
+		Balances::force_set_balance(RuntimeOrigin::root(), user, 1000).unwrap();
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+		));
+
+		// A signed (non-admin) origin cannot set the fee.
+		assert_noop!(
+			AssetConversion::set_pool_fee(RuntimeOrigin::signed(user), pool_id.clone(), fee),
+			DispatchError::BadOrigin,
+		);
+		assert_eq!(PoolFees::<Test>::get(&pool_id), None);
+
+		// A fee above `MaxSwapFee` is rejected.
+		assert_noop!(
+			AssetConversion::set_pool_fee(
+				RuntimeOrigin::root(),
+				pool_id.clone(),
+				MaxSwapFee::get() + Permill::from_percent(1),
+			),
+			Error::<Test>::FeeTooHigh,
+		);
+
+		// The admin origin (root) can.
+		assert_ok!(AssetConversion::set_pool_fee(RuntimeOrigin::root(), pool_id.clone(), fee));
+		assert_eq!(PoolFees::<Test>::get(&pool_id), Some(fee));
+		assert_eq!(AssetConversion::pool_fee(&pool_id), fee);
+		assert!(events().iter().any(|e| matches!(
+			e,
+			Event::PoolFeeSet { pool_id: p, fee: f } if *p == pool_id && *f == fee
+		)));
+	});
+}
+
+#[test]
+fn set_pool_fee_on_missing_pool_fails() {
+	new_test_ext().execute_with(|| {
+		let pool_id = (NativeOrWithId::Native, NativeOrWithId::WithId(2));
+		assert_noop!(
+			AssetConversion::set_pool_fee(RuntimeOrigin::root(), pool_id, Permill::from_percent(1),),
+			Error::<Test>::PoolNotFound,
+		);
+	});
+}
+
+#[test]
+fn per_pool_fee_is_applied_to_swaps() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let pool_id = (token_1.clone(), token_2.clone());
+		let fee = Permill::from_percent(10);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+		));
+
+		let ed = get_native_ed();
+		Balances::force_set_balance(RuntimeOrigin::root(), user, 10000 + ed).unwrap();
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// Override the pool's fee to 10% (vs. the 0.3% global default).
+		assert_ok!(AssetConversion::set_pool_fee(RuntimeOrigin::root(), pool_id, fee));
+
+		let input_amount = 100;
+		// Output is computed with the per-pool fee, not the global one.
+		let with_pool_fee =
+			AssetConversion::get_amount_out(fee, &input_amount, &liquidity2, &liquidity1).unwrap();
+		let with_global_fee =
+			AssetConversion::get_amount_out(LpFee::get(), &input_amount, &liquidity2, &liquidity1)
+				.unwrap();
+		assert!(with_pool_fee < with_global_fee, "higher fee must yield less output");
+
+		// The quote endpoint reflects the override.
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_2.clone(),
+				token_1.clone(),
+				input_amount,
+				true,
+			),
+			Some(with_pool_fee),
+		);
+
+		// And the actual swap pays out exactly the per-pool-fee amount.
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token_2.clone(), token_1.clone()],
+			input_amount,
+			1,
+			user,
+			false,
+		));
+		assert_eq!(balance(user, token_1), with_pool_fee + ed);
+	});
+}
+>>>>>>> 1113177 (Fix user losing remainder of swapped funds when pool liquidity goes below ED (#13601))

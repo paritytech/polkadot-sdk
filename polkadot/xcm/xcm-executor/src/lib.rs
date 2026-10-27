@@ -1011,8 +1011,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			TransferReserveAsset { mut assets, dest, xcm } => {
-				Config::TransactionalProcessor::process(|| {
-					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				self.transactional_process(|self_ref| {
+					let origin = self_ref.origin_ref().ok_or(XcmError::BadOrigin)?;
 					let mut total_surplus = Weight::zero();
 					// Take `assets` from the origin account (on-chain) and place into dest account.
 					for asset in assets.inner() {
@@ -1020,7 +1020,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							asset,
 							origin,
 							&dest,
-							&self.context,
+							&self_ref.context,
 						)?;
 						// If we have some surplus, aggregate it.
 						total_surplus.saturating_accrue(surplus);
@@ -1040,9 +1040,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						})?;
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
-					self.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
+					self_ref.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
 					// Credit the total surplus.
-					self.total_surplus.saturating_accrue(total_surplus);
+					self_ref.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
