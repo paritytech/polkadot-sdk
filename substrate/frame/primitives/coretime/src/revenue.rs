@@ -43,10 +43,9 @@ pub struct RevenueClaim<Balance> {
 pub trait OnDemandRevenue<Balance, AccountId> {
 	/// Whether on-demand Coretime is sold here.
 	///
-	/// While it is, the claimer is expected to claim the revenue through
-	/// [`Self::claim_revenue`]. While it is not, no orders are accepted, and the claimer is
-	/// expected to get its revenue from elsewhere. Revenue booked before it was disabled stays
-	/// booked until it is enabled again.
+	/// Once it is, the claimer is expected to claim the revenue through [`Self::claim_revenue`].
+	/// Until then, no orders are accepted, and the claimer is expected to get its revenue from
+	/// elsewhere.
 	fn is_enabled() -> bool;
 
 	/// Claim the revenue from the on-demand orders placed during timeslice `up_to` and during

@@ -63,7 +63,7 @@ impl<T: frame_system::Config> pallet_on_demand_para::WeightInfo for WeightInfo<T
 	}
 	/// Storage: `OnDemand::Enabled` (r:0 w:1)
 	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_enabled() -> Weight {
+	fn enable() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

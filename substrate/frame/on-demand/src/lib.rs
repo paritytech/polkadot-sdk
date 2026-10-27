@@ -216,11 +216,10 @@ pub mod pallet {
 
 	/// Whether on-demand Coretime is sold here.
 	///
-	/// Orders are only accepted while it is, as the revenue from them is only claimed through
-	/// [`OnDemandRevenue::claim_revenue`] while it is; otherwise it would never be distributed.
-	/// Revenue booked before it was disabled stays booked until it is enabled again.
+	/// Orders are only accepted once it is, as the revenue from them is only claimed through
+	/// [`OnDemandRevenue::claim_revenue`] once it is; otherwise it would never be distributed.
 	///
-	/// It is `false` until enabled with [`Pallet::set_enabled`].
+	/// It is `false` until enabled with [`Pallet::enable`], and stays `true` from then on.
 	#[pallet::storage]
 	pub type Enabled<T> = StorageValue<_, bool, ValueQuery>;
 
@@ -256,11 +255,8 @@ pub mod pallet {
 			/// The amount that was actually paid out.
 			paid_out: BalanceOf<T>,
 		},
-		/// On-demand Coretime sales were enabled or disabled.
-		EnabledSet {
-			/// Whether on-demand Coretime is sold now.
-			enabled: bool,
-		},
+		/// On-demand Coretime sales were enabled.
+		Enabled,
 	}
 
 	#[pallet::error]
@@ -353,18 +349,19 @@ pub mod pallet {
 			Self::do_place_order(who, para_id, max_amount)
 		}
 
-		/// Enable or disable on-demand Coretime sales.
+		/// Enable on-demand Coretime sales.
 		///
-		/// While they are disabled, no orders are accepted, and the revenue from the earlier ones
-		/// is not claimed.
+		/// Until they are enabled, no orders are accepted. Once they are, they cannot be disabled
+		/// again, and calling this does nothing.
 		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
-		/// - `enabled`: Whether on-demand Coretime is to be sold.
 		#[pallet::call_index(2)]
-		pub fn set_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResultWithPostInfo {
+		pub fn enable(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Enabled::<T>::put(enabled);
-			Self::deposit_event(Event::<T>::EnabledSet { enabled });
+			if !Enabled::<T>::get() {
+				Enabled::<T>::put(true);
+				Self::deposit_event(Event::<T>::Enabled);
+			}
 			Ok(Pays::No.into())
 		}
 	}

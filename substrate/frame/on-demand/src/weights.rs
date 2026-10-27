@@ -72,7 +72,7 @@ use core::marker::PhantomData;
 /// Weight functions needed for `pallet_on_demand_para`.
 pub trait WeightInfo {
 	fn configure() -> Weight;
-	fn set_enabled() -> Weight;
+	fn enable() -> Weight;
 	fn place_order() -> Weight;
 	fn on_finalize_with_orders(n: u32, ) -> Weight;
 	fn claim_revenue(n: u32, ) -> Weight;
@@ -93,7 +93,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `OnDemand::Enabled` (r:0 w:1)
 	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_enabled() -> Weight {
+	fn enable() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
@@ -170,7 +170,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `OnDemand::Enabled` (r:0 w:1)
 	/// Proof: `OnDemand::Enabled` (`max_values`: Some(1), `max_size`: Some(1), added: 496, mode: `MaxEncodedLen`)
-	fn set_enabled() -> Weight {
+	fn enable() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`

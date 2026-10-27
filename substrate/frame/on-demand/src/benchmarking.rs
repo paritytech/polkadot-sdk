@@ -59,12 +59,15 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn set_enabled() -> Result<(), BenchmarkError> {
+	fn enable() -> Result<(), BenchmarkError> {
 		let origin =
 			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 
+		// Measure actually enabling on-demand Coretime, rather than the call doing nothing.
+		Enabled::<T>::kill();
+
 		#[extrinsic_call]
-		_(origin as T::RuntimeOrigin, true);
+		_(origin as T::RuntimeOrigin);
 
 		assert!(Enabled::<T>::get());
 

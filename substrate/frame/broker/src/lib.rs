@@ -103,9 +103,9 @@ pub mod pallet {
 		/// the Instantaneous Coretime Pool. Expected to live on the same chain as this pallet, so
 		/// the revenue can be claimed directly.
 		///
-		/// While it is enabled, the revenue of each timeslice is claimed from it once that
+		/// Once it is enabled, the revenue of each timeslice is claimed from it once that
 		/// timeslice has ended, along with that of any earlier timeslice which could not be paid
-		/// out before, and revenue reports from the Relay chain are ignored. While it is not, the
+		/// out before, and revenue reports from the Relay chain are ignored. Until then, the
 		/// revenue is requested from the Relay chain through [`Config::Coretime`], which reports
 		/// it back with `notify_revenue`.
 		type OnDemandRevenue: OnDemandRevenue<BalanceOf<Self>, Self::AccountId>;

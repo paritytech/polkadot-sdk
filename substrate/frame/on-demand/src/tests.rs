@@ -18,12 +18,12 @@
 //! Tests for the on-demand pallet.
 
 use crate::{
-	mock::*, weights::WeightInfo, Error, Event, PendingBatch, PriceConfig, PriceParameters,
-	QueueState, Revenue, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
+	mock::*, weights::WeightInfo, Enabled, Error, Event, PendingBatch, PriceConfig,
+	PriceParameters, QueueState, Revenue, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
 };
 use fp_coretime::revenue::OnDemandRevenue;
 use frame_support::{
-	assert_noop, assert_ok,
+	assert_noop, assert_ok, assert_storage_noop,
 	dispatch::Pays,
 	traits::fungible::{Inspect, Mutate},
 };
@@ -151,35 +151,37 @@ fn place_order_fails_when_no_cores_in_pool() {
 }
 
 #[test]
-fn set_enabled_works() {
+fn enable_works() {
 	new_test_ext().execute_with(|| {
-		assert!(<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
-
-		// Only the admin or root can disable the pallet.
-		assert_noop!(OnDemand::set_enabled(RuntimeOrigin::signed(BOB), false), BadOrigin);
-		let post_info = OnDemand::set_enabled(RuntimeOrigin::root(), false)
-			.expect("root can disable the pallet");
-		assert_eq!(post_info.pays_fee, Pays::No);
+		// On-demand Coretime is not sold until it is enabled.
+		Enabled::<Test>::kill();
 		assert!(!<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
-		assert!(on_demand_events().contains(&Event::EnabledSet { enabled: false }));
 
-		// The admin can enable it again.
-		assert_ok!(OnDemand::set_enabled(RuntimeOrigin::signed(ALICE), true));
+		// Only the admin or root can enable it.
+		assert_noop!(OnDemand::enable(RuntimeOrigin::signed(BOB)), BadOrigin);
+		let post_info =
+			OnDemand::enable(RuntimeOrigin::signed(ALICE)).expect("the admin can enable it");
+		assert_eq!(post_info.pays_fee, Pays::No);
 		assert!(<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
+		assert!(on_demand_events().contains(&Event::Enabled));
+
+		// Enabling it again does nothing.
+		System::reset_events();
+		assert_storage_noop!(assert_ok!(OnDemand::enable(RuntimeOrigin::root())));
+		assert!(on_demand_events().is_empty());
 	});
 }
 
 #[test]
-fn place_order_fails_while_disabled() {
+fn place_order_fails_until_enabled() {
 	new_test_ext().execute_with(|| {
-		assert_ok!(OnDemand::set_enabled(RuntimeOrigin::root(), false));
+		Enabled::<Test>::kill();
 		assert_noop!(
 			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE / 2),
 			Error::<Test>::Disabled
 		);
 
-		// Orders are accepted again once the pallet is enabled.
-		assert_ok!(OnDemand::set_enabled(RuntimeOrigin::root(), true));
+		assert_ok!(OnDemand::enable(RuntimeOrigin::root()));
 		assert_ok!(OnDemand::place_order(
 			RuntimeOrigin::signed(ALICE),
 			2000,
