@@ -226,7 +226,12 @@ fn ensure_correct_instance_is_selected() {
 	.unwrap();
 
 	let mut overlay = Default::default();
-	let mut ext = sp_state_machine::Ext::new(&mut overlay, &state, None);
+	let mut ext = sp_state_machine::Ext::new(
+		&mut overlay,
+		&state,
+		None,
+		sp_core::storage::StateVersion::default(),
+	);
 	sp_externalities::set_and_run_with_externalities(&mut ext, || {
 		add_benchmarks!(params, batches);
 		Ok::<_, crate::BenchmarkError>(())

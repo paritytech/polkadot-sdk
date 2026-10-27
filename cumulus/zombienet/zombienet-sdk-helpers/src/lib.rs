@@ -1051,7 +1051,7 @@ pub async fn wait_for_pallet_in_metadata(
 	}
 }
 
-/// Read the live `AuthorityDiscovery.Keys` set as a `HashSet` of 32-byte arrays.
+/// Read the latest finalized `AuthorityDiscovery.Keys` set as a `HashSet` of 32-byte arrays.
 ///
 /// Returns an empty set if the storage value is absent (e.g. the AD pallet is not present
 /// in the runtime's metadata).
@@ -1073,32 +1073,31 @@ pub async fn read_authority_discovery_authorities(
 	Ok(keys)
 }
 
-/// Poll `AuthorityDiscovery.Keys` until it differs from `initial` or `timeout` fires.
-pub async fn wait_for_authority_discovery_keys_change(
+/// Poll `AuthorityDiscovery.Keys` until it equals `expected` or `timeout` fires.
+///
+/// Finalizing `set_keys` only schedules the change; session rotation activates it later.
+pub async fn wait_for_authority_discovery_keys(
 	para_client: &OnlineClient<PolkadotConfig>,
-	initial: &HashSet<[u8; 32]>,
+	expected: &HashSet<[u8; 32]>,
 	timeout: Duration,
 	poll_interval: Duration,
-) -> anyhow::Result<HashSet<[u8; 32]>> {
+) -> anyhow::Result<()> {
 	let deadline = Instant::now() + timeout;
 	loop {
+		let current = read_authority_discovery_authorities(para_client).await?;
+		if current == *expected {
+			log::info!("All {} expected authority-discovery keys are active", expected.len());
+			return Ok(());
+		}
+		let missing = expected.difference(&current).count();
+		let unexpected = current.difference(expected).count();
 		if Instant::now() >= deadline {
 			return Err(anyhow!(
-				"AuthorityDiscovery authorities did not change within {timeout:?}",
+				"AuthorityDiscovery keys did not match the expected set within {timeout:?}: \
+				 {missing} missing, {unexpected} unexpected",
 			));
 		}
-		let current = read_authority_discovery_authorities(para_client).await?;
-		if current.symmetric_difference(initial).next().is_some() {
-			let added = current.difference(initial).count();
-			let removed = initial.difference(&current).count();
-			log::info!(
-				"AuthorityDiscovery authorities changed: +{added} -{removed} \
-				 (initial size {}, current {})",
-				initial.len(),
-				current.len(),
-			);
-			return Ok(current);
-		}
+		log::info!("Waiting for AD key activation: {missing} missing, {unexpected} unexpected");
 		sleep(poll_interval).await;
 	}
 }
