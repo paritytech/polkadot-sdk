@@ -57,7 +57,9 @@
 //! ## Forcing
 //!
 //! [`Pallet::force_register`] is the same request from [`Config::ForceOrigin`], for an id that need
-//! not have been reserved first. The manager still pays, unless the origin passes `skip_deposit`.
+//! not have been reserved first. The manager still pays, unless the id is a system one or the
+//! origin passes `skip_deposit`. A system id whose registration falls through is dropped, not kept
+//! reserved.
 //!
 //! ## Locking
 //!
@@ -437,6 +439,11 @@ pub mod pallet {
 				T::MaxCodeSize::get(),
 			);
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call]
@@ -539,9 +546,7 @@ pub mod pallet {
 			code_hash: H256,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			// A forced system id the relay chain turned down is left reserved to its manager, who
-			// must not get to pick its code.
-			ensure!(para_id >= T::FirstPublicParaId::get(), Error::<T>::SystemParaId);
+			ensure!(!Self::is_system(para_id), Error::<T>::SystemParaId);
 
 			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
@@ -562,7 +567,8 @@ pub mod pallet {
 		/// the way here, must not have its deposit refunded, and only the relay chain knows
 		/// which of the two happened.
 		///
-		/// The para id itself stays reserved either way, so the manager can simply try again.
+		/// The para id itself stays reserved either way, so the manager can simply try again. A
+		/// system id is dropped instead, as only [`Pallet::force_register`] may register one.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::cancel_registration())]
 		pub fn cancel_registration(origin: OriginFor<T>, para_id: ParaId) -> DispatchResult {
@@ -738,8 +744,8 @@ pub mod pallet {
 		/// same deposits, except that the id need not have been reserved first, so the origin can
 		/// onboard an id nobody holds, the system range included.
 		///
-		/// `skip_deposit` takes no deposit, as Polkadot did for its system parachains. A
-		/// reservation the manager already holds stays held.
+		/// System ids never take a deposit, as on Polkadot, and `skip_deposit` waives it for a
+		/// public id too. A reservation the manager already holds stays held.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::force_register(genesis_head.len() as u32))]
 		pub fn force_register(
@@ -752,6 +758,7 @@ pub mod pallet {
 			skip_deposit: bool,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
+			let skip_deposit = skip_deposit || Self::is_system(para_id);
 
 			let info = match Paras::<T>::get(para_id) {
 				Some(info) => {
@@ -797,6 +804,35 @@ impl<T: Config> Pallet<T> {
 	/// The footprint a registration is charged for: the head data plus the *declared* code length.
 	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
 		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
+	}
+
+	/// Whether `para_id` is in the system range, below [`Config::FirstPublicParaId`].
+	fn is_system(para_id: ParaId) -> bool {
+		para_id < T::FirstPublicParaId::get()
+	}
+
+	/// Check the pallet's storage invariants.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for (para_id, info) in Paras::<T>::iter() {
+			let (reserved, ticket) = match &info.state {
+				RegistrationState::Reserved => (true, None),
+				RegistrationState::Pending { ticket, .. } |
+				RegistrationState::Registered { ticket } |
+				RegistrationState::Deregistering { ticket, .. } => (false, ticket.as_ref()),
+			};
+			if Self::is_system(para_id) {
+				ensure!(!reserved, "a system para id is left reserved");
+				ensure!(
+					info.reservation.is_none() && ticket.is_none(),
+					"a system para holds a deposit"
+				);
+			} else if info.reservation.is_none() || (!reserved && ticket.is_none()) {
+				// `skip_deposit` and migrated paras may lack one, so only warn.
+				log::warn!(target: "runtime::registrar-para", "para {para_id} is missing a deposit");
+			}
+		}
+		Ok(())
 	}
 
 	/// Take the registration deposit from `info.manager` and ask the relay chain to register.
@@ -878,6 +914,17 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Store `info`, back to [`RegistrationState::Reserved`] after its registration fell through.
+	/// A system id is dropped instead, as only [`Pallet::force_register`] may register one.
+	fn store_reserved(para_id: ParaId, info: ParaInfoOf<T>) {
+		if Self::is_system(para_id) {
+			Self::release_or_report(info.reservation, &info.manager, para_id);
+			Paras::<T>::remove(para_id);
+		} else {
+			Paras::<T>::insert(para_id, info);
+		}
+	}
+
 	/// Report a failed defensive check: loud in the logs, and visible on chain.
 	fn report_unexpected(kind: UnexpectedKind) {
 		log::error!(target: "runtime::registrar-para", "unexpected: {kind:?}");
@@ -944,7 +991,7 @@ impl<T: Config> Pallet<T> {
 			Err(reason) => {
 				Self::release_or_report(ticket, &manager, para_id);
 				info.state = RegistrationState::Reserved;
-				Paras::<T>::insert(para_id, info);
+				Self::store_reserved(para_id, info);
 				Self::deposit_event(Event::RegistrationFailed {
 					para_id,
 					message_id,
@@ -1018,7 +1065,7 @@ impl<T: Config> Pallet<T> {
 			Ok(()) => {
 				Self::release_or_report(ticket, &manager, para_id);
 				info.state = RegistrationState::Reserved;
-				Paras::<T>::insert(para_id, info);
+				Self::store_reserved(para_id, info);
 				Self::deposit_event(Event::RegistrationCancelled { para_id, message_id, manager });
 			},
 			Err(FailureReason::AlreadyRegistered) => {

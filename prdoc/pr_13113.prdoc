@@ -7,12 +7,15 @@ doc:
       `paras_registrar::force_register`, gated by the new `ForceOrigin` config type.
 
       Any id works, the system range included, and it need not be reserved first. The manager
-      pays the usual deposits, as with `reserve` + `register`, unless `skip_deposit` is set. That
-      replaces the old `deposit` override, which Polkadot set to 0 for system chains. Deposit
-      tickets in `ParaInfo` and `RegistrationState` are now `Option`s.
+      pays the usual deposits, as with `reserve` + `register`, unless the id is a system one or
+      `skip_deposit` is set. That replaces the old `deposit` override, which Polkadot set to 0 for
+      system chains. Deposit tickets in `ParaInfo` and `RegistrationState` are now `Option`s.
       `NextFreeParaId` moves past a forced public id so `reserve` doesn't collide with it.
-      `register` now refuses system ids with the new `SystemParaId` error, so a manager can't
-      re-register a forced system id the relay chain turned down with code of their own.
+      A forced system id the relay chain turns down, or whose registration is cancelled, is
+      dropped rather than left reserved, and `register` refuses system ids with the new
+      `SystemParaId` error, so only `force_register` picks a system para's code.
+      New try-state checks fail on a reserved system id or a system para holding a deposit, and
+      warn on a public para missing one.
       The call sends the existing `Register` message, so the relay chain side is unchanged. It
       comes with a new `force_register` weight.
 

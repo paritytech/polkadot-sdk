@@ -655,11 +655,9 @@ fn a_forced_registration_onboards_a_system_para() {
 		));
 	});
 
-	// The manager governance named pays the same as it would have through reserve + register.
-	let expected_deposit =
-		para::PARA_DEPOSIT + para::PER_BYTE * (head_len as u128 + code_len as u128);
+	// System paras never pay.
 	RegistrarPara::execute_with(|| {
-		assert_eq!(para_held(&BOB), expected_deposit);
+		assert_eq!(para_held(&BOB), 0);
 		assert!(matches!(para_state(SYSTEM_PARA_ID), Some(RegistrationState::Pending { .. })));
 	});
 
@@ -694,7 +692,7 @@ fn a_forced_registration_onboards_a_system_para() {
 
 	RegistrarPara::execute_with(|| {
 		assert!(matches!(para_state(SYSTEM_PARA_ID), Some(RegistrationState::Registered { .. })));
-		assert_eq!(para_held(&BOB), expected_deposit);
+		assert_eq!(para_held(&BOB), 0);
 	});
 }
 
@@ -728,11 +726,9 @@ fn a_forced_registration_the_relay_chain_already_knows_is_refused() {
 		));
 	});
 
-	// The rejection made it back, the registration deposit came back with it, and the id is left
-	// reserved to BOB to retry with.
+	// The rejection made it back and the system id is dropped.
 	RegistrarPara::execute_with(|| {
-		assert_eq!(para_state(SYSTEM_PARA_ID), Some(RegistrationState::Reserved));
-		assert_eq!(para_held(&BOB), para::PARA_DEPOSIT);
+		assert_eq!(para_state(SYSTEM_PARA_ID), None);
 
 		let events = para::System::events();
 		assert!(events.iter().any(|e| matches!(

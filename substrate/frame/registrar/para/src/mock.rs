@@ -213,6 +213,14 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
+/// Run `test` in [`new_test_ext`], then check the pallet's invariants.
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		Registrar::do_try_state().expect("invariants must hold after a test");
+	});
+}
+
 /// Advance to block `n`, so block-number-dependent logic can be exercised.
 pub fn run_to_block(n: BlockNumber) {
 	while System::block_number() < n {
