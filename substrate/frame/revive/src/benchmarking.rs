@@ -2920,8 +2920,30 @@ mod benchmarks {
 			value: 1_000_000u32,
 			dust: 100u32 * d,
 			input_len: 0u32,
-			// Worst case: the transfer also has to create the callee's account.
 			callee_exists: false
+		);
+
+		let result;
+		#[block]
+		{
+			result = do_call();
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer_to_existing(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: true
 		);
 
 		let result;
