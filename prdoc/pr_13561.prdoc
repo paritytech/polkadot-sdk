@@ -7,12 +7,20 @@ doc:
   - audience: Node Dev
     description: |
       Adds `sc-dkg`, a prototype gadget for an aggregatable distributed key generation
-      (a-DKG, `adkg-vrf`) among validators that reuses their paired ECDSA,BLS12-381 BEEFY
-      keys. At each session change the node deals, gossips signed dealings with
-      session-scoped validation, and hands its own dealing to a pluggable submitter, which
-      sends it to a pallet that aggregates the dealings into a per-session threshold key.
-      Experimental: test-network only, not wired into the polkadot node yet.
+      (a-DKG, `adkg-vrf`) among relay-chain validators that reuses their paired
+      ECDSA,BLS12-381 BEEFY keys (read from `Beefy::NextAuthorities`). In every session
+      the validator deals, gossips signed dealings with session-scoped validation, and
+      submits its own dealing over JSON-RPC to a parachain that aggregates the dealings
+      into a per-session threshold key (`sc_dkg::submit::rpc_dealing_submitter`, which
+      validates before submitting so an early dealing is not banned by the pool).
+      Experimental: test-network only, not wired into the polkadot binary.
+
+      `PolkadotServiceBuilder` gains `notification_metrics`, `peer_store_handle`,
+      `keystore` and `add_extra_notification_protocol`, so an embedder can run an
+      additional gossip gadget on the relay-chain node.
 
 crates:
   - name: sc-dkg
     bump: major
+  - name: polkadot-service
+    bump: minor
