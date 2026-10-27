@@ -2788,8 +2788,7 @@ fn swap_credit_returns_change_when_swap_fails() {
 		// minimum balance of `token_2`, so the swap fails after `credit_in` was split.
 		let amount_out = liquidity2 - token_2_ed + 1;
 		let amount_in =
-			AssetConversion::get_amount_in(LpFee::get(), &amount_out, &liquidity1, &liquidity2)
-				.unwrap();
+			AssetConversion::get_amount_in(&amount_out, &liquidity1, &liquidity2).unwrap();
 		let change = 100;
 
 		let total_issuance = Balances::total_issuance();
