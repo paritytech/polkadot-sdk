@@ -16,9 +16,17 @@ doc:
       `SystemParaId` error, so only `force_register` picks a system para's code.
       New try-state checks fail on a reserved system id or a system para holding a deposit, and
       warn on a public para missing one.
-      The call sends the existing `Register` message, so the relay chain side is unchanged. It
+      The call sends the existing `Register` message, so the relay chain logic is unchanged. It
       comes with a new `force_register` weight.
+
+      Once the Coretime chain runs `pallet-registrar-para` (Assethub on Kusama), use its `force_register` rather than
+      the relay chain's: the manager, deposits and lock live on the Coretime chain, and a para
+      registered straight on the relay chain is unknown there, so it can't be managed from it.
+      Root skips the call filter, so the relay chain call can't be filtered out, and its doc now
+      carries a deprecation note instead.
 
 crates:
   - name: pallet-registrar-para
     bump: major
+  - name: polkadot-runtime-common
+    bump: none
