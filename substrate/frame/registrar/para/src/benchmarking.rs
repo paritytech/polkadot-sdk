@@ -126,12 +126,14 @@ mod benchmarks {
 	/// taken rather than just the registration's.
 	#[benchmark]
 	fn force_register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		let who = funded_manager::<T>();
 		let para_id = T::FirstPublicParaId::get();
 
 		#[extrinsic_call]
 		_(
-			RawOrigin::Root,
+			origin as T::RuntimeOrigin,
 			para_id,
 			who,
 			alloc::vec![2u8; h as usize],

@@ -3,8 +3,8 @@ title: 'Registrar: Force Register'
 doc:
   - audience: Runtime Dev
     description: |-
-      Implements `pallet-registrar-para::force_register`, the root-only port of the relay chain's
-      `paras_registrar::force_register`.
+      Implements `pallet-registrar-para::force_register`, the port of the relay chain's
+      `paras_registrar::force_register`, gated by the new `ForceOrigin` config type.
 
       Any id works, the system range included, and it need not be reserved first. The manager
       pays the usual deposits, as with `reserve` + `register`, and the old `deposit` override is

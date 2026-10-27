@@ -56,8 +56,8 @@
 //!
 //! ## Forcing
 //!
-//! [`Pallet::force_register`] is the same request from root, for an id that need not have been
-//! reserved first. The manager still pays.
+//! [`Pallet::force_register`] is the same request from [`Config::ForceOrigin`], for an id that need
+//! not have been reserved first. The manager still pays.
 //!
 //! ## Locking
 //!
@@ -235,6 +235,9 @@ pub mod pallet {
 
 		/// An origin a parachain uses to act as itself, resolved to its para id.
 		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = ParaId>;
+
+		/// The origin allowed to call [`Pallet::force_register`].
+		type ForceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
 		/// The lowest para id this pallet will hand out.
 		///
@@ -748,11 +751,12 @@ pub mod pallet {
 			Err(Error::<T>::Unimplemented.into())
 		}
 
-		/// Ask the relay chain to register a para id under `manager`, on root's say-so.
+		/// Ask the relay chain to register a para id under `manager`, on [`Config::ForceOrigin`]'s
+		/// say-so.
 		///
 		/// The relay chain's `paras_registrar::force_register`, moved here: the same checks and the
-		/// same deposits, except that the id need not have been reserved first, so root can onboard
-		/// an id nobody holds, the system range included.
+		/// same deposits, except that the id need not have been reserved first, so the origin can
+		/// onboard an id nobody holds, the system range included.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::force_register(genesis_head.len() as u32))]
 		pub fn force_register(
@@ -763,7 +767,7 @@ pub mod pallet {
 			code_len: u32,
 			code_hash: H256,
 		) -> DispatchResult {
-			ensure_root(origin)?;
+			T::ForceOrigin::ensure_origin(origin)?;
 
 			let reservation = match Paras::<T>::get(para_id) {
 				Some(info) => {

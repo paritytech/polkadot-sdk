@@ -197,6 +197,7 @@ impl pallet_registrar_para::Config for Runtime {
 	// `Root`. Nothing else on this chain can produce a `Root` origin in these tests.
 	type RelayOrigin = EnsureRoot<AccountId>;
 	type ParachainOrigin = frame_system::EnsureNever<u32>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;

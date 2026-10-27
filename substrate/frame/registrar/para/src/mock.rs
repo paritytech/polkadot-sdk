@@ -184,6 +184,7 @@ impl pallet_registrar_para::Config for Test {
 	type SendToRelay = RecordingSender;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
 	type ParachainOrigin = ParaAccounts;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
