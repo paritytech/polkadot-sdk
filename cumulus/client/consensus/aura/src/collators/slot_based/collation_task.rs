@@ -707,7 +707,7 @@ mod tests {
 	#[test]
 	fn next_segment_supersedes_sibling_work() {
 		let params = SiblingParams {
-			production_slot: Default::default(),
+			relay_production_slot: Default::default(),
 			core_indices: vec![],
 			claim_queue_offset: 0,
 			max_relay_parent_session_age: 0,

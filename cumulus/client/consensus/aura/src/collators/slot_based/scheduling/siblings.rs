@@ -65,18 +65,18 @@ const SIBLING_SUBMISSION_MARGIN: Duration = Duration::from_secs(1);
 
 /// A relay header's BABE claim.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Claim {
-	pub slot: Slot,
+struct Claim {
+	relay_slot: Slot,
 	/// A primary claim outweighs a secondary one in BABE fork choice.
-	pub is_primary: bool,
+	is_primary: bool,
 }
 
 impl Claim {
 	/// `None` if the header carries no decodable BABE pre-digest.
-	pub(crate) fn of(header: &RelayHeader) -> Option<Self> {
+	fn of(header: &RelayHeader) -> Option<Self> {
 		let pre_digest = sc_consensus_babe::find_pre_digest::<RelayBlock>(header).ok()?;
 		Some(Self {
-			slot: pre_digest.slot(),
+			relay_slot: pre_digest.slot(),
 			is_primary: matches!(pre_digest, sc_consensus_babe::PreDigest::Primary(_)),
 		})
 	}
@@ -100,12 +100,16 @@ impl RecentImports {
 	fn insert(&mut self, header: RelayHeader) {
 		let Some(claim) = Claim::of(&header) else { return };
 		let full = self.by_slot.len() >= RECENT_SLOTS;
-		if full && self.by_slot.first_key_value().is_some_and(|(oldest, _)| claim.slot < *oldest) {
+		if full &&
+			self.by_slot
+				.first_key_value()
+				.is_some_and(|(oldest, _)| claim.relay_slot < *oldest)
+		{
 			return;
 		}
 
 		let hash = header.hash();
-		let at_slot = self.by_slot.entry(claim.slot).or_default();
+		let at_slot = self.by_slot.entry(claim.relay_slot).or_default();
 		if at_slot.iter().any(|known| known.hash == hash) {
 			return;
 		}
@@ -160,7 +164,7 @@ impl RecentImports {
 			.filter(|entry| entry.hash != chosen_hash)
 			// Only a head at the chosen height reaches the internal scheduling parent.
 			.filter(|entry| entry.header.number == chosen.number)
-			.filter(|entry| Some(entry.claim.slot) == leaf_slot || is_extended(entry))
+			.filter(|entry| Some(entry.claim.relay_slot) == leaf_slot || is_extended(entry))
 			.filter(|entry| !outweighed(entry))
 			.collect();
 		siblings.sort_by_key(|entry| (!is_extended(entry), !entry.claim.is_primary, entry.hash));
@@ -184,7 +188,7 @@ fn sibling_deadline_at(slot: Slot, slot_duration: Duration, now: Duration, at: I
 /// The slot inputs for finding a segment's sibling SPs.
 #[derive(Clone)]
 pub(crate) struct SiblingParams {
-	pub production_slot: Slot,
+	pub relay_production_slot: Slot,
 	/// Cores the slot was planned on; a sibling assigning others cannot carry the segment.
 	pub core_indices: Vec<CoreIndex>,
 	pub claim_queue_offset: u32,
@@ -201,16 +205,12 @@ pub(crate) struct SiblingResolver<RelayClient> {
 	imports: Fuse<Pin<Box<dyn Stream<Item = RelayHeader> + Send>>>,
 	recent: RecentImports,
 	memo: SlotMemo,
-	/// Set when a relay lookup fails during a resolve, which is then not cached.
-	lookup_failed: bool,
 }
 
 /// Lookups for one production slot.
 #[derive(Default)]
 struct SlotMemo {
-	slot: Slot,
-	/// Claim queues per sibling.
-	claim_queues: HashMap<RelayHash, ClaimQueueSnapshot>,
+	relay_slot: Slot,
 	/// Accepted chains per chosen SP and internal scheduling parent, shared by every core.
 	chains: HashMap<(RelayHash, RelayHash), Vec<Vec<RelayHeader>>>,
 }
@@ -228,7 +228,6 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			imports,
 			recent: Default::default(),
 			memo: Default::default(),
-			lookup_failed: false,
 		}
 	}
 
@@ -305,25 +304,28 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			return Vec::new();
 		};
 
-		if self.memo.slot != params.production_slot {
-			self.memo = SlotMemo { slot: params.production_slot, ..Default::default() };
+		if self.memo.relay_slot != params.relay_production_slot {
+			self.memo = SlotMemo { relay_slot: params.relay_production_slot, ..Default::default() };
 		}
 		let key = (chosen.hash(), proof.internal_scheduling_parent_header.hash());
 		if let Some(chains) = self.memo.chains.get(&key) {
 			return chains.clone();
 		}
 
-		self.lookup_failed = false;
 		self.ensure_subscribed().await;
 		self.drain();
-		let candidates = self.recent.siblings_of(chosen, params.production_slot);
+		let candidates = self.recent.siblings_of(chosen, params.relay_production_slot);
 		let max = MAX_SIBLING_SCHEDULING_PARENTS;
 		let mut chains = Vec::new();
+		let mut complete = true;
 		for sibling in candidates.iter().take(max + MAX_REJECTED_SIBLINGS) {
 			if chains.len() >= max {
 				break;
 			}
-			chains.extend(self.resolve_sibling(proof, params, sibling.clone()).await);
+			match self.resolve_sibling(proof, params, sibling.clone()).await {
+				Ok(chain) => chains.extend(chain),
+				Err(()) => complete = false,
+			}
 		}
 
 		let accepted: Vec<_> = chains.iter().filter_map(|c| c.first()).map(|h| h.hash()).collect();
@@ -334,24 +336,24 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			?accepted,
 			"Sibling scheduling parents resolved.",
 		);
-		if !self.lookup_failed {
+		if complete {
 			self.memo.chains.insert(key, chains.clone());
 		}
 		chains
 	}
 
 	/// `Some(header_chain)` if `sibling` walks back to `proof`'s internal scheduling parent within
-	/// the session age limit and assigns the planned cores.
+	/// the session age limit and assigns the planned cores; `Err` if a relay lookup failed.
 	async fn resolve_sibling(
 		&mut self,
 		proof: &SchedulingProof,
 		params: &SiblingParams,
 		sibling: RelayHeader,
-	) -> Option<Vec<RelayHeader>> {
+	) -> Result<Option<Vec<RelayHeader>>, ()> {
 		let sibling_hash = sibling.hash();
 		let reject = |reason: &str| {
 			tracing::debug!(target: LOG_TARGET, ?sibling_hash, reason, "Sibling SP rejected.");
-			None
+			Ok(None)
 		};
 
 		let internal_scheduling_parent = proof.internal_scheduling_parent_header.hash();
@@ -375,7 +377,10 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 			}
 			current = match self.header(parent).await {
 				Some(header) => header,
-				None => return reject("missing header"),
+				None => {
+					tracing::debug!(target: LOG_TARGET, ?sibling_hash, "Sibling header missing.");
+					return Err(());
+				},
 			};
 		}
 
@@ -387,40 +392,36 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 
 		// Unlike the builder, an epoch change on the extending child is accepted, as validators do.
 		// A sibling assigning other cores would map the core selector elsewhere.
-		if !self.assigns_cores(sibling_hash, params).await {
+		if !self.assigns_cores(sibling_hash, params).await? {
 			return reject("cores");
 		}
-		Some(header_chain)
+		Ok(Some(header_chain))
 	}
 
 	/// Whether the planned cores lead the para's claims at `sibling`.
-	async fn assigns_cores(&mut self, sibling: RelayHash, params: &SiblingParams) -> bool {
-		if !self.memo.claim_queues.contains_key(&sibling) {
-			match self.relay_client.claim_queue(sibling).await {
-				Ok(claim_queue) => {
-					self.memo.claim_queues.insert(sibling, claim_queue.into());
-				},
-				Err(err) => {
-					tracing::debug!(target: LOG_TARGET, ?sibling, ?err, "No claim queue.");
-					self.lookup_failed = true;
-					return false;
-				},
-			}
-		}
-		let Some(claim_queue) = self.memo.claim_queues.get(&sibling) else { return false };
+	async fn assigns_cores(
+		&mut self,
+		sibling: RelayHash,
+		params: &SiblingParams,
+	) -> Result<bool, ()> {
+		let claim_queue: ClaimQueueSnapshot = match self.relay_client.claim_queue(sibling).await {
+			Ok(claim_queue) => claim_queue.into(),
+			Err(err) => {
+				tracing::debug!(target: LOG_TARGET, ?sibling, ?err, "No claim queue.");
+				return Err(());
+			},
+		};
 		let cores: Vec<_> = claim_queue
 			.iter_claims_at_depth_for_para(params.claim_queue_offset as usize, self.para_id)
 			.collect();
-		cores.starts_with(&params.core_indices)
+		Ok(cores.starts_with(&params.core_indices))
 	}
 
 	async fn header(&mut self, hash: RelayHash) -> Option<RelayHeader> {
 		if let Some(header) = self.recent.header(&hash) {
 			return Some(header.clone());
 		}
-		let header = self.relay_client.header(BlockId::Hash(hash)).await.ok().flatten();
-		self.lookup_failed |= header.is_none();
-		header
+		self.relay_client.header(BlockId::Hash(hash)).await.ok().flatten()
 	}
 }
 
@@ -583,7 +584,7 @@ mod tests {
 				tx.unbounded_send((*header).clone()).expect("receiver is alive; qed");
 			}
 			let params = SiblingParams {
-				production_slot: Slot::from(102),
+				relay_production_slot: Slot::from(102),
 				core_indices: vec![CoreIndex(0)],
 				claim_queue_offset: CLAIM_DEPTH as u32,
 				max_relay_parent_session_age: self.max_session_age,

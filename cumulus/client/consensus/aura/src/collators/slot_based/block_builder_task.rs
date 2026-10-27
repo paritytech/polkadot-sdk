@@ -911,7 +911,7 @@ where
 
 			// The collation task looks up and checks sibling scheduling parents per segment.
 			let siblings = (cx.v3_enabled && cx.relay_parent_offset > 0).then(|| SiblingParams {
-				production_slot: slot_time.relay_slot(),
+				relay_production_slot: slot_time.relay_slot(),
 				core_indices: cores.core_indices().to_vec(),
 				claim_queue_offset: cores.claim_queue_offset.0 as u32,
 				max_relay_parent_session_age: cx.max_relay_parent_session_age,
