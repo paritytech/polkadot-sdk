@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793096569949,
+  "lastUpdate": 1793102218979,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "122cb84b6467dbb95640d50ae3d937627603728f",
-          "message": "MMR: check `verify_ancestor()` output (#11738)\n\nMMR: check `verify_ancestor()` output\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-13T15:29:53Z",
-          "tree_id": "cba321ddab3afc46ee7b9a60973075b8ba547423",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/122cb84b6467dbb95640d50ae3d937627603728f"
-        },
-        "date": 1776099783998,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.720178948299997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13091249373333338,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12582340090000002,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "andrei.arlou@gmail.com",
+            "name": "Andrei Arlou",
+            "username": "Captain1653"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b",
+          "message": "staking-async: remove obsolete TODO comment about StakingLedger (#13271)\n\n# Description\nFixes #402 \n\nThe issue referenced in the legacy TODO was for the `pallet-staking`.\nThat pallet is already deprecated via #11940, so no changes are needed\nthere.\n\nFor `pallet-staking-async`, the moving `StakingLedger` has already been\ncompleted via #8127, but the old `TODO` comment was left behind during\nthe copy-paste process.\n\n\n## Review Notes\n\nI'm just removing those lines of the `TODO` comment and that's it.\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T10:25:53Z",
+          "tree_id": "07c6342c1089e0bbb747ecc739235cda9c8886be",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b"
+        },
+        "date": 1793102186853,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.443919896766667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12006110436666664,
             "unit": "seconds"
           }
         ]
