@@ -170,3 +170,7 @@
 - job-name: "zombienet-cumulus-0037-storage_chain_tip_sync_with_renewals"
   test-filter: "zombie_ci::storage_chain::parachain_tip_sync_with_renewals::parachain_tip_sync_with_renewals_test"
   cumulus-image: "polkadot-parachain-debug"
+
+- job-name: "zombienet-cumulus-0041-rpc_collator_switches_back_to_preferred_rpc_node"
+  test-filter: "zombie_ci::rpc_collator_build_blocks::rpc_collator_switches_back_to_preferred_rpc_node"
+  cumulus-image: "test-parachain"
