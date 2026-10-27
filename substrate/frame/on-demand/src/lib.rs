@@ -354,6 +354,8 @@ pub mod pallet {
 		/// Until they are enabled, no orders are accepted. Once they are, they cannot be disabled
 		/// again, and calling this does nothing.
 		///
+		/// This should be called after the AHM v2 migration is completed.
+		///
 		/// - `origin`: Must be Root or pass `AdminOrigin`.
 		#[pallet::call_index(2)]
 		pub fn enable(origin: OriginFor<T>) -> DispatchResultWithPostInfo {

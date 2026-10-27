@@ -37,7 +37,8 @@ doc:
     with the new `enable` call, which requires Root or `AdminOrigin`, is free, and emits an
     `Enabled` event. Once enabled, they cannot be disabled again, and calling `enable` again
     does nothing. Until they are enabled, `place_order` fails with the new `Disabled` error,
-    so no revenue is booked which would never be distributed.
+    so no revenue is booked which would never be distributed. This should remain disabled until
+    the AHMv2 migration is completed, and only enabled afterwards.
 
     `pallet-broker` follows that switch through the new `OnDemandRevenue::is_enabled`. Until
     the on-demand market is enabled, `pallet-broker` behaves as before: it requests the
