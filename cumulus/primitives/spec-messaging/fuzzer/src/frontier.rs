@@ -16,7 +16,7 @@
 
 //! `mmr_frontier` and `mmr_decode`: `MmrFrontier`, `bag_peaks` and `MmrRoot` from `mmr`.
 //!
-//! [`Model`] is an independent peaks-with-heights MMR. It hashes with plain blake2-256 and the
+//! `Model` is an independent peaks-with-heights MMR. It hashes with plain blake2-256 and the
 //! domain tags directly and bags by the documented right fold, so it shares no code with the crate.
 //! Every frontier is checked against it after every step, at any leaf count up to the ceiling. When
 //! the leaves are known (grown from empty or an oracle prefix), `mmr_lib` is a second reference.
