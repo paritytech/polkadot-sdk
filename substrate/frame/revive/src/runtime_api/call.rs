@@ -72,7 +72,7 @@ impl<Balance> From<CallOutputPayload<Balance>> for CallOutputPayloadV1<Balance> 
 
 /// Dry runs a call of the `call` dispatchable.
 ///
-/// A missing limit means the block's maximum weight, or no deposit limit.
+/// Uses the block's maximum weight and no deposit limit when the input payload leaves them unset.
 pub fn dry_run_call<T: Config>(
 	input: CallInputPayload<T::AccountId, BalanceOf<T>>,
 ) -> CallOutputPayload<BalanceOf<T>> {

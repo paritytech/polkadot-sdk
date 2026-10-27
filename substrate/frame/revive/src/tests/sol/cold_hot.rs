@@ -678,7 +678,7 @@ fn access_list_metrics_of_call(contract: H160, data: Vec<u8>) -> AccessListMetri
 	access_list_metrics_of(|| {
 		builder::bare_call(contract)
 			.data(data)
-			.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+			.exec_config(crate::Pallet::<Test>::substrate_call_exec_config())
 			.build_and_unwrap_result();
 	})
 }

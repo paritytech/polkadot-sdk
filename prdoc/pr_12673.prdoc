@@ -54,8 +54,9 @@ doc:
       `env.charge(T::WeightInfo::seal_call(transfer, dust, 0))`, or `seal_delegate_call()` for a
       delegate call.
 
-    `ContractBlob::store_code` now returns `Option<BalanceOf<T>>`: the deposit collected for newly
-    stored code, or `None` when the code was already stored.
+    `ContractBlob::store_code` now returns `Result<Option<BalanceOf<T>>, DispatchError>`. On
+    success it holds the deposit collected for newly stored code, or `None` when the code was
+    already stored.
 
     `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
     sets. It adds the called contract's entries to the access list, so a call back into the
@@ -66,6 +67,9 @@ doc:
     unless its weight already covers these reads too. Code that builds an `ExecConfig` by listing
     all its fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`,
     must add `first_frame_reads_paid`.
+
+    `pallet_revive::runtime_api` has a new public function, `dry_run_call`. It dry runs the `call`
+    dispatchable the same way the `call` runtime API does.
 
     The access list holds up to 4,096 entries per transaction (was 2,048). The memory budgeted
     for its worst case, which `integrity_test` counts against `RuntimeMemory`, grows from 1.5 MiB

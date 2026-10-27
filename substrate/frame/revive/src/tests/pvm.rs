@@ -3328,7 +3328,7 @@ fn weight_consumed_is_linear_for_nested_calls() {
 				.map(|i| {
 					let result = builder::bare_call(addr)
 						.data(i.encode())
-						.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+						.exec_config(crate::Pallet::<Test>::substrate_call_exec_config())
 						.build();
 					assert_eq!(
 						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
