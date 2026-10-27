@@ -1295,7 +1295,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 11
 			.saturating_add(Weight::from_parts(807, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1305,7 +1305,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 1_054
 			.saturating_add(Weight::from_parts(1_354_871, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1315,7 +1315,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 226
 			.saturating_add(Weight::from_parts(377_987, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -1325,7 +1325,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			// Standard Error: 789
 			.saturating_add(Weight::from_parts(903_127, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3332,7 +3332,7 @@ impl WeightInfo for () {
 			// Standard Error: 11
 			.saturating_add(Weight::from_parts(807, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3342,7 +3342,7 @@ impl WeightInfo for () {
 			// Standard Error: 1_054
 			.saturating_add(Weight::from_parts(1_354_871, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3352,7 +3352,7 @@ impl WeightInfo for () {
 			// Standard Error: 226
 			.saturating_add(Weight::from_parts(377_987, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
@@ -3362,7 +3362,7 @@ impl WeightInfo for () {
 			// Standard Error: 789
 			.saturating_add(Weight::from_parts(903_127, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
+	/// The range of component `n` is `[1, 11]`.
 	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`

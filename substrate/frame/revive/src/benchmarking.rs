@@ -87,12 +87,15 @@ use sp_runtime::{generic::DigestItem, traits::Zero};
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
-/// How many touches an access-list touch bench makes per run at most: longer runs price a touch
-/// cheaper, as the caches warm up, while shorter ones leave more of the timer's noise in the slope.
-/// One per step of the benchmark CLI's default 50 steps.
+/// The most touches a full-list bench makes in one run, one per default benchmark step.
 const ACCESS_LIST_MAX_TOUCHES_PER_RUN: u32 = 50;
 
 const _: () = assert!((ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize) < MAX_ACCESS_LIST_ENTRIES);
+
+/// The most entries an empty or nearly empty list bench holds, so its list fits in one tree node.
+/// A larger list would add node splits and deeper searches, which increase the base that every
+/// touch price subtracts, and would lower the access-list overhead every access pays.
+const ACCESS_LIST_BASE_ENTRIES: u32 = 11;
 
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
@@ -2617,7 +2620,7 @@ mod benchmarks {
 	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_empty(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
 	) -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
 		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
@@ -2635,7 +2638,7 @@ mod benchmarks {
 	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_cold_address_empty(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
 	) -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
 		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
@@ -2653,10 +2656,10 @@ mod benchmarks {
 	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_nearly_empty(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
 	) -> Result<(), BenchmarkError> {
 		let mut al = AccessList::with_entries(
-			ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize,
+			ACCESS_LIST_BASE_ENTRIES as usize,
 			KeyFamily::ContractStorageSlot,
 		);
 		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
@@ -2673,10 +2676,10 @@ mod benchmarks {
 	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
 	fn access_list_touch_hot_address_nearly_empty(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
 	) -> Result<(), BenchmarkError> {
 		let mut al = AccessList::with_entries(
-			ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize,
+			ACCESS_LIST_BASE_ENTRIES as usize,
 			KeyFamily::PalletStorageSlot,
 		);
 		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
