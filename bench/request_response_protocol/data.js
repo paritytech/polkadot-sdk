@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793095723741,
+  "lastUpdate": 1793101245997,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138131,6 +138131,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2833584862,
             "range": "± 18752521",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "andrei.arlou@gmail.com",
+            "name": "Andrei Arlou",
+            "username": "Captain1653"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b",
+          "message": "staking-async: remove obsolete TODO comment about StakingLedger (#13271)\n\n# Description\nFixes #402 \n\nThe issue referenced in the legacy TODO was for the `pallet-staking`.\nThat pallet is already deprecated via #11940, so no changes are needed\nthere.\n\nFor `pallet-staking-async`, the moving `StakingLedger` has already been\ncompleted via #8127, but the old `TODO` comment was left behind during\nthe copy-paste process.\n\n\n## Review Notes\n\nI'm just removing those lines of the `TODO` comment and that's it.\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T10:25:53Z",
+          "tree_id": "07c6342c1089e0bbb747ecc739235cda9c8886be",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b"
+        },
+        "date": 1793101217690,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19293851,
+            "range": "± 126299",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19654914,
+            "range": "± 129877",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21136858,
+            "range": "± 93432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 24912969,
+            "range": "± 90831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56156564,
+            "range": "± 532800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 333746775,
+            "range": "± 2462611",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2732245404,
+            "range": "± 139571647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16650281,
+            "range": "± 117523",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16801009,
+            "range": "± 132507",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17334552,
+            "range": "± 49360",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21931612,
+            "range": "± 78533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58729519,
+            "range": "± 550047",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 342438459,
+            "range": "± 2154966",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2657248260,
+            "range": "± 17380487",
             "unit": "ns/iter"
           }
         ]
