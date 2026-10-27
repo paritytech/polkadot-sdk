@@ -823,7 +823,7 @@ mod dry_run {
 					)
 				});
 				let dry_run = dry_run.expect("the dry run succeeds");
-				// `ALICE_ADDR` cannot sign, so the call uses the dry run's transaction length.
+				// `ALICE_ADDR` cannot sign, so the call is built without a signature.
 				let call_info = GenericTransaction {
 					gas: Some(dry_run.eth_gas),
 					gas_price: Some(crate::Pallet::<Test>::evm_base_fee()),
@@ -852,7 +852,7 @@ mod dry_run {
 	}
 
 	#[test]
-	fn a_call_fits_a_bare_call_dry_run_estimate() {
+	fn a_call_fits_a_dry_run_without_the_prewarm() {
 		let (code, _) = compile_module_with_type("SendBackOrForward", FixtureType::Solc).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);

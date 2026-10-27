@@ -949,14 +949,14 @@ mod tests {
 			("cold original account, write-paid info", cold, write_paid),
 			("read-paid original account, cold info", read_paid, cold),
 		] {
-			let call = Summarized::from_warmths(
+			let call_warmth = Summarized::from_warmths(
 				CallItems::new(H160::repeat_byte(2), false),
 				[original_account, account_info],
 			);
 			assert_eq!(
-				weight(&RuntimeCosts::CallBase(call)),
+				weight(&RuntimeCosts::CallBase(call_warmth)),
 				<Test as Config>::WeightInfo::seal_call(0, 0, 0)
-					.saturating_add(access_list_overhead::<Test>(call.summary())),
+					.saturating_add(access_list_overhead::<Test>(call_warmth.summary())),
 				"{case}",
 			);
 		}
