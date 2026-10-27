@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793038028022,
+  "lastUpdate": 1793096768802,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "pgherveou@gmail.com",
-            "name": "PG Herveou",
-            "username": "pgherveou"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de4709b0914c8290f0092c919d841b79249db836",
-          "message": "revive: Skip redundant eth_block_hash RPC call in block subscription (#11475)\n\nCo-authored-by: Marian Radu <marian@parity.io>",
-          "timestamp": "2026-04-10T14:54:26Z",
-          "tree_id": "d3087adcddf7732785d390a9c1c3935b215d66f1",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de4709b0914c8290f0092c919d841b79249db836"
-        },
-        "date": 1775837928409,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009446616479999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026515213799999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009219773179999982,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010957127020000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1",
+          "message": "bags-list: fix on_idle cursor skipping nodes on weight exhaustion (#13184)\n\n`Pallet::on_idle `chose the persistent rebag cursor from a count-based\nsplit computed before the per-item loop ran, so it always pointed to\n`accounts[rebag_budget]`. The loop itself can stop earlier than that for\ntwo separate reasons: the weight meter runs out, or the pallet becomes\nlocked mid-run. In both cases processed ends up smaller than\n`rebag_budget`, and the nodes between the point the loop actually\nstopped and `accounts[rebag_budget]` were never touched, yet the cursor\nstill jumped past them. Those nodes stayed misplaced until an unrelated\nend-of-list wrap-around eventually restarted the scan from the head.\n\nThis computes the resume point after the loop instead, as\n`accounts[processed..]`. Since processed is the true count of items the\nloop actually got through, this slice is correct for every way the loop\ncan end: the count budget being reached, the weight meter running out,\nor a lock, as well as the loop finishing the whole collected batch\nnaturally. That also makes the old pre-loop split redundant, so it's\nremoved rather than kept alongside the new logic.\n\nAdded a test with five misplaced nodes, a count budget of four, and a\nweight limit that only covers two rebags. It asserts the cursor resumes\nat the third node, the first one the weight limit actually forced it to\nskip, rather than jumping to the fifth as the old count-based logic\nwould.\n\nCloses #13138\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T08:53:19Z",
+          "tree_id": "178d668632bc41d6ca268ef4a231e8543d087764",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1"
+        },
+        "date": 1793096741405,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009740058690000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0028036869400000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00949467563999998,
             "unit": "seconds"
           }
         ]
