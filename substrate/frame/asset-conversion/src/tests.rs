@@ -1327,6 +1327,74 @@ fn quote_price_returns_none_when_pool_cannot_receive_input() {
 }
 
 #[test]
+fn pool_with_native_reserve_at_minimum_can_still_be_refilled() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(2);
+		let native_ed = <Test as pallet_balances::Config>::ExistentialDeposit::get();
+		let native_liquidity = 1_000_000;
+
+		// Create a native/token pool.
+		create_tokens_with_ed(user, vec![token.clone()], 1);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(native.clone()),
+			Box::new(token.clone())
+		));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1_000_000_000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+			native_liquidity,
+			2_000,
+			1,
+			1,
+			user,
+		));
+		let pool_id = (native.clone(), token.clone());
+		let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
+
+		// Send the pool account an unrelated non-sufficient asset. This is what makes its
+		// native ED unspendable, as on live chains.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 3, user, false, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 3, user, 1000));
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(user), 3, pool_account, 1));
+
+		// Buy out all native the pool can give, so it holds exactly the ED.
+		assert_ok!(AssetConversion::swap_tokens_for_exact_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token.clone(), native.clone()],
+			native_liquidity - native_ed,
+			u128::MAX,
+			user,
+			false,
+		));
+		assert_eq!(Balances::free_balance(pool_account), native_ed);
+
+		// The pool is at its minimum but not frozen, so selling native into it still works.
+		assert!(AssetConversion::quote_price_exact_tokens_for_tokens(
+			native.clone(),
+			token.clone(),
+			1_000,
+			true,
+		)
+		.is_some());
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![native.clone(), token.clone()],
+			1_000,
+			1,
+			user,
+			false,
+		));
+		assert_eq!(Balances::free_balance(pool_account), native_ed + 1_000);
+	});
+}
+
+#[test]
 fn quote_price_returns_none_swap_fails() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
