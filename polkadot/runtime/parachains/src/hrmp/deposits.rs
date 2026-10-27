@@ -184,6 +184,17 @@ impl<T: Config> OnDepositSet for Pallet<T> {
 		// The state may have changed since the request was made. A failed check leaves nothing
 		// behind, so only what was just taken needs giving back.
 		if let Err(error) = Self::resume(&request) {
+			// Giving back a deposit this pallet still records would leave the provider short of
+			// it. `resume` explains for each action why this holds.
+			let (sender, recipient) = Self::recorded_deposits(&channel_id);
+			frame_support::defensive_assert!(
+				request.sender.is_none() || sender == 0,
+				"a failed resume leaves no sender deposit recorded"
+			);
+			frame_support::defensive_assert!(
+				request.recipient.is_none() || recipient == 0,
+				"a failed resume leaves no recipient deposit recorded"
+			);
 			Self::release_deposits(
 				&channel_id,
 				request.sender.map(|c| c.target),
@@ -225,6 +236,23 @@ impl<T: Config> Pallet<T> {
 			return (0, 0);
 		}
 		(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
+	}
+
+	/// What this pallet records as deposited by the sender and the recipient of `channel_id`: the
+	/// deposits of its channel or of its open request, or none. A confirmed request's recipient
+	/// deposit is the price of the current session, the one it was confirmed in.
+	fn recorded_deposits(channel_id: &HrmpChannelId) -> (Balance, Balance) {
+		if let Some(channel) = HrmpChannels::<T>::get(channel_id) {
+			return (channel.sender_deposit, channel.recipient_deposit);
+		}
+		match HrmpOpenChannelRequests::<T>::get(channel_id) {
+			Some(req) if req.confirmed => {
+				let config = configuration::ActiveConfig::<T>::get();
+				(req.sender_deposit, Self::required_deposits(channel_id, &config).1)
+			},
+			Some(req) => (req.sender_deposit, 0),
+			None => (0, 0),
+		}
 	}
 
 	/// Sends `request` to [`Config::DepositProvider`] and resumes its action if the provider
@@ -278,6 +306,14 @@ impl<T: Config> Pallet<T> {
 	fn resume(request: &DepositChangeRequest) -> DispatchResult {
 		let channel_id = &request.channel_id;
 		match request.action {
+			// Meanwhile a request may have been made, and a channel opened, with a 0 deposit, e.g.
+			// if the price dropped to 0. (With a non-zero deposit, the deposit provider blocks it:
+			// only one request per side can be pending at a time.) The paras may also have been
+			// offboarded, and the conditions to open a channel may have changed.
+			// So we check the conditions to open a channel again.
+			//
+			// On failure, this pallet storage has no or 0-deposit for the sender so caller gives
+			// back the taken deposit.
 			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size } => {
 				let config = configuration::ActiveConfig::<T>::get();
 				Self::check_init_open_channel(channel_id, max_capacity, max_message_size, &config)?;
@@ -292,6 +328,9 @@ impl<T: Config> Pallet<T> {
 				);
 				Ok(())
 			},
+			// Same as `InitOpenChannel`, for both sides. But we also check the recipient's deposit
+			// has not changed, as the request does not record it and the channel is opened at the
+			// current price.
 			DepositAction::InitAndAcceptOpenChannel {
 				max_capacity,
 				max_message_size,
@@ -320,6 +359,15 @@ impl<T: Config> Pallet<T> {
 				});
 				Ok(())
 			},
+			// Meanwhile the request may have been canceled, removed with an offboarded para, or
+			// made anew with other limits: these only touch the sender's side. It may also have
+			// been confirmed with a 0 deposit, e.g. if the price dropped to 0, and opened. (With a
+			// non-zero deposit, the deposit provider blocks it.) And the price may have changed.
+			// So we check the conditions to accept the request again, that it is the same request,
+			// and that the deposit taken is still the price.
+			//
+			// On failure, this pallet storage has no or 0-deposit for the recipient so caller gives
+			// back the taken deposit.
 			DepositAction::AcceptOpenChannel { max_capacity, max_message_size } => {
 				let config = configuration::ActiveConfig::<T>::get();
 				let channel_req = Self::check_accept_open_channel(channel_id, &config)?;
@@ -333,9 +381,17 @@ impl<T: Config> Pallet<T> {
 				Self::finish_accept_open_channel(channel_id);
 				Ok(())
 			},
+			// Meanwhile the channel may have been closed, which gave back what it recorded (applied
+			// by the deposit provider after this poke), and re-opened with 0 deposits. (With
+			// non-zero deposits, the deposit provider blocks it.)
+			// So we check that the channel still records the deposits the poke set out from.
+			//
+			// On failure, this pallet storage has no or 0-deposits, given it can only happen after
+			// deposit price changed. The caller gives back the taken deposits.
 			DepositAction::PokeChannelDeposits => {
 				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient)
 			},
+			// Never pending, nothing to resume.
 			DepositAction::Release => Ok(()),
 		}
 	}
