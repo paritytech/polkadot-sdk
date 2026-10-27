@@ -3431,6 +3431,28 @@ pub mod tests {
 	}
 
 	#[test]
+	fn ump_signal_count_and_indices_are_pinned() {
+		let requires = RequiresSet::try_from_iter([(Id::from(1u32), Default::default())]).unwrap();
+		let all = [
+			UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)),
+			UMPSignal::ApprovedPeer(Default::default()),
+			UMPSignal::Provides(Default::default()),
+			UMPSignal::Requires(requires),
+		];
+		for (index, signal) in all.iter().enumerate() {
+			// Exhaustive, so a new variant fails to compile until it is listed in `all`.
+			match signal {
+				UMPSignal::SelectCore(..) |
+				UMPSignal::ApprovedPeer(..) |
+				UMPSignal::Provides(..) |
+				UMPSignal::Requires(..) => {},
+			}
+			assert_eq!(signal.encode()[0] as usize, index);
+		}
+		assert_eq!(UMPSignal::COUNT, all.len());
+	}
+
+	#[test]
 	fn ump_signals_rejects_more_than_max_signals() {
 		// One of every variant (== `MAX_UMP_SIGNALS`) plus one extra is rejected.
 		let upward_messages = alloc::vec![
