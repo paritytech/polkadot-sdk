@@ -350,7 +350,7 @@ impl<K: core::fmt::Debug, H: Hasher> ProofSizeTracker<K, H> {
 
 #[cfg(test)]
 mod tests {
-	use super::{blake2_128, DeltaKeyOp, KeyHash, TrackedKey, LOG_TARGET};
+	use super::{blake2_128, DeltaKeyOp, KeyHash, KeyHashBuilder, TrackedKey, LOG_TARGET};
 	use sp_core::Blake2Hasher;
 
 	impl TrackedKey for String {
@@ -1294,5 +1294,19 @@ mod tests {
 			assert!(fixture.tracker.estimation_trie_mut().is_none());
 			assert!(fixture.contains(FIRST));
 		}
+	}
+
+	#[test]
+	fn keys_sharing_low_identity_bits_spread_over_buckets() {
+		use core::hash::BuildHasher;
+		let builder = KeyHashBuilder::default();
+		let shared_low_half = 0x1234u128;
+		let buckets: std::collections::BTreeSet<u64> = (0..4096u128)
+			.map(|high_half| builder.hash_one((high_half << 64) | shared_low_half) & 0xffff)
+			.collect();
+		assert!(
+			buckets.len() > 1,
+			"keys with equal low identity bits must still spread over buckets"
+		);
 	}
 }
