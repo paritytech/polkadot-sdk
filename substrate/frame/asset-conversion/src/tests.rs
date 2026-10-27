@@ -3157,7 +3157,7 @@ fn swap_credit_for_exact_tokens_returns_whole_credit_on_failure() {
 		)
 		.unwrap_err();
 
-		// Both credits are still alive here, so issuance must not have moved.
+		// The rollback leaves issuance untouched. The real check is the next one.
 		assert_eq!(Balances::total_issuance(), issuance_before);
 		// The whole credit comes back, including the change.
 		assert_eq!(error, (expected_credit_in, TokenError::NotExpendable.into()));

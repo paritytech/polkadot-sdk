@@ -1,0 +1,17 @@
+title: 'pallet-asset-conversion: return the whole credit when a credit swap fails'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `SwapCredit::swap_tokens_for_exact_tokens` now returns the full input credit on failure.
+
+    Before, the pallet split the input into the swap amount and the change. If the swap then
+    failed, only the swap amount came back. The change was dropped inside the transaction that
+    was rolled back right after, so its issuance decrease was undone while the credit itself was
+    gone. The caller lost the change and total issuance ended up above the sum of balances.
+
+    No public API changes.
+
+crates:
+- name: pallet-asset-conversion
+  bump: patch
