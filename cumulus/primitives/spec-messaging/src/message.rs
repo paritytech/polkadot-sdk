@@ -812,6 +812,9 @@ mod tests {
 		let mut big = resp.clone();
 		big.payload = vec![0u8; MAX_SPECULATIVE_MESSAGE_LEN as usize + 1];
 		assert_eq!(verify_event_response(stream, under, &big), Err(VerifyError::PayloadTooLarge));
+		// At the bound the size check passes; the forged payload then fails the proof.
+		big.payload.pop();
+		assert_eq!(verify_event_response(stream, under, &big), Err(VerifyError::RootMismatch));
 
 		// Structurally invalid inclusion proof (invalid mmr_size) → surfaced as `Proof(..)`.
 		let mut bogus = resp.clone();
@@ -1111,6 +1114,10 @@ mod tests {
 			max_bytes: u32::MAX,
 		};
 		assert_eq!(verify_messages(&req, &resp), Err(VerifyError::PayloadTooLarge));
+
+		// At the bound the size check passes; the forged payload then fails the proof.
+		resp.payloads[1].pop();
+		assert_eq!(verify_messages(&req, &resp), Err(VerifyError::RootMismatch));
 	}
 
 	#[test]
