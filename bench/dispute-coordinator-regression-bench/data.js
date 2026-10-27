@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793102412758,
+  "lastUpdate": 1793106775780,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "adrian@parity.io",
-            "name": "Adrian Catangiu",
-            "username": "acatangiu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f8156c184007ace837d38b496eb660ea30b667d0",
-          "message": "Make pallet_xcm_bridge_hub_router exporter configurable for paid/unpaid (#11694)\n\nAdd `type Exporter: SendXcm` to the pallet's Config trait so runtimes\ncan choose between `SovereignPaidRemoteExporter` (paid) and\n`UnpaidRemoteExporter` (unpaid) bridging. Provide convenience type\naliases `PaidRemoteExporter` and `UnpaidRemoteExporterAdapter`.\n\nAsset Hub runtimes are configured to now use `UnpaidRemoteExporter` to\nreduce deployment complexity\n(no more need to manage/top-up AH sov account on BH).\n\nSimpler fix for https://github.com/polkadot-fellows/runtimes/issues/392\n\n---------\n\nSigned-off-by: Adrian Catangiu <adrian@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-10T17:35:45Z",
-          "tree_id": "332881d692bdaec87d68e3dda4c3a4c8500c809e",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/f8156c184007ace837d38b496eb660ea30b667d0"
-        },
-        "date": 1775848384511,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00954088065000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009214109289999984,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026566164,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025190456000000008,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "1728078+michalkucharczyk@users.noreply.github.com",
+            "name": "Michal Kucharczyk",
+            "username": "michalkucharczyk"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "6812e669754dc9f473e3adf277d4532c42e27ac9",
+          "message": "`bitswap_unstable_stream` implementation added (#12029)\n\nImplement `bitswap_unstable_stream` RPC methods according to the\n[spec](https://github.com/paritytech/json-rpc-interface-spec/pull/186).\n\nKinda follow-up work of:\nhttps://github.com/paritytech/polkadot-sdk/pull/11521\n\n---------\n\nCo-authored-by: Javier Viola <javier@parity.io>",
+          "timestamp": "2026-10-27T11:37:22Z",
+          "tree_id": "2df725c3bf99a1d395b5edd183cd16ecce7c89fc",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/6812e669754dc9f473e3adf277d4532c42e27ac9"
+        },
+        "date": 1793106743172,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010302048309999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002646022059999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009450287889999987,
             "unit": "seconds"
           }
         ]
