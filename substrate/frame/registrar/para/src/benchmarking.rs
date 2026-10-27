@@ -26,7 +26,7 @@ use registrar_primitives::{MessageToPara, MessageToParaV1};
 /// An account able to pay every consideration this pallet can ask for.
 fn funded_manager<T: Config>() -> T::AccountId {
 	let who: T::AccountId = account("manager", 0, 0);
-	T::ReservationConsideration::ensure_successful(&who, Footprint::from_parts(1, 0));
+	T::ReservationConsideration::ensure_successful(&who, Pallet::<T>::reservation_footprint());
 	T::RegistrationConsideration::ensure_successful(
 		&who,
 		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get(), T::MaxCodeSize::get()),
@@ -139,6 +139,7 @@ mod benchmarks {
 			alloc::vec![2u8; h as usize],
 			T::MaxCodeSize::get(),
 			sp_core::H256::repeat_byte(1),
+			false,
 		);
 
 		assert!(matches!(

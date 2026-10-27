@@ -57,7 +57,7 @@
 //! ## Forcing
 //!
 //! [`Pallet::force_register`] is the same request from [`Config::ForceOrigin`], for an id that need
-//! not have been reserved first. The manager still pays.
+//! not have been reserved first. The manager still pays, unless the origin passes `skip_deposit`.
 //!
 //! ## Locking
 //!
@@ -78,7 +78,7 @@ use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	ensure,
-	traits::{Consideration, EnsureOrigin, Footprint},
+	traits::{Consideration, EnsureOrigin, Footprint, Get},
 };
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -143,7 +143,8 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	/// The relay chain has been asked to register this para and has not reported back.
 	Pending {
 		/// The registration's [`Consideration`] ticket, returned if the registration fails.
-		ticket: Ticket,
+		/// `None` if [`Pallet::force_register`] skipped the deposit.
+		ticket: Option<Ticket>,
 		/// The block from which the manager may give up on this registration.
 		///
 		/// Expressed in [`Config::BlockNumberProvider`] blocks. Long enough that a verdict already
@@ -157,7 +158,7 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	/// The relay chain has onboarded this para.
 	Registered {
 		/// The registration's [`Consideration`] ticket, kept while the para is registered.
-		ticket: Ticket,
+		ticket: Option<Ticket>,
 	},
 	/// The relay chain has been asked to drop this para and has not reported back.
 	///
@@ -168,7 +169,7 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 	/// [`Pallet::deregister`] again once `can_retry_after` has passed.
 	Deregistering {
 		/// The registration's [`Consideration`] ticket, released once the relay chain confirms.
-		ticket: Ticket,
+		ticket: Option<Ticket>,
 		/// The block from which the manager may send the [`MessageToRelayV1::Deregister`] again,
 		/// if the answer never arrived. Retrying reports the missing answer as
 		/// [`UnexpectedKind::ResponseNeverArrived`].
@@ -185,8 +186,9 @@ pub enum RegistrationState<Ticket, BlockNumber> {
 pub struct ParaInfo<AccountId, ReservationTicket, RegistrationTicket, BlockNumber> {
 	/// The account that reserved the para id and controls it.
 	pub manager: AccountId,
-	/// The [`Consideration`] ticket for the para id itself.
-	pub reservation: ReservationTicket,
+	/// The [`Consideration`] ticket for the para id itself. `None` if
+	/// [`Pallet::force_register`] skipped the deposit.
+	pub reservation: Option<ReservationTicket>,
 	/// Where this para id sits in the registration flow.
 	pub state: RegistrationState<RegistrationTicket, BlockNumber>,
 	/// Whether the manager is locked out of controlling this para. `None` until the lock is set
@@ -420,6 +422,8 @@ pub mod pallet {
 		Unimplemented,
 		/// The manager may not ask the relay chain to drop this para again yet.
 		CannotRetryYet,
+		/// System para ids are only registered through [`Pallet::force_register`].
+		SystemParaId,
 	}
 
 	#[pallet::hooks]
@@ -494,13 +498,14 @@ pub mod pallet {
 			let next = para_id.checked_add(1).ok_or(Error::<T>::NoFreeParaId)?;
 			ensure!(!Paras::<T>::contains_key(para_id), Error::<T>::AlreadyRegistered);
 
-			let reservation = T::ReservationConsideration::new(&who, Footprint::from_parts(1, 0))?;
+			let reservation =
+				T::ReservationConsideration::new(&who, Self::reservation_footprint())?;
 
 			Paras::<T>::insert(
 				para_id,
 				ParaInfo {
 					manager: who.clone(),
-					reservation,
+					reservation: Some(reservation),
 					state: RegistrationState::Reserved,
 					locked: None,
 				},
@@ -522,6 +527,8 @@ pub mod pallet {
 		/// Takes [`Config::RegistrationConsideration`] for the head data and the *declared* code
 		/// length, on top of the para id reservation. It is returned if the relay chain rejects
 		/// the registration or if the caller later abandons it.
+		///
+		/// Ids below [`Config::FirstPublicParaId`] are refused, see [`Pallet::force_register`].
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::register(genesis_head.len() as u32))]
 		pub fn register(
@@ -532,43 +539,14 @@ pub mod pallet {
 			code_hash: H256,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
+			// A forced system id the relay chain turned down is left reserved to its manager, who
+			// must not get to pick its code.
+			ensure!(para_id >= T::FirstPublicParaId::get(), Error::<T>::SystemParaId);
 
-			let mut info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
 			ensure!(info.manager == who, Error::<T>::NotOwner);
-			ensure!(
-				matches!(info.state, RegistrationState::Reserved),
-				Error::<T>::AlreadyRegistered
-			);
 
-			let head_len = genesis_head.len() as u32;
-			ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
-			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
-			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
-
-			let ticket = T::RegistrationConsideration::new(
-				&who,
-				Self::registration_footprint(head_len, code_len),
-			)?;
-
-			let cancellable_at = T::BlockNumberProvider::current_block_number()
-				.saturating_add(T::PendingDeadline::get());
-			let message_id = Self::next_message_id();
-			info.state = RegistrationState::Pending { ticket, cancellable_at, message_id };
-			Paras::<T>::insert(para_id, info);
-
-			// A transport failure returns `Err` and unwinds everything above, ticket included.
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
-				para_id,
-				message_id,
-				manager: who.clone(),
-				genesis_head,
-				code_hash,
-				code_len,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::RegisterRequested { para_id, message_id, manager: who });
-			Ok(())
+			Self::do_register(para_id, info, genesis_head, code_len, code_hash, false)
 		}
 
 		/// Give up on a registration the relay chain never reported on.
@@ -686,7 +664,9 @@ pub mod pallet {
 			let ticket = match info.state {
 				// The relay chain never knew this id, so there is nobody to ask.
 				RegistrationState::Reserved => {
-					info.reservation.drop(&manager)?;
+					if let Some(reservation) = info.reservation {
+						reservation.drop(&manager)?;
+					}
 					Paras::<T>::remove(para_id);
 					Self::deposit_event(Event::ReservationDropped { para_id, manager });
 					return Ok(());
@@ -757,6 +737,9 @@ pub mod pallet {
 		/// The relay chain's `paras_registrar::force_register`, moved here: the same checks and the
 		/// same deposits, except that the id need not have been reserved first, so the origin can
 		/// onboard an id nobody holds, the system range included.
+		///
+		/// `skip_deposit` takes no deposit, as Polkadot did for its system parachains. A
+		/// reservation the manager already holds stays held.
 		#[pallet::call_index(9)]
 		#[pallet::weight(T::WeightInfo::force_register(genesis_head.len() as u32))]
 		pub fn force_register(
@@ -766,70 +749,101 @@ pub mod pallet {
 			genesis_head: Vec<u8>,
 			code_len: u32,
 			code_hash: H256,
+			skip_deposit: bool,
 		) -> DispatchResult {
 			T::ForceOrigin::ensure_origin(origin)?;
 
-			let reservation = match Paras::<T>::get(para_id) {
+			let info = match Paras::<T>::get(para_id) {
 				Some(info) => {
 					ensure!(info.manager == manager, Error::<T>::NotOwner);
 					ensure!(!info.is_locked(), Error::<T>::ParaLocked);
-					ensure!(
-						matches!(info.state, RegistrationState::Reserved),
-						Error::<T>::AlreadyRegistered
-					);
-					info.reservation
+					info
 				},
 				// Unreserved ids are the point of this call, so take the reservation now.
-				None => T::ReservationConsideration::new(&manager, Footprint::from_parts(1, 0))?,
+				None => {
+					let reservation = if skip_deposit {
+						None
+					} else {
+						Some(T::ReservationConsideration::new(
+							&manager,
+							Self::reservation_footprint(),
+						)?)
+					};
+					ParaInfo {
+						manager,
+						reservation,
+						state: RegistrationState::Reserved,
+						locked: None,
+					}
+				},
 			};
 
-			let head_len = genesis_head.len() as u32;
-			ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
-			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
-			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+			Self::do_register(para_id, info, genesis_head, code_len, code_hash, skip_deposit)?;
 
-			let ticket = T::RegistrationConsideration::new(
-				&manager,
-				Self::registration_footprint(head_len, code_len),
-			)?;
-
-			let cancellable_at = T::BlockNumberProvider::current_block_number()
-				.saturating_add(T::PendingDeadline::get());
-			let message_id = Self::next_message_id();
-			Paras::<T>::insert(
-				para_id,
-				ParaInfo {
-					manager: manager.clone(),
-					reservation,
-					state: RegistrationState::Pending { ticket, cancellable_at, message_id },
-					locked: None,
-				},
-			);
 			// `reserve` errors rather than skipping an id it finds taken, so leaving the counter
 			// behind a forced id would brick it for good.
 			NextFreeParaId::<T>::mutate(|next| *next = (*next).max(para_id.saturating_add(1)));
-
-			// A transport failure returns `Err` and unwinds everything above, tickets included.
-			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
-				para_id,
-				message_id,
-				manager: manager.clone(),
-				genesis_head,
-				code_hash,
-				code_len,
-			}))
-			.map_err(|()| Error::<T>::SendFailed)?;
-
-			Self::deposit_event(Event::RegisterRequested { para_id, message_id, manager });
 			Ok(())
 		}
 	}
 }
 
 impl<T: Config> Pallet<T> {
+	/// The footprint a para id reservation is charged for.
+	pub fn reservation_footprint() -> Footprint {
+		Footprint::from_parts(1, 0)
+	}
+
 	/// The footprint a registration is charged for: the head data plus the *declared* code length.
 	pub fn registration_footprint(head_len: u32, code_len: u32) -> Footprint {
 		Footprint::from_parts(1, head_len.saturating_add(code_len) as usize)
+	}
+
+	/// Take the registration deposit from `info.manager` and ask the relay chain to register.
+	fn do_register(
+		para_id: ParaId,
+		mut info: ParaInfoOf<T>,
+		genesis_head: Vec<u8>,
+		code_len: u32,
+		code_hash: H256,
+		skip_deposit: bool,
+	) -> DispatchResult {
+		ensure!(matches!(info.state, RegistrationState::Reserved), Error::<T>::AlreadyRegistered);
+
+		let head_len = genesis_head.len() as u32;
+		ensure!(head_len <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+		ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
+		ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+
+		let manager = info.manager.clone();
+		let ticket = if skip_deposit {
+			None
+		} else {
+			Some(T::RegistrationConsideration::new(
+				&manager,
+				Self::registration_footprint(head_len, code_len),
+			)?)
+		};
+
+		let cancellable_at = T::BlockNumberProvider::current_block_number()
+			.saturating_add(T::PendingDeadline::get());
+		let message_id = Self::next_message_id();
+		info.state = RegistrationState::Pending { ticket, cancellable_at, message_id };
+		Paras::<T>::insert(para_id, info);
+
+		// A transport failure returns `Err` and unwinds everything above, tickets included.
+		T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::Register {
+			para_id,
+			message_id,
+			manager: manager.clone(),
+			genesis_head,
+			code_hash,
+			code_len,
+		}))
+		.map_err(|()| Error::<T>::SendFailed)?;
+
+		Self::deposit_event(Event::RegisterRequested { para_id, message_id, manager });
+		Ok(())
 	}
 
 	/// Ensure `origin` may manage `para_id`: the para itself, its manager while unlocked, or root.
@@ -872,10 +886,11 @@ impl<T: Config> Pallet<T> {
 
 	/// Drop `ticket` without failing: the relay chain already acted on the answer being applied.
 	fn release_or_report<C: Consideration<T::AccountId, Footprint>>(
-		ticket: C,
+		ticket: Option<C>,
 		who: &T::AccountId,
 		para_id: ParaId,
 	) {
+		let Some(ticket) = ticket else { return };
 		if let Err(error) = ticket.drop(who) {
 			Self::report_unexpected(UnexpectedKind::DepositNotReleased { para_id, error });
 		}

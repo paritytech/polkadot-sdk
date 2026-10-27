@@ -1406,6 +1406,7 @@ mod force_register {
 			head(head_len),
 			code_len as u32,
 			hash_of(&blob),
+			false,
 		));
 		blob
 	}
@@ -1424,6 +1425,7 @@ mod force_register {
 						head(10),
 						100,
 						hash_of(&code(100)),
+						false,
 					),
 					DispatchError::BadOrigin
 				);
@@ -1487,6 +1489,100 @@ mod force_register {
 	}
 
 	#[test]
+	fn skip_deposit_onboards_and_drops_a_para_without_holding_anything() {
+		new_test_ext().execute_with(|| {
+			let broke = 3;
+
+			assert_ok!(Registrar::force_register(
+				RuntimeOrigin::root(),
+				SYSTEM_PARA_ID,
+				broke,
+				head(10),
+				100,
+				hash_of(&code(100)),
+				true,
+			));
+			let info = Paras::<Test>::get(SYSTEM_PARA_ID).unwrap();
+			assert!(info.reservation.is_none());
+			assert!(matches!(info.state, RegistrationState::Pending { ticket: None, .. }));
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), SYSTEM_PARA_ID));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(SYSTEM_PARA_ID, 1, Ok(())),
+			));
+
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+			assert_eq!(held(broke), 0);
+			assert!(!registrar_events().iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::DepositNotReleased { .. })
+			)));
+		});
+	}
+
+	#[test]
+	fn skip_deposit_keeps_a_reservation_already_held() {
+		new_test_ext().execute_with(|| {
+			let para_id = reserve_for(ALICE);
+
+			assert_ok!(Registrar::force_register(
+				RuntimeOrigin::root(),
+				para_id,
+				ALICE,
+				head(20),
+				300,
+				hash_of(&code(300)),
+				true,
+			));
+
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { ticket: None, .. }
+			));
+		});
+	}
+
+	#[test]
+	fn the_manager_cannot_register_a_turned_down_system_id_itself() {
+		new_test_ext().execute_with(|| {
+			force(SYSTEM_PARA_ID, ALICE, 10, 100);
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					outcome: Err(FailureReason::AlreadyRegistered),
+				}),
+			));
+			assert_eq!(
+				Paras::<Test>::get(SYSTEM_PARA_ID).unwrap().state,
+				RegistrationState::Reserved
+			);
+
+			assert_noop!(
+				Registrar::register(
+					RuntimeOrigin::signed(ALICE),
+					SYSTEM_PARA_ID,
+					head(10),
+					100,
+					hash_of(&code(100)),
+				),
+				Error::<Test>::SystemParaId
+			);
+		});
+	}
+
+	#[test]
 	fn rejects_an_id_reserved_by_somebody_else() {
 		new_test_ext().execute_with(|| {
 			let para_id = reserve_for(ALICE);
@@ -1499,6 +1595,7 @@ mod force_register {
 					head(10),
 					100,
 					hash_of(&code(100)),
+					false,
 				),
 				Error::<Test>::NotOwner
 			);
@@ -1522,6 +1619,7 @@ mod force_register {
 						head(10),
 						100,
 						hash_of(&code(100)),
+						false,
 					),
 					Error::<Test>::AlreadyRegistered
 				);
@@ -1565,6 +1663,7 @@ mod force_register {
 						genesis_head,
 						code_len,
 						hash_of(&code(100)),
+						false,
 					),
 					expected
 				);
@@ -1586,6 +1685,7 @@ mod force_register {
 					head(10),
 					100,
 					hash_of(&code(100)),
+					false,
 				),
 				TokenError::FundsUnavailable
 			);
@@ -1605,6 +1705,7 @@ mod force_register {
 					head(10),
 					100,
 					hash_of(&code(100)),
+					false,
 				),
 				Error::<Test>::SendFailed
 			);

@@ -651,6 +651,7 @@ fn a_forced_registration_onboards_a_system_para() {
 			head(head_len),
 			code_len as u32,
 			hash_of(&blob),
+			false,
 		));
 	});
 
@@ -723,6 +724,7 @@ fn a_forced_registration_the_relay_chain_already_knows_is_refused() {
 			head(32),
 			64,
 			hash_of(&code(64)),
+			false,
 		));
 	});
 
@@ -756,6 +758,7 @@ fn only_root_may_force_register_on_the_parachain() {
 				head(32),
 				64,
 				hash_of(&code(64)),
+				false,
 			),
 			sp_runtime::DispatchError::BadOrigin
 		);
