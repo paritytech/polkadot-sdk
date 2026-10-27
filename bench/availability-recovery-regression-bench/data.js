@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793037830752,
+  "lastUpdate": 1793096569949,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6688a8236432e59a48749503eca1506f11ba2241",
-          "message": "statement-store: Fix node restart in mid-crush test (#11737)\n\n# Description\n\nA small fix to allow nodes to restart without failing in CI\n\n## Integration\n\nNo integration needed",
-          "timestamp": "2026-04-13T10:04:29Z",
-          "tree_id": "e540ba0e8bbabab25928828cd8f9a4f2e6dee531",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6688a8236432e59a48749503eca1506f11ba2241"
-        },
-        "date": 1776079440560,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.903490285199998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1272886285333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12648913969999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nasihudeen04@gmail.com",
+            "name": "Nasihudeen Jimoh",
+            "username": "Kanasjnr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1",
+          "message": "bags-list: fix on_idle cursor skipping nodes on weight exhaustion (#13184)\n\n`Pallet::on_idle `chose the persistent rebag cursor from a count-based\nsplit computed before the per-item loop ran, so it always pointed to\n`accounts[rebag_budget]`. The loop itself can stop earlier than that for\ntwo separate reasons: the weight meter runs out, or the pallet becomes\nlocked mid-run. In both cases processed ends up smaller than\n`rebag_budget`, and the nodes between the point the loop actually\nstopped and `accounts[rebag_budget]` were never touched, yet the cursor\nstill jumped past them. Those nodes stayed misplaced until an unrelated\nend-of-list wrap-around eventually restarted the scan from the head.\n\nThis computes the resume point after the loop instead, as\n`accounts[processed..]`. Since processed is the true count of items the\nloop actually got through, this slice is correct for every way the loop\ncan end: the count budget being reached, the weight meter running out,\nor a lock, as well as the loop finishing the whole collected batch\nnaturally. That also makes the old pre-loop split redundant, so it's\nremoved rather than kept alongside the new logic.\n\nAdded a test with five misplaced nodes, a count budget of four, and a\nweight limit that only covers two rebags. It asserts the cursor resumes\nat the third node, the first one the weight limit actually forced it to\nskip, rather than jumping to the fifth as the old count-based logic\nwould.\n\nCloses #13138\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T08:53:19Z",
+          "tree_id": "178d668632bc41d6ca268ef4a231e8543d087764",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ec6afe5057bd6cbd4202d950e05e3d6b9bf4fcd1"
+        },
+        "date": 1793096541484,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.419933712833332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12582340090000002,
             "unit": "seconds"
           }
         ]
