@@ -163,6 +163,16 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
+/// Delegates an account, so the chained-delegation check refuses it, and builds an unlimited meter.
+fn chained_delegation_setup<T: Config>() -> Result<(H160, TransactionMeter<T>), BenchmarkError> {
+	let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+	let address = H160([0x42; 20]);
+	delegated_eoa::<T>(address, contract.address)?;
+	let meter = TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+		.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
+	Ok((address, meter))
+}
+
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
 /// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
@@ -1019,13 +1029,8 @@ mod benchmarks {
 
 	#[benchmark(pov_mode = Measured)]
 	fn chained_delegation_check() -> Result<(), BenchmarkError> {
-		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let address = H160([0x42; 20]);
-		delegated_eoa::<T>(address, contract.address)?;
+		let (address, mut meter) = chained_delegation_setup::<T>()?;
 		let mut access_list = AccessList::new();
-		let mut meter =
-			TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
-				.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
 
 		let result;
 		#[block]
@@ -1038,6 +1043,29 @@ mod benchmarks {
 		}
 		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
 		assert_eq!(access_list.metrics().cold, 1, "the check touched the target's entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn chained_delegation_check_hot() -> Result<(), BenchmarkError> {
+		let (address, mut meter) = chained_delegation_setup::<T>()?;
+		let entry = AccessEntry::AccountInfo { address };
+		let key = entry.storage_key::<T>().ok_or(BenchmarkError::Stop("no storage key"))?;
+		frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		let mut access_list = AccessList::new();
+		access_list.touch(entry, StorageOp::Read);
+
+		let result;
+		#[block]
+		{
+			result = Stack::<T, ContractBlob<T>>::ensure_not_chained_delegation(
+				&mut access_list,
+				&mut meter,
+				Some(address),
+			);
+		}
+		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
+		assert_eq!(access_list.metrics().hot, 1, "the check found the target's entry warm");
 		Ok(())
 	}
 

@@ -15,7 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Which state entries the access list finds cold or hot, on both VMs.
+//! Tests that calls, transfers, code loads and contract creation warm the entries they touch,
+//! that a later access to them is charged hot, and that a dry run's estimate is enough for the
+//! real dispatch, on both VMs.
 
 use crate::{
 	AccountInfo, BalanceOf, CallResources, Code, Config, ExecConfig, ReentrancyProtection, Weight,

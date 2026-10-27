@@ -448,6 +448,14 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3734))
 			.saturating_add(T::DbWeight::get().reads(1))
 	}
+	fn chained_delegation_check_hot() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 8_014_000 picoseconds.
+		Weight::from_parts(8_728_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::OriginalAccount` (r:2 w:0)

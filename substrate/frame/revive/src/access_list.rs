@@ -461,6 +461,9 @@ pub mod benchmarking {
 	}
 
 	/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+	///
+	/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+	/// by `cargo test` does not track the whitelist.
 	pub fn assert_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
 		let whitelist = frame_benchmarking::benchmarking::get_whitelist();
 		access.expand(|entry, _op| {

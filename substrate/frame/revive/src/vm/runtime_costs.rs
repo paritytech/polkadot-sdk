@@ -472,8 +472,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			ChainedDelegationCheck(warmth) => weight_from_warmth_summary::<T>(
 				warmth.summary(),
 				T::WeightInfo::chained_delegation_check,
-				// Nothing on top of the base hot access.
-				Weight::zero,
+				T::WeightInfo::chained_delegation_check_hot,
 			),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
@@ -954,23 +953,32 @@ mod tests {
 	}
 
 	#[test]
-	fn chained_delegation_check_cold_hot_pricing() {
-		let chained_delegation_check_weight = |warmth| {
+	fn a_chained_delegation_check_pays_the_bench_of_its_warmth() {
+		let check_cost = |warmth| {
 			weight(&RuntimeCosts::ChainedDelegationCheck(Summarized::from_warmth(
 				KeyFamily::PalletStorageSlot,
 				warmth,
 				StorageOp::Read,
 			)))
 		};
-		let cold_weight = chained_delegation_check_weight(Warmth::new_cold_non_revertible());
-		let hot_weight = chained_delegation_check_weight(Warmth::new_read_paid());
+		let cold_cost = check_cost(Warmth::new_cold_non_revertible());
+		let hot_cost = check_cost(Warmth::new_read_paid());
+		let cold_bench_weight = <Test as Config>::WeightInfo::chained_delegation_check();
+		let hot_bench_weight = <Test as Config>::WeightInfo::chained_delegation_check_hot();
 
 		assert!(
-			cold_weight.ref_time() > hot_weight.ref_time(),
-			"cold={cold_weight:?} hot={hot_weight:?}",
+			cold_cost.all_gte(cold_bench_weight),
+			"cold_cost={cold_cost:?} cold_bench_weight={cold_bench_weight:?}",
 		);
-		assert_eq!(hot_weight.proof_size(), 0);
-		assert!(cold_weight.proof_size() > 0);
+		assert!(
+			hot_cost.all_gte(hot_bench_weight),
+			"hot_cost={hot_cost:?} hot_bench_weight={hot_bench_weight:?}",
+		);
+		assert!(
+			cold_cost.ref_time() > hot_cost.ref_time(),
+			"a cold check also reads from storage: cold_cost={cold_cost:?} hot_cost={hot_cost:?}",
+		);
+		assert_eq!(hot_cost.proof_size(), 0, "a hot entry is already in the proof");
 	}
 
 	#[test]

@@ -89,6 +89,7 @@ pub trait WeightInfo {
 	fn instantiate(i: u32, ) -> Weight;
 	fn code_load(w: u32, ) -> Weight;
 	fn chained_delegation_check() -> Weight;
+	fn chained_delegation_check_hot() -> Weight;
 	fn call() -> Weight;
 	fn eth_call(d: u32, ) -> Weight;
 	fn eth_substrate_call(c: u32, ) -> Weight;
@@ -579,6 +580,13 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Minimum execution time: 6_820_000 picoseconds.
 		Weight::from_parts(7_518_000, 3734)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	fn chained_delegation_check_hot() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 6_820_000 picoseconds.
+		Weight::from_parts(7_518_000, 0)
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
@@ -2609,6 +2617,13 @@ impl WeightInfo for () {
 		// Minimum execution time: 6_820_000 picoseconds.
 		Weight::from_parts(7_518_000, 3734)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	fn chained_delegation_check_hot() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 6_820_000 picoseconds.
+		Weight::from_parts(7_518_000, 0)
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:2 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
