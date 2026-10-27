@@ -24,7 +24,6 @@ use crate::{
 use alloc::vec::Vec;
 use core::{
 	fmt::{self, Debug},
-	hash::{BuildHasherDefault, Hasher as CoreHasher},
 	mem,
 };
 use hash_db::Hasher;
@@ -70,26 +69,17 @@ impl TrackedKey for (Vec<u8>, Vec<u8>) {
 	}
 }
 
-/// No hashing: the key is a hash already, its low 64 bits are the bucket index.
-#[derive(Default)]
-pub struct KeyHashHasher(u64);
+/// Map hasher of [`DeltaKeys`] and tracker's internal maps.
+///
+/// A key's identity is public, so its bucket must depend on a secret or a sender could choose it.
+/// Seeded from process randomness in std and from block randomness in the PVF. Seeds only move
+/// entries between buckets.
+#[cfg(feature = "std")]
+pub type KeyHashBuilder = foldhash::quality::RandomState;
 
-impl CoreHasher for KeyHashHasher {
-	fn finish(&self) -> u64 {
-		self.0
-	}
-
-	fn write(&mut self, _: &[u8]) {
-		unreachable!("only `KeyHash` is hashed, which uses `write_u128`; qed")
-	}
-
-	fn write_u128(&mut self, key_hash: u128) {
-		self.0 = key_hash as u64;
-	}
-}
-
-/// Builder of [`KeyHashHasher`], the map hasher of [`DeltaKeys`].
-pub type KeyHashBuilder = BuildHasherDefault<KeyHashHasher>;
+/// Map hasher of [`DeltaKeys`] and tracker's internal maps.
+#[cfg(not(feature = "std"))]
+pub type KeyHashBuilder = sp_trie::RandomState;
 
 /// Maps key hash -> (key, last op) for keys staged in the current transaction layer.
 type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
@@ -137,8 +127,8 @@ pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), KeyHashBuilder>;
 ///
 /// So the tracker hashes a key once, when it is written, and uses the hash as the key's
 /// identity from then on. See [`KeyHash`] and [`TrackedKey`]. All maps are keyed by that
-/// hash. Their own hasher, [`KeyHashHasher`], does no hashing at all: the key is already a
-/// hash, so it just returns the low 64 bits as the bucket index.
+/// hash. Their own hasher, [`KeyHashBuilder`], hashes the 16-byte identity with a secret seed
+/// so a sender cannot choose a bucket. Collator and validator seeds differ; no result does.
 ///
 /// The hash is Blake2-128. It is deterministic, so the collator and the PVF derive the same
 /// identities. Collisions are assumed to be computationally infeasible; a collision would merge

@@ -19,6 +19,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 arbitrary = { features = ["derive"], optional = true, workspace = true }
 codec = { workspace = true }
+foldhash = { workspace = true }
 hash-db = { workspace = true }
 indexmap = { workspace = true, default-features = false }
 log = { workspace = true }
@@ -47,6 +48,7 @@ default = ["std"]
 fuzzing = ["arbitrary"]
 std = [
 	"codec/std",
+	"foldhash/std",
 	"hash-db/std",
 	"indexmap/std",
 	"log/std",
