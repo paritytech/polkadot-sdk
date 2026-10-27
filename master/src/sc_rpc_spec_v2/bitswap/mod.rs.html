@@ -168,17 +168,22 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#18 id=18 data-nosnippet>18</a>
 <a href=#19 id=19 data-nosnippet>19</a></span><span class="doccomment">//! Substrate bitswap RPC API.
 <a href=#20 id=20 data-nosnippet>20</a>//!
-<a href=#21 id=21 data-nosnippet>21</a>//! Provides the `bitswap_v1_get` method for retrieving indexed transaction data by CID.
-<a href=#22 id=22 data-nosnippet>22</a>
-<a href=#23 id=23 data-nosnippet>23</a></span><span class="attr">#[cfg(test)]
-<a href=#24 id=24 data-nosnippet>24</a></span><span class="kw">mod </span>tests;
-<a href=#25 id=25 data-nosnippet>25</a>
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">pub mod </span>api;
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">pub mod </span>bitswap;
-<a href=#28 id=28 data-nosnippet>28</a><span class="kw">pub mod </span>error;
-<a href=#29 id=29 data-nosnippet>29</a>
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">pub use </span>api::BitswapApiServer;
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">pub use </span>bitswap::Bitswap;
+<a href=#21 id=21 data-nosnippet>21</a>//! Provides methods for retrieving indexed transaction data by CID:
+<a href=#22 id=22 data-nosnippet>22</a>//! - `bitswap_unstable_get` — single CID, returns the chunk or a top-level error. `bitswap_v1_get`
+<a href=#23 id=23 data-nosnippet>23</a>//!   is registered as an alias during the migration to `unstable_`.
+<a href=#24 id=24 data-nosnippet>24</a>//! - `bitswap_unstable_stream` — subscription that emits per-CID outcomes (tagged `streamItem` /
+<a href=#25 id=25 data-nosnippet>25</a>//!   `streamItemError`) as they are looked up, followed by a `streamDone` end-of-stream marker.
+<a href=#26 id=26 data-nosnippet>26</a>//! - `bitswap_unstable_unstream` — cancel an active `bitswap_unstable_stream` subscription.
+<a href=#27 id=27 data-nosnippet>27</a>
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="attr">#[cfg(test)]
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">mod </span>tests;
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">pub mod </span>api;
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">pub mod </span>bitswap;
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">pub mod </span>error;
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a><span class="kw">pub use </span>api::BitswapApiServer;
+<a href=#36 id=36 data-nosnippet>36</a><span class="kw">pub use </span>bitswap::Bitswap;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

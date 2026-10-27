@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"trait":["BitswapApiClient","BitswapApiServer"]};
+window.SIDEBAR_ITEMS = {"enum":["StreamEvent"],"trait":["BitswapApiClient","BitswapApiServer"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Bitswap"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_CIDS_PER_REQUEST"],"struct":["Bitswap"]};
