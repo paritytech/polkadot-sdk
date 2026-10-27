@@ -36,6 +36,30 @@ contract ComplexReceiver {
 }
 
 /**
+ * @title BalanceReader
+ * @dev Receiver contract 4: reads `address(this).balance`, which solc compiles to SELFBALANCE
+ * and unoptimized resolc to BALANCE on its own address
+ */
+contract BalanceReader {
+    receive() external payable {
+        require(address(this).balance >= msg.value);
+    }
+}
+
+/**
+ * @title BalanceOfReader
+ * @dev Receiver contract 5: reads its own balance with the BALANCE opcode, which solc never
+ * emits for `address(this).balance`, so the read is written in assembly
+ */
+contract BalanceOfReader {
+    receive() external payable {
+        uint256 ownBalance;
+        assembly { ownBalance := balance(address()) }
+        require(ownBalance >= msg.value);
+    }
+}
+
+/**
  * @title ReentrancyAttacker
  * @dev On receiving ETH, attempts to call back into the sender
  */
@@ -223,4 +247,24 @@ contract StipendTest {
     }
 
     receive() external payable {}
+}
+
+/**
+ * @title SendAndTransferTest
+ * @dev Calls `send` and `transfer` on the given receiver and checks that the balances moved
+ */
+contract SendAndTransferTest {
+    function testSendAndTransfer(address payable to) public payable {
+        require(to.send(0), "send zero failed");
+        to.transfer(0);
+
+        uint256 amount = msg.value / 2;
+        uint256 balanceBefore = to.balance;
+        uint256 ownBalanceBefore = address(this).balance;
+        require(to.send(amount), "send failed");
+        require(to.balance == balanceBefore + amount, "balance not updated after send");
+        to.transfer(amount);
+        require(to.balance == balanceBefore + 2 * amount, "balance not updated after transfer");
+        require(address(this).balance == ownBalanceBefore - 2 * amount, "sender balance not updated");
+    }
 }

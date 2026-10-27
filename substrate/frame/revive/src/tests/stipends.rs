@@ -22,7 +22,10 @@ use crate::{
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{FixtureType, StipendTest, compile_module_with_type};
+use pallet_revive_fixtures::{
+	FixtureType, SendAndTransferTest, StipendTest, compile_module_with_type,
+};
+use test_case::test_case;
 
 #[test]
 fn evm_call_stipends_work_for_transfers() {
@@ -99,6 +102,38 @@ fn evm_call_stipends_work_for_send_zero() {
 			.build();
 
 		assert!(!result.result.unwrap().did_revert());
+	});
+}
+
+#[test_case(FixtureType::Solc, "BalanceReader")]
+#[test_case(FixtureType::Resolc, "BalanceReader")]
+#[test_case(FixtureType::Solc, "BalanceOfReader")]
+#[test_case(FixtureType::Resolc, "BalanceOfReader")]
+// On PolkaVM the stipend does not cover emitting an event.
+#[test_case(FixtureType::Solc, "SimpleReceiver")]
+fn call_stipends_work_for_balance_reads_and_events(fixture_type: FixtureType, receiver: &str) {
+	let (receiver_code, _) = compile_module_with_type(receiver, fixture_type).unwrap();
+	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
+	// Half of it moves one native unit plus dust.
+	let value = 2_000_002_u128;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ =
+			<Test as Config>::Currency::set_balance(&crate::test_utils::ALICE, 10_000_000_000_000);
+
+		let Contract { addr: receiver, .. } =
+			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(test_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(addr)
+			.data(
+				SendAndTransferTest::testSendAndTransferCall { to: receiver.0.into() }.abi_encode(),
+			)
+			.evm_value(value.into())
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert());
 	});
 }
 

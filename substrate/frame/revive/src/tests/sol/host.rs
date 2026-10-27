@@ -171,6 +171,22 @@ fn selfbalance_works(fixture_type: FixtureType) {
 				"BALANCE should return contract's balance for {fixture_type:?}",
 			);
 		}
+		{
+			let result = builder::bare_call(addr)
+				.data(
+					Host::HostCalls::balance(Host::balanceCall { account: addr.0.into() })
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "test reverted");
+			let decoded = Host::balanceCall::abi_decode_returns(&result.data).unwrap();
+
+			assert_eq!(
+				expected_balance.as_u64(),
+				decoded,
+				"BALANCE of its own address should match SELFBALANCE for {fixture_type:?}",
+			);
+		}
 	});
 }
 
