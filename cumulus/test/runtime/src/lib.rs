@@ -25,6 +25,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 mod features;
 mod flavors;
 mod genesis_config_presets;
+mod key_gen;
 pub mod test_pallet;
 
 extern crate alloc;
@@ -72,6 +73,7 @@ use frame_system::{
 	limits::{BlockLength, BlockWeights},
 	EnsureRoot,
 };
+pub use key_gen::{Call as KeyGenCall, ThresholdKey};
 pub use pallet_balances::Call as BalancesCall;
 pub use pallet_glutton::Call as GluttonCall;
 pub use pallet_sudo::Call as SudoCall;
@@ -349,7 +351,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type WeightInfo = ();
 	type SelfParaId = parachain_info::Pallet<Runtime>;
 	type RuntimeEvent = RuntimeEvent;
-	type OnSystemEvent = TestPallet;
+	type OnSystemEvent = (TestPallet, KeyGen);
 	type OutboundXcmpMessageSource = TestPallet;
 	// Ignore all DMP messages by enqueueing them into `()`:
 	type DmpQueue = frame_support::traits::EnqueueWithOrigin<(), sp_core::ConstU8<0>>;
@@ -374,6 +376,12 @@ impl pallet_aura::Config for Runtime {
 }
 
 impl test_pallet::Config for Runtime {}
+
+impl key_gen::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type KeyHistoryDepth = ConstU32<8>;
+	type UnsignedPriority = ConstU64<{ u64::MAX / 2 }>;
+}
 
 parameter_types! {
 	pub const Period: u32 = 10;
@@ -422,6 +430,7 @@ construct_runtime! {
 		AuthorityDiscovery: pallet_authority_discovery,
 		AuraExt: cumulus_pallet_aura_ext,
 		WeightReclaim: cumulus_pallet_weight_reclaim,
+		KeyGen: key_gen,
 	}
 }
 
@@ -884,12 +893,13 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::KeyToIncludeInRelayProof<Block> for Runtime {
 		fn keys_to_prove() -> cumulus_primitives_core::RelayProofRequest {
 			use cumulus_primitives_core::RelayStorageKey;
-			RelayProofRequest {
-				keys: vec![
-					// Request a key to verify its inclusion in the proof.
-					RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
-				],
-			}
+			let mut keys = vec![
+				// Request a key to verify its inclusion in the proof.
+				RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
+			];
+			// The relay session and validator set the DKG rounds follow.
+			keys.extend(key_gen::relay_keys_to_prove::<Runtime>().into_iter().map(RelayStorageKey::Top));
+			RelayProofRequest { keys }
 		}
 	}
 

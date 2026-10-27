@@ -1,0 +1,74 @@
+[package]
+name = "sc-dkg"
+version = "1.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+repository.workspace = true
+description = "DKG Client gadget for substrate"
+homepage.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+array-bytes = { workspace = true, default-features = true }
+async-channel = { workspace = true }
+async-trait = { workspace = true }
+codec = { features = ["derive"], workspace = true, default-features = true }
+futures = { workspace = true }
+log = { workspace = true, default-features = true }
+parking_lot = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
+rand = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
+sc-client-api = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
+sc-network-gossip = { workspace = true, default-features = true }
+sc-network-sync = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
+sc-utils = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
+sp-application-crypto = { workspace = true, default-features = true }
+sp-arithmetic = { workspace = true, default-features = true }
+sp-blockchain = { workspace = true, default-features = true }
+sp-consensus = { workspace = true, default-features = true }
+sp-consensus-beefy = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
+sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+substrate-rpc-client = { workspace = true, default-features = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, default-features = true }
+wasm-timer = { workspace = true }
+
+# Pinned fork with the current adkg-vrf API (Dkg/deal_and_sign/aggregate),
+# typed errors and serializable transcripts. TODO: switch back to w3f/paritytech once merged.
+adkg-vrf = { git = "https://github.com/coax1d/adkg-vrf.git", rev = "d254558650cba8457a6fc0862796e76a1757869f" }
+
+ark-bls12-381 = { version = "0.5", default-features = false, features = ["curve"] }
+ark-ec = { version = "0.5", default-features = false }
+ark-ff = { version = "0.5", default-features = false }
+ark-serialize = { version = "0.5", default-features = false }
+
+
+[dev-dependencies]
+ark-std = { workspace = true }
+sc-block-builder = { workspace = true, default-features = true }
+sc-network-test = { workspace = true }
+serde = { workspace = true, default-features = true }
+sp-tracing = { workspace = true, default-features = true }
+substrate-test-runtime-client = { workspace = true }
+
+[features]
+# This feature adds BLS crypto primitives. It should not be used in production since
+# the BLS implementation and interface may still be subject to significant change.
+bls-experimental = [
+	"sp-application-crypto/bls-experimental",
+	"sp-consensus-beefy/bls-experimental",
+	"sp-core/bls-experimental",
+	"sp-keystore/bls-experimental",
+]

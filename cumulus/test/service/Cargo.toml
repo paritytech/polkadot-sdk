@@ -38,6 +38,7 @@ sc-cli = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sc-consensus-aura = { workspace = true, default-features = true }
+sc-dkg = { workspace = true, optional = true, features = ["bls-experimental"] }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 sc-executor-wasmtime = { workspace = true, default-features = true }
@@ -90,9 +91,19 @@ cumulus-test-runtime = { workspace = true }
 pallet-timestamp = { workspace = true, default-features = true }
 
 [dev-dependencies]
+# Pinned fork, same as sc-dkg (see substrate/client/dkg/Cargo.toml).
+adkg-vrf = { git = "https://github.com/coax1d/adkg-vrf.git", rev = "d254558650cba8457a6fc0862796e76a1757869f" }
+ark-bls12-381 = { version = "0.5", features = ["curve"] }
+ark-serialize = { version = "0.5" }
 cumulus-test-client = { workspace = true }
+polkadot-test-runtime = { workspace = true, default-features = true }
+sp-crypto-hashing = { workspace = true, default-features = true }
 
 [features]
+# Relay-chain validators started with `run_relay_chain_validator_node_with_dkg`
+# run the DKG gadget and submit their dealings to a parachain node over RPC.
+dkg = ["dep:sc-dkg", "polkadot-test-service/dkg"]
+
 runtime-benchmarks = [
 	"cumulus-pallet-parachain-system/runtime-benchmarks",
 	"cumulus-pallet-weight-reclaim/runtime-benchmarks",

@@ -21,7 +21,8 @@ sp-api = { workspace = true }
 sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-babe = { workspace = true }
-sp-consensus-beefy = { workspace = true }
+# BLS12-381 (ecdsa_bls381) BEEFY keys for the validators, reused by the DKG.
+sp-consensus-beefy = { workspace = true, features = ["bls-experimental"] }
 sp-core = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
@@ -42,6 +43,7 @@ pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-babe = { workspace = true }
 pallet-balances = { workspace = true }
+pallet-beefy = { workspace = true }
 pallet-grandpa = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-offences = { workspace = true }
@@ -86,6 +88,7 @@ std = [
 	"pallet-authorship/std",
 	"pallet-babe/std",
 	"pallet-balances/std",
+	"pallet-beefy/std",
 	"pallet-grandpa/std",
 	"pallet-indices/std",
 	"pallet-offences/std",

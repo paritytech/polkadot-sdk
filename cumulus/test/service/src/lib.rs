@@ -574,6 +574,7 @@ pub struct TestNodeBuilder {
 	relay_chain_mode: RelayChainMode,
 	endowed_accounts: Vec<AccountId>,
 	record_proof_during_import: bool,
+	rpc_port: Option<u16>,
 }
 
 impl TestNodeBuilder {
@@ -598,6 +599,7 @@ impl TestNodeBuilder {
 			endowed_accounts: Default::default(),
 			relay_chain_mode: RelayChainMode::Embedded,
 			record_proof_during_import: true,
+			rpc_port: None,
 		}
 	}
 
@@ -710,9 +712,15 @@ impl TestNodeBuilder {
 		self
 	}
 
+	/// Serve JSON-RPC on `127.0.0.1:port` (off by default).
+	pub fn enable_rpc(mut self, port: u16) -> TestNodeBuilder {
+		self.rpc_port = Some(port);
+		self
+	}
+
 	/// Build the [`TestNode`].
 	pub async fn build(self) -> TestNode {
-		let parachain_config = node_config(
+		let mut parachain_config = node_config(
 			self.storage_update_func_parachain.unwrap_or_else(|| Box::new(|| ())),
 			self.tokio_handle.clone(),
 			self.key,
@@ -723,6 +731,9 @@ impl TestNodeBuilder {
 			self.endowed_accounts,
 		)
 		.expect("could not generate Configuration");
+		if let Some(port) = self.rpc_port {
+			parachain_config.rpc.addr = Some(vec![local_rpc_endpoint(&parachain_config.rpc, port)]);
+		}
 
 		let mut relay_chain_config = polkadot_test_service::node_config(
 			self.storage_update_func_relay_chain.unwrap_or_else(|| Box::new(|| ())),
@@ -1003,29 +1014,90 @@ pub fn run_relay_chain_validator_node(
 	);
 
 	if let Some(port) = port {
-		config.rpc.addr = Some(vec![RpcEndpoint {
-			batch_config: config.rpc.batch_config,
-			cors: config.rpc.cors.clone(),
-			listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
-			max_connections: config.rpc.max_connections,
-			max_payload_in_mb: config.rpc.max_request_size,
-			max_payload_out_mb: config.rpc.max_response_size,
-			max_subscriptions_per_connection: config.rpc.max_subs_per_conn,
-			max_buffer_capacity_per_connection: config.rpc.message_buffer_capacity,
-			rpc_methods: config.rpc.methods,
-			rate_limit: config.rpc.rate_limit,
-			rate_limit_trust_proxy_headers: config.rpc.rate_limit_trust_proxy_headers,
-			rate_limit_whitelisted_ips: config.rpc.rate_limit_whitelisted_ips.clone(),
-			retry_random_port: true,
-			is_optional: false,
-		}]);
+		config.rpc.addr = Some(vec![local_rpc_endpoint(&config.rpc, port)]);
 	}
 
+	tokio_handle.block_on(async move {
+		polkadot_test_service::run_validator_node(config, Some(test_workers_path())).await
+	})
+}
+
+/// Run a relay-chain validator node that also runs the DKG gadget.
+///
+/// In every relay session the validator deals with its BEEFY key, gossips its
+/// dealing to the other validators and submits it, as an unsigned
+/// `KeyGen::submit_dealing` extrinsic, to the parachain node serving JSON-RPC
+/// at `dealings_rpc_url`. Returns the node and its DKG gossip collection stats.
+#[cfg(feature = "dkg")]
+pub fn run_relay_chain_validator_node_with_dkg(
+	tokio_handle: tokio::runtime::Handle,
+	key: Sr25519Keyring,
+	storage_update_func: impl Fn(),
+	boot_nodes: Vec<MultiaddrWithPeerId>,
+	dealings_rpc_url: String,
+) -> (polkadot_test_service::PolkadotTestNode, sc_dkg::CollectionStatsHandle) {
+	let config = polkadot_test_service::node_config(
+		storage_update_func,
+		tokio_handle.clone(),
+		key,
+		boot_nodes,
+		true,
+	);
+	// The BEEFY key the node's keystore holds for the dev seed (genesis derives
+	// the validators' BEEFY keys the same way).
+	let dealing_pair = sp_core::ecdsa_bls381::Pair::from_string(&key.to_seed(), None)
+		.expect("dev seeds are valid secret URIs; qed");
+	let encode: sc_dkg::submit::DealingEncoder = Arc::new(|session_index, transcript_bytes| {
+		runtime::UncheckedExtrinsic::new_bare(
+			runtime::KeyGenCall::submit_dealing { session_index, transcript_bytes }.into(),
+		)
+		.encode()
+	});
+	let dkg = polkadot_test_service::DkgConfig {
+		dealing_pair,
+		dealing_submitter: Some(Box::new(move |spawner| {
+			sc_dkg::submit::rpc_dealing_submitter(
+				dealings_rpc_url,
+				encode,
+				spawner,
+				Default::default(),
+			)
+		})),
+	};
+
+	tokio_handle.block_on(polkadot_test_service::run_validator_node_with_dkg(
+		config,
+		Some(test_workers_path()),
+		dkg,
+	))
+}
+
+/// The PVF worker binaries of the test executable's target directory.
+fn test_workers_path() -> std::path::PathBuf {
 	let mut workers_path = std::env::current_exe().unwrap();
 	workers_path.pop();
 	workers_path.pop();
+	workers_path
+}
 
-	tokio_handle.block_on(async move {
-		polkadot_test_service::run_validator_node(config, Some(workers_path)).await
-	})
+/// A JSON-RPC endpoint on `127.0.0.1:port` with the node's RPC settings and the
+/// CLI's default connection and payload limits (the test configurations leave
+/// them at 0, which rejects every connection and every request body).
+fn local_rpc_endpoint(rpc: &RpcConfiguration, port: u16) -> RpcEndpoint {
+	RpcEndpoint {
+		batch_config: rpc.batch_config,
+		cors: rpc.cors.clone(),
+		listen_addr: SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, port)),
+		max_connections: sc_cli::RPC_DEFAULT_MAX_CONNECTIONS,
+		max_payload_in_mb: sc_cli::RPC_DEFAULT_MAX_REQUEST_SIZE_MB,
+		max_payload_out_mb: sc_cli::RPC_DEFAULT_MAX_RESPONSE_SIZE_MB,
+		max_subscriptions_per_connection: sc_cli::RPC_DEFAULT_MAX_SUBS_PER_CONN,
+		max_buffer_capacity_per_connection: sc_cli::RPC_DEFAULT_MESSAGE_CAPACITY_PER_CONN,
+		rpc_methods: rpc.methods,
+		rate_limit: rpc.rate_limit,
+		rate_limit_trust_proxy_headers: rpc.rate_limit_trust_proxy_headers,
+		rate_limit_whitelisted_ips: rpc.rate_limit_whitelisted_ips.clone(),
+		retry_random_port: true,
+		is_optional: false,
+	}
 }
