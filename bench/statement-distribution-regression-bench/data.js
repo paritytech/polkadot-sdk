@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793106726274,
+  "lastUpdate": 1793125473790,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "shawntabrizi@gmail.com",
-            "name": "Shawn Tabrizi",
-            "username": "shawntabrizi"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e7332c1aa702038ba72664290bb148d5d5a49ceb",
-          "message": "Pass NodeExtraArgs through Dev Chain (#11685)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11684\n\nThis is useful if you are trying to build / prototype on top of\nstatement store, but don't want to set up or maintain a whole zombienet.",
-          "timestamp": "2026-04-11T13:46:43Z",
-          "tree_id": "cf3003b4016cf9a9a36ab40054a1d036c4eef28b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7332c1aa702038ba72664290bb148d5d5a49ceb"
-        },
-        "date": 1775920202474,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08800000000002,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.037926117854,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07648873858999991,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08915555638199997,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "111317723512d237327aa0dadfdcea054533675c",
+          "message": "Fix user losing remainder of swapped funds when pool liquidity goes below ED (#13601)\n\n`pallet-asset-conversion`'s `SwapCredit::swap_tokens_for_exact_tokens`\nsplit `credit_in` into the amount to swap and the change, and returned\nonly the amount to swap if the swap then failed. The change was dropped\ninside the storage transaction that is rolled back on failure, so the\ncaller lost it. The full `credit_in` is now returned on failure, as\ndocumented.",
+          "timestamp": "2026-10-27T16:47:48Z",
+          "tree_id": "d43404685681e16f124003bb271339ca1c0cc2cd",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/111317723512d237327aa0dadfdcea054533675c"
+        },
+        "date": 1793125445352,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12800000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03905249422600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08087599592599991,
             "unit": "seconds"
           }
         ]
