@@ -79,22 +79,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	///
-	/// The `build-spec` command relies on the chain specification built (hard-coded) into the node
-	/// binary, and may utilize the genesis presets of the runtimes  also embedded in the nodes
-	/// that support  this command. Since `polkadot-omni-node` does not contain any embedded
-	/// runtime, and requires a `chain-spec` path to be passed to its `--chain` flag, the command
-	/// isn't bringing significant value as it does for other node binaries (e.g. the
-	///  `polkadot` binary).
-	///
-	/// For a more versatile `chain-spec` manipulation experience please check out the
-	/// `polkadot-omni-node chain-spec-builder` subcommand.
-	#[deprecated(
-		note = "build-spec will be removed after 1/06/2025. Use chain-spec-builder instead"
-	)]
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
 
@@ -184,13 +168,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, conflicts_with = "dev_block_time")]
 	pub instant_seal: bool,
 
-	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
-	///
-	/// Use slot-based collator which can handle elastic scaling.
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long, conflicts_with = "authoring")]
-	pub experimental_use_slot_based: bool,
-
 	/// Authoring style to use.
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
@@ -222,6 +199,12 @@ pub struct Cli<Config: CliConfig> {
 	/// store statements or not.
 	#[arg(long)]
 	pub enable_statement_store: bool,
+
+	/// Route statements through the DHT instead of gossiping them to every peer.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, hide = true)]
+	pub statement_v2_dht: bool,
 
 	/// Number of concurrent workers for statement validation from the network.
 	///
@@ -270,7 +253,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
 	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
 
@@ -279,7 +262,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
 	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
 
@@ -287,7 +270,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "K",
@@ -296,11 +279,25 @@ pub struct Cli<Config: CliConfig> {
 	)]
 	pub statement_replication_factor: std::num::NonZeroUsize,
 
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
+
 	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "N",
@@ -313,7 +310,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(
 		long,
 		value_name = "RATE",
@@ -327,7 +324,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long, value_name = "SEED", hide = true)]
 	pub statement_bloom_seed: Option<u128>,
 
@@ -336,7 +333,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_dht_affinity_size: Option<usize>,
 
@@ -345,7 +342,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// Only relevant when `--enable-statement-store` is used.
 	///
-	/// Hidden: takes effect only on the experimental v2 DHT statement path.
+	/// Hidden: takes effect only with `--statement-v2-dht`.
 	#[arg(long, value_name = "BYTES", hide = true)]
 	pub statement_store_max_transient_size: Option<usize>,
 
@@ -395,10 +392,7 @@ impl Display for AuthoringPolicy {
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			authoring_policy: self
-				.experimental_use_slot_based
-				.then(|| AuthoringPolicy::SlotBased)
-				.unwrap_or(self.authoring),
+			authoring_policy: self.authoring,
 			export_pov: self.export_pov_to_path.clone(),
 			max_pov_percentage: self.run.experimental_max_pov_percentage,
 			statement_store_config: self.enable_statement_store.then_some(
@@ -418,6 +412,7 @@ impl<Config: CliConfig> Cli<Config> {
 							gossip_target: self.statement_gossip_target,
 							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
 							transient_max_size: self.statement_store_max_transient_size,
+							in_peers: self.statement_in_peers,
 						}
 					}),
 				},

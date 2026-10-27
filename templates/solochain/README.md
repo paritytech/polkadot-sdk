@@ -227,6 +227,9 @@ the correct dependencies, activate direnv `direnv allow`.
 
 ### Docker
 
-Please follow the [Substrate Docker instructions
-here](https://github.com/paritytech/polkadot-sdk/blob/master/substrate/docker/README.md) to
-build the Docker container with the Substrate Node Template binary.
+Use the [`Dockerfile`](./Dockerfile) in the root of this template to build a Docker image
+containing the `solochain-template-node` binary:
+
+```sh
+docker build -t solochain-template-node .
+```
