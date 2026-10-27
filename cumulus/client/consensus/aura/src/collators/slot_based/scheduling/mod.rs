@@ -46,9 +46,7 @@ use std::{marker::PhantomData, pin::Pin, time::Duration};
 
 mod siblings;
 
-pub(crate) use siblings::{
-	sibling_deadline, SiblingParams, SiblingResolver, MAX_SIBLING_SCHEDULING_PARENTS,
-};
+pub(crate) use siblings::{sibling_deadline, SiblingParams, SiblingResolver};
 
 fn get_current_relay_slot_at(
 	now: Duration,

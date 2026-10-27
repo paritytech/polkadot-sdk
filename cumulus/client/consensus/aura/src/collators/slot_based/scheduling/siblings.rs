@@ -48,7 +48,7 @@ use std::{
 };
 
 /// Most sibling SPs one segment is also submitted under. Each costs a whole extra submission; relay
-/// forks are one block deep and rarely have more than one sibling.
+/// forks rarely have more than one sibling, and the cap bounds what an equivocating author forces.
 pub(crate) const MAX_SIBLING_SCHEDULING_PARENTS: usize = 2;
 
 /// Candidates checked beyond [`MAX_SIBLING_SCHEDULING_PARENTS`] per slot and SP, so a few
@@ -278,21 +278,20 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		}
 	}
 
-	/// Header chains of up to `limit` siblings that can carry the segment proved by `proof`, best
-	/// first. Each chain is newest first, as [`SchedulingProof::header_chain`]. Empty at
-	/// `relay_parent_offset == 0`, where there is no chain to swap, or once `params.valid_until`
-	/// passes, which bounds the relay calls.
+	/// Header chains of up to [`MAX_SIBLING_SCHEDULING_PARENTS`] siblings that can carry the
+	/// segment proved by `proof`, best first. Each chain is newest first, as
+	/// [`SchedulingProof::header_chain`]. Empty at `relay_parent_offset == 0`, where there is no
+	/// chain to swap, or once `params.valid_until` passes, which bounds the relay calls.
 	///
 	/// Resolved once per slot and SP, at the first core's call, so chained cores share one sibling
-	/// set (a prefix of it, per `limit`). A sibling imported or extended after that is missed.
+	/// set. A sibling imported or extended after that is missed.
 	pub(crate) async fn resolve(
 		&mut self,
 		proof: &SchedulingProof,
 		params: &SiblingParams,
-		limit: usize,
 	) -> Vec<Vec<RelayHeader>> {
 		let deadline = tokio::time::Instant::from_std(params.valid_until);
-		tokio::time::timeout_at(deadline, self.resolve_unbounded(proof, params, limit))
+		tokio::time::timeout_at(deadline, self.resolve_unbounded(proof, params))
 			.await
 			.unwrap_or_default()
 	}
@@ -301,10 +300,8 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		&mut self,
 		proof: &SchedulingProof,
 		params: &SiblingParams,
-		limit: usize,
 	) -> Vec<Vec<RelayHeader>> {
-		let limit = limit.min(MAX_SIBLING_SCHEDULING_PARENTS);
-		let Some(chosen) = proof.header_chain.first().filter(|_| limit > 0) else {
+		let Some(chosen) = proof.header_chain.first() else {
 			return Vec::new();
 		};
 
@@ -313,7 +310,7 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		}
 		let key = (chosen.hash(), proof.internal_scheduling_parent_header.hash());
 		if let Some(chains) = self.memo.chains.get(&key) {
-			return chains.iter().take(limit).cloned().collect();
+			return chains.clone();
 		}
 
 		self.lookup_failed = false;
@@ -340,7 +337,6 @@ impl<RelayClient: RelayChainInterface + 'static> SiblingResolver<RelayClient> {
 		if !self.lookup_failed {
 			self.memo.chains.insert(key, chains.clone());
 		}
-		chains.truncate(limit);
 		chains
 	}
 
@@ -575,7 +571,6 @@ mod tests {
 			&self,
 			proof: &SchedulingProof,
 			imports: &[&RelayHeader],
-			limit: usize,
 		) -> Vec<Vec<RelayHeader>> {
 			let mut client =
 				TestRelayClient::new(self.headers.iter().map(|h| (h.hash(), h.clone())).collect());
@@ -594,12 +589,12 @@ mod tests {
 				max_relay_parent_session_age: self.max_session_age,
 				valid_until: Instant::now() + Duration::from_secs(60),
 			};
-			resolver.resolve(proof, &params, limit).await
+			resolver.resolve(proof, &params).await
 		}
 	}
 
-	/// Only a sibling on the same cores and internal scheduling parent is kept, at most `limit`,
-	/// and none at `relay_parent_offset == 0`.
+	/// Only a sibling on the same cores and internal scheduling parent is kept, at most
+	/// [`MAX_SIBLING_SCHEDULING_PARENTS`], and none at `relay_parent_offset == 0`.
 	#[tokio::test]
 	async fn sibling_chains_filter_and_cap() {
 		let mut fx = Fixture::new();
@@ -614,9 +609,8 @@ mod tests {
 		let proof = fx.proof(vec![chosen.clone()]);
 
 		let all = [&chosen, &other_core, &forked, &sibling];
-		assert_eq!(fx.resolve(&proof, &all, 2).await, vec![vec![sibling.clone()]]);
-		assert!(fx.resolve(&fx.proof(vec![]), &all, 2).await.is_empty());
-		assert!(fx.resolve(&proof, &all, 0).await.is_empty());
+		assert_eq!(fx.resolve(&proof, &all).await, vec![vec![sibling.clone()]]);
+		assert!(fx.resolve(&fx.proof(vec![]), &all).await.is_empty());
 
 		let accepted: Vec<_> = (20..23).map(|tag| twin(&chosen, tag)).collect();
 		for header in &accepted {
@@ -630,7 +624,7 @@ mod tests {
 			.map(|h| vec![h])
 			.collect();
 		let imports: Vec<_> = accepted.iter().collect();
-		assert_eq!(fx.resolve(&proof, &imports, 5).await, expected);
+		assert_eq!(fx.resolve(&proof, &imports).await, expected);
 	}
 
 	/// At offset 2 the chain is newest first and ends above the internal scheduling parent; a
@@ -651,7 +645,7 @@ mod tests {
 
 		let mut expected = vec![vec![twin_sibling.clone(), mid], vec![cousin.clone(), other_mid]];
 		expected.sort_by_key(|chain| chain[0].hash());
-		assert_eq!(fx.resolve(&proof, &[&twin_sibling, &cousin], 2).await, expected);
+		assert_eq!(fx.resolve(&proof, &[&twin_sibling, &cousin]).await, expected);
 	}
 
 	/// At most `MAX_SIBLING_SCHEDULING_PARENTS + MAX_REJECTED_SIBLINGS` candidates are checked.
@@ -669,9 +663,9 @@ mod tests {
 		let proof = fx.proof(vec![chosen]);
 
 		let within: Vec<_> = rejected[..checked - 1].iter().chain([&good]).collect();
-		assert_eq!(fx.resolve(&proof, &within, 1).await, vec![vec![good.clone()]]);
+		assert_eq!(fx.resolve(&proof, &within).await, vec![vec![good.clone()]]);
 		let past: Vec<_> = rejected.iter().chain([&good]).collect();
-		assert!(fx.resolve(&proof, &past, 1).await.is_empty());
+		assert!(fx.resolve(&proof, &past).await.is_empty());
 	}
 
 	/// A sibling whose chain to the internal scheduling parent starts a new session is rejected
@@ -685,8 +679,8 @@ mod tests {
 		fx.add(&new_session, Some(CoreIndex(0)));
 		let proof = fx.proof(vec![chosen]);
 
-		assert!(fx.resolve(&proof, &[&new_session], 1).await.is_empty());
+		assert!(fx.resolve(&proof, &[&new_session]).await.is_empty());
 		fx.max_session_age = 1;
-		assert_eq!(fx.resolve(&proof, &[&new_session], 1).await, vec![vec![new_session]]);
+		assert_eq!(fx.resolve(&proof, &[&new_session]).await, vec![vec![new_session]]);
 	}
 }

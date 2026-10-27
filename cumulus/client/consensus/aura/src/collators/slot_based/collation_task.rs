@@ -42,22 +42,10 @@ use crate::export_pov_to_path;
 use super::{
 	message::{CollationParts, CollatorMessage},
 	resubmittable_segment::ResubmittableSegment,
-	scheduling::{SiblingParams, SiblingResolver, MAX_SIBLING_SCHEDULING_PARENTS},
+	scheduling::{SiblingParams, SiblingResolver},
 };
 
 const LOG_TARGET: &str = "aura::cumulus::collation_task";
-
-/// Extra collation builds one core may spend on sibling scheduling parents: a sibling rebuilds
-/// the whole segment, so a long backlog buys fewer siblings, and past this length none at all.
-const MAX_SIBLING_REBUILDS_PER_CORE: usize = 6;
-
-/// Sibling scheduling parents a core submitting `entries` collations can afford.
-fn sibling_budget(entries: usize) -> usize {
-	MAX_SIBLING_REBUILDS_PER_CORE
-		.checked_div(entries)
-		.unwrap_or_default()
-		.min(MAX_SIBLING_SCHEDULING_PARENTS)
-}
 
 /// A submitted segment, kept as headers only and re-hydrated when rebuilt under a sibling.
 struct SegmentSubmission<Block: BlockT> {
@@ -247,7 +235,7 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 
 	// Sibling work deferred behind main submissions; an item starts only when no message is
 	// waiting, so a message arriving meanwhile waits for that one item, at worst the slot's
-	// sibling deadline plus one segment build.
+	// sibling deadline plus one collation build.
 	let mut deferred: VecDeque<Deferred<Block>> = VecDeque::new();
 	let mut siblings = SiblingResolver::new(relay_client, para_id);
 	siblings.ensure_subscribed().await;
@@ -276,8 +264,7 @@ pub async fn run_collation_task<Block, RClient, CS, Backend, CHP>(
 				defer_siblings(&mut deferred, core_index, submitted);
 			},
 			Work::Deferred(Deferred::Resolve(segment, params)) => {
-				let budget = sibling_budget(segment.resubmitted + segment.fresh);
-				let chains = siblings.resolve(&segment.proof, &params, budget).await;
+				let chains = siblings.resolve(&segment.proof, &params).await;
 				// Ahead of other cores' work, keeping the core's siblings together.
 				for sibling in segment.under(chains).into_iter().rev() {
 					deferred.push_front(Deferred::Sibling(sibling, params.valid_until));
@@ -356,7 +343,6 @@ where
 		all_parts.extend(bundle);
 
 		// Sibling rebuilds keep only the headers; the parts move into the main submission.
-		let siblings = siblings.filter(|_| sibling_budget(resubmitted + fresh) > 0);
 		let headers: Option<Vec<_>> = siblings.as_ref().map(|_| {
 			all_parts
 				.iter()
@@ -365,14 +351,7 @@ where
 		});
 
 		let sent = self
-			.send_segment(
-				all_parts,
-				scheduling_proof.clone(),
-				core_index,
-				false,
-				resubmitted,
-				fresh,
-			)
+			.send_segment(all_parts, scheduling_proof.clone(), core_index, None, resubmitted, fresh)
 			.await;
 		let (headers, siblings) = headers.zip(siblings).filter(|_| sent)?;
 
@@ -385,16 +364,11 @@ where
 	/// part fails to hydrate, rather than advertising less than the main submission did.
 	async fn submit_to_sibling(&mut self, segment: SegmentSubmission<Block>, valid_until: Instant) {
 		let SegmentSubmission { core_index, headers, proof, resubmitted, fresh } = segment;
-		let too_late = || Instant::now() >= valid_until;
-		if too_late() {
+		if Instant::now() >= valid_until {
 			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling submission too late.");
 			return;
 		}
 		let parts = self.hydrate(headers);
-		if too_late() {
-			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling hydrated too late.");
-			return;
-		}
 		if parts.len() != resubmitted + fresh {
 			tracing::debug!(
 				target: LOG_TARGET,
@@ -405,7 +379,8 @@ where
 			);
 			return;
 		}
-		self.send_segment(parts, proof, core_index, true, resubmitted, fresh).await;
+		self.send_segment(parts, proof, core_index, Some(valid_until), resubmitted, fresh)
+			.await;
 	}
 
 	fn hydrate(&self, headers: Vec<Block::Header>) -> Vec<CollationParts<Block>> {
@@ -417,28 +392,50 @@ where
 	}
 
 	/// Build `all_parts` under `scheduling_proof` and submit them for `core_index`; returns whether
-	/// anything was sent. Parts that fail to build are skipped, not fatal to the segment.
+	/// anything was sent. Parts that fail to build are skipped, not fatal to the segment, except in
+	/// a sibling copy (`sibling_valid_until` set): sent whole before its deadline, or not at all.
 	/// `resubmitted` and `fresh` only feed the logs.
 	async fn send_segment(
 		&mut self,
 		all_parts: Vec<CollationParts<Block>>,
 		scheduling_proof: SchedulingProof,
 		core_index: CoreIndex,
-		sibling: bool,
+		sibling_valid_until: Option<Instant>,
 		resubmitted: usize,
 		fresh: usize,
 	) -> bool {
 		// Logged on every submission so a rejected one can be traced to its scheduling parent.
 		let scheduling_parent = scheduling_proof.scheduling_parent();
 		let total = resubmitted + fresh;
+		let sibling = sibling_valid_until.is_some();
+		let expired =
+			|| sibling_valid_until.is_some_and(|valid_until| Instant::now() >= valid_until);
 
 		let mut collations = Vec::with_capacity(all_parts.len());
 		for parts in all_parts {
-			if let Some(collation) =
+			let built = if expired() {
+				None
+			} else {
 				self.build_collation(parts, Some(scheduling_proof.clone())).await
-			{
-				collations.push(collation);
+			};
+			match built {
+				Some(collation) => collations.push(collation),
+				None if sibling => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?core_index,
+						?scheduling_parent,
+						expired = expired(),
+						"Sibling copy incomplete; nothing submitted.",
+					);
+					return false;
+				},
+				None => {},
 			}
+		}
+		if expired() {
+			tracing::debug!(target: LOG_TARGET, ?core_index, "Sibling copy built too late.");
+			return false;
 		}
 
 		if collations.is_empty() {
@@ -688,10 +685,9 @@ mod tests {
 		assert_eq!(serve(&mut rx, &mut deferred).await, None);
 	}
 
-	/// A segment under each sibling chain keeps everything but the chain, and the budget never
-	/// exceeds the rebuild cap.
+	/// A segment under each sibling chain keeps everything but the chain.
 	#[test]
-	fn segment_under_sibling_chains_within_budget() {
+	fn segment_under_sibling_chains() {
 		let chains = vec![vec![scheduling_proof(8).internal_scheduling_parent_header], vec![]];
 		let segment = segment(CoreIndex(0), 1, 1);
 		let siblings = segment.under(chains.clone());
@@ -704,19 +700,6 @@ mod tests {
 				(sibling.core_index, sibling.resubmitted, sibling.fresh),
 				(CoreIndex(0), 1, 1)
 			);
-		}
-
-		for (entries, budget) in [
-			(0, 0),
-			(1, MAX_SIBLING_SCHEDULING_PARENTS),
-			(3, 2),
-			(4, 1),
-			(MAX_SIBLING_REBUILDS_PER_CORE + 1, 0),
-		] {
-			assert_eq!(sibling_budget(entries), budget);
-		}
-		for entries in 0..=(MAX_SIBLING_REBUILDS_PER_CORE + 2) {
-			assert!(entries * sibling_budget(entries) <= MAX_SIBLING_REBUILDS_PER_CORE);
 		}
 	}
 
