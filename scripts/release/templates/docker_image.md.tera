@@ -6,6 +6,7 @@ The docker images for the binaries of this release can be found on Docker Hub (a
 - [polkadot-parachain](https://hub.docker.com/r/parity/polkadot-parachain/tags?page=1&ordering=last_updated)
 - [polkadot-omni-node](https://hub.docker.com/r/parity/polkadot-omni-node/tags?page=1&ordering=last_updated)
 - [chain-spec-builder](https://hub.docker.com/r/parity/chain-spec-builder/tags?page=1&ordering=last_updated)
+- [eth-rpc](https://hub.docker.com/r/parity/eth-rpc/tags?page=1&ordering=last_updated)
 
 You may also pull them with:
 
@@ -14,4 +15,5 @@ docker pull parity/polkadot:{{ env.VERSION }}
 docker pull parity/polkadot-parachain:{{ env.VERSION }}
 docker pull parity/polkadot-omni-node:{{ env.VERSION }}
 docker pull parity/chain-spec-builder:{{ env.VERSION }}
+docker pull parity/eth-rpc:{{ env.VERSION }}
 ```

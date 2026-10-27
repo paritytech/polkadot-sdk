@@ -572,7 +572,6 @@ members = [
 	"substrate/primitives/virtualization/test-fixture",
 	"substrate/primitives/wasm-interface",
 	"substrate/primitives/weights",
-	"substrate/scripts/ci/node-template-release",
 	"substrate/test-utils",
 	"substrate/test-utils/cli",
 	"substrate/test-utils/client",
@@ -696,7 +695,7 @@ ark-scale = { version = "0.0.14", default-features = false }
 ark-std = { version = "0.6.0", default-features = false }
 ark-vesta = { version = "0.6.0", default-features = false }
 ark-vesta-ext = { version = "0.6.0", default-features = false }
-ark-vrf = { version = "0.5.3", default-features = false }
+ark-vrf = { version = "0.6.1", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -846,7 +845,6 @@ finality-grandpa = { version = "0.16.3", default-features = false }
 finality-relay = { path = "bridges/relays/finality" }
 first-pallet = { package = "polkadot-sdk-docs-first-pallet", path = "docs/sdk/packages/guides/first-pallet", default-features = false }
 first-runtime = { package = "polkadot-sdk-docs-first-runtime", path = "docs/sdk/packages/guides/first-runtime", default-features = false }
-flate2 = { version = "1.0" }
 fnv = { version = "1.0.6" }
 foldhash = { version = "0.1.5", default-features = false }
 fork-tree = { path = "substrate/utils/fork-tree", default-features = false }
@@ -879,7 +877,6 @@ futures-util = { version = "0.3.30", default-features = false }
 generate-bags = { path = "substrate/utils/frame/generate-bags", default-features = false }
 gethostname = { version = "0.2.3" }
 git2 = { version = "0.20.0", default-features = false }
-glob = { version = "0.3" }
 glutton-westend-runtime = { path = "cumulus/parachains/runtimes/glutton/glutton-westend" }
 governor = { version = "0.6.0" }
 gum = { path = "polkadot/node/gum", default-features = false, package = "tracing-gum" }
@@ -936,7 +933,7 @@ linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
 lite-json = { version = "0.2.0", default-features = false }
-litep2p = { version = "0.15.3", features = ["rsa", "webrtc", "websocket"] }
+litep2p = { version = "0.16.0", features = ["rsa", "webrtc", "websocket"] }
 log = { version = "0.4.22", default-features = false }
 macro_magic = { version = "0.5.1" }
 maplit = { version = "1.0.2" }
@@ -1452,7 +1449,6 @@ subxt-rpcs = { version = "0.50", default-features = false }
 subxt-signer = { version = "0.50" }
 syn = { version = "2.0.87" }
 sysinfo = { version = "0.30" }
-tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
 # pinned test-case to 3.3.1 because they support only the latest stable version of rust
 num_enum = { version = "0.7.5", default-features = false }
@@ -1477,7 +1473,6 @@ tokio-test = { version = "0.4.4" }
 tokio-tungstenite = { version = "0.26.2" }
 tokio-util = { version = "0.7.8" }
 toml = { version = "0.8.12" }
-toml_edit = { version = "0.19" }
 tower = { version = "0.4.13" }
 tower-http = { version = "0.5.2" }
 tracing = { version = "0.1.37", default-features = false }
@@ -1524,9 +1519,9 @@ xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = 
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
 yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
-zombienet-configuration = { version = "0.4.18" }
-zombienet-orchestrator = { version = "0.4.18" }
-zombienet-sdk = { version = "0.4.18" }
+zombienet-configuration = { version = "0.5.2" }
+zombienet-orchestrator = { version = "0.5.2" }
+zombienet-sdk = { version = "0.5.2" }
 zstd = { version = "0.12.4", default-features = false }
 
 [profile.release]

@@ -33,7 +33,7 @@ pub type Double = u64;
 /// Difference in the number of bits of [`Single`] and [`Double`].
 const SHIFT: usize = 32;
 /// short form of _Base_. Analogous to the value 10 in base-10 decimal numbers.
-const B: Double = Single::max_value() as Double + 1;
+const B: Double = Single::MAX as Double + 1;
 
 static_assertions::const_assert!(
 	core::mem::size_of::<Double>() - core::mem::size_of::<Single>() == SHIFT / 8
