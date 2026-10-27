@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793096768802,
+  "lastUpdate": 1793102412758,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b96d1afb5e99dc118336c78beb5231dc5d9f6d8e",
-          "message": "[Release|CI/CD] Fix git push in Post Crates Activities flow (#11723)\n\nThis PR fixes issue, that commited changes were not pushed to\npost-crates-release branch as there was a check, that was looking for\nuncommited changes",
-          "timestamp": "2026-04-10T16:40:00Z",
-          "tree_id": "d9f6538613df2c66bb25c1994bd022a465897d10",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b96d1afb5e99dc118336c78beb5231dc5d9f6d8e"
-        },
-        "date": 1775844145605,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027421703,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009610226969999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010956549109999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.00949467563999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "andrei.arlou@gmail.com",
+            "name": "Andrei Arlou",
+            "username": "Captain1653"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b",
+          "message": "staking-async: remove obsolete TODO comment about StakingLedger (#13271)\n\n# Description\nFixes #402 \n\nThe issue referenced in the legacy TODO was for the `pallet-staking`.\nThat pallet is already deprecated via #11940, so no changes are needed\nthere.\n\nFor `pallet-staking-async`, the moving `StakingLedger` has already been\ncompleted via #8127, but the old `TODO` comment was left behind during\nthe copy-paste process.\n\n\n## Review Notes\n\nI'm just removing those lines of the `TODO` comment and that's it.\n\nCo-authored-by: Paolo La Camera <paolo@parity.io>\nCo-authored-by: mertwole <mertwole@gmail.com>",
+          "timestamp": "2026-10-27T10:25:53Z",
+          "tree_id": "07c6342c1089e0bbb747ecc739235cda9c8886be",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c3bc8be76f6fe9e517c79b95fd74658ffe3ee70b"
+        },
+        "date": 1793102380847,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009911894469999996,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009371753159999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025190456000000008,
             "unit": "seconds"
           }
         ]
