@@ -462,9 +462,9 @@ where
 /// Aura Errors
 #[derive(Debug, thiserror::Error)]
 pub enum Error<B: BlockT> {
-	/// Multiple Aura pre-runtime headers
-	#[error("Multiple Aura pre-runtime headers")]
-	MultipleHeaders,
+	/// Multiple AuRa pre-runtime digests
+	#[error("Multiple AuRa pre-runtime digests")]
+	MultiplePreDigests,
 	/// No Aura pre-runtime digest found
 	#[error("No Aura pre-runtime digest found")]
 	NoDigestFound,
@@ -497,7 +497,9 @@ impl<B: BlockT> From<Error<B>> for String {
 impl<B: BlockT> From<crate::standalone::PreDigestLookupError> for Error<B> {
 	fn from(e: crate::standalone::PreDigestLookupError) -> Self {
 		match e {
-			crate::standalone::PreDigestLookupError::MultipleHeaders => Error::MultipleHeaders,
+			crate::standalone::PreDigestLookupError::MultiplePreDigests => {
+				Error::MultiplePreDigests
+			},
 			crate::standalone::PreDigestLookupError::NoDigestFound => Error::NoDigestFound,
 		}
 	}
