@@ -6,8 +6,11 @@ doc:
     A `polkadot-omni-node` built with the experimental `experimental-eth-rpc-in-node` feature
     can serve the Ethereum JSON-RPC endpoint itself when started with `--eth-rpc`, replacing
     the separate `eth-rpc` process. It is configured with `--eth-rpc-port` (default 8545),
-    `--eth-rpc-external` and `--eth-rpc-cors`. If the server fails, it logs an error and the
-    node keeps running.
+    `--eth-rpc-external`, `--eth-rpc-cors`, `--eth-rpc-pruning` and
+    `--eth-rpc-allow-unprotected-txs`. The default `--eth-rpc-pruning archive` indexes the
+    whole history into `<base-path>/chains/<chain id>/eth-rpc/eth-rpc.db` and needs an archive
+    node for a complete sync; pass a number of blocks to keep only recent ones in memory. If
+    the server fails, it logs an error and the node keeps running.
 
 - audience: Node Dev
   description: |-

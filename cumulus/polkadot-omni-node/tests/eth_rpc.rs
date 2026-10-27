@@ -19,7 +19,11 @@
 
 #![cfg(all(unix, feature = "experimental-eth-rpc-in-node"))]
 
-use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
+use jsonrpsee::{
+	core::client::ClientT,
+	rpc_params,
+	ws_client::{WsClient, WsClientBuilder},
+};
 use pallet_revive::evm::{Account, U256};
 use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
 use sc_chain_spec::{ChainType, GenericChainSpec, NoExtension};
@@ -87,30 +91,40 @@ async fn connect(url: &str, node: &mut Child) -> WsClient {
 	}
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn dev_node_serves_eth_rpc() {
-	let base_dir = tempfile::tempdir().unwrap();
-	let chain_spec = write_chain_spec(base_dir.path());
-	let eth_rpc_port = free_port();
-
-	let mut node = KillChildOnDrop(
+fn spawn_node(base_dir: &Path, rpc_port: u16, eth_rpc_port: u16) -> KillChildOnDrop {
+	let chain_spec = write_chain_spec(base_dir);
+	KillChildOnDrop(
 		Command::new(env!("CARGO_BIN_EXE_polkadot-omni-node"))
 			.stdout(Stdio::null())
 			.stderr(Stdio::inherit())
 			.arg("--chain")
 			.arg(&chain_spec)
 			.arg("--base-path")
-			.arg(base_dir.path())
+			.arg(base_dir)
 			.args(["--dev", "--dev-block-time", "1000", "--no-prometheus"])
-			.args(["--rpc-port", &free_port().to_string(), "--port", &free_port().to_string()])
+			.args(["--rpc-port", &rpc_port.to_string(), "--port", &free_port().to_string()])
 			.args(["--eth-rpc", "--eth-rpc-port", &eth_rpc_port.to_string()])
 			.spawn()
 			.unwrap(),
-	);
+	)
+}
+
+async fn best_block(client: &WsClient) -> u64 {
+	let header: serde_json::Value = client.request("chain_getHeader", rpc_params![]).await.unwrap();
+	let number = header["number"].as_str().unwrap().trim_start_matches("0x");
+	u64::from_str_radix(number, 16).unwrap()
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn dev_node_serves_eth_rpc() {
+	let base_dir = tempfile::tempdir().unwrap();
+	let eth_rpc_port = free_port();
+	let mut node = spawn_node(base_dir.path(), free_port(), eth_rpc_port);
 
 	let client = Arc::new(connect(&format!("ws://127.0.0.1:{eth_rpc_port}"), &mut node.0).await);
 
 	assert_eq!(client.chain_id().await.unwrap(), U256::from(PENPAL_CHAIN_ID));
+	assert_eq!(client.accounts().await.unwrap().first(), Some(&Account::default().address()));
 
 	let to = Account::from(subxt_signer::eth::dev::baltathar()).address();
 	let tx = TransactionBuilder::new(client.clone())
@@ -123,4 +137,44 @@ async fn dev_node_serves_eth_rpc() {
 
 	assert_eq!(receipt.transaction_hash, tx.hash());
 	assert_eq!(receipt.to, Some(to));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn eth_rpc_failure_leaves_the_node_running() {
+	let base_dir = tempfile::tempdir().unwrap();
+	// A regular file where the receipt database directory should be makes `create_dir_all` fail.
+	let chain_dir = base_dir.path().join("chains/penpal-eth-rpc");
+	std::fs::create_dir_all(&chain_dir).unwrap();
+	std::fs::write(chain_dir.join("eth-rpc"), b"").unwrap();
+
+	let rpc_port = free_port();
+	let eth_rpc_port = free_port();
+	let mut node = spawn_node(base_dir.path(), rpc_port, eth_rpc_port);
+
+	let deadline = Instant::now() + Duration::from_secs(300);
+	let rpc = loop {
+		if let Ok(client) =
+			WsClientBuilder::default().build(format!("ws://127.0.0.1:{rpc_port}")).await
+		{
+			break client;
+		}
+		assert!(node.0.try_wait().unwrap().is_none(), "the node exited");
+		assert!(Instant::now() < deadline, "the node's RPC never came up");
+		tokio::time::sleep(Duration::from_millis(500)).await;
+	};
+
+	let start = best_block(&rpc).await;
+	while best_block(&rpc).await < start + 3 {
+		assert!(Instant::now() < deadline, "the node stopped producing blocks");
+		tokio::time::sleep(Duration::from_millis(500)).await;
+	}
+
+	assert!(node.0.try_wait().unwrap().is_none(), "the node exited");
+	assert!(
+		WsClientBuilder::default()
+			.build(format!("ws://127.0.0.1:{eth_rpc_port}"))
+			.await
+			.is_err(),
+		"the ETH RPC server should not be listening"
+	);
 }

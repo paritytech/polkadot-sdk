@@ -19,20 +19,23 @@
 //! Generated from the checked-in `revive_chain.scale`, which is `revive-dev-runtime`'s v16
 //! metadata. `metadata_matches_the_dev_runtime` below compares the hash of the parts this client
 //! uses (the `Revive` and `System` pallets and the `ReviveApi` runtime API) between the file and
-//! the runtime, so doc comments and other pallets can change without touching the file. When it
-//! fails, refresh the file with
+//! the runtime. Doc comments are not hashed, but the outer call, event and error enums of every
+//! pallet and the extrinsic metadata always are, so a call, event or error change in any pallet of
+//! the dev runtime still fails the test. When it fails, refresh the file with
 //! `BLESS_METADATA=1 cargo test -p pallet-revive-eth-rpc --lib metadata_matches`.
 //!
 //! The macro only reads the file and every generated query is `.unvalidated()`, so the crate
 //! keeps compiling against the old file as long as the code here still matches it: bless first,
 //! then adapt the code. If a master merge brings code that already needs the new file, regenerate
 //! it without compiling this crate by running `revive-dev-node --dev` and then
-//! `subxt metadata --url ws://127.0.0.1:9944 --version 16 -o revive_chain.scale`.
+//! `subxt metadata --url ws://127.0.0.1:9944 --version 16 -o revive_chain.scale`, build, and then
+//! bless as above.
 //!
-//! A blessed file also carries frame-system's `experimental` items (`do_task`, the `Task*`
-//! events, `InvalidTask` and `FailedTask`), which the dev node's WASM runtime does not have: the
+//! A blessed file carries frame-system's `experimental` items (`do_task`, the `Task*` events,
+//! `InvalidTask` and `FailedTask`), which the dev node's WASM runtime does not have: the
 //! `revive-dev-runtime` dev-dependency is unified with `revive-dev-node`, which enables
-//! `polkadot-sdk/experimental`. None of them are in the hashed parts.
+//! `polkadot-sdk/experimental`. They are part of System's hashed enums, so a file regenerated from
+//! the WASM dev node always fails the test until it is blessed.
 pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(

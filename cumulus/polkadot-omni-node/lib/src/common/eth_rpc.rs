@@ -142,6 +142,5 @@ pub(crate) fn start(
 	spawn_handle: &SpawnTaskHandle,
 ) {
 	let node_methods: Methods = rpc_handlers.handle().as_ref().clone().into();
-	// `None`: the node's own RPC server already registered these metric names on this registry.
-	start_embedded(node_methods, spawn_handle, config, None);
+	start_embedded(node_methods, spawn_handle, config);
 }

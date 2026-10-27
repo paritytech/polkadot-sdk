@@ -32,7 +32,6 @@ use jsonrpsee::{
 	core::{server::Methods, traits::ToRpcParams},
 	types::SubscriptionId,
 };
-use prometheus_endpoint::Registry;
 use sc_service::{
 	SpawnTaskHandle,
 	config::{BasePath, RpcConfiguration},
@@ -216,20 +215,15 @@ pub fn start_embedded(
 	node_methods: Methods,
 	spawn_handle: &SpawnTaskHandle,
 	config: EmbeddedConfig,
-	prometheus_registry: Option<Registry>,
 ) {
 	spawn_handle.spawn("eth-rpc", None, async move {
-		if let Err(err) = run_embedded(node_methods, config, prometheus_registry).await {
+		if let Err(err) = run_embedded(node_methods, config).await {
 			log::error!(target: LOG_TARGET, "❌ The embedded ETH RPC server stopped: {err:?}");
 		}
 	});
 }
 
-async fn run_embedded(
-	node_methods: Methods,
-	config: EmbeddedConfig,
-	prometheus_registry: Option<Registry>,
-) -> anyhow::Result<()> {
+async fn run_embedded(node_methods: Methods, config: EmbeddedConfig) -> anyhow::Result<()> {
 	let EmbeddedConfig { rpc, eth_pruning, base_path, allow_unprotected_txs, dev_accounts } =
 		config;
 
@@ -239,13 +233,16 @@ async fn run_embedded(
 	let rpc_client = RpcClient::new(InProcessRpcClient::new(node_methods));
 	let client = build_client(rpc_client, eth_pruning, db_options, subscription_gap_queue).await?;
 
+	let module = rpc_module(dev_accounts, client.clone(), allow_unprotected_txs)?;
+	// Nothing fallible may run between creating the runtime and handing it to
+	// `start_rpc_servers`: dropping a multi-thread runtime inside this task panics.
 	let rpc_runtime = create_rpc_runtime(rpc.max_connections)
 		.map_err(|e| anyhow::anyhow!("Failed to create the ETH RPC runtime: {e}"))?;
 	let _server = start_rpc_servers(
 		&rpc,
-		prometheus_registry.as_ref(),
+		None,
 		&tokio::runtime::Handle::current(),
-		rpc_module(dev_accounts, client.clone(), allow_unprotected_txs)?,
+		module,
 		rpc_runtime,
 		None,
 	)?;
