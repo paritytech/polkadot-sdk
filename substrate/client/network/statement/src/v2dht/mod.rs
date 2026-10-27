@@ -292,6 +292,15 @@ impl V2DhtOrchestrator {
 		self.explicit_affinity.on_peer_filter_update(peer, filter);
 	}
 
+	/// Exclude `peer` from the DHT index but keep its filter: steering would otherwise dial it and
+	/// routing would count it as a replica, while the propagation plan must still serve it.
+	pub(crate) fn on_peer_without_dht(&mut self, peer: PeerId) {
+		self.peers_topology.on_peer_without_dht(peer);
+		// Changes the DHT peer index, hence affinity.
+		self.publish_dht_affinity();
+		self.report_topology_size();
+	}
+
 	// === Forward decision ===
 
 	/// Whether `peer` is a DHT routing target for a statement.
@@ -372,10 +381,23 @@ impl V2DhtOrchestrator {
 		}
 	}
 
-	/// Align the connected peers with the peers the node needs connected, opening
-	/// and closing connections through the statement protocol's reserved set on `network`.
-	pub(crate) fn refresh_connections<N: NetworkPeers>(&self, network: &N) {
+	/// Reserve the peers the node needs connected and release the rest, through the statement
+	/// protocol's reserved set on `network`.
+	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
+	pub(crate) fn is_reserved(&self, peer: &PeerId) -> bool {
+		self.peer_steering.is_reserved(peer)
+	}
+
+	#[cfg(test)]
+	pub(crate) fn update_peers_needing_connections(
+		&mut self,
+		peers: impl IntoIterator<Item = PeerId>,
+	) {
+		self.peer_steering.update_peers_needing_connections(peers);
 	}
 
 	pub(crate) fn evict_stale_peers(&mut self) {
@@ -710,6 +732,21 @@ mod tests {
 	}
 
 	#[test]
+	fn a_peer_without_dht_leaves_routing_but_keeps_its_filter() {
+		let mut orchestrator = orchestrator();
+		let peer = PeerId::random();
+		orchestrator.on_substream_opened(peer);
+		orchestrator.on_peer_filter_update(peer, AffinityFilter::match_all(0));
+		let statements = [statement(1, &[topic(1)])];
+
+		orchestrator.on_peer_without_dht(peer);
+
+		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
+		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
+		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
+	}
+
+	#[test]
 	fn substream_close_drops_the_filter() {
 		let mut orchestrator = orchestrator();
 		let peer = PeerId::random();
@@ -861,15 +898,16 @@ mod tests {
 		assert!(coverage.iter().any(|peer| !routing.contains(peer)));
 
 		// The desired peers connect, then the next tick recomputes the target.
-		for peer in orchestrator.peer_steering.peers_to_connect() {
+		for peer in orchestrator.peer_steering.peers_to_reserve() {
 			orchestrator.on_substream_opened(peer);
+			orchestrator.peer_steering.reserve([peer]);
 		}
 		orchestrator.on_pending_affinities();
 
 		// The connected coverage peers stay desired, so peer steering keeps them: nothing left to
-		// connect, nothing to disconnect.
-		assert!(orchestrator.peer_steering.peers_to_connect().is_empty());
-		assert!(orchestrator.peer_steering.peers_to_disconnect().is_empty());
+		// reserve, nothing to release.
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
+		assert!(orchestrator.peer_steering.peers_to_release().is_empty());
 	}
 
 	#[test]

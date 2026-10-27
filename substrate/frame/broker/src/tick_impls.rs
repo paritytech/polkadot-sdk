@@ -339,7 +339,7 @@ impl<T: Config> Pallet<T> {
 		Leases::<T>::put(&leases);
 
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
-		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
+		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::MAX);
 		let cores_offered = limit_cores_offered.min(max_possible_sales);
 		let sale_start = now.saturating_add(config.interlude_length);
 		let leadin_length = config.leadin_length;
