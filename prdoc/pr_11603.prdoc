@@ -38,7 +38,29 @@ doc:
     rotated; must be smaller than `PayoutPeriod`, asserted by an integrity test) and
     `MaxSpendDelay` (how far in the future `valid_from` may be set). A `MigrateToOrderedPayouts`
     migration is provided to populate the payout order from the existing `Spends` storage; it is a
-    `VersionedMigration` bumping the pallet storage version from 0 to 1.
+    `VersionedMigration` bumping the pallet storage version from 0 to 1. For a runtime with
+    existing spends this migration is NOT optional: without it no `NextPayout` head exists and
+    every `payout` call fails with `NotNextPayout`.
+
+    Sizing rules:
+
+    - `MaxQueuedSpends` must not be lowered below the length of a live `PayoutQueue` without a
+      migration: a longer stored queue no longer decodes, reads as empty, and the next spend for
+      that asset kind overwrites it, dropping every queued spend from the payout order.
+    - `MaxSpendDelay` should be sized above the longest payout schedule governance uses (years,
+      not weeks): proposers with a far-future `valid_from` otherwise see their already-approved
+      referenda fail at enactment with `SpendTooFarInFuture`.
+- audience: Runtime User
+  description: |-
+    Governance participants and wallets interact with the payout order through the existing
+    calls:
+
+    - `payout` only pays the spend currently designated as `NextPayout` for its asset kind and
+      fails with `NotNextPayout` otherwise (while still charging the full `payout` weight), so
+      callers should read `NextPayout` first. A head whose order lease expired while another
+      queued spend is already mature must first be rotated via `check_status`.
+    - `spend` fails with `QueueFull` once `MaxQueuedSpends` spends are queued for an asset kind,
+      and with `SpendTooFarInFuture` if `valid_from` is more than `MaxSpendDelay` blocks out.
 crates:
 - name: pallet-treasury
   bump: major

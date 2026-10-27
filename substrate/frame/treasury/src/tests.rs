@@ -31,7 +31,7 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		tokens::{ConversionFromAssetBalance, PaymentStatus},
-		ConstU32, ConstU64, OnInitialize,
+		ConstU32, ConstU64, Hooks, OnInitialize,
 	},
 	PalletId,
 };
@@ -1715,7 +1715,7 @@ fn head_preemption_preserves_fifo_among_equal_order_keys() {
 
 #[test]
 fn integrity_test_works() {
-	Treasury::integrity_test();
+	<Treasury as Hooks<u64>>::integrity_test();
 }
 
 /// A head whose payment never concludes (e.g. a lost `PayOverXcm` response) must not block
@@ -1896,9 +1896,266 @@ fn payout_queue_key_removed_when_drained() {
 		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(8), None));
 		assert!(!PayoutQueue::<Test>::contains_key(1u32));
 		System::set_block_number(4);
-		let _ = Treasury::check_status(RuntimeOrigin::signed(1), 2);
+		// Nothing to promote and the spend was never attempted: no rotation happens and the call
+		// errors, leaving storage untouched.
+		assert_noop!(
+			Treasury::check_status(RuntimeOrigin::signed(1), 2),
+			Error::<Test, _>::NotAttempted
+		);
 		assert_eq!(NextPayout::<Test>::get(1u32).map(|(idx, _, _)| idx), Some(2));
 		assert!(!PayoutQueue::<Test>::contains_key(1u32), "sole-head rotation must not create it");
+		assert_ok!(Treasury::do_try_state());
+	});
+}
+
+/// In-flight spends whose `expire_at` has passed can never be paid again, so `check_status`
+/// removes them from the payout order entirely instead of rotating them. The spend itself stays
+/// in `Spends`, so a late payment answer is still processed.
+#[test]
+fn in_flight_spend_past_expire_at_leaves_the_payout_order() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		// Spends 0 and 1 of asset 1 are paid, and both answers are lost (stay `InProgress`).
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(100), None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(101), None));
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		set_status(get_payment_id(0).unwrap(), PaymentStatus::InProgress);
+		System::set_block_number(4);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0)); // rotated
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
+		set_status(get_payment_id(1).unwrap(), PaymentStatus::InProgress);
+		assert_eq!(Spends::<Test>::get(0).unwrap().expire_at, 6);
+		assert_eq!(Spends::<Test>::get(1).unwrap().expire_at, 9);
+
+		// Block 20: both are long past `expire_at`, so neither can ever be paid again.
+		System::set_block_number(20);
+		let _ = Treasury::check_status(RuntimeOrigin::signed(1), 1);
+		let _ = Treasury::check_status(RuntimeOrigin::signed(1), 0);
+
+		// A payable spend approved now (window 20..25) must reach the head inside its window,
+		// with a keeper calling `check_status` on the head every block.
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(6), None));
+		let victim = 2;
+		for b in 20..25 {
+			System::set_block_number(b);
+			if let Some((head, _, _)) = NextPayout::<Test>::get(1u32) {
+				if head != victim {
+					let _ = Treasury::check_status(RuntimeOrigin::signed(1), head);
+				}
+			}
+		}
+		assert_eq!(
+			NextPayout::<Test>::get(1u32).map(|(i, _, _)| i),
+			Some(victim),
+			"dead in-flight spends past expire_at still hold the head"
+		);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), victim));
+		assert_eq!(paid(6, 1), 1);
+		// The dead spends stay in `Spends`, so a late answer is still processed.
+		assert!(Spends::<Test>::get(0).is_some() && Spends::<Test>::get(1).is_some());
+		assert_ok!(Treasury::do_try_state());
+	});
+}
+
+/// The migration skips expired spends of any status: an expired `Attempted` spend can never be
+/// paid again, so it must not head the payout order (it stays in `Spends` for `check_status` to
+/// resolve).
+#[test]
+fn migration_does_not_order_expired_attempted_spend() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(100);
+		Spends::<Test>::insert(
+			0,
+			SpendStatus {
+				asset_kind: 1u32,
+				amount: 1u64,
+				beneficiary: 1000u128,
+				valid_from: 10u64,
+				expire_at: 60u64,
+				status: PaymentState::Attempted { id: 7u64 },
+			},
+		);
+		Spends::<Test>::insert(
+			1,
+			SpendStatus {
+				asset_kind: 1u32,
+				amount: 1u64,
+				beneficiary: 1001u128,
+				valid_from: 10u64,
+				expire_at: 10_000u64,
+				status: PaymentState::Pending,
+			},
+		);
+		SpendCount::<Test>::put(2);
+		frame_support::traits::StorageVersion::new(0).put::<crate::Pallet<Test>>();
+		crate::migration::MigrateToOrderedPayouts::<Test>::on_runtime_upgrade();
+
+		assert_eq!(
+			NextPayout::<Test>::get(1u32).map(|(i, _, _)| i),
+			Some(1),
+			"an expired Attempted spend must not head the order"
+		);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
+	});
+}
+
+/// A spend the migration skipped because the queue was full is not stranded: `check_status`
+/// re-admits it to the payout order, after which it can be paid.
+#[test]
+fn migration_overflow_spend_is_not_stranded() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(100);
+		let cap = 1 + <Test as Config>::MaxQueuedSpends::get();
+		for i in 0..=cap {
+			Spends::<Test>::insert(
+				i,
+				SpendStatus {
+					asset_kind: 1u32,
+					amount: 1u64,
+					beneficiary: (1000 + i) as u128,
+					valid_from: 50u64,
+					expire_at: 10_000u64,
+					status: PaymentState::Pending,
+				},
+			);
+		}
+		SpendCount::<Test>::put(cap + 1);
+		frame_support::traits::StorageVersion::new(0).put::<crate::Pallet<Test>>();
+		crate::migration::MigrateToOrderedPayouts::<Test>::on_runtime_upgrade();
+
+		let orphan = cap;
+		assert!(!PayoutQueue::<Test>::get(1u32).iter().any(|(i, _)| *i == orphan));
+		for i in 0..cap {
+			assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), i));
+			set_status(get_payment_id(i).unwrap(), PaymentStatus::Success);
+			assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), i));
+		}
+		let _ = Treasury::check_status(RuntimeOrigin::signed(1), orphan);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), orphan));
+	});
+}
+
+/// `try_state` must also check a lone head: a `NextPayout` entry whose spend does not exist is
+/// rejected even when there is no queue for that asset kind.
+#[test]
+fn try_state_rejects_dangling_head() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		NextPayout::<Test>::insert(9u32, (42u32, 1u64, 3u64));
+		assert!(Spends::<Test>::get(42).is_none());
+		assert!(Treasury::do_try_state().is_err(), "a head with no spend must fail try_state");
+	});
+}
+
+/// An in-flight head whose lease lapsed stays put while nothing in the queue is mature: the
+/// no-op rotation must not renew its lease, and `check_status` reports `Inconclusive`.
+#[test]
+fn in_progress_head_with_nothing_mature_stays_inconclusive() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(100), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(1),
+			1,
+			Box::new(200),
+			Some(5)
+		));
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		set_status(get_payment_id(0).unwrap(), PaymentStatus::InProgress);
+
+		// Lease over (3 < 4) but spend 1 only matures at 5: nothing to rotate yet.
+		System::set_block_number(4);
+		assert_noop!(
+			Treasury::check_status(RuntimeOrigin::signed(1), 0),
+			Error::<Test, _>::Inconclusive
+		);
+		assert_eq!(NextPayout::<Test>::get(1u32), Some((0, 1, 3)));
+
+		System::set_block_number(5);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		assert_eq!(NextPayout::<Test>::get(1u32).map(|(i, _, _)| i), Some(1));
+	});
+}
+
+/// With the head's lease lapsed but the queue front not yet mature, `payout` of a non-head
+/// still fails with `NotNextPayout`; once the front matures and `check_status` rotates, the
+/// promoted spend is payable.
+#[test]
+fn payout_gate_with_lapsed_head_lease_and_immature_front() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(100), None));
+		assert_ok!(Treasury::spend(
+			RuntimeOrigin::signed(10),
+			Box::new(1),
+			2,
+			Box::new(200),
+			Some(5)
+		));
+		assert_eq!(NextPayout::<Test>::get(1u32), Some((0, 1, 3)));
+
+		// Block 4: the head's lease lapsed (3 < 4) but the queue front only matures at 5, so the
+		// head may still be paid, and a non-head payout still fails with `NotNextPayout`.
+		System::set_block_number(4);
+		assert_noop!(
+			Treasury::payout(RuntimeOrigin::signed(1), 1),
+			Error::<Test, _>::NotNextPayout
+		);
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		set_status(get_payment_id(0).unwrap(), PaymentStatus::InProgress);
+
+		// Block 5: the front is mature, so `check_status` rotates the in-flight head and the
+		// promoted spend becomes payable.
+		System::set_block_number(5);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		assert_eq!(NextPayout::<Test>::get(1u32).map(|(i, _, _)| i), Some(1));
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
+		assert_eq!(paid(200, 1), 2);
+		assert_ok!(Treasury::do_try_state());
+	});
+}
+
+/// An `Attempted` spend rotated to the back while in flight can later report a failure: it is
+/// marked `Failed`, promoted again in due order, and can be re-paid.
+#[test]
+fn rotated_attempted_spend_is_retried_after_failure() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(100), None));
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 2, Box::new(200), None));
+
+		// Pay the head; the payment never concludes.
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		let id = get_payment_id(0).unwrap();
+		set_status(id, PaymentStatus::InProgress);
+
+		// Past the lease, the in-flight head rotates behind the mature queue front.
+		System::set_block_number(4);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		assert_eq!(NextPayout::<Test>::get(1u32).map(|(i, _, _)| i), Some(1));
+		assert_eq!(PayoutQueue::<Test>::get(1u32), vec![(0, 4)]);
+
+		// Pay spend 1 and conclude it, promoting spend 0 back to the head.
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 1));
+		set_status(get_payment_id(1).unwrap(), PaymentStatus::Success);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 1));
+		assert_eq!(NextPayout::<Test>::get(1u32).map(|(i, _, _)| i), Some(0));
+
+		// The rotated payment finally reports a failure: the spend becomes `Failed`...
+		set_status(id, PaymentStatus::Failure);
+		unpay(100, 1, 1);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		System::assert_last_event(
+			Event::<Test, _>::PaymentFailed { index: 0, payment_id: id }.into(),
+		);
+		assert!(matches!(Spends::<Test>::get(0).unwrap().status, PaymentState::Failed));
+
+		// ...and can be re-paid.
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_eq!(paid(100, 1), 1);
 		assert_ok!(Treasury::do_try_state());
 	});
 }

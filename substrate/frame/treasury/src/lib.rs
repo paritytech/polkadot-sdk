@@ -314,8 +314,8 @@ pub mod pallet {
 		/// Maximum number of spends in the payout queue per asset kind.
 		///
 		/// NOTE: must not be lowered below the length of a live [`PayoutQueue`] without a
-		/// migration; a queue longer than the bound can neither rotate (the re-inserted head
-		/// would overflow it) nor accept new spends.
+		/// migration: a longer stored queue no longer decodes, reads as empty, and the next spend
+		/// for that asset kind overwrites it, dropping every queued spend from the payout order.
 		#[pallet::constant]
 		type MaxQueuedSpends: Get<u32>;
 
@@ -332,6 +332,12 @@ pub mod pallet {
 		/// The maximum delay into the future that a spend's `valid_from` may be set to, relative
 		/// to the approval block, so a far-future spend cannot hold a payout queue slot that
 		/// nothing permissionless can free.
+		///
+		/// Sizing: set it above the longest payout schedule governance uses — years rather than
+		/// weeks. Polkadot Asset Hub, for example, has pending spends with `valid_from` up to
+		/// ~780 days out; a too-small value makes already-approved referenda fail at enactment
+		/// with `SpendTooFarInFuture`. The bound's only job is to stop a queue slot being held
+		/// forever.
 		#[pallet::constant]
 		type MaxSpendDelay: Get<BlockNumberFor<Self, I>>;
 
@@ -577,6 +583,13 @@ pub mod pallet {
 		fn try_state(_: SystemBlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
 			Self::do_try_state()?;
 			Ok(())
+		}
+
+		fn integrity_test() {
+			assert!(
+				T::OrderExpirationPeriod::get() < T::PayoutPeriod::get(),
+				"`OrderExpirationPeriod` must be smaller than `PayoutPeriod`",
+			);
 		}
 	}
 
@@ -826,7 +839,8 @@ pub mod pallet {
 		/// is always the earliest-maturing spend of its asset kind; spends of equal maturity are
 		/// paid in approval order. Read [`NextPayout`] for the asset kind first: calling `payout`
 		/// with any other index fails with `NotNextPayout` but still charges the full `payout`
-		/// weight.
+		/// weight. A head whose order lease expired while another queued spend is already mature
+		/// likewise fails with `NotNextPayout`; rotate it via `check_status` first.
 		///
 		/// ### Parameters
 		/// - `index`: The spend index.
@@ -897,6 +911,9 @@ pub mod pallet {
 		///   has nothing mature to promote does nothing and does not renew the head's order.
 		/// - If a spend has been successfully paid out or has fully expired, it is removed from the
 		///   queue and the next entry is promoted.
+		/// - A live spend that is in no payout order (e.g. skipped by the migration because the
+		///   queue was full) is re-admitted to the order; an in-flight spend past its `expire_at`
+		///   leaves the order but stays in storage until its payment resolves.
 		///
 		/// ### Parameters
 		/// - `index`: The spend index.
@@ -923,6 +940,16 @@ pub mod pallet {
 				Self::remove_from_queue(&asset_kind, index);
 				Spends::<T, I>::remove(index);
 				Self::deposit_event(Event::<T, I>::SpendProcessed { index });
+				return Ok(Pays::No.into());
+			}
+
+			// Re-admit a live spend that is in no payout order, e.g. one skipped by the migration
+			// because the queue was full: without an order slot, `payout` would keep failing with
+			// `NotNextPayout` forever.
+			if matches!(spend.status, State::Pending | State::Failed) &&
+				!Self::in_payout_order(&asset_kind, index)
+			{
+				Self::insert_into_payout_queue(asset_kind, index, spend.valid_from)?;
 				return Ok(Pays::No.into());
 			}
 
@@ -964,6 +991,14 @@ pub mod pallet {
 					return Ok(Pays::No.into());
 				},
 				Status::InProgress => {
+					// A spend past its `expire_at` can never be paid again (`payout` requires
+					// `expire_at > now`), so it must not keep a slot in the payout order. The
+					// spend stays in `Spends`, so a late answer is still resolved below (or
+					// removed on a later `Failure`).
+					if now > spend.expire_at && Self::in_payout_order(&asset_kind, index) {
+						Self::remove_from_queue(&asset_kind, index);
+						return Ok(Pays::No.into());
+					}
 					// Rotate an expired-lease head even while its payment is in flight, so a
 					// payment that never concludes (e.g. a lost `PayOverXcm` response) cannot
 					// block every other spend of this asset kind. The spend stays `Attempted`,
@@ -1018,6 +1053,12 @@ pub mod pallet {
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// Add public immutables and private mutables.
+
+	/// Whether `index` is the head or in the payout queue of `asset_kind`.
+	fn in_payout_order(asset_kind: &T::AssetKind, index: SpendIndex) -> bool {
+		NextPayout::<T, I>::get(asset_kind).is_some_and(|(next, _, _)| next == index) ||
+			PayoutQueue::<T, I>::get(asset_kind).iter().any(|(idx, _)| *idx == index)
+	}
 
 	/// The account ID of the treasury pot.
 	///
@@ -1344,15 +1385,6 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Ok(())
 	}
 
-	/// Ensure the correctness of the pallet's configuration.
-	#[cfg(test)]
-	fn integrity_test() {
-		assert!(
-			T::OrderExpirationPeriod::get() < T::PayoutPeriod::get(),
-			"`OrderExpirationPeriod` must be smaller than `PayoutPeriod`",
-		);
-	}
-
 	/// ### Invariants of proposal storage items
 	///
 	/// 1. [`ProposalCount`] >= Number of elements in [`Proposals`].
@@ -1432,8 +1464,12 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	// rotated spends, so the sort order always holds.
 	// 4. If [`NextPayout`] for an asset kind is Some, its spend index must not also be present
 	// in the [`PayoutQueue`] for that asset kind.
-	// 5. All spend indices in [`PayoutQueue`] for an asset kind must exist in [`Spends`] with
-	// Pending or Failed status and a matching asset kind.
+	// 5. All spend indices in [`PayoutQueue`] for an asset kind must exist in [`Spends`] with a
+	// matching asset kind and an unresolved payout: `Pending` or `Failed` in steady state, but
+	// also in-flight `Attempted` spends queued by the InProgress head rotation or seeded by the
+	// migration.
+	// 6. Each [`NextPayout`] head must exist in [`Spends`] with a matching asset kind and must
+	// sort no later than the front of its [`PayoutQueue`].
 	#[cfg(any(feature = "try-runtime", test))]
 	fn try_state_payout_queue() -> Result<(), sp_runtime::TryRuntimeError> {
 		use alloc::collections::btree_set::BTreeSet;
@@ -1469,8 +1505,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			}
 
 			// Every queued spend is awaiting payout. In steady state that means `Pending` or
-			// `Failed`, but the migration can also seed an in-flight `Attempted` spend into the
-			// queue (so a later payment failure can still be retried rather than lost), which
+			// `Failed`, but the InProgress head rotation also queues `Attempted` spends whose
+			// payment never concluded (and the migration can seed such spends too), which
 			// `check_status` then resolves.
 			for (spend_index, _) in queue.iter() {
 				let spend = Spends::<T, I>::get(spend_index).ok_or(
@@ -1486,6 +1522,18 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				);
 				// Verify asset kind matches
 				ensure!(spend.asset_kind == asset_kind, "Spend in queue has wrong asset kind.");
+			}
+		}
+
+		// A lone head (an asset kind with an empty queue) is checked here: the loop over
+		// [`PayoutQueue`] only covers asset kinds with a non-empty queue.
+		for (asset_kind, (head, head_key, _)) in NextPayout::<T, I>::iter() {
+			let spend = Spends::<T, I>::get(head).ok_or(sp_runtime::TryRuntimeError::Other(
+				"NextPayout spend must exist in Spends.",
+			))?;
+			ensure!(spend.asset_kind == asset_kind, "NextPayout has wrong asset kind.");
+			if let Some((_, front)) = PayoutQueue::<T, I>::get(&asset_kind).first() {
+				ensure!(head_key <= *front, "NextPayout sorts after the queue front.");
 			}
 		}
 		Ok(())

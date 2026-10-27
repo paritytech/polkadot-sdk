@@ -28,7 +28,7 @@ use frame_support::{
 /// The log target for this pallet.
 const LOG_TARGET: &str = "runtime::treasury";
 
-mod cleanup_proposals {
+pub mod cleanup_proposals {
 	use super::*;
 
 	/// Migration to cleanup unapproved proposals to return the bonds back to the proposers.
@@ -137,10 +137,9 @@ mod cleanup_proposals {
 
 /// Migration to initialize the payout queue for existing spends (Solution 1.2).
 ///
-/// Collects every live spend (dropping only `Pending`/`Failed` spends whose payout window has
-/// already expired, and keeping in-flight `Attempted` ones), groups them by asset kind, sorts each
-/// group by order key `max(now, valid_from)` then by index, and initializes `NextPayout` and
-/// `PayoutQueue` for each asset kind.
+/// Collects every live spend (dropping expired spends of any status, which can never be paid
+/// again), groups them by asset kind, sorts each group by order key `max(now, valid_from)` then
+/// by index, and initializes `NextPayout` and `PayoutQueue` for each asset kind.
 mod migrate_to_ordered_payouts {
 	use super::*;
 
@@ -167,27 +166,21 @@ mod migrate_to_ordered_payouts {
 
 			for (index, spend) in Spends::<T, I>::iter() {
 				total_spends_read += 1;
-				match spend.status {
-					// Expired `Pending`/`Failed` spends are dropped, matching `check_status`, which
-					// removes them once `now > expire_at`.
-					PaymentState::Pending | PaymentState::Failed if spend.expire_at <= now => {
-						log::debug!(
-							target: LOG_TARGET,
-							"Skipping expired spend {} (expire_at: {:?}, now: {:?})",
-							index,
-							spend.expire_at,
-							now,
-						);
-					},
-					// Every other live spend is ordered, including in-flight `Attempted` ones. An
-					// `Attempted` spend whose payment later fails would otherwise be left out of
-					// the payout order and could never be retried (lost); keeping it ordered
-					// lets `check_status` resolve it and, on failure, promote/retry it. This
-					// mirrors `check_status`, which never drops an `Attempted` spend on
-					// expiration.
-					_ => {
-						spends_vec.push((spend.asset_kind, index, spend.valid_from));
-					},
+				// Expired spends are not ordered, whatever their status: `payout` needs
+				// `expire_at > now`, so none of them can be paid again. An expired `Attempted`
+				// spend stays in `Spends`, so `check_status` still resolves it (removed on
+				// success, deleted on failure). Every live spend is ordered, including in-flight
+				// `Attempted` ones, so a failed payment can still be retried.
+				if spend.expire_at <= now {
+					log::debug!(
+						target: LOG_TARGET,
+						"Skipping expired spend {} (expire_at: {:?}, now: {:?})",
+						index,
+						spend.expire_at,
+						now,
+					);
+				} else {
+					spends_vec.push((spend.asset_kind, index, spend.valid_from));
 				}
 			}
 
@@ -287,16 +280,12 @@ mod migrate_to_ordered_payouts {
 			let now = T::BlockNumberProvider::current_block_number();
 
 			// Spends the migration will order, using the same inclusion rule as
-			// `on_runtime_upgrade` (every live spend, plus in-flight `Attempted` ones regardless
-			// of expiration), and the per-asset counts.
+			// `on_runtime_upgrade` (every live spend, whatever its status), and the per-asset
+			// counts.
 			let mut migrated: Vec<(T::AssetKind, SpendIndex)> = Vec::new();
 			let mut per_asset: BTreeMap<Vec<u8>, u32> = BTreeMap::new();
 			for (index, spend) in Spends::<T, I>::iter() {
-				let include = match spend.status {
-					PaymentState::Pending | PaymentState::Failed => spend.expire_at > now,
-					PaymentState::Attempted { .. } => true,
-				};
-				if include {
+				if spend.expire_at > now {
 					*per_asset.entry(spend.asset_kind.encode()).or_default() += 1;
 					migrated.push((spend.asset_kind, index));
 				}
@@ -473,7 +462,9 @@ mod migrate_to_ordered_payouts {
 
 				// Only spend → becomes NextPayout (order key = max(now=100, valid_from=50) = 100).
 				assert_eq!(NextPayout::<Test>::get(1u32).map(|(idx, _, _)| idx), Some(0));
-				assert_eq!(PayoutQueue::<Test>::get(1u32).len(), 0);
+				// Pin the absence of the key: a stored empty vec would satisfy a `len() == 0`
+				// check.
+				assert!(!PayoutQueue::<Test>::contains_key(1u32));
 			});
 		}
 
