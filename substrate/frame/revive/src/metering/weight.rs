@@ -21,7 +21,7 @@ mod tests;
 use super::math::eip_150;
 use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
-use eip_150::Peak as Eip150Peak;
+use eip_150::{Peak as Eip150Peak, WeightEip150};
 use frame_support::{DefaultNoBound, weights::Weight};
 use sp_runtime::DispatchError;
 
@@ -146,7 +146,7 @@ pub struct WeightMeter<T: Config> {
 	/// converting from ref_time to the execution engine unit.
 	engine_meter: EngineMeter<T>,
 	/// EIP-150 63/64 peak tracking for dry-run weight estimation.
-	eip_150_peak: Eip150Peak<Weight>,
+	eip_150_peak: Eip150Peak<WeightEip150>,
 	_phantom: PhantomData<T>,
 	#[cfg(test)]
 	tokens: Vec<ErasedToken>,
@@ -169,7 +169,7 @@ impl<T: Config> WeightMeter<T> {
 	fn new_inner(
 		weight_limit: Weight,
 		stipend: Option<Weight>,
-		eip_150_peak: Eip150Peak<Weight>,
+		eip_150_peak: Eip150Peak<WeightEip150>,
 	) -> Self {
 		WeightMeter {
 			weight_limit,
@@ -195,8 +195,8 @@ impl<T: Config> WeightMeter<T> {
 
 		// Include the nested call's cumulative EIP-150 63/64 overhead.
 		let current_eip_150_peak =
-			current_weight_consumed_highest.saturating_add(nested.compute_eip_150_total_overhead());
-		self.eip_150_peak.update(current_eip_150_peak, |a, b| a.max(b));
+			current_weight_consumed_highest.saturating_add(nested.eip_150_total_overhead());
+		self.eip_150_peak.update(current_eip_150_peak);
 
 		self.weight_consumed_highest =
 			current_weight_consumed_highest.max(self.weight_consumed_highest);
@@ -207,16 +207,8 @@ impl<T: Config> WeightMeter<T> {
 	///
 	/// Returns the extra weight the parent needs beyond `weight_required()` to account for
 	/// all 63/64 losses at and below this level.
-	pub(crate) fn compute_eip_150_total_overhead(&self) -> Weight {
-		use super::math::eip_150;
-
-		self.eip_150_peak.compute_total_overhead(
-			self.weight_required(),
-			|a, b| a.max(b),
-			eip_150::overhead_weight,
-			|a, b| a.saturating_add(b),
-			|a, b| a.saturating_sub(b),
-		)
+	pub(crate) fn eip_150_total_overhead(&self) -> Weight {
+		self.eip_150_peak.total_overhead(self.weight_required())
 	}
 
 	/// Account for used weight.

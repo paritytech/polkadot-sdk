@@ -22,6 +22,7 @@ use super::{
 };
 use crate::vm::{RuntimeCosts, evm::EVMGas};
 use core::marker::PhantomData;
+use eip_150::{BalanceEip150, Resource, WeightEip150};
 use num_traits::{One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::Saturating;
@@ -30,143 +31,156 @@ use sp_runtime::Saturating;
 ///
 /// A subcall receives at most 63/64ths of the parent's remaining gas.
 /// This module provides the [`Peak`] type for tracking the minimum starting
-/// value a meter needs, as well as apply and overhead functions for both
-/// `BalanceOf<T>` (deposit/gas) and `Weight` types.
+/// value a meter needs, as well as the [`Resource`] trait with the operations the rule needs.
 pub(crate) mod eip_150 {
 	use super::*;
 	use core::fmt::Debug;
+	use frame_support::DebugNoBound;
 
-	pub(crate) const NUMERATOR: u64 = 63;
-	pub(crate) const DENOMINATOR: u64 = 64;
+	/// Denominator of the 63/64 rule.
+	pub const DENOMINATOR: u64 = 64;
+	/// Numerator of the 63/64 rule; the caller keeps the one remaining part.
+	pub const NUMERATOR: u64 = DENOMINATOR - 1;
 
-	/// EIP-150 peak tracking: stores the minimum starting value a meter needs
-	/// so that every subcall receives enough resources after the 63/64 split.
-	#[derive(Copy, Clone)]
-	pub(crate) enum Peak<V> {
-		/// Top-level call: no 63/64 rule at this level, but tracks peak from children.
-		TopCall(V),
-		/// Subcall: the 63/64 rule applies at this level plus tracks peak from children.
-		Subcall(V),
+	/// The minimum starting amount a call needs so that each of its subcalls still receives
+	/// enough after the 63/64 split.
+	#[derive(DebugNoBound)]
+	pub struct Peak<R: Resource> {
+		/// Whether the 63/64 rule applies to this call.
+		rule: Rule,
+		/// The peak tracked from the children absorbed so far.
+		value: R::Amount,
 	}
 
 	/// Whether the EIP-150 63/64 gas rule should be applied.
 	#[derive(Copy, Clone, Debug)]
-	pub(crate) enum Rule {
-		/// Apply the 63/64 rule (nested subcall).
+	pub enum Rule {
 		Apply,
-		/// Skip the rule (top-level call).
 		Skip,
 	}
 
 	impl Rule {
 		/// Returns `true` when the 63/64 rule should be applied.
-		pub(crate) fn should_apply(&self) -> bool {
+		pub fn should_apply(&self) -> bool {
 			matches!(self, Self::Apply)
 		}
 	}
 
-	impl<V: Copy + Zero> Peak<V> {
-		/// Create a zero-initialized peak tracker from the given rule.
-		pub(crate) fn new(rule: Rule) -> Self {
-			match rule {
-				Rule::Apply => Self::Subcall(V::zero()),
-				Rule::Skip => Self::TopCall(V::zero()),
+	impl<R: Resource> Peak<R> {
+		/// Creates a peak for the given rule, starting at the default amount.
+		pub fn new(rule: Rule) -> Self {
+			Self { rule, value: Default::default() }
+		}
+
+		/// Returns the tracked peak value.
+		pub fn get(&self) -> R::Amount {
+			self.value
+		}
+
+		/// Raises the peak to `new_value` when `new_value` is higher.
+		pub fn update(&mut self, new_value: R::Amount) {
+			self.value = R::max(self.value, new_value);
+		}
+
+		/// Returns the total EIP-150 63/64 overhead stored in this peak.
+		///
+		/// `required` is the call's own resource consumption.
+		pub fn total_overhead(&self, required: R::Amount) -> R::Amount {
+			let needed_at_boundary = R::max(self.value, required);
+			let children_overhead = R::saturating_sub(needed_at_boundary, required);
+			match self.rule {
+				Rule::Skip => children_overhead,
+				Rule::Apply => {
+					R::saturating_add(children_overhead, R::overhead(needed_at_boundary))
+				},
 			}
 		}
 	}
 
-	impl<V: Copy + Zero> Default for Peak<V> {
+	impl<R: Resource> Default for Peak<R> {
 		fn default() -> Self {
-			Self::TopCall(V::zero())
+			Self::new(Rule::Skip)
 		}
 	}
 
-	impl<V: Debug> Debug for Peak<V> {
-		fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-			match self {
-				Self::TopCall(v) => f.debug_tuple("TopCall").field(v).finish(),
-				Self::Subcall(v) => f.debug_tuple("Subcall").field(v).finish(),
-			}
+	/// A resource that the 63/64 rule splits between a caller and its subcall.
+	///
+	/// Provides the operations the rule needs.
+	pub trait Resource {
+		/// The type the resource is measured in.
+		type Amount: Copy + Default + Debug;
+
+		/// Returns the maximum of `a` and `b`.
+		fn max(a: Self::Amount, b: Self::Amount) -> Self::Amount;
+
+		/// Returns `a + b`, saturating at the numeric bounds instead of overflowing.
+		fn saturating_add(a: Self::Amount, b: Self::Amount) -> Self::Amount;
+
+		/// Returns `a - b`, saturating at the numeric bounds instead of overflowing.
+		fn saturating_sub(a: Self::Amount, b: Self::Amount) -> Self::Amount;
+
+		/// Returns `amount / divisor`, rounded up.
+		fn div_ceil(amount: Self::Amount, divisor: u64) -> Self::Amount;
+
+		/// Returns the share of `amount` that a subcall can receive.
+		fn apply(amount: Self::Amount) -> Self::Amount {
+			Self::saturating_sub(amount, Self::div_ceil(amount, DENOMINATOR))
+		}
+
+		/// Returns what a caller needs on top of `amount` for its subcall to receive `amount`.
+		fn overhead(amount: Self::Amount) -> Self::Amount {
+			Self::div_ceil(amount, NUMERATOR)
 		}
 	}
 
-	impl<V: Copy> Peak<V> {
-		/// Get the tracked peak value.
-		pub(crate) fn get(&self) -> V {
-			match self {
-				Self::TopCall(v) | Self::Subcall(v) => *v,
-			}
+	// Marker types, since Rust rejects implementing `Resource` for both `Weight` and
+	// `BalanceOf<T>`.
+	pub struct WeightEip150;
+	pub struct BalanceEip150<T>(PhantomData<T>);
+
+	/// Each operation works on `ref_time` and `proof_size` separately.
+	impl Resource for WeightEip150 {
+		type Amount = Weight;
+
+		fn max(a: Weight, b: Weight) -> Weight {
+			a.max(b)
 		}
 
-		/// Update the peak to the maximum of the current and new value.
-		///
-		/// Uses a caller-provided `max_fn` because `Weight` provides a component-wise
-		/// `max()` that does not come from `Ord`.
-		pub(crate) fn update(&mut self, new: V, max_fn: fn(V, V) -> V) {
-			match self {
-				Self::TopCall(v) | Self::Subcall(v) => {
-					*v = max_fn(*v, new);
-				},
-			}
+		fn saturating_add(a: Weight, b: Weight) -> Weight {
+			a.saturating_add(b)
 		}
-	}
 
-	impl<V: Copy> Peak<V> {
-		/// Compute the total EIP-150 63/64 overhead stored in this peak.
-		///
-		/// - `required`: the meter's own resource consumption.
-		/// - `max_fn`: component-wise max (needed because `Weight` doesn't impl `Ord`).
-		/// - `overhead_fn`: computes `ceil(value / 63)` for the value type.
-		/// - `sat_add`/`sat_sub`: saturating arithmetic (needed because `Weight` doesn't impl
-		///   `Saturating`).
-		///
-		/// For top calls: returns `peak - required` (children's overhead only).
-		/// For subcalls: returns children's overhead + own `ceil(needed / 63)`.
-		pub(crate) fn compute_total_overhead(
-			&self,
-			required: V,
-			max_fn: fn(V, V) -> V,
-			overhead_fn: fn(V) -> V,
-			sat_add: fn(V, V) -> V,
-			sat_sub: fn(V, V) -> V,
-		) -> V {
-			match *self {
-				Self::TopCall(peak) => sat_sub(peak, required),
-				Self::Subcall(peak) => {
-					let needed_at_boundary = max_fn(peak, required);
-					let children_overhead = sat_sub(needed_at_boundary, required);
-					sat_add(children_overhead, overhead_fn(needed_at_boundary))
-				},
-			}
+		fn saturating_sub(a: Weight, b: Weight) -> Weight {
+			a.saturating_sub(b)
+		}
+
+		fn div_ceil(amount: Weight, divisor: u64) -> Weight {
+			Weight::from_parts(
+				amount.ref_time().div_ceil(divisor),
+				amount.proof_size().div_ceil(divisor),
+			)
 		}
 	}
 
-	/// Apply EIP-150 rule to a balance: `value - ceil(value/64)`.
-	pub(crate) fn apply_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-		value.saturating_sub(
-			(value.saturating_add((DENOMINATOR as u32 - 1).into())) / (DENOMINATOR as u32).into(),
-		)
-	}
+	impl<T: Config> Resource for BalanceEip150<T> {
+		type Amount = BalanceOf<T>;
 
-	/// EIP-150 63/64 overhead for a deposit balance: `ceil(value / 63)`.
-	pub(crate) fn overhead_balance<T: Config>(value: BalanceOf<T>) -> BalanceOf<T> {
-		(value.saturating_add((NUMERATOR as u32 - 1).into())) / (NUMERATOR as u32).into()
-	}
+		fn max(a: BalanceOf<T>, b: BalanceOf<T>) -> BalanceOf<T> {
+			a.max(b)
+		}
 
-	/// Apply EIP-150 rule to Weight: `weight - ceil(weight / 64)` for each component.
-	pub(crate) fn apply_weight(weight: Weight) -> Weight {
-		Weight::from_parts(
-			weight.ref_time().saturating_sub(weight.ref_time().div_ceil(DENOMINATOR)),
-			weight.proof_size().saturating_sub(weight.proof_size().div_ceil(DENOMINATOR)),
-		)
-	}
+		fn saturating_add(a: BalanceOf<T>, b: BalanceOf<T>) -> BalanceOf<T> {
+			a.saturating_add(b)
+		}
 
-	/// EIP-150 63/64 overhead for Weight: `ceil(weight / 63)` for each component.
-	pub(crate) fn overhead_weight(weight: Weight) -> Weight {
-		Weight::from_parts(
-			weight.ref_time().div_ceil(NUMERATOR),
-			weight.proof_size().div_ceil(NUMERATOR),
-		)
+		fn saturating_sub(a: BalanceOf<T>, b: BalanceOf<T>) -> BalanceOf<T> {
+			a.saturating_sub(b)
+		}
+
+		fn div_ceil(amount: BalanceOf<T>, divisor: u64) -> BalanceOf<T> {
+			let divisor: BalanceOf<T> = divisor.saturated_into();
+			amount.saturating_add(divisor.saturating_sub(One::one())) / divisor
+		}
 	}
 }
 
@@ -283,7 +297,7 @@ pub mod substrate_execution {
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
 		let (weight_left, deposit_left) = if eip_150_rule.should_apply() {
-			(eip_150::apply_weight(weight_left), eip_150::apply_balance::<T>(deposit_left))
+			(WeightEip150::apply(weight_left), BalanceEip150::<T>::apply(deposit_left))
 		} else {
 			(weight_left, deposit_left)
 		};

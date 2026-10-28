@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{SignedGas, math::eip_150};
+use super::{SignedGas, math::eip_150::{self, BalanceEip150, Resource, WeightEip150}};
 use crate::{
 	BalanceOf, CallResources, Code, Config, Error, EthTxInfo, ExecConfig, StorageDeposit,
 	TransactionLimits, TransactionMeter, WeightToken,
@@ -104,7 +104,7 @@ fn test_apply_eip_150_to_weight() {
 	];
 
 	for (input, expected) in test_cases {
-		assert_eq!(eip_150::apply_weight(input), expected, "failed for input {input:?}");
+		assert_eq!(WeightEip150::apply(input), expected, "failed for input {input:?}");
 	}
 }
 
@@ -125,9 +125,9 @@ fn test_compute_eip_150_overhead() {
 	];
 
 	for consumed in input_weights {
-		let overhead = eip_150::overhead_weight(consumed);
+		let overhead = WeightEip150::overhead(consumed);
 		let required = consumed.saturating_add(overhead);
-		let available_to_nested = eip_150::apply_weight(required);
+		let available_to_nested = WeightEip150::apply(required);
 
 		assert_eq!(
 			available_to_nested, consumed,
@@ -181,7 +181,7 @@ fn test_apply_eip_150_to_balance() {
 		];
 
 		for (input, expected) in test_cases {
-			assert_eq!(eip_150::apply_balance::<Test>(input), expected, "failed for input {input}");
+			assert_eq!(BalanceEip150::<Test>::apply(input), expected, "failed for input {input}");
 		}
 	});
 }

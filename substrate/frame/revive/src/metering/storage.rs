@@ -24,7 +24,7 @@ use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
 	StorageDeposit as Deposit,
-	metering::math::{eip_150, eip_150::Peak as Eip150Peak},
+	metering::math::eip_150::{self, BalanceEip150, Peak as Eip150Peak},
 	storage::ContractInfo,
 };
 use alloc::vec::Vec;
@@ -95,7 +95,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
 	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
-	pub(crate) eip_150_peak: Eip150Peak<BalanceOf<T>>,
+	pub(crate) eip_150_peak: Eip150Peak<BalanceEip150<T>>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -370,11 +370,11 @@ where
 	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
 		let consumed_deposit = self.consumed().charge_or_zero();
 		let child_deposit_required = child.max_charged().charge_or_zero();
-		let child_deposit_overhead = child.compute_eip_150_total_overhead();
+		let child_deposit_overhead = child.eip_150_total_overhead();
 		let current_deposit_peak = consumed_deposit
 			.saturating_add(child_deposit_required)
 			.saturating_add(child_deposit_overhead);
-		self.eip_150_peak.update(current_deposit_peak, Ord::max);
+		self.eip_150_peak.update(current_deposit_peak);
 	}
 
 	/// Get the tracked EIP-150 deposit peak.
@@ -384,16 +384,8 @@ where
 	}
 
 	/// Compute the total EIP-150 deposit overhead for this meter.
-	pub(crate) fn compute_eip_150_total_overhead(&self) -> BalanceOf<T> {
-		use super::math::eip_150;
-
-		self.eip_150_peak.compute_total_overhead(
-			self.max_charged().charge_or_zero(),
-			Ord::max,
-			eip_150::overhead_balance::<T>,
-			|a, b| a.saturating_add(b),
-			|a, b| a.saturating_sub(b),
-		)
+	pub(crate) fn eip_150_total_overhead(&self) -> BalanceOf<T> {
+		self.eip_150_peak.total_overhead(self.max_charged().charge_or_zero())
 	}
 
 	/// The amount of balance still available from the current meter.

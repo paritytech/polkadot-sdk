@@ -536,14 +536,14 @@ fn max_deposits_work_for_reverts() {
 
 #[test]
 fn eip_150_deposit_overhead_math_helper() {
-	use crate::metering::math::eip_150::{apply_balance, overhead_balance};
+	use crate::metering::math::eip_150::{BalanceEip150, Resource};
 
-	// Verify: apply_balance(consumed + overhead) == consumed
+	// Verify: apply(consumed + overhead) == consumed
 	let values: Vec<u128> = vec![0, 1, 62, 63, 64, 126, 630, 6300, 100_000, 847_293_651];
 	for consumed in values {
-		let overhead = overhead_balance::<Test>(consumed);
+		let overhead = BalanceEip150::<Test>::overhead(consumed);
 		let required = consumed.saturating_add(overhead);
-		let available = apply_balance::<Test>(required);
+		let available = BalanceEip150::<Test>::apply(required);
 		assert_eq!(available, consumed, "failed for consumed={consumed}");
 	}
 }
@@ -558,7 +558,7 @@ fn eip_150_deposit_overhead_top_call_no_children() {
 	assert_eq!(meter.max_charged(), Deposit::Charge(6300));
 	assert_eq!(meter.eip_150_peak(), 0);
 	assert_eq!(meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(meter.compute_eip_150_total_overhead(), 0);
+	assert_eq!(meter.eip_150_total_overhead(), 0);
 }
 
 #[test]
@@ -572,7 +572,7 @@ fn eip_150_deposit_overhead_leaf_subcall() {
 	assert_eq!(child.max_charged(), Deposit::Charge(6300));
 	assert_eq!(child.eip_150_peak(), 0);
 	assert_eq!(child.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(child.compute_eip_150_total_overhead(), 100);
+	assert_eq!(child.eip_150_total_overhead(), 100);
 }
 
 #[test]
@@ -590,7 +590,7 @@ fn eip_150_deposit_overhead_single_subcall() {
 	assert_eq!(parent.max_charged(), Deposit::Charge(7300));
 	assert_eq!(parent.eip_150_peak(), 7400);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(7400));
-	assert_eq!(parent.compute_eip_150_total_overhead(), 100);
+	assert_eq!(parent.eip_150_total_overhead(), 100);
 }
 
 #[test]
@@ -609,7 +609,7 @@ fn eip_150_deposit_overhead_two_levels() {
 	assert_eq!(level2.max_charged(), Deposit::Charge(6300));
 	assert_eq!(level2.eip_150_peak(), 0);
 	assert_eq!(level2.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(level2.compute_eip_150_total_overhead(), 100);
+	assert_eq!(level2.eip_150_total_overhead(), 100);
 
 	level1.absorb_only_max_charged(level2);
 
@@ -618,7 +618,7 @@ fn eip_150_deposit_overhead_two_levels() {
 	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
 	assert_eq!(level1.eip_150_peak(), 8400);
 	assert_eq!(level1.deposit_required_with_eip_150(), Deposit::Charge(8400));
-	assert_eq!(level1.compute_eip_150_total_overhead(), 234);
+	assert_eq!(level1.eip_150_total_overhead(), 234);
 
 	top.absorb_only_max_charged(level1);
 
@@ -626,7 +626,7 @@ fn eip_150_deposit_overhead_two_levels() {
 	assert_eq!(top.max_charged(), Deposit::Charge(9300));
 	assert_eq!(top.eip_150_peak(), 9534);
 	assert_eq!(top.deposit_required_with_eip_150(), Deposit::Charge(9534));
-	assert_eq!(top.compute_eip_150_total_overhead(), 234);
+	assert_eq!(top.eip_150_total_overhead(), 234);
 }
 
 #[test]
@@ -655,7 +655,7 @@ fn eip_150_deposit_overhead_two_sequential_children() {
 	assert_eq!(parent.max_charged(), Deposit::Charge(5200));
 	assert_eq!(parent.eip_150_peak(), 5216);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(5216));
-	assert_eq!(parent.compute_eip_150_total_overhead(), 16);
+	assert_eq!(parent.eip_150_total_overhead(), 16);
 }
 
 #[test]
@@ -670,7 +670,7 @@ fn eip_150_deposit_required_includes_overhead() {
 	parent.absorb_only_max_charged(child);
 
 	let max_charged = parent.max_charged().charge_or_zero();
-	let overhead = parent.compute_eip_150_total_overhead();
+	let overhead = parent.eip_150_total_overhead();
 	let deposit_required = parent.deposit_required_with_eip_150().charge_or_zero();
 
 	assert!(overhead > 0, "there should be EIP-150 overhead from the subcall");
@@ -701,7 +701,7 @@ fn eip_150_deposit_overhead_child_with_children_reverts() {
 	// overhead = children(100) + own(ceil(8400/63)=134) = 234
 	assert_eq!(level1.eip_150_peak(), 8400);
 	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
-	assert_eq!(level1.compute_eip_150_total_overhead(), 234);
+	assert_eq!(level1.eip_150_total_overhead(), 234);
 
 	// Absorb level1 into top (only max_charged, simulating a revert)
 	top.absorb_only_max_charged(level1);
@@ -710,7 +710,7 @@ fn eip_150_deposit_overhead_child_with_children_reverts() {
 	assert_eq!(top.max_charged(), Deposit::Charge(8800));
 	assert_eq!(top.eip_150_peak(), 9034);
 	assert_eq!(top.deposit_required_with_eip_150(), Deposit::Charge(9034));
-	assert_eq!(top.compute_eip_150_total_overhead(), 234);
+	assert_eq!(top.eip_150_total_overhead(), 234);
 }
 
 #[test]
@@ -727,7 +727,7 @@ fn eip_150_deposit_overhead_zero_consumption_child() {
 	// peak = max(0, 5000 + 0 + 0) = 5000
 	assert_eq!(parent.max_charged(), Deposit::Charge(5000));
 	assert_eq!(parent.eip_150_peak(), 5000);
-	assert_eq!(parent.compute_eip_150_total_overhead(), 0);
+	assert_eq!(parent.eip_150_total_overhead(), 0);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(5000));
 }
 
@@ -748,5 +748,5 @@ fn eip_150_deposit_overhead_child_heavier_than_parent() {
 	assert_eq!(parent.max_charged(), Deposit::Charge(63_001));
 	assert_eq!(parent.eip_150_peak(), 64_001);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(64_001));
-	assert_eq!(parent.compute_eip_150_total_overhead(), 1000);
+	assert_eq!(parent.eip_150_total_overhead(), 1000);
 }
