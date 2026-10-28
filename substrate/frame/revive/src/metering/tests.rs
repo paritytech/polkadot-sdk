@@ -15,7 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{SignedGas, math::eip_150::{self, BalanceEip150, Resource, WeightEip150}};
+use super::{
+	SignedGas,
+	math::eip_150::{self, BalanceEip150, Resource, WeightEip150},
+};
 use crate::{
 	BalanceOf, CallResources, Code, Config, Error, EthTxInfo, ExecConfig, StorageDeposit,
 	TransactionLimits, TransactionMeter, WeightToken,
@@ -1457,6 +1460,69 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 			// Total deposit = 700 + 300 = 1000 = deposit_limit. Both calls succeeded.
 			assert_eq!(parent.deposit_left().unwrap(), 0);
 		});
+}
+
+/// The caller keeps 1/64 of its weight when its weight limit is below what its gas buys.
+#[test]
+fn ethereum_execution_caller_keeps_weight_under_weight_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: crate::Pallet::<Test>::evm_max_extrinsic_weight(),
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap();
+		let mut caller_meter =
+			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let available_weight = caller_meter.weight_left().unwrap();
+		let forwarded_weight = WeightEip150::apply(available_weight);
+		let retained_weight = available_weight - forwarded_weight;
+
+		let mut callee_meter =
+			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		assert_eq!(callee_meter.weight_left().unwrap(), forwarded_weight);
+
+		callee_meter.consume_all_weight();
+		caller_meter.absorb_weight_meter_only(callee_meter);
+		assert_eq!(caller_meter.weight_left().unwrap(), retained_weight);
+	});
+}
+
+/// A callee of a call with a deposit limit can use at most 63/64 of the remaining deposit, so
+/// its caller keeps 1/64.
+#[test]
+fn ethereum_execution_caller_keeps_deposit_under_deposit_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: Weight::MAX,
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap();
+		let deposit_limit = 1_000;
+		let mut caller_meter = root_meter
+			.new_nested(
+				&CallResources::WeightDeposit {
+					weight: Weight::from_parts(10_000, 0),
+					deposit_limit,
+				},
+				eip_150::Rule::Skip,
+			)
+			.unwrap();
+		let available_deposit = caller_meter.deposit_left().unwrap();
+		let forwarded_deposit = BalanceEip150::<Test>::apply(available_deposit);
+		let retained_deposit = available_deposit - forwarded_deposit;
+
+		let mut callee_meter =
+			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		assert_eq!(callee_meter.deposit_left().unwrap(), forwarded_deposit);
+
+		callee_meter.charge_deposit(&StorageDeposit::Charge(forwarded_deposit)).unwrap();
+		caller_meter.absorb_all_meters(callee_meter, &ALICE, None);
+		assert_eq!(caller_meter.deposit_left().unwrap(), retained_deposit);
+	});
 }
 
 #[test]

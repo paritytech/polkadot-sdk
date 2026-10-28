@@ -22,7 +22,7 @@ use super::{
 };
 use crate::vm::{RuntimeCosts, evm::EVMGas};
 use core::marker::PhantomData;
-use eip_150::{BalanceEip150, Resource, WeightEip150};
+use eip_150::{BalanceEip150, WeightEip150};
 use num_traits::{One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
 use sp_runtime::Saturating;
@@ -63,6 +63,14 @@ pub(crate) mod eip_150 {
 		/// Returns `true` when the 63/64 rule should be applied.
 		pub fn should_apply(&self) -> bool {
 			matches!(self, Self::Apply)
+		}
+
+		/// Returns the share of `amount` that a subcall can receive under this rule.
+		pub fn apply<R: Resource>(self, amount: R::Amount) -> R::Amount {
+			match self {
+				Self::Apply => R::apply(amount),
+				Self::Skip => amount,
+			}
 		}
 	}
 
@@ -296,11 +304,8 @@ pub mod substrate_execution {
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
-		let (weight_left, deposit_left) = if eip_150_rule.should_apply() {
-			(WeightEip150::apply(weight_left), BalanceEip150::<T>::apply(deposit_left))
-		} else {
-			(weight_left, deposit_left)
-		};
+		let weight_left = eip_150_rule.apply::<WeightEip150>(weight_left);
+		let deposit_left = eip_150_rule.apply::<BalanceEip150<T>>(deposit_left);
 
 		let (nested_weight_limit, nested_deposit_limit, stipend) = {
 			match limit {
@@ -523,14 +528,14 @@ pub mod ethereum_execution {
 			let unbounded_weight_left = eth_tx_info
 				.weight_remaining(&max_total_gas, &total_consumed_weight, &total_consumed_deposit)
 				.ok_or(<Error<T>>::OutOfGas)?;
+			let weight_limit_left = meter
+				.weight
+				.weight_limit
+				.checked_sub(&self_consumed_weight)
+				.map(|left| eip_150_rule.apply::<WeightEip150>(left))
+				.ok_or(<Error<T>>::OutOfGas)?;
 
-			unbounded_weight_left.min(
-				meter
-					.weight
-					.weight_limit
-					.checked_sub(&self_consumed_weight)
-					.ok_or(<Error<T>>::OutOfGas)?,
-			)
+			unbounded_weight_left.min(weight_limit_left)
 		};
 
 		let deposit_left = {
@@ -539,11 +544,14 @@ pub mod ethereum_execution {
 			};
 
 			match meter.deposit.limit {
-				Some(deposit_limit) => unbounded_deposit_left.min(
-					self_consumed_deposit
+				Some(deposit_limit) => {
+					let deposit_limit_left = self_consumed_deposit
 						.available(&deposit_limit)
-						.ok_or(<Error<T>>::StorageDepositLimitExhausted)?,
-				),
+						.map(|left| eip_150_rule.apply::<BalanceEip150<T>>(left))
+						.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
+
+					unbounded_deposit_left.min(deposit_limit_left)
+				},
 				None => unbounded_deposit_left,
 			}
 		};
