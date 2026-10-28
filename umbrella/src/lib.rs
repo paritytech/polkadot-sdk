@@ -736,6 +736,11 @@ pub use pallet_staking_async;
 #[cfg(feature = "pallet-staking-async-ah-client")]
 pub use pallet_staking_async_ah_client;
 
+/// Converts reported units of a validator service into era points, intended to be used in
+/// Asset Hub.
+#[cfg(feature = "pallet-staking-async-points-converter")]
+pub use pallet_staking_async_points_converter;
+
 /// Pallet handling the communication with staking-ah-client. It's role is to glue the staking
 /// pallet (on AssetHub chain) and session pallet (on Relay Chain) in a transparent way.
 #[cfg(feature = "pallet-staking-async-rc-client")]
