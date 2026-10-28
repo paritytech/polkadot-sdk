@@ -742,7 +742,7 @@ mod tests {
 	}
 
 	#[test]
-	fn storage_pricing_by_access_kind() {
+	fn contract_storage_pricing_by_access_kind() {
 		let len = 64u32;
 		let cold_non_revertible = Warmth::new_cold_non_revertible();
 		let cold_revertible = Warmth::new_cold_revertible();

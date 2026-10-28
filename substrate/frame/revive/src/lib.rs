@@ -3208,12 +3208,12 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	/// The config the `call` dispatchable runs with.
+	/// Builds the config the `call` dispatchable runs with.
 	fn substrate_call_exec_config() -> ExecConfig<T> {
 		ExecConfig::new_substrate_tx().with_first_frame_reads_paid()
 	}
 
-	/// The config the `eth_call` dispatchable runs with.
+	/// Builds the config the `eth_call` dispatchable runs with.
 	fn eth_call_exec_config(
 		effective_gas_price: U256,
 		encoded_len: u32,

@@ -128,12 +128,6 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
-/// Whitelists the contract's code keys.
-fn whitelist_code<T: Config>(contract: &Contract<T>) -> Result<(), &'static str> {
-	whitelist_access::<T>(CodeLoadItems::new(contract.info()?.code_hash));
-	Ok(())
-}
-
 /// Asserts that the bench measures every entry marked hot before the transaction's first call
 /// runs.
 fn assert_first_call_items_not_whitelisted<T: Config>(contract: &Contract<T>, dust: bool) {
@@ -1086,7 +1080,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		whitelist_code(&instance)?;
+		whitelist_access::<T>(CodeLoadItems::new(instance.info()?.code_hash));
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -1125,7 +1119,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		whitelist_code(&instance)?;
+		whitelist_access::<T>(CodeLoadItems::new(instance.info()?.code_hash));
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -3166,7 +3160,7 @@ mod benchmarks {
 		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 		// The code read is priced by `code_load`.
-		whitelist_code(&target)?;
+		whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -3318,7 +3312,7 @@ mod benchmarks {
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
 		// The code read is priced by `code_load`.
-		whitelist_code(&target)?;
+		whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;

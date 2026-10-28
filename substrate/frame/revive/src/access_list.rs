@@ -66,8 +66,7 @@ pub const MAX_ACCESS_LIST_ENTRIES: usize = 4_096;
 // grows by moving to a buffer twice the size, and the buffers it frees add up to about one final
 // buffer. The allocator keeps each for requests of the same size, which the list does not make.
 
-/// Worst-case memory of a storage slot entry, the slot total above rounded up. Nothing bounds
-/// how many of the entries are slots, so the budget takes this size for all of them.
+/// Worst-case memory of a storage slot entry, the slot total above rounded up.
 const SLOT_ENTRY_BYTES: usize = 1_024;
 
 const _: () = assert!(
@@ -77,7 +76,8 @@ const _: () = assert!(
 	"the memory usage table above is based on these sizes and requires remeasuring",
 );
 
-/// Worst-case total memory the access list can hold per transaction.
+/// Worst-case total memory the access list can hold per transaction. Nothing bounds how many of
+/// the entries are slots, so it counts every entry at the slot size.
 pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_ACCESS_LIST_ENTRIES * SLOT_ENTRY_BYTES) as u32;
 
 /// A contract's storage key, in the form the access list keeps it.
@@ -934,7 +934,7 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Adds fresh entries of `key_family` until the list holds `target_size` of them.
+	/// Adds new entries of `key_family` until the list holds `target_size` entries.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn fill_to(&mut self, target_size: usize, key_family: KeyFamily) {
 		let already = self.metrics().size;
