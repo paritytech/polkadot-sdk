@@ -69,12 +69,12 @@ where
 			return None;
 		},
 		Err(e) => {
-			log::warn!(target: LOG_TARGET, "Keystore refused to sign: {e}");
+			log::error!(target: LOG_TARGET, "Keystore refused to sign: {e}");
 			return None;
 		},
 	};
 	let Ok(signature) = Decode::decode(&mut &bytes[..]) else {
-		log::warn!(target: LOG_TARGET, "Keystore returned an undecodable signature");
+		log::error!(target: LOG_TARGET, "Keystore returned an undecodable signature");
 		return None;
 	};
 	Some(SignedPriceReport { report, signer, signature })

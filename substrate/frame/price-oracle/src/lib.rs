@@ -479,7 +479,7 @@ pub mod pallet {
 			let reports =
 				PriceOracleInherentDataExt::<T::SignerId, T::SignerSignature>::price_reports(data)
 					.unwrap_or_else(|e| {
-						log::warn!(
+						log::error!(
 							target: LOG_TARGET,
 							"Malformed price oracle inherent data: {e:?}",
 						);
@@ -693,7 +693,7 @@ impl<T: Config> Pallet<T> {
 				continue;
 			}
 			if (pair_votes.len() as u32) < params.quorum {
-				log::debug!(
+				log::warn!(
 					target: LOG_TARGET,
 					"{pair:?} has {} of {} votes, not priced",
 					pair_votes.len(),

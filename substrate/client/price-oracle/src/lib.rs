@@ -331,7 +331,7 @@ where
 					"Market {market:?} not priced: {}",
 					String::from_utf8_lossy(&e.0),
 				),
-				Err(e) => log::warn!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
+				Err(e) => log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
 			}
 		}
 		prices
@@ -345,7 +345,7 @@ where
 	let aggregates = match client.runtime_api().aggregate(best_hash, prices) {
 		Ok(aggregates) => aggregates,
 		Err(e) => {
-			log::warn!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
+			log::error!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
 			return None;
 		},
 	};
