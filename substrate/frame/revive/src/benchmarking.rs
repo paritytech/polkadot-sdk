@@ -125,6 +125,18 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
+/// Queues `contract` for deletion the way termination does.
+///
+/// Termination replaces the account info with a plain account, which is kept when dust remains
+/// on it. With that entry in place the deletion queue clears the native deposit rows, and its
+/// check for a live contract at the address decodes a stored value, the more expensive case.
+fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
+	let info = contract.info()?;
+	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });
+	ContractInfo::<T>::queue_for_deletion(info.trie_id, contract.account_id.clone());
+	Ok(())
+}
+
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
 ///
 /// Writes 8 MiB, which is larger than the L2 cache of the reference hardware.
@@ -511,15 +523,13 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
-	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
+	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read,
+	/// the `AccountInfoOf` read that checks for a live contract at the address, plus the
+	/// `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
 	#[benchmark(pov_mode = Measured)]
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -534,10 +544,7 @@ mod benchmarks {
 	fn deletion_queue_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -550,8 +557,8 @@ mod benchmarks {
 
 	/// Measures the cost of clearing one [`NativeDepositOf`] row during
 	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
-	/// per-payer rows and queues the contract for deletion with `native_cleared = false` and
-	/// an empty trie. The deletion queue then drains all rows in one go.
+	/// per-payer rows and queues it for deletion as a terminated contract with an empty trie.
+	/// The deletion queue then drains all rows in one go.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;
@@ -562,10 +569,7 @@ mod benchmarks {
 			let payer: T::AccountId = account("payer", i, 0);
 			NativeDepositOf::<T>::insert(&instance.account_id, &payer, BalanceOf::<T>::default());
 		}
-		ContractInfo::<T>::queue_for_deletion(
-			instance.info()?.trie_id,
-			instance.account_id.clone(),
-		);
+		queue_terminated_for_deletion(&instance)?;
 
 		#[block]
 		{
@@ -573,6 +577,10 @@ mod benchmarks {
 		}
 
 		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		assert!(
+			NativeDepositOf::<T>::iter_prefix(&instance.account_id).next().is_none(),
+			"native deposit rows should be cleared",
+		);
 		Ok(())
 	}
 

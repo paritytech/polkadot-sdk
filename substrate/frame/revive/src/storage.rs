@@ -455,10 +455,10 @@ impl<T: Config> ContractInfo<T> {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
 
-		// Reject reuse of an address whose previous occupant still has unflushed
-		// `NativeDepositOf` rows in the deletion queue. The on_idle drain will eventually
-		// clear them; until it does, instantiating here would let the new contract inherit
-		// stale per-payer entitlements.
+		// Reject reuse of an address whose previous occupant still has `NativeDepositOf` rows
+		// that the deletion queue has not cleared yet; otherwise the new contract would inherit
+		// stale per-payer entitlements. Once a contract is live here again, the deletion queue
+		// leaves the rows under this address alone, so all of them belong to the new contract.
 		let account_id = T::AddressMapper::to_fallback_account_id(address);
 		if NativeDepositOf::<T>::iter_prefix(&account_id).next().is_some() {
 			return Err(Error::<T>::PendingDepositCleanup.into());
@@ -717,16 +717,25 @@ impl<T: Config> ContractInfo<T> {
 			remaining = after_entry;
 
 			// Phase 1: drain `NativeDepositOf` rows for this contract.
-			let key_budget = key_budget_for(remaining, weight_per_native_key);
-			if key_budget == 0 {
-				break;
-			}
-			let result =
-				NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
-			remaining = remaining
-				.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
-			if result.maybe_cursor.is_some() {
-				break;
+			//
+			// The rows are keyed by the fallback account of the address, which every contract
+			// created at that address shares. Re-instantiation requires an empty prefix, so while a
+			// contract is live at the address every row under it belongs to that contract and
+			// this phase is skipped. Rows under an address with no live contract belong to a
+			// terminated one.
+			let address = T::AddressMapper::to_address(&entry.value.account_id);
+			if !AccountInfo::<T>::is_contract(&address) {
+				let key_budget = key_budget_for(remaining, weight_per_native_key);
+				if key_budget == 0 {
+					break;
+				}
+				let result =
+					NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
+				remaining = remaining
+					.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
+				if result.maybe_cursor.is_some() {
+					break;
+				}
 			}
 
 			// Phase 2: kill the child trie.
@@ -838,6 +847,11 @@ pub struct DeletionQueueManager<T: Config> {
 /// Holds the data needed to drain both the contract's [`NativeDepositOf`] rows and its child
 /// trie. Cleanup runs in two phases per batch (native rows first, then the trie); the entry
 /// stays in the queue until both phases have finished for it.
+///
+/// The native rows are keyed by `account_id`, which a contract created later at the same address
+/// shares. Such a contract can only be created once the rows are gone, and from then on the
+/// rows under `account_id` are its own. Therefore the first phase only runs while no contract
+/// is live at the address; otherwise only the child trie is removed.
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, CloneNoBound, DebugNoBound, PartialEq, Eq)]
 #[scale_info(skip_type_params(T))]
 pub struct DeletionQueueItem<T: Config> {

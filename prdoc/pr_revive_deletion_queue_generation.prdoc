@@ -1,0 +1,32 @@
+title: '[pallet-revive] Deletion queue keeps the native deposit records of a re-created contract'
+
+doc:
+- audience: Runtime User
+  description: |-
+    A contract created at the address of a terminated contract, for example with `CREATE2` and
+    the same deployer, code and salt, keeps its per-payer native deposit records while the
+    deletion queue is still removing the storage of the terminated contract. Before, the
+    deletion queue could clear those records, and a payer who later freed storage in the new
+    contract did not get the native deposit back. This happened when the terminated contract
+    had no native deposit records, or when removing its storage took more than one batch.
+
+- audience: Runtime Dev
+  description: |-
+    No migration, configuration change or runtime action is needed.
+
+    `ContractInfo::process_deletion_queue_batch` now clears the `NativeDepositOf` rows of a
+    queued contract only while no contract is live at its address. The child trie of the
+    terminated contract is removed as before.
+
+    The per-entry deletion-queue weight (`WeightInfo::deletion_queue_per_entry`) now includes
+    one `AccountInfoOf` read. Runtimes should regenerate their `pallet_revive` weights.
+
+    The `MultiContributorStorage` fixture gains a `clearStorage` function, which adds a variant
+    to the generated `MultiContributorStorage::MultiContributorStorageCalls` enum in
+    `pallet-revive-fixtures`.
+
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: major
