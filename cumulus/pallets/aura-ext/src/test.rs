@@ -29,7 +29,7 @@ use frame_support::{
 	BoundedVec,
 };
 use rstest::rstest;
-use sp_consensus_aura::{sr25519::AuthorityId, Slot};
+use sp_consensus_aura::{digests::CompatibleDigestItem, sr25519::AuthorityId, Slot};
 use sp_core::{Blake2Hasher, Get, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring::*;
@@ -520,6 +520,42 @@ fn block_executor_does_not_influence_proof_size_recordings() {
 	ext.reset_overlay();
 	ext.execute_with_recorder(recorder, || {
 		BlockExecutor::<Test, TestExecutive>::execute_verified_block(block);
+	});
+}
+
+/// The AuRa seal must be the last digest item, as the node side only accepts it at this position.
+#[test]
+#[should_panic(expected = "Invalid AuRa seal: BadSeal")]
+fn verify_and_remove_seal_rejects_seal_not_at_last_position() {
+	struct TestExecutive;
+	impl ExecuteBlock<Block> for TestExecutive {
+		fn verify_and_remove_seal(_: &mut <Block as BlockT>::LazyBlock) {}
+
+		fn execute_verified_block(_: <Block as BlockT>::LazyBlock) {}
+	}
+
+	new_test_ext(10).execute_with(|| {
+		let authorities: BoundedVec<AuthorityId, ConstU32<100_000>> =
+			vec![AuthorityId::from(Alice.public())].try_into().unwrap();
+		pallet_aura::Authorities::<Test>::put(authorities.clone());
+		Authorities::<Test>::put(authorities);
+
+		let mut digest = Digest::default();
+		digest.push(CompatibleDigestItem::<()>::aura_pre_digest(10u64.into()));
+		let mut header = <Block as BlockT>::Header::new(
+			1,
+			Default::default(),
+			Default::default(),
+			Default::default(),
+			digest,
+		);
+
+		// The signature is valid, only the position of the seal is wrong.
+		let seal = CompatibleDigestItem::aura_seal(Alice.sign(header.hash().as_ref()));
+		header.digest_mut().logs.insert(0, seal);
+
+		let mut block = Block::new(header, Default::default()).into();
+		BlockExecutor::<Test, TestExecutive>::verify_and_remove_seal(&mut block);
 	});
 }
 
