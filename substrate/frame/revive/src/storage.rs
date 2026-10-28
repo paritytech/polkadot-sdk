@@ -446,6 +446,14 @@ impl<T: Config> ContractInfo<T> {
 	///
 	/// This returns an `Err` if an contract with the supplied `account` already exists
 	/// in storage.
+	///
+	/// The child trie id is derived from `address`, `nonce` and the insert counter stored in
+	/// `DeletionQueueCounter`. Trie ids only need to be unique per address, because the address
+	/// is part of the derivation. An earlier contract at the same address no longer exists, so it
+	/// was terminated. Every termination calls [`Self::queue_for_deletion`], which increments the
+	/// insert counter. The counter read here therefore differs from the one read when any earlier
+	/// contract at this address was created, including one whose storage is still in the deletion
+	/// queue. Uniqueness does not depend on `nonce`.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
@@ -465,7 +473,9 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		let trie_id = {
-			let buf = ("bcontract_trie_v1", address, nonce).using_encoded(T::Hashing::hash);
+			let insert_counter = DeletionQueueManager::<T>::load().insert_counter;
+			let buf = ("bcontract_trie_v2", address, nonce, insert_counter)
+				.using_encoded(T::Hashing::hash);
 			buf.as_ref()
 				.to_vec()
 				.try_into()
@@ -825,6 +835,11 @@ impl WriteOutcome {
 pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
 	/// The counter is incremented after each insertion.
+	///
+	/// [`ContractInfo::new`] derives child trie ids from it, so it must never decrease or be
+	/// reset. Otherwise a new contract could get the trie id of an earlier contract at the same
+	/// address whose storage is still queued for deletion. It wraps at `u32::MAX`, so a trie id
+	/// can only repeat after 2^32 terminations.
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
 	/// The counter is incremented after each deletion.

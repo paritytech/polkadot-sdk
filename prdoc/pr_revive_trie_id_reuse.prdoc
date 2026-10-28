@@ -1,0 +1,33 @@
+title: '[pallet-revive] Derive child trie ids from the deletion queue counter'
+
+doc:
+- audience: Runtime User
+  description: |-
+    The child trie id of a new contract is now derived from its address, the deployer's nonce and
+    the insert counter of the deletion queue, instead of the address and the deployer's nonce
+    only. A contract created at the address of a terminated contract therefore never shares the
+    terminated contract's storage, also while that storage is still waiting in the deletion queue.
+
+    Existing contracts keep their trie ids, and queued deletions are unchanged.
+
+    Off-chain tools that compute a contract's trie id from its address and the deployer's nonce
+    must read `trie_id` from the contract's `ContractInfo` in `AccountInfoOf` instead. The id of a
+    new contract cannot be computed without the deletion queue counter at the time it was
+    created.
+
+- audience: Runtime Dev
+  description: |-
+    No migration or configuration change is needed. The storage layout is unchanged.
+
+    Creating a contract now also reads `DeletionQueueCounter`. This affects the weights of
+    `instantiate`, `instantiate_with_code`, `eth_instantiate_with_code`, `seal_instantiate` and
+    `evm_instantiate`. Runtimes should regenerate their `pallet_revive` weights.
+
+    The `RedeployFactory` fixture is new and adds the `RedeployFactory`, `RedeployChild` and
+    `RedeployDeployer` modules to `pallet-revive-fixtures`.
+
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
