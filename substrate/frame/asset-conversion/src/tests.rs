@@ -2829,6 +2829,63 @@ fn swap_credit_invalid_path() {
 	});
 }
 
+#[test]
+fn swap_credit_returns_change_when_swap_fails() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let token_2_ed = 150;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], token_2_ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		let ed = get_native_ed();
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 20000 + ed));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		let liquidity1 = 10000;
+		let liquidity2 = 200;
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			liquidity1,
+			liquidity2,
+			1,
+			1,
+			user,
+		));
+
+		// The path prices fine, but taking `amount_out` from the pool would leave it below the
+		// minimum balance of `token_2`, so the swap fails after `credit_in` was split.
+		let amount_out = liquidity2 - token_2_ed + 1;
+		let amount_in =
+			AssetConversion::get_amount_in(LpFee::get(), &amount_out, &liquidity1, &liquidity2)
+				.unwrap();
+		let change = 100;
+
+		let total_issuance = Balances::total_issuance();
+		let credit_in = NativeAndAssets::issue(token_1.clone(), amount_in + change);
+		let (credit_in, error) = <AssetConversion as SwapCredit<_>>::swap_tokens_for_exact_tokens(
+			vec![token_1.clone(), token_2.clone()],
+			credit_in,
+			amount_out,
+		)
+		.unwrap_err();
+		assert_eq!(error, TokenError::NotExpendable.into());
+		// The whole `credit_in` comes back, including the change.
+		assert_eq!(credit_in.peek(), amount_in + change);
+		drop(credit_in);
+		assert_eq!(Balances::total_issuance(), total_issuance);
+	});
+}
+
 fn new_test_ext_with_genesis_pools(
 	pools: Vec<(NativeOrWithId<u32>, NativeOrWithId<u32>, u128, u128, u128)>,
 ) -> sp_io::TestExternalities {

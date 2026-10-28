@@ -67,6 +67,16 @@ fn make_registered<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkErr
 	Ok(para_id)
 }
 
+/// Reserve a para id, register it and ask to deregister it. Returns the id and the awaited message.
+fn make_deregistering<T: Config>(who: &T::AccountId) -> Result<(ParaId, u64), BenchmarkError> {
+	let para_id = make_registered::<T>(who)?;
+	Pallet::<T>::deregister(RawOrigin::Signed(who.clone()).into(), para_id)?;
+	match Paras::<T>::get(para_id).map(|i| i.state) {
+		Some(RegistrationState::Deregistering { message_id, .. }) => Ok((para_id, message_id)),
+		_ => Err(BenchmarkError::Stop("not deregistering")),
+	}
+}
+
 /// Reserve a para id, register it and lock it.
 fn make_locked<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
 	let para_id = make_registered::<T>(who)?;
@@ -134,22 +144,70 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The worst case of the messages this call serves is a confirmed cancellation, which releases
-	/// the deposit on top of writing the new state.
+	/// Worst case: a confirmed deregistration releases both considerations and removes the entry.
 	#[benchmark]
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_pending::<T>(&who)?;
-		let message = MessageToPara::V1(MessageToParaV1::CancelResponse {
+		let (para_id, message_id) = make_deregistering::<T>(&who)?;
+		let message = MessageToPara::V1(MessageToParaV1::DeregisterResponse {
 			para_id,
-			message_id: 0,
+			message_id,
 			outcome: Ok(()),
 		});
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, message);
 
-		assert_eq!(Paras::<T>::get(para_id).map(|i| i.state), Some(RegistrationState::Reserved));
+		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
+	/// Giving up an id the relay chain never knew: the reservation goes back here and now.
+	#[benchmark]
+	fn deregister_reserved() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = reserve_for::<T>(&who)?;
+
+		#[extrinsic_call]
+		deregister(RawOrigin::Signed(who), para_id);
+
+		assert!(Paras::<T>::get(para_id).is_none());
+		Ok(())
+	}
+
+	/// Asking the relay chain to drop a registered para: the state write plus the message.
+	#[benchmark]
+	fn deregister_registered() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let para_id = make_registered::<T>(&who)?;
+
+		#[extrinsic_call]
+		deregister(RawOrigin::Signed(who), para_id);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Deregistering { .. })
+		));
+		Ok(())
+	}
+
+	/// Asking again after the answer never came: the same, plus reporting the lost answer.
+	#[benchmark]
+	fn deregister_retry() -> Result<(), BenchmarkError> {
+		let who = funded_manager::<T>();
+		let (para_id, awaited) = make_deregistering::<T>(&who)?;
+		T::BlockNumberProvider::set_block_number(
+			T::BlockNumberProvider::current_block_number()
+				.saturating_add(T::PendingDeadline::get()),
+		);
+
+		#[extrinsic_call]
+		deregister(RawOrigin::Signed(who), para_id);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Deregistering { message_id, .. }) if message_id != awaited
+		));
 		Ok(())
 	}
 

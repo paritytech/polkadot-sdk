@@ -18,7 +18,7 @@
 //! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired). The on-chain AD set
 //!    is populated, but no node yet has an `audi` keystore entry — the AD worker has nothing to
 //!    publish under that key until step 5.
-//! 5. Rotate AD keys for every collator via `author_insertKey` + `session.set_keys`. This puts a
+//! 5. Insert AD keys via `author_insertKey`, then batch all `session.set_keys` calls. This puts a
 //!    real `audi` key into each collator's keystore, enabling the AD worker to publish signed DHT
 //!    records that the others can resolve.
 //! 6. Wait for `AuthorityDiscovery.Keys` to reflect the rotation.
@@ -29,9 +29,8 @@ use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use anyhow::anyhow;
 use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success,
-	submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata, wait_for_pvf_prepare,
-	wait_for_runtime_upgrade,
+	assert_para_throughput, submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata,
+	wait_for_pvf_prepare, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use std::{
@@ -41,8 +40,11 @@ use std::{
 };
 use zombienet_sdk::{
 	subxt::{
-		backend::rpc::RpcClient, dynamic::Value, ext::subxt_rpcs::rpc_params, OnlineClient,
-		PolkadotConfig,
+		backend::rpc::RpcClient,
+		config::DefaultExtrinsicParamsBuilder,
+		dynamic::Value,
+		ext::{scale_value::value, subxt_rpcs::rpc_params},
+		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::{sr25519::dev, SecretUri},
 	LocalFileSystem, Network, NetworkConfig, NetworkConfigBuilder,
@@ -53,21 +55,21 @@ const PARA_ID: u32 = 1000;
 /// The variant WASM bytes — compiled with `with-authority-discovery` feature.
 const VARIANT_WASM: Option<&[u8]> = cumulus_test_runtime::with_authority_discovery::WASM_BINARY;
 
-/// Mesh convergence timeout after session change.
+/// Connection convergence timeout after key activation and address discovery.
 const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(240);
 
 /// Polling cadence for the full-mesh check.
 const FULL_MESH_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Session-change wait timeout. `Period = 10` blocks × ~6 s ≈ 60 s per session;
-/// 8 minutes is a comfortable ceiling for multiple rotations plus mesh convergence.
+/// Allow multiple sessions for all submitted keys to become active.
 const SESSION_CHANGE_TIMEOUT: Duration = Duration::from_secs(480);
 
 /// Tight non-reserved budget. With 4 full nodes in this network, the 1/1 slots allow
 /// inbound and outbound connections, but every collator-to-collator link must go through
 /// the reserved-peer bypass once the mesh forms.
 const COLLATOR_NETWORK_ARGS: &[&str] = &[
-	"-lparachain=debug,collator-discovery=debug,authority-discovery=debug",
+	"-lparachain=debug,collator-discovery=debug,sub-authority-discovery=debug",
 	"--in-peers=1",
 	"--out-peers=1",
 	"--collator-reserved-slots=32",
@@ -175,13 +177,16 @@ fn capitalize(name: &str) -> String {
 }
 
 /// For each collator: insert a fresh AD key (`//<Name>/rotated`) into the keystore and
-/// re-submit `session.set_keys` with the same aura key + new AD key.
+/// batch `session.set_keys` with the same aura key + new AD key into one atomic transaction.
+/// Return the complete set of keys that must become active before checking discovery.
 async fn rotate_authority_discovery_keys(
 	network: &Network<LocalFileSystem>,
 	names: &[&str],
-) -> anyhow::Result<()> {
+) -> anyhow::Result<HashSet<Vec<u8>>> {
 	// Key-type-id for authority-discovery: ASCII "audi" = 0x61756469.
 	const AUDI_KEY_TYPE: &str = "audi";
+	let mut expected_authorities = HashSet::new();
+	let mut calls = Vec::with_capacity(names.len());
 
 	for &name in names {
 		let cap = capitalize(name);
@@ -243,23 +248,54 @@ async fn rotate_authority_discovery_keys(
 		proof_bytes.extend_from_slice(&aura_sig.0);
 		proof_bytes.extend_from_slice(&audi_sig.0);
 
-		let call = zombienet_sdk::subxt::dynamic::tx(
-			"Session",
-			"set_keys",
-			vec![keys_value, Value::from_bytes(proof_bytes)],
-		);
-
-		let signer = dev_pair(name)?;
-		let para_client: OnlineClient<PolkadotConfig> =
-			network.get_node(name)?.wait_client().await?;
-		submit_extrinsic_and_wait_for_finalization_success(&para_client, &call, &signer).await?;
-
-		log::info!("`{name}` set_keys submitted and finalised");
+		// Each set_keys call must execute as its owner, even though Alice submits the batch.
+		// The fallible variant propagates failures so batch_all rolls back every key update.
+		calls.push(value! {
+			Utility(dispatch_as_fallible {
+				as_origin: system(Signed(Value::from_bytes(owner))),
+				call: Session(set_keys { keys: keys_value, proof: Value::from_bytes(proof_bytes) })
+			})
+		});
+		expected_authorities.insert(audi_pub.to_vec());
 	}
-	Ok(())
+
+	// All updates execute in one block, so they are queued for the same session.
+	let call = zombienet_sdk::subxt::dynamic::tx(
+		"Sudo",
+		"sudo",
+		vec![value! { Utility(batch_all { calls: calls }) }],
+	);
+	let para_client: OnlineClient<PolkadotConfig> =
+		network.get_node("alice")?.wait_client().await?;
+	let events = para_client
+		.tx()
+		.sign_and_submit_then_watch(
+			&call,
+			&dev::alice(),
+			DefaultExtrinsicParamsBuilder::<PolkadotConfig>::new().immortal().build(),
+		)
+		.await?
+		.wait_for_finalized_success()
+		.await?;
+
+	// Sudo reports inner failures in an event while the outer extrinsic still succeeds.
+	// BatchCompleted is emitted only if every fallible dispatch succeeded.
+	let mut completed = false;
+	for event in events.iter() {
+		let event = event?;
+		if event.pallet_name() == "Sudo" && event.variant_name() == "Sudid" {
+			log::info!("Key rotation sudo result: {:?}", event.field_values()?);
+		}
+		if event.pallet_name() == "Utility" && event.variant_name() == "BatchCompleted" {
+			completed = true;
+		}
+	}
+	anyhow::ensure!(completed, "Authority-discovery key rotation batch failed");
+	log::info!("All {} set_keys calls batched and finalised", names.len());
+	Ok(expected_authorities)
 }
 
-/// Read the live AD authority keys from `AuthorityDiscovery.Keys` storage.
+/// Read the latest finalized AD authority keys from `AuthorityDiscovery.Keys` storage.
 ///
 /// Returns each key as a 32-byte `Vec<u8>` in a `HashSet` for set-difference comparison.
 async fn read_authority_discovery_authorities(
@@ -284,33 +320,29 @@ async fn read_authority_discovery_authorities(
 	Ok(keys)
 }
 
-/// Poll `AuthorityDiscovery.Keys` until at least one key differs from the initial set,
-/// or the timeout fires.
-async fn wait_for_authorities_change(
+/// Wait until the complete expected authority set is active in finalized storage.
+/// Finalizing `set_keys` only schedules the change; session rotation activates it later.
+async fn wait_for_authorities(
 	para_client: &OnlineClient<PolkadotConfig>,
-	initial: &HashSet<Vec<u8>>,
+	expected: &HashSet<Vec<u8>>,
 ) -> anyhow::Result<()> {
 	let deadline = Instant::now() + SESSION_CHANGE_TIMEOUT;
 	loop {
+		let current = read_authority_discovery_authorities(para_client).await?;
+		if current == *expected {
+			log::info!("All {} expected authority-discovery keys are active", expected.len());
+			return Ok(());
+		}
+		let missing = expected.difference(&current).count();
+		let unexpected = current.difference(expected).count();
 		if Instant::now() >= deadline {
 			return Err(anyhow!(
-				"AuthorityDiscovery authorities did not change within {:?}",
+				"AuthorityDiscovery keys did not match the expected set within {:?}: \
+				 {missing} missing, {unexpected} unexpected",
 				SESSION_CHANGE_TIMEOUT,
 			));
 		}
-		let current = read_authority_discovery_authorities(para_client).await?;
-		if current.symmetric_difference(initial).next().is_some() {
-			let added = current.difference(initial).count();
-			let removed = initial.difference(&current).count();
-			log::info!(
-				"AuthorityDiscovery authorities changed: +{} -{} (initial size {}, current {})",
-				added,
-				removed,
-				initial.len(),
-				current.len(),
-			);
-			return Ok(());
-		}
+		log::info!("Waiting for AD key activation: {missing} missing, {unexpected} unexpected");
 		tokio::time::sleep(Duration::from_secs(3)).await;
 	}
 }
@@ -320,34 +352,23 @@ async fn assert_full_collator_mesh(
 	network: &Network<LocalFileSystem>,
 	names: &[&str],
 ) -> anyhow::Result<()> {
-	// Step 1: resolved reserved peers.
+	// Discovery has its own budget, before the connection convergence deadline starts.
+	// Count distinct peer IDs: one authority can advertise multiple multiaddrs.
+	let expected_peers = (names.len() - 1) as f64;
 	for &name in names {
 		let collator = network.get_node(name)?;
-		log::info!("Asserting `{name}` has resolved >= 5 reserved peers (the other collators)");
-		assert!(
-			collator
-				.wait_metric_with_timeout("collator_discovery_resolved_peers", |c| c >= 5.0, 300u64)
-				.await
-				.is_ok(),
-			"`{name}` did not reach 5 resolved reserved peers within the timeout",
-		);
+		log::info!("Waiting for `{name}` to resolve all {expected_peers} other collators");
+		collator
+			.wait_metric_with_timeout(
+				"collator_discovery_resolved_peers",
+				move |count| count == expected_peers,
+				300u64,
+			)
+			.await
+			.map_err(|e| anyhow!("`{name}` did not resolve all other collators: {e}"))?;
 	}
 
-	// Step 2: libp2p peer count.
-	for &name in names {
-		let collator = network.get_node(name)?;
-		log::info!("Asserting `{name}` has >= 5 connected libp2p peers (the other 5 collators)");
-		assert!(
-			collator
-				.wait_metric_with_timeout("substrate_sub_libp2p_peers_count", |c| c >= 5.0, 300u64,)
-				.await
-				.is_ok(),
-			"`{name}` did not reach 5 connected peers — the reserved-mesh bypass of the \
-			 1/1 non-reserved budget is not delivering full collator-to-collator connectivity",
-		);
-	}
-
-	// Step 3: full (i, j) peer-id mesh check.
+	// Check the actual collator peer IDs. A generic libp2p peer count also includes full nodes.
 	let mut peer_ids: HashMap<&str, String> = HashMap::new();
 	for &name in names {
 		let rpc: RpcClient = network.get_node(name)?.rpc().await?;
@@ -467,27 +488,24 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	)
 	.await?;
 
-	// Step 2: wait for AD keys to appear (migration seeded them from aura authorities).
-	// Pre-upgrade the initial AD key set is empty (pallet not present).
+	// Step 2: wait for all migration-seeded AD keys (the collators' aura public keys).
 	log::info!("Waiting for authority-discovery keys to populate post-upgrade");
-	let pre_upgrade_authorities: HashSet<Vec<u8>> = HashSet::new();
-	wait_for_authorities_change(&para_client, &pre_upgrade_authorities).await?;
-	log::info!("AuthorityDiscovery.Keys are now populated");
+	let initial_authorities = collator_names()
+		.iter()
+		.map(|name| dev_pair(name).map(|pair| pair.public_key().0.to_vec()))
+		.collect::<anyhow::Result<HashSet<_>>>()?;
+	wait_for_authorities(&para_client, &initial_authorities).await?;
 
-	// Step 3: capture the migration-seeded AD authority set, then rotate keys.
-	// The migration seeds `AuthorityDiscovery::Keys` with the aura pubkeys, but no node has
-	// the matching `audi` private key yet, so the AD worker can't publish DHT records until
-	// we rotate to real keys.
-	let initial_authorities = read_authority_discovery_authorities(&para_client).await?;
-	log::info!(
-		"Captured {} migration-seeded AD authorities; rotating to real AD keys",
-		initial_authorities.len(),
-	);
-	rotate_authority_discovery_keys(&network, collator_names()).await?;
+	// Step 3: rotate keys and retain the exact set we expect to become active.
+	let expected_authorities = rotate_authority_discovery_keys(&network, collator_names()).await?;
 
-	// Step 4: wait for AuthorityDiscovery.Keys to reflect the rotation.
-	log::info!("Waiting for AuthorityDiscovery keys to reflect the rotation");
-	wait_for_authorities_change(&para_client, &initial_authorities).await?;
+	// Step 4: wait for every collator to finalize activation of the complete rotated set.
+	// Finalizing the batch schedules the keys; session rotation activates them later.
+	for &name in collator_names() {
+		log::info!("Waiting for all rotated authority-discovery keys to activate on `{name}`");
+		let client: OnlineClient<PolkadotConfig> = network.get_node(name)?.wait_client().await?;
+		wait_for_authorities(&client, &expected_authorities).await?;
+	}
 
 	// Step 5: assert the full collator-to-collator mesh forms with real AD keys in place.
 	log::info!("Asserting full collator-to-collator mesh");

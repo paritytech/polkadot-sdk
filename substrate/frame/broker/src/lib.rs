@@ -602,6 +602,8 @@ pub mod pallet {
 		CreditPurchaseTooSmall,
 		/// The renewable workload of the core does not include the given task.
 		TaskNotInWorkload,
+		/// Attempted to enable auto-renewal for a core that already has it enabled.
+		AutoRenewalAlreadyEnabled,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]

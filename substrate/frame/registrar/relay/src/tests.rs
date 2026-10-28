@@ -21,6 +21,7 @@ use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
+	ParachainRegistrar,
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
@@ -94,6 +95,33 @@ fn cancel_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
 
 fn cancel_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
 	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id: CANCEL_ID, outcome })
+}
+
+/// The message id every test deregistration carries, distinct from the ids above.
+const DEREGISTER_ID: u64 = 7;
+
+fn deregister_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id: DEREGISTER_ID })
+}
+
+fn deregister_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::DeregisterResponse {
+		para_id,
+		message_id: DEREGISTER_ID,
+		outcome,
+	})
+}
+
+/// Onboard `para_id` for real, so the registry knows it.
+fn onboard(para_id: ParaId) {
+	let blob = request(para_id, 20, 300);
+	assert_ok!(Registrar::apply_authorized_code(
+		frame_system::RawOrigin::Authorized.into(),
+		para_id,
+		blob
+	));
+	let _ = registrar_events();
+	let _ = take_sent();
 }
 
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
@@ -531,8 +559,105 @@ mod receive_cancel_registration {
 	}
 }
 
+mod receive_deregister {
+	use super::*;
+
+	#[test]
+	fn drops_the_para_and_confirms_it() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			// Dropped before its first head, so nothing is left waiting on one.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_retry_after_a_lost_answer_is_confirmed_again() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_registry_that_will_not_let_the_para_go_is_reported_not_dispatch_failed() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			DeregisterFails::set(true);
+
+			// `Ok`, not `Err`: failing would roll the refusal report back with it.
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert_eq!(
+				take_sent(),
+				vec![deregister_report(PARA_A, Err(FailureReason::NotDeregisterable))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationRejected { para_id: PARA_A, message_id: DEREGISTER_ID }]
+			);
+		});
+	}
+
+	#[test]
+	fn only_the_parachain_may_ask() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+
+			assert_noop!(
+				Registrar::receive(RuntimeOrigin::signed(ALICE), deregister_msg(PARA_A)),
+				DispatchError::BadOrigin
+			);
+			assert!(MockRegistrar::is_registered(PARA_A));
+		});
+	}
+}
+
 mod reporting {
 	use super::*;
+
+	#[test]
+	fn a_bounced_report_does_not_undo_the_deregistration() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			// The para is gone here regardless; the parachain retries and is confirmed then.
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
+				]
+			);
+		});
+	}
 
 	#[test]
 	fn a_bounced_report_does_not_undo_the_onboarding() {

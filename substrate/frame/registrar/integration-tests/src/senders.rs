@@ -95,6 +95,12 @@ impl SendToRelay for ParaSendToRelay {
 	}
 }
 
+frame_support::parameter_types! {
+	/// When true, the relay chain's reports are accepted and then dropped, standing in for a
+	/// message lost in transit.
+	pub static RelayReportsLost: bool = false;
+}
+
 /// The relay chain's half of the transport.
 ///
 /// `OriginKind::Superuser` so the report lands on the parachain as `Root` via
@@ -103,6 +109,10 @@ pub struct RelaySendToPara;
 
 impl SendToPara for RelaySendToPara {
 	fn send(message: MessageToPara) -> Result<(), ()> {
+		if RelayReportsLost::get() {
+			return Ok(());
+		}
+
 		let call = ParaRuntimePallets::Registrar(RegistrarParaCalls::Receive(message)).encode();
 		let program = Xcm(vec![
 			UnpaidExecution { weight_limit: Unlimited, check_origin: None },

@@ -207,7 +207,7 @@ impl dmp::Config for Test {
 impl origin::Config for Test {}
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl paras::Config for Test {
