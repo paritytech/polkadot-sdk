@@ -684,11 +684,17 @@ Properties the tree must have, and why a keyed binary trie:
   a sorted list would; that instability was a correct objection against the
   hierarchical scheme in the 0.3 analysis, and it is an artifact of the
   positional structure, not of hierarchy).
-- **Cheap maintenance**: the sender updates k touched leaves per block in
-  O(k·log S) hashes; node storage O(S). Trivial at realistic stream
-  counts. The stored nodes are a rebuildable cache (the frontiers
-  determine the whole tree), kept because incremental path updates need
-  the sibling hashes—no invariant lives in them.
+- **Cheap maintenance—given a node cache**: the sender updates the k
+  touched leaves per block along their paths, O(k·log S) node reads and
+  writes. This needs the tree's nodes cached in storage (children's hashes
+  kept in the parent; insertion only—streams are never removed).
+  Rebuilding the root from scratch is correct but must bag *every* stream's
+  root from its frontier, putting all S frontiers into each sending
+  block's storage proof: at 1000 streams, hundreds of KB per block,
+  against a few KB with the cache. The cache is fully redundant—the
+  frontiers determine the tree—so its layout is chain-internal, not part
+  of the protocol; only the root is. A wrong cache yields a wrong
+  `StreamsRoot`, which receivers' lifts reject, so it can't fail silently.
 - **Domain-separated hashing**: tree leaf and inner nodes carry distinct
   hash tags, same discipline and same attack rationale as the message MMR
   (see [Leaf Hashing](#leaf-hashing-and-domain-separation))—a leaf must
@@ -1012,6 +1018,15 @@ clear + bump are one atomic step. A block that touched no stream folds
 nothing and deposits no digest. The messages of block N remain available
 at block N—collators extract them via the runtime API below, never by
 reading storage directly.
+
+**No sends before initialization.** FRAME runs `on_runtime_upgrade` before
+block initialization, so the previous block's sends aren't folded yet; a
+leaf sent there would be folded as the previous block's and never reach an
+archive. Sends (and the pallet's own signals) are therefore refused until
+the block is initialized (`frame_system`'s execution phase is unset until
+then: `SendError::NotInitialized`). Code in `on_runtime_upgrade` that needs
+to send—a migration closing channels, the post-upgrade Hello check—defers
+it to later in the block.
 
 ```
 Block N init:      append block N−1's OutboundMessages to frontiers,
@@ -2284,6 +2299,7 @@ enum SendError {
     NotOpen,        // A may not send (see "may send", Channels: Lifecycle)
     TooLarge,       // encoded leaf payload > the session's max_message_size
     InFlightLimit,  // the in-flight gate (see Flow Control)
+    NotInitialized, // called before the block's initialization (inside on_runtime_upgrade)
 }
 /// Receiver side (`accept_open_channel` is defined in Channels):
 fn close_inbound(sender: ParaId, domain: u8, num: u16); // close the session; drains if Opened (Channels: Lifecycle)
@@ -2896,8 +2912,9 @@ consumes again.
 
 #### Archive Pruning
 
-The sender-side (destination, position) → payload archive is *node-side
-disk*, not consensus state—the runtime keeps no payloads beyond the
+The sender-side archive—payloads per stream, servable under any root of
+the node's own chain (see [Fetch Protocol](#fetch-protocol))—is
+*node-side disk*, not consensus state—the runtime keeps no payloads beyond the
 current block (see
 [Networking](#networking)). Pruning policy therefore binds no one but the
 sender's own nodes. The protocol's job is only to define when pruning is
@@ -2909,6 +2926,11 @@ sender's own nodes. The protocol's job is only to define when pruning is
 
 Deliberately conservative: finality is the one point after which the
 confirmation can never revert, whatever tier the register was read at.
+Sender blocks can revert too, so the same position may hold different
+payloads on different forks: W confirms only the fork the receiver
+consumed (its register proves consumption against that fork's root).
+Payloads of abandoned sender forks are dropped once the sender's own
+blocks finalize.
 Pruning is entirely node-side and needs nothing from the sender's own
 runtime: the node knows from its own archive which channels still have
 unconfirmed tails, and reads their registers itself (collators fetch them
@@ -3364,9 +3386,8 @@ Low-Latency v2's scheduling verification likewise runs inside it, fed by a
 trailing extension of the validation params). The `validate_block`
 wrapper already executes all blocks of a bundle in a loop and reads
 pallet storage directly after each block's execution to assemble the
-`ValidationResult`, and re-assembles the candidate's UMP signals
+`ValidationResult`
 (`cumulus/pallets/parachain-system/src/validate_block/implementation.rs`).
-Messaging adds three steps in exactly those places:
 
 Part of that is building the candidate's UMP signals from the ones its
 blocks emitted. Today that only covers scheduling signals (`SelectCore`,
@@ -3466,11 +3487,14 @@ The request/response fetch protocol is part of the wire specification—see
 [Fetch Protocol](#fetch-protocol). What remains here is node-side
 infrastructure:
 
-1. **Archives**: sender-side full nodes maintain an off-chain
-   (stream, position) → message archive, built while following their own
-   chain (`OutboundMessages` only holds the current block); this is what
-   serves fetch requests. Channel-stream archives are prunable below the
-   per-channel finalized confirmation watermark (see
+1. **Archives**: sender-side full nodes maintain an off-chain archive of
+   payloads per stream, built while following their own chain
+   (`OutboundMessages` only holds the current block); this is what serves
+   fetch requests, under any root of the node's own chain. Sender blocks
+   can revert, so the same position may hold different payloads on
+   different forks; the layout is implementation-defined. Channel-stream
+   archives are prunable below the per-channel finalized confirmation
+   watermark (see
    [Archive Pruning](#archive-pruning)); event-stream payloads *behind
    the head* by local retention policy (see
    [Event Streams](#event-streams)), while the windowed heads' payloads
