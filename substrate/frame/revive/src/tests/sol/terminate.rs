@@ -16,8 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, H160, H256,
-	HoldReason, Pallet, StorageDeposit, U256,
+	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config,
+	DeletionQueue, H160, H256, HoldReason, NativeDepositOf, Pallet, StorageDeposit, U256,
 	address::{AddressMapper, create1},
 	metering::TransactionLimits,
 	storage::AccountType,
@@ -41,7 +41,8 @@ use frame_support::{
 	weights::Weight,
 };
 use pallet_revive_fixtures::{
-	FixtureType, Terminate, TerminateCaller, TerminateDelegator, compile_module_with_type,
+	FixtureType, RedeployChild, RedeployFactory, Terminate, TerminateCaller, TerminateDelegator,
+	compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use test_case::{test_case, test_matrix};
@@ -1727,4 +1728,104 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 		assert_eq!(code_infos(), code_infos_before, "no code reference stays behind");
 		assert_eq!(get_balance(&ALICE), alice_before, "origin must get every deposit back");
 	});
+}
+
+/// A factory and its CREATE2 child are terminated and both deployed again at the same addresses
+/// before the deletion queue runs. The new child must start with empty storage, and draining the
+/// queue entry of the old child must not delete the storage of the new one.
+///
+/// The origin pays every deposit in PGAS, so no `NativeDepositOf` rows block the redeployment.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn redeployed_child_does_not_share_storage_with_queued_child(fixture_type: FixtureType) {
+	let (factory_code, _) = compile_module_with_type("RedeployFactory", fixture_type).unwrap();
+	let (child_code, _) = compile_module_with_type("RedeployChild", fixture_type).unwrap();
+	ExtBuilder::default()
+		.with_pgas_balances(vec![(ALICE, 1_000_000_000_000)])
+		.build()
+		.execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+			let deploy = || {
+				if fixture_type == FixtureType::Resolc {
+					// PVM needs the child code uploaded. Terminating the only child that uses it
+					// removes it again.
+					assert_ok!(<Pallet<Test>>::upload_code(
+						RuntimeOrigin::signed(ALICE.clone()),
+						child_code.clone(),
+						<BalanceOf<Test>>::MAX,
+					));
+				}
+				let factory = builder::bare_instantiate(Code::Upload(factory_code.clone()))
+					.build_and_unwrap_contract();
+				let result = builder::bare_call(factory.addr)
+					.data(RedeployFactory::deployChildCall {}.abi_encode())
+					.build_and_unwrap_result();
+				assert!(!result.did_revert(), "deployChild: {}", decode_error(&result.data));
+				let child =
+					RedeployFactory::deployChildCall::abi_decode_returns(&result.data).unwrap();
+				(factory, H160::from_slice(child.as_slice()))
+			};
+			let set_value = |child: H160, value: u64| {
+				let result = builder::bare_call(child)
+					.data(
+						RedeployChild::setValueCall {
+							newValue: alloy_core::primitives::U256::from(value),
+						}
+						.abi_encode(),
+					)
+					.build_and_unwrap_result();
+				assert!(!result.did_revert(), "setValue: {}", decode_error(&result.data));
+			};
+			let value = |child: H160| {
+				let result = builder::bare_call(child)
+					.data(RedeployChild::valueCall {}.abi_encode())
+					.build_and_unwrap_result();
+				RedeployChild::valueCall::abi_decode_returns(&result.data).unwrap()
+			};
+
+			let (factory, child) = deploy();
+			set_value(child, 42);
+			assert_eq!(value(child), alloy_core::primitives::U256::from(42));
+
+			let result = builder::bare_call(child)
+				.data(
+					RedeployChild::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "child terminate: {}", decode_error(&result.data));
+			let result = builder::bare_call(factory.addr)
+				.data(
+					RedeployFactory::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
+						.abi_encode(),
+				)
+				.build_and_unwrap_result();
+			assert!(!result.did_revert(), "factory terminate: {}", decode_error(&result.data));
+
+			let child_account = <Test as Config>::AddressMapper::to_account_id(&child);
+			assert!(get_contract_checked(&child).is_none(), "child must be deleted");
+			assert!(get_contract_checked(&factory.addr).is_none(), "factory must be deleted");
+			assert!(!System::account_exists(&factory.account_id), "factory account is reaped");
+			assert_eq!(DeletionQueue::<Test>::iter().count(), 2, "both tries are queued");
+			assert_eq!(NativeDepositOf::<Test>::iter_prefix(&factory.account_id).count(), 0);
+			assert_eq!(NativeDepositOf::<Test>::iter_prefix(&child_account).count(), 0);
+
+			let (new_factory, new_child) = deploy();
+			assert_eq!(new_factory.addr, factory.addr);
+			assert_eq!(new_child, child);
+			assert_eq!(
+				value(new_child),
+				alloy_core::primitives::U256::ZERO,
+				"the new child must not see the storage of the terminated one",
+			);
+
+			set_value(new_child, 7);
+			Contracts::on_idle(System::block_number(), Weight::MAX);
+			assert_eq!(DeletionQueue::<Test>::iter().count(), 0, "deletion queue drained");
+			assert_eq!(
+				value(new_child),
+				alloy_core::primitives::U256::from(7),
+				"draining the old child's queue entry must not delete the new child's storage",
+			);
+		});
 }
