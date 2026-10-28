@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793214128002,
+  "lastUpdate": 1793219571724,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "728514a8eb057de1b75bb62068d09f032cf1c1e3",
-          "message": "Snowbride: Fix alloy receipt verification (#11739)\n\n### Context\n\nHardens Snowbridge receipt proof verification by only accepting the\n`ValueMismatch { got: Some(_), expected: None }` extraction path when\nthe mismatch path equals the queried trie key.",
-          "timestamp": "2026-04-14T07:12:38Z",
-          "tree_id": "5969e64309265cead3cc9da652e221425c1d2ebc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/728514a8eb057de1b75bb62068d09f032cf1c1e3"
-        },
-        "date": 1776155703267,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007141728613333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14257126406666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009614707806666645,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025890613526666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009933784339999988,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "899b6e5523842c869a6b45ad4ba2371a117c6425",
+          "message": "Enable parachain AD on AH, PC and YAP (#12489)\n\nAdds Authority Discovery support for test Parachains.\n\nTODO:\n- [x] Operator notes in PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
+          "timestamp": "2026-10-28T13:37:17Z",
+          "tree_id": "59b2104019c84eaffdc129000fbeca032ff479b5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/899b6e5523842c869a6b45ad4ba2371a117c6425"
+        },
+        "date": 1793219542012,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007705288413333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025340744746666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1423973108266668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009679579886666654,
             "unit": "seconds"
           }
         ]
