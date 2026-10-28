@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793219677616,
+  "lastUpdate": 1793224177385,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "eresav@me.com",
-            "name": "Andrei Eres",
-            "username": "AndreiEres"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6688a8236432e59a48749503eca1506f11ba2241",
-          "message": "statement-store: Fix node restart in mid-crush test (#11737)\n\n# Description\n\nA small fix to allow nodes to restart without failing in CI\n\n## Integration\n\nNo integration needed",
-          "timestamp": "2026-04-13T10:04:29Z",
-          "tree_id": "e540ba0e8bbabab25928828cd8f9a4f2e6dee531",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6688a8236432e59a48749503eca1506f11ba2241"
-        },
-        "date": 1776079538996,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.058,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03873172219200001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0878956696479999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03890810879400001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "73b3ba21c4b5c3e150f3ddf8721109390ebd0d99",
+          "message": "Aura: Unify the Seal + PreDigest code between node + runtime (#13610)\n\nThis unifies the Seal + PreDigest code between node and runtime.",
+          "timestamp": "2026-10-28T13:41:40Z",
+          "tree_id": "3944ceff2e6db7963b8f39870ff4ce065fc2566e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/73b3ba21c4b5c3e150f3ddf8721109390ebd0d99"
+        },
+        "date": 1793224145717,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.12399999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08515612725599991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03878839105999998,
             "unit": "seconds"
           }
         ]
