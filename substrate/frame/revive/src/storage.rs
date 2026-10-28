@@ -839,7 +839,7 @@ pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
 	/// The counter is incremented after each insertion.
 	///
-	/// Monotonic; never decreases or resets.
+	/// Only ever incremented (wrapping).
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
 	/// The counter is incremented after each deletion.
