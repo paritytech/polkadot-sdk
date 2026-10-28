@@ -10,3 +10,5 @@ doc:
 crates:
   - name: pallet-asset-conversion
     bump: major
+  - name: pallet-asset-conversion-precompiles
+    bump: patch
