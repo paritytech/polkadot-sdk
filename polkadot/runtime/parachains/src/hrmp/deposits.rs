@@ -303,6 +303,7 @@ impl<T: Config> Pallet<T> {
 	/// Writes nothing if it fails: every check runs before the first write.
 	///
 	/// A release request always succeeds.
+	#[transactional] // checks are run first but kept as a safeguard.
 	fn resume(request: &DepositChangeRequest) -> DispatchResult {
 		let channel_id = &request.channel_id;
 		match request.action {
