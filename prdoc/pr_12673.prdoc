@@ -19,16 +19,17 @@ doc:
     Some existing benchmarks also measure different work now, so runtimes with their own
     `pallet_revive` weights must regenerate them:
     - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
-      no longer measure the code reads, which `code_load` charges separately. Their weights drop,
-      but a cold call or instantiation now also pays `code_load`.
+      no longer measure the reads of the contract blob and its code info, and `instantiate` and
+      `seal_instantiate` no longer measure the write that bumps the code's reference count.
+      These are now charged with the `code_load` weight, when the code was not accessed earlier
+      in the same transaction.
     - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
       `OriginalAccount` entry.
     - The access-list touch benchmarks, `access_list_touch_cold_empty`,
       `access_list_touch_cold_full`, `access_list_touch_hot_full` and the new ones, take the
       number of touches `n` and measure `n` touches per run. `access_list_touch_hot_single_element`
       is renamed to `access_list_touch_hot_nearly_empty` and touches `n` entries of a nearly
-      empty list.
-      `access_list_touch_hot_full` no longer measures an upgrade, which
+      empty list. `access_list_touch_hot_full` no longer measures an upgrade, which
       `access_list_touch_hot_upgrade` now does.
     - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
       up to 4,096.
@@ -37,8 +38,8 @@ doc:
     - `Ext` no longer has `touch_storage_access` and `peek_storage_access`, and
       `StorageAccessKind::Persistent` no longer holds a plain `Warmth`, so `StorageAccessKind::new`
       no longer takes one either. Code that charged a storage access should charge the cold price
-      with the new `StorageAccessKind::new_persistent_cold`, or use `StorageAccessKind::Transient` for
-      transient storage, for example:
+      with the new `StorageAccessKind::new_persistent_cold`, or use `StorageAccessKind::Transient`
+      for transient storage, for example:
       ```rust
       env.frame_meter_mut().charge_weight_token(RuntimeCosts::GetStorage {
           len,
@@ -59,14 +60,15 @@ doc:
     already stored.
 
     `ExecConfig` has a new field, `first_frame_reads_paid`, which `with_first_frame_reads_paid`
-    sets. It adds the called contract's entries to the access list, so a call back into the
-    contract is charged hot. Set it only when the weight already covers these reads, as the
-    weights of the `call` and `eth_call` dispatchables do. A dry run must set it exactly when the
-    dispatch it estimates does, or its estimate can be too low; the runtime APIs' dry runs of
-    `call` and `eth_call` set it. Code that calls `bare_call` directly should leave it unset,
-    unless its weight already covers these reads too. Code that builds an `ExecConfig` by listing
-    all its fields, instead of calling a constructor such as `ExecConfig::new_substrate_tx()`,
-    must add `first_frame_reads_paid`.
+    sets. It adds the called contract's entries to the access list, and the transfer's when the
+    call moves value, so later accesses to them are charged hot. Set it only when the weight
+    already covers these reads, as the weights of the `call` and `eth_call` dispatchables do. A
+    dry run must set it exactly when the dispatch it estimates does, or its estimate can be too
+    low; the runtime APIs' dry runs of `call` and `eth_call` set it. Code that calls `bare_call`
+    directly should leave it unset, unless the weight of the extrinsic making the call already
+    covers these reads. Code that builds an `ExecConfig` by listing all its fields, instead of
+    calling a constructor such as `ExecConfig::new_substrate_tx()`, must add
+    `first_frame_reads_paid`.
 
     `pallet_revive::runtime_api` has a new public function, `dry_run_call`. It dry runs the `call`
     dispatchable the same way the `call` runtime API does.
