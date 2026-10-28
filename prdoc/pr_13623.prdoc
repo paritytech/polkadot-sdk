@@ -18,4 +18,4 @@ doc:
 
     Topic matching lives in one place (`match_topic` in generate.py, shared via .github/scripts/prdoc_topics.py), with `aliases` for legacy values.
 crates: []
-topic: tooling
+topic: bogus
