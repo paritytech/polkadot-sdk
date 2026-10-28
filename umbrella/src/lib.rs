@@ -957,6 +957,11 @@ pub use polkadot_node_core_chain_selection;
 #[cfg(feature = "polkadot-node-core-dispute-coordinator")]
 pub use polkadot_node_core_dispute_coordinator;
 
+/// The health subsystem: consumes the observations the node's components report, judges them
+/// against the reference values and tells the operator when the node underperforms.
+#[cfg(feature = "polkadot-node-core-health")]
+pub use polkadot_node_core_health;
+
 /// Parachains inherent data provider for Polkadot node.
 #[cfg(feature = "polkadot-node-core-parachains-inherent")]
 pub use polkadot_node_core_parachains_inherent;

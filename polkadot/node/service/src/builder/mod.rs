@@ -391,6 +391,9 @@ where
 			grandpa_hard_forks,
 		));
 
+		// The health subsystem consumes this channel; the node's components report into it.
+		let (health_handle, health_receiver) = polkadot_node_core_health::health_channel();
+
 		let ext_overseer_args = if is_parachain_node.is_running_alongside_parachain_node() {
 			None
 		} else {
@@ -478,6 +481,7 @@ where
 				collator_protocol_hold_off,
 				experimental_collator_protocol,
 				reputation_config,
+				health_receiver,
 			})
 		};
 

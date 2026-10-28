@@ -82,7 +82,7 @@ use polkadot_node_subsystem_types::messages::{
 	AvailabilityDistributionMessage, AvailabilityRecoveryMessage, AvailabilityStoreMessage,
 	BitfieldDistributionMessage, CandidateBackingMessage, CandidateValidationMessage,
 	ChainApiMessage, ChainSelectionMessage, CollationGenerationMessage, CollatorProtocolMessage,
-	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage,
+	DisputeCoordinatorMessage, DisputeDistributionMessage, GossipSupportMessage, HealthMessage,
 	NetworkBridgeRxMessage, NetworkBridgeTxMessage, ProspectiveParachainsMessage,
 	ProvisionerMessage, RuntimeApiMessage, StatementDistributionMessage,
 };
@@ -658,6 +658,9 @@ pub struct Overseer<SupportsParachains> {
 		ChainApiMessage,
 	])]
 	prospective_parachains: ProspectiveParachains,
+
+	#[subsystem(HealthMessage, sends: [])]
+	health: Health,
 
 	/// External listeners waiting for a hash to be in the active-leave set.
 	pub activation_external_listeners: HashMap<Hash, Vec<oneshot::Sender<SubsystemResult<()>>>>,
