@@ -145,15 +145,15 @@ Cadence: every 3 months for new `stable` releases and monthly for existing `stab
 
 All release flows run from [paritytech/release-automation](https://github.com/paritytech/release-automation/actions),
 which checks `paritytech/polkadot-sdk` out at the tag being released. The build logic itself still lives in
-polkadot-sdk, under `.github/scripts/`, `scripts/release/` and `docker/`.
+`polkadot-sdk`, under `.github/scripts/`, `scripts/release/` and `docker/`.
 
 1. On the cut-off date, create a new branch named `stableYYMM` and the first rc tag using
    [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)
 
-ℹ️ Branching off and tagging can be done in one run if no extra actions (like a crates release) are needed in
-between. In case of a crates release: once it is done, the changes made by Parity-Publish need to be reverted and
-merged back to the stable branch via a PR, as direct pushes are restricted. After that the rc tag can be created
-with the same flow.
+   ℹ️ Branching off and tagging can be done in one run if no extra actions (like a crates release) are needed in
+   between. In case of a crates release: once it is done, the changes made by Parity-Publish need to be reverted and
+   merged back to the stable branch via a PR, as direct pushes are restricted. After that the rc tag can be created
+   with the same flow.
 
 2. To build binaries and testnet runtimes and create the release draft, trigger
    [Release - Combined Builds Flow](https://github.com/paritytech/release-automation/actions/workflows/release-stable-22_combined-rc-runtime-builds-release-draft.yml)
@@ -164,7 +164,7 @@ with the same flow.
    [Release - Publish Crates](https://github.com/paritytech/release-automation/actions/workflows/release-stable-80_publish-crates.yml)
 5. When crates are published, trigger
    [Release - Post Crates Release Activities](https://github.com/paritytech/release-automation/actions/workflows/release-stable-60_post-crates-release-activities.yml),
-   which creates a PR with bumped crates versions, polkadot/polkadot-parachain/omni-node versions, spec versions
+   which creates a PR with bumped crates versions, Polkadot/Polkadot-parachain/omni-node versions, spec versions
    and reorganised prdocs
 6. Merge the post crates release PR and create a new rc tag using
    [Release - Branch off stable branch and/or tag rc](https://github.com/paritytech/release-automation/actions/workflows/release-stable-10_branchoff.yml)

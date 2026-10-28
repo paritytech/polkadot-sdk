@@ -11,7 +11,7 @@ and the number of new tickets which are added from the last segment to the sorte
 buffer (i.e. how many tickets we retain from the last processed segment)
 
 | Segments Left | Tickets Pushed |
-|-----|-----|
+| ----- | ----- |
 | 255 | 128 |
 | 254 | 128 |
 | 253 | 128 |
