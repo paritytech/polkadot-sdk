@@ -945,6 +945,18 @@ where
 					pov_parent_header = tip_header.clone();
 				}
 
+				// Breaking here assumes the next cores will not be able to build a new block
+				// either, while the empty resubmittable headers map means there is nothing to
+				// resubmit for them too.
+				if !has_fresh && resubmittable_headers.is_empty() {
+					tracing::debug!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						"No fresh block and no resubmittable headers for the remaining cores; stopping core iteration for this slot.",
+					);
+					break;
+				}
+
 				// V3: this core's resubmitted bucket plus the freshly-built bundle (or the bucket
 				// alone); V2: a single collation, only when a fresh block was built.
 				let resubmittable_headers_for_core =
