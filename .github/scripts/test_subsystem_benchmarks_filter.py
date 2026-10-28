@@ -45,6 +45,20 @@ def make_workspace(root):
 		)
 
 
+def benchmark_matrix_names(workflow):
+	# Scope this formatting check to build.strategy.matrix.features, not arbitrary names.
+	for depth, key in enumerate(("jobs", "build", "strategy", "matrix", "features")):
+		indent = depth * 2
+		block = re.search(
+			rf"(?ms)^{' ' * indent}{key}:[ \t]*\n(.*?)(?=^ {{0,{indent}}}\S|\Z)",
+			workflow,
+		)
+		if block is None:
+			raise ValueError(f"Cannot locate workflow block: {key}")
+		workflow = block[1]
+	return tuple(re.findall(r'\bname:\s*["\']([^"\']+)["\']', workflow))
+
+
 class DependencyTests(unittest.TestCase):
 	def setUp(self):
 		self.temporary = tempfile.TemporaryDirectory()
@@ -100,6 +114,40 @@ class DependencyTests(unittest.TestCase):
 		self.assertTrue(answer["would_run"])
 		self.assertEqual(answer["reason"], "dependency graph unavailable")
 
+	def test_explicit_sources_outside_their_package_run(self):
+		for package in ("bench0", "shared"):
+			manifest = self.root / package / "Cargo.toml"
+			original = manifest.read_text()
+			for table in ("[lib]", "[[bin]]", "[[bench]]", "[[test]]", "[[example]]"):
+				with self.subTest(package=package, table=table):
+					manifest.write_text(
+						original + f'\n{table}\nname = "input"\npath = "../unrelated/input.rs"\n'
+					)
+					answer = selector.decide(self.root, ["unrelated/input.rs"])
+					self.assertTrue(answer["would_run"])
+					self.assertEqual(answer["reason"], "dependency graph unavailable")
+			manifest.write_text(original)
+
+	def test_external_build_script_and_nested_package_source_run(self):
+		manifest = self.root / "shared/Cargo.toml"
+		original = manifest.read_text()
+		for content in (
+			original.replace('[package]', '[package]\nbuild = "../unrelated/build.rs"'),
+			original + '\n[lib]\npath = "independent/lib.rs"\n',
+			original + f'\n[lib]\npath = "{self.root}/unrelated/lib.rs"\n',
+		):
+			with self.subTest(manifest=content):
+				manifest.write_text(content)
+				answer = selector.decide(self.root, ["unrelated/lib.rs"])
+				self.assertTrue(answer["would_run"])
+				self.assertEqual(answer["reason"], "dependency graph unavailable")
+
+	def test_custom_sources_inside_their_package_allow_unrelated_changes(self):
+		manifest = self.root / "shared/Cargo.toml"
+		content = manifest.read_text().replace('[package]', '[package]\nbuild = "build/main.rs"')
+		manifest.write_text(content + '\n[lib]\npath = "custom/lib.rs"\n')
+		self.assertFalse(selector.decide(self.root, ["unrelated/lib.rs"])["would_run"])
+
 	def test_unsupported_workspace_globs_run(self):
 		(self.root / "Cargo.toml").write_text('[workspace]\nmembers = ["bench*"]\n')
 		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["would_run"])
@@ -154,6 +202,15 @@ class MergeContextTests(unittest.TestCase):
 		self.assertEqual(base, self.base)
 		self.assertTrue(selector.decide(self.root, paths)["would_run"])
 
+	def test_sparse_checkout_preserves_changes_to_excluded_files(self):
+		self.git("sparse-checkout", "set", "--no-cone", "**/Cargo.toml")
+		self.assertFalse((self.root / "unrelated/new.rs").exists())
+		self.assertTrue((self.root / "bench0/Cargo.toml").exists())
+		with patch.dict(os.environ, {"GITHUB_SHA": self.checkout}):
+			paths, _, _ = selector.pull_request_changes(self.root, payload=self.payload)
+		self.assertEqual(set(paths), {"shared/old.rs", "unrelated/new.rs"})
+		self.assertTrue(selector.decide(self.root, paths)["would_run"])
+
 	def test_wrong_base_or_head_is_rejected(self):
 		for field in ("base", "head"):
 			with self.subTest(field=field):
@@ -192,10 +249,21 @@ class MergeContextTests(unittest.TestCase):
 
 
 class WorkflowContractTests(unittest.TestCase):
-	def test_benchmark_roots_match_the_workflow_matrix(self):
+	def setUp(self):
 		workflow = Path(__file__).resolve().parents[1] / "workflows/benchmarks-subsystem.yml"
-		names = re.findall(r'\bname:\s*["\']([^"\']+)["\']', workflow.read_text())
-		self.assertEqual(tuple(names), selector.BENCHMARK_PACKAGES)
+		self.workflow = workflow.read_text()
+
+	def test_benchmark_roots_match_the_workflow_matrix(self):
+		self.assertEqual(benchmark_matrix_names(self.workflow), selector.BENCHMARK_PACKAGES)
+
+	def test_quoted_job_and_step_names_do_not_affect_the_contract(self):
+		workflow = self.workflow.replace('  build:\n', '  build:\n    name: "Benchmarks"\n')
+		workflow = workflow.replace('- name: Checkout', '- name: "Checkout"')
+		self.assertEqual(benchmark_matrix_names(workflow), selector.BENCHMARK_PACKAGES)
+
+	def test_changed_matrix_package_is_detected(self):
+		workflow = self.workflow.replace(selector.BENCHMARK_PACKAGES[0], "new-benchmark")
+		self.assertNotEqual(benchmark_matrix_names(workflow), selector.BENCHMARK_PACKAGES)
 
 
 if __name__ == "__main__":

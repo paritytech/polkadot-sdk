@@ -23,6 +23,7 @@ jobs:
     uses: ./.github/workflows/reusable-preflight.yml
   report-impact:
     needs: [preflight]
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     continue-on-error: true
@@ -31,6 +32,12 @@ jobs:
         with:
           fetch-depth: 2
           persist-credentials: false
+          sparse-checkout: |
+            **/Cargo.toml
+            /.github/scripts/subsystem_benchmarks_filter.py
+            /.github/scripts/test_subsystem_benchmarks_filter.py
+            /.github/workflows/benchmarks-subsystem.yml
+          sparse-checkout-cone-mode: false
       - name: Validate the report-only selector
         run: python3 .github/scripts/test_subsystem_benchmarks_filter.py
       - name: Report proposed benchmark selection

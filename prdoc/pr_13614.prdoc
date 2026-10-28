@@ -5,8 +5,10 @@ doc:
     description: |
       Add an independent CI job that reports whether a pull request affects the five
       Subsystem Benchmarks through local Cargo dependencies or shared build inputs.
+      Run reporting only for pull requests, with a sparse checkout of its inputs.
       The selector verifies the actual CI merge checkout and proposes a full run for
-      unknown inputs or errors. All five benchmark jobs continue to run regardless
-      of the report. The change includes regression tests and rollout documentation;
+      unknown inputs, source paths outside their owning crate, or errors.
+      All five benchmark jobs continue to run regardless of the report.
+      The change includes regression tests and rollout documentation;
       it does not enable skipping. No crates require publishing.
 crates: []

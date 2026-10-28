@@ -28,6 +28,13 @@ def result(would_run, reason, **details):
 	return {"mode": "report-only", "would_run": would_run, "reason": reason, **details}
 
 
+def package_owner(path, packages):
+	return next(
+		(parent.as_posix() for parent in PurePosixPath(path).parents if parent.as_posix() in packages),
+		None,
+	)
+
+
 def dependency_coverage(root, roots=BENCHMARK_PACKAGES):
 	"""Over-approximate local Cargo dependencies without resolving features or targets."""
 	root = Path(root).resolve()
@@ -89,6 +96,21 @@ def dependency_coverage(root, roots=BENCHMARK_PACKAGES):
 			continue
 		covered.add(key)
 		pending.extend(dependencies(key, include_dev=key in root_paths))
+	# Directory ownership is insufficient when an explicit source belongs to another crate.
+	# Inspect manifest paths only, so the check also works with a sparse checkout.
+	for key in covered:
+		manifest = packages[key]
+		targets = [manifest.get("lib", {})]
+		for kind in ("bin", "bench", "test", "example"):
+			targets.extend(manifest.get(kind, []))
+		sources = [target["path"] for target in targets if "path" in target]
+		build = manifest["package"].get("build")
+		if isinstance(build, str):
+			sources.append(build)
+		for source in sources:
+			path = (root / key / source).resolve().relative_to(root)
+			if package_owner(path, packages) != key:
+				raise ValueError(f"Source path leaves package {key}: {source}")
 	return covered, set(packages)
 
 
@@ -107,14 +129,13 @@ def decide(root, changed_paths, event_name="pull_request"):
 			return result(True, "CI or build configuration changed", input=path)
 	try:
 		covered, known = dependency_coverage(root)
-		owners = sorted(known, key=len, reverse=True)
 		affected = set()
 		for path in paths:
 			if path.startswith(EXTRA_INPUTS):
 				return result(True, "cross-crate fixture changed", input=path)
 			if path.startswith(IGNORED_PREFIXES):
 				continue
-			owner = next((key for key in owners if path.startswith(key + "/")), None)
+			owner = package_owner(path, known)
 			if owner is None:
 				return result(True, "unknown input", input=path)
 			if owner in covered:
