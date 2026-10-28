@@ -17,7 +17,7 @@ mod pallet_xcm_benchmarks_fungible;
 mod pallet_xcm_benchmarks_generic;
 
 use crate::{
-	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding},
+	xcm_config::{ERC20TransferGasLimit, MaxAssetsIntoHolding, WestendLocation},
 	Runtime,
 };
 use alloc::vec::Vec;
@@ -194,11 +194,19 @@ impl<Call> XcmWeightInfo<Call> for AssetHubWestendXcmWeight<Call> {
 	fn report_holding(_response_info: &QueryResponseInfo, _assets: &AssetFilter) -> Weight {
 		XcmGeneric::<Runtime>::report_holding()
 	}
-	fn buy_execution(_fees: &Asset, _weight_limit: &WeightLimit) -> Weight {
-		XcmGeneric::<Runtime>::buy_execution()
+	fn buy_execution(fees: &Asset, _weight_limit: &WeightLimit) -> Weight {
+		if fees.id == AssetId(WestendLocation::get()) {
+			XcmGeneric::<Runtime>::buy_execution_native()
+		} else {
+			XcmGeneric::<Runtime>::buy_execution()
+		}
 	}
-	fn pay_fees(_asset: &Asset) -> Weight {
-		XcmGeneric::<Runtime>::pay_fees()
+	fn pay_fees(asset: &Asset) -> Weight {
+		if asset.id == AssetId(WestendLocation::get()) {
+			XcmGeneric::<Runtime>::pay_fees_native()
+		} else {
+			XcmGeneric::<Runtime>::pay_fees()
+		}
 	}
 	fn refund_surplus() -> Weight {
 		XcmGeneric::<Runtime>::refund_surplus()
