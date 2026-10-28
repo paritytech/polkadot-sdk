@@ -16,10 +16,14 @@
 //! on shifted topics, whose replica set the joiner entered, and on control topics. The joiner must
 //! also receive every statement placed before the join on its shifted topics. Displaced replicas
 //! keep their pre-join copies until expiry, so those are not checked.
+//! Each later wave is followed by another outage or join with odds 1 in 14 each, up to
+//! `MAX_JOINERS` joins.
 //! The soak ends with a scan of every node's log for statement errors.
 //! `STATEMENT_V2_SOAK_NODES` (default 12) and `STATEMENT_V2_SOAK_SECS` (default
 //! 900) size the initial network and the run; both lifecycle steps and an ordinary wave after
 //! each are mandatory even with a zero duration.
+//! Every node keeps at least `replication_factor` statement peers, so the lifecycle checks that
+//! floor, not a full mesh.
 //!
 //! Runs on demand only: a dispatch of .github/workflows/zombienet_statement-store-soak.yml, or
 //! locally — against the cluster given a kubeconfig:
@@ -65,7 +69,6 @@ const DEFAULT_SOAK_SECS: u64 = 900;
 /// the rest.
 const NODES_ENV: &str = "STATEMENT_V2_SOAK_NODES";
 const DEFAULT_NODES: usize = 12;
-const CONNECTED_PEER_FLOOR: usize = 50;
 const STATEMENT_TTL: Duration = Duration::from_secs(900);
 const MAX_RECONNECTS: usize = 5;
 const AUTHORING_COLLATORS: [&str; 4] = ["alice", "bob", "charlie", "dave"];
@@ -80,7 +83,7 @@ const DELIVERY_TIMEOUT_SECS: u64 = 120;
 const PLACEMENT_TIMEOUT_SECS: u64 = 90;
 const CONNECTED_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_connected_peers";
 const ELIGIBLE_PEERS_METRIC: &str = "substrate_sync_statement_v2dht_eligible_peers";
-const JOINER_NAME: &str = "soak-joiner";
+const MAX_JOINERS: usize = 4;
 /// Round tag of the join step's statements: waves count from 0, the outage step uses `u64::MAX`.
 const JOIN_ROUND: u64 = u64::MAX - 1;
 /// At the CI size of 40 nodes a topic shifts to the joiner with odds 8/41, so 64 topics leave
@@ -182,14 +185,7 @@ async fn launch_soak_network(
 	let collators: Vec<(&str, Option<&str>)> =
 		AUTHORING_COLLATORS.iter().map(|&name| (name, None)).collect();
 	let full_nodes: Vec<&str> = full_node_names.iter().map(String::as_str).collect();
-	launch_network_with_commands(
-		&collators,
-		&full_nodes,
-		&chain_spec_path,
-		args,
-		&[("STATEMENT_STORE_V2_DHT_ENABLED", "1")],
-	)
-	.await
+	launch_network_with_commands(&collators, &full_nodes, &chain_spec_path, args).await
 }
 
 /// Reads each node's peer id and maps it into the XOR topic space: `blake2_256` of the peer id
@@ -287,12 +283,15 @@ struct OutageTopic {
 	receiver_node_idx: usize,
 }
 
-fn outage_topics(peer_keys: &[[u8; 32]]) -> Result<(usize, Vec<OutageTopic>), anyhow::Error> {
+fn outage_topics(
+	peer_keys: &[[u8; 32]],
+	wave: u64,
+) -> Result<(usize, Vec<OutageTopic>), anyhow::Error> {
 	// A fixed peer need not have every XOR rank. Choose the non-affine topic and outage node
 	// together. Peer keys follow the soak's node order: authoring collators, then full nodes.
 	let (non_affine_topic, outage_node_idx) = (0..100_000)
 		.find_map(|candidate| {
-			let topic = soak_topic(b"soak-outage", 0, candidate);
+			let topic = soak_topic(b"soak-outage", wave, candidate);
 			let outage_node_idx = ranked_by_distance(peer_keys, topic)[REPLICATION_FACTOR];
 			(outage_node_idx >= AUTHORING_COLLATORS.len()).then_some((topic, outage_node_idx))
 		})
@@ -304,7 +303,7 @@ fn outage_topics(peer_keys: &[[u8; 32]]) -> Result<(usize, Vec<OutageTopic>), an
 	{
 		let (topic, order) = (0..100_000)
 			.find_map(|candidate| {
-				let topic = soak_topic(b"soak-outage", 0, candidate);
+				let topic = soak_topic(b"soak-outage", wave, candidate);
 				let order = ranked_by_distance(peer_keys, topic);
 				let suitable = match outage_node_role {
 					OutageNodeRole::Replica => {
@@ -363,7 +362,9 @@ async fn topology_mismatch(
 ) -> Result<Option<String>, anyhow::Error> {
 	let expected_eligible = nodes.len() - 1;
 	let online_peers = expected_eligible - usize::from(offline_node_idx.is_some());
-	let connected_floor = online_peers.min(CONNECTED_PEER_FLOOR);
+	// A node's routing peers may include the offline one.
+	let connected_floor =
+		expected_eligible.min(REPLICATION_FACTOR) - usize::from(offline_node_idx.is_some());
 	let observations = futures::future::try_join_all(
 		nodes.iter().enumerate().filter(|(idx, _)| Some(*idx) != offline_node_idx).map(
 			|(_, handle)| async move {
@@ -411,7 +412,46 @@ async fn wait_for_topology(
 	})
 	.await
 	.map_err(|_| anyhow!("{phase}: topology deadline: {last}"))??;
-	info!("Lifecycle {phase}: full eligible topology, expected open substreams, no major sync");
+	info!("Lifecycle {phase}: full eligible topology, open substreams at the floor, no major sync");
+	Ok(())
+}
+
+/// Open statement substreams summed over the online nodes, each connection counted at both ends.
+async fn connected_sum(
+	nodes: &[NodeHandle],
+	offline_node_idx: Option<usize>,
+) -> Result<f64, anyhow::Error> {
+	let mut sum = 0.0;
+	for (idx, handle) in nodes.iter().enumerate() {
+		if Some(idx) != offline_node_idx {
+			sum += handle.node.reports(CONNECTED_PEERS_METRIC).await?;
+		}
+	}
+	Ok(sum)
+}
+
+/// Wait until every substream to the offline node is closed: the online nodes' substreams sum
+/// to `expected_sum`, the pre-outage sum less both ends of the offline node's connections.
+async fn wait_for_disconnect(
+	nodes: &[NodeHandle],
+	offline_node_idx: usize,
+	expected_sum: f64,
+) -> Result<(), anyhow::Error> {
+	let mut last = 0.0;
+	tokio::time::timeout(Duration::from_secs(LIFECYCLE_WAIT_SECS), async {
+		loop {
+			last = connected_sum(nodes, Some(offline_node_idx)).await?;
+			if last == expected_sum {
+				return Ok::<_, anyhow::Error>(());
+			}
+			tokio::time::sleep(Duration::from_secs(2)).await;
+		}
+	})
+	.await
+	.map_err(|_| {
+		anyhow!("disconnected: substreams deadline: sum {last}, expected {expected_sum}")
+	})??;
+	info!("Lifecycle disconnected: every substream to the offline node closed");
 	Ok(())
 }
 
@@ -520,8 +560,9 @@ async fn admissions_by_reason(node: &NetworkNode) -> Result<String, anyhow::Erro
 async fn run_replica_outage(
 	nodes: &mut [NodeHandle],
 	peer_keys: &[[u8; 32]],
+	wave: u64,
 ) -> Result<usize, anyhow::Error> {
-	let (outage_node_idx, topics) = outage_topics(peer_keys)?;
+	let (outage_node_idx, topics) = outage_topics(peer_keys, wave)?;
 	let subscriber_topic = topics
 		.iter()
 		.find(|topic| topic.outage_node_role == OutageNodeRole::Subscriber)
@@ -610,6 +651,8 @@ async fn run_replica_outage(
 		Duration::from_secs(OUTAGE_TIMEOUT_SECS),
 		AssertUnwindSafe(async {
 			info!("Lifecycle stop: {} peer={original_peer_id}", outage_node.name());
+			let outage_node_connected = outage_node.reports(CONNECTED_PEERS_METRIC).await?;
+			let expected_sum = connected_sum(nodes, None).await? - 2.0 * outage_node_connected;
 			outage_node
 				.restart_with(
 					vec![AssetLocation::FilePath(offline_path)],
@@ -622,6 +665,7 @@ async fn run_replica_outage(
 			// Pause only the idle replacement so the SDK monitor treats the node as offline.
 			outage_node.pause().await?;
 			wait_for_topology("disconnected", nodes, Some(outage_node_idx)).await?;
+			wait_for_disconnect(nodes, outage_node_idx, expected_sum).await?;
 
 			// Send data during the outage
 			for batch in 0..OUTAGE_BATCHES {
@@ -811,9 +855,12 @@ async fn run_node_join(
 	nodes: &mut Vec<NodeHandle>,
 	peer_keys: &mut Vec<[u8; 32]>,
 	load: &mut Load,
+	wave: u64,
 ) -> Result<usize, anyhow::Error> {
-	let pre_join_topics: Vec<Topic> =
-		(0..PRE_JOIN_TOPICS).map(|idx| soak_topic(b"soak-pre-join", 0, idx)).collect();
+	let joiner_name = format!("soak-joiner-{wave}");
+	let pre_join_topics: Vec<Topic> = (0..PRE_JOIN_TOPICS)
+		.map(|idx| soak_topic(b"soak-pre-join", wave, idx))
+		.collect();
 	let mut pre_join_placements = Vec::with_capacity(pre_join_topics.len());
 	for &topic in &pre_join_topics {
 		let order = ranked_by_distance(peer_keys, topic);
@@ -821,7 +868,7 @@ async fn run_node_join(
 	}
 	wait_for_stable_placement("pre-join", nodes, &pre_join_placements, None).await?;
 
-	let ring_topic = soak_topic(b"soak-join-load", 0, 0);
+	let ring_topic = soak_topic(b"soak-join-load", wave, 0);
 	let mut subscription = subscribe_topic(&nodes[0].rpc, ring_topic).await?;
 	let mut load_targets: Vec<_> =
 		nodes.iter().map(|handle| (handle.name(), &handle.rpc)).collect();
@@ -830,14 +877,10 @@ async fn run_node_join(
 	let mut nodes_after_join = nodes.clone();
 	let join_node = async {
 		load_started_rx.await?;
-		info!("Lifecycle join: adding {JOINER_NAME} to {} statement nodes", nodes.len());
+		info!("Lifecycle join: adding {joiner_name} to {} statement nodes", nodes.len());
 		// The joiner inherits the parachain's default args, the soak's v2 DHT flags among them
-		let joiner_options = AddCollatorOptions {
-			env: vec![("STATEMENT_STORE_V2_DHT_ENABLED", "1").into()],
-			..Default::default()
-		};
-		network.add_collator(JOINER_NAME, joiner_options, 1004).await?;
-		let node = network.get_node(JOINER_NAME)?.clone();
+		network.add_collator(&joiner_name, AddCollatorOptions::default(), 1004).await?;
+		let node = network.get_node(&joiner_name)?.clone();
 		let rpc = node.rpc().await?;
 		nodes_after_join.push(NodeHandle { node, rpc });
 		wait_for_topology("joined", &nodes_after_join, None).await?;
@@ -886,7 +929,7 @@ async fn run_node_join(
 	let joiner_idx = nodes.len() - 1;
 	let shifted = |order: &[usize]| order[..REPLICATION_FACTOR].contains(&joiner_idx);
 	let candidates = (0..).map(|idx| {
-		let topic = soak_topic(b"soak-join-probe", 0, idx);
+		let topic = soak_topic(b"soak-join-probe", wave, idx);
 		(topic, ranked_by_distance(peer_keys, topic))
 	});
 	let probes: Vec<_> = candidates
@@ -1038,10 +1081,9 @@ async fn run_wave(
 // paritytech/litep2p#665 is fixed.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
-	enum Phase {
+	enum Step {
 		ReplicaOutage,
 		NodeJoin,
-		SteadyState,
 	}
 
 	let _ = env_logger::try_init_from_env(
@@ -1074,7 +1116,7 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	// them, and the load needs the connections that follow from it.
 	let topology_timeout = 300 + 5 * statement_node_count as u64;
 	let eligible_floor = (statement_node_count - 1) as f64;
-	let connected_floor = (statement_node_count - 1).min(CONNECTED_PEER_FLOOR) as f64;
+	let connected_floor = (statement_node_count - 1).min(REPLICATION_FACTOR) as f64;
 	for handle in &nodes {
 		handle
 			.node
@@ -1097,11 +1139,12 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 	let mut peer_keys = collect_peer_keys(&nodes).await?;
 
 	let mut load = Load::expiring(PARTICIPANTS, STATEMENT_TTL);
+	let seed = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos();
 	let soak_started = Instant::now();
 	let mut wave: u64 = 0;
 	let mut total_statements = 0usize;
 	let mut reconnects = 0usize;
-	let mut phase = Phase::ReplicaOutage;
+	let mut first_steps = [Step::ReplicaOutage, Step::NodeJoin].into_iter();
 	loop {
 		let report = match run_wave(wave, &nodes, &peer_keys, &mut load).await {
 			Ok(report) => report,
@@ -1126,19 +1169,21 @@ async fn statement_store_v2_dht_soak() -> Result<(), anyhow::Error> {
 			nodes.len(),
 		);
 		wave += 1;
-		match phase {
-			Phase::ReplicaOutage => {
-				total_statements += run_replica_outage(&mut nodes, &peer_keys).await?;
-				phase = Phase::NodeJoin;
+		let step = match first_steps.next() {
+			Some(step) => step,
+			None if soak_started.elapsed() >= Duration::from_secs(soak_secs) => break,
+			None => match blake2_256(&(seed, wave).encode())[0] % 14 {
+				0 if nodes.len() < statement_node_count + MAX_JOINERS => Step::NodeJoin,
+				1 => Step::ReplicaOutage,
+				_ => continue,
 			},
-			Phase::NodeJoin => {
-				total_statements +=
-					run_node_join(&mut network, &mut nodes, &mut peer_keys, &mut load).await?;
-				phase = Phase::SteadyState;
+		};
+		total_statements += match step {
+			Step::ReplicaOutage => run_replica_outage(&mut nodes, &peer_keys, wave).await?,
+			Step::NodeJoin => {
+				run_node_join(&mut network, &mut nodes, &mut peer_keys, &mut load, wave).await?
 			},
-			Phase::SteadyState if soak_started.elapsed() >= Duration::from_secs(soak_secs) => break,
-			Phase::SteadyState => {},
-		}
+		};
 	}
 
 	// No statement errors on any node; the count-zero predicate only passes after a full log
