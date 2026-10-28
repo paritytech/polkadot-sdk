@@ -486,6 +486,43 @@ impl VmBinaryModule {
 		Self::new(code)
 	}
 
+	/// A contract whose `call` export starts with a basic block of `block_size` instructions.
+	///
+	/// The first instruction of that block ends the execution. It is an `ecalli SENTINEL`, which
+	/// does not end the basic block, so the interpreter still compiles the whole block before
+	/// running it. No other block is compiled.
+	///
+	/// The code holds the same instructions for every `block_size`: one `ecalli SENTINEL`,
+	/// `BASIC_BLOCK_SIZE - 2` additions, one `fallthrough` and one `ret`. Only the position of the
+	/// `fallthrough` changes. It ends the entry block after `block_size` instructions and the
+	/// remaining additions and the `ret` form a second block. Hence the blob has the same size
+	/// for every `block_size`.
+	///
+	/// `block_size` must be within `2..=BASIC_BLOCK_SIZE`.
+	pub fn with_entry_block_size(block_size: u32) -> Self {
+		let max_block_size = limits::code::BASIC_BLOCK_SIZE;
+		assert!(
+			(2..=max_block_size).contains(&block_size),
+			"entry block size {block_size} not within 2..={max_block_size}",
+		);
+		let mut text =
+			alloc::format!("pub @deploy:\nret\npub @call:\necalli {}\n", crate::SENTINEL);
+		for _ in 2..block_size {
+			text.push_str("a0 = a1 + a2\n");
+		}
+		text.push_str("fallthrough\n");
+		for _ in block_size..max_block_size {
+			text.push_str("a0 = a1 + a2\n");
+		}
+		text.push_str("ret\n");
+		let code = polkavm_common::assembler::assemble(
+			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
+			&text,
+		)
+		.expect("the assembly text above is valid; qed");
+		Self::new(code)
+	}
+
 	/// A contract code that calls the "noop" host function in a loop depending in the input.
 	pub fn noop() -> Self {
 		Self::new(bench_fixtures::noop().to_vec())
