@@ -258,12 +258,6 @@ fn install_test_psm() {
 		INTERNAL_ASSET_ID,
 		crate::PsmAdminInfo::<Test> { full_admin, emergency_admin, deposit: Some((ALICE, ticket)) },
 	);
-	// Acquire provider refs like `create_psm` does, so the test PSM mirrors a real one.
-	frame_system::Pallet::<Test>::inc_providers(&crate::Pallet::<Test>::psm_account(
-		&INTERNAL_ASSET_ID,
-	));
-	frame_system::Pallet::<Test>::inc_providers(&INSURANCE_FUND);
-
 	for (asset, weight, decimals) in [
 		(USDC_ASSET_ID, Permill::from_percent(60), 6u8),
 		(USDT_ASSET_ID, Permill::from_percent(40), 6u8),
