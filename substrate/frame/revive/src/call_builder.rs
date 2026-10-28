@@ -486,6 +486,10 @@ impl VmBinaryModule {
 		Self::new(code)
 	}
 
+	/// The smallest entry block [`Self::with_entry_block_size`] can build: the `ecalli SENTINEL`
+	/// and the `fallthrough` that ends the block.
+	pub const MIN_ENTRY_BLOCK_SIZE: u32 = 2;
+
 	/// A contract whose `call` export starts with a basic block of `block_size` instructions.
 	///
 	/// The first instruction of that block ends the execution. It is an `ecalli SENTINEL`, which
@@ -493,26 +497,34 @@ impl VmBinaryModule {
 	/// running it. No other block is compiled.
 	///
 	/// The code holds the same instructions for every `block_size`: one `ecalli SENTINEL`,
-	/// `BASIC_BLOCK_SIZE - 2` additions, one `fallthrough` and one `ret`. Only the position of the
-	/// `fallthrough` changes. It ends the entry block after `block_size` instructions and the
-	/// remaining additions and the `ret` form a second block. Hence the blob has the same size
-	/// for every `block_size`.
+	/// `BASIC_BLOCK_SIZE - MIN_ENTRY_BLOCK_SIZE` fillers, one `fallthrough` and one `ret`. Only
+	/// the position of the `fallthrough` changes. It ends the entry block after `block_size`
+	/// instructions and the remaining fillers and the `ret` form a second block. Hence the blob
+	/// has the same size for every `block_size`.
 	///
-	/// `block_size` must be within `2..=BASIC_BLOCK_SIZE`.
+	/// The filler stores a 32 bit immediate to an absolute address (`store_imm_u32` with two
+	/// 4 byte immediates). Among the instruction kinds measured it is the slowest to compile.
+	/// It never executes.
+	///
+	/// # Panics
+	///
+	/// Panics if `block_size` is not within `MIN_ENTRY_BLOCK_SIZE..=BASIC_BLOCK_SIZE`.
 	pub fn with_entry_block_size(block_size: u32) -> Self {
+		const FILLER: &str = "u32 [0x12345678] = 0x12345678\n";
 		let max_block_size = limits::code::BASIC_BLOCK_SIZE;
 		assert!(
-			(2..=max_block_size).contains(&block_size),
-			"entry block size {block_size} not within 2..={max_block_size}",
+			(Self::MIN_ENTRY_BLOCK_SIZE..=max_block_size).contains(&block_size),
+			"entry block size {block_size} not within {}..={max_block_size}",
+			Self::MIN_ENTRY_BLOCK_SIZE,
 		);
 		let mut text =
 			alloc::format!("pub @deploy:\nret\npub @call:\necalli {}\n", crate::SENTINEL);
-		for _ in 2..block_size {
-			text.push_str("a0 = a1 + a2\n");
+		for _ in Self::MIN_ENTRY_BLOCK_SIZE..block_size {
+			text.push_str(FILLER);
 		}
 		text.push_str("fallthrough\n");
 		for _ in block_size..max_block_size {
-			text.push_str("a0 = a1 + a2\n");
+			text.push_str(FILLER);
 		}
 		text.push_str("ret\n");
 		let code = polkavm_common::assembler::assemble(

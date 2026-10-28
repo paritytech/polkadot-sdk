@@ -134,9 +134,11 @@ impl CodeLoadToken {
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
 		match self.code_type {
-			// the proof size impact is accounted for in the `call_with_pvm_code_per_byte`
-			// strictly speaking we are double charging for the first BASIC_BLOCK_SIZE
-			// instructions here. Let's consider this as a safety margin.
+			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`. The
+			// compilation of the entry block is partly charged twice: the code used by
+			// `call_with_pvm_code_per_byte` only reaches a maximum sized entry block at large
+			// code sizes, so its fit includes some of that compilation. We keep this as a
+			// safety margin.
 			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
 				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0))
 				.saturating_add(
