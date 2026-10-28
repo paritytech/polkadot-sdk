@@ -62,17 +62,21 @@ doc:
 
     `seal_terminate_logic` still measures one storage deposit refund and the teardown. The
     refund now runs when `System.terminate` is called instead of at the end of the call stack,
-    and each teardown step runs in its own storage layer. Runtimes should regenerate their
-    `pallet_revive` weights.
+    and each teardown step runs in its own storage layer. The `pallet_revive` weights are not
+    regenerated for this release and no benchmark was run on it. The existing
+    `seal_terminate_logic` weight is 222.41M ps ref_time, 6713 bytes proof size and 7 storage
+    reads. The measurement after this change on master is 235.88M ps, 6348 bytes and 6 reads.
+    The ref_time here is about 6% below that measurement, while the proof size and reads are
+    above it.
 
     `Deposit::refund_all` now releases the native storage deposit only as far as the freezes on
     the account allow and returns the amount actually released, instead of failing. The PGAS
     backend delegates its native part to the same code, so this applies to both backends.
     `Deposit` is sealed, so no downstream implementation is affected.
 
-    The `Terminate` and `TerminateCaller` fixtures gain functions, which adds variants to the
-    generated `Terminate::TerminateCalls` and `TerminateCaller::TerminateCallerCalls` enums in
-    `pallet-revive-fixtures`.
+    `pallet-revive-fixtures` gains the `TerminateCombined` fixture, which adds the generated
+    `TerminateCombined` and `TerminateCombinedCaller` modules. The existing `Terminate` and
+    `TerminateCaller` fixtures are unchanged.
 
 crates:
 - name: pallet-revive
@@ -80,6 +84,4 @@ crates:
 - name: pallet-revive-uapi
   bump: patch
 - name: pallet-revive-fixtures
-  bump: major
-- name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
