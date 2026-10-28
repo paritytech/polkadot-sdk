@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\t\tSELECT receipts.signed_tx\n\t\t\t\tFROM receipts\n\t\t\t\tJOIN eth_to_substrate_blocks ON substrate_block_hash = receipts.block_hash\n\t\t\t\tWHERE receipts.block_hash = $1 AND transaction_index = $2 AND receipts_version = $3\n\t\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "signed_tx",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "1ea33e07fbcdeddc691716ab9217a9911d194fe28087e0dd0c56ded4fd2513e1"
+}

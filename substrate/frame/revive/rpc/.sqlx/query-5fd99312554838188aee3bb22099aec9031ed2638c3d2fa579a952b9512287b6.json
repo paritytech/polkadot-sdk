@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT ethereum_block_hash\n\t\t\tFROM eth_to_substrate_blocks\n\t\t\tWHERE substrate_block_hash = $1 AND receipts_version = $2\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "ethereum_block_hash",
+        "ordinal": 0,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5fd99312554838188aee3bb22099aec9031ed2638c3d2fa579a952b9512287b6"
+}

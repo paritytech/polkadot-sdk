@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tSELECT block_hash, transaction_index, log_index, address, block_number,\n\t\t\t\ttransaction_hash, topic_0, topic_1, topic_2, topic_3, data\n\t\t\tFROM logs\n\t\t\tWHERE block_hash = $1\n\t\t\tORDER BY transaction_index, log_index\n\t\t\t",
+  "describe": {
+    "columns": [
+      {
+        "name": "block_hash",
+        "ordinal": 0,
+        "type_info": "Blob"
+      },
+      {
+        "name": "transaction_index",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "log_index",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "address",
+        "ordinal": 3,
+        "type_info": "Blob"
+      },
+      {
+        "name": "block_number",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "transaction_hash",
+        "ordinal": 5,
+        "type_info": "Blob"
+      },
+      {
+        "name": "topic_0",
+        "ordinal": 6,
+        "type_info": "Blob"
+      },
+      {
+        "name": "topic_1",
+        "ordinal": 7,
+        "type_info": "Blob"
+      },
+      {
+        "name": "topic_2",
+        "ordinal": 8,
+        "type_info": "Blob"
+      },
+      {
+        "name": "topic_3",
+        "ordinal": 9,
+        "type_info": "Blob"
+      },
+      {
+        "name": "data",
+        "ordinal": 10,
+        "type_info": "Blob"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "31e9e9c68f71e58395e4d3b49dfccaa095803034ab420c7280fe9f2885260066"
+}
