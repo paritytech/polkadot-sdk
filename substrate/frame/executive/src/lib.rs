@@ -957,40 +957,42 @@ where
 		sp_io::init_tracing();
 		use sp_tracing::{enter_span, within_span};
 
-		<frame_system::Pallet<System>>::initialize(
-			&(frame_system::Pallet::<System>::block_number() + One::one()),
-			&block_hash,
-			&Default::default(),
-		);
+		<frame_system::Pallet<System>>::run_in_pool_transaction_validation(|| {
+			<frame_system::Pallet<System>>::initialize(
+				&(frame_system::Pallet::<System>::block_number() + One::one()),
+				&block_hash,
+				&Default::default(),
+			);
 
-		enter_span! { sp_tracing::Level::TRACE, "validate_transaction" };
+			enter_span! { sp_tracing::Level::TRACE, "validate_transaction" };
 
-		let encoded = within_span! { sp_tracing::Level::TRACE, "using_encoded";
-			uxt.encode()
-		};
+			let encoded = within_span! { sp_tracing::Level::TRACE, "using_encoded";
+				uxt.encode()
+			};
 
-		let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
-			MAX_EXTRINSIC_DEPTH,
-			&mut &encoded[..],
-		)
-		.map_err(|_| InvalidTransaction::Call)?;
+			let uxt = <Block::Extrinsic as codec::DecodeLimit>::decode_all_with_depth_limit(
+				MAX_EXTRINSIC_DEPTH,
+				&mut &encoded[..],
+			)
+			.map_err(|_| InvalidTransaction::Call)?;
 
-		let xt = within_span! { sp_tracing::Level::TRACE, "check";
-			uxt.check(&Default::default())
-		}?;
+			let xt = within_span! { sp_tracing::Level::TRACE, "check";
+				uxt.check(&Default::default())
+			}?;
 
-		let dispatch_info = within_span! { sp_tracing::Level::TRACE, "dispatch_info";
-			xt.get_dispatch_info()
-		};
+			let dispatch_info = within_span! { sp_tracing::Level::TRACE, "dispatch_info";
+				xt.get_dispatch_info()
+			};
 
-		if dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::MandatoryValidation.into());
-		}
+			if dispatch_info.class == DispatchClass::Mandatory {
+				return Err(InvalidTransaction::MandatoryValidation.into());
+			}
 
-		within_span! {
-			sp_tracing::Level::TRACE, "validate";
-			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded.len())
-		}
+			within_span! {
+				sp_tracing::Level::TRACE, "validate";
+				xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded.len())
+			}
+		})
 	}
 
 	/// Start an offchain worker and generate extrinsics.
