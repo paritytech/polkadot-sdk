@@ -65,4 +65,7 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 rocksdb = ["kvdb-rocksdb", "sp-database/rocksdb"]
-jemalloc-allocator = ["kvdb-rocksdb?/jemalloc"]
+# Interim: rocksdb 0.25 (via parity-common#979) pulls tikv-jemalloc-sys 0.7, which
+# conflicts with the SDK's 0.6 jemalloc stack. Drop the rocksdb jemalloc edge until
+# the SDK moves to 0.7; restore ["kvdb-rocksdb?/jemalloc"] then.
+jemalloc-allocator = []
