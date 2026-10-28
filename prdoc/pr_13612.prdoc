@@ -1,0 +1,17 @@
+title: 'pallet-session: release key deposit from the account that placed it'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes #13582.
+
+    Several accounts may convert to the same validator ID through `ValidatorIdOf` (and `purge_keys` documents that both the controller and the stash may purge). `do_set_keys` books the `KeyDeposit` hold and the consumer reference on the account that set the keys, while the registration itself is stored under the validator ID. `do_purge_keys`, and the local-to-external transition in `SessionInterface::set_keys`, released the hold and decremented the consumer reference of whichever account made the call. When that was a different account mapping to the same validator ID:
+
+    - the registrant's deposit stayed held forever (its own later purge fails with `NoKeys`),
+    - the registrant's consumer reference leaked, so the account could never be reaped,
+    - an unrelated consumer reference of the calling account was consumed,
+    - registering again stacked a second deposit and consumer reference on top of the stranded ones.
+
+    This PR records the account that placed the deposit per validator in a new `KeyDepositor` storage map, and releases the deposit and consumer reference from that account.
+crates:
+- name: pallet-session
+  bump: minor
