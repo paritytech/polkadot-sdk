@@ -225,6 +225,26 @@ fn unbalanced_trait_increase_balance_at_most_works() {
 }
 
 #[test]
+fn deposit_below_ed_into_account_with_holds_works() {
+	ExtBuilder::default().existential_deposit(10).monied(true).build_and_execute_with(|| {
+		// Given: an account with an extra provider whose whole balance is on hold, so its free
+		// balance is below ED while the account stays alive.
+		Balances::set_balance(&1337, 100);
+		frame_system::Pallet::<Test>::inc_providers(&1337);
+		assert_ok!(Balances::hold(&TestId::Foo, &1337, 100));
+		assert_eq!(Balances::free_balance(1337), 0);
+		assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 100);
+
+		// When/Then: amounts that leave the free balance below ED are still credited.
+		assert_eq!(Balances::increase_balance(&1337, 3, BestEffort), Ok(3));
+		assert_eq!(Balances::increase_balance(&1337, 3, Exact), Ok(3));
+		assert_ok!(<Balances as Mutate<_>>::transfer(&1, &1337, 3, Expendable));
+		assert_eq!(Balances::free_balance(1337), 9);
+		assert_eq!(Balances::total_balance_on_hold(&1337), 100);
+	});
+}
+
+#[test]
 fn freezing_and_holds_should_overlap() {
 	ExtBuilder::default()
 		.existential_deposit(1)
