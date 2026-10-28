@@ -5,9 +5,9 @@
 //! authoring with per-core resubmission.
 //!
 //! One or three collators author for a parachain elastic-scaled onto two cores on the
-//! `elastic-scaling-v3` runtime. Over a 100-relay-block window both cores stay fed, backing
-//! 260-300 candidates while finality stays close. The range is a loose throughput band, not a gate
-//! on any single mechanism.
+//! `elastic-scaling-v3` runtime, at relay parent offset 0 and 1. Over a 100-relay-block window
+//! both cores stay fed, backing 260-300 candidates while finality stays close. The range is a
+//! loose throughput band, not a gate on any single mechanism.
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
@@ -20,10 +20,15 @@ use zombienet_sdk::{
 };
 
 #[rstest]
-#[case::single(1)]
-#[case::three(3)]
+#[case::single(1, "elastic-scaling-v3")]
+#[case::three(3, "elastic-scaling-v3")]
+#[case::single_rpo1(1, "elastic-scaling-v3-rpo-1")]
+#[case::three_rpo1(3, "elastic-scaling-v3-rpo-1")]
 #[tokio::test(flavor = "multi_thread")]
-async fn v4_parachain_throughput(#[case] num_collators: usize) -> Result<(), anyhow::Error> {
+async fn v4_parachain_throughput(
+	#[case] num_collators: usize,
+	#[case] chain: &str,
+) -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
@@ -68,7 +73,7 @@ async fn v4_parachain_throughput(#[case] num_collators: usize) -> Result<(), any
 				.with_id(2900)
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_chain("elastic-scaling-v3")
+				.with_chain(chain)
 				.with_default_args(vec![
 					("-lparachain=debug,aura=debug,parachain::collator-protocol=trace,aura::cumulus=debug,basic-authorship=debug,aura::resubmission=trace").into(),
 					"--authoring=slot-based".into(),
