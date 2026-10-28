@@ -1422,13 +1422,22 @@ fn pool_with_locked_native_is_still_usable() {
 		let pool_id = (native.clone(), token.clone());
 		let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
 
-		let reserves = AssetConversion::get_reserves(native.clone(), token.clone()).unwrap();
+		let (native_reserve, token_reserve) =
+			AssetConversion::get_reserves(native.clone(), token.clone()).unwrap();
 
-		// Anyone can lock part of the pool's native, e.g. with a vested transfer.
+		// Anyone can send the pool funds locked under a vesting schedule.
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(user),
+			pool_account,
+			10_000
+		));
 		Balances::set_lock(*b"vesting ", &pool_account, 10_000, WithdrawReasons::all());
 
-		// The lock doesn't change the pool's reserves, so its price stays the same.
-		assert_eq!(AssetConversion::get_reserves(native.clone(), token.clone()).unwrap(), reserves);
+		// The pool's native reserve grows by the vested amount and nothing else changes.
+		assert_eq!(
+			AssetConversion::get_reserves(native.clone(), token.clone()).unwrap(),
+			(native_reserve + 10_000, token_reserve),
+		);
 
 		// The pool still works in both directions.
 		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
