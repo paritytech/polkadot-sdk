@@ -48,16 +48,30 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// Maximum size of of the transaction payload
+/// Maximum size of an ethereum transaction's RLP encoded payload.
 ///
-/// Maximum code size during instantiation taken into account plus some overhead.
-pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES;
+/// Room for the largest code blob and call data the pallet accepts, plus 64 KiB for the rest of
+/// the transaction: its other fields, signature, access list and authorization list. An
+/// `eth_transact` with a larger payload is rejected as an invalid transaction.
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES + 64 * 1024;
 
 /// Maximum size of storage items.
 pub const STORAGE_BYTES: u32 = 416;
 
 /// Maximum payload size of events.
 pub const EVENT_BYTES: u32 = 64 * 1024;
+
+/// Maximum number of bytes the logs of one ethereum transaction's receipt may take up.
+///
+/// Counted over the RLP encoding of every log the transaction keeps: address, topics and data,
+/// each with its RLP headers. A log that would take the receipt past this limit fails the frame
+/// that emits it with [`crate::Error::ReceiptTooLarge`], and the frame's state changes roll back
+/// as for any other error. A log the runtime emits on behalf of a contract outside any frame
+/// cannot fail on its own; going past the limit there fails the whole transaction instead.
+///
+/// The limit is above what a single Ethereum transaction can log: at the EIP-7825 limit of 2^24
+/// gas per transaction, the `LOG` gas costs keep a transaction's receipt logs below 2 MiB.
+pub const MAX_RECEIPT_LOGS_BYTES: u32 = 2 * 1024 * 1024;
 
 /// The extra ref time charge of deposit event per byte.
 ///

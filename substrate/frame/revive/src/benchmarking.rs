@@ -4666,12 +4666,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so each lands on the transaction's own receipt
 			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
 			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
 			for _ in 0..e {
-				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![]);
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![])?;
 			}
 
 			let (encoded_logs, bloom) =
@@ -4689,7 +4689,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -4758,12 +4759,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so the log lands on the transaction's own
 			// receipt — the path `on_finalize_block_per_event` is charged for on every
 			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
 			// separately.
-			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics);
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics)?;
 
 			let (encoded_logs, bloom) =
 				block_storage::get_receipt_details::<T>().unwrap_or_default();
@@ -4780,7 +4781,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{
