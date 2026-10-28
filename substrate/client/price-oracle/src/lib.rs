@@ -40,7 +40,10 @@ use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
-use sp_price_oracle::{market::Market, runtime_api::PriceOracleApi, Anchor, PriceReport, Settings};
+use sp_price_oracle::{
+	market::Market, runtime_api::PriceOracleApi, Anchor, PairAggregate, PriceReport, Quote,
+	Settings,
+};
 use sp_runtime::{
 	traits::{Block as BlockT, SaturatedConversion},
 	RuntimeAppPublic,
@@ -307,10 +310,8 @@ where
 {
 	let interval = setup.interval();
 	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
-	let Some(signer) = signer else {
-		log::debug!(target: LOG_TARGET, "No signer key in the keystore, not reporting");
-		return None;
-	};
+	// The missing signer is warned about in `run`.
+	let signer = signer?;
 	if markets.is_empty() {
 		log::debug!(target: LOG_TARGET, "No markets registered, not reporting");
 		return None;
@@ -325,7 +326,7 @@ where
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
 				Ok(Ok(price)) => prices.push((market, price)),
-				Ok(Err(e)) => log::debug!(
+				Ok(Err(e)) => log::warn!(
 					target: LOG_TARGET,
 					"Market {market:?} not priced: {}",
 					String::from_utf8_lossy(&e.0),
@@ -339,18 +340,28 @@ where
 	for (market, failure) in failures {
 		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
 	}
-	log::debug!(target: LOG_TARGET, "Priced {} of {} markets", prices.len(), markets.len());
-	if prices.is_empty() {
-		return None;
-	}
 
-	let quotes = match client.runtime_api().aggregate(best_hash, prices) {
-		Ok(quotes) => quotes,
+	let priced = prices.len();
+	let aggregates = match client.runtime_api().aggregate(best_hash, prices) {
+		Ok(aggregates) => aggregates,
 		Err(e) => {
 			log::warn!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
 			return None;
 		},
 	};
+	let quotes: Vec<Quote> = aggregates
+		.into_iter()
+		.filter_map(|PairAggregate { pair, votes, quorum, price }| {
+			// A pair at its quorum is one failing market away from being unpriced.
+			if votes <= quorum {
+				log::warn!(
+					target: LOG_TARGET,
+					"{pair:?} at or below quorum: {votes} of {quorum} votes",
+				);
+			}
+			Some(Quote { pair, price: price? })
+		})
+		.collect();
 	if quotes.is_empty() {
 		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
 		return None;
@@ -361,8 +372,9 @@ where
 	let signed = signer::sign_report(&keystore, signer, report)?;
 	log::info!(
 		target: LOG_TARGET,
-		"Reporting {} pair prices at anchor {anchor:?}, tick took {:?}",
+		"Reporting {} pair prices from {priced} of {} markets at anchor {anchor:?}, tick took {:?}",
 		signed.report.quotes.len(),
+		markets.len(),
 		started.elapsed(),
 	);
 	let encoded = signed.encode();

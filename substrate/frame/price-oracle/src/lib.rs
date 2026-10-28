@@ -37,7 +37,7 @@ use sp_price_oracle::{
 	inherents::{PriceOracleInherentDataExt, INHERENT_IDENTIFIER},
 	market::{Market, MarketId, QueryTag, VenueId},
 	runtime_api::ParseError,
-	Anchor, PairId, Price, Quote, SignedPriceReport,
+	Anchor, PairAggregate, PairId, Price, Quote, SignedPriceReport,
 };
 use sp_runtime::{
 	traits::{BlockNumberProvider, SaturatedConversion},
@@ -553,10 +553,10 @@ impl<T: Config> Pallet<T> {
 		latest.into_iter().collect()
 	}
 
-	/// Aggregate market prices into the pair prices a node reports.
+	/// Aggregate market prices into pair prices, one entry per registered pair.
 	///
 	/// Backs [`PriceOracleApi::aggregate`](sp_price_oracle::runtime_api::PriceOracleApi::aggregate).
-	pub fn aggregate_markets(prices: Vec<(MarketId, Price)>) -> Vec<Quote> {
+	pub fn aggregate_markets(prices: Vec<(MarketId, Price)>) -> Vec<PairAggregate> {
 		let markets = prices
 			.into_iter()
 			.filter_map(|(id, price)| Some(Quote { pair: Markets::<T>::get(id)?.pair, price }))

@@ -51,8 +51,9 @@ effect without restart, with a floor of 500 ms.
    interval minus 200 ms. Each request has its own timeout and response size cap. A market
    whose queries did not all succeed by the deadline is dropped for this tick.
 3. **Parse**: as soon as all responses of one market are in, call `parse` for it.
-4. **Aggregate**: at the deadline, one call to `aggregate`. An empty result means nothing to
-   sign this tick.
+4. **Aggregate**: at the deadline, one call to `aggregate`, which returns every registered pair
+   with its votes, quorum and price if it reached the quorum. A pair at or below its quorum is
+   warned about. No priced pair means nothing to sign this tick.
 5. **Sign** a `PriceReport` anchored to the best block number with the local key.
 6. **Publish**: insert into the pool and gossip.
 

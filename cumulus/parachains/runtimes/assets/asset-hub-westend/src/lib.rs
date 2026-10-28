@@ -3129,7 +3129,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn aggregate(
 			prices: Vec<(sp_price_oracle::market::MarketId, sp_price_oracle::Price)>,
-		) -> Vec<sp_price_oracle::Quote> {
+		) -> Vec<sp_price_oracle::PairAggregate> {
 			PriceOracle::aggregate_markets(prices)
 		}
 	}
