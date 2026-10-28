@@ -21,6 +21,21 @@ jobs:
   preflight:
     needs: isdraft
     uses: ./.github/workflows/reusable-preflight.yml
+  report-impact:
+    needs: [preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Validate the report-only selector
+        run: python3 .github/scripts/test_subsystem_benchmarks_filter.py
+      - name: Report proposed benchmark selection
+        run: python3 .github/scripts/subsystem_benchmarks_filter.py
+  # Report-only rollout: build intentionally has no dependency on report-impact or its decision.
   build:
     timeout-minutes: 80
     needs: [preflight]
