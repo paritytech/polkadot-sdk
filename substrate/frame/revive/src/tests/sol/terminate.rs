@@ -41,7 +41,8 @@ use frame_support::{
 	weights::Weight,
 };
 use pallet_revive_fixtures::{
-	FixtureType, Terminate, TerminateCaller, TerminateDelegator, compile_module_with_type,
+	FixtureType, Terminate, TerminateCaller, TerminateCombined, TerminateCombinedCaller,
+	TerminateDelegator, compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use test_case::{test_case, test_matrix};
@@ -731,7 +732,7 @@ enum Encumbrance {
 /// A lock identifier pallet-revive does not own.
 const FOREIGN_LOCK: [u8; 8] = *b"foreign ";
 
-/// The balance a `Terminate` contract from [`encumbered_contract`] holds on top of the ED.
+/// The balance a `TerminateCombined` contract from [`encumbered_contract`] holds on top of the ED.
 const SPENDABLE: u128 = 1_000;
 
 /// An amount below one native unit, which only the dust of an account can hold.
@@ -761,15 +762,17 @@ fn foreign_freeze() -> RuntimeFreezeReason {
 }
 
 fn terminate_constructor(skip: bool, method: u8) -> Vec<u8> {
-	Terminate::constructorCall { skip, method, beneficiary: DJANGO_ADDR.0.into() }.abi_encode()
+	TerminateCombined::constructorCall { skip, method, beneficiary: DJANGO_ADDR.0.into() }
+		.abi_encode()
 }
 
-/// Deploy a `Terminate` contract with [`SPENDABLE`] on top of the ED and apply `encumbrance`.
+/// Deploy a `TerminateCombined` contract with [`SPENDABLE`] on top of the ED and apply
+/// `encumbrance`.
 ///
 /// The beneficiary and the payout recipient exist already, so that transfers to them do not
 /// charge their ED to the origin.
 fn encumbered_contract(fixture_type: FixtureType, encumbrance: Encumbrance) -> Contract<Test> {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
 	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 	let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
 	let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
@@ -802,7 +805,10 @@ fn encumbered_contract(fixture_type: FixtureType, encumbrance: Encumbrance) -> C
 
 fn call_terminate(addr: H160, method: u8) -> crate::ExecReturnValue {
 	builder::bare_call(addr)
-		.data(Terminate::terminateCall { method, beneficiary: DJANGO_ADDR.0.into() }.abi_encode())
+		.data(
+			TerminateCombined::terminateCall { method, beneficiary: DJANGO_ADDR.0.into() }
+				.abi_encode(),
+		)
 		.build_and_unwrap_result()
 }
 
@@ -1079,7 +1085,7 @@ fn precompile_terminate_after_payout_refunds_partially(fixture_type: FixtureType
 
 		let result = builder::bare_call(addr)
 			.data(
-				Terminate::payoutAndTerminateCall {
+				TerminateCombined::payoutAndTerminateCall {
 					to: BOB_ADDR.0.into(),
 					beneficiary: DJANGO_ADDR.0.into(),
 				}
@@ -1103,8 +1109,9 @@ fn precompile_terminate_after_payout_refunds_partially(fixture_type: FixtureType
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn syscall_same_tx_with_lock(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
+	let (caller_code, _) =
+		compile_module_with_type("TerminateCombinedCaller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let ed = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -1132,7 +1139,7 @@ fn syscall_same_tx_with_lock(fixture_type: FixtureType) {
 
 		let result = builder::bare_call(caller_addr)
 			.data(
-				TerminateCaller::createAndTerminateCall {
+				TerminateCombinedCaller::createAndTerminateCall {
 					value: alloy_core::primitives::U256::from_limbs(
 						Pallet::<Test>::convert_native_to_evm(SPENDABLE).0,
 					),
@@ -1149,7 +1156,8 @@ fn syscall_same_tx_with_lock(fixture_type: FixtureType) {
 			decode_error(&result.data)
 		);
 		let created =
-			TerminateCaller::createAndTerminateCall::abi_decode_returns(&result.data).unwrap();
+			TerminateCombinedCaller::createAndTerminateCall::abi_decode_returns(&result.data)
+				.unwrap();
 		assert_eq!(H160::from_slice(created.as_slice()), addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(get_balance(&DJANGO) - django_before, SPENDABLE);
@@ -1178,10 +1186,10 @@ fn syscall_pre_existing_with_lock(fixture_type: FixtureType) {
 
 		// The code is kept: the contract still runs it and holds its reference.
 		let result = builder::bare_call(addr)
-			.data(Terminate::echoCall { value: 7.try_into().unwrap() }.abi_encode())
+			.data(TerminateCombined::echoCall { value: 7.try_into().unwrap() }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
-		let echoed = Terminate::echoCall::abi_decode_returns(&result.data).unwrap();
+		let echoed = TerminateCombined::echoCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(echoed, alloy_core::primitives::U256::from(7));
 		assert_eq!(get_contract(&addr).code_hash, code_hash);
 		assert_eq!(CodeInfoOf::<Test>::get(code_hash).unwrap().refcount(), refcount);
@@ -1193,7 +1201,7 @@ fn syscall_pre_existing_with_lock(fixture_type: FixtureType) {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn redeploy_onto_leftover_account(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let Contract { addr, account_id } = encumbered_contract(fixture_type, Encumbrance::Lock(1));
 		assert!(!call_terminate(addr, METHOD_PRECOMPILE).did_revert());
@@ -1209,10 +1217,10 @@ fn redeploy_onto_leftover_account(fixture_type: FixtureType) {
 
 		assert_eq!(redeployed.addr, addr);
 		let result = builder::bare_call(addr)
-			.data(Terminate::echoCall { value: 7.try_into().unwrap() }.abi_encode())
+			.data(TerminateCombined::echoCall { value: 7.try_into().unwrap() }.abi_encode())
 			.build_and_unwrap_result();
 		assert!(!result.did_revert());
-		let echoed = Terminate::echoCall::abi_decode_returns(&result.data).unwrap();
+		let echoed = TerminateCombined::echoCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(echoed, alloy_core::primitives::U256::from(7));
 	});
 }
@@ -1223,14 +1231,17 @@ fn redeploy_onto_leftover_account(fixture_type: FixtureType) {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn redeploy_onto_leftover_dust(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let Contract { addr, account_id } = encumbered_contract(fixture_type, Encumbrance::None);
 		set_balance_with_dust(&addr, BalanceWithDust::new_unchecked::<Test>(0, DUST));
 		let result = builder::bare_call(addr)
 			.data(
-				Terminate::terminateCall { method: METHOD_PRECOMPILE, beneficiary: addr.0.into() }
-					.abi_encode(),
+				TerminateCombined::terminateCall {
+					method: METHOD_PRECOMPILE,
+					beneficiary: addr.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
@@ -1352,8 +1363,9 @@ fn same_tx_terminate_to_itself_keeps_balance(
 	method: u8,
 	(value, dust): (u128, u32),
 ) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
+	let (caller_code, _) =
+		compile_module_with_type("TerminateCombinedCaller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		if fixture_type == FixtureType::Resolc {
@@ -1375,7 +1387,7 @@ fn same_tx_terminate_to_itself_keeps_balance(
 
 		let result = builder::bare_call(caller_addr)
 			.data(
-				TerminateCaller::createAndTerminateCall {
+				TerminateCombinedCaller::createAndTerminateCall {
 					value: alloy_core::primitives::U256::from_limbs(evm_value(value, dust).0),
 					method,
 					beneficiary: addr.0.into(),
@@ -1387,7 +1399,8 @@ fn same_tx_terminate_to_itself_keeps_balance(
 		let left = if value == 0 && dust == 0 { 0 } else { Contracts::min_balance() + value };
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
 		let created =
-			TerminateCaller::createAndTerminateCall::abi_decode_returns(&result.data).unwrap();
+			TerminateCombinedCaller::createAndTerminateCall::abi_decode_returns(&result.data)
+				.unwrap();
 		assert_eq!(H160::from_slice(created.as_slice()), addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
 		assert_eq!(burned(burned_before), 0, "nothing is burned");
@@ -1411,8 +1424,11 @@ fn syscall_pre_existing_to_itself_changes_nothing(fixture_type: FixtureType) {
 
 		let result = builder::bare_call(addr)
 			.data(
-				Terminate::terminateCall { method: METHOD_SYSCALL, beneficiary: addr.0.into() }
-					.abi_encode(),
+				TerminateCombined::terminateCall {
+					method: METHOD_SYSCALL,
+					beneficiary: addr.0.into(),
+				}
+				.abi_encode(),
 			)
 			.build_and_unwrap_result();
 
@@ -1434,7 +1450,8 @@ fn terminate_twice_late_funds_stay_or_go_to_last_beneficiary(
 	fixture_type: FixtureType,
 	itself_last: bool,
 ) {
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	let (caller_code, _) =
+		compile_module_with_type("TerminateCombinedCaller", fixture_type).unwrap();
 	let late = 7;
 	ExtBuilder::default().build().execute_with(|| {
 		let Contract { addr, account_id } = encumbered_contract(fixture_type, Encumbrance::None);
@@ -1454,7 +1471,7 @@ fn terminate_twice_late_funds_stay_or_go_to_last_beneficiary(
 			if itself_last { (to_django, to_itself) } else { (to_itself, to_django) };
 		let result = builder::bare_call(caller_addr)
 			.data(
-				TerminateCaller::terminateTwiceAndSendFundsCall {
+				TerminateCombinedCaller::terminateTwiceAndSendFundsCall {
 					terminate_addr: addr.0.into(),
 					value: alloy_core::primitives::U256::from_limbs(
 						Pallet::<Test>::convert_native_to_evm(late).0,
@@ -1500,11 +1517,14 @@ fn precompile_terminate_twice_reports_refund_once(fixture_type: FixtureType) {
 	};
 
 	let once = storage_deposit(
-		Terminate::terminateCall { method: METHOD_PRECOMPILE, beneficiary: DJANGO_ADDR.0.into() }
-			.abi_encode(),
+		TerminateCombined::terminateCall {
+			method: METHOD_PRECOMPILE,
+			beneficiary: DJANGO_ADDR.0.into(),
+		}
+		.abi_encode(),
 	);
 	let twice = storage_deposit(
-		Terminate::terminateTwiceCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
+		TerminateCombined::terminateTwiceCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
 	);
 
 	assert!(matches!(once, StorageDeposit::Refund(amount) if amount > 0), "{once:?}");
@@ -1512,7 +1532,7 @@ fn precompile_terminate_twice_reports_refund_once(fixture_type: FixtureType) {
 }
 
 fn terminate_then_selfdestruct(via_delegate_call: bool) -> Vec<u8> {
-	Terminate::terminateThenSelfdestructCall {
+	TerminateCombined::terminateThenSelfdestructCall {
 		beneficiary: DJANGO_ADDR.0.into(),
 		viaDelegateCall: via_delegate_call,
 	}
@@ -1567,7 +1587,8 @@ fn precompile_terminate_then_syscall_pre_existing(
 fn syscall_then_precompile_terminate_pre_existing(fixture_type: FixtureType) {
 	terminate_pre_existing(
 		fixture_type,
-		Terminate::selfdestructThenTerminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
+		TerminateCombined::selfdestructThenTerminateCall { beneficiary: DJANGO_ADDR.0.into() }
+			.abi_encode(),
 	);
 }
 
@@ -1575,8 +1596,9 @@ fn syscall_then_precompile_terminate_pre_existing(fixture_type: FixtureType) {
 /// transaction, with the same balances and storage deposit as `System.terminate` alone.
 #[test_matrix([FixtureType::Solc, FixtureType::Resolc], [false, true])]
 fn precompile_terminate_then_syscall_same_tx(fixture_type: FixtureType, via_delegate_call: bool) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
+	let (caller_code, _) =
+		compile_module_with_type("TerminateCombinedCaller", fixture_type).unwrap();
 	let value = alloy_core::primitives::U256::from_limbs(
 		Pallet::<Test>::convert_native_to_evm(SPENDABLE).0,
 	);
@@ -1604,7 +1626,8 @@ fn precompile_terminate_then_syscall_same_tx(fixture_type: FixtureType, via_dele
 
 			assert!(!output.did_revert(), "terminate must succeed: {}", decode_error(&output.data));
 			let created =
-				TerminateCaller::createAndTerminateCall::abi_decode_returns(&output.data).unwrap();
+				TerminateCombinedCaller::createAndTerminateCall::abi_decode_returns(&output.data)
+					.unwrap();
 			let addr = H160::from_slice(created.as_slice());
 			let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
 			assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
@@ -1616,7 +1639,7 @@ fn precompile_terminate_then_syscall_same_tx(fixture_type: FixtureType, via_dele
 	};
 
 	let once = terminate(
-		TerminateCaller::createAndTerminateCall {
+		TerminateCombinedCaller::createAndTerminateCall {
 			value,
 			method: METHOD_PRECOMPILE,
 			beneficiary: DJANGO_ADDR.0.into(),
@@ -1624,7 +1647,7 @@ fn precompile_terminate_then_syscall_same_tx(fixture_type: FixtureType, via_dele
 		.abi_encode(),
 	);
 	let then_syscall = terminate(
-		TerminateCaller::createAndTerminateThenSelfdestructCall {
+		TerminateCombinedCaller::createAndTerminateThenSelfdestructCall {
 			value,
 			beneficiary: DJANGO_ADDR.0.into(),
 			viaDelegateCall: via_delegate_call,
@@ -1645,7 +1668,7 @@ fn code_infos() -> alloc::collections::BTreeMap<H256, u64> {
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn syscall_in_top_level_constructor_deletes_contract(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
@@ -1680,8 +1703,9 @@ fn syscall_in_top_level_constructor_deletes_contract(fixture_type: FixtureType) 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
-	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
-	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("TerminateCombined", fixture_type).unwrap();
+	let (caller_code, _) =
+		compile_module_with_type("TerminateCombinedCaller", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 		let _ = <Test as Config>::Currency::set_balance(&DJANGO, 1_000_000);
@@ -1704,7 +1728,7 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 
 		let result = builder::bare_call(caller_addr)
 			.data(
-				TerminateCaller::createAndSelfdestructInConstructorCall {
+				TerminateCombinedCaller::createAndSelfdestructInConstructorCall {
 					value: alloy_core::primitives::U256::from_limbs(
 						Pallet::<Test>::convert_native_to_evm(SPENDABLE).0,
 					),
@@ -1715,10 +1739,11 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 			.build_and_unwrap_result();
 
 		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
-		let created = TerminateCaller::createAndSelfdestructInConstructorCall::abi_decode_returns(
-			&result.data,
-		)
-		.unwrap();
+		let created =
+			TerminateCombinedCaller::createAndSelfdestructInConstructorCall::abi_decode_returns(
+				&result.data,
+			)
+			.unwrap();
 		let addr = H160::from_slice(created.as_slice());
 		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
 		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
