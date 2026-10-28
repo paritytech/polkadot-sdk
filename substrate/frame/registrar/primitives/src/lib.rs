@@ -273,6 +273,10 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The relay chain will not drop this para: it is not an on-demand parathread, or its
+	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
+	#[codec(index = 4)]
+	NotDeregisterable,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -312,6 +316,10 @@ pub trait ParachainRegistrar {
 	/// and if no answer turns up the manager sends the request again. That second request is how
 	/// the parachain learns the first answer never came, and it reports it as an unexpected event.
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
+	/// Leave `para_id` where [`Self::deregister`] does the most work and still succeeds.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
 
 	/// Whether head data of this size is acceptable right now.
 	#[allow(clippy::result_unit_err)]
