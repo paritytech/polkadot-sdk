@@ -890,7 +890,7 @@ pub mod pallet {
 				)?;
 			}
 
-			if !effective_internal_net.is_zero() {
+			let burned = if !effective_internal_net.is_zero() {
 				T::Fungibles::burn_from(
 					internal_asset.clone(),
 					&who,
@@ -898,8 +898,10 @@ pub mod pallet {
 					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Polite,
-				)?;
-			}
+				)?
+			} else {
+				BalanceOf::<T>::zero()
+			};
 
 			let psm_account = Self::psm_account(&internal_asset);
 			if !external_out.is_zero() {
@@ -913,14 +915,14 @@ pub mod pallet {
 			}
 
 			PsmDebt::<T>::mutate(&internal_asset, &external_asset, |debt| {
-				*debt = debt.saturating_sub(effective_internal_net);
+				*debt = debt.saturating_sub(burned);
 			});
 
 			Self::deposit_event(Event::Redeemed {
 				who,
 				internal_asset,
 				external_asset,
-				internal_consumed: effective_internal_net.saturating_add(fee),
+				internal_consumed: burned.saturating_add(fee),
 				external_received: external_out,
 				internal_fee: fee,
 			});
