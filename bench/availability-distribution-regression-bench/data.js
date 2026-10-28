@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793219571724,
+  "lastUpdate": 1793224067156,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ca40ef596465ea4e37823da7da1f5e2cf329f913",
-          "message": "Asset Hub Westend: Monetary guard track (#11736)\n\n## Summary\n\nAdds a dedicated `MonetaryGuard` governance track for fast circuit\nbreaker activation for PSM on Asset Hub Westend.\n\n### Changes\n\n- Adds `MonetaryGuard` custom origin and governance track (ID 16)\n- Updates `EnsurePsmManager` origin mapping:\n  - Root -> Full (all PSM operations)\n  - MonetaryGuard -> Emergency (circuit breaker only)\n\n### Track parameters\n\n| Parameter | Value |\n|---|---|\n| max_deciding | 3 |\n| decision_deposit | 500 WND |\n| prepare_period | 20 min |\n| decision_period | 20 min |\n| confirm_period | 4 min |\n| min_enactment | 1 min |\n\nNOTE: the periods and deposits are low for testing purposes\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
-          "timestamp": "2026-04-14T08:18:33Z",
-          "tree_id": "5938f7329b5ab5955e1b77fd95149411d0073005",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca40ef596465ea4e37823da7da1f5e2cf329f913"
-        },
-        "date": 1776159539008,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007086752206666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14124649094666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00991645047999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02562305553333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009679579886666654,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "73b3ba21c4b5c3e150f3ddf8721109390ebd0d99",
+          "message": "Aura: Unify the Seal + PreDigest code between node + runtime (#13610)\n\nThis unifies the Seal + PreDigest code between node and runtime.",
+          "timestamp": "2026-10-28T13:41:40Z",
+          "tree_id": "3944ceff2e6db7963b8f39870ff4ce065fc2566e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/73b3ba21c4b5c3e150f3ddf8721109390ebd0d99"
+        },
+        "date": 1793224037131,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14184028775333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00959584739999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007318446666666669,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02497305117333333,
             "unit": "seconds"
           }
         ]
