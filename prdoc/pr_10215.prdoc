@@ -16,6 +16,10 @@ doc:
     computing the root hash. This is triggered after each extrinsic via the weight reclaim
     pallet using a new version 2 of the storage_proof_size host function.
 
+    Version 2 is registered only, so nodes provide it before any runtime calls it. Runtimes
+    keep calling version 1 and the validate_block shim keeps answering it without the
+    estimation; enabling version 2 in both is a follow-up.
+
     A child trie root computed in the middle of a block no longer writes that root into the
     main storage overlay. Proofs of blocks that compute child roots mid-block therefore contain
     fewer nodes, so the collator node and the runtime must run matching state-machine code,

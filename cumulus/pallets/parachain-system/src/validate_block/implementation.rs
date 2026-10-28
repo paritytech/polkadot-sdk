@@ -548,7 +548,9 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_storage_proof_size() -> u64 {
-	with_externalities(|ext| ext.record_proof_for_dirty_keys());
+	// Runtimes call version 1 of the host function, which does not estimate dirty keys. Uncomment
+	// once version 2 in `cumulus_primitives_proof_size_hostfunction` drops `register_only`.
+	// with_externalities(|ext| ext.record_proof_for_dirty_keys());
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 

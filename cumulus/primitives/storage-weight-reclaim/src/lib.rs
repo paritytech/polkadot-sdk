@@ -94,8 +94,9 @@ impl StorageWeightReclaimer {
 
 /// Returns the current storage proof size from the host side.
 ///
-/// This function also triggers the computation of PoV size for storage root changes,
-/// recording trie nodes that would be accessed during storage root calculation.
+/// Once version 2 of the host function is enabled, this also triggers the computation of PoV size
+/// for storage root changes, recording trie nodes that would be accessed during storage root
+/// calculation.
 ///
 /// Returns `None` if proof recording is disabled on the host.
 pub fn get_proof_size() -> Option<u64> {
