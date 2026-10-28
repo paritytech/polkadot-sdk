@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793125525254,
+  "lastUpdate": 1793214291806,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "shawntabrizi@gmail.com",
-            "name": "Shawn Tabrizi",
-            "username": "shawntabrizi"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e7332c1aa702038ba72664290bb148d5d5a49ceb",
-          "message": "Pass NodeExtraArgs through Dev Chain (#11685)\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/11684\n\nThis is useful if you are trying to build / prototype on top of\nstatement store, but don't want to set up or maintain a whole zombienet.",
-          "timestamp": "2026-04-11T13:46:43Z",
-          "tree_id": "cf3003b4016cf9a9a36ab40054a1d036c4eef28b",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e7332c1aa702038ba72664290bb148d5d5a49ceb"
-        },
-        "date": 1775920232566,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009622823859999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009247888219999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026395796700000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025659446299999998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "428b38c89a4db2639d0420713c3ed994d01242d6",
+          "message": "Remove dead code (#13609)\n\nThis PR removes more code that is no longer needed or is not even\ncompiled anymore.\n\n- `polkadot/node/core/approval-voting/src/approval_db/v1/tests.rs`: This\none is not compiled since the module is not referenced anywhere. V1 is\nalso not supported anymore by nodes.\n- `substrate/client/network/src/protocol/message.rs`: This is a legacy\nfile and also no longer used. The requests for light clients are now\ndefined\n[here](https://github.com/paritytech/polkadot-sdk/blob/f5b80bb77f92709695bf8fb00cb64c2db3238cd5/substrate/client/network/light/src/schema/light.v1.proto#L8)\nfor years.\n- Weight files are removed because they are no longer referenced and\nregenerated in different places now.",
+          "timestamp": "2026-10-28T12:07:25Z",
+          "tree_id": "276b12634b307317ee29930afa902c07d1bd633c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/428b38c89a4db2639d0420713c3ed994d01242d6"
+        },
+        "date": 1793214260714,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011010215869999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00259183173,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009633542929999996,
             "unit": "seconds"
           }
         ]
