@@ -537,6 +537,9 @@ pub mod pallet {
 		///
 		/// The channel can be opened only after the recipient confirms it and only on a session
 		/// change.
+		///
+		/// If the deposit provider answers later, the request is recorded once it does. Until then,
+		/// other deposit requests for the sender's side of the channel are refused.
 		#[pallet::call_index(0)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_init_open_channel()
@@ -561,6 +564,9 @@ pub mod pallet {
 		/// Accept a pending open channel request from the given sender.
 		///
 		/// The channel will be opened only on the next session boundary.
+		///
+		/// If the deposit provider answers later, the request is confirmed once it does. Until
+		/// then, other deposit requests for the recipient's side of the channel are refused.
 		#[pallet::call_index(1)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::hrmp_accept_open_channel()
@@ -704,6 +710,9 @@ pub mod pallet {
 		/// governed by the system, e.g. a system parachain.
 		///
 		/// Origin must be the `ChannelManager`.
+		///
+		/// If the deposit provider answers later, the request is recorded and confirmed once it
+		/// does. Until then, other deposit requests for both sides of the channel are refused.
 		#[pallet::call_index(7)]
 		#[pallet::weight(
 			// A cancel and an init_and_accept_open each ask the provider.
@@ -721,8 +730,9 @@ pub mod pallet {
 
 			// Guard against a common footgun where someone makes a channel request to a system
 			// parachain and then makes a proposal to open the channel via governance, which fails
-			// because `init_and_accept_open_channel` fails if there is an existing request. This check will
-			// clear an existing request such that `init_open_channel` should otherwise succeed.
+			// because `init_and_accept_open_channel` fails if there is an existing request. This
+			// check will clear an existing request such that `init_and_accept_open_channel` should
+			// otherwise succeed.
 			let channel_id = HrmpChannelId { sender, recipient };
 			let cancel_request: u32 =
 				if let Some(_open_channel) = HrmpOpenChannelRequests::<T>::get(&channel_id) {
@@ -792,6 +802,9 @@ pub mod pallet {
 		/// - `recipient`: A chain, `ParaId`.
 		///
 		/// Any signed origin can call this function.
+		///
+		/// If the deposit provider answers later, the deposits are recorded once it does. Until
+		/// then, other deposit requests for both sides of the channel are refused.
 		#[pallet::call_index(9)]
 		#[pallet::weight(
 			<T as Config>::WeightInfo::poke_channel_deposits()
