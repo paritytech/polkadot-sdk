@@ -22,12 +22,17 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, storage::ContractInfo,
+	AddressMapper, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
+	StorageDeposit as Deposit,
+	deposit_payment::Deposit as DepositBackend,
+	storage::{AccountInfo, ContractInfo},
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
-use frame_support::{DebugNoBound, DefaultNoBound, traits::Get};
+use frame_support::{
+	DebugNoBound, DefaultNoBound,
+	traits::{Defensive, Get},
+};
 use sp_runtime::{
 	DispatchError, FixedPointNumber, FixedU128,
 	traits::{Saturating, Zero},
@@ -57,12 +62,17 @@ pub trait Ext<T: Config> {
 	/// The balance transfer can either flow from `origin` to `contract` or the other way
 	/// around depending on whether `amount` constitutes a `Charge` or a `Refund`.
 	/// It will fail in case the `origin` has not enough balance to cover all storage deposits.
+	///
+	/// Returns the deposit that was transferred. A charge is always transferred in full. For a
+	/// refund this is the amount released from the contract's hold, which can be smaller than
+	/// `amount`: it is bounded by the deposit the contract holds above its base deposit, and the
+	/// deposit backend may release less than requested.
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<(), DispatchError>;
+	) -> Result<DepositOf<T>, DispatchError>;
 }
 
 /// This [`Ext`] is used for actual on-chain execution when balance needs to be charged.
@@ -371,17 +381,23 @@ where
 		}
 	}
 
-	/// The total amount of deposit that should change hands as result of the execution
-	/// that this meter was passed into. This will also perform all the charges accumulated
-	/// in the whole contract stack.
-	pub fn execute_postponed_deposits(
+	/// Pay the refunds accumulated in the whole contract stack.
+	///
+	/// This is the first half of settling the deposits and must be followed by
+	/// [`Self::execute_postponed_charges`]. Refunds are paid first so that the origin can pay
+	/// for the charges using the refunds.
+	///
+	/// A refund is paid only in part when the contract does not hold enough deposit to back it.
+	/// The unpaid part is added to the deposit consumed by this meter and returned, so that the
+	/// caller can enforce its limit before any charge is paid.
+	pub fn execute_postponed_refunds(
 		&mut self,
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<DepositOf<T>, DispatchError> {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
-			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+			Origin::Root => return Ok(Zero::zero()),
 			Origin::Signed(o) => o,
 		};
 
@@ -420,12 +436,36 @@ where
 			coalesced
 		};
 
-		// refunds first so origin is able to pay for the charges using the refunds
+		let mut unpaid: BalanceOf<T> = Zero::zero();
 		for charge in self.charges.iter() {
 			if let ContractState::Alive { amount: amount @ Deposit::Refund(_) } = &charge.state {
-				E::charge(origin, &charge.contract, amount, exec_config)?;
+				let refunded = E::charge(origin, &charge.contract, amount, exec_config)?;
+				unpaid = unpaid.saturating_add(refunded.saturating_sub(amount).charge_or_zero());
 			}
 		}
+		// Account for the refunds that were paid, not the ones that were requested.
+		if !unpaid.is_zero() {
+			self.total_deposit = self.total_deposit.saturating_add(&Deposit::Charge(unpaid));
+			self.recalulculate_max_charged();
+		}
+		Ok(unpaid)
+	}
+
+	/// Pay the charges accumulated in the whole contract stack.
+	///
+	/// Must be called after [`Self::execute_postponed_refunds`]. Returns the total amount of
+	/// deposit that changed hands as result of the execution that this meter was passed into.
+	pub fn execute_postponed_charges(
+		&mut self,
+		origin: &Origin<T>,
+		exec_config: &ExecConfig<T>,
+	) -> Result<DepositOf<T>, DispatchError> {
+		// Only refund or charge deposit if the origin is not root.
+		let origin = match origin {
+			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
+			Origin::Signed(o) => o,
+		};
+
 		for charge in self.charges.iter() {
 			if let ContractState::Alive { amount: amount @ Deposit::Charge(_) } = &charge.state {
 				E::charge(origin, &charge.contract, amount, exec_config)?;
@@ -526,27 +566,50 @@ impl<T: Config> Ext<T> for ReservingExt {
 		contract: &T::AccountId,
 		amount: &DepositOf<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<(), DispatchError> {
-		match amount {
-			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => (),
-			Deposit::Charge(amount) => {
+	) -> Result<DepositOf<T>, DispatchError> {
+		match *amount {
+			Deposit::Charge(value) | Deposit::Refund(value) if value.is_zero() => {
+				Ok(amount.clone())
+			},
+			Deposit::Charge(value) => {
 				<Pallet<T>>::charge_deposit(
 					HoldReason::StorageDepositReserve,
 					origin,
 					contract,
-					*amount,
+					value,
 					exec_config,
 				)?;
+				Ok(Deposit::Charge(value))
 			},
-			Deposit::Refund(amount) => {
+			Deposit::Refund(value) => {
+				// The refund is derived from the item and byte deposits recorded in the contract
+				// info. Bound it by what the contract holds above its base deposit, so that the
+				// base deposit is only released when the contract is terminated.
+				//
+				// A refund is only recorded for a contract whose info was loaded during the call
+				// stack. That info is only removed by termination, and the charges of a
+				// terminated contract are never paid out. The info therefore exists here. Should
+				// it be missing anyway, refund nothing: without it the base deposit is unknown.
+				let held = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, contract);
+				let refundable =
+					AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract))
+						.map(|info| held.saturating_sub(info.storage_base_deposit()))
+						.defensive_unwrap_or_default();
 				<Pallet<T>>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					contract,
 					exec_config.funds(origin),
-					*amount,
+					value.min(refundable),
 				)?;
+				// A deposit backend may release less than requested, for example when the origin
+				// is not entitled to the part held in a particular currency. Report the amount
+				// that was actually released from the hold.
+				let released = held.saturating_sub(T::Deposit::total_on_hold(
+					HoldReason::StorageDepositReserve,
+					contract,
+				));
+				Ok(Deposit::Refund(released))
 			},
 		}
-		Ok(())
 	}
 }

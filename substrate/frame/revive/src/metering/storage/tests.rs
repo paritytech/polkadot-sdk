@@ -50,7 +50,7 @@ impl Ext<Test> for TestExt {
 		contract: &AccountIdOf<Test>,
 		amount: &DepositOf<Test>,
 		_exec_config: &ExecConfig<Test>,
-	) -> Result<(), DispatchError> {
+	) -> Result<DepositOf<Test>, DispatchError> {
 		TestExtTestValue::mutate(|ext| {
 			ext.charges.push(Charge {
 				origin: origin.clone(),
@@ -58,12 +58,19 @@ impl Ext<Test> for TestExt {
 				amount: amount.clone(),
 			})
 		});
-		Ok(())
+		Ok(amount.clone())
 	}
 }
 
 fn clear_ext() {
 	TestExtTestValue::mutate(|ext| ext.clear())
+}
+
+/// Pay the refunds and then the charges recorded in `meter`, as the transaction meter does.
+fn execute_postponed_deposits(meter: &mut TestMeter, origin: &Origin<Test>) -> DepositOf<Test> {
+	let exec_config = ExecConfig::new_substrate_tx();
+	meter.execute_postponed_refunds(origin, &exec_config).unwrap();
+	meter.execute_postponed_charges(origin, &exec_config).unwrap()
 }
 
 struct ChargingTestCase {
@@ -158,12 +165,7 @@ fn empty_charge_works() {
 	nested0.charge(&Default::default());
 	meter.absorb(nested0, &BOB, None);
 	assert_eq!(
-		meter
-			.execute_postponed_deposits(
-				&Origin::<Test>::from_account_id(ALICE),
-				&ExecConfig::new_substrate_tx(),
-			)
-			.unwrap(),
+		execute_postponed_deposits(&mut meter, &Origin::<Test>::from_account_id(ALICE)),
 		Default::default()
 	);
 	assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
@@ -262,12 +264,7 @@ fn charging_works() {
 		assert_eq!(meter.consumed(), Deposit::Refund(28));
 		assert_eq!(meter.available(), 128);
 
-		assert_eq!(
-			meter
-				.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
-				.unwrap(),
-			test_case.deposit
-		);
+		assert_eq!(execute_postponed_deposits(&mut meter, &test_case.origin), test_case.deposit);
 
 		assert_eq!(nested0_info.extra_deposit(), 112);
 		assert_eq!(nested1_info.extra_deposit(), 110);
@@ -338,12 +335,7 @@ fn termination_works() {
 
 		meter.terminate(CHARLIE, total_deposit);
 		assert_eq!(meter.consumed(), Deposit::Refund(98));
-		assert_eq!(
-			meter
-				.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
-				.unwrap(),
-			test_case.deposit
-		);
+		assert_eq!(execute_postponed_deposits(&mut meter, &test_case.origin), test_case.deposit);
 		assert_eq!(TestExtTestValue::get(), test_case.expected)
 	}
 }
