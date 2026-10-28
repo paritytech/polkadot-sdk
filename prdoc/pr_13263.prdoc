@@ -1,0 +1,89 @@
+title: 'pallet-revive: deny state changes from transfer and send receivers'
+doc:
+- audience: Runtime User
+  description: |-
+    A contract called through Solidity's `transfer()` or `send()` gets a stipend of 2300 gas. On
+    Ethereum, the stipend cannot pay for a storage write, a value transfer, or creating or
+    terminating a contract. In revive, only the stipend's weight limited these operations.
+    The pallet now limits the callee to what the stipend pays for on Ethereum, for every call with
+    that shape: an EVM `CALL`, or a PolkaVM `call_evm` without `READ_ONLY`, that moves value with a
+    gas limit of 0, or moves no value with a gas limit of exactly 2300. In the callee, and in every
+    contract it calls, these operations fail with `OutOfGas`:
+    - persistent contract storage writes (`SSTORE`, the PolkaVM storage host functions, and
+      `clearStorage` and `takeStorage` of the storage precompile),
+    - value transfers,
+    - contract creation (`CREATE`, `CREATE2`, PolkaVM `instantiate`),
+    - contract termination (`SELFDESTRUCT`, PolkaVM `terminate`, `terminate` of the system
+      precompile),
+    - calls to a state-changing function of the assets, asset-conversion, XCM or vesting
+      precompile.
+
+    The contract that attempts such an operation halts on the EVM or traps on PolkaVM, and its
+    caller sees a failed call. On Ethereum, the operation runs out of gas, with the same result.
+    When a precompile denies such an operation, only the call to the precompile fails. Reads, events
+    and transient storage still work. Calls with any other explicit gas limit are not affected, even
+    one below 2300.
+
+    A delegate call (an EVM `DELEGATECALL` or a PolkaVM `delegate_call_evm`) with a gas limit of
+    exactly 2300 now gets the stipend and the same limits. Before, such a delegate call got the
+    stipend but not the limits on the EVM, and neither on PolkaVM.
+
+    These limits can break deployed contracts that perform one of the listed operations in the
+    callee of a call shaped like a `transfer()` or `send()`, for example a `receive()` that writes
+    storage, or in a delegate call with a gas limit of exactly 2300.
+
+    The receiver may call back into the sender, as on Ethereum, under the same limits. Before, the
+    EVM denied this after a zero-value `transfer()` or `send()` and in the callee of a `STATICCALL`
+    with a gas limit of 2300: the reentrant call returned 0 in an EVM receiver, and a PolkaVM
+    receiver trapped.
+- audience: Runtime Dev
+  description: |-
+    `PrecompileExt::call` (exported as `pallet_revive::precompiles::Ext`) takes a `CallProtections`
+    argument in place of its reentrancy protection and `read_only` arguments. The struct carries
+    the reentrancy protection, `read_only`, and `stipend_limited`, which is set for calls shaped
+    like a `transfer()` or `send()`. A precompile that passed `ReentrancyProtection::AllowReentry`
+    and `false` now passes `CallProtections::none()`. Set any other reentrancy level on the
+    `reentrancy` field, and a read-only call on the `read_only` field:
+    ```rust
+    // Before
+    env.call(&resources, &to, value, input, ReentrancyProtection::Strict, true)?;
+    // After
+    let protections = CallProtections {
+        reentrancy: ReentrancyProtection::Strict,
+        read_only: true,
+        stipend_limited: false,
+    };
+    env.call(&resources, &to, value, input, protections)?;
+    ```
+
+    `ReentrancyProtection::AllowNext` is removed and replaced by `stipend_limited`.
+
+    In a stipend-limited frame, `PrecompileExt::set_storage`, `PrecompileExt::terminate_caller`,
+    `PrecompileWithInfoExt::instantiate` and a value transfer through `PrecompileExt::call` return
+    `OutOfGas`. In a read-only frame, they return `StateChangeDenied` instead, and so do
+    `PrecompileExt::set_transient_storage` and a value transfer through `PrecompileExt::call` with
+    `read_only` set. Before, the caller had to check the read-only flag; now these functions
+    enforce it. A precompile that changes state by calling into another pallet, for example to move
+    balances or assets, must call the new `PrecompileExt::ensure_not_stipend_limited` first. The
+    assets, asset-conversion, XCM and vesting precompiles do so.
+
+    `integrity_test` checks that a block cannot write more contract storage than a validator has
+    memory for. It scaled a write's weight by the memory that write uses before dividing the block
+    weight by it, so the storage term came out near zero and the check could not fail on it. It now
+    computes how many writes fit the block weight before multiplying by the memory each one uses,
+    and prices each write as a cold write without rollback.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: patch
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-asset-conversion-precompiles
+  bump: patch
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: pallet-vesting-precompiles
+  bump: patch

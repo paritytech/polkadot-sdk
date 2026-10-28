@@ -20,8 +20,8 @@
 pub mod env;
 
 use crate::{
-	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
-	StorageAccessKind,
+	CallProtections, Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts,
+	SENTINEL, StorageAccessKind,
 	access_list::{CallItems, InstantiateItems, StorageOp, TransferItems},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
@@ -274,10 +274,10 @@ macro_rules! charge_gas {
 /// The kind of call that should be performed.
 enum CallType {
 	/// Execute another instantiated contract
-	Call { value_ptr: u32 },
+	Call { value_ptr: u32, stipend_limited: bool },
 	/// Execute another contract code in the context (storage, account ID, value) of the caller
 	/// contract
-	DelegateCall,
+	DelegateCall { stipend_limited: bool },
 }
 
 /// This is only appropriate when writing out data of constant size that does not depend on user
@@ -477,6 +477,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		value: StorageValue,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		if !transient {
+			self.ext.ensure_not_stipend_limited()?;
+		}
 
 		let value_len = match &value {
 			StorageValue::Memory { ptr: _, len } => *len,
@@ -533,6 +536,9 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		key_len: u32,
 	) -> Result<u32, TrapReason> {
 		let transient = Self::is_transient(flags)?;
+		if !transient {
+			self.ext.ensure_not_stipend_limited()?;
+		}
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 		let access_kind = StorageAccessKind::new(transient, || {
 			self.ext.warm(self.ext.slot_access(&key, StorageOp::Write))
@@ -646,9 +652,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				self.charge_gas(RuntimeCosts::PrecompileBase)?;
 			},
 			None => {
-				let warmth = self
-					.ext
-					.warm(CallItems::new(callee, matches!(call_type, CallType::DelegateCall)));
+				let warmth = self.ext.warm(CallItems::new(
+					callee,
+					matches!(call_type, CallType::DelegateCall { .. }),
+				));
 				self.charge_gas(RuntimeCosts::CallBase(warmth))?;
 			},
 		};
@@ -676,7 +683,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		memory.reset_interpreter_cache();
 
 		let call_outcome = match call_type {
-			CallType::Call { value_ptr } => {
+			CallType::Call { value_ptr, stipend_limited } => {
 				let read_only = flags.contains(CallFlags::READ_ONLY);
 				let value = memory.read_u256(value_ptr)?;
 				if value > 0u32.into() {
@@ -685,6 +692,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					if read_only || self.ext.is_read_only() {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
+					self.ext.ensure_not_stipend_limited()?;
 
 					let dust_transfer = Pallet::<E::T>::has_dust(value);
 					// A precompile's account state is untracked, so its transfer pays cold.
@@ -706,13 +714,24 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					ReentrancyProtection::Strict
 				};
 
-				self.ext.call(resources, &callee, value, input_data, reentrancy, read_only)
+				self.ext.call(
+					resources,
+					&callee,
+					value,
+					input_data,
+					CallProtections { reentrancy, read_only, stipend_limited },
+				)
 			},
-			CallType::DelegateCall => {
+			CallType::DelegateCall { stipend_limited } => {
 				if flags.intersects(CallFlags::ALLOW_REENTRY | CallFlags::READ_ONLY) {
 					return Err(Error::<E::T>::InvalidCallFlags.into());
 				}
-				self.ext.delegate_call(resources, callee, input_data)
+				self.ext.delegate_call(
+					resources,
+					callee,
+					input_data,
+					CallProtections { stipend_limited, ..CallProtections::none() },
+				)
 			},
 		};
 

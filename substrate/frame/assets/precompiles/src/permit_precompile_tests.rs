@@ -1205,3 +1205,57 @@ fn nonces_via_precompile() {
 		assert_eq!(read_nonce(setup.asset_addr), AlloyU256::from(1));
 	});
 }
+
+mod stipend_limited_frame {
+	use super::*;
+	use crate::{
+		mock::GasScale,
+		tests::stipend_limited_frame::{
+			call_precompile_via_receiver, AMOUNT, ASSET_ID, RAISED_GAS_SCALE,
+		},
+	};
+	use pallet_revive::test_utils::with_parameter;
+	use pallet_revive_fixtures::FixtureType;
+	use test_case::test_case;
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn permit_is_denied(fixture_type: FixtureType) {
+		use frame_support::traits::fungibles::approvals::Inspect;
+
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						hardhat_account_id(),
+						|| setup_permit_asset(ASSET_ID, PRECOMPILE_ADDRESS_PREFIX),
+						|spender, value| {
+							let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
+							let (v, r, s) = sign_permit(
+								asset_addr,
+								spender.into_array().into(),
+								value,
+								deadline,
+							);
+							let owner = HARDHAT_ACCOUNT_0.0.into();
+							let (r, s) = (r.into(), s.into());
+							IERC20::permitCall { owner, spender, value, deadline, v, r, s }
+								.abi_encode()
+						},
+						|_, recipient| {
+							Assets::allowance(ASSET_ID, &hardhat_account_id(), &recipient)
+						},
+					)
+				})
+			});
+		assert_eq!(with_2300_gas, (true, 0), "the receiver of a `send` should not submit a permit");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies the permit"
+		);
+	}
+}

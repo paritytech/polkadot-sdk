@@ -134,14 +134,40 @@ pub enum ReentrancyProtection {
 	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
 	/// callees must be the calling contract.
 	Strict,
-	/// Activate reentrancy protection where the direct callee can be the same contract as the
-	/// caller but none of the recursive callees of the callee must be the caller.
-	///
-	/// This is used for calls that transfer value but restrict gas so that the callee only has a
-	/// stipend gas amount. In Ethereum that is not sufficient for the callee to make another call.
-	/// However, due to gas scale differences that guarantee does not automatically hold in revive
-	/// and we enforce it explicitly here.
-	AllowNext,
+}
+
+/// The protections a caller sets for its callee.
+#[derive(Copy, Clone)]
+pub struct CallProtections {
+	/// The reentrancy protection to enforce on the callee.
+	pub reentrancy: ReentrancyProtection,
+	/// Whether the callee and every frame it creates cannot change state.
+	pub read_only: bool,
+	/// Whether the callee and every frame it creates cannot write persistent storage, move value,
+	/// or create or terminate contracts. Set for calls shaped like a `transfer` or `send`, and for
+	/// delegate calls with a gas limit of exactly 2300.
+	pub stipend_limited: bool,
+}
+
+impl CallProtections {
+	/// Builds an empty `CallProtections`.
+	pub fn none() -> Self {
+		Self {
+			reentrancy: ReentrancyProtection::AllowReentry,
+			read_only: false,
+			stipend_limited: false,
+		}
+	}
+
+	/// Combines the provided protections with the restrictions the caller runs under, which the
+	/// callee cannot lift.
+	fn inherit<T: Config>(self, caller: &Frame<T>) -> Self {
+		Self {
+			reentrancy: self.reentrancy,
+			read_only: self.read_only || caller.read_only,
+			stipend_limited: self.stipend_limited || caller.stipend_limited,
+		}
+	}
 }
 
 /// Origin of the error.
@@ -271,6 +297,7 @@ pub trait Ext: PrecompileWithInfoExt + BuiltinPrecompileExt {
 		call_resources: &CallResources<Self::T>,
 		address: H160,
 		input_data: Vec<u8>,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError>;
 
 	/// Register the contract for destruction at the end of the call stack.
@@ -369,8 +396,7 @@ pub trait PrecompileExt: sealing::Sealed {
 		to: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		reentrancy: ReentrancyProtection,
-		read_only: bool,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError>;
 
 	/// Returns the transient storage entry of the executing account for the given `key`.
@@ -387,6 +413,8 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Sets the transient storage entry for the given key to the specified value. If `value` is
 	/// `None` then the storage entry is deleted.
+	///
+	/// Returns `StateChangeDenied` if the current frame is read-only.
 	fn set_transient_storage(
 		&mut self,
 		key: &Key,
@@ -511,6 +539,12 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Check if running in read-only context.
 	fn is_read_only(&self) -> bool;
 
+	/// Returns `OutOfGas` if the current frame is stipend-limited.
+	///
+	/// A precompile that changes state by calling into another pallet, for example to move
+	/// balances or assets, must call this first.
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError>;
+
 	/// Check if running as a delegate call.
 	fn is_delegate_call(&self) -> bool;
 
@@ -559,6 +593,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Sets the storage entry by the given key to the specified value. If `value` is `None` then
 	/// the storage entry is deleted.
+	///
+	/// Returns `StateChangeDenied` if the current frame is read-only, and `OutOfGas` if it is
+	/// stipend-limited.
 	fn set_storage(
 		&mut self,
 		key: &Key,
@@ -698,6 +735,9 @@ struct Frame<T: Config> {
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
 	read_only: bool,
+	/// If `true` this frame and every frame it creates cannot write persistent storage, move
+	/// value, or create or terminate contracts.
+	stipend_limited: bool,
 	/// The delegate call info of the currently executing frame which was spawned by
 	/// `delegate_call`.
 	delegate: Option<DelegateInfo<T>>,
@@ -1075,7 +1115,7 @@ where
 			value,
 			transaction_meter,
 			&CallResources::NoLimits,
-			false,
+			CallProtections::none(),
 			true,
 			input_data,
 			exec_config,
@@ -1189,7 +1229,7 @@ where
 		value_transferred: U256,
 		meter: &mut ResourceMeter<T, S>,
 		call_resources: &CallResources<T>,
-		read_only: bool,
+		call_protections: CallProtections,
 		origin_is_caller: bool,
 		input_data: &[u8],
 		exec_config: &ExecConfig<T>,
@@ -1358,7 +1398,8 @@ where
 			code_address,
 			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
-			read_only,
+			read_only: call_protections.read_only,
+			stipend_limited: call_protections.stipend_limited,
 			last_frame_output: Default::default(),
 			contracts_created,
 			contracts_to_be_destroyed: Default::default(),
@@ -1373,7 +1414,7 @@ where
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
 		call_resources: &CallResources<T>,
-		read_only: bool,
+		call_protections: CallProtections,
 		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
 		if self.frames.len() as u32 == limits::CALL_STACK_DEPTH {
@@ -1409,7 +1450,7 @@ where
 			value_transferred,
 			meter,
 			call_resources,
-			read_only,
+			call_protections,
 			false,
 			input_data,
 			self.exec_config,
@@ -2306,6 +2347,7 @@ where
 		call_resources: &CallResources<T>,
 		address: H160,
 		input_data: Vec<u8>,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for unknown code hashes or creating the frame fails.
@@ -2330,7 +2372,7 @@ where
 			},
 			value,
 			call_resources,
-			self.is_read_only(),
+			call_protections.inherit(self.top_frame()),
 			&input_data,
 		)? {
 			self.run(executable, input_data)
@@ -2445,6 +2487,9 @@ where
 		// This is for example the case when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
+		self.ensure_not_stipend_limited()?;
+
 		let sender = self.top_frame().account_id.clone();
 		let executable = {
 			let executable = match &mut code {
@@ -2476,7 +2521,7 @@ where
 				},
 				value,
 				call_resources,
-				self.is_read_only(),
+				CallProtections::none().inherit(self.top_frame()),
 				&input_data,
 			)?
 		};
@@ -2501,24 +2546,32 @@ where
 		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		allows_reentry: ReentrancyProtection,
-		read_only: bool,
+		call_protections: CallProtections,
 	) -> Result<(), ExecError> {
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
 		*self.last_frame_output_mut() = Default::default();
 
+		if !value.is_zero() {
+			ensure!(
+				!call_protections.read_only && !self.is_read_only(),
+				Error::<T>::StateChangeDenied
+			);
+			// Checks the caller's frame, not the callee's, so a `transfer` or `send` still
+			// moves value.
+			self.ensure_not_stipend_limited()?;
+		}
+
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
 
-		if allows_reentry == ReentrancyProtection::Strict {
+		if call_protections.reentrancy == ReentrancyProtection::Strict {
 			self.top_frame_mut().allows_reentry = false;
 		}
 
 		let try_call = || {
-			// Enable read-only access if requested; cannot disable it if already set.
-			let is_read_only = read_only || self.is_read_only();
+			let call_protections = call_protections.inherit(self.top_frame());
 
 			// We can skip the stateful lookup for pre-compiles.
 			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
@@ -2529,10 +2582,6 @@ where
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
-			}
-
-			if allows_reentry == ReentrancyProtection::AllowNext {
-				self.top_frame_mut().allows_reentry = false;
 			}
 
 			// We ignore instantiate frames in our search for a cached contract.
@@ -2558,7 +2607,7 @@ where
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
 				call_resources,
-				is_read_only,
+				call_protections,
 				&input_data,
 			)? {
 				self.run(executable, input_data)
@@ -2569,7 +2618,7 @@ where
 						T::AddressMapper::to_address(&dest),
 						None,
 						false,
-						is_read_only,
+						call_protections.read_only,
 						value,
 						&input_data,
 						Default::default(),
@@ -2584,10 +2633,8 @@ where
 					}) {
 					*self.last_frame_output_mut() = mock_answer.clone();
 					Ok(mock_answer)
-				} else if is_read_only && value.is_zero() {
+				} else if value.is_zero() {
 					Ok(Default::default())
-				} else if is_read_only {
-					Err(Error::<T>::StateChangeDenied.into())
 				} else {
 					let account_id = self.account_id().clone();
 					let frame = top_frame_mut!(self);
@@ -2647,6 +2694,7 @@ where
 		value: Option<Vec<u8>>,
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
 		let account_id = self.account_id().clone();
 		self.with_transient_storage_mut(|transient_storage| {
 			transient_storage.write(&account_id, key, value, take_old)
@@ -2837,6 +2885,11 @@ where
 		self.top_frame().read_only
 	}
 
+	fn ensure_not_stipend_limited(&self) -> Result<(), DispatchError> {
+		ensure!(!self.top_frame().stipend_limited, Error::<T>::OutOfGas);
+		Ok(())
+	}
+
 	fn is_delegate_call(&self) -> bool {
 		self.top_frame().delegate.is_some()
 	}
@@ -2875,6 +2928,8 @@ where
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
+		self.ensure_not_stipend_limited()?;
 		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
@@ -2944,6 +2999,8 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		assert!(self.has_contract_info());
+		ensure!(!self.is_read_only(), Error::<T>::StateChangeDenied);
+		self.ensure_not_stipend_limited()?;
 		let frame = self.top_frame_mut();
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),

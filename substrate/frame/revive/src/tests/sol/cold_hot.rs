@@ -20,7 +20,7 @@
 //! real dispatch, on both VMs.
 
 use crate::{
-	AccountInfo, BalanceOf, CallResources, Code, Config, ExecConfig, ReentrancyProtection, Weight,
+	AccountInfo, BalanceOf, CallProtections, CallResources, Code, Config, ExecConfig, Weight,
 	WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
@@ -482,8 +482,7 @@ fn a_contract_creation_pays_for_registering_its_entries(fixture_type: FixtureTyp
 				&factory,
 				U256::zero(),
 				Factory::createCall {}.abi_encode(),
-				ReentrancyProtection::AllowReentry,
-				false,
+				CallProtections::none(),
 			)
 			.unwrap();
 			let consumed = ext.frame_meter().weight_consumed().saturating_sub(before);

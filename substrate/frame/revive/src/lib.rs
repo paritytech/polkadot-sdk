@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::{CodeLoadItems, StorageItems, StorageOp, Summarized, Warmth},
+	access_list::{CodeLoadItems, StorageOp, Summarized},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -113,8 +113,8 @@ pub use crate::{
 		block_hash::{OutsideFrameLog, ReceiptGasInfo, SyntheticTransactionInfo},
 	},
 	exec::{
-		CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin,
-		ReentrancyProtection,
+		CallProtections, CallResources, DelegateInfo, Executable, Key, MomentOf,
+		Origin as ExecOrigin, ReentrancyProtection,
 	},
 	limits::{
 		TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
@@ -1223,13 +1223,6 @@ pub mod pallet {
 				.get(DispatchClass::Normal)
 				.max_total
 				.unwrap_or_else(|| T::BlockWeights::get().max_block);
-			let max_key_size: u64 =
-				Key::try_from_var(alloc::vec![0u8; limits::STORAGE_KEY_BYTES as usize])
-					.expect("Key of maximal size shall be created")
-					.hash()
-					.len()
-					.try_into()
-					.unwrap();
 
 			let max_immutable_key_size: u64 = T::AccountId::max_encoded_len().try_into().unwrap();
 			let max_immutable_size: u64 = max_block_weight
@@ -1330,21 +1323,7 @@ pub mod pallet {
 				memory_left.saturating_mul(TOTAL_MEMORY_DEVIDER.into()).abs() / 1024
 			);
 
-			// We can use storage to store items using the available block ref_time with the
-			// `set_storage` host function. A revertible cold access is the worst case.
-			let max_storage_size = max_block_weight
-				.checked_div_per_component(
-					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
-						new_bytes: limits::STORAGE_BYTES,
-						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
-							Warmth::new_cold_revertible(),
-							StorageOp::Write,
-						)),
-					})
-					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
-				)
-				.unwrap()
+			let max_storage_size = Self::max_memory_for_contract_storage_writes(max_block_weight)
 				.saturating_add(max_immutable_size.into())
 				.saturating_add(max_eth_block_builder_bytes.into());
 
@@ -3163,6 +3142,22 @@ impl<T: Config> Pallet<T> {
 		let max_code_deposit = vm::calculate_code_deposit::<T>(limits::code::BLOB_BYTES);
 		let code_lockup = T::CodeHashLockupDepositPercent::get().mul_ceil(max_code_deposit);
 		ed.saturating_add(contract_deposit).saturating_add(code_lockup)
+	}
+
+	/// Returns the maximum memory, in bytes, that contract storage writes can take within
+	/// `block_weight`.
+	fn max_memory_for_contract_storage_writes(block_weight: Weight) -> u64 {
+		let max_key_size: u64 =
+			Key::try_from_var(alloc::vec![0u8; limits::STORAGE_KEY_BYTES as usize])
+				.expect("Key of maximal size shall be created")
+				.hash()
+				.len()
+				.try_into()
+				.unwrap();
+		block_weight
+			.checked_div_per_component(&vm::cold_non_revertible_storage_write_weight::<T>())
+			.unwrap()
+			.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size))
 	}
 
 	/// Deposit a pallet revive event.
