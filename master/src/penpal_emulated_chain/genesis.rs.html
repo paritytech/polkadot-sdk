@@ -200,65 +200,69 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#50 id=50 data-nosnippet>50</a>			..Default::default()
 <a href=#51 id=51 data-nosnippet>51</a>		},
 <a href=#52 id=52 data-nosnippet>52</a>		collator_selection: penpal_runtime::CollatorSelectionConfig {
-<a href=#53 id=53 data-nosnippet>53</a>			invulnerables: collators::invulnerables().iter().cloned().map(|(acc, <span class="kw">_</span>)| acc).collect(),
-<a href=#54 id=54 data-nosnippet>54</a>			candidacy_bond: ED * <span class="number">16</span>,
-<a href=#55 id=55 data-nosnippet>55</a>			..Default::default()
-<a href=#56 id=56 data-nosnippet>56</a>		},
-<a href=#57 id=57 data-nosnippet>57</a>		session: penpal_runtime::SessionConfig {
-<a href=#58 id=58 data-nosnippet>58</a>			keys: collators::invulnerables()
-<a href=#59 id=59 data-nosnippet>59</a>				.into_iter()
-<a href=#60 id=60 data-nosnippet>60</a>				.map(|(acc, aura)| {
-<a href=#61 id=61 data-nosnippet>61</a>					(
-<a href=#62 id=62 data-nosnippet>62</a>						acc.clone(),                          <span class="comment">// account id
-<a href=#63 id=63 data-nosnippet>63</a>						</span>acc,                                  <span class="comment">// validator id
-<a href=#64 id=64 data-nosnippet>64</a>						</span>penpal_runtime::SessionKeys { aura }, <span class="comment">// session keys
-<a href=#65 id=65 data-nosnippet>65</a>					</span>)
-<a href=#66 id=66 data-nosnippet>66</a>				})
-<a href=#67 id=67 data-nosnippet>67</a>				.collect(),
-<a href=#68 id=68 data-nosnippet>68</a>			..Default::default()
-<a href=#69 id=69 data-nosnippet>69</a>		},
-<a href=#70 id=70 data-nosnippet>70</a>		polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
-<a href=#71 id=71 data-nosnippet>71</a>			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+<a href=#53 id=53 data-nosnippet>53</a>			invulnerables: collators::invulnerables()
+<a href=#54 id=54 data-nosnippet>54</a>				.iter()
+<a href=#55 id=55 data-nosnippet>55</a>				.cloned()
+<a href=#56 id=56 data-nosnippet>56</a>				.map(|(acc, <span class="kw">_</span>, <span class="kw">_</span>)| acc)
+<a href=#57 id=57 data-nosnippet>57</a>				.collect(),
+<a href=#58 id=58 data-nosnippet>58</a>			candidacy_bond: ED * <span class="number">16</span>,
+<a href=#59 id=59 data-nosnippet>59</a>			..Default::default()
+<a href=#60 id=60 data-nosnippet>60</a>		},
+<a href=#61 id=61 data-nosnippet>61</a>		session: penpal_runtime::SessionConfig {
+<a href=#62 id=62 data-nosnippet>62</a>			keys: collators::invulnerables()
+<a href=#63 id=63 data-nosnippet>63</a>				.into_iter()
+<a href=#64 id=64 data-nosnippet>64</a>				.map(|(acc, aura, <span class="kw">_</span>)| {
+<a href=#65 id=65 data-nosnippet>65</a>					(
+<a href=#66 id=66 data-nosnippet>66</a>						acc.clone(),                          <span class="comment">// account id
+<a href=#67 id=67 data-nosnippet>67</a>						</span>acc,                                  <span class="comment">// validator id
+<a href=#68 id=68 data-nosnippet>68</a>						</span>penpal_runtime::SessionKeys { aura }, <span class="comment">// session keys
+<a href=#69 id=69 data-nosnippet>69</a>					</span>)
+<a href=#70 id=70 data-nosnippet>70</a>				})
+<a href=#71 id=71 data-nosnippet>71</a>				.collect(),
 <a href=#72 id=72 data-nosnippet>72</a>			..Default::default()
 <a href=#73 id=73 data-nosnippet>73</a>		},
-<a href=#74 id=74 data-nosnippet>74</a>		sudo: penpal_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(PenpalSudoAccount::get()) },
-<a href=#75 id=75 data-nosnippet>75</a>		assets: penpal_runtime::AssetsConfig {
-<a href=#76 id=76 data-nosnippet>76</a>			assets: <span class="macro">vec!</span>[
-<a href=#77 id=77 data-nosnippet>77</a>				<span class="comment">// Relay Native asset representation
-<a href=#78 id=78 data-nosnippet>78</a>				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
-<a href=#79 id=79 data-nosnippet>79</a>				<span class="comment">// Local Pen2 representation
-<a href=#80 id=80 data-nosnippet>80</a>				</span>(LocalPen2Asset::get(), PenpalAssetOwner::get(), <span class="bool-val">false</span>, ED),
-<a href=#81 id=81 data-nosnippet>81</a>				<span class="comment">// Sufficient AssetHub asset representation
-<a href=#82 id=82 data-nosnippet>82</a>				</span>(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
-<a href=#83 id=83 data-nosnippet>83</a>				<span class="comment">// USDT from AssetHub
-<a href=#84 id=84 data-nosnippet>84</a>				</span>(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, USDT_ED),
-<a href=#85 id=85 data-nosnippet>85</a>			],
-<a href=#86 id=86 data-nosnippet>86</a>			accounts: <span class="macro">vec!</span>[
-<a href=#87 id=87 data-nosnippet>87</a>				<span class="comment">// Relay tokens for the pool liquidity provider.
-<a href=#88 id=88 data-nosnippet>88</a>				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="number">10_000_000_000_000</span>),
+<a href=#74 id=74 data-nosnippet>74</a>		polkadot_xcm: penpal_runtime::PolkadotXcmConfig {
+<a href=#75 id=75 data-nosnippet>75</a>			safe_xcm_version: <span class="prelude-val">Some</span>(SAFE_XCM_VERSION),
+<a href=#76 id=76 data-nosnippet>76</a>			..Default::default()
+<a href=#77 id=77 data-nosnippet>77</a>		},
+<a href=#78 id=78 data-nosnippet>78</a>		sudo: penpal_runtime::SudoConfig { key: <span class="prelude-val">Some</span>(PenpalSudoAccount::get()) },
+<a href=#79 id=79 data-nosnippet>79</a>		assets: penpal_runtime::AssetsConfig {
+<a href=#80 id=80 data-nosnippet>80</a>			assets: <span class="macro">vec!</span>[
+<a href=#81 id=81 data-nosnippet>81</a>				<span class="comment">// Relay Native asset representation
+<a href=#82 id=82 data-nosnippet>82</a>				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
+<a href=#83 id=83 data-nosnippet>83</a>				<span class="comment">// Local Pen2 representation
+<a href=#84 id=84 data-nosnippet>84</a>				</span>(LocalPen2Asset::get(), PenpalAssetOwner::get(), <span class="bool-val">false</span>, ED),
+<a href=#85 id=85 data-nosnippet>85</a>				<span class="comment">// Sufficient AssetHub asset representation
+<a href=#86 id=86 data-nosnippet>86</a>				</span>(LocalReservableFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, ED),
+<a href=#87 id=87 data-nosnippet>87</a>				<span class="comment">// USDT from AssetHub
+<a href=#88 id=88 data-nosnippet>88</a>				</span>(UsdtFromAssetHub::get(), PenpalAssetOwner::get(), <span class="bool-val">true</span>, USDT_ED),
 <a href=#89 id=89 data-nosnippet>89</a>			],
-<a href=#90 id=90 data-nosnippet>90</a>			..Default::default()
-<a href=#91 id=91 data-nosnippet>91</a>		},
-<a href=#92 id=92 data-nosnippet>92</a>		asset_conversion: penpal_runtime::AssetConversionConfig {
-<a href=#93 id=93 data-nosnippet>93</a>			pools: <span class="macro">vec!</span>[
-<a href=#94 id=94 data-nosnippet>94</a>				<span class="comment">// Relay token pool (native PEN &lt;-&gt; relay WND) for XCM fee payment.
-<a href=#95 id=95 data-nosnippet>95</a>				</span>(
-<a href=#96 id=96 data-nosnippet>96</a>					PenpalNativeCurrency::get(),
-<a href=#97 id=97 data-nosnippet>97</a>					RelayLocation::get(),
-<a href=#98 id=98 data-nosnippet>98</a>					PenpalAssetOwner::get(),
-<a href=#99 id=99 data-nosnippet>99</a>					<span class="number">1_000_000_000_000</span>,
-<a href=#100 id=100 data-nosnippet>100</a>					<span class="number">2_000_000_000_000</span>,
-<a href=#101 id=101 data-nosnippet>101</a>				),
-<a href=#102 id=102 data-nosnippet>102</a>			],
-<a href=#103 id=103 data-nosnippet>103</a>		},
-<a href=#104 id=104 data-nosnippet>104</a>		..Default::default()
-<a href=#105 id=105 data-nosnippet>105</a>	};
-<a href=#106 id=106 data-nosnippet>106</a>
-<a href=#107 id=107 data-nosnippet>107</a>	build_genesis_storage(
-<a href=#108 id=108 data-nosnippet>108</a>		<span class="kw-2">&amp;</span>genesis_config,
-<a href=#109 id=109 data-nosnippet>109</a>		penpal_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
-<a href=#110 id=110 data-nosnippet>110</a>	)
-<a href=#111 id=111 data-nosnippet>111</a>}
+<a href=#90 id=90 data-nosnippet>90</a>			accounts: <span class="macro">vec!</span>[
+<a href=#91 id=91 data-nosnippet>91</a>				<span class="comment">// Relay tokens for the pool liquidity provider.
+<a href=#92 id=92 data-nosnippet>92</a>				</span>(RelayLocation::get(), PenpalAssetOwner::get(), <span class="number">10_000_000_000_000</span>),
+<a href=#93 id=93 data-nosnippet>93</a>			],
+<a href=#94 id=94 data-nosnippet>94</a>			..Default::default()
+<a href=#95 id=95 data-nosnippet>95</a>		},
+<a href=#96 id=96 data-nosnippet>96</a>		asset_conversion: penpal_runtime::AssetConversionConfig {
+<a href=#97 id=97 data-nosnippet>97</a>			pools: <span class="macro">vec!</span>[
+<a href=#98 id=98 data-nosnippet>98</a>				<span class="comment">// Relay token pool (native PEN &lt;-&gt; relay WND) for XCM fee payment.
+<a href=#99 id=99 data-nosnippet>99</a>				</span>(
+<a href=#100 id=100 data-nosnippet>100</a>					PenpalNativeCurrency::get(),
+<a href=#101 id=101 data-nosnippet>101</a>					RelayLocation::get(),
+<a href=#102 id=102 data-nosnippet>102</a>					PenpalAssetOwner::get(),
+<a href=#103 id=103 data-nosnippet>103</a>					<span class="number">1_000_000_000_000</span>,
+<a href=#104 id=104 data-nosnippet>104</a>					<span class="number">2_000_000_000_000</span>,
+<a href=#105 id=105 data-nosnippet>105</a>				),
+<a href=#106 id=106 data-nosnippet>106</a>			],
+<a href=#107 id=107 data-nosnippet>107</a>		},
+<a href=#108 id=108 data-nosnippet>108</a>		..Default::default()
+<a href=#109 id=109 data-nosnippet>109</a>	};
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>	build_genesis_storage(
+<a href=#112 id=112 data-nosnippet>112</a>		<span class="kw-2">&amp;</span>genesis_config,
+<a href=#113 id=113 data-nosnippet>113</a>		penpal_runtime::WASM_BINARY.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+<a href=#114 id=114 data-nosnippet>114</a>	)
+<a href=#115 id=115 data-nosnippet>115</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

@@ -985,7 +985,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#835 id=835 data-nosnippet>835</a>
 <a href=#836 id=836 data-nosnippet>836</a>		<span class="kw">let </span>id = T::Migrations::nth_id(cursor.index).map(TryInto::try_into);
 <a href=#837 id=837 data-nosnippet>837</a>		<span class="kw">let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Ok</span>(bounded_id)): <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;IdentifierOf&lt;T&gt;, <span class="kw">_</span>&gt;&gt; = id <span class="kw">else </span>{
-<a href=#838 id=838 data-nosnippet>838</a>			<span class="macro">defensive!</span>(<span class="string">"integrity_test ensures that all identifiers are present and bounde; qed."</span>);
+<a href=#838 id=838 data-nosnippet>838</a>			<span class="macro">defensive!</span>(<span class="string">"integrity_test ensures that all identifiers are present and bounded; qed."</span>);
 <a href=#839 id=839 data-nosnippet>839</a>			<span class="self">Self</span>::upgrade_failed(<span class="prelude-val">Some</span>(cursor.index));
 <a href=#840 id=840 data-nosnippet>840</a>			<span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#841 id=841 data-nosnippet>841</a>		};

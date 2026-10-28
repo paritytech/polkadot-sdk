@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_chain_spec","get_chain_spec_with_extra_endowed"]};
+window.SIDEBAR_ITEMS = {"fn":["get_chain_spec","get_chain_spec_with_extra_endowed","get_with_authority_discovery_chain_spec"]};

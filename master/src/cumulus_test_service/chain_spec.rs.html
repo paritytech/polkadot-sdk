@@ -148,7 +148,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 	}
 </style>
 
-<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cumulus_test_service/</div>chain_spec.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
+<script async defer src=https://apisa.parity.io/latest.js></script><noscript><img src=https://apisa.parity.io/latest.js alt= referrerpolicy=no-referrer-when-downgrade /></noscript></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">cumulus_test_service/</div>chain_spec.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// Copyright (C) Parity Technologies (UK) Ltd.
 <a href=#2 id=2 data-nosnippet>2</a>// This file is part of Cumulus.
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a>// Cumulus is free software: you can redistribute it and/or modify
@@ -235,6 +235,21 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#85 id=85 data-nosnippet>85</a>		wasm_binary.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
 <a href=#86 id=86 data-nosnippet>86</a>	)
 <a href=#87 id=87 data-nosnippet>87</a>}
+<a href=#88 id=88 data-nosnippet>88</a>
+<a href=#89 id=89 data-nosnippet>89</a><span class="doccomment">/// Get the chain spec for the authority-discovery collator-discovery test.
+<a href=#90 id=90 data-nosnippet>90</a>///
+<a href=#91 id=91 data-nosnippet>91</a>/// Uses the `with-authority-discovery` variant WASM which includes `pallet_session` +
+<a href=#92 id=92 data-nosnippet>92</a>/// `pallet_authority_discovery` and carries a higher `spec_version` (4 vs 2) so that
+<a href=#93 id=93 data-nosnippet>93</a>/// a `set_code` upgrade from the default WASM triggers the `EnableAuthorityDiscovery`
+<a href=#94 id=94 data-nosnippet>94</a>/// migration.
+<a href=#95 id=95 data-nosnippet>95</a></span><span class="kw">pub fn </span>get_with_authority_discovery_chain_spec(id: <span class="prelude-ty">Option</span>&lt;ParaId&gt;) -&gt; GenericChainSpec {
+<a href=#96 id=96 data-nosnippet>96</a>	get_chain_spec_with_extra_endowed(
+<a href=#97 id=97 data-nosnippet>97</a>		id,
+<a href=#98 id=98 data-nosnippet>98</a>		Default::default(),
+<a href=#99 id=99 data-nosnippet>99</a>		cumulus_test_runtime::with_authority_discovery::WASM_BINARY
+<a href=#100 id=100 data-nosnippet>100</a>			.expect(<span class="string">"WASM binary was not built, please build it!"</span>),
+<a href=#101 id=101 data-nosnippet>101</a>	)
+<a href=#102 id=102 data-nosnippet>102</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
