@@ -24,7 +24,7 @@ use frame_support::{
 		fungible::{Inspect as FungibleInspect, NativeOrWithId},
 		fungibles,
 		fungibles::{Inspect, InspectEnumerable},
-		Get,
+		Get, LockableCurrency, WithdrawReasons,
 	},
 };
 use sp_arithmetic::Permill;
@@ -1391,6 +1391,57 @@ fn pool_with_native_reserve_at_minimum_can_still_be_refilled() {
 			false,
 		));
 		assert_eq!(Balances::free_balance(pool_account), native_ed + 1_000);
+	});
+}
+
+#[test]
+fn pool_with_locked_native_is_still_usable() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let native = NativeOrWithId::Native;
+		let token = NativeOrWithId::WithId(2);
+
+		create_tokens_with_ed(user, vec![token.clone()], 1);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(native.clone()),
+			Box::new(token.clone())
+		));
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10_000));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(native.clone()),
+			Box::new(token.clone()),
+			1_000_000,
+			2_000,
+			1,
+			1,
+			user,
+		));
+		let pool_id = (native.clone(), token.clone());
+		let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
+
+		// Anyone can lock part of the pool's native, e.g. with a vested transfer.
+		Balances::set_lock(*b"vesting ", &pool_account, 10_000, WithdrawReasons::all());
+
+		// The pool still works in both directions.
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![token.clone(), native.clone()],
+			100,
+			1,
+			user,
+			false,
+		));
+		assert_ok!(AssetConversion::swap_exact_tokens_for_tokens(
+			RuntimeOrigin::signed(user),
+			bvec![native.clone(), token.clone()],
+			10_000,
+			1,
+			user,
+			false,
+		));
 	});
 }
 

@@ -1271,9 +1271,6 @@ pub mod pallet {
 		}
 
 		/// Ensures nothing like a freeze or block stops `pool_account` from sending its `asset`.
-		///
-		/// Swaps may take a pool down to its minimum balance, so everything above it should be
-		/// spendable.
 		pub(crate) fn ensure_pool_not_blocked(
 			pool_account: &T::AccountId,
 			asset: T::AssetKind,
@@ -1281,10 +1278,10 @@ pub mod pallet {
 			let balance = T::Assets::balance(asset.clone(), pool_account);
 			let minimum = T::Assets::minimum_balance(asset.clone());
 			let spendable = T::Assets::reducible_balance(asset, pool_account, Preserve, Polite);
-			// A healthy pool can spend everything except its minimum balance, even when it holds
-			// exactly the minimum. Anything less means something restricts it, e.g. a freeze or
-			// block.
-			ensure!(spendable >= balance.saturating_sub(minimum), Error::<T>::PoolUnavailable);
+			// Only a pool that can't send anything above its minimum balance counts as blocked.
+			// Partial restrictions like locks are ignored, since anyone can add them.
+			let blocked = balance > minimum && spendable.is_zero();
+			ensure!(!blocked, Error::<T>::PoolUnavailable);
 			Ok(())
 		}
 
