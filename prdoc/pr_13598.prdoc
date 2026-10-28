@@ -9,7 +9,4 @@ doc:
       that were drained to their minimum balance are not affected.
 crates:
   - name: pallet-asset-conversion
-    bump: minor
-    validate: false
-    note: |
-      Adds the `PoolUnavailable` variant to the pallet's `Error` enum.
+    bump: major
