@@ -905,18 +905,21 @@ where
 			slashed,
 			|maybe_reserves| -> Result<Self::Balance, DispatchError> {
 				let Some(reserves) = maybe_reserves.as_mut() else { return Ok(value) };
-				match reserves.binary_search_by_key(id, |data| data.id) {
-					Ok(index) => {
-						let to_change = cmp::min(reserves[index].amount, value);
+				let Ok(index) = reserves.binary_search_by_key(id, |data| data.id) else {
+					return Ok(value);
+				};
 
-						let actual = if status == Status::Reserved {
-							// make it the reserved under same identifier
-							Reserves::<T, I>::try_mutate(
-								beneficiary,
-								|reserves| -> Result<T::Balance, DispatchError> {
-									match reserves.binary_search_by_key(id, |data| data.id) {
-										Ok(index) => {
-											let remain =
+				let to_change = cmp::min(reserves[index].amount, value);
+
+				let actual = match status {
+					Status::Reserved => {
+						// make it the reserved under same identifier
+						Reserves::<T, I>::try_mutate(
+							beneficiary,
+							|reserves| -> Result<T::Balance, DispatchError> {
+								match reserves.binary_search_by_key(id, |data| data.id) {
+									Ok(index) => {
+										let remain =
 											<Self as ReservableCurrency<_>>::repatriate_reserved(
 												slashed,
 												beneficiary,
@@ -924,19 +927,18 @@ where
 												status,
 											)?;
 
-											// remain should always be zero but just to be defensive
-											// here.
-											let actual = to_change.defensive_saturating_sub(remain);
+										// remain should always be zero but just to be defensive
+										// here.
+										let actual = to_change.defensive_saturating_sub(remain);
 
-											// this add can't overflow but just to be defensive.
-											reserves[index].amount = reserves[index]
-												.amount
-												.defensive_saturating_add(actual);
+										// this add can't overflow but just to be defensive.
+										reserves[index].amount =
+											reserves[index].amount.defensive_saturating_add(actual);
 
-											Ok(actual)
-										},
-										Err(index) => {
-											let remain =
+										Ok(actual)
+									},
+									Err(index) => {
+										let remain =
 											<Self as ReservableCurrency<_>>::repatriate_reserved(
 												slashed,
 												beneficiary,
@@ -944,51 +946,52 @@ where
 												status,
 											)?;
 
-											// remain should always be zero but just to be defensive
-											// here
-											let actual = to_change.defensive_saturating_sub(remain);
+										// remain should always be zero but just to be defensive
+										// here
+										let actual = to_change.defensive_saturating_sub(remain);
 
+										if !actual.is_zero() {
 											reserves
 												.try_insert(
 													index,
 													ReserveData { id: *id, amount: actual },
 												)
 												.map_err(|_| Error::<T, I>::TooManyReserves)?;
+										}
 
-											Ok(actual)
-										},
-									}
-								},
-							)?
-						} else {
-							let remain = <Self as ReservableCurrency<_>>::repatriate_reserved(
-								slashed,
-								beneficiary,
-								to_change,
-								status,
-							)?;
-
-							// remain should always be zero but just to be defensive here
-							to_change.defensive_saturating_sub(remain)
-						};
-
-						// `actual <= to_change` and `to_change <= amount`; qed;
-						reserves[index].amount -= actual;
-
-						if reserves[index].amount.is_zero() {
-							if reserves.len() == 1 {
-								// no more named reserves
-								*maybe_reserves = None;
-							} else {
-								// remove this named reserve
-								reserves.remove(index);
-							}
-						}
-
-						Ok(value - actual)
+										Ok(actual)
+									},
+								}
+							},
+						)?
 					},
-					Err(_) => Ok(value),
+					Status::Free => {
+						let remain = <Self as ReservableCurrency<_>>::repatriate_reserved(
+							slashed,
+							beneficiary,
+							to_change,
+							status,
+						)?;
+
+						// remain should always be zero but just to be defensive here
+						to_change.defensive_saturating_sub(remain)
+					},
+				};
+
+				// `actual <= to_change` and `to_change <= amount`; qed;
+				reserves[index].amount -= actual;
+
+				if reserves[index].amount.is_zero() {
+					if reserves.len() == 1 {
+						// no more named reserves
+						*maybe_reserves = None;
+					} else {
+						// remove this named reserve
+						reserves.remove(index);
+					}
 				}
+
+				Ok(value - actual)
 			},
 		)
 	}
