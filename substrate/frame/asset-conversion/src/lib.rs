@@ -80,11 +80,10 @@ use frame_support::{
 	traits::{
 		fungibles::{Balanced, Create, Credit, Inspect, Mutate},
 		tokens::{
-			AssetId, Balance, DepositConsequence,
+			AssetId, Balance,
 			Fortitude::Polite,
 			Precision::Exact,
 			Preservation::{Expendable, Preserve},
-			Provenance,
 		},
 		AccountTouch, Incrementable, OnUnbalanced,
 	},
@@ -1271,31 +1270,22 @@ pub mod pallet {
 			T::Assets::balance(asset, owner)
 		}
 
-		/// Whether `pool_account` is free to send its `asset`.
+		/// Ensures nothing like a freeze or block stops `pool_account` from sending its `asset`.
 		///
 		/// Swaps may take a pool down to its minimum balance, so everything above it should be
-		/// spendable. If it isn't, something like a freeze or block restricts the pool.
-		pub(crate) fn pool_can_send(pool_account: &T::AccountId, asset: T::AssetKind) -> bool {
+		/// spendable.
+		pub(crate) fn ensure_pool_not_blocked(
+			pool_account: &T::AccountId,
+			asset: T::AssetKind,
+		) -> Result<(), Error<T>> {
 			let balance = T::Assets::balance(asset.clone(), pool_account);
 			let minimum = T::Assets::minimum_balance(asset.clone());
 			let spendable = T::Assets::reducible_balance(asset, pool_account, Preserve, Polite);
 			// A healthy pool can spend everything except its minimum balance, even when it holds
 			// exactly the minimum. Anything less means something restricts it, e.g. a freeze or
 			// block.
-			spendable >= balance.saturating_sub(minimum)
-		}
-
-		/// Whether `pool_account` can receive `amount` of `asset_in`.
-		///
-		/// Swaps deposit their input into the pool, so a pool that can't receive it (e.g. its
-		/// account is blocked for `asset_in`) can't execute the swap and must not be quoted.
-		pub(crate) fn pool_can_receive(
-			pool_account: &T::AccountId,
-			asset_in: T::AssetKind,
-			amount: T::Balance,
-		) -> bool {
-			T::Assets::can_deposit(asset_in, pool_account, amount, Provenance::Extant) ==
-				DepositConsequence::Success
+			ensure!(spendable >= balance.saturating_sub(minimum), Error::<T>::PoolUnavailable);
+			Ok(())
 		}
 
 		/// Resolve the effective swap fee for `pool_id`.
@@ -1540,11 +1530,8 @@ pub mod pallet {
 				Err(Error::<T>::PoolEmpty)?;
 			}
 
-			if !Self::pool_can_send(&pool_account, asset1) ||
-				!Self::pool_can_send(&pool_account, asset2)
-			{
-				Err(Error::<T>::PoolUnavailable)?;
-			}
+			Self::ensure_pool_not_blocked(&pool_account, asset1)?;
+			Self::ensure_pool_not_blocked(&pool_account, asset2)?;
 
 			Ok((balance1, balance2))
 		}
@@ -1594,10 +1581,6 @@ pub mod pallet {
 				return None;
 			}
 
-			if !Self::pool_can_receive(&pool_account, asset1, amount) {
-				return None;
-			}
-
 			Some(amount_out)
 		}
 
@@ -1634,18 +1617,12 @@ pub mod pallet {
 				return None;
 			}
 
-			let amount_in = if include_fee {
+			if include_fee {
 				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
-				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()?
+				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()
 			} else {
-				Self::quote(&amount, &balance2, &balance1).ok()?
-			};
-
-			if !Self::pool_can_receive(&pool_account, asset1, amount_in) {
-				return None;
+				Self::quote(&amount, &balance2, &balance1).ok()
 			}
-
-			Some(amount_in)
 		}
 	}
 }

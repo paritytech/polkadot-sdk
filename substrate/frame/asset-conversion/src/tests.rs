@@ -1231,7 +1231,7 @@ fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
 }
 
 #[test]
-fn quote_price_returns_none_when_pool_cannot_receive_input() {
+fn blocked_or_frozen_pool_is_unavailable() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
 		let token_1 = NativeOrWithId::Native;
@@ -1283,7 +1283,7 @@ fn quote_price_returns_none_when_pool_cannot_receive_input() {
 		// Normal pool: both quotes return a price.
 		assert!(quote_token_2_to_native().iter().all(Option::is_some));
 
-		// Blocked pool can't receive token_2, so no quote.
+		// Blocked pool can't send token_2, so no quote.
 		assert_ok!(Assets::block(RuntimeOrigin::signed(user), 2, pool_account));
 		assert_eq!(quote_token_2_to_native(), [None, None]);
 
