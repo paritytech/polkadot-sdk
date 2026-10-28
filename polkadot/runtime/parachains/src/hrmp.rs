@@ -721,7 +721,7 @@ pub mod pallet {
 
 			// Guard against a common footgun where someone makes a channel request to a system
 			// parachain and then makes a proposal to open the channel via governance, which fails
-			// because `init_open_channel` fails if there is an existing request. This check will
+			// because `init_and_accept_open_channel` fails if there is an existing request. This check will
 			// clear an existing request such that `init_open_channel` should otherwise succeed.
 			let channel_id = HrmpChannelId { sender, recipient };
 			let cancel_request: u32 =
