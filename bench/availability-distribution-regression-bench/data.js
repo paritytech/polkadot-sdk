@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793125369425,
+  "lastUpdate": 1793214128002,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "de2291157851582dbdddec5bdd96c3d87d68cae8",
-          "message": "[Staking] Move reward minting to DAP; payouts from drip-funded era pots (#11616)\n\nExtracted from #10844.\n\n## Overview\n\nThis PR introduces dual-mode era rewards for `pallet-staking-async`:\n\n- **Non-minting mode** (`DisableMinting = true`): Staking does not mint.\nAn external source (e.g. `pallet-dap`) funds a general reward pot.\nStaking snapshots the pot into era-specific accounts at each era\nboundary. Payouts transfer from the era pot.\n- **Legacy minting mode** (`DisableMinting = false`): `EraPayout`\ncomputes inflation, tokens are minted on-the-fly during payout. Kept for\nKusama compatibility where inflation depends on the staking ratio.\n\nSwitching from legacy to non-minting is a one-way migration.\n\n## How it works\n\n### Non-minting mode (Polkadot)\n\nDAP drips inflation continuously into a general staker reward pot. At\neach era boundary, `EraRewardManager::snapshot_era_rewards` transfers\nthe accumulated balance into an era-specific pot. Payouts transfer from\nthat pot. When an era expires past `HistoryDepth`, unclaimed funds are\nreturned via `UnclaimedRewardHandler`.\n\n`DisableMintingGuard` is set on the first successful snapshot as a\npayout-side safety net -- prevents minting for eras that should have\npots.\n\n#### Runtime Changes\n**Staking Async**\n- `DisableMinting = ConstBool<true>`\n- `EraPayout = ()` (noop, never called)\n- `RewardRemainder = ()`, `MaxEraDuration = ()`\n- `GeneralPots` / `EraPots` = `Seed<StakingPotsPalletId>`\n- `UnclaimedRewardHandler` = DAP (or any `OnUnbalanced` handler)\n\n**DAP**\n- Implement `IssuanceCurve` -- same as EraPayout except it does not do\nthe reward-treasury split and returns one single amount.\n- register `DAP::buffer` and `Staking::StakerRewardRecipient` in\n`BudgetRecipients`.\n- Run `MigrateV1ToV2` to seed `LastIssuanceTimestamp` and\n`BudgetAllocation`\n- Pre-fund general staker pot with ED\n\n### Legacy minting mode (Kusama and other non-polkadot runtimes)\n\nSame as before:\n`EraPayout::era_payout()` computes inflation from `total_staked`,\n`total_issuance`, and era duration. `MaxStakedRewards` caps the staker\nportion. Remainder goes to `RewardRemainder`. Tokens minted on payout.\n\n#### Runtime Changes\n**Staking Async**\n- `DisableMinting = ConstBool<false>`\n- `EraPayout` = same as before\n- `GeneralPots` / `EraPots` = `Seed<AnyPalletId>` (required to compile,\nnever called)\n\nNo DAP needed\n\n## Config Changes\n\n**Added:**\n- `DisableMinting: Get<bool>`: compile-time constant controlling which\nmode. **Irreversible** once `true`.\n- `UnclaimedRewardHandler`: receives unclaimed era rewards during stale\nera cleanup.\n- `GeneralPots` / `EraPots`: pot account providers for era reward\nbookkeeping.\n- `StakerRewardCalculator`: Implementation for commission based\nreward-split between the validator and nominators.\n\n**Preserved for legacy mode (Kusama):**\n- `EraPayout`, `RewardRemainder`, `MaxEraDuration`, `MaxStakedRewards`:\nused only when `DisableMinting = false`.\n\n**New storage:**\n- `MaxCommission`: upper bound on validator commission (defaults to\n100%).\n- `DisableMintingGuard`: safety guard: era from which legacy minting is\npermanently disabled on the payout side.\n\n**New extrinsic:**\n- `set_max_commission`: callable via `AdminOrigin` (StakingAdmin).\n\n## WAH\n- `PolkadotIssuanceCurve` replaces old `EraPayout` impl.\n- DAP `MigrateV1ToV2` migration.\n\n## TODO\n- [x] Run benchmark for staking and dap pallets.\n- [ ] Create issue to pre fund general staking pots with ED post merge.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Paolo La Camera <paolo@parity.io>",
-          "timestamp": "2026-04-13T18:52:53Z",
-          "tree_id": "70145afcf6b387bcb10b0058a0769cdf35f43afd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/de2291157851582dbdddec5bdd96c3d87d68cae8"
-        },
-        "date": 1776112152976,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14275579652666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02556176574666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00965772389999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007198427360000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010554346979999976,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "428b38c89a4db2639d0420713c3ed994d01242d6",
+          "message": "Remove dead code (#13609)\n\nThis PR removes more code that is no longer needed or is not even\ncompiled anymore.\n\n- `polkadot/node/core/approval-voting/src/approval_db/v1/tests.rs`: This\none is not compiled since the module is not referenced anywhere. V1 is\nalso not supported anymore by nodes.\n- `substrate/client/network/src/protocol/message.rs`: This is a legacy\nfile and also no longer used. The requests for light clients are now\ndefined\n[here](https://github.com/paritytech/polkadot-sdk/blob/f5b80bb77f92709695bf8fb00cb64c2db3238cd5/substrate/client/network/light/src/schema/light.v1.proto#L8)\nfor years.\n- Weight files are removed because they are no longer referenced and\nregenerated in different places now.",
+          "timestamp": "2026-10-28T12:07:25Z",
+          "tree_id": "276b12634b307317ee29930afa902c07d1bd633c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/428b38c89a4db2639d0420713c3ed994d01242d6"
+        },
+        "date": 1793214098887,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007622503786666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02526805852666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14361334655333338,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009933784339999988,
             "unit": "seconds"
           }
         ]
