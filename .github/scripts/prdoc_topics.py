@@ -2,8 +2,14 @@
 Shared access to the changelog topic taxonomy (`prdoc/topics.yaml`) for the prdoc tooling.
 
 The taxonomy and its matching rules are owned by the changelog generator
-(`scripts/release/changelog/generate.py`). This module loads both from a checkout so that
-`check-prdoc.py` and `generate-prdoc.py` accept exactly the `topic` values the changelog accepts.
+(`scripts/release/changelog/generate.py`). This module loads the matching rules from the tree this
+file is part of and the taxonomy from the checkout under review, so that `check-prdoc.py` and
+`generate-prdoc.py` accept exactly the `topic` values the changelog accepts.
+
+Keeping code and data apart matters for `/cmd prdoc`: the bot runs the scripts from a clone of the
+trusted `cmd-bot` branch with a checkout of the PR branch as working directory. Anyone can trigger
+`/cmd`, so the PR checkout is untrusted; only its `prdoc/topics.yaml` is read, nothing in it is
+executed.
 '''
 
 import importlib.util
@@ -12,23 +18,33 @@ import os
 TOPICS_PATH = 'prdoc/topics.yaml'
 CHANGELOG_GENERATOR = 'scripts/release/changelog/generate.py'
 
+# Root of the tree this module is part of (`.github/scripts/` -> repository root). In `/cmd` that is
+# the `cmd-bot` clone, in the PR check it is the PR checkout itself.
+OWN_REPO_ROOT = os.path.normpath(
+	os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
+
 class TaxonomyUnavailable(Exception):
 	'''
-	The checkout has no usable taxonomy (a branch that predates it). Callers decide whether that
-	is an error: the PR check skips, `--topic` refuses.
+	No usable taxonomy or matcher (a branch that predates them). Callers decide whether that is an
+	error: the PR check skips, `--topic` refuses.
 	'''
 
 def load_topic_matcher(repo_root='.'):
 	'''
-	Returns `(topics, match_topic)` from the generator in `repo_root`; `match_topic(value, topics)`
-	gives the matching topic or `None`. Raises `TaxonomyUnavailable` when the checkout predates the
-	taxonomy or the matcher; a malformed taxonomy raises a plain `Exception`.
+	Returns `(topics, match_topic)`: the topics of the taxonomy in `repo_root` and the matcher of
+	this tree's generator; `match_topic(value, topics)` gives the matching topic or `None`. Raises
+	`TaxonomyUnavailable` when either tree predates the taxonomy or the matcher; a malformed
+	taxonomy raises a plain `Exception`.
 	'''
 	taxonomy = os.path.join(repo_root, TOPICS_PATH)
-	generator = os.path.join(repo_root, CHANGELOG_GENERATOR)
-	for path in (taxonomy, generator):
-		if not os.path.exists(path):
-			raise TaxonomyUnavailable(f'{path} not found in this checkout')
+	if not os.path.exists(taxonomy):
+		raise TaxonomyUnavailable(f'{taxonomy} not found in this checkout')
+
+	# Deliberately not under `repo_root`: executing the generator of the checkout under review would
+	# run untrusted code in `/cmd`. The matcher is stable; a PR changing it is validated by this copy.
+	generator = os.path.join(OWN_REPO_ROOT, CHANGELOG_GENERATOR)
+	if not os.path.exists(generator):
+		raise TaxonomyUnavailable(f'{generator} not found next to the prdoc tooling')
 
 	spec = importlib.util.spec_from_file_location('changelog_generate', generator)
 	module = importlib.util.module_from_spec(spec)

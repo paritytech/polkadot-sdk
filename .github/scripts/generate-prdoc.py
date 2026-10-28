@@ -29,7 +29,9 @@ import prdoc_topics
 
 # Validate `--topic` against the taxonomy and normalize it to the topic id. The taxonomy is read
 # from the working directory on purpose: `/cmd` runs this script from the `cmd-bot` branch against
-# a checkout of the PR branch, and the taxonomy must be the PR's.
+# a checkout of the PR branch, and the taxonomy must be the PR's. Only that YAML is read from the
+# PR checkout; the matching code comes from this script's own tree (see prdoc_topics.py), so the
+# prdoc command never executes code from the PR branch.
 def translate_topic(topic):
 	if topic is None or not topic.strip():
 		return None
@@ -172,6 +174,13 @@ def setup_parser(parser=None, pr_required=True):
 def snake_to_title(s):
 	return ' '.join(word.capitalize() for word in s.split('_'))
 
+# The forwarded failure reason ends up in the bot's PR comment through a heredoc in $GITHUB_OUTPUT
+# and may quote content of the PR checkout (e.g. the topic ids of its taxonomy). Keep it to one
+# bounded line so that content can neither terminate the heredoc nor inject further output lines.
+def one_line(text, limit=1000):
+	text = " ".join(str(text).split())
+	return text if len(text) <= limit else text[:limit] + "..."
+
 # `log` lets cmd.py forward the failure reason to the PR comment instead of a bare "failed".
 def main(args, log=print):
 	print(f"Args: {args}, force: {args.force}")
@@ -180,7 +189,7 @@ def main(args, log=print):
 		from_pr_number(args.pr, args.audience, args.bump, args.force, args.topic)
 		return 0
 	except Exception as e:
-		log(f"Error generating prdoc: {e}")
+		log(one_line(f"Error generating prdoc: {e}"))
 		return 1
 
 if __name__ == "__main__":
