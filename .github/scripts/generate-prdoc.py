@@ -8,6 +8,7 @@ This will delete any prdoc that already exists for the PR if `--force` is passed
 
 Usage:
 	python generate-prdoc.py --pr 1234 --audience node_dev --bump patch
+	python generate-prdoc.py --pr 1234 --audience runtime_dev --bump minor --topic xcm
 """
 
 import argparse
@@ -22,18 +23,45 @@ from github import Github
 import whatthepatch
 from cargo_workspace import Workspace
 
+# Sibling module; this script is also loaded by cmd/cmd.py from another directory.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import prdoc_topics
+
+# Validate `--topic` against the taxonomy and normalize it to the topic id. The taxonomy is read
+# from the working directory on purpose: `/cmd` runs this script from the `cmd-bot` branch against
+# a checkout of the PR branch, and the taxonomy must be the PR's.
+def translate_topic(topic):
+	if topic is None or not topic.strip():
+		return None
+
+	try:
+		topics, match_topic = prdoc_topics.load_topic_matcher(".")
+	except prdoc_topics.TaxonomyUnavailable as e:
+		raise Exception(f"`--topic` is not available on this branch: {e}")
+
+	matched = match_topic(topic, topics)
+	if matched is None:
+		ids = ", ".join(prdoc_topics.topic_ids(topics))
+		raise Exception(f"Unknown topic '{topic}'. Valid topic ids (see {prdoc_topics.TOPICS_PATH}): {ids}")
+
+	print(f"Translated topic '{topic}' to '{matched['id']}'")
+	return matched["id"]
+
 # Download the patch and pass the info into `create_prdoc`.
-def from_pr_number(n, audience, bump, force):
+def from_pr_number(n, audience, bump, force, topic=None):
+	# Before any network access, so a typo fails fast.
+	topic = translate_topic(topic)
+
 	print(f"Fetching PR '{n}' from GitHub")
 	g = Github()
-	
+
 	repo = g.get_repo("paritytech/polkadot-sdk")
 	pr = repo.get_pull(n)
 
 	patch_url = pr.patch_url
 	patch = requests.get(patch_url).text
 
-	create_prdoc(n, audience, pr.title, pr.body, patch, bump, force)
+	create_prdoc(n, audience, pr.title, pr.body, patch, bump, force, topic)
 
 def translate_audience(audience):
 	aliases = {
@@ -51,19 +79,22 @@ def translate_audience(audience):
 	print(f"Translated audience '{audience}' to '{mapped}'")
 	return mapped
 
-def create_prdoc(pr, audience, title, description, patch, bump, force):
+def create_prdoc(pr, audience, title, description, patch, bump, force, topic=None):
 	path = f"prdoc/pr_{pr}.prdoc"
 
 	if os.path.exists(path):
 		if force == True:
 			print(f"Overwriting existing PrDoc for PR {pr}")
 		else:
-			print(f"PrDoc already exists for PR {pr}. Use --force to overwrite.")
-			sys.exit(1)
+			raise Exception(f"PrDoc already exists for PR {pr}. Use --force to overwrite.")
 	else:
 		print(f"No preexisting PrDoc for PR {pr}")
 
-	prdoc = { "title": title, "doc": [{}], "crates": [] }
+	prdoc = { "title": title }
+	if topic is not None:
+		prdoc["topic"] = topic
+	prdoc["doc"] = [{}]
+	prdoc["crates"] = []
 	audience = translate_audience(audience)
 
 	prdoc["doc"][0]["audience"] = audience
@@ -84,7 +115,7 @@ def create_prdoc(pr, audience, title, description, patch, bump, force):
 		p = os.path.join(workspace.path, p)
 		while not os.path.exists(os.path.join(p, "Cargo.toml")):
 			if p == '/':
-				exit(1)
+				raise Exception("No Cargo.toml found for a modified path (walked up to /)")
 			p = os.path.dirname(p)
 
 		with open(os.path.join(p, "Cargo.toml")) as f:
@@ -135,22 +166,24 @@ def setup_parser(parser=None, pr_required=True):
 	parser.add_argument("--audience", type=str, nargs='*', choices=allowed_audiences, default=["todo"], help="The audience of whom the changes may concern. Example: --audience runtime_dev node_dev")
 	parser.add_argument("--bump", type=str, default="major", choices=["patch", "minor", "major", "silent", "ignore", "none"], help="A default bump level for all crates. Example: --bump patch")
 	parser.add_argument("--force", action="store_true", help="Whether to overwrite any existing PrDoc.")
+	parser.add_argument("--topic", type=str, default=None, help="Optional changelog topic, one of the ids in prdoc/topics.yaml. Omit it to let the changelog derive the topic from the modified crates. Example: --topic xcm")
 	return parser
 
 def snake_to_title(s):
 	return ' '.join(word.capitalize() for word in s.split('_'))
 
-def main(args):
+# `log` lets cmd.py forward the failure reason to the PR comment instead of a bare "failed".
+def main(args, log=print):
 	print(f"Args: {args}, force: {args.force}")
 	setup_yaml()
 	try:
-		from_pr_number(args.pr, args.audience, args.bump, args.force)
+		from_pr_number(args.pr, args.audience, args.bump, args.force, args.topic)
 		return 0
 	except Exception as e:
-		print(f"Error generating prdoc: {e}")
+		log(f"Error generating prdoc: {e}")
 		return 1
 
 if __name__ == "__main__":
 	parser = setup_parser()
 	args = parser.parse_args()
-	main(args)
+	sys.exit(main(args))
