@@ -1,0 +1,20 @@
+title: ' [Release|CI/CD] prdoc: make the changelog topic field usable by contributors'
+doc:
+- audience: Node Dev
+  description: |-
+    Closes: https://github.com/paritytech/release-engineering/issues/300
+
+    Part of paritytech/polkadot-sdk#6424
+
+    Makes the optional prdoc `topic` override discoverable and safe to use. Now `topic` can be added (if needed) in three ways:
+    1. Auto generated based on the schema
+    2. Directly in the .prdoc file using `topic` field
+    3. Bu using `cmd-bot`: `/cmd prdoc --topic <id>` with the reason posted back on failure
+
+    Also added:
+    - docs in schema, template and docs;
+    - soft validation in `check-prdoc.py` (warning, never a failure);
+    - unknown values are a notice in the changelog generator (and its CI job summary) instead of a  failed --check.
+
+    Topic matching lives in one place (`match_topic` in generate.py, shared via .github/scripts/prdoc_topics.py), with `aliases` for legacy values.
+crates: []
