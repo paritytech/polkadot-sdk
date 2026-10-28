@@ -3,12 +3,11 @@ title: '[pallet-revive] Derive child trie ids from the deletion queue counter'
 doc:
 - audience: Runtime User
   description: |-
-    The child trie id of a new contract is now derived from its address, the deployer's nonce and
-    the insert counter of the deletion queue, instead of the address and the deployer's nonce
-    only. A contract created at the address of a terminated contract therefore never shares the
-    terminated contract's storage, also while that storage is still waiting in the deletion queue.
+    Trie ids of new contracts also depend on the deletion queue insert counter, so they are unique
+    per address across terminations. They are derived from the address, the deployer's nonce and
+    that counter.
 
-    Existing contracts keep their trie ids, and queued deletions are unchanged.
+    Existing contracts keep their trie ids.
 
     Off-chain tools that compute a contract's trie id from its address and the deployer's nonce
     must read `trie_id` from the contract's `ContractInfo` in `AccountInfoOf` instead. The id of a

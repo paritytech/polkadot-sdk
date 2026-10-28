@@ -1741,15 +1741,11 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 enum ChildCreation {
 	/// CREATE2 with a fixed salt.
 	Create2,
-	/// CREATE1. A factory whose account was reaped starts again at nonce 1, so its first child
-	/// lands at the same address again.
+	/// CREATE1.
 	Create1,
 }
 
 /// `RedeployFactory` and `RedeployChild` compiled for one backend.
-///
-/// The factory is instantiated with a fixed salt, so a factory deployed again after termination
-/// deploys its child at the same address again.
 struct Redeploy {
 	factory_code: Vec<u8>,
 	child_code: Vec<u8>,
@@ -1832,12 +1828,11 @@ fn terminate_child(child: H160) {
 fn assert_trie_not_queued(child: H160) {
 	let trie_id = get_contract(&child).trie_id;
 	let queued: Vec<_> = DeletionQueue::<Test>::iter().map(|(_, item)| item.trie_id).collect();
-	assert!(!queued.is_empty(), "the old child is still queued");
-	assert!(!queued.contains(&trie_id), "the new child uses the trie of a queued contract");
+	assert!(!queued.is_empty(), "the terminated child is still queued");
+	assert!(!queued.contains(&trie_id), "the new child has its own trie");
 }
 
-/// Terminates the child and then the factory and checks that the factory account is reaped and
-/// that no `NativeDepositOf` rows block a redeployment.
+/// Terminates the child and then the factory.
 fn terminate_child_and_factory(factory: &Contract<Test>, child: H160) {
 	terminate_child(child);
 	let beneficiary = DJANGO_ADDR.0.into();
@@ -1859,8 +1854,7 @@ fn deposit_held(account: &AccountId32) -> u128 {
 	)
 }
 
-/// Runs `test` with ALICE funded in native currency and PGAS, so every deposit she causes is paid
-/// in PGAS and no `NativeDepositOf` rows block a redeployment.
+/// Runs `test` with ALICE funded in native currency and PGAS.
 fn with_pgas_funded_alice(test: impl FnOnce()) {
 	ExtBuilder::default()
 		.with_pgas_balances(vec![(ALICE, 1_000_000_000_000)])
@@ -1871,8 +1865,8 @@ fn with_pgas_funded_alice(test: impl FnOnce()) {
 		});
 }
 
-/// A factory and its child are terminated and both deployed again at the same addresses before
-/// the deletion queue runs. The new child must get its own trie and start with empty storage.
+/// A contract created at the address of a terminated contract gets its own trie and starts with
+/// empty storage.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[ChildCreation::Create2, ChildCreation::Create1]
@@ -1892,13 +1886,12 @@ fn redeployed_child_does_not_share_storage_with_queued_child(
 		assert_eq!(new_factory.addr, factory.addr);
 		assert_eq!(new_child, child);
 		assert_trie_not_queued(new_child);
-		assert_eq!(value(new_child), 0, "the new child must not see the storage of the old one");
+		assert_eq!(value(new_child), 0, "the new child starts with empty storage");
 	});
 }
 
-/// Draining the queue entry of the old child must not delete storage that the redeployed child
-/// wrote. The new child writes a slot the old one never used, so the check does not depend on
-/// what the new child reads from the old slot.
+/// A contract created at the address of a terminated contract keeps its storage when the deletion
+/// queue runs.
 #[test_matrix(
 	[FixtureType::Solc, FixtureType::Resolc],
 	[ChildCreation::Create2, ChildCreation::Create1]
@@ -1918,12 +1911,12 @@ fn draining_queued_child_keeps_storage_of_redeployed_child(
 		set_other(new_child, 7);
 		Contracts::on_idle(System::block_number(), Weight::MAX);
 		assert_eq!(DeletionQueue::<Test>::iter().count(), 0, "deletion queue drained");
-		assert_eq!(other(new_child), 7, "the old child's queue entry deleted the new storage");
+		assert_eq!(other(new_child), 7, "the new child keeps its storage");
 	});
 }
 
-/// Writing a slot charges the same deposit in the redeployed child as in the original one, and
-/// the contract's storage counters record it.
+/// A contract created at the address of a terminated contract is charged for what it writes, the
+/// same as the original contract, and its storage counters record it.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType) {
@@ -1955,8 +1948,8 @@ fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType
 	});
 }
 
-/// Clearing a slot that only the old child wrote must not release deposit from the redeployed
-/// child. The new child pays for one slot of its own, so any release comes out of that deposit.
+/// Writing zero to an empty slot of a contract created at the address of a terminated contract
+/// changes neither its deposit nor its storage counters.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: FixtureType) {
@@ -1984,15 +1977,14 @@ fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: Fixtur
 				Assets::balance(PGAS_ASSET_ID, &ALICE),
 			),
 			(held_before, info_before.extra_deposit(), 1, alice_pgas_before),
-			"(deposit held, extra deposit, storage items, ALICE PGAS) after clearing the old slot",
+			"(deposit held, extra deposit, storage items, ALICE PGAS) after clearing an empty slot",
 		);
 		assert_eq!(other(new_child), 5);
 	});
 }
 
-/// The child and the factory are terminated, and the factory and its child deployed again, all in
-/// one `batch_all`. The new child is created in the extrinsic that queued the old one and must
-/// still get its own trie.
+/// A contract created at the address of a contract terminated earlier in the same extrinsic gets
+/// its own trie and starts with empty storage.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn child_redeployed_in_same_batch_does_not_share_storage(fixture_type: FixtureType) {
@@ -2036,14 +2028,12 @@ fn child_redeployed_in_same_batch_does_not_share_storage(fixture_type: FixtureTy
 		assert!(get_contract_checked(&factory.addr).is_some(), "factory deployed again");
 		assert_eq!(DeletionQueue::<Test>::iter().count(), 2, "both tries are queued");
 		assert_trie_not_queued(child);
-		assert_eq!(value(child), 0, "the new child must not see the storage of the old one");
+		assert_eq!(value(child), 0, "the new child starts with empty storage");
 	});
 }
 
-/// A factory and its child are created and self-destructed in one transaction, which deletes
-/// both under EIP-6780 without the system precompile. A later transaction creates them again at
-/// the same addresses before the deletion queue runs. The new child must start with empty
-/// storage.
+/// A contract created at the address of a contract deleted by `SELFDESTRUCT` in an earlier
+/// transaction gets its own trie and starts with empty storage.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn child_recreated_after_same_tx_selfdestruct_does_not_share_storage(fixture_type: FixtureType) {
@@ -2088,6 +2078,6 @@ fn child_recreated_after_same_tx_selfdestruct_does_not_share_storage(fixture_typ
 		assert_eq!(H160::from_slice(created.factory.as_slice()), factory);
 		assert_eq!(H160::from_slice(created.child.as_slice()), child);
 		assert_trie_not_queued(child);
-		assert_eq!(value(child), 0, "the new child must not see the storage of the old one");
+		assert_eq!(value(child), 0, "the new child starts with empty storage");
 	});
 }

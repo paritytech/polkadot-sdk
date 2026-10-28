@@ -775,9 +775,7 @@ pub mod pallet {
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
 	///
-	/// New contracts derive their child trie id from the insert counter. It must never decrease
-	/// or be reset, or a new contract could share the trie of a terminated contract at the same
-	/// address that is still in the queue.
+	/// Monotonic; never decreases or resets.
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> =
 		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
