@@ -19,9 +19,10 @@
 //! A [`Script`] describes an initial state and a sequence of blocks shaped like real block
 //! execution. [`run_script`] executes it through the real storage host functions
 //! ([`sp_io::storage`], [`sp_io::default_child_storage`] and
-//! [`storage_proof_size::storage_proof_size`], whose latest version runs
-//! `Externalities::record_proof_for_dirty_keys`) and checks that the final `storage_root` never
-//! records a trie node that the last estimation did not already record.
+//! [`storage_proof_size::storage_proof_size`], preceded by
+//! `Externalities::record_proof_for_dirty_keys` as in version 2 of the host function) and checks
+//! that the final `storage_root` never records a trie node that the last estimation did not
+//! already record.
 //!
 //! Hard invariants (violations panic in [`run_script`]):
 //!
@@ -907,8 +908,13 @@ impl Ctx {
 		self.free_estimates = 0;
 	}
 
-	/// Calls the v2 host function, records the value and checks monotonicity.
+	/// Does what the v2 host function does, records the value and checks monotonicity.
 	fn estimate(&mut self, pos: EstimatePos) -> u64 {
+		// Version 2 of `storage_proof_size` is `register_only`, so the bare call below resolves to
+		// version 1 and the runtime-interface macro keeps the versioned functions private. The
+		// estimation is therefore run by hand first, which is exactly what version 2 does when
+		// `ProofSizeExt` is registered. Must stay in sync with the version 2 body.
+		sp_externalities::with_externalities(|ext| ext.record_proof_for_dirty_keys());
 		let size = storage_proof_size::storage_proof_size();
 		self.estimates += 1;
 		if let Some(prev) = self.last_estimate {
@@ -1288,13 +1294,14 @@ fn execute(script: &Script, estimate: bool) -> Result<Vec<BlockRun>, Failure> {
 ///   No host transactions, no `enter_runtime`; the runtime's own transactions
 ///   (`with_storage_layer`, [`Op::Tx`]) are the only layers.
 /// - Extrinsics with `client_outcome == Rollback` are not part of the block and are skipped.
-/// - `validate_block` answers `storage_proof_size` with `ext.record_proof_for_dirty_keys()` and the
-///   `estimate_encoded_size()` of a `SizeOnlyRecorderProvider`. The harness calls the real host
-///   function, which does the same through `ProofSizeExt` on a `Recorder`. Both sum the encoded
-///   sizes of the distinct recorded nodes and values; `recorder_equivalence_cache` and
-///   `recorder_equivalence_no_cache` in `validate_block/trie_recorder.rs` assert that the two
-///   report the same size. The validator side has no `std` child-root cache in production; here the
-///   proof backend has one, which is harmless without host rollbacks.
+/// - With version 2 enabled, `validate_block` answers `storage_proof_size` with
+///   `ext.record_proof_for_dirty_keys()` and the `estimate_encoded_size()` of a
+///   `SizeOnlyRecorderProvider`. The harness does the same through `ProofSizeExt` on a `Recorder`.
+///   Both sum the encoded sizes of the distinct recorded nodes and values;
+///   `recorder_equivalence_cache` and `recorder_equivalence_no_cache` in
+///   `validate_block/trie_recorder.rs` assert that the two report the same size. The validator side
+///   has no `std` child-root cache in production; here the proof backend has one, which is harmless
+///   without host rollbacks.
 fn validate_block(
 	config: &Config,
 	block_index: usize,
