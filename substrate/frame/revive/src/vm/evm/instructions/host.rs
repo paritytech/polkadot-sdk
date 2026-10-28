@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, StorageAccessKind, U256,
+	ContractLogTopics, DispatchError, Error, Key, LOG_TARGET, RuntimeCosts, StorageAccessKind,
+	U256,
 	access_list::StorageOp,
 	limits,
 	metering::Token,
@@ -256,6 +257,8 @@ pub fn tload<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 pub fn log<'ext, const N: usize, E: Ext>(
 	interpreter: &mut Interpreter<'ext, E>,
 ) -> ControlFlow<Halt> {
+	const { assert!(N as u32 <= limits::NUM_EVENT_TOPICS) };
+
 	if interpreter.ext.is_read_only() {
 		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
 	}
@@ -280,7 +283,12 @@ pub fn log<'ext, const N: usize, E: Ext>(
 		return ControlFlow::Break(Error::<E::T>::StackUnderflow.into());
 	}
 	let topics = interpreter.stack.popn::<N>()?;
-	let topics = topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
+	let topics: Vec<_> =
+		topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
+	// Cannot fail: `N` is checked against `NUM_EVENT_TOPICS` at compile time above.
+	let Ok(topics) = ContractLogTopics::try_from(topics) else {
+		return ControlFlow::Break(Error::<E::T>::TooManyTopics.into());
+	};
 
 	interpreter.ext.deposit_event(topics, data.to_vec());
 	ControlFlow::Continue(())

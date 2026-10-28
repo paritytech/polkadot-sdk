@@ -39,7 +39,7 @@ events during Ethereum block construction:
 ```text
 Total Weight = fixed_part +
                Σ(per_tx_part(payload_i)) +
-               Σ(per_event_part(data_len_j)) +
+               Σ(per_event_part(event_bytes_j)) +
                Σ(per_outside_frame_log_part(data_len_k))
 ```
 
@@ -47,7 +47,8 @@ Total Weight = fixed_part +
 The pallet exposes these weight calculation methods for runtime use:
 - **Fixed cost**: `on_finalize_block_fixed()` - Base overhead regardless of transaction/event count
 - **Per-transaction cost**: `on_finalize_block_per_tx(payload_size)` - Applied incrementally during each `eth_call()`
-- **Per-event cost**: `on_finalize_block_per_event(data_len)` - Applied dynamically during each `deposit_event()`
+- **Per-event cost**: `on_finalize_block_per_event(event_bytes)` - Applied dynamically during each `deposit_event()`,
+  with `event_bytes` counting 32 bytes per topic plus the data
 - **Per-outside-of-frame-log cost**: `per_outside_frame_log(data_len)` - Applied when a log emitted outside an
   ethereum transaction is buffered for the block's synthetic transaction
 

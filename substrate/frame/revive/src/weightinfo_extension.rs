@@ -49,11 +49,11 @@ pub trait OnFinalizeBlockParts {
 	/// - Data-dependent costs (RLP encoding scales with event data size)
 	/// - Storage operations for event persistence
 	///
-	/// Uses differential cost calculation: `per_event_base + (data_len * per_byte_cost)`
+	/// Uses differential cost calculation: `per_event_base + (event_bytes * per_byte_cost)`
 	///
 	/// # Parameters
-	/// - `data_len`: Total bytes of event data (includes topics and data field)
-	fn on_finalize_block_per_event(data_len: u32) -> Weight;
+	/// - `event_bytes`: Total bytes of the event (includes topics and data field)
+	fn on_finalize_block_per_event(event_bytes: u32) -> Weight;
 
 	/// Returns the weight of draining one buffered outside-of-frame log (see `OutsideFrameLogs`)
 	/// in `on_finalize`.
@@ -123,17 +123,17 @@ impl<W: WeightInfo> OnFinalizeBlockParts for W {
 		per_tx_cost.saturating_add(payload_cost)
 	}
 
-	fn on_finalize_block_per_event(data_len: u32) -> Weight {
-		// Calculate marginal cost of adding one event with given data length
+	fn on_finalize_block_per_event(event_bytes: u32) -> Weight {
+		// Calculate marginal cost of adding one event with given size
 		// Combines results from two linearly independent benchmarks:
 
 		// 1. Event count cost: marginal cost of one additional event
 		let per_event_cost =
 			W::on_finalize_per_event(1).saturating_sub(W::on_finalize_per_event(0));
 
-		// 2. Event data cost: marginal cost per byte of event data
-		let data_cost = if data_len > 0 {
-			let per_byte_cost = W::on_finalize_per_event_data(data_len)
+		// 2. Event data cost: marginal cost per byte of event topics and data
+		let data_cost = if event_bytes > 0 {
+			let per_byte_cost = W::on_finalize_per_event_data(event_bytes)
 				.saturating_sub(W::on_finalize_per_event_data(0));
 			per_byte_cost
 		} else {

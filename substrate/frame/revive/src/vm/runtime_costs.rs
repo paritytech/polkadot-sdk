@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	Config,
+	Config, H256,
 	access_list::{StorageOp, Warmth},
 	limits,
 	metering::Token,
@@ -107,6 +107,12 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_terminate`.
 	Terminate { code_removed: bool },
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
+	///
+	/// `len` is the size of the data field. The per-byte charges for storing the event and adding
+	/// it to the receipt apply to the topic bytes (32 per topic) plus `len`. The topic count is
+	/// clamped to [`limits::NUM_EVENT_TOPICS`] for these charges. The event sink only accepts
+	/// [`ContractLogTopics`](crate::ContractLogTopics), which holds at most that many topics, so
+	/// the clamp cannot undercharge an event that is stored.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
@@ -347,12 +353,22 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					T::WeightInfo::seal_terminate(code_removed.into())
 				}
 			},
-			DepositEvent { num_topic, len } => T::WeightInfo::seal_deposit_event(num_topic, len)
-				.saturating_add(T::WeightInfo::on_finalize_block_per_event(len))
-				.saturating_add(Weight::from_parts(
-					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
-					0,
-				)),
+			DepositEvent { num_topic, len } => {
+				// The event is stored and RLP encoded into the receipt with its topics, so the
+				// per-byte charges count them. `on_finalize_per_event_data` measures the same sum.
+				// The topic count is clamped to `NUM_EVENT_TOPICS`, so a count above the limit is
+				// charged the topic bytes of the maximum valid count. The event sink takes
+				// `ContractLogTopics`, so a stored event never has more topics than the clamp.
+				let topic_bytes =
+					num_topic.min(limits::NUM_EVENT_TOPICS) * H256::len_bytes() as u32;
+				let event_bytes = len.saturating_add(topic_bytes);
+				T::WeightInfo::seal_deposit_event(num_topic, len)
+					.saturating_add(T::WeightInfo::on_finalize_block_per_event(event_bytes))
+					.saturating_add(Weight::from_parts(
+						limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(event_bytes.into()),
+						0,
+					))
+			},
 			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
 				StorageOp::Write,
 				kind,
