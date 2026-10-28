@@ -92,6 +92,31 @@ pub struct Quote {
 	pub price: Price,
 }
 
+/// The outcome of aggregating one pair: its votes against its quorum, and its price if the
+/// votes reached the quorum.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct PairAggregate {
+	/// The pair being priced.
+	pub pair: PairId,
+	/// The votes the pair got, direct and converted.
+	pub votes: u32,
+	/// The votes the pair needs to be priced.
+	pub quorum: u32,
+	/// The price of the pair, `None` if the votes did not reach the quorum.
+	pub price: Option<Price>,
+}
+
 /// The rules a node follows for a tick: who may sign, how old a report may be, how often to
 /// tick.
 #[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
