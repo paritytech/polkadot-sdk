@@ -93,6 +93,22 @@ mod benches {
 		// Orders can only be placed while on-demand Coretime is sold
 		Enabled::<T>::put(true);
 
+		// The order is booked against timeslice `max_unclaimed`, while the revenue of every
+		// older timeslice is still unclaimed. The history is full, so booking the order takes
+		// the longest path: the new record is inserted in front of all the others, and the
+		// oldest one is pushed out and merged into the next oldest.
+		let max_unclaimed = T::MaxUnclaimedTimeslices::get();
+		T::RelayBlockNumberProvider::set_block_number(
+			T::TimeslicePeriod::get().saturating_mul(max_unclaimed.into()),
+		);
+		let revenue: Vec<RevenueRecordOf<T>> = (0..max_unclaimed)
+			.rev()
+			.map(|when| RevenueRecord { when, amount: base_fee })
+			.collect();
+		Revenue::<T>::put(
+			BoundedVec::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
+		);
+
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
 		#[block]
@@ -104,6 +120,15 @@ mod benches {
 			)
 			.map_err(|_| BenchmarkError::Stop("place_order failed"))?;
 		}
+
+		let revenue = Revenue::<T>::get();
+		assert_eq!(revenue.len(), max_unclaimed as usize);
+		assert_eq!(revenue.first().map(|record| record.when), Some(max_unclaimed));
+		// The oldest timeslice's revenue was merged into the next oldest one's.
+		assert_eq!(
+			revenue.last().map(|record| (record.when, record.amount)),
+			Some((1, base_fee.saturating_mul(2u32.into())))
+		);
 
 		Ok(())
 	}

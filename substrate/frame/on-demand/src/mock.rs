@@ -78,6 +78,11 @@ impl BlockNumberProvider for MockRelayBlockNumberProvider {
 	fn current_block_number() -> Self::BlockNumber {
 		RELAY_BLOCK_NUMBER.with(|n| *n.borrow())
 	}
+
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_block_number(block: Self::BlockNumber) {
+		set_relay_block_number(block);
+	}
 }
 
 /// Stands in for the XCM that would carry the batch to the Relay chain.
