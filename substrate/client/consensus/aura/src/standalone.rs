@@ -156,9 +156,7 @@ where
 /// This fails if there is no pre-digest or there are multiple.
 ///
 /// Returns the `slot` stored in the pre-digest or an error if no pre-digest was found.
-pub fn find_pre_digest<B: BlockT, Signature: Codec>(
-	header: &B::Header,
-) -> Result<Slot, PreDigestLookupError> {
+pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<Slot, PreDigestLookupError> {
 	if header.number().is_zero() {
 		return Ok(0.into());
 	}
@@ -285,8 +283,7 @@ where
 			},
 		})?;
 
-	let slot = find_pre_digest::<B, P::Signature>(&header)
-		.map_err(SealVerificationError::InvalidPreDigest)?;
+	let slot = find_pre_digest::<B>(&header).map_err(SealVerificationError::InvalidPreDigest)?;
 
 	if slot > slot_now {
 		header.digest_mut().push(seal);
