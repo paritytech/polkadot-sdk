@@ -67,3 +67,5 @@ crates:
   bump: minor
 - name: pallet-assets-precompiles
   bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
