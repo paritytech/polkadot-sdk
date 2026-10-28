@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793125473790,
+  "lastUpdate": 1793214235286,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a5a89478428fb46b8cc378e9003a046bc4a0eece",
-          "message": "Westend AH: Add PSM (#11529)\n\n## Summary\n\nThis PR adds the PSM pallet to the Westend Asset Hub runtime and\nintroduces remote integration tests that run against live on-chain\nstate.\n\n**Runtime configuration:**\n\npUSD asset ID: 50000342\nPSM cap: 5 mil\nFee destination: pUSD insurance fund (`PalletId(*b\"pusd/ins\")`)\nV1 migration initializes USDT (1984) as the first external asset with 0%\nminting fee and 0.01% redemption fee\n\n### Remote tests\nThe tests fetch the Assets pallet state from a live Asset Hub node via\nRPC, inject PSM configuration and check the core functionality:\n\n`mint_and_redeem`: mints pUSD by depositing an external stablecoin, then\nredeems it back. Verifies balances, debt tracking, and fee accounting.\n`circuit_breaker`: tests all three circuit breaker levels\n(MintingDisabled, AllDisabled, AllEnabled) and verifies the correct\noperations are blocked/allowed at each level.\n\nState is fetched once from the RPC node and cached to a local snapshot\nfile so the second test doesn't need another round trip.\n\n### Running\nWith USDT as the external asset:\n```\nRUST_LOG=runtime::psm=info cargo run -p remote-ext-tests-psm -- --asset-id 1984\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-13T06:39:56Z",
-          "tree_id": "9c8dab6e8dd86ccfd8e9776723646427d5559ea4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a5a89478428fb46b8cc378e9003a046bc4a0eece"
-        },
-        "date": 1776068153132,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06199999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038159063733999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0811316861359999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08087599592599991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mail@skunert.dev",
+            "name": "Sebastian Kunert",
+            "username": "skunert"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "428b38c89a4db2639d0420713c3ed994d01242d6",
+          "message": "Remove dead code (#13609)\n\nThis PR removes more code that is no longer needed or is not even\ncompiled anymore.\n\n- `polkadot/node/core/approval-voting/src/approval_db/v1/tests.rs`: This\none is not compiled since the module is not referenced anywhere. V1 is\nalso not supported anymore by nodes.\n- `substrate/client/network/src/protocol/message.rs`: This is a legacy\nfile and also no longer used. The requests for light clients are now\ndefined\n[here](https://github.com/paritytech/polkadot-sdk/blob/f5b80bb77f92709695bf8fb00cb64c2db3238cd5/substrate/client/network/light/src/schema/light.v1.proto#L8)\nfor years.\n- Weight files are removed because they are no longer referenced and\nregenerated in different places now.",
+          "timestamp": "2026-10-28T12:07:25Z",
+          "tree_id": "276b12634b307317ee29930afa902c07d1bd633c",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/428b38c89a4db2639d0420713c3ed994d01242d6"
+        },
+        "date": 1793214205990,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.08799999999994,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08489755351399986,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03859052147,
             "unit": "seconds"
           }
         ]
