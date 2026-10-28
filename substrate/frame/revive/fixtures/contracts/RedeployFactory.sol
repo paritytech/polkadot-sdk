@@ -3,13 +3,18 @@ pragma solidity ^0.8.30;
 
 import "@revive/ISystem.sol";
 
-/// Deploys `RedeployChild` with CREATE2 at a fixed salt. A factory re-created at the same address
-/// therefore deploys its child at the same address again. Both contracts terminate themselves
+/// Deploys `RedeployChild` with CREATE2 at a fixed salt or with CREATE1. A factory re-created at
+/// the same address therefore deploys its child at the same address again: the salt is fixed, and
+/// a factory whose account was reaped starts again at nonce 1. Both contracts terminate themselves
 /// through the system precompile, so termination works across transactions. `selfDestruct` uses
 /// the SELFDESTRUCT opcode, which only deletes a contract created in the same transaction.
 contract RedeployFactory {
 	function deployChild() external returns (address) {
 		return address(new RedeployChild{salt: bytes32(0)}());
+	}
+
+	function deployChildCreate1() external returns (address) {
+		return address(new RedeployChild());
 	}
 
 	function terminate(address beneficiary) external {

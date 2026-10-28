@@ -23,12 +23,14 @@ use crate::{
 	metering::TransactionLimits,
 	storage::AccountType,
 	test_utils::{
-		ALICE, BOB, BOB_ADDR, CHARLIE, DJANGO, DJANGO_ADDR, WEIGHT_LIMIT,
+		ALICE, BOB, BOB_ADDR, DJANGO, DJANGO_ADDR, WEIGHT_LIMIT,
 		builder::{BareCallBuilder, Contract},
+		deposit_limit,
 	},
 	tests::{
-		Assets, Balances, BurnDestination, Contracts, ExtBuilder, PGAS_ASSET_ID,
-		RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, System, Test, builder, pallet_dummy,
+		Assets, Balances, BurnDestination, Contracts, ExtBuilder, PGAS_ASSET_ID, RuntimeCall,
+		RuntimeFreezeReason, RuntimeHoldReason, RuntimeOrigin, System, Test, Utility, builder,
+		pallet_dummy,
 		test_utils::{
 			get_balance, get_balance_on_hold, get_code_deposit, get_contract, get_contract_checked,
 			set_balance_with_dust,
@@ -1735,33 +1737,37 @@ fn syscall_in_nested_constructor_deletes_contract(fixture_type: FixtureType) {
 	});
 }
 
+/// How `RedeployFactory` deploys its child.
+enum ChildCreation {
+	/// CREATE2 with a fixed salt.
+	Create2,
+	/// CREATE1. A factory whose account was reaped starts again at nonce 1, so its first child
+	/// lands at the same address again.
+	Create1,
+}
+
 /// `RedeployFactory` and `RedeployChild` compiled for one backend.
 ///
-/// The factory is instantiated with a fixed salt and deploys the child with a fixed salt, so a
-/// factory deployed again after termination deploys its child at the same address again.
+/// The factory is instantiated with a fixed salt, so a factory deployed again after termination
+/// deploys its child at the same address again.
 struct Redeploy {
 	factory_code: Vec<u8>,
 	child_code: Vec<u8>,
 	fixture_type: FixtureType,
+	creation: ChildCreation,
 }
 
 impl Redeploy {
-	fn compile(fixture_type: FixtureType) -> Self {
+	fn compile(fixture_type: FixtureType, creation: ChildCreation) -> Self {
 		let (factory_code, _) = compile_module_with_type("RedeployFactory", fixture_type).unwrap();
 		let (child_code, _) = compile_module_with_type("RedeployChild", fixture_type).unwrap();
-		Self { factory_code, child_code, fixture_type }
+		Self { factory_code, child_code, fixture_type, creation }
 	}
 
 	/// Deploys the factory and lets it deploy one child.
 	fn deploy(&self) -> (Contract<Test>, H160) {
 		let factory = builder::bare_instantiate(Code::Upload(self.factory_code.clone()))
 			.build_and_unwrap_contract();
-		let child = self.deploy_child(factory.addr);
-		(factory, child)
-	}
-
-	/// Lets `factory` deploy its child and returns the child's address.
-	fn deploy_child(&self, factory: H160) -> H160 {
 		if self.fixture_type == FixtureType::Resolc {
 			// PVM needs the child code uploaded. Terminating the only child that uses it removes
 			// it again.
@@ -1771,45 +1777,63 @@ impl Redeploy {
 				<BalanceOf<Test>>::MAX,
 			));
 		}
-		let result = call_ok(&ALICE, factory, RedeployFactory::deployChildCall {}.abi_encode());
-		let child = RedeployFactory::deployChildCall::abi_decode_returns(&result.data).unwrap();
-		H160::from_slice(child.as_slice())
+		let child = match self.creation {
+			ChildCreation::Create2 => {
+				let data = RedeployFactory::deployChildCall {}.abi_encode();
+				let result = call_ok(factory.addr, data);
+				RedeployFactory::deployChildCall::abi_decode_returns(&result.data).unwrap()
+			},
+			ChildCreation::Create1 => {
+				let data = RedeployFactory::deployChildCreate1Call {}.abi_encode();
+				let result = call_ok(factory.addr, data);
+				RedeployFactory::deployChildCreate1Call::abi_decode_returns(&result.data).unwrap()
+			},
+		};
+		(factory, H160::from_slice(child.as_slice()))
 	}
 }
 
-/// Calls `dest` from `origin` and asserts that the call did not revert.
-fn call_ok(origin: &AccountId32, dest: H160, data: Vec<u8>) -> ExecReturnValue {
-	let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(origin.clone()), dest)
+/// Calls `dest` from ALICE and asserts that the call did not revert.
+fn call_ok(dest: H160, data: Vec<u8>) -> ExecReturnValue {
+	let result = BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(ALICE), dest)
 		.data(data)
 		.build_and_unwrap_result();
 	assert!(!result.did_revert(), "call to {dest:?} reverted: {}", decode_error(&result.data));
 	result
 }
 
-fn set_value(origin: &AccountId32, child: H160, value: u64) {
+fn set_value(child: H160, value: u64) {
 	let new_value = alloy_core::primitives::U256::from(value);
-	call_ok(origin, child, RedeployChild::setValueCall { newValue: new_value }.abi_encode());
+	call_ok(child, RedeployChild::setValueCall { newValue: new_value }.abi_encode());
 }
 
 fn set_other(child: H160, value: u64) {
 	let new_value = alloy_core::primitives::U256::from(value);
-	call_ok(&ALICE, child, RedeployChild::setOtherCall { newValue: new_value }.abi_encode());
+	call_ok(child, RedeployChild::setOtherCall { newValue: new_value }.abi_encode());
 }
 
 fn value(child: H160) -> u64 {
-	let result = call_ok(&ALICE, child, RedeployChild::valueCall {}.abi_encode());
+	let result = call_ok(child, RedeployChild::valueCall {}.abi_encode());
 	RedeployChild::valueCall::abi_decode_returns(&result.data).unwrap().to::<u64>()
 }
 
 fn other(child: H160) -> u64 {
-	let result = call_ok(&ALICE, child, RedeployChild::otherCall {}.abi_encode());
+	let result = call_ok(child, RedeployChild::otherCall {}.abi_encode());
 	RedeployChild::otherCall::abi_decode_returns(&result.data).unwrap().to::<u64>()
 }
 
 fn terminate_child(child: H160) {
 	let beneficiary = DJANGO_ADDR.0.into();
-	call_ok(&ALICE, child, RedeployChild::terminateCall { beneficiary }.abi_encode());
+	call_ok(child, RedeployChild::terminateCall { beneficiary }.abi_encode());
 	assert!(get_contract_checked(&child).is_none(), "child must be deleted");
+}
+
+/// Asserts that the contract at `child` does not use the trie of a contract in the deletion queue.
+fn assert_trie_not_queued(child: H160) {
+	let trie_id = get_contract(&child).trie_id;
+	let queued: Vec<_> = DeletionQueue::<Test>::iter().map(|(_, item)| item.trie_id).collect();
+	assert!(!queued.is_empty(), "the old child is still queued");
+	assert!(!queued.contains(&trie_id), "the new child uses the trie of a queued contract");
 }
 
 /// Terminates the child and then the factory and checks that the factory account is reaped and
@@ -1817,7 +1841,7 @@ fn terminate_child(child: H160) {
 fn terminate_child_and_factory(factory: &Contract<Test>, child: H160) {
 	terminate_child(child);
 	let beneficiary = DJANGO_ADDR.0.into();
-	call_ok(&ALICE, factory.addr, RedeployFactory::terminateCall { beneficiary }.abi_encode());
+	call_ok(factory.addr, RedeployFactory::terminateCall { beneficiary }.abi_encode());
 
 	let child_account = <Test as Config>::AddressMapper::to_account_id(&child);
 	assert!(get_contract_checked(&factory.addr).is_none(), "factory must be deleted");
@@ -1847,21 +1871,27 @@ fn with_pgas_funded_alice(test: impl FnOnce()) {
 		});
 }
 
-/// A factory and its CREATE2 child are terminated and both deployed again at the same addresses
-/// before the deletion queue runs. The new child must start with empty storage.
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn redeployed_child_does_not_share_storage_with_queued_child(fixture_type: FixtureType) {
-	let fixture = Redeploy::compile(fixture_type);
+/// A factory and its child are terminated and both deployed again at the same addresses before
+/// the deletion queue runs. The new child must get its own trie and start with empty storage.
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[ChildCreation::Create2, ChildCreation::Create1]
+)]
+fn redeployed_child_does_not_share_storage_with_queued_child(
+	fixture_type: FixtureType,
+	creation: ChildCreation,
+) {
+	let fixture = Redeploy::compile(fixture_type, creation);
 	with_pgas_funded_alice(|| {
 		let (factory, child) = fixture.deploy();
-		set_value(&ALICE, child, 42);
+		set_value(child, 42);
 		assert_eq!(value(child), 42);
 		terminate_child_and_factory(&factory, child);
 
 		let (new_factory, new_child) = fixture.deploy();
 		assert_eq!(new_factory.addr, factory.addr);
 		assert_eq!(new_child, child);
+		assert_trie_not_queued(new_child);
 		assert_eq!(value(new_child), 0, "the new child must not see the storage of the old one");
 	});
 }
@@ -1869,13 +1899,18 @@ fn redeployed_child_does_not_share_storage_with_queued_child(fixture_type: Fixtu
 /// Draining the queue entry of the old child must not delete storage that the redeployed child
 /// wrote. The new child writes a slot the old one never used, so the check does not depend on
 /// what the new child reads from the old slot.
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn draining_queued_child_keeps_storage_of_redeployed_child(fixture_type: FixtureType) {
-	let fixture = Redeploy::compile(fixture_type);
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[ChildCreation::Create2, ChildCreation::Create1]
+)]
+fn draining_queued_child_keeps_storage_of_redeployed_child(
+	fixture_type: FixtureType,
+	creation: ChildCreation,
+) {
+	let fixture = Redeploy::compile(fixture_type, creation);
 	with_pgas_funded_alice(|| {
 		let (factory, child) = fixture.deploy();
-		set_value(&ALICE, child, 42);
+		set_value(child, 42);
 		terminate_child_and_factory(&factory, child);
 		let (_, new_child) = fixture.deploy();
 		assert_eq!(new_child, child);
@@ -1892,12 +1927,12 @@ fn draining_queued_child_keeps_storage_of_redeployed_child(fixture_type: Fixture
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType) {
-	let fixture = Redeploy::compile(fixture_type);
+	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	with_pgas_funded_alice(|| {
 		let (factory, child) = fixture.deploy();
 		let child_account = <Test as Config>::AddressMapper::to_account_id(&child);
 		let held_before = deposit_held(&child_account);
-		set_value(&ALICE, child, 42);
+		set_value(child, 42);
 		let paid = deposit_held(&child_account) - held_before;
 		assert!(paid > 0, "writing a new slot charges a deposit");
 		let info = get_contract(&child);
@@ -1906,7 +1941,7 @@ fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType
 		let (_, new_child) = fixture.deploy();
 		assert_eq!(new_child, child);
 		let held_before = deposit_held(&child_account);
-		set_value(&ALICE, new_child, 7);
+		set_value(new_child, 7);
 		let new_info = get_contract(&new_child);
 		assert_eq!(
 			(
@@ -1925,10 +1960,10 @@ fn redeployed_child_pays_deposit_for_storage_it_writes(fixture_type: FixtureType
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: FixtureType) {
-	let fixture = Redeploy::compile(fixture_type);
+	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	with_pgas_funded_alice(|| {
 		let (factory, child) = fixture.deploy();
-		set_value(&ALICE, child, 42);
+		set_value(child, 42);
 		terminate_child_and_factory(&factory, child);
 		let (_, new_child) = fixture.deploy();
 		assert_eq!(new_child, child);
@@ -1939,7 +1974,7 @@ fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: Fixtur
 		let info_before = get_contract(&new_child);
 		let alice_pgas_before = Assets::balance(PGAS_ASSET_ID, &ALICE);
 
-		set_value(&ALICE, new_child, 0);
+		set_value(new_child, 0);
 		let info_after = get_contract(&new_child);
 		assert_eq!(
 			(
@@ -1955,47 +1990,53 @@ fn redeployed_child_does_not_refund_storage_of_queued_child(fixture_type: Fixtur
 	});
 }
 
-/// The deletion queue clears `NativeDepositOf` rows by account. A child redeployed at the same
-/// address before its old queue entry is drained has the same account, so draining that entry
-/// must not clear the rows the new child recorded. The factory stays alive here, so the new child
-/// gets a fresh trie and only the account is shared.
+/// The child and the factory are terminated, and the factory and its child deployed again, all in
+/// one `batch_all`. The new child is created in the extrinsic that queued the old one and must
+/// still get its own trie.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-fn draining_queued_child_keeps_native_deposits_of_redeployed_child(fixture_type: FixtureType) {
-	let fixture = Redeploy::compile(fixture_type);
+fn child_redeployed_in_same_batch_does_not_share_storage(fixture_type: FixtureType) {
+	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	with_pgas_funded_alice(|| {
-		// CHARLIE has no PGAS, so his deposits fall back to native and record `NativeDepositOf`.
-		let _ = <Test as Config>::Currency::set_balance(&CHARLIE, 100_000_000_000);
 		let (factory, child) = fixture.deploy();
-		set_value(&ALICE, child, 42);
-		terminate_child(child);
-		let child_account = <Test as Config>::AddressMapper::to_account_id(&child);
-		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "the old child is queued");
-		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&child_account).count(), 0);
+		set_value(child, 42);
 
-		let new_child = fixture.deploy_child(factory.addr);
-		assert_eq!(new_child, child);
-		assert_eq!(value(new_child), 0, "the factory nonce moved on, so the trie is fresh");
+		let call = |dest: H160, data: Vec<u8>| {
+			RuntimeCall::Contracts(crate::Call::call {
+				dest,
+				value: 0,
+				weight_limit: WEIGHT_LIMIT,
+				storage_deposit_limit: deposit_limit::<Test>(),
+				data,
+			})
+		};
+		let beneficiary = DJANGO_ADDR.0.into();
+		let mut calls = vec![
+			call(child, RedeployChild::terminateCall { beneficiary }.abi_encode()),
+			call(factory.addr, RedeployFactory::terminateCall { beneficiary }.abi_encode()),
+		];
+		if fixture_type == FixtureType::Resolc {
+			// Terminating the child removed its code. PVM needs it uploaded again.
+			calls.push(RuntimeCall::Contracts(crate::Call::upload_code {
+				code: fixture.child_code.clone(),
+				storage_deposit_limit: deposit_limit::<Test>(),
+			}));
+		}
+		calls.push(RuntimeCall::Contracts(crate::Call::instantiate_with_code {
+			value: 0,
+			weight_limit: WEIGHT_LIMIT,
+			storage_deposit_limit: deposit_limit::<Test>(),
+			code: fixture.factory_code.clone(),
+			data: vec![],
+			salt: Some([0; 32]),
+		}));
+		calls.push(call(factory.addr, RedeployFactory::deployChildCall {}.abi_encode()));
+		assert_ok!(Utility::batch_all(RuntimeOrigin::signed(ALICE), calls));
 
-		let charlie_before = Balances::free_balance(&CHARLIE);
-		set_value(&CHARLIE, new_child, 7);
-		let charged = charlie_before - Balances::free_balance(&CHARLIE);
-		assert!(charged > 0, "CHARLIE pays the deposit in native currency");
-		assert_eq!(NativeDepositOf::<Test>::get(&child_account, &CHARLIE), charged);
-
-		Contracts::on_idle(System::block_number(), Weight::MAX);
-		assert_eq!(DeletionQueue::<Test>::iter().count(), 0, "deletion queue drained");
-		assert_eq!(value(new_child), 7);
-
-		set_value(&CHARLIE, new_child, 0);
-		assert_eq!(
-			(
-				Balances::free_balance(&CHARLIE),
-				NativeDepositOf::<Test>::get(&child_account, &CHARLIE),
-			),
-			(charlie_before, 0),
-			"(CHARLIE free balance, his NativeDepositOf row) after clearing his slot",
-		);
+		assert!(get_contract_checked(&factory.addr).is_some(), "factory deployed again");
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 2, "both tries are queued");
+		assert_trie_not_queued(child);
+		assert_eq!(value(child), 0, "the new child must not see the storage of the old one");
 	});
 }
 
@@ -2006,7 +2047,7 @@ fn draining_queued_child_keeps_native_deposits_of_redeployed_child(fixture_type:
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
 fn child_recreated_after_same_tx_selfdestruct_does_not_share_storage(fixture_type: FixtureType) {
-	let fixture = Redeploy::compile(fixture_type);
+	let fixture = Redeploy::compile(fixture_type, ChildCreation::Create2);
 	let (deployer_code, _) = compile_module_with_type("RedeployDeployer", fixture_type).unwrap();
 	with_pgas_funded_alice(|| {
 		let upload_factory_and_child = || {
@@ -2030,7 +2071,7 @@ fn child_recreated_after_same_tx_selfdestruct_does_not_share_storage(fixture_typ
 		let data = RedeployDeployer::createAndDestroyCall {
 			value: alloy_core::primitives::U256::from(42),
 		};
-		let result = call_ok(&ALICE, deployer, data.abi_encode());
+		let result = call_ok(deployer, data.abi_encode());
 		let created =
 			RedeployDeployer::createAndDestroyCall::abi_decode_returns(&result.data).unwrap();
 		let factory = H160::from_slice(created.factory.as_slice());
@@ -2042,10 +2083,11 @@ fn child_recreated_after_same_tx_selfdestruct_does_not_share_storage(fixture_typ
 		assert_eq!(DeletionQueue::<Test>::iter().count(), 2, "both tries are queued");
 
 		upload_factory_and_child();
-		let result = call_ok(&ALICE, deployer, RedeployDeployer::createPairCall {}.abi_encode());
+		let result = call_ok(deployer, RedeployDeployer::createPairCall {}.abi_encode());
 		let created = RedeployDeployer::createPairCall::abi_decode_returns(&result.data).unwrap();
 		assert_eq!(H160::from_slice(created.factory.as_slice()), factory);
 		assert_eq!(H160::from_slice(created.child.as_slice()), child);
+		assert_trie_not_queued(child);
 		assert_eq!(value(child), 0, "the new child must not see the storage of the old one");
 	});
 }
