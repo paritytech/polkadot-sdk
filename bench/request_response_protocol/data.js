@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793217852114,
+  "lastUpdate": 1793221642235,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138671,6 +138671,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2912857407,
             "range": "± 20455610",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "73b3ba21c4b5c3e150f3ddf8721109390ebd0d99",
+          "message": "Aura: Unify the Seal + PreDigest code between node + runtime (#13610)\n\nThis unifies the Seal + PreDigest code between node and runtime.",
+          "timestamp": "2026-10-28T13:41:40Z",
+          "tree_id": "3944ceff2e6db7963b8f39870ff4ce065fc2566e",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/73b3ba21c4b5c3e150f3ddf8721109390ebd0d99"
+        },
+        "date": 1793221610663,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19817232,
+            "range": "± 112959",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19968231,
+            "range": "± 199710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21610303,
+            "range": "± 235629",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25634867,
+            "range": "± 130857",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59216559,
+            "range": "± 1067157",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 366639298,
+            "range": "± 3924296",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2723791982,
+            "range": "± 149345542",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17451467,
+            "range": "± 183265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17587413,
+            "range": "± 122770",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18101231,
+            "range": "± 173684",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23021977,
+            "range": "± 219232",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63346607,
+            "range": "± 1127459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 369935186,
+            "range": "± 5040949",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2811605832,
+            "range": "± 38968299",
             "unit": "ns/iter"
           }
         ]
