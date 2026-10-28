@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793214074117,
+  "lastUpdate": 1793219516507,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8cd0f22d777ae13df502a2179dc7fa4f0978c9ea",
-          "message": "Redirect XCM delivery fees to DAP / DAP satellite on Westend chains (#11700)\n\nRoute XCM delivery fees to DAP satellite (or DAP on Asset Hub) instead\nof treasury on all Westend system chains: relay, asset-hub, bridge-hub,\ncoretime, collectives, people.\n\nFollow-up PR(s) will address remaining `TODO` linked to #11705.\n\nCloses #11410.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-14T10:11:09Z",
-          "tree_id": "d5d8f4dae4c0f7c1aebe75ba0fd2294518b5a154",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8cd0f22d777ae13df502a2179dc7fa4f0978c9ea"
-        },
-        "date": 1776166358384,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13334324713333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.673126534500003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.630432083966667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "899b6e5523842c869a6b45ad4ba2371a117c6425",
+          "message": "Enable parachain AD on AH, PC and YAP (#12489)\n\nAdds Authority Discovery support for test Parachains.\n\nTODO:\n- [x] Operator notes in PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
+          "timestamp": "2026-10-28T13:37:17Z",
+          "tree_id": "59b2104019c84eaffdc129000fbeca032ff479b5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/899b6e5523842c869a6b45ad4ba2371a117c6425"
+        },
+        "date": 1793219485561,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.667824993966665,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12731473033333332,
             "unit": "seconds"
           }
         ]
