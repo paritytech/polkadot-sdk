@@ -2502,6 +2502,38 @@ mod enter {
 		});
 	}
 
+	/// A window recorded in an earlier block survives an `enter` without a freeze. Roots enacted
+	/// in the same block are recorded after the clear, so they cannot show this.
+	#[test]
+	fn provides_windows_survive_a_block_without_a_freeze() {
+		new_test_ext(crate::mock::MockGenesisConfig::default()).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: None,
+			});
+			let sender = ParaId::from(3000);
+			inclusion::Pallet::<Test>::record_provides(sender, streams_root(7));
+
+			assert_ok!(Pallet::<Test>::enter(
+				frame_system::RawOrigin::None.into(),
+				scenario.data.clone()
+			));
+
+			assert!(crate::disputes::Frozen::<Test>::get().is_none());
+			assert_eq!(inclusion::Pallet::<Test>::newest_provides(sender), Some(streams_root(7)));
+		});
+	}
+
 	#[rstest]
 	#[case(true, true)]
 	#[case(true, false)]
