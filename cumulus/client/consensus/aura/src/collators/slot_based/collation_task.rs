@@ -271,8 +271,6 @@ where
 			validation_code_hash,
 			validation_data,
 			relay_parent_session,
-			relay_parent_storage_root,
-			relay_parent_number,
 		} = parts;
 
 		// The scheduling proof, including its UMP scheduling-tail override, is applied inside
@@ -301,8 +299,8 @@ where
 						header.hash(),
 						*header.number(),
 						parent_header.clone(),
-						relay_parent_storage_root,
-						relay_parent_number,
+						validation_data.relay_parent_storage_root,
+						validation_data.relay_parent_number,
 						validation_data.max_pov_size,
 					);
 				}

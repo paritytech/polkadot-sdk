@@ -235,8 +235,6 @@ where
 		validation_code_hash,
 		validation_data,
 		relay_parent_session,
-		relay_parent_storage_root: *relay_parent_header.state_root(),
-		relay_parent_number: *relay_parent_header.number(),
 	})
 }
 

@@ -18,7 +18,7 @@
 //! The `builder -> collator` channel: the [`CollatorMessage`] payload and its
 //! [`CollatorMessageBuilder`]. Pure data; the collation task builds and submits the collations.
 
-use cumulus_primitives_core::{relay_chain::BlockNumber as RelayBlockNumber, SchedulingProof};
+use cumulus_primitives_core::SchedulingProof;
 use polkadot_primitives::{
 	CoreIndex, Hash as RelayHash, PersistedValidationData, SessionIndex, ValidationCodeHash,
 };
@@ -59,10 +59,6 @@ pub(super) struct CollationParts<Block: BlockT> {
 	/// `session_index_for_child(relay_parent)`, resolved at build/hydration time so the collation
 	/// task does not re-query the relay chain.
 	pub relay_parent_session: SessionIndex,
-	/// The relay parent's state root and number, for exporting the PoV. Resolved alongside the
-	/// session so the export path does not re-fetch the relay parent header.
-	pub relay_parent_storage_root: RelayHash,
-	pub relay_parent_number: RelayBlockNumber,
 }
 
 /// Builds a [`CollatorMessage`] for one core: a `Collation` without a scheduling proof, a `Segment`
