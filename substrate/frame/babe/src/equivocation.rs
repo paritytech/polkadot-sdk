@@ -70,7 +70,7 @@ pub struct EquivocationOffence<Offender> {
 
 impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 	const ID: Kind = *b"babe:equivocatio";
-	type TimeSlot = Slot;
+	type Slot = Slot;
 
 	fn offenders(&self) -> Vec<Offender> {
 		vec![self.offender.clone()]
@@ -84,7 +84,7 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.slot
 	}
 
@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix("BabeEquivocation")
 				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one equivocation report for the same offender at the same slot.
 				.and_provides((equivocation_proof.offender.clone(), *equivocation_proof.slot))
 				.longevity(longevity)

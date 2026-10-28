@@ -32,7 +32,7 @@ use jsonrpsee_core::ClientError as JsonRpcError;
 use sp_api::ApiError;
 
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateEvent, Hash as RelayHash, NodeFeatures,
+	vstaging::RelayParentInfo, BlockId, CandidateEvent, Hash as RelayHash, NodeFeatures,
 };
 pub use cumulus_primitives_core::{
 	relay_chain::{
@@ -265,6 +265,13 @@ pub trait RelayChainInterface: Send + Sync {
 	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32>;
 
 	async fn node_features(&self, at: RelayHash) -> RelayChainResult<NodeFeatures>;
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Option<RelayParentInfo<RelayHash, BlockNumber>>>;
 }
 
 #[async_trait]
@@ -443,6 +450,15 @@ where
 
 	async fn node_features(&self, at: RelayHash) -> RelayChainResult<NodeFeatures> {
 		(**self).node_features(at).await
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		at: RelayHash,
+		session_index: SessionIndex,
+		relay_parent: RelayHash,
+	) -> RelayChainResult<Option<RelayParentInfo<RelayHash, BlockNumber>>> {
+		(**self).ancestor_relay_parent_info(at, session_index, relay_parent).await
 	}
 }
 

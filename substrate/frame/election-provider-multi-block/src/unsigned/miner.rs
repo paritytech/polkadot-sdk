@@ -787,13 +787,13 @@ impl<T: Config> OffchainWorkerMiner<T> {
 	}
 
 	fn submit_call(call: Call<T>) -> Result<(), OffchainMinerError<T>> {
-		let xt = T::create_bare(call.into());
+		let xt = T::create_authorized_transaction(call.into());
 		frame_system::offchain::SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 			.map(|_| {
 				sublog!(
 					debug,
 					"unsigned::ocw-miner",
-					"miner submitted a solution as an unsigned transaction",
+					"miner submitted a solution as an authorized transaction",
 				);
 			})
 			.map_err(|_| OffchainMinerError::PoolSubmissionFailed)

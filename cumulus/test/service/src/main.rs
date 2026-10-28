@@ -36,12 +36,6 @@ fn main() -> Result<(), sc_cli::Error> {
 	let cli = TestCollatorCli::from_args();
 
 	match &cli.subcommand {
-		#[allow(deprecated)]
-		Some(Subcommand::BuildSpec(cmd)) => {
-			let runner = cli.create_runner(cmd)?;
-			runner.sync_run(|config| cmd.run(config.chain_spec, config.network))
-		},
-
 		Some(Subcommand::ExportChainSpec(cmd)) => {
 			let chain_spec = cli.load_spec(&cmd.chain)?;
 			cmd.run(chain_spec)
@@ -78,12 +72,22 @@ fn main() -> Result<(), sc_cli::Error> {
 				[RelayChainCli::executable_name()].iter().chain(cli.relaychain_args.iter()),
 			);
 			let tokio_handle = parachain_config.tokio_handle.clone();
-			let relay_chain_config = SubstrateCli::create_configuration(
+			let mut relay_chain_config = SubstrateCli::create_configuration(
 				&relay_chain_cli,
 				&relay_chain_cli,
 				tokio_handle,
 			)
 			.map_err(|err| format!("Relay chain argument error: {}", err))?;
+
+			// The relay chain side of a collator doesn't listen on WebRTC by default;
+			// `--force-enable-webrtc` or explicit `--listen-addr` take precedence.
+			let relay_network_params = &relay_chain_cli.base.base.network_params;
+			if parachain_config.role.is_authority() &&
+				!relay_network_params.force_enable_webrtc &&
+				relay_network_params.listen_addr.is_empty()
+			{
+				relay_chain_config.network.remove_webrtc_addresses();
+			}
 
 			tracing::info!(
 				"Is collating: {}",
@@ -97,6 +101,7 @@ fn main() -> Result<(), sc_cli::Error> {
 				parachain_config.role.is_authority().then(|| CollatorPair::generate().0);
 
 			let use_slot_based_collator = cli.authoring == AuthoringPolicy::SlotBased;
+			let collator_reserved_slots = cli.collator_reserved_slots;
 			let (mut task_manager, _, _, _, _, _) = tokio_runtime
 				.block_on(async move {
 					match relay_chain_config.network.network_backend {
@@ -114,6 +119,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								collator_options,
 								true,
 								use_slot_based_collator,
+								collator_reserved_slots,
 							)
 							.await
 						},
@@ -131,6 +137,7 @@ fn main() -> Result<(), sc_cli::Error> {
 								collator_options,
 								true,
 								use_slot_based_collator,
+								collator_reserved_slots,
 							)
 							.await
 						},

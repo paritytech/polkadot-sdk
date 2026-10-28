@@ -18,21 +18,23 @@
 //! Tests for the Westmint (Westend Assets Hub) chain.
 
 use alloy_core::{
-	primitives::U256,
-	sol_types::{sol_data, SolType},
+	primitives::{IntoLogData, U256},
+	sol_types::{sol_data, SolCall, SolType},
 };
+use approx::assert_relative_eq;
 use asset_hub_westend_runtime::{
-	xcm_config,
+	staking, xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Executive, ExistentialDeposit,
-	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
-	ParachainSystem, PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
-	SessionKeys, ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension,
-	UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
+	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Dap, Executive,
+	ExistentialDeposit, ForeignAssets, ForeignAssetsInstance, MetadataDepositBase,
+	MetadataDepositPerByte, ParachainSystem, PolkadotXcm, PoolAssets, Proxy, Revive, Runtime,
+	RuntimeBlockWeights, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
+	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
+	WeightToFee, XcmpQueue, OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED, TRUST_BACKED_ASSETS_PRECOMPILE,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -41,6 +43,7 @@ use asset_test_utils::{
 };
 use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use codec::{Decode, Encode};
+use ethereum_standards::{IERC20, IERC20::IERC20Events};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
@@ -57,20 +60,31 @@ use frame_support::{
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use hex_literal::hex;
+use pallet_assets_precompiles::{AssetPrecompileConfig, InlineIdConfig};
 use pallet_revive::{
-	test_utils::builder::{BareInstantiateBuilder, Contract},
-	Code, TransactionLimits,
+	evm::{fees::InfoT as _, HashesOrTransactionInfos},
+	test_utils::builder::{BareCallBuilder, BareInstantiateBuilder, Contract, EthCallBuilder},
+	AddressMapper, Code, TransactionLimits,
 };
 use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_aura::SlotDuration;
-use sp_core::crypto::Ss58Codec;
+use sp_core::{crypto::Ss58Codec, H160, H256};
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{generic::Era, traits::MaybeEquivalence, Either, MultiAddress, MultiSignature};
+use sp_runtime::{
+	generic::Era,
+	traits::{MaybeEquivalence, TryConvertInto},
+	Either, MultiAddress, MultiSignature,
+};
+use sp_staking::budget::IssuanceCurve;
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
-use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
+use testnet_parachains_constants::westend::{
+	consensus::*,
+	currency::{CENTS, UNITS},
+};
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::{
 	latest::{
@@ -84,7 +98,7 @@ use xcm_builder::{
 	NonFungiblesAdapter as OldNftAdapter, WithLatestLocationConverter,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, JustTry, TransactAsset, WeightTrader},
+	traits::{ConvertLocation, TransactAsset, WeightTrader},
 	AssetsInHolding,
 };
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
@@ -94,6 +108,7 @@ use sp_runtime::traits::OpaqueKeys;
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
 const SOME_ASSET_ADMIN: [u8; 32] = [5u8; 32];
+const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
 
 parameter_types! {
 	pub Governance: GovernanceOrigin<RuntimeOrigin> = GovernanceOrigin::Origin(RuntimeOrigin::root());
@@ -108,7 +123,12 @@ fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
 	CollatorSessionKey::new(
 		AccountId::from(account),
 		AccountId::from(account),
-		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)) },
+		SessionKeys {
+			aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)),
+			authority_discovery: AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(
+				account,
+			)),
+		},
 	)
 }
 
@@ -130,6 +150,15 @@ fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder
 }
 
 fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedExtrinsic {
+	let nonce = frame_system::Pallet::<Runtime>::account(&AccountId::from(sender.public())).nonce;
+	construct_extrinsic_with_nonce(sender, call, nonce)
+}
+
+fn construct_extrinsic_with_nonce(
+	sender: Sr25519Keyring,
+	call: RuntimeCall,
+	nonce: u32,
+) -> UncheckedExtrinsic {
 	let account_id = AccountId::from(sender.public());
 	let tx_ext: TxExtension = (
 		frame_system::AuthorizeCall::<Runtime>::new(),
@@ -138,9 +167,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 		frame_system::CheckTxVersion::<Runtime>::new(),
 		frame_system::CheckGenesis::<Runtime>::new(),
 		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
-		frame_system::CheckNonce::<Runtime>::from(
-			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
-		),
+		frame_system::CheckNonce::<Runtime>::from(nonce),
 		frame_system::CheckWeight::<Runtime>::new(),
 		pallet_pgas_allowance::ChargePGAS::<
 			Runtime,
@@ -167,11 +194,7 @@ fn test_buy_and_refund_weight_in_native() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -243,11 +266,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -301,8 +320,13 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
-			let asset_fee =
-				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
+			let asset_fee = AssetConversion::get_amount_in(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&fee,
+				&pool_liquidity,
+				&pool_liquidity,
+			)
+			.unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (asset_1_location.clone(), asset_fee + extra_amount).into();
@@ -341,8 +365,13 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 				xcm::v5::Location::try_from(asset_1_location.clone()).expect("conversion works"),
 			)
 			.unwrap();
-			let asset_refund =
-				AssetConversion::get_amount_out(&refund, &reserve1, &reserve2).unwrap();
+			let asset_refund = AssetConversion::get_amount_out(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&refund,
+				&reserve1,
+				&reserve2,
+			)
+			.unwrap();
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
@@ -369,11 +398,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -428,8 +453,13 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			// prepare input to buy weight.
 			let weight = Weight::from_parts(4_000_000_000, 0);
 			let fee = WeightToFee::weight_to_fee(&weight);
-			let asset_fee =
-				AssetConversion::get_amount_in(&fee, &pool_liquidity, &pool_liquidity).unwrap();
+			let asset_fee = AssetConversion::get_amount_in(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&fee,
+				&pool_liquidity,
+				&pool_liquidity,
+			)
+			.unwrap();
 			let extra_amount = 100;
 			let ctx = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 			let payment: Asset = (foreign_location.clone(), asset_fee + extra_amount).into();
@@ -466,8 +496,13 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 			let refund = WeightToFee::weight_to_fee(&refund_weight);
 			let (reserve1, reserve2) =
 				AssetConversion::get_reserves(native_location, foreign_location.clone()).unwrap();
-			let asset_refund =
-				AssetConversion::get_amount_out(&refund, &reserve1, &reserve2).unwrap();
+			let asset_refund = AssetConversion::get_amount_out(
+				<Runtime as pallet_asset_conversion::Config>::LPFee::get(),
+				&refund,
+				&reserve1,
+				&reserve2,
+			)
+			.unwrap();
 
 			// refund.
 			let actual_refund = trader.refund_weight(refund_weight, &ctx).unwrap();
@@ -497,11 +532,7 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
@@ -580,11 +611,7 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// Create a non-sufficient asset with specific existential deposit
@@ -667,11 +694,7 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let collection_id = 42;
@@ -838,11 +861,7 @@ fn test_assets_balances_api_works() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
@@ -962,11 +981,7 @@ fn authorized_aliases_work() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let alice: AccountId = ALICE.into();
@@ -1126,7 +1141,7 @@ asset_test_utils::include_asset_transactor_transfer_with_pallet_assets_instance_
 	XcmConfig,
 	ForeignAssetsInstance,
 	xcm::v5::Location,
-	JustTry,
+	TryConvertInto,
 	collator_session_keys(),
 	ExistentialDeposit::get(),
 	xcm::v5::Location {
@@ -2097,6 +2112,570 @@ fn expensive_erc20_runs_out_of_gas() {
 	});
 }
 
+fn erc20_mirror_ext() -> sp_io::TestExternalities {
+	ExtBuilder::<Runtime>::default()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(vec![(
+			AccountId::from(ALICE),
+			AccountId::from(ALICE),
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
+		)])
+		.build()
+}
+
+/// Assert the `Transfer` log mirrored for `from -> to` lands at an address that this instance's
+/// `ERC20` precompile actually serves.
+///
+/// `Erc20TransferLogsCallback` derives the token address from the `PrecompileConfig` it is wired
+/// with, and the precompile has no visibility into that wiring: a callback carrying the wrong
+/// prefix, or the right prefix against the wrong `pallet-assets` instance, still compiles and still
+/// emits — just into an address space where no token lives.
+///
+/// The check closes the loop through behaviour rather than comparing the two configs. Comparing the
+/// wired `MATCHER` against the deployed one would only compare a runtime constant to itself, since
+/// both sites name the same const. Here the topics identify the transfer, the address is read off
+/// the emitted log, and the balance is read back through whatever precompile serves that address.
+///
+/// Callers must seed the same asset id in every other instance sharing this instance's id type,
+/// holding a different balance. Without that the wrong-instance case would only be caught because
+/// the other instance happens to be empty, and would start passing the moment a test seeded it.
+fn assert_mirrored_log_resolves_to_live_token(
+	from: &AccountId,
+	to: &AccountId,
+	amount: Balance,
+	expected_recipient_balance: Balance,
+) {
+	let from_addr = <Runtime as pallet_revive::Config>::AddressMapper::to_address(from);
+	let to_addr = <Runtime as pallet_revive::Config>::AddressMapper::to_address(to);
+
+	// Rebuild the log from the same ABI the precompile serves, so only the address is under test.
+	let (topics, data) = IERC20Events::Transfer(IERC20::Transfer {
+		from: from_addr.0.into(),
+		to: to_addr.0.into(),
+		value: U256::from(amount),
+	})
+	.into_log_data()
+	.split();
+	let topics = topics.into_iter().map(|topic| H256(topic.0)).collect::<Vec<_>>();
+	let data = data.to_vec();
+
+	let tokens = System::events()
+		.into_iter()
+		.filter_map(|record| match record.event {
+			RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
+				contract,
+				topics: emitted_topics,
+				data: emitted_data,
+			}) if emitted_topics == topics && emitted_data == data => Some(contract),
+			_ => None,
+		})
+		.collect::<Vec<_>>();
+	assert_eq!(
+		tokens.len(),
+		1,
+		"expected exactly one mirrored Transfer log, got {tokens:?} — none means the callback is \
+		 not wired, several mean it is wired more than once"
+	);
+	let token = tokens[0];
+
+	// A prefix no precompile serves returns nothing at all; a prefix belonging to another instance
+	// resolves, but reports that instance's balance for the same id, which callers seed to a
+	// deliberately different value.
+	let returned =
+		BareCallBuilder::<Runtime>::bare_call(RuntimeOrigin::signed(from.clone()), token)
+			.data(IERC20::balanceOfCall { account: to_addr.0.into() }.abi_encode())
+			.build_and_unwrap_result();
+	assert!(
+		!returned.did_revert() && !returned.data.is_empty(),
+		"no ERC20 precompile serves the mirrored log address {token:?}"
+	);
+	assert_eq!(
+		IERC20::balanceOfCall::abi_decode_returns(&returned.data).unwrap(),
+		U256::from(expected_recipient_balance),
+		"token at the mirrored log address {token:?} reports a balance the asset instance does not"
+	);
+}
+
+#[test]
+fn mirrored_transfer_log_resolves_to_the_trust_backed_token() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+
+		// Same id in the other inline instance, holding a different balance, so a callback wired to
+		// the pool prefix is caught by the value it reports rather than by that instance being
+		// empty.
+		assert_ok!(PoolAssets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id,
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(PoolAssets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id,
+			recipient.clone().into(),
+			111
+		));
+
+		assert_ok!(Assets::transfer(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			recipient.clone().into(),
+			400
+		));
+
+		assert_mirrored_log_resolves_to_live_token(&owner, &recipient, 400, 400);
+	});
+}
+
+// The trust-backed test's pool decoy is a mint, which the helper's filter discards, so it says
+// nothing about where a pool mirror lands. This is the guard for the pool instance's wiring.
+#[test]
+fn mirrored_transfer_log_resolves_to_the_pool_token() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let pool_asset_id = 1;
+		assert_ok!(PoolAssets::force_create(
+			RuntimeHelper::root_origin(),
+			pool_asset_id,
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(PoolAssets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			pool_asset_id,
+			owner.clone().into(),
+			1_000
+		));
+
+		// Same id in the other inline instance, holding a different balance, see the trust-backed
+		// test.
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			pool_asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			pool_asset_id.into(),
+			recipient.clone().into(),
+			222
+		));
+
+		assert_ok!(PoolAssets::transfer(
+			RuntimeHelper::origin_of(owner.clone()),
+			pool_asset_id,
+			recipient.clone().into(),
+			400
+		));
+
+		assert_mirrored_log_resolves_to_live_token(&owner, &recipient, 400, 400);
+	});
+}
+
+// The foreign instance additionally exercises the asset-index map: unlike an inline id, the token
+// address is only derivable once `created` has allocated an index for the `Location`.
+//
+// It needs no decoy in another instance. The callback requires
+// `AssetId: Into<<PrecompileConfig::AssetIdExtractor as AssetIdExtractor>::AssetId>`, and neither
+// `Location: Into<u32>` nor `u32: Into<Location>` holds, so pairing a foreign instance with an
+// inline config (or the reverse) does not compile. Only inline-to-inline can be mis-wired.
+#[test]
+fn mirrored_transfer_log_resolves_to_the_foreign_token() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let asset_location = xcm::v5::Location {
+			parents: 1,
+			interior: [xcm::v5::Junction::Parachain(1234), xcm::v5::Junction::GeneralIndex(12345)]
+				.into(),
+		};
+		assert_ok!(ForeignAssets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_location.clone(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(ForeignAssets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_location.clone(),
+			owner.clone().into(),
+			1_000
+		));
+
+		assert_ok!(ForeignAssets::transfer(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_location,
+			recipient.clone().into(),
+			400
+		));
+
+		assert_mirrored_log_resolves_to_live_token(&owner, &recipient, 400, 400);
+	});
+}
+
+// The mirror's main path: an EVM `transfer()` inside an ethereum transaction. The precompile no
+// longer emits a `Transfer` itself, so the mirrored log has to land on that transaction's receipt,
+// or `eth_getTransactionReceipt` serves an EVM transfer with no logs at all. A mirror that missed
+// the open receipt would be buffered instead and surface as the block's synthetic transaction.
+#[test]
+fn mirrored_transfer_log_lands_on_the_ethereum_transaction() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+		// The ethereum path burns the round-up of the fee, which `Dap` resolves into its staging
+		// account — so that account has to exist before the transaction runs.
+		Balances::mint_into(&Dap::staging_account(), ExistentialDeposit::get()).unwrap();
+		// Dispatching the extrinsic directly skips `ChargeTransactionPayment`, so seed the fee pot
+		// the storage deposit is settled against.
+		<Runtime as pallet_revive::Config>::FeeInfo::deposit_txfee(
+			<Balances as fungible::Balanced<AccountId>>::issue(UNITS),
+		);
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+
+		// The mint is mirrored too, and with no ethereum transaction open it buffers for its
+		// block's synthetic transaction — so drain it and leave that block behind. `run_to_block`
+		// finalizes `frame_system` only, hence the explicit `on_finalize` here.
+		Revive::on_finalize(System::block_number());
+		RuntimeHelper::run_to_block(2, owner.clone());
+
+		let mut token =
+			<InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }> as AssetPrecompileConfig>::MATCHER
+				.base_address();
+		token[..4].copy_from_slice(&asset_id.to_be_bytes());
+		let recipient_addr =
+			<Runtime as pallet_revive::Config>::AddressMapper::to_address(&recipient);
+		let data = IERC20::transferCall { to: recipient_addr.0.into(), value: U256::from(400) }
+			.abi_encode();
+
+		assert_ok!(EthCallBuilder::<Runtime>::eth_call(
+			pallet_revive::Origin::<Runtime>::EthTransaction(owner.clone()).into(),
+			H160::from(token)
+		)
+		.data(data)
+		.build());
+		// The transfer ran rather than reverted — a reverted frame rolls its logs back too.
+		assert_eq!(Assets::balance(asset_id, &owner), 600);
+
+		Revive::on_finalize(System::block_number());
+
+		// One transaction in the block and no synthetic one: the log took the receipt of the
+		// transaction that caused it, and the bloom the header commits to carries it.
+		let block = Revive::eth_block();
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1, "the mirrored log added a transaction to the block");
+		assert!(
+			Revive::eth_synthetic_transaction().is_none(),
+			"the mirrored log was buffered instead of taking the open receipt"
+		);
+		assert_ne!(block.logs_bloom.0, [0u8; 256], "the mirrored log never reached the bloom");
+	});
+}
+
+// A mirrored transfer inside a `batch_all` that rolls back: the balance change and its event are
+// gone, and the receipt of the `eth_substrate_call` around it, which succeeds since `batch` returns
+// `Ok` on an interrupted inner call, must not keep the `Transfer` either.
+//
+// Benchmark builds deposit an `EthExtrinsicRevert` for every successful ethereum transaction, so
+// the success check only holds without them.
+#[cfg(not(feature = "runtime-benchmarks"))]
+#[test]
+fn rolled_back_batch_all_keeps_a_mirrored_transfer_off_the_receipt() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+		Revive::on_finalize(System::block_number());
+		RuntimeHelper::run_to_block(2, owner.clone());
+
+		let transfer = |amount| {
+			RuntimeCall::Assets(pallet_assets::Call::transfer {
+				id: asset_id.into(),
+				target: recipient.clone().into(),
+				amount,
+			})
+		};
+		let call = RuntimeCall::Utility(pallet_utility::Call::batch {
+			calls: vec![RuntimeCall::Utility(pallet_utility::Call::batch_all {
+				// 700 exceeds the balance only after the first transfer debited 400; a no-op
+				// first transfer would let it succeed and fail the balance assertion below.
+				calls: vec![transfer(400), transfer(700)],
+			})],
+		});
+		assert_ok!(Revive::eth_substrate_call(
+			pallet_revive::Origin::<Runtime>::EthTransaction(owner.clone()).into(),
+			Box::new(call),
+			vec![],
+		));
+		assert_eq!(Assets::balance(asset_id, &owner), 1_000, "the first transfer rolled back");
+		assert!(
+			System::events().iter().any(|record| matches!(
+				&record.event,
+				RuntimeEvent::Utility(pallet_utility::Event::BatchInterrupted { index: 0, error })
+					if *error ==
+						pallet_assets::Error::<Runtime, TrustBackedAssetsInstance>::BalanceLow
+							.into()
+			)),
+			"the batch_all was interrupted, which needs the first transfer's debit"
+		);
+		assert!(
+			!System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Revive(pallet_revive::Event::EthExtrinsicRevert { .. })
+			)),
+			"and the transaction still succeeded"
+		);
+
+		Revive::on_finalize(System::block_number());
+
+		let block = Revive::eth_block();
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1, "the transaction is in the block");
+		assert_eq!(block.logs_bloom.0, [0u8; 256], "with no log in its receipt");
+		assert!(Revive::eth_synthetic_transaction().is_none());
+	});
+}
+
+// A plain asset transfer dispatched through `eth_substrate_call` runs with a receipt open, so its
+// mirrored `Transfer` goes onto that receipt rather than into the buffer.
+#[test]
+fn a_transfer_under_eth_substrate_call_puts_its_mirror_on_the_receipt() {
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		let recipient = AccountId::from(BOB);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+		Revive::on_finalize(System::block_number());
+		RuntimeHelper::run_to_block(2, owner.clone());
+
+		let transfer = RuntimeCall::Assets(pallet_assets::Call::transfer {
+			id: asset_id.into(),
+			target: recipient.clone().into(),
+			amount: 400,
+		});
+		assert_ok!(Revive::eth_substrate_call(
+			pallet_revive::Origin::<Runtime>::EthTransaction(owner.clone()).into(),
+			Box::new(transfer),
+			vec![],
+		));
+		assert_eq!(Assets::balance(asset_id, &recipient), 400, "the transfer ran");
+
+		Revive::on_finalize(System::block_number());
+
+		let block = Revive::eth_block();
+		let hashes = match block.transactions {
+			HashesOrTransactionInfos::Hashes(hashes) => hashes,
+			_ => panic!("expected transaction hashes"),
+		};
+		assert_eq!(hashes.len(), 1, "the transaction is in the block, and no synthetic one");
+		assert_ne!(block.logs_bloom.0, [0u8; 256], "with the mirrored `Transfer` in its receipt");
+		assert!(Revive::eth_synthetic_transaction().is_none());
+	});
+}
+
+// Buffering a log registers at least its encoded bytes as proof size, whatever admitted it: an
+// assets extrinsic, a storage deposit settled by a contract frame, an XCM fee swap, a batch. The
+// entries never reach the proof, the buffer is written and taken within the block, but the
+// unchecked registration stays in `BlockWeight` through reclaim, so the proof budget admits only so
+// many entries with no per-producer weight. The bound is taken at the smallest entry any producer
+// could write rather than at the mirror's `Transfer` log.
+#[test]
+fn a_block_cannot_buffer_enough_logs_to_reach_the_cap_once_enabled() {
+	let smallest_entry_bytes = pallet_revive::OutsideFrameLog {
+		event_index: 0,
+		contract: H160::zero(),
+		topics: Vec::new(),
+		data: Vec::new(),
+	}
+	.encoded_size() as u64;
+
+	let proof_budget = RuntimeBlockWeights::get().max_block.proof_size();
+	let most_logs_a_block_can_buffer = proof_budget / smallest_entry_bytes;
+	let cap = OUTSIDE_FRAME_LOGS_CAP_ONCE_ENABLED as u64;
+	assert!(
+		most_logs_a_block_can_buffer < cap,
+		"a {proof_budget}-byte proof holds up to {most_logs_a_block_can_buffer} logs of \
+		 {smallest_entry_bytes} bytes, so a cap of {cap} is reachable"
+	);
+}
+
+// Until every eth-rpc reads receipt data V2 the buffer stays off: a mirrored balance change is an
+// event and nothing else, so a block's transaction list matches what any eth-rpc can serve.
+#[test]
+fn mirrored_logs_are_not_buffered_until_the_rollout_enables_them() {
+	use frame_support::traits::Get;
+	assert_eq!(<<Runtime as pallet_revive::Config>::MaxOutsideFrameLogs as Get<u32>>::get(), 0);
+
+	erc20_mirror_ext().execute_with(|| {
+		let owner = AccountId::from(ALICE);
+		Balances::mint_into(&owner, 100 * UNITS).unwrap();
+		let asset_id: AssetIdForTrustBackedAssets = 1;
+		assert_ok!(Assets::force_create(
+			RuntimeHelper::root_origin(),
+			asset_id.into(),
+			owner.clone().into(),
+			true,
+			1
+		));
+		assert_ok!(Assets::mint(
+			RuntimeHelper::origin_of(owner.clone()),
+			asset_id.into(),
+			owner.clone().into(),
+			1_000
+		));
+		assert!(
+			System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted { .. })
+			)),
+			"the mint is mirrored as an event"
+		);
+
+		Revive::on_finalize(System::block_number());
+
+		assert!(Revive::eth_synthetic_transaction().is_none());
+		assert_eq!(Revive::eth_block().transactions.len(), 0);
+	});
+}
+
+#[test]
+fn staking_inflation_correct_single_era() {
+	let total = staking::IssuanceCurve::issue(0, MILLISECONDS_PER_HOUR);
+	// Total per hour is ~47.6 WND
+	assert_relative_eq!(total as f64, (4_760 * CENTS) as f64, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_longer_era() {
+	// Twice the era duration means twice the emission:
+	let total_1x = staking::IssuanceCurve::issue(0, MILLISECONDS_PER_HOUR);
+	let total_2x = staking::IssuanceCurve::issue(0, 2 * MILLISECONDS_PER_HOUR);
+	assert_relative_eq!(total_2x as f64, total_1x as f64 * 2.0, max_relative = 0.001);
+}
+
+#[test]
+fn staking_inflation_correct_whole_year() {
+	let yearly_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 100);
+	// Our yearly emissions is about 417k WND:
+	assert_relative_eq!(yearly_emission as f64, (417_307 * UNITS) as f64, max_relative = 0.001);
+}
+
+// 10 years into the future, our values do not overflow.
+#[test]
+fn staking_inflation_correct_not_overflow() {
+	let ten_year_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 10);
+	let initial_ti: i128 = 5_216_342_402_773_185_773;
+	let projected_total_issuance = ten_year_emission as i128 + initial_ti;
+
+	// In 2034, there will be about 9.39 million WND in existence.
+	assert_relative_eq!(
+		projected_total_issuance as f64,
+		(9_390_000 * UNITS) as f64,
+		max_relative = 0.001
+	);
+}
+
+// Print percent per year, just as convenience.
+#[test]
+fn staking_inflation_correct_print_percent() {
+	let yearly_emission =
+		staking::IssuanceCurve::issue(0, (36525 * 24 * MILLISECONDS_PER_HOUR) / 100);
+	let mut ti: i128 = 5_216_342_402_773_185_773;
+
+	for y in 0..10 {
+		let new_ti = ti + yearly_emission as i128;
+		let inflation = 100.0 * (new_ti - ti) as f64 / ti as f64;
+		println!("Year {y} inflation: {inflation}%");
+		ti = new_ti;
+
+		assert!(inflation <= 8.0 && inflation > 2.0, "sanity check");
+	}
+}
+
 #[test]
 fn exchange_asset_success() {
 	exchange_asset_on_asset_hub_works::<
@@ -2247,6 +2826,364 @@ fn staking_proxy_can_manage_staking_operator() {
 	assert!(staking_proxy.is_superset(&ProxyType::StakingOperator));
 }
 
+/// Every `ProxyType` variant.
+///
+/// Listed exhaustively (rather than derived) so that adding a variant forces this list to be
+/// updated, keeping [`proxy_type_superset_relation_matches_call_filters`] complete.
+fn all_proxy_types() -> Vec<asset_hub_westend_runtime::ProxyType> {
+	use asset_hub_westend_runtime::ProxyType;
+
+	let all = vec![
+		ProxyType::Any,
+		ProxyType::NonTransfer,
+		ProxyType::CancelProxy,
+		ProxyType::Assets,
+		ProxyType::AssetOwner,
+		ProxyType::AssetManager,
+		ProxyType::Collator,
+		ProxyType::Governance,
+		ProxyType::Staking,
+		ProxyType::NominationPools,
+		ProxyType::OldSudoBalances,
+		ProxyType::OldIdentityJudgement,
+		ProxyType::OldAuction,
+		ProxyType::OldParaRegistration,
+		ProxyType::StakingOperator,
+	];
+
+	// Exhaustiveness guard: a new variant added to `ProxyType` breaks this `match`, which is the
+	// signal to also add it above.
+	for proxy_type in all.iter() {
+		match proxy_type {
+			ProxyType::Any |
+			ProxyType::NonTransfer |
+			ProxyType::CancelProxy |
+			ProxyType::Assets |
+			ProxyType::AssetOwner |
+			ProxyType::AssetManager |
+			ProxyType::Collator |
+			ProxyType::Governance |
+			ProxyType::Staking |
+			ProxyType::NominationPools |
+			ProxyType::OldSudoBalances |
+			ProxyType::OldIdentityJudgement |
+			ProxyType::OldAuction |
+			ProxyType::OldParaRegistration |
+			ProxyType::StakingOperator => (),
+		}
+	}
+
+	all
+}
+
+/// At least one call from every pallet family referenced by the `InstanceFilter<RuntimeCall>`
+/// implementation for `ProxyType`, so that the lattice check below actually exercises the
+/// boundaries the filters draw.
+fn representative_proxy_calls() -> Vec<RuntimeCall> {
+	let remark = || RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+
+	vec![
+		remark(),
+		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+			dest: AccountId::from(BOB).into(),
+			value: 1,
+		}),
+		// Admitted by `AssetOwner`.
+		RuntimeCall::Assets(pallet_assets::Call::<Runtime, TrustBackedAssetsInstance>::create {
+			id: codec::Compact(1),
+			admin: AccountId::from(BOB).into(),
+			min_balance: 1,
+		}),
+		// Admitted by `AssetManager`.
+		RuntimeCall::Assets(pallet_assets::Call::<Runtime, TrustBackedAssetsInstance>::mint {
+			id: codec::Compact(1),
+			beneficiary: AccountId::from(BOB).into(),
+			amount: 1,
+		}),
+		// Admitted by neither `AssetOwner` nor `AssetManager`, only by `Assets`.
+		RuntimeCall::Assets(pallet_assets::Call::<Runtime, TrustBackedAssetsInstance>::transfer {
+			id: codec::Compact(1),
+			target: AccountId::from(BOB).into(),
+			amount: 1,
+		}),
+		RuntimeCall::Nfts(pallet_nfts::Call::set_collection_max_supply {
+			collection: 1,
+			max_supply: 1,
+		}),
+		RuntimeCall::Nfts(pallet_nfts::Call::lock_item_transfer { collection: 1, item: 1 }),
+		RuntimeCall::Uniques(pallet_uniques::Call::set_collection_max_supply {
+			collection: 1,
+			max_supply: 1,
+		}),
+		RuntimeCall::Uniques(pallet_uniques::Call::freeze { collection: 1, item: 1 }),
+		RuntimeCall::NftFractionalization(pallet_nft_fractionalization::Call::unify {
+			nft_collection_id: 1,
+			nft_id: 1,
+			asset_id: 1,
+			beneficiary: AccountId::from(BOB).into(),
+		}),
+		RuntimeCall::Scheduler(pallet_scheduler::Call::cancel { when: 1, index: 0 }),
+		RuntimeCall::Treasury(pallet_treasury::Call::void_spend { index: 0 }),
+		RuntimeCall::Vesting(pallet_vesting::Call::vest {}),
+		RuntimeCall::ConvictionVoting(pallet_conviction_voting::Call::remove_vote {
+			class: None,
+			index: 0,
+		}),
+		RuntimeCall::Referenda(pallet_referenda::Call::refund_decision_deposit { index: 0 }),
+		RuntimeCall::Whitelist(pallet_whitelist::Call::remove_whitelisted_call {
+			call_hash: Default::default(),
+		}),
+		RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement {
+			delegate: AccountId::from(BOB).into(),
+			call_hash: Default::default(),
+		}),
+		RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+			delegate: AccountId::from(BOB).into(),
+			proxy_type: asset_hub_westend_runtime::ProxyType::StakingOperator,
+			delay: 0,
+		}),
+		RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] }),
+		RuntimeCall::Utility(pallet_utility::Call::as_derivative {
+			index: 0,
+			call: Box::new(remark()),
+		}),
+		RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+			other_signatories: vec![],
+			call: Box::new(remark()),
+		}),
+		RuntimeCall::CollatorSelection(pallet_collator_selection::Call::set_desired_candidates {
+			max: 1,
+		}),
+		RuntimeCall::Session(pallet_session::Call::purge_keys {}),
+		RuntimeCall::Staking(pallet_staking_async::Call::chill {}),
+		RuntimeCall::Staking(pallet_staking_async::Call::nominate { targets: vec![] }),
+		RuntimeCall::StakingRcClient(pallet_staking_async_rc_client::Call::purge_keys {
+			max_delivery_and_remote_execution_fee: None,
+		}),
+		RuntimeCall::NominationPools(pallet_nomination_pools::Call::chill { pool_id: 0 }),
+		RuntimeCall::VoterList(
+			pallet_bags_list::Call::<Runtime, pallet_bags_list::Instance1>::rebag {
+				dislocated: AccountId::from(BOB).into(),
+			},
+		),
+	]
+}
+
+/// `pallet_proxy` authorizes `add_proxy`/`remove_proxy` through `ProxyType::is_superset`, so a
+/// proxy type that *declares* itself a superset of another must also *admit* every call that other
+/// type admits. Otherwise the "smaller" type is reachable as an escalation: the declared superset
+/// can grant itself the subset proxy and thereby gain permissions its own filter denies.
+///
+/// This checks that property across the whole lattice rather than a single pair, so the class of
+/// bug cannot silently reappear on another edge.
+#[test]
+fn proxy_type_superset_relation_matches_call_filters() {
+	use frame_support::traits::InstanceFilter;
+
+	let calls = representative_proxy_calls();
+
+	for superset in all_proxy_types() {
+		for subset in all_proxy_types() {
+			if !superset.is_superset(&subset) {
+				continue;
+			}
+
+			for call in calls.iter() {
+				if subset.filter(call) {
+					assert!(
+						superset.filter(call),
+						"lattice violated: {superset:?} declares itself a superset of {subset:?}, \
+						 but rejects {call:?} which {subset:?} admits",
+					);
+				}
+			}
+		}
+	}
+}
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/12724>.
+///
+/// `NonTransfer` used to claim `Governance` as a subset while denying the `Treasury`,
+/// `ConvictionVoting`, `Referenda` and `Whitelist` calls that `Governance` admits, which let a
+/// `NonTransfer` proxy add a `Governance` proxy and widen its own permissions.
+#[test]
+fn non_transfer_proxy_is_not_a_superset_of_governance() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	// `NonTransfer` denies every governance call family that `Governance` admits, except `Utility`.
+	for call in [
+		RuntimeCall::Treasury(pallet_treasury::Call::void_spend { index: 0 }),
+		RuntimeCall::ConvictionVoting(pallet_conviction_voting::Call::remove_vote {
+			class: None,
+			index: 0,
+		}),
+		RuntimeCall::Referenda(pallet_referenda::Call::refund_decision_deposit { index: 0 }),
+		RuntimeCall::Whitelist(pallet_whitelist::Call::remove_whitelisted_call {
+			call_hash: Default::default(),
+		}),
+	] {
+		assert!(ProxyType::Governance.filter(&call), "Governance must admit {call:?}");
+		assert!(!ProxyType::NonTransfer.filter(&call), "NonTransfer must deny {call:?}");
+	}
+
+	// So it must not declare itself a superset of it. This is what stops a `NonTransfer` proxy
+	// from granting itself a `Governance` proxy: `pallet_proxy` gates `add_proxy`/`remove_proxy`
+	// on `is_superset` before it ever consults `filter`, which by itself does not deny `Proxy`
+	// calls.
+	assert!(!ProxyType::NonTransfer.is_superset(&ProxyType::Governance));
+
+	// The other declared `NonTransfer` subsets are unaffected.
+	for subset in [
+		ProxyType::Collator,
+		ProxyType::Staking,
+		ProxyType::NominationPools,
+		ProxyType::StakingOperator,
+	] {
+		assert!(ProxyType::NonTransfer.is_superset(&subset));
+	}
+}
+
+/// A location usable as an asset id for the `xcm::v5::Location`-keyed pallets.
+fn some_asset_location() -> xcm::v5::Location {
+	xcm::v5::Location::new(1, [xcm::v5::Junction::Parachain(1000)])
+}
+
+/// Calls that move the delegator's funds or assets, and so must be denied to a `NonTransfer`
+/// proxy. Each is labelled so a failure names the call that slipped through.
+fn value_moving_calls() -> Vec<(&'static str, RuntimeCall)> {
+	vec![
+		(
+			"ForeignAssets::transfer",
+			RuntimeCall::ForeignAssets(
+				pallet_assets::Call::<Runtime, ForeignAssetsInstance>::transfer {
+					id: some_asset_location(),
+					target: AccountId::from(BOB).into(),
+					amount: 1,
+				},
+			),
+		),
+		(
+			"PoolAssets::transfer",
+			RuntimeCall::PoolAssets(pallet_assets::Call::<
+				Runtime,
+				asset_hub_westend_runtime::PoolAssetsInstance,
+			>::transfer {
+				id: 1,
+				target: AccountId::from(BOB).into(),
+				amount: 1,
+			}),
+		),
+		(
+			"AssetConversion::swap_exact_tokens_for_tokens",
+			RuntimeCall::AssetConversion(
+				pallet_asset_conversion::Call::swap_exact_tokens_for_tokens {
+					path: vec![Box::new(some_asset_location()), Box::new(some_asset_location())],
+					amount_in: 1,
+					amount_out_min: 1,
+					send_to: AccountId::from(BOB),
+					keep_alive: false,
+				},
+			),
+		),
+		(
+			"Psm::mint",
+			RuntimeCall::Psm(pallet_psm::Call::mint {
+				internal_asset: some_asset_location(),
+				external_asset: some_asset_location(),
+				external_amount: 1,
+				max_fee: sp_runtime::Permill::zero(),
+			}),
+		),
+		(
+			"PolkadotXcm::transfer_assets",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+				dest: Box::new(xcm::VersionedLocation::from(some_asset_location())),
+				beneficiary: Box::new(xcm::VersionedLocation::from(some_asset_location())),
+				assets: Box::new(xcm::VersionedAssets::from(XcmAssets::new())),
+				fee_asset_item: 0,
+				weight_limit: WeightLimit::Unlimited,
+			}),
+		),
+		(
+			"Revive::call",
+			RuntimeCall::Revive(pallet_revive::Call::call {
+				dest: Default::default(),
+				value: 1,
+				weight_limit: Weight::zero(),
+				storage_deposit_limit: 0,
+				data: vec![],
+			}),
+		),
+		(
+			"Indices::transfer",
+			RuntimeCall::Indices(pallet_indices::Call::transfer {
+				new: AccountId::from(BOB).into(),
+				index: 0,
+			}),
+		),
+	]
+}
+
+/// Regression test for <https://github.com/paritytech/polkadot-sdk/issues/12466>.
+///
+/// `ProxyType::NonTransfer` is documented as permitting "any call that does not transfer funds or
+/// assets", but it is implemented as a deny-list and so fails open. `ForeignAssets` and
+/// `PoolAssets` transfers were reachable, as were swaps, XCM transfers, contract calls carrying a
+/// value, and index transfers (which repatriate the reserved deposit).
+#[test]
+fn non_transfer_proxy_rejects_value_moving_calls() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	// Collected rather than asserted one by one, so a regression reports every call that slipped
+	// through instead of only the first.
+	let mut leaked = Vec::new();
+	for (name, call) in value_moving_calls() {
+		if ProxyType::NonTransfer.filter(&call) {
+			leaked.push(name);
+		}
+		// The call is otherwise well-formed and reachable by a fully permissioned proxy.
+		assert!(ProxyType::Any.filter(&call), "Any must permit {name}");
+	}
+
+	assert!(
+		leaked.is_empty(),
+		"NonTransfer must reject calls that move funds or assets, but permitted: {leaked:?}",
+	);
+}
+
+/// The deny-list above must not over-reach: calls that do not move value stay available, including
+/// the ones backing the proxy types `NonTransfer` declares as its subsets.
+#[test]
+fn non_transfer_proxy_still_permits_non_value_moving_calls() {
+	use asset_hub_westend_runtime::ProxyType;
+	use frame_support::traits::InstanceFilter;
+
+	let permitted = vec![
+		("Indices::claim", RuntimeCall::Indices(pallet_indices::Call::claim { index: 0 })),
+		("Indices::freeze", RuntimeCall::Indices(pallet_indices::Call::freeze { index: 0 })),
+		("Vesting::vest", RuntimeCall::Vesting(pallet_vesting::Call::vest {})),
+		("Staking::chill", RuntimeCall::Staking(pallet_staking_async::Call::chill {})),
+		("Session::purge_keys", RuntimeCall::Session(pallet_session::Call::purge_keys {})),
+		(
+			"NominationPools::chill",
+			RuntimeCall::NominationPools(pallet_nomination_pools::Call::chill { pool_id: 0 }),
+		),
+		(
+			"CollatorSelection::set_desired_candidates",
+			RuntimeCall::CollatorSelection(
+				pallet_collator_selection::Call::set_desired_candidates { max: 1 },
+			),
+		),
+		("System::remark", RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+	];
+
+	for (name, call) in permitted {
+		assert!(ProxyType::NonTransfer.filter(&call), "NonTransfer must still permit {name}");
+	}
+}
+
 /// Verifies StakingOperator filter allows validator operations and session key management,
 /// but forbids fund management.
 #[test]
@@ -2322,11 +3259,7 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// GIVEN: fund controller and operator
@@ -2542,11 +3475,7 @@ mod dap {
 
 		ExtBuilder::<Runtime>::default()
 			.with_collators(vec![alice.clone()])
-			.with_session_keys(vec![(
-				alice.clone(),
-				alice.clone(),
-				SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
-			)])
+			.with_session_keys(collator_session_keys().session_keys())
 			.with_balances(vec![
 				(alice.clone(), 100 * ed),
 				(buffer.clone(), ed),
@@ -2600,11 +3529,7 @@ mod dap {
 
 		ExtBuilder::<Runtime>::default()
 			.with_collators(vec![AccountId::from(ALICE)])
-			.with_session_keys(vec![(
-				AccountId::from(ALICE),
-				AccountId::from(ALICE),
-				SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-			)])
+			.with_session_keys(collator_session_keys().session_keys())
 			.build()
 			.execute_with(|| {
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
@@ -2771,4 +3696,166 @@ mod pgas_allowance {
 			assert_eq!(pgas_fee_paid_event(&sender), None);
 		});
 	}
+}
+
+// Regression tests for the revive trace-replay proof-size reclaim fix: replaying a block via
+// `trace_block`/`trace_tx` registers a proof recorder so the accumulated worst-case `proof_size` is
+// reclaimed instead of tripping `ExhaustsResources` and dropping the tail's traces.
+mod revive_trace_reclaim {
+	use super::*;
+	use frame_support::dispatch::DispatchClass;
+	use frame_system::pallet_prelude::HeaderFor;
+	use pallet_revive::{
+		pallet_revive_types::runtime_api::{
+			TraceBlockInputPayloadV1, TraceBlockVersionedInputPayload,
+			TraceBlockVersionedOutputPayload, TraceTxInputPayloadV1, TraceTxVersionedInputPayload,
+			TraceTxVersionedOutputPayload, TraceV1, TracerTypeV1,
+		},
+		runtime_decl_for_revive_api::ReviveApiV2,
+	};
+	use pallet_revive_fixtures::compile_module;
+	use sp_core::H160;
+	use sp_runtime::{traits::Header as _, BuildStorage};
+	use sp_trie::{proof_size_extension::ProofSizeExt, ProofSizeProvider};
+
+	const SENDER: Sr25519Keyring = Sr25519Keyring::Bob;
+	// Enough reads that each call meters ~the per-call proof_size limit.
+	const ROUNDS: u32 = 100_000;
+
+	// Reports a constant size, so the per-extrinsic proof diff is zero: models a recorder being
+	// present, letting reclaim refund the full over-charge.
+	struct ConstantRecorder;
+	impl ProofSizeProvider for ConstantRecorder {
+		fn estimate_encoded_size(&self) -> usize {
+			0
+		}
+	}
+
+	fn setup_ext() -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Runtime> {
+			balances: vec![
+				(SENDER.to_account_id(), 1_000_000_000 * UNITS),
+				(pallet_revive::Pallet::<Runtime>::account_id(), 1_000_000 * UNITS),
+			],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		let mut ext: sp_io::TestExternalities = t.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	fn signed_revive_call(addr: H160, nonce: u32, weight_limit: Weight) -> UncheckedExtrinsic {
+		let call = RuntimeCall::Revive(pallet_revive::Call::call {
+			dest: addr,
+			value: 0,
+			weight_limit,
+			storage_deposit_limit: 0,
+			data: ROUNDS.to_le_bytes().to_vec(),
+		});
+		construct_extrinsic_with_nonce(SENDER, call, nonce)
+	}
+
+	// Deploy the repeated-read contract, build a block of two calls, and replay it through `f`
+	// (`trace_block` or `trace_tx`), registering the proof recorder when `with_recorder`.
+	fn with_block<R>(with_recorder: bool, f: impl FnOnce(Block) -> R) -> R {
+		let code = compile_module("repeated_storage_read").unwrap().0;
+		let mut ext = setup_ext();
+		if with_recorder {
+			ext.register_extension(ProofSizeExt::new(ConstantRecorder));
+		}
+		ext.execute_with(|| {
+			let budget = <Runtime as frame_system::Config>::BlockWeights::get()
+				.get(DispatchClass::Normal)
+				.max_total
+				.expect("normal class has a max_total; qed")
+				.proof_size();
+			// ~60% of the budget each, so the two calls only both fit when reclaim is in effect.
+			let weight_limit = Weight::from_parts(500_000_000_000, budget * 3 / 5);
+
+			let contract = bare_instantiate(&SENDER.to_account_id(), code)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::from_parts(500_000_000_000, 10 * 1024 * 1024),
+					deposit_limit: Balance::MAX,
+				})
+				.build_and_unwrap_contract();
+
+			// deploying bumped the sender's nonce
+			let base = frame_system::Pallet::<Runtime>::account(&SENDER.to_account_id()).nonce;
+			let extrinsics = vec![
+				signed_revive_call(contract.addr, base, weight_limit),
+				signed_revive_call(contract.addr, base + 1, weight_limit),
+			];
+			let header = <HeaderFor<Runtime>>::new(
+				frame_system::Pallet::<Runtime>::block_number() + 1,
+				Default::default(),
+				Default::default(),
+				Default::default(),
+				Default::default(),
+			);
+
+			f(Block { header, extrinsics })
+		})
+	}
+
+	fn tracer() -> TracerTypeV1 {
+		TracerTypeV1::CallTracer(None)
+	}
+
+	fn trace_block(block: Block) -> usize {
+		let input = TraceBlockVersionedInputPayload::V1(TraceBlockInputPayloadV1 {
+			block,
+			config: tracer(),
+		});
+		let TraceBlockVersionedOutputPayload::V1(output) = Runtime::trace_block_versioned(input)
+		else {
+			panic!("v1 input must produce v1 output");
+		};
+		output.traces.len()
+	}
+
+	fn trace_tx(block: Block, tx_index: u32) -> Option<TraceV1> {
+		let input = TraceTxVersionedInputPayload::V1(TraceTxInputPayloadV1 {
+			block,
+			tx_index,
+			config: tracer(),
+		});
+		let TraceTxVersionedOutputPayload::V1(output) = Runtime::trace_tx_versioned(input) else {
+			panic!("v1 input must produce v1 output");
+		};
+		output.trace
+	}
+
+	#[test]
+	fn trace_block_drops_tail_trace_without_proof_recorder() {
+		let with_recorder = with_block(true, trace_block);
+		let without = with_block(false, trace_block);
+		assert_eq!(with_recorder, 2, "both calls traced with a recorder");
+		assert!(without < with_recorder, "tail trace dropped without a recorder");
+	}
+
+	#[test]
+	fn trace_tx_drops_tail_trace_without_proof_recorder() {
+		let with_recorder = with_block(true, |b| trace_tx(b, 1));
+		let without = with_block(false, |b| trace_tx(b, 1));
+		assert!(with_recorder.is_some(), "tail tx traced with a recorder");
+		assert!(without.is_none(), "tail tx trace dropped without a recorder");
+	}
+}
+
+#[test]
+fn relay_proof_request_includes_the_validator_collators_randomness_key() {
+	use cumulus_primitives_core::{
+		relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS,
+		runtime_decl_for_key_to_include_in_relay_proof::KeyToIncludeInRelayProofV1,
+		RelayStorageKey,
+	};
+	// GIVEN the runtime wires pallet-validator-collators, which reads the relay chain epoch
+	// randomness from every relay chain state proof
+	// WHEN a collator asks the runtime which relay chain keys to prove
+	let keys = Runtime::keys_to_prove().keys;
+	// THEN the randomness key is requested
+	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }

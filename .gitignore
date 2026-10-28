@@ -28,7 +28,6 @@
 /.cargo/config
 /.envrc
 artifacts
-bin/node-template/Cargo.lock
 nohup.out
 polkadot_argument_parsing
 !docs/sdk/src/polkadot_sdk/polkadot.rs
@@ -45,3 +44,8 @@ target.noindex/
 rustc-ice-*
 /.claude/settings.local.json
 *.local.md
+# Generated release changelog outputs (scripts/release/build-changelogs.sh)
+scripts/release/RELEASE_DRAFT.md
+scripts/release/context.json
+scripts/release/CHANGELOG.md
+scripts/release/changelog.json

@@ -814,7 +814,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 			let validator_set_count = keys.len() as u32;
 			let offence = UnresponsivenessOffence { session_index, validator_set_count, offenders };
 			if let Err(e) = T::ReportUnresponsiveness::report_offence(vec![], offence) {
-				sp_runtime::print(e);
+				log::error!(target: "runtime::im-online", "Failed to report offence: {:?}", e);
 			}
 		}
 	}
@@ -841,7 +841,7 @@ pub struct UnresponsivenessOffence<Offender> {
 
 impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 	const ID: Kind = *b"im-online:offlin";
-	type TimeSlot = SessionIndex;
+	type Slot = SessionIndex;
 
 	fn offenders(&self) -> Vec<Offender> {
 		self.offenders.clone()
@@ -855,7 +855,7 @@ impl<Offender: Clone> Offence<Offender> for UnresponsivenessOffence<Offender> {
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.session_index
 	}
 

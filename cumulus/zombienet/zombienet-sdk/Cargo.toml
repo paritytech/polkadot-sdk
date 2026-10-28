@@ -9,6 +9,7 @@ publish = false
 
 [dependencies]
 anyhow = { workspace = true }
+bs58 = { features = ["alloc"], workspace = true, default-features = true }
 env_logger = { workspace = true }
 log = { workspace = true }
 polkadot-primitives = { workspace = true, default-features = true }
@@ -21,6 +22,8 @@ zombienet-orchestrator = { workspace = true }
 zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 sp-rpc = { workspace = true, default-features = true }
+sc-rpc-spec-v2 = { workspace = true, default-features = true }
+jsonrpsee = { workspace = true, features = ["ws-client"] }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
 sc-network-statement = { workspace = true, default-features = true }
 sc-statement-store = { workspace = true, default-features = true, features = ["test-helpers"] }
@@ -36,15 +39,21 @@ frame-support = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 sp-runtime = { workspace = true, default-features = true }
+sp-transaction-storage-proof = { workspace = true, default-features = true }
 verifiable = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
-subxt = { workspace = true, features = ["reconnecting-rpc-client"] }
-statement-store-subxt = { package = "subxt", version = "0.50" }
-statement-store-subxt-signer = { package = "subxt-signer", version = "0.50", features = ["sr25519"] }
+subxt = { workspace = true, features = ["native"] }
+subxt-signer = { workspace = true, features = ["sr25519"] }
+
+cid = { workspace = true }
+hex = { workspace = true, default-features = true }
+multihash = { workspace = true, default-features = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
 
 [features]
 zombie-ci = []

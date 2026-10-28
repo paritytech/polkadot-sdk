@@ -248,7 +248,7 @@ impl<T: Config> Pallet<T> {
 		Leases::<T>::put(&leases);
 
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
-		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());
+		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::MAX);
 		let cores_offered = limit_cores_offered.min(max_possible_sales);
 		let sale_start = now.saturating_add(config.interlude_length);
 		let leadin_length = config.leadin_length;
@@ -259,6 +259,8 @@ impl<T: Config> Pallet<T> {
 		} else {
 			None
 		};
+
+		let sale_index = old_sale.sale_index.saturating_add(1);
 
 		// Update SaleInfo
 		let new_sale = SaleInfoRecord {
@@ -272,6 +274,7 @@ impl<T: Config> Pallet<T> {
 			ideal_cores_sold,
 			cores_offered,
 			cores_sold: 0,
+			sale_index,
 		};
 
 		SaleInfo::<T>::put(&new_sale);
@@ -287,6 +290,7 @@ impl<T: Config> Pallet<T> {
 			region_end,
 			ideal_cores_sold,
 			cores_offered,
+			sale_index,
 		});
 
 		Some(())
@@ -370,6 +374,22 @@ impl<T: Config> Pallet<T> {
 					});
 					return None;
 				};
+
+				// A core index can be assigned a different workload each bulk period, so this
+				// is not necessarily the workload that was validated when auto-renewal was
+				// enabled. The task must only pay for renewing its own workload.
+				let renewal_id = PotentialRenewalId { core: record.core, when: sale.region_begin };
+				let renews_own_workload = PotentialRenewals::<T>::get(renewal_id)
+					.map_or(false, |renewal| {
+						renewal.completion.is_complete_and_contains_task(record.task)
+					});
+				if !renews_own_workload {
+					Self::deposit_event(Event::<T>::AutoRenewalFailed {
+						core: record.core,
+						payer: Some(payer),
+					});
+					return None;
+				}
 
 				if let Ok(new_core_index) = Self::do_renew(payer.clone(), record.core) {
 					Some(AutoRenewalRecord {

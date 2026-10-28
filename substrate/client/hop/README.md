@@ -14,8 +14,10 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 
 ## Overview
 
-- **Disk-backed** — blobs are written to disk immediately, only metadata lives
-  in RAM. The in-memory index is rebuilt from on-disk `.meta` files on restart.
+- **Disk-backed** — blobs are written to disk immediately as content-addressed
+  files, and metadata is persisted to a `parity-db` key-value store. In-memory
+  state is limited to derived counter caches that are rebuilt by iterating
+  the metadata column at startup.
 - **Content-addressed** — entries are keyed by `blake2_256(data)`; duplicates
   are rejected at submit time.
 - **Per-recipient ephemeral keypairs** — the sender generates a one-time
@@ -44,7 +46,8 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 | Module | Purpose |
 |---|---|
 | `cli` | `HopParams` — `clap`-flattenable CLI parameters |
-| `pool` | `HopDataPool` — disk-backed blob store + in-memory metadata index |
+| `pool` | `HopDataPool` — content-addressed blob files + `parity-db` metadata KV store |
+| `metrics` | `HopMetrics` — Prometheus metrics; no-ops without a registry |
 | `rpc` | `HopApi` / `HopRpcServer` — jsonrpsee methods (`hop_submit`/`claim`/`ack`/`poolStatus`) |
 | `promotion` | `HopPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
 | `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
@@ -73,7 +76,7 @@ pub struct Cli {
 ### 2. Initialize the pool
 
 ```rust,ignore
-use sc_hop::HopDataPool;
+use sc_hop::{HopDataPool, HopMetrics};
 use std::sync::Arc;
 
 let hop_pool = hop_params.enabled.then(|| {
@@ -84,11 +87,15 @@ let hop_pool = hop_params.enabled.then(|| {
         hop_params.data_dir.clone()
             .unwrap_or_else(|| chain_data_dir.join("hop")),
         hop_params.rate_limit_config(),
+        // Registration must not fail startup, so degrade to no-ops.
+        HopMetrics::new(prometheus_registry).unwrap_or_else(|_| HopMetrics::disabled()),
     )
     .map(Arc::new)
     .map_err(|e| format!("Failed to create HOP pool: {e}"))
 }).transpose()?;
 ```
+
+`HopParams::build_pool(database_path, prometheus_registry)` does all of the above.
 
 ### 3. Register RPC and spawn the maintenance task
 
@@ -214,17 +221,54 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1019 | `DuplicateRecipient` | Recipient list contains duplicates |
 | 1020 | `RateLimited` | Per-account rate limit exceeded; response includes `retry_after_secs` |
 | 1021 | `MissingDataDir` | Neither `--hop-data-dir` nor a chain database path was available |
+| 1022 | `Db` | Metadata KV store failure (open, read, write, or decode error from `parity-db`) |
+
+## Metrics
+
+| Metric | Type | Labels |
+|---|---|---|
+| `substrate_hop_pool_entries` / `_pool_bytes` / `_pool_max_bytes` | gauge | |
+| `substrate_hop_pool_inserted_bytes_total` | counter | |
+| `substrate_hop_pool_removed_total` | counter | `reason` (values below) |
+| `substrate_hop_rpc_errors_total` | counter | `method` (wire name, e.g. `hop_submit`), `reason` (`HopError` variant) |
+| `substrate_hop_promotions_confirmed_total` | counter | |
+| `substrate_hop_promotion_backlog` | gauge | |
+| `substrate_hop_maintenance_ticks_total` | counter | |
+
+`reason` values, all pre-created at registration: `acked`, `expired_promoted`,
+`expired_unpromoted` (an upper bound on loss; re-checking stops at
+`MAX_PROMOTION_ATTEMPTS`), `corrupt`, `startup_dropped`.
 
 ## Limits and fixed parameters
 
 - Max blob size: whatever `HopRuntimeApi::max_promotion_size()` returns on the
   current runtime — authoritative, no separate node-side ceiling.
-- `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt on-disk
-  `.meta` files with too many recipients fail to SCALE-decode and are
+- `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt
+  metadata rows with too many recipients fail to SCALE-decode and are
   discarded during startup recovery).
 - Hash: Blake2-256.
-- On-disk layout: 256 shard directories under `<data_dir>/blobs/` and
-  `<data_dir>/meta/`.
+- On-disk layout: 256 shard directories of blob files under
+  `<data_dir>/blobs/{00..ff}/<hash>.blob`, plus a `parity-db` instance at
+  `<data_dir>/meta-db/` holding the metadata column keyed by content hash and a
+  second column holding pool-wide metadata (currently just the schema version).
+
+## Database schema version
+
+The `parity-db` instance carries a schema version under the key `version`,
+checked on every open. A database written by a newer binary is rejected with
+error code `1022` rather than misread; a database with no version row is
+stamped with the current one. Column-layout changes are applied before the
+database is opened, appending any columns an older layout is missing.
+
+Startup also imports leftover metadata from the pre-KV-store layout: if
+`<data_dir>/meta/{00..ff}/<hash>.meta` files are present they are read
+into the metadata column and the tree is removed. The record format is
+unchanged between the two layouts, so this is a move rather than a conversion.
+Sidecar files that are unreadable, fail to decode, carry an unsupported
+`HOP_META_VERSION`, or have no matching blob are skipped, leaving their blobs
+to the orphan pass. The import runs before startup recovery, so imported
+entries count towards `hop_poolStatus` and their blobs are not treated as
+orphans.
 
 ## Graceful degradation
 

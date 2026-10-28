@@ -22,6 +22,7 @@ use super::{
 	StakingAdmin, ToRococoXcmRouter, TransactionByteFee, Treasurer, TrustBackedAssetsInstance,
 	Uniques, WeightToFee, XcmpQueue,
 };
+use crate::governance::TreasuryInteriorLocation;
 use assets_common::{
 	matching::{FromSiblingParachain, IsForeignConcreteAsset, ParentLocation},
 	TrustBackedAssetsAsLocation,
@@ -81,6 +82,9 @@ parameter_types! {
 		PalletInstance(<PoolAssets as PalletInfoAccess>::index() as u8).into();
 	pub UniquesPalletLocation: Location =
 		PalletInstance(<Uniques as PalletInfoAccess>::index() as u8).into();
+	/// `PayOverXcm` charges treasury payout delivery fees from this location. No converter
+	/// maps it to an account, so it must stay in `WaivedLocations`.
+	pub TreasuryLocation: Location = TreasuryInteriorLocation::get().into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 	pub DapBufferAccount: AccountId = crate::staking::DapPalletId::get().into_account_truncating();
@@ -345,6 +349,7 @@ pub type WaivedLocations = (
 	FellowshipEntities,
 	AmbassadorEntities,
 	LocalPlurality,
+	Equals<TreasuryLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
@@ -754,5 +759,28 @@ pub mod bridging {
 				});
 			Some(alias.expect("we expect here BridgeHubWestend to Rococo mapping at least"))
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use xcm_executor::traits::{FeeManager, FeeReason};
+
+	#[test]
+	fn treasury_location_delivery_fees_are_waived() {
+		sp_io::TestExternalities::default().execute_with(|| {
+			// GIVEN the location `PayOverXcm` charges treasury payout delivery fees from
+			let treasury = TreasuryLocation::get();
+
+			// WHEN the fee manager decides whether to charge it
+			let waived = <XcmConfig as xcm_executor::Config>::FeeManager::is_waived(
+				Some(&treasury),
+				FeeReason::ChargeFees,
+			);
+
+			// THEN it is waived, as no account backs that location
+			assert!(waived);
+		});
 	}
 }

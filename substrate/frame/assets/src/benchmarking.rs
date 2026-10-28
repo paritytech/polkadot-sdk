@@ -163,6 +163,9 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &asset_id.clone().into()).unwrap();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		// Set `NextAssetId` so the `AutoIncAssetId` write is measured.
+		let next_id: T::AssetId = asset_id.clone().into();
+		NextAssetId::<T, I>::put(next_id);
 	}: _<T::RuntimeOrigin>(origin, asset_id.clone(), caller_lookup, 1u32.into())
 	verify {
 		assert_last_event::<T, I>(Event::Created { asset_id: asset_id.into(), creator: caller.clone(), owner: caller }.into());
@@ -172,6 +175,9 @@ benchmarks_instance_pallet! {
 		let asset_id = default_asset_id::<T, I>();
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
+		// Set `NextAssetId` so the `AutoIncAssetId` write is measured.
+		let next_id: T::AssetId = asset_id.clone().into();
+		NextAssetId::<T, I>::put(next_id);
 	}: _(SystemOrigin::Root, asset_id.clone(), caller_lookup, true, 1u32.into())
 	verify {
 		assert_last_event::<T, I>(Event::ForceCreated { asset_id: asset_id.into(), owner: caller }.into());
@@ -244,7 +250,7 @@ benchmarks_instance_pallet! {
 		let amount = T::Balance::from(100u32);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(Event::Issued { asset_id: asset_id.into(), owner: caller, amount }.into());
+		assert_event::<T, I>(Event::Issued { asset_id: asset_id.into(), owner: caller, amount }.into());
 	}
 
 	burn {
@@ -252,7 +258,7 @@ benchmarks_instance_pallet! {
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(Event::Burned { asset_id: asset_id.into(), owner: caller, balance: amount }.into());
+		assert_event::<T, I>(Event::Burned { asset_id: asset_id.into(), owner: caller, balance: amount }.into());
 	}
 
 	transfer {
@@ -262,7 +268,7 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
 	transfer_keep_alive {
@@ -274,7 +280,7 @@ benchmarks_instance_pallet! {
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, amount)
 	verify {
 		assert!(frame_system::Pallet::<T>::account_exists(&caller));
-		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
 	force_transfer {
@@ -284,7 +290,7 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup, target_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(
+		assert_event::<T, I>(
 			Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into()
 		);
 	}
@@ -592,7 +598,7 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, false)
 	verify {
-		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
 	total_issuance {
@@ -606,10 +612,11 @@ benchmarks_instance_pallet! {
 	}
 
 	balance {
+		use frame_support::traits::fungibles::Inspect;
 		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
 		let amount;
 	}: {
-		amount = Pallet::<T, I>::balance(asset_id.into(), caller);
+		amount = <Pallet<T, I> as Inspect<_>>::total_balance(asset_id.into(), &caller);
 	} verify {
 		assert_eq!(amount, 100u32.into());
 	}

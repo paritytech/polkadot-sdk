@@ -26,8 +26,8 @@ use cumulus_relay_chain_interface::*;
 use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
-	CandidateEvent, CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
-	Header as RelayHeader, Id as ParaId, NodeFeatures,
+	vstaging::RelayParentInfo, CandidateEvent, CommittedCandidateReceiptV2, CoreIndex,
+	Hash as RelayHash, Header as RelayHeader, Id as ParaId, NodeFeatures,
 };
 use sc_consensus_babe::{
 	AuthorityId, ConsensusLog as BabeConsensusLog, NextEpochDescriptor, BABE_ENGINE_ID,
@@ -508,6 +508,15 @@ impl RelayChainInterface for TestRelayClient {
 
 	async fn node_features(&self, _at: RelayHash) -> RelayChainResult<NodeFeatures> {
 		Ok(NodeFeatures::default())
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		_at: RelayHash,
+		_session_index: SessionIndex,
+		_relay_parent: RelayHash,
+	) -> RelayChainResult<Option<RelayParentInfo<RelayHash, BlockNumber>>> {
+		unimplemented!("Not needed for test")
 	}
 }
 

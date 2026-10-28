@@ -19,7 +19,7 @@ use super::*;
 use assert_matches::assert_matches;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::relay_chain::{
-	BlockId, CandidateCommitments, CandidateDescriptorV2, CoreIndex, CoreState,
+	BlockId, BlockNumber, CandidateCommitments, CandidateDescriptorV2, CoreIndex, CoreState,
 };
 use cumulus_relay_chain_interface::{
 	ChildInfo, InboundDownwardMessage, InboundHrmpMessage, OccupiedCoreAssumption, PHash, PHeader,
@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
 	RecoveryError, TimeoutExt,
 };
-use polkadot_primitives::{CandidateEvent, NodeFeatures};
+use polkadot_primitives::{vstaging::RelayParentInfo, CandidateEvent, NodeFeatures};
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
@@ -534,6 +534,15 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn node_features(&self, _at: PHash) -> RelayChainResult<NodeFeatures> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn ancestor_relay_parent_info(
+		&self,
+		_at: PHash,
+		_session_index: SessionIndex,
+		_relay_parent: PHash,
+	) -> RelayChainResult<Option<RelayParentInfo<PHash, BlockNumber>>> {
 		unimplemented!("Not needed for test");
 	}
 }

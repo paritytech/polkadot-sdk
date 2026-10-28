@@ -17,9 +17,8 @@
 
 //! Stock, pure Aura collators.
 //!
-//! This includes the [`basic`] collator, which only builds on top of the most recently
-//! included parachain block, as well as the [`lookahead`] collator, which prospectively
-//! builds on parachain blocks which have not yet been included in the relay chain.
+//! This includes the [`lookahead`] collator, which prospectively builds on parachain blocks which
+//! have not yet been included in the relay chain, and also the [`slot_based`] collator.
 
 use crate::collator::SlotClaim;
 use codec::Codec;
@@ -33,17 +32,13 @@ use polkadot_node_subsystem::messages::CollatorProtocolMessage;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
-	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 
-pub mod basic;
 pub mod lookahead;
 pub mod slot_based;
 
@@ -238,26 +233,24 @@ where
 /// If the best parent does not pass `filter_parent`, walks backwards through ancestors
 /// until finding one that does, or reaching the included block.
 async fn find_parent<Block>(
-	relay_parent: RelayHash,
-	para_id: ParaId,
-	para_backend: &impl sc_client_api::Backend<Block>,
 	relay_client: &impl RelayChainInterface,
+	para_backend: &impl sc_client_api::Backend<Block>,
+	para_id: ParaId,
+	params: ParentSearchParams,
 	filter_parent: impl Fn(&Block::Header) -> bool,
 ) -> Option<consensus_common::ParentSearchResult<Block>>
 where
 	Block: BlockT,
 {
-	let ancestry_lookback = relay_client
-		.scheduling_lookahead(relay_parent)
-		.await
-		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-		.saturating_sub(1) as usize;
-	let parent_search_params = ParentSearchParams { relay_parent, para_id, ancestry_lookback };
-
-	let mut result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
-		parent_search_params,
-		para_backend,
+	// The best parent may be a middle block in a bundle; `find_parent_for_building` trims it (and
+	// the resubmittable segment) back to the first block passing the filter, so the segment ends on
+	// a bundle-ender.
+	let result = match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		relay_client,
+		para_backend,
+		para_id,
+		params.clone(),
+		filter_parent,
 	)
 	.await
 	{
@@ -265,7 +258,7 @@ where
 		Ok(None) => {
 			tracing::warn!(
 				target: crate::LOG_TARGET,
-				?relay_parent,
+				?params,
 				"Could not find parent to build upon.",
 			);
 			return None;
@@ -273,33 +266,13 @@ where
 		Err(e) => {
 			tracing::error!(
 				target: crate::LOG_TARGET,
-				?relay_parent,
+				?params,
 				err = ?e,
 				"Could not find parent to build upon"
 			);
 			return None;
 		},
 	};
-
-	// If the best parent doesn't pass the filter (e.g. it's a middle block in a bundle),
-	// walk backwards towards the included block until we find one that does.
-	// This avoids falling all the way back to the included block when there are valid
-	// last-in-core ancestors closer to the chain tip.
-	while !filter_parent(&result.best_parent_header) {
-		let parent_hash = *result.best_parent_header.parent_hash();
-		match para_backend.blockchain().header(parent_hash) {
-			Ok(Some(header)) => {
-				result.best_parent_header = header;
-				if parent_hash == result.included_header.hash() {
-					break;
-				}
-			},
-			_ => {
-				result.best_parent_header = result.included_header.clone();
-				break;
-			},
-		}
-	}
 
 	Some(result)
 }

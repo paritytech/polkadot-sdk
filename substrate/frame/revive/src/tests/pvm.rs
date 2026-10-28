@@ -22,8 +22,9 @@ use super::{
 	precompiles::{INoInfo, NoInfo},
 };
 use crate::{
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, CodeRejection, Config, ContractInfo,
+	DebugSettings, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet,
+	StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -58,6 +59,7 @@ use frame_support::{
 };
 use frame_system::{EventRecord, Phase};
 use pallet_revive_fixtures::compile_module;
+use pallet_revive_types::runtime_api::*;
 use pallet_revive_uapi::{ReturnErrorCode as RuntimeReturnCode, ReturnFlags};
 use pretty_assertions::{assert_eq, assert_ne};
 use sp_core::U256;
@@ -74,7 +76,11 @@ fn eth_call_transfer_with_dust_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+		// Pot must also cover the worst-case EIP-7702 authorization weight that eth_call
+		// reserves pre-dispatch even for an empty authorization list.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			100_000_000_000,
+		));
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
@@ -1056,15 +1062,6 @@ fn self_destruct_by_precompile_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: DJANGO_FALLBACK,
-						amount: initial_contract_balance,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::StorageDepositReserve,
@@ -1072,6 +1069,15 @@ fn self_destruct_by_precompile_works() {
 						source: contract.account_id.clone(),
 						dest: ALICE,
 						amount: hold_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: initial_contract_balance,
 					}),
 					topics: vec![],
 				},
@@ -3532,6 +3538,22 @@ fn static_data_limit_is_enforced() {
 	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
 	let (oom_ro, _) = compile_module("oom_ro").unwrap();
 
+	assert_matches!(
+		crate::check_pvm_code(&oom_rw_trailing),
+		Err(CodeRejection::BaselineMemoryTooLarge {
+			size,
+			limit: limits::code::BASELINE_MEMORY_LIMIT,
+		}) if size > limits::code::BASELINE_MEMORY_LIMIT
+	);
+	assert_matches!(
+		crate::check_pvm_code(&oom_rw_included),
+		Err(CodeRejection::BlobTooLarge { limit: limits::code::BLOB_BYTES, .. })
+	);
+	assert_matches!(
+		crate::check_pvm_code(&oom_ro),
+		Err(CodeRejection::BlobTooLarge { limit: limits::code::BLOB_BYTES, .. })
+	);
+
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 
@@ -3558,6 +3580,26 @@ fn static_data_limit_is_enforced() {
 			<Error<Test>>::BlobTooLarge
 		);
 	});
+}
+
+#[test]
+fn check_pvm_code_reports_blob_size() {
+	let size = limits::code::BLOB_BYTES + 1;
+	assert_eq!(
+		crate::check_pvm_code(&vec![0; size as usize]),
+		Err(CodeRejection::BlobTooLarge { size, limit: limits::code::BLOB_BYTES }),
+	);
+}
+
+#[test]
+fn check_pvm_code_rejects_malformed_blob() {
+	assert_eq!(crate::check_pvm_code(&[0xde, 0xad, 0xbe, 0xef]), Err(CodeRejection::Malformed));
+}
+
+#[test]
+fn check_pvm_code_accepts_valid_blob() {
+	let (code, _) = compile_module("dummy").unwrap();
+	assert_eq!(crate::check_pvm_code(&code), Ok(()));
 }
 
 #[test]
@@ -3767,23 +3809,56 @@ fn immutable_data_works() {
 }
 
 #[test]
-fn sbrk_cannot_be_linked() {
-	// The sbrk instruction is not available in the revive_v1 instruction set.
-	// This test verifies that the linker rejects it during the linking phase.
-	let result = pallet_revive_fixtures::try_compile_invalid_fixture("sbrk");
+fn delegatecall_immutable_charge_follows_callee_not_caller() {
+	let (delegator_code, _) = compile_module("delegate_call_simple").unwrap();
+	let (reader_code, _) = compile_module("immutable_reader").unwrap();
 
-	assert!(result.is_err(), "Expected linking to fail for sbrk fixture");
-	let err_msg = result.unwrap_err().to_string();
+	let measure = |caller_len: u32, callee_len: usize| -> u128 {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+
+			let Contract { addr: reader_addr, .. } =
+				builder::bare_instantiate(Code::Upload(reader_code.clone()))
+					.build_and_unwrap_contract();
+			let Contract { addr: delegator_addr, .. } =
+				builder::bare_instantiate(Code::Upload(delegator_code.clone()))
+					.build_and_unwrap_contract();
+
+			// Give the callee's stored blob and the caller's recorded length different sizes, so
+			// the measured gas shows which of the two the charge is based on.
+			crate::ImmutableDataOf::<Test>::insert(
+				reader_addr,
+				crate::ImmutableData::try_from(vec![0xAAu8; callee_len]).unwrap(),
+			);
+			let mut info = AccountInfo::<Test>::load_contract(&delegator_addr).unwrap();
+			info.set_immutable_data_len(caller_len);
+			AccountInfo::<Test>::insert_contract(&delegator_addr, info);
+
+			let result =
+				builder::bare_call(delegator_addr).data(reader_addr.as_bytes().to_vec()).build();
+			result.result.unwrap();
+			result.gas_consumed
+		})
+	};
+
+	let gas_caller_big = measure(4096, 8);
+	let gas_callee_big = measure(8, 4096);
 	assert!(
-		err_msg.contains("sbrk") || err_msg.contains("not available"),
-		"Expected error message to mention 'sbrk' or 'not available', got: {}",
-		err_msg
+		gas_callee_big > gas_caller_big,
+		"get_immutable_data charge must follow the callee's blob, not the caller's length: \
+		 gas_callee_big={gas_callee_big}, gas_caller_big={gas_caller_big}",
 	);
 }
 
 #[test]
 fn overweight_basic_block_cannot_be_deployed() {
 	let (code, _) = compile_module("basic_block").unwrap();
+
+	assert_matches!(
+		crate::check_pvm_code(&code),
+		Err(CodeRejection::BasicBlockTooLarge { size, limit: limits::code::BASIC_BLOCK_SIZE })
+			if size > limits::code::BASIC_BLOCK_SIZE
+	);
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
@@ -4094,6 +4169,8 @@ fn gas_limit_api_works() {
 fn unknown_syscall_rejected() {
 	let (code, _) = compile_module("unknown_syscall").unwrap();
 
+	assert_eq!(crate::check_pvm_code(&code), Err(CodeRejection::Malformed));
+
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -4101,6 +4178,22 @@ fn unknown_syscall_rejected() {
 			builder::bare_instantiate(Code::Upload(code)).build().result,
 			<Error<Test>>::CodeRejected,
 		)
+	});
+}
+
+#[test]
+fn benchmark_only_syscall_rejected() {
+	let (code, _) = compile_module("noop").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let result = builder::bare_instantiate(Code::Upload(code)).build().result;
+		if cfg!(feature = "runtime-benchmarks") {
+			assert_ok!(result);
+		} else {
+			assert_err!(result, <Error<Test>>::CodeRejected);
+		}
 	});
 }
 
@@ -4166,6 +4259,43 @@ fn execution_tracing_records_consumption_for_plain_transfer() {
 	});
 }
 
+/// `failed` and `returnValue` are the header fields clients read to tell whether a traced
+/// transaction succeeded and why.
+#[test]
+fn execution_tracing_reports_the_outcome_of_a_failing_transaction() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+
+	// Input 2 reverts with an ABI-encoded reason; input 1 panics, which surfaces as a trap.
+	let (code, _) = compile_module("tracing_callee").unwrap();
+
+	for input in [2u32, 1] {
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+			let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+			let result =
+				trace(&mut tracer, || builder::bare_call(addr).data(input.encode()).build());
+
+			let trace = tracer.collect_trace();
+			assert!(trace.failed, "input {input}: a failed transaction is reported as failed");
+
+			match result.result {
+				Ok(returned) => {
+					assert!(returned.did_revert(), "input {input}: expected a revert");
+					assert_eq!(
+						trace.return_value.0, returned.data,
+						"the revert data is the output"
+					);
+				},
+				Err(_) => assert!(trace.return_value.0.is_empty(), "a trap produces no output"),
+			}
+		});
+	}
+}
+
 fn replace_actual_gas(expected: &mut CallTrace, actual: &CallTrace) {
 	expected.gas = actual.gas;
 	expected.gas_used = actual.gas_used;
@@ -4209,23 +4339,28 @@ fn call_tracing_works() {
 		assert_eq!(gas_trace.gas_used, gas_used as u64);
 
 		for config in tracer_configs {
-			let logs = if config.with_logs {
+			let with_logs = config.with_logs;
+			let base = System::event_count();
+			let make_logs = |start_index: u32| -> Vec<CallLog> {
+				if !with_logs {
+					return vec![];
+				}
 				vec![
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"before".to_vec().into(),
 						position: 0,
+						index: base + start_index,
 					},
 					CallLog {
 						address: addr,
 						topics: Default::default(),
 						data: b"after".to_vec().into(),
 						position: 1,
+						index: base + start_index + 1,
 					},
 				]
-			} else {
-				vec![]
 			};
 
 			let calls = if config.only_top_call {
@@ -4252,7 +4387,7 @@ fn call_tracing_works() {
 							to: addr,
 							input: (2u32, addr_callee).encode().into(),
 							call_type: Call,
-							logs: logs.clone(),
+							logs: make_logs(2),
 							value: Some(U256::from(0)),
 							gas: 0,
 							gas_used: 0,
@@ -4274,7 +4409,7 @@ fn call_tracing_works() {
 									to: addr,
 									input: (1u32, addr_callee).encode().into(),
 									call_type: Call,
-									logs: logs.clone(),
+									logs: make_logs(4),
 									value: Some(U256::from(0)),
 									gas: 0,
 									gas_used: 0,
@@ -4332,7 +4467,7 @@ fn call_tracing_works() {
 					to: addr,
 					input: (3u32, addr_callee).encode().into(),
 					call_type: Call,
-					logs: logs.clone(),
+					logs: make_logs(0),
 					value: Some(U256::from(0)),
 					calls: calls,
 					child_call_count: 2,
@@ -5479,18 +5614,15 @@ fn existential_deposit_shall_not_be_charged_twice() {
 
 #[test]
 fn self_destruct_by_syscall_tracing_works() {
-	use crate::{
-		Trace,
-		evm::{PrestateTrace, PrestateTracer, PrestateTracerConfig, Tracer},
-	};
+	use crate::evm::{PrestateTracer, PrestateTracerConfig, Tracer};
 
 	let (binary, _code_hash) = compile_module("self_destruct_by_syscall").unwrap();
 
 	struct TestCase {
 		description: &'static str,
 		create_tracer: Box<dyn FnOnce() -> Tracer<Test>>,
-		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> Trace>,
-		modify_trace_fn: Option<Box<dyn FnOnce(Trace) -> Trace>>,
+		expected_trace_fn: Box<dyn FnOnce(H160, Vec<u8>) -> TraceV1>,
+		modify_trace_fn: Option<Box<dyn FnOnce(TraceV1) -> TraceV1>>,
 	}
 
 	let test_cases = vec![
@@ -5498,19 +5630,19 @@ fn self_destruct_by_syscall_tracing_works() {
 			description: "CallTracer",
 			create_tracer: Box::new(|| Tracer::CallTracer(CallTracer::new(Default::default()))),
 			expected_trace_fn: Box::new(|addr, _binary| {
-				Trace::Call(CallTrace {
+				TraceV1::Call(CallTraceV1 {
 					from: ALICE_ADDR,
 					to: addr,
-					call_type: CallType::Call,
+					call_type: CallTypeV1::Call,
 					value: Some(U256::zero()),
 					gas: 0,
 					gas_used: 0,
-					calls: vec![CallTrace {
+					calls: vec![CallTraceV1 {
 						from: addr,
 						to: DJANGO_ADDR,
 						gas: 0,
 
-						call_type: CallType::Selfdestruct,
+						call_type: CallTypeV1::Selfdestruct,
 						value: Some(Pallet::<Test>::convert_native_to_evm(100_000u128)),
 						..Default::default()
 					}],
@@ -5518,7 +5650,7 @@ fn self_destruct_by_syscall_tracing_works() {
 				})
 			}),
 			modify_trace_fn: Some(Box::new(|mut actual_trace| {
-				if let Trace::Call(trace) = &mut actual_trace {
+				if let TraceV1::Call(trace) = &mut actual_trace {
 					trace.gas = 0;
 					trace.gas_used = 0;
 					trace.calls[0].gas = 0;
@@ -5584,8 +5716,8 @@ fn self_destruct_by_syscall_tracing_works() {
 					.replace("{{DJANGO_BALANCE_POST}}", &format!("{:#x}", django_balance_post))
 					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
 
-				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
-				Trace::Prestate(expected)
+				let expected: PrestateTraceV1 = serde_json::from_str(&json).unwrap();
+				TraceV1::Prestate(expected)
 			}),
 			modify_trace_fn: None,
 		},
@@ -5629,8 +5761,8 @@ fn self_destruct_by_syscall_tracing_works() {
 					.replace("{{DJANGO_BALANCE}}", &format!("{:#x}", django_balance))
 					.replace("{{CONTRACT_CODE}}", &format!("0x{}", hex::encode(&binary)));
 
-				let expected: PrestateTrace = serde_json::from_str(&json).unwrap();
-				Trace::Prestate(expected)
+				let expected: PrestateTraceV1 = serde_json::from_str(&json).unwrap();
+				TraceV1::Prestate(expected)
 			}),
 			modify_trace_fn: None,
 		},
@@ -5652,15 +5784,15 @@ fn self_destruct_by_syscall_tracing_works() {
 				builder::call(addr).build().unwrap();
 			});
 
-			let mut trace = tracer.collect_trace().unwrap();
+			let mut trace = TraceV1::from(tracer.collect_trace().unwrap());
 
 			if let Some(modify_trace_fn) = modify_trace_fn {
 				trace = modify_trace_fn(trace);
 			}
 			let trace_wrapped = match trace {
-				crate::evm::Trace::Call(ct) => Trace::Call(ct),
-				crate::evm::Trace::Prestate(pt) => Trace::Prestate(pt),
-				crate::evm::Trace::Execution(_) => panic!("Execution trace not expected"),
+				TraceV1::Call(ct) => TraceV1::Call(ct),
+				TraceV1::Prestate(pt) => TraceV1::Prestate(pt),
+				TraceV1::Execution(_) => panic!("Execution trace not expected"),
 			};
 
 			assert_eq!(trace_wrapped, expected_trace, "Trace mismatch for: {}", description);
