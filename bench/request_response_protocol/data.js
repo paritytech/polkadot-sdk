@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793212892572,
+  "lastUpdate": 1793217852114,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138563,6 +138563,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2878361631,
             "range": "± 43359207",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "54316454+sandreim@users.noreply.github.com",
+            "name": "Andrei",
+            "username": "sandreim"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "899b6e5523842c869a6b45ad4ba2371a117c6425",
+          "message": "Enable parachain AD on AH, PC and YAP (#12489)\n\nAdds Authority Discovery support for test Parachains.\n\nTODO:\n- [x] Operator notes in PRDoc\n\n---------\n\nSigned-off-by: Andrei Sandu <andrei-mihail@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>\nCo-authored-by: Serban Iorga <serban300@gmail.com>\nCo-authored-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Alexandru Gheorghe <49718502+alexggh@users.noreply.github.com>",
+          "timestamp": "2026-10-28T13:37:17Z",
+          "tree_id": "59b2104019c84eaffdc129000fbeca032ff479b5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/899b6e5523842c869a6b45ad4ba2371a117c6425"
+        },
+        "date": 1793217820311,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20578072,
+            "range": "± 130942",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20974285,
+            "range": "± 204371",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22395455,
+            "range": "± 172138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26724113,
+            "range": "± 151405",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 62386121,
+            "range": "± 764309",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 428373999,
+            "range": "± 8739803",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2598947000,
+            "range": "± 259015402",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17719565,
+            "range": "± 225710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17766039,
+            "range": "± 164568",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18618756,
+            "range": "± 150320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23240349,
+            "range": "± 120199",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64865863,
+            "range": "± 1046516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 398411375,
+            "range": "± 6667496",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2912857407,
+            "range": "± 20455610",
             "unit": "ns/iter"
           }
         ]
