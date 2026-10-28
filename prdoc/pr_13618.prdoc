@@ -1,0 +1,54 @@
+title: '[pallet-revive] Per-event byte charges include topic bytes'
+
+doc:
+- audience: Runtime User
+  description: |-
+    Emitting an event charges the per-byte event weights for its topics and its data. Each topic
+    counts as 32 bytes. This applies to `LOG0` to `LOG4`, the `deposit_event` syscall, and the logs
+    emitted by precompiles such as the pallet-assets ERC-20 precompile.
+
+    With the weights shipped in `pallet-revive`, each topic adds about 8.57 us of ref time and
+    32 bytes of proof size to the cost of the event. The call stipend, which reserves room for a
+    `LOG4` with 64 data bytes, includes about 34 us for the four topics. Gas estimates for
+    transactions that emit events with topics include this charge.
+
+    A `deposit_event` call with more than `NUM_EVENT_TOPICS` topics is charged the topic bytes of
+    `NUM_EVENT_TOPICS` topics and traps with `TooManyTopics`.
+
+- audience: Runtime Dev
+  description: |-
+    No storage migration, configuration change or weight regeneration is needed.
+
+    `RuntimeCosts::DepositEvent { num_topic, len }` charges `seal_deposit_event(num_topic, len)`
+    plus `on_finalize_block_per_event` and `EXTRA_EVENT_CHARGE_PER_BYTE` for
+    `len + 32 * min(num_topic, NUM_EVENT_TOPICS)` bytes, which is the byte count the
+    `on_finalize_per_event_data` benchmark measures. The parameter of
+    `OnFinalizeBlockParts::on_finalize_block_per_event` is named `event_bytes` to match.
+
+    `PrecompileExt::deposit_event` takes the topics as `ContractLogTopics`, which holds at most
+    `NUM_EVENT_TOPICS` topics, instead of `Vec<H256>`. Precompiles that emit logs convert their
+    topics before the call and handle the error:
+
+    ```rust
+    // before
+    env.deposit_event(topics, data);
+    // after
+    let topics = pallet_revive::ContractLogTopics::try_from(topics)
+        .map_err(|_| Error::Revert(Revert { reason: "Too many topics".into() }))?;
+    env.deposit_event(topics, data);
+    ```
+
+    `Event::ContractEmitted` is unchanged.
+
+    `integrity_test` bounds the event storage a block can produce using events with
+    `NUM_EVENT_TOPICS` topics and `EVENT_BYTES` of data.
+
+    `pallet-revive-fixtures` gains the `LogTopics` Solidity fixture.
+
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-assets-precompiles
+  bump: patch
