@@ -161,6 +161,8 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
 	pub TrustBackedAssetsPalletIndex: u8 = <AssetsPallet as PalletInfoAccess>::index() as u8;
 	pub TrustBackedAssetsPalletLocation: Location =	PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
+	// Weight is free.
+	pub WeightPrice: (AssetId, u128, u128) = (Here.into(), 0, 0);
 }
 
 /// Adapter for the native token.
@@ -223,7 +225,7 @@ pub type PoolAssetsExchanger = crate::SingleAssetExchangeAdapter<
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = ();
+	type XcmSender = TestSender;
 	type XcmEventEmitter = ();
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = ();
@@ -234,11 +236,11 @@ impl xcm_executor::Config for XcmConfig {
 	// production chain
 	type Barrier = crate::AllowUnpaidExecutionFrom<Everything>;
 	type Weigher = Weigher;
-	type Trader = ();
+	type Trader = crate::FixedRateOfFungible<WeightPrice, ()>;
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = ();
-	type AssetExchanger = PoolAssetsExchanger;
+	type AssetExchanger = ToggleExchanger;
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -379,4 +381,51 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		));
 	});
 	ext
+}
+
+thread_local! {
+	static FAIL_EXCHANGE: core::cell::Cell<bool> = core::cell::Cell::new(false);
+}
+
+/// Makes [`ToggleExchanger::exchange_asset`] fail.
+pub fn set_fail_exchange(fail: bool) {
+	FAIL_EXCHANGE.with(|f| f.set(fail));
+}
+
+/// Quotes through the real pool. When [`set_fail_exchange`] is set, `exchange_asset` fails the
+/// way the trait allows it to (returning `give`), e.g. because pool state moved after the quote.
+pub struct ToggleExchanger;
+impl xcm_executor::traits::AssetExchange for ToggleExchanger {
+	fn exchange_asset(
+		origin: Option<&Location>,
+		give: xcm_executor::AssetsInHolding,
+		want: &Assets,
+		maximal: bool,
+	) -> Result<xcm_executor::AssetsInHolding, xcm_executor::AssetsInHolding> {
+		if FAIL_EXCHANGE.with(|f| f.get()) {
+			return Err(give);
+		}
+		PoolAssetsExchanger::exchange_asset(origin, give, want, maximal)
+	}
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		PoolAssetsExchanger::quote_exchange_price(give, want, maximal)
+	}
+}
+
+/// Router that charges a delivery fee of `500` of asset `1` and always delivers.
+pub struct TestSender;
+impl SendXcm for TestSender {
+	type Ticket = ();
+	fn validate(dest: &mut Option<Location>, msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+		dest.take();
+		msg.take();
+		let fee_asset = Location::new(
+			0,
+			[PalletInstance(TrustBackedAssetsPalletIndex::get()), GeneralIndex(1)],
+		);
+		Ok(((), (fee_asset, 500u128).into()))
+	}
+	fn deliver(_: ()) -> Result<XcmHash, SendError> {
+		Ok([0; 32])
+	}
 }

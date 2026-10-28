@@ -966,7 +966,17 @@ pub mod pallet {
 			};
 
 			let (credit_in, credit_change) = credit_in.split(amount_in);
-			let credit_out = Self::credit_swap(credit_in, &path)?;
+			let credit_out = match Self::credit_swap(credit_in, &path) {
+				Ok(credit_out) => credit_out,
+				Err((mut credit_in, e)) => {
+					// Return the initial `credit_in` in full. `credit_change` must not be dropped
+					// here, since the caller rolls back storage on error, including the issuance
+					// change of the drop. Both halves come from the same `split`, so they share
+					// the asset and `subsume` cannot fail.
+					let _ = credit_in.subsume(credit_change);
+					return Err((credit_in, e));
+				},
+			};
 
 			Self::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
 
