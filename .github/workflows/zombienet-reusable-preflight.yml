@@ -9,7 +9,7 @@
 #     uses: ./.github/workflows/reusable-preflight.yml
 #   some-job:
 #     needs: changes
-#     if: ${{ needs.preflight.outputs.changes_rust }}
+#     if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
 #  .......
 
 name: Zombienet Preflight

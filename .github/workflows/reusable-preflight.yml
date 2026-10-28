@@ -9,7 +9,7 @@
 #     uses: ./.github/workflows/reusable-preflight.yml
 #   some-job:
 #     needs: changes
-#     if: ${{ needs.preflight.outputs.changes_rust }}
+#     if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
 #  .......
 
 name: Preflight
@@ -71,7 +71,10 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     outputs:
-      changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      # Action outputs are strings; compare them explicitly before combining them.
+      changes_rust: >-
+        ${{ steps.set_changes.outputs.rust_any_changed == 'true' ||
+            steps.set_changes.outputs.currentWorkflow_any_changed == 'true' }}
       changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}

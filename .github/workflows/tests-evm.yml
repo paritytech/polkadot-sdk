@@ -22,7 +22,7 @@ jobs:
   differential-tests:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
     timeout-minutes: 120
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -53,7 +53,7 @@ jobs:
   evm-test-suite:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}

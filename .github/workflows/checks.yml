@@ -24,7 +24,7 @@ jobs:
   cargo-clippy:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
     timeout-minutes: 40
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -48,7 +48,7 @@ jobs:
   check-try-runtime:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
     timeout-minutes: 40
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -75,7 +75,7 @@ jobs:
   check-core-crypto-features:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust }}
+    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
     timeout-minutes: 30
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
