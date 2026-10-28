@@ -17289,6 +17289,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-node-core-health"
+version = "0.1.0"
+dependencies = [
+ "async-channel 1.9.0",
+ "futures",
+ "polkadot-node-subsystem",
+ "tracing-gum",
+]
+
+[[package]]
 name = "polkadot-node-core-parachains-inherent"
 version = "7.0.0"
 dependencies = [
