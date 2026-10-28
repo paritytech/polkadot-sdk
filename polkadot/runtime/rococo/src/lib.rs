@@ -521,7 +521,7 @@ parameter_types! {
 	pub const MaxAuthorities: u32 = 100_000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 }
 
 impl pallet_treasury::Config for Runtime {
@@ -1052,7 +1052,7 @@ impl parachains_inclusion::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl parachains_paras::Config for Runtime {
@@ -1132,6 +1132,7 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type DepositProvider = Hrmp;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,

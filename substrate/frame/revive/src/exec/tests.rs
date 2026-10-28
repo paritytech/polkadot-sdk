@@ -3635,8 +3635,8 @@ fn cold_hot_3level_commit_then_revert_drops_committed() {
 }
 
 #[test]
-fn cold_hot_first_frame_warms_entry_target() {
-	let exec_config = ExecConfig::new_substrate_tx().with_first_frame_reads_paid();
+fn cold_hot_first_frame_prewarms_the_called_contract_and_its_transfer() {
+	let exec_config = Pallet::<Test>::substrate_call_exec_config();
 	let root_code_hash = MockLoader::insert(Call, |ctx, _| {
 		assert_matches!(
 			ctx.ext.warmth_of(CallItems::Plain { target: BOB_ADDR }).entries(),
@@ -3644,7 +3644,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
-			"the entry target's mapping and contract info are pre-warmed by the first frame",
+			"the called contract's mapping and contract info are pre-warmed by the first frame",
 		);
 		assert_matches!(
 			ctx.ext
@@ -3673,7 +3673,7 @@ fn cold_hot_first_frame_warms_entry_target() {
 				original_account: Warmth::Hot { .. },
 				account_info: Warmth::Hot { .. }
 			},
-			"a transaction carrying value pre-warms both sides of the transfer as well",
+			"the called contract's mapping and contract info are pre-warmed by the first frame",
 		);
 		assert_matches!(
 			ctx.ext
@@ -3823,12 +3823,13 @@ fn cold_hot_a_chained_delegation_warms_the_target_it_reads() {
 				Warmth::Cold { revertible: nested },
 				"{frame_type}: nothing reads EVE's account info before the call",
 			);
-			let expected_charge =
-				Token::<Test>::weight(&RuntimeCosts::AccountInfoRead(Summarized::from_warmth(
+			let expected_charge = Token::<Test>::weight(&RuntimeCosts::ChainedDelegationCheck(
+				Summarized::from_warmth(
 					KeyFamily::PalletStorageSlot,
 					warmth_before,
 					StorageOp::Read,
-				)));
+				),
+			));
 			let weight_before = ctx.ext.frame_meter().weight_consumed();
 
 			let call_django = ctx.ext.call(

@@ -22,8 +22,9 @@ use super::{
 	precompiles::{INoInfo, NoInfo},
 };
 use crate::{
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, CodeRejection, Config, ContractInfo,
+	DebugSettings, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet,
+	StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -1067,15 +1068,6 @@ fn self_destruct_by_precompile_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: DJANGO_FALLBACK,
-						amount: initial_contract_balance,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::StorageDepositReserve,
@@ -1083,6 +1075,15 @@ fn self_destruct_by_precompile_works() {
 						source: contract.account_id.clone(),
 						dest: ALICE,
 						amount: hold_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: initial_contract_balance,
 					}),
 					topics: vec![],
 				},
@@ -3327,7 +3328,7 @@ fn weight_consumed_is_linear_for_nested_calls() {
 				.map(|i| {
 					let result = builder::bare_call(addr)
 						.data(i.encode())
-						.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
+						.exec_config(crate::Pallet::<Test>::substrate_call_exec_config())
 						.build();
 					assert_eq!(
 						u32::from_le_bytes(result.result.unwrap().data.try_into().unwrap()),
@@ -3546,6 +3547,22 @@ fn static_data_limit_is_enforced() {
 	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
 	let (oom_ro, _) = compile_module("oom_ro").unwrap();
 
+	assert_matches!(
+		crate::check_pvm_code(&oom_rw_trailing),
+		Err(CodeRejection::BaselineMemoryTooLarge {
+			size,
+			limit: limits::code::BASELINE_MEMORY_LIMIT,
+		}) if size > limits::code::BASELINE_MEMORY_LIMIT
+	);
+	assert_matches!(
+		crate::check_pvm_code(&oom_rw_included),
+		Err(CodeRejection::BlobTooLarge { limit: limits::code::BLOB_BYTES, .. })
+	);
+	assert_matches!(
+		crate::check_pvm_code(&oom_ro),
+		Err(CodeRejection::BlobTooLarge { limit: limits::code::BLOB_BYTES, .. })
+	);
+
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 
@@ -3572,6 +3589,26 @@ fn static_data_limit_is_enforced() {
 			<Error<Test>>::BlobTooLarge
 		);
 	});
+}
+
+#[test]
+fn check_pvm_code_reports_blob_size() {
+	let size = limits::code::BLOB_BYTES + 1;
+	assert_eq!(
+		crate::check_pvm_code(&vec![0; size as usize]),
+		Err(CodeRejection::BlobTooLarge { size, limit: limits::code::BLOB_BYTES }),
+	);
+}
+
+#[test]
+fn check_pvm_code_rejects_malformed_blob() {
+	assert_eq!(crate::check_pvm_code(&[0xde, 0xad, 0xbe, 0xef]), Err(CodeRejection::Malformed));
+}
+
+#[test]
+fn check_pvm_code_accepts_valid_blob() {
+	let (code, _) = compile_module("dummy").unwrap();
+	assert_eq!(crate::check_pvm_code(&code), Ok(()));
 }
 
 #[test]
@@ -3825,6 +3862,12 @@ fn delegatecall_immutable_charge_follows_callee_not_caller() {
 #[test]
 fn overweight_basic_block_cannot_be_deployed() {
 	let (code, _) = compile_module("basic_block").unwrap();
+
+	assert_matches!(
+		crate::check_pvm_code(&code),
+		Err(CodeRejection::BasicBlockTooLarge { size, limit: limits::code::BASIC_BLOCK_SIZE })
+			if size > limits::code::BASIC_BLOCK_SIZE
+	);
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
@@ -4135,6 +4178,8 @@ fn gas_limit_api_works() {
 fn unknown_syscall_rejected() {
 	let (code, _) = compile_module("unknown_syscall").unwrap();
 
+	assert_eq!(crate::check_pvm_code(&code), Err(CodeRejection::Malformed));
+
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -4142,6 +4187,22 @@ fn unknown_syscall_rejected() {
 			builder::bare_instantiate(Code::Upload(code)).build().result,
 			<Error<Test>>::CodeRejected,
 		)
+	});
+}
+
+#[test]
+fn benchmark_only_syscall_rejected() {
+	let (code, _) = compile_module("noop").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let result = builder::bare_instantiate(Code::Upload(code)).build().result;
+		if cfg!(feature = "runtime-benchmarks") {
+			assert_ok!(result);
+		} else {
+			assert_err!(result, <Error<Test>>::CodeRejected);
+		}
 	});
 }
 

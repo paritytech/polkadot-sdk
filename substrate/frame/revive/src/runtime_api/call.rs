@@ -16,10 +16,15 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
+use frame_support::traits::{Get, OriginTrait};
+use frame_system::pallet_prelude::OriginFor;
 use pallet_revive_types::runtime_api::*;
 use sp_core::H160;
+use sp_runtime::traits::Bounded;
 
-use crate::{ContractResult, ExecReturnValue, Weight};
+use crate::{
+	BalanceOf, Config, ContractResult, ExecReturnValue, Pallet, TransactionLimits, Weight,
+};
 
 pub struct CallInputPayload<AccountId, Balance> {
 	pub origin: AccountId,
@@ -63,4 +68,25 @@ impl<Balance> From<CallOutputPayload<Balance>> for CallOutputPayloadV1<Balance> 
 	fn from(value: CallOutputPayload<Balance>) -> Self {
 		Self { contract_result: value.contract_result.into() }
 	}
+}
+
+/// Dry runs a call of the `call` dispatchable.
+///
+/// Uses the block's maximum weight and no deposit limit when the input payload leaves them unset.
+pub fn dry_run_call<T: Config>(
+	input: CallInputPayload<T::AccountId, BalanceOf<T>>,
+) -> CallOutputPayload<BalanceOf<T>> {
+	Pallet::<T>::prepare_dry_run(&input.origin);
+	let contract_result = Pallet::<T>::bare_call(
+		OriginFor::<T>::signed(input.origin),
+		input.dest,
+		Pallet::<T>::convert_native_to_evm(input.value),
+		TransactionLimits::WeightAndDeposit {
+			weight_limit: input.gas_limit.unwrap_or(T::BlockWeights::get().max_block),
+			deposit_limit: input.storage_deposit_limit.unwrap_or(BalanceOf::<T>::max_value()),
+		},
+		input.input_data,
+		&Pallet::<T>::substrate_call_exec_config().with_dry_run(None),
+	);
+	CallOutputPayload { contract_result }
 }

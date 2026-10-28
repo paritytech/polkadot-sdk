@@ -66,12 +66,8 @@ pub const MAX_ACCESS_LIST_ENTRIES: usize = 4_096;
 // grows by moving to a buffer twice the size, and the buffers it frees add up to about one final
 // buffer. The allocator keeps each for requests of the same size, which the list does not make.
 
-/// Worst-case memory of a storage slot entry: the slot total above, rounded up.
+/// Worst-case memory of a storage slot entry, the slot total above rounded up.
 const SLOT_ENTRY_BYTES: usize = 1_024;
-
-/// Worst-case memory of an address or code entry, or a storage slot with an inline key: the
-/// address total above, rounded up.
-const ADDRESS_ENTRY_BYTES: usize = 512;
 
 const _: () = assert!(
 	core::mem::size_of::<AccessEntry>() <= 64 &&
@@ -80,16 +76,9 @@ const _: () = assert!(
 	"the memory usage table above is based on these sizes and requires remeasuring",
 );
 
-/// Storage slot entries that fit into a block's PoV.
-///
-/// Set ~1.3× above the current PoV-reachable ceiling: each cold slot access charges ~10 KB
-/// `proof_size`, capping a transaction (~7.5 MiB PoV) at ~770 cold slots.
-pub const MAX_SLOT_ENTRIES: usize = 1_024;
-
-/// Worst-case total memory the access list can hold per transaction.
-pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_SLOT_ENTRIES * SLOT_ENTRY_BYTES +
-	(MAX_ACCESS_LIST_ENTRIES - MAX_SLOT_ENTRIES) * ADDRESS_ENTRY_BYTES)
-	as u32;
+/// Worst-case total memory the access list can hold per transaction. Nothing bounds how many of
+/// the entries are slots, so it counts every entry at the slot size.
+pub const MAX_ACCESS_LIST_BYTES: u32 = (MAX_ACCESS_LIST_ENTRIES * SLOT_ENTRY_BYTES) as u32;
 
 /// A contract's storage key, in the form the access list keeps it.
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone)]
@@ -427,6 +416,11 @@ impl AccessEntry {
 			},
 		}
 	}
+
+	/// Builds the entries of `key_family` at `indices`.
+	pub fn with_indices(indices: core::ops::Range<usize>, key_family: KeyFamily) -> Vec<Self> {
+		indices.map(|index| Self::with_index(index, key_family)).collect()
+	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -467,6 +461,9 @@ pub mod benchmarking {
 	}
 
 	/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+	///
+	/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+	/// by `cargo test` does not track the whitelist.
 	pub fn assert_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
 		let whitelist = frame_benchmarking::benchmarking::get_whitelist();
 		access.expand(|entry, _op| {
@@ -937,7 +934,7 @@ impl AccessList {
 		AccessListMetrics { size: self.accessed.len(), cold: self.cold_count, hot: self.hot_count }
 	}
 
-	/// Adds fresh entries of `key_family` until the list holds `target_size` of them.
+	/// Adds new entries of `key_family` until the list holds `target_size` entries.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
 	pub fn fill_to(&mut self, target_size: usize, key_family: KeyFamily) {
 		let already = self.metrics().size;
@@ -957,24 +954,6 @@ impl AccessList {
 		let mut list = Self::new();
 		list.fill_to(entries, key_family);
 		list
-	}
-
-	/// Returns the first entry in key order.
-	pub fn first(&self) -> AccessEntry {
-		self.accessed
-			.keys()
-			.next()
-			.expect("fixtures only ask a non-empty list; qed")
-			.clone()
-	}
-
-	/// Returns the last entry in key order.
-	pub fn last(&self) -> AccessEntry {
-		self.accessed
-			.keys()
-			.next_back()
-			.expect("fixtures only ask a non-empty list; qed")
-			.clone()
 	}
 }
 

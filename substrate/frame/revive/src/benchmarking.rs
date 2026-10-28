@@ -30,7 +30,7 @@ use crate::{
 		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
 		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{BuiltinPrecompileExt, Ext, Key, Origin as ExecOrigin, PrecompileExt},
+	exec::{BuiltinPrecompileExt, Ext, Key, Origin as ExecOrigin, PrecompileExt, Stack},
 	limits::{self, EVM_STACK_LIMIT},
 	precompiles::{
 		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
@@ -87,6 +87,16 @@ use sp_runtime::{generic::DigestItem, traits::Zero};
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
+/// The most touches a full-list bench makes in one run, one per default benchmark step.
+const ACCESS_LIST_MAX_TOUCHES_PER_RUN: u32 = 50;
+
+const _: () = assert!((ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize) < MAX_ACCESS_LIST_ENTRIES);
+
+/// The most entries an empty or nearly empty list bench holds, so its list fits in one tree node.
+/// A larger list would add node splits and deeper searches, which increase the base that every
+/// touch price subtracts, and would lower the access-list overhead every access pays.
+const ACCESS_LIST_BASE_ENTRIES: u32 = 11;
+
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
 		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
@@ -116,12 +126,6 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	let pallet_account = Pallet::<T>::account_id();
 	whitelist_account!(pallet_account);
 	pallet_account
-}
-
-/// Whitelists the contract's code keys.
-fn whitelist_code<T: Config>(contract: &Contract<T>) -> Result<(), &'static str> {
-	whitelist_access::<T>(CodeLoadItems::new(contract.info()?.code_hash));
-	Ok(())
 }
 
 /// Asserts that the bench measures every entry marked hot before the transaction's first call
@@ -154,6 +158,16 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	AccountInfo::<T>::set_delegation(&address, Some(target), &account_id)
 		.map_err(|_| "set_delegation failed")?;
 	Ok(account_id)
+}
+
+/// Delegates an account, so the chained-delegation check refuses it, and builds an unlimited meter.
+fn chained_delegation_setup<T: Config>() -> Result<(H160, TransactionMeter<T>), BenchmarkError> {
+	let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+	let address = H160([0x42; 20]);
+	delegated_eoa::<T>(address, contract.address)?;
+	let meter = TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
+		.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
+	Ok((address, meter))
 }
 
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
@@ -990,8 +1004,9 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// w: with or without the refcount bump of an instantiate from an existing hash
 	#[benchmark(pov_mode = Measured)]
-	fn code_load() -> Result<(), BenchmarkError> {
+	fn code_load(w: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let code_hash = contract.info()?.code_hash;
 		let mut meter =
@@ -1001,29 +1016,53 @@ mod benchmarks {
 		#[block]
 		{
 			blob = ContractBlob::<T>::from_storage(code_hash, &mut meter);
+			if w == 1 {
+				CodeInfo::<T>::increment_refcount(code_hash)?;
+			}
 		}
 		assert!(blob.is_ok(), "{:?}", blob.err());
 		Ok(())
 	}
 
-	/// A read of an `AccountInfoOf` entry.
 	#[benchmark(pov_mode = Measured)]
-	fn account_info_read() -> Result<(), BenchmarkError> {
-		let contract = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		// A delegated EOA is the worst case: its entry carries a contract info and the target.
-		let address = H160([0x42; 20]);
-		delegated_eoa::<T>(address, contract.address)?;
+	fn chained_delegation_check() -> Result<(), BenchmarkError> {
+		let (address, mut meter) = chained_delegation_setup::<T>()?;
+		let mut access_list = AccessList::new();
 
-		let info;
+		let result;
 		#[block]
 		{
-			info = AccountInfoOf::<T>::get(&address);
+			result = Stack::<T, ContractBlob<T>>::ensure_not_chained_delegation(
+				&mut access_list,
+				&mut meter,
+				Some(address),
+			);
 		}
-		let is_delegated_eoa = matches!(
-			info.map(|info| info.account_type),
-			Some(crate::storage::AccountType::DelegatedEOA { .. })
-		);
-		assert!(is_delegated_eoa);
+		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
+		assert_eq!(access_list.metrics().cold, 1, "the check touched the target's entry");
+		Ok(())
+	}
+
+	#[benchmark(pov_mode = Measured)]
+	fn chained_delegation_check_hot() -> Result<(), BenchmarkError> {
+		let (address, mut meter) = chained_delegation_setup::<T>()?;
+		let entry = AccessEntry::AccountInfo { address };
+		let key = entry.storage_key::<T>().ok_or(BenchmarkError::Stop("no storage key"))?;
+		frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		let mut access_list = AccessList::new();
+		access_list.touch(entry, StorageOp::Read);
+
+		let result;
+		#[block]
+		{
+			result = Stack::<T, ContractBlob<T>>::ensure_not_chained_delegation(
+				&mut access_list,
+				&mut meter,
+				Some(address),
+			);
+		}
+		assert!(result.is_err(), "the target is itself delegated, so the check must refuse it");
+		assert_eq!(access_list.metrics().hot, 1, "the check found the target's entry warm");
 		Ok(())
 	}
 
@@ -1041,7 +1080,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		whitelist_code(&instance)?;
+		whitelist_access::<T>(CodeLoadItems::new(instance.info()?.code_hash));
 		let value = Pallet::<T>::min_balance();
 		let origin = RawOrigin::Signed(instance.caller.clone());
 		let before = T::Currency::balance(&instance.account_id);
@@ -1080,7 +1119,7 @@ mod benchmarks {
 		let instance =
 			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::dummy(), vec![])?;
 		// The callee's code read is priced by `code_load`.
-		whitelist_code(&instance)?;
+		whitelist_access::<T>(CodeLoadItems::new(instance.info()?.code_hash));
 
 		// Use an `effective_gas_price` that is not a multiple of `T::NativeToEthRatio`
 		// to hit the code that charge the rounding error so that tx_cost == effective_gas_price *
@@ -1936,6 +1975,8 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The balance work of `System.terminate`: the storage deposit refund when it is called and
+	/// the teardown at the end of the call stack.
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
@@ -1964,8 +2005,6 @@ mod benchmarks {
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
 		let beneficiary_clone = beneficiary.clone();
-		let trie_id = instance.info()?.trie_id.clone();
-		let code_hash = instance.info()?.code_hash;
 		let only_if_same_tx = false;
 
 		let result;
@@ -1977,8 +2016,6 @@ mod benchmarks {
 				contract_account,
 				&origin,
 				beneficiary_clone,
-				trie_id,
-				code_hash,
 				only_if_same_tx,
 			);
 		}
@@ -2574,125 +2611,193 @@ mod benchmarks {
 		Ok(())
 	}
 
+	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_empty(
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
+	) -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::with_index(0, KeyFamily::ContractStorageSlot);
-		let outcome;
+		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(!outcome.is_hot());
+		assert_eq!(al.metrics().cold, n);
+		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
+	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_address_empty(
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
+	) -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entry = AccessEntry::with_index(0, KeyFamily::PalletStorageSlot);
-		let outcome;
+		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(!outcome.is_hot());
+		assert_eq!(al.metrics().cold, n);
+		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
+	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(1, KeyFamily::ContractStorageSlot);
-		let entry = al.first();
-		let outcome;
+	fn access_list_touch_hot_nearly_empty(
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
+	) -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(
+			ACCESS_LIST_BASE_ENTRIES as usize,
+			KeyFamily::ContractStorageSlot,
+		);
+		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(outcome.is_hot());
-		Ok(())
-	}
-	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(1, KeyFamily::PalletStorageSlot);
-		let entry = al.first();
-		let outcome;
-		#[block]
-		{
-			outcome = al.touch(entry, StorageOp::Read);
-		}
-		assert!(outcome.is_hot());
+		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
 		Ok(())
 	}
 
+	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
-		let mut al =
-			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
-		let entry =
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let outcome;
+	fn access_list_touch_hot_address_nearly_empty(
+		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
+	) -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(
+			ACCESS_LIST_BASE_ENTRIES as usize,
+			KeyFamily::PalletStorageSlot,
+		);
+		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(!outcome.is_hot());
+		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
 		Ok(())
 	}
 
+	// n: cold touches that fill the list up to the cap
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_full(
+		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+	) -> Result<(), BenchmarkError> {
+		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
+		let mut al = AccessList::with_entries(range.start, KeyFamily::ContractStorageSlot);
+		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+		#[block]
+		{
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
+		}
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
+		assert_eq!(al.metrics().hot, 0);
+		Ok(())
+	}
+
+	// n: hot touches of distinct entries of a full list
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_full(
+		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+	) -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let entry = al.last();
-		let outcome;
+		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
+		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(outcome.is_hot(), "the fill seeded this entry");
+		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
 		Ok(())
 	}
 
+	// n: cold touches that fill the list up to the cap
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
-		let mut al =
-			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
-		let entry = AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
-		let outcome;
+	fn access_list_touch_cold_address_full(
+		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+	) -> Result<(), BenchmarkError> {
+		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
+		let mut al = AccessList::with_entries(range.start, KeyFamily::PalletStorageSlot);
+		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(!outcome.is_hot());
+		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
+		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
+	// n: hot touches of distinct entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_full(
+		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+	) -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
-		let entry = al.last();
-		let outcome;
+		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
+		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Read);
+			for entry in entries {
+				al.touch(entry, StorageOp::Read);
+			}
 		}
-		assert!(outcome.is_hot(), "the fill seeded this entry");
+		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
 		Ok(())
 	}
 
+	// n: upgrades of distinct read-paid entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_upgrade(
+		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+	) -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let entry = al.last();
-		let outcome;
+		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
+		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
 		#[block]
 		{
-			outcome = al.touch(entry, StorageOp::Write);
+			for entry in entries {
+				al.touch(entry, StorageOp::Write);
+			}
 		}
-		assert!(outcome.is_hot(), "the fill seeded this entry");
+		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		Ok(())
+	}
+
+	// n: upgrades of distinct read-paid entries of a full list
+	#[benchmark(pov_mode = Ignored)]
+	fn access_list_touch_hot_address_upgrade(
+		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
+	) -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
+		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
+		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+		#[block]
+		{
+			for entry in entries {
+				al.touch(entry, StorageOp::Write);
+			}
+		}
+		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
 		Ok(())
 	}
 
@@ -3055,7 +3160,7 @@ mod benchmarks {
 		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
 
 		// The code read is priced by `code_load`.
-		whitelist_code(&target)?;
+		whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
 
 		let callee_bytes = callee.encode();
 		let callee_len = callee_bytes.len() as u32;
@@ -3207,7 +3312,7 @@ mod benchmarks {
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
 		// The code read is priced by `code_load`.
-		whitelist_code(&target)?;
+		whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
 
 		let address_bytes = address.encode();
 		let address_len = address_bytes.len() as u32;

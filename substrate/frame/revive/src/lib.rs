@@ -116,7 +116,10 @@ pub use crate::{
 		CallProtections, CallResources, DelegateInfo, Executable, Key, MomentOf,
 		Origin as ExecOrigin, ReentrancyProtection,
 	},
-	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
+	limits::{
+		TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
+		code::{CodeRejection, check_pvm_code},
+	},
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
 		TransactionMeter,
@@ -1303,27 +1306,6 @@ pub mod pallet {
 				max_events_size / 1024,
 			);
 
-			// The access list memory is sized for `MAX_SLOT_ENTRIES` storage slots: the proof a
-			// cold SLOAD is charged limits how many a transaction can include. A proof limit
-			// above `PVFMemory` is a placeholder, since no PoV can be larger than that.
-			if max_block_weight.proof_size() <= max_pvf_mem {
-				let cold_slot_read =
-					<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::GetStorage {
-						len: 0,
-						kind: StorageAccessKind::new_persistent_cold(),
-					});
-				let max_slot_entries = max_block_weight
-					.proof_size()
-					.checked_div(cold_slot_read.proof_size())
-					.unwrap_or(u64::MAX);
-				assert!(
-					max_slot_entries <= crate::access_list::MAX_SLOT_ENTRIES as u64,
-					"A transaction can include {max_slot_entries} storage slot entries in the \
-					 access list, which is sized for {}",
-					crate::access_list::MAX_SLOT_ENTRIES
-				);
-			}
-
 			// Check that the configured memory limits fit into runtime memory.
 			//
 			// Dynamic allocations are not available, yet. Hence they are not taken into
@@ -1411,7 +1393,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				&ExecConfig::new_substrate_tx().with_first_frame_reads_paid(),
+				&Self::substrate_call_exec_config(),
 			);
 
 			if let Ok(return_value) = &output.result &&
@@ -1678,8 +1660,11 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			let exec_config =
-				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let exec_config = Self::eth_call_exec_config(
+				effective_gas_price,
+				encoded_len,
+				base_info.total_weight(),
+			);
 			let auth_result = evm::eip7702::process_authorizations::<T>(
 				&authorization_list,
 				&signer,
@@ -1700,8 +1685,7 @@ pub mod pallet {
 						authorization_deposit: auth_result.deposit,
 					},
 					data,
-					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight)
-						.with_first_frame_reads_paid(),
+					&Self::eth_call_exec_config(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -2531,18 +2515,15 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
-		let auth_result =
-			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
+		let auth_result = evm::eip7702::process_authorizations::<T>(
+			&authorization_list,
+			&origin,
+			&Self::eth_call_exec_config(effective_gas_price, call_info.encoded_len, base_weight),
+		);
 		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
 		let actual_auth_deposit = auth_result.deposit;
 		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
 			.saturating_mul(authorization_list.len().saturated_into());
-
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(timestamp_override);
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
@@ -2580,7 +2561,12 @@ impl<T: Config> Pallet<T> {
 						value,
 						transaction_limits,
 						input.clone(),
-						&exec_config,
+						&Self::eth_call_exec_config(
+							effective_gas_price,
+							call_info.encoded_len,
+							base_weight,
+						)
+						.with_dry_run(timestamp_override),
 					);
 
 					let data = match result.result {
@@ -2622,7 +2608,12 @@ impl<T: Config> Pallet<T> {
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
-					&exec_config,
+					&ExecConfig::new_eth_tx(
+						effective_gas_price,
+						call_info.encoded_len,
+						base_weight,
+					)
+					.with_dry_run(timestamp_override),
 				);
 
 				let returned_data = match result.result {
@@ -3210,6 +3201,21 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Ok(())
 		}
+	}
+
+	/// Builds the config the `call` dispatchable runs with.
+	fn substrate_call_exec_config() -> ExecConfig<T> {
+		ExecConfig::new_substrate_tx().with_first_frame_reads_paid()
+	}
+
+	/// Builds the config the `eth_call` dispatchable runs with.
+	fn eth_call_exec_config(
+		effective_gas_price: U256,
+		encoded_len: u32,
+		base_weight: Weight,
+	) -> ExecConfig<T> {
+		ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_weight)
+			.with_first_frame_reads_paid()
 	}
 }
 
@@ -4203,7 +4209,6 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> $crate::pallet_revive_types::runtime_api::CallVersionedOutputPayload<Balance> {
 					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::runtime_api::*;
-					use $crate::frame_support::traits::Get;
 					use alloc::boxed::Box;
 
 					let (input, output_wrapper): (
@@ -4216,24 +4221,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						),
 					};
 
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
-
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						input.dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
-
-					let output = CallOutputPayload { contract_result };
-					output_wrapper(output)
+					output_wrapper(dry_run_call::<Self>(input))
 				}
 
 				fn instantiate_versioned(

@@ -16,16 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	AccountInfo, Code, Config, Error, ExecConfig, Pallet,
+	AccountInfo, Code, Config, Error, EthTxInfo, ExecConfig, ExecReturnValue, H160, Pallet,
+	TransactionLimits, U256, Weight,
 	evm::{CallTrace, CallTracer, fees::InfoT},
-	test_utils::{self, ALICE, BOB, BOB_ADDR, builder::Contract},
+	test_utils::{self, ALICE, BOB, BOB_ADDR, ETH_GAS_LIMIT, builder::Contract},
 	tests::{ExtBuilder, GasScale, RuntimeOrigin, Test, builder},
 	tracing::trace,
 };
-use alloy_core::{
-	primitives::U256,
-	sol_types::{SolCall, SolConstructor, SolValue},
-};
+use alloy_core::sol_types::{SolCall, SolConstructor, SolValue};
 use codec::Encode;
 use frame_support::{
 	assert_ok,
@@ -37,7 +35,6 @@ use pallet_revive_fixtures::{
 	TerminatingReceiver, TerminatingReceiver::Termination, ValueForwardingReceiver,
 	WarmWriteSender, compile_module, compile_module_with_type,
 };
-use sp_core::H160;
 use test_case::{test_case, test_matrix};
 
 /// Runs `test` under the given gas scale, then restores the previous scale.
@@ -75,8 +72,38 @@ fn deploy_stipend_sender(fixture_type: FixtureType, receiver: H160) -> H160 {
 		.addr
 }
 
-#[test]
-fn evm_call_stipends_work_for_transfers() {
+/// Calls `dest` with weight and deposit limits, configured like the `call` dispatchable.
+fn run_call_in_substrate_tx(dest: H160, data: Vec<u8>, value: U256) -> ExecReturnValue {
+	builder::bare_call(dest)
+		.data(data)
+		.evm_value(value)
+		.exec_config(crate::Pallet::<Test>::substrate_call_exec_config())
+		.build_and_unwrap_result()
+}
+
+/// Calls `dest` with an Ethereum gas limit, configured like the `eth_call` dispatchable.
+fn run_call_in_eth_tx(dest: H160, data: Vec<u8>, value: U256) -> ExecReturnValue {
+	let eth_tx_info = EthTxInfo::<Test>::new(0, Weight::zero());
+	// A real transaction fills this pot from its gas before `eth_call` runs.
+	<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+		eth_tx_info.max_deposit(ETH_GAS_LIMIT.into()),
+	));
+	builder::bare_call(dest)
+		.data(data)
+		.evm_value(value)
+		.transaction_limits(TransactionLimits::EthereumGas {
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
+			weight_limit: Weight::MAX,
+			eth_tx_info,
+			authorization_deposit: Default::default(),
+		})
+		.exec_config(crate::Pallet::<Test>::eth_call_exec_config(0u32.into(), 0, Weight::zero()))
+		.build_and_unwrap_result()
+}
+
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn evm_call_stipends_work_for_transfers(run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -86,17 +113,16 @@ fn evm_call_stipends_work_for_transfers() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testTransferCall {}.abi_encode())
-			.evm_value(1_000_000_u128.into())
-			.build();
+		let result =
+			run_call(addr, StipendTest::testTransferCall {}.abi_encode(), 1_000_000_u128.into());
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
-#[test]
-fn evm_call_stipends_work_for_sends() {
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn evm_call_stipends_work_for_sends(run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -106,17 +132,16 @@ fn evm_call_stipends_work_for_sends() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testSendCall {}.abi_encode())
-			.evm_value(1_000_000_u128.into())
-			.build();
+		let result =
+			run_call(addr, StipendTest::testSendCall {}.abi_encode(), 1_000_000_u128.into());
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
-#[test]
-fn evm_call_stipends_work_for_transfer_zero() {
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn evm_call_stipends_work_for_transfer_zero(run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -126,16 +151,16 @@ fn evm_call_stipends_work_for_transfer_zero() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testTransferZeroCall {}.abi_encode())
-			.build();
+		let result =
+			run_call(addr, StipendTest::testTransferZeroCall {}.abi_encode(), U256::zero());
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
-#[test]
-fn evm_call_stipends_work_for_send_zero() {
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn evm_call_stipends_work_for_send_zero(run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -145,16 +170,15 @@ fn evm_call_stipends_work_for_send_zero() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testSendZeroCall {}.abi_encode())
-			.build();
+		let result = run_call(addr, StipendTest::testSendZeroCall {}.abi_encode(), U256::zero());
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
-#[test]
-fn evm_call_stipends_work_for_calls() {
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn evm_call_stipends_work_for_calls(run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -164,12 +188,10 @@ fn evm_call_stipends_work_for_calls() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testCallCall {}.abi_encode())
-			.evm_value(1_000_000_u128.into())
-			.build();
+		let result =
+			run_call(addr, StipendTest::testCallCall {}.abi_encode(), 1_000_000_u128.into());
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
@@ -296,8 +318,11 @@ fn evm_call_stipend_is_added_to_static_and_delegate_calls(sender_type: FixtureTy
 	});
 }
 
-#[test]
-fn receiver_of_a_transfer_cannot_drain_the_sender() {
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn receiver_of_a_transfer_cannot_drain_the_sender(
+	run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue,
+) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -307,17 +332,21 @@ fn receiver_of_a_transfer_cannot_drain_the_sender() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testTransferReentrantDrainCall {}.abi_encode())
-			.evm_value(1_000_000_u128.into())
-			.build();
+		let result = run_call(
+			addr,
+			StipendTest::testTransferReentrantDrainCall {}.abi_encode(),
+			1_000_000_u128.into(),
+		);
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
-#[test]
-fn receiver_of_a_send_cannot_drain_the_sender() {
+#[test_case(run_call_in_substrate_tx; "substrate tx")]
+#[test_case(run_call_in_eth_tx; "eth tx")]
+fn receiver_of_a_send_cannot_drain_the_sender(
+	run_call: fn(H160, Vec<u8>, U256) -> ExecReturnValue,
+) {
 	let (code, _) = compile_module_with_type("StipendTest", FixtureType::Solc).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
@@ -327,13 +356,13 @@ fn receiver_of_a_send_cannot_drain_the_sender() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(addr)
-			.data(StipendTest::testSendReentrantDrainCall {}.abi_encode())
-			.evm_value(1_000_000_u128.into())
-			.exec_config(ExecConfig::new_substrate_tx().with_first_frame_reads_paid())
-			.build();
+		let result = run_call(
+			addr,
+			StipendTest::testSendReentrantDrainCall {}.abi_encode(),
+			1_000_000_u128.into(),
+		);
 
-		assert!(!result.result.unwrap().did_revert());
+		assert!(!result.did_revert());
 	});
 }
 
@@ -455,7 +484,7 @@ fn call_warm_write_sender(
 	value: u128,
 	warm_write: WarmWrite,
 	execution_mode: ExecutionMode,
-) -> (bool, U256) {
+) -> (bool, alloy_core::primitives::U256) {
 	let (receiver_code, _) = compile_module_with_type(receiver_fixture, receiver_type).unwrap();
 	let (sender_code, _) = compile_module_with_type("WarmWriteSender", sender_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
@@ -495,14 +524,14 @@ fn call_warm_write_sender(
 			.data(WarmWriteSender::counterCall {}.abi_encode())
 			.build_and_unwrap_result();
 		assert_eq!(
-			U256::abi_decode(&sender_counter.data).unwrap(),
-			U256::from(1),
+			alloy_core::primitives::U256::abi_decode(&sender_counter.data).unwrap(),
+			alloy_core::primitives::U256::from(1),
 			"the sender should write after the call, since only the receiver is denied writes"
 		);
 		let receiver_counter = builder::bare_call(receiver)
 			.data(BumpableCounter::counterCall {}.abi_encode())
 			.build_and_unwrap_result();
-		(denied, U256::abi_decode(&receiver_counter.data).unwrap())
+		(denied, alloy_core::primitives::U256::abi_decode(&receiver_counter.data).unwrap())
 	})
 }
 
@@ -538,10 +567,10 @@ fn stipend_check_denies_hot_slot_writes_from_a_zero_value_send(
 	});
 	assert_eq!(
 		with_other_gas,
-		[(false, U256::from(counter_after_write)); 2],
+		[(false, alloy_core::primitives::U256::from(counter_after_write)); 2],
 		"only a `send` denies storage writes"
 	);
-	assert_eq!(send_result, (true, U256::from(1)));
+	assert_eq!(send_result, (true, alloy_core::primitives::U256::from(1)));
 }
 
 // These receivers' writes fit in the stipend, so only the check can deny them.
@@ -565,10 +594,10 @@ fn stipend_check_denies_hot_slot_writes_from_a_value_send(
 	};
 	assert_eq!(
 		call(WarmWrite::ByCallWithGas(1)),
-		(false, U256::from(counter_after_write)),
+		(false, alloy_core::primitives::U256::from(counter_after_write)),
 		"the write should fit in the stipend"
 	);
-	assert_eq!(call(WarmWrite::BySend), (true, U256::from(1)));
+	assert_eq!(call(WarmWrite::BySend), (true, alloy_core::primitives::U256::from(1)));
 }
 
 #[test_matrix(
@@ -644,7 +673,7 @@ fn stipend_check_denies_moving_value(fixture_type: FixtureType, beneficiary: Ben
 				.constructor_data(
 					ValueForwardingReceiver::constructorCall {
 						_beneficiary: beneficiary.0.into(),
-						_amount: U256::from(FORWARDED_VALUE),
+						_amount: alloy_core::primitives::U256::from(FORWARDED_VALUE),
 					}
 					.abi_encode(),
 				)
@@ -864,7 +893,7 @@ fn stipend_check_ignores_calls_with_an_explicit_gas_limit(
 			WarmWrite::ByCallWithGas(10_000_000_000),
 			ExecutionMode::Substrate,
 		),
-		(false, U256::from(counter_after_write))
+		(false, alloy_core::primitives::U256::from(counter_after_write))
 	);
 }
 

@@ -74,7 +74,8 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureAuthorized, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
+	EnsureWithSuccess,
 };
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
@@ -992,7 +993,7 @@ impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 pub struct U256ToBalance;
 impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	fn convert(n: sp_core::U256) -> Balance {
-		n.try_into().unwrap_or(Balance::max_value())
+		n.try_into().unwrap_or(Balance::MAX)
 	}
 }
 
@@ -1316,7 +1317,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
 }
 
@@ -1602,9 +1603,9 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	/// We prioritize im-online heartbeats over election solution submission.
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	pub const MaxAuthorities: u32 = 1000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -2288,7 +2289,9 @@ impl pallet_whitelist::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<AccountId>;
-	type DispatchWhitelistedOrigin = EnsureRoot<AccountId>;
+	// Opt into permissionless dispatch.
+	type DispatchWhitelistedOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>;
 	type Preimages = Preimage;
 	type DeferredDispatchExpiration = ConstU32<{ 28 * DAYS }>;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
@@ -2735,6 +2738,13 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	}
 
 	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(
+		_para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
 
