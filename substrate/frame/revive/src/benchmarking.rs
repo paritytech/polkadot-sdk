@@ -128,8 +128,10 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 /// Queues `contract` for deletion the way termination does.
 ///
 /// Termination replaces the account info with a plain account, which is kept when dust remains
-/// on it. With that entry in place the deletion queue clears the native deposit rows, and its
-/// check for a live contract at the address decodes a stored value, the more expensive case.
+/// on it. With that entry in place the deletion queue takes the branch that clears the native
+/// deposit rows. The branch for a live contract decodes a larger entry but skips the
+/// `clear_prefix` on `NativeDepositOf`, which this branch runs even when there are no rows and
+/// which dominates the cost, so this branch is the one to measure.
 fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
 	let info = contract.info()?;
 	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });

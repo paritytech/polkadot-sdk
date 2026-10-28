@@ -794,15 +794,12 @@ fn assert_clear_storage_refunds_native(
 	assert_eq!(NativeDepositOf::<Test>::get(account_id, &who), 0);
 }
 
-/// A contract re-created at the address of a terminated contract whose child trie is still
-/// queued for removal keeps its own [`NativeDepositOf`] rows. The deletion queue clears the old
-/// rows before re-instantiation is allowed and must not touch the rows of the new contract while
-/// it finishes removing the old child trie.
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: FixtureType) {
+/// Deploys `MultiContributorStorage` from ALICE, lets CHARLIE grow its storage in native
+/// currency and terminates it. Then runs one deletion-queue batch with enough weight to clear
+/// the contract's [`NativeDepositOf`] rows and none for its child trie, so the entry stays
+/// queued with an empty prefix. Returns the externalities, the address and its account.
+fn terminated_with_pending_trie(code: &[u8]) -> (sp_io::TestExternalities, H160, AccountId32) {
 	type Weights = <Test as Config>::WeightInfo;
-	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
 	let mut ext = ExtBuilder::default().build();
 	let (addr, account_id, rows) = ext.execute_with(|| {
 		Balances::set_balance(&ALICE, 100_000_000_000);
@@ -810,25 +807,19 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 		Balances::set_balance(&CHARLIE, 100_000_000_000);
 
 		let Contract { addr, account_id } =
-			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+			builder::bare_instantiate(Code::Upload(code.to_vec())).build_and_unwrap_contract();
 		call_multi_contributor(
 			CHARLIE,
 			addr,
 			MultiContributorStorage::growStorageCall {}.abi_encode(),
 		);
 		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
-		call_multi_contributor(
-			ALICE,
-			addr,
-			MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
-				.abi_encode(),
-		);
-		assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
+		terminate_multi_contributor(addr);
 		let rows = NativeDepositOf::<Test>::iter_prefix(&account_id).count() as u64;
 		assert!(rows > 0);
 
 		assert_err!(
-			builder::bare_instantiate(Code::Upload(code.clone())).build().result,
+			builder::bare_instantiate(Code::Upload(code.to_vec())).build().result,
 			Error::<Test>::PendingDepositCleanup,
 		);
 		(addr, account_id, rows)
@@ -838,8 +829,6 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 	ext.commit_all().unwrap();
 
 	ext.execute_with(|| {
-		// Enough weight to clear every row of the old contract and none left for its child trie,
-		// so the entry stays queued with an empty prefix.
 		let per_entry =
 			Weights::deletion_queue_per_entry().saturating_sub(Weights::deletion_queue_batch());
 		let per_native_key = Weights::deletion_queue_per_native_deposit_key(1)
@@ -850,7 +839,30 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
 		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
 		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "child trie still queued");
+	});
+	(ext, addr, account_id)
+}
 
+/// ALICE terminates the `MultiContributorStorage` contract at `addr`.
+fn terminate_multi_contributor(addr: H160) {
+	call_multi_contributor(
+		ALICE,
+		addr,
+		MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }.abi_encode(),
+	);
+	assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
+}
+
+/// A contract re-created at the address of a terminated contract whose child trie is still
+/// queued for removal keeps its own [`NativeDepositOf`] rows. The deletion queue clears the old
+/// rows before re-instantiation is allowed and must not touch the rows of the new contract while
+/// it finishes removing the old child trie.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
+	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code);
+	ext.execute_with(|| {
 		let redeployed = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		assert_eq!(redeployed.addr, addr);
 		let bob_before_growth = Balances::balance(&BOB);
@@ -866,6 +878,32 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), alice_row);
 		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_row);
 		assert_clear_storage_refunds_native(addr, &account_id, BOB, bob_before_growth);
+	});
+}
+
+/// When the contract re-created at an address is terminated as well, the address has two queue
+/// entries and no live contract. The deletion queue clears the native rows of both contracts, so
+/// a third contract can be created at the address.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn deletion_queue_clears_native_deposits_of_two_terminated_contracts(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
+	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code);
+	ext.execute_with(|| {
+		let redeployed =
+			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+		assert_eq!(redeployed.addr, addr);
+		call_multi_contributor(BOB, addr, MultiContributorStorage::growStorageCall {}.abi_encode());
+		assert!(NativeDepositOf::<Test>::get(&account_id, &BOB) > 0);
+		terminate_multi_contributor(addr);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 2);
+
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 0);
+		let redeployed = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		assert_eq!(redeployed.addr, addr);
 	});
 }
 
@@ -895,13 +933,7 @@ fn deletion_queue_keeps_native_deposits_after_pgas_only_contract(fixture_type: F
 				0,
 				"every deposit was paid in PGAS",
 			);
-			call_multi_contributor(
-				ALICE,
-				addr,
-				MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
-					.abi_encode(),
-			);
-			assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
+			terminate_multi_contributor(addr);
 			assert_eq!(DeletionQueue::<Test>::iter().count(), 1);
 
 			let redeployed =
