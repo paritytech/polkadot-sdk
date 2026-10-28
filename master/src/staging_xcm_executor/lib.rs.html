@@ -1156,8 +1156,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1006 id=1006 data-nosnippet>1006</a>				})
 <a href=#1007 id=1007 data-nosnippet>1007</a>			},
 <a href=#1008 id=1008 data-nosnippet>1008</a>			TransferReserveAsset { <span class="kw-2">mut </span>assets, dest, xcm } =&gt; {
-<a href=#1009 id=1009 data-nosnippet>1009</a>				Config::TransactionalProcessor::process(|| {
-<a href=#1010 id=1010 data-nosnippet>1010</a>					<span class="kw">let </span>origin = <span class="self">self</span>.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
+<a href=#1009 id=1009 data-nosnippet>1009</a>				<span class="self">self</span>.transactional_process(|self_ref| {
+<a href=#1010 id=1010 data-nosnippet>1010</a>					<span class="kw">let </span>origin = self_ref.origin_ref().ok_or(XcmError::BadOrigin)<span class="question-mark">?</span>;
 <a href=#1011 id=1011 data-nosnippet>1011</a>					<span class="kw">let </span><span class="kw-2">mut </span>total_surplus = Weight::zero();
 <a href=#1012 id=1012 data-nosnippet>1012</a>					<span class="comment">// Take `assets` from the origin account (on-chain) and place into dest account.
 <a href=#1013 id=1013 data-nosnippet>1013</a>					</span><span class="kw">for </span>asset <span class="kw">in </span>assets.inner() {
@@ -1165,7 +1165,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1015 id=1015 data-nosnippet>1015</a>							asset,
 <a href=#1016 id=1016 data-nosnippet>1016</a>							origin,
 <a href=#1017 id=1017 data-nosnippet>1017</a>							<span class="kw-2">&amp;</span>dest,
-<a href=#1018 id=1018 data-nosnippet>1018</a>							<span class="kw-2">&amp;</span><span class="self">self</span>.context,
+<a href=#1018 id=1018 data-nosnippet>1018</a>							<span class="kw-2">&amp;</span>self_ref.context,
 <a href=#1019 id=1019 data-nosnippet>1019</a>						)<span class="question-mark">?</span>;
 <a href=#1020 id=1020 data-nosnippet>1020</a>						<span class="comment">// If we have some surplus, aggregate it.
 <a href=#1021 id=1021 data-nosnippet>1021</a>						</span>total_surplus.saturating_accrue(surplus);
@@ -1185,9 +1185,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#1035 id=1035 data-nosnippet>1035</a>						})<span class="question-mark">?</span>;
 <a href=#1036 id=1036 data-nosnippet>1036</a>					<span class="kw">let </span><span class="kw-2">mut </span>message = <span class="macro">vec!</span>[ReserveAssetDeposited(assets), ClearOrigin];
 <a href=#1037 id=1037 data-nosnippet>1037</a>					message.extend(xcm.<span class="number">0</span>.into_iter());
-<a href=#1038 id=1038 data-nosnippet>1038</a>					<span class="self">self</span>.send(dest, Xcm(message), FeeReason::TransferReserveAsset)<span class="question-mark">?</span>;
+<a href=#1038 id=1038 data-nosnippet>1038</a>					self_ref.send(dest, Xcm(message), FeeReason::TransferReserveAsset)<span class="question-mark">?</span>;
 <a href=#1039 id=1039 data-nosnippet>1039</a>					<span class="comment">// Credit the total surplus.
-<a href=#1040 id=1040 data-nosnippet>1040</a>					</span><span class="self">self</span>.total_surplus.saturating_accrue(total_surplus);
+<a href=#1040 id=1040 data-nosnippet>1040</a>					</span>self_ref.total_surplus.saturating_accrue(total_surplus);
 <a href=#1041 id=1041 data-nosnippet>1041</a>					<span class="prelude-val">Ok</span>(())
 <a href=#1042 id=1042 data-nosnippet>1042</a>				})
 <a href=#1043 id=1043 data-nosnippet>1043</a>			},
