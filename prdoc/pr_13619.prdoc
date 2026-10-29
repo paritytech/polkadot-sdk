@@ -18,11 +18,12 @@ doc:
     `eth_getBlockReceipts` and `eth_getTransactionByBlockNumberAndIndex` still resolve the block
     through the node first, so they depend on the node still having the block.
 
-    Against a local dev node, the median latency went from 1.08 ms to 0.13 ms for
-    `eth_getTransactionReceipt`, from 2.1 ms to 0.12 ms for `eth_getTransactionByHash` and from
-    1.6 ms to 0.46 ms for `eth_getBlockReceipts` (blocks of 5 to 80 transactions). The database
-    grows by about 1.1 KB of payload per indexed transaction (a JSON receipt without logs and the
-    RLP encoded transaction), about 1.4 KiB on disk including the table's primary key index.
+    Against a local dev node, the median latency went from 1.4 ms to 0.13 ms for
+    `eth_getTransactionReceipt`, from 2.7 ms to 0.13 ms for `eth_getTransactionByHash` and from
+    1.6 ms to 0.59 ms for `eth_getBlockReceipts` (blocks of 1 to 300 transactions; p95 from 9.0 ms
+    to 2.4 ms). The database grows by about 1.1 KB of payload per indexed transaction (a JSON
+    receipt without logs and the RLP encoded transaction), about 1.4 KiB on disk including the
+    table's primary key index.
 
     On start, `eth-rpc` applies database migration `0005_create_receipts`. It creates the
     `receipts` table and adds a `receipts_version` column to `eth_to_substrate_blocks`. Nothing
