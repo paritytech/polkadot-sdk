@@ -378,8 +378,8 @@ fn deposit_event_max_value_limit() {
 	});
 }
 
-/// `deposit_event` with more than `NUM_EVENT_TOPICS` topics traps with `TooManyTopics`, after a
-/// charge that counts the topic bytes of `NUM_EVENT_TOPICS` topics.
+/// `deposit_event` with more than `NUM_EVENT_TOPICS` topics traps with `TooManyTopics` and stores
+/// no event, after a charge that counts the topic bytes of `NUM_EVENT_TOPICS` topics.
 ///
 /// Solidity cannot emit more than four topics, so the contract is assembled here: it calls
 /// `deposit_event` with `NUM_EVENT_TOPICS + 1` topics and an empty data field.
@@ -423,6 +423,13 @@ fn deposit_event_too_many_topics() {
 		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
 		let result = trace(&mut tracer, || builder::bare_call(addr).build().result);
 		assert_err!(result, Error::<Test>::TooManyTopics);
+		assert!(
+			!System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Contracts(crate::Event::ContractEmitted { .. })
+			)),
+			"no event is emitted when deposit_event traps",
+		);
 
 		let trace: ExecutionTraceV1 = tracer.collect_trace().into();
 		let charged = trace

@@ -1008,8 +1008,8 @@ fn logs_work(fixture_type: FixtureType) {
 }
 
 /// A log's per-byte event charges (`on_finalize_block_per_event` and
-/// `EXTRA_EVENT_CHARGE_PER_BYTE`) count its 32-byte topics together with its data, while
-/// `seal_deposit_event` is priced on the data length alone.
+/// `EXTRA_EVENT_CHARGE_PER_BYTE`) count its 32-byte topics together with its data. As
+/// benchmarked, `seal_deposit_event(num_topic, len)` is charged unchanged.
 ///
 /// Every LOG0 to LOG4 is traced on its own, so the step's weight is exactly the charge of that
 /// log: the EVM LOG instruction charges nothing else and the PVM `HostFn` overhead is charged
@@ -1024,7 +1024,6 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 		tracing::trace,
 		weightinfo_extension::OnFinalizeBlockParts,
 	};
-	use pallet_revive_fixtures::LogTopics;
 	use pallet_revive_types::runtime_api::{
 		ExecutionStepKindV1, ExecutionTraceV1, PolkavmSyscallV1,
 	};
@@ -1040,7 +1039,7 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 		))
 	}
 
-	let (code, _) = compile_module_with_type("LogTopics", fixture_type).unwrap();
+	let (code, _) = compile_module_with_type("Host", fixture_type).unwrap();
 
 	ExtBuilder::default().build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
@@ -1049,8 +1048,8 @@ fn log_charges_count_topic_bytes(fixture_type: FixtureType) {
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
 		let calls = [
-			(LogTopics::logsWithoutDataCall {}.abi_encode(), 0u32),
-			(LogTopics::logsWithDataCall {}.abi_encode(), 32u32),
+			(Host::logOpsWithoutDataCall {}.abi_encode(), 0u32),
+			(Host::logOpsCall {}.abi_encode(), 32u32),
 		];
 		for (input, data_len) in calls {
 			let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());

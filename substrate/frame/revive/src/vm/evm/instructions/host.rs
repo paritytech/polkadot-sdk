@@ -285,10 +285,8 @@ pub fn log<'ext, const N: usize, E: Ext>(
 	let topics = interpreter.stack.popn::<N>()?;
 	let topics: Vec<_> =
 		topics.into_iter().map(|v| sp_core::H256::from(v.to_big_endian())).collect();
-	// Cannot fail: `N` is checked against `NUM_EVENT_TOPICS` at compile time above.
-	let Ok(topics) = ContractLogTopics::try_from(topics) else {
-		return ControlFlow::Break(Error::<E::T>::TooManyTopics.into());
-	};
+	let topics = ContractLogTopics::try_from(topics)
+		.expect("N <= NUM_EVENT_TOPICS, asserted at compile time; qed");
 
 	interpreter.ext.deposit_event(topics, data.to_vec());
 	ControlFlow::Continue(())

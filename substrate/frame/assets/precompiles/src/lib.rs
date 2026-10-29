@@ -379,7 +379,6 @@ const TRANSFER_LOG_DATA_LEN: u32 = 32;
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
-const ERR_TOO_MANY_TOPICS: &str = "Too many topics";
 
 impl<Runtime, PrecompileConfig, Instance: 'static> ERC20<Runtime, PrecompileConfig, Instance>
 where
@@ -421,12 +420,12 @@ where
 	fn deposit_event(env: &mut impl Ext<T = Runtime>, event: IERC20Events) -> Result<(), Error> {
 		let (topics, data) = event.into_log_data().split();
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
+		let topics = pallet_revive::ContractLogTopics::try_from(topics)
+			.expect("IERC20 events have 3 topics, within NUM_EVENT_TOPICS of 4; qed");
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
 			len: data.len() as u32,
 		})?;
-		let topics = pallet_revive::ContractLogTopics::try_from(topics)
-			.map_err(|_| Error::Revert(Revert { reason: ERR_TOO_MANY_TOPICS.into() }))?;
 		env.deposit_event(topics, data.to_vec());
 		Ok(())
 	}

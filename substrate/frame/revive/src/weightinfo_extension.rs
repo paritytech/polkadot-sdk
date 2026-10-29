@@ -84,7 +84,7 @@ pub trait OnFinalizeBlockParts {
 ///
 /// **Weight Formula:**
 /// ```text
-/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(data_len_j)) +
+/// Total weight = fixed_part + Σ(per_tx_part(payload_i)) + Σ(per_event_part(event_bytes_j)) +
 ///                Σ(per_outside_frame_log_part_k)
 /// where:
 ///   per_tx_part(payload) = tx_marginal_cost + (payload × byte_marginal_cost)

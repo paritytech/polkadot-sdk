@@ -109,10 +109,12 @@ pub enum RuntimeCosts {
 	/// Weight of calling `seal_deposit_event` with the given number of topics and event size.
 	///
 	/// `len` is the size of the data field. The per-byte charges for storing the event and adding
-	/// it to the receipt apply to the topic bytes (32 per topic) plus `len`. The topic count is
-	/// clamped to [`limits::NUM_EVENT_TOPICS`] for these charges. The event sink only accepts
+	/// it to the receipt apply to the topic bytes (32 per topic) plus `len`, the byte count the
+	/// `on_finalize_per_event_data` benchmark measures. The topic count is clamped to
+	/// [`limits::NUM_EVENT_TOPICS`] for these charges. The event sink only accepts
 	/// [`ContractLogTopics`](crate::ContractLogTopics), which holds at most that many topics, so
-	/// the clamp cannot undercharge an event that is stored.
+	/// no stored event has more topics than that. A caller that passes the number of topics it
+	/// stores as `num_topic` is charged for every stored topic byte.
 	DepositEvent { num_topic: u32, len: u32 },
 	/// Weight of `seal_set_storage` / `seal_set_transient_storage`. `kind` picks
 	/// the persistent (cold/hot) or transient bench.
@@ -354,11 +356,6 @@ impl<T: Config> Token<T> for RuntimeCosts {
 				}
 			},
 			DepositEvent { num_topic, len } => {
-				// The event is stored and RLP encoded into the receipt with its topics, so the
-				// per-byte charges count them. `on_finalize_per_event_data` measures the same sum.
-				// The topic count is clamped to `NUM_EVENT_TOPICS`, so a count above the limit is
-				// charged the topic bytes of the maximum valid count. The event sink takes
-				// `ContractLogTopics`, so a stored event never has more topics than the clamp.
 				let topic_bytes =
 					num_topic.min(limits::NUM_EVENT_TOPICS) * H256::len_bytes() as u32;
 				let event_bytes = len.saturating_add(topic_bytes);

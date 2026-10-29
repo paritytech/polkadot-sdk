@@ -8,12 +8,15 @@ doc:
     emitted by precompiles such as the pallet-assets ERC-20 precompile.
 
     With the weights shipped in `pallet-revive`, each topic adds about 8.57 us of ref time and
-    32 bytes of proof size to the cost of the event. The call stipend, which reserves room for a
-    `LOG4` with 64 data bytes, includes about 34 us for the four topics. Gas estimates for
-    transactions that emit events with topics include this charge.
+    32 bytes of proof size to the cost of the event. Gas estimates for transactions that emit
+    events with topics include this charge.
+
+    The call stipend reserves room for a `LOG4` with 64 data bytes. A call that transfers value
+    now needs about 82 us of ref time and 216 bytes of proof size left for the stipend, up from
+    about 48 us and 88 bytes. A call with less left fails with `OutOfGas`, as before.
 
     A `deposit_event` call with more than `NUM_EVENT_TOPICS` topics is charged the topic bytes of
-    `NUM_EVENT_TOPICS` topics and traps with `TooManyTopics`.
+    `NUM_EVENT_TOPICS` topics and traps with `TooManyTopics` as before.
 
 - audience: Runtime Dev
   description: |-
@@ -27,7 +30,8 @@ doc:
 
     `PrecompileExt::deposit_event` takes the topics as `ContractLogTopics`, which holds at most
     `NUM_EVENT_TOPICS` topics, instead of `Vec<H256>`. Precompiles that emit logs convert their
-    topics before the call and handle the error:
+    topics before the call. A precompile whose topic count can exceed the limit handles the
+    conversion error:
 
     ```rust
     // before
@@ -43,12 +47,13 @@ doc:
     `integrity_test` bounds the event storage a block can produce using events with
     `NUM_EVENT_TOPICS` topics and `EVENT_BYTES` of data.
 
-    `pallet-revive-fixtures` gains the `LogTopics` Solidity fixture.
+    The `Host` Solidity fixture in `pallet-revive-fixtures` gains a `logOpsWithoutData` function,
+    which adds a variant to the generated `Host::HostCalls` enum.
 
 crates:
 - name: pallet-revive
   bump: major
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: major
 - name: pallet-assets-precompiles
   bump: patch
