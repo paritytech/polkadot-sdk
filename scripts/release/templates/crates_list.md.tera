@@ -1,1 +1,19 @@
-{# List of chnaged crates with updated versions genearted during the crates relaease . -#}
+The following crates were updated to the corresponding versions:
+
+<details>
+  <summary>Changed crates: </summary>
+
+- pallet-revive-uapi@0.15.3
+- frame-support-procedural@41.0.1
+- pallet-revive-fixtures@0.16.1
+- pallet-asset-conversion@32.0.1
+- pallet-balances@51.0.1
+- staging-xcm-executor@29.0.1
+- pallet-revive@0.20.1
+- sc-statement-store@32.0.1
+- cumulus-client-cli@0.34.1
+- cumulus-client-collator-discovery@0.2.1
+- cumulus-relay-chain-rpc-interface@0.34.1
+- cumulus-client-consensus-aura@0.34.1
+
+</details>
