@@ -1775,11 +1775,11 @@ The `messages_member` holds every settled root in the ring. This is represented 
 ensure that membership checks happen in `O(1)`. The value of the map points to the next entry
 in the list. The newest entry points to itself.
 
-**Checking Membership**
+#### Checking Membership
 
 The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
 
-**Pushing a Root**
+#### Pushing a Root*
 
 1. Read `messages_member` under `(para_id, new_root)`. Stop if the ring already contains the new root.
 
@@ -1799,7 +1799,7 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
     - `newest` is the `new_root`.
     - `len` is incremented until capacity.
 
-**Ring Cleanup**
+#### Ring Cleanup
 
 When a parachain is removed, its ring is cleared by walking the list from the oldest
 root to the newest.
@@ -1826,3 +1826,4 @@ root to the newest.
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
 - [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/pull/12659): The speculative messaging design document
+- [Speculative Messaging on JAM](https://github.com/paritytech/polkadot-sdk/pull/12809): Overview of speculative messaging on JAM
