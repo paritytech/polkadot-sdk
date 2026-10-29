@@ -206,33 +206,49 @@ fn instantiate_storage_slots(fixture_type: FixtureType, root_created: bool) -> C
 	Contract { addr, account_id: <Test as Config>::AddressMapper::to_account_id(&addr) }
 }
 
-/// ALICE writes two slots of the `StorageSlots` at `addr`, whose deposit on hold `held` returns.
+/// ALICE writes enough slots of the `StorageSlots` at `addr` for the deposit they hold to exceed
+/// twice the base deposit.
 ///
-/// Returns the deposit held afterwards and the part of it held above the base deposit.
-fn write_two_slots(
+/// The contract must be instantiated from a call by `Origin::Root`, so that only the deposit of
+/// the slots is held. `held` returns the storage deposit held by the contract. Returns the number
+/// of slots written, the deposit held and the part of it held above the base deposit.
+fn write_slots_above_base_deposit(
 	addr: H160,
 	held: impl Fn() -> BalanceOf<Test>,
-) -> (BalanceOf<Test>, BalanceOf<Test>) {
-	let result = builder::bare_call(addr)
-		.data(StorageSlots::writeCall { from: U256::from(0), to: U256::from(2) }.abi_encode())
-		.build_and_unwrap_result();
-	assert!(!result.did_revert());
-	let base_deposit = AccountInfo::<Test>::load_contract(&addr).unwrap().storage_base_deposit();
+) -> (BalanceOf<Test>, BalanceOf<Test>, BalanceOf<Test>) {
+	let write = |from: BalanceOf<Test>, to: BalanceOf<Test>| {
+		let result = builder::bare_call(addr)
+			.data(
+				StorageSlots::writeCall { from: U256::from(from), to: U256::from(to) }.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert!(!result.did_revert());
+	};
+
+	// Write one slot to learn the deposit of a slot, then the rest.
+	write(0, 1);
+	let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
+	let base_deposit = info.storage_base_deposit();
+	let slots = 2 * (base_deposit / info.extra_deposit() + 1);
+	write(1, slots);
+
+	let info = AccountInfo::<Test>::load_contract(&addr).unwrap();
 	let held = held();
+	assert_eq!(held, info.extra_deposit(), "the base deposit is not held");
 	let refundable = held.saturating_sub(base_deposit);
-	assert!(refundable < held, "the refund for clearing both slots is bounded");
-	(held, refundable)
+	assert!(refundable > 0, "part of the refund for clearing all slots is released");
+	(slots, held, refundable)
 }
 
-/// Call data for `CallThenWrite` that clears the slots written by [`write_two_slots`] on
-/// `target` and then writes three slots of `CallThenWrite`.
-fn clear_two_slots_then_write(target: H160) -> Vec<u8> {
+/// Call data for `CallThenWrite` that clears the first `slots` slots of the `StorageSlots` at
+/// `target` and then writes as many slots of `CallThenWrite`.
+fn clear_slots_then_write(target: H160, slots: BalanceOf<Test>) -> Vec<u8> {
 	CallThenWrite::callThenWriteCall {
 		target: target.0.into(),
-		data: StorageSlots::clearCall { from: U256::from(0), to: U256::from(2) }
+		data: StorageSlots::clearCall { from: U256::from(0), to: U256::from(slots) }
 			.abi_encode()
 			.into(),
-		count: U256::from(3),
+		count: U256::from(slots),
 	}
 	.abi_encode()
 }
@@ -483,9 +499,10 @@ fn unreleased_refund_counts_against_deposit_limit(fixture_type: FixtureType) {
 
 /// A refund that is released only in part counts against the deposit limit.
 ///
-/// `StorageSlots` is instantiated from a call by `Origin::Root` and ALICE writes two of its slots.
-/// `CallThenWrite` then calls `StorageSlots::clear`, a refund from a nested frame bounded by the
-/// deposit held above the base deposit, and writes slots of its own, a charge on another contract.
+/// `StorageSlots` is instantiated from a call by `Origin::Root` and ALICE writes slots of it whose
+/// deposit exceeds twice its base deposit. `CallThenWrite` then calls `StorageSlots::clear` for
+/// all of them, a refund from a nested frame bounded by the deposit held above the base deposit,
+/// and writes as many slots of its own, a charge on another contract.
 /// The limit is checked at the boundary: one unit below the deposit that is paid, the call fails
 /// and changes nothing. At exactly that deposit, it succeeds and the reported storage deposit and
 /// maximum storage deposit equal it. `tx_fee` routes the deposits through the transaction fee
@@ -523,11 +540,11 @@ fn bounded_refund_counts_against_deposit_limit(fixture_type: FixtureType, tx_fee
 			)
 		};
 
-		let (held_before, refundable) = write_two_slots(refunding_addr, held);
+		let (slots, held_before, refundable) = write_slots_above_base_deposit(refunding_addr, held);
 
 		let call = |deposit_limit| {
 			builder::bare_call(charging_addr)
-				.data(clear_two_slots_then_write(refunding_addr))
+				.data(clear_slots_then_write(refunding_addr, slots))
 				.transaction_limits(TransactionLimits::WeightAndDeposit {
 					weight_limit: WEIGHT_LIMIT,
 					deposit_limit,
@@ -599,11 +616,12 @@ fn bounded_refund_counts_against_eth_gas_limit(fixture_type: FixtureType) {
 				)
 			};
 
-			let (held_before, refundable) = write_two_slots(refunding_addr, held);
+			let (slots, held_before, refundable) =
+				write_slots_above_base_deposit(refunding_addr, held);
 
 			let call = |eth_gas_limit| {
 				builder::bare_call(charging_addr)
-					.data(clear_two_slots_then_write(refunding_addr))
+					.data(clear_slots_then_write(refunding_addr, slots))
 					.transaction_limits(TransactionLimits::EthereumGas {
 						eth_gas_limit,
 						weight_limit: WEIGHT_LIMIT,
