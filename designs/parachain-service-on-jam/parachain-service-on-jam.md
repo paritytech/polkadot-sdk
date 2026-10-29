@@ -1761,8 +1761,9 @@ via a `set_messages_streams_root` host call. The receiver parachain declares one
 
 The parachain service is responsible only for settling these roots. To achieve this, it maintains
 a settlement ring for every parachain which holds its 64 (`MAX_SETTLEMENT_RING_CAPACITY`) most
-recent and distinct enacted `StreamsRoot`. The receiver block enacts only if every declared consumed
-root is in the sender's ring.
+recently inserted distinct `StreamsRoot`. Reinserting a root in the ring doesn't change its
+eviction order. The receiver block enacts only if every declared consumed root is in the
+sender's ring.
 
 ### 8.1 Settlement Ring
 
