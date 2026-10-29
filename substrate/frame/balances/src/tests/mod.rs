@@ -30,8 +30,8 @@ use frame_support::{
 	parameter_types,
 	traits::{
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, LockIdentifier, LockableCurrency,
-		OnUnbalanced, StorageMapShim, StoredMap, VariantCount, VariantCountOf,
-		WhitelistedStorageKeys, WithdrawReasons,
+		OnUnbalanced, StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
+		WithdrawReasons,
 	},
 	weights::{IdentityFee, Weight},
 };
@@ -129,8 +129,6 @@ impl Config for Test {
 	type ReserveIdentifier = TestId;
 	type RuntimeHoldReason = TestId;
 	type RuntimeFreezeReason = TestId;
-	type FreezeIdentifier = TestId;
-	type MaxFreezes = VariantCountOf<TestId>;
 }
 
 #[derive(Clone)]

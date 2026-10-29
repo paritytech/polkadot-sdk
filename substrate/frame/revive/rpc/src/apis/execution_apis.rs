@@ -77,6 +77,10 @@ pub trait EthRpc {
 		hydrated_transactions: bool,
 	) -> RpcResult<Option<BlockV1>>;
 
+	/// Returns the receipts of all transactions in a block.
+	#[method(name = "eth_getBlockReceipts")]
+	async fn get_block_receipts(&self, block: BlockId) -> RpcResult<Option<Vec<ReceiptInfo>>>;
+
 	/// Returns the number of transactions in a block from a block matching the given block hash.
 	#[method(name = "eth_getBlockTransactionCountByHash")]
 	async fn get_block_transaction_count_by_hash(

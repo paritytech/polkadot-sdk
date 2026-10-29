@@ -29,8 +29,14 @@ pub struct EstimateGasInputPayloadV1<Moment> {
 	pub state_overrides: Option<StateOverrideSetV1>,
 }
 
+/// The input type used when calling the `eth_estimate_gas_versioned` runtime API function. This
+/// function replaces the unversioned `eth_estimate_gas` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum EstimateGasVersionedInputPayload<Moment> {
+	/// The arguments provided when calling the `eth_estimate_gas_versioned` runtime API function.
+	///
+	/// When this version is provided, the function behaves identically to and returns the same
+	/// output as the unversioned `eth_estimate_gas` runtime API function.
 	V1(EstimateGasInputPayloadV1<Moment>),
 }
 
@@ -39,7 +45,14 @@ pub struct EstimateGasOutputPayloadV1 {
 	pub gas_estimate: U256,
 }
 
+/// The output type returned when calling the `eth_estimate_gas_versioned` runtime API function.
+/// This function replaces the unversioned `eth_estimate_gas` runtime API function.
 #[derive(TypeInfo, Debug, Clone, Encode, Decode, PartialEq, From, TryInto)]
 pub enum EstimateGasVersionedOutputPayload {
+	/// The output returned when calling the `eth_estimate_gas_versioned` runtime API function with
+	/// `V1` arguments.
+	///
+	/// This output is identical to the output returned by the unversioned `eth_estimate_gas`
+	/// runtime API function.
 	V1(EstimateGasOutputPayloadV1),
 }

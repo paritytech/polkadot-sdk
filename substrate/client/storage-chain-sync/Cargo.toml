@@ -15,15 +15,11 @@ workspace = true
 async-trait = { workspace = true }
 cid = { workspace = true }
 codec = { workspace = true, default-features = true }
-futures = { workspace = true }
-futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
-rand = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-client-db = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
-sc-network = { workspace = true, default-features = true }
-sc-network-sync = { workspace = true, default-features = true }
+sc-network-bitswap = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
@@ -34,14 +30,14 @@ sp-state-machine = { workspace = true, default-features = true }
 sp-transaction-storage-proof = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, default-features = true, features = ["sync", "time"] }
 
 [dev-dependencies]
-prost = { workspace = true }
 rstest = { workspace = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
-tokio = { workspace = true, default-features = true, features = ["macros", "rt"] }
+tokio = { workspace = true, default-features = true, features = ["macros", "rt", "sync"] }
 tracing = { workspace = true, default-features = true }
 tracing-log = { workspace = true, default-features = true }
 tracing-subscriber = { workspace = true, default-features = true }

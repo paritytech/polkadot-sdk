@@ -33,7 +33,7 @@ use sp_state_machine::{
 	backend::{AsTrieBackend, TryPendingCode},
 	OverlayedChanges, StateMachine, StorageProof,
 };
-use std::{cell::RefCell, sync::Arc};
+use std::{cell::RefCell, sync::Arc, time::Duration};
 
 /// Call executor that executes methods locally, querying all required
 /// data from local backend.
@@ -112,7 +112,8 @@ where
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
 
-		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
+		let (runtime_code, runtime_version) =
+			self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?;
 
 		let mut extensions = self.execution_extensions.extensions(at_hash, at_number);
 
@@ -125,6 +126,7 @@ where
 			&mut extensions,
 			&runtime_code,
 			context,
+			runtime_version.state_version(),
 		)
 		.set_parent_hash(at_hash);
 
@@ -153,7 +155,8 @@ where
 
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
-		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
+		let (runtime_code, runtime_version) =
+			self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?;
 		let mut extensions = extensions.borrow_mut();
 
 		match recorder {
@@ -173,6 +176,7 @@ where
 					&mut extensions,
 					&runtime_code,
 					call_context,
+					runtime_version.state_version(),
 				)
 				.set_parent_hash(at_hash);
 				state_machine.execute()
@@ -187,6 +191,7 @@ where
 					&mut extensions,
 					&runtime_code,
 					call_context,
+					runtime_version.state_version(),
 				)
 				.set_parent_hash(at_hash);
 				state_machine.execute()
@@ -216,6 +221,7 @@ where
 		at_hash: Block::Hash,
 		method: &str,
 		call_data: &[u8],
+		timeout: Option<Duration>,
 	) -> sp_blockchain::Result<(Vec<u8>, StorageProof)> {
 		let at_number =
 			self.backend.blockchain().expect_block_number_from_id(&BlockId::Hash(at_hash))?;
@@ -227,7 +233,8 @@ where
 			sp_state_machine::backend::BackendRuntimeCode::new(trie_backend, TryPendingCode::No);
 		let runtime_code =
 			state_runtime_code.runtime_code().map_err(sp_blockchain::Error::RuntimeCode)?;
-		let runtime_code = self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?.0;
+		let (runtime_code, runtime_version) =
+			self.code_provider.maybe_override_code(runtime_code, &state, at_hash)?;
 
 		sp_state_machine::prove_execution_on_trie_backend(
 			trie_backend,
@@ -237,6 +244,8 @@ where
 			call_data,
 			&runtime_code,
 			&mut self.execution_extensions.extensions(at_hash, at_number),
+			runtime_version.state_version(),
+			timeout,
 		)
 		.map_err(Into::into)
 	}
@@ -268,16 +277,5 @@ where
 		call_context: CallContext,
 	) -> Result<sp_version::RuntimeVersion, String> {
 		CallExecutor::runtime_version(self, at, call_context).map_err(|e| e.to_string())
-	}
-}
-
-impl<Block, B, E> sp_version::GetNativeVersion for LocalCallExecutor<Block, B, E>
-where
-	B: backend::Backend<Block>,
-	E: CodeExecutor + sp_version::GetNativeVersion + Clone + 'static,
-	Block: BlockT,
-{
-	fn native_version(&self) -> &sp_version::NativeVersion {
-		self.executor.native_version()
 	}
 }

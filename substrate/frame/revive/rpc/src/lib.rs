@@ -17,7 +17,7 @@
 //! The [`EthRpcServer`] RPC server implementation
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-pub use alloy_rpc_types::{BlockId, BlockNumberOrTag, Filter, FilterBlockOption};
+pub use alloy_rpc_types::{BlockId, BlockNumberOrTag};
 use client::ClientError;
 use futures::{Stream, StreamExt, TryStreamExt};
 use jsonrpsee::{
@@ -28,11 +28,11 @@ use jsonrpsee::{
 use pallet_revive::evm::*;
 use pallet_revive_types::runtime_api::{
 	BlockV1, ExecutionTracerConfigV1, GenericTransactionV1, ReceiptGasInfoV1, StateOverrideSetV1,
-	TraceV1, TracerTypeV1, TransactionInfoV1,
+	SyntheticTransactionV1, TraceV1, TracerTypeV1, TransactionInfoV1,
 };
 use sp_core::{H160, H256, U256};
 use sp_crypto_hashing::keccak_256;
-use std::pin::Pin;
+use std::{ops::ControlFlow, pin::Pin};
 use subxt::rpcs::methods::legacy::TransactionStatus;
 use thiserror::Error;
 use tokio_stream::wrappers::{BroadcastStream, errors::BroadcastStreamRecvError};
@@ -64,6 +64,15 @@ pub use apis::*;
 
 mod types;
 pub use types::*;
+
+/// Fetch the chain ID from the substrate chain.
+async fn chain_id(
+	api: &subxt::OnlineClient<subxt_client::SrcChainConfig>,
+) -> Result<u64, ClientError> {
+	let query = subxt_client::constants().revive().chain_id().unvalidated();
+	let at_block = api.at_current_block().await?;
+	at_block.constants().entry(query).map_err(|err| err.into())
+}
 
 pub const LOG_TARGET: &str = "eth-rpc";
 
@@ -210,8 +219,13 @@ impl EthRpcServer for EthRpcServerImpl {
 		});
 		let block = BlockId::from(block);
 		let hash = self.client.block_hash_for_tag(block).await?;
-		let gas_estimate =
-			self.client.runtime_api(hash).await?.estimate_gas(transaction, block).await?;
+		let gas_estimate = self
+			.client
+			.runtime_api(hash)
+			.await?
+			.estimate_gas(transaction, block)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_estimate_gas"))?
+			.await?;
 
 		log::trace!(
 			target: LOG_TARGET,
@@ -229,7 +243,10 @@ impl EthRpcServer for EthRpcServerImpl {
 		let block = block.unwrap_or_default();
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash).await?;
-		let dry_run = runtime_api.dry_run(transaction, block, state_overrides).await?;
+		let dry_run = runtime_api
+			.dry_run(transaction, block, state_overrides)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("eth_transact"))?
+			.await?;
 		Ok(dry_run.data.into())
 	}
 
@@ -359,7 +376,10 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn get_balance(&self, address: H160, block: BlockId) -> RpcResult<U256> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash).await?;
-		let balance = runtime_api.balance(address).await?;
+		let balance = runtime_api
+			.balance(address)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("balance"))?
+			.await?;
 		Ok(balance)
 	}
 
@@ -370,7 +390,11 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn gas_price(&self) -> RpcResult<U256> {
 		let hash = self.client.block_hash_for_tag(Default::default()).await?;
 		let runtime_api = self.client.runtime_api(hash).await?;
-		Ok(runtime_api.gas_price().await?)
+		let gas_price = runtime_api
+			.gas_price()
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("gas_price"))?
+			.await?;
+		Ok(gas_price)
 	}
 
 	async fn max_priority_fee_per_gas(&self) -> RpcResult<U256> {
@@ -381,7 +405,13 @@ impl EthRpcServer for EthRpcServerImpl {
 
 	async fn get_code(&self, address: H160, block: BlockId) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
-		let code = self.client.runtime_api(hash).await?.code(address).await?;
+		let code = self
+			.client
+			.runtime_api(hash)
+			.await?
+			.code(address)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("code"))?
+			.await?;
 		Ok(code.into())
 	}
 
@@ -399,6 +429,11 @@ impl EthRpcServer for EthRpcServerImpl {
 		};
 		let block = self.client.evm_block(block, hydrated_transactions).await;
 		Ok(block)
+	}
+
+	async fn get_block_receipts(&self, block: BlockId) -> RpcResult<Option<Vec<ReceiptInfo>>> {
+		let receipts = self.client.block_receipts(block).await?;
+		Ok(receipts)
 	}
 
 	async fn get_block_transaction_count_by_hash(
@@ -448,7 +483,10 @@ impl EthRpcServer for EthRpcServerImpl {
 	) -> RpcResult<Bytes> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash).await?;
-		let bytes = match runtime_api.get_storage(address, storage_slot.to_big_endian()).await {
+		let get_storage = runtime_api
+			.get_storage(address, storage_slot.to_big_endian())
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("get_storage"))?;
+		let bytes = match get_storage.await {
 			Ok(value) => value.unwrap_or([0u8; 32].into()),
 			// Per Ethereum spec, return zero for non-contract addresses.
 			Err(ClientError::ContractNotFound) => {
@@ -507,7 +545,10 @@ impl EthRpcServer for EthRpcServerImpl {
 	async fn get_transaction_count(&self, address: H160, block: BlockId) -> RpcResult<U256> {
 		let hash = self.client.block_hash_for_tag(block).await?;
 		let runtime_api = self.client.runtime_api(hash).await?;
-		let nonce = runtime_api.nonce(address).await?;
+		let nonce = runtime_api
+			.nonce(address)
+			.ok_or(ClientError::UnsupportedRuntimeApiMethod("nonce"))?
+			.await?;
 		Ok(nonce)
 	}
 
@@ -576,8 +617,20 @@ impl EthRpcServer for EthRpcServerImpl {
 			) as _,
 			SubscriptionParameters::Logs(filter) => Box::pin(
 				BroadcastStream::new(self.client.get_log_subscription_rx())
-					.try_filter(move |log| futures::future::ready(filter.matches(log)))
-					.map_ok(SubscriptionItem::Log),
+					.map_ok(move |log| match filter.block_option.window(log.block_number) {
+						LogWindow::Closed => ControlFlow::Break(()),
+						LogWindow::NotYetOpen => ControlFlow::Continue(None),
+						LogWindow::Open => {
+							ControlFlow::Continue(filter.matches(&log).then_some(log))
+						},
+					})
+					.try_take_while(|flow| futures::future::ready(Ok(flow.is_continue())))
+					.try_filter_map(|flow| {
+						futures::future::ready(Ok(match flow {
+							ControlFlow::Continue(log) => log.map(SubscriptionItem::Log),
+							ControlFlow::Break(()) => None,
+						}))
+					}),
 			) as _,
 		};
 		let _ = tokio::spawn(Self::handle_subscription_forwarding(sink, stream));

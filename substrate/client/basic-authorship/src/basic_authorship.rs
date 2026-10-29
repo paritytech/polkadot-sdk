@@ -57,7 +57,7 @@ const DEFAULT_SOFT_DEADLINE_PERCENT: Percent = Percent::from_percent(50);
 const LOG_TARGET: &'static str = "basic-authorship";
 
 /// [`Proposer`] factory.
-pub struct ProposerFactory<A, C> {
+pub struct ProposerFactory<A: ?Sized, C> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	/// The client instance.
 	client: Arc<C>,
@@ -81,7 +81,7 @@ pub struct ProposerFactory<A, C> {
 	telemetry: Option<TelemetryHandle>,
 }
 
-impl<A, C> Clone for ProposerFactory<A, C> {
+impl<A: ?Sized, C> Clone for ProposerFactory<A, C> {
 	fn clone(&self) -> Self {
 		Self {
 			spawn_handle: self.spawn_handle.clone(),
@@ -95,7 +95,7 @@ impl<A, C> Clone for ProposerFactory<A, C> {
 	}
 }
 
-impl<A, C> ProposerFactory<A, C> {
+impl<A: ?Sized, C> ProposerFactory<A, C> {
 	/// Create a new proposer factory.
 	pub fn new(
 		spawn_handle: impl SpawnNamed + 'static,
@@ -157,7 +157,7 @@ impl<A, C> ProposerFactory<A, C> {
 
 impl<Block, C, A> ProposerFactory<A, C>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -194,7 +194,7 @@ where
 
 impl<A, Block, C> sp_consensus::Environment<Block> for ProposerFactory<A, C>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -209,7 +209,7 @@ where
 }
 
 /// The proposer logic.
-pub struct Proposer<Block: BlockT, C, A: TransactionPool> {
+pub struct Proposer<Block: BlockT, C, A: TransactionPool + ?Sized> {
 	spawn_handle: Box<dyn SpawnNamed>,
 	client: Arc<C>,
 	parent_hash: Block::Hash,
@@ -224,7 +224,7 @@ pub struct Proposer<Block: BlockT, C, A: TransactionPool> {
 
 impl<A, Block, C> sp_consensus::Proposer<Block> for Proposer<Block, C, A>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,
@@ -244,7 +244,7 @@ const MAX_SKIPPED_TRANSACTIONS: usize = 8;
 
 impl<A, Block, C> Proposer<Block, C, A>
 where
-	A: TransactionPool<Block = Block> + 'static,
+	A: TransactionPool<Block = Block> + 'static + ?Sized,
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	C::Api: ApiExt<Block> + BlockBuilderApi<Block>,

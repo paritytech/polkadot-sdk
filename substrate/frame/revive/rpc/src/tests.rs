@@ -19,19 +19,22 @@
 //! [evm-test-suite](https://github.com/paritytech/evm-test-suite) repository.
 
 use crate::{
-	BlockHeader, BlockInfoProvider, BoundedOneOrMany, ChainMetadata, DbContext, DebugRpcClient,
-	EthRpcClient, FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem,
-	SubscriptionKind, SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
+	BlockHeader, BlockInfoProvider, ChainMetadata, DbContext, DebugRpcClient, EthRpcClient, Filter,
+	FilterResults, Log, ReceiptExtractor, ReceiptProvider, SubscriptionItem, SubscriptionKind,
+	SubscriptionOptions, SubxtBlockInfoProvider, SyncLabel,
 	cli::{self, CliCommand},
-	client::{Client, GapFillRequest, SubscriptionGapQueue, connect},
+	client::{
+		Client, GapFillRequest, SubscriptionGapQueue, connect,
+		version_aware_runtime_api::VersionAwareRuntimeApiProvider,
+	},
 	example::TransactionBuilder,
 	subxt_client::{self, SrcChainConfig},
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
-use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
+use alloy_provider::{Provider, ProviderBuilder, WsConnect, ext::DebugApi as _};
 use alloy_rpc_types::{
-	BlockId, BlockNumberOrTag, Filter, TransactionRequest,
+	BlockId, BlockNumberOrTag, TransactionRequest,
 	state::{AccountOverride, StateOverride},
 };
 use alloy_signer_local::PrivateKeySigner;
@@ -53,11 +56,11 @@ use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use pallet_revive_types::runtime_api::{
 	BlockV1, CallTracerConfigV1, CodeV1, GenericTransactionV1, HashesOrTransactionInfosV1,
 	TraceBlockInputPayloadV1, TraceBlockInputPayloadV2, TraceBlockVersionedInputPayload,
-	TraceBlockVersionedOutputPayload, TraceV1, TraceV2, TracerTypeV1,
+	TraceBlockVersionedOutputPayload, TraceEntryV1, TraceV1, TraceV2, TracerTypeV1,
 };
 use sp_runtime::BoundedVec;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use std::{sync::Arc, thread};
+use std::{collections::BTreeSet, sync::Arc, thread};
 use subxt::{
 	OnlineClient,
 	client::OnlineClientAtBlockImpl,
@@ -377,18 +380,22 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
 		test_evm_blocks_hydrated_should_match,
+		test_get_block_receipts,
 		test_block_hash_for_tag_with_proper_ethereum_block_hash_works,
 		test_block_hash_for_tag_with_invalid_ethereum_block_hash_fails,
 		test_block_hash_for_tag_with_block_number_works,
 		test_block_hash_for_tag_with_block_tags_works,
 		test_earliest_block_tag,
 		test_get_logs_with_block_tags_works,
+		unknown_block_hash_returns_a_log_query_error,
 		test_multiple_transactions_in_block,
 		test_mixed_evm_substrate_transactions,
 		test_runtime_pallets_address_upload_code,
-		test_subscribe_new_heads,
+		test_eip7702_delegation_flow,
+		test_new_heads_subscription_delivers_matching_header_via_alloy,
 		test_subscribe_new_heads_multiple_blocks,
 		test_subscribe_logs,
+		test_log_subscription_respects_inclusive_block_bounds,
 		test_subscribe_logs_with_address_filter,
 		test_subscribe_logs_with_topic_filter,
 		test_subscribe_logs_address_filter_excludes_non_matching,
@@ -411,6 +418,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_code_evm_to_evm,
 		test_state_override_code_evm_to_pvm,
 		test_state_override_code_pvm_to_evm,
+		test_state_override_delegation_indicator_to_evm,
+		test_state_override_delegation_indicator_to_pvm,
 		test_state_override_storage_state_diff,
 		test_state_override_storage_full_replacement,
 		test_state_override_storage_full_clears_unspecified,
@@ -642,8 +651,8 @@ async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	}
 
 	// Verify log data values
-	let ping_data = &emit_receipt.logs[0].data.as_ref().unwrap().0;
-	let pong_data = &emit_receipt.logs[1].data.as_ref().unwrap().0;
+	let ping_data = &emit_receipt.logs[0].data.0;
+	let pong_data = &emit_receipt.logs[1].data.0;
 	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
 	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
 	assert_eq!(ping.0, 1, "Ping value should be 1");
@@ -855,6 +864,50 @@ async fn test_evm_blocks_hydrated_should_match() -> anyhow::Result<()> {
 	Ok(())
 }
 
+/// Verifies that `eth_getBlockReceipts` returns every receipt of a block, that querying the same
+/// block by number and by hash yields the same receipts, and that an unknown block returns `null`.
+async fn test_get_block_receipts() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let deploy_tx = TransactionRequest::default()
+		.from(from)
+		.input(AlloyBytes::from(bytecode).into())
+		.create();
+
+	// Act
+	let receipt = provider.send_transaction(deploy_tx).await?.get_receipt().await?;
+	let block_number = receipt.block_number.expect("Mined receipt has a block number");
+	let block_hash = receipt.block_hash.expect("Mined receipt has a block hash");
+
+	let by_number = provider
+		.get_block_receipts(BlockId::number(block_number))
+		.await?
+		.expect("Block should have receipts");
+	let by_hash = provider
+		.get_block_receipts(BlockId::hash(block_hash))
+		.await?
+		.expect("Block should have receipts");
+	let missing = provider.get_block_receipts(BlockId::hash(B256::from([0x42u8; 32]))).await?;
+
+	// Assert
+	let hashes_by_number = by_number.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	let hashes_by_hash = by_hash.iter().map(|r| r.transaction_hash).collect::<Vec<_>>();
+	assert_eq!(hashes_by_number, hashes_by_hash, "Receipts by number and by hash should match");
+	assert!(
+		by_number.iter().any(|r| r.transaction_hash == receipt.transaction_hash),
+		"Block receipts should include the sent transaction"
+	);
+	assert!(
+		by_number.iter().all(|r| r.block_hash == Some(block_hash)),
+		"All receipts should belong to the queried block"
+	);
+	assert!(missing.is_none(), "Receipts for a non-existent block should be null");
+
+	Ok(())
+}
+
 async fn test_block_hash_for_tag_with_proper_ethereum_block_hash_works() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	// Deploy a transaction to create a block with transactions
@@ -977,23 +1030,34 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 	};
 	let has_emitted_log = |logs: &[Log]| logs.iter().any(|log| log.block_number == emit_block);
 
-	// `<tag>..latest` range should span the emitted log.
+	// `<tag>..latest` range should span the emitted log, except `pending` which is rejected.
 	for from in BLOCK_TAGS {
+		let result = client
+			.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
+			.await;
+		if matches!(from, BlockNumberOrTag::Pending) {
+			assert!(result.is_err(), "pending..latest should be rejected");
+			continue;
+		}
 		let logs = logs_of(
-			client
-				.get_logs(Some(Filter::new().from_block(from).to_block(BlockNumberOrTag::Latest)))
-				.await
+			result
 				.map_err(|err| anyhow::anyhow!("eth_getLogs {from:?}..latest failed: {err:?}"))?,
 		);
 		assert!(has_emitted_log(&logs), "{from:?}..latest should include the emitted log");
 	}
 
-	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`.
+	// `earliest..<tag>` range should span the emitted log for every tag except `earliest`,
+	// while `pending` is rejected.
 	for to in BLOCK_TAGS {
+		let result = client
+			.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
+			.await;
+		if matches!(to, BlockNumberOrTag::Pending) {
+			assert!(result.is_err(), "earliest..pending should be rejected");
+			continue;
+		}
 		let logs = logs_of(
-			client
-				.get_logs(Some(Filter::new().from_block(BlockNumberOrTag::Earliest).to_block(to)))
-				.await
+			result
 				.map_err(|err| anyhow::anyhow!("eth_getLogs earliest..{to:?} failed: {err:?}"))?,
 		);
 		if matches!(to, BlockNumberOrTag::Earliest) {
@@ -1006,6 +1070,36 @@ async fn test_get_logs_with_block_tags_works() -> anyhow::Result<()> {
 		}
 	}
 
+	Ok(())
+}
+
+async fn unknown_block_hash_returns_a_log_query_error() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let ethan = Account::from(subxt_signer::eth::dev::ethan());
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(ethan.address())
+		.value(U256::from(1))
+		.send()
+		.await?
+		.wait_for_receipt()
+		.await?;
+
+	// Act
+	let known_block_logs =
+		client.get_logs(Some(Filter::new().at_block_hash(receipt.block_hash))).await?;
+	let error = client
+		.get_logs(Some(Filter::new().at_block_hash(H256::repeat_byte(0xff))))
+		.await
+		.unwrap_err();
+
+	// Assert
+	assert_eq!(known_block_logs, FilterResults::default());
+	let ClientError::Call(error) = error else {
+		panic!("Expected a JSON-RPC error, got {error:?}");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::CALL_EXECUTION_FAILED_CODE);
+	assert_eq!(error.message(), "Failed to filter logs: unknown block");
 	Ok(())
 }
 
@@ -1193,7 +1287,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 		"upload_code",
 		vec![
 			subxt::dynamic::Value::from_bytes(&bytecode),
-			subxt::dynamic::Value::u128(u128::max_value()), // storage_deposit_limit
+			subxt::dynamic::Value::u128(u128::MAX), // storage_deposit_limit
 		],
 	);
 	let encoded_call = node_client.tx().await?.call_data(&upload_call)?;
@@ -1229,16 +1323,219 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Verify that subscribing to `newHeads` delivers a block header matching the
-/// corresponding block fetched via `eth_getBlockByNumber` after a transaction
-/// triggers a new block.
-async fn test_subscribe_new_heads() -> anyhow::Result<()> {
+/// Full EIP-7702 integration test:
+/// 1. Deploy Counter contract
+/// 2. Delegate Alice → Counter via 7702 tx with authorization list
+/// 3. Call setNumber(42) on Alice (writes to Alice's storage via Counter code)
+/// 4. Read number() from Alice → returns 42
+/// 5. Clear delegation (authorization with zero address)
+/// 6. Read from Alice → returns empty (no code)
+///
+/// 7702 transactions are constructed via alloy's `Authorization`/`SignedAuthorization` +
+/// `TransactionRequest::with_authorization_list` and submitted through the alloy provider on
+/// `SharedResources`, exercising the same RPC entry point external tooling uses.
+async fn test_eip7702_delegation_flow() -> anyhow::Result<()> {
+	use alloy_network::{TransactionBuilder as _, TransactionBuilder7702 as _};
+	use alloy_primitives::U256 as AU256;
+	use alloy_rpc_types::{Authorization, SignedAuthorization};
+	use k256::ecdsa::signature::hazmat::PrehashSigner as _;
+	use pallet_revive::{evm::Account, precompiles::alloy::sol_types::SolCall};
+	use pallet_revive_fixtures::Counter;
+
+	let client = Arc::new(SharedResources::client().await);
+	let provider = SharedResources::provider();
+	let alith = Account::default();
+
+	// Deploy Counter contract
+	let (counter_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Counter",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client
+		.get_transaction_count(alith.address(), BlockNumberOrTag::Latest.into())
+		.await?;
+	let tx = TransactionBuilder::new(client.clone())
+		.input(counter_code.to_vec())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+	let counter_addr = create1(&alith.address(), nonce.try_into().unwrap());
+
+	// Create authority account with known seed
+	let seed = [0xAA; 32];
+	let authority = Account::from_secret_key(seed);
+	let authority_key = k256::ecdsa::SigningKey::from_bytes(&seed.into()).unwrap();
+
+	// Fund the authority
+	let tx = TransactionBuilder::new(client.clone())
+		.value(U256::from(10_000_000_000_000_000_000u128))
+		.to(authority.address())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	let chain_id = client.chain_id().await?;
+	let chain_id_alloy = AU256::from_be_bytes::<32>(chain_id.to_big_endian());
+	let alith_alloy = AlloyAddress::from_slice(alith.address().as_bytes());
+	let counter_alloy = AlloyAddress::from_slice(counter_addr.as_bytes());
+
+	// Build a signed EIP-7702 authorization tuple using alloy types. Signing goes through k256
+	// directly (already a dep) so we don't have to pull in `alloy-signer` just for the trait.
+	let sign_auth = |target_alloy: AlloyAddress, auth_nonce: u64| -> SignedAuthorization {
+		let auth =
+			Authorization { chain_id: chain_id_alloy, address: target_alloy, nonce: auth_nonce };
+		let hash = auth.signature_hash();
+		let (sig, recid): (k256::ecdsa::Signature, k256::ecdsa::RecoveryId) =
+			authority_key.sign_prehash(hash.as_ref()).expect("k256 signing succeeds");
+		let bytes = sig.to_bytes();
+		let r = AU256::from_be_slice(&bytes[..32]);
+		let s = AU256::from_be_slice(&bytes[32..]);
+		SignedAuthorization::new_unchecked(auth, recid.to_byte(), r, s)
+	};
+
+	// --- Step 1: Delegate authority → Counter via 7702 tx ---
+	let auth_nonce: u64 = client
+		.get_transaction_count(authority.address(), BlockNumberOrTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("nonce fits u64");
+	let signed = sign_auth(counter_alloy, auth_nonce);
+	let req = TransactionRequest::default()
+		.with_to(alith_alloy)
+		.with_authorization_list(vec![signed]);
+	provider.send_transaction(req).await?.get_receipt().await?;
+
+	// Verify delegation is active: eth_getCode should return the delegation indicator
+	let code = client.get_code(authority.address(), BlockNumberOrTag::Latest.into()).await?;
+	let mut expected_prefix = vec![0xef, 0x01, 0x00];
+	expected_prefix.extend_from_slice(counter_addr.as_bytes());
+	assert_eq!(code.0, expected_prefix, "authority should have delegation indicator code");
+
+	// --- Step 2: Call setNumber(42) on the authority address ---
+	let tx = TransactionBuilder::new(client.clone())
+		.to(authority.address())
+		.input(Counter::setNumberCall { newNumber: 42u64 }.abi_encode())
+		.send()
+		.await?;
+	tx.wait_for_receipt().await?;
+
+	// --- Step 3: Read number() from authority → should return 42 ---
+	let result = TransactionBuilder::new(client.clone())
+		.to(authority.address())
+		.input(Counter::numberCall {}.abi_encode())
+		.eth_call()
+		.await?;
+	let number = Counter::numberCall::abi_decode_returns(&result).unwrap();
+	assert_eq!(number, 42u64, "number() should return 42 after setNumber");
+
+	// --- Step 4: Clear delegation via 7702 tx with zero address ---
+	let auth_nonce: u64 = client
+		.get_transaction_count(authority.address(), BlockNumberOrTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("nonce fits u64");
+	let signed = sign_auth(AlloyAddress::ZERO, auth_nonce);
+	let alith_nonce: u64 = client
+		.get_transaction_count(alith.address(), BlockNumberOrTag::Latest.into())
+		.await?
+		.try_into()
+		.expect("alith nonce fits u64");
+	let req = TransactionRequest::default()
+		.with_to(alith_alloy)
+		.with_nonce(alith_nonce)
+		.with_authorization_list(vec![signed]);
+	provider.send_transaction(req).await?.get_receipt().await?;
+
+	// --- Step 5: Verify delegation is cleared ---
+	let code = client.get_code(authority.address(), BlockNumberOrTag::Latest.into()).await?;
+	assert!(code.0.is_empty(), "authority should have no code after clearing delegation");
+
+	// Calling number() should return empty (no contract code)
+	let result = TransactionBuilder::new(client.clone())
+		.to(authority.address())
+		.input(Counter::numberCall {}.abi_encode())
+		.eth_call()
+		.await?;
+	assert!(result.is_empty(), "call to cleared delegation should return empty data");
+
+	Ok(())
+}
+
+/// Shared body for `test_state_override_delegation_indicator_to_evm` and `_to_pvm`.
+///
+/// Overrides `eve` with code = `0xef0100 || target` (a delegation indicator) and a storage
+/// diff that sets the target's slot-0 to 42. A spec-correct read of `Counter::number()`
+/// against `eve` returns 42 only if the indicator was honored (Counter's code runs in eve's
+/// storage namespace); otherwise the call reverts on the invalid `0xef` opcode and decoding
+/// empty returndata fails.
+async fn state_override_delegation_indicator_routes(
+	fixture_type: pallet_revive_fixtures::FixtureType,
+	eve: AlloyAddress,
+	context: &str,
+) -> anyhow::Result<()> {
+	use pallet_revive::precompiles::alloy::sol_types::SolCall;
+	use pallet_revive_fixtures::Counter;
+
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+
+	let counter_addr = deploy_contract(&provider, "Counter", fixture_type, &[]).await?;
+
+	let mut indicator = vec![0xefu8, 0x01, 0x00];
+	indicator.extend_from_slice(counter_addr.as_slice());
+
+	let storage_diff = [(B256::ZERO, B256::from(AlloyU256::from(42u64)))];
+	let overrides = StateOverride::from_iter([(
+		eve,
+		AccountOverride::default()
+			.with_code(AlloyBytes::from(indicator))
+			.with_state_diff(storage_diff),
+	)]);
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(eve)
+		.input(AlloyBytes::from(Counter::numberCall {}.abi_encode()).into());
+
+	let result = provider.call(tx).overrides(overrides).await?;
+	let number = Counter::numberCall::abi_decode_returns(&result)?;
+	assert_eq!(
+		number, 42u64,
+		"{context}: code override of 0xef0100||target must route to target's code in target's storage",
+	);
+
+	Ok(())
+}
+
+async fn test_state_override_delegation_indicator_to_evm() -> anyhow::Result<()> {
+	state_override_delegation_indicator_routes(
+		pallet_revive_fixtures::FixtureType::Solc,
+		AlloyAddress::from([0xEE; 20]),
+		"EVM",
+	)
+	.await
+}
+
+async fn test_state_override_delegation_indicator_to_pvm() -> anyhow::Result<()> {
+	state_override_delegation_indicator_routes(
+		pallet_revive_fixtures::FixtureType::Resolc,
+		AlloyAddress::from([0xEF; 20]),
+		"PVM",
+	)
+	.await
+}
+
+/// Verify that Alloy can subscribe to `newHeads` and receive the transaction's block header.
+async fn test_new_heads_subscription_delivers_matching_header_via_alloy() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
+	let provider = ProviderBuilder::new()
+		.connect_ws(WsConnect::new("ws://localhost:45788"))
+		.await?;
 	let ethan = Account::from(subxt_signer::eth::dev::ethan());
 	let value = U256::from(1_000_000_000_000u128);
 
-	let mut sub = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, None).await?;
+	let mut sub = provider.subscribe_blocks().await?;
 
 	// Act
 	let tx = TransactionBuilder::new(client.clone())
@@ -1246,29 +1543,25 @@ async fn test_subscribe_new_heads() -> anyhow::Result<()> {
 		.to(ethan.address())
 		.send()
 		.await?;
-	tx.wait_for_receipt().await?;
+	let receipt = tx.wait_for_receipt().await?;
 
-	let notification = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.next())
+	let header = tokio::time::timeout(tokio::time::Duration::from_secs(10), sub.recv_result())
 		.await
 		.expect("Timed out waiting for newHeads notification")
 		.expect("Subscription stream ended unexpectedly")
-		.expect("Subscription returned an error");
-
-	let header = match notification {
-		SubscriptionItem::BlockHeader(header) => header,
-		other => panic!("Expected BlockHeader, got: {other:?}"),
-	};
+		.expect("Alloy should deserialize the newHeads notification");
 
 	let block = client
-		.get_block_by_number(BlockNumberOrTag::Number(header.number.as_u64()), false)
+		.get_block_by_number(BlockNumberOrTag::Number(header.number), false)
 		.await?
 		.expect("Block should exist");
 
 	// Assert
-	assert!(header.number > U256::zero(), "Block number should be > 0");
-	assert_ne!(header.hash, H256::zero(), "Block hash should not be zero");
-	assert_ne!(header.parent_hash, H256::zero(), "Parent hash should not be zero");
+	assert_eq!(U256::from(header.number), receipt.block_number);
+	assert_eq!(H256(header.hash.0), receipt.block_hash);
+	assert_ne!(header.parent_hash, B256::ZERO, "Parent hash should not be zero");
 
+	let header = serde_json::from_value::<BlockHeader>(serde_json::to_value(header)?)?;
 	let expected_header = BlockHeader::from(block);
 	assert_eq!(
 		header, expected_header,
@@ -1319,7 +1612,7 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 		other => panic!("Expected Log, got: {other:?}"),
 	};
 
-	let filter = Filter::new().at_block_hash(B256::from(call_receipt.block_hash.0));
+	let filter = Filter::new().at_block_hash(call_receipt.block_hash);
 	let rpc_logs = client.get_logs(Some(filter)).await?;
 	let rpc_logs: Vec<Log> = match rpc_logs {
 		FilterResults::Logs(logs) => logs,
@@ -1345,6 +1638,74 @@ async fn test_subscribe_logs() -> anyhow::Result<()> {
 	Ok(())
 }
 
+async fn test_log_subscription_respects_inclusive_block_bounds() -> anyhow::Result<()> {
+	// Arrange
+	let client = Arc::new(SharedResources::client().await);
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"SimpleReceiver",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let deployment = TransactionBuilder::new(client.clone()).input(bytes.to_vec()).send().await?;
+	let deployment_receipt = deployment.wait_for_receipt().await?;
+	let contract_address = deployment_receipt.contract_address.expect("Contract was deployed");
+	let from_block = deployment_receipt.block_number.as_u64() + 2;
+	let to_block = from_block + 1;
+	let filter = Filter::new()
+		.from_block(from_block)
+		.to_block(to_block)
+		.address([contract_address]);
+	let mut sub = client
+		.eth_subscribe(SubscriptionKind::Logs, Some(SubscriptionOptions::LogsOptions(filter)))
+		.await?;
+
+	// Act
+	let mut receipts = Vec::new();
+	for _ in 0..4 {
+		let tx = TransactionBuilder::new(client.clone())
+			.to(contract_address)
+			.value(U256::from(1_000_000_000_000u128))
+			.send()
+			.await?;
+		receipts.push(tx.wait_for_receipt().await?);
+	}
+	let logs = tokio::time::timeout(tokio::time::Duration::from_secs(10), async {
+		let mut logs = Vec::new();
+		for _ in 0..2 {
+			let notification = sub.next().await.expect("Subscription ended before both bounds")?;
+			match notification {
+				SubscriptionItem::Log(log) => logs.push(log),
+				other => panic!("Expected Log, got: {other:?}"),
+			}
+		}
+		anyhow::Ok(logs)
+	})
+	.await
+	.expect("Timed out waiting for logs at both window bounds")?;
+	let extra_notification =
+		tokio::time::timeout(tokio::time::Duration::from_secs(1), sub.next()).await;
+
+	// Assert
+	assert_eq!(
+		receipts.iter().map(|receipt| receipt.block_number).collect::<Vec<_>>(),
+		[from_block - 1, from_block, to_block, to_block + 1].map(U256::from),
+	);
+	for receipt in &receipts {
+		assert_eq!(receipt.logs.len(), 1, "Each transaction must emit a log to exercise its bound");
+	}
+	assert_eq!(
+		logs,
+		receipts[1..=2]
+			.iter()
+			.flat_map(|receipt| receipt.logs.iter().cloned())
+			.collect::<Vec<_>>(),
+	);
+	assert!(
+		matches!(extra_notification, Err(_) | Ok(None)),
+		"Unexpected notification outside the block window: {extra_notification:?}",
+	);
+	Ok(())
+}
+
 /// Verify that subscribing to `logs` with an address filter only delivers logs
 /// emitted from the specified contract address.
 async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
@@ -1362,10 +1723,12 @@ async fn test_subscribe_logs_with_address_filter() -> anyhow::Result<()> {
 	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_address)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_address])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1413,13 +1776,15 @@ async fn test_subscribe_logs_with_topic_filter() -> anyhow::Result<()> {
 	assert_eq!(Some(contract_address), receipt.contract_address);
 
 	let event_signature = H256(sp_io::hashing::keccak_256(b"Received(address,uint256)"));
-	let options = SubscriptionOptions::LogsOptions {
-		address: None,
-		topics: Some(
-			BoundedVec::try_from(vec![Some(BoundedOneOrMany::One(event_signature))])
-				.expect("Single topic filter is within bounds"),
-		),
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		topics: BoundedVec::try_from(vec![
+			BTreeSet::from([event_signature])
+				.try_into()
+				.expect("Single topic set is within bounds"),
+		])
+		.expect("Single topic filter is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1545,10 +1910,12 @@ async fn test_subscribe_logs_address_filter_excludes_non_matching() -> anyhow::R
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 	assert_ne!(contract_a, contract_b, "The two contracts must have different addresses");
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(contract_a)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_a])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1613,13 +1980,12 @@ async fn test_subscribe_logs_with_multiple_addresses_filter() -> anyhow::Result<
 	let contract_b = create1(&account.address(), nonce_b.try_into().unwrap());
 	assert_eq!(Some(contract_b), receipt_b.contract_address);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::Many(
-			BoundedVec::try_from(vec![contract_a, contract_b])
-				.expect("Two addresses is within bounds"),
-		)),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([contract_a, contract_b])
+			.try_into()
+			.expect("Two addresses are within bounds"),
+		..Default::default()
+	});
 	let mut sub = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await?;
 
 	// Act
@@ -1732,22 +2098,32 @@ async fn test_subscribe_logs_no_event_transaction_ignored() -> anyhow::Result<()
 	Ok(())
 }
 
-/// Verify that calling `eth_subscribe("newHeads")` with `LogsOptions`
-/// returns an error, since `newHeads` does not accept filter options.
+/// Reject filter options on header subscriptions and block hashes on log subscriptions.
 async fn test_subscribe_with_invalid_params_rejected() -> anyhow::Result<()> {
 	// Arrange
 	let client = Arc::new(SharedResources::client().await);
 
-	let options = SubscriptionOptions::LogsOptions {
-		address: Some(BoundedOneOrMany::One(Account::default().address())),
-		topics: None,
-	};
+	let options = SubscriptionOptions::LogsOptions(Filter {
+		addresses: BTreeSet::from([Account::default().address()])
+			.try_into()
+			.expect("Single address is within bounds"),
+		..Default::default()
+	});
 
 	// Act
 	let result = client.eth_subscribe(SubscriptionKind::NewBlockHeaders, Some(options)).await;
 
 	// Assert
 	assert!(result.is_err(), "newHeads with LogsOptions should be rejected");
+
+	let options =
+		SubscriptionOptions::LogsOptions(Filter::new().at_block_hash(H256::repeat_byte(1)));
+	let result = client.eth_subscribe(SubscriptionKind::Logs, Some(options)).await;
+	let Err(ClientError::Call(error)) = result else {
+		panic!("Expected an invalid-params rejection for blockHash log subscriptions");
+	};
+	assert_eq!(error.code(), jsonrpsee::types::error::INVALID_PARAMS_CODE);
+	assert_eq!(error.message(), "Invalid subscription parameters");
 
 	Ok(())
 }
@@ -2051,12 +2427,14 @@ async fn test_trace_block_returns_v1_trace_on_v1_input_and_v2_trace_on_v2_input(
 	let TraceBlockVersionedOutputPayload::V2(v2_output) = v2_output else {
 		return Err(anyhow!("V2 trace_block input should return V2 output"));
 	};
-	let (_, trace_v2) = v2_output
-		.traces
+	let (_, entry_v2) = v2_output
+		.entries
 		.into_iter()
-		.find(|(_, trace)| matches!(trace, TraceV2::Call(call) if !call.logs.is_empty()))
+		.find(
+			|(_, entry)| matches!(entry, TraceEntryV1::Traced(TraceV2::Call(call)) if !call.logs.is_empty()),
+		)
 		.ok_or_else(|| anyhow!("V2 output should include a call trace with logs"))?;
-	let TraceV2::Call(call_v2) = trace_v2 else {
+	let TraceEntryV1::Traced(TraceV2::Call(call_v2)) = entry_v2 else {
 		return Err(anyhow!("V2 output should include a call trace"));
 	};
 	let indexes = call_v2.logs.iter().map(|log| log.index).collect::<Vec<_>>();
@@ -2147,7 +2525,9 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		.connect_with(SqliteConnectOptions::new().in_memory(true))
 		.await?;
 
-	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+	let runtime_api_provider = VersionAwareRuntimeApiProvider::new(api.clone(), rpc_client.clone());
+	let chain_id = crate::chain_id(&api).await?;
+	let receipt_extractor = ReceiptExtractor::new(runtime_api_provider.clone(), chain_id);
 	let receipt_provider = ReceiptProvider::new(
 		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
@@ -2165,6 +2545,8 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 		receipt_provider,
 		true,
 		subscription_gap_queue,
+		runtime_api_provider,
+		chain_id,
 	)
 	.await?;
 	Ok((client, gap_fill_rx))
