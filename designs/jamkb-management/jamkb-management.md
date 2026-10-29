@@ -178,7 +178,7 @@ It keeps JAMKB in four keyless accounts derived from its `PalletId`,
 |-------------|----------------------------------------|---------------------------------|
 | `custody`   | `into_account_truncating()`            | DAO undistributed units         |
 | `released`  | `into_sub_account_truncating(b"rlsd")` | permanently released units      |
-| `custodial` | `into_sub_account_truncating(b"cstd")` | returns awaiting `claim` (§4.4) |
+| `unclaimed` | `into_sub_account_truncating(b"uncl")` | returns awaiting `claim` (§4.4) |
 | `excess`    | `into_sub_account_truncating(b"xces")` | unattributed inflows (§4.4)     |
 
 The Parachain Service regular balance is the one these accounts mirror.
@@ -204,7 +204,7 @@ record a second is rejected with `UnsettledOperation`.
 
 For voluntary return (§4.4) it receives each `incoming_transfers` bucket
 from parachain-system and books it. A valid beneficiary memo
-credits `Custodial`; a missing or malformed memo credits `Excess`.
+credits `Unclaimed`; a missing or malformed memo credits `Excess`.
 
 A transfer may land on the Parachain Service's supervisor balance. The pallet
 books it and queues a plain transfer moving the amount from the supervisor
@@ -280,7 +280,7 @@ type Key = BoundedVec<u8, MAX_KEY_LEN>;
 type ServiceAccounts = Map<ServiceId, AccountId>;
 
 /// Awaiting `claim`, per beneficiary (§4.4).
-type Custodial = Map<AccountId, Balance>;
+type Unclaimed = Map<AccountId, Balance>;
 
 /// Unattributed inflows, per source service (§4.4).
 type Excess = Map<ServiceId, Balance>;
@@ -502,7 +502,7 @@ enum FailureReason {
 
 /// The booking class of an uncredited return (§4.4).
 enum ReturnClass {
-    Custodial,          // owner known, reserved for its claimant
+    Unclaimed,          // owner known, reserved for its claimant
     Excess,             // owner unknown, disposed by governance
 }
 
@@ -537,11 +537,11 @@ enum Event {
     /// The settlement of `id` failed with `error`; `settle` retries it
     /// (§3.2).
     SettlementFailed { id: OperationId, error: DispatchError },
-    /// An amount was booked (§4.4): custodial for `beneficiary`, or excess
-    /// when `beneficiary` is `None`.
+    /// An amount was booked (§4.4): unclaimed for `beneficiary`, or excess
+    /// when `beneficiary` is `None`, with the raw `memo` of the return.
     ReturnBooked { source: ServiceId, amount: Balance, class: ReturnClass,
-                   beneficiary: Option<AccountId> },
-    /// A beneficiary's custodial balance was claimed.
+                   beneficiary: Option<AccountId>, memo: [u8; 128] },
+    /// A beneficiary's unclaimed balance was claimed.
     Claimed { beneficiary: AccountId, amount: Balance },
     TargetFrozen { target: ServiceId },
     TargetUnfrozen { target: ServiceId },
@@ -692,9 +692,9 @@ fn unsupervise(target: ServiceId);
 
 /// Claims the voluntarily returned balance to `beneficiary`'s account (§4.4).
 /// Origin: any signed account. Moves the beneficiary's balance from the
-/// `custodial` account to the `beneficiary` account. Rejected with
+/// `unclaimed` account to the `beneficiary` account. Rejected with
 /// `CannotCreate` when `beneficiary` has no JAMKB account and no native
-/// balance to create one; the custodial balance stays booked.
+/// balance to create one; the unclaimed balance stays booked.
 fn claim(beneficiary: AccountId);
 
 /// Disposes an excess amount per service. Origin: governance (Root). Lowers
@@ -1021,12 +1021,12 @@ Phase 1: Submit       A service sends a deferred transfer to the Parachain
                       Parachain Service queues it in `incoming_transfers`.
 Phase 2: Book         pallet-jamkb moves the amount from `released`
                       account:
-                      Valid memo: into the `custodial` account, recorded for
-                      the beneficiary's Asset Hub account (`Custodial`).
+                      Valid memo: into the `unclaimed` account, recorded for
+                      the beneficiary's Asset Hub account (`Unclaimed`).
                       Missing or malformed memo: into the `excess` account,
                       recorded with its source (`Excess`).
 Phase 3: Claim        `claim(beneficiary)` moves the units from the
-                      `custodial` account to the beneficiary.
+                      `unclaimed` account to the beneficiary.
 ```
 
 ---
@@ -1095,7 +1095,7 @@ rest zero.
    redeems all but one plank and transfers the remainder out by a plain
    `pallet-assets` transfer. The alternative is `fungibles::Mutate::shelve`
    on the call and `restore` on Failed; `restore` into a dead non-sufficient
-   account fails, so those units would fall back to `Custodial`.
+   account fails, so those units would fall back to `Unclaimed`.
 5. **Service registry pallet.** Service accounts, supervision, service
    creation and upgrade belong to a service registry pallet that does not
    exist. The recovery calls of §4.3 stay here: they apply their origin rule
