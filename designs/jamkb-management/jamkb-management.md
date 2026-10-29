@@ -184,17 +184,23 @@ are locked in place: a hold is placed on them, and only then does the transfer
 execute on the JAM side. Every cross-system operation is asynchronous and is
 finalized by settlement in `on_poll`. On confirmation the units of a lease stay held; the
 units of a permanent release move into the `released` account. On failure the
-pallet undoes what the call did.
+pallet undoes what the call did, unless the payload says otherwise.
 
 To resolve operations, the pallet receives each operation's outcome from the
 parachain-system pallet (§3.4): the block that the message was sent in and
 the `parachain_log` entries. A failure entry marks it `Failed`, otherwise it
 is `Confirmed` (§5.1). The operations are settled in `on_poll` within its
-weight budget.
+weight budget. A failed settlement is retried by `settle` only.
 
-For voluntary return (§4.4) it receives the `incoming_transfers` buckets and
-books them in `on_poll`. A valid beneficiary memo credits `Custodial`; a
-missing or malformed memo credits `Excess`.
+A `Delivery`, `Increase` or `Reclaim` is an allocation operation; a `Freeze`,
+`Unfreeze`, `Cleanup`, `Forget`, `Eject` or `Unsupervise` is a recovery
+operation. The pallet keeps at most one unsettled operation per allocation
+and at most one unsettled recovery operation per target; a call that would
+record a second is rejected with `UnsettledOperation`.
+
+For voluntary return (§4.4) it receives each `incoming_transfers` bucket
+from parachain-system and books it. A valid beneficiary memo
+credits `Custodial`; a missing or malformed memo credits `Excess`.
 
 A transfer may land on the Parachain Service's supervisor balance. The pallet
 books it and queues a plain transfer moving the amount from the supervisor
@@ -220,7 +226,7 @@ const CAP: Balance;
 /// The minimum `amount` that can be transferred by
 /// `approve_release`, `redeem`, `offer_lease`, `increase_lease`, `reclaim`,
 /// and `dispose_excess` with `refund`. A smaller `amount` is rejected,
-/// except a `reclaim` of the remaining amount.
+/// except a `reclaim` of the allocation's `amount`.
 const MIN_TRANSFER: Balance;
 
 /// The gas every deferred `TransferOut` carries (§5.2). A destination whose
@@ -228,7 +234,8 @@ const MIN_TRANSFER: Balance;
 /// the operation fails.
 const MEMO_GAS: u64;
 
-/// The weight `on_poll` spends per block settling operations (§3.2).
+/// The weight `on_poll` spends per block settling operations (§3.2). At
+/// least an `Eject` with `MAX_LEASES_PER_TARGET` leases.
 const SETTLEMENT_WEIGHT: Weight;
 
 /// A code hash with no preimage; a target set to it cannot run (§4.3).
@@ -242,9 +249,6 @@ type ServiceId = u32;
 
 /// A JAM timeslot.
 type Timeslot = u32;
-
-/// An `incoming_transfers` bucket index (Parachain Service design §5.1).
-type BucketId = u64;
 
 /// Added to the lease end (`reclaim`, §4.3).
 const GRACE_PERIOD: BlockNumber;
@@ -277,9 +281,9 @@ type Custodial = Map<AccountId, Balance>;
 /// Unattributed inflows, per source service (§4.4).
 type Excess = Map<ServiceId, Balance>;
 
-/// The frozen lease targets and the code hash each had before its freeze
-/// (§4.3).
-type FrozenTargets = Map<ServiceId, Hash>;
+/// The frozen lease targets and the code hash, `min_acc_gas` and
+/// `min_memo_gas` each had before its freeze (§4.3).
+type FrozenTargets = Map<ServiceId, (Hash, u64, u64)>;
 
 /// One approved allocation.
 struct Allocation {
@@ -381,15 +385,15 @@ enum OperationPayload {
     /// One `UpgradeService { service: Some(target), code_hash:
     /// FROZEN_CODE_HASH, len: 0, min_acc_gas: 0, min_memo_gas: 0 }`.
     ///
-    /// Confirmed, once `ServiceUpgraded { previous_code_hash }` is recorded:
-    /// the previous code hash is saved in `FrozenTargets`.
+    /// Confirmed, once `ServiceUpgraded { previous_code_hash,
+    /// previous_min_acc_gas, previous_min_memo_gas }` is recorded: the three
+    /// values are saved in `FrozenTargets`.
     Freeze {
         target: ServiceId,
     },
     /// An unfreeze (`unfreeze_target`, §4.3).
     /// One `UpgradeService { service: Some(target), code_hash, len: 0,
-    /// min_acc_gas: 0, min_memo_gas: MEMO_GAS }` with the hash saved in
-    /// `FrozenTargets`.
+    /// min_acc_gas, min_memo_gas }` with the values saved in `FrozenTargets`.
     ///
     /// Confirmed: the target is removed from `FrozenTargets`.
     Unfreeze {
@@ -400,7 +404,8 @@ enum OperationPayload {
     ///
     /// Confirmed: the deposit is released.
     /// Failed: the keys that were present are removed regardless;
-    /// `RECOVERY_DEPOSIT_PER_KEY` is slashed per missing key and the rest of
+    /// `RECOVERY_DEPOSIT_PER_KEY` is slashed to the treasury per missing key
+    /// and the rest of
     /// the deposit is released.
     Cleanup {
         target: ServiceId,
@@ -410,7 +415,8 @@ enum OperationPayload {
     /// A preimage release (`forget_preimage`, §4.3).
     /// One `Forget { target: Service(target), hash, len }`.
     ///
-    /// Confirmed and Failed: no further state change.
+    /// Confirmed and Failed: no further state change. `ForgetAgainAt { due }`
+    /// gives the timeslot of the second call.
     Forget {
         target: ServiceId,
         hash: Hash,
@@ -437,9 +443,10 @@ enum OperationPayload {
         target: ServiceId,
     },
     /// A move of the Parachain Service's supervisor balance to its regular
-    /// balance (§3.2). One plain `TransferOut` between the two.
+    /// balance (§3.2). One plain `TransferOut` between the two. It cannot
+    /// fail while the Parachain Service is its own supervisor.
     ///
-    /// Confirmed and Failed: no further state change.
+    /// Confirmed: no further state change.
     Move {
         amount: Balance,
     },
@@ -456,27 +463,51 @@ enum OperationPayload {
     },
 }
 
+/// The state of an unsettled operation; a settled one is removed.
 enum OperationState {
-    Requested,          // recorded and queued
-    Confirmed,          // resolved to success; not settled yet
-    Failed,             // resolved to failure; not settled yet
+    Requested,                        // recorded and queued
+    Confirmed(Option<SuccessEntry>),  // resolved to success; not settled yet
+    Failed(FailureReason),            // resolved to failure; not settled yet
+}
+
+/// The success entry the settlement reads, named as in the Parachain Service
+/// design.
+enum SuccessEntry {
+    /// `ServiceUpgraded { service, previous_code_hash, previous_min_acc_gas,
+    /// previous_min_memo_gas }` (§7.3); Freeze.
+    ServiceUpgraded { previous_code_hash: Hash,
+                      previous_min_acc_gas: u64,
+                      previous_min_memo_gas: u64 },
+    ServiceEjected { credited: Balance }, // ServiceEjected { service, credited }; Eject
+    ForgetAgainAt { due: Timeslot },      // ForgetAgainAt { target, hash, len, due }; Forget
 }
 
 /// The failure carried by `OperationFailed`: one variant per failure entry
-/// class, carrying that entry's detail (Parachain Service design §3.1).
+/// class, carrying that entry's detail (Parachain Service design).
 enum FailureReason {
-    Transfer(TransferError),            // TransferFailed { id, error }
+    TransferFailed(TransferError),                   // TransferFailed { id, error }
     /// One `ServiceKeyNotFound { service, key_hash }` per missing key.
-    Cleanup { missing: BoundedVec<Hash, MAX_KEYS_PER_PAGE> },
-    ForgetNotRequested,                 // ServiceForgetNotRequested { service, hash, len }
-    Eject(ServiceEjectError),           // ServiceEjectFailed { service, error }
-    Supervisor(ServiceSupervisorError), // ServiceSupervisorFailed { service, error }
+    ServiceKeyNotFound(BoundedVec<Hash, MAX_KEYS_PER_PAGE>),
+    /// `ServiceForgetNotRequested { service, hash, len }`.
+    ServiceForgetNotRequested,
+    ServiceEjectFailed(ServiceEjectError),           // ServiceEjectFailed { service, error }
+    ServiceSupervisorFailed(ServiceSupervisorError), // ServiceSupervisorFailed { service, error }
+    /// `ServiceUpgradeFailed { service, error }` (§7.3).
+    ServiceUpgradeFailed(ServiceUpgradeError),
 }
 
 /// The booking class of an uncredited return (§4.4).
 enum ReturnClass {
     Custodial,          // owner known, reserved for its claimant
     Excess,             // owner unknown, disposed by governance
+}
+
+/// Errors.
+enum Error {
+    NotAttested, Paused, BelowMinTransfer, WrongMode, WrongState, NotYetValid,
+    Expired, NoServiceAccount, TargetIsParachainService, TooManyLeases,
+    UnsettledOperation, NotFrozen, AlreadyFrozen, EjectUnsettled, NotResolved,
+    CannotCreate, Transport,
 }
 ```
 
@@ -496,13 +527,12 @@ enum Event {
     /// `allocation` is `None` for a redemption, a refund, a move or a recovery
     /// operation.
     OperationSubmitted { id: OperationId, allocation: Option<AllocationId> },
-    OperationConfirmed { id: OperationId },
+    OperationConfirmed { id: OperationId, entry: Option<SuccessEntry> },
     /// `error` carries the Parachain Service failure.
     OperationFailed { id: OperationId, error: FailureReason },
-    /// The settlement of `id` failed with `error`; `settle` retries it (§3.2).
+    /// The settlement of `id` failed with `error`; `settle` retries it
+    /// (§3.2).
     SettlementFailed { id: OperationId, error: DispatchError },
-    /// The booking of `bucket` failed with `error` and is retried (§3.2).
-    BookingFailed { bucket: BucketId, error: DispatchError },
     /// An amount was booked (§4.4): custodial for `beneficiary`, or excess
     /// when `beneficiary` is `None`.
     ReturnBooked { source: ServiceId, amount: Balance, class: ReturnClass,
@@ -603,13 +633,13 @@ fn extend_lease(id: AllocationId, duration: BlockNumber);
 /// signed account past the lease end and `GRACE_PERIOD`, or the target's
 /// service account at any time. Legal from `Delivered` and from
 /// `Reclaiming`. Records a `Reclaim` operation for `amount`, capped at the
-/// allocation's remaining amount.
+/// allocation's `amount`.
 fn reclaim(id: AllocationId, amount: Balance);
 
 /// Ends a lease that was not fully returned. Origin: the lease's approver or
 /// governance. Legal while the lease is `Reclaiming`. Rejected while the
-/// lease has an unsettled operation (§5.1). The held units move to the
-/// `released` account and the lease moves to `Closed`.
+/// lease has an unsettled allocation operation (§3.2). The held units move
+/// to the `released` account and the lease moves to `Closed`.
 fn close_lease(id: AllocationId);
 
 // ── Recovery: a lease target that does not cooperate ───────────────────────
@@ -643,7 +673,8 @@ fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 /// balances to the Parachain Service's regular balance. Origin: the target's
 /// service account or governance. Legal while
 /// a lease on the target is `Reclaiming`. Rejected while a lease on the
-/// target has an unsettled operation (§5.1). Records an `Eject` operation.
+/// target has an unsettled allocation operation (§3.2). Records an `Eject`
+/// operation.
 /// While the `Eject` is unsettled, `accept_lease`, `increase_lease`,
 /// `extend_lease`, `reclaim` and `close_lease` on the target are rejected.
 fn eject_target(target: ServiceId);
@@ -695,9 +726,11 @@ No governance call is exposed, and a Root caller is rejected. The precompile
 rejects a delegate call and a state-changing call in a read-only frame. It
 returns the new allocation id or the new operation id. On failure the call
 reverts with the pallet error name. The precompile does not emit Solidity
-events. A contract reads a settled operation's outcome from the state it
-changed: the allocation's state and amount, `isFrozen`, `leasesOf`,
-`serviceAccount` or its balance.
+events. A contract follows its operation with `operationState`. A settled
+operation is removed. Its outcome is read from the state it changed: the
+allocation's state and amount, `isFrozen`, `leasesOf`, `serviceAccount` or
+the caller's balance. A `Cleanup`, `Forget` or `Unsupervise` changes no such
+state.
 
 ```solidity
 // SPDX-License-Identifier: MIT
@@ -708,11 +741,7 @@ address constant JAMKB_ADDR = 0x0000000000000000000000000000000009030000;
 interface IJamkb {
     enum AllocationState { Approved, Delivering, Delivered, Reclaiming, Closed }
     enum AllocationMode { Lease, Permanent }
-    enum OperationKind {
-        Delivery, Increase, Redemption, Reclaim, Freeze, Unfreeze, Cleanup,
-        Forget, Eject, Unsupervise, Refund, Move
-    }
-    enum OperationState { Requested, Confirmed, Failed }
+    enum OperationState { NotFound, Requested, Confirmed, Failed }
 
     struct Allocation {
         uint64 id;
@@ -725,17 +754,6 @@ interface IJamkb {
         uint32 duration;       // 0 for Permanent
         uint32 validFrom;
         uint32 expiresAt;
-    }
-
-    struct Operation {
-        uint64 id;
-        OperationKind kind;
-        OperationState state;
-        uint64 allocationId;   // 0 when the operation has none
-        uint32 target;         // the payload's target, else the allocation's
-                               // target, else the refund's source
-        uint128 amount;        // the payload's amount or additional, else 0
-        uint32 submittedAt;    // 0: not yet reported
     }
 
     // -- Permanent release --
@@ -770,12 +788,11 @@ interface IJamkb {
 
     // -- Shared --
     function cancelAllocation(uint64 allocationId) external;
-    /// Returns the operation's state after the call.
-    function settle(uint64 opId) external returns (OperationState state);
 
-    // -- Reads. allocation() and operation() revert for an unknown id. --
+    // -- Reads. allocation() reverts for an unknown id. --
     function allocation(uint64 allocationId) external view returns (Allocation memory);
-    function operation(uint64 opId) external view returns (Operation memory);
+    /// `NotFound` for an id the pallet does not hold: settled, or never issued.
+    function operationState(uint64 opId) external view returns (OperationState);
     function claimableOf(bytes32 beneficiary) external view returns (uint128);
     /// `exists` is false when the target has none.
     function serviceAccount(uint32 target)
@@ -852,12 +869,14 @@ through `send_upward_message` within the limits below.
 The transport layer responsibilities:
 
 - the outcome of each operation: the block that sent it and its
-  `parachain_log` entries, reported once, in send order;
+  `parachain_log` entries, reported once, in send order, in the block whose
+  anchor first covers it;
 - `incoming_transfers` delivered as whole buckets, up to the number
-  `pallet-jamkb` can process;
+  `pallet-jamkb` can process; a bucket not processed is delivered again;
+- `CleanUpBucketsUpTo` sent after the processed `incoming_transfers` buckets;
 - the Parachain Service balances delivered for drift detection;
-- a send queue within 1024 messages and 40 KiB per block, with a sharing
-  policy between pallets;
+- a send queue within 1024 messages and 40 KiB per block, FIFO, with a
+  sharing policy between pallets;
 - gas accounting for the send queue messages: a limit on how much gas the
   messages of one block cost, shared between pallets. Each deferred
   `TransferOut` costs JAM's fixed transfer cost, `C_gasT` (Gray Paper), plus
@@ -869,7 +888,6 @@ The transport layer responsibilities:
   block are delivered, and the messages of one operation are sent in one
   block; the total stays within the 64 KiB log, so no entry is evicted
   before Asset Hub reads it;
-- `CleanUpBucketsUpTo` sent after the delivered `incoming_transfers` buckets.
 
 ---
 
@@ -986,6 +1004,7 @@ Phase 5: Confirm       The eject settles; the holds of the target's leases are
 - Storage keys are not recoverable from JAM state. They are tracked from the
   target's onboarding, or regenerated by replaying the target's blocks from
   its creation.
+- The same holds for preimage requests; each needs a `forget_preimage`.
 
 ### 4.4 Voluntary Return
 
@@ -1014,7 +1033,7 @@ Phase 3: Claim        `claim(beneficiary)` moves the units from the
 
 An `OperationId` is unique and never reused.
 An operation is resolved when parachain-system reports its outcome and its log
-entries (§7.7).
+entries (§7.8).
 
 A `Delivery`, `Increase`, `Redemption`, `Reclaim`, `Refund` or `Move` sends one
 `TransferOut` carrying a `MessageId`. A `TransferFailed`
@@ -1022,9 +1041,9 @@ entry in its outcome means it failed.
 
 A recovery operation's messages carry no id. Their entries
 (`ServiceKeyNotFound`, `ServiceForgetNotRequested`, `ServiceEjectFailed`,
-`ServiceSupervisorFailed`, `ServiceEjected`, `ServiceUpgraded`,
-`ForgetAgainAt`) name the service, and parachain-system attributes them to the
-one operation in flight. The pallet keeps at most one unsettled operation per allocation.
+`ServiceSupervisorFailed`, `ServiceUpgradeFailed`, `ServiceEjected`,
+`ServiceUpgraded`, `ForgetAgainAt`) name the service, and parachain-system attributes them to the
+one operation of that kind in flight on that service (§3.2).
 
 ### 5.2 Memo Requirements
 
@@ -1033,8 +1052,8 @@ carry the memo their caller supplies, in a format the destination service
 defines. Every deferred `TransferOut` carries `MEMO_GAS`. A service that
 receives JAMKB from Asset Hub keeps its `min_memo_gas` at or below
 `MEMO_GAS`; a transfer to a service above it is refused and undone. A
-voluntary return carries the beneficiary account as 32 raw bytes; the rest
-of its layout is to be defined.
+voluntary return carries the beneficiary account as its first 32 bytes, the
+rest zero.
 
 ---
 
@@ -1065,7 +1084,9 @@ of its layout is to be defined.
    for should be the one to get them back.
 3. **Service Freeze.** The Parachain Service does not log anything for a supervised
    `UpgradeService`. The freeze needs `ServiceUpgraded { service,
-   previous_code_hash }` so that `unfreeze_target` can restore the code.
+   previous_code_hash, previous_min_acc_gas, previous_min_memo_gas }` so that
+   `unfreeze_target` can restore them, and `ServiceUpgradeFailed { service,
+   error }` so that a refused upgrade is not `Confirmed`.
 4. **Burn instead of holds.** A hold cannot take the last `min_balance` unit,
    so a holder redeems all but one unit and transfers the remainder out by a
    plain `pallet-assets` transfer. The alternative is
@@ -1149,28 +1170,35 @@ of its layout is to be defined.
        NotRequested,
    }
 
-   /// Implemented by `pallet-jamkb`. Called once per request, after the
-   /// registry's settlement.
+   /// Implemented by `pallet-jamkb`. Called by the registry once per
+   /// request, after the registry's settlement. It cannot fail and charges what it writes
+   /// to `meter`.
    trait OnServiceEvent {
        /// `service` was created and its `CreationTicket` burned. Its threshold
        /// balance is on its supervisor balance when `new_supervisor_balance`
        /// is set, on its regular balance otherwise.
-       fn on_created(service: ServiceId, new_supervisor_balance: bool);
+       fn on_created(service: ServiceId, new_supervisor_balance: bool,
+                     meter: &mut WeightMeter);
        /// A freeze or unfreeze of `service` was executed.
-       fn on_frozen(service: ServiceId, frozen: bool);
+       fn on_frozen(service: ServiceId, frozen: bool,
+                    meter: &mut WeightMeter);
        /// A storage page of `service` was executed. `missing` holds each key
        /// the service did not hold.
        fn on_storage_removed(service: ServiceId,
-                             missing: BoundedVec<R::Key, R::MaxKeysPerPage>);
+                             missing: BoundedVec<Hash, MAX_KEYS_PER_PAGE>,
+                             meter: &mut WeightMeter);
        /// A `Forget` of `service` was executed.
-       fn on_forgotten(service: ServiceId, outcome: ForgetOutcome);
+       fn on_forgotten(service: ServiceId, outcome: ForgetOutcome,
+                       meter: &mut WeightMeter);
        /// An `EjectService` of `service` was executed. `Ok` carries
        /// `credited`.
        fn on_ejected(service: ServiceId,
-                     outcome: Result<Balance, ServiceEjectError>);
+                     outcome: Result<Balance, ServiceEjectError>,
+                     meter: &mut WeightMeter);
        /// A `SetServiceSupervisor` of `service` was executed.
        fn on_supervisor_set(service: ServiceId,
-                            outcome: Result<(), ServiceSupervisorError>);
+                            outcome: Result<(), ServiceSupervisorError>,
+                            meter: &mut WeightMeter);
    }
    ```
 
@@ -1179,7 +1207,9 @@ of its layout is to be defined.
 6. **Forced head.** Coretime's `ParachainSetHead` (Parachain Service design
    §6.3) moves Asset Hub's head, and its state, without accumulating
    anything. JAM's state does not follow, so the accounting diverges.
-7. **parachain-system interface.** parachain-system interface proposal is as follows:
+7. **Parachain Service supervisor.** A `Move` needs the Parachain Service to
+   be its own supervisor. The Parachain Service design has to guarantee it.
+8. **parachain-system interface.** parachain-system interface proposal is as follows:
 
    ```rust
    /// Each sender has its own budget share.
@@ -1206,28 +1236,37 @@ of its layout is to be defined.
            -> Result<OperationId, MessageSendError>;
    }
 
-   /// Implemented by each sender.
+   /// Implemented by each sender. Called by parachain-system.
    trait OnJamOutcome {
        /// Operation `id` of `sender` was accumulated. Once per operation,
        /// in send order. `sent_at` is the block that carried its messages;
        /// `entries` are its `parachain_log` entries, at most one per
        /// message. A sender gets only the outcomes of its own operations.
+       /// It cannot fail and charges what it writes to `meter`.
        fn on_outcome(
            sender: SenderId,
            id: OperationId,
            sent_at: BlockNumber,
            entries: &[AccumulateLog],
+           meter: &mut WeightMeter,
        );
    }
 
-   /// Implemented by `pallet-jamkb`.
+   /// Implemented by `pallet-jamkb`. Called by parachain-system.
    trait OnIncomingTransfers {
-       /// How many buckets `on_incoming_transfers` can take now; 0 until
-       /// attested, while paused, and while the bucket store is full.
+       /// How many buckets `on_incoming_transfers` takes this block. Asked
+       /// before any bucket is read. 0 until attested and while paused.
        fn capacity() -> u32;
        /// One whole `incoming_transfers` bucket, in queue order; at most
-       /// `capacity()` buckets per block. A bucket handed over is cleaned up
-       /// on JAM and never delivered again.
-       fn on_incoming_transfers(transfers: IncomingTransfers);
+       /// `capacity()` buckets per block. The pallet books the bucket in
+       /// the call, all or nothing, and charges it to `meter`. `Ok`: the
+       /// bucket is cleaned up and not delivered again. `Err`: the
+       /// bucket was not booked. Parachain-system rolls the call back,
+       /// delivers no more buckets this block, cleans up only the ones
+       /// before it, and delivers it again in a later block.
+       fn on_incoming_transfers(
+           transfers: IncomingTransfers,
+           meter: &mut WeightMeter,
+       ) -> Result<(), ()>;
    }
    ```
