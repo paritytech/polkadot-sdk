@@ -19,11 +19,11 @@ codec = { workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-mmr-primitives = { workspace = true }
+sp-mmr-primitives.workspace = true
 
 [dev-dependencies]
 itertools = { workspace = true }
-sp-tracing = { default-features = true, workspace = true }
+sp-tracing = { default-features = true, path = "../../primitives/tracing" }
 
 [features]
 default = ["std"]

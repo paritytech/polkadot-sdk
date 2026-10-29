@@ -18,6 +18,9 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 log = { workspace = true }
 polkavm = { workspace = true }
-sc-executor-common = { default-features = true, workspace = true }
-sp-runtime-interface = { default-features = true, workspace = true }
-sp-wasm-interface = { default-features = true, workspace = true }
+sc-executor-common.workspace = true
+sc-executor-common.default-features = true
+sp-runtime-interface.workspace = true
+sp-runtime-interface.default-features = true
+sp-wasm-interface.workspace = true
+sp-wasm-interface.default-features = true

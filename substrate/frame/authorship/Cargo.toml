@@ -17,15 +17,15 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-frame-support = { workspace = true }
-frame-system = { workspace = true }
+frame-support.workspace = true
+frame-system.workspace = true
 impl-trait-for-tuples = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 
 [dev-dependencies]
-sp-core = { default-features = true, workspace = true }
-sp-io = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../primitives/core" }
+sp-io = { default-features = true, path = "../../primitives/io" }
 
 [features]
 default = ["std"]
