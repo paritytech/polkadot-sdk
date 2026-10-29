@@ -261,7 +261,7 @@ fn pick_redeem_amount(rng: &mut StdRng, asset: &AssetState, pusd_balance: u128) 
 		return MIN_SWAP; // BelowMinimumSwap path
 	}
 
-	match rng.gen_range(0..=8) {
+	match rng.gen_range(0..=9) {
 		0 => MIN_SWAP,
 		1 => effective_cap,
 		2 => effective_cap.saturating_sub(MIN_SWAP).max(MIN_SWAP),
@@ -270,9 +270,26 @@ fn pick_redeem_amount(rng: &mut StdRng, asset: &AssetState, pusd_balance: u128) 
 		5 => effective_cap.saturating_sub(1).max(MIN_SWAP),
 		6 => effective_cap.saturating_add(1),
 		7 => rng.gen_range(MIN_SWAP..=effective_cap),
+		// Leaves 1 to ASSET_MIN_BALANCE - 1 of debt, so the reserve keeps the same
+		// amount of the external asset, below its minimum balance.
+		8 => redeem_leaving_debt(asset, rng.gen_range(1..ASSET_MIN_BALANCE)),
 		// Leaves 1 to ASSET_MIN_BALANCE - 1 in the account, below the minimum balance.
 		_ => pusd_balance.saturating_sub(rng.gen_range(1..ASSET_MIN_BALANCE)).max(MIN_SWAP),
 	}
+}
+
+// The redeem amount whose net, after the redemption fee, leaves `left` of the
+// asset's debt. The fee is fee_rate.mul_ceil(amount), so the net does not move
+// in steps of one; the search takes the amount whose net comes closest.
+fn redeem_leaving_debt(asset: &AssetState, left: u128) -> u128 {
+	let target = asset.debt.saturating_sub(left);
+	let parts = u128::from(asset.redemption_fee.deconstruct());
+	let estimate = target.saturating_mul(1_000_000) / 1_000_000u128.saturating_sub(parts).max(1);
+	let net = |amount: u128| amount.saturating_sub(asset.redemption_fee.mul_ceil(amount));
+	(estimate.saturating_sub(3)..=estimate.saturating_add(3))
+		.min_by_key(|&a| net(a).abs_diff(target))
+		.unwrap_or(estimate)
+		.max(MIN_SWAP)
 }
 
 // ---------------------------------------------------------------------------
@@ -293,6 +310,25 @@ fn gen_mint(rng: &mut StdRng, state: &FuzzState) -> Command {
 fn gen_redeem(rng: &mut StdRng, state: &FuzzState) -> Command {
 	if state.assets.is_empty() {
 		return Command::Redeem { account: 1, asset_id: USDC_ASSET_ID, amount: MIN_SWAP };
+	}
+	// One redeem in ten drains an asset's debt down to dust. It picks an asset whose
+	// whole debt one account can cover, so that the redeem can succeed.
+	if rng.gen_range(0..10) == 0 {
+		let drainable: Vec<(usize, u8)> = state
+			.assets
+			.iter()
+			.enumerate()
+			.filter(|(_, a)| a.debt > MIN_SWAP + ASSET_MIN_BALANCE)
+			.filter_map(|(i, a)| {
+				let (acct, bal) = a.account_pusd.iter().enumerate().max_by_key(|(_, b)| **b)?;
+				(*bal >= a.debt).then_some((i, acct as u8 + 1))
+			})
+			.collect();
+		if let Some(&(idx, account)) = drainable.choose(rng) {
+			let asset = &state.assets[idx];
+			let amount = redeem_leaving_debt(asset, rng.gen_range(1..ASSET_MIN_BALANCE));
+			return Command::Redeem { account, asset_id: asset.asset_id, amount };
+		}
 	}
 	let idx = pick_asset_weighted(rng, state, |a| a.debt);
 	let asset = &state.assets[idx];
