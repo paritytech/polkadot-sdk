@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793237926154,
+  "lastUpdate": 1793275742981,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6417acacecd3c0c698faca8e7a5af7816655ab82",
-          "message": "Double max memory on block import (#11557)\n\nThere is a fixed memory budget for block production. Right now we run\nwith the same memory budget when importing a block. However, there is a\nbig difference between block production and block import. For block\nproduction we always create a new fresh wasm instance for each extrinsic\nand the entire memory is freed afterwards. For block import, we keep\neverything in memory and use one wasm instance. This can lead to issues\nfor big blocks which may use too much memory. So, this pull request\ndoubles the memory budget by 2x to what is available on block\nproduction. Given the default budget of 128 MiB and only having blocks\nof max ~16MiB, the extra 128MiB should be enough to hold everything in\nmemory.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2026-04-14T11:01:17Z",
-          "tree_id": "23a1351bebcb0170f0900d96b16268dd8a5192b0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6417acacecd3c0c698faca8e7a5af7816655ab82"
-        },
-        "date": 1776169494221,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63637.84999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52940.3,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.856141551100002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000020737229999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00523381684,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000020737229999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.914990513009997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.846304781070001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000020038449999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9365037853400007,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.765923297629964,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4726991068899995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7340497433799651,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.2971732123428135,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000020038449999999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.285684546580052,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c06ae172af862bbe5511711e18782c2759956df5",
+          "message": "Remove dead links that fail the link checker (#13630)\n\n`check-links` fails on every PR and merge-queue run because two links\nnow return 404: `JoshOrndorff/frameless-node-template` (repository\ndeleted) and `paritytech/polkadot-sdk/issues/64` (issue gone).\n\n- `docs/sdk/src/polkadot_sdk/frame_runtime.rs`: drop the examples list.\nNo maintained FRAME-free runtime exists to link instead, and Subsembly\nhas been unmaintained since 2021.\n- `substrate/primitives/state-machine/src/backend.rs`: drop the issue\nreference from `TryPendingCode` and fix a doubled word.",
+          "timestamp": "2026-10-29T10:34:49Z",
+          "tree_id": "a63dcbbbda786af3a578da1a35691d36a9faee6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c06ae172af862bbe5511711e18782c2759956df5"
+        },
+        "date": 1793275709487,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63573.82000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7587731062199987,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002047727,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002023629,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002023629,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.32927464981001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.419593162742851,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8064688238500214,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7844687472699996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.730902683499999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.18233559951003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7669009300200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002047727,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005546658840000002,
             "unit": "seconds"
           }
         ]
