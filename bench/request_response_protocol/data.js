@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793308989250,
+  "lastUpdate": 1793310805890,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -139535,6 +139535,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2811930072,
             "range": "± 32895982",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alistair.singh7@gmail.com",
+            "name": "Alistair Singh",
+            "username": "alistair-singh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "57f27e6ebd50a7be40a21fe69739e619c35a9515",
+          "message": "Snowbridge: restore unchecked sync committee key parsing (#13640)\n\n# Description\n\nRestore `PublicKey::from_bytes_unchecked` when preparing authenticated\nEthereum sync committee keys.\n\nPR #11910 changed this call to `from_bytes`, adding a G1 subgroup check\nfor every key. A sync committee contains 512 keys. Benchmarking with\nchecked `snowbridge-beacon-primitives` `0.21.1` increased the relevant\nbase ref-times from:\n\n| Call | Unchecked | Checked | Increase |\n|---|---:|---:|---:|\n| `submit_with_sync_committee` | 130,686,869,000 | 486,152,042,000 |\n3.72x |\n| `force_checkpoint` | 111,409,252,000 | 480,697,088,000 | 4.31x |\n\n`submit` is a Normal-class call. Approximately 486 billion ref-time\nunits exceeds Bridge Hub Polkadot's roughly 350-billion Normal\nper-extrinsic cap, so a committee update cannot be included and the\nbridge stalls at committee rotation.\n\nThe long-term hardening solution is Bridge Hub/Snowbridge async-backing\ncompatibility. Its larger execution budget (up to approximately two\nseconds) should allow checked deserialization to be restored after\nbenchmarking the complete committee-update call with adequate headroom.\n\n## Integration\n\nThis needs backports and patched `snowbridge-beacon-primitives`\npublications for:\n\n- `stable2606`: currently `0.21.1`, checked\n- `stable2609`: currently `0.22.0`, checked\n\n## Review Notes\n\nThis does not introduce a new attacker-controlled key path:\n\n- Ethereum only adds a new validator key to its registry after its BLS\nproof-of-possession signature verifies. BLS verification performs key\nvalidation, including the G1 subgroup check.\n- Ethereum constructs sync committees from keys in that validator\nregistry.\n- Snowbridge verifies the supplied committee's SSZ root and Merkle\nbranch against the authenticated beacon-state root before preparing its\nkeys.\n- `force_checkpoint` is restricted to Root.\n- `from_bytes_unchecked` still validates the compressed encoding, field\nelement and on-curve point; it omits the identity and subgroup checks.\n\nAs noted in #11910, injecting a non-subgroup committee key would first\nrequire a failure of Ethereum consensus validation, the authenticated\nMerkle-proof/SHA-256 commitment path, or the trusted Root checkpoint\nprocess. The subgroup check at this location is therefore defense in\ndepth rather than the primary security boundary.\n\n## Validation\n\n- `rustfmt --check bridges/snowbridge/primitives/beacon/src/bls.rs`\n- `cargo test -p snowbridge-beacon-primitives` (22 passed)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T20:36:44Z",
+          "tree_id": "f3909bddcadb7b9ae728d1ad6bc4476915cbfd65",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/57f27e6ebd50a7be40a21fe69739e619c35a9515"
+        },
+        "date": 1793310773523,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19708795,
+            "range": "± 144390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20049090,
+            "range": "± 202786",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21421504,
+            "range": "± 107858",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25448303,
+            "range": "± 169451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56316101,
+            "range": "± 459929",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 336226150,
+            "range": "± 3665285",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2525071055,
+            "range": "± 118597666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16835034,
+            "range": "± 132009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16976869,
+            "range": "± 116686",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17522402,
+            "range": "± 111070",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22009187,
+            "range": "± 123319",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58308482,
+            "range": "± 383426",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341992055,
+            "range": "± 3557351",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2658283114,
+            "range": "± 20267384",
             "unit": "ns/iter"
           }
         ]
