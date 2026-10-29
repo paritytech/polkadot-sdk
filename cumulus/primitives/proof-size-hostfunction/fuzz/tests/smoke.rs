@@ -23,12 +23,15 @@
 //! - `POV_FUZZ_KEEP_GOING=1`: do not stop at the first failure, print a summary at the end.
 //! - `POV_FUZZ_SCALE`: largest scale class to run, `small` (default), `medium` or `large`.
 //!   Generated scales above it are reduced to it.
+//! - `POV_FUZZ_ROOT_LAST=1`: remove every `Op::Root` and `Op::ChildRoot` from the generated
+//!   scripts, so the block-end `storage_root` is the only root computation, as in FRAME. Pinned
+//!   scripts are not affected.
 //!
 //! Every script runs the estimation pass (collator plus validator replay per block) and the
 //! truth pass.
 
 use cumulus_proof_size_hostfunction_fuzz::{
-	op_count, pinned_scripts, script_from_seed, shrink, try_run_script, Failure, Mode, Report,
+	op_count, pinned_scripts, script_from_seed, shrink, try_run_script, Failure, Mode, Op, Report,
 	Scale,
 };
 use std::{
@@ -53,6 +56,15 @@ fn env_scale() -> Scale {
 		Ok("small") | Err(_) => Scale::Small,
 		Ok(other) => panic!("POV_FUZZ_SCALE must be small, medium or large, not {other:?}"),
 	}
+}
+
+/// A generated script with the environment's restrictions applied.
+fn generate(seed: u64, max_scale: Scale) -> cumulus_proof_size_hostfunction_fuzz::Script {
+	let mut script = script_from_seed(seed, max_scale);
+	if std::env::var("POV_FUZZ_ROOT_LAST").is_ok_and(|v| v == "1") {
+		script.drop_mid_block_roots();
+	}
+	script
 }
 
 #[derive(Default)]
@@ -171,7 +183,7 @@ fn random_smoke() {
 	let mut failures: Vec<(u64, Failure)> = Vec::new();
 	for i in 0..iters {
 		let seed = base.wrapping_add(i);
-		let script = script_from_seed(seed, max_scale);
+		let script = generate(seed, max_scale);
 		match try_run_script(&script) {
 			Ok(report) => stats.add(script.config.scale, script.config.mode, &report),
 			Err(failure) => {
@@ -212,7 +224,7 @@ fn random_smoke() {
 				.iter()
 				.find(|(_, f)| &format!("{:?}", f.kind) == kind)
 				.expect("kind was collected from failures; qed");
-			report_shrunk(*seed, script_from_seed(*seed, max_scale), false);
+			report_shrunk(*seed, generate(*seed, max_scale), false);
 		}
 		panic!("{} of {iters} scripts failed", failures.len());
 	}
@@ -230,4 +242,49 @@ fn report_shrunk(seed: u64, script: cumulus_proof_size_hostfunction_fuzz::Script
 	} else {
 		println!("shrunk seed {seed:#x} from {ops} to {shrunk_ops} ops: {failure}\n{shrunk:?}");
 	}
+}
+
+fn mid_block_root_count(script: &cumulus_proof_size_hostfunction_fuzz::Script) -> usize {
+	fn count(ops: &[Op]) -> usize {
+		ops.iter()
+			.map(|op| match op {
+				Op::Root | Op::ChildRoot(_) => 1,
+				Op::Tx(inner, _) => count(inner),
+				_ => 0,
+			})
+			.sum()
+	}
+	script
+		.blocks
+		.iter()
+		.map(|b| {
+			count(&b.init) +
+				count(&b.finalize) +
+				b.xts
+					.iter()
+					.map(|x| count(&x.pre) + count(&x.body) + count(&x.post))
+					.sum::<usize>()
+		})
+		.sum()
+}
+
+/// `POV_FUZZ_ROOT_LAST` exists to fuzz only call sequences in which the block-end
+/// `storage_root` is the only root computation. The transform must take out every mid-block
+/// root, including those nested in transactions, and nothing else, so that the rest of the
+/// generated behaviour is still what gets fuzzed.
+#[test]
+fn root_last_removes_exactly_the_mid_block_roots() {
+	let mut roots_seen = 0;
+	for seed in 0..200u64 {
+		let script = script_from_seed(seed, Scale::Small);
+		let roots = mid_block_root_count(&script);
+		roots_seen += roots;
+
+		let mut roots_last = script.clone();
+		roots_last.drop_mid_block_roots();
+
+		assert_eq!(mid_block_root_count(&roots_last), 0, "seed {seed}");
+		assert_eq!(op_count(&roots_last), op_count(&script) - roots, "seed {seed}");
+	}
+	assert!(roots_seen > 0, "the generator stopped emitting mid-block roots, the test is void");
 }

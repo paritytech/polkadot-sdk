@@ -599,6 +599,28 @@ impl Script {
 			child.bulk = child.bulk.min(scale.max_child_bulk());
 		}
 	}
+
+	/// Removes every [`Op::Root`] and [`Op::ChildRoot`], also inside transactions, so the
+	/// `storage_root` at the end of each block is the only root computation, as in FRAME.
+	pub fn drop_mid_block_roots(&mut self) {
+		fn drop_roots(ops: &mut Vec<Op>) {
+			ops.retain(|op| !matches!(op, Op::Root | Op::ChildRoot(_)));
+			for op in ops {
+				if let Op::Tx(inner, _) = op {
+					drop_roots(inner);
+				}
+			}
+		}
+		for block in &mut self.blocks {
+			drop_roots(&mut block.init);
+			drop_roots(&mut block.finalize);
+			for xt in &mut block.xts {
+				drop_roots(&mut xt.pre);
+				drop_roots(&mut xt.body);
+				drop_roots(&mut xt.post);
+			}
+		}
+	}
 }
 
 impl<'a> Arbitrary<'a> for Script {
