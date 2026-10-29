@@ -48,6 +48,7 @@
 //! is `e_last - t`.
 
 use arbitrary::{Arbitrary, Result as ArbitraryResult, Unstructured};
+use codec::{Decode, Encode};
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use sp_core::{
 	storage::{ChildInfo, StateVersion, Storage, StorageChild},
@@ -98,7 +99,7 @@ type ValidatorBackend =
 	TrieBackend<MemoryDB<Hasher>, Hasher, LocalTrieCache<Hasher>, Recorder<Hasher>>;
 
 /// State version selector.
-#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum Version {
 	V0,
 	V1,
@@ -118,7 +119,7 @@ impl Version {
 /// Small tries find and shrink local bugs quickly, but almost every operation shares trie nodes
 /// with every other one, and the recorder deduplicates nodes, so a missed node can be hidden by
 /// an unrelated read. Larger scales reduce that overlap.
-#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Encode, Decode)]
 pub enum Scale {
 	/// 4 pallets, 3 items, 128 indices (1536 map keys); up to 600 initial main trie keys and
 	/// 100 keys per child. Scripts run in milliseconds.
@@ -182,7 +183,7 @@ impl Scale {
 }
 
 /// Where estimations happen.
-#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum Mode {
 	/// Estimations only at the fixed points of the executive: before and after each extrinsic
 	/// with the reclaim extension, and at the end of the block. [`Op::Estimate`] is a no-op.
@@ -192,14 +193,14 @@ pub enum Mode {
 }
 
 /// Outcome of a transaction.
-#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum Outcome {
 	Commit,
 	Rollback,
 }
 
 /// Size class of a value.
-#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub enum Size {
 	/// Zero bytes.
 	Empty,
@@ -212,7 +213,7 @@ pub enum Size {
 }
 
 /// A value: size class plus a seed for its content and length.
-#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Arbitrary, Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub struct Val(pub Size, pub u8);
 
 impl Val {
@@ -232,7 +233,7 @@ impl Val {
 /// A storage key. Keys are described by indices so that mutations stay meaningful and the
 /// `Debug` output of a failing script is short. The indices are reduced modulo the pallet, item
 /// and index counts of the script's [`Scale`] when the bytes are built.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum Key {
 	/// `pallet(p) ++ item(p, m) ++ hash(i) ++ i` (50 bytes), like a `Blake2_128Concat` map
 	/// entry. All `Map(p, m, _)` share a 32 byte prefix.
@@ -310,7 +311,7 @@ impl<'a> Arbitrary<'a> for Key {
 
 /// A prefix: the key truncated according to the second field (`% 6`): full key, all but the
 /// last byte, half, first 16 bytes, first 32 bytes, first byte.
-#[derive(Arbitrary, Debug, Clone, PartialEq, Eq)]
+#[derive(Arbitrary, Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Prefix(pub Key, pub u8);
 
 impl Prefix {
@@ -334,7 +335,7 @@ impl Prefix {
 /// One storage operation, executed through the host functions inside the runtime.
 ///
 /// Child ids are taken `% 4`, limits modulo the [`Scale`]'s limit range.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum Op {
 	Set(Key, Val),
 	Clear(Key),
@@ -401,7 +402,7 @@ fn gen_outcome(u: &mut Unstructured, rollback_percent: u8) -> ArbitraryResult<Ou
 }
 
 /// Global configuration of a script.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode)]
 pub struct Config {
 	/// Key space and initial trie size.
 	pub scale: Scale,
@@ -432,7 +433,7 @@ impl<'a> Arbitrary<'a> for Config {
 }
 
 /// Initial content of one child trie.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct ChildInit {
 	/// Child id (`% 4`). The child storage key is `[0x10 * (id % 4 + 1)]`.
 	pub id: u8,
@@ -443,7 +444,7 @@ pub struct ChildInit {
 }
 
 /// Initial state.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct InitialTrie {
 	/// Seed for the generated entries.
 	pub seed: u64,
@@ -538,7 +539,7 @@ fn generated_entries(seed: u64, count: usize) -> Vec<(Key, Val)> {
 ///   [Estimate post]         (with_reclaim)
 /// client commit | rollback  (client_outcome)
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Xt {
 	pub pre: Vec<Op>,
 	pub body: Vec<Op>,
@@ -563,7 +564,7 @@ impl<'a> Arbitrary<'a> for Xt {
 
 /// One block: `init` and `finalize` each run as one runtime call in a committed client
 /// transaction. The final estimations and `storage_root` run at the end of `finalize`.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Block {
 	pub init: Vec<Op>,
 	pub xts: Vec<Xt>,
@@ -581,7 +582,7 @@ impl<'a> Arbitrary<'a> for Block {
 }
 
 /// A complete fuzz input.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub struct Script {
 	pub config: Config,
 	pub initial: InitialTrie,

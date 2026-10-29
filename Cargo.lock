@@ -5591,6 +5591,7 @@ dependencies = [
  "cumulus-primitives-proof-size-hostfunction",
  "libfuzzer-sys",
  "log",
+ "parity-scale-codec",
  "sp-core 28.0.0",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
