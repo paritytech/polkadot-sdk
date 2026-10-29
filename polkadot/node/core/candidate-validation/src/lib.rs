@@ -290,6 +290,7 @@ enum PreValidationError {
 /// Pre-validate a candidate before PVF execution.
 ///
 /// Performs all checks that don't require running the PVF:
+/// - Persisted validation data matches the descriptor
 /// - Basic checks: PoV hash, code hash, PoV size
 /// - Backing-only: scheduling session matches runtime, relay parent valid in claimed session, claim
 ///   queue fetch
@@ -310,6 +311,11 @@ async fn pre_validate_candidate<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
+	// Ensure that the validation data matches the announced one.
+	if validation_data.hash() != candidate_receipt.descriptor.persisted_validation_data_hash() {
+		return Err(PreValidationError::Invalid(InvalidCandidate::PersistedValidationDataMismatch));
+	}
+
 	if let Err(e) = perform_basic_checks(
 		&candidate_receipt.descriptor,
 		validation_data.max_pov_size,
