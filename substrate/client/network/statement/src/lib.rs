@@ -1943,6 +1943,7 @@ where
 					},
 				}
 			},
+			NotificationEvent::NotificationStreamOpenFailure { .. } => {},
 		}
 	}
 

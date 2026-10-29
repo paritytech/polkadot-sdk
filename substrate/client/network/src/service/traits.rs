@@ -834,6 +834,13 @@ pub enum NotificationEvent {
 		peer: PeerId,
 	},
 
+	/// Opening a substream failed: the remote rejected it or could not be reached. Only the
+	/// litep2p backend emits it.
+	NotificationStreamOpenFailure {
+		/// Peer ID.
+		peer: PeerId,
+	},
+
 	/// Notification was received from the substream.
 	NotificationReceived {
 		/// Peer ID.
@@ -861,7 +868,8 @@ pub enum NotificationEvent {
 /// After the validation result has been received by `Notifications`, it prepares the
 /// substream for communication by initializing the necessary sinks and emits
 /// `NotificationStreamOpened` which informs the protocol that the remote peer is ready to receive
-/// notifications.
+/// notifications. An attempt that fails instead, because the remote rejected the substream or
+/// could not be reached, is reported as `NotificationStreamOpenFailure`.
 ///
 /// Two different flavors of sending options are provided:
 ///  * synchronous sending ([`NotificationService::send_sync_notification()`])

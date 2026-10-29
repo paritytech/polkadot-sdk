@@ -259,6 +259,7 @@ pub async fn run<B, C, S, P>(
 				Some(NotificationEvent::NotificationStreamClosed { peer }) => {
 					packet_dispatcher.remove_peer(&peer);
 				},
+				Some(NotificationEvent::NotificationStreamOpenFailure { .. }) => {},
 				Some(NotificationEvent::NotificationReceived { peer, notification }) => {
 					let notification: Bytes = notification.into();
 

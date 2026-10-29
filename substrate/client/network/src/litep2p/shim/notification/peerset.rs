@@ -756,7 +756,13 @@ impl Peerset {
 	}
 
 	/// Report to [`Peerset`] that there was an error opening a substream.
-	pub fn report_substream_open_failure(&mut self, peer: PeerId, error: NotificationError) {
+	///
+	/// Returns `false` for a peer with no attempt in progress, whose failure is stale.
+	pub fn report_substream_open_failure(
+		&mut self,
+		peer: PeerId,
+		error: NotificationError,
+	) -> bool {
 		log::trace!(
 			target: LOG_TARGET,
 			"{}: failed to open substream to {peer:?}: {error:?}",
@@ -815,7 +821,7 @@ impl Peerset {
 					self.protocol,
 				);
 
-				return;
+				return false;
 			},
 		}
 
@@ -824,6 +830,7 @@ impl Peerset {
 			Delay::new(OPEN_FAILURE_BACKOFF).await;
 			(peer, OPEN_FAILURE_ADJUSTMENT)
 		}));
+		true
 	}
 
 	/// [`Peerset`] had accepted a peer but it was then rejected by the protocol.

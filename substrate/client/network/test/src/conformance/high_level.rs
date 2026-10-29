@@ -21,9 +21,12 @@ use crate::conformance::setup::{
 };
 
 use sc_network::{
-	request_responses::OutgoingResponse, service::traits::NotificationEvent, IfDisconnected,
-	Litep2pNetworkBackend, NetworkWorker,
+	config::MultiaddrWithPeerId,
+	request_responses::OutgoingResponse,
+	service::traits::{NotificationEvent, ValidationResult},
+	IfDisconnected, Litep2pNetworkBackend, NetworkWorker,
 };
+use std::time::Duration;
 
 #[tokio::test]
 async fn check_connectivity() {
@@ -97,6 +100,56 @@ async fn check_request_response() {
 		create_network_backend::<NetworkWorker<_, _>>(),
 	)
 	.await;
+}
+
+#[tokio::test]
+async fn litep2p_reports_open_failure_for_rejected_reserved_peer() {
+	let left = create_network_backend::<Litep2pNetworkBackend>();
+	let right = create_network_backend::<Litep2pNetworkBackend>();
+	let right_peer = right.network_service.local_peer_id();
+
+	while left.network_service.listen_addresses().is_empty() {
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	while right.network_service.listen_addresses().is_empty() {
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	let right_listen_address = right
+		.network_service
+		.listen_addresses()
+		.first()
+		.expect("qed; non empty")
+		.clone();
+
+	left.network_service
+		.add_reserved_peer(MultiaddrWithPeerId {
+			multiaddr: right_listen_address.into(),
+			peer_id: right_peer,
+		})
+		.unwrap();
+
+	let mut notifications_left = left.notification_service.lock().await;
+	let mut notifications_right = right.notification_service.lock().await;
+	loop {
+		tokio::select! {
+			Some(event) = notifications_left.next_event() => match event {
+				NotificationEvent::NotificationStreamOpenFailure { peer } => {
+					assert_eq!(peer, right_peer);
+					break;
+				},
+				NotificationEvent::NotificationStreamOpened { .. } => {
+					panic!("the right backend rejected the substream");
+				},
+				_ => {},
+			},
+			Some(event) = notifications_right.next_event() => match event {
+				NotificationEvent::ValidateInboundSubstream { result_tx, .. } => {
+					result_tx.send(ValidationResult::Reject).unwrap();
+				},
+				_ => {},
+			},
+		}
+	}
 }
 
 #[tokio::test]
