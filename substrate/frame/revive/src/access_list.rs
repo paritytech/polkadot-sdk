@@ -621,6 +621,15 @@ pub struct InstantiateItems {
 	pub deployer: H160,
 }
 
+impl InstantiateItems {
+	/// Counts every entry as cold and rolling back with the frame.
+	pub fn all_cold_revertible_summary() -> WarmthSummary {
+		let dummy_address = H160::zero();
+		let items = Self { address: dummy_address, deployer: dummy_address };
+		Summarized::from_access(items, |_entry, _op| Warmth::new_cold_revertible()).summary()
+	}
+}
+
 impl Access for InstantiateItems {
 	type Warmth = ();
 	const KEY_FAMILY: KeyFamily = KeyFamily::PalletStorageSlot;

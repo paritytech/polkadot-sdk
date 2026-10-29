@@ -83,6 +83,11 @@ doc:
     A call or delegate call to an EIP-7702 delegated account whose delegation target is not a
     deployed contract now also pays for reading the target's account info, which tells whether
     the target is itself delegated.
+
+    A contract creation now sets aside the weight to register the new contract in the access list
+    before the constructor runs, so the constructor gets that much less weight. If the constructor
+    fails or reverts after using up all of its weight, the caller gets the set-aside weight back and
+    can continue with it.
 crates:
 - name: pallet-revive
   bump: major

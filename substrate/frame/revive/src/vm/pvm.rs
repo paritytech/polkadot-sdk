@@ -22,7 +22,7 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{CallItems, InstantiateItems, StorageOp, TransferItems},
+	access_list::{Access, CallItems, InstantiateItems, StorageOp, TransferItems, WarmthSummary},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
@@ -795,6 +795,18 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		memory.reset_interpreter_cache();
 
+		let worst_case_registration_charge = self.charge_gas(
+			RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
+		)?;
+		let adjust_registration_charge = |runtime: &mut Self, summary: Option<WarmthSummary>| {
+			let summary =
+				summary.unwrap_or_else(|| WarmthSummary::new(InstantiateItems::KEY_FAMILY));
+			runtime.adjust_gas(
+				worst_case_registration_charge,
+				RuntimeCosts::AccessListRegistration(summary),
+			)
+		};
+
 		match self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
@@ -807,7 +819,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
 					let warmth =
 						self.ext.warm(InstantiateItems { address, deployer: self.ext.address() });
-					self.charge_gas(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
+					adjust_registration_charge(self, Some(warmth.summary()));
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
@@ -815,6 +827,8 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						true,
 						already_charged,
 					)?;
+				} else {
+					adjust_registration_charge(self, None);
 				}
 				let output = mem::take(self.ext.last_frame_output_mut());
 				let write_result = self.write_sandbox_output(
@@ -829,7 +843,10 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => Ok(super::exec_error_into_return_code::<E>(err)?),
+			Err(err) => {
+				adjust_registration_charge(self, None);
+				Ok(super::exec_error_into_return_code::<E>(err)?)
+			},
 		}
 	}
 }

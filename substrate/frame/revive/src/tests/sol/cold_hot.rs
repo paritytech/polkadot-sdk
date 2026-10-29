@@ -529,6 +529,30 @@ fn a_contract_creation_pays_for_registering_its_entries(fixture_type: FixtureTyp
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
+fn a_constructor_cannot_use_the_weight_set_aside_for_its_registration(fixture_type: FixtureType) {
+	ExtBuilder::default().build().execute_with(|| {
+		let factory = deploy_factory(fixture_type);
+		let contract_count = || {
+			crate::AccountInfoOf::<Test>::iter_keys()
+				.filter(|address| AccountInfo::<Test>::is_contract(address))
+				.count()
+		};
+		let contract_count_before = contract_count();
+
+		let result = builder::bare_call(factory)
+			.data(Factory::createGasBurningCall {}.abi_encode())
+			.build()
+			.result;
+
+		let output =
+			result.expect("the caller goes on with the weight set aside for the registration");
+		assert!(!output.did_revert(), "the factory catches the failed creation");
+		assert_eq!(contract_count(), contract_count_before);
+	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
 fn a_failed_contract_creation_leaves_its_address_cold(fixture_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let expected_failed_extra_entries = if fixture_type == FixtureType::Resolc {
@@ -696,7 +720,7 @@ fn deploy_factory(fixture_type: FixtureType) -> H160 {
 	let (factory_code, _) = compile_module_with_type("Factory", fixture_type).unwrap();
 	let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000_000);
 	if fixture_type == FixtureType::Resolc {
-		for child in ["ReceivingChild", "RevertingChild"] {
+		for child in ["ReceivingChild", "RevertingChild", "GasBurningChild"] {
 			let (child_code, _) = compile_module_with_type(child, fixture_type).unwrap();
 			crate::Pallet::<Test>::upload_code(
 				RuntimeOrigin::signed(ALICE.clone()),
@@ -851,9 +875,10 @@ mod dry_run {
 		(dry_run_weight, result.map(|_| call_weight).map_err(|err| err.error))
 	}
 
-	#[test]
-	fn a_call_fits_a_dry_run_without_the_prewarm() {
-		let (code, _) = compile_module_with_type("SendBackOrForward", FixtureType::Solc).unwrap();
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn a_call_fits_a_dry_run_without_the_prewarm(fixture_type: FixtureType) {
+		let (code, _) = compile_module_with_type("SendBackOrForward", fixture_type).unwrap();
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
 			let addr =

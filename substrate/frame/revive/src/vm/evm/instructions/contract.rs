@@ -20,7 +20,7 @@ mod call_helpers;
 use super::utility::IntoAddress;
 use crate::{
 	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
-	access_list::InstantiateItems,
+	access_list::{Access, InstantiateItems, WarmthSummary},
 	exec::CallResources,
 	vm::{
 		Ext, RuntimeCosts,
@@ -75,6 +75,18 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		None
 	};
 
+	let worst_case_registration_charge = interpreter.ext.charge_or_halt(
+		RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
+	)?;
+	let adjust_registration_charge =
+		|interpreter: &mut Interpreter<E>, summary: Option<WarmthSummary>| {
+			let summary =
+				summary.unwrap_or_else(|| WarmthSummary::new(InstantiateItems::KEY_FAMILY));
+			interpreter.ext.frame_meter_mut().adjust_weight(
+				worst_case_registration_charge,
+				RuntimeCosts::AccessListRegistration(summary),
+			)
+		};
 	let call_result = interpreter.ext.instantiate(
 		&CallResources::NoLimits,
 		Code::Upload(code),
@@ -87,6 +99,7 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		Ok(address) => {
 			let return_value = interpreter.ext.last_frame_output();
 			if return_value.did_revert() {
+				adjust_registration_charge(interpreter, None);
 				// Contract creation reverted — return data must be propagated
 				interpreter.stack.push(U256::zero())
 			} else {
@@ -95,13 +108,12 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 				// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
 				let deployer = interpreter.ext.address();
 				let warmth = interpreter.ext.warm(InstantiateItems { address, deployer });
-				interpreter
-					.ext
-					.charge_or_halt(RuntimeCosts::AccessListRegistration(warmth.summary()))?;
+				adjust_registration_charge(interpreter, Some(warmth.summary()));
 				interpreter.stack.push(address)
 			}
 		},
 		Err(err) => {
+			adjust_registration_charge(interpreter, None);
 			log::debug!(target: LOG_TARGET, "Create failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
 			ControlFlow::Continue(())
