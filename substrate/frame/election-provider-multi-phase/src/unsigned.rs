@@ -587,6 +587,7 @@ impl<T: MinerConfig> Miner<T> {
 			});
 
 			// convert back.
+			staked.retain(|assignment| !assignment.distribution.is_empty());
 			assignment_staked_to_ratio_normalized(staked)?
 		};
 
@@ -2134,6 +2135,50 @@ mod tests {
 				assert!(!expected_trimmed_supports.contains(&edge));
 			}
 		})
+	}
+
+	#[test]
+	fn max_backers_trimming_skips_voters_with_no_remaining_edges() {
+		use crate::mock::MaxBackersPerWinner;
+
+		ExtBuilder::default().build_and_execute(|| {
+			let targets = vec![10];
+			let voters = vec![
+				(1, 10, bounded_vec![10]),
+				(2, 20, bounded_vec![10]),
+				(3, 30, bounded_vec![10]),
+			];
+			let snapshot = RoundSnapshot { voters: voters.clone(), targets: targets.clone() };
+			let (round, desired_targets) = (1, 1);
+
+			MaxBackersPerWinner::set(2);
+			let (solution, score, _, trimming_status) =
+				Miner::<Runtime>::mine_solution_with_snapshot::<<Runtime as Config>::Solver>(
+					voters,
+					targets,
+					desired_targets,
+				)
+				.expect("trimming the lowest backer should produce a solution");
+			assert_eq!(trimming_status.trimmed_edges(), 1);
+
+			let ready_solution = Miner::<Runtime>::feasibility_check(
+				RawSolution { solution, score, round },
+				Default::default(),
+				desired_targets,
+				snapshot,
+				round,
+				Default::default(),
+			)
+			.expect("the trimmed solution should remain feasible");
+			let supports = ready_solution.supports.into_iter().collect::<Vec<_>>();
+			assert_eq!(supports.len(), 1);
+			let (winner, support) = supports.into_iter().next().expect("one winner remains");
+			assert_eq!(winner, 10);
+			assert_eq!(support.total, 50);
+			let mut backers = support.voters.into_inner();
+			backers.sort_by_key(|(who, _)| *who);
+			assert_eq!(backers, vec![(2, 20), (3, 30)]);
+		});
 	}
 
 	#[test]
