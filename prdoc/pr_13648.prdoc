@@ -1,0 +1,24 @@
+title: "sc-network: report notification substream open failures to the protocol"
+
+doc:
+  - audience: Node Dev
+    description: |
+      `NotificationEvent` gains `NotificationStreamOpenFailure { peer }`: the remote rejected
+      the substream or could not be reached. Only the litep2p backend emits it. An exhaustive
+      match on `NotificationEvent` needs an arm for the new variant.
+
+crates:
+  - name: sc-network
+    bump: major
+  - name: sc-network-sync
+    bump: patch
+  - name: sc-network-transactions
+    bump: patch
+  - name: sc-network-statement
+    bump: patch
+  - name: sc-network-gossip
+    bump: patch
+  - name: sc-mixnet
+    bump: patch
+  - name: polkadot-network-bridge
+    bump: patch
