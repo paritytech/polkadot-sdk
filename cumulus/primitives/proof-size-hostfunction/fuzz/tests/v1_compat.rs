@@ -39,7 +39,7 @@
 //!   `v1_compat_pinned` uses it to check that the stored traces are still what master prints.
 //! - `POV_FUZZ_ITERS`, `POV_FUZZ_SEED`, `POV_FUZZ_SCALE`, `POV_FUZZ_ROOT_LAST`: as in `smoke.rs`.
 //! - `POV_FUZZ_KEEP_GOING=1`: run all scripts, then print the differing seeds grouped by the
-//!   operation at the first differing line and shrink the first seed of each group.
+//!   operation at the first differing line and shrink the first seed of each group within it.
 
 mod common;
 
@@ -112,16 +112,32 @@ struct Difference {
 
 impl Difference {
 	/// The operation at the differing line, `Branch|Master` if the two lines are about different
-	/// operations, for example `ClearPrefix|panic`.
+	/// operations, for example `ClearPrefix|panic`. For block lines the first differing section:
+	/// `block root`, `block proof`, `block changes` or `block transaction`.
 	fn kind(&self) -> String {
 		let branch = self.branch.as_deref().map_or("end", operation);
 		let master = self.master.as_deref().map_or("end", operation);
-		if branch == master {
-			branch.to_string()
-		} else {
-			format!("{branch}|{master}")
+		match (&self.branch, &self.master) {
+			_ if branch != master => format!("{branch}|{master}"),
+			(Some(branch_line), Some(master_line)) if branch == "block" => {
+				format!("block {}", block_section(branch_line, master_line))
+			},
+			_ => branch.to_string(),
 		}
 	}
+}
+
+fn block_section<'a>(branch: &'a str, master: &str) -> &'a str {
+	let mut section = "";
+	for (branch_word, master_word) in branch.split(' ').zip(master.split(' ')) {
+		if ["root", "proof", "changes", "transaction"].contains(&branch_word) {
+			section = branch_word;
+		}
+		if branch_word != master_word {
+			break;
+		}
+	}
+	section
 }
 
 impl fmt::Display for Difference {
@@ -157,16 +173,15 @@ fn first_difference(branch: &[String], master: &[String]) -> Option<Difference> 
 		})
 }
 
-fn traces_differ(script: &Script) -> bool {
-	let (branch, master) = traces(script);
-	first_difference(&branch, &master).is_some()
-}
-
-/// Shrinks the script to the smallest one whose traces still differ and prints it with both
-/// traces.
-fn report_shrunk(seed: u64, script: Script, pretty: bool) {
+/// Shrinks the script to the smallest one whose traces still differ, with the given
+/// [`Difference::kind`] if there is one, and prints it with both traces.
+fn report_shrunk(seed: u64, script: Script, pretty: bool, kind: Option<&str>) {
 	let ops = op_count(&script);
-	let shrunk = shrink_with(script, traces_differ);
+	let shrunk = shrink_with(script, |candidate| {
+		let (branch, master) = traces(candidate);
+		first_difference(&branch, &master)
+			.is_some_and(|difference| kind.map_or(true, |kind| difference.kind() == kind))
+	});
 	let (branch, master) = traces(&shrunk);
 	let difference = first_difference(&branch, &master)
 		.map_or_else(|| "traces no longer differ?".into(), |difference| difference.to_string());
@@ -203,7 +218,7 @@ fn v1_compat_random() {
 			Some(difference) => {
 				println!("seed {seed:#x} (iteration {i}): {difference}");
 				if !keep_going {
-					report_shrunk(seed, script, true);
+					report_shrunk(seed, script, true, None);
 					panic!("seed {seed:#x}: {difference}");
 				}
 				differences.push((seed, difference.kind()));
@@ -231,8 +246,8 @@ fn v1_compat_random() {
 		let seeds: Vec<_> = seeds.iter().map(|seed| format!("{seed:#x}")).collect();
 		println!("  {kind}: {} ({})", seeds.len(), seeds.join(", "));
 	}
-	for seeds in by_kind.values() {
-		report_shrunk(seeds[0], generate(seeds[0], max_scale), false);
+	for (kind, seeds) in &by_kind {
+		report_shrunk(seeds[0], generate(seeds[0], max_scale), false, Some(kind));
 	}
 	panic!("{} of {iters} scripts differ", differences.len());
 }
