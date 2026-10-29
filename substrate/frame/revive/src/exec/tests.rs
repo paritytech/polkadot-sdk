@@ -1988,7 +1988,8 @@ fn nonce() {
 			set_balance(&ALICE, min_balance * 10_000);
 			set_balance(&BOB, min_balance * 10_000);
 
-			// fail should not increment
+			// EIP-684: a failed create still consumes the nonce. A real dispatch rolls back
+			// the whole extrinsic on a trap, so only a revert keeps it.
 			MockStack::run_instantiate(
 				ALICE,
 				fail_executable,
@@ -1999,7 +2000,7 @@ fn nonce() {
 				&ExecConfig::new_substrate_tx(),
 			)
 			.ok();
-			assert_eq!(System::account_nonce(&ALICE), 0);
+			assert_eq!(System::account_nonce(&ALICE), 1);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
@@ -2010,7 +2011,7 @@ fn nonce() {
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),
 			));
-			assert_eq!(System::account_nonce(&ALICE), 1);
+			assert_eq!(System::account_nonce(&ALICE), 2);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
@@ -2021,7 +2022,7 @@ fn nonce() {
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),
 			));
-			assert_eq!(System::account_nonce(&ALICE), 2);
+			assert_eq!(System::account_nonce(&ALICE), 3);
 
 			assert_ok!(MockStack::run_instantiate(
 				ALICE,
@@ -2032,7 +2033,7 @@ fn nonce() {
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),
 			));
-			assert_eq!(System::account_nonce(&ALICE), 3);
+			assert_eq!(System::account_nonce(&ALICE), 4);
 		});
 }
 
