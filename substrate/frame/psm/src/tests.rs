@@ -21,7 +21,10 @@ use crate::{
 	PsmManagerLevel, RedemptionFee,
 };
 use codec::{Decode, Encode};
-use frame_support::{assert_noop, assert_ok, hypothetically};
+use frame_support::{
+	assert_noop, assert_ok, hypothetically,
+	traits::{fungibles::Refund, Get},
+};
 use sp_runtime::{traits::TrailingZeroInput, DispatchError, Permill, TokenError, TypeId};
 
 fn psm_max_debt() -> u128 {
@@ -1312,6 +1315,111 @@ mod governance {
 				Psm::add_external_asset(RuntimeOrigin::root(), INTERNAL_ASSET_ID, new_asset),
 				Error::<Test>::DecimalsRangeExceeded
 			);
+		});
+	}
+
+	#[test]
+	fn add_external_asset_creates_reserve_account_for_non_sufficient_asset() {
+		new_test_ext().execute_with(|| {
+			let deposit = <Test as pallet_assets::Config>::AssetAccountDeposit::get();
+			// `Assets::create` makes a non-sufficient asset.
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+			let reserved_before = Balances::reserved_balance(&ALICE);
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+
+			// ALICE paid the PSM creation deposit, so she also pays for the reserve account.
+			assert_eq!(Assets::deposit_held(new_asset, psm_account()), Some((ALICE, deposit)));
+			assert_eq!(Balances::reserved_balance(&ALICE), reserved_before + deposit);
+
+			// The reserve account can now take deposits of the asset.
+			set_asset_ceiling_weight(new_asset, Permill::from_percent(10));
+			let amount = 1_000 * INTERNAL_UNIT;
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(ALICE), new_asset, BOB, amount));
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(BOB),
+				INTERNAL_ASSET_ID,
+				new_asset,
+				amount,
+				Permill::from_percent(100),
+			));
+			assert_eq!(get_asset_balance(new_asset, psm_account()), amount);
+		});
+	}
+
+	#[test]
+	fn add_external_asset_replaces_reserve_account_deposit_paid_by_someone_else() {
+		new_test_ext().execute_with(|| {
+			let deposit = <Test as pallet_assets::Config>::AssetAccountDeposit::get();
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+			let bob_reserved_before = Balances::reserved_balance(&BOB);
+			assert_ok!(Assets::touch_other(RuntimeOrigin::signed(BOB), new_asset, psm_account()));
+			assert_eq!(Assets::deposit_held(new_asset, psm_account()), Some((BOB, deposit)));
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+
+			// BOB got his deposit back and can no longer remove the reserve account.
+			assert_eq!(Assets::deposit_held(new_asset, psm_account()), Some((ALICE, deposit)));
+			assert_eq!(Balances::reserved_balance(&BOB), bob_reserved_before);
+			assert_noop!(
+				Assets::refund_other(RuntimeOrigin::signed(BOB), new_asset, psm_account()),
+				pallet_assets::Error::<Test>::NoPermission
+			);
+		});
+	}
+
+	#[test]
+	fn add_external_asset_keeps_funded_reserve_account_paid_by_someone_else() {
+		new_test_ext().execute_with(|| {
+			let deposit = <Test as pallet_assets::Config>::AssetAccountDeposit::get();
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+			assert_ok!(Assets::touch_other(RuntimeOrigin::signed(BOB), new_asset, psm_account()));
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(ALICE), new_asset, psm_account(), 5));
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+
+			// The account holds funds, so BOB cannot remove it and his deposit stays.
+			assert_eq!(Assets::deposit_held(new_asset, psm_account()), Some((BOB, deposit)));
+			assert_noop!(
+				Assets::refund_other(RuntimeOrigin::signed(BOB), new_asset, psm_account()),
+				pallet_assets::Error::<Test>::WouldBurn
+			);
+		});
+	}
+
+	#[test]
+	fn add_external_asset_without_depositor_does_not_create_reserve_account() {
+		new_test_ext().execute_with(|| {
+			let new_asset = 99u32;
+			create_asset_with_metadata(new_asset);
+			crate::PsmAdmin::<Test>::mutate(INTERNAL_ASSET_ID, |maybe| {
+				if let Some(admin) = maybe.as_mut() {
+					admin.deposit = None;
+				}
+			});
+
+			assert_ok!(Psm::add_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				new_asset
+			));
+
+			assert!(!pallet_assets::Account::<Test>::contains_key(new_asset, psm_account()));
 		});
 	}
 

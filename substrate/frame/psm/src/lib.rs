@@ -160,10 +160,10 @@ pub mod pallet {
 			fungibles::{
 				metadata::Inspect as FungiblesMetadataInspect,
 				roles::Inspect as FungiblesRolesInspect, Inspect as FungiblesInspect,
-				Mutate as FungiblesMutate,
+				Mutate as FungiblesMutate, Refund as FungiblesRefund,
 			},
 			tokens::{DepositConsequence, Fortitude, Precision, Preservation, Provenance},
-			CallerTrait, Consideration, EnsureOriginWithArg, Footprint, OriginTrait,
+			AccountTouch, CallerTrait, Consideration, EnsureOriginWithArg, Footprint, OriginTrait,
 		},
 		PalletId,
 	};
@@ -359,7 +359,9 @@ pub mod pallet {
 		/// Fungibles implementation for both internal and external assets.
 		type Fungibles: FungiblesMutate<Self::AccountId, AssetId = Self::AssetId>
 			+ FungiblesMetadataInspect<Self::AccountId>
-			+ FungiblesRolesInspect<Self::AccountId>;
+			+ FungiblesRolesInspect<Self::AccountId>
+			+ AccountTouch<Self::AssetId, Self::AccountId>
+			+ FungiblesRefund<Self::AccountId, AssetId = Self::AssetId>;
 
 		/// Consideration for PSM creation. Runtimes can price this from the PSM footprint or
 		/// anything else they choose.
@@ -1326,9 +1328,12 @@ pub mod pallet {
 		/// Snapshots the external asset's live decimals at registration time and
 		/// increments [`PsmInfo::external_count`].
 		///
-		/// If `external_asset` is not sufficient, the reserve account
-		/// ([`Pallet::psm_account`]) must exist to hold it, e.g. by funding it with the
-		/// existential deposit of the native asset.
+		/// If the reserve account ([`Pallet::psm_account`]) cannot hold `external_asset` yet, e.g.
+		/// because the asset is not sufficient, this creates its asset account for that asset. The
+		/// account that paid the PSM creation deposit also pays this deposit.
+		///
+		/// PSMs created without a deposit (e.g. by Root) skip this step. For them, the caller must
+		/// make sure the reserve account can hold `external_asset`.
 		///
 		/// ## Dispatch Origin
 		///
@@ -1377,6 +1382,25 @@ pub mod pallet {
 				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
 			);
+
+			// Let the reserve account hold the asset, paid for by the PSM depositor.
+			if let Some((depositor, _)) =
+				PsmAdmin::<T>::get(&internal_asset).and_then(|admin| admin.deposit)
+			{
+				let psm_account = Self::psm_account(&internal_asset);
+				let paid_by_other =
+					T::Fungibles::deposit_held(external_asset.clone(), psm_account.clone())
+						.is_some_and(|(payer, _)| payer != depositor);
+				// Someone else could remove the account while it's empty, so take it over.
+				if paid_by_other &&
+					T::Fungibles::balance(external_asset.clone(), &psm_account).is_zero()
+				{
+					T::Fungibles::refund(external_asset.clone(), psm_account.clone())?;
+				}
+				if T::Fungibles::should_touch(external_asset.clone(), &psm_account) {
+					T::Fungibles::touch(external_asset.clone(), &psm_account, &depositor)?;
+				}
+			}
 
 			ExternalAssets::<T>::insert(
 				&internal_asset,

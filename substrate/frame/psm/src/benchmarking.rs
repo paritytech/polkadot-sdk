@@ -275,6 +275,8 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let new_asset_id: T::AssetId = T::BenchmarkHelper::get_asset_id(EXTERNAL_ASSET_OFFSET);
 
+		// Non-sufficient, so the reserve account needs a deposit to hold it.
+		let _ = T::Fungibles::create(new_asset_id.clone(), caller.clone(), false, 1u32.into());
 		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
 
 		#[extrinsic_call]
