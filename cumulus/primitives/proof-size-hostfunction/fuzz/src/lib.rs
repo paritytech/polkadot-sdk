@@ -21,6 +21,10 @@
 //! `try_run_script`) estimates as version 2 of `storage_proof_size` does and checks the
 //! estimation invariants. It needs `Externalities::record_proof_for_dirty_keys`, which only
 //! exists on the PR branch; without the feature the crate builds against master.
+//!
+//! [`trace`] runs a script as a runtime built against master does, with version 1 of
+//! `storage_proof_size`, and returns a text trace. The `trace` binary does the same for a script
+//! read from stdin; built on master, it is the reference for `tests/v1_compat.rs`.
 
 use arbitrary::{Arbitrary, Result as ArbitraryResult, Unstructured};
 use codec::{Decode, Encode};
@@ -47,6 +51,9 @@ use std::{
 mod run;
 #[cfg(feature = "estimation")]
 pub use run::*;
+mod trace;
+
+pub use trace::{trace, MAX_SHOWN_BYTES};
 
 /// Maximum number of blocks per script.
 pub const MAX_BLOCKS: usize = 4;
