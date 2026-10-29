@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793221642235,
+  "lastUpdate": 1793234081954,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138779,6 +138779,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2811605832,
             "range": "± 38968299",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5d21880db7d850b6dfd8c464d968a304dfaab191",
+          "message": "pallet-balances: Clean up empty reserves & do not send the same event twice (#12318)\n\nWhen reserves are cleared, the corresponding storage should be cleaned\nup as well. So, we do not run into `MaxReserves` with only empty\nreserves. This pull request also fixes the double sending of the same\nevent when slashing a reserved amount.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-28T22:36:37Z",
+          "tree_id": "dcfa47235f5ddacbb10918be84eaaed0ce652d15",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/5d21880db7d850b6dfd8c464d968a304dfaab191"
+        },
+        "date": 1793234050281,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19966712,
+            "range": "± 111362",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20347445,
+            "range": "± 218325",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21847997,
+            "range": "± 94501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25821509,
+            "range": "± 141283",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58124395,
+            "range": "± 1161543",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 348940713,
+            "range": "± 4423187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2530014253,
+            "range": "± 166062189",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17266753,
+            "range": "± 120783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17203492,
+            "range": "± 145022",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17877590,
+            "range": "± 60934",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22424149,
+            "range": "± 107420",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59458516,
+            "range": "± 349874",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 351475318,
+            "range": "± 3148321",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2713446849,
+            "range": "± 19016616",
             "unit": "ns/iter"
           }
         ]
