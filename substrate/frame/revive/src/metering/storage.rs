@@ -439,19 +439,20 @@ where
 			coalesced
 		};
 
-		let mut unpaid: BalanceOf<T> = Zero::zero();
+		let mut unreleased: BalanceOf<T> = Zero::zero();
 		for charge in self.charges.iter() {
 			if let ContractState::Alive { amount: amount @ Deposit::Refund(_) } = &charge.state {
-				let refunded = E::charge(origin, &charge.contract, amount, exec_config)?;
-				unpaid = unpaid.saturating_add(refunded.saturating_sub(amount).charge_or_zero());
+				let released = E::charge(origin, &charge.contract, amount, exec_config)?;
+				unreleased =
+					unreleased.saturating_add(released.saturating_sub(amount).charge_or_zero());
 			}
 		}
 		// Account for the refunds that were released, not the ones that were requested.
-		if !unpaid.is_zero() {
-			self.total_deposit = self.total_deposit.saturating_add(&Deposit::Charge(unpaid));
+		if !unreleased.is_zero() {
+			self.total_deposit = self.total_deposit.saturating_add(&Deposit::Charge(unreleased));
 			self.recalulculate_max_charged();
 		}
-		Ok(unpaid)
+		Ok(unreleased)
 	}
 
 	/// Pay the charges accumulated in the whole contract stack.
@@ -604,7 +605,7 @@ impl<T: Config> Ext<T> for ReservingExt {
 						.map(|info| held.saturating_sub(info.storage_base_deposit()))
 						.defensive_unwrap_or_default();
 				if value > refundable {
-					log::warn!(
+					log::debug!(
 						target: LOG_TARGET,
 						"Storage deposit refund of contract {contract:?} bounded by the deposit \
 						 held above the base deposit: requested={value:?}, bounded={refundable:?}",

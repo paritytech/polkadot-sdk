@@ -8,7 +8,6 @@ doc:
     the contract's `StorageDepositReserve` hold minus its `storage_base_deposit` is released. The
     base deposit stays on hold until the contract is terminated. The bound uses
     `Deposit::total_on_hold`, which for `PGasDeposit` is the sum of the native and PGAS holds.
-    When the bound applies, a warning is logged under the `runtime::revive` target.
 
     A contract instantiated by `Origin::Root` records a base deposit that was not placed on hold.
     Its refunds are bounded the same way, by the deposit held above the recorded base deposit.
