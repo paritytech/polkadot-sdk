@@ -24,7 +24,7 @@ jobs:
   # run all tests on cattery runners
   test-linux-stable-no-try-runtime:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: parity-large-test
     timeout-minutes: 60
     container:

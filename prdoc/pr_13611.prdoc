@@ -1,11 +1,11 @@
-title: Fix boolean handling of CI change-filter outputs
+title: Fix CI change filtering at the producer
 
 doc:
   - audience: Node Dev
     description: |
-      Compare GitHub Actions change-filter outputs explicitly with 'true' before combining
-      them and when deciding whether to run existing guarded jobs. Changes excluded by the
-      current file filters now skip those jobs, while Rust changes and changes to the caller
-      workflow or shared preflight continue to run them. File filters and event exclusions
-      are unchanged. No crates require publishing.
+      Normalize the shared preflight change-filter output to 'true' for relevant changes
+      and an empty string otherwise, preserving all existing consuming job conditions.
+      Changes excluded by the current file filters now skip those jobs, while Rust changes
+      and changes to the caller workflow or shared preflight continue to run them.
+      File filters and event exclusions are unchanged. No crates require publishing.
 crates: []

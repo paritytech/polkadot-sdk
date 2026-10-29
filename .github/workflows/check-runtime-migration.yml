@@ -31,7 +31,7 @@ jobs:
   prepare-snapshots:
     runs-on: ubuntu-latest
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     strategy:
       fail-fast: false
       matrix:
@@ -109,7 +109,7 @@ jobs:
   # More info can be found here: https://github.com/paritytech/polkadot/pull/5865
   check-runtime-migration:
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' && github.event_name != 'schedule' }}
+    if: ${{ needs.preflight.outputs.changes_rust && github.event_name != 'schedule' }}
     timeout-minutes: 120
     needs: [preflight, prepare-snapshots]
     container:

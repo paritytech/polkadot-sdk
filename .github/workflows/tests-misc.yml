@@ -25,7 +25,7 @@ jobs:
   test-full-crypto-feature:
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
@@ -50,7 +50,7 @@ jobs:
     # into one job
     needs: [preflight, test-full-crypto-feature]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -72,7 +72,7 @@ jobs:
     timeout-minutes: 60
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -101,7 +101,7 @@ jobs:
     timeout-minutes: 30
     needs: [preflight, test-frame-examples-compile-to-wasm]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -162,7 +162,7 @@ jobs:
 
   node-bench-regression-guard:
     timeout-minutes: 20
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ubuntu-latest
     needs: [preflight, cargo-check-benches]
     steps:
@@ -216,7 +216,7 @@ jobs:
     needs: [preflight]
     timeout-minutes: 30
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -249,7 +249,7 @@ jobs:
     timeout-minutes: 20
     needs: [preflight, test-node-metrics]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -265,7 +265,7 @@ jobs:
     timeout-minutes: 20
     needs: [preflight, check-tracing]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     steps:
@@ -321,7 +321,7 @@ jobs:
     timeout-minutes: 120
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
     env:
@@ -349,7 +349,7 @@ jobs:
     timeout-minutes: 30
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER_MACOS }}
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     env:
       SKIP_WASM_BUILD: 1
     steps:

@@ -21,7 +21,7 @@ jobs:
   # This job runs all benchmarks defined in the `/bin/node/runtime` once to check that there are no errors.
   quick-benchmarks:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -40,7 +40,7 @@ jobs:
   # cf https://github.com/paritytech/polkadot-sdk/issues/1652
   test-syscalls:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
@@ -65,7 +65,7 @@ jobs:
 
   cargo-check-all-benches:
     needs: [preflight]
-    if: ${{ needs.preflight.outputs.changes_rust == 'true' }}
+    if: ${{ needs.preflight.outputs.changes_rust }}
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     container:
