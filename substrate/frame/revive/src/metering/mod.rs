@@ -341,18 +341,14 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			self.deposit.max_charged(),
 		);
 
-		self.deposit.record_charge(deposit);
-		self.adjust_effective_weight_limit()?;
-
-		if self.deposit.is_root {
-			if self.deposit_left().is_none() {
-				self.deposit.reset();
-				self.adjust_effective_weight_limit()?;
+		if let StorageDeposit::Charge(amount) = deposit {
+			if self.deposit.is_root && self.deposit_left().map_or(true, |left| left < *amount) {
 				return Err(<Error<T>>::StorageDepositLimitExhausted.into());
 			}
 		}
 
-		Ok(())
+		self.deposit.record_charge(deposit);
+		self.adjust_effective_weight_limit()
 	}
 
 	/// Get remaining ethereum gas equivalent.
@@ -672,6 +668,15 @@ impl<T: Config> FrameMeter<T> {
 	/// See: <https://github.com/paritytech/contract-issues/issues/213>
 	pub fn apply_pending_storage_changes(&self, info: &mut ContractInfo<T>) {
 		self.deposit.apply_pending_changes_to_contract(info);
+	}
+
+	/// See [`storage::RawMeter::bank_pending_changes`].
+	pub fn bank_pending_storage_changes(
+		&mut self,
+		contract: T::AccountId,
+		info: &mut ContractInfo<T>,
+	) {
+		self.deposit.bank_pending_changes(contract, info);
 	}
 }
 

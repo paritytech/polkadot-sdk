@@ -1,0 +1,21 @@
+title: '[pallet-revive] fix double deposit charge to parent contractinfo'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A contract that writes storage, calls back into itself, directly or through another contract,
+    and then writes storage again now has each write counted once in its `ContractInfo`. Before,
+    the writes made before the reentrant call were applied to the stored `ContractInfo` a second
+    time when the outer call finished. This inflated `storage_items`, `storage_bytes`,
+    `storage_item_deposit` and `storage_byte_deposit`, and the inflated values were kept across
+    transactions: `ContractInfo` reported more storage items, bytes and deposit than the contract
+    actually stored and held.
+
+    Calls that do not reenter the same contract are not affected.
+
+    No migration, configuration or integration change is needed. Existing `ContractInfo`
+    entries are not rewritten: counters that were already inflated keep their values.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
