@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793275792909,
+  "lastUpdate": 1793278951396,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "yrong1997@gmail.com",
-            "name": "Ron",
-            "username": "yrong"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "728514a8eb057de1b75bb62068d09f032cf1c1e3",
-          "message": "Snowbride: Fix alloy receipt verification (#11739)\n\n### Context\n\nHardens Snowbridge receipt proof verification by only accepting the\n`ValueMismatch { got: Some(_), expected: None }` extraction path when\nthe mismatch path equals the queried trie key.",
-          "timestamp": "2026-04-14T07:12:38Z",
-          "tree_id": "5969e64309265cead3cc9da652e221425c1d2ebc",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/728514a8eb057de1b75bb62068d09f032cf1c1e3"
-        },
-        "date": 1776155763202,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.02599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08434749844799992,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03821408180199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08332245914199995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "732802042d7d6aa97ea8e76b3301659d0833b7f7",
+          "message": " [Release|CI/CD] prdoc: make the changelog topic field usable by contributors (#13623)\n\nCloses: https://github.com/paritytech/release-engineering/issues/300\n\nPart of paritytech/polkadot-sdk#6424 \n\nMakes the optional prdoc `topic` override discoverable and safe to use.\nNow `topic` can be added (if needed) in three ways:\n1. Auto generated based on the schema\n2. Directly in the .prdoc file using `topic` field\n3. Bu using `cmd-bot`: `/cmd prdoc --topic <id>` with the reason posted\nback on failure\n\nAlso added:\n- docs in schema, template and docs; \n- soft validation in `check-prdoc.py` (warning, never a failure);\n- unknown values are a notice in the changelog generator (and its CI job\nsummary) instead of a failed --check.\n\nTopic matching lives in one place (`match_topic` in generate.py, shared\nvia .github/scripts/prdoc_topics.py), with `aliases` for legacy values.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T11:20:40Z",
+          "tree_id": "9a2f6daee2cc8e38a0a02714730e8a99b0037c34",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/732802042d7d6aa97ea8e76b3301659d0833b7f7"
+        },
+        "date": 1793278918479,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.10199999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039300229297999985,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08763660009399989,
             "unit": "seconds"
           }
         ]
