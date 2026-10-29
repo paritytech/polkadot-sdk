@@ -21,17 +21,15 @@ The Balances module provides functions for:
 
 ### Terminology
 
-- **Existential Deposit:** The minimum balance required to create or keep an account open. This prevents "dust accounts"
-from filling storage. When the free plus the reserved balance (i.e. the total balance) fall below this, then the account
-  is said to be dead; and it loses its functionality as well as any prior history and all information on it is removed
-  from the chain's state. No account should ever have a total balance that is strictly between 0 and the existential
-  deposit (exclusive). If this ever happens, it indicates either a bug in this module or an erroneous raw mutation of
-  storage.
+- **Existential Deposit:** The free balance required for this pallet to provide a system account
+  reference. A balance below ED can remain while reserves or freezes require a consumer reference,
+  provided another provider reference exists. If neither reserves nor freezes remain, a positive
+  free balance below ED is removed as dust.
 
 - **Total Issuance:** The total number of units in existence in a system.
 
-- **Reaping an account:** The act of removing an account by resetting its nonce. Happens after its total balance has
-become zero (or, strictly speaking, less than the Existential Deposit).
+- **Reaping an account:** Removing an account's balances data. The system account and nonce are
+  removed only when system reference-counting rules permit it.
 
 - **Free Balance:** The portion of a balance that is not reserved. The free balance is the only balance that matters for
   most operations.

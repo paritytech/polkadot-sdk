@@ -26,30 +26,9 @@ use frame_support::traits::{
 	},
 	InspectLockableCurrency, LockableCurrency, WithdrawReasons,
 };
-use fungible::{Balanced, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold};
+use fungible::{Balanced, InspectFreeze, Mutate, MutateFreeze};
 
 const OUTER_LOCK_ID: LockIdentifier = *b"OUTER___";
-
-#[test]
-fn reentrant_dust_handler_hold_is_not_overwritten() {
-	let alice = 1;
-	ExtBuilder::default()
-		.existential_deposit(10)
-		.reentrant_dust_hold(alice)
-		.build_and_execute_with(|| {
-			Balances::set_balance(&alice, 100);
-			TotalIssuance::<Test>::put(100);
-			let _ = System::inc_providers(&alice);
-			assert_ok!(Balances::hold(&TestId::Foo, &alice, 50));
-			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(alice), 2, 45));
-
-			assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Exact));
-
-			assert_eq!(Balances::balance_on_hold(&TestId::Bar, &alice), 7);
-			assert_eq!(Balances::total_balance_on_hold(&alice), 7);
-			ensure_ti_valid();
-		});
-}
 
 #[test]
 fn reentrant_dust_handler_freeze_is_not_overwritten() {

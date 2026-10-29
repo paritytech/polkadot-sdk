@@ -25,7 +25,7 @@ use frame_support::traits::{
 		Preservation::{Expendable, Preserve, Protect},
 		Restriction::Free,
 	},
-	Consideration, Footprint, LinearStoragePrice, MaybeConsideration,
+	Consideration, Footprint, LinearStoragePrice, MaybeConsideration, ReservableCurrency,
 };
 use fungible::{
 	FreezeConsideration, HoldConsideration, Inspect, InspectFreeze, InspectHold,
@@ -417,6 +417,432 @@ fn burn_held() {
 			assert_eq!(Balances::total_balance(&account), 6);
 			assert_eq!(Balances::total_issuance(), 106);
 		});
+}
+
+#[test]
+fn set_balance_on_hold_rejects_dusting_free_balance() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		System::inc_providers(&1);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+		// Establish the hold before reducing free below ED to isolate hold removal.
+		assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+		assert_eq!(Balances::free_balance(1), 5);
+		let account = get_test_account(1);
+		let issuance = Balances::total_issuance();
+
+		assert_noop!(
+			<Balances as fungible::UnbalancedHold<_>>::set_balance_on_hold(&TestId::Foo, &1, 0),
+			TokenError::NotExpendable
+		);
+		assert_ok!(<Balances as fungible::UnbalancedHold<_>>::set_balance_on_hold(
+			&TestId::Foo,
+			&1,
+			5
+		));
+		assert_ok!(<Balances as fungible::UnbalancedHold<_>>::set_balance_on_hold(
+			&TestId::Bar,
+			&1,
+			0
+		));
+		assert_eq!(get_test_account(1), account);
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 5);
+		assert_eq!(Balances::balance_on_hold(&TestId::Bar, &1), 0);
+		assert_eq!(Balances::total_balance_on_hold(&1), 5);
+		assert_eq!(Balances::total_issuance(), issuance);
+		assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+	});
+}
+
+#[test]
+fn decrease_balance_on_hold_preserves_free_dust_by_precision() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		System::inc_providers(&1);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+		assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+		assert_eq!(Balances::free_balance(1), 5);
+		let account = get_test_account(1);
+		let issuance = Balances::total_issuance();
+
+		assert_noop!(
+			<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+				&TestId::Foo,
+				&1,
+				6,
+				Exact
+			),
+			TokenError::FundsUnavailable
+		);
+		assert_noop!(
+			<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+				&TestId::Foo,
+				&1,
+				5,
+				Exact
+			),
+			TokenError::NotExpendable
+		);
+		assert_eq!(get_test_account(1), account);
+		assert_eq!(
+			<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+				&TestId::Foo,
+				&1,
+				6,
+				BestEffort
+			),
+			Ok(4)
+		);
+		for precision in [Exact, BestEffort] {
+			assert_eq!(
+				<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+					&TestId::Foo,
+					&1,
+					0,
+					precision
+				),
+				Ok(0)
+			);
+		}
+		assert_eq!(
+			<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+				&TestId::Foo,
+				&1,
+				1,
+				BestEffort
+			),
+			Ok(0)
+		);
+		assert_noop!(
+			<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+				&TestId::Foo,
+				&1,
+				1,
+				Exact
+			),
+			TokenError::NotExpendable
+		);
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 1);
+		assert_eq!(Balances::total_balance_on_hold(&1), 1);
+		// Unbalanced primitives leave issuance reconciliation to their caller.
+		assert_eq!(Balances::total_issuance(), issuance);
+		assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+	});
+}
+
+#[test]
+fn hold_primitives_allow_full_removal_without_free_dust() {
+	for (other_hold, frozen, legacy_reserve, zero_free) in [
+		(true, false, false, false),
+		(false, true, false, false),
+		(false, false, true, false),
+		(false, false, false, true),
+	] {
+		// Exercise the setter and both decrease precisions independently.
+		for operation in 0..3 {
+			ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+				let held = if zero_free { 10 } else { 5 };
+				assert_ok!(Balances::mint_into(&1, 100));
+				System::inc_providers(&1);
+				assert_ok!(Balances::hold(&TestId::Foo, &1, held));
+				if other_hold {
+					assert_ok!(Balances::hold(&TestId::Bar, &1, 1));
+				}
+				if frozen {
+					assert_ok!(Balances::set_freeze(&TestId::Bar, &1, 1));
+				}
+				if legacy_reserve {
+					assert_ok!(<Balances as ReservableCurrency<_>>::reserve(&1, 1));
+				}
+				let free = if zero_free { 0 } else { 5 };
+				let excess = Balances::free_balance(1) - free;
+				assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, excess, Expendable));
+				assert_eq!(Balances::free_balance(1), free);
+				let issuance = Balances::total_issuance();
+				assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+
+				match operation {
+					0 => {
+						assert_ok!(<Balances as fungible::UnbalancedHold<_>>::set_balance_on_hold(
+							&TestId::Foo,
+							&1,
+							0
+						));
+					},
+					_ => assert_eq!(
+						<Balances as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
+							&TestId::Foo,
+							&1,
+							held,
+							if operation == 1 { Exact } else { BestEffort }
+						),
+						Ok(held)
+					),
+				}
+				assert_eq!(Balances::free_balance(1), if zero_free { 0 } else { 5 });
+				assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 0);
+				assert_eq!(Balances::balance_on_hold(&TestId::Bar, &1), u64::from(other_hold));
+				assert_eq!(
+					Balances::total_balance_on_hold(&1),
+					u64::from(other_hold || legacy_reserve)
+				);
+				assert_eq!(Balances::balance_frozen(&TestId::Bar, &1), u64::from(frozen));
+				assert_eq!(Balances::total_issuance(), issuance);
+				assert_eq!(
+					(System::providers(&1), System::consumers(&1)),
+					(1, u32::from(!zero_free))
+				);
+			});
+		}
+	}
+}
+
+#[test]
+fn burn_held_accounts_only_for_safe_actual_reduction() {
+	for force in [Polite, Force] {
+		ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+			assert_ok!(Balances::mint_into(&1, 100));
+			System::inc_providers(&1);
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+			assert_eq!(Balances::free_balance(1), 5);
+			let issuance = Balances::total_issuance();
+
+			assert_noop!(
+				Balances::burn_held(&TestId::Foo, &1, 5, Exact, force),
+				TokenError::NotExpendable
+			);
+			assert_eq!(Balances::burn_held(&TestId::Foo, &1, 6, BestEffort, force), Ok(4));
+			System::assert_last_event(RuntimeEvent::Balances(crate::Event::BurnedHeld {
+				reason: TestId::Foo,
+				who: 1,
+				amount: 4,
+			}));
+			assert_eq!(Balances::free_balance(1), 5);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 1);
+			assert_eq!(Balances::total_balance(&1), 6);
+			assert_eq!(Balances::total_issuance(), issuance - 4);
+			assert_eq!(Balances::burn_held(&TestId::Foo, &1, 1, BestEffort, force), Ok(0));
+			assert_eq!(Balances::total_issuance(), issuance - 4);
+			assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+		});
+	}
+}
+
+#[test]
+fn balanced_hold_slash_accounts_only_for_safe_actual_reduction() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		System::inc_providers(&1);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+		assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+		assert_eq!(Balances::free_balance(1), 5);
+		let issuance = Balances::total_issuance();
+
+		let (credit, unslashed) =
+			<Balances as fungible::BalancedHold<_>>::slash(&TestId::Foo, &1, 6);
+		assert_eq!(credit.peek(), 4);
+		assert_eq!(unslashed, 2);
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 1);
+		assert_eq!(Balances::total_balance(&1), 6);
+		assert_eq!(Balances::total_issuance(), issuance);
+		drop(credit);
+		assert_eq!(Balances::total_issuance(), issuance - 4);
+
+		let (credit, unslashed) =
+			<Balances as fungible::BalancedHold<_>>::slash(&TestId::Foo, &1, 1);
+		assert_eq!(credit.peek(), 0);
+		assert_eq!(unslashed, 1);
+		drop(credit);
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 1);
+		assert_eq!(Balances::total_issuance(), issuance - 4);
+		assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+	});
+}
+
+#[test]
+fn transfer_on_hold_preserves_source_free_dust_by_precision() {
+	for mode in [Free, frame_support::traits::tokens::Restriction::OnHold] {
+		ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+			assert_ok!(Balances::mint_into(&1, 100));
+			assert_ok!(Balances::mint_into(&2, 10));
+			System::inc_providers(&1);
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+			assert_eq!(Balances::free_balance(1), 5);
+			let source = get_test_account(1);
+			let dest = get_test_account(2);
+			let issuance = Balances::total_issuance();
+
+			assert_noop!(
+				Balances::transfer_on_hold(&TestId::Foo, &1, &2, 5, Exact, mode, Polite),
+				TokenError::NotExpendable
+			);
+			assert_eq!(get_test_account(1), source);
+			assert_eq!(get_test_account(2), dest);
+			assert_eq!(
+				Balances::transfer_on_hold(&TestId::Foo, &1, &2, 6, BestEffort, mode, Polite),
+				Ok(4)
+			);
+			System::assert_last_event(RuntimeEvent::Balances(crate::Event::TransferOnHold {
+				reason: TestId::Foo,
+				source: 1,
+				dest: 2,
+				amount: 4,
+			}));
+			assert_eq!(Balances::free_balance(1), 5);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 1);
+			assert_eq!(Balances::total_balance(&1), 6);
+			assert_eq!(Balances::free_balance(2), if mode == Free { 14 } else { 10 });
+			assert_eq!(
+				Balances::balance_on_hold(&TestId::Foo, &2),
+				if mode == Free { 0 } else { 4 }
+			);
+			assert_eq!(Balances::total_balance(&2), 14);
+			assert_eq!(Balances::total_issuance(), issuance);
+			assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+			assert_eq!(
+				(System::providers(&2), System::consumers(&2)),
+				(1, u32::from(mode != Free))
+			);
+		});
+	}
+}
+
+#[test]
+fn transfer_on_hold_to_new_account_below_ed_does_not_lose_funds() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		System::inc_providers(&1);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 10));
+		assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 85, Expendable));
+		assert_eq!(Balances::free_balance(1), 5);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 10);
+		assert_eq!(Balances::total_balance(&2), 0);
+
+		assert_storage_noop!({
+			// The caller catches the error and commits, so the transfer must roll itself back.
+			assert_ok!(frame_support::storage::with_storage_layer(|| -> DispatchResult {
+				// Retaining one unit reduces the actual credit to 9, below the destination's ED.
+				let result =
+					Balances::transfer_on_hold(&TestId::Foo, &1, &2, 10, BestEffort, Free, Polite);
+				ensure_ti_valid();
+				assert_eq!(result, Err(TokenError::BelowMinimum.into()));
+				Ok(())
+			}));
+		});
+	});
+}
+
+#[test]
+fn self_transfer_on_hold_to_free_is_atomic_at_existential_deposit() {
+	for precision in [Exact, BestEffort] {
+		ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+			assert_ok!(Balances::mint_into(&1, 100));
+			System::inc_providers(&1);
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+			assert_eq!(Balances::free_balance(1), 5);
+			let issuance = Balances::total_issuance();
+			System::reset_events();
+
+			assert_eq!(
+				Balances::transfer_on_hold(&TestId::Foo, &1, &1, 5, precision, Free, Polite),
+				Ok(5)
+			);
+			assert_eq!(Balances::free_balance(1), 10);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 0);
+			assert_eq!(Balances::total_balance_on_hold(&1), 0);
+			assert_eq!(Balances::total_issuance(), issuance);
+			assert_eq!((System::providers(&1), System::consumers(&1)), (2, 0));
+			assert_eq!(
+				events(),
+				vec![RuntimeEvent::Balances(crate::Event::TransferOnHold {
+					reason: TestId::Foo,
+					source: 1,
+					dest: 1,
+					amount: 5,
+				})]
+			);
+		});
+	}
+}
+
+#[test]
+fn self_transfer_on_hold_to_free_preserves_sub_ed_free_by_precision() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		assert_ok!(Balances::mint_into(&1, 100));
+		System::inc_providers(&1);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 8));
+		assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+		assert_eq!(Balances::free_balance(1), 2);
+		assert_eq!(Balances::burn_held(&TestId::Foo, &1, 3, Exact, Polite), Ok(3));
+		let account = get_test_account(1);
+		let issuance = Balances::total_issuance();
+		System::reset_events();
+
+		assert_noop!(
+			Balances::transfer_on_hold(&TestId::Foo, &1, &1, 5, Exact, Free, Polite),
+			TokenError::NotExpendable
+		);
+		assert_eq!(get_test_account(1), account);
+		assert_eq!(
+			Balances::transfer_on_hold(&TestId::Foo, &1, &1, 5, BestEffort, Free, Polite),
+			Ok(4)
+		);
+		assert_eq!(Balances::free_balance(1), 6);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 1);
+		assert_eq!(Balances::total_balance(&1), 7);
+		assert_eq!(Balances::total_issuance(), issuance);
+		assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+		assert_eq!(
+			events(),
+			vec![RuntimeEvent::Balances(crate::Event::TransferOnHold {
+				reason: TestId::Foo,
+				source: 1,
+				dest: 1,
+				amount: 4,
+			})]
+		);
+	});
+}
+
+#[test]
+fn self_transfer_on_hold_to_hold_does_not_remove_source_hold() {
+	for precision in [Exact, BestEffort] {
+		ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+			assert_ok!(Balances::mint_into(&1, 100));
+			System::inc_providers(&1);
+			assert_ok!(Balances::hold(&TestId::Foo, &1, 5));
+			assert_ok!(<Balances as fungible::Mutate<_>>::transfer(&1, &3, 90, Expendable));
+			assert_eq!(Balances::free_balance(1), 5);
+			let account = get_test_account(1);
+			let issuance = Balances::total_issuance();
+
+			assert_eq!(
+				Balances::transfer_on_hold(
+					&TestId::Foo,
+					&1,
+					&1,
+					5,
+					precision,
+					frame_support::traits::tokens::Restriction::OnHold,
+					Polite
+				),
+				Ok(5)
+			);
+			assert_eq!(get_test_account(1), account);
+			assert_eq!(Balances::free_balance(1), 5);
+			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 5);
+			assert_eq!(Balances::total_balance_on_hold(&1), 5);
+			assert_eq!(Balances::total_issuance(), issuance);
+			assert_eq!((System::providers(&1), System::consumers(&1)), (1, 1));
+		});
+	}
 }
 
 #[test]

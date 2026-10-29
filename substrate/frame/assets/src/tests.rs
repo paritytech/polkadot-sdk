@@ -1705,6 +1705,44 @@ fn freezing_and_holds_work() {
 }
 
 #[test]
+fn sub_minimum_hold_prevents_dusting_free_balance() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		set_balance_on_hold(0, 1, 5);
+
+		// A hold smaller than the minimum must still prevent dusting the free balance.
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 90),
+			Error::<Test>::BalanceLow
+		);
+		assert_eq!(Assets::balance(0, 1), 95);
+		assert_eq!(Assets::balance(0, 2), 0);
+
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 85));
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_eq!(Assets::balance(0, 2), 85);
+		assert_eq!(TestHolder::balance_on_hold(0, &1), Some(5));
+		assert_eq!(Assets::total_supply(0), Assets::balance(0, 1) + Assets::balance(0, 2) + 5);
+	});
+}
+
+#[test]
+fn best_effort_credit_to_new_account_below_minimum_is_rejected() {
+	use frame_support::traits::{fungibles::Unbalanced, tokens::Precision};
+
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+
+		assert_noop!(
+			<Assets as Unbalanced<_>>::increase_balance(0, &2, 9, Precision::BestEffort),
+			TokenError::BelowMinimum
+		);
+	});
+}
+
+#[test]
 fn imbalances_should_work() {
 	use frame_support::traits::fungibles::Balanced;
 
