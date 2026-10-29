@@ -985,7 +985,7 @@ impl Client {
 		let Some(block) = self.block_for_tag(at).await? else {
 			return Ok(None);
 		};
-		let receipts = self.receipt_provider.receipts_of_block(&block).await?;
+		let receipts = self.receipt_provider.block_receipts(&block).await?;
 		Ok(Some(receipts))
 	}
 
@@ -1037,10 +1037,6 @@ impl Client {
 		self.receipt_provider
 			.receipt_by_block_hash_and_index(block_hash, transaction_index)
 			.await
-	}
-
-	pub async fn signed_tx_by_hash(&self, tx_hash: &H256) -> Option<TransactionSigned> {
-		self.receipt_provider.signed_tx_by_hash(tx_hash).await
 	}
 
 	/// Get an EVM transaction and its receipt by transaction hash.

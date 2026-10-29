@@ -23,9 +23,7 @@ use crate::{
 };
 use pallet_revive::evm::TransactionSigned;
 use sp_core::{H256, U256};
-use sqlx::{
-	FromRow, QueryBuilder, Sqlite, SqliteConnection, SqlitePool, query, query_as, query_scalar,
-};
+use sqlx::{FromRow, QueryBuilder, Sqlite, SqlitePool, query, query_as, query_scalar};
 use std::{
 	collections::{BTreeMap, HashMap},
 	sync::Arc,
@@ -152,28 +150,15 @@ fn decode_stored_signed_tx(signed_tx: &[u8]) -> Result<TransactionSigned, sqlx::
 	TransactionSigned::decode(signed_tx).map_err(|err| sqlx::Error::Decode(err.into()))
 }
 
-/// The logs of the transaction at `transaction_index` in the Ethereum block `ethereum_hash`, in
-/// log index order.
-async fn transaction_logs(
-	connection: &mut SqliteConnection,
-	ethereum_hash: &[u8],
-	transaction_index: i64,
-) -> Result<Vec<Log>, sqlx::Error> {
-	let logs = query_as!(
-		LogRow,
-		r#"
-		SELECT block_hash, transaction_index, log_index, address, block_number,
-			transaction_hash, topic_0, topic_1, topic_2, topic_3, data
-		FROM logs
-		WHERE block_hash = $1 AND transaction_index = $2
-		ORDER BY log_index
-		"#,
-		ethereum_hash,
-		transaction_index,
-	)
-	.fetch_all(connection)
-	.await?;
-	Ok(logs.into_iter().map(Log::from).collect())
+/// What the database holds for one transaction of a block.
+enum StoredTransaction {
+	/// The block's receipts are not stored in [`RECEIPTS_VERSION`]: the block is unknown, or it
+	/// was indexed before receipts were stored or in another format.
+	NotStored,
+	/// The block's receipts are stored and it has no transaction at the requested index.
+	Missing,
+	/// The stored signed transaction and its receipt.
+	Found(TransactionSigned, ReceiptInfo),
 }
 
 /// SQLite connection pool with precomputed bulk-insert chunk sizes.
@@ -290,7 +275,12 @@ macro_rules! upsert_sync_label {
 	}};
 }
 
-/// Insert the block mapping, recording that the block's rows were written in [`RECEIPTS_VERSION`].
+/// Insert the block mapping.
+///
+/// The row also marks the block's receipts as stored in [`RECEIPTS_VERSION`]: lookups in the block
+/// are then answered from the `receipts` table alone, and a missing row there means the block has
+/// no transaction at that index. Write the block's receipt rows, if any, in the same database
+/// transaction before calling this.
 async fn insert_block_mapping<'e, E: sqlx::Executor<'e, Database = Sqlite>>(
 	executor: E,
 	block_map: &BlockHashMap,
@@ -653,22 +643,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.await
 	}
 
-	/// Fetch all receipts and signed transactions of the given block from the node.
-	///
-	/// Use [`Self::receipts_of_block`] when the signed transactions are not needed: it serves the
-	/// receipts stored at index time.
-	pub async fn block_receipts(
-		&self,
-		block: &SubstrateBlock,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		self.receipt_extractor.extract_from_block(block).await
-	}
-
 	/// Fetch all receipts of the given block, in transaction order.
 	///
 	/// Served from the database when the block's receipts were stored at index time, rebuilt
 	/// from the node otherwise.
-	pub async fn receipts_of_block(
+	pub async fn block_receipts(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<ReceiptInfo>, ClientError> {
@@ -677,7 +656,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			Ok(Some(receipts)) => return Ok(receipts),
 			Ok(None) => {},
 			Err(err) => log::warn!(target: LOG_TARGET,
-				"receipts_of_block: failed to read stored receipts of block {block_hash:?}, \
+				"block_receipts: failed to read stored receipts of block {block_hash:?}, \
 				 rebuilding them: {err:?}"),
 		}
 		let receipts = self.receipt_extractor.extract_from_block(block).await?;
@@ -757,57 +736,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(Some(receipts))
 	}
 
-	/// The receipt of the given transaction as stored at index time.
-	///
-	/// `None` if the block's receipts are not stored in [`RECEIPTS_VERSION`]. `Some(None)` if they
-	/// are and the block has no transaction at `transaction_index`.
-	///
-	/// Both reads run in one transaction, so a concurrent removal of the block is seen either
-	/// completely or not at all.
-	async fn stored_receipt(
-		&self,
-		substrate_hash: &H256,
-		transaction_index: usize,
-	) -> Result<Option<Option<ReceiptInfo>>, ClientError> {
-		let substrate_hash = substrate_hash.as_ref();
-		let transaction_index = transaction_index as i64;
-		let mut db_tx = self.db_ctx.pool.begin().await?;
-
-		let Some(row) = query!(
-			r#"
-			SELECT eth_to_substrate_blocks.ethereum_block_hash,
-				receipts.receipt AS "receipt?"
-			FROM eth_to_substrate_blocks
-			LEFT JOIN receipts
-				ON receipts.block_hash = eth_to_substrate_blocks.substrate_block_hash
-				AND receipts.transaction_index = $1
-			WHERE eth_to_substrate_blocks.substrate_block_hash = $2
-				AND eth_to_substrate_blocks.receipts_version = $3
-			"#,
-			transaction_index,
-			substrate_hash,
-			RECEIPTS_VERSION,
-		)
-		.fetch_optional(&mut *db_tx)
-		.await?
-		else {
-			return Ok(None);
-		};
-		let Some(receipt) = row.receipt else {
-			return Ok(Some(None));
-		};
-		let mut receipt = decode_stored_receipt(&receipt)?;
-		receipt.logs =
-			transaction_logs(&mut db_tx, &row.ethereum_block_hash, transaction_index).await?;
-		db_tx.commit().await?;
-		Ok(Some(Some(receipt)))
-	}
-
 	/// The signed transaction at `transaction_index` in the given block and its receipt, as
 	/// stored at index time.
-	///
-	/// `None` if the block's receipts are not stored in [`RECEIPTS_VERSION`]. `Some(None)` if they
-	/// are and the block has no transaction at `transaction_index`.
 	///
 	/// Both reads run in one transaction, so a concurrent removal of the block is seen either
 	/// completely or not at all.
@@ -815,7 +745,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		&self,
 		substrate_hash: &H256,
 		transaction_index: usize,
-	) -> Result<Option<Option<(TransactionSigned, ReceiptInfo)>>, ClientError> {
+	) -> Result<StoredTransaction, ClientError> {
 		let substrate_hash = substrate_hash.as_ref();
 		let transaction_index = transaction_index as i64;
 		let mut db_tx = self.db_ctx.pool.begin().await?;
@@ -839,17 +769,32 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		.fetch_optional(&mut *db_tx)
 		.await?
 		else {
-			return Ok(None);
+			return Ok(StoredTransaction::NotStored);
 		};
 		let (Some(receipt), Some(signed_tx)) = (row.receipt, row.signed_tx) else {
-			return Ok(Some(None));
+			return Ok(StoredTransaction::Missing);
 		};
 		let mut receipt = decode_stored_receipt(&receipt)?;
 		let signed_tx = decode_stored_signed_tx(&signed_tx)?;
-		receipt.logs =
-			transaction_logs(&mut db_tx, &row.ethereum_block_hash, transaction_index).await?;
+		receipt.logs = query_as!(
+			LogRow,
+			r#"
+			SELECT block_hash, transaction_index, log_index, address, block_number,
+				transaction_hash, topic_0, topic_1, topic_2, topic_3, data
+			FROM logs
+			WHERE block_hash = $1 AND transaction_index = $2
+			ORDER BY log_index
+			"#,
+			row.ethereum_block_hash,
+			transaction_index,
+		)
+		.fetch_all(&mut *db_tx)
+		.await?
+		.into_iter()
+		.map(Log::from)
+		.collect();
 		db_tx.commit().await?;
-		Ok(Some(Some((signed_tx, receipt))))
+		Ok(StoredTransaction::Found(signed_tx, receipt))
 	}
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
@@ -1033,9 +978,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.collect::<Result<Vec<_>, sqlx::Error>>()?;
 
 		for chunk in stored_receipts.chunks(self.db_ctx.receipt_insert_chunk_size) {
-			let mut query_builder = QueryBuilder::<Sqlite>::new(
-				"INSERT OR REPLACE INTO receipts (block_hash, transaction_index, receipt, signed_tx) ",
-			);
+			let mut query_builder = QueryBuilder::<Sqlite>::new(concat!(
+				"INSERT OR REPLACE INTO receipts ",
+				"(block_hash, transaction_index, receipt, signed_tx) ",
+			));
 			query_builder.push_values(chunk, |mut row, (tx_index, receipt, signed_tx)| {
 				row.push_bind(substrate_hash_ref)
 					.push_bind(*tx_index)
@@ -1228,20 +1174,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_hash: &H256,
 		transaction_index: usize,
 	) -> Option<ReceiptInfo> {
-		match self.stored_receipt(block_hash, transaction_index).await {
-			Ok(Some(receipt)) => return receipt,
-			Ok(None) => {},
-			Err(err) => log::warn!(target: LOG_TARGET,
-				"receipt_by_block_hash_and_index: failed to read stored receipt of tx index \
-				 {transaction_index} in block {block_hash:?}, rebuilding it: {err:?}"),
-		}
-
-		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
-		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
+		let (_, receipt) =
+			self.transaction_by_block_hash_and_index(block_hash, transaction_index).await?;
 		Some(receipt)
 	}
 
@@ -1251,46 +1185,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// from the node otherwise.
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
-
-		match self.stored_receipt(&block_hash, transaction_index).await {
-			Ok(Some(receipt)) => return receipt,
-			Ok(None) => {},
-			Err(err) => log::warn!(target: LOG_TARGET,
-				"receipt_by_hash: failed to read stored receipt of tx {transaction_hash:?} in \
-				 block {block_hash:?}, rebuilding it: {err:?}"),
-		}
-
-		let block = match self.block_provider.block_by_hash(&block_hash).await {
-			Ok(Some(b)) => b,
-			Ok(None) => {
-				log::trace!(target: LOG_TARGET,
-					"receipt_by_hash: block {block_hash:?} not available from node (pruned?) for tx {transaction_hash:?}");
-				return None;
-			},
-			Err(err) => {
-				log::trace!(target: LOG_TARGET,
-					"receipt_by_hash: failed to fetch block {block_hash:?} for tx {transaction_hash:?}: {err:?}");
-				return None;
-			},
-		};
-
-		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
-			Ok((_, receipt)) => Some(receipt),
-			Err(err) => {
-				log::trace!(target: LOG_TARGET,
-					"receipt_by_hash: extraction failed for tx {transaction_hash:?} in block {block_hash:?}: {err:?}");
-				None
-			},
-		}
-	}
-
-	/// Get the signed transaction for the given transaction hash.
-	///
-	/// Served from the database when the block's receipts were stored at index time, rebuilt
-	/// from the node otherwise.
-	pub async fn signed_tx_by_hash(&self, transaction_hash: &H256) -> Option<TransactionSigned> {
-		let (signed_tx, _) = self.transaction_by_hash(transaction_hash).await?;
-		Some(signed_tx)
+		self.receipt_by_block_hash_and_index(&block_hash, transaction_index).await
 	}
 
 	/// Get the signed transaction and the receipt for the given transaction hash.
@@ -1316,14 +1211,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		transaction_index: usize,
 	) -> Option<(TransactionSigned, ReceiptInfo)> {
 		match self.stored_transaction(block_hash, transaction_index).await {
-			Ok(Some(transaction)) => return transaction,
-			Ok(None) => {},
+			Ok(StoredTransaction::Found(signed_tx, receipt)) => return Some((signed_tx, receipt)),
+			Ok(StoredTransaction::Missing) => return None,
+			Ok(StoredTransaction::NotStored) => {},
 			Err(err) => log::warn!(target: LOG_TARGET,
 				"transaction_by_block_hash_and_index: failed to read stored transaction at \
 				 index {transaction_index} in block {block_hash:?}, rebuilding it: {err:?}"),
 		}
 
-		let block = self.block_provider.block_by_hash(block_hash).await.ok()??;
+		let block = match self.block_provider.block_by_hash(block_hash).await {
+			Ok(Some(block)) => block,
+			Ok(None) => {
+				log::trace!(target: LOG_TARGET,
+					"transaction_by_block_hash_and_index: block {block_hash:?} not available \
+					 from node (pruned?)");
+				return None;
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"transaction_by_block_hash_and_index: failed to fetch block {block_hash:?}: \
+					 {err:?}");
+				return None;
+			},
+		};
 		self.receipt_extractor
 			.extract_from_transaction(&block, transaction_index)
 			.await
@@ -2695,7 +2605,6 @@ mod tests {
 				provider.receipt_by_block_hash_and_index(&block.hash, index).await.as_ref(),
 				Some(receipt)
 			);
-			assert_eq!(provider.signed_tx_by_hash(&hash).await.as_ref(), Some(signed_tx));
 			assert_eq!(provider.transaction_by_hash(&hash).await, transaction);
 			assert_eq!(
 				provider.transaction_by_block_hash_and_index(&block.hash, index).await,
