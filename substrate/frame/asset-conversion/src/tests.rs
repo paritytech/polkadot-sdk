@@ -1291,6 +1291,12 @@ fn blocked_or_frozen_pool_is_unavailable() {
 		assert_ok!(Assets::thaw(RuntimeOrigin::signed(user), 2, pool_account));
 		assert!(quote_token_2_to_native().iter().all(Option::is_some));
 
+		// Frozen asset class: no quote, until it's thawed.
+		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(user), 2));
+		assert_eq!(quote_token_2_to_native(), [None, None]);
+		assert_ok!(Assets::thaw_asset(RuntimeOrigin::signed(user), 2));
+		assert!(quote_token_2_to_native().iter().all(Option::is_some));
+
 		// Frozen pool can't send token_2, so it's halted in both directions.
 		assert_ok!(Assets::freeze(RuntimeOrigin::signed(user), 2, pool_account));
 		assert_eq!(quote_token_2_to_native(), [None, None]);

@@ -414,7 +414,8 @@ pub mod pallet {
 		PoolEmpty,
 		/// The fee exceeds [`Config::MaxSwapFee`].
 		FeeTooHigh,
-		/// The pool account can't send one of its assets (e.g. the asset class is frozen or the pool account is blocked).
+		/// The pool account can't send one of its assets (e.g. the asset class is frozen or the
+		/// pool account is blocked).
 		PoolUnavailable,
 	}
 
@@ -1271,7 +1272,7 @@ pub mod pallet {
 		}
 
 		/// Ensures nothing like a freeze or block stops `pool_account` from sending its `asset`.
-		pub(crate) fn ensure_pool_not_blocked(
+		pub(crate) fn ensure_pool_can_send(
 			pool_account: &T::AccountId,
 			asset: T::AssetKind,
 		) -> Result<(), Error<T>> {
@@ -1527,8 +1528,8 @@ pub mod pallet {
 				Err(Error::<T>::PoolEmpty)?;
 			}
 
-			Self::ensure_pool_not_blocked(&pool_account, asset1)?;
-			Self::ensure_pool_not_blocked(&pool_account, asset2)?;
+			Self::ensure_pool_can_send(&pool_account, asset1)?;
+			Self::ensure_pool_can_send(&pool_account, asset2)?;
 
 			Ok((balance1, balance2))
 		}
