@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793292276972,
+  "lastUpdate": 1793298761819,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5e15555a5c52e422d12bca05dbfaf7e0f425f75c",
-          "message": "Bump westend runtimes spec_versions (#11757)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-15T09:46:10Z",
-          "tree_id": "5c750c7d6797db721a1bd172049d7d189645e391",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e15555a5c52e422d12bca05dbfaf7e0f425f75c"
-        },
-        "date": 1776251204745,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007348743793333335,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14092734081333347,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009693846779999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025411868259999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14098429361333326,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8623a0404e500a0ba9d4941f0109b2d59155732",
+          "message": "Check the validation data (#13637)\n\nEnsure that the validation data hash matches the one stored in the\ncandidate receipt that is stored on chain.",
+          "timestamp": "2026-10-29T16:55:57Z",
+          "tree_id": "e2ea8a54449be60fb607cdedaed6e65912f5c459",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/b8623a0404e500a0ba9d4941f0109b2d59155732"
+        },
+        "date": 1793298733565,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009848888919999967,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007659726773333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025120545020000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14289077516666676,
             "unit": "seconds"
           }
         ]
