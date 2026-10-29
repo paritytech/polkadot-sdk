@@ -484,7 +484,7 @@ impl VmBinaryModule {
 	/// A contract whose `call` export starts with a basic block of two instructions.
 	///
 	/// It holds the same instructions as [`Self::with_full_entry_block`], so its code has the
-	/// same size. Only the `fallthrough` comes right after the `ecalli SENTINEL`: the entry block
+	/// same size. The `fallthrough` comes right after the `ecalli SENTINEL`, so the entry block
 	/// holds these two instructions and all fillers are in the second block.
 	pub fn with_small_entry_block() -> Self {
 		Self::with_entry_block_size(2)
@@ -583,7 +583,7 @@ mod tests {
 	/// The contracts of the `basic_block_compilation` benchmark differ only in the size of the
 	/// entry block.
 	#[test]
-	fn basic_block_compilation_contracts() {
+	fn basic_block_compilation_benchmark_contracts() {
 		let entry_block_size = |module: &VmBinaryModule| {
 			let blob = ProgramBlob::parse(module.code[..].into()).unwrap();
 			let call = blob.exports().find(|export| export.symbol().as_bytes() == b"call").unwrap();

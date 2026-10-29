@@ -3,12 +3,12 @@ title: '[pallet-revive] Measure basic block compilation in its benchmark'
 doc:
 - audience: Runtime Dev
   description: |-
-    The `basic_block_compilation` benchmark now measures what `pallet-revive` charges it for:
-    compiling one maximum-sized basic block. Every call into a PVM contract is charged
+    The `basic_block_compilation` benchmark measures compiling one maximum-sized basic block,
+    which every call into a PVM contract is charged as
     `basic_block_compilation(1) - basic_block_compilation(0)` on top of the per-byte code load
     cost.
 
-    The benchmark now calls a contract whose entry block has 2 instructions for `b = 0` and
+    The benchmark calls a contract whose entry block has 2 instructions for `b = 0` and
     `BASIC_BLOCK_SIZE` instructions for `b = 1`. Both contracts contain the same instructions in
     a different order, so they have the same size and cause the same storage reads. The slope
     is the time the interpreter needs to compile the additional instructions of the larger
