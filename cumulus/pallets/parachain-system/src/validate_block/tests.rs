@@ -22,6 +22,10 @@ use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CollectCollationInfo, CoreInfo, CoreSelector,
 	CumulusDigestItem, ParaId, ParachainBlockData, PersistedValidationData,
 };
+use cumulus_primitives_spec_messaging::{
+	leaf_hash, streams_root::gen_stream_proof, ConsumeItem, LiftsBySource, MMRExtensionProof,
+	MessagingInherentData, MmrFrontier, RequiresLift, StreamId, StreamsRoot, LEAF_VERSION,
+};
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
 	runtime::{
@@ -35,6 +39,7 @@ use cumulus_test_client::{
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use polkadot_parachain_primitives::primitives::ValidationResult;
+use relay_chain::RequiresSet;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy};
 use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_consensus_babe::SlotDuration;
@@ -45,7 +50,7 @@ use sp_runtime::{
 };
 use sp_tracing::capture_test_logs;
 use sp_trie::{proof_size_extension::ProofSizeExt, recorder::IgnoredNodes};
-use std::{env, process::Command};
+use std::{collections::BTreeMap, env, process::Command};
 
 fn call_validate_block_validation_result(
 	validation_code: &[u8],
@@ -670,6 +675,118 @@ fn validate_block_handles_ump_signal() {
 		upward_messages,
 		vec![UMP_SEPARATOR, UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode()]
 	);
+}
+
+/// A block that consumes three payloads from `source` on a channel to this para, the lift
+/// binding them to a `StreamsRoot` that commits exactly those payloads, and that root.
+fn consuming_block(
+	client: &Client,
+	parent_head: Header,
+	source: ParaId,
+) -> (TestBlockData, LiftsBySource, StreamsRoot) {
+	let stream =
+		StreamId::Channel { recipient: test_runtime::PARACHAIN_ID.into(), domain: 0, num: 0 };
+	let payloads: Vec<Vec<u8>> = (1..=3u8).map(|i| vec![i; 8]).collect();
+
+	let mut frontier = MmrFrontier::new();
+	payloads.iter().for_each(|p| frontier.append(leaf_hash(LEAF_VERSION, p)));
+	let entries = BTreeMap::from([(stream, frontier.root().0)]);
+	let (committed, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+	let lift =
+		RequiresLift { advances: Vec::new(), extension: MMRExtensionProof::identity(), tree_proof };
+	let lifts = LiftsBySource::try_from(BTreeMap::from([(source, vec![lift])])).unwrap();
+
+	let data =
+		MessagingInherentData { items: vec![(source, stream, ConsumeItem::Channel { payloads })] };
+	let inherent = UncheckedExtrinsic::new_bare(
+		test_runtime::SpecMessagingCall::enact_messages { data }.into(),
+	);
+	let block =
+		build_block_with_witness(client, vec![inherent], parent_head, Default::default(), vec![]);
+	(block, lifts, committed)
+}
+
+fn with_lifts(block: ParachainBlockData<Block>, lifts: LiftsBySource) -> ParachainBlockData<Block> {
+	let (blocks, proof) = block.into_inner();
+	ParachainBlockData::new_with_lifts(blocks, proof, None, lifts)
+}
+
+#[test]
+fn validate_block_synthesizes_requires_from_the_lifts() {
+	sp_tracing::try_init_simple();
+
+	let (client, parent_head) = create_test_client();
+	let source = ParaId::from(2000);
+	let (TestBlockData { block, validation_data }, lifts, committed) =
+		consuming_block(&client, parent_head.clone(), source);
+
+	let upward_messages = call_validate_block_validation_result(
+		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
+		parent_head,
+		with_lifts(block, lifts),
+		validation_data.relay_parent_storage_root,
+	)
+	.expect("Calls `validate_block`")
+	.upward_messages;
+
+	let requires = RequiresSet::try_from_iter([(source, committed)]).unwrap();
+	assert_eq!(upward_messages, vec![UMP_SEPARATOR, UMPSignal::Requires(requires).encode()]);
+}
+
+/// Rerun the test `name` in a subprocess: the wasm trap drops the panic message, which only the
+/// runtime's log on stderr keeps.
+fn assert_rerun_fails_with(name: &str, message: &str) {
+	let output = Command::new(env::current_exe().unwrap())
+		.args([name, "--", "--nocapture"])
+		.env("RUN_TEST", "1")
+		.output()
+		.expect("Runs the test");
+	assert!(output.status.success());
+	assert!(dbg!(String::from_utf8(output.stderr).unwrap()).contains(message));
+}
+
+#[test]
+fn validate_block_rejects_consumption_without_lifts() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let (TestBlockData { block, validation_data }, ..) =
+			consuming_block(&client, parent_head.clone(), ParaId::from(2000));
+
+		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
+			.unwrap_err();
+	} else {
+		assert_rerun_fails_with(
+			"validate_block_rejects_consumption_without_lifts",
+			"LiftSourceMismatch",
+		);
+	}
+}
+
+#[test]
+fn validate_block_rejects_a_lift_for_another_source() {
+	sp_tracing::try_init_simple();
+
+	if env::var("RUN_TEST").is_ok() {
+		let (client, parent_head) = create_test_client();
+		let (TestBlockData { block, validation_data }, ..) =
+			consuming_block(&client, parent_head.clone(), ParaId::from(2000));
+		// A lift that verifies on its own, but for a source the block did not consume.
+		let (_, other_lifts, _) = consuming_block(&client, parent_head.clone(), ParaId::from(3000));
+
+		call_validate_block(
+			parent_head,
+			with_lifts(block, other_lifts),
+			validation_data.relay_parent_storage_root,
+		)
+		.unwrap_err();
+	} else {
+		assert_rerun_fails_with(
+			"validate_block_rejects_a_lift_for_another_source",
+			"LiftSourceMismatch",
+		);
+	}
 }
 
 #[test]

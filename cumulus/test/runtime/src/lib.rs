@@ -51,6 +51,7 @@ use cumulus_primitives_core::{ParaId, RelayProofRequest, VerifySchedulingSignatu
 define_flavors!(consts wasm);
 
 // A few exports that help ease life for downstream crates.
+pub use cumulus_pallet_spec_messaging::Call as SpecMessagingCall;
 pub use frame_support::{
 	construct_runtime,
 	dispatch::DispatchClass,
