@@ -25,35 +25,27 @@ codec = { features = ["derive"], workspace = true, default-features = true }
 futures = { workspace = true }
 governor = { workspace = true }
 log = { workspace = true, default-features = true }
-prometheus-endpoint.workspace = true
-prometheus-endpoint.default-features = true
+prometheus-endpoint = { default-features = true, workspace = true }
 rand = { workspace = true, default-features = true }
-sc-network.workspace = true
-sc-network.default-features = true
-sc-network-common.workspace = true
-sc-network-common.default-features = true
-sc-network-sync.workspace = true
-sc-network-sync.default-features = true
-sc-network-types.workspace = true
-sc-network-types.default-features = true
-sp-consensus.workspace = true
-sp-consensus.default-features = true
-sp-runtime.workspace = true
-sp-runtime.default-features = true
-sp-statement-store.workspace = true
-sp-statement-store.default-features = true
+sc-network = { default-features = true, workspace = true }
+sc-network-common = { default-features = true, workspace = true }
+sc-network-sync = { default-features = true, workspace = true }
+sc-network-types = { default-features = true, workspace = true }
+sp-consensus = { default-features = true, workspace = true }
+sp-runtime = { default-features = true, workspace = true }
+sp-statement-store = { default-features = true, workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
 async-trait = { workspace = true }
 criterion = { workspace = true, default-features = true }
-sc-keystore = { default-features = true, path = "../../keystore" }
-sc-statement-store = { default-features = true, path = "../../statement-store" }
-sp-api = { default-features = true, path = "../../../primitives/api" }
-sp-blockchain = { default-features = true, path = "../../../primitives/blockchain" }
-sp-core = { default-features = true, path = "../../../primitives/core" }
-sp-keyring = { default-features = true, path = "../../../primitives/keyring" }
-substrate-test-runtime-client = { path = "../../../test-utils/runtime/client" }
+sc-keystore = { default-features = true, workspace = true }
+sc-statement-store = { default-features = true, workspace = true }
+sp-api = { default-features = true, workspace = true }
+sp-blockchain = { default-features = true, workspace = true }
+sp-core = { default-features = true, workspace = true }
+sp-keyring = { default-features = true, workspace = true }
+substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }
 
 [[bench]]
