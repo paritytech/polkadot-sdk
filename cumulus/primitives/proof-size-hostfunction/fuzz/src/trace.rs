@@ -51,7 +51,7 @@ use std::{
 };
 
 /// Longest byte string shown in full.
-pub const MAX_SHOWN_BYTES: usize = 64;
+const MAX_SHOWN_BYTES: usize = 64;
 
 /// The trace of `script`, one line per entry. Never panics because of the script.
 pub fn trace(script: &Script) -> Vec<String> {

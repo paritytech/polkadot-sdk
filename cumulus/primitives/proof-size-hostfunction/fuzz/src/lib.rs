@@ -53,7 +53,7 @@ mod run;
 pub use run::*;
 mod trace;
 
-pub use trace::{trace, MAX_SHOWN_BYTES};
+pub use trace::trace;
 
 /// Maximum number of blocks per script.
 pub const MAX_BLOCKS: usize = 4;
