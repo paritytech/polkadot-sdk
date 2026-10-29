@@ -229,97 +229,94 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#79 id=79 data-nosnippet>79</a>//! There is nothing in the Substrate's node side code-base that mandates the use of FRAME. While
 <a href=#80 id=80 data-nosnippet>80</a>//! FRAME makes it very simple to write Substrate-based runtimes, it is by no means intended to be
 <a href=#81 id=81 data-nosnippet>81</a>//! the only one. At the end of the day, any WASM blob that exposes the right set of runtime APIs is
-<a href=#82 id=82 data-nosnippet>82</a>//! a valid Runtime form the point of view of a Substrate client (see
-<a href=#83 id=83 data-nosnippet>83</a>//! [`crate::reference_docs::wasm_meta_protocol`]). Notable examples are:
-<a href=#84 id=84 data-nosnippet>84</a>//!
-<a href=#85 id=85 data-nosnippet>85</a>//! * writing a runtime in pure Rust, as done in [this template](https://github.com/JoshOrndorff/frameless-node-template).
-<a href=#86 id=86 data-nosnippet>86</a>//! * writing a runtime in AssemblyScript, as explored in [this project](https://github.com/LimeChain/subsembly).
-<a href=#87 id=87 data-nosnippet>87</a>
-<a href=#88 id=88 data-nosnippet>88</a>/// A FRAME based pallet. This `mod` is the entry point for everything else. All
-<a href=#89 id=89 data-nosnippet>89</a>/// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
-<a href=#90 id=90 data-nosnippet>90</a>/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
-<a href=#91 id=91 data-nosnippet>91</a>/// more.
-<a href=#92 id=92 data-nosnippet>92</a></span><span class="attr">#[docify::export]
-<a href=#93 id=93 data-nosnippet>93</a>#[frame::pallet(dev_mode)]
-<a href=#94 id=94 data-nosnippet>94</a></span><span class="kw">pub mod </span>pallet {
-<a href=#95 id=95 data-nosnippet>95</a>	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
-<a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a>	<span class="doccomment">/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
-<a href=#98 id=98 data-nosnippet>98</a>	/// later point from the runtime that wishes to contain it. It allows the pallet to be
-<a href=#99 id=99 data-nosnippet>99</a>	/// parameterized over both types and values.
-<a href=#100 id=100 data-nosnippet>100</a>	</span><span class="attr">#[pallet::config]
-<a href=#101 id=101 data-nosnippet>101</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config {
-<a href=#102 id=102 data-nosnippet>102</a>		<span class="doccomment">/// A type that is not known now, but the runtime that will contain this pallet will
-<a href=#103 id=103 data-nosnippet>103</a>		/// know it later, therefore we define it here as an associated type.
-<a href=#104 id=104 data-nosnippet>104</a>		</span><span class="attr">#[allow(deprecated)]
-<a href=#105 id=105 data-nosnippet>105</a>		</span><span class="kw">type </span>RuntimeEvent: IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt; + From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#82 id=82 data-nosnippet>82</a>//! a valid Runtime from the point of view of a Substrate client (see
+<a href=#83 id=83 data-nosnippet>83</a>//! [`crate::reference_docs::wasm_meta_protocol`]).
+<a href=#84 id=84 data-nosnippet>84</a>
+<a href=#85 id=85 data-nosnippet>85</a>/// A FRAME based pallet. This `mod` is the entry point for everything else. All
+<a href=#86 id=86 data-nosnippet>86</a>/// `#[pallet::xxx]` macros must be defined in this `mod`. Although, frame also provides an
+<a href=#87 id=87 data-nosnippet>87</a>/// experimental feature to break these parts into different `mod`s. See [`pallet_examples`] for
+<a href=#88 id=88 data-nosnippet>88</a>/// more.
+<a href=#89 id=89 data-nosnippet>89</a></span><span class="attr">#[docify::export]
+<a href=#90 id=90 data-nosnippet>90</a>#[frame::pallet(dev_mode)]
+<a href=#91 id=91 data-nosnippet>91</a></span><span class="kw">pub mod </span>pallet {
+<a href=#92 id=92 data-nosnippet>92</a>	<span class="kw">use </span>frame::prelude::<span class="kw-2">*</span>;
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a>	<span class="doccomment">/// The configuration trait of a pallet. Mandatory. Allows a pallet to receive types at a
+<a href=#95 id=95 data-nosnippet>95</a>	/// later point from the runtime that wishes to contain it. It allows the pallet to be
+<a href=#96 id=96 data-nosnippet>96</a>	/// parameterized over both types and values.
+<a href=#97 id=97 data-nosnippet>97</a>	</span><span class="attr">#[pallet::config]
+<a href=#98 id=98 data-nosnippet>98</a>	</span><span class="kw">pub trait </span>Config: frame_system::Config {
+<a href=#99 id=99 data-nosnippet>99</a>		<span class="doccomment">/// A type that is not known now, but the runtime that will contain this pallet will
+<a href=#100 id=100 data-nosnippet>100</a>		/// know it later, therefore we define it here as an associated type.
+<a href=#101 id=101 data-nosnippet>101</a>		</span><span class="attr">#[allow(deprecated)]
+<a href=#102 id=102 data-nosnippet>102</a>		</span><span class="kw">type </span>RuntimeEvent: IsType&lt;&lt;<span class="self">Self </span><span class="kw">as </span>frame_system::Config&gt;::RuntimeEvent&gt; + From&lt;Event&lt;<span class="self">Self</span>&gt;&gt;;
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a>		<span class="doccomment">/// A parameterize-able value that we receive later via the `Get&lt;_&gt;` trait.
+<a href=#105 id=105 data-nosnippet>105</a>		</span><span class="kw">type </span>ValueParameter: Get&lt;u32&gt;;
 <a href=#106 id=106 data-nosnippet>106</a>
-<a href=#107 id=107 data-nosnippet>107</a>		<span class="doccomment">/// A parameterize-able value that we receive later via the `Get&lt;_&gt;` trait.
-<a href=#108 id=108 data-nosnippet>108</a>		</span><span class="kw">type </span>ValueParameter: Get&lt;u32&gt;;
-<a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>		<span class="doccomment">/// Similar to [`Config::ValueParameter`], but using `const`. Both are functionally
-<a href=#111 id=111 data-nosnippet>111</a>		/// equal, but offer different tradeoffs.
-<a href=#112 id=112 data-nosnippet>112</a>		</span><span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32;
-<a href=#113 id=113 data-nosnippet>113</a>	}
-<a href=#114 id=114 data-nosnippet>114</a>
-<a href=#115 id=115 data-nosnippet>115</a>	<span class="doccomment">/// A mandatory struct in each pallet. All functions callable by external users (aka.
-<a href=#116 id=116 data-nosnippet>116</a>	/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
-<a href=#117 id=117 data-nosnippet>117</a>	/// convenience, internal (private) functions can also be attached to this type.
-<a href=#118 id=118 data-nosnippet>118</a>	</span><span class="attr">#[pallet::pallet]
-<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
-<a href=#120 id=120 data-nosnippet>120</a>
-<a href=#121 id=121 data-nosnippet>121</a>	<span class="doccomment">/// The events that this pallet can emit.
-<a href=#122 id=122 data-nosnippet>122</a>	</span><span class="attr">#[pallet::event]
-<a href=#123 id=123 data-nosnippet>123</a>	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a>	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie
-<a href=#126 id=126 data-nosnippet>126</a>	/// of the blockchain.
-<a href=#127 id=127 data-nosnippet>127</a>	</span><span class="attr">#[pallet::storage]
-<a href=#128 id=128 data-nosnippet>128</a>	</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;
-<a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a>	<span class="doccomment">/// All *dispatchable* call functions (aka. transactions) are attached to `Pallet` in a
-<a href=#131 id=131 data-nosnippet>131</a>	/// `impl` block.
-<a href=#132 id=132 data-nosnippet>132</a>	</span><span class="attr">#[pallet::call]
-<a href=#133 id=133 data-nosnippet>133</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
-<a href=#134 id=134 data-nosnippet>134</a>		<span class="doccomment">/// This will be callable by external users, and has two u32s as a parameter.
-<a href=#135 id=135 data-nosnippet>135</a>		</span><span class="kw">pub fn </span>some_dispatchable(
-<a href=#136 id=136 data-nosnippet>136</a>			_origin: OriginFor&lt;T&gt;,
-<a href=#137 id=137 data-nosnippet>137</a>			_param: u32,
-<a href=#138 id=138 data-nosnippet>138</a>			_other_para: u32,
-<a href=#139 id=139 data-nosnippet>139</a>		) -&gt; DispatchResult {
-<a href=#140 id=140 data-nosnippet>140</a>			<span class="prelude-val">Ok</span>(())
-<a href=#141 id=141 data-nosnippet>141</a>		}
-<a href=#142 id=142 data-nosnippet>142</a>	}
-<a href=#143 id=143 data-nosnippet>143</a>}
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a><span class="doccomment">/// A simple runtime that contains the above pallet and `frame_system`, the mandatory pallet of
-<a href=#146 id=146 data-nosnippet>146</a>/// all runtimes. This runtime is for testing, but it shares a lot of similarities with a *real*
-<a href=#147 id=147 data-nosnippet>147</a>/// runtime.
-<a href=#148 id=148 data-nosnippet>148</a></span><span class="attr">#[docify::export]
-<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">pub mod </span>runtime {
-<a href=#150 id=150 data-nosnippet>150</a>	<span class="kw">use </span><span class="kw">super</span>::pallet <span class="kw">as </span>pallet_example;
-<a href=#151 id=151 data-nosnippet>151</a>	<span class="kw">use </span>frame::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
-<a href=#152 id=152 data-nosnippet>152</a>
-<a href=#153 id=153 data-nosnippet>153</a>	<span class="comment">// The major macro that amalgamates pallets into `enum Runtime`
-<a href=#154 id=154 data-nosnippet>154</a>	</span><span class="macro">construct_runtime!</span>(
-<a href=#155 id=155 data-nosnippet>155</a>		<span class="kw">pub enum </span>Runtime {
-<a href=#156 id=156 data-nosnippet>156</a>			System: frame_system,
-<a href=#157 id=157 data-nosnippet>157</a>			Example: pallet_example,
-<a href=#158 id=158 data-nosnippet>158</a>		}
-<a href=#159 id=159 data-nosnippet>159</a>	);
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a>	<span class="comment">// These `impl` blocks specify the parameters of each pallet's `trait Config`.
-<a href=#162 id=162 data-nosnippet>162</a>	</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
-<a href=#163 id=163 data-nosnippet>163</a>	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
-<a href=#164 id=164 data-nosnippet>164</a>		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
-<a href=#165 id=165 data-nosnippet>165</a>	}
-<a href=#166 id=166 data-nosnippet>166</a>
-<a href=#167 id=167 data-nosnippet>167</a>	<span class="kw">impl </span>pallet_example::Config <span class="kw">for </span>Runtime {
-<a href=#168 id=168 data-nosnippet>168</a>		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
-<a href=#169 id=169 data-nosnippet>169</a>		<span class="kw">type </span>ValueParameter = ConstU32&lt;<span class="number">42</span>&gt;;
-<a href=#170 id=170 data-nosnippet>170</a>		<span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32 = <span class="number">42</span>;
-<a href=#171 id=171 data-nosnippet>171</a>	}
-<a href=#172 id=172 data-nosnippet>172</a>}
+<a href=#107 id=107 data-nosnippet>107</a>		<span class="doccomment">/// Similar to [`Config::ValueParameter`], but using `const`. Both are functionally
+<a href=#108 id=108 data-nosnippet>108</a>		/// equal, but offer different tradeoffs.
+<a href=#109 id=109 data-nosnippet>109</a>		</span><span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32;
+<a href=#110 id=110 data-nosnippet>110</a>	}
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a>	<span class="doccomment">/// A mandatory struct in each pallet. All functions callable by external users (aka.
+<a href=#113 id=113 data-nosnippet>113</a>	/// transactions) must be attached to this type (see [`frame::pallet_macros::call`]). For
+<a href=#114 id=114 data-nosnippet>114</a>	/// convenience, internal (private) functions can also be attached to this type.
+<a href=#115 id=115 data-nosnippet>115</a>	</span><span class="attr">#[pallet::pallet]
+<a href=#116 id=116 data-nosnippet>116</a>	</span><span class="kw">pub struct </span>Pallet&lt;T&gt;(PhantomData&lt;T&gt;);
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>	<span class="doccomment">/// The events that this pallet can emit.
+<a href=#119 id=119 data-nosnippet>119</a>	</span><span class="attr">#[pallet::event]
+<a href=#120 id=120 data-nosnippet>120</a>	</span><span class="kw">pub enum </span>Event&lt;T: Config&gt; {}
+<a href=#121 id=121 data-nosnippet>121</a>
+<a href=#122 id=122 data-nosnippet>122</a>	<span class="doccomment">/// A storage item that this pallet contains. This will be part of the state root trie
+<a href=#123 id=123 data-nosnippet>123</a>	/// of the blockchain.
+<a href=#124 id=124 data-nosnippet>124</a>	</span><span class="attr">#[pallet::storage]
+<a href=#125 id=125 data-nosnippet>125</a>	</span><span class="kw">pub type </span>Value&lt;T&gt; = StorageValue&lt;Value = u32&gt;;
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>	<span class="doccomment">/// All *dispatchable* call functions (aka. transactions) are attached to `Pallet` in a
+<a href=#128 id=128 data-nosnippet>128</a>	/// `impl` block.
+<a href=#129 id=129 data-nosnippet>129</a>	</span><span class="attr">#[pallet::call]
+<a href=#130 id=130 data-nosnippet>130</a>	</span><span class="kw">impl</span>&lt;T: Config&gt; Pallet&lt;T&gt; {
+<a href=#131 id=131 data-nosnippet>131</a>		<span class="doccomment">/// This will be callable by external users, and has two u32s as a parameter.
+<a href=#132 id=132 data-nosnippet>132</a>		</span><span class="kw">pub fn </span>some_dispatchable(
+<a href=#133 id=133 data-nosnippet>133</a>			_origin: OriginFor&lt;T&gt;,
+<a href=#134 id=134 data-nosnippet>134</a>			_param: u32,
+<a href=#135 id=135 data-nosnippet>135</a>			_other_para: u32,
+<a href=#136 id=136 data-nosnippet>136</a>		) -&gt; DispatchResult {
+<a href=#137 id=137 data-nosnippet>137</a>			<span class="prelude-val">Ok</span>(())
+<a href=#138 id=138 data-nosnippet>138</a>		}
+<a href=#139 id=139 data-nosnippet>139</a>	}
+<a href=#140 id=140 data-nosnippet>140</a>}
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a><span class="doccomment">/// A simple runtime that contains the above pallet and `frame_system`, the mandatory pallet of
+<a href=#143 id=143 data-nosnippet>143</a>/// all runtimes. This runtime is for testing, but it shares a lot of similarities with a *real*
+<a href=#144 id=144 data-nosnippet>144</a>/// runtime.
+<a href=#145 id=145 data-nosnippet>145</a></span><span class="attr">#[docify::export]
+<a href=#146 id=146 data-nosnippet>146</a></span><span class="kw">pub mod </span>runtime {
+<a href=#147 id=147 data-nosnippet>147</a>	<span class="kw">use </span><span class="kw">super</span>::pallet <span class="kw">as </span>pallet_example;
+<a href=#148 id=148 data-nosnippet>148</a>	<span class="kw">use </span>frame::{prelude::<span class="kw-2">*</span>, testing_prelude::<span class="kw-2">*</span>};
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a>	<span class="comment">// The major macro that amalgamates pallets into `enum Runtime`
+<a href=#151 id=151 data-nosnippet>151</a>	</span><span class="macro">construct_runtime!</span>(
+<a href=#152 id=152 data-nosnippet>152</a>		<span class="kw">pub enum </span>Runtime {
+<a href=#153 id=153 data-nosnippet>153</a>			System: frame_system,
+<a href=#154 id=154 data-nosnippet>154</a>			Example: pallet_example,
+<a href=#155 id=155 data-nosnippet>155</a>		}
+<a href=#156 id=156 data-nosnippet>156</a>	);
+<a href=#157 id=157 data-nosnippet>157</a>
+<a href=#158 id=158 data-nosnippet>158</a>	<span class="comment">// These `impl` blocks specify the parameters of each pallet's `trait Config`.
+<a href=#159 id=159 data-nosnippet>159</a>	</span><span class="attr">#[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
+<a href=#160 id=160 data-nosnippet>160</a>	</span><span class="kw">impl </span>frame_system::Config <span class="kw">for </span>Runtime {
+<a href=#161 id=161 data-nosnippet>161</a>		<span class="kw">type </span>Block = MockBlock&lt;<span class="self">Self</span>&gt;;
+<a href=#162 id=162 data-nosnippet>162</a>	}
+<a href=#163 id=163 data-nosnippet>163</a>
+<a href=#164 id=164 data-nosnippet>164</a>	<span class="kw">impl </span>pallet_example::Config <span class="kw">for </span>Runtime {
+<a href=#165 id=165 data-nosnippet>165</a>		<span class="kw">type </span>RuntimeEvent = RuntimeEvent;
+<a href=#166 id=166 data-nosnippet>166</a>		<span class="kw">type </span>ValueParameter = ConstU32&lt;<span class="number">42</span>&gt;;
+<a href=#167 id=167 data-nosnippet>167</a>		<span class="kw">const </span>ANOTHER_VALUE_PARAMETER: u32 = <span class="number">42</span>;
+<a href=#168 id=168 data-nosnippet>168</a>	}
+<a href=#169 id=169 data-nosnippet>169</a>}
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 
