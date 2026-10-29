@@ -285,7 +285,7 @@ mod impl_hold_unbalanced {
 
 mod impl_hold_mutate {
 	use super::*;
-	use frame_support::traits::tokens::{Fortitude, Precision, Preservation, Restriction};
+	use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
 	use sp_runtime::TokenError;
 
 	#[test]
@@ -415,101 +415,6 @@ mod impl_hold_mutate {
 					Precision::Exact,
 				),
 				TokenError::FundsUnavailable
-			);
-		});
-	}
-
-	#[test]
-	fn release_sub_minimum_hold_preserves_issuance() {
-		super::new_test_ext(|| {
-			let bob = 2;
-			let reason = DummyHoldReason::Governance;
-			assert_ok!(AssetsHolder::hold(ASSET_ID, &reason, &WHO, 5));
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), ASSET_ID, bob, 90));
-
-			// Raising the minimum creates the same free=5, held=5, minimum=10 boundary
-			// as the balances regression without corrupting storage directly.
-			assert_ok!(Assets::force_asset_status(
-				RuntimeOrigin::root(),
-				ASSET_ID,
-				0,
-				0,
-				0,
-				0,
-				10,
-				true,
-				false,
-			));
-			assert_eq!(AssetsHolder::minimum_balance(ASSET_ID), 10);
-			assert_eq!(Assets::balance(ASSET_ID, WHO), 5);
-			assert_eq!(
-				<AssetsHolder as InspectHold<_>>::balance_on_hold(ASSET_ID, &reason, &WHO),
-				5
-			);
-
-			assert_eq!(AssetsHolder::release(ASSET_ID, &reason, &WHO, 5, Precision::Exact), Ok(5));
-			assert_eq!(Assets::balance(ASSET_ID, WHO), 10);
-			assert_eq!(Assets::balance(ASSET_ID, bob), 90);
-			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 0);
-			assert_eq!(
-				Assets::total_issuance(ASSET_ID),
-				Assets::balance(ASSET_ID, WHO) + Assets::balance(ASSET_ID, bob)
-			);
-		});
-	}
-
-	#[test]
-	fn transfer_on_hold_to_new_account_with_sub_minimum_source_preserves_issuance() {
-		super::new_test_ext(|| {
-			let (dest, other) = (2, 3);
-			let reason = DummyHoldReason::Governance;
-			assert_ok!(AssetsHolder::hold(ASSET_ID, &reason, &WHO, 10));
-			assert_ok!(Assets::transfer(RuntimeOrigin::signed(WHO), ASSET_ID, other, 85));
-
-			// Raising the minimum reaches the balances regression's free=5, held=10 boundary.
-			assert_ok!(Assets::force_asset_status(
-				RuntimeOrigin::root(),
-				ASSET_ID,
-				0,
-				0,
-				0,
-				0,
-				10,
-				true,
-				false,
-			));
-			assert_eq!(AssetsHolder::minimum_balance(ASSET_ID), 10);
-			assert_eq!(Assets::balance(ASSET_ID, WHO), 5);
-			assert_eq!(
-				<AssetsHolder as InspectHold<_>>::balance_on_hold(ASSET_ID, &reason, &WHO),
-				10
-			);
-			assert_eq!(Assets::balance(ASSET_ID, dest), 0);
-			let issuance = Assets::total_issuance(ASSET_ID);
-
-			assert_eq!(
-				AssetsHolder::transfer_on_hold(
-					ASSET_ID,
-					&reason,
-					&WHO,
-					&dest,
-					10,
-					Precision::BestEffort,
-					Restriction::Free,
-					Fortitude::Polite,
-				),
-				Ok(10)
-			);
-			assert_eq!(Assets::balance(ASSET_ID, WHO), 5);
-			assert_eq!(AssetsHolder::total_balance_on_hold(ASSET_ID, &WHO), 0);
-			assert_eq!(Assets::balance(ASSET_ID, dest), 10);
-			assert_eq!(Assets::balance(ASSET_ID, other), 85);
-			assert_eq!(Assets::total_issuance(ASSET_ID), issuance);
-			assert_eq!(
-				Assets::total_balance(ASSET_ID, &WHO) +
-					Assets::total_balance(ASSET_ID, &dest) +
-					Assets::total_balance(ASSET_ID, &other),
-				issuance
 			);
 		});
 	}

@@ -20,14 +20,11 @@ use super::*;
 use frame_support::traits::{
 	tokens::{
 		Fortitude,
-		Precision::{self, BestEffort},
 		Preservation::{self, Preserve, Protect},
-		Provenance::{self, Extant, Minted},
-		Restriction::{self, Free, OnHold},
+		Provenance::{self, Minted},
 	},
 	AccountTouch,
 };
-use sp_runtime::traits::One;
 
 impl<T: Config<I>, I: 'static> fungible::Inspect<T::AccountId> for Pallet<T, I> {
 	type Balance = T::Balance;
@@ -217,80 +214,6 @@ impl<T: Config<I>, I: 'static> fungible::Mutate<T::AccountId> for Pallet<T, I> {
 }
 
 impl<T: Config<I>, I: 'static> fungible::MutateHold<T::AccountId> for Pallet<T, I> {
-	fn release(
-		reason: &Self::Reason,
-		who: &T::AccountId,
-		amount: Self::Balance,
-		precision: Precision,
-	) -> Result<Self::Balance, DispatchError> {
-		let actual = Self::decrease_hold(reason, who, amount, precision, true)?;
-		<Self as fungible::MutateHold<_>>::done_release(reason, who, actual);
-		Ok(actual)
-	}
-
-	fn transfer_on_hold(
-		reason: &Self::Reason,
-		source: &T::AccountId,
-		dest: &T::AccountId,
-		mut amount: Self::Balance,
-		precision: Precision,
-		mode: Restriction,
-		force: Fortitude,
-	) -> Result<Self::Balance, DispatchError> {
-		let have = <Self as fungible::InspectHold<_>>::balance_on_hold(reason, source);
-		let liquid =
-			<Self as fungible::InspectHold<_>>::reducible_total_balance_on_hold(source, force);
-		if let BestEffort = precision {
-			amount = amount.min(liquid).min(have);
-		} else {
-			ensure!(amount <= liquid, TokenError::Frozen);
-			ensure!(amount <= have, TokenError::FundsUnavailable);
-		}
-		// The checks above match the default implementation. Handle `source == dest` separately to
-		// avoid intermediate dusting between reducing the hold and crediting the destination.
-
-		let actual = if source == dest {
-			match mode {
-				Free => Self::decrease_hold(reason, source, amount, precision, true)?,
-				OnHold => amount,
-			}
-		} else {
-			ensure!(
-				<Self as fungible::Inspect<_>>::can_deposit(dest, amount, Extant) ==
-					DepositConsequence::Success,
-				TokenError::CannotCreate
-			);
-
-			ensure!(
-				mode == Free || <Self as fungible::InspectHold<_>>::hold_available(reason, dest),
-				TokenError::CannotCreateHold
-			);
-			frame_support::storage::with_storage_layer(|| {
-				let actual = <Self as fungible::UnbalancedHold<_>>::decrease_balance_on_hold(
-					reason, source, amount, precision,
-				)?;
-
-				// BestEffort may reduce the debit, but the destination must receive all of it.
-				match mode {
-					OnHold => <Self as fungible::UnbalancedHold<_>>::increase_balance_on_hold(
-						reason,
-						dest,
-						actual,
-						Precision::Exact,
-					),
-					Free => <Self as fungible::Unbalanced<_>>::increase_balance(
-						dest,
-						actual,
-						Precision::Exact,
-					),
-				}
-			})?
-		};
-
-		<Self as fungible::MutateHold<_>>::done_transfer_on_hold(reason, source, dest, actual);
-		Ok(actual)
-	}
-
 	fn done_hold(reason: &Self::Reason, who: &T::AccountId, amount: Self::Balance) {
 		Self::deposit_event(Event::<T, I>::Held { reason: *reason, who: who.clone(), amount });
 	}
@@ -375,6 +298,7 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 		who: &T::AccountId,
 		amount: Self::Balance,
 	) -> DispatchResult {
+		let mut new_account = Self::account(who);
 		let mut holds = Holds::<T, I>::get(who);
 		let mut increase = true;
 		let mut delta = amount;
@@ -392,21 +316,15 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 			}
 		}
 
-		let ((), maybe_dust) =
-			Self::try_mutate_account(who, false, |account, _| -> DispatchResult {
-				account.reserved = if increase {
-					account.reserved.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
-				} else {
-					account.reserved.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
-				};
-				// Changing a hold must not discard any of the account's free balance.
-				ensure!(
-					account.free.is_zero() ||
-						account.free >= T::ExistentialDeposit::get() ||
-						!account.reserved.is_zero() ||
-						!account.frozen.is_zero(),
-					TokenError::NotExpendable
-				);
+		new_account.reserved = if increase {
+			new_account.reserved.checked_add(&delta).ok_or(ArithmeticError::Overflow)?
+		} else {
+			new_account.reserved.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
+		};
+
+		let (result, maybe_dust) =
+			Self::try_mutate_account(who, false, |a, _| -> DispatchResult {
+				*a = new_account;
 				Ok(())
 			})?;
 
@@ -415,83 +333,12 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 		} else {
 			Holds::<T, I>::insert(who, holds)
 		}
-		debug_assert!(maybe_dust.is_none(), "Free balance was checked not to be dusted; qed");
-		Ok(())
-	}
 
-	fn decrease_balance_on_hold(
-		reason: &Self::Reason,
-		who: &T::AccountId,
-		amount: Self::Balance,
-		precision: Precision,
-	) -> Result<Self::Balance, DispatchError> {
-		Self::decrease_hold(reason, who, amount, precision, false)
-	}
-}
-
-impl<T: Config<I>, I: 'static> Pallet<T, I> {
-	/// Reduce a hold, optionally releasing the funds into the free balance in the same mutation.
-	fn decrease_hold(
-		reason: &T::RuntimeHoldReason,
-		who: &T::AccountId,
-		mut amount: T::Balance,
-		precision: Precision,
-		release: bool,
-	) -> Result<T::Balance, DispatchError> {
-		let mut holds = Holds::<T, I>::get(who);
-		let position = holds.iter().position(|item| &item.id == reason);
-		let held = position.map_or_else(Zero::zero, |position| holds[position].amount);
-		if precision == BestEffort {
-			amount = amount.min(held);
+		if let Some(dust) = maybe_dust {
+			<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
 		}
-		ensure!(amount <= held, TokenError::FundsUnavailable);
 
-		let (actual, maybe_dust) = Self::try_mutate_account(
-			who,
-			false,
-			|account, _| -> Result<T::Balance, DispatchError> {
-				let mut free = if release {
-					account.free.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
-				} else {
-					account.free
-				};
-				if amount == account.reserved &&
-					!free.is_zero() && free < T::ExistentialDeposit::get() &&
-					account.frozen.is_zero()
-				{
-					ensure!(
-						precision == BestEffort && !amount.is_zero(),
-						TokenError::NotExpendable
-					);
-					// One retained unit preserves the consumer without requiring a full ED.
-					amount -= One::one();
-					if release {
-						free -= One::one();
-					}
-				}
-				account.reserved =
-					account.reserved.checked_sub(&amount).ok_or(ArithmeticError::Underflow)?;
-				account.free = free;
-				Ok(amount)
-			},
-		)?;
-
-		if let Some(position) = position {
-			holds[position].amount -= actual;
-			if holds[position].amount.is_zero() {
-				holds.remove(position);
-			}
-		}
-		if holds.is_empty() {
-			Holds::<T, I>::remove(who);
-		} else {
-			Holds::<T, I>::insert(who, holds);
-		}
-		debug_assert!(
-			maybe_dust.is_none(),
-			"The last hold was retained if free would be dusted; qed"
-		);
-		Ok(actual)
+		Ok(result)
 	}
 }
 

@@ -159,6 +159,10 @@ impl ExtBuilder {
 		self.dust_trap = Some(account);
 		self
 	}
+	pub fn reentrant_dust_hold(mut self, account: u64) -> Self {
+		self.reentrant_dust_action = Some(ReentrantDustAction::Hold(account));
+		self
+	}
 	pub fn reentrant_dust_freeze(mut self, account: u64) -> Self {
 		self.reentrant_dust_action = Some(ReentrantDustAction::Freeze(account));
 		self
@@ -226,6 +230,7 @@ impl ExtBuilder {
 
 #[derive(Clone, Copy)]
 enum ReentrantDustAction {
+	Hold(u64),
 	Freeze(u64),
 	Lock(u64),
 }
@@ -242,6 +247,12 @@ pub struct DustTrap;
 impl OnUnbalanced<CreditOf<Test, ()>> for DustTrap {
 	fn on_nonzero_unbalanced(amount: CreditOf<Test, ()>) {
 		match ReentrantDustActionValue::get() {
+			Some(ReentrantDustAction::Hold(account)) => {
+				<Balances as fungible::Mutate<_>>::mint_into(&account, 20)
+					.expect("reentrant mint should succeed");
+				<Balances as fungible::MutateHold<_>>::hold(&TestId::Bar, &account, 7)
+					.expect("reentrant hold should succeed");
+			},
 			Some(ReentrantDustAction::Freeze(account)) => {
 				<Balances as fungible::MutateFreeze<_>>::set_freeze(&TestId::Bar, &account, 7)
 					.expect("reentrant freeze should succeed");

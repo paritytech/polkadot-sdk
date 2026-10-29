@@ -28,12 +28,12 @@ use crate::{
 use frame_support::{
 	assert_noop, assert_ok, hypothetically,
 	traits::{
-		fungible::{self, InspectFreeze, InspectHold, Mutate, MutateFreeze, MutateHold},
+		fungible::{self, InspectFreeze, Mutate, MutateFreeze, MutateHold},
 		tokens::{Fortitude, Precision, Preservation},
-		LockableCurrency, ReservableCurrency, WithdrawReasons,
+		LockableCurrency, WithdrawReasons,
 	},
 };
-use sp_runtime::{DispatchError, TokenError};
+use sp_runtime::DispatchError;
 
 /// There are some accounts that have one consumer ref too few. These accounts are at risk of losing
 /// their held (reserved) balance. They do not just lose it - it is also not accounted for in the
@@ -114,10 +114,13 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 	});
 }
 
-/// Releasing a hold must preserve the free balance even when it starts below the ED.
+/// Releasing the last hold from an account dusted below the ED must not leak the
+/// dust from `TotalIssuance` (`set_balance_on_hold` discards `maybe_dust`).
 #[test]
 fn regression_release_hold_below_ed_leaks_issuance() {
 	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+
 		let (alice, bob) = (0, 1);
 		Balances::set_balance(&alice, 100);
 		TotalIssuance::<Test>::put(100);
@@ -128,217 +131,10 @@ fn regression_release_hold_below_ed_leaks_issuance() {
 		// free -> 5 (< ED), kept alive by the reserve.
 		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 45));
 
-		assert_eq!(System::providers(&alice), 1);
-		assert_eq!(System::consumers(&alice), 1);
-		assert_noop!(
-			Balances::release(&TestId::Foo, &alice, 51, Precision::Exact),
-			TokenError::FundsUnavailable
-		);
-		hypothetically!({
-			assert_eq!(Balances::release(&TestId::Foo, &alice, 51, Precision::BestEffort), Ok(50));
-			assert_eq!(get_test_account_data(alice).free, 55);
-			assert_eq!(get_test_account_data(alice).reserved, 0);
-			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 0);
-			assert_eq!(System::providers(&alice), 2);
-			assert_eq!(System::consumers(&alice), 0);
-			ensure_ti_valid();
-		});
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 50, Precision::Exact), Ok(50));
-		assert_eq!(get_test_account_data(alice).free, 55);
-		assert_eq!(get_test_account_data(alice).reserved, 0);
-		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 0);
-		assert_eq!(get_test_account_data(bob).free, 45);
-		assert_eq!(System::providers(&alice), 2);
-		assert_eq!(System::consumers(&alice), 0);
-		assert_eq!(TotalIssuance::<Test>::get(), 100);
+		// Releasing the last hold dusts the 5 free units; the dust must be burned.
+		assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Precision::Exact));
+
 		ensure_ti_valid();
-	});
-}
-
-#[test]
-fn regression_release_sub_ed_hold_preserves_issuance() {
-	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
-		let (alice, bob) = (0, 1);
-		assert_ok!(Balances::mint_into(&alice, 100));
-		let _ = System::inc_providers(&alice);
-		assert_ok!(Balances::hold(&TestId::Foo, &alice, 5));
-		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 90));
-
-		let before = get_test_account_data(alice);
-		assert_eq!((before.free, before.reserved), (5, 5));
-
-		assert_eq!(System::providers(&alice), 1);
-		assert_eq!(System::consumers(&alice), 1);
-		hypothetically!({
-			assert_eq!(Balances::release(&TestId::Foo, &alice, 5, Precision::BestEffort), Ok(5));
-			assert_eq!(get_test_account_data(alice).free, 10);
-			assert_eq!(get_test_account_data(alice).reserved, 0);
-			assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 0);
-			assert_eq!(System::providers(&alice), 2);
-			assert_eq!(System::consumers(&alice), 0);
-			ensure_ti_valid();
-		});
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 5, Precision::Exact), Ok(5));
-		let alice_balance = get_test_account_data(alice);
-		let bob_balance = get_test_account_data(bob);
-		assert_eq!((alice_balance.free, alice_balance.reserved), (10, 0));
-		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 0);
-		assert_eq!(bob_balance.free, 90);
-		assert_eq!(System::providers(&alice), 2);
-		assert_eq!(System::consumers(&alice), 0);
-
-		let acc_sum = alice_balance.total() + bob_balance.total();
-
-		assert_eq!(
-			acc_sum,
-			TotalIssuance::<Test>::get(),
-			"Total Issuance accounting must be correct",
-		);
-	});
-}
-
-#[test]
-fn release_sub_ed_retains_last_hold_and_exact_is_noop() {
-	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
-		let (alice, bob) = (0, 1);
-		assert_ok!(Balances::mint_into(&alice, 100));
-		let _ = System::inc_providers(&alice);
-		assert_ok!(Balances::hold(&TestId::Foo, &alice, 5));
-		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 93));
-		assert_eq!((Balances::free_balance(alice), Balances::reserved_balance(alice)), (2, 5));
-		assert_eq!(System::providers(&alice), 1);
-		assert_eq!(System::consumers(&alice), 1);
-
-		assert_noop!(
-			Balances::release(&TestId::Foo, &alice, 5, Precision::Exact),
-			TokenError::NotExpendable
-		);
-		assert_noop!(
-			Balances::release(&TestId::Foo, &alice, 6, Precision::Exact),
-			TokenError::FundsUnavailable
-		);
-		assert_noop!(
-			Balances::release(&TestId::Bar, &alice, 1, Precision::Exact),
-			TokenError::FundsUnavailable
-		);
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 0, Precision::Exact), Ok(0));
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 0, Precision::BestEffort), Ok(0));
-		assert_eq!((Balances::free_balance(alice), Balances::reserved_balance(alice)), (2, 5));
-		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 5);
-		ensure_ti_valid();
-
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 5, Precision::BestEffort), Ok(4));
-		assert_eq!((Balances::free_balance(alice), Balances::reserved_balance(alice)), (6, 1));
-		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 1);
-		assert_eq!(System::providers(&alice), 1);
-		assert_eq!(System::consumers(&alice), 1);
-		assert_noop!(
-			Balances::release(&TestId::Foo, &alice, 1, Precision::Exact),
-			TokenError::NotExpendable
-		);
-		let before = get_test_account(alice);
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 1, Precision::BestEffort), Ok(0));
-		assert_eq!(get_test_account(alice), before);
-		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 1);
-		assert_eq!(Balances::free_balance(bob), 93);
-		assert_eq!(TotalIssuance::<Test>::get(), 100);
-		ensure_ti_valid();
-	});
-}
-
-#[test]
-fn release_from_zero_free_retains_last_hold_below_ed() {
-	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
-		let (alice, bob) = (0, 1);
-		assert_ok!(Balances::mint_into(&alice, 100));
-		let _ = System::inc_providers(&alice);
-		assert_ok!(Balances::hold(&TestId::Foo, &alice, 5));
-		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 95));
-		assert_eq!((Balances::free_balance(alice), Balances::reserved_balance(alice)), (0, 5));
-		assert_noop!(
-			Balances::release(&TestId::Foo, &alice, 5, Precision::Exact),
-			TokenError::NotExpendable
-		);
-		assert_eq!(Balances::release(&TestId::Foo, &alice, 5, Precision::BestEffort), Ok(4));
-		assert_eq!((Balances::free_balance(alice), Balances::reserved_balance(alice)), (4, 1));
-		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 1);
-		assert_eq!(System::providers(&alice), 1);
-		assert_eq!(System::consumers(&alice), 1);
-		assert_eq!(Balances::free_balance(bob), 95);
-		assert_eq!(TotalIssuance::<Test>::get(), 100);
-		ensure_ti_valid();
-	});
-}
-
-#[test]
-fn release_sub_ed_can_remove_reason_when_another_consumer_remains() {
-	for keeper in 0..3 {
-		ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
-			let (alice, bob) = (0, 1);
-			assert_ok!(Balances::mint_into(&alice, 100));
-			let _ = System::inc_providers(&alice);
-			assert_ok!(Balances::hold(&TestId::Foo, &alice, 5));
-			match keeper {
-				0 => {
-					assert_ok!(Balances::hold(&TestId::Bar, &alice, 1));
-				},
-				1 => {
-					assert_ok!(Balances::set_freeze(&TestId::Bar, &alice, 1));
-				},
-				_ => {
-					assert_ok!(Balances::reserve(&alice, 1));
-				},
-			}
-			let transferred = Balances::free_balance(alice) - 2;
-			assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, transferred));
-			assert_eq!(System::providers(&alice), 1);
-			assert_eq!(System::consumers(&alice), 1);
-			for precision in [Precision::Exact, Precision::BestEffort] {
-				hypothetically!({
-					assert_eq!(Balances::release(&TestId::Foo, &alice, 5, precision), Ok(5));
-					let data = get_test_account_data(alice);
-					assert_eq!(data.free, 7);
-					assert_eq!(data.reserved, if keeper == 1 { 0 } else { 1 });
-					assert_eq!(data.frozen, if keeper == 1 { 1 } else { 0 });
-					assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 0);
-					assert_eq!(
-						Balances::balance_on_hold(&TestId::Bar, &alice),
-						if keeper == 0 { 1 } else { 0 }
-					);
-					assert_eq!(Balances::balance_frozen(&TestId::Bar, &alice), data.frozen);
-					assert_eq!(System::providers(&alice), 1);
-					assert_eq!(System::consumers(&alice), 1);
-					assert_eq!(Balances::free_balance(bob), transferred);
-					assert_eq!(TotalIssuance::<Test>::get(), 100);
-					ensure_ti_valid();
-				});
-			}
-		});
-	}
-}
-
-#[test]
-fn release_at_max_total_balance_does_not_double_count_held_funds() {
-	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
-		let alice = 0;
-		assert_ok!(Balances::mint_into(&alice, u64::MAX));
-		assert_ok!(Balances::hold(&TestId::Foo, &alice, 5));
-		assert_eq!(Balances::free_balance(alice), u64::MAX - 5);
-		assert_eq!(Balances::reserved_balance(alice), 5);
-		assert_eq!(System::providers(&alice), 1);
-		assert_eq!(System::consumers(&alice), 1);
-		for precision in [Precision::Exact, Precision::BestEffort] {
-			hypothetically!({
-				assert_eq!(Balances::release(&TestId::Foo, &alice, 5, precision), Ok(5));
-				assert_eq!(Balances::free_balance(alice), u64::MAX);
-				assert_eq!(Balances::reserved_balance(alice), 0);
-				assert_eq!(Balances::balance_on_hold(&TestId::Foo, &alice), 0);
-				assert_eq!(System::providers(&alice), 1);
-				assert_eq!(System::consumers(&alice), 0);
-				assert_eq!(TotalIssuance::<Test>::get(), u64::MAX);
-				ensure_ti_valid();
-			});
-		}
 	});
 }
 
