@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793287654806,
+  "lastUpdate": 1793292440372,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ca40ef596465ea4e37823da7da1f5e2cf329f913",
-          "message": "Asset Hub Westend: Monetary guard track (#11736)\n\n## Summary\n\nAdds a dedicated `MonetaryGuard` governance track for fast circuit\nbreaker activation for PSM on Asset Hub Westend.\n\n### Changes\n\n- Adds `MonetaryGuard` custom origin and governance track (ID 16)\n- Updates `EnsurePsmManager` origin mapping:\n  - Root -> Full (all PSM operations)\n  - MonetaryGuard -> Emergency (circuit breaker only)\n\n### Track parameters\n\n| Parameter | Value |\n|---|---|\n| max_deciding | 3 |\n| decision_deposit | 500 WND |\n| prepare_period | 20 min |\n| decision_period | 20 min |\n| confirm_period | 4 min |\n| min_enactment | 1 min |\n\nNOTE: the periods and deposits are low for testing purposes\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
-          "timestamp": "2026-04-14T08:18:33Z",
-          "tree_id": "5938f7329b5ab5955e1b77fd95149411d0073005",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca40ef596465ea4e37823da7da1f5e2cf329f913"
-        },
-        "date": 1776159629790,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026649470500000015,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00925810282999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00911959262000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009405889109999987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "769cd18a8e13a6c5c8ec05c70507aa10269a6919",
+          "message": "fixup! [HRMP] Extend InboundMessageId for horizontal messages (#12876) (#13602)\n\nDiscovered during\nhttps://github.com/paritytech/polkadot-sdk/pull/12489#discussion_r4346981885,\nthat some migrations where missed for people-westend and\nyet-another-parchains, so fix them to avoid corrupted state.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-29T15:12:38Z",
+          "tree_id": "6577115da3d4e6e28affd298aaba42aae779c016",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/769cd18a8e13a6c5c8ec05c70507aa10269a6919"
+        },
+        "date": 1793292413661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010600723079999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025281231400000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.00951312192999999,
             "unit": "seconds"
           }
         ]
