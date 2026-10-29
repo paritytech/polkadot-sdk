@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793298761819,
+  "lastUpdate": 1793311770696,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dcdeff430bc51f4056c9219a9723c375c7adb7ff",
-          "message": "Compile Zombienet Tests in release mode (#11765)\n\nRevert the unrelated wasm-builder changes.",
-          "timestamp": "2026-04-15T12:14:38Z",
-          "tree_id": "ea2dc5b1a0f8754fb387070f4f4a34307056200d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dcdeff430bc51f4056c9219a9723c375c7adb7ff"
-        },
-        "date": 1776260606635,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14093711814666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02537677532,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0071613298066666685,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009555074833333316,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14289077516666676,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alistair.singh7@gmail.com",
+            "name": "Alistair Singh",
+            "username": "alistair-singh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "57f27e6ebd50a7be40a21fe69739e619c35a9515",
+          "message": "Snowbridge: restore unchecked sync committee key parsing (#13640)\n\n# Description\n\nRestore `PublicKey::from_bytes_unchecked` when preparing authenticated\nEthereum sync committee keys.\n\nPR #11910 changed this call to `from_bytes`, adding a G1 subgroup check\nfor every key. A sync committee contains 512 keys. Benchmarking with\nchecked `snowbridge-beacon-primitives` `0.21.1` increased the relevant\nbase ref-times from:\n\n| Call | Unchecked | Checked | Increase |\n|---|---:|---:|---:|\n| `submit_with_sync_committee` | 130,686,869,000 | 486,152,042,000 |\n3.72x |\n| `force_checkpoint` | 111,409,252,000 | 480,697,088,000 | 4.31x |\n\n`submit` is a Normal-class call. Approximately 486 billion ref-time\nunits exceeds Bridge Hub Polkadot's roughly 350-billion Normal\nper-extrinsic cap, so a committee update cannot be included and the\nbridge stalls at committee rotation.\n\nThe long-term hardening solution is Bridge Hub/Snowbridge async-backing\ncompatibility. Its larger execution budget (up to approximately two\nseconds) should allow checked deserialization to be restored after\nbenchmarking the complete committee-update call with adequate headroom.\n\n## Integration\n\nThis needs backports and patched `snowbridge-beacon-primitives`\npublications for:\n\n- `stable2606`: currently `0.21.1`, checked\n- `stable2609`: currently `0.22.0`, checked\n\n## Review Notes\n\nThis does not introduce a new attacker-controlled key path:\n\n- Ethereum only adds a new validator key to its registry after its BLS\nproof-of-possession signature verifies. BLS verification performs key\nvalidation, including the G1 subgroup check.\n- Ethereum constructs sync committees from keys in that validator\nregistry.\n- Snowbridge verifies the supplied committee's SSZ root and Merkle\nbranch against the authenticated beacon-state root before preparing its\nkeys.\n- `force_checkpoint` is restricted to Root.\n- `from_bytes_unchecked` still validates the compressed encoding, field\nelement and on-curve point; it omits the identity and subgroup checks.\n\nAs noted in #11910, injecting a non-subgroup committee key would first\nrequire a failure of Ethereum consensus validation, the authenticated\nMerkle-proof/SHA-256 commitment path, or the trusted Root checkpoint\nprocess. The subgroup check at this location is therefore defense in\ndepth rather than the primary security boundary.\n\n## Validation\n\n- `rustfmt --check bridges/snowbridge/primitives/beacon/src/bls.rs`\n- `cargo test -p snowbridge-beacon-primitives` (22 passed)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T20:36:44Z",
+          "tree_id": "f3909bddcadb7b9ae728d1ad6bc4476915cbfd65",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/57f27e6ebd50a7be40a21fe69739e619c35a9515"
+        },
+        "date": 1793311733504,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024927270446666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009876024646666646,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1408565520266667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007679814293333334,
             "unit": "seconds"
           }
         ]
