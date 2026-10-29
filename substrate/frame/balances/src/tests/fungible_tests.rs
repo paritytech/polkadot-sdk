@@ -296,6 +296,56 @@ fn mint_below_ed_into_account_with_holds_increases_issuance() {
 }
 
 #[test]
+fn account_credited_below_ed_is_dusted_once_holds_are_gone() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		// Given: an account with its whole balance on hold receives a credit below ED.
+		hold_whole_balance(1337);
+		assert_eq!(Balances::mint_into(&1337, 3), Ok(3));
+		let issuance = <Balances as Inspect<_>>::total_issuance();
+
+		// When: the held balance is burnt, leaving the free balance below ED with nothing held.
+		assert_ok!(Balances::burn_held(&TestId::Foo, &1337, 100, Exact, Force));
+
+		// Then: the free balance is dusted, and the dust leaves the total issuance too.
+		assert_eq!(Balances::free_balance(1337), 0);
+		assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 0);
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 103);
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::DustLost {
+			account: 1337,
+			amount: 3,
+		}));
+	});
+}
+
+#[test]
+fn account_withdrawn_below_ed_is_dusted_once_holds_are_gone() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(true)
+		.build_and_execute_with(|| {
+			// Given: an account with an extra provider and a hold, whose free balance is withdrawn
+			// to below ED.
+			Balances::set_balance(&1337, 100);
+			frame_system::Pallet::<Test>::inc_providers(&1337);
+			assert_ok!(Balances::hold(&TestId::Foo, &1337, 50));
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1337, &1, 47, Expendable));
+			assert_eq!(Balances::free_balance(1337), 3);
+			let issuance = <Balances as Inspect<_>>::total_issuance();
+
+			// When: the held balance is burnt, leaving the free balance below ED with nothing held.
+			assert_ok!(Balances::burn_held(&TestId::Foo, &1337, 50, Exact, Force));
+
+			// Then: the free balance is dusted, and the dust leaves the total issuance too.
+			assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 0);
+			assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 53);
+			System::assert_has_event(RuntimeEvent::Balances(crate::Event::DustLost {
+				account: 1337,
+				amount: 3,
+			}));
+		});
+}
+
+#[test]
 fn deposit_below_ed_into_account_with_holds_works() {
 	ExtBuilder::default()
 		.existential_deposit(10)

@@ -349,16 +349,16 @@ impl<T: Config<I>, I: 'static> fungible::UnbalancedHold<T::AccountId> for Pallet
 			new_account.reserved.checked_sub(&delta).ok_or(ArithmeticError::Underflow)?
 		};
 
+		// Releasing the last hold of an account whose free balance is below ED dusts it.
 		let (result, maybe_dust) =
 			Self::try_mutate_account(who, false, |a, _| -> DispatchResult {
 				*a = new_account;
 				Ok(())
 			})?;
-		debug_assert!(
-			maybe_dust.is_none(),
-			"Does not alter main balance; dust only happens when it is altered; qed"
-		);
 		Holds::<T, I>::insert(who, holds);
+		if let Some(dust) = maybe_dust {
+			<Self as fungible::Unbalanced<_>>::handle_raw_dust(dust);
+		}
 		Ok(result)
 	}
 }
