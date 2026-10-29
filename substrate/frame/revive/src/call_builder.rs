@@ -478,60 +478,62 @@ impl VmBinaryModule {
 			}
 		}
 		text.push_str("ret\n");
-		let code = polkavm_common::assembler::assemble(
-			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
-		)
-		.unwrap();
-		Self::new(code)
+		Self::from_assembly(&text)
 	}
 
-	/// The smallest entry block [`Self::with_entry_block_size`] can build: the `ecalli SENTINEL`
-	/// and the `fallthrough` that ends the block.
-	pub const MIN_ENTRY_BLOCK_SIZE: u32 = 2;
+	/// A contract whose `call` export starts with a basic block of two instructions.
+	///
+	/// It holds the same instructions as [`Self::with_full_entry_block`], so its code has the
+	/// same size. Only the `fallthrough` comes right after the `ecalli SENTINEL`: the entry block
+	/// holds these two instructions and all fillers are in the second block.
+	pub fn with_small_entry_block() -> Self {
+		Self::with_entry_block_size(2)
+	}
 
-	/// A contract whose `call` export starts with a basic block of `block_size` instructions.
+	/// A contract whose `call` export starts with a basic block of `BASIC_BLOCK_SIZE`
+	/// instructions.
 	///
 	/// The first instruction of that block ends the execution. It is an `ecalli SENTINEL`, which
 	/// does not end the basic block, so the interpreter still compiles the whole block before
 	/// running it. No other block is compiled.
 	///
-	/// The code holds the same instructions for every `block_size`: one `ecalli SENTINEL`,
-	/// `BASIC_BLOCK_SIZE - MIN_ENTRY_BLOCK_SIZE` fillers, one `fallthrough` and one `ret`. Only
-	/// the position of the `fallthrough` changes. It ends the entry block after `block_size`
-	/// instructions and the remaining fillers and the `ret` form a second block. Hence the blob
-	/// has the same size for every `block_size`.
+	/// The code holds one `ecalli SENTINEL`, `BASIC_BLOCK_SIZE - 2` fillers, one `fallthrough`
+	/// that ends the entry block and one `ret` that forms a second block.
+	/// [`Self::with_small_entry_block`] holds the same instructions with the `fallthrough` right
+	/// after the `ecalli SENTINEL`.
 	///
-	/// The filler stores a 32 bit immediate to an absolute address (`store_imm_u32` with two
-	/// 4 byte immediates). Among the instruction kinds measured it is the slowest to compile.
-	/// It never executes.
+	/// The filler is a `store_imm_u32`: it stores a 32 bit immediate to an absolute address and
+	/// carries two 4 byte immediates. It never executes.
+	pub fn with_full_entry_block() -> Self {
+		Self::with_entry_block_size(limits::code::BASIC_BLOCK_SIZE)
+	}
+
+	/// The contract of [`Self::with_small_entry_block`] and [`Self::with_full_entry_block`] with
+	/// the `fallthrough` placed so that the entry block has `block_size` instructions.
 	///
-	/// # Panics
-	///
-	/// Panics if `block_size` is not within `MIN_ENTRY_BLOCK_SIZE..=BASIC_BLOCK_SIZE`.
-	pub fn with_entry_block_size(block_size: u32) -> Self {
+	/// `block_size` is within `2..=BASIC_BLOCK_SIZE`.
+	fn with_entry_block_size(block_size: u32) -> Self {
 		const FILLER: &str = "u32 [0x12345678] = 0x12345678\n";
-		let max_block_size = limits::code::BASIC_BLOCK_SIZE;
-		assert!(
-			(Self::MIN_ENTRY_BLOCK_SIZE..=max_block_size).contains(&block_size),
-			"entry block size {block_size} not within {}..={max_block_size}",
-			Self::MIN_ENTRY_BLOCK_SIZE,
-		);
 		let mut text =
 			alloc::format!("pub @deploy:\nret\npub @call:\necalli {}\n", crate::SENTINEL);
-		for _ in Self::MIN_ENTRY_BLOCK_SIZE..block_size {
+		for _ in 2..block_size {
 			text.push_str(FILLER);
 		}
 		text.push_str("fallthrough\n");
-		for _ in block_size..max_block_size {
+		for _ in block_size..limits::code::BASIC_BLOCK_SIZE {
 			text.push_str(FILLER);
 		}
 		text.push_str("ret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// Assembles `text` into a contract for the instruction set contracts use.
+	fn from_assembly(text: &str) -> Self {
 		let code = polkavm_common::assembler::assemble(
 			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
+			text,
 		)
-		.expect("the assembly text above is valid; qed");
+		.expect("callers pass assembly text built in this module, which is valid; qed");
 		Self::new(code)
 	}
 
@@ -560,12 +562,7 @@ impl VmBinaryModule {
 		ret
 		"
 		);
-		let code = polkavm_common::assembler::assemble(
-			Some(polkavm_common::program::InstructionSetKind::ReviveV1),
-			&text,
-		)
-		.unwrap();
-		Self::new(code)
+		Self::from_assembly(&text)
 	}
 
 	/// An evm contract that executes `size` JUMPDEST instructions.
@@ -574,5 +571,35 @@ impl VmBinaryModule {
 
 		let code = vec![JUMPDEST; size as usize];
 		Self::new(code)
+	}
+}
+
+#[cfg(all(test, feature = "runtime-benchmarks"))]
+mod tests {
+	use super::VmBinaryModule;
+	use crate::limits::code::{BASIC_BLOCK_SIZE, check_pvm_code};
+	use polkavm_common::program::{ISA_ReviveV1, ProgramBlob};
+
+	/// The contracts of the `basic_block_compilation` benchmark differ only in the size of the
+	/// entry block.
+	#[test]
+	fn basic_block_compilation_contracts() {
+		let entry_block_size = |module: &VmBinaryModule| {
+			let blob = ProgramBlob::parse(module.code[..].into()).unwrap();
+			let call = blob.exports().find(|export| export.symbol().as_bytes() == b"call").unwrap();
+			let terminator = blob
+				.instructions_bounded_at_with_isa(ISA_ReviveV1, call.program_counter())
+				.position(|inst| inst.kind.opcode().starts_new_basic_block())
+				.unwrap();
+			u32::try_from(terminator + 1).unwrap()
+		};
+		let small = VmBinaryModule::with_small_entry_block();
+		let full = VmBinaryModule::with_full_entry_block();
+
+		assert_eq!(small.code.len(), full.code.len());
+		assert_eq!(entry_block_size(&small), 2);
+		assert_eq!(entry_block_size(&full), BASIC_BLOCK_SIZE);
+		assert_eq!(check_pvm_code(&small.code), Ok(()));
+		assert_eq!(check_pvm_code(&full.code), Ok(()));
 	}
 }
