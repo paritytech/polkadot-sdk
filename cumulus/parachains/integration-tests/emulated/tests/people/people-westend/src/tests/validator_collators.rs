@@ -15,7 +15,10 @@
 
 use crate::imports::*;
 use codec::Encode;
-use emulated_integration_tests_common::{collators, xcm_emulator::pallet_aura};
+use emulated_integration_tests_common::{
+	collators,
+	xcm_emulator::{pallet_aura, polkadot_primitives::AuthorityDiscoveryId},
+};
 use pallet_staking_async::OnEraStart;
 use parachains_common::{AccountId, AuraId};
 use sp_externalities::ExternalitiesExt;
@@ -55,9 +58,9 @@ fn register_keys_on_people(who: &AccountId) -> AuraId {
 	aura
 }
 
-fn invulnerables() -> Vec<(AccountId, AuraId)> {
+fn invulnerables() -> Vec<(AccountId, AuraId, AuthorityDiscoveryId)> {
 	let mut invulnerables = collators::invulnerables();
-	invulnerables.sort_by(|(a, _), (b, _)| a.cmp(b));
+	invulnerables.sort_by(|(a, _, _), (b, _, _)| a.cmp(b));
 	invulnerables
 }
 
@@ -72,7 +75,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 	with_keys.sort();
 	let expected = invulnerables()
 		.into_iter()
-		.map(|(who, _)| who)
+		.map(|(who, _, _)| who)
 		.chain(with_keys.clone())
 		.collect::<Vec<_>>();
 	let expected_authorities = |alice_aura: AuraId, bob_aura: AuraId| {
@@ -80,7 +83,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 			|who: &AccountId| if *who == alice { alice_aura.clone() } else { bob_aura.clone() };
 		invulnerables()
 			.into_iter()
-			.map(|(_, aura)| aura)
+			.map(|(_, aura, _)| aura)
 			.chain(with_keys.iter().map(aura_of))
 			.collect::<Vec<_>>()
 	};
@@ -210,8 +213,11 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 	// AND after the second forced rotation only the drawn validator collates next to the
 	// invulnerables
 	PeopleWestend::execute_with(|| {
-		let expected =
-			invulnerables().into_iter().map(|(who, _)| who).chain(drawn).collect::<Vec<_>>();
+		let expected = invulnerables()
+			.into_iter()
+			.map(|(who, _, _)| who)
+			.chain(drawn)
+			.collect::<Vec<_>>();
 		assert_eq!(Session::current_index(), session_before + 2);
 		assert_eq!(Session::validators(), expected);
 	});
