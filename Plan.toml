@@ -946,8 +946,8 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/primitives/beacon
 name = "snowbridge-beacon-primitives"
-from = "0.19.0"
-to = "0.19.1"
+from = "0.19.1"
+to = "0.19.2"
 bump = "patch"
 reason = "changed"
 
@@ -1342,9 +1342,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/asset-conversion
 name = "pallet-asset-conversion"
-from = "27.0.0"
-to = "28.0.0"
-bump = "major"
+from = "28.0.0"
+to = "28.0.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1802,8 +1802,8 @@ reason = "changed"
 [[crate]]
 # polkadot/xcm/xcm-executor
 name = "staging-xcm-executor"
-from = "25.1.0"
-to = "25.2.0"
+from = "25.2.0"
+to = "25.3.0"
 bump = "minor"
 reason = "changed"
 
@@ -2700,8 +2700,8 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/runtime/runtime-common
 name = "snowbridge-runtime-common"
-from = "0.20.0"
-to = "0.20.1"
+from = "0.20.1"
+to = "0.20.2"
 bump = "patch"
 reason = "changed"
 
@@ -3058,8 +3058,8 @@ reason = "changed"
 [[crate]]
 # cumulus/primitives/utility
 name = "cumulus-primitives-utility"
-from = "0.26.0"
-to = "0.26.1"
+from = "0.26.1"
+to = "0.26.2"
 bump = "patch"
 reason = "changed"
 
@@ -3714,8 +3714,8 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.25.1"
-to = "0.25.2"
+from = "0.25.2"
+to = "0.25.3"
 bump = "patch"
 reason = "changed"
 

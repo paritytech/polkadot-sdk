@@ -3,6 +3,11 @@ The following crates were updated to the corresponding versions:
 <details>
   <summary>Changed crates: </summary>
 
-- sc-rpc-server@28.1.0
+- snowbridge-beacon-primitives@0.19.2
+- pallet-asset-conversion@28.0.1
+- staging-xcm-executor@25.3.0
+- snowbridge-runtime-common@0.20.2
+- cumulus-primitives-utility@0.26.2
+- bridge-hub-westend-runtime@0.25.3
 
 </details>
