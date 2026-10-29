@@ -107,7 +107,7 @@ pub type Migrations = (
 	RemoveCollectiveFlip,
 	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
 	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
-        ad_migration::AppendAuthorityDiscoveryKeys<
+	ad_migration::AppendAuthorityDiscoveryKeys<
 		Runtime,
 		AdMigrationVersion,
 		ad_migration::KeysTranslator,
