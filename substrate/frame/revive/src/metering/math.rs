@@ -217,9 +217,8 @@ pub(crate) fn validate_and_get_stipend<T: Config>(
 	Ok(weight_stipend)
 }
 
-/// Compute the ratio of requested gas to available gas.
-/// Returns a value in [0, 1]
-pub(crate) fn compute_gas_ratio<T: Config>(
+/// Returns the ratio of `gas_limit` to `remaining_gas`, capped at 1.
+pub(crate) fn gas_ratio<T: Config>(
 	gas_limit: BalanceOf<T>,
 	remaining_gas: BalanceOf<T>,
 ) -> FixedU128 {
@@ -334,7 +333,7 @@ pub mod substrate_execution {
 
 					let gas_limit = remaining_gas.min(*gas);
 
-					let ratio = compute_gas_ratio::<T>(gas_limit, remaining_gas);
+					let ratio = gas_ratio::<T>(gas_limit, remaining_gas);
 					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 

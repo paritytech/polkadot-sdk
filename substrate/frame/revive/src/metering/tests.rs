@@ -112,7 +112,7 @@ fn test_apply_eip_150_to_weight() {
 }
 
 #[test]
-fn test_compute_eip_150_overhead() {
+fn test_eip_150_overhead_of_weight() {
 	// Given consumed weight, verify: apply_eip_150(consumed + overhead) == consumed
 	let input_weights: Vec<Weight> = vec![
 		Weight::from_parts(0, 0),
@@ -140,8 +140,8 @@ fn test_compute_eip_150_overhead() {
 }
 
 #[test]
-fn test_compute_gas_ratio() {
-	use super::math::compute_gas_ratio;
+fn test_gas_ratio() {
+	use super::math::gas_ratio;
 
 	ExtBuilder::default().build().execute_with(|| {
 		// (gas_limit, remaining_gas, expected_numerator, expected_denominator)
@@ -158,7 +158,7 @@ fn test_compute_gas_ratio() {
 
 		for (gas_limit, remaining, num, denom) in ratio_cases {
 			assert_eq!(
-				compute_gas_ratio::<Test>(gas_limit, remaining),
+				gas_ratio::<Test>(gas_limit, remaining),
 				FixedU128::from_rational(num, denom),
 				"failed for gas_limit={gas_limit}, remaining={remaining}"
 			);
