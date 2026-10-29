@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793278777889,
+  "lastUpdate": 1793287436463,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5e15555a5c52e422d12bca05dbfaf7e0f425f75c",
-          "message": "Bump westend runtimes spec_versions (#11757)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-15T09:46:10Z",
-          "tree_id": "5c750c7d6797db721a1bd172049d7d189645e391",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e15555a5c52e422d12bca05dbfaf7e0f425f75c"
-        },
-        "date": 1776251174591,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1310344513,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.765787261366665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12447645820000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a8da70b429098ecd804da5ea9fad05718ff6d0f",
+          "message": "asset-conversion: treat frozen or blocked pools as unusable (#13598)\n\nSince #12408 pool reserves are read with `balance`, so a frozen or\nblocked pool account is no longer treated as empty. A frozen pool became\none-way (you can sell into it but not buy out of it), and a blocked pool\nstill gets quoted even though the swap would fail.\n\nThis PR restores the old behavior. A pool that can't send one of its\nassets is rejected in both directions with a new `PoolUnavailable`\nerror, and quotes return `None` if the pool can't receive the input.\n\nShould land together with or before any release that includes #12408.\n\n---------\n\nCo-authored-by: joe petrowski <25483142+joepetrowski@users.noreply.github.com>",
+          "timestamp": "2026-10-29T13:47:35Z",
+          "tree_id": "aa5c89705c21dd14b120822abaeaa40cc253bb5d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a8da70b429098ecd804da5ea9fad05718ff6d0f"
+        },
+        "date": 1793287407580,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.699561763,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12530584736666667,
             "unit": "seconds"
           }
         ]
