@@ -1,0 +1,15 @@
+title: '`pallet-pgas-allowance`: test weight reservation and refund math'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds tests for the weight reservation formula in `weight()`
+      (`charge_pgas.max(inner + charge_pgas_skip)`) and the weight each path returns in
+      post-dispatch: the PGAS path, the signed inner fallback, and the unsigned fallback. Also
+      covers the full-burn branch when the refund cannot be resolved to the payer and the
+      `InvalidTransaction::Payment` rejection when the PGAS balance drops between validate and
+      prepare. Test-only, no behavior change.
+
+crates:
+  - name: pallet-pgas-allowance
+    bump: none
