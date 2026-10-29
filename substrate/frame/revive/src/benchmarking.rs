@@ -125,13 +125,14 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 	Ok(account_id)
 }
 
-/// Queues `contract` for deletion the way termination does.
+/// Queues `contract` for deletion as a terminated contract that left dust on its account.
 ///
-/// Termination replaces the account info with a plain account, which is kept when dust remains
-/// on it. With that entry in place the deletion queue takes the branch that clears the native
-/// deposit rows. The branch for a live contract decodes a larger entry but skips the
-/// `clear_prefix` on `NativeDepositOf`, which this branch runs even when there are no rows and
-/// which dominates the cost, so this branch is the one to measure.
+/// With no contract live at the address, the deletion queue reads the `AccountInfoOf` entry and
+/// runs a `clear_prefix` on `NativeDepositOf`, even when there are no rows. This branch is the
+/// worst case per entry. With a live contract the entry is 125 bytes larger (the encoded
+/// `ContractInfo` with a 32-byte hash and `u128` balances, against `EOA` and its dust), but the
+/// `clear_prefix` and its proof are skipped. The branch is also taken when the address has no
+/// entry at all; `dust: 1` keeps a stored entry so that the read is measured with a value.
 fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
 	let info = contract.info()?;
 	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });
@@ -525,9 +526,11 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read,
-	/// the `AccountInfoOf` read that checks for a live contract at the address, plus the
-	/// `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
+	/// Measures the per-entry cost of `process_deletion_queue_batch`.
+	///
+	/// This is one `DeletionQueue` read, the `AccountInfoOf` read that checks for a live contract
+	/// at the address, plus the `DeletionQueue` + `DeletionQueueCounter` writes done by
+	/// `entry.remove()`.
 	#[benchmark(pov_mode = Measured)]
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
@@ -558,9 +561,10 @@ mod benchmarks {
 	}
 
 	/// Measures the cost of clearing one [`NativeDepositOf`] row during
-	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
-	/// per-payer rows and queues it for deletion as a terminated contract with an empty trie.
-	/// The deletion queue then drains all rows in one go.
+	/// [`ContractInfo::process_deletion_queue_batch`].
+	///
+	/// Pre-populates the contract with `k` per-payer rows and queues it for deletion as a
+	/// terminated contract with an empty trie. The deletion queue then drains all rows in one go.
 	#[benchmark(skip_meta, pov_mode = Measured)]
 	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		use frame_benchmarking::v2::account;

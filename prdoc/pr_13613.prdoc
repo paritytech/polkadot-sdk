@@ -21,14 +21,13 @@ doc:
     The per-entry deletion-queue weight (`WeightInfo::deletion_queue_per_entry`) now includes
     one `AccountInfoOf` read. Runtimes should regenerate their `pallet_revive` weights.
 
-    The `MultiContributorStorage` fixture gains a `clearStorage` function, which adds a variant
-    to the generated `MultiContributorStorage::MultiContributorStorageCalls` enum in
-    `pallet-revive-fixtures`.
+    `pallet-revive-fixtures` gains the `ClearableContributorStorage` test contract and its
+    generated bindings. Existing fixtures are unchanged.
 
 crates:
 - name: pallet-revive
   bump: patch
 - name: pallet-revive-fixtures
-  bump: major
+  bump: minor
 - name: asset-hub-westend-runtime
   bump: patch

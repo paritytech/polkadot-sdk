@@ -456,9 +456,7 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		// Reject reuse of an address whose previous occupant still has `NativeDepositOf` rows
-		// that the deletion queue has not cleared yet; otherwise the new contract would inherit
-		// stale per-payer entitlements. Once a contract is live here again, the deletion queue
-		// leaves the rows under this address alone, so all of them belong to the new contract.
+		// that the deletion queue has not cleared yet. `DeletionQueueItem` explains why.
 		let account_id = T::AddressMapper::to_fallback_account_id(address);
 		if NativeDepositOf::<T>::iter_prefix(&account_id).next().is_some() {
 			return Err(Error::<T>::PendingDepositCleanup.into());
@@ -716,13 +714,8 @@ impl<T: Config> ContractInfo<T> {
 			let Some(after_entry) = remaining.checked_sub(&weight_per_entry) else { break };
 			remaining = after_entry;
 
-			// Phase 1: drain `NativeDepositOf` rows for this contract.
-			//
-			// The rows are keyed by the fallback account of the address, which every contract
-			// created at that address shares. Re-instantiation requires an empty prefix, so while a
-			// contract is live at the address every row under it belongs to that contract and
-			// this phase is skipped. Rows under an address with no live contract belong to a
-			// terminated one.
+			// Phase 1: drain `NativeDepositOf` rows for this contract. Skipped while a contract is
+			// live at the address, because the rows then belong to it. See `DeletionQueueItem`.
 			let address = T::AddressMapper::to_address(&entry.value.account_id);
 			if !AccountInfo::<T>::is_contract(&address) {
 				let key_budget = key_budget_for(remaining, weight_per_native_key);
@@ -848,10 +841,12 @@ pub struct DeletionQueueManager<T: Config> {
 /// trie. Cleanup runs in two phases per batch (native rows first, then the trie); the entry
 /// stays in the queue until both phases have finished for it.
 ///
-/// The native rows are keyed by `account_id`, which a contract created later at the same address
-/// shares. Such a contract can only be created once the rows are gone, and from then on the
-/// rows under `account_id` are its own. Therefore the first phase only runs while no contract
-/// is live at the address; otherwise only the child trie is removed.
+/// The native rows are keyed by `account_id`, the fallback account of the address, which every
+/// contract created at that address shares. [`ContractInfo::new`] refuses to create a contract
+/// at an address that still has rows, so a new contract cannot inherit the per-payer
+/// entitlements of a terminated one. Once a contract is live at the address again, every row
+/// under `account_id` belongs to it. Therefore the first phase only runs while no contract is
+/// live at the address; otherwise only the child trie is removed.
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, CloneNoBound, DebugNoBound, PartialEq, Eq)]
 #[scale_info(skip_type_params(T))]
 pub struct DeletionQueueItem<T: Config> {

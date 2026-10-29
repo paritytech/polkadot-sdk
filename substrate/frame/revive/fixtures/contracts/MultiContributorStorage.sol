@@ -8,8 +8,7 @@ import "@revive/ISystem.sol";
 /// Each call to `growStorage` writes a fresh slot keyed by `msg.sender`, so distinct callers
 /// grow distinct storage items rather than overwriting each other. On a `PGasDeposit` runtime
 /// where neither caller has any PGAS, every charge falls back to native currency and is
-/// recorded per-payer in `NativeDepositOf[contract][caller]`. `clearStorage` deletes the
-/// caller's slot, which refunds the caller's share of the deposit.
+/// recorded per-payer in `NativeDepositOf[contract][caller]`.
 ///
 /// `terminate` invokes the `ISystem.terminate` precompile (not the EVM `SELFDESTRUCT` opcode,
 /// which EIP-6780 restricts to same-tx-created contracts). The precompile path is what
@@ -23,10 +22,6 @@ contract MultiContributorStorage {
 			payload[i] = 0xAB;
 		}
 		slots[msg.sender] = payload;
-	}
-
-	function clearStorage() external {
-		delete slots[msg.sender];
 	}
 
 	function terminate(address beneficiary) external {
