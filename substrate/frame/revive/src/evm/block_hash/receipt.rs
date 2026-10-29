@@ -79,9 +79,10 @@ pub struct CommittedReceiptLogs {
 	pub bloom: [u8; BLOOM_SIZE_BYTES],
 	/// Whether a log was left out because it did not fit the receipt.
 	///
-	/// Set when a log that cannot fail on its own, one emitted outside any contract frame, would
-	/// have taken the receipt past [`crate::limits::MAX_RECEIPT_LOGS_BYTES`]. The transaction
-	/// then fails with [`crate::Error::ReceiptTooLarge`].
+	/// Set when a log would have taken the receipt past
+	/// [`crate::limits::MAX_RECEIPT_LOGS_BYTES`]. Every later log is left out as well, and the
+	/// frame or the transaction the log was emitted in fails with
+	/// [`crate::Error::ReceiptTooLarge`].
 	pub exceeded: bool,
 }
 

@@ -382,6 +382,27 @@ impl pallet_assets::Config for Test {
 	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
 	type Holder = AssetsHolder;
 	type Freezer = AssetsFreezer;
+	type CallbackHandle = MirrorAssetTransfersCallback;
+}
+
+/// The address the logs of [`MirrorAssetTransfersCallback`] are attributed to.
+pub const ASSET_TRANSFER_LOG_ADDR: H160 = H160([0xa6; 20]);
+
+/// Mirrors every asset transfer as a log with 32 bytes of data and no topics from
+/// [`ASSET_TRANSFER_LOG_ADDR`] while [`MirrorAssetTransfers`] is set, as a runtime's ERC-20
+/// `Transfer` mirror does. Paying a storage deposit in PGAS is such a transfer.
+pub struct MirrorAssetTransfersCallback;
+
+impl pallet_assets::AssetsCallback<u32, AccountId32, u128> for MirrorAssetTransfersCallback {
+	fn transferred(_id: &u32, _from: &AccountId32, _to: &AccountId32, _amount: u128) {
+		if MirrorAssetTransfers::get() {
+			Pallet::<Test>::emit_contract_log_outside_frame(
+				ASSET_TRANSFER_LOG_ADDR,
+				Default::default(),
+				vec![0u8; 32].try_into().expect("32 bytes are within the LOG limit; qed"),
+			);
+		}
+	}
 }
 
 impl pallet_assets_holder::Config for Test {
@@ -453,6 +474,7 @@ parameter_types! {
 	pub static DebugFlag: bool = false;
 	pub static AutoMapFlag: bool = false;
 	pub static MaxOutsideFrameLogsFlag: u32 = 1024;
+	pub static MirrorAssetTransfers: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -576,6 +598,7 @@ impl ExtBuilder {
 		// A test that lowers the cap would otherwise leave it lowered for every later test sharing
 		// the thread.
 		MaxOutsideFrameLogsFlag::set(1024);
+		MirrorAssetTransfers::set(false);
 	}
 	pub fn with_genesis_state_overrides(mut self, storage: Storage) -> Self {
 		self.genesis_state_overrides = Some(storage);

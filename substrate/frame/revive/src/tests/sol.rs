@@ -2040,17 +2040,19 @@ mod receipt_size_limit {
 		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, EthTransactError, Origin,
 		Pallet, RUNTIME_PALLETS_ADDR, RuntimeCosts, WeightToken,
 		evm::{
-			Block, GenericTransaction, TransactionSigned, block_hash::AccumulateReceipt,
-			fees::InfoT,
+			Block, CallTracer, CallTracerConfig, GenericTransaction, TransactionSigned,
+			block_hash::AccumulateReceipt, fees::InfoT,
 		},
 		limits::MAX_RECEIPT_LOGS_BYTES,
 		precompiles::Precompile,
 		test_utils::{ALICE, ALICE_ADDR},
 		tests::{
-			Contracts, ExtBuilder, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test, builder,
+			ASSET_TRANSFER_LOG_ADDR, Assets, Contracts, ExtBuilder, MirrorAssetTransfers,
+			PGAS_ASSET_ID, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test, builder,
 			initialize_block, pallet_dummy,
 			precompiles::{INoInfo, NoInfo},
 		},
+		tracing::trace,
 	};
 	use alloy_core::{
 		primitives::Address,
@@ -2060,7 +2062,7 @@ mod receipt_size_limit {
 	use codec::Encode;
 	use frame_support::{
 		assert_ok,
-		dispatch::DispatchResultWithPostInfo,
+		dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
 		traits::{
 			Hooks,
 			fungible::{Balanced, Mutate},
@@ -2072,7 +2074,7 @@ mod receipt_size_limit {
 	};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
-	use sp_runtime::DispatchError;
+	use sp_runtime::{DispatchError, traits::Dispatchable};
 	use test_case::test_case;
 
 	/// The data of a log without topics that takes up 65,536 bytes of the receipt: 32 of them
@@ -2291,19 +2293,25 @@ mod receipt_size_limit {
 		});
 	}
 
+	/// The address the logs of `mirror_logs` are attributed to.
+	const MIRROR: H160 = H160([0xa5; 20]);
+
+	/// A runtime call that mirrors one log from `MIRROR` per entry of `data_lens`, with that many
+	/// bytes of data.
+	fn mirror_log_sizes(data_lens: Vec<u32>) -> Box<RuntimeCall> {
+		Box::new(RuntimeCall::Dummy(pallet_dummy::Call::emit_logs { contract: MIRROR, data_lens }))
+	}
+
+	/// A runtime call that mirrors `count` logs of `LOG_DATA` bytes from `MIRROR`.
 	fn mirror_logs(count: u32) -> Box<RuntimeCall> {
-		Box::new(RuntimeCall::Dummy(pallet_dummy::Call::emit_logs {
-			contract: H160::repeat_byte(0xa5),
-			count,
-			data_len: LOG_DATA,
-		}))
+		mirror_log_sizes(vec![LOG_DATA; count as usize])
 	}
 
 	#[test]
 	fn mirrored_logs_at_the_limit_are_kept() {
 		ExtBuilder::default().build().execute_with(|| {
 			deploy(FixtureType::Solc);
-			let mirror = H160::repeat_byte(0xa5);
+			let mirror = MIRROR;
 
 			assert_ok!(Pallet::<Test>::eth_substrate_call(
 				Origin::EthTransaction(ALICE).into(),
@@ -2318,12 +2326,12 @@ mod receipt_size_limit {
 		});
 	}
 
-	/// A mirrored log cannot fail on its own, so one that does not fit fails the transaction.
+	/// A mirrored log outside any frame that does not fit fails the transaction.
 	#[test]
 	fn mirrored_log_past_the_limit_fails_the_transaction() {
 		ExtBuilder::default().build().execute_with(|| {
 			deploy(FixtureType::Solc);
-			let mirror = H160::repeat_byte(0xa5);
+			let mirror = MIRROR;
 
 			assert_ok!(Pallet::<Test>::eth_substrate_call(
 				Origin::EthTransaction(ALICE).into(),
@@ -2344,14 +2352,13 @@ mod receipt_size_limit {
 	#[test]
 	fn buffered_logs_stop_at_the_limit() {
 		ExtBuilder::default().build().execute_with(|| {
-			let mirror = H160::repeat_byte(0xa5);
+			let mirror = MIRROR;
 			Contracts::on_initialize(1);
 
 			assert_ok!(pallet_dummy::Pallet::<Test>::emit_logs(
 				RuntimeOrigin::signed(ALICE),
 				mirror,
-				FULL_LOGS + 2,
-				LOG_DATA,
+				vec![LOG_DATA; FULL_LOGS as usize + 2],
 			));
 
 			assert_eq!(contract_emitted_data(mirror).len(), FULL_LOGS as usize + 2);
@@ -2366,8 +2373,7 @@ mod receipt_size_limit {
 			assert_ok!(pallet_dummy::Pallet::<Test>::emit_logs(
 				RuntimeOrigin::signed(ALICE),
 				mirror,
-				1,
-				LOG_DATA,
+				vec![LOG_DATA],
 			));
 			Contracts::on_finalize(2);
 			let synthetic = Pallet::<Test>::eth_synthetic_transaction()
@@ -2376,98 +2382,316 @@ mod receipt_size_limit {
 		});
 	}
 
-	/// The call data for `storeAndCall` and `callThenRevertGuarded` that makes the test runtime's
-	/// precompile mirror `count` logs from inside the contract's frame.
-	fn mirror_from_frame(count: u32) -> (Address, alloy_core::primitives::Bytes) {
+	/// The bytes a log without topics and with 32 bytes of data takes up in the receipt, as the
+	/// logs of `MirrorAssetTransfersCallback` and of `mirror_from_frame(vec![32])` do.
+	fn mirrored_log_len() -> u32 {
+		AccumulateReceipt::encoded_log_len(&MIRROR, &[0u8; 32], &[]) as u32
+	}
+
+	/// The precompile and the call data that make the test runtime's precompile mirror one log
+	/// from `MIRROR` per entry of `data_lens`, inside the precompile's frame.
+	fn mirror_from_frame(data_lens: Vec<u32>) -> (Address, alloy_core::primitives::Bytes) {
 		let precompile = Address::from(NoInfo::<Test>::MATCHER.base_address());
-		let call = INoInfo::callRuntimeCall { call: mirror_logs(count).encode().into() };
+		let call = INoInfo::callRuntimeCall { call: mirror_log_sizes(data_lens).encode().into() };
 		(precompile, call.abi_encode().into())
 	}
 
-	/// A log mirrored inside a contract frame that does not fit fails the transaction before its
-	/// storage deposit is charged. The receipt's gas is the fee the failed transaction is charged.
+	/// Call data for `emitLogsThenCall`: `FULL_LOGS` logs of `LOG_DATA` bytes and one of
+	/// `last_size` bytes, then a call that mirrors a log with 32 bytes of data inside the
+	/// precompile's frame.
+	fn emit_logs_then_mirror(last_size: u32) -> Vec<u8> {
+		let (target, data) = mirror_from_frame(vec![32]);
+		LogVolume::emitLogsThenCallCall {
+			count: FULL_LOGS,
+			size: LOG_DATA,
+			lastSize: last_size,
+			target,
+			data,
+		}
+		.abi_encode()
+	}
+
+	/// The value of `LogVolume::stored` at `addr`.
+	fn stored(addr: H160) -> u64 {
+		let stored = builder::bare_call(addr)
+			.data(LogVolume::storedCall {}.abi_encode())
+			.build_and_unwrap_result();
+		LogVolume::storedCall::abi_decode_returns(&stored.data).unwrap().to()
+	}
+
+	/// The addresses of the receipt's logs, in order.
+	fn log_addresses(receipt: &alloy_consensus::ReceiptWithBloom) -> Vec<H160> {
+		receipt.receipt.logs.iter().map(|log| H160(log.address.0.0)).collect()
+	}
+
+	/// The PGAS `ALICE` holds outside any hold.
+	fn alice_pgas() -> u128 {
+		Assets::balance(PGAS_ASSET_ID, &ALICE)
+	}
+
+	/// The `eth_call` the `eth_call` helper dispatches.
+	fn eth_call_extrinsic(addr: H160, data: Vec<u8>) -> RuntimeCall {
+		RuntimeCall::Contracts(crate::Call::eth_call {
+			dest: addr,
+			value: 0u32.into(),
+			weight_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
+			data,
+			transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
+				.signed_payload(),
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
+			authorization_list: vec![],
+		})
+	}
+
+	/// Check that the block's only transaction is billed in its receipt the fee `call` is charged
+	/// for `post_info`, and no storage deposit.
+	fn assert_receipt_gas_is_the_fee(call: &RuntimeCall, post_info: PostDispatchInfo) {
+		let info = <Test as Config>::FeeInfo::dispatch_info(call);
+		let fee = <Test as Config>::FeeInfo::compute_actual_fee(0, &info, &Ok(post_info));
+		let (gas, rest) =
+			Pallet::<Test>::convert_native_to_evm(fee).div_mod(Pallet::<Test>::evm_base_fee());
+		let gas = if rest.is_zero() { gas } else { gas.saturating_add(1u32.into()) };
+		let gas_info = EthBlockBuilderIR::<Test>::get().gas_info;
+		assert_eq!(gas_info.len(), 1);
+		assert_eq!(gas_info[0].gas_used, gas);
+	}
+
+	/// Enough PGAS for `ALICE` to pay every storage deposit of a test.
+	const ALICE_PGAS: u128 = 1_000_000_000_000_000;
+
+	/// A storage deposit paid in PGAS is mirrored as a log after the contract returned, outside
+	/// any frame. With room left for it, it is the receipt's last log.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
-	fn mirrored_log_past_the_limit_in_a_frame_fails_the_transaction(fixture_type: FixtureType) {
-		ExtBuilder::default().build().execute_with(|| {
-			let addr = deploy(fixture_type);
-			let mirror = H160::repeat_byte(0xa5);
-			let balance_before = Pallet::<Test>::evm_balance(&ALICE_ADDR);
-			let (target, data) = mirror_from_frame(FULL_LOGS + 2);
-			let data = LogVolume::storeAndCallCall { target, data }.abi_encode();
+	fn mirrored_deposit_log_that_fits_is_kept(fixture_type: FixtureType) {
+		ExtBuilder::default()
+			.with_pgas_balances(vec![(ALICE, ALICE_PGAS)])
+			.build()
+			.execute_with(|| {
+				let addr = deploy(fixture_type);
+				MirrorAssetTransfers::set(true);
+				let pgas_before = alice_pgas();
+				let last_size = LOG_DATA - mirrored_log_len();
 
-			let post_info =
-				eth_call(addr, data.clone()).expect("the failed transaction is still included");
+				assert_ok!(eth_call(
+					addr,
+					LogVolume::storeAndEmitLogsCall {
+						count: FULL_LOGS,
+						size: LOG_DATA,
+						lastSize: last_size
+					}
+					.abi_encode(),
+				));
+
+				assert_eq!(eth_extrinsic_revert(), None);
+				assert!(alice_pgas() < pgas_before, "the deposit is paid in PGAS");
+				assert_eq!(stored(addr), 1);
+				let receipt = finalize_single_receipt();
+				assert!(receipt.receipt.status.coerce_status());
+				let mut expected = vec![addr; FULL_LOGS as usize + 1];
+				expected.push(ASSET_TRANSFER_LOG_ADDR);
+				assert_eq!(log_addresses(&receipt), expected);
+			});
+	}
+
+	/// A mirrored storage deposit log that does not fit fails the transaction once the deposits
+	/// are paid. The deposit, the storage write and every log roll back, and the receipt bills
+	/// only the fee of the failed transaction.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn mirrored_deposit_log_past_the_limit_fails_the_call(fixture_type: FixtureType) {
+		ExtBuilder::default()
+			.with_pgas_balances(vec![(ALICE, ALICE_PGAS)])
+			.build()
+			.execute_with(|| {
+				let addr = deploy(fixture_type);
+				MirrorAssetTransfers::set(true);
+				let pgas_before = alice_pgas();
+				let last_size = LOG_DATA - mirrored_log_len() + 1;
+				let data = LogVolume::storeAndEmitLogsCall {
+					count: FULL_LOGS,
+					size: LOG_DATA,
+					lastSize: last_size,
+				}
+				.abi_encode();
+
+				let post_info =
+					eth_call(addr, data.clone()).expect("the failed transaction is still included");
+
+				assert_eq!(
+					eth_extrinsic_revert(),
+					Some(crate::Error::<Test>::ReceiptTooLarge.into())
+				);
+				assert_eq!(alice_pgas(), pgas_before, "the deposit rolled back");
+				assert_eq!(stored(addr), 0, "the storage write rolled back");
+				assert!(contract_emitted_data(addr).is_empty(), "the events rolled back");
+				assert!(contract_emitted_data(ASSET_TRANSFER_LOG_ADDR).is_empty());
+				assert_receipt_gas_is_the_fee(&eth_call_extrinsic(addr, data), post_info);
+				let receipt = finalize_single_receipt();
+				assert!(!receipt.receipt.status.coerce_status());
+				assert!(receipt.receipt.logs.is_empty());
+			});
+	}
+
+	/// An instantiation fails the same way when a mirrored storage deposit log does not fit, and
+	/// leaves no contract behind.
+	///
+	/// The code deposit is paid, and its log mirrored, before the contract returns: for PVM code
+	/// before the constructor runs, for EVM code when the constructor returns the runtime code.
+	/// The test leaves room for that log, so that the first log that does not fit is one mirrored
+	/// after the contract returned.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn mirrored_deposit_log_past_the_limit_fails_the_instantiation(fixture_type: FixtureType) {
+		let ext = || ExtBuilder::default().with_pgas_balances(vec![(ALICE, ALICE_PGAS)]).build();
+		let next_address = || {
+			let nonce: u64 = System::account_nonce(&ALICE).into();
+			crate::address::create1(&ALICE_ADDR, nonce.saturating_sub(1))
+		};
+
+		ext().execute_with(|| {
+			deploy(fixture_type);
+			MirrorAssetTransfers::set(true);
+			let addr = next_address();
+
+			assert_ok!(eth_instantiate(fixture_type, LOG_DATA - 3 * mirrored_log_len()).0);
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert!(!Pallet::<Test>::code(&addr).is_empty());
+			let receipt = finalize_single_receipt();
+			let logs = log_addresses(&receipt);
+			assert_eq!(logs.iter().filter(|log| **log == addr).count(), FULL_LOGS as usize + 1);
+			assert_eq!(
+				logs.iter().filter(|log| **log == ASSET_TRANSFER_LOG_ADDR).count(),
+				2,
+				"the code deposit and, after the contract returned, the contract's deposit",
+			);
+			assert_eq!(logs.last(), Some(&ASSET_TRANSFER_LOG_ADDR));
+		});
+
+		ext().execute_with(|| {
+			deploy(fixture_type);
+			MirrorAssetTransfers::set(true);
+			let addr = next_address();
+			let pgas_before = alice_pgas();
+
+			let (result, call) =
+				eth_instantiate(fixture_type, LOG_DATA - 2 * mirrored_log_len() + 1);
+			let post_info = result.expect("the failed transaction is still included");
 
 			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ReceiptTooLarge.into()));
-			assert!(contract_emitted_data(mirror).is_empty(), "the events rolled back");
-			assert_eq!(
-				Pallet::<Test>::evm_balance(&ALICE_ADDR),
-				balance_before,
-				"no storage deposit is charged",
-			);
-			let stored = builder::bare_call(addr)
-				.data(LogVolume::storedCall {}.abi_encode())
-				.build_and_unwrap_result();
-			assert_eq!(
-				LogVolume::storedCall::abi_decode_returns(&stored.data).unwrap(),
-				alloy_core::primitives::U256::ZERO,
-				"the storage write rolled back",
-			);
-
-			let call = RuntimeCall::Contracts(crate::Call::eth_call {
-				dest: addr,
-				value: 0u32.into(),
-				weight_limit: WEIGHT_LIMIT,
-				eth_gas_limit: ETH_GAS_LIMIT.into(),
-				data,
-				transaction_encoded: TransactionSigned::TransactionLegacySigned(Default::default())
-					.signed_payload(),
-				effective_gas_price: 0u32.into(),
-				encoded_len: 0,
-				authorization_list: vec![],
-			});
-			let info = <Test as Config>::FeeInfo::dispatch_info(&call);
-			let fee = <Test as Config>::FeeInfo::compute_actual_fee(0, &info, &Ok(post_info));
-			let (gas, rest) =
-				Pallet::<Test>::convert_native_to_evm(fee).div_mod(Pallet::<Test>::evm_base_fee());
-			let gas = if rest.is_zero() { gas } else { gas.saturating_add(1u32.into()) };
-			let gas_info = EthBlockBuilderIR::<Test>::get().gas_info;
-			assert_eq!(gas_info.len(), 1);
-			assert_eq!(gas_info[0].gas_used, gas);
-
+			assert!(Pallet::<Test>::code(&addr).is_empty(), "no contract is left behind");
+			assert_eq!(alice_pgas(), pgas_before, "the deposits rolled back");
+			assert_receipt_gas_is_the_fee(&call, post_info);
 			let receipt = finalize_single_receipt();
 			assert!(!receipt.receipt.status.coerce_status());
 			assert!(receipt.receipt.logs.is_empty());
 		});
 	}
 
-	/// A mirrored log that did not fit is forgotten with the frame that emitted it, when that
-	/// frame reverts.
-	#[test_case(FixtureType::Solc)]
-	#[test_case(FixtureType::Resolc)]
-	fn reverted_frame_takes_the_mirrored_overflow_with_it(fixture_type: FixtureType) {
+	/// Once a log did not fit, a later log that would fit is refused as well. Were it kept, it
+	/// would commit the receipt again without the overflow and the transaction would succeed
+	/// with a log missing.
+	#[test]
+	fn log_after_an_overflow_fails_the_transaction() {
 		ExtBuilder::default().build().execute_with(|| {
-			let addr = deploy(fixture_type);
-			let mirror = H160::repeat_byte(0xa5);
-			let (target, data) = mirror_from_frame(FULL_LOGS + 2);
+			deploy(FixtureType::Solc);
+			// 32 logs that leave room for an empty log but not for one of `LOG_DATA` bytes.
+			let filler = LOG_DATA - 64;
+			let room = MAX_RECEIPT_LOGS_BYTES as usize -
+				(FULL_LOGS as usize + 1) *
+					AccumulateReceipt::encoded_log_len(
+						&MIRROR,
+						&vec![0u8; filler as usize],
+						&[],
+					);
+			assert!(
+				room < AccumulateReceipt::encoded_log_len(&MIRROR, &[0u8; LOG_DATA as usize], &[])
+			);
+			assert!(room >= AccumulateReceipt::encoded_log_len(&MIRROR, &[], &[]));
+			let mut data_lens = vec![filler; FULL_LOGS as usize + 1];
+			data_lens.extend([LOG_DATA, 0]);
 
-			assert_ok!(eth_call(
-				addr,
-				LogVolume::callThenRevertGuardedCall { target, data }.abi_encode()
+			assert_ok!(Pallet::<Test>::eth_substrate_call(
+				Origin::EthTransaction(ALICE).into(),
+				mirror_log_sizes(data_lens),
+				vec![],
 			));
 
-			assert_eq!(eth_extrinsic_revert(), None);
-			assert!(contract_emitted_data(mirror).is_empty(), "the events rolled back");
-			assert_eq!(contract_emitted_data(addr).len(), 1, "only the caller's log");
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ReceiptTooLarge.into()));
+			assert!(contract_emitted_data(MIRROR).is_empty(), "the events rolled back");
 			let receipt = finalize_single_receipt();
-			assert!(receipt.receipt.status.coerce_status());
-			assert_eq!(receipt.receipt.logs.len(), 1);
+			assert!(!receipt.receipt.status.coerce_status());
+			assert!(receipt.receipt.logs.is_empty());
 		});
 	}
 
-	/// Run `LogVolumeConstructor` as an ethereum transaction that deploys it.
-	fn eth_instantiate(fixture_type: FixtureType, last_size: u32) -> DispatchResultWithPostInfo {
+	/// A log the runtime mirrors inside a frame fails that frame when it does not fit, and the
+	/// caller can handle the failure: its own logs and its later storage write are kept.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn caller_survives_a_mirrored_log_past_the_limit(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(eth_call(addr, emit_logs_then_mirror(LOG_DATA - mirrored_log_len())));
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(stored(addr), 1, "the precompile call succeeded");
+			let receipt = finalize_single_receipt();
+			let mut expected = vec![addr; FULL_LOGS as usize + 1];
+			expected.push(MIRROR);
+			assert_eq!(log_addresses(&receipt), expected);
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			assert_ok!(eth_call(addr, emit_logs_then_mirror(LOG_DATA - mirrored_log_len() + 1)));
+
+			assert_eq!(eth_extrinsic_revert(), None);
+			assert_eq!(stored(addr), 2, "the precompile call failed and the caller went on");
+			assert!(contract_emitted_data(MIRROR).is_empty(), "the failed frame's log rolled back");
+			let receipt = finalize_single_receipt();
+			assert!(receipt.receipt.status.coerce_status());
+			assert_eq!(log_addresses(&receipt), vec![addr; FULL_LOGS as usize + 1]);
+		});
+	}
+
+	/// The call tracer records only the logs the receipt kept, for a log emitted by a contract and
+	/// for one the runtime mirrors.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn tracer_records_only_logs_that_fit(fixture_type: FixtureType) {
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+			let new_tracer =
+				|| CallTracer::new(CallTracerConfig { with_logs: true, only_top_call: false });
+
+			let mut tracer = new_tracer();
+			let _ = trace(&mut tracer, || eth_call(addr, emit_logs(FULL_LOGS, LOG_DATA + 1)));
+			let call_trace = tracer.collect_trace().expect("the call is traced");
+			assert_eq!(call_trace.logs.len(), FULL_LOGS as usize);
+
+			let mut tracer = new_tracer();
+			let _ = trace(&mut tracer, || {
+				eth_call(addr, emit_logs_then_mirror(LOG_DATA - mirrored_log_len() + 1))
+			});
+			let call_trace = tracer.collect_trace().expect("the call is traced");
+			assert_eq!(call_trace.logs.len(), FULL_LOGS as usize + 1);
+			assert_eq!(call_trace.calls.len(), 1, "the call into the precompile");
+			assert!(call_trace.calls[0].logs.is_empty());
+		});
+	}
+
+	/// Run `LogVolumeConstructor` as an ethereum transaction that deploys it. Also returns the
+	/// dispatched call.
+	fn eth_instantiate(
+		fixture_type: FixtureType,
+		last_size: u32,
+	) -> (DispatchResultWithPostInfo, RuntimeCall) {
 		let (mut code, _) = compile_module_with_type("LogVolumeConstructor", fixture_type).unwrap();
 		let args = LogVolumeConstructor::constructorCall {
 			count: FULL_LOGS,
@@ -2483,11 +2707,18 @@ mod receipt_size_limit {
 			},
 			_ => args,
 		};
-		builder::eth_instantiate_with_code(code)
-			.gas_limit(WEIGHT_LIMIT)
-			.eth_gas_limit(ETH_GAS_LIMIT.into())
-			.data(data)
-			.build()
+		let call = RuntimeCall::Contracts(crate::Call::eth_instantiate_with_code {
+			value: 0u32.into(),
+			weight_limit: WEIGHT_LIMIT,
+			eth_gas_limit: ETH_GAS_LIMIT.into(),
+			code,
+			data,
+			transaction_encoded: TransactionSigned::Transaction4844Signed(Default::default())
+				.signed_payload(),
+			effective_gas_price: 0u32.into(),
+			encoded_len: 0,
+		});
+		(call.clone().dispatch(Origin::EthTransaction(ALICE).into()), call)
 	}
 
 	#[test_case(FixtureType::Solc)]
@@ -2496,7 +2727,7 @@ mod receipt_size_limit {
 		ExtBuilder::default().build().execute_with(|| {
 			deploy(fixture_type);
 
-			assert_ok!(eth_instantiate(fixture_type, LOG_DATA));
+			assert_ok!(eth_instantiate(fixture_type, LOG_DATA).0);
 			assert_eq!(eth_extrinsic_revert(), None);
 			let receipt = finalize_single_receipt();
 			assert_eq!(receipt.receipt.logs.len(), FULL_LOGS as usize + 1);
@@ -2505,7 +2736,7 @@ mod receipt_size_limit {
 		ExtBuilder::default().build().execute_with(|| {
 			deploy(fixture_type);
 
-			assert_ok!(eth_instantiate(fixture_type, LOG_DATA + 1));
+			assert_ok!(eth_instantiate(fixture_type, LOG_DATA + 1).0);
 			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ReceiptTooLarge.into()));
 			let receipt = finalize_single_receipt();
 			assert!(receipt.receipt.logs.is_empty());

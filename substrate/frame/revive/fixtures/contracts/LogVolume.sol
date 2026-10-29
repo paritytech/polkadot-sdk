@@ -32,24 +32,24 @@ contract LogVolume {
         }
     }
 
-    /// Writes `stored`, then calls `target` with `data` and requires the call to succeed.
-    function storeAndCall(address target, bytes calldata data) public {
+    /// Writes `stored`, then emits logs as `emitLogs` does.
+    function storeAndEmitLogs(uint32 count, uint32 size, uint32 lastSize) public {
         stored = 1;
-        (bool success, ) = target.call(data);
-        require(success, "call failed");
+        emitLogs(count, size, lastSize);
     }
 
-    /// Calls `target` with `data`, requires the call to succeed, then reverts.
-    function callThenRevert(address target, bytes calldata data) public {
-        (bool success, ) = target.call(data);
-        require(success, "call failed");
-        revert("reverted after the call");
-    }
-
-    /// Emits `Outer`, then lets a sub-call run `callThenRevert` and swallows its revert.
-    function callThenRevertGuarded(address target, bytes calldata data) public {
-        emit Outer(1);
-        try this.callThenRevert(target, data) {} catch {}
+    /// Emits logs as `emitLogs` does, calls `target` with `data`, then stores 1 in `stored` if
+    /// the call succeeded and 2 if it failed.
+    function emitLogsThenCall(
+        uint32 count,
+        uint32 size,
+        uint32 lastSize,
+        address target,
+        bytes calldata data
+    ) public returns (bool success) {
+        emitLogs(count, size, lastSize);
+        (success, ) = target.call(data);
+        stored = success ? 1 : 2;
     }
 }
 

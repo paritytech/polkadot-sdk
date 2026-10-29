@@ -35,6 +35,7 @@ use alloc::vec::Vec;
 use environmental::environmental;
 use frame_support::{
 	dispatch::DispatchInfo,
+	ensure,
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
 	traits::Get,
@@ -123,8 +124,8 @@ impl EthereumCallResult {
 	}
 }
 
-/// Add the log to the open ethereum transaction's receipt, if there is one, and report whether
-/// there was. Outside an ethereum transaction the caller decides what becomes of the log.
+/// Add the log to the open ethereum transaction's receipt. Returns `None` outside an ethereum
+/// transaction, where the caller decides what becomes of the log.
 ///
 /// A log only exists if the storage change that produced it took effect, so the receipt follows
 /// storage rollback: what the transaction has committed of its receipt is kept in
@@ -133,46 +134,34 @@ impl EthereumCallResult {
 /// to the committed state before every log, and once more in [`get_receipt_details`].
 ///
 /// The receipt is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that would take it past
-/// the limit, or any log after [`CommittedReceiptLogs::exceeded`] was set, is not kept; the
-/// receipt is left as it was and what the transaction committed is returned in the error.
-fn capture_into_receipt<T: Config>(
+/// the limit is not kept and fails with [`Error::ReceiptTooLarge`]. It also sets
+/// [`CommittedReceiptLogs::exceeded`]: every later log fails as well, and the frame or the
+/// transaction the log was emitted in fails, see [`ensure_receipt_within_limit`], even where the
+/// error is not propagated. The flag rolls back with the layer the log was emitted in.
+pub fn capture_into_receipt<T: Config>(
 	contract: &H160,
 	data: &[u8],
 	topics: &[H256],
-) -> Option<Result<(), CommittedReceiptLogs>> {
+) -> Option<Result<(), DispatchError>> {
 	receipt::with(|receipt| {
 		let committed = ReceiptLogsCommitted::<T>::get();
 		if committed.exceeded {
-			return Err(committed);
+			return Err(Error::<T>::ReceiptTooLarge.into());
 		}
-		receipt.reset_to(&committed);
-		receipt.add_log(contract, data, topics);
-		if receipt.encoding.len() > limits::MAX_RECEIPT_LOGS_BYTES as usize {
+		let fits = (committed.encoded_len as usize)
+			.saturating_add(AccumulateReceipt::encoded_log_len(contract, data, topics)) <=
+			limits::MAX_RECEIPT_LOGS_BYTES as usize;
+		let next = if fits {
 			receipt.reset_to(&committed);
-			return Err(committed);
-		}
-		ReceiptLogsCommitted::<T>::put(receipt.committed());
+			receipt.add_log(contract, data, topics);
+			receipt.committed()
+		} else {
+			CommittedReceiptLogs { exceeded: true, ..committed }
+		};
+		ReceiptLogsCommitted::<T>::put(next);
+		ensure!(fits, Error::<T>::ReceiptTooLarge);
 		Ok(())
 	})
-}
-
-/// Capture a log emitted outside any contract frame into the open ethereum transaction's
-/// receipt, and report whether there was one.
-///
-/// Such a log cannot fail on its own. When it does not fit the receipt, see
-/// [`capture_into_receipt`], it is left out and [`CommittedReceiptLogs::exceeded`] is set
-/// instead: every later log of the transaction fails, and the transaction fails with
-/// [`Error::ReceiptTooLarge`], see [`ensure_receipt_within_limit`]. The flag is part of what the
-/// transaction committed, so it rolls back together with the layer the log was emitted in.
-pub fn capture_outside_frame_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
-	match capture_into_receipt::<T>(contract, data, topics) {
-		None => false,
-		Some(Ok(())) => true,
-		Some(Err(committed)) => {
-			ReceiptLogsCommitted::<T>::put(CommittedReceiptLogs { exceeded: true, ..committed });
-			true
-		},
-	}
 }
 
 /// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
@@ -197,10 +186,7 @@ pub fn capture_frame_log<T: Config>(
 	data: &[u8],
 	topics: &[H256],
 ) -> Result<(), DispatchError> {
-	match capture_into_receipt::<T>(contract, data, topics) {
-		Some(Err(_)) => Err(Error::<T>::ReceiptTooLarge.into()),
-		None | Some(Ok(())) => Ok(()),
-	}
+	capture_into_receipt::<T>(contract, data, topics).unwrap_or(Ok(()))
 }
 
 /// Take the receipt details of the current transaction: the logs it committed, see
@@ -235,17 +221,19 @@ pub fn with_receipt_scope<T: Config, R>(f: impl FnOnce() -> R) -> R {
 	})
 }
 
-/// Fail with [`Error::ReceiptTooLarge`] if a log emitted outside any frame did not fit the open
-/// receipt, see [`capture_outside_frame_log`].
+/// Fail with [`Error::ReceiptTooLarge`] if a log did not fit the open receipt, see
+/// [`capture_into_receipt`]. Outside an ethereum transaction there is no receipt and nothing is
+/// read.
 ///
-/// Checked where such a log can be emitted, before the transaction settles: after the outermost
-/// contract call or instantiation of `bare_call` and `bare_instantiate`, before their storage
-/// deposits are executed, and after the runtime call dispatched by `eth_substrate_call` or by a
-/// dry run. Failing there leaves the fee to be computed from the failed result.
+/// Every contract frame, precompiles included, checks this before it returns successfully, so a
+/// log that did not fit fails the frame it was emitted in, also when the runtime mirrored it or
+/// a precompile did not propagate the error. Logs emitted outside any frame are checked where
+/// they can be emitted: after `bare_call` and `bare_instantiate` executed their storage
+/// deposits, and after the runtime call dispatched by `eth_substrate_call` or by a dry run.
+/// Failing there leaves the fee to be computed from the failed result.
 pub fn ensure_receipt_within_limit<T: Config>() -> Result<(), DispatchError> {
-	if ReceiptLogsCommitted::<T>::get().exceeded {
-		return Err(Error::<T>::ReceiptTooLarge.into());
-	}
+	let exceeded = receipt::with(|_| ReceiptLogsCommitted::<T>::get().exceeded);
+	ensure!(exceeded != Some(true), Error::<T>::ReceiptTooLarge);
 	Ok(())
 }
 

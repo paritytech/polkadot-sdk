@@ -333,7 +333,7 @@ pub trait EthExtra {
 	/// the encoded_len and the injected weight_limit.
 	///
 	/// A payload larger than [`crate::limits::MAX_TRANSACTION_PAYLOAD_SIZE`] is rejected with
-	/// [`InvalidTransaction::ExhaustsResources`].
+	/// [`InvalidTransaction::ExhaustsResources`], as is a dry run of such a transaction.
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
@@ -354,10 +354,7 @@ pub trait EthExtra {
 		<Self::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 		CallOf<Self::Config>: SetWeightLimit,
 	{
-		if payload.len() > crate::limits::MAX_TRANSACTION_PAYLOAD_SIZE as usize {
-			log::debug!(target: LOG_TARGET, "Transaction payload too large: {} bytes", payload.len());
-			return Err(InvalidTransaction::ExhaustsResources);
-		}
+		crate::evm::ensure_transaction_payload_size(payload)?;
 
 		let tx = TransactionSigned::decode(&payload).map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to decode transaction: {err:?}");
@@ -762,6 +759,35 @@ mod test {
 			Err(TransactionValidityError::Invalid(InvalidTransaction::ExhaustsResources))
 		);
 		assert_eq!(check(limit), Err(TransactionValidityError::Invalid(InvalidTransaction::Call)));
+	}
+
+	/// A dry run of a transaction whose payload is larger than `MAX_TRANSACTION_PAYLOAD_SIZE`
+	/// fails with the error its submission is rejected with.
+	#[test]
+	fn dry_run_eth_transact_payload_size() {
+		ExtBuilder::default().build().execute_with(|| {
+			let exhausts_resources = |input_len: u32| {
+				let result = crate::Pallet::<Test>::dry_run_eth_transact(
+					GenericTransaction {
+						from: Some(ALICE_ADDR),
+						to: Some(BOB_ADDR),
+						input: vec![0u8; input_len as usize].into(),
+						..Default::default()
+					},
+					None,
+					false,
+					None,
+				);
+				matches!(
+					result,
+					Err(crate::EthTransactError::Message(msg)) if msg.contains("ExhaustsResources")
+				)
+			};
+			let limit = crate::limits::MAX_TRANSACTION_PAYLOAD_SIZE;
+
+			assert!(exhausts_resources(limit));
+			assert!(!exhausts_resources(limit - 1024));
+		});
 	}
 
 	#[test]

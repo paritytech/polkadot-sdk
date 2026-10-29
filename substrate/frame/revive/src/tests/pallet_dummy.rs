@@ -78,17 +78,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Mirror `count` logs without topics and with `data_len` bytes of data each from outside
-		/// any contract frame.
+		/// Mirror one log without topics per entry of `data_lens`, with that many bytes of data,
+		/// from outside any contract frame.
 		#[pallet::call_index(4)]
 		pub fn emit_logs(
 			origin: OriginFor<T>,
 			contract: H160,
-			count: u32,
-			data_len: u32,
+			data_lens: Vec<u32>,
 		) -> DispatchResult {
 			ensure_signed(origin)?;
-			for _ in 0..count {
+			for data_len in data_lens {
 				crate::Pallet::<T>::emit_contract_log_outside_frame(
 					contract,
 					Default::default(),

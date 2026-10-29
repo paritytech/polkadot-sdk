@@ -1053,9 +1053,10 @@ pub mod pallet {
 		/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
 		///
 		/// The receipt the log goes to is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that
-		/// would take an ethereum transaction's receipt past it fails that transaction with
-		/// [`Error::ReceiptTooLarge`]. A log that would take the synthetic transaction's receipt
-		/// past it is not buffered and stays a substrate-only event.
+		/// would take an ethereum transaction's receipt past it fails the contract frame it was
+		/// emitted in with [`Error::ReceiptTooLarge`] when that frame returns, or the transaction
+		/// when it was emitted outside any frame. A log that would take the synthetic
+		/// transaction's receipt past it is not buffered and stays a substrate-only event.
 		///
 		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
 		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
@@ -1066,13 +1067,19 @@ pub mod pallet {
 			topics: ContractLogTopics,
 			data: ContractLogData,
 		) {
-			if_tracing(|tracer| {
-				let log_index = frame_system::Pallet::<T>::event_count();
-				tracer.log_event_outside_frame(contract, &topics, &data, log_index);
-			});
-
-			if !block_storage::capture_outside_frame_log::<T>(&contract, &data, &topics) {
+			let captured = block_storage::capture_into_receipt::<T>(&contract, &data, &topics);
+			if captured.is_none() {
 				Self::buffer_outside_frame_log(&contract, &topics, &data);
+			}
+
+			// A log that does not fit the receipt fails the frame or the transaction it was
+			// emitted in, see `block_storage::ensure_receipt_within_limit`. Like a log emitted
+			// from inside a frame, it is not traced.
+			if !matches!(captured, Some(Err(_))) {
+				if_tracing(|tracer| {
+					let log_index = frame_system::Pallet::<T>::event_count();
+					tracer.log_event_outside_frame(contract, &topics, &data, log_index);
+				});
 			}
 
 			Self::deposit_event(Event::ContractEmitted {
@@ -1090,9 +1097,11 @@ pub mod pallet {
 			OutsideFrameLogsBytes::<T>::kill();
 		}
 
-		/// Buffer a log for the block's synthetic transaction regardless of `MaxOutsideFrameLogs`,
-		/// and without the first-log check and weight registration, so a benchmark of the drain
-		/// measures exactly the entries it sets up.
+		/// Buffer a log for the block's synthetic transaction without the checks of
+		/// `buffer_outside_frame_log`: `MaxOutsideFrameLogs`, the first-log check and weight
+		/// registration, and the receipt size limit. `OutsideFrameLogsBytes` is not updated, so a
+		/// benchmark can build a buffer that admission would refuse and measures exactly the
+		/// entries it sets up.
 		#[cfg(feature = "runtime-benchmarks")]
 		pub fn bench_buffer_outside_frame_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 			OutsideFrameLogs::<T>::append(OutsideFrameLog {
@@ -1308,9 +1317,9 @@ pub mod pallet {
 
 			log::debug!(
 				target: LOG_TARGET,
-				"Integrity check: max_eth_block_builder_bytes={} KB using max_events_size={} KB",
-				max_eth_block_builder_bytes / 1024,
+				"Integrity check: max_events_size={} KB, max_eth_block_builder_bytes={} KB",
 				max_events_size / 1024,
+				max_eth_block_builder_bytes / 1024,
 			);
 
 			// Check that the configured memory limits fit into runtime memory.
@@ -2029,13 +2038,15 @@ impl<T: Config> Pallet<T> {
 				data,
 				&exec_config,
 			)?;
-			block_storage::ensure_receipt_within_limit::<T>()?;
 
-			storage_deposit = transaction_meter
+			let deposit = transaction_meter
 				.execute_postponed_deposits(&origin, &exec_config)
 				.inspect_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
-			})?;
+					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+				})?;
+			// Paying the deposits can mirror logs, outside any frame.
+			block_storage::ensure_receipt_within_limit::<T>()?;
+			storage_deposit = deposit;
 
 			Ok(result)
 		};
@@ -2145,15 +2156,17 @@ impl<T: Config> Pallet<T> {
 				salt.as_ref(),
 				&exec_config,
 			);
-			if result.is_ok() {
-				block_storage::ensure_receipt_within_limit::<T>()?;
-			}
 
-			storage_deposit = transaction_meter
+			let deposit = transaction_meter
 				.execute_postponed_deposits(&instantiate_origin, &exec_config)
 				.inspect_err(|err| {
 					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
 				})?;
+			// Paying the deposits can mirror logs, outside any frame.
+			if result.is_ok() {
+				block_storage::ensure_receipt_within_limit::<T>()?;
+			}
+			storage_deposit = deposit;
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
