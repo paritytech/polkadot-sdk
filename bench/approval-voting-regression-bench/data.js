@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793298815794,
+  "lastUpdate": 1793311820541,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dcdeff430bc51f4056c9219a9723c375c7adb7ff",
-          "message": "Compile Zombienet Tests in release mode (#11765)\n\nRevert the unrelated wasm-builder changes.",
-          "timestamp": "2026-04-15T12:14:38Z",
-          "tree_id": "ea2dc5b1a0f8754fb387070f4f4a34307056200d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dcdeff430bc51f4056c9219a9723c375c7adb7ff"
-        },
-        "date": 1776260636631,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63620.62999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52936.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.73307586517997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7570959563699635,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.500878092740008,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023771399999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.858043168579999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.819667262989999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.906050497369999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8851935997999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000021900560000000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023771399999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.291894766262867,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0061472873300000026,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000021900560000000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.7324779488699993,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alistair.singh7@gmail.com",
+            "name": "Alistair Singh",
+            "username": "alistair-singh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "57f27e6ebd50a7be40a21fe69739e619c35a9515",
+          "message": "Snowbridge: restore unchecked sync committee key parsing (#13640)\n\n# Description\n\nRestore `PublicKey::from_bytes_unchecked` when preparing authenticated\nEthereum sync committee keys.\n\nPR #11910 changed this call to `from_bytes`, adding a G1 subgroup check\nfor every key. A sync committee contains 512 keys. Benchmarking with\nchecked `snowbridge-beacon-primitives` `0.21.1` increased the relevant\nbase ref-times from:\n\n| Call | Unchecked | Checked | Increase |\n|---|---:|---:|---:|\n| `submit_with_sync_committee` | 130,686,869,000 | 486,152,042,000 |\n3.72x |\n| `force_checkpoint` | 111,409,252,000 | 480,697,088,000 | 4.31x |\n\n`submit` is a Normal-class call. Approximately 486 billion ref-time\nunits exceeds Bridge Hub Polkadot's roughly 350-billion Normal\nper-extrinsic cap, so a committee update cannot be included and the\nbridge stalls at committee rotation.\n\nThe long-term hardening solution is Bridge Hub/Snowbridge async-backing\ncompatibility. Its larger execution budget (up to approximately two\nseconds) should allow checked deserialization to be restored after\nbenchmarking the complete committee-update call with adequate headroom.\n\n## Integration\n\nThis needs backports and patched `snowbridge-beacon-primitives`\npublications for:\n\n- `stable2606`: currently `0.21.1`, checked\n- `stable2609`: currently `0.22.0`, checked\n\n## Review Notes\n\nThis does not introduce a new attacker-controlled key path:\n\n- Ethereum only adds a new validator key to its registry after its BLS\nproof-of-possession signature verifies. BLS verification performs key\nvalidation, including the G1 subgroup check.\n- Ethereum constructs sync committees from keys in that validator\nregistry.\n- Snowbridge verifies the supplied committee's SSZ root and Merkle\nbranch against the authenticated beacon-state root before preparing its\nkeys.\n- `force_checkpoint` is restricted to Root.\n- `from_bytes_unchecked` still validates the compressed encoding, field\nelement and on-curve point; it omits the identity and subgroup checks.\n\nAs noted in #11910, injecting a non-subgroup committee key would first\nrequire a failure of Ethereum consensus validation, the authenticated\nMerkle-proof/SHA-256 commitment path, or the trusted Root checkpoint\nprocess. The subgroup check at this location is therefore defense in\ndepth rather than the primary security boundary.\n\n## Validation\n\n- `rustfmt --check bridges/snowbridge/primitives/beacon/src/bls.rs`\n- `cargo test -p snowbridge-beacon-primitives` (22 passed)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T20:36:44Z",
+          "tree_id": "f3909bddcadb7b9ae728d1ad6bc4476915cbfd65",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/57f27e6ebd50a7be40a21fe69739e619c35a9515"
+        },
+        "date": 1793311787231,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.44,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52941.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019660279999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020348219999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7985673234000012,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019660279999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3677455354699903,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8061167726200003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.385029596109979,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8724757114199889,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005428970940000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.74839163282,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.632312898173092,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020348219999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.786303649439999,
             "unit": "seconds"
           }
         ]
