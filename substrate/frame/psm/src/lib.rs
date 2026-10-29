@@ -935,6 +935,12 @@ pub mod pallet {
 		/// `full_admin` and `emergency_admin` origins are set from the provided arguments and may
 		/// later be reassigned via [`Pallet::set_full_admin`] / [`Pallet::set_emergency_admin`].
 		///
+		/// Note: when the internal asset moves to a new owner,
+		/// [`Pallet::handle_internal_asset_owner_change`] moves an admin role only if the role
+		/// equals the old owner's signed origin. A role set to any other origin stays with that
+		/// origin across the transfer. A party that receives the asset must inspect [`PsmAdmin`]
+		/// to learn who controls the PSM.
+		///
 		/// ## Dispatch Origin
 		///
 		/// [`Config::CreateOrigin`], parameterised by `internal_asset`. With the recommended
