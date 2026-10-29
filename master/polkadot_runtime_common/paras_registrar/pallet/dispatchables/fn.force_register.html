@@ -158,6 +158,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <p>This function must be called by a Root origin.</p>
 <p>The deposit taken can be specified for this registration. Any <code>ParaId</code>
 can be registered, including sub-1000 IDs which are System Parachains.</p>
+<p>Deprecated where registration runs through <code>pallet-registrar-para</code>: use its
+<code>force_register</code> there, since a para registered here is unknown to that pallet.</p>
 <h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in

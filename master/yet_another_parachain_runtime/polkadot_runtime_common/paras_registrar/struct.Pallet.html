@@ -184,6 +184,8 @@ This accounts for the potential to store validation code of a size up to the
 <p>This function must be called by a Root origin.</p>
 <p>The deposit taken can be specified for this registration. Any <code>ParaId</code>
 can be registered, including sub-1000 IDs which are System Parachains.</p>
+<p>Deprecated where registration runs through <code>pallet-registrar-para</code>: use its
+<code>force_register</code> there, since a para registered here is unknown to that pallet.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.deregister" class="method"><h4 class="code-header">pub fn <a href="#method.deregister" class="fn">deregister</a>(
     origin: &lt;T as <a class="trait" href="../../frame_system/trait.Config.html" title="trait yet_another_parachain_runtime::frame_system::Config">Config</a>&gt;::<a class="associatedtype" href="../../frame_system/trait.Config.html#associatedtype.RuntimeOrigin" title="type yet_another_parachain_runtime::frame_system::Config::RuntimeOrigin">RuntimeOrigin</a>,
     id: <a class="struct" href="../../cumulus_primitives_core/struct.ParaId.html" title="struct yet_another_parachain_runtime::cumulus_primitives_core::ParaId">Id</a>,
