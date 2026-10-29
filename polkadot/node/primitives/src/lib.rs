@@ -61,7 +61,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.24.1";
+pub const NODE_VERSION: &'static str = "1.25.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -370,6 +370,9 @@ pub enum InvalidCandidate {
 	ParaHeadHashMismatch,
 	/// Validation code hash does not match.
 	CodeHashMismatch,
+	/// Persisted validation data does not match the descriptor's
+	/// `persisted_validation_data_hash`.
+	PersistedValidationDataMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
 	/// The descriptor's scheduling session does not match the runtime.

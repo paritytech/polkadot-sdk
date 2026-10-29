@@ -17,9 +17,9 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::peers_index::{Key, PeersIndex};
+use bitvec::{order::Msb0, view::BitView};
 use sc_network_types::PeerId;
-use sp_statement_store::Statement;
-pub use sp_statement_store::Topic;
+use sp_statement_store::{Statement, Topic};
 use std::{
 	cmp::Reverse,
 	collections::{HashMap, HashSet},
@@ -34,16 +34,18 @@ pub struct PeersTopologyConfig {
 	/// The DHT-affinity decision uses this to decide whether the local node belongs to the
 	/// K-closest peers for a topic according to the locally learned topology.
 	pub replication_factor: NonZeroUsize,
-	/// Maximum number of connected nodes that we gossip to.
+	/// Maximum number of connected non-replica nodes that we gossip to.
 	///
-	/// This caps `routing_targets`, i.e. the forwarding candidates selected from
-	/// currently connected peers for a topic.
+	/// This caps only the routing leg of `routing_targets`: connected replicas of a topic
+	/// are always forwarding candidates.
 	pub gossip_target: NonZeroUsize,
 }
 
 #[derive(Debug, Clone)]
 struct PeerInfo {
 	supports_protocol: bool,
+	/// The peer speaks the protocol without the DHT path, so identify must not index it.
+	without_dht: bool,
 	/// The statement notification substream to the peer is open.
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
@@ -68,7 +70,7 @@ const MAX_KNOWN_PEERS: usize = 8192;
 ///
 /// Topic queries walk the sorted key indexes in increasing XOR distance, without sorting the full
 /// peer set.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PeersTopology {
 	local_peer: PeerId,
 	local_key: Key,
@@ -113,8 +115,8 @@ impl PeersTopology {
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		info.supports_protocol = supports_statement_protocol;
-		if supports_statement_protocol {
+		info.supports_protocol = supports_statement_protocol && !info.without_dht;
+		if info.supports_protocol {
 			self.discovered_index.insert(key, peer);
 		} else {
 			self.discovered_index.remove(key, &peer);
@@ -128,9 +130,21 @@ impl PeersTopology {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
 		info.supports_protocol = true;
+		info.without_dht = false;
 		info.connected = true;
 		self.discovered_index.insert(key, peer);
 		self.connected.insert(key, peer);
+	}
+
+	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
+	/// DHT path. Identify keeps it out, the next substream open puts it back.
+	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
+		let Some(info) = self.discovered.get_mut(&peer) else { return };
+		let key = info.key;
+		info.supports_protocol = false;
+		info.without_dht = true;
+		self.discovered_index.remove(key, &peer);
+		self.connected.remove(key, &peer);
 	}
 
 	/// Record that the statement notification substream closed.
@@ -142,7 +156,7 @@ impl PeersTopology {
 		self.connected.remove(key, &peer);
 	}
 
-	#[allow(dead_code)]
+	#[cfg(test)]
 	fn is_connected(&self, peer: &PeerId) -> bool {
 		self.discovered.get(peer).is_some_and(|info| info.connected)
 	}
@@ -167,7 +181,7 @@ impl PeersTopology {
 	///
 	/// "Closest" is computed over the locally learned statement-protocol peers, not by querying
 	/// the network for the true global closest peers.
-	#[allow(dead_code)]
+	#[cfg(test)]
 	pub fn closest_known(&self, topic: Topic, limit: usize) -> Vec<PeerId> {
 		self.closest_known_keyed(topic, limit)
 			.into_iter()
@@ -191,24 +205,28 @@ impl PeersTopology {
 		}
 	}
 
-	/// Connected peers to forward a statement for `topic` to, capped at `gossip_target`: those
-	/// closer to the topic than the local node (routing the statement onward) and those that are
-	/// themselves DHT replicas for it (co-replicas that must store it).
+	/// Connected peers to forward a statement for `topic` to: every connected replica of the
+	/// topic, plus up to `gossip_target` peers closer to it than the local node (routing).
+	/// Only the routing leg is capped: capping replicas would deterministically stop the
+	/// replica set at `gossip_target + 1` copies instead of `replication_factor`.
 	pub fn routing_targets(&self, topic: Topic) -> Vec<PeerId> {
-		// TODO: benchmark this per-statement path on large connected sets (see
-		// benches/peers_topology.rs).
 		let local = (self.local_key, self.local_peer);
 		let local_distance = xor_distance(*topic, self.local_key);
 		let k = self.config.replication_factor.get();
-		self.connected
-			.closest(*topic)
-			.take_while(|(peer, key)| {
-				xor_distance(*topic, *key) < local_distance ||
-					is_peer_topic_affine(&self.discovered_index, local, (*key, *peer), k, topic)
-			})
-			.take(self.config.gossip_target.get())
-			.map(|(peer, _)| peer)
-			.collect()
+		let gossip_target = self.config.gossip_target.get();
+		let mut targets = Vec::new();
+		let mut routed = 0;
+		for (peer, key) in self.connected.closest(*topic) {
+			if is_peer_topic_affine(&self.discovered_index, local, (key, peer), k, topic) {
+				targets.push(peer);
+			} else if xor_distance(*topic, key) < local_distance && routed < gossip_target {
+				targets.push(peer);
+				routed += 1;
+			} else {
+				break;
+			}
+		}
+		targets
 	}
 
 	/// Local-only explicit-affinity connection candidates for `topics`.
@@ -246,11 +264,34 @@ impl PeersTopology {
 		selected
 	}
 
+	/// Known statement-protocol peers to keep connected: the `replication_factor` nearest peers,
+	/// then the nearest peer of every distance bucket they leave uncovered.
+	///
+	/// The nearest peers are the replicas the node shares its topics with. A bucket holds the
+	/// peers whose key shares a prefix of one length with the local key, as in Kademlia, so the
+	/// uncovered buckets are the far ones, holding most of the network. One peer in each gives a
+	/// statement for any topic a connected next hop closer to the topic.
+	pub fn peers_for_routing(&self) -> Vec<PeerId> {
+		let nearest = self.config.replication_factor.get();
+		let mut routing = Vec::new();
+		let mut last_bucket = None;
+		// Nearest-first order visits each bucket as one run, its first peer being its nearest.
+		for (peer, key) in self.discovered_index.closest(self.local_key) {
+			let bucket = bucket_of(self.local_key, key);
+			if routing.len() < nearest || last_bucket != Some(bucket) {
+				routing.push(peer);
+			}
+			last_bucket = Some(bucket);
+		}
+		routing
+	}
+
 	/// Insert `peer` if absent, refresh its `last_seen`, and return its record.
 	fn get_or_insert_peer(&mut self, peer: PeerId) -> &mut PeerInfo {
 		let now = Instant::now();
 		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
+			without_dht: false,
 			connected: false,
 			key: peer_key(&peer),
 			last_seen: now,
@@ -261,7 +302,9 @@ impl PeersTopology {
 
 	/// Evict disconnected peers unseen for `PEER_STALENESS_TTL` as of `now`, plus any excess over
 	/// `MAX_KNOWN_PEERS`.
-	pub fn evict(&mut self, now: Instant) {
+	/// Returns whether the DHT candidate index changed.
+	pub fn evict(&mut self, now: Instant) -> bool {
+		let mut changed = false;
 		loop {
 			let over_cap = self.discovered.len() > MAX_KNOWN_PEERS;
 			let Some((victim, last_seen)) = self
@@ -271,13 +314,14 @@ impl PeersTopology {
 				.min_by_key(|(_, info)| info.last_seen)
 				.map(|(peer, info)| (*peer, info.last_seen))
 			else {
-				return;
+				return changed;
 			};
 			if !over_cap && now.saturating_duration_since(last_seen) < PEER_STALENESS_TTL {
-				return;
+				return changed;
 			}
 			if let Some(info) = self.discovered.remove(&victim) {
 				self.discovered_index.remove(info.key, &victim);
+				changed |= info.supports_protocol;
 			}
 		}
 	}
@@ -330,6 +374,11 @@ fn pool_contains(pool: &[(PeerId, Key)], peer: &PeerId) -> bool {
 /// litep2p's SHA-256 Kademlia keys because the topology never queries Kademlia by topic.
 fn peer_key(peer: &PeerId) -> Key {
 	sp_crypto_hashing::blake2_256(&peer.to_bytes())
+}
+
+/// Number of leading bits `a` and `b` share: the distance bucket of `b` as seen from `a`.
+fn bucket_of(a: Key, b: Key) -> usize {
+	xor_distance(a, b).view_bits::<Msb0>().leading_zeros()
 }
 
 fn xor_distance(a: Key, b: Key) -> Key {
@@ -462,6 +511,30 @@ mod tests {
 	}
 
 	#[test]
+	fn a_peer_without_dht_stays_out_of_the_index_until_its_next_substream_open() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		topology.on_substream_opened(peer);
+
+		topology.on_peer_without_dht(peer);
+		assert!(topology.is_connected(&peer));
+		assert_eq!(topology.connected_peers().count(), 0);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		topology.on_substream_closed(peer);
+		assert!(!topology.is_connected(&peer));
+		assert!(!topology.evict(Instant::now() + PEER_STALENESS_TTL));
+		assert_eq!(topology.known_peers_count(), 0);
+
+		topology.on_substream_opened(peer);
+		assert_eq!(topology.connected_peers().collect::<Vec<_>>(), vec![peer]);
+		assert_eq!(topology.dht_eligible_peers_count(), 1);
+	}
+
+	#[test]
 	fn substream_lifecycle_drives_routing_targets() {
 		let mut topology = topology(1);
 		let topic = topic(1);
@@ -522,7 +595,10 @@ mod tests {
 	}
 
 	#[test]
-	fn routing_targets_are_closest_connected_peers_closer_to_topic_than_self() {
+	fn routing_targets_are_co_replicas_plus_capped_closer_peers() {
+		// replication_factor = 2, gossip_target = 2. Of the three connected peers closer than
+		// self, the two closest are the topic's replicas (included as such) and the
+		// third consumes one routing slot; farther non-replica peers are never targets.
 		let mut topology = topology(1);
 		let topic = topic(7);
 		let self_distance = distance_to(topic, &peer(1));
@@ -549,11 +625,42 @@ mod tests {
 		let expected = {
 			let mut peers = closer;
 			peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			peers.truncate(2);
 			peers
 		};
 
 		assert_eq!(topology.routing_targets(topic), expected);
+	}
+
+	#[test]
+	fn routing_targets_saturate_the_replica_set_beyond_gossip_target() {
+		// Regression: with K replicas and a smaller gossip_target, every connected
+		// replica must still be a forwarding target, otherwise the replica set
+		// deterministically saturates at gossip_target + 1 nodes instead of K.
+		let local = peer(1);
+		let mut topology = PeersTopology::new(local, topology_config(8, 3));
+		let topic = topic(42);
+		let self_distance = distance_to(topic, &local);
+
+		// 12 peers closer than self: the closest 8 are the topic's replicas, the other 4
+		// compete for the 3 routing slots.
+		let mut peers = (2..=200)
+			.map(peer)
+			.filter(|candidate| distance_to(topic, candidate) < self_distance)
+			.take(12)
+			.collect::<Vec<_>>();
+		assert_eq!(peers.len(), 12, "test peer fixture must include 12 peers closer than self");
+
+		for peer in &peers {
+			dht_peer(&mut topology, *peer);
+			topology.on_substream_opened(*peer);
+		}
+
+		peers.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
+		// All 8 co-replicas plus exactly gossip_target routing extras, never the 12th
+		// closer peer.
+		peers.truncate(11);
+
+		assert_eq!(topology.routing_targets(topic), peers);
 	}
 
 	#[test]
@@ -640,6 +747,49 @@ mod tests {
 	}
 
 	#[test]
+	fn peers_for_routing_takes_the_nearest_then_one_peer_per_uncovered_bucket() {
+		let local = peer(1);
+		let local_key = peer_key(&local);
+		let mut topology = PeersTopology::new(local, topology_config(10, 3));
+		let mut candidates = Vec::new();
+		for seed in 2..=200 {
+			let peer = peer(seed);
+			dht_peer(&mut topology, peer);
+			candidates.push(peer);
+		}
+		candidates.sort_by(|a, b| cmp_distance_then_peer(Topic(local_key), a, b));
+
+		// Naive model: the 10 nearest, then the nearest peer of every bucket without one of them.
+		let bucket_of = |peer: &PeerId| bucket_of(local_key, peer_key(peer));
+		let mut expected: Vec<PeerId> = candidates[..10].to_vec();
+		let mut buckets: std::collections::HashSet<usize> =
+			expected.iter().map(bucket_of).collect();
+		for peer in &candidates[10..] {
+			if buckets.insert(bucket_of(peer)) {
+				expected.push(*peer);
+			}
+		}
+		assert!(expected.len() > 10, "the far buckets add peers beyond the nearest");
+		// The 10th nearest peer sits mid-bucket, so an off-by-one in the nearest bound changes
+		// the result.
+		assert_eq!(bucket_of(&candidates[9]), bucket_of(&candidates[10]));
+
+		let mut routing = topology.peers_for_routing();
+		routing.sort();
+		expected.sort();
+		assert_eq!(routing, expected);
+	}
+
+	#[test]
+	fn peers_for_routing_takes_every_known_peer_below_k() {
+		let mut topology = PeersTopology::new(peer(1), topology_config(12, 3));
+		for seed in 2..=6 {
+			dht_peer(&mut topology, peer(seed));
+		}
+		assert_eq!(topology.peers_for_routing().len(), 5);
+	}
+
+	#[test]
 	fn queries_match_naive_recomputation() {
 		let local = peer(1);
 		let mut topology = PeersTopology::new(local, topology_config(5, 3));
@@ -685,11 +835,33 @@ mod tests {
 				.iter()
 				.filter(|(_, _, connected)| *connected)
 				.map(|(peer, ..)| *peer)
-				.filter(|peer| distance_to(topic, peer) < local_distance)
 				.collect::<Vec<_>>();
 			connected.sort_by(|a, b| cmp_distance_then_peer(topic, a, b));
-			connected.truncate(3);
-			assert_eq!(topology.routing_targets(topic), connected);
+			// Naive model of routing_targets: every connected co-replica (fewer than K
+			// supporting peers or the local node strictly closer), plus up to gossip_target
+			// closer non-replica peers, in distance order.
+			let mut expected = Vec::new();
+			let mut routed = 0;
+			for peer in connected {
+				let closer_entries = candidates
+					.iter()
+					.filter(|q| **q != peer)
+					.filter(|q| cmp_distance_then_peer(topic, q, &peer) == Ordering::Less)
+					.count() + usize::from(
+					cmp_distance_then_peer(topic, &local, &peer) == Ordering::Less,
+				);
+				if closer_entries < 5 {
+					expected.push(peer);
+				} else if distance_to(topic, &peer) < local_distance {
+					if routed < 3 {
+						expected.push(peer);
+						routed += 1;
+					}
+				} else {
+					break;
+				}
+			}
+			assert_eq!(topology.routing_targets(topic), expected);
 		}
 	}
 
@@ -702,7 +874,7 @@ mod tests {
 		}
 
 		// Insertion no longer evicts; the periodic sweep bounds the set.
-		topology.evict(Instant::now());
+		assert!(topology.evict(Instant::now()));
 
 		assert_eq!(topology.known_peers_count(), MAX_KNOWN_PEERS);
 	}
@@ -738,9 +910,23 @@ mod tests {
 		dht_peer(&mut topology, peer);
 
 		let last_seen = topology.discovered[&peer].last_seen;
-		topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1));
+		assert!(!topology.evict(last_seen + PEER_STALENESS_TTL - Duration::from_secs(1)));
 
 		assert_eq!(topology.known_peers_count(), 1);
+	}
+
+	#[test]
+	fn eviction_reports_only_dht_candidate_removal() {
+		for has_candidate in [false, true] {
+			let mut topology = topology(1);
+			if has_candidate {
+				topology.on_peer_identified(peer(2), true);
+			}
+			topology.on_peers_discovered([peer(3)]);
+
+			assert_eq!(topology.evict(Instant::now() + PEER_STALENESS_TTL), has_candidate);
+			assert_eq!(topology.known_peers_count(), 0);
+		}
 	}
 
 	#[test]
@@ -752,10 +938,12 @@ mod tests {
 		topology.on_substream_opened(live);
 		dht_peer(&mut topology, idle);
 
-		topology.evict(Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1));
+		let now = Instant::now() + PEER_STALENESS_TTL + Duration::from_secs(1);
+		assert!(topology.evict(now));
 
 		assert!(topology.is_connected(&live));
 		assert_eq!(topology.known_peers_count(), 1);
 		assert!(!known_dht_peers(&topology, topic(7)).contains(&idle));
+		assert!(!topology.evict(now));
 	}
 }

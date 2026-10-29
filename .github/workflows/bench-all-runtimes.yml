@@ -91,7 +91,7 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git remote -v
-          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
+          python3 -m pip install --break-system-packages -r .github/scripts/generate-prdoc.requirements.txt
           python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }}
           git add .
           git status

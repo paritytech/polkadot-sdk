@@ -395,9 +395,16 @@ impl<T: Config> Pallet<T> {
 		payee: T::AccountId,
 		finality: Finality,
 	) -> Result<(), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been pooled provisionally, so that
+			// pooling it again does not count it twice.
+			Self::force_unpool_region(region_id, &region, &status);
+
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
 				.try_push(ScheduleItem { mask: region_id.mask, assignment: CoreAssignment::Pool })
@@ -609,14 +616,17 @@ impl<T: Config> Pallet<T> {
 			return Err(Error::<T>::TaskNotInWorkload.into());
 		};
 
-		// We are sorting auto renewals by `CoreIndex`.
-		AutoRenewals::<T>::try_mutate(|renewals| {
-			let pos = renewals
-				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
-				.unwrap_or_else(|e| e);
-			renewals.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
-		})
-		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+		// Auto renewals are kept sorted by and unique per `CoreIndex`.
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = match renewals.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core)) {
+				Ok(_) => return Err(Error::<T>::AutoRenewalAlreadyEnabled.into()),
+				Err(pos) => pos,
+			};
+			renewals
+				.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
+				.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
 		Ok(())
