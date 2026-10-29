@@ -148,14 +148,18 @@ pallet-jamkb
 ### 3.1 The JAMKB Asset
 
 JAMKB is an asset in `pallet-assets`. It is the representation of the DAO's
-balance on the Parachain Service. This asset is managed by `pallet-jamkb`. It
-holds the four privileged roles (Owner, Issuer, Admin, Freezer), assigned to it
-at initialization.
+balance on the Parachain Service. JAMKB has 3 decimals. One plank is one JAM
+balance unit, so 1 JAMKB is 1000 units. `CAP` equals 21_000_000 JAMKB
+(21 * 10^9 planks). The asset is non-sufficient with `min_balance` 1 plank.
+
+This asset is managed by `pallet-jamkb`, which holds the four privileged
+roles (Owner, Issuer, Admin, Freezer), assigned to it at initialization.
 
 The full JAMKB cap is minted into the `pallet-jamkb` custody account (§3.2).
-The mint is a one-time executed runtime call on the Asset Hub. The asset is
-non-sufficient with `min_balance` 1; `initialize` takes a provider reference
-on each pallet account (§3.2).
+The mint is a one-time executed runtime call on the Asset Hub. `initialize`
+takes a provider reference on each pallet account (§3.2). Governance is
+required to set the metadata (symbol `JAMKB`, decimals 3) with
+`force_set_metadata`.
 
 Parachain state footprint is backed on the Coretime chain. JAMKB is teleported
 there, and the Coretime chain backs each parachain's footprint against what it
@@ -220,7 +224,7 @@ attested, every call except `initialize` and `attest` is rejected.
 /// against. The pallet records it and does not verify it.
 type Anchor = Hash;
 
-/// The fixed JAMKB supply, minted at `initialize`.
+/// The fixed JAMKB supply in planks, minted at `initialize` (§3.1).
 const CAP: Balance;
 
 /// The minimum `amount` that can be transferred by
@@ -673,8 +677,8 @@ fn forget_preimage(target: ServiceId, hash: Hash, len: u32);
 /// balances to the Parachain Service's regular balance. Origin: the target's
 /// service account or governance. Legal while
 /// a lease on the target is `Reclaiming`. Rejected while a lease on the
-/// target has an unsettled allocation operation (§3.2). Records an `Eject`
-/// operation.
+/// target has an unsettled allocation operation, or a transfer operation to
+/// the target is unsettled (§3.2). Records an `Eject` operation.
 /// While the `Eject` is unsettled, `accept_lease`, `increase_lease`,
 /// `extend_lease`, `reclaim` and `close_lease` on the target are rejected.
 fn eject_target(target: ServiceId);
@@ -1087,12 +1091,11 @@ rest zero.
    previous_code_hash, previous_min_acc_gas, previous_min_memo_gas }` so that
    `unfreeze_target` can restore them, and `ServiceUpgradeFailed { service,
    error }` so that a refused upgrade is not `Confirmed`.
-4. **Burn instead of holds.** A hold cannot take the last `min_balance` unit,
-   so a holder redeems all but one unit and transfers the remainder out by a
-   plain `pallet-assets` transfer. The alternative is
-   `fungibles::Mutate::shelve` on the call and `restore` on Failed; `restore`
-   into a dead non-sufficient account fails, so those units would fall back
-   to `Custodial`.
+4. **Burn instead of holds.** A hold cannot take the last plank, so a holder
+   redeems all but one plank and transfers the remainder out by a plain
+   `pallet-assets` transfer. The alternative is `fungibles::Mutate::shelve`
+   on the call and `restore` on Failed; `restore` into a dead non-sufficient
+   account fails, so those units would fall back to `Custodial`.
 5. **Service registry pallet.** Service accounts, supervision, service
    creation and upgrade belong to a service registry pallet that does not
    exist. The recovery calls of §4.3 stay here: they apply their origin rule
