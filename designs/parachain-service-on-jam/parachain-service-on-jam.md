@@ -29,6 +29,7 @@
    - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
    - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
+   - 8.1 [Settlement Ring](#81-settlement-ring)
 9. [References](#9-references)
 
 ---
@@ -197,6 +198,11 @@ struct ParachainServiceState {
 
     /// Per-parachain key/value store. See §6.1 for the per-entry footprint.
     key_value_storage: Map<(ParaId, Vec<u8>), Vec<u8>>,
+
+    /// The cursor of the parachain's settlement ring. See §8.
+    messages_cursor: Map<ParaId, SettlementCursor>,
+    /// Contains every `StreamsRoot` currently live in the settlement ring. See §8.
+    messages_member: Map<(ParaId, StreamsRoot), StreamsRoot>,
 }
 
 enum LogEntry {
@@ -254,6 +260,12 @@ enum RefineLog {
     /// A `SetKV` or `RemoveKV` carried an empty key, or a `SetKV` an empty value.
     /// See §3.3.
     EmptyKVKeyOrValue,
+    /// `set_messages_streams_root` or `set_messages_requires_roots` was called more than once
+    /// in a single Refine invocation. See §4.3.
+    MessagesCallRepeated,
+    /// The messages required roots exceeded `MAX_REQUIRES_SOURCES (32)` or contained a
+    /// repeated `ParaId` or the candidate's own `ParaId`. See §4.3.
+    MessagesInvalidRequires,
 }
 
 /// The two phases of a `RequestCodeUpgrade` (see §5.2).
@@ -388,7 +400,7 @@ enum ServiceCreationResult {
     IdTaken,
 }
 
-/// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 6.
+/// Why a JAM `transfer` replaying a `TransferOut` failed. See §5.1 step 7.
 enum TransferError {
     /// `source` is not a known service.
     UnknownSource,
@@ -449,6 +461,17 @@ struct IncomingTransferBuckets {
 /// Parachain head data, capped at 4 KiB. See §6.1.
 type HeadData = BoundedVec<u8, { 4 * 1024 }>;
 
+/// A parachain's commitment to the messages it has sent, declared via
+/// `set_messages_streams_root`. See §8.
+type StreamsRoot = [u8; 32];
+
+/// Parachain's settlement cursor. See §8.
+struct SettlementCursor {
+    oldest: StreamsRoot,
+    newest: StreamsRoot,
+    len: u8,
+}
+
 /// Fixed 128-byte transfer memo, matching Gray Paper `C_memosize = 128`.
 type Memo = [u8; 128];
 
@@ -495,6 +518,8 @@ encoded map key for a map entry, and the tag alone for a singleton. The exceptio
 | `0x06` | `incoming_transfers` |
 | `0x07` | `incoming_transfer_buckets` |
 | `0x08` | `key_value_storage` |
+| `0x09` | `messages_cursor` |
+| `0x0a` | `messages_member` |
 
 ### 3.2 Work Items
 
@@ -537,10 +562,14 @@ enum ParachainWorkDigest {
         parent_head_hash: Hash,
         /// New head data produced by the parachain block.
         head_data: HeadData,
-        /// Upward messages in the order they were emitted. See §5.1 step 6.
+        /// Upward messages in the order they were emitted. See §5.1 step 7.
         upward_messages: Vec<UpwardMessage>,
         /// The work package's lookup-anchor timeslot.
         lookup_anchor: Timeslot,
+        /// The `StreamsRoot` this candidate publishes, if any. See §8.
+        messages_streams_root: Option<StreamsRoot>,
+        /// The senders this candidate consumed messages from. See §8.
+        messages_requires_roots: BoundedVec<(ParaId, StreamsRoot), MAX_REQUIRES_SOURCES>,
     },
     /// Refine failed. See §4.1.
     Err {
@@ -698,7 +727,7 @@ index `item_index` the Parachain Service performs:
 6. Executes the validation code (the `jam_validate_block` call).
 7. Assembles a `ParachainWorkDigest` from the validation code's host-function side effects and the
    authoritative `para_id` (see §4.2).
-8. Checks that the encoded digest (head data + upward messages) plus the
+8. Checks that the encoded digest (head data + upward messages + message roots) plus the
    work-report's authorizer trace fits in the Gray Paper's 48 KiB
    combined-result-blob budget. If not, aborts with
    `Err(RefineLog::RefineOutputTooLarge)`. Parachain-driven overflow (upward
@@ -764,9 +793,11 @@ Accumulate:
 | Index | Host function | Returns | Purpose |
 |---|---|---|---|
 | 200 | `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on, as the hash of the parent `head_data`. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate, which checks it against the para's current head (§5.1 step 4). |
-| 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 5). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
+| 201 | `set_head(new_head: HeadData)` | `()` | Declare the new head data this parachain block produced. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). Aborts Refine with `Err(RefineLog::HeadDataTooLarge)` if `new_head` exceeds the 4 KiB `HeadData` bound. The head data is forwarded to Accumulate as `ParachainWorkDigest.head_data` and written into `ParaInfo.head_data` on enactment (§5.1 step 6). Distinct from the Coretime-only `ParachainSetHead`, which forcibly overwrites *another* para's head outside the normal block lifecycle (§6). |
 | 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
+| 204 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes. Forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. |
+| 205 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from (§8). The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders settlement rings before enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the validation code. The 40 KiB
@@ -881,7 +912,8 @@ processes a report it cannot pay for in full. Before any of the steps below run 
 - **Base cost**: the fixed cost of applying any work report, independent of its
   contents. This must be **benchmarked**.
 - **Report cost**: derived from the report's contents before any of it is applied. It
-  covers the upward messages to be replayed (§4.3) and the state writes each implies.
+  covers the settlement of messages (reads and writes to the settlement ring, §8.1)
+  and the upward messages to be replayed (§4.3) with the state writes each implies.
   These costs must be **benchmarked**.
 - **Fit check**: if base plus report cost exceeds the report's own gas limit, the report
   is skipped and the next one is checked.
@@ -906,16 +938,20 @@ writes no state, records no log entry, and prunes nothing. The steps are:
    `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
    a collator from including a candidate that was built on top of a stale, skipped, or
    non-canonical parent head.
-5. **Head data update**: Write the new `head_data` from the work digest into
-   `ParaInfo` for the parachain.
-6. **Process host-function calls from Refine**: Replay the `UpwardMessage`s in the work
+5. **Settlement check**: Check that every `(ParaId, StreamsRoot)` in the digest's
+   `messages_requires_roots` is present in the corresponding parachain's settlement ring (§8.1).
+   If any pair is missing, the candidate is rejected.
+6. **Enactment**: Write the new `head_data` from the work digest into
+   `ParaInfo` for the parachain and push the `messages_streams_root` into the parachain's
+   settlement ring if present.
+7. **Process host-function calls from Refine**: Replay the `UpwardMessage`s in the work
    digest, applying each one's effect (code upgrades, transfers, authorizer queue
    updates, validator key updates, etc.). See the `UpwardMessage` variants in §3.3 for
    the full list. Refine already rejects messages the parachain was not entitled to
    emit, so any such message reaching Accumulate is dropped without a log entry. The
    replay may emit `AccumulateLog` events.
 
-All `AccumulateLog` events emitted by the step 6 replay are collected and appended to
+All `AccumulateLog` events emitted by the step 7 replay are collected and appended to
 `parachain_log[para_id]` as a single `LogEntry::Accumulate`, where `para_id` is the
 parachain that submitted the work package. Every append to `parachain_log[para_id]`,
 whether the `RefineLogEntry` from step 3 or this `LogEntry::Accumulate`, is subject to the
@@ -969,7 +1005,7 @@ a state change that has already happened.
 
 #### Outgoing transfers
 
-Replaying a `TransferOut` (step 6) forwards it to JAM `transfer`. `deferred`
+Replaying a `TransferOut` (step 7) forwards it to JAM `transfer`. `deferred`
 selects between the two modes that host-call offers (Gray Paper, `transfer`):
 
 | | `deferred = None` (plain move) | `deferred = Some((memo, gas))` |
@@ -1287,9 +1323,9 @@ many referencers.
 #### Sizing the baseline footprint
 
 `baseline_footprint` is the worst-case state cost of an empty parachain: the
-`(ParaId, ParaInfo)` entry plus the `(ParaId, parachain_log[para_id])` entry, with
-every bounded field SCALE-encoded at its maximum so the value is static across the
-parachain's lifetime. Each is one general-storage entry. Taking `ParaId = u32` (4 B),
+`(ParaId, ParaInfo)` entry, the `(ParaId, parachain_log[para_id])` entry and the
+parachain's settlement ring (§8), with every bounded field SCALE-encoded at its
+maximum so the value is static across the parachain's lifetime. Taking `ParaId = u32` (4 B),
 `Hash = 32 B`, `Timeslot = u32` (4 B), and `Balance = u64`, so
 that `Compact<Balance>` is sized at its worst case of 9 B:
 
@@ -1327,7 +1363,28 @@ parachain_log value (flat cap): 64 KiB                             =  65 536
                                                                       65 585
 ```
 
-**`baseline_footprint = 4 240 + 65 585 = 69 825`** balance units per parachain.
+Settlement ring:
+
+```
+messages_cursor
+    JAM per-entry octet overhead                                       =      34
+    storage key (1 B map tag + 4 B ParaId)                             =       5
+    SettlementCursor (oldest 32 B + newest 32 B + len 1 B)             =      65
+                                                                             104
+messages_member (64 entries)
+    JAM per-entry octet overhead                                       =      34
+    storage key (1 B map tag + 4 B ParaId + 32 B StreamsRoot)          =      37
+    link (32 B StreamsRoot)                                            =      32
+                                                            64 * 103       6 592
+
+                                                              octets       6 696
+                                                              65 items       650
+                                                                         -------
+                                                                           7 346
+```
+
+**`baseline_footprint = 4 240 + 65 585 + 7 346 = 77 171`** balance units per
+parachain.
 
 #### Asset Hub baseline footprint
 
@@ -1448,6 +1505,8 @@ unsticking a chain whose last included block cannot be built on, or swapping in 
 validation code outside the normal upgrade lifecycle:
 
 - `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
+  This operation leaves the settlement ring (§8.1) unchanged, ensuring roots
+  settled before the reset still pass the settlement check.
 - `ParachainSetValidationCode { para_id, new_validation_code }` sets
   `ParaInfo.validation_code` to `Some(new_validation_code)`, solicits it, and clears any
   `announced_upgrade`. `used_state_balance` grows by its `preimage_footprint` to hold the
@@ -1490,6 +1549,8 @@ service only has to forget the two validation codes, never an unbounded set of s
 preimages or KV entries. A parachain that can no longer produce
 blocks cannot drain itself, so `Forget` and `RemoveKV` take a `para_id` (§3.3),
 letting the Coretime chain free any parachain's state on its behalf.
+
+The first accepted call also deletes the parachain's settlement ring (§8.1).
 
 The `TooMuchStateHeld` check allows `used_state_balance` up to `baseline_footprint` plus
 the preimage footprints of `validation_code` and `announced_upgrade`, where set. A
@@ -1689,38 +1750,67 @@ Two possible policies on the Coretime chain side:
 
 ## 8. Messaging
 
-### 8.1 Current Limitations
+Parachains exchange messages off-chain. The message payloads are never written to JAM.
 
-Today, HRMP (Horizontal Relay-routed Message Passing) routes all inter-parachain messages
-through the relay chain, and every byte is written into the relay-chain block. On
-Polkadot mainnet the per-channel throughput is capped by the host configuration:
+The speculative messaging design specifies how these messages travel off-chain and how a receiver
+runtime verifies them against a sender's root.
 
-- `hrmpChannelMaxMessageSize` = **100 KiB** (per-message size cap)
-- `hrmpChannelMaxTotalSize` = **100 KiB** (per-channel pending-bytes buffer)
-- `hrmpChannelMaxCapacity` = **25** pending messages per channel
-- `hrmpMaxMessageNumPerCandidate` = **10** HRMP messages per candidate
-  (summed across all channels, not per channel)
+The parachain runtimes commit their outbound messages under a single 32-byte `StreamsRoot`,
+via a `set_messages_streams_root` host call. The receiver parachain declares one
+`(ParaId, StreamsRoot)` pair per sender it consumed from via a `set_messages_requires_roots` host call.
 
-UMP (Upward Message Passing) is similarly bounded: `maxUpwardMessageSize` ≈ 64 KiB and
-`maxUpwardQueueSize` = 1 MiB on Polkadot mainnet.
+The parachain service is responsible only for settling these roots. To achieve this, it maintains
+a settlement ring for every parachain which holds its 64 (`MAX_SETTLEMENT_RING_CAPACITY`) most
+recently inserted distinct `StreamsRoot`. Reinserting a root in the ring doesn't change its
+eviction order. The receiver block enacts only if every declared consumed root is in the
+sender's ring.
 
-On JAM, the buffer between Refine and Accumulate is even tighter. The work-report's
-combined successful result blobs plus authorizer trace are bounded by **48 KiB**, and all
-upward messages the validation code emits have to fit inside that budget alongside the new
-head data. HRMP-style message payloads therefore cannot be carried through the work-report
-and need a different channel (§8.2).
+### 8.1 Settlement Ring
 
-### 8.2 Proposed Solution: Full XCMP
+The settlement ring is represented by a linked list.
 
-The proposed model is **full XCMP**. Refine uses `export()` to write outbound message
-payloads into DA segments, so they are distributed off-chain via JAM's data availability
-layer (D3L). Accumulate records only message *headers*, *hashes*, and channel metadata
-on-chain. This removes the per-message size bottleneck. See
-[paritytech/polkadot-sdk#10449](https://github.com/paritytech/polkadot-sdk/pull/10449)
-for a potential specification of XCMP.
+The `SettlementCursor` contains the oldest and newest roots, together with the size of the ring.
 
-The host functions for HRMP channel management (open, accept, close) and XCMP message
-handling are not yet specified.
+The `messages_member` holds every settled root in the ring. This is represented by a `Map` to
+ensure that membership checks happen in `O(1)`. The value of the map points to the next entry
+in the list. The newest entry points to itself.
+
+#### Checking Membership
+
+The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
+
+#### Pushing a Root*
+
+1. Read `messages_member` under `(para_id, new_root)`. Stop if the ring already contains the new root.
+
+2. Read `SettlementCursor` for `para_id`. If the value is absent, write the `new_root` to
+   `messages_member` and the `SettlementCursor` with `oldest = newest = new_root` and `len = 1`, then stop.
+
+3. If the ring is at capacity (`SettlementCursor::len == MAX_SETTLEMENT_RING_CAPACITY`):
+    1. Read `messages_member[(para_id, oldest)]` to preserve the linked list.
+    2. Delete `messages_member[(para_id, oldest)]`.
+
+4. Point the previous root to the new one `messages_member[(para_id, newest)] = new_root`.
+
+5. Write the `messages_member[(para_id, new_root)] = new_root`.
+
+6. Write the updated `SettlementCursor`.
+    - `oldest` is the value obtained in step 3.1 if a root was evicted.
+    - `newest` is the `new_root`.
+    - `len` is incremented until capacity.
+
+#### Ring Cleanup
+
+When a parachain is removed, its ring is cleared by walking the list from the oldest
+root to the newest.
+
+1. Read the `SettlementCursor`. Stop if it is absent.
+
+2. From the `oldest` root read its entry in `messages_member` to find the next root,
+   then delete the entry. Stop after deleting the entry that points to itself.
+
+3. Delete the `SettlementCursor`.
+
 
 ---
 
@@ -1735,3 +1825,5 @@ handling are not yet specified.
 - [Demystifying JAM](https://blog.kianenigma.com/posts/tech/demystifying-jam/): Kian Paimani
 - [JAM PVM Common API](https://docs.rs/jam-pvm-common/latest/jam_pvm_common/): Host call specifications for Refine and Accumulate
 - [JIP-1: Log Host Call](https://github.com/polkadot-fellows/JIPs/blob/main/JIP-1.md): PVM logging specification
+- [Speculative Messaging](https://github.com/paritytech/polkadot-sdk/pull/12659): The speculative messaging design document
+- [Speculative Messaging on JAM](https://github.com/paritytech/polkadot-sdk/pull/12809): Overview of speculative messaging on JAM

@@ -96,6 +96,79 @@ module support {
     paraId: ParaId, codeHash: ValidationCodeHash, msgs: List[UpwardMessage]
   ): bool = applyHappyPaths(List((paraId, codeHash, msgs)))
 
+  /// `applyHappyPaths` with per-package messaging declarations (§8): each
+  /// element also carries what the validation code's `set_messages_streams_root` /
+  /// `set_messages_requires_roots` calls amounted to. Packages carry no upward
+  /// messages, since the messaging fields travel in the digest, not the
+  /// message list. Same shared `accumulateBlock` pipeline as the model step,
+  /// so a package rejected at settlement leaves its para's head unchanged.
+  action applyMessagingPaths(
+    pkgs: List[(ParaId, ValidationCodeHash, StreamsRootDeclaration, RequiresRootsDeclaration)]
+  ): bool = {
+    val blockNow = now + 1
+    val packages: List[WorkResult] = pkgs.foldl(List(), (acc, p) => {
+      val pi = svc.paraInfo(p._1)
+      val pkg: WorkPackage = {
+        authorizedParas: List(p._1),
+        items: List({ validationCode: { hash: p._2, len: FixedCodeLen } })
+      }
+      val wr: WorkResult = {
+        result: refine(
+          svc, pkg, false,
+          wellFormedCalls(headHash(pi.headData), pi.headData + 1, List())
+            .concat(messagingCalls(p._3, p._4)),
+          0
+        )[0],
+        authTrace: 0
+      }
+      acc.append(wr)
+    })
+    val blockOut = accumulateBlock(
+      svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
+      foreignServices)
+    all {
+      svc' = blockOut.state,
+      now' = blockNow,
+      jamStagingSet' = blockOut.staging,
+      solicitedSet' = blockOut.solicited,
+      prevSvc' = svc,
+      lastStepWorkResults' = blockOut.results,
+      lastStepAssigns' = blockOut.assigns,
+      lastStepAssignBudget' = FullAssignBudget,
+      lastHeadRoot' = blockOut.headRoot,
+      foreignServices' = blockOut.foreign,
+      logPrunedBelow' =
+        blockOut.logPruned.foldl(logPrunedBelow, (m, pair) => m.put(pair._1, pair._2))
+    }
+  }
+
+  /// Singular convenience wrapper: apply one messaging work package.
+  action applyMessagingPath(
+    paraId: ParaId, codeHash: ValidationCodeHash,
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): bool = applyMessagingPaths(List((paraId, codeHash, provides, requires)))
+
+  /// Refine one otherwise well-formed candidate for `caller`, carrying the
+  /// given messaging declarations (§8) and no upward messages.
+  pure def refineWithMessaging(
+    s: ParachainServiceState, caller: ParaId,
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): WorkExecResult = {
+    val pi = s.paraInfo(caller)
+    val pkg: WorkPackage = {
+      authorizedParas: List(caller),
+      items: List({
+        validationCode: { hash: activeCodeHashOr(pi, NoCodeHash), len: FixedCodeLen }
+      })
+    }
+    refine(
+      s, pkg, false,
+      wellFormedCalls(headHash(pi.headData), pi.headData + 1, List())
+        .concat(messagingCalls(provides, requires)),
+      0
+    )[0]
+  }
+
   /// Generic guard-only assertion wrapper: holds all primes at their
   /// current values and requires `pred` to be true.
   action expectThat(pred: bool): bool = all {
@@ -193,7 +266,7 @@ module support {
   /// head the para never has (`StaleParentHead`), as both parent and new head,
   /// carrying `msgs` as its upward messages. Accumulate's parent-head check (§5.1
   /// step 4) must reject it, so neither its head write nor its replayed messages
-  /// (§5.1 step 6) take effect. The new head is deliberately NOT `current + 1`:
+  /// (§5.1 step 7) take effect. The new head is deliberately NOT `current + 1`:
   /// if the check were broken and the candidate applied, the head would jump to
   /// an obviously-invalid sentinel value, so the "head unchanged" assertion can
   /// never pass by coincidence.
