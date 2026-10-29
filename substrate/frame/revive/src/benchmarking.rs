@@ -131,10 +131,10 @@ fn delegated_eoa<T: Config>(address: H160, target: H160) -> Result<T::AccountId,
 /// runs a `clear_prefix` on `NativeDepositOf`, even when there are no rows. In ref time this
 /// branch is the worst case per entry. With a live contract the entry is 125 bytes larger (the
 /// encoded `ContractInfo` with a 32-byte trie id and `u128` balances, against `EOA` and its
-/// dust), but the `clear_prefix` is skipped. The proof size is measured
-/// (`pov_mode = Measured`), not derived from the max encoded length of `AccountInfoOf`, so the
-/// worst-case claim covers ref time only. The branch is also taken when the address has no
-/// entry at all; `dust: 1` keeps a stored entry so that the read is measured with a value.
+/// dust), but the `clear_prefix` is skipped. `deletion_queue_per_entry` charges the
+/// `AccountInfoOf` read at its max encoded length, so its proof size covers either branch. The
+/// branch is also taken when the address has no entry at all; `dust: 1` keeps a stored entry so
+/// that the measured read decodes a value.
 fn queue_terminated_for_deletion<T: Config>(contract: &Contract<T>) -> Result<(), BenchmarkError> {
 	let info = contract.info()?;
 	AccountInfoOf::<T>::insert(&contract.address, AccountInfo { dust: 1, ..Default::default() });
@@ -533,7 +533,12 @@ mod benchmarks {
 	/// This is one `DeletionQueue` read, the `AccountInfoOf` read that checks for a live contract
 	/// at the address, plus the `DeletionQueue` + `DeletionQueueCounter` writes done by
 	/// `entry.remove()`.
-	#[benchmark(pov_mode = Measured)]
+	///
+	/// The `AccountInfoOf` read is charged at its max encoded length, so the proof covers a
+	/// live contract's entry as well as the plain account entry this benchmark reads.
+	#[benchmark(pov_mode = Measured {
+		Revive::AccountInfoOf: MaxEncodedLen,
+	})]
 	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
 		queue_terminated_for_deletion(&instance)?;
