@@ -53,8 +53,10 @@ pub(crate) struct ExplicitAffinity {
 	/// Local topics, each mapped to the sources that want it. A topic stays in the map only while
 	/// some source wants it.
 	local: HashMap<Topic, HashSet<AffinitySource>>,
-	/// Marks the advertised affinity filter stale
+	/// The local topic set changed since the last advertisement.
 	local_changed: bool,
+	/// Peers must send this node a full initial sync on the next advertisement.
+	full_sync_requested: bool,
 	/// The filter each connected peer advertises.
 	peers: HashMap<PeerId, AffinityFilter>,
 }
@@ -70,6 +72,7 @@ impl ExplicitAffinity {
 			false_pos: bloom_false_pos,
 			local: HashMap::new(),
 			local_changed: false,
+			full_sync_requested: false,
 			peers: HashMap::new(),
 		};
 		this.add_topics(AffinitySource::Configured, configured_topics);
@@ -82,9 +85,10 @@ impl ExplicitAffinity {
 	fn add_topics(&mut self, source: AffinitySource, topics: &[Topic]) {
 		log::trace!(target: LOG_TARGET, "explicit_affinity: add_topics {} from {source:?}", topics.len());
 		for &topic in topics {
-			if self.local.entry(topic).or_default().insert(source) {
-				self.local_changed = true;
-			}
+			let sources = self.local.entry(topic).or_default();
+			// A topic another source already holds leaves the advertised filter as is.
+			self.local_changed |= sources.is_empty();
+			sources.insert(source);
 		}
 	}
 
@@ -142,16 +146,20 @@ impl ExplicitAffinity {
 		)
 	}
 
-	/// Request another advertisement without changing topic membership.
+	/// Ask peers for a full initial sync on the next advertisement, without changing topic
+	/// membership.
 	pub(crate) fn mark_local_filter_stale(&mut self) {
-		self.local_changed = true;
+		self.full_sync_requested = true;
 	}
 
-	/// The advertised filter if the local topic set changed since the last read, clearing the flag.
+	/// The advertised filter if the local topic set changed or a full sync was requested since the
+	/// last read. Peers send a full initial sync only on a repeat of the filter they hold, so a
+	/// full sync request on a changed filter stays for the next read to repeat it.
 	pub(crate) fn take_local_filter_if_changed(&mut self) -> Option<AffinityFilter> {
-		if !self.local_changed {
+		if !self.local_changed && !self.full_sync_requested {
 			return None;
 		}
+		self.full_sync_requested &= self.local_changed;
 		self.local_changed = false;
 		Some(self.local_filter())
 	}
@@ -211,6 +219,7 @@ mod tests {
 		config::DEFAULT_BLOOM_FALSE_POS_RATE,
 		test_helpers::{filter_over, statement_on, topic},
 	};
+	use codec::Encode;
 
 	fn topic_set(affinity: &ExplicitAffinity) -> HashSet<Topic> {
 		affinity.topics().into_iter().collect()
@@ -354,6 +363,35 @@ mod tests {
 		let filter = affinity.take_local_filter_if_changed().expect("add marks a change");
 		assert!(filter.contains(&topic(1)));
 		assert!(filter.contains(&topic(2)));
+		assert!(affinity.take_local_filter_if_changed().is_none());
+	}
+
+	#[test]
+	fn subscribing_to_a_configured_topic_leaves_the_filter_unchanged() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
+		affinity.take_local_filter_if_changed();
+
+		affinity.replace_source_topics(AffinitySource::RpcSubscription, &HashSet::from([topic(1)]));
+		assert!(affinity.take_local_filter_if_changed().is_none());
+
+		affinity.replace_source_topics(AffinitySource::RpcSubscription, &HashSet::new());
+		assert!(affinity.take_local_filter_if_changed().is_none());
+	}
+
+	#[test]
+	fn full_sync_request_repeats_a_changed_filter() {
+		let mut affinity = ExplicitAffinity::new(&[topic(1)], None, DEFAULT_BLOOM_FALSE_POS_RATE);
+		let advertised = affinity.take_local_filter_if_changed().unwrap().encode();
+
+		affinity.mark_local_filter_stale();
+		assert_eq!(affinity.take_local_filter_if_changed().unwrap().encode(), advertised);
+		assert!(affinity.take_local_filter_if_changed().is_none());
+
+		affinity.mark_local_filter_stale();
+		affinity.add_topics(AffinitySource::RpcSubscription, &[topic(2)]);
+		let changed = affinity.take_local_filter_if_changed().unwrap().encode();
+		assert_ne!(changed, advertised);
+		assert_eq!(affinity.take_local_filter_if_changed().unwrap().encode(), changed);
 		assert!(affinity.take_local_filter_if_changed().is_none());
 	}
 
