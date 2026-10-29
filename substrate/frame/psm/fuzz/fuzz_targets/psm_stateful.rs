@@ -15,7 +15,7 @@ use pallet_psm::mock::{
 };
 use pallet_psm::CircuitBreakerLevel;
 use pallet_psm::PsmDebt;
-use pallet_psm_fuzz::{account, build_fuzzer_genesis};
+use pallet_psm_fuzz::{account, build_fuzzer_genesis, ASSET_MIN_BALANCE};
 use rand::seq::SliceRandom;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use sp_runtime::Permill;
@@ -220,10 +220,11 @@ fn pick_richest_account(rng: &mut StdRng, balances: &[u128]) -> (u8, u128) {
 // Boundary-aware amount pickers
 // ---------------------------------------------------------------------------
 
-// 10-way boundary distribution: each variant targets a specific pallet check path.
+// 11-way boundary distribution: each variant targets a specific pallet check path.
 // Variant 0: BelowMinimumSwap minimum. 1: exact ceiling hit. 2: one step below ceiling.
 // 3: overdraft past ceiling. 4-5: mid-range (half/third). 6-7: off-by-one boundaries.
 // 8: uniform random within valid range. 9: near-boundary with random offset.
+// 10: leaves 1 to ASSET_MIN_BALANCE - 1 in the account, below the minimum balance.
 fn pick_mint_amount(
 	rng: &mut StdRng,
 	asset: &AssetState,
@@ -238,7 +239,7 @@ fn pick_mint_amount(
 		return MIN_SWAP; // BelowMinimumSwap path
 	}
 
-	match rng.gen_range(0..=9) {
+	match rng.gen_range(0..=10) {
 		0 => MIN_SWAP,                                             // smallest valid
 		1 => effective_cap,                                        // exact ceiling hit
 		2 => effective_cap.saturating_sub(MIN_SWAP).max(MIN_SWAP), // one step below
@@ -248,7 +249,8 @@ fn pick_mint_amount(
 		6 => effective_cap.saturating_sub(1).max(MIN_SWAP),        // off-by-one below
 		7 => effective_cap.saturating_add(1),                      // off-by-one over
 		8 => rng.gen_range(MIN_SWAP..=effective_cap),              // uniform in range
-		_ => effective_cap.saturating_sub(rng.gen_range(0..MIN_SWAP)).max(MIN_SWAP), // near boundary
+		9 => effective_cap.saturating_sub(rng.gen_range(0..MIN_SWAP)).max(MIN_SWAP), // near boundary
+		_ => account_balance.saturating_sub(rng.gen_range(1..ASSET_MIN_BALANCE)).max(MIN_SWAP), // dust
 	}
 }
 
@@ -259,7 +261,7 @@ fn pick_redeem_amount(rng: &mut StdRng, asset: &AssetState, pusd_balance: u128) 
 		return MIN_SWAP; // BelowMinimumSwap path
 	}
 
-	match rng.gen_range(0..=7) {
+	match rng.gen_range(0..=8) {
 		0 => MIN_SWAP,
 		1 => effective_cap,
 		2 => effective_cap.saturating_sub(MIN_SWAP).max(MIN_SWAP),
@@ -267,7 +269,9 @@ fn pick_redeem_amount(rng: &mut StdRng, asset: &AssetState, pusd_balance: u128) 
 		4 => effective_cap / 2,
 		5 => effective_cap.saturating_sub(1).max(MIN_SWAP),
 		6 => effective_cap.saturating_add(1),
-		_ => rng.gen_range(MIN_SWAP..=effective_cap),
+		7 => rng.gen_range(MIN_SWAP..=effective_cap),
+		// Leaves 1 to ASSET_MIN_BALANCE - 1 in the account, below the minimum balance.
+		_ => pusd_balance.saturating_sub(rng.gen_range(1..ASSET_MIN_BALANCE)).max(MIN_SWAP),
 	}
 }
 

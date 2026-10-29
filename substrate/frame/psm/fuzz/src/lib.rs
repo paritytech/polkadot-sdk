@@ -34,6 +34,11 @@ const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT;
 // The instance debt ceiling for the fuzzer genesis. 10M units keeps parity with
 // the pre-redesign setup, where a 20M issuance cap and a 50% ratio gave a 10M cap.
 const GENESIS_MAX_DEBT: u128 = 10_000_000 * INTERNAL_UNIT;
+// Minimum balance of every genesis asset. With a minimum of 1, no account can
+// hold a nonzero balance below the minimum, so the fuzzer never reaches the
+// dust paths of pallet-assets: an Expendable burn or transfer that leaves less
+// than the minimum also removes the rest. 5 leaves 1 to 4 as dust amounts.
+pub const ASSET_MIN_BALANCE: u128 = 5;
 
 // The mock keys accounts by AccountId32. The fuzzer works with small indices;
 // this maps index i to the account [i; 32] bytes, matching ALICE = [1; 32].
@@ -56,6 +61,9 @@ pub enum AmountTier {
 	AtCeiling,
 	OverCeiling,
 	Random(u128),
+	// Leaves 1 + (n mod (ASSET_MIN_BALANCE - 1)) in the caller's account, below the
+	// asset's minimum balance.
+	LeaveDust(u8),
 }
 
 // Op carries raw indices and entropy bytes rather than resolved asset IDs or amounts.
@@ -151,18 +159,19 @@ pub fn gen_remove_external_asset(u: &mut Unstructured) -> arbitrary::Result<Op> 
 // Arbitrary impls
 // ---------------------------------------------------------------------------
 
-// Uniform 5-way distribution ensures each tier is equally likely. Each variant targets
+// Uniform 6-way distribution ensures each tier is equally likely. Each variant targets
 // a distinct pallet code path: MinSwap triggers BelowMinimumSwap, NearCeiling probes
 // the boundary just below the cap, AtCeiling exercises the exact-limit path, OverCeiling
 // triggers the overdraft rejection, and Random exercises the general case.
 impl<'a> Arbitrary<'a> for AmountTier {
 	fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
-		Ok(match u.int_in_range(0..=4)? {
+		Ok(match u.int_in_range(0..=5)? {
 			0 => AmountTier::MinSwap,
 			1 => AmountTier::NearCeiling,
 			2 => AmountTier::AtCeiling,
 			3 => AmountTier::OverCeiling,
 			4 => AmountTier::Random(u.arbitrary()?),
+			5 => AmountTier::LeaveDust(u.arbitrary()?),
 			_ => unreachable!(),
 		})
 	}
@@ -256,7 +265,8 @@ impl<'a> Arbitrary<'a> for MultiBlockOps {
 //   AtCeiling  -> exact cap, tests the boundary where debt == ceiling after mint
 //   OverCeiling -> cap + MIN_SWAP, triggers the OverCeiling rejection path
 //   Random     -> arbitrary value in [MIN_SWAP, 2*cap], exercises the general interior
-pub fn resolve_amount(tier: &AmountTier, effective_cap: u128) -> u128 {
+//   LeaveDust  -> the caller's balance less 1 to ASSET_MIN_BALANCE - 1, leaves dust
+pub fn resolve_amount(tier: &AmountTier, effective_cap: u128, balance: u128) -> u128 {
 	match tier {
 		AmountTier::MinSwap => MIN_SWAP,
 		AmountTier::NearCeiling => effective_cap.saturating_sub(MIN_SWAP).max(MIN_SWAP),
@@ -266,6 +276,10 @@ pub fn resolve_amount(tier: &AmountTier, effective_cap: u128) -> u128 {
 			let upper = (2u128 * effective_cap).max(MIN_SWAP);
 			let range = upper.saturating_sub(MIN_SWAP).max(1);
 			MIN_SWAP.saturating_add(raw % range)
+		},
+		AmountTier::LeaveDust(n) => {
+			let dust = 1 + u128::from(*n) % (ASSET_MIN_BALANCE - 1);
+			balance.saturating_sub(dust)
 		},
 	}
 }
@@ -304,11 +318,11 @@ pub fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 	let asset_owner: AccountId = account(1);
 	pallet_assets::GenesisConfig::<Test> {
 		assets: vec![
-			(INTERNAL_ASSET_ID, asset_owner.clone(), true, 1),
-			(USDC_ASSET_ID, asset_owner.clone(), true, 1),
-			(USDT_ASSET_ID, asset_owner.clone(), true, 1),
-			(USDX_ASSET_ID, asset_owner.clone(), true, 1),
-			(DAI_MOCK_ASSET_ID, asset_owner, true, 1),
+			(INTERNAL_ASSET_ID, asset_owner.clone(), true, ASSET_MIN_BALANCE),
+			(USDC_ASSET_ID, asset_owner.clone(), true, ASSET_MIN_BALANCE),
+			(USDT_ASSET_ID, asset_owner.clone(), true, ASSET_MIN_BALANCE),
+			(USDX_ASSET_ID, asset_owner.clone(), true, ASSET_MIN_BALANCE),
+			(DAI_MOCK_ASSET_ID, asset_owner, true, ASSET_MIN_BALANCE),
 		],
 		metadata: vec![
 			(INTERNAL_ASSET_ID, b"Internal Asset".to_vec(), b"INTERNAL".to_vec(), 6),
@@ -368,7 +382,7 @@ pub fn dispatch_op(op: &Op) {
 				fuzz_helpers::max_psm_debt().saturating_sub(fuzz_helpers::total_psm_debt());
 			let balance = Assets::balance(asset_id, &who);
 			let effective_cap = remaining.min(global_remaining).min(balance);
-			let amount = resolve_amount(tier, effective_cap);
+			let amount = resolve_amount(tier, effective_cap, balance);
 			if amount >= MIN_SWAP {
 				let fee = fuzz_helpers::minting_fee(asset_id);
 				let _ = Psm::mint(
@@ -390,7 +404,7 @@ pub fn dispatch_op(op: &Op) {
 			let debt = PsmDebt::<Test>::get(INTERNAL_ASSET_ID, asset_id);
 			let user_internal = Assets::balance(INTERNAL_ASSET_ID, &who);
 			let effective_cap = debt.min(user_internal);
-			let amount = resolve_amount(tier, effective_cap);
+			let amount = resolve_amount(tier, effective_cap, user_internal);
 			if amount >= MIN_SWAP {
 				let fee = fuzz_helpers::redemption_fee(asset_id);
 				let _ = Psm::redeem(
