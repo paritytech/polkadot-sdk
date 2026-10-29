@@ -20,6 +20,11 @@ name = "pov_estimation"
 path = "fuzz_targets/pov_estimation.rs"
 test = false
 doc = false
+required-features = ["estimation"]
+
+[[test]]
+name = "smoke"
+required-features = ["estimation"]
 
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
@@ -33,3 +38,8 @@ sp-io = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
+
+[features]
+default = ["estimation"]
+# Needs `Externalities::record_proof_for_dirty_keys`, which master does not have.
+estimation = []
