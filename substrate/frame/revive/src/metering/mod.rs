@@ -45,7 +45,10 @@ use sp_runtime::{DispatchError, DispatchResult, FixedU128, SaturatedConversion};
 /// A type-state pattern ensuring that meters can only be used in valid states (root vs nested).
 ///
 /// It is sealed and cannot be implemented outside of this module.
-pub trait State: private::Sealed + Default + Debug {}
+pub trait State: private::Sealed + Default + Debug {
+	/// Whether the EIP-150 63/64 rule applies to the frames a meter in this state creates.
+	const EIP_150_RULE: math::eip_150::Rule;
+}
 
 /// Root state for transaction-level resource metering.
 ///
@@ -59,8 +62,12 @@ pub struct Root;
 #[derive(Default, Debug)]
 pub struct Nested;
 
-impl State for Root {}
-impl State for Nested {}
+impl State for Root {
+	const EIP_150_RULE: math::eip_150::Rule = math::eip_150::Rule::Skip;
+}
+impl State for Nested {
+	const EIP_150_RULE: math::eip_150::Rule = math::eip_150::Rule::Apply;
+}
 
 mod private {
 	pub trait Sealed {}
@@ -159,18 +166,11 @@ impl<T: Config> Default for TransactionLimits<T> {
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
 	/// Create a new nested meter with derived resource limits.
-	///
-	/// The `eip_150_rule` parameter controls whether the EIP-150 63/64 gas rule is applied.
-	pub(crate) fn new_nested(
-		&self,
-		limit: &CallResources<T>,
-		eip_150_rule: math::eip_150::Rule,
-	) -> Result<FrameMeter<T>, DispatchError> {
+	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
 			"Creating nested meter from parent: \
 				limit={limit:?}, \
-				eip_150_rule={eip_150_rule:?}, \
 				weight_left={:?}, \
 				deposit_left={:?}, \
 				weight_consumed={:?}, \
@@ -183,10 +183,10 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 		let mut new_meter = match &self.transaction_limits {
 			TransactionLimits::EthereumGas { eth_tx_info, .. } => {
-				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info, eip_150_rule)
+				math::ethereum_execution::new_nested_meter(self, limit, eth_tx_info)
 			},
 			TransactionLimits::WeightAndDeposit { .. } => {
-				math::substrate_execution::new_nested_meter(self, limit, eip_150_rule)
+				math::substrate_execution::new_nested_meter(self, limit)
 			},
 		}?;
 

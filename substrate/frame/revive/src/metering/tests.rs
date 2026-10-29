@@ -20,8 +20,8 @@ use super::{
 	math::eip_150::{self, BalanceEip150, Resource, WeightEip150},
 };
 use crate::{
-	BalanceOf, CallResources, Code, Config, Error, EthTxInfo, ExecConfig, StorageDeposit,
-	TransactionLimits, TransactionMeter, WeightToken,
+	BalanceOf, CallResources, Code, Config, Error, EthTxInfo, ExecConfig, FrameMeter,
+	StorageDeposit, TransactionLimits, TransactionMeter, WeightToken,
 	storage::AccountInfo,
 	test_utils::{ALICE, ALICE_ADDR, CHARLIE, builder::Contract},
 	tests::{ExtBuilder, Test, builder},
@@ -35,7 +35,7 @@ use frame_system::RawOrigin;
 use pallet_revive_fixtures::{
 	CatchConstructorTest, DepositPrecompile, FixtureType, ReentryStorage, compile_module_with_type,
 };
-use sp_runtime::{FixedU128, Weight};
+use sp_runtime::{DispatchError, FixedU128, Weight};
 use test_case::test_case;
 
 /// A trivial token that charges the specified number of weight units.
@@ -775,6 +775,20 @@ fn substrate_metering_charges_works() {
 	}
 }
 
+/// Creates a frame meter under `eip_150_rule`, nested below a first frame for `Rule::Apply`.
+fn new_frame_meter(
+	transaction_meter: &TransactionMeter<Test>,
+	call_resources: &CallResources<Test>,
+	eip_150_rule: eip_150::Rule,
+) -> Result<FrameMeter<Test>, DispatchError> {
+	match eip_150_rule {
+		eip_150::Rule::Skip => transaction_meter.new_nested(call_resources),
+		eip_150::Rule::Apply => transaction_meter
+			.new_nested(&CallResources::NoLimits)?
+			.new_nested(call_resources),
+	}
+}
+
 fn run_nesting_tests(
 	eip_150_rule: eip_150::Rule,
 	tests: Vec<(
@@ -832,7 +846,8 @@ fn run_nesting_tests(
 					},
 					_ => call_resource,
 				};
-				let nested = transaction_meter.new_nested(&scaled_call_resource, eip_150_rule);
+				let nested =
+					new_frame_meter(&transaction_meter, &scaled_call_resource, eip_150_rule);
 
 				if let Some((
 					gas_left,
@@ -1039,22 +1054,22 @@ fn substrate_nesting_works_with_eip_150() {
 			// 0: NoLimits, low consumption.
 			(
 				((5_000_000_000u128, 1_000_000_000, 2_000, 1000, 1000, 1000i128), NoLimits),
-				Some((2953117620u128, 1476558808, 9984, 590623523, 2000007500u128)),
+				Some((2953117620u128, 1476558808, 9949, 590623523, 2000007500u128)),
 			),
 			// 1: NoLimits, high ref_time consumption.
 			(
 				((5_000_000_000, 1_000_000_000, 2_000, 1000000000, 10000, 50000), NoLimits),
-				Some((415517270, 496576993, 1089, 83103453, 4577887220)),
+				Some((415517270, 492064207, 1088, 83103453, 4577887220)),
 			),
 			// 2: NoLimits, large deposit refund.
 			(
 				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000), NoLimits),
-				Some((697545520, 18994461674, 1828, 139509102, 4291382340)),
+				Some((697545520, 18703122785, 1827, 139509102, 4291382340)),
 			),
 			// 3: NoLimits, very large deposit refund.
 			(
 				((5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -70000000000), NoLimits),
-				Some((310775670520, 174033524174, 814679, 62155134102, 0)),
+				Some((310775670520, 173742185285, 814679, 62155134102, 0)),
 			),
 			// 4: WeightDeposit, limits larger than remaining budget.
 			(
@@ -1065,7 +1080,7 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 1000000000,
 					},
 				),
-				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
 			),
 			// 5: WeightDeposit, ref_time limit (1B) binding.
 			(
@@ -1076,7 +1091,7 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 1000000000,
 					},
 				),
-				Some((2953117620, 1000000000, 9984, 590623523, 2000007500)),
+				Some((2953117620, 1000000000, 9949, 590623523, 2000007500)),
 			),
 			// 6: WeightDeposit, proof_size limit (10000) not binding.
 			(
@@ -1087,7 +1102,7 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 1000000000,
 					},
 				),
-				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
 			),
 			// 7: WeightDeposit, deposit limit (100M) binding.
 			(
@@ -1098,7 +1113,7 @@ fn substrate_nesting_works_with_eip_150() {
 						deposit_limit: 100000000,
 					},
 				),
-				Some((2953117620, 1476558808, 9984, 100000000, 2000007500)),
+				Some((2953117620, 1476558808, 9949, 100000000, 2000007500)),
 			),
 			// 8: WeightDeposit, all explicit limits binding.
 			(
@@ -1130,7 +1145,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
 					Ethereum { gas: 2999992501, add_stipend: false },
 				),
-				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
 			),
 			// 12: Ethereum gas, gas_limit (2999992490) > 63/64 of remaining.
 			(
@@ -1138,7 +1153,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000),
 					Ethereum { gas: 2999992490, add_stipend: false },
 				),
-				Some((2953117620, 1476558808, 9984, 590623523, 2000007500)),
+				Some((2953117620, 1476558808, 9949, 590623523, 2000007500)),
 			),
 			// 13: Ethereum gas, very small gas_limit (10000) is binding over 63/64.
 			(
@@ -1154,7 +1169,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
 					Ethereum { gas: 708617660, add_stipend: false },
 				),
-				Some((697545520, 18994461674, 1828, 139509102, 4291382340)),
+				Some((697545520, 18703122785, 1827, 139509102, 4291382340)),
 			),
 			// 15: Ethereum gas, large refund, gas_limit (3157000000) > 63/64.
 			(
@@ -1162,7 +1177,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
 					Ethereum { gas: 3157000000, add_stipend: false },
 				),
-				Some((697545520, 18994461674, 1828, 139509102, 4291382340)),
+				Some((697545520, 18703122785, 1827, 139509102, 4291382340)),
 			),
 			// 16: Ethereum gas, tiny gas_limit (500), high proof_size consumption.
 			(
@@ -1170,7 +1185,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
 					Ethereum { gas: 500, add_stipend: false },
 				),
-				Some((10, 1499769119, 0, 0, 5000000000)),
+				Some((10, 1476335227, 0, 0, 5000000000)),
 			),
 			// 17: Ethereum gas, even smaller gas_limit (300).
 			(
@@ -1178,7 +1193,7 @@ fn substrate_nesting_works_with_eip_150() {
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
 					Ethereum { gas: 300, add_stipend: false },
 				),
-				Some((10, 1499769119, 0, 0, 5000000000)),
+				Some((10, 1476335227, 0, 0, 5000000000)),
 			),
 			// 18: Ethereum gas, small gas_limit (300), moderate proof_size.
 			(
@@ -1256,15 +1271,15 @@ fn run_nesting_charges_tests(
 					.charge_weight_token(TestToken(ref_time_charge, proof_size_charge))
 					.unwrap();
 
-				let mut nested = transaction_meter
-					.new_nested(
-						&CallResources::Ethereum {
-							gas: gas_limit.div_ceil(gas_scale),
-							add_stipend: false,
-						},
-						eip_150_rule,
-					)
-					.unwrap();
+				let mut nested = new_frame_meter(
+					&transaction_meter,
+					&CallResources::Ethereum {
+						gas: gas_limit.div_ceil(gas_scale),
+						add_stipend: false,
+					},
+					eip_150_rule,
+				)
+				.unwrap();
 
 				for (j, (charge, remaining)) in charges.into_iter().enumerate() {
 					let is_ok = match charge {
@@ -1365,16 +1380,16 @@ fn substrate_nesting_charges_works_with_eip_150() {
 	run_nesting_charges_tests(
 		eip_150::Rule::Apply,
 		vec![
-			// 0: proof_size starts at 9984 (vs 10107 without EIP-150).
-			// W(0, 10000) fails after W(100,100) leaves only 9884.
+			// 0: proof_size starts at 9949 (vs 10107 without EIP-150).
+			// W(0, 10000) fails after W(100,100) leaves only 9849.
 			(
 				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000i128, 5_000_000_000),
 				vec![
 					(
 						W(100, 100),
-						Some((2953117420u128, 1476558708, 9884, 590623483, 2000007700u128)),
+						Some((2953117420u128, 1476558708, 9849, 590623483, 2000007700u128)),
 					),
-					(D(100), Some((2953116920, 1476558458, 9884, 590623383, 2000008200))),
+					(D(100), Some((2953116920, 1476558458, 9849, 590623383, 2000008200))),
 					(W(0, 10000), None),
 				],
 			),
@@ -1384,16 +1399,16 @@ fn substrate_nesting_charges_works_with_eip_150() {
 				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000, 5_000_000_000),
 				vec![
 					(D(595000000), None),
-					(D(-595000000), Some((2953117620, 1476558808, 9984, 590623523, 2000007500))),
+					(D(-595000000), Some((2953117620, 1476558808, 9949, 590623523, 2000007500))),
 				],
 			),
 			// 2: All charges succeed within the 63/64-reduced budget.
 			(
 				(5_000_000_000, 1_000_000_000, 2_000, 1000, 1000, 1000, 5_000_000_000),
 				vec![
-					(W(100, 100), Some((2953117420, 1476558708, 9884, 590623483, 2000007700))),
-					(D(100), Some((2953116920, 1476558458, 9884, 590623383, 2000008200))),
-					(W(100000000, 0), Some((2753116920, 1376558458, 9884, 550623383, 2200008200))),
+					(W(100, 100), Some((2953117420, 1476558708, 9849, 590623483, 2000007700))),
+					(D(100), Some((2953116920, 1476558458, 9849, 590623383, 2000008200))),
+					(W(100000000, 0), Some((2753116920, 1376558458, 9849, 550623383, 2200008200))),
 				],
 			),
 		],
@@ -1423,10 +1438,7 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 			// 1. Substrate call sets weight = 10_000, deposit_limit = 1000.
 			let deposit_limit = 1_000u128;
 			let mut parent = root
-				.new_nested(
-					&WeightDeposit { weight: Weight::from_parts(10_000, 0), deposit_limit },
-					eip_150::Rule::Skip,
-				)
+				.new_nested(&WeightDeposit { weight: Weight::from_parts(10_000, 0), deposit_limit })
 				.unwrap();
 
 			assert_eq!(parent.deposit_left().unwrap(), deposit_limit);
@@ -1437,9 +1449,8 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 
 			// 3. First child uses 680 deposit (more than the ~500 ratio scaling would allow, but
 			//    within the total budget).
-			let mut child1 = parent
-				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Apply)
-				.unwrap();
+			let mut child1 =
+				parent.new_nested(&Ethereum { gas: child_gas, add_stipend: false }).unwrap();
 
 			child1.charge_deposit(&StorageDeposit::Charge(680)).unwrap();
 			parent.absorb_all_meters(child1, &ALICE, None);
@@ -1447,9 +1458,8 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 			assert_eq!(parent.deposit_left().unwrap(), 320);
 
 			// 4. Second child can use 63/64 of the remaining 320 deposit.
-			let mut child2 = parent
-				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Apply)
-				.unwrap();
+			let mut child2 =
+				parent.new_nested(&Ethereum { gas: child_gas, add_stipend: false }).unwrap();
 			assert_eq!(child2.deposit_left().unwrap(), 315);
 
 			child2.charge_deposit(&StorageDeposit::Charge(315)).unwrap();
@@ -1471,14 +1481,12 @@ fn ethereum_execution_caller_keeps_weight_under_weight_limit() {
 			authorization_deposit: Default::default(),
 		})
 		.unwrap();
-		let mut caller_meter =
-			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let mut caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 		let available_weight = caller_meter.weight_left().unwrap();
 		let forwarded_weight = WeightEip150::apply(available_weight);
 		let retained_weight = available_weight - forwarded_weight;
 
-		let mut callee_meter =
-			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		let mut callee_meter = caller_meter.new_nested(&CallResources::NoLimits).unwrap();
 		assert_eq!(callee_meter.weight_left().unwrap(), forwarded_weight);
 
 		callee_meter.consume_all_weight();
@@ -1501,20 +1509,16 @@ fn ethereum_execution_caller_keeps_deposit_under_deposit_limit() {
 		.unwrap();
 		let deposit_limit = 1_000;
 		let mut caller_meter = root_meter
-			.new_nested(
-				&CallResources::WeightDeposit {
-					weight: Weight::from_parts(10_000, 0),
-					deposit_limit,
-				},
-				eip_150::Rule::Skip,
-			)
+			.new_nested(&CallResources::WeightDeposit {
+				weight: Weight::from_parts(10_000, 0),
+				deposit_limit,
+			})
 			.unwrap();
 		let available_deposit = caller_meter.deposit_left().unwrap();
 		let forwarded_deposit = BalanceEip150::<Test>::apply(available_deposit);
 		let retained_deposit = available_deposit - forwarded_deposit;
 
-		let mut callee_meter =
-			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		let mut callee_meter = caller_meter.new_nested(&CallResources::NoLimits).unwrap();
 		assert_eq!(callee_meter.deposit_left().unwrap(), forwarded_deposit);
 
 		callee_meter.charge_deposit(&StorageDeposit::Charge(forwarded_deposit)).unwrap();
@@ -1530,12 +1534,10 @@ fn substrate_execution_caller_refund_does_not_raise_callee_deposit_limit() {
 		let deposit_limit = 1_000;
 		let root_meter =
 			TransactionMeter::<Test>::new_from_limits(Weight::MAX, deposit_limit).unwrap();
-		let mut caller_meter =
-			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let mut caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 		caller_meter.charge_deposit(&StorageDeposit::Refund(100)).unwrap();
 
-		let callee_meter =
-			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		let callee_meter = caller_meter.new_nested(&CallResources::NoLimits).unwrap();
 		assert_eq!(callee_meter.deposit_left().unwrap(), deposit_limit);
 	});
 }
@@ -1553,18 +1555,14 @@ fn ethereum_execution_caller_refund_does_not_raise_callee_deposit_limit() {
 		.unwrap();
 		let deposit_limit = 1_000;
 		let mut caller_meter = root_meter
-			.new_nested(
-				&CallResources::WeightDeposit {
-					weight: Weight::from_parts(10_000, 0),
-					deposit_limit,
-				},
-				eip_150::Rule::Skip,
-			)
+			.new_nested(&CallResources::WeightDeposit {
+				weight: Weight::from_parts(10_000, 0),
+				deposit_limit,
+			})
 			.unwrap();
 		caller_meter.charge_deposit(&StorageDeposit::Refund(100)).unwrap();
 
-		let callee_meter =
-			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		let callee_meter = caller_meter.new_nested(&CallResources::NoLimits).unwrap();
 		assert_eq!(callee_meter.deposit_left().unwrap(), deposit_limit);
 	});
 }
@@ -1583,20 +1581,13 @@ fn ethereum_execution_stipend_comes_on_top() {
 			authorization_deposit: Default::default(),
 		})
 		.unwrap();
-		let caller_meter =
-			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 
 		let plain_callee_meter = caller_meter
-			.new_nested(
-				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: false },
-				eip_150::Rule::Apply,
-			)
+			.new_nested(&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: false })
 			.unwrap();
 		let value_callee_meter = caller_meter
-			.new_nested(
-				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: true },
-				eip_150::Rule::Apply,
-			)
+			.new_nested(&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: true })
 			.unwrap();
 
 		assert_eq!(
@@ -1628,20 +1619,13 @@ fn substrate_execution_stipend_comes_on_top() {
 			1_000_000,
 		)
 		.unwrap();
-		let caller_meter =
-			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 
 		let plain_callee_meter = caller_meter
-			.new_nested(
-				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: false },
-				eip_150::Rule::Apply,
-			)
+			.new_nested(&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: false })
 			.unwrap();
 		let value_callee_meter = caller_meter
-			.new_nested(
-				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: true },
-				eip_150::Rule::Apply,
-			)
+			.new_nested(&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: true })
 			.unwrap();
 
 		assert_eq!(
@@ -1662,13 +1646,10 @@ fn ethereum_execution_one_stipend_left_is_enough() {
 			authorization_deposit: Default::default(),
 		})
 		.unwrap();
-		let caller_meter =
-			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 
-		let value_call = caller_meter.new_nested(
-			&CallResources::Ethereum { gas: 0, add_stipend: true },
-			eip_150::Rule::Apply,
-		);
+		let value_call =
+			caller_meter.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true });
 		assert!(value_call.is_ok());
 	});
 }
@@ -1679,14 +1660,10 @@ fn substrate_execution_one_stipend_left_is_enough() {
 	ExtBuilder::default().build().execute_with(|| {
 		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
 		let root_meter = TransactionMeter::<Test>::new_from_limits(stipend_weight, 1_000).unwrap();
-		let caller_meter =
-			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 
 		let value_callee_meter = caller_meter
-			.new_nested(
-				&CallResources::Ethereum { gas: 0, add_stipend: true },
-				eip_150::Rule::Apply,
-			)
+			.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
 			.unwrap();
 		assert_eq!(value_callee_meter.weight_left().unwrap(), stipend_weight);
 	});
@@ -1828,10 +1805,7 @@ fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 
 			let weight_left_before = root_meter.weight_left().unwrap();
 			let nested = root_meter
-				.new_nested(
-					&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false },
-					eip_150::Rule::Skip,
-				)
+				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false })
 				.unwrap();
 
 			let nested_weight_left = nested.weight_left().unwrap();

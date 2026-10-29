@@ -273,14 +273,11 @@ pub mod substrate_execution {
 	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
 	///   weight+deposit) to derive per-frame limits.
 	///
-	/// The `eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
-	///
 	/// Returns `Err(Error::OutOfGas)` when weight is exhausted, or
 	/// `Err(Error::StorageDepositLimitExhausted)` when deposit bookkeeping forbids further storage.
 	pub fn new_nested_meter<T: Config, S: State>(
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
-		eip_150_rule: eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
 		let (
 			self_consumed_weight,
@@ -303,6 +300,7 @@ pub mod substrate_execution {
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
+		let eip_150_rule = S::EIP_150_RULE;
 		let weight_left = eip_150_rule.apply::<WeightEip150>(weight_left_before_rule);
 		let deposit_left = eip_150_rule.apply::<BalanceEip150<T>>(deposit_left);
 
@@ -496,8 +494,6 @@ pub mod ethereum_execution {
 	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining
 	///   ethereum gas
 	///
-	/// The `eip_150` parameter controls whether the EIP-150 63/64 gas rule is applied.
-	///
 	/// The function ensures the nested frame's derived gas+resources remain within the parent's
 	/// remaining budget and returns `Err(Error::OutOfGas)` when the derived limits would exhaust
 	/// available resources.
@@ -505,7 +501,6 @@ pub mod ethereum_execution {
 		meter: &ResourceMeter<T, S>,
 		limit: &CallResources<T>,
 		eth_tx_info: &EthTxInfo<T>,
-		eip_150_rule: eip_150::Rule,
 	) -> Result<FrameMeter<T>, DispatchError> {
 		let (
 			self_consumed_weight,
@@ -519,6 +514,7 @@ pub mod ethereum_execution {
 
 		let remaining_gas_before_rule = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
+		let eip_150_rule = S::EIP_150_RULE;
 		let (remaining_gas, max_total_gas) = if eip_150_rule.should_apply() {
 			let capped_remaining_gas = remaining_gas_before_rule.apply_eip_150();
 			let retained_gas = remaining_gas_before_rule.saturating_sub(&capped_remaining_gas);

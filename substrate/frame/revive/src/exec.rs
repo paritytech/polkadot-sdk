@@ -24,10 +24,7 @@ use crate::{
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
-	metering::{
-		ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter,
-		math::eip_150,
-	},
+	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
@@ -1268,9 +1265,6 @@ where
 			})
 			.unwrap_or(address);
 
-		let eip_150_rule =
-			if origin_is_caller { eip_150::Rule::Skip } else { eip_150::Rule::Apply };
-
 		// A constructor frame creates its contract in this transaction. Marking it here covers
 		// the first frame of `run_instantiate` as well as nested instantiations.
 		let mut contracts_created = BTreeSet::new();
@@ -1285,7 +1279,7 @@ where
 			account_id,
 			entry_point,
 			code_address,
-			frame_meter: meter.new_nested(call_resources, eip_150_rule)?,
+			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
