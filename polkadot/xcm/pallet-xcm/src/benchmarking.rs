@@ -15,12 +15,13 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
+use codec::DecodeLimit;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
 use xcm::{
 	latest::{prelude::*, MAX_ITEMS_IN_ASSETS},
-	MAX_INSTRUCTIONS_TO_DECODE,
+	MAX_INSTRUCTIONS_TO_DECODE, MAX_XCM_DECODE_DEPTH,
 };
 use xcm_builder::EnsureDelivery;
 use xcm_executor::traits::{FeeReason, WeightBounds};
@@ -834,9 +835,11 @@ mod benchmarks {
 		#[block]
 		{
 			let decoded =
-				VersionedXcm::<<T as crate::Config>::RuntimeCall>::
-					decode_all_with_mem_and_depth_limit(&mut &bytes[..])
-					.expect("blob was just built by `worst_case_weighable_message`; qed");
+				VersionedXcm::<<T as crate::Config>::RuntimeCall>::decode_all_with_depth_limit(
+					MAX_XCM_DECODE_DEPTH,
+					&mut &bytes[..],
+				)
+				.expect("blob was just built by `worst_case_weighable_message`; qed");
 			let mut message: Xcm<<T as crate::Config>::RuntimeCall> =
 				decoded.try_into().expect("blob was built at the latest version; qed");
 			// A message this large may legitimately exceed limits; finding that out is the cost
@@ -854,7 +857,10 @@ mod benchmarks {
 
 		#[block]
 		{
-			let _ = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &bytes[..]);
+			let _ = VersionedXcm::<()>::decode_all_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
+				&mut &bytes[..],
+			);
 		}
 
 		Ok(())
@@ -882,7 +888,8 @@ mod tests {
 				bytes.len() >= target_bytes as usize,
 				"undershooting the target would under-charge",
 			);
-			VersionedXcm::<<Test as crate::Config>::RuntimeCall>::decode_all_with_mem_and_depth_limit(
+			VersionedXcm::<<Test as crate::Config>::RuntimeCall>::decode_all_with_depth_limit(
+				MAX_XCM_DECODE_DEPTH,
 				&mut &bytes[..],
 			)
 			.expect("worst case must decode, otherwise the benchmark measures nothing");
