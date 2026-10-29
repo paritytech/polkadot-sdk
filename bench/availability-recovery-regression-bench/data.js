@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793275644738,
+  "lastUpdate": 1793278777889,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b9447f0539360174e040ecf41d6213d98a2114cb",
-          "message": "Update ci-unified version in .github/env (#11711)\n\nforklift 0.16.0, fixed https://github.com/paritytech/forklift/issues/30\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-14T22:54:59Z",
-          "tree_id": "2d178ab11d1a3838e812111e0119b6d295f45447",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9447f0539360174e040ecf41d6213d98a2114cb"
-        },
-        "date": 1776212051449,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.807096642633335,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1153939481,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.555422016100005,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "732802042d7d6aa97ea8e76b3301659d0833b7f7",
+          "message": " [Release|CI/CD] prdoc: make the changelog topic field usable by contributors (#13623)\n\nCloses: https://github.com/paritytech/release-engineering/issues/300\n\nPart of paritytech/polkadot-sdk#6424 \n\nMakes the optional prdoc `topic` override discoverable and safe to use.\nNow `topic` can be added (if needed) in three ways:\n1. Auto generated based on the schema\n2. Directly in the .prdoc file using `topic` field\n3. Bu using `cmd-bot`: `/cmd prdoc --topic <id>` with the reason posted\nback on failure\n\nAlso added:\n- docs in schema, template and docs; \n- soft validation in `check-prdoc.py` (warning, never a failure);\n- unknown values are a notice in the changelog generator (and its CI job\nsummary) instead of a failed --check.\n\nTopic matching lives in one place (`match_topic` in generate.py, shared\nvia .github/scripts/prdoc_topics.py), with `aliases` for legacy values.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T11:20:40Z",
+          "tree_id": "9a2f6daee2cc8e38a0a02714730e8a99b0037c34",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/732802042d7d6aa97ea8e76b3301659d0833b7f7"
+        },
+        "date": 1793278744324,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.3281910474,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12447645820000006,
             "unit": "seconds"
           }
         ]
