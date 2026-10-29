@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793238031332,
+  "lastUpdate": 1793275842092,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "serban@parity.io",
-            "name": "Serban Iorga",
-            "username": "serban300"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "122cb84b6467dbb95640d50ae3d937627603728f",
-          "message": "MMR: check `verify_ancestor()` output (#11738)\n\nMMR: check `verify_ancestor()` output\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-13T15:29:53Z",
-          "tree_id": "cba321ddab3afc46ee7b9a60973075b8ba547423",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/122cb84b6467dbb95640d50ae3d937627603728f"
-        },
-        "date": 1776099904249,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009597288579999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009185361739999972,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264044272,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0024941008999999994,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c06ae172af862bbe5511711e18782c2759956df5",
+          "message": "Remove dead links that fail the link checker (#13630)\n\n`check-links` fails on every PR and merge-queue run because two links\nnow return 404: `JoshOrndorff/frameless-node-template` (repository\ndeleted) and `paritytech/polkadot-sdk/issues/64` (issue gone).\n\n- `docs/sdk/src/polkadot_sdk/frame_runtime.rs`: drop the examples list.\nNo maintained FRAME-free runtime exists to link instead, and Subsembly\nhas been unmaintained since 2021.\n- `substrate/primitives/state-machine/src/backend.rs`: drop the issue\nreference from `TryPendingCode` and fix a doubled word.",
+          "timestamp": "2026-10-29T10:34:49Z",
+          "tree_id": "a63dcbbbda786af3a578da1a35691d36a9faee6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c06ae172af862bbe5511711e18782c2759956df5"
+        },
+        "date": 1793275808680,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002572055750000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009618524429999983,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010615151609999996,
             "unit": "seconds"
           }
         ]
