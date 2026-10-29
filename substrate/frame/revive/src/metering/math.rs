@@ -290,7 +290,7 @@ pub mod substrate_execution {
 			total_consumed_deposit,
 		) = meter.consumed_resources();
 
-		let weight_left = meter
+		let weight_left_before_rule = meter
 			.weight
 			.weight_limit
 			.checked_sub(&self_consumed_weight)
@@ -304,7 +304,7 @@ pub mod substrate_execution {
 			.available(&deposit_limit)
 			.ok_or(<Error<T>>::StorageDepositLimitExhausted)?;
 
-		let weight_left = eip_150_rule.apply::<WeightEip150>(weight_left);
+		let weight_left = eip_150_rule.apply::<WeightEip150>(weight_left_before_rule);
 		let deposit_left = eip_150_rule.apply::<BalanceEip150<T>>(deposit_left);
 
 		let (nested_weight_limit, nested_deposit_limit, stipend) = {
@@ -338,17 +338,22 @@ pub mod substrate_execution {
 					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
-					// Stipend: check against `weight_left` (parent's actual budget) but
-					// add to `weight_limit` (nested frame's allowance) as a bonus
+					// Stipend: check against `weight_left_before_rule` (parent's budget) and add it
+					// to `weight_limit` (nested frame's allowance) on top of the 63/64 share.
 					let stipend = if *add_stipend {
-						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
+						let weight_stipend =
+							validate_and_get_stipend::<T>(weight_left_before_rule)?;
 						weight_limit.saturating_accrue(weight_stipend);
 						Some(weight_stipend)
 					} else {
 						None
 					};
 
-					(weight_left.min(weight_limit), deposit_left.min(deposit_limit), stipend)
+					(
+						weight_left_before_rule.min(weight_limit),
+						deposit_left.min(deposit_limit),
+						stipend,
+					)
 				},
 
 				CallResources::WeightDeposit { weight, deposit_limit } =>
@@ -513,15 +518,15 @@ pub mod ethereum_execution {
 		let total_gas_consumption =
 			eth_tx_info.gas_consumption(&total_consumed_weight, &total_consumed_deposit);
 
-		let remaining_gas = meter.max_total_gas.saturating_sub(&total_gas_consumption);
+		let remaining_gas_before_rule = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
 		let (remaining_gas, max_total_gas) = if eip_150_rule.should_apply() {
-			let capped_remaining_gas = remaining_gas.apply_eip_150();
-			let retained_gas = remaining_gas.saturating_sub(&capped_remaining_gas);
+			let capped_remaining_gas = remaining_gas_before_rule.apply_eip_150();
+			let retained_gas = remaining_gas_before_rule.saturating_sub(&capped_remaining_gas);
 			let max_total_gas = meter.max_total_gas.saturating_sub(&retained_gas);
 			(capped_remaining_gas, max_total_gas)
 		} else {
-			(remaining_gas, meter.max_total_gas.clone())
+			(remaining_gas_before_rule.clone(), meter.max_total_gas.clone())
 		};
 
 		let weight_left = {
@@ -566,22 +571,27 @@ pub mod ethereum_execution {
 				),
 
 				CallResources::Ethereum { gas, add_stipend } => {
-					let gas_limit = SignedGas::from_ethereum_gas(*gas);
-					// Stipend: validate against `weight_left`, add to gas_limit.
-					let (gas_limit, stipend) = if *add_stipend {
-						let weight_stipend = validate_and_get_stipend::<T>(weight_left)?;
-						let gas_with_stipend =
-							gas_limit.saturating_add(&SignedGas::<T>::from_weight_fee(
-								T::FeeInfo::weight_to_fee(&weight_stipend),
-							));
-						(gas_with_stipend, Some(weight_stipend))
+					let gas_limit = remaining_gas.min(&SignedGas::from_ethereum_gas(*gas));
+					let (gas_limit, weight_limit, stipend) = if *add_stipend {
+						let weight_left_before_rule =
+							self::weight_left(meter, eth_tx_info).ok_or(<Error<T>>::OutOfGas)?;
+						let weight_stipend =
+							validate_and_get_stipend::<T>(weight_left_before_rule)?;
+						let gas_stipend = SignedGas::<T>::from_weight_fee(
+							T::FeeInfo::weight_to_fee(&weight_stipend),
+						);
+						(
+							gas_limit.saturating_add(&gas_stipend).min(&remaining_gas_before_rule),
+							weight_left.saturating_add(weight_stipend).min(weight_left_before_rule),
+							Some(weight_stipend),
+						)
 					} else {
-						(gas_limit, None)
+						(gas_limit, weight_left, None)
 					};
 
 					(
-						remaining_gas.min(&gas_limit),
-						weight_left,
+						gas_limit,
+						weight_limit,
 						if meter.deposit.limit.is_none() { None } else { Some(deposit_left) },
 						stipend,
 					)

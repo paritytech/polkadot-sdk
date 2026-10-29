@@ -1525,6 +1525,129 @@ fn ethereum_execution_caller_keeps_deposit_under_deposit_limit() {
 	});
 }
 
+/// The callee of a value call with no gas limit gets the stipend on top of its 63/64 share.
+#[test]
+fn ethereum_execution_stipend_comes_on_top() {
+	use crate::evm::fees::InfoT;
+
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: stipend_weight.saturating_mul(1000),
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap();
+		let caller_meter =
+			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+
+		let plain_callee_meter = caller_meter
+			.new_nested(
+				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: false },
+				eip_150::Rule::Apply,
+			)
+			.unwrap();
+		let value_callee_meter = caller_meter
+			.new_nested(
+				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: true },
+				eip_150::Rule::Apply,
+			)
+			.unwrap();
+
+		assert_eq!(
+			value_callee_meter.weight_left().unwrap(),
+			plain_callee_meter.weight_left().unwrap() + stipend_weight,
+		);
+		let plain_callee_gas = plain_callee_meter.eth_gas_left().unwrap();
+		let stipend_gas = SignedGas::<Test>::from_weight_fee(
+			<Test as Config>::FeeInfo::weight_to_fee(&stipend_weight),
+		)
+		.to_ethereum_gas()
+		.unwrap();
+		let expected_gas = plain_callee_gas + stipend_gas;
+		let value_callee_gas = value_callee_meter.eth_gas_left().unwrap();
+		assert!(
+			(expected_gas - 1..=expected_gas).contains(&value_callee_gas),
+			"expected {expected_gas} or 1 less, got {value_callee_gas}",
+		);
+	});
+}
+
+/// The callee of a value call with no gas limit gets the stipend on top of its 63/64 share.
+#[test]
+fn substrate_execution_stipend_comes_on_top() {
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let root_meter = TransactionMeter::<Test>::new_from_limits(
+			stipend_weight.saturating_mul(1000),
+			1_000_000,
+		)
+		.unwrap();
+		let caller_meter =
+			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+
+		let plain_callee_meter = caller_meter
+			.new_nested(
+				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: false },
+				eip_150::Rule::Apply,
+			)
+			.unwrap();
+		let value_callee_meter = caller_meter
+			.new_nested(
+				&CallResources::Ethereum { gas: u64::MAX.into(), add_stipend: true },
+				eip_150::Rule::Apply,
+			)
+			.unwrap();
+
+		assert_eq!(
+			value_callee_meter.weight_left().unwrap(),
+			plain_callee_meter.weight_left().unwrap() + stipend_weight,
+		);
+	});
+}
+
+/// A value call succeeds when its caller has exactly one stipend left.
+#[test]
+fn ethereum_execution_one_stipend_left_is_enough() {
+	ExtBuilder::default().build().execute_with(|| {
+		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap(),
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap();
+		let caller_meter =
+			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+
+		let value_call = caller_meter.new_nested(
+			&CallResources::Ethereum { gas: 0, add_stipend: true },
+			eip_150::Rule::Apply,
+		);
+		assert!(value_call.is_ok());
+	});
+}
+
+/// A value call succeeds when its caller has exactly one stipend left.
+#[test]
+fn substrate_execution_one_stipend_left_is_enough() {
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let root_meter = TransactionMeter::<Test>::new_from_limits(stipend_weight, 1_000).unwrap();
+		let caller_meter =
+			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+
+		let value_callee_meter = caller_meter
+			.new_nested(
+				&CallResources::Ethereum { gas: 0, add_stipend: true },
+				eip_150::Rule::Apply,
+			)
+			.unwrap();
+		assert_eq!(value_callee_meter.weight_left().unwrap(), stipend_weight);
+	});
+}
+
 #[test]
 fn catch_constructor_test() {
 	use crate::{evm::*, tracing::trace};
