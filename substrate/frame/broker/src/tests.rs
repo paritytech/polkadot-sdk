@@ -20,6 +20,7 @@
 use crate::{mock::*, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
+	dispatch::Pays,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
@@ -726,7 +727,9 @@ fn instapool_claim_does_not_consume_unsettled_timeslices() {
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 
 		assert_eq!(InstaPoolHistory::<Test>::get(region.begin), None);
-		assert_ok!(Broker::do_claim_revenue(region, 100));
+		let info = Broker::claim_revenue(RuntimeOrigin::signed(3), region, 100).unwrap();
+		assert_eq!(info.pays_fee, Pays::Yes);
+		assert_eq!(info.actual_weight, Some(<() as WeightInfo>::claim_revenue(1)));
 		assert_eq!(balance(2), 0);
 		assert_eq!(
 			InstaPoolContribution::<Test>::get(region),
@@ -747,7 +750,9 @@ fn instapool_claim_does_not_consume_unsettled_timeslices() {
 			}
 		);
 
-		assert_ok!(Broker::do_claim_revenue(region, 100));
+		let info = Broker::claim_revenue(RuntimeOrigin::signed(3), region, 100).unwrap();
+		assert_eq!(info.pays_fee, Pays::Yes);
+		assert_eq!(info.actual_weight, Some(<() as WeightInfo>::claim_revenue(1)));
 		assert_eq!(balance(2), 0);
 		assert_eq!(
 			InstaPoolContribution::<Test>::get(region),
@@ -759,7 +764,9 @@ fn instapool_claim_does_not_consume_unsettled_timeslices() {
 
 		advance_to(11);
 		assert_eq!(pot(), 10);
-		assert_ok!(Broker::do_claim_revenue(region, 1));
+		let info = Broker::claim_revenue(RuntimeOrigin::signed(3), region, 100).unwrap();
+		assert_eq!(info.pays_fee, Pays::No);
+		assert_eq!(info.actual_weight, Some(<() as WeightInfo>::claim_revenue(2)));
 		assert_eq!(balance(2), 10);
 		let next = RegionId { begin: region.begin + 1, ..region };
 		assert_eq!(

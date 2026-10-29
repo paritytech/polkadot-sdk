@@ -841,6 +841,9 @@ pub mod pallet {
 		///   will be required with the same `region_id` to claim revenue for the remainder.
 		///   Processing stops at the first timeslice whose revenue the relay chain has not yet
 		///   reported; the remainder can be claimed once it has been.
+		///
+		/// The fee is waived only if at least one timeslice was processed, and the weight of the
+		/// timeslices that were not processed is refunded.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(*max_timeslices))]
 		pub fn claim_revenue(
@@ -849,8 +852,9 @@ pub mod pallet {
 			max_timeslices: Timeslice,
 		) -> DispatchResultWithPostInfo {
 			ensure_signed(origin)?;
-			Self::do_claim_revenue(region_id, max_timeslices)?;
-			Ok(Pays::No.into())
+			let checked = Self::do_claim_revenue(region_id, max_timeslices)?;
+			let pays = if checked > 1 { Pays::No } else { Pays::Yes };
+			Ok((Some(T::WeightInfo::claim_revenue(checked)), pays).into())
 		}
 
 		/// Purchase credit for use in the Instantaneous Coretime Pool.

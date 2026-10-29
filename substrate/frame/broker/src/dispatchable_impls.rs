@@ -423,11 +423,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Returns the number of timeslices whose history was checked: the consumed ones plus the
+	/// one that stopped the claim.
 	pub(crate) fn do_claim_revenue(
 		mut region: RegionId,
 		max_timeslices: Timeslice,
-	) -> DispatchResult {
+	) -> Result<Timeslice, DispatchError> {
 		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
+		let first = region.begin;
 		let mut contribution =
 			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
 		let contributed_parts = region.mask.count_ones();
@@ -489,7 +492,7 @@ impl<T: Config> Pallet<T> {
 			amount: payout,
 			next,
 		});
-		Ok(())
+		Ok(region.begin.saturating_sub(first).saturating_add(1))
 	}
 
 	pub(crate) fn do_purchase_credit(

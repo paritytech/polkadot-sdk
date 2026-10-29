@@ -7,6 +7,8 @@ doc:
     payout. It now stops at the first timeslice whose revenue has not yet been reported, or which
     has not yet been committed, and keeps the remaining contribution so the claim can be retried.
     A history entry missing at or before the last committed timeslice is still treated as dropped.
+    The fee of `claim_revenue` is only waived if at least one timeslice was processed, and the
+    weight of the timeslices that were not processed is refunded.
 crates:
 - name: pallet-broker
   bump: patch
