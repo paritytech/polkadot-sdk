@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793298868029,
+  "lastUpdate": 1793311870301,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "54108b3cd17f8522aa13f94df25a95c30525f071",
-          "message": "statement-store: allow light clients to specify topic affinity (#11329)\n\n## Description\n\nAdd explicit topic affinity support to the statement protocol, allowing\nnodes to advertise at P2P level which statement topics they're\ninterested in. When a peer's affinity changes, relevant statements are\nre-sent.\n\nThe topic affinity is specified as a BloomFilter, all statements that\nmatch the filter are forwarded to new peers.\n\nCurrently, this is meant to be used by light clients like smoldot to\nreceive only the statements they are interested in. In the future, this\ncan also be used by statement store full nodes, but some other changes\nwill also be needed.\n\n##  Changes\n- Change the format of the message and introduce a new protocol\n\"statement/2\".\n```\nenum StatementMessage {\n\tStatements(Vec<Statement>),\n\t/// Bloom filter bytes representing the topics this peer is interested in.\n\tExplicitTopicAffinity(AffinityFilter),\n}\n```\n- Light client nodes connected on the new protocol need to also\nadvertise a topic affinity before they are receiving any statements.\n- If node define a topic affinity send them only the statements matching\nthat affinity.\n\n## TODO\n- [x] Integration testing of the new flow, tested with modify\n[node](https://github.com/paritytech/polkadot-sdk/commit/01460f4eb1a3b82fa7d00cb6db1a2194b8ab27fc#diff-21bd75369585eed301c19cf082010908ee6fa3c75a635da1bb8a8d3e6127f394R85)\n- [x] E2E integrations tests with smoldot:\nhttps://github.com/paritytech/polkadot-sdk/commit/e9a20b663e9a2e7a02321eec76990264a6ad7e4f.\n- [x] Rate limit Explicit Affinity\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-14T12:29:36Z",
-          "tree_id": "523908122b5a97d22a7de56c9d0f529e02716b80",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/54108b3cd17f8522aa13f94df25a95c30525f071"
-        },
-        "date": 1776175707433,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.042,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.09036233440799991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038511577228000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.03882277339799999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alistair.singh7@gmail.com",
+            "name": "Alistair Singh",
+            "username": "alistair-singh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "57f27e6ebd50a7be40a21fe69739e619c35a9515",
+          "message": "Snowbridge: restore unchecked sync committee key parsing (#13640)\n\n# Description\n\nRestore `PublicKey::from_bytes_unchecked` when preparing authenticated\nEthereum sync committee keys.\n\nPR #11910 changed this call to `from_bytes`, adding a G1 subgroup check\nfor every key. A sync committee contains 512 keys. Benchmarking with\nchecked `snowbridge-beacon-primitives` `0.21.1` increased the relevant\nbase ref-times from:\n\n| Call | Unchecked | Checked | Increase |\n|---|---:|---:|---:|\n| `submit_with_sync_committee` | 130,686,869,000 | 486,152,042,000 |\n3.72x |\n| `force_checkpoint` | 111,409,252,000 | 480,697,088,000 | 4.31x |\n\n`submit` is a Normal-class call. Approximately 486 billion ref-time\nunits exceeds Bridge Hub Polkadot's roughly 350-billion Normal\nper-extrinsic cap, so a committee update cannot be included and the\nbridge stalls at committee rotation.\n\nThe long-term hardening solution is Bridge Hub/Snowbridge async-backing\ncompatibility. Its larger execution budget (up to approximately two\nseconds) should allow checked deserialization to be restored after\nbenchmarking the complete committee-update call with adequate headroom.\n\n## Integration\n\nThis needs backports and patched `snowbridge-beacon-primitives`\npublications for:\n\n- `stable2606`: currently `0.21.1`, checked\n- `stable2609`: currently `0.22.0`, checked\n\n## Review Notes\n\nThis does not introduce a new attacker-controlled key path:\n\n- Ethereum only adds a new validator key to its registry after its BLS\nproof-of-possession signature verifies. BLS verification performs key\nvalidation, including the G1 subgroup check.\n- Ethereum constructs sync committees from keys in that validator\nregistry.\n- Snowbridge verifies the supplied committee's SSZ root and Merkle\nbranch against the authenticated beacon-state root before preparing its\nkeys.\n- `force_checkpoint` is restricted to Root.\n- `from_bytes_unchecked` still validates the compressed encoding, field\nelement and on-curve point; it omits the identity and subgroup checks.\n\nAs noted in #11910, injecting a non-subgroup committee key would first\nrequire a failure of Ethereum consensus validation, the authenticated\nMerkle-proof/SHA-256 commitment path, or the trusted Root checkpoint\nprocess. The subgroup check at this location is therefore defense in\ndepth rather than the primary security boundary.\n\n## Validation\n\n- `rustfmt --check bridges/snowbridge/primitives/beacon/src/bls.rs`\n- `cargo test -p snowbridge-beacon-primitives` (22 passed)\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T20:36:44Z",
+          "tree_id": "f3909bddcadb7b9ae728d1ad6bc4476915cbfd65",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/57f27e6ebd50a7be40a21fe69739e619c35a9515"
+        },
+        "date": 1793311837210,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.07999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08746878678600004,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.039077346177999996,
             "unit": "seconds"
           }
         ]
