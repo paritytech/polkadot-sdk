@@ -9,7 +9,9 @@ doc:
     `pallet-psm` gains `handle_internal_asset_owner_change` for runtimes to wire into that
     callback. A PSM admin role that equals the departing owner's signed origin follows the
     ownership; any other admin origin does not change. This removes the silent split where
-    an asset transfer left the previous owner holding the PSM admin role.
+    an asset transfer left the previous owner holding the PSM admin role, for the case
+    where that role is the previous owner's signed origin. A role held by any other origin
+    stays with that origin across the transfer.
 crates:
 - name: pallet-assets
   bump: minor
