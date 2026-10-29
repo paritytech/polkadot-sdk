@@ -87,16 +87,6 @@ use sp_runtime::{generic::DigestItem, traits::Zero};
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
 
-/// The most touches a full-list bench makes in one run, one per default benchmark step.
-const ACCESS_LIST_MAX_TOUCHES_PER_RUN: u32 = 50;
-
-const _: () = assert!((ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize) < MAX_ACCESS_LIST_ENTRIES);
-
-/// The most entries an empty or nearly empty list bench holds, so its list fits in one tree node.
-/// A larger list would add node splits and deeper searches, which increase the base that every
-/// touch price subtracts, and would lower the access-list overhead every access pays.
-const ACCESS_LIST_BASE_ENTRIES: u32 = 11;
-
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
 		vec![].iter()$(.chain($bytes.iter()))*.cloned().collect::<Vec<_>>()
@@ -2611,193 +2601,143 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
+		let entry = AccessEntry::with_index(0, KeyFamily::ContractStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().cold, n);
-		assert_eq!(al.metrics().hot, 0);
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
-	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_address_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
+		let entry = AccessEntry::with_index(0, KeyFamily::PalletStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().cold, n);
-		assert_eq!(al.metrics().hot, 0);
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_nearly_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(
-			ACCESS_LIST_BASE_ENTRIES as usize,
-			KeyFamily::ContractStorageSlot,
-		);
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
+	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(1, KeyFamily::ContractStorageSlot);
+		let entry = al.first();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_nearly_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(
-			ACCESS_LIST_BASE_ENTRIES as usize,
-			KeyFamily::PalletStorageSlot,
-		);
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
+	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(1, KeyFamily::PalletStorageSlot);
+		let entry = al.first();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: cold touches that fill the list up to the cap
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let mut al = AccessList::with_entries(range.start, KeyFamily::ContractStorageSlot);
-		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
+		assert!(!outcome.is_hot());
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
-		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: cold touches that fill the list up to the cap
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_address_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let mut al = AccessList::with_entries(range.start, KeyFamily::PalletStorageSlot);
-		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
+		assert!(!outcome.is_hot());
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
-		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: upgrades of distinct read-paid entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_upgrade(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Write);
-			}
+			outcome = al.touch(entry, StorageOp::Write);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: upgrades of distinct read-paid entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_upgrade(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_upgrade() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Write);
-			}
+			outcome = al.touch(entry, StorageOp::Write);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
@@ -2806,10 +2746,11 @@ mod benchmarks {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot),
+		let outcome = al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot),
 			StorageOp::Read,
 		);
+		assert!(!outcome.is_hot());
 		#[block]
 		{
 			al.rollback_frame();
@@ -2822,10 +2763,11 @@ mod benchmarks {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot),
+		let outcome = al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot),
 			StorageOp::Read,
 		);
+		assert!(!outcome.is_hot());
 		#[block]
 		{
 			al.rollback_frame();

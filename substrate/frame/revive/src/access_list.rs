@@ -416,11 +416,6 @@ impl AccessEntry {
 			},
 		}
 	}
-
-	/// Builds the entries of `key_family` at `indices`.
-	pub fn with_indices(indices: core::ops::Range<usize>, key_family: KeyFamily) -> Vec<Self> {
-		indices.map(|index| Self::with_index(index, key_family)).collect()
-	}
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -963,6 +958,24 @@ impl AccessList {
 		let mut list = Self::new();
 		list.fill_to(entries, key_family);
 		list
+	}
+
+	/// Returns the first entry in key order.
+	pub fn first(&self) -> AccessEntry {
+		self.accessed
+			.keys()
+			.next()
+			.expect("fixtures only ask a non-empty list; qed")
+			.clone()
+	}
+
+	/// Returns the last entry in key order.
+	pub fn last(&self) -> AccessEntry {
+		self.accessed
+			.keys()
+			.next_back()
+			.expect("fixtures only ask a non-empty list; qed")
+			.clone()
 	}
 }
 

@@ -1242,115 +1242,85 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 15
 			.saturating_add(Weight::from_parts(639, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
+	fn access_list_touch_cold_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 577_000 picoseconds.
-		Weight::from_parts(674_000, 0)
+		// Minimum execution time: 515_000 picoseconds.
+		Weight::from_parts(639_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 997
-			.saturating_add(Weight::from_parts(601_365, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
+	fn access_list_touch_cold_address_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 483_000 picoseconds.
-		Weight::from_parts(134_333, 0)
+		// Minimum execution time: 386_000 picoseconds.
+		Weight::from_parts(471_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 303
-			.saturating_add(Weight::from_parts(258_012, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
+	fn access_list_touch_hot_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 502_000 picoseconds.
-		Weight::from_parts(582_000, 0)
+		// Minimum execution time: 465_000 picoseconds.
+		Weight::from_parts(553_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_067
-			.saturating_add(Weight::from_parts(618_034, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
+	fn access_list_touch_hot_address_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 347_000 picoseconds.
-		Weight::from_parts(32_606, 0)
+		// Minimum execution time: 282_000 picoseconds.
+		Weight::from_parts(357_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 280
-			.saturating_add(Weight::from_parts(209_658, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_cold_full(n: u32, ) -> Weight {
+	fn access_list_touch_cold_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_063_000 picoseconds.
-		Weight::from_parts(5_162_000, 0)
+		// Minimum execution time: 4_477_000 picoseconds.
+		Weight::from_parts(5_495_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5_811
-			.saturating_add(Weight::from_parts(4_529_298, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_full(n: u32, ) -> Weight {
+	fn access_list_touch_hot_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_924_000 picoseconds.
-		Weight::from_parts(5_348_780, 0)
+		// Minimum execution time: 4_855_000 picoseconds.
+		Weight::from_parts(5_572_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5_912
-			.saturating_add(Weight::from_parts(3_809_547, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_cold_address_full(n: u32, ) -> Weight {
+	fn access_list_touch_cold_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_445_000 picoseconds.
-		Weight::from_parts(363_707, 0)
+		// Minimum execution time: 1_362_000 picoseconds.
+		Weight::from_parts(1_492_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_206
-			.saturating_add(Weight::from_parts(1_123_699, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_address_full(n: u32, ) -> Weight {
+	fn access_list_touch_hot_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_481_000 picoseconds.
-		Weight::from_parts(1_740_060, 0)
+		// Minimum execution time: 1_363_000 picoseconds.
+		Weight::from_parts(1_490_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 764
-			.saturating_add(Weight::from_parts(884_096, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_upgrade(n: u32, ) -> Weight {
+	fn access_list_touch_hot_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_582_000 picoseconds.
-		Weight::from_parts(5_860_497, 0)
+		// Minimum execution time: 5_380_000 picoseconds.
+		Weight::from_parts(6_212_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 6_572
-			.saturating_add(Weight::from_parts(3_968_208, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_address_upgrade(n: u32, ) -> Weight {
+	fn access_list_touch_hot_address_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_699_000 picoseconds.
-		Weight::from_parts(2_146_493, 0)
+		// Minimum execution time: 1_413_000 picoseconds.
+		Weight::from_parts(1_540_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 922
-			.saturating_add(Weight::from_parts(924_698, 0).saturating_mul(n.into()))
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:

@@ -260,16 +260,15 @@ fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 			.saturating_add(upgrade_weight.saturating_mul(summary.upgrades().into()));
 	}
 
-	// The touch benches make `n` touches per run, so `cost_args!` at 1 is one touch.
 	let (cold_weight, rollback_weight) = match key_family {
 		KeyFamily::ContractStorageSlot => (
-			cost_args!(access_list_touch_cold_full, 1)
-				.saturating_sub(cost_args!(access_list_touch_cold_empty, 1)),
+			T::WeightInfo::access_list_touch_cold_full()
+				.saturating_sub(T::WeightInfo::access_list_touch_cold_empty()),
 			T::WeightInfo::access_list_rollback_amortization(),
 		),
 		KeyFamily::PalletStorageSlot => (
-			cost_args!(access_list_touch_cold_address_full, 1)
-				.saturating_sub(cost_args!(access_list_touch_cold_address_empty, 1)),
+			T::WeightInfo::access_list_touch_cold_address_full()
+				.saturating_sub(T::WeightInfo::access_list_touch_cold_address_empty()),
 			T::WeightInfo::access_list_rollback_address_amortization(),
 		),
 	};
@@ -283,20 +282,20 @@ fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
 /// Computes how much more a hot touch costs on a full list than on a nearly empty one.
 pub fn access_list_hot_touch_overhead<T: Config>(key_family: KeyFamily) -> Weight {
 	match key_family {
-		KeyFamily::ContractStorageSlot => cost_args!(access_list_touch_hot_full, 1)
-			.saturating_sub(cost_args!(access_list_touch_hot_nearly_empty, 1)),
-		KeyFamily::PalletStorageSlot => cost_args!(access_list_touch_hot_address_full, 1)
-			.saturating_sub(cost_args!(access_list_touch_hot_address_nearly_empty, 1)),
+		KeyFamily::ContractStorageSlot => T::WeightInfo::access_list_touch_hot_full()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
+		KeyFamily::PalletStorageSlot => T::WeightInfo::access_list_touch_hot_address_full()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_address_single_element()),
 	}
 }
 
 /// Computes the cost of journaling a `Read` to `Write` upgrade, on top of the touch itself.
 pub fn access_list_upgrade_overhead<T: Config>(key_family: KeyFamily) -> Weight {
 	match key_family {
-		KeyFamily::ContractStorageSlot => cost_args!(access_list_touch_hot_upgrade, 1)
-			.saturating_sub(cost_args!(access_list_touch_hot_full, 1)),
-		KeyFamily::PalletStorageSlot => cost_args!(access_list_touch_hot_address_upgrade, 1)
-			.saturating_sub(cost_args!(access_list_touch_hot_address_full, 1)),
+		KeyFamily::ContractStorageSlot => T::WeightInfo::access_list_touch_hot_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_full()),
+		KeyFamily::PalletStorageSlot => T::WeightInfo::access_list_touch_hot_address_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_address_full()),
 	}
 }
 
