@@ -8,3 +8,5 @@ doc:
 crates:
 - name: snowbridge-beacon-primitives
   bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
