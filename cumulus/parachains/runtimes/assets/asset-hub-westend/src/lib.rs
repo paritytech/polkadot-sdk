@@ -134,8 +134,8 @@ use xcm::latest::prelude::{
 	NetworkId, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
 
-/// Build with an offset of 1 behind the relay chain.
-const RELAY_PARENT_OFFSET: u32 = 1;
+/// Build with an offset of 0 behind the relay chain.
+const RELAY_PARENT_OFFSET: u32 = 0;
 
 /// The upper limit of how many parachain blocks are processed by the relay chain per
 /// parent. Limits the number of blocks authored per slot. This determines the minimum
@@ -144,8 +144,9 @@ const RELAY_PARENT_OFFSET: u32 = 1;
 const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
 /// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
-/// into the relay chain.
-const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
+/// into the relay chain. Kept at the offset-1 value of 12 so V3 scheduling keeps the same
+/// headroom for a delayed inclusion.
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (4 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
 
 /// Relay chain slot duration, in milliseconds.
 const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
@@ -164,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_025_002,
+	spec_version: 1_025_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1050,7 +1051,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
-	type SchedulingSignatureVerifier = ();
+	type SchedulingSignatureVerifier = cumulus_pallet_aura_ext::AuraSchedulingVerifier<Runtime>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
