@@ -16,6 +16,6 @@ doc:
     entries are not rewritten: counters that were already inflated keep their values.
 crates:
 - name: pallet-revive
-  bump: patch
+  bump: minor
 - name: pallet-revive-fixtures
   bump: minor
