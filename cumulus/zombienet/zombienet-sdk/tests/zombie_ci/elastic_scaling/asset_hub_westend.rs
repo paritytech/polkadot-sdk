@@ -1,20 +1,55 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+//! Asset-Hub-Westend elastic-scaling + collator-discovery test.
+//!
+//! Setup:
+//! * 6 relay validators on `westend-local` with `num_cores = 3`,
+//! * 6 parachain collators running `polkadot-parachain`, launched with `--in-peers=1 --out-peers=1
+//!   --collator-reserved-slots=32`
+//!
+//! Test flow:
+//! 1. Spawn network. Wait for first session change and PVF preparation.
+//! 2. Single core throughput check.
+//! 3. Assert the full collator-to-collator reserved-peer mesh forms.
+//! 4. Assign 2 extra cores and check throughput: ~3 blocks per relay slot.
+
 use crate::utils::initialize_network;
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, wait_for_first_session_change, wait_for_pvf_prepare,
+	assert_full_collator_mesh, assert_para_throughput, assign_cores, wait_for_first_session_change,
+	wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use std::time::Duration;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	NetworkConfig, NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 1000;
+
+/// Mesh convergence timeout.
+const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(180);
+
+/// Polling interval for the full-mesh check.
+const FULL_MESH_POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Collator CLI arguments.
+const COLLATOR_NETWORK_ARGS: &[&str] = &[
+	"-laura=info,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug,collator-discovery=debug,authority-discovery=debug",
+	"--in-peers=1",
+	"--out-peers=1",
+	"--collator-reserved-slots=32",
+	"--force-authoring",
+	"--authoring=slot-based",
+];
+
+fn collator_names() -> &'static [&'static str] {
+	&["alice", "bob", "charlie", "dave", "eve", "ferdie"]
+}
 
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	// images are not relevant for `native`, but we leave it here in case we use `k8s` some day
@@ -45,24 +80,31 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_validator` outside of the loop below, so that `r` has the right
-				// type.
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
 				.with_validator(|node| node.with_name("validator-0"));
-			(1..6).fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
+			(1..6).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
-			p.with_id(PARA_ID)
+			let names = collator_names();
+			let mut p = p
+				.with_id(PARA_ID)
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain("asset-hub-westend-local")
-				.with_default_args(vec![
-                    ("-laura=trace,runtime=info,cumulus-consensus=trace,consensus::common=trace,parachain::collation-generation=trace,parachain::collator-protocol=trace,parachain=debug").into(),
-					("--force-authoring").into(),
-                    ("--authoring", "slot-based").into(),
-				])
-				.with_collator(|n| n.with_name("collator-0"))
-				.with_collator(|n| n.with_name("collator-1"))
-				.with_collator(|n| n.with_name("collator-2"))
+				.with_collator(|n| {
+					n.with_name(names[0])
+						.with_args(COLLATOR_NETWORK_ARGS.iter().map(|a| (*a).into()).collect())
+				});
+			for &name in &names[1..] {
+				p = p.with_collator(|n| {
+					n.with_name(name)
+						.with_args(COLLATOR_NETWORK_ARGS.iter().map(|a| (*a).into()).collect())
+				});
+			}
+			p
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
@@ -95,6 +137,15 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	wait_for_pvf_prepare(&network, 1).await?;
 
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 8..11)], []).await?;
+
+	log::info!("Asserting full collator-to-collator mesh");
+	assert_full_collator_mesh(
+		&network,
+		collator_names(),
+		FULL_MESH_TIMEOUT,
+		FULL_MESH_POLL_INTERVAL,
+	)
+	.await?;
 
 	// 1 core is assigned by default, we are assigning 2 more cores: 0 and 1.
 	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
