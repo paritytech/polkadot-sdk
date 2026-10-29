@@ -1142,7 +1142,12 @@ async fn statement_store_v2_dht_rollout_soak() -> Result<(), anyhow::Error> {
 			while dht_off.iter().filter(|&&off| !off).count() < target {
 				let idx =
 					dht_off.iter().position(|&off| off).expect("below 100% a node is off; qed");
-				nodes[idx].rpc = bring_online(&nodes[idx].node, Some(node_args(true))).await?;
+				nodes[idx].rpc = tokio::time::timeout(
+					Duration::from_secs(RESTART_ONLINE_TIMEOUT_SECS),
+					bring_online(&nodes[idx].node, Some(node_args(true))),
+				)
+				.await
+				.context("switched node up deadline")??;
 				dht_off[idx] = false;
 				switches += 1;
 			}
@@ -1154,7 +1159,12 @@ async fn statement_store_v2_dht_rollout_soak() -> Result<(), anyhow::Error> {
 
 		// 3. The last node switched goes back off the DHT path
 		let idx = dht_off.iter().rposition(|&off| !off).expect("the collators run it; qed");
-		nodes[idx].rpc = bring_online(&nodes[idx].node, Some(node_args(false))).await?;
+		nodes[idx].rpc = tokio::time::timeout(
+			Duration::from_secs(RESTART_ONLINE_TIMEOUT_SECS),
+			bring_online(&nodes[idx].node, Some(node_args(false))),
+		)
+		.await
+		.context("switched node up deadline")??;
 		dht_off[idx] = true;
 		switches += 1;
 		report.progress(format!("Rollback: {} goes back off the DHT path", nodes[idx].name()));
