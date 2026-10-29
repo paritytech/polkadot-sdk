@@ -1,0 +1,25 @@
+title: 'HRMP: hold the relay chain channel deposits on a parachain'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Implements the two pallets that let the relay chain `hrmp` pallet keep its channel deposits on
+    another chain.
+
+    `pallet-hrmp-relay` runs on the relay chain and forwards request and answer between polkadot
+    hrmp on the relay and `pallet-hrmp-para` on a parachain.
+
+    `pallet-hrmp-para` runs on a parachain and holds the deposits.
+
+crates:
+- name: pallet-hrmp-relay
+  bump: major
+- name: pallet-hrmp-para
+  bump: major
+- name: hrmp-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: minor
+- name: polkadot-runtime-common
+  bump: patch
