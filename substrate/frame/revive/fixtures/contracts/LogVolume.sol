@@ -19,6 +19,12 @@ contract LogVolume {
         }
     }
 
+    /// Emits logs as `emitLogs` does, then reverts.
+    function emitLogsThenRevert(uint32 count, uint32 size, uint32 lastSize) public {
+        emitLogs(count, size, lastSize);
+        revert();
+    }
+
     /// Emits `Outer`, then lets a sub-call run `emitLogs` and reports whether it succeeded.
     function emitLogsGuarded(uint32 count, uint32 size, uint32 lastSize)
         public

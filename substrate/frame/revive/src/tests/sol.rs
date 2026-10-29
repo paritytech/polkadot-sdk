@@ -2234,6 +2234,44 @@ mod receipt_size_limit {
 		});
 	}
 
+	/// The log that does not fit halts the frame at once: the frame does not reach its own
+	/// `revert`, so the transaction fails with the receipt error, not with the revert.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn log_past_the_limit_halts_before_a_revert(fixture_type: FixtureType) {
+		let emit_logs_then_revert = |last_size| {
+			LogVolume::emitLogsThenRevertCall {
+				count: FULL_LOGS,
+				size: LOG_DATA,
+				lastSize: last_size,
+			}
+			.abi_encode()
+		};
+
+		// Logs that fit reach the `revert`.
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			let _ = eth_call(addr, emit_logs_then_revert(LOG_DATA))
+				.expect("the failed transaction is still included");
+
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ContractReverted.into()));
+		});
+
+		ExtBuilder::default().build().execute_with(|| {
+			let addr = deploy(fixture_type);
+
+			let _ = eth_call(addr, emit_logs_then_revert(LOG_DATA + 1))
+				.expect("the failed transaction is still included");
+
+			assert_eq!(eth_extrinsic_revert(), Some(crate::Error::<Test>::ReceiptTooLarge.into()));
+			assert!(contract_emitted_data(addr).is_empty(), "the events rolled back");
+			let receipt = finalize_single_receipt();
+			assert!(!receipt.receipt.status.coerce_status());
+			assert!(receipt.receipt.logs.is_empty());
+		});
+	}
+
 	/// A sub-call whose logs fill the receipt next to its caller's log succeeds.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
@@ -2660,11 +2698,12 @@ mod receipt_size_limit {
 		});
 	}
 
-	/// The call tracer records only the logs the receipt kept, for a log emitted by a contract and
-	/// for one the runtime mirrors.
+	/// The call tracer leaves out a log the receipt refused, whether a contract emitted it or the
+	/// runtime mirrored it. The logs the failed frame emitted before the refused one stay in the
+	/// trace, as for any failed frame.
 	#[test_case(FixtureType::Solc)]
 	#[test_case(FixtureType::Resolc)]
-	fn tracer_records_only_logs_that_fit(fixture_type: FixtureType) {
+	fn tracer_leaves_out_a_refused_log(fixture_type: FixtureType) {
 		ExtBuilder::default().build().execute_with(|| {
 			let addr = deploy(fixture_type);
 			let new_tracer =
@@ -2673,6 +2712,7 @@ mod receipt_size_limit {
 			let mut tracer = new_tracer();
 			let _ = trace(&mut tracer, || eth_call(addr, emit_logs(FULL_LOGS, LOG_DATA + 1)));
 			let call_trace = tracer.collect_trace().expect("the call is traced");
+			assert_eq!(call_trace.error.as_deref(), Some("ReceiptTooLarge"));
 			assert_eq!(call_trace.logs.len(), FULL_LOGS as usize);
 
 			let mut tracer = new_tracer();
@@ -2682,6 +2722,7 @@ mod receipt_size_limit {
 			let call_trace = tracer.collect_trace().expect("the call is traced");
 			assert_eq!(call_trace.logs.len(), FULL_LOGS as usize + 1);
 			assert_eq!(call_trace.calls.len(), 1, "the call into the precompile");
+			assert_eq!(call_trace.calls[0].error.as_deref(), Some("ReceiptTooLarge"));
 			assert!(call_trace.calls[0].logs.is_empty());
 		});
 	}
