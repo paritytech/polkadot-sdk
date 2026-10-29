@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793234081954,
+  "lastUpdate": 1793274635956,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138887,6 +138887,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2713446849,
             "range": "± 19016616",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c06ae172af862bbe5511711e18782c2759956df5",
+          "message": "Remove dead links that fail the link checker (#13630)\n\n`check-links` fails on every PR and merge-queue run because two links\nnow return 404: `JoshOrndorff/frameless-node-template` (repository\ndeleted) and `paritytech/polkadot-sdk/issues/64` (issue gone).\n\n- `docs/sdk/src/polkadot_sdk/frame_runtime.rs`: drop the examples list.\nNo maintained FRAME-free runtime exists to link instead, and Subsembly\nhas been unmaintained since 2021.\n- `substrate/primitives/state-machine/src/backend.rs`: drop the issue\nreference from `TryPendingCode` and fix a doubled word.",
+          "timestamp": "2026-10-29T10:34:49Z",
+          "tree_id": "a63dcbbbda786af3a578da1a35691d36a9faee6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c06ae172af862bbe5511711e18782c2759956df5"
+        },
+        "date": 1793274606751,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19583055,
+            "range": "± 203135",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20050473,
+            "range": "± 151660",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21494130,
+            "range": "± 124639",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25658768,
+            "range": "± 127732",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59002212,
+            "range": "± 943238",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 352808711,
+            "range": "± 3179065",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2637901469,
+            "range": "± 255883516",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17175246,
+            "range": "± 163196",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17407758,
+            "range": "± 126075",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18060112,
+            "range": "± 116463",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22652318,
+            "range": "± 117412",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 61997657,
+            "range": "± 953245",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 369111477,
+            "range": "± 5119456",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2752356321,
+            "range": "± 19299304",
             "unit": "ns/iter"
           }
         ]
