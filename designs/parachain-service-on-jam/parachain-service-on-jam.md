@@ -912,7 +912,8 @@ processes a report it cannot pay for in full. Before any of the steps below run 
 - **Base cost**: the fixed cost of applying any work report, independent of its
   contents. This must be **benchmarked**.
 - **Report cost**: derived from the report's contents before any of it is applied. It
-  covers the upward messages to be replayed (§4.3) and the state writes each implies.
+  covers the settlement of messages (reads and writes to the settlement ring, §8.1)
+  and the upward messages to be replayed (§4.3) with the state writes each implies.
   These costs must be **benchmarked**.
 - **Fit check**: if base plus report cost exceeds the report's own gas limit, the report
   is skipped and the next one is checked.
