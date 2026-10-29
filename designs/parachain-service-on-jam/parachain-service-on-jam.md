@@ -1784,7 +1784,7 @@ The settlement check reads only `messages_member`, once per declared `(ParaId, S
 1. Read `messages_member` under `(para_id, new_root)`. Stop if the ring already contains the new root.
 
 2. Read `SettlementCursor` for `para_id`. If the value is absent, write the `new_root` to
-`messages_member` and the `SettlementCursor` with `oldest = newest = new_root` and `len = 1`, then stop.
+   `messages_member` and the `SettlementCursor` with `oldest = newest = new_root` and `len = 1`, then stop.
 
 3. If the ring is at capacity (`SettlementCursor::len == MAX_SETTLEMENT_RING_CAPACITY`):
     1. Read `messages_member[(para_id, oldest)]` to preserve the linked list.
@@ -1807,7 +1807,7 @@ root to the newest.
 1. Read the `SettlementCursor`. Stop if it is absent.
 
 2. From the `oldest` root read its entry in `messages_member` to find the next root,
-    then delete the entry. Stop after deleting the entry that points to itself.
+   then delete the entry. Stop after deleting the entry that points to itself.
 
 3. Delete the `SettlementCursor`.
 
