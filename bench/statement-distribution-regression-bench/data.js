@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793287598707,
+  "lastUpdate": 1793292383885,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8cd0f22d777ae13df502a2179dc7fa4f0978c9ea",
-          "message": "Redirect XCM delivery fees to DAP / DAP satellite on Westend chains (#11700)\n\nRoute XCM delivery fees to DAP satellite (or DAP on Asset Hub) instead\nof treasury on all Westend system chains: relay, asset-hub, bridge-hub,\ncoretime, collectives, people.\n\nFollow-up PR(s) will address remaining `TODO` linked to #11705.\n\nCloses #11410.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-14T10:11:09Z",
-          "tree_id": "d5d8f4dae4c0f7c1aebe75ba0fd2294518b5a154",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/8cd0f22d777ae13df502a2179dc7fa4f0978c9ea"
-        },
-        "date": 1776166446814,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.09199999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0870642039579999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03881228550800002,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08463131889199989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "769cd18a8e13a6c5c8ec05c70507aa10269a6919",
+          "message": "fixup! [HRMP] Extend InboundMessageId for horizontal messages (#12876) (#13602)\n\nDiscovered during\nhttps://github.com/paritytech/polkadot-sdk/pull/12489#discussion_r4346981885,\nthat some migrations where missed for people-westend and\nyet-another-parchains, so fix them to avoid corrupted state.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-29T15:12:38Z",
+          "tree_id": "6577115da3d4e6e28affd298aaba42aae779c016",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/769cd18a8e13a6c5c8ec05c70507aa10269a6919"
+        },
+        "date": 1793292357308,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.15800000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03856913518999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08394187838399995,
             "unit": "seconds"
           }
         ]
