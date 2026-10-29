@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793275693764,
+  "lastUpdate": 1793278835913,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "54108b3cd17f8522aa13f94df25a95c30525f071",
-          "message": "statement-store: allow light clients to specify topic affinity (#11329)\n\n## Description\n\nAdd explicit topic affinity support to the statement protocol, allowing\nnodes to advertise at P2P level which statement topics they're\ninterested in. When a peer's affinity changes, relevant statements are\nre-sent.\n\nThe topic affinity is specified as a BloomFilter, all statements that\nmatch the filter are forwarded to new peers.\n\nCurrently, this is meant to be used by light clients like smoldot to\nreceive only the statements they are interested in. In the future, this\ncan also be used by statement store full nodes, but some other changes\nwill also be needed.\n\n##  Changes\n- Change the format of the message and introduce a new protocol\n\"statement/2\".\n```\nenum StatementMessage {\n\tStatements(Vec<Statement>),\n\t/// Bloom filter bytes representing the topics this peer is interested in.\n\tExplicitTopicAffinity(AffinityFilter),\n}\n```\n- Light client nodes connected on the new protocol need to also\nadvertise a topic affinity before they are receiving any statements.\n- If node define a topic affinity send them only the statements matching\nthat affinity.\n\n## TODO\n- [x] Integration testing of the new flow, tested with modify\n[node](https://github.com/paritytech/polkadot-sdk/commit/01460f4eb1a3b82fa7d00cb6db1a2194b8ab27fc#diff-21bd75369585eed301c19cf082010908ee6fa3c75a635da1bb8a8d3e6127f394R85)\n- [x] E2E integrations tests with smoldot:\nhttps://github.com/paritytech/polkadot-sdk/commit/e9a20b663e9a2e7a02321eec76990264a6ad7e4f.\n- [x] Rate limit Explicit Affinity\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-14T12:29:36Z",
-          "tree_id": "523908122b5a97d22a7de56c9d0f529e02716b80",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/54108b3cd17f8522aa13f94df25a95c30525f071"
-        },
-        "date": 1776175647639,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007171711399999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025758622086666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14279901434000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009984911053333309,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02518517605999999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "732802042d7d6aa97ea8e76b3301659d0833b7f7",
+          "message": " [Release|CI/CD] prdoc: make the changelog topic field usable by contributors (#13623)\n\nCloses: https://github.com/paritytech/release-engineering/issues/300\n\nPart of paritytech/polkadot-sdk#6424 \n\nMakes the optional prdoc `topic` override discoverable and safe to use.\nNow `topic` can be added (if needed) in three ways:\n1. Auto generated based on the schema\n2. Directly in the .prdoc file using `topic` field\n3. Bu using `cmd-bot`: `/cmd prdoc --topic <id>` with the reason posted\nback on failure\n\nAlso added:\n- docs in schema, template and docs; \n- soft validation in `check-prdoc.py` (warning, never a failure);\n- unknown values are a notice in the changelog generator (and its CI job\nsummary) instead of a failed --check.\n\nTopic matching lives in one place (`match_topic` in generate.py, shared\nvia .github/scripts/prdoc_topics.py), with `aliases` for legacy values.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T11:20:40Z",
+          "tree_id": "9a2f6daee2cc8e38a0a02714730e8a99b0037c34",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/732802042d7d6aa97ea8e76b3301659d0833b7f7"
+        },
+        "date": 1793278803108,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00989194757333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007880430119999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025156833966666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14189984604666678,
             "unit": "seconds"
           }
         ]
