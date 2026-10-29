@@ -9,11 +9,12 @@ doc:
     error: the call returned success and the contract stayed alive.
 
     The storage deposit is now refunded to the origin when `System.terminate` is called, before
-    the balance is paid out to the beneficiary, instead of at the end of the call stack. Only the
-    part of the deposit that a freeze on the account needs stays on hold. That part stays on the
-    leftover account and the origin does not get it back. If a contract is later deployed to the
-    same address, whoever terminates that contract receives it. The payout sends the transferable
-    balance as before.
+    the balance is paid out to the beneficiary, instead of at the end of the call stack. If that
+    refund fails, the call to `System.terminate` now fails. Before, it returned success. In both
+    cases the contract stays alive. Only the part of the deposit that a freeze on the account
+    needs stays on hold. That part stays on the leftover account and the origin does not get it
+    back. If a contract is later deployed to the same address, whoever terminates that contract
+    receives it. The payout sends the transferable balance as before.
 
     If the account cannot be reaped because something still pins funds on it, the contract is
     deleted and the account stays behind as a plain account holding those funds. A contract
