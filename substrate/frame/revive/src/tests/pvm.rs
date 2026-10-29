@@ -4182,6 +4182,22 @@ fn unknown_syscall_rejected() {
 }
 
 #[test]
+fn benchmark_only_syscall_rejected() {
+	let (code, _) = compile_module("noop").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let result = builder::bare_instantiate(Code::Upload(code)).build().result;
+		if cfg!(feature = "runtime-benchmarks") {
+			assert_ok!(result);
+		} else {
+			assert_err!(result, <Error<Test>>::CodeRejected);
+		}
+	});
+}
+
+#[test]
 fn tracing_works_for_transfers() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);

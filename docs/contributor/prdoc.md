@@ -41,11 +41,15 @@ Options:
     No functionality has been changed. Should be limited to adding new features.
   - `major`: Anything goes.
 - `force: true|false`: Whether to overwrite any existing PrDoc file.
+- `topic`: Optional changelog topic, one of the ids in [`prdoc/topics.yaml`](../../prdoc/topics.yaml).
+  Omit it unless the topic derived from the crates would be wrong, see
+  [Changelog Topic](#changelog-topic).
 
 ### Example
 
 ```bash
 /cmd prdoc --audience runtime_dev --bump patch
+/cmd prdoc --audience runtime_dev --bump patch --topic xcm
 ```
 
 ## Local Generation
@@ -65,8 +69,30 @@ to generate one:
    it.
 
 > **Tip:** GitHub CLI and jq can be used to provide the number of your PR to generate the correct
-> file:  
+> file:
 > `prdoc generate $(gh pr view --json number | jq '.number') -o prdoc`
+
+## Changelog Topic
+
+The release changelog groups changes by topic (XCM, Bridges, Staking & Elections, ...). The topic of
+a PR is derived from the crates listed in its prdoc, using the ordered patterns in
+[`prdoc/topics.yaml`](../../prdoc/topics.yaml), so most prdocs do not need to set it.
+
+The optional `topic` field overrides the derivation. Set it only when:
+
+- the derived topic would be wrong, e.g. a bridge fix that only touches `bridge-hub-westend-runtime`
+  would otherwise land under "Testnets & Test Utilities", or
+- the change belongs to a named initiative that has its own topic in `topics.yaml` without crate
+  patterns.
+
+```yaml
+title: Fix message dispatch on Bridge Hub Westend
+topic: bridges
+```
+
+Use the topic `id` from `topics.yaml` (labels are accepted too, case-insensitively). An unknown value
+does not fail CI: the `check-prdoc` job prints a warning and the changelog derives the topic from the
+crates instead. To add a crate pattern or a new topic, open a PR against `prdoc/topics.yaml`.
 
 ## Record SemVer Changes
 
