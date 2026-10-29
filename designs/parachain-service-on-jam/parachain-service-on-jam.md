@@ -1505,6 +1505,8 @@ unsticking a chain whose last included block cannot be built on, or swapping in 
 validation code outside the normal upgrade lifecycle:
 
 - `ParachainSetHead { para_id, new_head }` overwrites `ParaInfo.head_data`.
+  This operation leaves the settlement ring (§8.1) unchanged, ensuring roots
+  settled before the reset still pass the settlement check.
 - `ParachainSetValidationCode { para_id, new_validation_code }` sets
   `ParaInfo.validation_code` to `Some(new_validation_code)`, solicits it, and clears any
   `announced_upgrade`. `used_state_balance` grows by its `preimage_footprint` to hold the
