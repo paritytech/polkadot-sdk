@@ -41,6 +41,7 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 use frame_support::weights::{constants, FixedFee, RuntimeDbWeight};
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
 	generic, impl_opaque_keys,
@@ -89,8 +90,29 @@ pub type SessionHandlers = ();
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
+		pub authority_discovery: AuthorityDiscovery,
 	}
 }
+
+mod ad_migration {
+	use super::*;
+	pub use parachains_common::ad_migration::*;
+	use parachains_common::impl_keys_translator;
+
+	impl_keys_translator!(SessionKeys, AuraId, AuthorityDiscoveryId);
+}
+
+/// Migrations to apply on runtime upgrade.
+pub type Migrations = (
+	RemoveCollectiveFlip,
+	cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
+	cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
+        ad_migration::AppendAuthorityDiscoveryKeys<
+		Runtime,
+		AdMigrationVersion,
+		ad_migration::KeysTranslator,
+	>,
+);
 
 /// This runtime version.
 #[sp_version::runtime_version]
@@ -98,7 +120,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_002,
+	spec_version: 1_003_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -148,6 +170,7 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 250;
 	pub const Version: RuntimeVersion = VERSION;
+	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_003_003);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
@@ -219,12 +242,7 @@ impl frame_system::Config for Runtime {
 	type SS58Prefix = SS58Prefix;
 	type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
-	type SingleBlockMigrations = (
-		RemoveCollectiveFlip,
-		// permanent
-		cumulus_pallet_parachain_system::migration::v3::Migration<Runtime>,
-		cumulus_pallet_parachain_system::migration::MigrateV3ToV4<Runtime>,
-	);
+	type SingleBlockMigrations = Migrations;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -445,6 +463,10 @@ impl pallet_aura::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = ConstU32<1000>;
+}
+
 impl pallet_utility::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -523,6 +545,8 @@ mod runtime {
 	pub type Aura = pallet_aura;
 	#[runtime::pallet_index(32)]
 	pub type AuraExt = cumulus_pallet_aura_ext;
+	#[runtime::pallet_index(33)]
+	pub type AuthorityDiscovery = pallet_authority_discovery;
 
 	#[runtime::pallet_index(40)]
 	pub type Utility = pallet_utility;
@@ -678,6 +702,12 @@ impl_runtime_apis! {
 			SessionKeys::generate(&owner, seed).into()
 		}
 
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			pallet_authority_discovery::Pallet::<Runtime>::current_authorities().to_vec()
+		}
 	}
 
 	impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
