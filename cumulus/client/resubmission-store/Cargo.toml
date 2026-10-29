@@ -13,13 +13,18 @@ workspace = true
 
 [dependencies]
 codec = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-sc-client-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-trie = { workspace = true, default-features = true }
+cumulus-primitives-core.workspace = true
+cumulus-primitives-core.default-features = true
+sc-client-api.workspace = true
+sc-client-api.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
+sp-trie.workspace = true
+sp-trie.default-features = true
 
 [dev-dependencies]
-sc-client-db = { workspace = true, default-features = true }
-substrate-test-runtime = { workspace = true }
+sc-client-db = { default-features = true, path = "../../../substrate/client/db" }
+substrate-test-runtime = { path = "../../../substrate/test-utils/runtime" }
 tempfile = { workspace = true }

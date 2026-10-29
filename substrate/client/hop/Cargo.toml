@@ -27,24 +27,29 @@ clap = { workspace = true, features = ["derive"] }
 
 # RPC
 jsonrpsee = { workspace = true, features = ["client", "macros", "server"] }
-
-# Metrics
-prometheus-endpoint = { workspace = true, default-features = true }
-
-# Substrate primitives (client-side, always with std)
-polkadot-primitives = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-blockchain = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-crypto-hashing = { workspace = true, default-features = true }
-sp-hop = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
+prometheus-endpoint.workspace = true
+prometheus-endpoint.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-blockchain.workspace = true
+sp-blockchain.default-features = true
+sp-core.workspace = true
+sp-core.default-features = true
+sp-crypto-hashing.workspace = true
+sp-crypto-hashing.default-features = true
+sp-hop.workspace = true
+sp-hop.default-features = true
+sp-runtime.workspace = true
+sp-runtime.default-features = true
 
 [dev-dependencies]
-sp-externalities = { workspace = true, default-features = true }
-sp-state-machine = { workspace = true, default-features = true }
-sp-test-primitives = { workspace = true }
-sp-version = { workspace = true, default-features = true }
+sp-externalities = { default-features = true, path = "../../primitives/externalities" }
+sp-state-machine = { default-features = true, path = "../../primitives/state-machine" }
+sp-test-primitives = { path = "../../primitives/test-primitives" }
+sp-version = { default-features = true, path = "../../primitives/version" }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
