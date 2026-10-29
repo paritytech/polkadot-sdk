@@ -477,8 +477,18 @@ fn refund_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 
-		call_contract(ALICE, addr, MultiContributorStorage::growStorageCall {}.abi_encode());
-		call_contract(CHARLIE, addr, MultiContributorStorage::growStorageCall {}.abi_encode());
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
 
 		let alice_entry = NativeDepositOf::<Test>::get(&account_id, &ALICE);
 		let charlie_entry = NativeDepositOf::<Test>::get(&account_id, &CHARLIE);
@@ -492,11 +502,14 @@ fn refund_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 		assert_eq!(native_held, alice_entry + charlie_entry);
 
 		let alice_before = Balances::balance(&ALICE);
-		call_contract(
-			ALICE,
-			addr,
-			MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
-				.abi_encode(),
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(
+					MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
+						.abi_encode(),
+				)
+				.build()
+				.result,
 		);
 		let alice_after = Balances::balance(&ALICE);
 
@@ -535,18 +548,31 @@ fn destroy_contract_reaps_account_and_clears_native_deposit_map(fixture_type: Fi
 
 		// Two distinct payers grow distinct slots so that `NativeDepositOf[contract][_]` has
 		// two rows once the deletion queue starts draining.
-		call_contract(ALICE, addr, MultiContributorStorage::growStorageCall {}.abi_encode());
-		call_contract(CHARLIE, addr, MultiContributorStorage::growStorageCall {}.abi_encode());
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
 
 		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
 		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
 		assert!(System::account_exists(&account_id), "contract account is alive pre-terminate");
 
-		call_contract(
-			ALICE,
-			addr,
-			MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
-				.abi_encode(),
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(
+					MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
+						.abi_encode(),
+				)
+				.build()
+				.result,
 		);
 
 		assert!(get_contract_checked(&addr).is_none(), "contract info should be gone");

@@ -12,7 +12,7 @@ doc:
 
 - audience: Runtime Dev
   description: |-
-    No migration or configuration change is needed.
+    No migration is needed.
 
     `ContractInfo::process_deletion_queue_batch` now clears the `NativeDepositOf` rows of a
     queued contract only while no contract is live at its address. The child trie of the
