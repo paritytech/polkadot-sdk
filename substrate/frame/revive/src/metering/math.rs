@@ -32,7 +32,7 @@ use sp_runtime::Saturating;
 /// A subcall receives at most 63/64ths of the parent's remaining gas.
 /// This module provides the [`Peak`] type for tracking the minimum starting
 /// value a meter needs, as well as the [`Resource`] trait with the operations the rule needs.
-pub(crate) mod eip_150 {
+pub mod eip_150 {
 	use super::*;
 	use core::fmt::Debug;
 	use frame_support::DebugNoBound;
@@ -207,7 +207,7 @@ fn determine_call_stipend<T: Config>() -> Weight {
 }
 
 /// Validate that there's enough weight for the stipend and return the stipend weight.
-pub(crate) fn validate_and_get_stipend<T: Config>(
+pub fn validate_and_get_stipend<T: Config>(
 	weight_left: Weight,
 ) -> Result<Weight, DispatchError> {
 	let weight_stipend = determine_call_stipend::<T>();
@@ -218,7 +218,7 @@ pub(crate) fn validate_and_get_stipend<T: Config>(
 }
 
 /// Returns the ratio of `gas_limit` to `remaining_gas`, capped at 1.
-pub(crate) fn gas_ratio<T: Config>(
+pub fn gas_ratio<T: Config>(
 	gas_limit: BalanceOf<T>,
 	remaining_gas: BalanceOf<T>,
 ) -> FixedU128 {
@@ -230,7 +230,7 @@ pub(crate) fn gas_ratio<T: Config>(
 }
 
 /// Scale weight by the given ratio.
-pub(crate) fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
+pub fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
 	Weight::from_parts(
 		ratio.saturating_mul_int(weight.ref_time()),
 		ratio.saturating_mul_int(weight.proof_size()),

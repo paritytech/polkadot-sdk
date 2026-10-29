@@ -207,7 +207,7 @@ impl<T: Config> WeightMeter<T> {
 	///
 	/// Returns the extra weight the parent needs beyond `weight_required()` to account for
 	/// all 63/64 losses at and below this level.
-	pub(crate) fn eip_150_total_overhead(&self) -> Weight {
+	fn eip_150_total_overhead(&self) -> Weight {
 		self.eip_150_peak.total_overhead(self.weight_required())
 	}
 

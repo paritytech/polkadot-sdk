@@ -16,7 +16,7 @@
 // limitations under the License.
 
 mod gas;
-pub(crate) mod math;
+mod math;
 mod storage;
 mod weight;
 
@@ -29,6 +29,8 @@ use crate::{
 };
 
 pub use gas::SignedGas;
+#[cfg(test)]
+pub use math::eip_150::{DENOMINATOR, NUMERATOR};
 pub use storage::Diff;
 pub use weight::{ChargedAmount, Token};
 
@@ -209,7 +211,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 	}
 
 	/// Returns self-consumed and total-consumed weight and deposit.
-	pub(crate) fn consumed_resources(&self) -> (Weight, DepositOf<T>, Weight, DepositOf<T>) {
+	fn consumed_resources(&self) -> (Weight, DepositOf<T>, Weight, DepositOf<T>) {
 		let self_weight = self.weight.weight_consumed();
 		let self_deposit = self.deposit.consumed();
 		let total_weight = self.total_consumed_weight_before.saturating_add(self_weight);

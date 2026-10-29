@@ -95,7 +95,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
 	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
-	pub(crate) eip_150_peak: Eip150Peak<BalanceEip150<T>>,
+	eip_150_peak: Eip150Peak<BalanceEip150<T>>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -358,7 +358,7 @@ where
 	}
 
 	/// Get the deposit required including EIP-150 63/64 overhead.
-	pub(crate) fn deposit_required_with_eip_150(&self) -> DepositOf<T> {
+	pub fn deposit_required_with_eip_150(&self) -> DepositOf<T> {
 		Deposit::Charge(self.eip_150_peak.get()).max(self.max_charged())
 	}
 
@@ -375,12 +375,12 @@ where
 
 	/// Get the tracked EIP-150 deposit peak.
 	#[cfg(test)]
-	pub(crate) fn eip_150_peak(&self) -> BalanceOf<T> {
+	fn eip_150_peak(&self) -> BalanceOf<T> {
 		self.eip_150_peak.get()
 	}
 
 	/// Compute the total EIP-150 deposit overhead for this meter.
-	pub(crate) fn eip_150_total_overhead(&self) -> BalanceOf<T> {
+	fn eip_150_total_overhead(&self) -> BalanceOf<T> {
 		self.eip_150_peak.total_overhead(self.max_charged().charge_or_zero())
 	}
 

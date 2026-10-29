@@ -30,10 +30,7 @@ use crate::{
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
 	exec::Key,
 	limits,
-	metering::{
-		TransactionLimits,
-		math::eip_150::{DENOMINATOR, NUMERATOR},
-	},
+	metering::{DENOMINATOR, NUMERATOR, TransactionLimits},
 	precompiles::alloy::sol_types::{
 		SolType,
 		sol_data::{Bool, FixedBytes},
