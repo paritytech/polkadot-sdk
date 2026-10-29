@@ -512,11 +512,8 @@ pub mod pallet {
 			if !fits {
 				let reason = FailureReason::HeadDataTooLarge;
 				Self::report_set_head(para_id, message_id, Err(reason.clone()));
-				return Self::deposit_event(Event::HeadUpdateRejected {
-					para_id,
-					message_id,
-					reason,
-				});
+				Self::deposit_event(Event::HeadUpdateRejected { para_id, message_id, reason });
+				return;
 			}
 
 			T::Registrar::set_current_head(para_id, head);

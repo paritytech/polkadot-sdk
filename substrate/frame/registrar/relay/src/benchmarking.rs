@@ -180,6 +180,13 @@ mod benchmarks {
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
+		frame_system::Pallet::<T>::assert_last_event(
+			<T as Config>::RuntimeEvent::from(Event::<T>::HeadUpdated {
+				para_id: PARA_ID,
+				message_id: 0,
+			})
+			.into(),
+		);
 		Ok(())
 	}
 
