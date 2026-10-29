@@ -2534,6 +2534,157 @@ mod enter {
 		});
 	}
 
+	fn requires_on(source: u32, root: u8) -> Vec<u8> {
+		UMPSignal::Requires(
+			polkadot_primitives::RequiresSet::try_from_iter([(
+				ParaId::from(source),
+				streams_root(root),
+			)])
+			.unwrap(),
+		)
+		.encode()
+	}
+
+	/// The paras of the candidates the block author keeps from `scenario`.
+	fn kept_paras(scenario: Bench<Test>) -> Vec<ParaId> {
+		let mut inherent_data = InherentData::new();
+		inherent_data.put_data(PARACHAINS_INHERENT_IDENTIFIER, &scenario.data).unwrap();
+		Pallet::<Test>::create_inherent_inner(&inherent_data)
+			.unwrap()
+			.backed_candidates
+			.iter()
+			.map(|candidate| candidate.descriptor().para_id())
+			.collect()
+	}
+
+	/// A receiver cannot settle against a root that is only backed, even with the sender's
+	/// candidate in the same block: roots enter the window on enactment, not on backing.
+	#[test]
+	fn requires_cannot_match_a_root_that_is_only_backed() {
+		new_test_ext(default_config()).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					let signal = if candidate.descriptor.para_id() == 0.into() {
+						UMPSignal::Provides(streams_root(42)).encode()
+					} else {
+						requires_on(0, 42)
+					};
+					candidate.commitments.upward_messages.force_push(signal);
+					candidate
+				}),
+			});
+			assert_eq!(scenario.data.backed_candidates.len(), 2);
+
+			assert_eq!(kept_paras(scenario), vec![ParaId::from(0)]);
+			// The sender's candidate is now pending availability, so its root is not settled.
+			assert_eq!(inclusion::Pallet::<Test>::newest_provides(ParaId::from(0)), None);
+		});
+	}
+
+	/// The sanitize gate keeps a candidate whose signals fail to parse, so a malformed `Requires`
+	/// must be dropped by the signal check first. Both forms here name roots no window holds.
+	#[test]
+	fn a_malformed_requires_is_dropped_before_the_window_check() {
+		new_test_ext(default_config()).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			backed_and_concluding.insert(2, 1);
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					let messages = &mut candidate.commitments.upward_messages;
+					match u32::from(candidate.descriptor.para_id()) {
+						// A second `Requires` signal.
+						1 => {
+							messages.force_push(requires_on(0, 1));
+							messages.force_push(requires_on(0, 2));
+						},
+						// A `Requires` whose sources are out of order, encoded by hand.
+						2 => {
+							let unsorted = alloc::vec![
+								(ParaId::from(5), streams_root(1)),
+								(ParaId::from(4), streams_root(1)),
+							];
+							let index = UMPSignal::Requires(
+								polkadot_primitives::RequiresSet::try_from_iter([(
+									ParaId::from(4),
+									streams_root(1),
+								)])
+								.unwrap(),
+							)
+							.encode()[0];
+							let mut signal = alloc::vec![index];
+							signal.extend(unsorted.encode());
+							messages.force_push(signal);
+						},
+						_ => {},
+					}
+					candidate
+				}),
+			});
+			assert_eq!(scenario.data.backed_candidates.len(), 3);
+
+			assert_eq!(kept_paras(scenario), vec![ParaId::from(0)]);
+		});
+	}
+
+	/// A candidate whose `Requires` misses is dropped with its descendants, so a later block of
+	/// the same para cannot be enacted on top of the dropped one. Its ancestors stay.
+	#[test]
+	fn an_unmet_requires_drops_the_candidate_and_its_descendants() {
+		new_test_ext(default_config()).execute_with(|| {
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				// Para 1 backs a chain of three candidates.
+				elastic_paras: [(1, 3)].into_iter().collect(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V2,
+				approved_peer_signal: None,
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					// The builder marks a chain's later candidates by their head's first byte; the
+					// middle one requires a root no window holds.
+					if candidate.descriptor.para_id() == 1.into() &&
+						candidate.commitments.head_data.0[0] == 1
+					{
+						candidate.commitments.upward_messages.force_push(requires_on(0, 99));
+					}
+					candidate
+				}),
+			});
+			assert_eq!(scenario.data.backed_candidates.len(), 4);
+
+			assert_eq!(kept_paras(scenario), vec![ParaId::from(0), ParaId::from(1)]);
+		});
+	}
+
 	#[rstest]
 	#[case(true, true)]
 	#[case(true, false)]
@@ -5337,9 +5488,8 @@ mod sanitizers {
 
 #[cfg(test)]
 mod speculative_admission_gate {
-	//! Candidate-level tests for the `check_speculative_messaging` sanitize gate: feature-off drops
-	//! candidates carrying speculative UMP signals; feature-on matches their `Requires` against the
-	//! relay-side provides window.
+	//! Candidate-level tests for the `check_speculative_messaging` sanitize gate, which matches a
+	//! candidate's `Requires` against the relay-side provides windows.
 	use super::{check_speculative_messaging, default_config};
 	use crate::{
 		inclusion::tests::TestCandidateBuilder,

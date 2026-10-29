@@ -3330,4 +3330,63 @@ mod speculative_provides_window {
 			assert!((1..=3u32).all(|src| RecentProvides::<Test>::get(ParaId::from(src)).is_empty()));
 		});
 	}
+
+	/// Seeded random pushes, offboardings and freezes across a few senders, checked after every
+	/// step against a plain model: window length, newest root and membership of a random root.
+	#[test]
+	fn window_matches_a_model_under_random_operations() {
+		use std::collections::{BTreeMap, VecDeque};
+
+		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
+			// Few distinct roots, so repeated roots and the eviction of a repeated one both occur.
+			let root = |n: u64| StreamsRoot(Hash::from_low_u64_be(n));
+			let distinct_roots = 3 * MAX_PROVIDES_WINDOW_SIZE as u64;
+			let sources: Vec<ParaId> = (1..=3u32).map(ParaId::from).collect();
+			let mut model: BTreeMap<ParaId, VecDeque<StreamsRoot>> = BTreeMap::new();
+			// xorshift64, so a failure replays from the same seed.
+			let mut state = 0x2545_f491_4f6c_dd1d_u64;
+			let mut next = |bound: u64| {
+				state ^= state << 13;
+				state ^= state >> 7;
+				state ^= state << 17;
+				state % bound
+			};
+
+			for _ in 0..20_000 {
+				let source = sources[next(sources.len() as u64) as usize];
+				match next(1000) {
+					0 => {
+						ParaInclusion::clear_provides();
+						model.clear();
+					},
+					1 | 2 => {
+						let notification = crate::initializer::SessionChangeNotification::default();
+						ParaInclusion::initializer_on_new_session(&notification, &[source]);
+						model.remove(&source);
+					},
+					_ => {
+						let pushed = root(next(distinct_roots));
+						ParaInclusion::record_provides(source, pushed);
+						let window = model.entry(source).or_default();
+						window.push_back(pushed);
+						if window.len() > MAX_PROVIDES_WINDOW_SIZE as usize {
+							window.pop_front();
+						}
+					},
+				}
+
+				for source in &sources {
+					let window = model.get(source).cloned().unwrap_or_default();
+					assert_eq!(RecentProvides::<Test>::get(source).len(), window.len());
+					assert_eq!(ParaInclusion::newest_provides(*source), window.back().copied());
+					let probe = root(next(distinct_roots));
+					let set = RequiresSet::try_from_iter([(*source, probe)]).unwrap();
+					assert_eq!(
+						ParaInclusion::requires_satisfied(&set).is_ok(),
+						window.contains(&probe)
+					);
+				}
+			}
+		});
+	}
 }
