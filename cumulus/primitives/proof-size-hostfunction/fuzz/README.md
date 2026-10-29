@@ -19,11 +19,14 @@ The harness calls the real native host functions (`sp_io::storage`,
 
 | File | Content |
 |---|---|
-| `src/lib.rs` | input types, the three passes, invariants, `shrink`, `pinned_scripts`, `script_from_seed` |
+| `src/lib.rs` | input types, `script_from_seed`, `shrink_with`, `BlockEnv` |
+| `src/run.rs` | the three passes, invariants, `shrink`, `pinned_scripts`; feature `estimation` (default) |
+| `src/trace.rs`, `src/bin/trace.rs` | version 1 trace runner and the `trace` binary, see below |
 | `tests/smoke.rs` | `pinned_reproductions` and `random_smoke`, plain `cargo test` |
+| `tests/v1_compat.rs` | version 1 traces of this tree against a master build |
 | `fuzz_targets/pov_estimation.rs` | libFuzzer entry point |
 
-In `src/lib.rs`:
+In `src/run.rs` (`BlockEnv` is in `src/lib.rs`):
 
 - `try_run_script` runs the collator pass with its validator replays, then the truth pass, and
   returns the first `Failure` or a `Report`. `run_script` panics with the script on failure.
@@ -157,6 +160,37 @@ A failure prints `Kind in block N: detail` and the shrunk script. To pin it, add
 `pinned_scripts()` with `Key::Raw` keys and the seed. To turn it into an `sp-state-machine`
 test, build the `Storage` from `InitialTrie::storage()`, replay the ops on a recording `Ext` as
 the tests in `ext.rs` do, and map the estimation points to `ext.record_proof_for_dirty_keys()`.
+
+## Version 1 compatibility against master
+
+Old runtimes call version 1 of `storage_proof_size` forever and weight reclaim stores its value
+in state, so for version 1 callers this tree must behave exactly like master. `trace` runs a
+script as such a runtime does (plain `sp_io` calls, no `record_proof_for_dirty_keys`, blocks as
+in the collator pass) and prints every return value, the proof size after every call and, per
+block, the root, the recorded nodes and the drained changes. `tests/v1_compat.rs` compares that
+trace with the one printed by the `trace` binary built on master.
+
+The `estimation` feature needs API master does not have, so the master build disables it. In a
+master checkout, copy this directory to the same path, add it to the workspace `members` and add
+the `[patch.crates-io]` entries for `trie-db` and `hash-db` from this tree's root `Cargo.toml`
+(without them the comparison also covers the trie-db update), then:
+
+```sh
+cargo build --release -p cumulus-proof-size-hostfunction-fuzz --no-default-features --bin trace
+```
+
+From this tree, with `POV_FUZZ_MASTER_BIN` pointing at that binary:
+
+```sh
+POV_FUZZ_MASTER_BIN=<master>/target/release/trace cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat -- --nocapture
+
+# a long run; all differing seeds grouped by the operation at the first differing line
+POV_FUZZ_MASTER_BIN=<master>/target/release/trace POV_FUZZ_SCALE=large POV_FUZZ_ITERS=10000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat v1_compat_random -- --nocapture
+```
+
+`v1_compat_random` fails without `POV_FUZZ_MASTER_BIN`; `v1_compat_pinned` compares with master
+traces stored in the test and needs the binary only to check that they are still current.
+`POV_FUZZ_ROOT_LAST=1` restricts the scripts to the block-end root, as in FRAME.
 
 ## Status on head `0732e39745d`
 
