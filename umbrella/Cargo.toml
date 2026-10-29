@@ -74,6 +74,7 @@ std = [
 	"pallet-balances?/std",
 	"pallet-beefy-mmr?/std",
 	"pallet-beefy?/std",
+	"pallet-bootnodes?/std",
 	"pallet-bounties?/std",
 	"pallet-bridge-grandpa?/std",
 	"pallet-bridge-messages?/std",
@@ -282,6 +283,7 @@ runtime-benchmarks = [
 	"pallet-bags-list?/runtime-benchmarks",
 	"pallet-balances?/runtime-benchmarks",
 	"pallet-beefy-mmr?/runtime-benchmarks",
+	"pallet-bootnodes?/runtime-benchmarks",
 	"pallet-bounties?/runtime-benchmarks",
 	"pallet-bridge-grandpa?/runtime-benchmarks",
 	"pallet-bridge-messages?/runtime-benchmarks",
@@ -435,6 +437,7 @@ try-runtime = [
 	"pallet-balances?/try-runtime",
 	"pallet-beefy-mmr?/try-runtime",
 	"pallet-beefy?/try-runtime",
+	"pallet-bootnodes?/try-runtime",
 	"pallet-bounties?/try-runtime",
 	"pallet-bridge-grandpa?/try-runtime",
 	"pallet-bridge-messages?/try-runtime",
@@ -653,6 +656,7 @@ runtime-full = [
 	"pallet-balances",
 	"pallet-beefy",
 	"pallet-beefy-mmr",
+	"pallet-bootnodes",
 	"pallet-bounties",
 	"pallet-bridge-grandpa",
 	"pallet-bridge-messages",
@@ -929,6 +933,7 @@ node = [
 	"generate-bags",
 	"mmr-gadget",
 	"mmr-rpc",
+	"pallet-bootnodes-cli",
 	"pallet-contracts-mock-network",
 	"pallet-transaction-payment-rpc",
 	"parachains-runtimes-test-utils",
@@ -1401,6 +1406,16 @@ path = "../substrate/frame/beefy"
 default-features = false
 optional = true
 path = "../substrate/frame/beefy-mmr"
+
+[dependencies.pallet-bootnodes]
+default-features = false
+optional = true
+path = "../substrate/frame/bootnodes"
+
+[dependencies.pallet-bootnodes-cli]
+default-features = false
+optional = true
+path = "../substrate/frame/bootnodes/cli"
 
 [dependencies.pallet-bounties]
 default-features = false
