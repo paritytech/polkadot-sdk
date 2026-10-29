@@ -285,9 +285,8 @@ type Unclaimed = Map<AccountId, Balance>;
 /// Unattributed inflows, per source service (§4.4).
 type Excess = Map<ServiceId, Balance>;
 
-/// The frozen lease targets and the code hash, `min_acc_gas` and
-/// `min_memo_gas` each had before its freeze (§4.3).
-type FrozenTargets = Map<ServiceId, (Hash, u64, u64)>;
+/// The frozen lease targets (§4.3).
+type FrozenTargets = Map<ServiceId, ()>;
 
 /// One approved allocation.
 struct Allocation {
@@ -389,19 +388,20 @@ enum OperationPayload {
     /// One `UpgradeService { service: Some(target), code_hash:
     /// FROZEN_CODE_HASH, len: 0, min_acc_gas: 0, min_memo_gas: 0 }`.
     ///
-    /// Confirmed, once `ServiceUpgraded { previous_code_hash,
-    /// previous_min_acc_gas, previous_min_memo_gas }` is recorded: the three
-    /// values are saved in `FrozenTargets`.
+    /// Confirmed: the target is added to `FrozenTargets`.
     Freeze {
         target: ServiceId,
     },
     /// An unfreeze (`unfreeze_target`, §4.3).
     /// One `UpgradeService { service: Some(target), code_hash, len: 0,
-    /// min_acc_gas, min_memo_gas }` with the values saved in `FrozenTargets`.
+    /// min_acc_gas, min_memo_gas }` with the values the caller passed.
     ///
     /// Confirmed: the target is removed from `FrozenTargets`.
     Unfreeze {
         target: ServiceId,
+        code_hash: Hash,
+        min_acc_gas: u64,
+        min_memo_gas: u64,
     },
     /// A cleanup page (`cleanup_storage`, §4.3).
     /// One `RemoveServiceStorage { service: target, key }` per key in `keys`.
@@ -477,11 +477,6 @@ enum OperationState {
 /// The success entry the settlement reads, named as in the Parachain Service
 /// design.
 enum SuccessEntry {
-    /// `ServiceUpgraded { service, previous_code_hash, previous_min_acc_gas,
-    /// previous_min_memo_gas }` (§7.3); Freeze.
-    ServiceUpgraded { previous_code_hash: Hash,
-                      previous_min_acc_gas: u64,
-                      previous_min_memo_gas: u64 },
     ServiceEjected { credited: Balance }, // ServiceEjected { service, credited }; Eject
     ForgetAgainAt { due: Timeslot },      // ForgetAgainAt { target, hash, len, due }; Forget
 }
@@ -496,8 +491,6 @@ enum FailureReason {
     ServiceForgetNotRequested,
     ServiceEjectFailed(ServiceEjectError),           // ServiceEjectFailed { service, error }
     ServiceSupervisorFailed(ServiceSupervisorError), // ServiceSupervisorFailed { service, error }
-    /// `ServiceUpgradeFailed { service, error }` (§7.3).
-    ServiceUpgradeFailed(ServiceUpgradeError),
 }
 
 /// The booking class of an uncredited return (§4.4).
@@ -655,10 +648,12 @@ fn close_lease(id: AllocationId);
 /// frozen. Records a `Freeze` operation.
 fn freeze_target(target: ServiceId);
 
-/// Restores the code hash saved at the freeze. Origin: any signed
-/// account. Legal while the target is recorded frozen and no lease on it is
-/// `Reclaiming`. Records an `Unfreeze` operation.
-fn unfreeze_target(target: ServiceId);
+/// Restores the target: sets its code hash and gas limits to the values
+/// passed. Origin: the target's service account or governance. Legal while
+/// the target is recorded frozen and no lease on it is `Reclaiming`. Records
+/// an `Unfreeze` operation.
+fn unfreeze_target(target: ServiceId, code_hash: Hash, min_acc_gas: u64,
+                   min_memo_gas: u64);
 
 /// Deletes one bounded page of keys from the target's storage. Origin: any
 /// signed account, with `RECOVERY_DEPOSIT` plus `RECOVERY_DEPOSIT_PER_KEY`
@@ -779,7 +774,8 @@ interface IJamkb {
 
     // -- Recovery --
     function freezeTarget(uint32 target) external returns (uint64 opId);
-    function unfreezeTarget(uint32 target) external returns (uint64 opId);
+    function unfreezeTarget(uint32 target, bytes32 codeHash,
+        uint64 minAccGas, uint64 minMemoGas) external returns (uint64 opId);
     function cleanupStorage(uint32 target, bytes[] calldata keys)
         external returns (uint64 opId);
     function forgetPreimage(uint32 target, bytes32 hash, uint32 len)
@@ -1037,17 +1033,17 @@ Phase 3: Claim        `claim(beneficiary)` moves the units from the
 
 An `OperationId` is unique and never reused.
 An operation is resolved when parachain-system reports its outcome and its log
-entries (§7.8).
+entries (§7.7).
 
 A `Delivery`, `Increase`, `Redemption`, `Reclaim`, `Refund` or `Move` sends one
 `TransferOut` carrying a `MessageId`. A `TransferFailed`
 entry in its outcome means it failed.
 
-A recovery operation's messages carry no id. Their entries
+A recovery operation's messages carry no `MessageId`. Their entries
 (`ServiceKeyNotFound`, `ServiceForgetNotRequested`, `ServiceEjectFailed`,
-`ServiceSupervisorFailed`, `ServiceUpgradeFailed`, `ServiceEjected`,
-`ServiceUpgraded`, `ForgetAgainAt`) name the service, and parachain-system attributes them to the
-one operation of that kind in flight on that service (§3.2).
+`ServiceSupervisorFailed`, `ServiceEjected`, `ForgetAgainAt`) carry the
+service id. parachain-system reports them as the outcome of the recovery
+operation on that service (§3.2).
 
 ### 5.2 Memo Requirements
 
@@ -1086,17 +1082,12 @@ rest zero.
    and the reclaim must also be atomic: with several leases on one target,
    their reclaims race for the freed funds, and the lease the cleanup was done
    for should be the one to get them back.
-3. **Service Freeze.** The Parachain Service does not log anything for a supervised
-   `UpgradeService`. The freeze needs `ServiceUpgraded { service,
-   previous_code_hash, previous_min_acc_gas, previous_min_memo_gas }` so that
-   `unfreeze_target` can restore them, and `ServiceUpgradeFailed { service,
-   error }` so that a refused upgrade is not `Confirmed`.
-4. **Burn instead of holds.** A hold cannot take the last plank, so a holder
+3. **Burn instead of holds.** A hold cannot take the last plank, so a holder
    redeems all but one plank and transfers the remainder out by a plain
    `pallet-assets` transfer. The alternative is `fungibles::Mutate::shelve`
    on the call and `restore` on Failed; `restore` into a dead non-sufficient
    account fails, so those units would fall back to `Unclaimed`.
-5. **Service registry pallet.** Service accounts, supervision, service
+4. **Service registry pallet.** Service accounts, supervision, service
    creation and upgrade belong to a service registry pallet that does not
    exist. The recovery calls of §4.3 stay here: they apply their origin rule
    and the recovery deposit, then request through `ServiceRegistry`. The
@@ -1124,8 +1115,10 @@ rest zero.
        fn is_frozen(service: ServiceId) -> bool;
        /// Freezes `service`: it stops executing.
        fn freeze(service: ServiceId) -> Result<(), ServiceError>;
-       /// Unfreezes `service`: its stored code is restored.
-       fn unfreeze(service: ServiceId) -> Result<(), ServiceError>;
+       /// Unfreezes `service`: its code hash and gas limits are set to the
+       /// values passed.
+       fn unfreeze(service: ServiceId, code_hash: Hash, min_acc_gas: u64,
+                   min_memo_gas: u64) -> Result<(), ServiceError>;
        /// Removes `keys` from `service`'s storage.
        fn remove_storage(service: ServiceId,
                          keys: BoundedVec<Self::Key, Self::MaxKeysPerPage>)
@@ -1207,12 +1200,12 @@ rest zero.
 
    The jamkb pallet's `OperationPayload` variants record a pending request,
    keyed by service. The hook only records the outcome against it.
-6. **Forced head.** Coretime's `ParachainSetHead` (Parachain Service design
+5. **Forced head.** Coretime's `ParachainSetHead` (Parachain Service design
    §6.3) moves Asset Hub's head, and its state, without accumulating
    anything. JAM's state does not follow, so the accounting diverges.
-7. **Parachain Service supervisor.** A `Move` needs the Parachain Service to
+6. **Parachain Service supervisor.** A `Move` needs the Parachain Service to
    be its own supervisor. The Parachain Service design has to guarantee it.
-8. **parachain-system interface.** parachain-system interface proposal is as follows:
+7. **parachain-system interface.** parachain-system interface proposal is as follows:
 
    ```rust
    /// Each sender has its own budget share.
