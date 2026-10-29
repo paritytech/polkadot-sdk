@@ -1572,116 +1572,195 @@ fn transfer_from_fails_when_the_sweep_exceeds_the_allowance(asset_index: u16) {
 	});
 }
 
-/// Inside an ethereum transaction `approve` fails when its `Approval` log does not fit the
-/// transaction's receipt (`MAX_RECEIPT_LOGS_BYTES`). A calling contract handles the failure and
-/// the transaction succeeds, without the allowance and without the `Approval` event.
-#[test]
-fn approve_past_the_receipt_limit_fails_the_call() {
+/// 32 logs without topics and with this much data each fill an ethereum transaction's receipt
+/// exactly (`MAX_RECEIPT_LOGS_BYTES`).
+const LOG_DATA: u32 = 65_508;
+
+/// What [`call_token_after_logs`] observed after the ethereum transaction.
+#[derive(Debug, PartialEq)]
+struct TokenCallOutcome {
+	/// The error the transaction failed with.
+	failed: Option<sp_runtime::DispatchError>,
+	/// What the calling contract recorded about the token call: 1 if it succeeded, 2 if it
+	/// failed.
+	stored: u64,
+	/// The `ContractEmitted` events of the token left after the transaction, its `Approval` or
+	/// `Transfer` logs.
+	token_logs: usize,
+	/// The calling contract's token balance.
+	caller_balance: u128,
+	/// The allowance the calling contract gave the spender.
+	allowance: u128,
+	/// The spender's token balance.
+	spender_balance: u128,
+}
+
+/// Inside an ethereum transaction, let a contract holding 100 tokens fill the receipt with logs,
+/// the last one with `last_size` bytes of data, then call the token with what `token_call` builds
+/// for the spender's address. The contract handles a failure of that call.
+fn call_token_after_logs(
+	last_size: u32,
+	token_call: impl FnOnce(crate::alloy::primitives::Address) -> Vec<u8>,
+) -> TokenCallOutcome {
 	use frame_support::traits::{fungibles::approvals::Inspect, Hooks};
 	use pallet_revive_fixtures::{compile_module_with_type, FixtureType, LogVolume};
 
-	// 32 logs without topics and with this much data each fill the receipt exactly.
-	const LOG_DATA: u32 = 65_508;
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let owner = 123456789u64;
+		let spender = 987654321u64;
+		let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
+		Balances::make_free_balance_be(&owner, 1_000_000_000_000_000u128);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
 
-	// Fill the receipt with logs, the last one with `last_size` bytes of data, then `approve`
-	// from a contract. Returns the error the transaction failed with, the allowance, the number of
-	// `Approval` events and what the contract recorded about the call: 1 if it succeeded, 2 if it
-	// failed.
-	let approve_after_logs = |last_size: u32| {
-		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
-			let owner = 123456789u64;
-			let spender = 987654321u64;
-			let spender_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&spender);
-			Balances::make_free_balance_be(&owner, 1_000_000_000_000_000u128);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, owner, true, 1));
+		let (code, _) = compile_module_with_type("LogVolume", FixtureType::Solc)
+			.expect("LogVolume fixture must be compiled");
+		let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
+			RuntimeOrigin::signed(owner),
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			Code::Upload(code),
+			vec![],
+			None,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("LogVolume deployment must succeed")
+		.addr;
+		let caller = <Test as pallet_revive::Config>::AddressMapper::to_account_id(&caller_addr);
+		// The approval deposit.
+		Balances::make_free_balance_be(&caller, 1_000_000);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(owner), asset_id, caller, 100));
+		<pallet_revive::Pallet<Test> as Hooks<_>>::on_initialize(1);
+		// Only the logs of the ethereum transaction count, not the mint's.
+		System::reset_events();
 
-			let (code, _) = compile_module_with_type("LogVolume", FixtureType::Solc)
-				.expect("LogVolume fixture must be compiled");
-			let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
-				RuntimeOrigin::signed(owner),
-				0u32.into(),
-				TransactionLimits::WeightAndDeposit {
-					weight_limit: Weight::MAX,
-					deposit_limit: u128::MAX,
-				},
-				Code::Upload(code),
-				vec![],
-				None,
-				&ExecConfig::new_substrate_tx(),
-			)
-			.result
-			.expect("LogVolume deployment must succeed")
-			.addr;
-			let caller =
-				<Test as pallet_revive::Config>::AddressMapper::to_account_id(&caller_addr);
-			// The approval deposit.
-			Balances::make_free_balance_be(&caller, 1_000_000);
-			<pallet_revive::Pallet<Test> as Hooks<_>>::on_initialize(1);
+		let data = LogVolume::emitLogsThenCallCall {
+			count: 31,
+			size: LOG_DATA,
+			lastSize: last_size,
+			target: asset_addr.0.into(),
+			data: token_call(spender_addr.0.into()).into(),
+		}
+		.abi_encode();
+		// An ethereum transaction that dispatches `Revive::call`, as `eth_transact` to
+		// `RUNTIME_PALLETS_ADDR` does. `eth_call` takes its weight from the ethereum gas limit
+		// through `Config::FeeInfo`, which this mock leaves at `()`, so it would run out of gas.
+		let call = crate::mock::RuntimeCall::Revive(pallet_revive::Call::call {
+			dest: caller_addr,
+			value: 0,
+			weight_limit: Weight::from_parts(1_500_000_000_000, 10 * 1024 * 1024),
+			storage_deposit_limit: u128::MAX,
+			data,
+		});
+		assert_ok!(pallet_revive::Pallet::<Test>::eth_substrate_call(
+			pallet_revive::Origin::<Test>::EthTransaction(owner).into(),
+			Box::new(call),
+			vec![],
+		));
 
-			let approve =
-				IERC20::approveCall { spender: spender_addr.0.into(), value: U256::from(10) };
-			let data = LogVolume::emitLogsThenCallCall {
-				count: 31,
-				size: LOG_DATA,
-				lastSize: last_size,
-				target: asset_addr.0.into(),
-				data: approve.abi_encode().into(),
-			}
-			.abi_encode();
-			// An ethereum transaction that dispatches `Revive::call`, as `eth_transact` to
-			// `RUNTIME_PALLETS_ADDR` does. `eth_call` takes its weight from the ethereum gas
-			// limit through `Config::FeeInfo`, which this mock leaves at `()`, so it would run out
-			// of gas.
-			let call = crate::mock::RuntimeCall::Revive(pallet_revive::Call::call {
-				dest: caller_addr,
-				value: 0,
-				weight_limit: Weight::from_parts(1_500_000_000_000, 10 * 1024 * 1024),
-				storage_deposit_limit: u128::MAX,
-				data,
-			});
-			assert_ok!(pallet_revive::Pallet::<Test>::eth_substrate_call(
-				pallet_revive::Origin::<Test>::EthTransaction(owner).into(),
-				Box::new(call),
-				vec![],
-			));
+		let failed = System::events().into_iter().find_map(|record| match record.event {
+			RuntimeEvent::Revive(pallet_revive::Event::EthExtrinsicRevert { dispatch_error }) => {
+				Some(dispatch_error)
+			},
+			_ => None,
+		});
+		let token_logs = System::events()
+			.iter()
+			.filter(|record| {
+				matches!(
+					&record.event,
+					RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted { contract, .. })
+						if *contract == asset_addr
+				)
+			})
+			.count();
+		let stored = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(owner),
+			caller_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u128::MAX,
+			},
+			LogVolume::storedCall {}.abi_encode(),
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("reading `stored` must succeed")
+		.data;
+		TokenCallOutcome {
+			failed,
+			stored: LogVolume::storedCall::abi_decode_returns(&stored).unwrap().to(),
+			token_logs,
+			caller_balance: Assets::balance(asset_id, caller),
+			allowance: Assets::allowance(asset_id, &caller, &spender),
+			spender_balance: Assets::balance(asset_id, spender),
+		}
+	})
+}
 
-			let failed = System::events().into_iter().find_map(|record| match record.event {
-				RuntimeEvent::Revive(pallet_revive::Event::EthExtrinsicRevert {
-					dispatch_error,
-				}) => Some(dispatch_error),
-				_ => None,
-			});
-			let approval_events = System::events()
-				.iter()
-				.filter(|record| {
-					matches!(
-						&record.event,
-						RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted { contract, .. })
-							if *contract == asset_addr
-					)
-				})
-				.count();
-			let stored = pallet_revive::Pallet::<Test>::bare_call(
-				RuntimeOrigin::signed(owner),
-				caller_addr,
-				0u32.into(),
-				TransactionLimits::WeightAndDeposit {
-					weight_limit: Weight::MAX,
-					deposit_limit: u128::MAX,
-				},
-				LogVolume::storedCall {}.abi_encode(),
-				&ExecConfig::new_substrate_tx(),
-			)
-			.result
-			.expect("reading `stored` must succeed")
-			.data;
-			let stored: u64 = LogVolume::storedCall::abi_decode_returns(&stored).unwrap().to();
-			(failed, Assets::allowance(asset_id, &caller, &spender), approval_events, stored)
-		})
-	};
+/// The outcome when the token call failed: the transaction succeeds, the contract records the
+/// failure, and the token keeps no log and changes no balance or allowance.
+const TOKEN_CALL_FAILED: TokenCallOutcome = TokenCallOutcome {
+	failed: None,
+	stored: 2,
+	token_logs: 0,
+	caller_balance: 100,
+	allowance: 0,
+	spender_balance: 0,
+};
 
-	assert_eq!(approve_after_logs(LOG_DATA - 1024), (None, 10, 1, 1), "room for the log");
-	assert_eq!(approve_after_logs(LOG_DATA), (None, 0, 0, 2), "the receipt is full");
+/// Inside an ethereum transaction `approve` fails when its `Approval` log does not fit the
+/// transaction's receipt. A calling contract handles the failure.
+#[test]
+fn approve_past_the_receipt_limit_fails_the_call() {
+	let approve = |spender| IERC20::approveCall { spender, value: U256::from(10) }.abi_encode();
+
+	assert_eq!(
+		call_token_after_logs(LOG_DATA - 1024, approve),
+		TokenCallOutcome { stored: 1, token_logs: 1, allowance: 10, ..TOKEN_CALL_FAILED },
+		"room for the log",
+	);
+	assert_eq!(call_token_after_logs(LOG_DATA, approve), TOKEN_CALL_FAILED, "the receipt is full");
+}
+
+/// Inside an ethereum transaction `transfer` fails when its `Transfer` log, mirrored by
+/// `Erc20TransferLogsCallback` from the balance change, does not fit the transaction's receipt.
+/// A calling contract handles the failure and the balances stay unchanged.
+#[test]
+fn transfer_past_the_receipt_limit_fails_the_call() {
+	let transfer = |to| IERC20::transferCall { to, value: U256::from(10) }.abi_encode();
+
+	assert_eq!(
+		call_token_after_logs(LOG_DATA - 1024, transfer),
+		TokenCallOutcome {
+			stored: 1,
+			token_logs: 1,
+			caller_balance: 90,
+			spender_balance: 10,
+			..TOKEN_CALL_FAILED
+		},
+		"room for the log",
+	);
+	assert_eq!(call_token_after_logs(LOG_DATA, transfer), TOKEN_CALL_FAILED, "the receipt is full");
+}
+
+/// Inside an ethereum transaction a zero-value `transfer` fails when the `Transfer` log the
+/// precompile emits for it does not fit the transaction's receipt. A calling contract handles
+/// the failure.
+#[test]
+fn zero_value_transfer_past_the_receipt_limit_fails_the_call() {
+	let transfer = |to| IERC20::transferCall { to, value: U256::ZERO }.abi_encode();
+
+	assert_eq!(
+		call_token_after_logs(LOG_DATA - 1024, transfer),
+		TokenCallOutcome { stored: 1, token_logs: 1, ..TOKEN_CALL_FAILED },
+		"room for the log",
+	);
+	assert_eq!(call_token_after_logs(LOG_DATA, transfer), TOKEN_CALL_FAILED, "the receipt is full");
 }

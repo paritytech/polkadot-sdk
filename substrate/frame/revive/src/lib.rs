@@ -1067,20 +1067,19 @@ pub mod pallet {
 			topics: ContractLogTopics,
 			data: ContractLogData,
 		) {
-			let captured = block_storage::capture_into_receipt::<T>(&contract, &data, &topics);
-			if captured.is_none() {
-				Self::buffer_outside_frame_log(&contract, &topics, &data);
+			match block_storage::capture_into_receipt::<T>(&contract, &data, &topics) {
+				Some(Ok(())) => {},
+				None => Self::buffer_outside_frame_log(&contract, &topics, &data),
+				// A log that does not fit the receipt fails the frame or the transaction it was
+				// emitted in, see `block_storage::ensure_receipt_within_limit`. Like a log emitted
+				// from inside a frame, it is neither traced nor deposited.
+				Some(Err(_)) => return,
 			}
 
-			// A log that does not fit the receipt fails the frame or the transaction it was
-			// emitted in, see `block_storage::ensure_receipt_within_limit`. Like a log emitted
-			// from inside a frame, it is not traced.
-			if !matches!(captured, Some(Err(_))) {
-				if_tracing(|tracer| {
-					let log_index = frame_system::Pallet::<T>::event_count();
-					tracer.log_event_outside_frame(contract, &topics, &data, log_index);
-				});
-			}
+			if_tracing(|tracer| {
+				let log_index = frame_system::Pallet::<T>::event_count();
+				tracer.log_event_outside_frame(contract, &topics, &data, log_index);
+			});
 
 			Self::deposit_event(Event::ContractEmitted {
 				contract,

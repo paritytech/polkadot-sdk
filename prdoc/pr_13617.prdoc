@@ -23,8 +23,8 @@ doc:
     frame's state changes and logs roll back, and the calling contract can handle the failure.
     A log mirrored outside any frame, such as for a storage deposit paid in an asset after the
     outermost call returned, fails the whole transaction instead. A failed transaction is
-    included with a failed receipt: its state changes roll back, no storage deposit is charged,
-    and it pays the fee for the weight it used.
+    included with a failed receipt: its state changes roll back, storage deposits are rolled
+    back, and it pays the fee for the weight it used.
 
     Mirrored logs emitted outside any Ethereum transaction are collected into the block's
     synthetic transaction, whose receipt has the same limit. A log that does not fit there stays a
