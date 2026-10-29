@@ -189,7 +189,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#39 id=39 data-nosnippet>39</a>	<span class="kw">fn </span>call(<span class="kw-2">&amp;</span><span class="self">self</span>, name: String, bytes: Bytes, hash: <span class="prelude-ty">Option</span>&lt;Hash&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Bytes, Error&gt;;
 <a href=#40 id=40 data-nosnippet>40</a>
 <a href=#41 id=41 data-nosnippet>41</a>	<span class="doccomment">/// Returns the keys with prefix, leave empty to get all the keys.
-<a href=#42 id=42 data-nosnippet>42</a>	</span><span class="attr">#[method(name = <span class="string">"state_getKeys"</span>, blocking)]
+<a href=#42 id=42 data-nosnippet>42</a>	</span><span class="attr">#[method(name = <span class="string">"state_getKeys"</span>, blocking, with_extensions)]
 <a href=#43 id=43 data-nosnippet>43</a>	#[deprecated(since = <span class="string">"2.0.0"</span>, note = <span class="string">"Please use `getKeysPaged` with proper paging support"</span>)]
 <a href=#44 id=44 data-nosnippet>44</a>	</span><span class="kw">fn </span>storage_keys(
 <a href=#45 id=45 data-nosnippet>45</a>		<span class="kw-2">&amp;</span><span class="self">self</span>,

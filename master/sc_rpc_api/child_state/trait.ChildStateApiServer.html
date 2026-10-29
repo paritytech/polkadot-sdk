@@ -156,6 +156,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
     // Required methods
     fn <a href="#tymethod.storage_keys" class="fn">storage_keys</a>(
         &amp;self,
+        ext: &amp;Extensions,
         child_storage_key: <a class="struct" href="../../sp_storage/struct.PrefixedStorageKey.html" title="struct sp_storage::PrefixedStorageKey">PrefixedStorageKey</a>,
         prefix: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
         hash: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;,
@@ -205,6 +206,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Server trait implementation for the <code>ChildStateApi</code> RPC API.</p>
 </div></details><h2 id="required-methods" class="section-header">Required Methods<a href="#required-methods" class="anchor">§</a></h2><div class="methods"><details class="toggle method-toggle" open><summary><section id="tymethod.storage_keys" class="method"><a class="src rightside" href="../../src/sc_rpc_api/child_state/mod.rs.html#33-38">Source</a><h4 class="code-header">fn <a href="#tymethod.storage_keys" class="fn">storage_keys</a>(
     &amp;self,
+    ext: &amp;Extensions,
     child_storage_key: <a class="struct" href="../../sp_storage/struct.PrefixedStorageKey.html" title="struct sp_storage::PrefixedStorageKey">PrefixedStorageKey</a>,
     prefix: <a class="struct" href="../../sp_storage/struct.StorageKey.html" title="struct sp_storage::StorageKey">StorageKey</a>,
     hash: <a class="enum" href="https://doc.rust-lang.org/1.93.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Hash&gt;,
