@@ -937,7 +937,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 			{
 				let (handler, protocol_config) = LightClientRequestHandler::new::<
 					NetworkWorker<_, _>,
-				>(&protocol_id, None, client.clone());
+				>(&protocol_id, None, client.clone(), None);
 				self.spawn_task(handler.run().boxed());
 				protocol_config
 			};

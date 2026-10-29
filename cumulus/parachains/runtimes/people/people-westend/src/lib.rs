@@ -54,6 +54,7 @@ use parachains_common::{
 };
 use polkadot_runtime_common::{identity_migrator, BlockHashCount, SlowAdjustingFeeUpdate};
 use sp_api::impl_runtime_apis;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 #[cfg(any(feature = "std", test))]
@@ -135,6 +136,12 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// unreleased
+	ad_migration::AppendAuthorityDiscoveryKeys<
+		Runtime,
+		AdMigrationVersion,
+		ad_migration::KeysTranslator,
+	>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -149,7 +156,16 @@ pub type Executive = frame_executive::Executive<
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
+		pub authority_discovery: AuthorityDiscovery,
 	}
+}
+
+mod ad_migration {
+	use super::*;
+	pub use parachains_common::ad_migration::*;
+	use parachains_common::impl_keys_translator;
+
+	impl_keys_translator!(SessionKeys, AuraId, AuthorityDiscoveryId);
 }
 
 #[sp_version::runtime_version]
@@ -157,7 +173,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_024_001,
+	spec_version: 1_025_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -166,6 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
+	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_025_003);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
@@ -395,6 +412,10 @@ impl pallet_aura::Config for Runtime {
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
 	type SlotDuration = ConstU64<SLOT_DURATION>;
+}
+
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = ConstU32<1000>;
 }
 
 parameter_types! {
@@ -673,6 +694,7 @@ construct_runtime!(
 		Aura: pallet_aura = 23,
 		AuraExt: cumulus_pallet_aura_ext = 24,
 		ValidatorCollators: pallet_validator_collators = 25,
+		AuthorityDiscovery: pallet_authority_discovery = 26,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -840,6 +862,12 @@ impl_runtime_apis! {
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
 			SessionKeys::decode_into_raw_public_keys(&encoded)
+		}
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			pallet_authority_discovery::Pallet::<Runtime>::current_authorities().to_vec()
 		}
 	}
 
