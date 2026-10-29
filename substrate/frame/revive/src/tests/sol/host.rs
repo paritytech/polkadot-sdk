@@ -1008,8 +1008,8 @@ fn logs_work(fixture_type: FixtureType) {
 }
 
 /// A log's per-byte event charges (`on_finalize_block_per_event` and
-/// `EXTRA_EVENT_CHARGE_PER_BYTE`) count its 32-byte topics together with its data. As
-/// benchmarked, `seal_deposit_event(num_topic, len)` is charged unchanged.
+/// `EXTRA_EVENT_CHARGE_PER_BYTE`) count its 32-byte topics together with its data.
+/// `seal_deposit_event(num_topic, len)` is charged as benchmarked, on the data length alone.
 ///
 /// Every LOG0 to LOG4 is traced on its own, so the step's weight is exactly the charge of that
 /// log: the EVM LOG instruction charges nothing else and the PVM `HostFn` overhead is charged

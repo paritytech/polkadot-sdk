@@ -769,8 +769,10 @@ pub mod env {
 				v
 			},
 		};
-		let topics = ContractLogTopics::try_from(topics)
-			.expect("num_topic <= NUM_EVENT_TOPICS, checked above; qed");
+		let topics = ContractLogTopics::try_from(topics).expect(
+			"num_topic <= NUM_EVENT_TOPICS checked above, and the topic buffer holds num_topic \
+			 words; qed",
+		);
 
 		let event_data = memory.read(data_ptr, data_len)?;
 		self.ext.deposit_event(topics, event_data);

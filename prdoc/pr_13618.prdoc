@@ -1,4 +1,4 @@
-title: '[pallet-revive] Per-event byte charges include topic bytes'
+title: '[pallet-revive] Count topic bytes in per-event byte charges'
 
 doc:
 - audience: Runtime User
