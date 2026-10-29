@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793274635956,
+  "lastUpdate": 1793278328920,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -138995,6 +138995,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2752356321,
             "range": "± 19299304",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "egor@parity.io",
+            "name": "Egor_P",
+            "username": "EgorPopelyaev"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "732802042d7d6aa97ea8e76b3301659d0833b7f7",
+          "message": " [Release|CI/CD] prdoc: make the changelog topic field usable by contributors (#13623)\n\nCloses: https://github.com/paritytech/release-engineering/issues/300\n\nPart of paritytech/polkadot-sdk#6424 \n\nMakes the optional prdoc `topic` override discoverable and safe to use.\nNow `topic` can be added (if needed) in three ways:\n1. Auto generated based on the schema\n2. Directly in the .prdoc file using `topic` field\n3. Bu using `cmd-bot`: `/cmd prdoc --topic <id>` with the reason posted\nback on failure\n\nAlso added:\n- docs in schema, template and docs; \n- soft validation in `check-prdoc.py` (warning, never a failure);\n- unknown values are a notice in the changelog generator (and its CI job\nsummary) instead of a failed --check.\n\nTopic matching lives in one place (`match_topic` in generate.py, shared\nvia .github/scripts/prdoc_topics.py), with `aliases` for legacy values.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-10-29T11:20:40Z",
+          "tree_id": "9a2f6daee2cc8e38a0a02714730e8a99b0037c34",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/732802042d7d6aa97ea8e76b3301659d0833b7f7"
+        },
+        "date": 1793278300966,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19382155,
+            "range": "± 157886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19651703,
+            "range": "± 153500",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21086892,
+            "range": "± 66193",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25215345,
+            "range": "± 149659",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56061900,
+            "range": "± 414550",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 334982115,
+            "range": "± 3634930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2391282404,
+            "range": "± 69028598",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16863163,
+            "range": "± 133526",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16879239,
+            "range": "± 97655",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17753640,
+            "range": "± 136292",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22005004,
+            "range": "± 74124",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 57615090,
+            "range": "± 294004",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341741962,
+            "range": "± 2822166",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2616637406,
+            "range": "± 17535263",
             "unit": "ns/iter"
           }
         ]
