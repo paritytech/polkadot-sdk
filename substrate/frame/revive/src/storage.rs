@@ -444,10 +444,12 @@ impl<T: Config> AccountInfo<T> {
 impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
-	/// This returns an `Err` if an contract with the supplied `account` already exists
+	/// This returns an `Err` if a contract with the supplied `address` already exists
 	/// in storage.
 	///
-	/// The child trie id is derived from `address`, `nonce` and the deletion queue insert counter.
+	/// The child trie id is a hash of `address`, `nonce` and the deletion queue insert counter.
+	/// `nonce` is hashed into the id, but its uniqueness comes from `address` and the insert
+	/// counter alone.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
@@ -837,9 +839,10 @@ impl WriteOutcome {
 #[scale_info(skip_type_params(T))]
 pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
-	/// The counter is incremented after each insertion.
+	/// The counter is incremented after each insertion, wrapping on overflow.
 	///
-	/// Only ever incremented (wrapping).
+	/// [`ContractInfo::new`] mixes it into the child trie id of every new contract, so it must
+	/// never decrease or be reset.
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
 	/// The counter is incremented after each deletion.

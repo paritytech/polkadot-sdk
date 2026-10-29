@@ -1,4 +1,4 @@
-title: '[pallet-revive] Derive child trie ids from the deletion queue counter'
+title: 'pallet-revive: derive child trie ids from the deletion queue counter'
 
 doc:
 - audience: Runtime User
