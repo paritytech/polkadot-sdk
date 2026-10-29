@@ -833,10 +833,18 @@ pub mod pallet {
 	/// `block_storage::capture_into_receipt`. Taken when the transaction's receipt is built, so it
 	/// is empty between transactions.
 	///
-	/// Whitelisted like `frame_system::Events`: read and written on every log, yet never in a
-	/// block's pre-state, so a block pays one absence lookup for it however many logs it holds.
-	/// Without the whitelist the benchmark bills each `LOG` for that lookup as if it were the
-	/// first access of the block.
+	/// Accessed only while a receipt is open, in an ethereum transaction or its dry run. Read on
+	/// every log, and written as well until a log overflows the receipt. Read, for its overflow
+	/// flag, see `block_storage::ensure_receipt_within_limit`:
+	/// - at the successful end of every contract frame;
+	/// - after the storage deposits in `bare_call` and a successful `bare_instantiate`;
+	/// - after the runtime call dispatched by `eth_substrate_call`;
+	/// - after the runtime call dispatched by a dry run.
+	///
+	/// Whitelisted like `frame_system::Events`: accessed this often, yet never in a block's
+	/// pre-state, so a block pays one absence lookup for it however many logs and frames it holds.
+	/// Without the whitelist the benchmark bills each `LOG` and each frame for that lookup as if it
+	/// were the first access of the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub(crate) type ReceiptLogsCommitted<T: Config> =

@@ -264,8 +264,10 @@ pub fn with_ethereum_context<T: Config>(
 
 		if let Some(dispatch_error) = err {
 			// A failed transaction's receipt carries no logs: the dispatch rolled back, and with
-			// it what the transaction had committed to its receipt, whether its frames reverted
-			// or it failed after them, at the fee settlement.
+			// it what the transaction had committed to its receipt, whether one of its frames
+			// failed or the transaction failed outside them, for example in the runtime call of
+			// `eth_substrate_call`, at the storage deposits, at a receipt check outside any frame
+			// (see `ensure_receipt_within_limit`) or at the fee settlement.
 			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
 			crate::block_storage::process_transaction::<T>(
 				transaction_encoded,

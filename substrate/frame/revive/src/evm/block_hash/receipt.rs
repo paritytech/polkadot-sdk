@@ -65,7 +65,8 @@ pub struct AccumulateReceipt {
 }
 
 /// What an ethereum transaction has committed to its receipt so far: how much of the
-/// [`AccumulateReceipt`] encoding, and the bloom over exactly those logs.
+/// [`AccumulateReceipt`] encoding, the bloom over exactly those logs, and whether a log did not
+/// fit.
 ///
 /// Kept in storage while the transaction runs, so that it rolls back with whatever storage layer
 /// rolls back: a contract frame, or a `batch_all` around a plain call whose balance change was
@@ -106,6 +107,11 @@ impl AccumulateReceipt {
 	}
 
 	/// What the accumulator holds, as the value to commit.
+	///
+	/// Always returns [`CommittedReceiptLogs::exceeded`] as `false`: the accumulator does not know
+	/// about a log that did not fit. That is correct only while no log has overflowed, which
+	/// `block_storage::capture_into_receipt` ensures by returning before it calls this once the
+	/// flag is set. Do not use it where the result could overwrite a set flag.
 	pub fn committed(&self) -> CommittedReceiptLogs {
 		CommittedReceiptLogs {
 			encoded_len: self.encoding.len() as u32,
