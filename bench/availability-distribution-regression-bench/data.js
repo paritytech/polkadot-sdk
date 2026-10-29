@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793237874474,
+  "lastUpdate": 1793275693764,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6417acacecd3c0c698faca8e7a5af7816655ab82",
-          "message": "Double max memory on block import (#11557)\n\nThere is a fixed memory budget for block production. Right now we run\nwith the same memory budget when importing a block. However, there is a\nbig difference between block production and block import. For block\nproduction we always create a new fresh wasm instance for each extrinsic\nand the entire memory is freed afterwards. For block import, we keep\neverything in memory and use one wasm instance. This can lead to issues\nfor big blocks which may use too much memory. So, this pull request\ndoubles the memory budget by 2x to what is available on block\nproduction. Given the default budget of 128 MiB and only having blocks\nof max ~16MiB, the extra 128MiB should be enough to hold everything in\nmemory.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>",
-          "timestamp": "2026-04-14T11:01:17Z",
-          "tree_id": "23a1351bebcb0170f0900d96b16268dd8a5192b0",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6417acacecd3c0c698faca8e7a5af7816655ab82"
-        },
-        "date": 1776169468438,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025401274826666667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00986007820666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007183651373333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1405213690400001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.00979523297333331,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex.theissen@me.com",
+            "name": "Alexander Theißen",
+            "username": "athei"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c06ae172af862bbe5511711e18782c2759956df5",
+          "message": "Remove dead links that fail the link checker (#13630)\n\n`check-links` fails on every PR and merge-queue run because two links\nnow return 404: `JoshOrndorff/frameless-node-template` (repository\ndeleted) and `paritytech/polkadot-sdk/issues/64` (issue gone).\n\n- `docs/sdk/src/polkadot_sdk/frame_runtime.rs`: drop the examples list.\nNo maintained FRAME-free runtime exists to link instead, and Subsembly\nhas been unmaintained since 2021.\n- `substrate/primitives/state-machine/src/backend.rs`: drop the issue\nreference from `TryPendingCode` and fix a doubled word.",
+          "timestamp": "2026-10-29T10:34:49Z",
+          "tree_id": "a63dcbbbda786af3a578da1a35691d36a9faee6d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c06ae172af862bbe5511711e18782c2759956df5"
+        },
+        "date": 1793275660531,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.0076571840933333316,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01017333489999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14088145072000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02518517605999999,
             "unit": "seconds"
           }
         ]
