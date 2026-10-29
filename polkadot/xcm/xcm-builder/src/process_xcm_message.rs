@@ -137,7 +137,7 @@ mod tests {
 		traits::{ProcessMessageError, ProcessMessageError::*},
 	};
 	use polkadot_test_runtime::*;
-	use xcm::{v3, v4, v5, VersionedXcm};
+	use xcm::{v4, v5, VersionedXcm};
 
 	const ORIGIN: Junction = Junction::OnlyChild;
 	/// The processor to use for tests.
@@ -147,7 +147,6 @@ mod tests {
 	#[test]
 	fn process_message_trivial_works() {
 		// ClearOrigin works.
-		assert!(process(v3_xcm(true)).unwrap());
 		assert!(process(v4_xcm(true)).unwrap());
 		assert!(process(v5_xcm(true)).unwrap());
 	}
@@ -156,7 +155,6 @@ mod tests {
 	fn process_message_trivial_fails() {
 		// Trap makes it fail.
 		sp_io::TestExternalities::default().execute_with(|| {
-			assert!(!process(v3_xcm(false)).unwrap());
 			assert!(!process(v4_xcm(false)).unwrap());
 			assert!(!process(v5_xcm(false)).unwrap());
 		});
@@ -216,7 +214,7 @@ mod tests {
 	#[test]
 	fn process_message_overweight_fails() {
 		sp_io::TestExternalities::default().execute_with(|| {
-			for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v3_xcm(false)] {
+			for msg in [v4_xcm(true), v4_xcm(false), v4_xcm(false), v5_xcm(false)] {
 				let msg = &msg.encode()[..];
 
 				// Errors if we stay below a weight limit of 1000.
@@ -237,15 +235,6 @@ mod tests {
 				assert_eq!(meter.consumed(), 1000.into());
 			}
 		});
-	}
-
-	fn v3_xcm(success: bool) -> VersionedXcm<RuntimeCall> {
-		let instr = if success {
-			v3::Instruction::<RuntimeCall>::ClearOrigin
-		} else {
-			v3::Instruction::<RuntimeCall>::Trap(1)
-		};
-		VersionedXcm::V3(v3::Xcm::<RuntimeCall>(vec![instr]))
 	}
 
 	fn v4_xcm(success: bool) -> VersionedXcm<RuntimeCall> {

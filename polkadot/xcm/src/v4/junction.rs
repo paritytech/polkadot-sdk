@@ -17,9 +17,7 @@
 //! Support data structures for `Location`, primarily the `Junction` datatype.
 
 use super::Location;
-pub use crate::v3::{BodyId, BodyPart};
 use crate::{
-	v3::{Junction as OldJunction, NetworkId as OldNetworkId},
 	v5::{Junction as NewJunction, NetworkId as NewNetworkId},
 	VersionedLocation,
 };
@@ -27,6 +25,115 @@ use bounded_collections::{BoundedSlice, BoundedVec, ConstU32};
 use codec::{self, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+
+/// An identifier of a pluralistic body.
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
+)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+pub enum BodyId {
+	/// The only body in its context.
+	Unit,
+	/// A named body.
+	Moniker([u8; 4]),
+	/// An indexed body.
+	Index(#[codec(compact)] u32),
+	/// The unambiguous executive body (for Polkadot, this would be the Polkadot council).
+	Executive,
+	/// The unambiguous technical body (for Polkadot, this would be the Technical Committee).
+	Technical,
+	/// The unambiguous legislative body (for Polkadot, this could be considered the opinion of a
+	/// majority of lock-voters).
+	Legislative,
+	/// The unambiguous judicial body (this doesn't exist on Polkadot, but if it were to get a
+	/// "grand oracle", it may be considered as that).
+	Judicial,
+	/// The unambiguous defense body (for Polkadot, an opinion on the topic given via a public
+	/// referendum on the `staking_admin` track).
+	Defense,
+	/// The unambiguous administration body (for Polkadot, an opinion on the topic given via a
+	/// public referendum on the `general_admin` track).
+	Administration,
+	/// The unambiguous treasury body (for Polkadot, an opinion on the topic given via a public
+	/// referendum on the `treasurer` track).
+	Treasury,
+}
+
+/// A part of a pluralistic body.
+#[derive(
+	Copy,
+	Clone,
+	Eq,
+	PartialEq,
+	Ord,
+	PartialOrd,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	Serialize,
+	Deserialize,
+)]
+#[cfg_attr(feature = "json-schema", derive(schemars::JsonSchema))]
+#[scale_info(replace_segment("staging_xcm", "xcm"))]
+pub enum BodyPart {
+	/// The body's declaration, under whatever means it decides.
+	Voice,
+	/// A given number of members of the body.
+	Members {
+		#[codec(compact)]
+		count: u32,
+	},
+	/// A given number of members of the body, out of some larger caucus.
+	Fraction {
+		#[codec(compact)]
+		nom: u32,
+		#[codec(compact)]
+		denom: u32,
+	},
+	/// No less than the given proportion of members of the body.
+	AtLeastProportion {
+		#[codec(compact)]
+		nom: u32,
+		#[codec(compact)]
+		denom: u32,
+	},
+	/// More than the given proportion of members of the body.
+	MoreThanProportion {
+		#[codec(compact)]
+		nom: u32,
+		#[codec(compact)]
+		denom: u32,
+	},
+}
+
+impl BodyPart {
+	/// Returns `true` if the part represents a strict majority (> 50%) of the body in question.
+	pub fn is_majority(&self) -> bool {
+		match self {
+			BodyPart::Fraction { nom, denom } if *nom * 2 > *denom => true,
+			BodyPart::AtLeastProportion { nom, denom } if *nom * 2 > *denom => true,
+			BodyPart::MoreThanProportion { nom, denom } if *nom * 2 >= *denom => true,
+			_ => false,
+		}
+	}
+}
 
 /// A single item in a path to describe the relative location of a consensus system.
 ///
@@ -175,31 +282,6 @@ pub enum NetworkId {
 	PolkadotBulletin,
 }
 
-impl From<OldNetworkId> for Option<NetworkId> {
-	fn from(old: OldNetworkId) -> Self {
-		Some(NetworkId::from(old))
-	}
-}
-
-impl From<OldNetworkId> for NetworkId {
-	fn from(old: OldNetworkId) -> Self {
-		use OldNetworkId::*;
-		match old {
-			ByGenesis(hash) => Self::ByGenesis(hash),
-			ByFork { block_number, block_hash } => Self::ByFork { block_number, block_hash },
-			Polkadot => Self::Polkadot,
-			Kusama => Self::Kusama,
-			Westend => Self::Westend,
-			Rococo => Self::Rococo,
-			Wococo => Self::Wococo,
-			Ethereum { chain_id } => Self::Ethereum { chain_id },
-			BitcoinCore => Self::BitcoinCore,
-			BitcoinCash => Self::BitcoinCash,
-			PolkadotBulletin => Self::PolkadotBulletin,
-		}
-	}
-}
-
 impl From<NetworkId> for Junction {
 	fn from(n: NetworkId) -> Self {
 		Self::GlobalConsensus(n)
@@ -253,31 +335,6 @@ impl From<u64> for Junction {
 impl From<u128> for Junction {
 	fn from(id: u128) -> Self {
 		Self::GeneralIndex(id)
-	}
-}
-
-impl TryFrom<OldJunction> for Junction {
-	type Error = ();
-	fn try_from(value: OldJunction) -> Result<Self, ()> {
-		use OldJunction::*;
-		Ok(match value {
-			Parachain(id) => Self::Parachain(id),
-			AccountId32 { network: maybe_network, id } => {
-				Self::AccountId32 { network: maybe_network.map(|network| network.into()), id }
-			},
-			AccountIndex64 { network: maybe_network, index } => {
-				Self::AccountIndex64 { network: maybe_network.map(|network| network.into()), index }
-			},
-			AccountKey20 { network: maybe_network, key } => {
-				Self::AccountKey20 { network: maybe_network.map(|network| network.into()), key }
-			},
-			PalletInstance(index) => Self::PalletInstance(index),
-			GeneralIndex(id) => Self::GeneralIndex(id),
-			GeneralKey { length, data } => Self::GeneralKey { length, data },
-			OnlyChild => Self::OnlyChild,
-			Plurality { id, part } => Self::Plurality { id, part },
-			GlobalConsensus(network) => Self::GlobalConsensus(network.into()),
-		})
 	}
 }
 
@@ -350,21 +407,21 @@ mod tests {
 	#[test]
 	fn junction_round_trip_works() {
 		let j = Junction::GeneralKey { length: 32, data: [1u8; 32] };
-		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
+		let k = Junction::try_from(NewJunction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 
-		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
-		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
+		let j = NewJunction::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = NewJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 
 		let j = Junction::from(BoundedVec::try_from(vec![1u8, 2, 3, 4]).unwrap());
-		let k = Junction::try_from(OldJunction::try_from(j).unwrap()).unwrap();
+		let k = Junction::try_from(NewJunction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 		let s: BoundedSlice<_, _> = (&k).try_into().unwrap();
 		assert_eq!(s, &[1u8, 2, 3, 4][..]);
 
-		let j = OldJunction::GeneralKey { length: 32, data: [1u8; 32] };
-		let k = OldJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
+		let j = NewJunction::GeneralKey { length: 32, data: [1u8; 32] };
+		let k = NewJunction::try_from(Junction::try_from(j).unwrap()).unwrap();
 		assert_eq!(j, k);
 	}
 }

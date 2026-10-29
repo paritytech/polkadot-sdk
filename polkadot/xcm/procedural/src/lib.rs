@@ -21,7 +21,6 @@ use syn::{parse_macro_input, DeriveInput};
 
 mod builder_pattern;
 mod enum_variants;
-mod v3;
 mod v4;
 mod v5;
 mod weight_info;
@@ -29,20 +28,6 @@ mod weight_info;
 #[proc_macro_derive(XcmWeightInfoTrait)]
 pub fn derive_xcm_weight_info(item: TokenStream) -> TokenStream {
 	weight_info::derive(item)
-}
-
-#[proc_macro]
-pub fn impl_conversion_functions_for_multilocation_v3(input: TokenStream) -> TokenStream {
-	v3::multilocation::generate_conversion_functions(input)
-		.unwrap_or_else(syn::Error::into_compile_error)
-		.into()
-}
-
-#[proc_macro]
-pub fn impl_conversion_functions_for_junctions_v3(input: TokenStream) -> TokenStream {
-	v3::junctions::generate_conversion_functions(input)
-		.unwrap_or_else(syn::Error::into_compile_error)
-		.into()
 }
 
 #[proc_macro]
