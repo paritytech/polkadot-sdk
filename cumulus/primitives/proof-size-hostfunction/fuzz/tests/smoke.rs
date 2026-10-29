@@ -30,6 +30,9 @@
 //! Every script runs the estimation pass (collator plus validator replay per block) and the
 //! truth pass.
 
+mod common;
+
+use common::{env_scale, env_u64, generate};
 use cumulus_proof_size_hostfunction_fuzz::{
 	op_count, pinned_scripts, script_from_seed, shrink, try_run_script, Failure, Mode, Op, Report,
 	Scale,
@@ -38,34 +41,6 @@ use std::{
 	collections::BTreeMap,
 	panic::{self, AssertUnwindSafe},
 };
-
-fn env_u64(name: &str, default: u64) -> u64 {
-	std::env::var(name)
-		.ok()
-		.and_then(|v| match v.strip_prefix("0x") {
-			Some(hex) => u64::from_str_radix(hex, 16).ok(),
-			None => v.parse().ok(),
-		})
-		.unwrap_or(default)
-}
-
-fn env_scale() -> Scale {
-	match std::env::var("POV_FUZZ_SCALE").as_deref() {
-		Ok("medium") => Scale::Medium,
-		Ok("large") => Scale::Large,
-		Ok("small") | Err(_) => Scale::Small,
-		Ok(other) => panic!("POV_FUZZ_SCALE must be small, medium or large, not {other:?}"),
-	}
-}
-
-/// A generated script with the environment's restrictions applied.
-fn generate(seed: u64, max_scale: Scale) -> cumulus_proof_size_hostfunction_fuzz::Script {
-	let mut script = script_from_seed(seed, max_scale);
-	if std::env::var("POV_FUZZ_ROOT_LAST").is_ok_and(|v| v == "1") {
-		script.drop_mid_block_roots();
-	}
-	script
-}
 
 #[derive(Default)]
 struct Stats {

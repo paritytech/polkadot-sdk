@@ -26,6 +26,10 @@ required-features = ["estimation"]
 name = "smoke"
 required-features = ["estimation"]
 
+[[test]]
+name = "v1_compat"
+required-features = ["estimation"]
+
 [dependencies]
 arbitrary = { features = ["derive"], workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
