@@ -514,6 +514,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 			config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&peer_store_handle),
+			&net_config.network_config,
+			statement_v2dht_config.as_ref(),
 		);
 	net_config.add_notification_protocol(statement_notification_config);
 
@@ -869,6 +871,9 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 			bloom_seed: cli.statement_bloom_seed,
 			replication_factor: cli.statement_replication_factor,
 			gossip_target: cli.statement_gossip_target,
+			dht_affinity_max_size: cli.statement_store_max_dht_affinity_size,
+			transient_max_size: cli.statement_store_max_transient_size,
+			in_peers: cli.statement_in_peers,
 		}),
 	};
 

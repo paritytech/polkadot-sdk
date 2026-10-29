@@ -273,6 +273,10 @@ pub enum FailureReason {
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
+	/// The relay chain will not drop this para: it is not an on-demand parathread, or its
+	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
+	#[codec(index = 4)]
+	NotDeregisterable,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -313,6 +317,10 @@ pub trait ParachainRegistrar {
 	/// the parachain learns the first answer never came, and it reports it as an unexpected event.
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
 
+	/// Leave `para_id` where [`Self::deregister`] does the most work and still succeeds.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
 	/// Whether head data of this size is acceptable right now.
 	#[allow(clippy::result_unit_err)]
 	fn check_head_data(head_len: u32) -> Result<(), ()>;
@@ -329,4 +337,58 @@ pub trait ParachainRegistrar {
 		para_id: ParaId,
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
+}
+
+/// State of migrated para at the source chain.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub enum MigratedParaState {
+	/// The para id is held by its manager, but nothing is registered on the relay chain.
+	Reserved,
+	/// The relay chain has onboarded this para.
+	Registered {
+		/// Length of the para's current head data, so the destination prices the registration
+		/// the way it prices a fresh one.
+		head_len: u32,
+	},
+}
+
+/// One para, as it arrives from source chain that used to own the registry.
+///
+/// Carries no deposit. [`ReceiveMigratedParas::receive_para`] takes the reservation deposit,
+/// and for a registered para the registration deposit, from `manager` at the destination's own
+/// prices.
+///
+/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+/// is dropped.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
+pub struct MigratedPara<AccountId> {
+	/// The para id.
+	pub para_id: ParaId,
+	/// The account that reserved the para id and controls it.
+	pub manager: AccountId,
+	/// Where this para id sits in the registration flow.
+	pub state: MigratedParaState,
+	/// Whether the manager is locked out of controlling this para. `None` until the lock is set
+	/// for the first time, and read as unlocked.
+	pub locked: Option<bool>,
+}
+
+/// Takes migrated para ids into the pallet that owns registration on the destination.
+pub trait ReceiveMigratedParas<AccountId> {
+	/// Take one para, charging its deposits at this chain's prices.
+	///
+	/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+	/// gets dropped.
+	fn receive_para(para: MigratedPara<AccountId>) -> sp_runtime::DispatchResult;
+
+	/// Adopt the next free para id from the source chain.
+	fn receive_next_free_para_id(para_id: ParaId);
+}
+
+impl<AccountId> ReceiveMigratedParas<AccountId> for () {
+	fn receive_para(_: MigratedPara<AccountId>) -> sp_runtime::DispatchResult {
+		Err(sp_runtime::DispatchError::Unavailable)
+	}
+
+	fn receive_next_free_para_id(_: ParaId) {}
 }

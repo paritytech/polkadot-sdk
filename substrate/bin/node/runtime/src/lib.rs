@@ -74,7 +74,8 @@ use frame_support::{
 };
 use frame_system::{
 	limits::{BlockLength, BlockWeights},
-	EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy, EnsureWithSuccess,
+	EnsureAuthorized, EnsureRoot, EnsureRootWithSuccess, EnsureSigned, EnsureSignedBy,
+	EnsureWithSuccess,
 };
 pub use node_primitives::{AccountId, Signature};
 use node_primitives::{AccountIndex, Balance, BlockNumber, Hash, Moment, Nonce};
@@ -992,7 +993,7 @@ impl Convert<Balance, sp_core::U256> for BalanceToU256 {
 pub struct U256ToBalance;
 impl Convert<sp_core::U256, Balance> for U256ToBalance {
 	fn convert(n: sp_core::U256) -> Balance {
-		n.try_into().unwrap_or(Balance::max_value())
+		n.try_into().unwrap_or(Balance::MAX)
 	}
 }
 
@@ -1316,7 +1317,7 @@ parameter_types! {
 	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
 	pub const MaximumReasonLength: u32 = 300;
 	pub const MaxApprovals: u32 = 100;
-	pub const MaxBalance: Balance = Balance::max_value();
+	pub const MaxBalance: Balance = Balance::MAX;
 	pub const SpendPayoutPeriod: BlockNumber = 30 * DAYS;
 }
 
@@ -1584,6 +1585,10 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = ();
+	// A backstop on the buffer's size only: each log's weight is charged where it is emitted, so
+	// the block fills before the cap is reached. Nothing here mirrors balance changes, and the
+	// pallet's benchmarks fill the buffer past any cap, so the value is never reached.
+	type MaxOutsideFrameLogs = ConstU32<2048>;
 	type Deposit = ();
 }
 
@@ -1598,9 +1603,9 @@ impl pallet_sudo::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 	/// We prioritize im-online heartbeats over election solution submission.
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 	pub const MaxAuthorities: u32 = 1000;
 	pub const MaxKeys: u32 = 10_000;
 	pub const MaxPeerInHeartbeats: u32 = 10_000;
@@ -2284,7 +2289,9 @@ impl pallet_whitelist::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type WhitelistOrigin = EnsureRoot<AccountId>;
-	type DispatchWhitelistedOrigin = EnsureRoot<AccountId>;
+	// Opt into permissionless dispatch.
+	type DispatchWhitelistedOrigin =
+		EitherOfDiverse<EnsureRoot<AccountId>, EnsureAuthorized<AccountId>>;
 	type Preimages = Preimage;
 	type DeferredDispatchExpiration = ConstU32<{ 28 * DAYS }>;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
@@ -2480,6 +2487,34 @@ impl pallet_broker::Config for Runtime {
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+parameter_types! {
+	pub const OnDemandPalletId: PalletId = PalletId(*b"py/ondmd");
+}
+
+/// The size of the on-demand pool as seen by `pallet_on_demand_para`.
+///
+/// On a real Coretime chain this reflects the number of cores the Relay chain has assigned to the
+/// on-demand pool. This runtime has no Relay chain, so we report a fixed non-zero size.
+pub struct OnDemandPoolCapacity;
+impl pallet_on_demand_para::PoolCapacityProvider for OnDemandPoolCapacity {
+	fn pool_cores() -> u32 {
+		1
+	}
+}
+
+impl pallet_on_demand_para::Config for Runtime {
+	type WeightInfo = pallet_on_demand_para::weights::SubstrateWeight<Runtime>;
+	type Currency = Balances;
+	type AdminOrigin = EnsureRoot<AccountId>;
+	type RelayBlockNumberProvider = System;
+	type PoolCapacityProvider = OnDemandPoolCapacity;
+	type PricingProvider = pallet_on_demand_para::DefaultPricingProvider;
+	// Orders are dropped instead of being forwarded to a Relay chain.
+	type OrderQueue = ();
+	type MaxBatchSize = ConstU32<1000>;
+	type PalletId = OnDemandPalletId;
 }
 
 parameter_types! {
@@ -2703,6 +2738,13 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 	}
 
 	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(
+		_para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
 		Ok(())
 	}
 
@@ -3043,6 +3085,9 @@ mod runtime {
 
 	#[runtime::pallet_index(96)]
 	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
+
+	#[runtime::pallet_index(97)]
+	pub type OnDemand = pallet_on_demand_para::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3383,6 +3428,7 @@ mod benches {
 		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_offences, OffencesBench::<Runtime>]
+		[pallet_on_demand_para, OnDemand]
 		[pallet_oracle, Oracle]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
