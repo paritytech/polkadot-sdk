@@ -40,6 +40,7 @@ pub use frame_support::{
 	sp_runtime::{traits::Dispatchable, DispatchError, DispatchErrorWithPostInfo},
 	traits::{Contains, Get, IsInVec},
 };
+use sp_weights::constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND};
 pub use xcm::latest::{prelude::*, QueryId, Weight};
 pub use xcm_executor::{
 	traits::{
@@ -612,7 +613,7 @@ parameter_types! {
 	// 1_000_000_000_000 => 1 unit of asset for 1 unit of ref time weight.
 	// 1024 * 1024 => 1 unit of asset for 1 unit of proof size weight.
 	pub static WeightPrice: (AssetId, u128, u128) =
-		(From::from(Here), 1_000_000_000_000, 1024 * 1024);
+		(From::from(Here), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	pub static MaxInstructions: u32 = 100;
 }
 
