@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793278951396,
+  "lastUpdate": 1793287598707,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ca40ef596465ea4e37823da7da1f5e2cf329f913",
-          "message": "Asset Hub Westend: Monetary guard track (#11736)\n\n## Summary\n\nAdds a dedicated `MonetaryGuard` governance track for fast circuit\nbreaker activation for PSM on Asset Hub Westend.\n\n### Changes\n\n- Adds `MonetaryGuard` custom origin and governance track (ID 16)\n- Updates `EnsurePsmManager` origin mapping:\n  - Root -> Full (all PSM operations)\n  - MonetaryGuard -> Emergency (circuit breaker only)\n\n### Track parameters\n\n| Parameter | Value |\n|---|---|\n| max_deciding | 3 |\n| decision_deposit | 500 WND |\n| prepare_period | 20 min |\n| decision_period | 20 min |\n| confirm_period | 4 min |\n| min_enactment | 1 min |\n\nNOTE: the periods and deposits are low for testing purposes\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>",
-          "timestamp": "2026-04-14T08:18:33Z",
-          "tree_id": "5938f7329b5ab5955e1b77fd95149411d0073005",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ca40ef596465ea4e37823da7da1f5e2cf329f913"
-        },
-        "date": 1776159599689,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.07799999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038484560830000014,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08050186197199989,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08763660009399989,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a8da70b429098ecd804da5ea9fad05718ff6d0f",
+          "message": "asset-conversion: treat frozen or blocked pools as unusable (#13598)\n\nSince #12408 pool reserves are read with `balance`, so a frozen or\nblocked pool account is no longer treated as empty. A frozen pool became\none-way (you can sell into it but not buy out of it), and a blocked pool\nstill gets quoted even though the swap would fail.\n\nThis PR restores the old behavior. A pool that can't send one of its\nassets is rejected in both directions with a new `PoolUnavailable`\nerror, and quotes return `None` if the pool can't receive the input.\n\nShould land together with or before any release that includes #12408.\n\n---------\n\nCo-authored-by: joe petrowski <25483142+joepetrowski@users.noreply.github.com>",
+          "timestamp": "2026-10-29T13:47:35Z",
+          "tree_id": "aa5c89705c21dd14b120822abaeaa40cc253bb5d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a8da70b429098ecd804da5ea9fad05718ff6d0f"
+        },
+        "date": 1793287569687,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.12,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03833287185199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08463131889199989,
             "unit": "seconds"
           }
         ]
