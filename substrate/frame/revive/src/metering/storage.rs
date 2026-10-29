@@ -248,21 +248,17 @@ where
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	#[cfg(test)]
-	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
+	///
+	/// The child's EIP-150 peak tracking is initialized from `eip_150_rule`.
+	pub fn nested(
+		&self,
+		mut limit: Option<BalanceOf<T>>,
+		eip_150_rule: eip_150::Rule,
+	) -> RawMeter<T, E, Nested> {
 		if let (Some(new_limit), Some(old_limit)) = (limit, self.limit) {
 			limit = Some(new_limit.min(old_limit));
 		}
 
-		RawMeter { limit, ..Default::default() }
-	}
-
-	/// Like [`Self::nested`] but initializes EIP-150 peak tracking from the given rule.
-	pub fn nested_with_eip_150(
-		&self,
-		limit: Option<BalanceOf<T>>,
-		eip_150_rule: eip_150::Rule,
-	) -> RawMeter<T, E, Nested> {
 		RawMeter { limit, eip_150_peak: Eip150Peak::new(eip_150_rule), ..Default::default() }
 	}
 

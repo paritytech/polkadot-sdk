@@ -1400,10 +1400,7 @@ fn substrate_nesting_charges_works_with_eip_150() {
 	);
 }
 
-/// Proves that without ratio scaling, the deposit_limit set by a substrate call
-/// (WeightDeposit) is correctly enforced as a total budget across ethereum children.
-///
-/// Call chain: ethereum root → substrate (WeightDeposit) → ethereum children.
+/// Callees share their caller's deposit limit as one budget, not in proportion to their gas.
 #[test]
 fn ethereum_execution_substrate_deposit_limit_respected() {
 	use CallResources::{Ethereum, WeightDeposit};
@@ -1438,27 +1435,28 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 			let remaining_gas = parent.eth_gas_left().unwrap();
 			let child_gas = remaining_gas / 2;
 
-			// 3. First child uses 700 deposit (more than the ~500 ratio scaling would allow, but
+			// 3. First child uses 680 deposit (more than the ~500 ratio scaling would allow, but
 			//    within the total budget).
 			let mut child1 = parent
-				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Skip)
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Apply)
 				.unwrap();
 
-			child1.charge_deposit(&StorageDeposit::Charge(700)).unwrap();
+			child1.charge_deposit(&StorageDeposit::Charge(680)).unwrap();
 			parent.absorb_all_meters(child1, &ALICE, None);
 
-			assert_eq!(parent.deposit_left().unwrap(), 300);
+			assert_eq!(parent.deposit_left().unwrap(), 320);
 
-			// 4. Second child uses the remaining 300 deposit.
+			// 4. Second child can use 63/64 of the remaining 320 deposit.
 			let mut child2 = parent
-				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Skip)
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false }, eip_150::Rule::Apply)
 				.unwrap();
+			assert_eq!(child2.deposit_left().unwrap(), 315);
 
-			child2.charge_deposit(&StorageDeposit::Charge(300)).unwrap();
+			child2.charge_deposit(&StorageDeposit::Charge(315)).unwrap();
 			parent.absorb_all_meters(child2, &ALICE, None);
 
-			// Total deposit = 700 + 300 = 1000 = deposit_limit. Both calls succeeded.
-			assert_eq!(parent.deposit_left().unwrap(), 0);
+			// Total deposit = 680 + 315 = 995. The parent keeps 1/64 of what it had left.
+			assert_eq!(parent.deposit_left().unwrap(), 5);
 		});
 }
 
@@ -1522,6 +1520,52 @@ fn ethereum_execution_caller_keeps_deposit_under_deposit_limit() {
 		callee_meter.charge_deposit(&StorageDeposit::Charge(forwarded_deposit)).unwrap();
 		caller_meter.absorb_all_meters(callee_meter, &ALICE, None);
 		assert_eq!(caller_meter.deposit_left().unwrap(), retained_deposit);
+	});
+}
+
+/// A callee's deposit limit stays within its caller's limit, even after the caller got a refund.
+#[test]
+fn substrate_execution_caller_refund_does_not_raise_callee_deposit_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		let deposit_limit = 1_000;
+		let root_meter =
+			TransactionMeter::<Test>::new_from_limits(Weight::MAX, deposit_limit).unwrap();
+		let mut caller_meter =
+			root_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Skip).unwrap();
+		caller_meter.charge_deposit(&StorageDeposit::Refund(100)).unwrap();
+
+		let callee_meter =
+			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		assert_eq!(callee_meter.deposit_left().unwrap(), deposit_limit);
+	});
+}
+
+/// A callee's deposit limit stays within its caller's limit, even after the caller got a refund.
+#[test]
+fn ethereum_execution_caller_refund_does_not_raise_callee_deposit_limit() {
+	ExtBuilder::default().build().execute_with(|| {
+		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: Weight::MAX,
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap();
+		let deposit_limit = 1_000;
+		let mut caller_meter = root_meter
+			.new_nested(
+				&CallResources::WeightDeposit {
+					weight: Weight::from_parts(10_000, 0),
+					deposit_limit,
+				},
+				eip_150::Rule::Skip,
+			)
+			.unwrap();
+		caller_meter.charge_deposit(&StorageDeposit::Refund(100)).unwrap();
+
+		let callee_meter =
+			caller_meter.new_nested(&CallResources::NoLimits, eip_150::Rule::Apply).unwrap();
+		assert_eq!(callee_meter.deposit_left().unwrap(), deposit_limit);
 	});
 }
 

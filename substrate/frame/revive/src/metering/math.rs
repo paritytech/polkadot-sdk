@@ -366,7 +366,7 @@ pub mod substrate_execution {
 
 		Ok(FrameMeter::<T> {
 			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
-			deposit: meter.deposit.nested_with_eip_150(Some(nested_deposit_limit), eip_150_rule),
+			deposit: meter.deposit.nested(Some(nested_deposit_limit), eip_150_rule),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
@@ -622,7 +622,7 @@ pub mod ethereum_execution {
 
 		Ok(FrameMeter::<T> {
 			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
-			deposit: meter.deposit.nested_with_eip_150(nested_deposit_limit, eip_150_rule),
+			deposit: meter.deposit.nested(nested_deposit_limit, eip_150_rule),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
