@@ -23,10 +23,7 @@ mod proof_size_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
-use alloc::{
-	collections::{btree_set::BTreeSet, BTreeMap},
-	vec::Vec,
-};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode};
 use hash_db::Hasher;
 pub use offchain::OffchainOverlayedChanges;
@@ -237,8 +234,6 @@ struct StorageTransactionCache<H: Hasher> {
 	transaction_storage_root: H::Out,
 	/// The state version that was used to compute the transaction and the root.
 	state_version: StateVersion,
-	/// The root of every child trie with changes, keyed by its storage key.
-	child_roots: BTreeMap<StorageKey, H::Out>,
 }
 
 impl<H: Hasher> StorageTransactionCache<H> {
@@ -657,14 +652,12 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.values_mut()
 			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
 
-		let (root, transaction, child_roots) =
-			backend.full_storage_root_with_child_roots(delta, child_delta, state_version);
+		let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
 
 		self.storage_transaction_cache = Some(StorageTransactionCache {
 			transaction,
 			transaction_storage_root: root,
 			state_version,
-			child_roots,
 		});
 
 		(root, false)
@@ -723,17 +716,38 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let storage_key = child_info.storage_key();
 		let prefixed_storage_key = child_info.prefixed_storage_key();
 
-		if let Some(root) = self
-			.storage_transaction_cache
-			.as_ref()
-			.and_then(|cache| cache.child_roots.get(storage_key))
-		{
-			return Ok((*root, true));
+		if self.storage_transaction_cache.is_some() {
+			let root = self
+				.storage(prefixed_storage_key.as_slice())
+				.map(|v| Ok(v.map(|v| v.to_vec())))
+				.or_else(|| backend.storage(prefixed_storage_key.as_slice()).map(Some).transpose())
+				.transpose()?
+				.flatten()
+				.and_then(|k| Decode::decode(&mut &k[..]).ok())
+				// V1 is equivalent to V0 on empty root.
+				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H>>);
+
+			return Ok((root, true));
 		}
 
 		let root = if let Some((changes, info)) = self.child_changes_mut(storage_key) {
 			let delta = changes.map(|(k, v)| (k.as_ref(), v.value().map(AsRef::as_ref)));
-			backend.child_storage_root(info, delta, state_version).0
+			Some(backend.child_storage_root(info, delta, state_version))
+		} else {
+			None
+		};
+
+		let root = if let Some((root, is_empty, _)) = root {
+			// We store update in the overlay in order to be able to use
+			// 'self.storage_transaction' cache. This is brittle as it rely on Ext only querying
+			// the trie backend for storage root.
+			// A better design would be to manage 'child_storage_transaction' in a
+			// similar way as 'storage_transaction' but for each child trie.
+			self.set_storage(prefixed_storage_key.into_inner(), (!is_empty).then(|| root.encode()));
+
+			self.mark_dirty();
+
+			root
 		} else {
 			// empty overlay
 			let root = backend

@@ -23,7 +23,7 @@ use crate::{
 	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, DeltaKeyOp,
 	StorageCollection, StorageKey, StorageValue, UsageInfo,
 };
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::vec::Vec;
 use codec::Encode;
 use core::marker::PhantomData;
 use hash_db::Hasher;
@@ -377,27 +377,8 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord + Encode,
 	{
-		let (root, txs, _) =
-			self.full_storage_root_with_child_roots(delta, child_deltas, state_version);
-		(root, txs)
-	}
-
-	/// Like [`Self::full_storage_root`], but also returns the root of every child trie in
-	/// `child_deltas`, keyed by its storage key.
-	fn full_storage_root_with_child_roots<'a>(
-		&self,
-		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
-		child_deltas: impl Iterator<
-			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
-		>,
-		state_version: StateVersion,
-	) -> (H::Out, BackendTransaction<H>, BTreeMap<StorageKey, H::Out>)
-	where
-		H::Out: Ord + Encode,
-	{
 		let mut txs = BackendTransaction::with_hasher(RandomState::default());
 		let mut child_roots: Vec<_> = Default::default();
-		let mut child_roots_by_storage_key = BTreeMap::new();
 		// child first
 		for (child_info, child_delta) in child_deltas {
 			let (child_root, empty, child_txs) =
@@ -409,7 +390,6 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			} else {
 				child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
 			}
-			child_roots_by_storage_key.insert(child_info.storage_key().to_vec(), child_root);
 		}
 		let (root, parent_txs) = self.storage_root(
 			delta
@@ -419,7 +399,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		);
 		txs.consolidate(parent_txs);
 
-		(root, txs, child_roots_by_storage_key)
+		(root, txs)
 	}
 
 	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
