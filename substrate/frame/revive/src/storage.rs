@@ -445,10 +445,11 @@ impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
 	/// This returns an `Err` if a contract with the supplied `address` already exists
-	/// in storage.
+	/// in storage, or if the deposit rows of a previous contract at `address` are still queued
+	/// for cleanup ([`Error::PendingDepositCleanup`]).
 	///
 	/// The child trie id is a hash of `address`, `nonce` and the deletion queue insert counter.
-	/// `nonce` is hashed into the id, but its uniqueness comes from `address` and the insert
+	/// `nonce` is hashed into the id, but the id is unique because of `address` and the insert
 	/// counter alone.
 	pub fn new(
 		address: &H160,
@@ -842,10 +843,10 @@ pub struct DeletionQueueManager<T: Config> {
 	/// The counter is incremented after each insertion, wrapping on overflow.
 	///
 	/// [`ContractInfo::new`] mixes it into the child trie id of every new contract, so it must
-	/// never decrease or be reset.
+	/// never decrease or be reset, apart from wrapping.
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
-	/// The counter is incremented after each deletion.
+	/// The counter is incremented after each deletion, wrapping on overflow.
 	delete_counter: u32,
 
 	_phantom: PhantomData<T>,

@@ -1810,7 +1810,6 @@ fn call_ok(dest: H160, data: Vec<u8>) -> ExecReturnValue {
 }
 
 /// A storage slot of `RedeployChild`.
-#[derive(Clone, Copy)]
 enum Slot {
 	Value,
 	Other,
