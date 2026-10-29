@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793278328920,
+  "lastUpdate": 1793286240770,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -139103,6 +139103,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2616637406,
             "range": "± 17535263",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4a8da70b429098ecd804da5ea9fad05718ff6d0f",
+          "message": "asset-conversion: treat frozen or blocked pools as unusable (#13598)\n\nSince #12408 pool reserves are read with `balance`, so a frozen or\nblocked pool account is no longer treated as empty. A frozen pool became\none-way (you can sell into it but not buy out of it), and a blocked pool\nstill gets quoted even though the swap would fail.\n\nThis PR restores the old behavior. A pool that can't send one of its\nassets is rejected in both directions with a new `PoolUnavailable`\nerror, and quotes return `None` if the pool can't receive the input.\n\nShould land together with or before any release that includes #12408.\n\n---------\n\nCo-authored-by: joe petrowski <25483142+joepetrowski@users.noreply.github.com>",
+          "timestamp": "2026-10-29T13:47:35Z",
+          "tree_id": "aa5c89705c21dd14b120822abaeaa40cc253bb5d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4a8da70b429098ecd804da5ea9fad05718ff6d0f"
+        },
+        "date": 1793286207700,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19452731,
+            "range": "± 142018",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19702740,
+            "range": "± 184808",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21100751,
+            "range": "± 135915",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25450586,
+            "range": "± 83584",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57273763,
+            "range": "± 543266",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 343383396,
+            "range": "± 4969707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2561570215,
+            "range": "± 158474345",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16738865,
+            "range": "± 134217",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17004087,
+            "range": "± 91040",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17823241,
+            "range": "± 96428",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22036365,
+            "range": "± 66162",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59357037,
+            "range": "± 586804",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 344915489,
+            "range": "± 5001168",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2750027638,
+            "range": "± 23128484",
             "unit": "ns/iter"
           }
         ]
