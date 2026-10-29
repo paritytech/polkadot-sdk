@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793287491125,
+  "lastUpdate": 1793292276972,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b9447f0539360174e040ecf41d6213d98a2114cb",
-          "message": "Update ci-unified version in .github/env (#11711)\n\nforklift 0.16.0, fixed https://github.com/paritytech/forklift/issues/30\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-14T22:54:59Z",
-          "tree_id": "2d178ab11d1a3838e812111e0119b6d295f45447",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9447f0539360174e040ecf41d6213d98a2114cb"
-        },
-        "date": 1776212081923,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.0069544329133333325,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025448267333333337,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14156116248000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009925474519999979,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007452904433333332,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "769cd18a8e13a6c5c8ec05c70507aa10269a6919",
+          "message": "fixup! [HRMP] Extend InboundMessageId for horizontal messages (#12876) (#13602)\n\nDiscovered during\nhttps://github.com/paritytech/polkadot-sdk/pull/12489#discussion_r4346981885,\nthat some migrations where missed for people-westend and\nyet-another-parchains, so fix them to avoid corrupted state.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-29T15:12:38Z",
+          "tree_id": "6577115da3d4e6e28affd298aaba42aae779c016",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/769cd18a8e13a6c5c8ec05c70507aa10269a6919"
+        },
+        "date": 1793292249743,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007714319093333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010047056913333314,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02501280113333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14098429361333326,
             "unit": "seconds"
           }
         ]
