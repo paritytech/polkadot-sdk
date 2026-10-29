@@ -22,9 +22,9 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	AddressMapper, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit,
-	deposit_payment::Deposit as DepositBackend,
+	AddressMapper, BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, LOG_TARGET,
+	Pallet, StorageDeposit as Deposit,
+	deposit_payment::Deposit as _,
 	storage::{AccountInfo, ContractInfo},
 };
 use alloc::vec::Vec;
@@ -387,9 +387,12 @@ where
 	/// [`Self::execute_postponed_charges`]. Refunds are paid first so that the origin can pay
 	/// for the charges using the refunds.
 	///
-	/// A refund is paid only in part when the contract does not hold enough deposit to back it.
-	/// The unpaid part is added to the deposit consumed by this meter and returned, so that the
-	/// caller can enforce its limit before any charge is paid.
+	/// A refund can be released from the contract's hold only in part. It is bounded by the
+	/// deposit the contract holds above its base deposit, and the deposit backend may release
+	/// less than requested, for example when the origin is not entitled to the part held in a
+	/// particular currency. The part that was not released is added to the deposit consumed by
+	/// this meter and returned, so that the caller can enforce its limit before any charge is
+	/// paid.
 	pub fn execute_postponed_refunds(
 		&mut self,
 		origin: &Origin<T>,
@@ -443,7 +446,7 @@ where
 				unpaid = unpaid.saturating_add(refunded.saturating_sub(amount).charge_or_zero());
 			}
 		}
-		// Account for the refunds that were paid, not the ones that were requested.
+		// Account for the refunds that were released, not the ones that were requested.
 		if !unpaid.is_zero() {
 			self.total_deposit = self.total_deposit.saturating_add(&Deposit::Charge(unpaid));
 			self.recalulculate_max_charged();
@@ -584,26 +587,38 @@ impl<T: Config> Ext<T> for ReservingExt {
 			Deposit::Refund(value) => {
 				// The refund is derived from the item and byte deposits recorded in the contract
 				// info. Bound it by what the contract holds above its base deposit, so that the
-				// base deposit is only released when the contract is terminated.
+				// base deposit is only released when the contract is terminated. A contract
+				// instantiated by `Origin::Root` records a base deposit that was not placed on
+				// hold. Its refunds are bounded the same way, by the deposit held above the
+				// recorded base deposit.
 				//
 				// A refund is only recorded for a contract whose info was loaded during the call
 				// stack. That info is only removed by termination, and the charges of a
-				// terminated contract are never paid out. The info therefore exists here. Should
-				// it be missing anyway, refund nothing: without it the base deposit is unknown.
+				// terminated contract are never paid out. The info of a delegated EOA is written
+				// when its authorization is processed, before execution starts. The info
+				// therefore exists here. Should it be missing anyway, refund nothing: without it
+				// the base deposit is unknown.
 				let held = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, contract);
 				let refundable =
 					AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract))
 						.map(|info| held.saturating_sub(info.storage_base_deposit()))
 						.defensive_unwrap_or_default();
+				if value > refundable {
+					log::warn!(
+						target: LOG_TARGET,
+						"Storage deposit refund of contract {contract:?} bounded by the deposit \
+						 held above the base deposit: requested={value:?}, bounded={refundable:?}",
+					);
+				}
 				<Pallet<T>>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					contract,
 					exec_config.funds(origin),
 					value.min(refundable),
 				)?;
-				// A deposit backend may release less than requested, for example when the origin
-				// is not entitled to the part held in a particular currency. Report the amount
-				// that was actually released from the hold.
+				// The deposit backend may release less than requested, for example when the
+				// origin is not entitled to the part held in a particular currency. Report the
+				// amount that was released from the hold.
 				let released = held.saturating_sub(T::Deposit::total_on_hold(
 					HoldReason::StorageDepositReserve,
 					contract,
