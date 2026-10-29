@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793297860781,
+  "lastUpdate": 1793308989250,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -139427,6 +139427,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2796976396,
             "range": "± 28372849",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "luka.ciric2106@gmail.com",
+            "name": "Luka Ciric",
+            "username": "cirko33"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7047603f28d68aac24fff8016d0c908d79e2462e",
+          "message": "Registrar: Force Register (#13113)\n\nCloses #12861\n\n## What's added\n\n- Root-only `force_register` on the parachain registrar, replacing the\n`Unimplemented` stub. Comes with a benchmark, weights, unit tests and\nintegration tests.\n\n## Decisions\n\n- Any id works, the system range included, and it doesn't need to be\nreserved first.\n- The manager pays the normal deposits. The old `deposit` override is\ngone.\n- `NextFreeParaId` moves past a forced public id so `reserve` doesn't\nget stuck on it.\n- It reuses the existing `Register` message, so the relay chain needs no\nchanges.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-29T20:09:41Z",
+          "tree_id": "f43adaeb0dbab2a35787e24fcb720a019325b554",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7047603f28d68aac24fff8016d0c908d79e2462e"
+        },
+        "date": 1793308961553,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19632873,
+            "range": "± 93692",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19937884,
+            "range": "± 38104",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21460508,
+            "range": "± 68365",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25840583,
+            "range": "± 146930",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59668799,
+            "range": "± 1015414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 366078597,
+            "range": "± 3519978",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2709746357,
+            "range": "± 225910888",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17271917,
+            "range": "± 183347",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17450659,
+            "range": "± 133826",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17995650,
+            "range": "± 100187",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22707354,
+            "range": "± 145146",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62477887,
+            "range": "± 774035",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 361893273,
+            "range": "± 4199745",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2811930072,
+            "range": "± 32895982",
             "unit": "ns/iter"
           }
         ]
