@@ -115,7 +115,7 @@
 //! - Use [`StatementHandlerPrototype::build`] then [`StatementHandler::run`] to obtain a `Future`
 //!   that processes statements.
 
-mod affinity;
+pub mod affinity;
 mod outbox;
 mod v2dht;
 

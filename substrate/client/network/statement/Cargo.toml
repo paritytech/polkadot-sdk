@@ -60,3 +60,7 @@ required-features = ["test-helpers"]
 name = "peers_topology"
 harness = false
 required-features = ["test-helpers"]
+
+[[bench]]
+name = "affinity_filter"
+harness = false

@@ -149,7 +149,7 @@ pub struct AffinityFilter {
 
 impl AffinityFilter {
 	/// Create an empty filter sized for `expected_items` topics at the given false-positive rate.
-	pub(crate) fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
+	pub fn new(seed: u128, false_pos: f64, expected_items: usize) -> Self {
 		let bloom = BloomFilter::with_false_pos(false_pos)
 			.hasher(PortableBuildHasher::seeded(seed))
 			.expected_items(expected_items);
@@ -157,7 +157,7 @@ impl AffinityFilter {
 	}
 
 	/// Insert a topic into the bloom filter.
-	pub(crate) fn insert(&mut self, topic: &[u8; 32]) {
+	pub fn insert(&mut self, topic: &[u8; 32]) {
 		self.bloom.insert(topic);
 	}
 
@@ -165,7 +165,7 @@ impl AffinityFilter {
 	///
 	/// An empty topic set yields a filter that matches nothing, not everything;
 	/// use [`Self::match_all`] for the latter.
-	pub(crate) fn from_topics<'a>(
+	pub fn from_topics<'a>(
 		topics: impl Iterator<Item = &'a [u8; 32]>,
 		seed: u128,
 		false_pos: f64,
@@ -180,15 +180,30 @@ impl AffinityFilter {
 	}
 
 	/// Build a filter that matches every topic, for a node that wants the full statement stream.
-	pub(crate) fn match_all(seed: u128) -> Self {
+	pub fn match_all(seed: u128) -> Self {
 		let bloom = BloomFilter::from_vec(vec![u64::MAX; 16])
 			.hasher(PortableBuildHasher::seeded(seed))
 			.hashes(1);
 		AffinityFilter { bloom, seed }
 	}
 
+	pub fn from_raw_parts(seed: u128, num_hashes: u32, bits: Vec<u64>) -> Self {
+		let bloom = BloomFilter::from_vec(bits)
+			.hasher(PortableBuildHasher::seeded(seed))
+			.hashes(num_hashes);
+		AffinityFilter { bloom, seed }
+	}
+
+	pub fn num_hashes(&self) -> u32 {
+		self.bloom.num_hashes()
+	}
+
+	pub fn bits(&self) -> &[u64] {
+		self.bloom.as_slice()
+	}
+
 	/// Check if a topic is likely present in the bloom filter.
-	pub(crate) fn contains(&self, topic: &[u8; 32]) -> bool {
+	pub fn contains(&self, topic: &[u8; 32]) -> bool {
 		self.bloom.contains(topic)
 	}
 
@@ -196,7 +211,7 @@ impl AffinityFilter {
 	///
 	/// A statement matches if any of its topics is present in the bloom filter.
 	/// Statements with no topics always match (they are broadcast statements).
-	pub(crate) fn matches_statement(&self, statement: &Statement) -> bool {
+	pub fn matches_statement(&self, statement: &Statement) -> bool {
 		let topics = statement.topics();
 		if topics.is_empty() {
 			return true;
