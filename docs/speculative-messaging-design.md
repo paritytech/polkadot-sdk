@@ -17,7 +17,7 @@ re-reading the listed sections.
 
 | Version | Changes |
 |---------|---------|
-| 0.6 | Hardening and simplification, driven by implementation review. **Security fix**: stream roots now bind their leaf count, closing a position-forgery attack ([#12659 review](https://github.com/paritytech/polkadot-sdk/pull/12659#discussion_r4285793338)). **Channel layer redesigned** for simplicity: sessions with receiver-advertised version negotiation, two signals, a draining close, sender-side flow control instead of a receiver window, delivery by enqueueing. **Fetch protocol unified**: one request pair serves every read, head reads included; one serving obligation replaces three rules. **Made implementable**: receiver state and the messaging inherent restructured around typed ids and the runtime's own inherent filtering; relay matching and lifting clarified (group enactment, root choice); proof sizes measured and bounded by type. The 0.5 architecture is unchanged. **Re-read**: Channels and Flow Control, Fetch Protocol, Liftability and Proof Size Bounds entirely; elsewhere The Stream Commitment Tree, Candidate Commitments, Parachain Runtime State, Runtime API, Messaging Inherent, Verification, Relay Chain Matching, Requires Lifting, Event Streams, Cycle Handling, Establishing Trust, Implementation Considerations. |
+| 0.6 | Hardening and simplification, driven by implementation review. **Security fix**: stream roots now bind their leaf count, closing a position-forgery attack ([#12659 review](https://github.com/paritytech/polkadot-sdk/pull/12659#discussion_r4285793338)). **Channel layer redesigned** for simplicity: sessions with receiver-advertised version negotiation, two signals, a draining close, sender-side flow control instead of a receiver window, delivery by enqueueing. **Fetch protocol unified**: one request pair serves every read, head reads included; one serving obligation replaces three rules. **Made implementable**: receiver state and the messaging inherent restructured around typed ids and the runtime's own inherent filtering; relay matching and lifting clarified (group enactment, root choice); proof sizes measured and bounded by type. The 0.5 architecture is unchanged. **Re-read**: Channels and Flow Control, Fetch Protocol, Liftability and Proof Size Bounds entirely; elsewhere The Stream Commitment Tree, Candidate Commitments, Parachain Runtime State, Runtime API, Messaging Inherent, Verification, Relay Chain Matching, Requires Lifting, Leaf Hashing, Event Streams, Archive Pruning, Cycle Handling, Establishing Trust, Implementation Considerations, Security Analysis (new Position Forgery threat). |
 | 0.5 | Root-hash-only commitments return (reverting 0.3's flat sets, as its own analysis [PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449) anticipated): relay state is a fixed-size ring of recent `StreamsRoot`s per sender; the structured `StreamId` replaces the plain destination `ParaId`; channels become unidirectional with flow control via a lossy per-channel register (acceptance, advisory credit, watermark, close); lossy broadcast streams (pub-sub). **Requires handling unified into one code path for all scenarios** (steady state, partial consumption, resubmission, bundles): blocks emit no `Requires` and never see a `StreamsRoot`—they record per touched stream an interval (consumption start/end), the validate_block wrapper stitches the intervals across the bundle (gaps advance-proven forward) and synthesizes the candidate's entries via one POV-carried lift per stream, binding the chain's endpoint; 0.3's in-block catch-up proofs and separate late-block proofs are gone. Authoring always targets the newest root at its tier; the relay window is pipeline slack only. Fetch protocol reduced to two root-keyed request pairs, every response independently verifiable against a requester-named root. Lift-serving obligations bounded at 25 h, mirroring availability retention. **Full rewrite—re-read the Detailed Design entirely**, plus Trust Domains (the tier table). |
 | 0.4 | The provides commitment is additionally deposited as a header digest, so batches verify against a header alone; consumption tiers formalized (speculative / optimistic / inclusion). Verification of unincluded sender blocks factored out into [Off-Chain Block Verification](offchain-block-verification-design.md). **Read**: Off-Chain Verification. |
 | 0.3 | Top-level Merkle commitment replaced by flat per-destination `(ParaId, root)` sets (superseded in 0.5). Requires semantics made explicit (consumed = *prefix* of the required root); in-block catch-up proofs and POV late block proofs cleanly separated; per-pair `RecentRoots` window with virtual extension and atomic enactment dependencies; frontier-only parachain state; leaf hashing with domain tags and version byte; position-addressed networking; security analysis (ParaId reuse, replay). **Largely a full rewrite of the detailed design.** |
@@ -731,12 +731,13 @@ The tree removes the entire per-stream relay footprint at once: provides is
 32 B regardless of stream count, requires is bounded by the number of
 *parachains*, and how many streams a chain runs is nobody's business but
 its own—**outbound streams are effectively unbounded and free**.
-What we pay, honestly: receivers carry ~300 B of inclusion proofs
-per source per consuming block, lifts regain an inclusion
+What we pay, honestly: receivers carry ~300–500 B of tree proof per
+consumed stream per consuming block, lifts regain an inclusion
 component, consumers poll on the p2p side (one opaque root: a receiver
 cannot tell whether its stream moved, so each new root costs one
 up-to-dateness request per consumed sender—cheap, the empty response is
-a ~300 B verifiable "nothing new", see
+a verifiable "nothing new" of well under a kilobyte (tree proof plus
+frontier), see
 [Fetch Protocol](#fetch-protocol)), and proof-free lag tolerance
 denominates in sender blocks rather
 than per-stream changes (see
@@ -1041,8 +1042,10 @@ the block is initialized (`frame_system`'s execution phase is unset until
 then: `SendError::NotInitialized`). Upgrade code that needs to send, such
 as a migration closing channels or the post-upgrade Hello check, sets a
 transient flag instead. The messaging pallet's `on_initialize` then does
-the work right after the fold. The Hello check is one pass over
-`OutChannels` per upgrade.
+the work right after the fold. The Hello check runs only if
+`SupportedVersions` changed, as a multi-block pass over `OutChannels`
+with a stored cursor and a per-block bound, so the upgrade block's
+weight doesn't grow with the number of channels.
 
 ```
 Block N init:      append block N−1's OutboundMessages to frontiers,
@@ -1095,10 +1098,11 @@ fn max_touched_streams() -> u32;
 /// the node picks one root per source; it groups entries by the chain
 /// each id names (`sender`, or `recipient` for registers).
 struct ConsumedStreams {
-    /// Inbound channels to consume, cursor = the frontier's leaf count,
-    /// per the watching rule (see Channels: State). The omission is how
-    /// the own collators learn to stop fetching.
-    channels: BTreeMap<InChannelId, MessagePosition>,
+    /// Inbound channels to consume, per the watching rule (see Channels:
+    /// State), with the stored frontier: its leaf count is the cursor,
+    /// and fetch responses must match it (see Verification). The omission
+    /// is how the own collators learn to stop fetching.
+    channels: BTreeMap<InChannelId, MmrFrontier>,
     /// Outbound channels whose recipient's register should be read: those
     /// we want open (see Channels: State).
     ///
@@ -1500,7 +1504,7 @@ root".
 | Use | `start` | `max_bytes` |
 |---|---|---|
 | Channel consumption | `Some(cursor)` | budget |
-| Register or event read (the newest) | `None` | at least the sender's `MaxMsgLen` |
+| Register or event read (the newest) | `None` | enough for one message; if too small, the response proves the position only and the requester asks again with `Some(position)` |
 | Gap leaves for a skip proof (see Liftability) | `Some(previous read's end)` | budget |
 | Event range read | `Some(highwater + 1)` | budget |
 | Lift material, including resubmission | `Some(endpoint)` | 0 |
@@ -1520,8 +1524,9 @@ happens in the PVF, see
 authenticates every response it accepts, node-side. Nothing on the wire
 is taken on faith:
 
-1. Pick the starting frontier. For a channel it is the tracked frontier,
-   and the response's `frontier` must equal it. For a lossy read it is
+1. Pick the starting frontier. For a channel it is the stored frontier
+   from `consumed_streams()`, and the response's `frontier` must equal
+   it. For a lossy read it is
    the response's `frontier`.
 2. Hash each payload into its leaf (`H(LEAF_TAG ‖ version ‖ payload)`)
    and append it, in order. Order and count need no separate check: any
@@ -1579,8 +1584,8 @@ leaf preimage:
 The preimage is **transient**: assembled, hashed into the leaf, discarded. It
 is never stored and never sent. What exists anywhere is the bare `payload`
 (sender storage, wire responses, archives) and hashes (frontiers, proofs). Every
-hasher reconstructs the preimage itself: tag is a constant, version a
-trust-free hint, payload the message.
+hasher reconstructs the preimage itself: tag is a constant, version fixed
+per stream (see below), payload the message.
 
 Every preimage byte has an arguable purpose—and nothing else is included (see
 "What is deliberately NOT in the preimage" below):
@@ -1841,7 +1846,8 @@ relay entries, a quiet stream's stored root never moved, so a receiver *behind*
 on it matched proof-free after any lag. Under the single `StreamsRoot`, a
 receiver behind on a stream carries a lift in its candidate's POV: one
 extension proof and one tree proof, regenerated at every submission. A
-lift is typically under a kilobyte and at most ~3.7 KB, however far
+lift is typically under a kilobyte and at most ~3.7 KB, plus one skip
+proof per skip within the bundle (typically under 200 B), however far
 behind the receiver is. In exchange relay state is
 independent of stream count, and the per-stream permanence/budget/eviction rules
 that per-stream entries would force on the relay chain disappear wholesale.
@@ -2187,8 +2193,9 @@ long, S being the source's stream count:
 | ≈ 200 | ≤ 12 | ≈ 400 B |
 | ≈ 2000 | ≤ 15 | ≈ 500 B |
 
-That is per source and consuming block; streams of one source share the
-upper path. This is the recurring price of the constant-size commitment.
+That is per consumed stream and consuming block. Sharing the upper path
+between streams of one source is an optional optimization (see The
+Stream Commitment Tree). This is the recurring price of the constant-size commitment.
 It rides in the PoV, not on the relay chain, and the original
 flat-vs-hierarchical analysis
 ([PR #10449](https://github.com/paritytech/polkadot-sdk/pull/10449))
@@ -2387,7 +2394,7 @@ fn close_inbound(sender: ParaId, domain: u8, num: u16) -> Result<(), ChannelErro
 
 enum SendError {
     NotOpen,        // send only: the channel is not open (Channels: Lifecycle)
-    TooLarge,       // payload > MaxMsgLen, or (send) > the session's max_message_size
+    TooLarge,       // encoded leaf payload > MaxMsgLen, or (send) > the session's max_message_size
     InFlightLimit,  // send only: the in-flight gate (Flow Control)
     BlockFull,      // publish only: MaxMessagesPerBlock reached
     NotInitialized, // called before block initialization (in on_runtime_upgrade)
@@ -3375,7 +3382,7 @@ dependency on that block:
 - If Chain A is delayed long enough, Chain B's availability will time out and B
   must be resubmitted
 - When both are resubmitted (likely around the same time), they'll typically
-  arrive together—no lift needed
+  arrive together—no extension needed, only bare tree-proof lifts
 
 ### Mitigation Strategies
 
@@ -3388,8 +3395,8 @@ Limit trust domains to a reasonable size (e.g., 5-10 chains). This bounds the
 
 If Chain A is censored long enough that Chain B's availability times out, Chain
 B simply resubmits. Since both chains are likely resubmitting around the same
-time, they'll typically be included together without needing lifts,
-although they are available if necessary, adding robustness.
+time, they'll typically be included together with bare tree-proof lifts,
+and extensions are available if necessary, adding robustness.
 
 #### 3. On-Demand Parachains
 
