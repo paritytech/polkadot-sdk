@@ -20,6 +20,7 @@
 use super::*;
 
 use crate::{Pallet as OnDemand, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP};
+use fp_coretime::revenue::OnDemandRevenue;
 use frame_benchmarking::v2::*;
 use frame_support::{
 	pallet_prelude::*,
@@ -58,6 +59,22 @@ mod benches {
 	}
 
 	#[benchmark]
+	fn enable() -> Result<(), BenchmarkError> {
+		let origin =
+			T::AdminOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		// Measure actually enabling on-demand Coretime, rather than the call doing nothing.
+		Enabled::<T>::kill();
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin);
+
+		assert!(Enabled::<T>::get());
+
+		Ok(())
+	}
+
+	#[benchmark]
 	fn place_order() -> Result<(), BenchmarkError> {
 		let current_block = BlockNumberFor::<T>::from(1u32);
 		System::<T>::set_block_number(current_block);
@@ -71,6 +88,10 @@ mod benches {
 		);
 		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		// Orders can only be placed while the pool has some cores
+		T::PoolCapacityProvider::ensure_pool_cores(1);
+		// Orders can only be placed while on-demand Coretime is sold
+		Enabled::<T>::put(true);
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
 
@@ -133,6 +154,10 @@ mod benches {
 		);
 		// Store minimum balance in the pallet's account, so that small transfers to it don't fail
 		T::Currency::set_balance(&OnDemand::<T>::account_id(), T::Currency::minimum_balance());
+		// Orders can only be placed while the pool has some cores
+		T::PoolCapacityProvider::ensure_pool_cores(1);
+		// Orders can only be placed while on-demand Coretime is sold
+		Enabled::<T>::put(true);
 
 		// Pre-populate InflightTransactions with n transactions of fixed size
 		if n > 0 {
@@ -149,11 +174,55 @@ mod benches {
 			}
 		}
 
+		// Measure sending the batch, not failing to send it
+		T::OrderQueue::ensure_successful_delivery();
+
 		#[block]
 		{
 			// Measure only the finalization cost with n transactions of fixed size
 			let _ = OnDemand::<T>::on_finalize(current_block);
 		}
+
+		Ok(())
+	}
+
+	/// Benchmark claiming the revenue accumulated from on-demand sales of `n` timeslices.
+	///
+	/// The revenue history is always full, so the timeslices which are not claimed are still read
+	/// and written back.
+	#[benchmark]
+	fn claim_revenue(
+		n: Linear<0, { T::MaxUnclaimedTimeslices::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let timeslices = T::MaxUnclaimedTimeslices::get();
+		let per_timeslice = BalanceOf::<T>::from(DEFAULT_BASE_FEE);
+		let total = per_timeslice.saturating_mul(timeslices.into());
+		let claimed = per_timeslice.saturating_mul(n.into());
+
+		// The pot holds the accumulated revenue on top of its existential deposit.
+		T::Currency::set_balance(
+			&OnDemand::<T>::account_id(),
+			T::Currency::minimum_balance().saturating_add(total),
+		);
+		let beneficiary: T::AccountId = account("beneficiary", 0, 0);
+		T::Currency::set_balance(&beneficiary, T::Currency::minimum_balance());
+
+		// Timeslices `1..=timeslices`, newest first, of which `1..=n` are claimed.
+		let revenue: Vec<RevenueRecordOf<T>> = (1..=timeslices)
+			.rev()
+			.map(|when| RevenueRecord { when, amount: per_timeslice })
+			.collect();
+		Revenue::<T>::put(
+			BoundedVec::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
+		);
+
+		#[block]
+		{
+			<OnDemand<T> as OnDemandRevenue<_, _>>::claim_revenue(n, &beneficiary);
+		}
+
+		assert_eq!(Revenue::<T>::get().len() as u32, timeslices - n);
+		assert_eq!(T::Currency::balance(&beneficiary), T::Currency::minimum_balance() + claimed);
 
 		Ok(())
 	}

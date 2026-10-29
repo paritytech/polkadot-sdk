@@ -22,7 +22,7 @@ use crate::{
 	DEFAULT_ORDER_CAP, DEFAULT_PRICE_STEP,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use fp_coretime::TaskId;
+use fp_coretime::{TaskId, Timeslice};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Inspect, tokens::Balance},
@@ -95,6 +95,19 @@ pub struct EnqueuedOrder<RelayBlockNumber> {
 	pub ordered_at: RelayBlockNumber,
 }
 
+/// Unclaimed revenue from the on-demand orders placed during one timeslice.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
+pub struct RevenueRecord<Balance> {
+	/// The timeslice the orders were placed in.
+	pub when: Timeslice,
+	/// The revenue from the orders placed in `when`.
+	pub amount: Balance,
+}
+
+pub type RevenueRecordOf<T> = RevenueRecord<BalanceOf<T>>;
+
 /// The locally tracked, estimated state of the Relay chain's on-demand order queue.
 #[derive(
 	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
@@ -112,6 +125,12 @@ pub type QueueTrackerOf<T> = QueueTracker<RelayBlockNumberOf<T>>;
 pub trait PoolCapacityProvider {
 	/// Returns how many cores are dedicated to the on-demand pool.
 	fn pool_cores() -> u32;
+
+	/// Make sure that [`Self::pool_cores`] returns at least `cores`.
+	///
+	/// Used to set up the benchmarks, which need a non-empty pool to place orders in.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn ensure_pool_cores(cores: u32);
 }
 
 /// Type for determining the prices of on-demand orders
