@@ -891,6 +891,8 @@ mod dry_run {
 				.data(data.clone())
 				.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
 				.build();
+			let output = dry_run.result.as_ref().expect("the dry run succeeds");
+			assert!(!output.did_revert(), "a reverted dry run gives a wrong estimate");
 
 			assert_ok!(
 				builder::call(addr)
