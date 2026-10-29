@@ -78,6 +78,28 @@ impl SendToPara for () {
 	}
 }
 
+/// Where the releases waiting in [`Outbox`] sit, oldest first: from `head` up to, not including,
+/// `tail`.
+#[derive(Encode, Decode, Clone, Copy, Default, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct OutboxWindow {
+	/// The index of the oldest waiting release.
+	pub head: u64,
+	/// The index the next release takes.
+	pub tail: u64,
+}
+
+impl OutboxWindow {
+	/// Whether no release waits.
+	pub fn is_empty(&self) -> bool {
+		self.head == self.tail
+	}
+
+	/// How many releases wait.
+	pub fn len(&self) -> u64 {
+		self.tail.wrapping_sub(self.head)
+	}
+}
+
 /// Prepares the runtime for this pallet's benchmarks.
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelper {
@@ -111,10 +133,6 @@ pub mod pallet {
 		/// Sends messages to the parachain that holds the deposits.
 		type SendToPara: SendToPara;
 
-		/// How many releases may wait in [`Outbox`] for the transport.
-		#[pallet::constant]
-		type MaxOutbox: Get<u32>;
-
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
 
@@ -140,10 +158,16 @@ pub mod pallet {
 	pub type PendingSides<T: Config> =
 		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), u64, OptionQuery>;
 
-	/// Releases the transport did not take yet, oldest first.
+	/// Releases the transport did not take yet, by their index in [`OutboxBounds`].
+	///
+	/// Not bounded: it only grows while the transport refuses messages, and then no request can
+	/// take a new deposit. Each release stands for a deposit the parachain still holds.
 	#[pallet::storage]
-	pub type Outbox<T: Config> =
-		StorageValue<_, BoundedVec<MessageToPara, T::MaxOutbox>, ValueQuery>;
+	pub type Outbox<T: Config> = StorageMap<_, Twox64Concat, u64, MessageToPara, OptionQuery>;
+
+	/// Where the releases waiting in [`Outbox`] sit.
+	#[pallet::storage]
+	pub type OutboxBounds<T: Config> = StorageValue<_, OutboxWindow, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -156,8 +180,6 @@ pub mod pallet {
 		UnknownAnswer { id: u64 },
 		/// The parachain was asked to release deposits of a channel.
 		ReleaseSent { channel: ChannelId },
-		/// A release could not be sent nor kept, and was dropped.
-		ReleaseDropped { channel: ChannelId },
 	}
 
 	#[pallet::error]
@@ -278,51 +300,74 @@ impl<T: Config> Pallet<T> {
 		if meter.try_consume(T::WeightInfo::flush_outbox(0)).is_err() {
 			return;
 		}
-		let mut outbox = Outbox::<T>::get();
-		let mut sent = 0usize;
-		for (n, message) in (1..).zip(outbox.iter()) {
+		let mut window = OutboxBounds::<T>::get();
+		let head = window.head;
+		for n in 1.. {
+			if window.is_empty() {
+				break;
+			}
 			// What the `n`th message adds to the flush.
 			let weight =
 				T::WeightInfo::flush_outbox(n).saturating_sub(T::WeightInfo::flush_outbox(n - 1));
 			if meter.try_consume(weight).is_err() {
 				break;
 			}
+			let Some(message) = Outbox::<T>::get(window.head) else {
+				frame_support::defensive!("hrmp-relay: no release in the outbox window");
+				window.head = window.head.wrapping_add(1);
+				continue;
+			};
 			if T::SendToPara::send(message.clone()).is_err() {
 				break;
 			}
 			// Only releases wait in the outbox.
 			if let MessageToPara::V1(MessageToParaV1::Release { channel, .. }) = message {
-				Self::deposit_event(Event::ReleaseSent { channel: *channel });
+				Self::deposit_event(Event::ReleaseSent { channel });
 			}
-			sent += 1;
+			Outbox::<T>::remove(window.head);
+			window.head = window.head.wrapping_add(1);
 		}
-		if sent > 0 {
-			outbox.drain(..sent);
-			Outbox::<T>::put(outbox);
+		if window.head != head {
+			OutboxBounds::<T>::put(window);
 		}
 	}
 
 	/// Whether nothing waits in [`Outbox`].
 	fn outbox_is_empty() -> bool {
-		Outbox::<T>::decode_len().unwrap_or_default() == 0
+		OutboxBounds::<T>::get().is_empty()
 	}
 
 	/// Sends a release, or keeps it in [`Outbox`] after anything already waiting there.
 	fn release(channel: ChannelId, sender: bool, recipient: bool) {
 		let message = MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient });
-		if Self::outbox_is_empty() && T::SendToPara::send(message.clone()).is_ok() {
+		let mut window = OutboxBounds::<T>::get();
+		if window.is_empty() && T::SendToPara::send(message.clone()).is_ok() {
 			Self::deposit_event(Event::ReleaseSent { channel });
 			return;
 		}
-		if Outbox::<T>::try_append(message).is_err() {
-			log::error!(target: LOG_TARGET, "outbox full, dropped the release of {channel:?}");
-			Self::deposit_event(Event::ReleaseDropped { channel });
-		}
+		log::warn!(target: LOG_TARGET, "kept the release of {channel:?} in the outbox");
+		Outbox::<T>::insert(window.tail, message);
+		window.tail = window.tail.wrapping_add(1);
+		OutboxBounds::<T>::put(window);
 	}
 
-	/// Checks that the pending requests and the sides they lock agree.
+	/// Checks that the pending requests and the sides they lock agree, and that the outbox holds
+	/// exactly the releases of its window.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		let window = OutboxBounds::<T>::get();
+		ensure!(
+			Outbox::<T>::iter_keys().count() as u64 == window.len(),
+			"hrmp-relay: the outbox holds releases outside its window"
+		);
+		let mut index = window.head;
+		while index != window.tail {
+			ensure!(
+				Outbox::<T>::contains_key(index),
+				"hrmp-relay: a release is missing from the outbox window"
+			);
+			index = index.wrapping_add(1);
+		}
 		for ((channel, side), id) in PendingSides::<T>::iter() {
 			let request = PendingRequests::<T>::get(id)
 				.ok_or("hrmp-relay: a side is locked by no pending request")?;

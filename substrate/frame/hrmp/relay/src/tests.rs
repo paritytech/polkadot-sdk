@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, Call, Error, Event, Outbox, PendingRequests, PendingSides, WeightInfo,
+	mock::*, Call, Error, Event, Outbox, OutboxBounds, PendingRequests, PendingSides, WeightInfo,
 	RECEIVE_CALL_INDEX,
 };
 use frame_support::{
@@ -123,6 +123,12 @@ fn queue_release(channel: (u32, u32)) {
 
 fn poll() {
 	HrmpRelay::on_poll(1, &mut WeightMeter::new());
+}
+
+/// The releases waiting in the outbox, oldest first.
+fn outbox() -> Vec<MessageToPara> {
+	let window = OutboxBounds::<Test>::get();
+	(window.head..window.tail).map(|i| Outbox::<Test>::get(i).unwrap()).collect()
 }
 
 /// The chain that holds the deposits encodes `receive` with [`RECEIVE_CALL_INDEX`].
@@ -291,7 +297,7 @@ fn release_ignores_pending_side() {
 fn release_queued_on_send_failure() {
 	new_test_ext(|| {
 		queue_release((1, 2));
-		assert_eq!(Outbox::<Test>::get().into_inner(), vec![release_message((1, 2))]);
+		assert_eq!(outbox(), vec![release_message((1, 2))]);
 		assert!(sent().is_empty());
 		assert!(events().is_empty());
 	});
@@ -304,26 +310,44 @@ fn release_queued_behind_outbox() {
 		queue_release((1, 2));
 		assert_ok!(try_set(release_request((3, 4))));
 		assert!(sent().is_empty());
-		assert_eq!(
-			Outbox::<Test>::get().into_inner(),
-			vec![release_message((1, 2)), release_message((3, 4))]
-		);
+		assert_eq!(outbox(), vec![release_message((1, 2)), release_message((3, 4))]);
 	});
 }
 
-/// A release that finds the outbox full is dropped, and still reported as applied.
+/// The outbox has no limit: no release is ever dropped, and all are sent once the transport
+/// takes them again.
 #[test]
-fn release_dropped_when_outbox_full() {
+fn release_never_dropped() {
 	new_test_ext(|| {
-		for sender in 0..4 {
-			queue_release((sender, 10));
+		let channels: Vec<_> = (0..1_000).map(|sender| (sender, 10_000)).collect();
+		for &channel in &channels {
+			queue_release(channel);
 		}
-		events();
+		assert!(events().is_empty());
+		assert_eq!(outbox().len(), channels.len());
 
-		ACCEPT.set(Some(0));
-		assert_eq!(try_set(release_request((5, 10))), Ok(DepositChangeResponse::Applied));
-		assert_eq!(events(), vec![Event::ReleaseDropped { channel: wire(5, 10) }]);
-		assert_eq!(Outbox::<Test>::decode_len(), Some(4));
+		poll();
+		assert_eq!(sent(), channels.iter().copied().map(release_message).collect::<Vec<_>>());
+		assert!(outbox().is_empty());
+	});
+}
+
+/// The outbox keeps its order once its window has moved on.
+#[test]
+fn outbox_reused_after_flush() {
+	new_test_ext(|| {
+		queue_release((1, 2));
+		queue_release((3, 4));
+		poll();
+		sent();
+		assert_eq!(OutboxBounds::<Test>::get().head, 2);
+
+		queue_release((5, 6));
+		queue_release((7, 8));
+		assert_eq!(outbox(), vec![release_message((5, 6)), release_message((7, 8))]);
+		poll();
+		assert_eq!(sent(), vec![release_message((5, 6)), release_message((7, 8))]);
+		assert_eq!(Outbox::<Test>::iter_keys().count(), 0);
 	});
 }
 
@@ -344,7 +368,7 @@ fn poll_sends_in_order() {
 			events(),
 			channels.map(|(s, r)| Event::ReleaseSent { channel: wire(s, r) }).to_vec()
 		);
-		assert!(Outbox::<Test>::get().is_empty());
+		assert!(outbox().is_empty());
 	});
 }
 
@@ -358,10 +382,7 @@ fn poll_stops_at_first_failure() {
 		ACCEPT.set(Some(1));
 		poll();
 		assert_eq!(sent(), vec![release_message((0, 10))]);
-		assert_eq!(
-			Outbox::<Test>::get().into_inner(),
-			vec![release_message((1, 10)), release_message((2, 10))]
-		);
+		assert_eq!(outbox(), vec![release_message((1, 10)), release_message((2, 10))]);
 
 		// It goes on in a later block.
 		ACCEPT.set(None);
@@ -392,7 +413,7 @@ fn poll_respects_weight_meter() {
 		HrmpRelay::on_poll(1, &mut meter);
 		assert_eq!(meter.consumed(), <() as WeightInfo>::flush_outbox(1));
 		assert_eq!(sent(), vec![release_message((0, 10))]);
-		assert_eq!(Outbox::<Test>::decode_len(), Some(2));
+		assert_eq!(outbox().len(), 2);
 	});
 }
 

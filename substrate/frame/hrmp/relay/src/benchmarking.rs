@@ -18,7 +18,6 @@
 //! Benchmarks for `pallet-hrmp-relay`.
 
 use super::*;
-use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use polkadot_runtime_parachains::hrmp::deposits::DepositChange;
 
@@ -76,28 +75,29 @@ mod benchmarks {
 		assert_eq!(response, Ok(DepositChangeResponse::Pending));
 	}
 
-	/// `n` releases waiting in the outbox, all sent.
+	/// `n` releases waiting in the outbox, all sent. The outbox is not bounded: the cost is linear
+	/// in `n`, so the range only needs to be wide enough to fit it.
 	#[benchmark]
-	fn flush_outbox(n: Linear<0, { T::MaxOutbox::get() }>) {
+	fn flush_outbox(n: Linear<0, 100>) {
 		T::BenchmarkHelper::ensure_send_to_para();
-		let outbox: Vec<_> = (0..n)
-			.map(|i| {
-				let channel = ChannelId { sender: i, recipient: i + 1 };
-				MessageToPara::V1(MessageToParaV1::Release {
-					channel,
-					sender: true,
-					recipient: true,
-				})
-			})
-			.collect();
-		Outbox::<T>::put(BoundedVec::try_from(outbox).expect("at most `MaxOutbox`; qed"));
+		for i in 0..n {
+			let channel = ChannelId { sender: i, recipient: i + 1 };
+			let message = MessageToPara::V1(MessageToParaV1::Release {
+				channel,
+				sender: true,
+				recipient: true,
+			});
+			Outbox::<T>::insert(u64::from(i), message);
+		}
+		OutboxBounds::<T>::put(OutboxWindow { head: 0, tail: n.into() });
 
 		#[block]
 		{
 			Pallet::<T>::flush_outbox(&mut WeightMeter::new());
 		}
 
-		assert!(Outbox::<T>::get().is_empty());
+		assert!(OutboxBounds::<T>::get().is_empty());
+		assert_eq!(Outbox::<T>::iter_keys().count(), 0);
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);

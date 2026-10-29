@@ -19,7 +19,7 @@
 
 use crate::{self as pallet_hrmp_relay, SendToPara};
 use core::cell::{Cell, RefCell};
-use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::Weight};
+use frame_support::{derive_impl, parameter_types, weights::Weight};
 use hrmp_primitives::MessageToPara;
 use polkadot_primitives::Id as ParaId;
 use polkadot_runtime_parachains::{
@@ -95,7 +95,6 @@ impl pallet_hrmp_relay::Config for Test {
 	type OnDepositSet = RecordingOnDepositSet;
 	type HolderParaId = HolderParaId;
 	type SendToPara = RecordingTransport;
-	type MaxOutbox = ConstU32<4>;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();

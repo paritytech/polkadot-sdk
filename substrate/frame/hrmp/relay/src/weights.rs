@@ -33,7 +33,7 @@ use frame_support::{
 pub trait WeightInfo {
 	/// `receive`, without what `OnDepositSet` spends.
 	fn receive() -> Weight;
-	/// A deposit request or a release: one pending entry per side, the id, the outbox's length,
+	/// A deposit request or a release: one pending entry per side, the id, the outbox's window,
 	/// one message sent or kept.
 	fn try_set_deposit() -> Weight;
 	/// Flushing the outbox with `n` messages waiting, all sent.
@@ -58,7 +58,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(20_000_000, 2_000).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
 			.saturating_add(T::DbWeight::get().writes((n > 0) as u64))
-			.saturating_add(T::DbWeight::get().reads_writes(3, 2).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads_writes(4, 3).saturating_mul(n.into()))
 	}
 }
 
@@ -79,6 +79,6 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(20_000_000, 2_000).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1))
 			.saturating_add(RocksDbWeight::get().writes((n > 0) as u64))
-			.saturating_add(RocksDbWeight::get().reads_writes(3, 2).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads_writes(4, 3).saturating_mul(n.into()))
 	}
 }
