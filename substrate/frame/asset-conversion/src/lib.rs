@@ -414,7 +414,7 @@ pub mod pallet {
 		PoolEmpty,
 		/// The fee exceeds [`Config::MaxSwapFee`].
 		FeeTooHigh,
-		/// The pool account can't send one of its assets (e.g. it is frozen or blocked for it).
+		/// The pool account can't send one of its assets (e.g. the asset class is frozen or the pool account is blocked).
 		PoolUnavailable,
 	}
 
