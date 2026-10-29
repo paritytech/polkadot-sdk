@@ -1045,6 +1045,163 @@ mod redeem {
 			assert_ok!(crate::Pallet::<Test>::do_try_state());
 		});
 	}
+
+	fn set_min_balance(asset_id: u32, min_balance: u128) {
+		pallet_assets::Asset::<Test>::mutate(asset_id, |details| {
+			details.as_mut().expect("asset exists in the mock; qed").min_balance = min_balance
+		});
+	}
+
+	/// A payout that leaves the reserve below the minimum balance while debt remains pays out
+	/// less, so that the minimum balance stays in the reserve and covers the debt.
+	#[test]
+	fn redeem_keeps_min_balance_in_reserve_while_debt_remains() {
+		new_test_ext().execute_with(|| {
+			let min_balance = 5;
+			set_min_balance(USDC_ASSET_ID, min_balance);
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				Permill::zero(),
+			));
+			let alice_external = get_asset_balance(USDC_ASSET_ID, ALICE);
+
+			// The full payout leaves 3 units in the reserve, below the minimum balance.
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT - 3,
+				Permill::zero(),
+			));
+
+			let paid = 1_000 * INTERNAL_UNIT - min_balance;
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), min_balance);
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), min_balance);
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_external + paid);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), min_balance);
+			System::assert_last_event(
+				Event::<Test>::Redeemed {
+					who: ALICE,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					internal_consumed: paid,
+					external_received: paid,
+					internal_fee: 0,
+				}
+				.into(),
+			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
+	/// The reduced payout rounds down to a whole internal unit when the external asset has
+	/// more decimals, so the debt decrease and the payout stay equal in value.
+	#[test]
+	fn redeem_keeps_min_balance_in_reserve_with_more_external_decimals() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{fungibles::Mutate, tokens::Preservation};
+
+			let factor = DAI_UNIT / INTERNAL_UNIT;
+			let min_balance = 2 * factor;
+			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
+			set_min_balance(DAI_MOCK_ASSET_ID, min_balance);
+			set_minting_fee(DAI_MOCK_ASSET_ID, Permill::zero());
+			set_redemption_fee(DAI_MOCK_ASSET_ID, Permill::zero());
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				DAI_MOCK_ASSET_ID,
+				1_000 * DAI_UNIT,
+				Permill::zero(),
+			));
+			// 3 units of surplus in the reserve, less than one internal unit.
+			assert_ok!(<Assets as Mutate<AccountId>>::transfer(
+				DAI_MOCK_ASSET_ID,
+				&BOB,
+				&psm_account(),
+				3,
+				Preservation::Expendable,
+			));
+
+			// The full payout leaves one internal unit plus 3 in the reserve.
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				DAI_MOCK_ASSET_ID,
+				1_000 * INTERNAL_UNIT - 1,
+				Permill::zero(),
+			));
+
+			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, psm_account()), min_balance + 3);
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, DAI_MOCK_ASSET_ID), 2);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), 2);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
+	/// If the redeem clears the debt, reserve dust backs nothing. The payout goes through in
+	/// full and also pays out the dust, so that the debt reaches zero and the external asset
+	/// can be removed. The event reports the dust as received.
+	#[test]
+	fn redeem_clears_debt_when_reserve_holds_dust_surplus() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{fungibles::Mutate, tokens::Preservation};
+
+			set_min_balance(USDC_ASSET_ID, 5);
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				Permill::zero(),
+			));
+			assert_ok!(<Assets as Mutate<AccountId>>::transfer(
+				USDC_ASSET_ID,
+				&BOB,
+				&psm_account(),
+				3,
+				Preservation::Expendable,
+			));
+			let alice_external = get_asset_balance(USDC_ASSET_ID, ALICE);
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				Permill::zero(),
+			));
+
+			let paid = 1_000 * INTERNAL_UNIT + 3;
+			assert_eq!(PsmDebt::<Test>::get(INTERNAL_ASSET_ID, USDC_ASSET_ID), 0);
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, psm_account()), 0);
+			assert_eq!(get_asset_balance(USDC_ASSET_ID, ALICE), alice_external + paid);
+			System::assert_last_event(
+				Event::<Test>::Redeemed {
+					who: ALICE,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					internal_consumed: 1_000 * INTERNAL_UNIT,
+					external_received: paid,
+					internal_fee: 0,
+				}
+				.into(),
+			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+			assert_ok!(Psm::remove_external_asset(
+				RuntimeOrigin::root(),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID
+			));
+		});
+	}
 }
 
 mod governance {

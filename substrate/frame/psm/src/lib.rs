@@ -822,6 +822,12 @@ pub mod pallet {
 		/// was registered, allowing existing positions to unwind even if live metadata later
 		/// changes.
 		///
+		/// If the payout would leave the reserve with a nonzero balance below the minimum
+		/// balance of `external_asset` while debt remains, the PSM pays out less, so that the
+		/// minimum balance stays in the reserve. The internal amount that is not redeemed stays
+		/// with the caller, under the remainder rule above. The fee is still calculated on
+		/// `internal_amount`.
+		///
 		/// ## Parameters
 		///
 		/// - `internal_asset`: The internal stablecoin that identifies the PSM instance.
@@ -904,6 +910,29 @@ pub mod pallet {
 				return Err(Error::<T>::Unexpected.into());
 			}
 
+			// The payout below is `Expendable`. If it leaves the reserve with less than the
+			// minimum balance of the external asset, the rest also leaves the reserve: the
+			// asset pallet pays it out or burns it. While debt remains, that leaves the debt
+			// without a reserve. In that case, pay out less, so that the minimum balance stays
+			// in the reserve. The internal amount that is not redeemed stays with the caller,
+			// under the remainder rule below.
+			let rest = reserve.saturating_sub(external_out);
+			let min_balance = T::Fungibles::minimum_balance(external_asset.clone());
+			let debt_remains = current_debt > effective_internal_net;
+			let (external_out, effective_internal_net) =
+				if debt_remains && !rest.is_zero() && rest < min_balance {
+					let net = Self::external_to_internal(
+						reserve.saturating_sub(min_balance),
+						ext_decimals,
+						internal_decimals,
+					)?;
+					let out = Self::internal_to_external(net, ext_decimals, internal_decimals)?;
+					ensure!(!out.is_zero(), Error::<T>::AmountTooSmallAfterConversion);
+					(out, net)
+				} else {
+					(external_out, effective_internal_net)
+				};
+
 			// `burn_from` would also burn a remainder below `min_balance`, which this pair's debt
 			// may not cover. Send it to the fee destination along with the fee instead, if the fee
 			// destination can receive it.
@@ -946,15 +975,19 @@ pub mod pallet {
 			};
 
 			let psm_account = Self::psm_account(&internal_asset);
-			if !external_out.is_zero() {
+			// If the debt reaches zero, the rest of the reserve can be dust. The transfer then
+			// returns `external_out` plus the dust that it also pays out.
+			let external_received = if !external_out.is_zero() {
 				T::Fungibles::transfer(
 					external_asset.clone(),
 					&psm_account,
 					&who,
 					external_out,
 					Preservation::Expendable,
-				)?;
-			}
+				)?
+			} else {
+				BalanceOf::<T>::zero()
+			};
 
 			PsmDebt::<T>::mutate(&internal_asset, &external_asset, |debt| {
 				*debt = debt.saturating_sub(burned);
@@ -965,7 +998,7 @@ pub mod pallet {
 				internal_asset,
 				external_asset,
 				internal_consumed: burned.saturating_add(fee),
-				external_received: external_out,
+				external_received,
 				internal_fee: fee,
 			});
 			Ok(())
