@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793287436463,
+  "lastUpdate": 1793292221370,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dcdeff430bc51f4056c9219a9723c375c7adb7ff",
-          "message": "Compile Zombienet Tests in release mode (#11765)\n\nRevert the unrelated wasm-builder changes.",
-          "timestamp": "2026-04-15T12:14:38Z",
-          "tree_id": "ea2dc5b1a0f8754fb387070f4f4a34307056200d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dcdeff430bc51f4056c9219a9723c375c7adb7ff"
-        },
-        "date": 1776260576741,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.668227676333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13219063333333333,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12530584736666667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49718502+alexggh@users.noreply.github.com",
+            "name": "Alexandru Gheorghe",
+            "username": "alexggh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "769cd18a8e13a6c5c8ec05c70507aa10269a6919",
+          "message": "fixup! [HRMP] Extend InboundMessageId for horizontal messages (#12876) (#13602)\n\nDiscovered during\nhttps://github.com/paritytech/polkadot-sdk/pull/12489#discussion_r4346981885,\nthat some migrations where missed for people-westend and\nyet-another-parchains, so fix them to avoid corrupted state.\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>",
+          "timestamp": "2026-10-29T15:12:38Z",
+          "tree_id": "6577115da3d4e6e28affd298aaba42aae779c016",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/769cd18a8e13a6c5c8ec05c70507aa10269a6919"
+        },
+        "date": 1793292194096,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12937753349999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.480268070700001,
             "unit": "seconds"
           }
         ]
