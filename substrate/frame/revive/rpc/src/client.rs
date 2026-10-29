@@ -436,16 +436,12 @@ async fn get_automine(rpc_client: &RpcClient) -> bool {
 	}
 }
 
-/// Connect to a node at the given URL, and return the underlying API, RPC client, and legacy RPC
-/// clients.
+/// Open a reconnecting WebSocket transport to the node at the given URL.
 pub async fn connect(
 	node_rpc_url: &str,
 	max_request_size: u32,
 	max_response_size: u32,
-) -> Result<
-	(OnlineClient<SrcChainConfig>, RpcClient, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
-	ClientError,
-> {
+) -> Result<RpcClient, ClientError> {
 	log::info!(target: LOG_TARGET, "🌐 Connecting to node at: {node_rpc_url} ...");
 	let rpc_client = ReconnectingRpcClient::builder()
 		.retry_policy(ExponentialBackoff::from_millis(100).max_delay(Duration::from_secs(10)))
@@ -453,17 +449,25 @@ pub async fn connect(
 		.max_response_size(max_response_size)
 		.build(node_rpc_url.to_string())
 		.await?;
-	let rpc_client = RpcClient::new(rpc_client);
 	log::info!(target: LOG_TARGET, "🌟 Connected to node at: {node_rpc_url}");
+	Ok(RpcClient::new(rpc_client))
+}
 
+/// Wrap a transport in the subxt clients that the ETH RPC server drives.
+pub async fn subxt_clients(
+	rpc_client: RpcClient,
+) -> Result<
+	(OnlineClient<SrcChainConfig>, LegacyRpcMethods<RpcConfigFor<SrcChainConfig>>),
+	ClientError,
+> {
 	// Pin the legacy backend explicitly. Since subxt 0.50, from_rpc_client defaults
 	// to the CombinedBackend, which routes block streams and header fetches through
 	// the chainHead protocol; its follow restarts and pinning limits stall receipt
 	// indexing under load (blocks become unresolvable once unpinned).
 	let backend = Arc::new(LegacyBackend::builder().build(rpc_client.clone()));
 	let api = OnlineClient::<SrcChainConfig>::from_backend(backend).await?;
-	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client.clone());
-	Ok((api, rpc_client, rpc))
+	let rpc = LegacyRpcMethods::<RpcConfigFor<SrcChainConfig>>::new(rpc_client);
+	Ok((api, rpc))
 }
 
 impl Client {
@@ -597,76 +601,82 @@ impl Client {
 		F: Fn(SubstrateBlock) -> Fut + Send + Sync,
 		Fut: std::future::Future<Output = Result<(), ClientError>> + Send,
 	{
-		let mut block_stream = match subscription_type {
-			SubscriptionType::BestBlocks => self.api.stream_best_blocks().await,
-			SubscriptionType::FinalizedBlocks => self.api.stream_blocks().await,
-		}
-		.inspect_err(|err| {
-			log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
-		})?;
-
+		// Kept across resubscriptions so the gap filler backfills what the ended stream missed.
 		let mut last_finalized_seen: Option<SubstrateBlockNumber> = None;
 
-		while let Some(block) = block_stream.next().await {
-			let block = match block {
-				Ok(block) => block,
-				Err(err) => {
-					let err: subxt::Error = err.into();
-					if err.is_disconnected_will_reconnect() {
+		loop {
+			let mut block_stream = match subscription_type {
+				SubscriptionType::BestBlocks => self.api.stream_best_blocks().await,
+				SubscriptionType::FinalizedBlocks => self.api.stream_blocks().await,
+			}
+			.inspect_err(|err| {
+				log::error!(target: LOG_TARGET, "Failed to subscribe to blocks: {err:?}");
+			})?;
+
+			while let Some(block) = block_stream.next().await {
+				let block = match block {
+					Ok(block) => block,
+					Err(err) => {
+						let err: subxt::Error = err.into();
+						if err.is_disconnected_will_reconnect() {
+							log::warn!(
+								target: LOG_TARGET,
+								"The RPC connection was lost and we may have missed a few blocks \
+								({subscription_type:?}, last finalized: {last_finalized_seen:?}): {err:?}"
+							);
+							continue;
+						}
+
+						log::error!(target: LOG_TARGET, "Failed to fetch block ({subscription_type:?}): {err:?}");
+						return Err(err.into());
+					},
+				};
+
+				// Resolution fails for pruned/retracted blocks and on transient RPC errors;
+				// erroring out here would kill the essential subscription task and with it the
+				// whole server. Skip instead: a skipped finalized block doesn't advance
+				// `last_finalized_seen`, so the gap filler backfills it.
+				let block = match block.at().await {
+					Ok(block) => block,
+					Err(err) => {
 						log::warn!(
 							target: LOG_TARGET,
-							"The RPC connection was lost and we may have missed a few blocks \
-							({subscription_type:?}, last finalized: {last_finalized_seen:?}): {err:?}"
+							"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
+							block.number(),
+							block.hash(),
 						);
 						continue;
+					},
+				};
+
+				// Acquire lock to ensure only one subscription can perform write operations at a
+				// time
+				let _guard = self.subscription_lock.lock().await;
+
+				let block_number = block.block_number();
+
+				// Only check finalized blocks for gaps.
+				if subscription_type == SubscriptionType::FinalizedBlocks {
+					if let Some(last) = last_finalized_seen {
+						self.subscription_gap_queue.detect_and_queue(block_number, last);
 					}
-
-					log::error!(target: LOG_TARGET, "Failed to fetch block ({subscription_type:?}): {err:?}");
-					return Err(err.into());
-				},
-			};
-
-			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
-			// erroring out here would kill the essential subscription task and with it the
-			// whole server. Skip instead: a skipped finalized block doesn't advance
-			// `last_finalized_seen`, so the gap filler backfills it.
-			let block = match block.at().await {
-				Ok(block) => block,
-				Err(err) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"Failed to resolve streamed {subscription_type:?} block #{} ({:?}), skipping: {err:?}",
-						block.number(),
-						block.hash(),
-					);
-					continue;
-				},
-			};
-
-			// Acquire lock to ensure only one subscription can perform write operations at a time
-			let _guard = self.subscription_lock.lock().await;
-
-			let block_number = block.block_number();
-
-			// Only check finalized blocks for gaps.
-			if subscription_type == SubscriptionType::FinalizedBlocks {
-				if let Some(last) = last_finalized_seen {
-					self.subscription_gap_queue.detect_and_queue(block_number, last);
+					// Update unconditionally — a callback failure doesn't mean the block was
+					// missed.
+					last_finalized_seen = Some(block_number);
 				}
-				// Update unconditionally — a callback failure doesn't mean the block was missed.
-				last_finalized_seen = Some(block_number);
+
+				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
+				if let Err(err) = callback(block).await {
+					log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				} else {
+					log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
+				}
 			}
 
-			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
-			if let Err(err) = callback(block).await {
-				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
-			} else {
-				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
-			}
+			// The node ends a heads subscription whose buffer fills up, and the in-process
+			// transport never reconnects, so returning here would leave a frozen head.
+			log::warn!(target: LOG_TARGET, "Block subscription ended ({subscription_type:?}), resubscribing");
 		}
-
-		log::info!(target: LOG_TARGET, "Block subscription ended");
-		Ok(())
 	}
 
 	/// Extract receipts from a block, persist them and update fee history.

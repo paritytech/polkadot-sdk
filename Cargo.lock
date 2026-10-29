@@ -17617,9 +17617,19 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "color-eyre",
+ "jsonrpsee 0.24.11",
+ "pallet-revive",
+ "pallet-revive-eth-rpc",
+ "penpal-runtime",
  "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
+ "sc-chain-spec 28.0.0",
+ "serde_json",
+ "sp-genesis-builder 0.8.0",
  "substrate-build-script-utils",
+ "subxt-signer 0.50.2",
+ "tempfile",
+ "tokio",
 ]
 
 [[package]]
@@ -17656,6 +17666,7 @@ dependencies = [
  "jsonrpsee 0.24.11",
  "log",
  "nix 0.29.0",
+ "pallet-revive-eth-rpc",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "pallet-transaction-payment-rpc-runtime-api",

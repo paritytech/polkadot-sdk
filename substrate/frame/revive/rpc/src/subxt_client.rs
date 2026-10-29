@@ -15,12 +15,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //! The generated subxt client.
-//! Generated against a substrate chain configured with [`pallet_revive`] using:
-//! subxt metadata  --url ws://localhost:9944 -o rpc/revive_chain.scale
+//!
+//! Generated from the checked-in `revive_chain.scale`, which is `revive-dev-runtime`'s v16
+//! metadata. `metadata_matches_the_dev_runtime` below compares the hash of the parts this client
+//! uses (the `Revive` and `System` pallets and the `ReviveApi` runtime API) between the file and
+//! the runtime. Doc comments are not hashed, but the outer call, event and error enums of every
+//! pallet and the extrinsic metadata always are, so a call, event or error change in any pallet of
+//! the dev runtime still fails the test. When it fails, refresh the file with
+//! `BLESS_METADATA=1 cargo test -p pallet-revive-eth-rpc --lib metadata_matches`.
+//!
+//! The macro only reads the file and every generated query is `.unvalidated()`, so the crate
+//! keeps compiling against the old file as long as the code here still matches it: bless first,
+//! then adapt the code. If a master merge brings code that already needs the new file, regenerate
+//! it without compiling this crate by running `revive-dev-node --dev` and then
+//! `subxt metadata --url ws://127.0.0.1:9944 --version 16 -o revive_chain.scale`, build, and then
+//! bless as above.
+//!
+//! A blessed file carries frame-system's `experimental` items (`do_task`, the `Task*` events,
+//! `InvalidTask` and `FailedTask`), which the dev node's WASM runtime does not have: the
+//! `revive-dev-runtime` dev-dependency is unified with `revive-dev-node`, which enables
+//! `polkadot-sdk/experimental`. They are part of System's hashed enums, so a file regenerated from
+//! the WASM dev node always fails the test until it is blessed.
 pub use subxt::config::PolkadotConfig as SrcChainConfig;
 
 #[subxt::subxt(
-	runtime_metadata_path = "$OUT_DIR/revive_chain.scale",
+	runtime_metadata_path = "revive_chain.scale",
 	// TODO remove once subxt use the same U256 type
 	substitute_type(
 		path = "primitive_types::U256",
@@ -682,3 +701,39 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 )]
 mod src_chain {}
 pub use src_chain::*;
+
+#[cfg(test)]
+mod tests {
+	use codec::Decode;
+	use subxt::Metadata;
+
+	fn client_hash(metadata: &[u8]) -> [u8; 32] {
+		Metadata::decode(&mut &metadata[..])
+			.expect("valid v16 metadata")
+			.hasher()
+			.only_these_pallets(&["Revive", "System"])
+			.only_these_runtime_apis(&["ReviveApi"])
+			.hash()
+	}
+
+	#[test]
+	fn metadata_matches_the_dev_runtime() {
+		let path = concat!(env!("CARGO_MANIFEST_DIR"), "/revive_chain.scale");
+		let metadata = sp_io::TestExternalities::default().execute_with(|| {
+			revive_dev_runtime::Runtime::metadata_at_version(16)
+				.expect("the dev runtime serves v16 metadata")
+		});
+
+		if std::env::var_os("BLESS_METADATA").is_some() {
+			std::fs::write(path, &*metadata).expect("cannot write revive_chain.scale");
+			return;
+		}
+
+		let checked_in = std::fs::read(path).expect("cannot read revive_chain.scale");
+		assert!(
+			client_hash(&checked_in) == client_hash(&metadata),
+			"revive_chain.scale is stale; regenerate it with \
+			 `BLESS_METADATA=1 cargo test -p pallet-revive-eth-rpc --lib metadata_matches`"
+		);
+	}
+}

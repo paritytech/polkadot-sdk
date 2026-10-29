@@ -1,0 +1,36 @@
+title: '[pallet-revive] Serve the ETH RPC from inside the node'
+
+doc:
+- audience: Node Operator
+  description: |-
+    A `polkadot-omni-node` built with the experimental `experimental-eth-rpc-in-node` feature
+    can serve the Ethereum JSON-RPC endpoint itself when started with `--eth-rpc`, replacing
+    the separate `eth-rpc` process. It is configured with `--eth-rpc-port` (default 8545),
+    `--eth-rpc-external`, `--eth-rpc-cors`, `--eth-rpc-pruning` and
+    `--eth-rpc-allow-unprotected-txs`. The default `--eth-rpc-pruning archive` indexes the
+    whole history into `<base-path>/chains/<chain id>/eth-rpc/eth-rpc.db` and needs an archive
+    node for a complete sync; pass a number of blocks to keep only recent ones in memory. If
+    the server fails, it logs an error and the node keeps running.
+
+- audience: Node Dev
+  description: |-
+    `pallet-revive-eth-rpc::client::connect` now returns only the `RpcClient`; build the subxt
+    clients from it with the new `client::subxt_clients`:
+
+    ```rust
+    let rpc_client = connect(url, max_request_size, max_response_size).await?;
+    let (api, rpc) = subxt_clients(rpc_client.clone()).await?;
+    ```
+
+    The crate's `experimental-eth-rpc-in-node` feature adds `in_process::start_embedded`,
+    which serves the ETH RPC over a node's in-memory `RpcModule`. The subxt metadata is now
+    checked in as `revive_chain.scale`, removing the build dependency on `revive-dev-runtime`;
+    refresh it with `BLESS_METADATA=1`.
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-omni-node
+  bump: patch
