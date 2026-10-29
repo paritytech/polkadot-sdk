@@ -601,11 +601,10 @@ fn redeem(amount: Balance, target: ServiceId, memo: [u8; 128]);
 // ── Lease ──────────────────────────────────────────────────────────────────
 
 /// Offers a lease of `amount` to `target` for `duration`. Origin: a token
-/// holder or governance. Records `Allocation{mode: Lease, state: Approved}`
-/// and holds `amount` on the approver's account, or on custody when the
-/// approver is governance (§3.3). `valid_from` `None` means the current
-/// block. Rejected if the target has no service account or is the Parachain
-/// Service.
+/// holder. Records `Allocation{mode: Lease, state: Approved}` and holds
+/// `amount` on the approver's account (§3.3). `valid_from` `None` means the
+/// current block. Rejected if the target has no service account or is the
+/// Parachain Service.
 fn offer_lease(target: ServiceId, amount: Balance, duration: BlockNumber,
                valid_from: Option<BlockNumber>, valid_for: BlockNumber);
 
@@ -657,8 +656,8 @@ fn unfreeze_target(target: ServiceId, code_hash: Hash, min_acc_gas: u64,
 
 /// Deletes one bounded page of keys from the target's storage. Origin: any
 /// signed account, with `RECOVERY_DEPOSIT` plus `RECOVERY_DEPOSIT_PER_KEY`
-/// per key. Legal while a lease on the target is `Reclaiming`. Records a
-/// `Cleanup` operation.
+/// per key. Legal while a lease on the target is `Reclaiming` and the target
+/// is recorded frozen. Records a `Cleanup` operation.
 fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 
 /// Releases a solicited preimage of the target. Origin: the target's service
@@ -1136,7 +1135,6 @@ rest zero.
    /// A synchronous rejection. Nothing is sent.
    enum ServiceError {
        NotRegistered, NotSupervised, Frozen, AlreadyFrozen, NotFrozen,
-       NoCode,
    }
 
    /// Implemented by `pallet-jamkb`. Read by the registry before it sends.
