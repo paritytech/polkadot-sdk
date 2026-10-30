@@ -627,6 +627,79 @@ fn existing_validators_without_hold_are_except() {
 	});
 }
 
+#[test]
+fn purge_keys_by_other_account_releases_depositor() {
+	new_test_ext().execute_with(|| {
+		// Given: accounts 69 and 1000 both map to validator 50, and 1000 registers the keys.
+		TestValidatorIdOf::set(
+			vec![(1, 1), (2, 2), (3, 3), (69, 50), (1000, 50)].into_iter().collect(),
+		);
+		frame_system::Pallet::<Test>::inc_consumers(&69).unwrap();
+		let consumers_69 = System::consumers(&69);
+		let consumers_1000 = System::consumers(&1000);
+
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1000),
+			UintAuthorityId(50).into(),
+			create_set_keys_proof(1000, &UintAuthorityId(50)),
+		));
+		assert_eq!(session_hold(1000), KeyDeposit::get());
+		assert_eq!(KeyDepositor::<Test>::get(50), Some(1000));
+
+		// When: account 69 purges the keys of the shared validator.
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(69)));
+
+		// Then: the deposit and consumer reference are released from 1000, and 69 is untouched.
+		assert_eq!(Session::load_keys(&50), None);
+		assert_eq!(KeyDepositor::<Test>::get(50), None);
+		assert_eq!(session_hold(1000), 0);
+		assert_eq!(System::consumers(&1000), consumers_1000);
+		assert_eq!(System::consumers(&69), consumers_69);
+
+		// And: registering again places a single deposit.
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1000),
+			UintAuthorityId(51).into(),
+			create_set_keys_proof(1000, &UintAuthorityId(51)),
+		));
+		assert_eq!(session_hold(1000), KeyDeposit::get());
+		// +1 from session's inc_consumers, +1 from pallet-balances hold.
+		assert_eq!(System::consumers(&1000), consumers_1000 + 2);
+	});
+}
+
+#[test]
+fn key_rotation_by_other_account_keeps_depositor() {
+	new_test_ext().execute_with(|| {
+		// Given: accounts 69 and 1000 both map to validator 50, and 1000 registers the keys.
+		TestValidatorIdOf::set(
+			vec![(1, 1), (2, 2), (3, 3), (69, 50), (1000, 50)].into_iter().collect(),
+		);
+		let consumers_69 = System::consumers(&69);
+		let consumers_1000 = System::consumers(&1000);
+
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(1000),
+			UintAuthorityId(50).into(),
+			create_set_keys_proof(1000, &UintAuthorityId(50)),
+		));
+
+		// When: account 69 rotates the keys and then purges them.
+		assert_ok!(Session::set_keys(
+			RuntimeOrigin::signed(69),
+			UintAuthorityId(51).into(),
+			create_set_keys_proof(69, &UintAuthorityId(51)),
+		));
+		assert_eq!(session_hold(69), 0);
+		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(69)));
+
+		// Then: only the registering account's deposit and consumer reference are released.
+		assert_eq!(session_hold(1000), 0);
+		assert_eq!(System::consumers(&1000), consumers_1000);
+		assert_eq!(System::consumers(&69), consumers_69);
+	});
+}
+
 #[cfg(feature = "historical")]
 mod externally_set_keys_tracking {
 	use super::*;
@@ -745,6 +818,34 @@ mod externally_set_keys_tracking {
 			// Transition to remote: deposit released, consumer decremented.
 			set_remote(70);
 			assert_remote_state(consumers_before);
+		});
+	}
+
+	#[test]
+	fn set_local_to_remote_by_other_account_releases_depositor() {
+		new_test_ext().execute_with(|| {
+			// Given: accounts 69 and 1000 both map to validator 50, and 1000 registers locally.
+			TestValidatorIdOf::set(
+				vec![(1, 1), (2, 2), (3, 3), (69, 50), (1000, 50)].into_iter().collect(),
+			);
+			frame_system::Pallet::<Test>::inc_consumers(&69).unwrap();
+			let consumers_69 = System::consumers(&69);
+			let consumers_1000 = System::consumers(&1000);
+
+			let proof = create_set_keys_proof(1000, &UintAuthorityId(50));
+			assert_ok!(Session::set_keys(
+				RuntimeOrigin::signed(1000),
+				UintAuthorityId(50).into(),
+				proof
+			));
+
+			// When: account 69 sets the keys of the shared validator through the external path.
+			<Session as SessionInterface>::set_keys(&69, UintAuthorityId(51).into()).unwrap();
+
+			// Then: the deposit and consumer reference are released from 1000, and 69 is untouched.
+			assert_eq!(session_hold(1000), 0);
+			assert_eq!(System::consumers(&1000), consumers_1000);
+			assert_eq!(System::consumers(&69), consumers_69);
 		});
 	}
 
