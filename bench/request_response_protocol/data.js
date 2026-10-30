@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793379116291,
+  "lastUpdate": 1793387690925,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -139967,6 +139967,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3140089402,
             "range": "± 327156641",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e9c2ae8a595a87fe11fe6d39ba5e9554947f363e",
+          "message": "AHMv2 HRMP: part1: make polkadot hrmp support asynchronous deposit provider (#13547)\n\nHRMP was made abstract to handle asynchronous service for the setting of\ndeposits. This PR adds tests and fix some issues related to it.\n\nThe provider is expected to always apply the requests in order, but the\nanswer are accepted to be out of order.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-30T17:10:32Z",
+          "tree_id": "77a0b4a359aa99a0e6621ac26c7f3c215af4268f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9c2ae8a595a87fe11fe6d39ba5e9554947f363e"
+        },
+        "date": 1793387655393,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20076255,
+            "range": "± 227112",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20402412,
+            "range": "± 151783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21722797,
+            "range": "± 124690",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25789375,
+            "range": "± 188710",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59212576,
+            "range": "± 516326",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 357228915,
+            "range": "± 4908707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2987141897,
+            "range": "± 79493647",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17218666,
+            "range": "± 97564",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17397114,
+            "range": "± 86549",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18143059,
+            "range": "± 133047",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22822239,
+            "range": "± 145614",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62140741,
+            "range": "± 432031",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 363547638,
+            "range": "± 2922476",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2784759930,
+            "range": "± 20871736",
             "unit": "ns/iter"
           }
         ]
