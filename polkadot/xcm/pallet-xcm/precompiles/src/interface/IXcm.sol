@@ -25,7 +25,8 @@ interface IXcm {
     /// @dev Internally calls `pallet_xcm::execute`.
     /// @param message A SCALE-encoded Versioned XCM message.
     /// @param weight The maximum allowed `Weight` for execution.
-    /// @dev Call @custom:function weighMessage(message) to ensure sufficient weight allocation.
+    /// @dev Use @custom:function weighMessage(message) to get a suitable `weight`, and forward at least that
+    /// much gas (plus a margin for decoding).
     function execute(bytes calldata message, Weight calldata weight) external;
 
     /// @notice Sends an XCM message to another parachain or consensus system.

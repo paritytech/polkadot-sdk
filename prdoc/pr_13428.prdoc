@@ -1,0 +1,66 @@
+title: Revert with a reason on caller-facing precompile errors
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    The System and Storage builtins, the XCM precompile and the vesting precompile now return
+    `Error::Revert` for failures the caller can act on. They used to return `Error::Error`, which
+    traps with empty return data. Running out of gas while charging still traps.
+
+    `pallet_revive::precompiles` adds `ensure_not_delegate_call`, `ensure_not_read_only`,
+    `DELEGATE_CALL_DENIED` and `STATIC_CALL_DENIED`. `Error::try_to_revert` now also turns
+    `RootNotAllowed`, `EcdsaRecoveryFailed` and `DispatchError::Token` into reverts.
+
+    If you maintain a precompile, replace hand-written guards with the helpers. A `?` on a
+    `DispatchError` still traps, so map pallet errors at the call site.
+
+    ```rust
+    // before
+    frame_support::ensure!(
+        !env.is_delegate_call(),
+        pallet_revive::Error::<T>::PrecompileDelegateDenied,
+    );
+    if env.is_read_only() {
+        return Err(pallet_revive::Error::<T>::StateChangeDenied.into());
+    }
+
+    // after
+    ensure_not_delegate_call::<T>(env)?;
+    ensure_not_read_only::<T>(env)?;
+    ```
+
+    Runtimes need no change and no storage migration.
+
+- audience: Runtime User
+  description: |-
+    These calls used to fail with empty return data. They now revert with `Error(string)`, so
+    `catch Error(string)` runs and `eth_call` shows the reason:
+
+    - XCM or vesting called with `DELEGATECALL`:
+      "illegal to call this pre-compile via delegate call".
+    - XCM `send` / `execute`, vesting `vest` / `vestOther` / `vestedTransfer`, System `terminate`
+      or Storage `clearStorage` / `takeStorage` called from a static call:
+      "cannot modify state in a static call".
+    - System `ownCodeHash` or any vesting call with the root origin: "root origin is not allowed".
+    - System `ecdsaToEthAddress` with an invalid key: "invalid compressed public key".
+    - System `terminate` with no contract to destroy: "no contract to terminate". A token error
+      from its balance transfer reverts with that error's reason.
+    - Storage `takeStorage` when the write fails, matching `clearStorage`.
+
+    XCM `send` and `execute` now name the `pallet_xcm` error instead of a fixed sentence, for
+    example "XCM execute failed: local execution incomplete at instruction 3:
+    FailedToTransactAsset". Vesting calls name the `pallet_vesting` error instead of printing the
+    `DispatchError` debug output.
+
+    Out of gas still fails with empty return data. Update callers that check for empty return
+    data or match the old XCM and vesting strings.
+
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-xcm-precompiles
+  bump: patch
+- name: pallet-vesting-precompiles
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: minor
