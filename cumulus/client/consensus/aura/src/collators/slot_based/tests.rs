@@ -286,6 +286,7 @@ pub struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
 	best_hash: Arc<Mutex<Option<RelayHash>>>,
 	best_notifications: Arc<Mutex<Option<Pin<Box<dyn Stream<Item = RelayHeader> + Send + Sync>>>>>,
+	claim_queues: HashMap<RelayHash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 }
 
 impl TestRelayClient {
@@ -294,6 +295,7 @@ impl TestRelayClient {
 			headers,
 			best_hash: Default::default(),
 			best_notifications: Arc::new(Mutex::new(None)),
+			claim_queues: Default::default(),
 		}
 	}
 
@@ -302,7 +304,15 @@ impl TestRelayClient {
 			headers,
 			best_hash: Arc::new(Mutex::new(Some(best_hash))),
 			best_notifications: Arc::new(Mutex::new(None)),
+			claim_queues: Default::default(),
 		}
+	}
+
+	/// Assign `core` to para 1 at `depth` of the claim queue at `relay_parent`, para 2 before it.
+	pub fn add_claim(&mut self, relay_parent: RelayHash, depth: usize, core: CoreIndex) {
+		let mut claims = VecDeque::from(vec![ParaId::from(2); depth]);
+		claims.push_back(ParaId::from(1));
+		self.claim_queues.entry(relay_parent).or_default().insert(core, claims);
 	}
 
 	pub fn set_best_hash(&mut self, best_hash: Option<RelayHash>) {
@@ -479,10 +489,9 @@ impl RelayChainInterface for TestRelayClient {
 
 	async fn claim_queue(
 		&self,
-		_: RelayHash,
+		relay_parent: RelayHash,
 	) -> RelayChainResult<BTreeMap<CoreIndex, VecDeque<ParaId>>> {
-		// Return empty claim queue for offset tests
-		Ok(BTreeMap::new())
+		Ok(self.claim_queues.get(&relay_parent).cloned().unwrap_or_default())
 	}
 
 	async fn call_runtime_api(
@@ -634,6 +643,28 @@ impl RelayChainDataCache<TestRelayClient> {
 
 		self.insert_test_data(relay_parent_hash, data);
 	}
+}
+
+/// Like [`relay_header_with_slot`] but claiming a BABE *primary* slot. The VRF data is dummy:
+/// only the digest variant matters.
+pub fn relay_header_primary_with_slot(
+	number: u32,
+	parent_hash: RelayHash,
+	slot: u64,
+) -> RelayHeader {
+	use codec::Decode;
+	use sc_consensus_babe::{CompatibleDigestItem, PreDigest, PrimaryPreDigest};
+	use sp_core::sr25519::vrf::VrfSignature;
+	use sp_runtime::DigestItem;
+
+	let vrf_signature =
+		VrfSignature::decode(&mut [0u8; 96].as_slice()).expect("any 96 bytes decode; qed");
+	let mut header = relay_header_with_slot(number, parent_hash, slot);
+	header.digest.logs =
+		vec![<DigestItem as CompatibleDigestItem>::babe_pre_digest(PreDigest::Primary(
+			PrimaryPreDigest { authority_index: 0, slot: slot.into(), vrf_signature },
+		))];
+	header
 }
 
 /// Create a relay header with a BABE pre-digest containing the given slot.

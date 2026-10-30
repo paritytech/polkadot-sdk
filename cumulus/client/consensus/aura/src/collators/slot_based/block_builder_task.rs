@@ -25,7 +25,7 @@ use crate::{
 		check_validation_code_or_log,
 		slot_based::{
 			relay_chain_data_cache::RelayChainDataCache,
-			scheduling::{SchedulingInfo, SchedulingProofBuilder},
+			scheduling::{sibling_deadline, SchedulingInfo, SchedulingProofBuilder, SiblingParams},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
 		BackingGroupConnectionHelper, RelayHash, RelayParentData,
@@ -182,6 +182,8 @@ struct BuildingPrerequisites<Block: BlockT> {
 	v3_enabled: bool,
 	/// Distance from the scheduling parent down to the relay parent.
 	relay_parent_offset: u32,
+	/// How many sessions the relay parent may lag the scheduling parent by.
+	max_relay_parent_session_age: u32,
 	/// The relay parent and the descendants linking it to the scheduling parent.
 	relay_parent_data: RelayParentData,
 	/// The parent to build on. Settled by the parent search in the first phase, against the para
@@ -216,6 +218,15 @@ fn is_built_on_relay_parent<Header: HeaderT>(
 	}
 }
 
+/// The relay chain context implied by a [`SchedulingParams`]: the scheduling parent, whether V3
+/// applies to it, and the relay parent with its descendants.
+struct RelayContext {
+	scheduling_parent_header: RelayHeader,
+	v3_enabled: bool,
+	max_relay_parent_session_age: u32,
+	relay_parent_data: RelayParentData,
+}
+
 /// The relay chain context `params` imply: the scheduling parent, whether V3 applies to it, and the
 /// relay parent with its descendants.
 async fn derive_relay_context<RelayClient>(
@@ -224,7 +235,7 @@ async fn derive_relay_context<RelayClient>(
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
 	slot: Slot,
-) -> Option<(RelayHeader, bool, RelayParentData)>
+) -> Option<RelayContext>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -256,7 +267,12 @@ where
 		return None;
 	};
 
-	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
+	Some(RelayContext {
+		scheduling_parent_header,
+		v3_enabled,
+		max_relay_parent_session_age,
+		relay_parent_data,
+	})
 }
 
 /// Environment shared by the block-builder phases; groups the clients, caches, and per-task
@@ -282,6 +298,7 @@ struct SlotContext<Block: BlockT, Pub> {
 	v3_enabled: bool,
 	scheduling_parent_header: RelayHeader,
 	relay_parent_offset: u32,
+	max_relay_parent_session_age: u32,
 	relay_parent_data: RelayParentData,
 	resubmittable_headers: Vec<Block::Header>,
 	included_header_at_execution: Block::Header,
@@ -432,7 +449,12 @@ where
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = SchedulingParams::at(&*self.para_client, best_hash);
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
+		let RelayContext {
+			scheduling_parent_header,
+			v3_enabled,
+			max_relay_parent_session_age,
+			relay_parent_data,
+		} = derive_relay_context(
 			&self.relay_client,
 			&mut self.relay_chain_data_cache,
 			&mut self.scheduling_info,
@@ -463,40 +485,42 @@ where
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
 		let build_parent_agrees = build_parent_hash == best_hash || build_params == best_params;
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_offset, relay_parent_data) =
-			if build_parent_agrees {
-				(
+		let (relay_context, relay_parent_offset) = if build_parent_agrees {
+			(
+				RelayContext {
 					scheduling_parent_header,
 					v3_enabled,
-					best_params.relay_parent_offset,
+					max_relay_parent_session_age,
 					relay_parent_data,
-				)
-			} else {
-				tracing::info!(
-					target: LOG_TARGET,
-					best = ?best_hash,
-					?build_parent_hash,
-					"Build parent's runtime disagrees with the para best's, re-deriving the relay \
-					chain context from the build parent.",
-				);
+				},
+				best_params.relay_parent_offset,
+			)
+		} else {
+			tracing::info!(
+				target: LOG_TARGET,
+				best = ?best_hash,
+				?build_parent_hash,
+				"Build parent's runtime disagrees with the para best's, re-deriving the relay \
+				chain context from the build parent.",
+			);
 
-				let (scheduling_parent_header, v3_enabled, relay_parent_data) =
-					derive_relay_context(
-						&self.relay_client,
-						&mut self.relay_chain_data_cache,
-						&mut self.scheduling_info,
-						build_params,
-						slot,
-					)
-					.await?;
+			let relay_context = derive_relay_context(
+				&self.relay_client,
+				&mut self.relay_chain_data_cache,
+				&mut self.scheduling_info,
+				build_params,
+				slot,
+			)
+			.await?;
 
-				(
-					scheduling_parent_header,
-					v3_enabled,
-					build_params.relay_parent_offset,
-					relay_parent_data,
-				)
-			};
+			(relay_context, build_params.relay_parent_offset)
+		};
+		let RelayContext {
+			scheduling_parent_header,
+			v3_enabled,
+			max_relay_parent_session_age,
+			relay_parent_data,
+		} = relay_context;
 
 		let best_parent_header = parent_search_result.best_parent_header;
 		let resubmittable_headers = parent_search_result.resubmittable_segment;
@@ -528,6 +552,7 @@ where
 			scheduling_parent_header,
 			v3_enabled,
 			relay_parent_offset,
+			max_relay_parent_session_age,
 			relay_parent_data,
 			best_parent_header,
 			resubmittable_headers,
@@ -545,6 +570,7 @@ where
 			scheduling_parent_header,
 			v3_enabled,
 			relay_parent_offset,
+			max_relay_parent_session_age,
 			relay_parent_data,
 			best_parent_header,
 			resubmittable_headers,
@@ -633,6 +659,7 @@ where
 			v3_enabled,
 			scheduling_parent_header,
 			relay_parent_offset,
+			max_relay_parent_session_age,
 			relay_parent_data,
 			resubmittable_headers,
 			included_header_at_execution,
@@ -882,6 +909,18 @@ where
 			let total_cores = cores.total_cores();
 			let mut pov_parent_header = cx.initial_parent_header.clone();
 
+			// The collation task looks up and checks sibling scheduling parents per segment.
+			let siblings = (cx.v3_enabled && cx.relay_parent_offset > 0).then(|| SiblingParams {
+				relay_production_slot: slot_time.relay_slot(),
+				core_indices: cores.core_indices().to_vec(),
+				claim_queue_offset: cores.claim_queue_offset.0 as u32,
+				max_relay_parent_session_age: cx.max_relay_parent_session_age,
+				valid_until: sibling_deadline(
+					slot_time.relay_slot(),
+					env.relay_chain_slot_duration,
+				),
+			});
+
 			for blocks_per_core in blocks_per_cores {
 				let core_info = cores.core_info();
 				let this_core_index = cores.core_index();
@@ -963,7 +1002,8 @@ where
 					resubmittable_headers.remove(&bucket_idx).unwrap_or_default();
 				let is_resubmitting = !resubmittable_headers_for_core.is_empty();
 				let mut builder = CollatorMessageBuilder::new(this_core_index)
-					.with_resubmittable_headers(resubmittable_headers_for_core);
+					.with_resubmittable_headers(resubmittable_headers_for_core)
+					.with_siblings(siblings.clone());
 				if let Some(parts) = maybe_parts {
 					builder = builder.with_bundle(parts);
 				}
