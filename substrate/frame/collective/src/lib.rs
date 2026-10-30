@@ -317,7 +317,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -669,6 +669,11 @@ pub mod pallet {
 		/// `threshold` determines whether `proposal` is executed directly (`threshold < 2`)
 		/// or put up for voting.
 		///
+		/// The proposal is identified by [`Pallet::proposal_hash`], which covers both the call
+		/// and the `threshold`. The threshold is fixed at submission time and is therefore part
+		/// of the proposal's identity: the same call may be under consideration with different
+		/// thresholds without colliding.
+		///
 		/// ## Complexity
 		/// - `O(B + M + P1)` or `O(B + M + P2)` where:
 		///   - `B` is `proposal` size in bytes (length-fee-bounded)
@@ -703,7 +708,8 @@ pub mod pallet {
 			ensure!(members.contains(&who), Error::<T, I>::NotMember);
 
 			if threshold < 2 {
-				let (proposal_len, result) = Self::do_propose_execute(proposal, length_bound)?;
+				let (proposal_len, result) =
+					Self::do_propose_execute(threshold, proposal, length_bound)?;
 
 				Ok(get_result_weight(result)
 					.map(|w| {
@@ -909,8 +915,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		Members::<T, I>::get().contains(who)
 	}
 
+	/// Hash identifying a proposal submitted via [`Pallet::propose`]: the hash of the SCALE
+	/// encoding of `(proposal, threshold)`.
+	pub fn proposal_hash(proposal: &<T as Config<I>>::Proposal, threshold: MemberCount) -> T::Hash {
+		T::Hashing::hash_of(&(proposal, threshold))
+	}
+
 	/// Execute immediately when adding a new proposal.
 	pub fn do_propose_execute(
+		threshold: MemberCount,
 		proposal: Box<<T as Config<I>>::Proposal>,
 		length_bound: MemberCount,
 	) -> Result<(u32, DispatchResultWithPostInfo), DispatchError> {
@@ -922,8 +935,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::WrongProposalWeight
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
-		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
+		let proposal_hash = Self::proposal_hash(&proposal, threshold);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());
@@ -949,7 +961,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			Error::<T, I>::WrongProposalWeight
 		);
 
-		let proposal_hash = T::Hashing::hash_of(&proposal);
+		let proposal_hash = Self::proposal_hash(&proposal, threshold);
 		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let active_proposals =
@@ -1206,6 +1218,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// `ProposalCount` can be more is because when a proposal is removed the
 	/// count is not deducted.
 	/// * Count of `ProposalOf` should match the count of `Proposals`
+	/// * Every proposal hash must equal `proposal_hash(call, threshold)` of its stored entries.
 	///
 	/// Looking at votes:
 	/// * The sum of aye and nay votes for a proposal can never exceed
@@ -1223,10 +1236,15 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	fn do_try_state() -> Result<(), TryRuntimeError> {
 		Proposals::<T, I>::get().into_iter().try_for_each(
 			|proposal| -> Result<(), TryRuntimeError> {
-				ensure!(
-					ProposalOf::<T, I>::get(proposal).is_some(),
-					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping."
-				);
+				let call = ProposalOf::<T, I>::get(proposal).ok_or(
+					"Proposal hash from `Proposals` is not found inside the `ProposalOf` mapping.",
+				)?;
+				if let Some(votes) = Voting::<T, I>::get(proposal) {
+					ensure!(
+						proposal == Self::proposal_hash(&call, votes.threshold),
+						"Proposal hash is not derived from the proposal's call and threshold."
+					);
+				}
 				Ok(())
 			},
 		)?;
