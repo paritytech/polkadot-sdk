@@ -1329,6 +1329,39 @@ fn close_parent_with_child_bounty() {
 }
 
 #[test]
+fn close_child_bounty_reject_origin_parent_inactive() {
+	new_test_ext().execute_with(|| {
+		go_to_block(1);
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		Balances::make_free_balance_be(&account_id(4), 101);
+
+		assert_ok!(Bounties::propose_bounty(
+			RuntimeOrigin::signed(account_id(0)),
+			50,
+			b"12345".to_vec()
+		));
+		assert_ok!(Bounties::approve_bounty(RuntimeOrigin::root(), 0));
+		go_to_block(2);
+		assert_ok!(Bounties::propose_curator(RuntimeOrigin::root(), 0, account_id(4), 6));
+		assert_ok!(Bounties::accept_curator(RuntimeOrigin::signed(account_id(4)), 0));
+		assert_ok!(ChildBounties::add_child_bounty(
+			RuntimeOrigin::signed(account_id(4)),
+			0,
+			10,
+			b"12345-p1".to_vec()
+		));
+
+		go_to_block(4);
+		assert_ok!(Bounties::unassign_curator(RuntimeOrigin::root(), 0));
+
+		assert_ok!(ChildBounties::close_child_bounty(RuntimeOrigin::root(), 0, 0));
+		assert!(!pallet_child_bounties::ChildBounties::<Test>::contains_key(0, 0));
+		assert_eq!(pallet_child_bounties::ParentChildBounties::<Test>::get(0), 0);
+		assert_eq!(Balances::free_balance(Bounties::bounty_account_id(0)), 50);
+	});
+}
+
+#[test]
 fn children_curator_fee_calculation_test() {
 	// Tests the calculation of subtracting child-bounty curator fee
 	// from parent bounty fee when claiming bounties.
