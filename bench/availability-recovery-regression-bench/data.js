@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793388363556,
+  "lastUpdate": 1793392602306,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mertwole@gmail.com",
-            "name": "mertwole",
-            "username": "mertwole"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a0d4b392e1cc2dc0fe95ca95b461ed6fc580aa20",
-          "message": "[pallet-broker] introduce `Market` trait for a generic coretime market (#11563)\n\nThis PR is a part of #10916 containing only the `Market` trait\n\nPart of #10900",
-          "timestamp": "2026-04-16T14:44:09Z",
-          "tree_id": "335e81cb05948d157e190a8758a0d172fd136c7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0d4b392e1cc2dc0fe95ca95b461ed6fc580aa20"
-        },
-        "date": 1776356045906,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.650773508366667,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1327863537,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.062666202433336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aa33a0f1f0fef63e928875cf5979c3db94698b1b",
+          "message": "statement-store: keep the no-DHT mark only while the peer's substream is open (#13563)\n\n# Description\n\nA peer marked as without the DHT path (#13497) stayed out of the DHT\nindex until a new substream opened, which may never happen once it\nrestarts with the DHT path on.\n\nThe mark now ends when the substream closes; a peer that reconnects\nstill without the DHT path is marked again. While marked, a peer\nsteering already holds reserved stays reserved, so the node does not\ndrop and redial it. Sync recovery and the flood check release it before\ndisconnecting, as litep2p ignores a disconnect of a reserved peer.\n\nA peer without the DHT path that stops accepting this node stays indexed\nbut unreachable, like a never-connected one (#13515).\n\nCloses #13554",
+          "timestamp": "2026-10-30T19:03:18Z",
+          "tree_id": "9099deb8ef2d410b1f3fb2cb4fb060861152ac2f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa33a0f1f0fef63e928875cf5979c3db94698b1b"
+        },
+        "date": 1793392569163,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12422595033333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.935387371533334,
             "unit": "seconds"
           }
         ]
