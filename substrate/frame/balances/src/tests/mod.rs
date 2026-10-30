@@ -29,14 +29,9 @@ use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	parameter_types,
 	traits::{
-<<<<<<< HEAD
-		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, OnUnbalanced, StorageMapShim,
-		StoredMap, VariantCount, VariantCountOf, WhitelistedStorageKeys,
-=======
 		fungible, ConstU32, ConstU8, Imbalance as ImbalanceT, LockIdentifier, LockableCurrency,
-		OnUnbalanced, StorageMapShim, StoredMap, VariantCount, WhitelistedStorageKeys,
-		WithdrawReasons,
->>>>>>> 06ccd162 ([FRAME] Small Balance Fixes (#12674))
+		OnUnbalanced, StorageMapShim, StoredMap, VariantCount, VariantCountOf,
+		WhitelistedStorageKeys, WithdrawReasons,
 	},
 	weights::{IdentityFee, Weight},
 };

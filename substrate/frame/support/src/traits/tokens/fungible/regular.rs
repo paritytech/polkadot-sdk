@@ -37,16 +37,11 @@ use crate::{
 	},
 };
 use core::marker::PhantomData;
-<<<<<<< HEAD
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
-use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
-=======
-use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One, Zero};
 use sp_runtime::{
 	traits::{Bounded, Saturating},
 	ArithmeticError, DispatchError, TokenError,
 };
->>>>>>> 06ccd162 ([FRAME] Small Balance Fixes (#12674))
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
