@@ -184,21 +184,20 @@ impl<T: Config> OnDepositSet for Pallet<T> {
 		// The state may have changed since the request was made. A failed check leaves nothing
 		// behind, so only what was just taken needs giving back.
 		if let Err(error) = Self::resume(&request) {
-			// Giving back a deposit this pallet still records would leave the provider short of
-			// it. `resume` explains for each action why this holds.
 			let (sender, recipient) = Self::recorded_deposits(&channel_id);
-			frame_support::defensive_assert!(
-				request.sender.is_none() || sender == 0,
-				"a failed resume leaves no sender deposit recorded"
-			);
-			frame_support::defensive_assert!(
-				request.recipient.is_none() || recipient == 0,
-				"a failed resume leaves no recipient deposit recorded"
-			);
+			// Defensively check that the recorded deposits are 0, before giving back.
+			let give_back = |change: Option<DepositChange>, recorded: Balance, side: &str| {
+				let change = change?;
+				if recorded != 0 {
+					frame_support::defensive!("a failed resume left a deposit recorded", side);
+					return None;
+				}
+				Some(change.target)
+			};
 			Self::release_deposits(
 				&channel_id,
-				request.sender.map(|c| c.target),
-				request.recipient.map(|c| c.target),
+				give_back(request.sender, sender, "sender"),
+				give_back(request.recipient, recipient, "recipient"),
 			);
 			Self::deposit_event(Event::DepositReturned { channel_id, error });
 		}
