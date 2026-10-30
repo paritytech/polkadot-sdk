@@ -13923,20 +13923,32 @@ dependencies = [
 name = "pallet-hrmp-para"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "pallet-balances",
  "parity-scale-codec",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
 name = "pallet-hrmp-relay"
 version = "0.1.0"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "hrmp-primitives",
+ "log",
  "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
