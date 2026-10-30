@@ -510,9 +510,9 @@ parameter_types! {
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
-type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
+type NativeAndAssets = frame_support::traits::fungible::UnionOf<
 	Balances,
-	frame_support::traits::fungibles::EmptyFungibles<u32, Balance>,
+	super::Assets,
 	frame_support::traits::fungible::NativeFromLeft,
 	NativeOrWithId<u32>,
 	AccountId,
@@ -529,16 +529,16 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
 	}
 
-	fn create_asset(_asset_id: NativeOrWithId<u32>) -> sp_runtime::DispatchResult {
-		use sp_runtime::{DispatchError, DispatchResult, TokenError};
+	fn create_asset(asset_id: NativeOrWithId<u32>) -> sp_runtime::DispatchResult {
+		use frame_support::traits::fungibles::Create;
 
-		DispatchResult::Err(DispatchError::Token(TokenError::CannotCreate))
+		NativeAndAssets::create(asset_id, AccountId::from([0; 32]), false, 1)
 	}
 }
 
 impl pallet_dap::Config for Runtime {
 	type Balance = Balance;
-	type Assets = NativeAndEmptyAssets;
+	type Assets = NativeAndAssets;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = DapBenchmarkHelper;
 	type AssetKind = NativeOrWithId<u32>;
