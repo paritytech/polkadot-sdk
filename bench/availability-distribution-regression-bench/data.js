@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793356436785,
+  "lastUpdate": 1793360319535,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baaaa925927eaf4a488f33ac1f1ecd6bacd24db3",
-          "message": "asset-conversion-precompiles expose pool management (#11690)\n\nAdd createPool, addLiquidity, and removeLiquidity functions to the\nasset-conversion precompile, enabling EVM contracts to manage liquidity\npools directly. Also refactors common helpers (caller lookup, path\nvalidation) for reuse across swap and liquidity operations.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T14:06:01Z",
-          "tree_id": "1f147cb91b909822a1d2d6bd229ba65fcdc42d62",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaaa925927eaf4a488f33ac1f1ecd6bacd24db3"
-        },
-        "date": 1776266918115,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007424472153333339,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02553287059333334,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14347569146666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010010950586666638,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009640615266666633,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8fbb5fd234a836f1bf3f948200f71bb1d7973e66",
+          "message": "pallet-psm: reduce debt by the amount actually burned on redeem (#13627)\n\n`redeem` burns with `Preservation::Expendable`. When the redeemer is\nleft\n   below the internal asset's `min_balance`, `burn_from` also burns that\n   remainder and lowers the issuance by more than\n`effective_internal_net`,\n   while `PsmDebt` only dropped by `effective_internal_net`. A plain\nredeem\n   could therefore leave the issuance below the debt, failing the\n   `try_state` check and keeping the debt from ever reaching zero.\n\n   Reduce the debt by the value `burn_from` returns, and report it in\n   `Redeemed::internal_consumed`. The burned remainder's external value\n   stays in the reserve.\n\n---------\n\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T10:06:17Z",
+          "tree_id": "c1e0f7ede5438e0c611053bb035c9e95ea0b5bd7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8fbb5fd234a836f1bf3f948200f71bb1d7973e66"
+        },
+        "date": 1793360287244,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025037880279999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14196485125333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009741077486666638,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007994298013333335,
             "unit": "seconds"
           }
         ]
