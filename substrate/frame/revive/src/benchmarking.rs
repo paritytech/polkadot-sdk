@@ -641,7 +641,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Measure the amount of time it takes to compile a single basic block.
+	// Measure the amount of time it takes to compile a single maximum sized basic block.
 	//
 	// (basic_block_compilation(1) - basic_block_compilation(0)).ref_time()
 	//
@@ -649,15 +649,24 @@ mod benchmarks {
 	// a time. To prevent a contract from triggering compilation without doing any execution
 	// we will always charge one max sized block per contract call.
 	//
+	// The called contract stops at the first instruction of its entry block. That block has
+	// 2 instructions for `b = 0` and `BASIC_BLOCK_SIZE` instructions for `b = 1`. Both contracts
+	// consist of the same instructions in a different order: their code has the same size and
+	// the call reads the same storage items of the same size. The slope is therefore the time to
+	// compile `BASIC_BLOCK_SIZE - 2` additional instructions of one block, including computing
+	// their gas cost. Loading the code is charged by `call_with_pvm_code_per_byte` and not part
+	// of it.
+	//
 	// We ignore the proof size component when using this benchmark as this is already accounted
 	// for in `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn basic_block_compilation(b: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let instance = Contract::<T>::with_caller(
-			whitelisted_caller(),
-			VmBinaryModule::with_num_instructions(limits::code::BASIC_BLOCK_SIZE),
-			vec![],
-		)?;
+		let module = if b == 0 {
+			VmBinaryModule::with_small_entry_block()
+		} else {
+			VmBinaryModule::with_full_entry_block()
+		};
+		let instance = Contract::<T>::with_caller(whitelisted_caller(), module, vec![])?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
 

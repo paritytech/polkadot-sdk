@@ -1,0 +1,33 @@
+title: '[pallet-revive] Measure basic block compilation in its benchmark'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    The `basic_block_compilation` benchmark measures compiling one maximum-sized basic block,
+    which every call into a PVM contract is charged as
+    `basic_block_compilation(1) - basic_block_compilation(0)` on top of the per-byte code load
+    cost.
+
+    The benchmark calls a contract whose entry block has 2 instructions for `b = 0` and
+    `BASIC_BLOCK_SIZE` instructions for `b = 1`. Both contracts contain the same instructions in
+    a different order, so they have the same size and cause the same storage reads. The slope
+    is the time the interpreter needs to compile the additional instructions of the larger
+    block.
+
+    The `WeightInfo` trait is unchanged. Runtimes that use their own `pallet_revive` weights
+    should regenerate them to pick up the new measurement.
+
+    `VmBinaryModule::with_small_entry_block` and `VmBinaryModule::with_full_entry_block` are
+    added to the `call_builder` module, which is only available with the `runtime-benchmarks`
+    feature.
+- audience: Runtime User
+  description: |-
+    With the weights in this release, every call frame that runs PVM contract code loaded from
+    storage is charged about 50 us of ref time for compiling its entry block: 50.56 us with the
+    `pallet-revive` default weights and 49.18 us on Asset Hub Westend.
+
+crates:
+- name: pallet-revive
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
