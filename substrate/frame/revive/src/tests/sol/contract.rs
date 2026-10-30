@@ -1218,8 +1218,8 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc],
 		// A tenth of the default gas or weight limit, to shorten the test execution time spent in
-		// the callee's endless loop. In the second case the weight limit binds first, as in a dry
-		// run without gas.
+		// the callee's endless loop. In the second case the weight limit runs out first, as in a
+		// dry run without gas.
 		[
 			ethereum_limits(ETH_GAS_LIMIT / 10, WEIGHT_LIMIT),
 			ethereum_limits(u64::MAX, WEIGHT_LIMIT / 10),
