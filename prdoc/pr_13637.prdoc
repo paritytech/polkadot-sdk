@@ -11,3 +11,4 @@ crates:
   bump: patch
 - name: polkadot-node-primitives
   bump: major
+  validate: false
