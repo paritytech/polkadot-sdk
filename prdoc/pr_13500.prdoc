@@ -1,0 +1,13 @@
+title: 'babe: build equivocation proofs from sealed headers'
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: |-
+    The BABE block import passed the seal-stripped pre-header to the equivocation check, so the
+    equivocation proofs it generated never contained the seal and were rejected by the runtime
+    with `InvalidEquivocationProof`. The check now uses the sealed header, so BABE equivocations
+    are reported and slashed again.
+crates:
+- name: sc-consensus-babe
+  bump: patch
