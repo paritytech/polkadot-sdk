@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793311870301,
+  "lastUpdate": 1793356551843,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "oliver.tale-yazdi@parity.io",
-            "name": "Oliver Tale-Yazdi",
-            "username": "ggwpez"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ce8b548166154dfaf7c330a0305da8bb93cd0c75",
-          "message": "Post 2603 cleanup (#11750)\n\n- **make clone of AssetsInHolding available for std**\n- **Make pallet assets try-state check more lenient**\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>",
-          "timestamp": "2026-04-14T15:46:00Z",
-          "tree_id": "2deeaae73c8eacc3ac4d893178e6868f224d22ff",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce8b548166154dfaf7c330a0305da8bb93cd0c75"
-        },
-        "date": 1776186569356,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.058,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038953780004000016,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08218246235999992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.039077346177999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d35873d48c27f770fd318a986cd9c7dd8b81383",
+          "message": "pallet-broker: do not consume unsettled timeslices in claim_revenue (#13286)\n\n# Description\n\n`claim_revenue` advanced a pool contribution past a timeslice before\nchecking whether its revenue\ncould be paid out, so a claim made before a timeslice was settled lost\nthat timeslice's payout\npermanently. The claim now stops at the first timeslice whose revenue\nhas not yet been reported,\nor which has not yet been committed, and keeps the remaining\ncontribution so it can be retried.\nA history entry missing at or before the last committed timeslice is\nstill treated as dropped.\n\n## Integration\n\nNo API changes. The `claim_revenue` weights change: the benchmark now\nsettles every claimed\ntimeslice instead of only the first, so runtimes should regenerate\n`pallet_broker` weights.\n\n## Review Notes\n\n- `do_claim_revenue`: the history lookup and `maybe_payout` check move\nahead of the\n`region.begin` / `contribution.length` advance; a missing entry only\nadvances the contribution\nwhen `r <= Status::last_committed_timeslice`. The `next` hint in\n`RevenueClaimPaid` follows the\nremaining contribution length rather than the already-mutated\n`region.begin`.\n- `claim_revenue(m)` benchmark: seeds `m` settled history entries.\nPreviously iterations `2..m`\ntook the cheap missing-entry path, so the per-timeslice weight was\nunderestimated.\n- Tests: claiming before commit or before settlement leaves the\ncontribution intact and reports\n  `next`; claiming over dropped history skips it and pays out the rest.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T09:01:04Z",
+          "tree_id": "22a43a56e9a35160e19dc6017d66230f3cdf6da1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d35873d48c27f770fd318a986cd9c7dd8b81383"
+        },
+        "date": 1793356522081,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08599999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038350138946000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08057674315599991,
             "unit": "seconds"
           }
         ]
