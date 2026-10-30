@@ -100,7 +100,7 @@ jobs:
     runs-on: ubuntu-latest
     name: All docs jobs passed
     # If any new job gets added, be sure to add it to this array
-    needs: [test-doc, build-rustdoc, build-implementers-guide]
+    needs: [preflight, test-doc, build-rustdoc, build-implementers-guide]
     if: always() && !cancelled()
     steps:
       - run: |

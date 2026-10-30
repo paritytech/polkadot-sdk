@@ -5,7 +5,10 @@ doc:
     description: |
       Normalize the shared preflight change-filter output to 'true' for relevant changes
       and an empty string otherwise, preserving all existing consuming job conditions.
-      Changes excluded by the current file filters now skip those jobs, while Rust changes
-      and changes to the caller workflow or shared preflight continue to run them.
-      File filters and event exclusions are unchanged. No crates require publishing.
+      Documentation exclusions cover only Markdown, Mermaid and PNG files under docs/.
+      Rust changes, other docs files, caller workflows, shared preflight and shared CI
+      inputs (env, actions, scripts and the runtimes matrix) enable the guarded jobs.
+      Final aggregate checks depend directly on preflight so its failure or cancellation
+      cannot be hidden by skipped downstream jobs. Event exclusions are unchanged.
+      No crates require publishing.
 crates: []

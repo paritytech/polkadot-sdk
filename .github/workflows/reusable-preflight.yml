@@ -116,10 +116,16 @@ jobs:
               - '**/*'
               - '!.github/**/*'
               - '!prdoc/**/*'
-              - '!docs/**/*'
+              - '!docs/**/*.md'
+              - '!docs/**/*.mmd'
+              - '!docs/**/*.png'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/reusable-preflight.yml'
+              - '.github/env'
+              - '.github/actions/**'
+              - '.github/scripts/**'
+              - '.github/workflows/runtimes-matrix.json'
 
       #
       # Set image

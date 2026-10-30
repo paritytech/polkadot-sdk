@@ -122,7 +122,7 @@ jobs:
   confirm-frame-omni-benchers-passed:
     runs-on: ubuntu-latest
     name: All benchmarks passed
-    needs: [quick-benchmarks-omni, run-frame-omni-bencher]
+    needs: [preflight, quick-benchmarks-omni, run-frame-omni-bencher]
     if: always() && !cancelled()
     steps:
       - run: |
