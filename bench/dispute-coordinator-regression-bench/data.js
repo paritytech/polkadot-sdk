@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793360469077,
+  "lastUpdate": 1793379992413,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "evgeny@parity.io",
-            "name": "Evgeny Snitko",
-            "username": "AndWeHaveAPlan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b9447f0539360174e040ecf41d6213d98a2114cb",
-          "message": "Update ci-unified version in .github/env (#11711)\n\nforklift 0.16.0, fixed https://github.com/paritytech/forklift/issues/30\n\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-14T22:54:59Z",
-          "tree_id": "2d178ab11d1a3838e812111e0119b6d295f45447",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b9447f0539360174e040ecf41d6213d98a2114cb"
-        },
-        "date": 1776212174301,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009399544879999973,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009852387889999993,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026474168600000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009545903669999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "06ccd162f5991e7e93c6bc5129bc7adae8534282",
+          "message": "[FRAME] Small Balance Fixes (#12674)\n\nChanges:\n- Keep frozen accounts alive below ED\n- Handle dust when releasing holds\n- Remove empty hold entries\n- Handle dust when thawing freezes and test reentrant dust handlers\n- Handle dust when removing locks and test reentrant dust handlers\n- Document inactive issuance during burns\n- Prevent aggregate balance overflow\n- Preserve inactive issuance when deactivating\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Kian Paimani <kian@parity.io>",
+          "timestamp": "2026-10-30T15:35:05Z",
+          "tree_id": "d3e0b34b562fbfffb67a8143de9969c7f42305ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/06ccd162f5991e7e93c6bc5129bc7adae8534282"
+        },
+        "date": 1793379964555,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009690339899999989,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011952680429999994,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025138413000000003,
             "unit": "seconds"
           }
         ]
