@@ -873,7 +873,7 @@ pub mod pallet {
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
 			let fee = fee_rate.mul_ceil(internal_amount);
 			// Waive the fee if the fee destination cannot receive it, so it never blocks swaps.
-			let fee = match T::Fungibles::can_deposit(
+			let mut fee = match T::Fungibles::can_deposit(
 				internal_asset.clone(),
 				&info.fee_destination,
 				fee,
@@ -906,6 +906,24 @@ pub mod pallet {
 				return Err(Error::<T>::Unexpected.into());
 			}
 
+			// `burn_from` would also burn a remainder below `min_balance`, which this pair's debt
+			// may not cover. Send it to the fee destination along with the fee instead, if the fee
+			// destination can receive it.
+			let remainder = T::Fungibles::balance(internal_asset.clone(), &who)
+				.saturating_sub(fee.saturating_add(effective_internal_net));
+
+			let with_remainder = fee.saturating_add(remainder);
+			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) &&
+				T::Fungibles::can_deposit(
+					internal_asset.clone(),
+					&info.fee_destination,
+					with_remainder,
+					Provenance::Extant,
+				) == DepositConsequence::Success
+			{
+				fee = with_remainder;
+			}
+
 			if !fee.is_zero() {
 				T::Fungibles::transfer(
 					internal_asset.clone(),
@@ -916,7 +934,7 @@ pub mod pallet {
 				)?;
 			}
 
-			if !effective_internal_net.is_zero() {
+			let burned = if !effective_internal_net.is_zero() {
 				T::Fungibles::burn_from(
 					internal_asset.clone(),
 					&who,
@@ -924,8 +942,10 @@ pub mod pallet {
 					Preservation::Expendable,
 					Precision::Exact,
 					Fortitude::Polite,
-				)?;
-			}
+				)?
+			} else {
+				BalanceOf::<T>::zero()
+			};
 
 			let psm_account = Self::psm_account(&internal_asset);
 			if !external_out.is_zero() {
@@ -939,14 +959,14 @@ pub mod pallet {
 			}
 
 			PsmDebt::<T>::mutate(&internal_asset, &external_asset, |debt| {
-				*debt = debt.saturating_sub(effective_internal_net);
+				*debt = debt.saturating_sub(burned);
 			});
 
 			Self::deposit_event(Event::Redeemed {
 				who,
 				internal_asset,
 				external_asset,
-				internal_consumed: effective_internal_net.saturating_add(fee),
+				internal_consumed: burned.saturating_add(fee),
 				external_received: external_out,
 				internal_fee: fee,
 			});

@@ -20,6 +20,7 @@
 use crate::{mock::*, *};
 use frame_support::{
 	assert_err, assert_noop, assert_ok,
+	dispatch::Pays,
 	traits::nonfungible::{Inspect as NftInspect, Mutate, Transfer},
 	BoundedVec,
 };
@@ -713,6 +714,100 @@ fn instapool_payouts_work() {
 		assert_eq!(pot(), 0);
 		assert_eq!(revenue(), 106);
 		assert_eq!(balance(2), 4);
+	});
+}
+
+#[test]
+fn instapool_claim_does_not_consume_unsettled_timeslices() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region, None, 2, Final));
+		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
+
+		assert_eq!(InstaPoolHistory::<Test>::get(region.begin), None);
+		let info = Broker::claim_revenue(RuntimeOrigin::signed(3), region, 100).unwrap();
+		assert_eq!(info.pays_fee, Pays::Yes);
+		assert_eq!(info.actual_weight, Some(<() as WeightInfo>::claim_revenue(1)));
+		assert_eq!(balance(2), 0);
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(region),
+			Some(ContributionRecord { length: 3, payee: 2 })
+		);
+		System::assert_last_event(
+			Event::RevenueClaimPaid { who: 2, amount: 0, next: Some(region) }.into(),
+		);
+
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		assert_eq!(
+			InstaPoolHistory::<Test>::get(region.begin).unwrap(),
+			InstaPoolHistoryRecord {
+				private_contributions: 80,
+				system_contributions: 0,
+				maybe_payout: None,
+			}
+		);
+
+		let info = Broker::claim_revenue(RuntimeOrigin::signed(3), region, 100).unwrap();
+		assert_eq!(info.pays_fee, Pays::Yes);
+		assert_eq!(info.actual_weight, Some(<() as WeightInfo>::claim_revenue(1)));
+		assert_eq!(balance(2), 0);
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(region),
+			Some(ContributionRecord { length: 3, payee: 2 })
+		);
+		System::assert_last_event(
+			Event::RevenueClaimPaid { who: 2, amount: 0, next: Some(region) }.into(),
+		);
+
+		advance_to(11);
+		assert_eq!(pot(), 10);
+		let info = Broker::claim_revenue(RuntimeOrigin::signed(3), region, 100).unwrap();
+		assert_eq!(info.pays_fee, Pays::No);
+		assert_eq!(info.actual_weight, Some(<() as WeightInfo>::claim_revenue(2)));
+		assert_eq!(balance(2), 10);
+		let next = RegionId { begin: region.begin + 1, ..region };
+		assert_eq!(
+			InstaPoolContribution::<Test>::get(next),
+			Some(ContributionRecord { length: 2, payee: 2 })
+		);
+		System::assert_last_event(
+			Event::RevenueClaimPaid { who: 2, amount: 10, next: Some(next) }.into(),
+		);
+	});
+}
+
+#[test]
+fn instapool_claim_skips_dropped_history() {
+	TestExt::new().contribution_timeout(4).endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region, None, 2, Final));
+		assert_ok!(Broker::do_purchase_credit(1, 30, 1));
+
+		advance_to(8);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(10);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+		advance_to(12);
+		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
+
+		advance_to(18);
+		assert_eq!(pot(), 30);
+		assert_ok!(Broker::do_drop_history(region.begin));
+		assert_eq!(pot(), 20);
+		assert_eq!(InstaPoolHistory::<Test>::get(region.begin), None);
+
+		assert_ok!(Broker::do_claim_revenue(region, 100));
+		assert_eq!(balance(2), 20);
+		assert_eq!(pot(), 0);
+		assert_eq!(InstaPoolContribution::<Test>::get(region), None);
+		System::assert_last_event(
+			Event::RevenueClaimPaid { who: 2, amount: 20, next: None }.into(),
+		);
 	});
 }
 
