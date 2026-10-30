@@ -1670,6 +1670,10 @@ impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkH
 			decimals,
 		);
 	}
+	fn fund_account(who: &AccountId) {
+		let _ =
+			Balances::force_set_balance(RuntimeOrigin::root(), who.clone().into(), 10u128.pow(18));
+	}
 }
 
 impl pallet_psm::Config for Runtime {

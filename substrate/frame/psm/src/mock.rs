@@ -153,6 +153,9 @@ impl crate::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 			decimals,
 		);
 	}
+	fn fund_account(who: &AccountId) {
+		let _ = Balances::force_set_balance(RuntimeOrigin::root(), who.clone(), INITIAL_BALANCE);
+	}
 }
 
 impl crate::Config for Test {

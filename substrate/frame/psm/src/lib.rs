@@ -147,6 +147,8 @@ pub trait BenchmarkHelper<AssetId, AccountId> {
 	fn get_asset_id(asset_index: u32) -> AssetId;
 	/// Create an asset with metadata matching the internal asset's decimals.
 	fn create_asset(asset_id: AssetId, owner: &AccountId, decimals: u8);
+	/// Give `who` enough native balance to pay deposits.
+	fn fund_account(who: &AccountId);
 }
 
 #[frame_support::pallet]
