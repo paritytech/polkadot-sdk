@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793360368955,
+  "lastUpdate": 1793379884521,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9f6182fe1ef2a4bd2013571396999ddd4044a8ef",
-          "message": "[CI] Fix random job cancellations in combined publish workflows (#11703)\n\n## Summary\n\n- The combined publish workflows (`release-70`, `release-22`) call\nmultiple sub-workflows that each invoke `check-synchronization.yml`.\nThat reusable workflow has a concurrency group (`${{ github.repository\n}}-${{ github.workflow }}-${{ github.ref }}`) that evaluates to the\n**same value** for all callers within a single run, causing GitHub to\nrandomly cancel competing jobs.\n- PR #11631 attempted to fix this with `github.event_name ==\n'workflow_dispatch'` guards, but `github.event_name` propagates the\noriginal trigger through `workflow_call` chains, so the guard doesn't\nreliably skip the check.\n- This PR replaces that guard with an explicit `skip_sync_check` boolean\ninput. Combined workflows pass `skip_sync_check: true` since they\nalready run the check at the top level. Standalone dispatches default to\n`false`, preserving existing behavior.\n- Also removes the redundant `check-synchronization` job from\n`release-reusable-publish-packages.yml` (only ever called from workflows\nthat already perform the check).\n\nEvidence: [4 consecutive failed\nattempts](https://github.com/paritytech-release/polkadot-sdk/actions/runs/23787944175)\nwith different random jobs cancelled each time.\n\n## Issue\n\n- https://github.com/paritytech/release-engineering/issues/291\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-04-15T18:02:46Z",
-          "tree_id": "476d14e5d739f6a66e36af53f32b47a9ad9a9c25",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f6182fe1ef2a4bd2013571396999ddd4044a8ef"
-        },
-        "date": 1776282453714,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63635.91000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000022948590000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000232542,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000022948590000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.802615118540001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8542913823899996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8373276113999992,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.44170964857,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000232542,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.576240322519956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7629256355199577,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8716972907699985,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.385469341873075,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005673635330000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00002150472,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "06ccd162f5991e7e93c6bc5129bc7adae8534282",
+          "message": "[FRAME] Small Balance Fixes (#12674)\n\nChanges:\n- Keep frozen accounts alive below ED\n- Handle dust when releasing holds\n- Remove empty hold entries\n- Handle dust when thawing freezes and test reentrant dust handlers\n- Handle dust when removing locks and test reentrant dust handlers\n- Document inactive issuance during burns\n- Prevent aggregate balance overflow\n- Preserve inactive issuance when deactivating\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Kian Paimani <kian@parity.io>",
+          "timestamp": "2026-10-30T15:35:05Z",
+          "tree_id": "d3e0b34b562fbfffb67a8143de9969c7f42305ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/06ccd162f5991e7e93c6bc5129bc7adae8534282"
+        },
+        "date": 1793379856298,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63555.250000000015,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52935.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.333166105462638,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7232281136400007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.153043348550018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.0000173739,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005583273349999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.0000173739,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002167193,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3118426062499946,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002167193,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.773765116550002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7562481563500008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7495501972899965,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8328258851200235,
             "unit": "seconds"
           }
         ]
