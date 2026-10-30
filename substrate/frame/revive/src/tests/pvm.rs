@@ -2932,9 +2932,10 @@ fn deposit_limit_in_nested_instantiate() {
 		let caller_deposit = 2u128 + 48 + storage_len as u128;
 		let callee_deposit = callee_min_deposit + storage_len as u128;
 		let callee_eip_150_peak =
-			(callee_deposit * DENOMINATOR as u128).div_ceil(NUMERATOR as u128);
+			(callee_deposit * DENOMINATOR.get() as u128).div_ceil(NUMERATOR.get() as u128);
 		let caller_total_deposit = callee_eip_150_peak + caller_deposit;
-		let eip_150_retained = (callee_eip_150_peak + NUMERATOR as u128) / DENOMINATOR as u128;
+		let eip_150_retained =
+			(callee_eip_150_peak + NUMERATOR.get() as u128) / DENOMINATOR.get() as u128;
 		assert!(
 			eip_150_retained < caller_deposit,
 			"eip_150_retained ({eip_150_retained}) must be < caller_deposit ({caller_deposit})"
@@ -2956,7 +2957,7 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// With EIP-150 63/64 rule, nested calls receive floor(remaining * 63/64).
 		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as overhead.
-		let eip_150_overhead = (callee_min_deposit + 1).div_ceil(NUMERATOR as u128);
+		let eip_150_overhead = (callee_min_deposit + 1).div_ceil(NUMERATOR.get() as u128);
 		// The +3 accounts for using 1-byte storage while caller_min_deposit assumes 0-byte:
 		// - +1 for callee's 1-byte storage data
 		// - +2 for caller's two 1-byte storage items

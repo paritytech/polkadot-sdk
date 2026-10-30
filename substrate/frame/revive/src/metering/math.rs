@@ -21,7 +21,7 @@ use super::{
 	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter,
 };
 use crate::vm::{RuntimeCosts, evm::EVMGas};
-use core::marker::PhantomData;
+use core::{marker::PhantomData, num::NonZero};
 use eip_150::{BalanceEip150, WeightEip150};
 use num_traits::{One, Zero};
 use revm::interpreter::gas::CALL_STIPEND;
@@ -38,9 +38,9 @@ pub mod eip_150 {
 	use frame_support::DebugNoBound;
 
 	/// Denominator of the 63/64 rule.
-	pub const DENOMINATOR: u64 = 64;
+	pub const DENOMINATOR: NonZero<u64> = NonZero::new(64).unwrap();
 	/// Numerator of the 63/64 rule; the caller keeps the one remaining part.
-	pub const NUMERATOR: u64 = DENOMINATOR - 1;
+	pub const NUMERATOR: NonZero<u64> = NonZero::new(DENOMINATOR.get() - 1).unwrap();
 
 	/// The minimum starting amount a call needs so that each of its subcalls still receives
 	/// enough after the 63/64 split.
@@ -128,7 +128,7 @@ pub mod eip_150 {
 		fn saturating_sub(a: Self::Amount, b: Self::Amount) -> Self::Amount;
 
 		/// Returns `amount / divisor`, rounded up.
-		fn div_ceil(amount: Self::Amount, divisor: u64) -> Self::Amount;
+		fn div_ceil(amount: Self::Amount, divisor: NonZero<u64>) -> Self::Amount;
 
 		/// Returns the share of `amount` that a subcall can receive.
 		fn apply(amount: Self::Amount) -> Self::Amount {
@@ -162,10 +162,10 @@ pub mod eip_150 {
 			a.saturating_sub(b)
 		}
 
-		fn div_ceil(amount: Weight, divisor: u64) -> Weight {
+		fn div_ceil(amount: Weight, divisor: NonZero<u64>) -> Weight {
 			Weight::from_parts(
-				amount.ref_time().div_ceil(divisor),
-				amount.proof_size().div_ceil(divisor),
+				amount.ref_time().div_ceil(divisor.get()),
+				amount.proof_size().div_ceil(divisor.get()),
 			)
 		}
 	}
@@ -185,8 +185,8 @@ pub mod eip_150 {
 			a.saturating_sub(b)
 		}
 
-		fn div_ceil(amount: BalanceOf<T>, divisor: u64) -> BalanceOf<T> {
-			let divisor: BalanceOf<T> = divisor.saturated_into();
+		fn div_ceil(amount: BalanceOf<T>, divisor: NonZero<u64>) -> BalanceOf<T> {
+			let divisor: BalanceOf<T> = divisor.get().saturated_into();
 			let quotient = amount / divisor;
 			if (amount % divisor).is_zero() {
 				quotient
@@ -220,7 +220,7 @@ pub fn validate_and_get_stipend<T: Config>(weight_left: Weight) -> Result<Weight
 	Ok(weight_stipend)
 }
 
-/// Returns the ratio of `gas_limit` to `remaining_gas`, capped at 1.
+/// Returns `gas_limit` as a fraction of `remaining_gas`, capped at 1.
 pub fn gas_ratio<T: Config>(gas_limit: BalanceOf<T>, remaining_gas: BalanceOf<T>) -> FixedU128 {
 	if remaining_gas.is_zero() || gas_limit >= remaining_gas {
 		return FixedU128::one();
@@ -329,9 +329,9 @@ pub mod substrate_execution {
 					// (e.g., u128::MAX) causes ratio ≈ 0, giving nested calls almost no weight.
 					let remaining_gas = remaining_gas.min(u64::MAX.saturated_into());
 
-					let gas_limit = remaining_gas.min(*gas);
+					let callee_gas_limit = remaining_gas.min(*gas);
 
-					let ratio = gas_ratio::<T>(gas_limit, remaining_gas);
+					let ratio = gas_ratio::<T>(callee_gas_limit, remaining_gas);
 					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
