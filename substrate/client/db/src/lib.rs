@@ -87,9 +87,9 @@ use sp_runtime::{
 };
 use sp_state_machine::{
 	backend::{AsTrieBackend, Backend as StateBackend},
-	BackendTransaction, ChildStorageCollection, DBValue, IndexOperation, IterArgs,
-	OffchainChangesCollection, StateMachineStats, StorageCollection, StorageIterator, StorageKey,
-	StorageValue, UsageInfo as StateUsageInfo,
+	BackendTransaction, ChildStorageCollection, DBValue, DeltaKeyOp, EstimationTrie,
+	IndexOperation, IterArgs, OffchainChangesCollection, StateMachineStats, StorageCollection,
+	StorageIterator, StorageKey, StorageValue, UsageInfo as StateUsageInfo,
 };
 use sp_trie::{cache::SharedTrieCache, prefixed_key, MemoryDB, MerkleValue, PrefixedMemoryDB};
 use utils::BLOCK_GAP_CURRENT_VERSION;
@@ -303,6 +303,30 @@ impl<B: BlockT> StateBackend<HashingFor<B>> for RefTrackingState<B> {
 		state_version: StateVersion,
 	) -> (B::Hash, bool, BackendTransaction<HashingFor<B>>) {
 		self.state.child_storage_root(child_info, delta, state_version)
+	}
+
+	fn record_proof_for_dirty_keys<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut Option<EstimationTrie<HashingFor<B>>>,
+		state_version: StateVersion,
+	) {
+		self.state.record_proof_for_dirty_keys(delta, estimation_trie, state_version)
+	}
+
+	fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut Option<EstimationTrie<HashingFor<B>>>,
+		state_version: StateVersion,
+	) {
+		self.state.record_proof_for_child_dirty_keys(
+			child_info,
+			delta,
+			estimation_trie,
+			state_version,
+		)
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

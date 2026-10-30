@@ -19,32 +19,32 @@
 //! from storage.
 
 use crate::{
-	backend::{IterArgs, StorageIterator},
+	backend::{EstimationTrie, IterArgs, StorageIterator},
 	trie_backend::TrieCacheProvider,
-	warn, StorageKey, StorageValue,
+	warn, DeltaKeyOp, StorageKey, StorageValue,
 };
 #[cfg(feature = "std")]
 use alloc::sync::Arc;
 use alloc::{boxed::Box, vec::Vec};
 use codec::Codec;
 use core::marker::PhantomData;
-use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, Prefix};
+use hash_db::{self, AsHashDB, HashDB, HashDBRef, Hasher, MaybeDebug, Prefix};
 #[cfg(feature = "std")]
 use parking_lot::RwLock;
 use sp_core::storage::{ChildInfo, ChildType, StateVersion};
 use sp_trie::{
-	child_delta_trie_root, delta_trie_root, empty_child_trie_root,
-	read_child_trie_first_descendant_value, read_child_trie_hash, read_child_trie_value,
-	read_trie_first_descendant_value, read_trie_value,
+	child_delta_trie_root, child_read_trie_keys_from_delta, child_remove_trie_keys_from_delta,
+	delta_trie_root, empty_child_trie_root, read_child_trie_first_descendant_value,
+	read_child_trie_hash, read_child_trie_value, read_trie_first_descendant_value,
+	read_trie_keys_from_delta, read_trie_value, remove_trie_keys_from_delta,
 	trie_types::{TrieDBBuilder, TrieError},
-	DBValue, KeySpacedDB, MerkleValue, NodeCodec, PrefixedMemoryDB, RandomState, Trie, TrieCache,
-	TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
+	DBValue, KeySpacedDB, LayoutV1 as Layout, MerkleValue, NodeCodec, PrefixedMemoryDB,
+	RandomState, Trie, TrieCache, TrieDBRawIterator, TrieRecorder, TrieRecorderProvider,
 };
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 // In this module, we only use layout for read operation and empty root,
 // where V1 and V0 are equivalent.
-use sp_trie::LayoutV1 as Layout;
 
 #[cfg(not(feature = "std"))]
 macro_rules! format {
@@ -357,6 +357,20 @@ impl<S: TrieBackendStorage<H>, H: Hasher, C: TrieCacheProvider<H>, R: TrieRecord
 	}
 }
 
+/// The estimation only reads nodes of the state the backend serves and never writes, so an error
+/// means a corrupt database or a bug, never an input.
+fn expect_existing_nodes<T, E: MaybeDebug>(result: core::result::Result<T, E>) -> T {
+	const PROOF: &str =
+		"the backend serves the block-start state, so every node the estimation reads exists; qed";
+	match result {
+		Ok(value) => value,
+		#[cfg(feature = "std")]
+		Err(error) => panic!("{PROOF}: {error:?}"),
+		#[cfg(not(feature = "std"))]
+		Err(_) => panic!("{}", PROOF),
+	}
+}
+
 impl<
 		S: TrieBackendStorage<H>,
 		H: Hasher,
@@ -656,6 +670,103 @@ where
 		(root, write_overlay)
 	}
 
+	/// Partition delta keys into updated and deleted sets.
+	fn partition_delta<'a>(delta: Vec<(&'a [u8], DeltaKeyOp)>) -> (Vec<&'a [u8]>, Vec<&'a [u8]>) {
+		delta
+			.into_iter()
+			.fold((Vec::new(), Vec::new()), |(mut read, mut removed), (k, op)| {
+				match op {
+					DeltaKeyOp::Updated => read.push(k),
+					DeltaKeyOp::Deleted => removed.push(k),
+				}
+				(read, removed)
+			})
+	}
+
+	/// Updates the recorder's proof size by recording trie nodes for a given delta.
+	///
+	/// This function performs two operations to ensure accurate proof size calculation:
+	/// 1. Reads all keys that will be inserted or updated (`DeltaKeyOp::Updated`)
+	/// 2. Removes/touches all keys that will be deleted (`DeltaKeyOp::Deleted`)
+	/// All accessed trie nodes are recorded by the recorder, enabling accurate proof size
+	/// estimation for block production and validation.
+	///
+	/// Note: This function does not modify the actual storage state - it only reads and records
+	/// the trie nodes that would be affected by the given delta for proof size estimation.
+	pub fn record_proof_for_dirty_keys<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
+	) {
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
+		let backend_storage = &self.backend_storage();
+		let eph = Ephemeral::new(backend_storage, &mut write_overlay);
+
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		delta.sort();
+
+		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
+
+		self.with_recorder_and_cache(None, |recorder, cache| match state_version {
+			StateVersion::V0 => {
+				expect_existing_nodes(read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
+					&eph,
+					self.root,
+					keys_to_be_read,
+					recorder,
+					cache,
+				))
+			},
+			StateVersion::V1 => {
+				expect_existing_nodes(read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+					&eph,
+					self.root,
+					keys_to_be_read,
+					recorder,
+					cache,
+				))
+			},
+		});
+
+		if keys_to_be_removed.is_empty() {
+			return;
+		}
+		let trie = estimation_trie
+			.take()
+			.unwrap_or_else(|| EstimationTrie::new(state_version, self.root));
+		*estimation_trie = Some(self.with_recorder_and_cache(None, |recorder, cache| match trie {
+			EstimationTrie::V0(trie) => {
+				EstimationTrie::V0(expect_existing_nodes(remove_trie_keys_from_delta::<
+					sp_trie::LayoutV0<H>,
+					_,
+					_,
+					_,
+				>(
+					&eph,
+					keys_to_be_removed,
+					trie,
+					recorder,
+					cache,
+				)))
+			},
+			EstimationTrie::V1(trie) => {
+				EstimationTrie::V1(expect_existing_nodes(remove_trie_keys_from_delta::<
+					sp_trie::LayoutV1<H>,
+					_,
+					_,
+					_,
+				>(
+					&eph,
+					keys_to_be_removed,
+					trie,
+					recorder,
+					cache,
+				)))
+			},
+		}));
+	}
+
 	/// Returns the child storage root for the child trie `child_info` after applying the given
 	/// `delta`.
 	pub fn child_storage_root<'a>(
@@ -713,6 +824,104 @@ where
 		let is_default = new_child_root == default_root;
 
 		(new_child_root, is_default, write_overlay)
+	}
+
+	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
+	///
+	/// Refer to [`Self::record_proof_for_dirty_keys`] for more details.
+	pub fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
+	) {
+		let mut delta = delta.into_iter().collect::<Vec<_>>();
+		if delta.is_empty() {
+			return;
+		}
+		delta.sort();
+
+		let default_root = match child_info.child_type() {
+			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
+		};
+		let mut write_overlay = PrefixedMemoryDB::with_hasher(RandomState::default());
+		let child_root = expect_existing_nodes(self.child_root(child_info)).unwrap_or(default_root);
+		let eph = Ephemeral::new(self.backend_storage(), &mut write_overlay);
+		let keyspace = child_info.keyspace();
+
+		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
+
+		self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
+			StateVersion::V0 => expect_existing_nodes(child_read_trie_keys_from_delta::<
+				sp_trie::LayoutV0<H>,
+				_,
+				_,
+				_,
+				_,
+			>(
+				keyspace,
+				&eph,
+				child_root,
+				keys_to_be_read,
+				recorder,
+				cache,
+			)),
+			StateVersion::V1 => expect_existing_nodes(child_read_trie_keys_from_delta::<
+				sp_trie::LayoutV1<H>,
+				_,
+				_,
+				_,
+				_,
+			>(
+				keyspace,
+				&eph,
+				child_root,
+				keys_to_be_read,
+				recorder,
+				cache,
+			)),
+		});
+
+		if keys_to_be_removed.is_empty() {
+			return;
+		}
+		let trie = estimation_trie
+			.take()
+			.unwrap_or_else(|| EstimationTrie::new(state_version, child_root));
+		*estimation_trie =
+			Some(self.with_recorder_and_cache(Some(child_root), |recorder, cache| match trie {
+				EstimationTrie::V0(trie) => {
+					EstimationTrie::V0(expect_existing_nodes(child_remove_trie_keys_from_delta::<
+						sp_trie::LayoutV0<H>,
+						_,
+						_,
+						_,
+					>(
+						keyspace,
+						&eph,
+						keys_to_be_removed,
+						trie,
+						recorder,
+						cache,
+					)))
+				},
+				EstimationTrie::V1(trie) => {
+					EstimationTrie::V1(expect_existing_nodes(child_remove_trie_keys_from_delta::<
+						sp_trie::LayoutV1<H>,
+						_,
+						_,
+						_,
+					>(
+						keyspace,
+						&eph,
+						keys_to_be_removed,
+						trie,
+						recorder,
+						cache,
+					)))
+				},
+			}));
 	}
 }
 

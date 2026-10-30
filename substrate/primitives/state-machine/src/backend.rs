@@ -20,17 +20,20 @@
 #[cfg(feature = "std")]
 use crate::trie_backend::TrieBackend;
 use crate::{
-	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, StorageCollection,
-	StorageKey, StorageValue, UsageInfo,
+	trie_backend_essence::TrieBackendStorage, ChildStorageCollection, DeltaKeyOp,
+	StorageCollection, StorageKey, StorageValue, UsageInfo,
 };
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use codec::Encode;
 use core::marker::PhantomData;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion, TrackedStorageKey};
 #[cfg(feature = "std")]
 use sp_core::traits::RuntimeCode;
-use sp_trie::{MerkleValue, PrefixedMemoryDB, RandomState};
+use sp_trie::{
+	DetachedTrieDBMut, InvalidSnapshot, LayoutV0, LayoutV1, MerkleValue, PrefixedMemoryDB,
+	RandomState, TrieDBMutSnapshot,
+};
 
 /// A struct containing arguments for iterating over the storage.
 #[derive(Default)]
@@ -175,6 +178,57 @@ where
 /// state for a new block.
 pub type BackendTransaction<H> = PrefixedMemoryDB<H>;
 
+/// In-memory trie kept across PoV size estimation calls, so removals accumulate.
+pub enum EstimationTrie<H: Hasher> {
+	/// The trie of a chain with state version 0.
+	V0(DetachedTrieDBMut<LayoutV0<H>>),
+	/// The trie of a chain with state version 1.
+	V1(DetachedTrieDBMut<LayoutV1<H>>),
+}
+
+/// A point an [`EstimationTrie`] can be rolled back to.
+pub enum EstimationTrieSnapshot<H: Hasher> {
+	/// A snapshot of an [`EstimationTrie::V0`].
+	V0(TrieDBMutSnapshot<LayoutV0<H>>),
+	/// A snapshot of an [`EstimationTrie::V1`].
+	V1(TrieDBMutSnapshot<LayoutV1<H>>),
+}
+
+impl<H: Hasher> EstimationTrie<H> {
+	/// The trie at `root` without in-memory nodes, in the layout of `state_version`.
+	pub fn new(state_version: StateVersion, root: H::Out) -> Self {
+		match state_version {
+			StateVersion::V0 => Self::V0(DetachedTrieDBMut::new(root)),
+			StateVersion::V1 => Self::V1(DetachedTrieDBMut::new(root)),
+		}
+	}
+
+	/// Take a snapshot to roll back to, see [`DetachedTrieDBMut::snapshot`].
+	pub fn snapshot(&mut self) -> EstimationTrieSnapshot<H> {
+		match self {
+			Self::V0(trie) => EstimationTrieSnapshot::V0(trie.snapshot()),
+			Self::V1(trie) => EstimationTrieSnapshot::V1(trie.snapshot()),
+		}
+	}
+
+	/// Roll back to `snapshot`, see [`DetachedTrieDBMut::rollback_to`].
+	///
+	/// Panics if the snapshot was taken from a trie with a different layout.
+	pub fn rollback_to(
+		&mut self,
+		snapshot: &EstimationTrieSnapshot<H>,
+	) -> Result<(), InvalidSnapshot> {
+		match (self, snapshot) {
+			(Self::V0(trie), EstimationTrieSnapshot::V0(snapshot)) => trie.rollback_to(snapshot),
+			(Self::V1(trie), EstimationTrieSnapshot::V1(snapshot)) => trie.rollback_to(snapshot),
+			_ => unreachable!(
+				"a snapshot is taken from the trie it is rolled back to, and a trie keeps its \
+				 layout for its whole life; qed"
+			),
+		}
+	}
+}
+
 /// A state backend is used to read state data and can have changes committed
 /// to it.
 ///
@@ -266,6 +320,28 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord;
 
+	/// Updates the recorder's proof size by recording trie nodes for a given delta.
+	///
+	/// Does not include child storage updates. The `estimation_trie` carries the removals of
+	/// earlier calls, see [`EstimationTrie`].
+	fn record_proof_for_dirty_keys<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
+	) where
+		H::Out: Ord;
+
+	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
+	fn record_proof_for_child_dirty_keys<'a>(
+		&self,
+		child_info: &ChildInfo,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
+	) where
+		H::Out: Ord;
+
 	/// Returns a lifetimeless raw storage iterator.
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error>;
 
@@ -301,8 +377,27 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	where
 		H::Out: Ord + Encode,
 	{
+		let (root, txs, _) =
+			self.full_storage_root_with_child_roots(delta, child_deltas, state_version);
+		(root, txs)
+	}
+
+	/// Like [`Self::full_storage_root`], but also returns the root of every child trie in
+	/// `child_deltas`, keyed by its storage key.
+	fn full_storage_root_with_child_roots<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>,
+		child_deltas: impl Iterator<
+			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], Option<&'a [u8]>)>),
+		>,
+		state_version: StateVersion,
+	) -> (H::Out, BackendTransaction<H>, BTreeMap<StorageKey, H::Out>)
+	where
+		H::Out: Ord + Encode,
+	{
 		let mut txs = BackendTransaction::with_hasher(RandomState::default());
 		let mut child_roots: Vec<_> = Default::default();
+		let mut child_roots_by_storage_key = BTreeMap::new();
 		// child first
 		for (child_info, child_delta) in child_deltas {
 			let (child_root, empty, child_txs) =
@@ -314,6 +409,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 			} else {
 				child_roots.push((prefixed_storage_key.into_inner(), Some(child_root.encode())));
 			}
+			child_roots_by_storage_key.insert(child_info.storage_key().to_vec(), child_root);
 		}
 		let (root, parent_txs) = self.storage_root(
 			delta
@@ -323,7 +419,36 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		);
 		txs.consolidate(parent_txs);
 
-		(root, txs)
+		(root, txs, child_roots_by_storage_key)
+	}
+
+	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
+	/// trie nodes for given child_deltas.
+	fn record_proof_for_dirty_keys_full<'a>(
+		&self,
+		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+		child_deltas: impl Iterator<
+			Item = (
+				&'a ChildInfo,
+				impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
+				&'a mut Option<EstimationTrie<H>>,
+			),
+		>,
+		estimation_trie: &mut Option<EstimationTrie<H>>,
+		state_version: StateVersion,
+	) where
+		H: 'a,
+		H::Out: Ord + Encode,
+	{
+		for (child_info, child_delta, child_estimation_trie) in child_deltas {
+			self.record_proof_for_child_dirty_keys(
+				child_info,
+				child_delta,
+				child_estimation_trie,
+				state_version,
+			);
+		}
+		self.record_proof_for_dirty_keys(delta, estimation_trie, state_version);
 	}
 
 	/// Register stats from overlay of state machine.

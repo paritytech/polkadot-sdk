@@ -19,12 +19,27 @@
 
 use super::changeset::OverlayedMap;
 use alloc::vec::Vec;
+use core::fmt;
+use hash_db::Hasher;
 use sp_core::offchain::OffchainOverlayedChange;
 
 /// In-memory storage for offchain workers recoding changes for the actual offchain storage
 /// implementation.
-#[derive(Debug, Clone, Default)]
-pub struct OffchainOverlayedChanges(OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange>);
+pub struct OffchainOverlayedChanges<H: Hasher>(
+	OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange, H>,
+);
+
+impl<H: Hasher> Default for OffchainOverlayedChanges<H> {
+	fn default() -> Self {
+		Self(Default::default())
+	}
+}
+
+impl<H: Hasher> fmt::Debug for OffchainOverlayedChanges<H> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_tuple("OffchainOverlayedChanges").field(&self.0).finish()
+	}
+}
 
 /// Item for iterating over offchain changes.
 ///
@@ -35,7 +50,7 @@ type OffchainOverlayedChangesItem<'i> = (&'i (Vec<u8>, Vec<u8>), &'i OffchainOve
 /// Iterator over offchain changes, owned memory version.
 type OffchainOverlayedChangesItemOwned = ((Vec<u8>, Vec<u8>), OffchainOverlayedChange);
 
-impl OffchainOverlayedChanges {
+impl<H: Hasher> OffchainOverlayedChanges<H> {
 	/// Consume the offchain storage and iterate over all key value pairs.
 	pub fn into_iter(self) -> impl Iterator<Item = OffchainOverlayedChangesItemOwned> {
 		self.0.into_changes().map(|kv| (kv.0, kv.1.into_value()))
@@ -76,14 +91,14 @@ impl OffchainOverlayedChanges {
 	}
 
 	/// Reference to inner change set.
-	pub fn overlay(&self) -> &OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange> {
+	pub fn overlay(&self) -> &OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange, H> {
 		&self.0
 	}
 
 	/// Mutable reference to inner change set.
 	pub fn overlay_mut(
 		&mut self,
-	) -> &mut OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange> {
+	) -> &mut OverlayedMap<(Vec<u8>, Vec<u8>), OffchainOverlayedChange, H> {
 		&mut self.0
 	}
 }
@@ -91,7 +106,9 @@ impl OffchainOverlayedChanges {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use sp_core::offchain::STORAGE_PREFIX;
+	use sp_core::{offchain::STORAGE_PREFIX, Blake2Hasher};
+
+	type OffchainOverlayedChanges = super::OffchainOverlayedChanges<Blake2Hasher>;
 
 	#[test]
 	fn test_drain() {

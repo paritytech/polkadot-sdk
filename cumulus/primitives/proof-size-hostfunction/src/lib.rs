@@ -39,6 +39,26 @@ pub trait StorageProofSize {
 		self.extension::<ProofSizeExt>()
 			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
 	}
+
+	/// Returns the current storage proof size after computing PoV size for storage root.
+	///
+	/// This function first triggers the computation of PoV size for storage root changes
+	/// (recording trie nodes that would be accessed during storage root calculation),
+	/// then returns the updated proof size.
+	///
+	/// Registered only, so runtimes keep calling version 1 until all nodes provide version 2.
+	/// Dropping `register_only` must go together with enabling the dirty-key estimation in
+	/// `host_storage_proof_size` of `cumulus-pallet-parachain-system`'s `validate_block`,
+	/// otherwise collator and validator report different proof sizes.
+	#[version(2, register_only)]
+	fn storage_proof_size(&mut self) -> u64 {
+		if self.extension::<ProofSizeExt>().is_some() {
+			self.record_proof_for_dirty_keys();
+		}
+
+		self.extension::<ProofSizeExt>()
+			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+	}
 }
 
 #[cfg(test)]
@@ -91,6 +111,22 @@ mod tests {
 			assert_eq!(storage_proof_size::storage_proof_size(), 275);
 			sp_io::storage::get(b"key2");
 			assert_eq!(storage_proof_size::storage_proof_size(), 275);
+		});
+	}
+
+	#[test]
+	fn host_function_does_not_estimate_dirty_keys() {
+		let (mut ext, recorder) = get_prepared_test_externalities();
+		ext.register_extension(ProofSizeExt::new(recorder.clone()));
+
+		ext.execute_with(|| {
+			sp_io::storage::set(b"key1", &[3; 64]);
+			sp_io::storage::clear(b"key2");
+			let recorded = recorder.estimate_encoded_size() as u64;
+			assert_eq!(storage_proof_size::storage_proof_size(), recorded);
+
+			sp_externalities::with_externalities(|ext| ext.record_proof_for_dirty_keys());
+			assert!(storage_proof_size::storage_proof_size() > recorded);
 		});
 	}
 

@@ -25,12 +25,21 @@ use codec::{Compact, CompactLen};
 #[cfg(feature = "std")]
 use std::collections::HashSet as Set;
 
-use crate::{ext::StorageAppend, warn};
+use crate::{
+	backend::EstimationTrie,
+	ext::StorageAppend,
+	overlayed_changes::{
+		proof_size_tracker,
+		proof_size_tracker::ProofSizeTracker,
+	},
+	warn,
+};
 use alloc::{
 	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
 	vec::Vec,
 };
-use core::hash::Hash;
+use core::{fmt, hash::Hash};
+use hash_db::Hasher;
 use smallvec::SmallVec;
 
 const PROOF_OVERLAY_NON_EMPTY: &str = "\
@@ -180,11 +189,10 @@ impl StorageEntry {
 }
 
 /// Change set for basic key value with extrinsics index recording and removal support.
-pub type OverlayedChangeSet = OverlayedMap<StorageKey, StorageEntry>;
+pub type OverlayedChangeSet<H> = OverlayedMap<StorageKey, StorageEntry, H>;
 
 /// Holds a set of changes with the ability modify them using nested transactions.
-#[derive(Debug, Clone)]
-pub struct OverlayedMap<K, V> {
+pub struct OverlayedMap<K, V, H: Hasher> {
 	/// Stores the changes that this overlay constitutes.
 	changes: BTreeMap<K, OverlayedEntry<V>>,
 	/// Stores which keys are dirty per transaction. Needed in order to determine which
@@ -197,21 +205,38 @@ pub struct OverlayedMap<K, V> {
 	num_client_transactions: usize,
 	/// Determines whether the node is using the overlay from the client or the runtime.
 	execution_mode: ExecutionMode,
+
+	/// Keys written since the last PoV size estimation call with their op, the ops already
+	/// reported by earlier calls, and the estimation trie with one snapshot per open transaction.
+	proof_size_tracker: ProofSizeTracker<K, H>,
 }
 
-impl<K, V> Default for OverlayedMap<K, V> {
+impl<K: fmt::Debug, V: fmt::Debug, H: Hasher> fmt::Debug for OverlayedMap<K, V, H> {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.debug_struct("OverlayedMap")
+			.field("changes", &self.changes)
+			.field("dirty_keys", &self.dirty_keys)
+			.field("num_client_transactions", &self.num_client_transactions)
+			.field("execution_mode", &self.execution_mode)
+			.field("proof_size_tracker", &self.proof_size_tracker)
+			.finish()
+	}
+}
+
+impl<K, V, H: Hasher> Default for OverlayedMap<K, V, H> {
 	fn default() -> Self {
 		Self {
 			changes: BTreeMap::new(),
 			dirty_keys: SmallVec::new(),
 			num_client_transactions: Default::default(),
 			execution_mode: Default::default(),
+			proof_size_tracker: Default::default(),
 		}
 	}
 }
 
 #[cfg(not(substrate_runtime))]
-impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry> {
+impl<H: Hasher> From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntry, H> {
 	fn from(storage: sp_core::storage::StorageMap) -> Self {
 		Self {
 			changes: storage
@@ -231,6 +256,7 @@ impl From<sp_core::storage::StorageMap> for OverlayedMap<StorageKey, StorageEntr
 			dirty_keys: Default::default(),
 			num_client_transactions: 0,
 			execution_mode: ExecutionMode::Client,
+			proof_size_tracker: Default::default(),
 		}
 	}
 }
@@ -513,15 +539,25 @@ impl OverlayedEntry<StorageEntry> {
 	}
 }
 
-/// Inserts a key into the dirty set.
-///
-/// Returns true iff we are currently have at least one open transaction and if this
-/// is the first write to the given key that transaction.
-fn insert_dirty<K: Ord + Hash>(set: &mut DirtyKeysSets<K>, key: K) -> bool {
-	set.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
+	/// Inserts a key into the dirty set.
+	///
+	/// Returns true if we are have at least one open transaction and if this
+	/// is the first write to the given key that transaction.
+	fn insert_dirty(&mut self, key: K, deleted: bool) -> bool {
+		self.proof_size_tracker.add_key(
+			key.clone(),
+			if deleted {
+				proof_size_tracker::DeltaKeyOp::Deleted
+			} else {
+				proof_size_tracker::DeltaKeyOp::Updated
+			},
+		);
+		self.dirty_keys.last_mut().map(|dk| dk.insert(key)).unwrap_or_default()
+	}
 }
 
-impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
+impl<K: Ord + Hash + Clone + core::fmt::Debug, V, H: Hasher> OverlayedMap<K, V, H> {
 	/// Create a new changeset at the same transaction state but without any contents.
 	///
 	/// This changeset might be created when there are already open transactions.
@@ -533,6 +569,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 			dirty_keys: repeat(Set::new()).take(self.transaction_depth()).collect(),
 			num_client_transactions: self.num_client_transactions,
 			execution_mode: self.execution_mode,
+			proof_size_tracker: ProofSizeTracker::with_transaction_depth(self.transaction_depth()),
 		}
 	}
 
@@ -554,8 +591,9 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set_offchain(&mut self, key: K, value: V, at_extrinsic: Option<u32>) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.set_offchain(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
+		let first_write_in_tx = self.insert_dirty(key.clone(), false);
+		let overlayed = self.changes.entry(key).or_default();
+		overlayed.set_offchain(value, first_write_in_tx, at_extrinsic);
 	}
 
 	/// Get a list of all changes as seen by current transaction.
@@ -634,6 +672,7 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	/// Changes made without any open transaction are committed immediately.
 	pub fn start_transaction(&mut self) {
 		self.dirty_keys.push(Default::default());
+		self.proof_size_tracker.start_transaction();
 	}
 
 	/// Rollback the last transaction started by `start_transaction`.
@@ -660,7 +699,15 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 			return Err(NoOpenTransaction);
 		}
 
-		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
+		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
+
+		if rollback {
+			self.proof_size_tracker.rollback_transaction();
+		} else {
+			self.proof_size_tracker.commit_transaction();
+		}
+
+		for key in dirty_keys {
 			let overlayed = self.changes.get_mut(&key).expect(
 				"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
@@ -704,9 +751,31 @@ impl<K: Ord + Hash + Clone, V> OverlayedMap<K, V> {
 	fn has_open_runtime_transactions(&self) -> bool {
 		self.transaction_depth() > self.num_client_transactions
 	}
+
+	/// Returns keys modified since the last snapshot.
+	///
+	/// These delta keys allow estimating the PoV size impact of storage root calculation
+	/// incrementally, without computing the full root after each extrinsic.
+	#[must_use]
+	pub fn take_delta(&mut self) -> proof_size_tracker::DeltaKeys<K> {
+		self.proof_size_tracker.take_delta()
+	}
+
+	/// The trie kept for PoV size estimation, see [`EstimationTrie`].
+	pub fn estimation_trie_mut(&mut self) -> &mut Option<EstimationTrie<H>> {
+		self.proof_size_tracker.estimation_trie_mut()
+	}
+
+	/// Marks `key` as modified for PoV size estimation without changing its value.
+	///
+	/// Used for keys the storage root computation will touch that are not written through this
+	/// changeset, such as the roots of child tries stored in the main trie.
+	pub fn track_storage_root_key(&mut self, key: K, op: proof_size_tracker::DeltaKeyOp) {
+		self.proof_size_tracker.add_key(key, op);
+	}
 }
 
-impl OverlayedChangeSet {
+impl<H: Hasher> OverlayedChangeSet<H> {
 	/// Rollback the last transaction started by `start_transaction`.
 	///
 	/// Any changes made during that transaction are discarded. Returns an error if
@@ -731,7 +800,15 @@ impl OverlayedChangeSet {
 			return Err(NoOpenTransaction);
 		}
 
-		for key in self.dirty_keys.pop().ok_or(NoOpenTransaction)? {
+		let dirty_keys = self.dirty_keys.pop().ok_or(NoOpenTransaction)?;
+
+		if rollback {
+			self.proof_size_tracker.rollback_transaction();
+		} else {
+			self.proof_size_tracker.commit_transaction();
+		}
+
+		for key in dirty_keys {
 			let overlayed = self.changes.get_mut(&key).expect(
 				"\
 				A write to an OverlayedValue is recorded in the dirty key set. Before an
@@ -862,8 +939,9 @@ impl OverlayedChangeSet {
 	///
 	/// Can be rolled back or committed when called inside a transaction.
 	pub fn set(&mut self, key: StorageKey, value: Option<StorageValue>, at_extrinsic: Option<u32>) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		overlayed.set(value, insert_dirty(&mut self.dirty_keys, key), at_extrinsic);
+		let first_write_in_tx = self.insert_dirty(key.clone(), value.is_none());
+		let overlayed = self.changes.entry(key).or_default();
+		overlayed.set(value, first_write_in_tx, at_extrinsic);
 	}
 
 	/// Append bytes to an existing content.
@@ -874,8 +952,8 @@ impl OverlayedChangeSet {
 		init: impl Fn() -> StorageValue,
 		at_extrinsic: Option<u32>,
 	) {
-		let overlayed = self.changes.entry(key.clone()).or_default();
-		let first_write_in_tx = insert_dirty(&mut self.dirty_keys, key);
+		let first_write_in_tx = self.insert_dirty(key.clone(), false);
+		let overlayed = self.changes.entry(key).or_default();
 		overlayed.append(value, first_write_in_tx, init, at_extrinsic);
 	}
 
@@ -888,11 +966,19 @@ impl OverlayedChangeSet {
 		at_extrinsic: Option<u32>,
 	) -> u32 {
 		let mut count = 0;
-		for (key, val) in self.changes.iter_mut().filter(|(k, v)| predicate(k, v)) {
-			if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
-				count += 1;
-			}
-			val.set(None, insert_dirty(&mut self.dirty_keys, key.clone()), at_extrinsic);
+		let keys = self
+			.changes
+			.iter()
+			.filter_map(|(k, v)| predicate(k, v).then(|| k.clone()))
+			.collect::<Vec<_>>();
+		for key in keys {
+			let first_write_in_tx = { self.insert_dirty(key.clone(), true) };
+			self.changes.get_mut(&key).map(|val| {
+				if matches!(val.value_ref(), StorageEntry::Set(..) | StorageEntry::Append { .. }) {
+					count += 1;
+				}
+				val.set(None, first_write_in_tx, at_extrinsic);
+			});
 		}
 		count
 	}
@@ -912,9 +998,32 @@ impl OverlayedChangeSet {
 mod test {
 	use super::*;
 	use pretty_assertions::assert_eq;
+	use sp_core::Blake2Hasher;
+
+	type OverlayedChangeSet = super::OverlayedChangeSet<Blake2Hasher>;
 
 	type Changes<'a> = Vec<(&'a [u8], (Option<&'a [u8]>, Vec<u32>))>;
 	type Drained<'a> = Vec<(&'a [u8], Option<&'a [u8]>)>;
+
+	macro_rules! assert_delta_contains {
+		($delta:expr, $key:expr) => {
+			assert!(
+				$delta.iter().any(|(k, _)| k == $key),
+				"delta does not contain key {:?}",
+				$key,
+			);
+		};
+	}
+
+	macro_rules! assert_delta_not_contains {
+		($delta:expr, $key:expr) => {
+			assert!(
+				!$delta.iter().any(|(k, _)| k == $key),
+				"delta unexpectedly contains key {:?}",
+				$key,
+			);
+		};
+	}
 
 	fn assert_changes(is: &mut OverlayedChangeSet, expected: &Changes) {
 		let is: Changes = is
@@ -1421,5 +1530,181 @@ mod test {
 
 		let encoded = changeset.get(&key).unwrap().value().unwrap();
 		assert_eq!(&initial_data, encoded);
+	}
+
+	/// Simulates `spawn_child` scenario: a child changeset is created when the parent is
+	/// already at transaction depth N. The child's dirty_keys matches the parent's depth,
+	/// but proof_size_tracker (delta tracker) starts at depth 0.
+	///
+	/// Pre-existing commit/rollback calls for levels that existed before spawn are no-ops
+	/// on both dirty_keys (empty sets) and the delta tracker (no layers) — safe because
+	/// no keys were added at those levels.
+	#[test]
+	fn spawn_child_delta_tracker_depth_mismatch() {
+		let mut parent = OverlayedChangeSet::default();
+
+		// Build up parent to transaction depth 3.
+		parent.set(b"p0".to_vec(), Some(b"v0".to_vec()), Some(0));
+		parent.start_transaction();
+		parent.set(b"p1".to_vec(), Some(b"v1".to_vec()), Some(1));
+		parent.start_transaction();
+		parent.set(b"p2".to_vec(), Some(b"v2".to_vec()), Some(2));
+		parent.start_transaction();
+		assert_eq!(parent.transaction_depth(), 3);
+
+		// Spawn child — dirty_keys has 3 empty sets, delta tracker has 0 layers.
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 3);
+
+		// Child adds keys within the current depth.
+		child.set(b"c0".to_vec(), Some(b"cv0".to_vec()), Some(0));
+		child.set(b"c1".to_vec(), Some(b"cv1".to_vec()), Some(1));
+
+		// Take delta — should see the child's keys.
+		let delta = child.take_delta();
+		assert_delta_contains!(delta, b"c0");
+		assert_delta_contains!(delta, b"c1");
+		assert_eq!(delta.len(), 2);
+
+		// Now unwind the pre-existing transaction depth (commits for levels that
+		// existed before spawn). These should be no-ops for the delta tracker.
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+
+		// Child should still work correctly after unwinding.
+		child.set(b"c2".to_vec(), Some(b"cv2".to_vec()), Some(2));
+		let delta2 = child.take_delta();
+		assert_delta_contains!(delta2, b"c2");
+		assert_eq!(delta2.len(), 1);
+	}
+
+	#[test]
+	fn spawn_child_delta_tracker_with_rollback() {
+		let mut parent = OverlayedChangeSet::default();
+
+		// Parent at depth 2.
+		parent.start_transaction();
+		parent.start_transaction();
+
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 2);
+
+		// Child starts its own transaction and adds keys.
+		child.start_transaction();
+		child.set(b"a".to_vec(), Some(b"va".to_vec()), Some(0));
+
+		let delta = child.take_delta();
+		assert_delta_contains!(delta, b"a");
+
+		// Rollback the child's own transaction — "a" is removed from changeset,
+		// but the delta tracker's snapshot for "a" is also discarded (lived in the
+		// rolled-back layer). Whether "a" reappears in future deltas depends on
+		// whether the tracker's parent layers still have it as dirty.
+		child.rollback_transaction().unwrap();
+
+		// Add a new key after rollback.
+		child.set(b"b".to_vec(), Some(b"vb".to_vec()), Some(1));
+		let delta2 = child.take_delta();
+		// "a" does NOT reappear — it was added inside the rolled-back transaction,
+		// so both the changeset and the delta tracker's dirty entry for "a" are gone.
+		assert_delta_not_contains!(delta2, b"a");
+		assert_delta_contains!(delta2, b"b");
+
+		// Unwind pre-existing depth — no-ops on delta tracker.
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+
+		child.set(b"c".to_vec(), Some(b"vc".to_vec()), Some(2));
+		let delta3 = child.take_delta();
+		assert_delta_contains!(delta3, b"c");
+		assert_eq!(delta3.len(), 1);
+	}
+
+	/// Like spawn_child_delta_tracker_depth_mismatch but no take_delta before commits.
+	/// All keys should accumulate and appear in a single take_delta after unwinding.
+	#[test]
+	fn spawn_child_delta_tracker_no_delta_before_commits() {
+		let mut parent = OverlayedChangeSet::default();
+
+		parent.start_transaction();
+		parent.start_transaction();
+		parent.start_transaction();
+		assert_eq!(parent.transaction_depth(), 3);
+
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 3);
+
+		child.set(b"c0".to_vec(), Some(b"cv0".to_vec()), Some(0));
+		child.set(b"c1".to_vec(), Some(b"cv1".to_vec()), Some(1));
+
+		// No take_delta here — unwind all pre-existing depth directly.
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+
+		// Add another key after unwinding.
+		child.set(b"c2".to_vec(), Some(b"cv2".to_vec()), Some(2));
+
+		// All three keys should appear in a single delta.
+		let delta = child.take_delta();
+		assert_delta_contains!(delta, b"c0");
+		assert_delta_contains!(delta, b"c1");
+		assert_delta_contains!(delta, b"c2");
+		assert_eq!(delta.len(), 3);
+	}
+
+	/// Realistic spawn_child scenario: child spawned at depth 5, keys added,
+	/// 4 commits bring keys down to depth 1, then a new transaction with more
+	/// keys is rolled back. The rolled-back keys should be discarded while
+	/// the previously committed keys survive.
+	#[test]
+	fn spawn_child_rollback_should_discard_delta_keys() {
+		let mut parent = OverlayedChangeSet::default();
+
+		// p.start_transaction x 5
+		for _ in 0..5 {
+			parent.start_transaction();
+		}
+
+		// c = p.spawn_child at depth 5
+		let mut child = parent.spawn_child();
+		assert_eq!(child.transaction_depth(), 5);
+
+		// Set keys at depth 5
+		child.set(b"a".to_vec(), Some(b"va".to_vec()), Some(0));
+		child.set(b"b".to_vec(), Some(b"vb".to_vec()), Some(1));
+		child.set(b"c".to_vec(), Some(b"vc".to_vec()), Some(2));
+
+		// p.commit_transaction x 4 (depth 5→4→3→2→1)
+		// a, b, c now live at depth 1
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		child.commit_transaction().unwrap();
+		assert_eq!(child.transaction_depth(), 1);
+
+		child.set(b"c1".to_vec(), Some(b"vc".to_vec()), Some(2));
+
+		// New transaction at depth 2
+		child.start_transaction();
+		child.set(b"d".to_vec(), Some(b"vd".to_vec()), Some(3));
+		child.set(b"e".to_vec(), Some(b"ve".to_vec()), Some(4));
+
+		// Rollback — discards d, e but keeps a, b, c (committed to depth 1)
+		child.rollback_transaction().unwrap();
+		assert_eq!(child.transaction_depth(), 1);
+
+		let delta = child.take_delta();
+
+		// a, b, c survived — they were committed past the rollback point
+		assert_delta_contains!(delta, b"a");
+		assert_delta_contains!(delta, b"b");
+		assert_delta_contains!(delta, b"c");
+		assert_delta_contains!(delta, b"c1");
+
+		// d, e were in the rolled-back transaction — should NOT appear
+		assert_delta_not_contains!(delta, b"d");
+		assert_delta_not_contains!(delta, b"e");
 	}
 }
