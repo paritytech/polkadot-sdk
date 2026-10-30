@@ -254,6 +254,26 @@ pub trait Storage {
 		self.storage_append(key.to_vec(), value);
 	}
 
+	/// Append the encoded `value` to the storage item at `key`.
+	///
+	/// The storage item needs to implement [`EncodeAppend`](codec::EncodeAppend).
+	///
+	/// Unlike version 1, the append drops a storage root cached by an earlier `storage::root`, see
+	/// [`Externalities::storage_append_v2`](sp_externalities::Externalities::storage_append_v2).
+	///
+	/// Registered only: dropping the marker goes together with switching `host_storage_append` in
+	/// `validate_block` and with dropping the markers of the other registered-only versions, see
+	/// the crate docs of `cumulus-primitives-proof-size-hostfunction`.
+	///
+	/// # Warning
+	///
+	/// If the storage item does not support [`EncodeAppend`](codec::EncodeAppend) or
+	/// something else fails at appending, the storage item will be set to `[value]`.
+	#[version(2, register_only)]
+	fn append(&mut self, key: PassFatPointerAndRead<&[u8]>, value: PassFatPointerAndRead<Vec<u8>>) {
+		self.storage_append_v2(key.to_vec(), value);
+	}
+
 	/// "Commit" all existing operations and compute the resulting storage root.
 	///
 	/// The hashing algorithm is defined by the `Block`.

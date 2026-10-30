@@ -279,6 +279,10 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
+	fn storage_append_v2(&mut self, key: Vec<u8>, element: Vec<u8>) {
+		self.overlay.append_storage_clearing_root_cache(key, element, Default::default);
+	}
+
 	fn storage_root(&mut self) -> Vec<u8> {
 		self.storage_root_with_version(self.state_version)
 	}

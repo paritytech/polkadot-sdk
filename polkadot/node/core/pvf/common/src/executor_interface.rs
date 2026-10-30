@@ -318,6 +318,10 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("storage_append: unsupported feature for parachain validation")
 	}
 
+	fn storage_append_v2(&mut self, _key: Vec<u8>, _value: Vec<u8>) {
+		panic!("storage_append_v2: unsupported feature for parachain validation")
+	}
+
 	fn storage_start_transaction(&mut self) {
 		panic!("storage_start_transaction: unsupported feature for parachain validation")
 	}

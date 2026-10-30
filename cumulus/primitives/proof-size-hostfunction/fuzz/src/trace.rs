@@ -18,10 +18,13 @@
 //!
 //! [`trace`] executes a [`Script`] the way a runtime built against master does: plain `sp_io`
 //! calls with proof recording on, version 1 of `storage_proof_size` for [`Op::Estimate`] and the
-//! weight-reclaim points, and never `Externalities::record_proof_for_dirty_keys`. Blocks are
-//! built as in the estimation runner, including the block builder's rollback of dropped
-//! extrinsics. Every observable result goes into a text trace, so that the same script run on
-//! master and on the branch can be compared line by line:
+//! weight-reclaim points, and never `Externalities::record_proof_for_dirty_keys`. Host functions
+//! that have a newer, registered-only version are called through the body of the version master
+//! runtimes call (`Externalities::storage_append` for `storage::append` version 1), not through
+//! the bare `sp_io` call, which switches to the newest version once `register_only` is dropped.
+//! Blocks are built as in the estimation runner, including the block builder's rollback of
+//! dropped extrinsics. Every observable result goes into a text trace, so that the same script
+//! run on master and on the branch can be compared line by line:
 //!
 //! - `script <hash of the encoded script> <config> seed .. top .. extra .. children .. blocks ..`
 //! - `<n> <operation> -> <return value> | proof <storage_proof_size after it>`, one per host call
@@ -34,8 +37,8 @@
 //! Byte strings longer than [`MAX_SHOWN_BYTES`] and all sets are shown as a length and a hash.
 
 use crate::{
-	child_info, install_hooks, limit, mark, panic_message, take_warnings, BlockEnv, Hasher, Op,
-	Outcome, Scale, Script, State, Xt, QUIET_PANICS,
+	child_info, install_hooks, limit, mark, panic_message, take_warnings, with_ext, BlockEnv,
+	Hasher, Op, Outcome, Scale, Script, State, Xt, QUIET_PANICS,
 };
 use codec::Encode;
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
@@ -276,7 +279,7 @@ fn call(op: &Op, scale: Scale, root_version: StateVersion) -> String {
 			"()".into()
 		},
 		Op::Append(k, v) => {
-			storage::append(&k.bytes(scale), v.bytes());
+			with_ext(|ext| ext.storage_append(k.bytes(scale), v.bytes()));
 			"()".into()
 		},
 		Op::Get(k) => show_option(storage::get(&k.bytes(scale)).as_deref()),

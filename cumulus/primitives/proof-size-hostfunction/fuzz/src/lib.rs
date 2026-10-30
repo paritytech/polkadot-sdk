@@ -32,7 +32,7 @@ use sp_core::{
 	storage::{ChildInfo, StateVersion, Storage, StorageChild},
 	Blake2Hasher,
 };
-use sp_externalities::{Extensions, TransactionType};
+use sp_externalities::{Extensions, Externalities, TransactionType};
 use sp_state_machine::{Ext, InMemoryBackend, OverlayedChanges, TrieBackend, TrieBackendBuilder};
 use sp_trie::{
 	cache::{LocalTrieCache, SharedTrieCache},
@@ -719,6 +719,13 @@ fn child_info(id: u8) -> ChildInfo {
 
 fn limit(limit: &Option<u16>, scale: Scale) -> Option<u32> {
 	limit.map(|l| l as u32 % scale.limit_range())
+}
+
+/// Runs `f` on the externalities of the current runtime call, as a native host function does.
+/// The runners call host function bodies this way when the bare `sp_io` call would pick a
+/// different version.
+fn with_ext<R>(f: impl FnOnce(&mut dyn Externalities) -> R) -> R {
+	sp_externalities::with_externalities(f).expect("called inside a runtime call; qed")
 }
 
 /// The recorder, extensions, state and overlay of one block.

@@ -483,6 +483,23 @@ where
 		});
 	}
 
+	fn storage_append_v2(&mut self, key: Vec<u8>, value: Vec<u8>) {
+		trace!(
+			target: "state",
+			method = "AppendV2",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			key = %HexDisplay::from(&key),
+			value = %HexDisplay::from(&value),
+		);
+
+		let _guard = guard();
+
+		let backend = &mut self.backend;
+		self.overlay.append_storage_clearing_root_cache(key.clone(), value, || {
+			backend.storage(&key).expect(EXT_NOT_ALLOWED_TO_FAIL).unwrap_or_default()
+		});
+	}
+
 	fn storage_root(&mut self) -> Vec<u8> {
 		self.storage_root_with_version(self.state_version)
 	}
@@ -1091,6 +1108,35 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	/// An append after a mid-block storage root must reach the block's root, otherwise the block
+	/// commits a root and a storage transaction without the appended value.
+	#[test]
+	fn storage_append_v2_after_storage_root_changes_the_root() {
+		let backend = TestBackend::default();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::V1);
+		ext.storage_root();
+		ext.storage_append_v2(b"key".to_vec(), 1u32.encode());
+		let root = ext.storage_root();
+
+		let mut append_only = OverlayedChanges::default();
+		let mut ext = TestExt::new(&mut append_only, &backend, None, StateVersion::V1);
+		ext.storage_append_v2(b"key".to_vec(), 1u32.encode());
+		assert_eq!(root, ext.storage_root());
+	}
+
+	/// Version 1 keeps the cached root on purpose: runtimes built against it call it forever,
+	/// and blocks in a chain's history were built with this root.
+	#[test]
+	fn storage_append_after_storage_root_keeps_the_cached_root() {
+		let backend = TestBackend::default();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::V1);
+		let before = ext.storage_root();
+		ext.storage_append(b"key".to_vec(), 1u32.encode());
+		assert_eq!(before, ext.storage_root());
 	}
 
 	fn large_values(count: u32) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> + Clone {

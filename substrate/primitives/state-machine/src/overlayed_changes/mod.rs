@@ -321,6 +321,21 @@ impl<H: Hasher> OverlayedChanges<H> {
 		self.top.append_storage(key, element, init, extrinsic_index);
 	}
 
+	/// Append a element to storage, init with existing value if first write, and drop the cached
+	/// storage root.
+	///
+	/// Body of [`sp_externalities::Externalities::storage_append_v2`].
+	/// Unlike [`Self::append_storage`], it drops the cache that [`Self::storage_root`] fills.
+	pub fn append_storage_clearing_root_cache(
+		&mut self,
+		key: StorageKey,
+		element: StorageValue,
+		init: impl Fn() -> StorageValue,
+	) {
+		self.mark_dirty();
+		self.append_storage(key, element, init);
+	}
+
 	/// Set a new value for the specified key and child.
 	///
 	/// `None` can be used to delete a value specified by the given key.

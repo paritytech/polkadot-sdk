@@ -239,6 +239,16 @@ pub trait Externalities: ExtensionStore {
 	/// operation.
 	fn storage_append(&mut self, key: Vec<u8>, value: Vec<u8>);
 
+	/// Append storage item and drop the storage root cached by an earlier [`Self::storage_root`].
+	///
+	/// Body of `storage::append` version 2. It fixes an append after a mid-block storage root.
+	/// Version 1, [`Self::storage_append`], keeps the cached root. The block then commits a root
+	/// and a storage transaction that miss the append.
+	///
+	/// Version 1 must stay as it is. The rollout of version 2 is described in the crate docs of
+	/// `cumulus-primitives-proof-size-hostfunction`.
+	fn storage_append_v2(&mut self, key: Vec<u8>, value: Vec<u8>);
+
 	/// Start a new nested transaction.
 	///
 	/// This allows to either commit or roll back all changes made after this call to the

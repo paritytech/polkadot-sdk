@@ -172,6 +172,10 @@ where
 		unimplemented!("storage_append is not supported in ReadOnlyExternalities")
 	}
 
+	fn storage_append_v2(&mut self, _key: Vec<u8>, _value: Vec<u8>) {
+		unimplemented!("storage_append_v2 is not supported in ReadOnlyExternalities")
+	}
+
 	fn storage_root(&mut self) -> Vec<u8> {
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}

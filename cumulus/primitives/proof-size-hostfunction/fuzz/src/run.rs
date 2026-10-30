@@ -48,9 +48,9 @@
 //! is `e_last - t`.
 
 use crate::{
-	child_info, install_hooks, limit, mark, panic_message, shrink_with, take_warnings, Block,
-	BlockEnv, ChildInit, Config, Hasher, InitialTrie, Key, Mode, Op, Outcome, Scale, Script, Size,
-	State, Val, Version, Xt, PANIC_LOCATION, QUIET_PANICS, WARNINGS,
+	child_info, install_hooks, limit, mark, panic_message, shrink_with, take_warnings, with_ext,
+	Block, BlockEnv, ChildInit, Config, Hasher, InitialTrie, Key, Mode, Op, Outcome, Scale, Script,
+	Size, State, Val, Version, Xt, PANIC_LOCATION, QUIET_PANICS, WARNINGS,
 };
 use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
 use sp_core::{storage::StateVersion, H256};
@@ -362,7 +362,7 @@ impl Ctx {
 		match op {
 			Op::Set(k, v) => storage::set(&k.bytes(scale), &v.bytes()),
 			Op::Clear(k) => storage::clear(&k.bytes(scale)),
-			Op::Append(k, v) => storage::append(&k.bytes(scale), v.bytes()),
+			Op::Append(k, v) => with_ext(|ext| ext.storage_append_v2(k.bytes(scale), v.bytes())),
 			Op::Get(k) => {
 				let _ = storage::get(&k.bytes(scale));
 			},

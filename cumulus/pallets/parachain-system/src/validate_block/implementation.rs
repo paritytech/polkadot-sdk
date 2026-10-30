@@ -563,6 +563,8 @@ fn host_storage_clear_prefix(prefix: &[u8], limit: Option<u32>) -> KillStorageRe
 }
 
 fn host_storage_append(key: &[u8], value: Vec<u8>) {
+	// Runtimes call version 1 of `storage::append`. Switch to `ext.storage_append_v2(..)` once
+	// version 2 in `sp_io` drops `register_only`.
 	with_externalities(|ext| ext.storage_append(key.to_vec(), value))
 }
 
