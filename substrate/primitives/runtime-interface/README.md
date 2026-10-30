@@ -61,7 +61,7 @@ converted into the corresponding type.
 
 <!-- markdownlint-disable MD013 -->
 | Type | FFI type | Conversion |
-|----|----|----|
+| ---- | ---- | ---- |
 | `u8` | `u8` | `Identity` |
 | `u16` | `u16` | `Identity` |
 | `u32` | `u32` | `Identity` |
@@ -82,7 +82,7 @@ converted into the corresponding type.
 | `*const T` | `u32` | `Identity` |
 | `Option<T>` | `u64` | `let e = v.encode();`<br><br><code>e.len() 32bit << 32 &#124; e.as_ptr() 32bit</code> |
 | [`T where T: PassBy<PassBy=Inner>`](https://docs.rs/sp-runtime-interface/latest/sp_runtime_interface/pass_by#Inner) | Depends on inner | Depends on inner |
-| [`T where T: PassBy<PassBy=Codec>`](https://docs.rs/sp-runtime-interface/latest/sp_runtime_interface/pass_by#Codec) | `u64`| <code>v.len() 32bit << 32 &#124; v.as_ptr() 32bit</code> |
+| [`T where T: PassBy<PassBy=Codec>`](https://docs.rs/sp-runtime-interface/latest/sp_runtime_interface/pass_by#Codec) | `u64` | <code>v.len() 32bit << 32 &#124; v.as_ptr() 32bit</code> |
 
 `Identity` means that the value is converted directly into the corresponding FFI type.
 
