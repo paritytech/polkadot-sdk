@@ -3518,11 +3518,12 @@ mod remote_test {
 			}
 
 			let mut members = 0u32;
+			let mut needed_migration = 0u32;
 			let mut claims_ok = 0u32;
 			let mut bonds_ok = 0u32;
 			let mut unbonds_ok = 0u32;
 
-			println!("member,pool_id,free,pending,claim,bond_extra,unbond");
+			println!("member,pool_id,free,pending,migration,claim,bond_extra,unbond");
 
 			for (member, data) in PoolMembers::<Runtime>::iter() {
 				let free = Balances::free_balance(&member);
@@ -3534,16 +3535,41 @@ mod remote_test {
 				members += 1;
 
 				let origin = || RuntimeOrigin::signed(member.clone());
-				let claim = hypothetically!(NominationPools::<Runtime>::claim_payout(origin()));
-				let bond = hypothetically!(NominationPools::<Runtime>::bond_extra(
-					origin(),
-					BondExtra::Rewards,
-				));
-				let unbond = hypothetically!(NominationPools::<Runtime>::unbond(
-					origin(),
-					member.clone().into(),
-					data.points,
-				));
+
+				// Pool calls fail with `NotMigrated` until the pool and the member are moved to
+				// delegated staking, which anyone can do. Do it first so the calls reach the
+				// balance checks.
+				let needs_migration =
+					NominationPools::<Runtime>::api_member_needs_delegate_migration(member.clone());
+				needed_migration += needs_migration as u32;
+				let migrate = || -> sp_runtime::DispatchResult {
+					if NominationPools::<Runtime>::api_pool_needs_delegate_migration(data.pool_id) {
+						NominationPools::<Runtime>::migrate_pool_to_delegate_stake(
+							origin(),
+							data.pool_id,
+						)
+						.map_err(|e| e.error)?;
+					}
+					if needs_migration {
+						NominationPools::<Runtime>::migrate_delegation(
+							origin(),
+							member.clone().into(),
+						)
+						.map_err(|e| e.error)?;
+					}
+					Ok(())
+				};
+
+				let migration = hypothetically!(migrate());
+				let claim = hypothetically!(
+					migrate().and_then(|()| NominationPools::<Runtime>::claim_payout(origin()))
+				);
+				let bond = hypothetically!(migrate().and_then(|()| {
+					NominationPools::<Runtime>::bond_extra(origin(), BondExtra::Rewards)
+				}));
+				let unbond = hypothetically!(migrate().and_then(|()| {
+					NominationPools::<Runtime>::unbond(origin(), member.clone().into(), data.points)
+				}));
 
 				claims_ok += claim.is_ok() as u32;
 				bonds_ok += bond.is_ok() as u32;
@@ -3554,11 +3580,12 @@ mod remote_test {
 					Err(e) => format!("{:?}", e),
 				};
 				println!(
-					"{:?},{},{},{},{},{},{}",
+					"{:?},{},{},{},{},{},{},{}",
 					member,
 					data.pool_id,
 					free,
 					pending,
+					if needs_migration { show(&migration) } else { "-".to_string() },
 					show(&claim),
 					show(&bond),
 					show(&unbond),
@@ -3574,6 +3601,7 @@ mod remote_test {
 				"Pool members whose free balance plus pending rewards is below ED: {}",
 				members
 			);
+			println!("Of those, needing migration to delegated staking: {}", needed_migration);
 			println!("Of those, claim_payout succeeds: {}", claims_ok);
 			println!("Of those, bond_extra(Rewards) succeeds: {}", bonds_ok);
 			println!("Of those, unbond succeeds: {}", unbonds_ok);
