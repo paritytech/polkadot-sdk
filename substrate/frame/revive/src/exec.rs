@@ -17,8 +17,8 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
-	Pallet as Contracts, RuntimeCosts,
+	CodeRemoved, Config, ContractInfo, ContractLogTopics, Error, Event, ImmutableData,
+	ImmutableDataOf, LOG_TARGET, Pallet as Contracts, RuntimeCosts,
 	access_list::{AccessEntry, AccessList, StorageOp, Warmth},
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -436,8 +436,9 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// Deposit an event with the given topics.
 	///
-	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
+	/// There should not be any duplicates in `topics`. [`ContractLogTopics`] bounds `topics` to
+	/// [`limits::NUM_EVENT_TOPICS`], so no event with more topics reaches the event sink.
+	fn deposit_event(&mut self, topics: ContractLogTopics, data: Vec<u8>);
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -2641,7 +2642,7 @@ where
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: ContractLogTopics, data: Vec<u8>) {
 		let contract = T::AddressMapper::to_address(self.account_id());
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<Self::T>::event_count();
@@ -2650,7 +2651,11 @@ where
 
 		block_storage::capture_frame_log::<T>(&contract, &data, &topics);
 
-		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+		Contracts::<Self::T>::deposit_event(Event::ContractEmitted {
+			contract,
+			data,
+			topics: topics.into_inner(),
+		});
 	}
 
 	fn block_number(&self) -> U256 {

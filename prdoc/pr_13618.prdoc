@@ -1,0 +1,59 @@
+title: '[pallet-revive] Count topic bytes in per-event byte charges'
+
+doc:
+- audience: Runtime User
+  description: |-
+    Emitting an event charges the per-byte event weights for its topics and its data. Each topic
+    counts as 32 bytes. This applies to `LOG0` to `LOG4`, the `deposit_event` syscall, and the logs
+    emitted by precompiles such as the pallet-assets ERC-20 precompile.
+
+    With the weights shipped in `pallet-revive`, each topic adds about 8.57 us of ref time and
+    32 bytes of proof size to the cost of the event. Gas estimates for transactions that emit
+    events with topics include this charge.
+
+    The call stipend reserves room for a `LOG4` with 64 data bytes. A call that transfers value
+    now needs about 82 us of ref time and 216 bytes of proof size left for the stipend, up from
+    about 48 us and 88 bytes. A call with less left fails with `OutOfGas`, as before.
+
+    A `deposit_event` call with more than `NUM_EVENT_TOPICS` topics is charged the topic bytes of
+    `NUM_EVENT_TOPICS` topics and traps with `TooManyTopics` as before.
+
+- audience: Runtime Dev
+  description: |-
+    No storage migration, configuration change or weight regeneration is needed.
+
+    `RuntimeCosts::DepositEvent { num_topic, len }` charges `seal_deposit_event(num_topic, len)`
+    plus `on_finalize_block_per_event` and `EXTRA_EVENT_CHARGE_PER_BYTE` for
+    `len + 32 * min(num_topic, NUM_EVENT_TOPICS)` bytes, which is the byte count the
+    `on_finalize_per_event_data` benchmark measures. The parameter of
+    `OnFinalizeBlockParts::on_finalize_block_per_event` is named `event_bytes` to match.
+
+    `PrecompileExt::deposit_event` takes the topics as `ContractLogTopics`, which holds at most
+    `NUM_EVENT_TOPICS` topics, instead of `Vec<H256>`. Precompiles that emit logs convert their
+    topics before the call. A precompile whose topic count can exceed the limit handles the
+    conversion error:
+
+    ```rust
+    // before
+    env.deposit_event(topics, data);
+    // after
+    let topics = pallet_revive::ContractLogTopics::try_from(topics)
+        .map_err(|_| Error::Revert(Revert { reason: "Too many topics".into() }))?;
+    env.deposit_event(topics, data);
+    ```
+
+    `Event::ContractEmitted` is unchanged.
+
+    `integrity_test` bounds the event storage a block can produce using events with
+    `NUM_EVENT_TOPICS` topics and `EVENT_BYTES` of data.
+
+    The `Host` Solidity fixture in `pallet-revive-fixtures` gains a `logOpsWithoutData` function,
+    which adds a variant to the generated `Host::HostCalls` enum.
+
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-assets-precompiles
+  bump: patch
