@@ -1,22 +1,24 @@
 title: 'fungible: allow deposits below ED into accounts with funds on hold'
 doc:
-- audience:
-  - Runtime Dev
-  - Runtime User
-  description: |-
-    Fixes #9903.
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      The default `fungible::Unbalanced::increase_balance` and `pallet-balances`' `can_deposit`
+      treated any account whose free balance would stay below the existential deposit as a new
+      account, even when it had funds on hold. pallet-balances keeps such accounts alive, so this
+      was wrong for them. A `BestEffort` deposit returned `Ok(0)` and credited nothing, which is how
+      small staking rewards were lost, and `Exact` deposits and transfers failed with
+      `BelowMinimum`. Nomination pool members who staked their whole balance could not claim a
+      reward below ED, or unbond, since unbond claims pending rewards first.
 
-    Pool members can stake their whole balance, ED included. Delegated staking puts all of it on hold and gives the account an extra provider, so the account stays alive with no free balance. pallet-balances is fine with that. It only dusts an account when free is below ED and nothing is held.
+      An account is now only treated as new when its total balance is zero. New accounts still
+      cannot be created below ED.
 
-    The deposit side didn't agree. The default `fungible::Unbalanced::increase_balance` and `pallet-balances::can_deposit` only looked at the free balance, so any deposit that left it below ED was treated as going into a new account. With `BestEffort` the deposit returned `Ok(0)` and nothing landed. That's how staking pays rewards, so small rewards just vanished. With `Exact` or a transfer it failed with `BelowMinimum`, which meant a member with a pending reward below ED couldn't `claim_payout`, and couldn't `unbond` either, because unbond pays out rewards first. They were stuck until the reward grew past ED.
-
-    Now an account is only treated as new when its total balance is zero, which is what the doc comment on `increase_balance` already said.
-
-    cc @Ank4n @muharem @ggwpez
+      Releasing the last hold of an account whose free balance is below ED now passes the dust to
+      `handle_raw_dust`. Before, `set_balance_on_hold` dropped it without reducing total issuance.
 crates:
-- name: pallet-balances
-  bump: minor
-- name: frame-support
-  bump: minor
-- name: asset-hub-westend-runtime
-  bump: minor
+  - name: frame-support
+    bump: minor
+  - name: pallet-balances
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: none
