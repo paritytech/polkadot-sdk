@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793360319535,
+  "lastUpdate": 1793379831739,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9f6182fe1ef2a4bd2013571396999ddd4044a8ef",
-          "message": "[CI] Fix random job cancellations in combined publish workflows (#11703)\n\n## Summary\n\n- The combined publish workflows (`release-70`, `release-22`) call\nmultiple sub-workflows that each invoke `check-synchronization.yml`.\nThat reusable workflow has a concurrency group (`${{ github.repository\n}}-${{ github.workflow }}-${{ github.ref }}`) that evaluates to the\n**same value** for all callers within a single run, causing GitHub to\nrandomly cancel competing jobs.\n- PR #11631 attempted to fix this with `github.event_name ==\n'workflow_dispatch'` guards, but `github.event_name` propagates the\noriginal trigger through `workflow_call` chains, so the guard doesn't\nreliably skip the check.\n- This PR replaces that guard with an explicit `skip_sync_check` boolean\ninput. Combined workflows pass `skip_sync_check: true` since they\nalready run the check at the top level. Standalone dispatches default to\n`false`, preserving existing behavior.\n- Also removes the redundant `check-synchronization` job from\n`release-reusable-publish-packages.yml` (only ever called from workflows\nthat already perform the check).\n\nEvidence: [4 consecutive failed\nattempts](https://github.com/paritytech-release/polkadot-sdk/actions/runs/23787944175)\nwith different random jobs cancelled each time.\n\n## Issue\n\n- https://github.com/paritytech/release-engineering/issues/291\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-04-15T18:02:46Z",
-          "tree_id": "476d14e5d739f6a66e36af53f32b47a9ad9a9c25",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f6182fe1ef2a4bd2013571396999ddd4044a8ef"
-        },
-        "date": 1776282423415,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007538782993333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14341309524666673,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009554104479999976,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025669036346666663,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007994298013333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "06ccd162f5991e7e93c6bc5129bc7adae8534282",
+          "message": "[FRAME] Small Balance Fixes (#12674)\n\nChanges:\n- Keep frozen accounts alive below ED\n- Handle dust when releasing holds\n- Remove empty hold entries\n- Handle dust when thawing freezes and test reentrant dust handlers\n- Handle dust when removing locks and test reentrant dust handlers\n- Document inactive issuance during burns\n- Prevent aggregate balance overflow\n- Preserve inactive issuance when deactivating\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Kian Paimani <kian@parity.io>",
+          "timestamp": "2026-10-30T15:35:05Z",
+          "tree_id": "d3e0b34b562fbfffb67a8143de9969c7f42305ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/06ccd162f5991e7e93c6bc5129bc7adae8534282"
+        },
+        "date": 1793379803613,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009959360286666653,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14431489420666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007742639093333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02561478590666667,
             "unit": "seconds"
           }
         ]
