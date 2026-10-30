@@ -1,0 +1,11 @@
+title: 'SwapFirstAssetTrader: refund the whole fee held'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `SwapFirstAssetTrader::refund_weight` refused any refund worth the fee it held or more, so a
+    `RefundSurplus` of the whole purchase, or of a surplus larger than what this trader bought,
+    refunded nothing and the fee went to `OnUnbalanced`. It now caps the refund at the fee held
+    and refunds that, as `UsingComponents`, `FixedRateOfFungible` and `TakeFirstAssetTrader` do.
+crates:
+- name: cumulus-primitives-utility
+  bump: patch
