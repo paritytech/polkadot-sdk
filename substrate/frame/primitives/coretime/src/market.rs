@@ -84,6 +84,9 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// Depending on the implementation, this either: places a bid, or immediately executes the
 	/// purchase.
 	///
+	/// A bounded bid book may replace the lowest bid with a strictly higher one. The replaced
+	/// bidder is returned in [`OrderResult::BidPlaced`] `evicted` so the caller can refund them.
+	///
 	/// ### Parameters
 	/// - `block_number`: Current relay chain block number.
 	/// - `who`: Account placing the order.
@@ -92,7 +95,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		block_number: RelayBlockNumber,
 		who: &AccountId,
 		price_limit: Balance,
-	) -> Result<OrderResult<Balance, Self::BidId>, Self::Error>;
+	) -> Result<OrderResult<AccountId, Balance, Self::BidId>, Self::Error>;
 
 	/// Place an order to renew a coretime region.
 	///
@@ -107,7 +110,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		block_number: RelayBlockNumber,
 		who: &AccountId,
 		renewal: PotentialRenewalId,
-	) -> Result<RenewalOrderResult<Balance, Self::BidId>, Self::Error>;
+	) -> Result<RenewalOrderResult<AccountId, Balance, Self::BidId>, Self::Error>;
 
 	/// Adjust the price of an existing bid.
 	///
@@ -171,6 +174,7 @@ pub trait TimesliceProvider {
 }
 
 /// Information about the sale.
+#[derive(Debug, PartialEq)]
 pub struct MarketSaleInfo<RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,
@@ -189,19 +193,23 @@ pub struct MarketSaleInfo<RelayBlockNumber> {
 }
 
 /// Outcome of [`Market::start_sales`].
+#[derive(Debug, PartialEq)]
 pub struct SalesStarted<RelayBlockNumber> {
 	/// The first active sale.
 	pub sale: MarketSaleInfo<RelayBlockNumber>,
 }
 
 /// Possible outcomes of [`Market::place_order`].
-pub enum OrderResult<Balance, BidId> {
+#[derive(Debug, PartialEq)]
+pub enum OrderResult<AccountId, Balance, BidId> {
 	/// A bid was placed.
 	BidPlaced {
 		/// Identifier of the bid.
 		id: BidId,
 		/// Amount to lock when placing the bid.
 		bid_price: Balance,
+		/// If the book was full, the replaced bidder and the locked amount to refund.
+		evicted: Option<(AccountId, Balance)>,
 	},
 	/// The region was purchased immediately.
 	Sold {
@@ -215,7 +223,8 @@ pub enum OrderResult<Balance, BidId> {
 }
 
 /// Possible outcomes of [`Market::place_renewal_order`].
-pub enum RenewalOrderResult<Balance, BidId> {
+#[derive(Debug, PartialEq)]
+pub enum RenewalOrderResult<AccountId, Balance, BidId> {
 	/// A renewal bid was placed.
 	BidPlaced {
 		/// Identifier of the bid.
@@ -231,10 +240,14 @@ pub enum RenewalOrderResult<Balance, BidId> {
 		region_id: RegionId,
 		/// End of the renewed region.
 		effective_to: Timeslice,
+		/// If a bidder was displaced to free a core, the displaced bidder and the locked amount
+		/// to refund.
+		displaced: Option<(AccountId, Balance)>,
 	},
 }
 
 /// Outcome of [`Market::adjust_bid`].
+#[derive(Debug, PartialEq)]
 pub enum AdjustBidResult<Balance> {
 	/// Indicates that additional balance must be locked.
 	Lock {
