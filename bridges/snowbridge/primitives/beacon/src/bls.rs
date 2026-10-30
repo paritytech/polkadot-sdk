@@ -36,7 +36,9 @@ pub fn fast_aggregate_verify(
 
 /// Decompress one public key into a point in G1.
 pub fn prepare_milagro_pubkey(pubkey: &PublicKey) -> Result<PublicKeyPrepared, BlsError> {
-	PublicKeyPrepared::from_bytes(&pubkey.0).map_err(|_| BlsError::InvalidPublicKey)
+	// Sync committee keys are authenticated Ethereum consensus state. Avoid repeating the G1
+	// subgroup check here: doing so for all 512 keys exceeds the synchronous block budget.
+	PublicKeyPrepared::from_bytes_unchecked(&pubkey.0).map_err(|_| BlsError::InvalidPublicKey)
 }
 
 /// Prepare for G1 public keys.
