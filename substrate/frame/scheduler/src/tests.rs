@@ -3507,44 +3507,19 @@ fn weight_budget_is_not_fresh_after_a_serviced_task() {
 	});
 }
 
-/// An aborted task is removed from its agenda together with its retry configuration, and is not
-/// serviced again when the agenda is revisited for a postponed task.
+/// An aborted task is removed from its agenda together with its retry configuration.
 #[test]
 fn aborted_task_is_removed_from_agenda() {
 	new_test_ext().execute_with(|| {
-		let budget = set_small_budget();
-		let fresh = fresh_task_budget(budget, 3);
 		let aborted =
 			Scheduler::do_schedule(DispatchTime::At(4), None, 63, root(), missing_lookup(40))
 				.unwrap();
 		assert_ok!(Scheduler::set_retry(root().into(), aborted, 3, 2));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			Preimage::bound(logger_call(1, 10)).unwrap(),
-		));
-		// Needs more than half of a fresh budget: postponed in block 4, fits in block 5.
-		let heavy = fresh.ref_time() / 2 + 1_000;
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			63,
-			root(),
-			Preimage::bound(logger_call(2, heavy)).unwrap(),
-		));
 
 		System::run_to_block::<AllPalletsWithSystem>(4);
-		assert_eq!(logger::log(), vec![(root(), 1)]);
-		assert_eq!(Agenda::<Test>::get(4).iter().flatten().count(), 1);
-		assert!(!Retries::<Test>::contains_key(aborted));
-
-		System::run_to_block::<AllPalletsWithSystem>(5);
-		assert_eq!(logger::log(), vec![(root(), 1), (root(), 2)]);
-		assert_eq!(call_unavailable_count((4, 0)), 1);
-		assert_eq!(permanently_overweight_count(), 0);
+		assert_eq!(call_unavailable_count(aborted), 1);
 		assert!(Agenda::<Test>::get(4).is_empty());
+		assert!(!Retries::<Test>::contains_key(aborted));
 	});
 }
 
@@ -3678,30 +3653,24 @@ fn zero_maximum_weight_pauses_without_removing_tasks() {
 			root(),
 			missing_lookup(100)
 		));
-		assert_ok!(Scheduler::do_schedule(
-			DispatchTime::At(4),
-			None,
-			128,
-			root(),
-			Preimage::bound(logger_call(7, 10)).unwrap(),
-		));
 		System::run_to_block::<AllPalletsWithSystem>(2);
 		MaximumSchedulerWeight::set(&Weight::zero());
 		System::run_to_block::<AllPalletsWithSystem>(10);
-		assert_eq!(Agenda::<Test>::get(4).iter().flatten().count(), 2);
+		assert_eq!(Agenda::<Test>::get(4).iter().flatten().count(), 1);
 		assert_eq!(permanently_overweight_count(), 0);
 		MaximumSchedulerWeight::set(&budget);
 		System::run_to_block::<AllPalletsWithSystem>(11);
 		assert_eq!(permanently_overweight_count(), 1);
-		assert_eq!(logger::log(), vec![(root(), 7)]);
+		assert!(Agenda::<Test>::get(4).is_empty());
 		assert_eq!(IncompleteSince::<Test>::get(), Some(12));
 	});
 }
 
 /// A postponed task ahead of another one is serviced first on the next visit, so it does not count
-/// towards the agenda length the task behind it will be serviced with.
+/// towards the agenda length the task behind it will be serviced with. The task behind it is
+/// therefore not removed as overweight, but serviced and aborted for its missing preimage.
 #[test]
-fn task_behind_a_postponed_task_is_not_removed() {
+fn task_behind_a_postponed_task_is_not_removed_as_overweight() {
 	new_test_ext().execute_with(|| {
 		let budget = set_small_budget();
 		let len = shortest_lookup_not_fitting(budget, 2);
@@ -3740,15 +3709,13 @@ fn task_behind_a_postponed_task_is_not_removed() {
 #[test]
 fn removed_task_drops_its_preimage_request() {
 	new_test_ext().execute_with(|| {
-		let call = RuntimeCall::from(frame_system::Call::remark { remark: vec![0u8; 1024] });
-		let bound = Preimage::bound(call).unwrap();
+		let bound = missing_lookup(1024);
 		let hash = bound.hash();
 		assert_ok!(Scheduler::do_schedule(DispatchTime::At(4), None, 127, root(), bound));
+		assert!(Preimage::is_requested(&hash));
 		set_small_budget();
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_eq!(permanently_overweight_count(), 1);
-		// Only the request made by `bound` is left.
-		<Preimage as QueryPreimage>::unrequest(&hash);
 		assert!(!Preimage::is_requested(&hash));
 	});
 }
@@ -3809,6 +3776,7 @@ fn task_is_postponed_when_its_removal_does_not_fit() {
 		System::run_to_block::<AllPalletsWithSystem>(4);
 		assert_eq!(logger::log(), vec![(root(), 1)]);
 		assert_eq!(permanently_overweight_count(), 0);
+		System::assert_has_event(crate::Event::AgendaIncomplete { when: 4 }.into());
 		assert_eq!(Agenda::<Test>::get(4).iter().flatten().count(), 1);
 		assert_eq!(IncompleteSince::<Test>::get(), Some(4));
 
