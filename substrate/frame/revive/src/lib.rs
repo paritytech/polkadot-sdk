@@ -54,7 +54,7 @@ pub mod tracing;
 pub mod weights;
 
 use crate::{
-	access_list::Warmth,
+	access_list::{CodeLoadItems, StorageItems, StorageOp, Summarized, Warmth},
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
 		StateOverrideSet, TYPE_EIP1559, TYPE_EIP7702, Tracer, TracerType,
@@ -1337,7 +1337,10 @@ pub mod pallet {
 					&<RuntimeCosts as WeightToken<T>>::weight(&RuntimeCosts::SetStorage {
 						new_bytes: limits::STORAGE_BYTES,
 						old_bytes: 0,
-						kind: StorageAccessKind::Persistent(Warmth::Cold { revertible: true }),
+						kind: StorageAccessKind::Persistent(StorageItems::summarize_single(
+							Warmth::new_cold_revertible(),
+							StorageOp::Write,
+						)),
 					})
 					.saturating_mul(u64::from(limits::STORAGE_BYTES).saturating_add(max_key_size)),
 				)
@@ -1411,7 +1414,7 @@ pub mod pallet {
 					deposit_limit: storage_deposit_limit,
 				},
 				data,
-				&ExecConfig::new_substrate_tx(),
+				&Self::substrate_call_exec_config(),
 			);
 
 			if let Ok(return_value) = &output.result &&
@@ -1678,8 +1681,11 @@ pub mod pallet {
 			let base_info = T::FeeInfo::base_dispatch_info(&mut call);
 			drop(call);
 
-			let exec_config =
-				ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_info.total_weight());
+			let exec_config = Self::eth_call_exec_config(
+				effective_gas_price,
+				encoded_len,
+				base_info.total_weight(),
+			);
 			let auth_result = evm::eip7702::process_authorizations::<T>(
 				&authorization_list,
 				&signer,
@@ -1700,7 +1706,7 @@ pub mod pallet {
 						authorization_deposit: auth_result.deposit,
 					},
 					data,
-					&ExecConfig::new_eth_tx(effective_gas_price, encoded_len, extra_weight),
+					&Self::eth_call_exec_config(effective_gas_price, encoded_len, extra_weight),
 				);
 
 				block_storage::EthereumCallResult::new::<T>(
@@ -2123,7 +2129,15 @@ impl<T: Config> Pallet<T> {
 					}
 				},
 				Code::Existing(code_hash) => {
-					let executable = ContractBlob::from_storage(code_hash, &mut transaction_meter)?;
+					// A root instantiate has no access list yet, so its blob is billed cold.
+					let executable = ContractBlob::from_storage_with_warmth(
+						code_hash,
+						&mut transaction_meter,
+						Summarized::new_all_cold(CodeLoadItems::with_info_op(
+							code_hash,
+							StorageOp::Write,
+						)),
+					)?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},
@@ -2522,18 +2536,15 @@ impl<T: Config> Pallet<T> {
 			}
 		};
 
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight);
-		let auth_result =
-			evm::eip7702::process_authorizations::<T>(&authorization_list, &origin, &exec_config);
+		let auth_result = evm::eip7702::process_authorizations::<T>(
+			&authorization_list,
+			&origin,
+			&Self::eth_call_exec_config(effective_gas_price, call_info.encoded_len, base_weight),
+		);
 		base_weight = base_weight.saturating_sub(auth_result.weight_refund);
 		let actual_auth_deposit = auth_result.deposit;
 		let worst_case_auth_deposit = Self::worst_case_delegation_deposit()
 			.saturating_mul(authorization_list.len().saturated_into());
-
-		let exec_config =
-			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
-				.with_dry_run(timestamp_override);
 
 		let transaction_limits = TransactionLimits::EthereumGas {
 			eth_gas_limit: call_info.eth_gas_limit.saturated_into(),
@@ -2571,7 +2582,12 @@ impl<T: Config> Pallet<T> {
 						value,
 						transaction_limits,
 						input.clone(),
-						&exec_config,
+						&Self::eth_call_exec_config(
+							effective_gas_price,
+							call_info.encoded_len,
+							base_weight,
+						)
+						.with_dry_run(timestamp_override),
 					);
 
 					let data = match result.result {
@@ -2613,7 +2629,12 @@ impl<T: Config> Pallet<T> {
 					Code::Upload(code.clone()),
 					data.clone(),
 					None,
-					&exec_config,
+					&ExecConfig::new_eth_tx(
+						effective_gas_price,
+						call_info.encoded_len,
+						base_weight,
+					)
+					.with_dry_run(timestamp_override),
 				);
 
 				let returned_data = match result.result {
@@ -3185,6 +3206,21 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Ok(())
 		}
+	}
+
+	/// Builds the config the `call` dispatchable runs with.
+	fn substrate_call_exec_config() -> ExecConfig<T> {
+		ExecConfig::new_substrate_tx().with_first_frame_reads_paid()
+	}
+
+	/// Builds the config the `eth_call` dispatchable runs with.
+	fn eth_call_exec_config(
+		effective_gas_price: U256,
+		encoded_len: u32,
+		base_weight: Weight,
+	) -> ExecConfig<T> {
+		ExecConfig::new_eth_tx(effective_gas_price, encoded_len, base_weight)
+			.with_first_frame_reads_paid()
 	}
 }
 
@@ -4178,7 +4214,6 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 				) -> $crate::pallet_revive_types::runtime_api::CallVersionedOutputPayload<Balance> {
 					use $crate::pallet_revive_types::runtime_api::*;
 					use $crate::runtime_api::*;
-					use $crate::frame_support::traits::Get;
 					use alloc::boxed::Box;
 
 					let (input, output_wrapper): (
@@ -4191,24 +4226,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						),
 					};
 
-					let blockweights: $crate::BlockWeights =
-						<Self as $crate::frame_system::Config>::BlockWeights::get();
-
-					$crate::Pallet::<Self>::prepare_dry_run(&input.origin);
-					let contract_result = $crate::Pallet::<Self>::bare_call(
-						<Self as $crate::frame_system::Config>::RuntimeOrigin::signed(input.origin),
-						input.dest,
-						$crate::Pallet::<Self>::convert_native_to_evm(input.value),
-						$crate::TransactionLimits::WeightAndDeposit {
-							weight_limit: input.gas_limit.unwrap_or(blockweights.max_block),
-							deposit_limit: input.storage_deposit_limit.unwrap_or(u128::MAX),
-						},
-						input.input_data,
-						&$crate::ExecConfig::new_substrate_tx().with_dry_run(None),
-					);
-
-					let output = CallOutputPayload { contract_result };
-					output_wrapper(output)
+					output_wrapper(dry_run_call::<Self>(input))
 				}
 
 				fn instantiate_versioned(

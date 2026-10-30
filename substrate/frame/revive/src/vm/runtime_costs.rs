@@ -17,13 +17,17 @@
 
 use crate::{
 	Config,
-	access_list::{StorageOp, Warmth},
+	access_list::{
+		CallWarmth, KeyFamily, StorageItems, StorageOp, Summarized, TransferWarmth, Warmth,
+		WarmthSummary,
+	},
 	limits,
 	metering::Token,
 	weightinfo_extension::OnFinalizeBlockParts,
 	weights::WeightInfo,
 };
 use frame_support::{
+	defensive_assert,
 	traits::Get,
 	weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
@@ -119,10 +123,10 @@ pub enum RuntimeCosts {
 	GetStorage { len: u32, kind: StorageAccessKind },
 	/// Weight of the `takeStorage` precompile / `seal_take_transient_storage`.
 	TakeStorage { len: u32, kind: StorageAccessKind },
-	/// Base weight of calling `seal_call`.
-	CallBase,
-	/// Weight of calling `seal_delegate_call` for the given input size.
-	DelegateCallBase,
+	/// Base weight of a call-family operation.
+	CallBase(Summarized<CallWarmth>),
+	/// Weight of the chained-delegation check.
+	ChainedDelegationCheck(Summarized<Warmth>),
 	/// Weight of calling a precompile.
 	PrecompileBase,
 	/// Weight of calling a precompile that has a contract info.
@@ -130,14 +134,15 @@ pub enum RuntimeCosts {
 	/// Weight of reading and decoding the input to a precompile.
 	PrecompileDecode(u32),
 	/// Weight of the transfer performed during a call.
-	/// parameter `dust_transfer` indicates whether the transfer has a `dust` value.
-	CallTransferSurcharge { dust_transfer: bool },
+	CallTransferSurcharge(TransferAccessKind),
 	/// Weight per byte that is cloned by supplying the `CLONE_INPUT` flag.
 	CallInputCloned(u32),
 	/// Weight of calling `seal_instantiate`.
 	Instantiate { input_data_len: u32, balance_transfer: bool, dust_transfer: bool },
 	/// Weight of calling `Create` opcode.
 	Create { init_code_len: u32, balance_transfer: bool, dust_transfer: bool },
+	/// Weight of registering the accesses counted in the summary in the access list.
+	AccessListRegistration(WarmthSummary),
 	/// Weight of calling `Ripemd160` precompile for the given input size.
 	Ripemd160(u32),
 	/// Weight of calling `Sha256` precompile for the given input size.
@@ -186,22 +191,6 @@ pub enum RuntimeCosts {
 	Delegations { new_accounts: u32, existing_accounts: u32, invalid_accounts: u32 },
 }
 
-/// How a storage access is priced.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum StorageAccessKind {
-	/// Persistent storage, priced by its access-list warmth.
-	Persistent(Warmth),
-	/// Transient storage, every access costs the same.
-	Transient,
-}
-
-impl StorageAccessKind {
-	/// Builds the storage access kind. `warmth` is called only for persistent storage.
-	pub fn new(transient: bool, warmth: impl FnOnce() -> Warmth) -> Self {
-		if transient { Self::Transient } else { Self::Persistent(warmth()) }
-	}
-}
-
 /// For functions that modify storage, benchmarks are performed with one item in the
 /// storage. To account for the worst-case scenario, the weight of the overhead of
 /// writing to or reading from full storage is included. For transient storage writes,
@@ -247,52 +236,149 @@ macro_rules! cost_args {
 }
 
 impl RuntimeCosts {
-	/// Extra ref_time a hot storage access pays to look up the block's overlay.
+	/// Computes the extra ref_time a hot state read pays to look up the block's overlay.
 	fn hot_storage_overlay_overhead<T: Config>() -> Weight {
 		let per_read = |weight_fn: fn(u32) -> Weight| weight_fn(1).saturating_sub(weight_fn(0));
 		per_read(T::WeightInfo::overlay_probe_full)
 			.saturating_sub(per_read(T::WeightInfo::overlay_probe_empty))
 	}
 
-	/// What a hot write pays on top of the cold read that warmed the slot:
-	/// re-hashing the slot's trie path when the block's storage root is
-	/// computed.
-	fn hot_write_surcharge<T: Config>() -> Weight {
-		let db = T::DbWeight::get();
-		db.writes(1).saturating_sub(db.reads(1))
+	/// Computes the surcharge a write owes on a key that only paid for a read.
+	fn write_surcharge<T: Config>(summary: WarmthSummary) -> Weight {
+		deferred_write_cost::<T>().saturating_mul(summary.upgrades().into())
+	}
+}
+
+/// Computes the overhead the access list adds to an access.
+fn access_list_overhead<T: Config>(summary: WarmthSummary) -> Weight {
+	let key_family = summary.key_family();
+	let hot_weight = access_list_hot_touch_overhead::<T>(key_family);
+	let upgrade_weight = access_list_upgrade_overhead::<T>(key_family);
+	if summary.all_hot() {
+		return hot_weight
+			.saturating_mul(summary.total().into())
+			.saturating_add(upgrade_weight.saturating_mul(summary.upgrades().into()));
 	}
 
-	/// Pick the matching storage bench for the access `kind`.
-	fn weight_for_storage_access<T: Config>(
-		op: StorageOp,
-		kind: StorageAccessKind,
+	let (cold_weight, rollback_weight) = match key_family {
+		KeyFamily::ContractStorageSlot => (
+			T::WeightInfo::access_list_touch_cold_full()
+				.saturating_sub(T::WeightInfo::access_list_touch_cold_empty()),
+			T::WeightInfo::access_list_rollback_amortization(),
+		),
+		KeyFamily::PalletStorageSlot => (
+			T::WeightInfo::access_list_touch_cold_address_full()
+				.saturating_sub(T::WeightInfo::access_list_touch_cold_address_empty()),
+			T::WeightInfo::access_list_rollback_address_amortization(),
+		),
+	};
+	// Mixed warmth is priced as all-cold, which must be enough for a hot entry being upgraded.
+	cold_weight
+		.max(hot_weight.saturating_add(upgrade_weight))
+		.saturating_mul(summary.total().into())
+		.saturating_add(rollback_weight.saturating_mul(summary.cold_revertible().into()))
+}
+
+/// Computes how much more a hot touch costs on a full list than on a nearly empty one.
+pub fn access_list_hot_touch_overhead<T: Config>(key_family: KeyFamily) -> Weight {
+	match key_family {
+		KeyFamily::ContractStorageSlot => T::WeightInfo::access_list_touch_hot_full()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
+		KeyFamily::PalletStorageSlot => T::WeightInfo::access_list_touch_hot_address_full()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_address_single_element()),
+	}
+}
+
+/// Computes the cost of journaling a `Read` to `Write` upgrade, on top of the touch itself.
+pub fn access_list_upgrade_overhead<T: Config>(key_family: KeyFamily) -> Weight {
+	match key_family {
+		KeyFamily::ContractStorageSlot => T::WeightInfo::access_list_touch_hot_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_full()),
+		KeyFamily::PalletStorageSlot => T::WeightInfo::access_list_touch_hot_address_upgrade()
+			.saturating_sub(T::WeightInfo::access_list_touch_hot_address_full()),
+	}
+}
+
+/// Computes the cost a hot write adds on top of the cold read that warmed the key: re-hashing
+/// its trie path when the block's storage root is computed.
+pub fn deferred_write_cost<T: Config>() -> Weight {
+	let db = T::DbWeight::get();
+	db.writes(1).saturating_sub(db.reads(1))
+}
+
+/// Computes the cost of an access from the warmth of its entries.
+///
+/// Each bench measures the whole access, so the hot one applies only when every entry is hot. The
+/// access list's own costs come on top for every entry accessed. The hot price pays the write
+/// surcharge for every entry that paid for a read only and is now written.
+pub fn weight_from_warmth_summary<T: Config>(
+	summary: WarmthSummary,
+	cold: impl FnOnce() -> Weight,
+	hot: impl FnOnce() -> Weight,
+) -> Weight {
+	defensive_assert!(summary.total() > 0, "an access touches at least one state item");
+	// With no entries `all_hot` is vacuously true, so charge cold instead.
+	let operation_weight = if summary.all_hot() && summary.total() > 0 {
+		// One overlay lookup per entry, since each stands for one state read.
+		hot()
+			.saturating_add(
+				RuntimeCosts::hot_storage_overlay_overhead::<T>()
+					.saturating_mul(summary.total().into()),
+			)
+			.saturating_add(RuntimeCosts::write_surcharge::<T>(summary))
+	} else {
+		cold()
+	};
+	operation_weight.saturating_add(access_list_overhead::<T>(summary))
+}
+
+/// How a storage access is priced.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StorageAccessKind {
+	/// Persistent storage, priced by its access-list warmth.
+	Persistent(Summarized<Warmth>),
+	/// Transient storage, every access costs the same.
+	Transient,
+}
+
+impl StorageAccessKind {
+	/// Builds a persistent access priced cold, for a slot the access list does not track.
+	pub fn new_persistent_cold() -> Self {
+		Self::Persistent(StorageItems::summarize_single(
+			Warmth::new_cold_non_revertible(),
+			StorageOp::Read,
+		))
+	}
+
+	/// Builds the storage access kind. `warmth` is called only for persistent storage.
+	pub fn new(transient: bool, warmth: impl FnOnce() -> Summarized<Warmth>) -> Self {
+		if transient { Self::Transient } else { Self::Persistent(warmth()) }
+	}
+
+	/// Computes the cost of an access of this kind.
+	fn weight<T: Config>(
+		self,
 		cold: impl FnOnce() -> Weight,
 		hot: impl FnOnce() -> Weight,
 		transient: impl FnOnce() -> Weight,
 	) -> Weight {
-		match kind {
-			StorageAccessKind::Persistent(Warmth::Cold { revertible }) => {
-				let cost = cold()
-					.saturating_add(T::WeightInfo::access_list_touch_cold_full())
-					.saturating_sub(T::WeightInfo::access_list_touch_cold_empty());
-				if revertible {
-					cost.saturating_add(T::WeightInfo::access_list_rollback_amortization())
-				} else {
-					cost
-				}
+		match self {
+			Self::Persistent(warmth) => {
+				weight_from_warmth_summary::<T>(warmth.summary(), cold, hot)
 			},
-			StorageAccessKind::Persistent(Warmth::Hot { charged }) => hot()
-				.saturating_add(if charged.covers(op) {
-					Weight::zero()
-				} else {
-					Self::hot_write_surcharge::<T>()
-				})
-				.saturating_add(Self::hot_storage_overlay_overhead::<T>())
-				.saturating_add(T::WeightInfo::access_list_touch_hot_full())
-				.saturating_sub(T::WeightInfo::access_list_touch_hot_single_element()),
-			StorageAccessKind::Transient => transient(),
+			Self::Transient => transient(),
 		}
 	}
+}
+
+/// How a call's value transfer is priced.
+#[cfg_attr(test, derive(Debug, PartialEq, Eq))]
+#[derive(Clone, Copy)]
+pub enum TransferAccessKind {
+	/// A transfer the access list tracks, priced by the warmth of its entries.
+	Tracked(Summarized<TransferWarmth>),
+	/// A transfer the access list does not track, priced by its benchmark alone.
+	Untracked { dust: bool },
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -353,48 +439,66 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(len.into()).into(),
 					0,
 				)),
-			SetStorage { new_bytes, old_bytes, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Write,
-				kind,
+			SetStorage { new_bytes, old_bytes, kind } => kind.weight::<T>(
 				|| cost_storage!(write_cold, seal_set_storage, new_bytes, old_bytes),
 				|| T::WeightInfo::seal_set_storage_hot(new_bytes, old_bytes),
 				|| cost_storage!(write_transient, seal_set_transient_storage, new_bytes, old_bytes),
 			),
-			ClearStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Write,
-				kind,
+			ClearStorage { len, kind } => kind.weight::<T>(
 				|| cost_storage!(write_cold, clear_storage, len),
 				|| T::WeightInfo::clear_storage_hot(len),
 				|| cost_storage!(write_transient, seal_clear_transient_storage, len),
 			),
-			ContainsStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Read,
-				kind,
+			ContainsStorage { len, kind } => kind.weight::<T>(
 				|| cost_storage!(read_cold, contains_storage, len),
 				|| T::WeightInfo::contains_storage_hot(len),
 				|| cost_storage!(read_transient, seal_contains_transient_storage, len),
 			),
-			GetStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Read,
-				kind,
+			GetStorage { len, kind } => kind.weight::<T>(
 				|| cost_storage!(read_cold, seal_get_storage, len),
 				|| T::WeightInfo::seal_get_storage_hot(len),
 				|| cost_storage!(read_transient, seal_get_transient_storage, len),
 			),
-			TakeStorage { len, kind } => Self::weight_for_storage_access::<T>(
-				StorageOp::Write,
-				kind,
+			TakeStorage { len, kind } => kind.weight::<T>(
 				|| cost_storage!(write_cold, take_storage, len),
 				|| T::WeightInfo::take_storage_hot(len),
 				|| cost_storage!(write_transient, seal_take_transient_storage, len),
 			),
-			CallBase => T::WeightInfo::seal_call(0, 0, 0),
-			DelegateCallBase => T::WeightInfo::seal_delegate_call(),
+			CallBase(warmth) => match warmth.entries() {
+				CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
+					warmth.summary(),
+					|| T::WeightInfo::seal_call(0, 0, 0),
+					T::WeightInfo::seal_call_hot,
+				),
+				CallWarmth::Delegate { .. } => weight_from_warmth_summary::<T>(
+					warmth.summary(),
+					T::WeightInfo::seal_delegate_call,
+					T::WeightInfo::seal_delegate_call_hot,
+				),
+			},
+			ChainedDelegationCheck(warmth) => weight_from_warmth_summary::<T>(
+				warmth.summary(),
+				T::WeightInfo::chained_delegation_check,
+				T::WeightInfo::chained_delegation_check_hot,
+			)
+			// The check searches its entry twice, but the access-list overhead prices only one.
+			.saturating_add(access_list_hot_touch_overhead::<T>(warmth.summary().key_family())),
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge { dust_transfer } => {
-				cost_args!(seal_call, 1, dust_transfer.into(), 0)
+			CallTransferSurcharge(TransferAccessKind::Untracked { dust }) => {
+				cost_args!(seal_call, 1, dust.into(), 0)
+			},
+			CallTransferSurcharge(TransferAccessKind::Tracked(warmth)) => {
+				let dust = u32::from(warmth.entries().dust);
+				weight_from_warmth_summary::<T>(
+					warmth.summary(),
+					|| cost_args!(seal_call, 1, dust, 0),
+					|| {
+						T::WeightInfo::seal_call_transfer_hot(dust)
+							.saturating_sub(T::WeightInfo::seal_call_hot())
+					},
+				)
 			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
@@ -411,6 +515,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 					init_code_len,
 				)
 			},
+			AccessListRegistration(summary) => access_list_overhead::<T>(summary),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),
@@ -443,32 +548,230 @@ impl<T: Config> Token<T> for RuntimeCosts {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::tests::Test;
+	use crate::{
+		access_list::{
+			AccessList, CallItems, MAX_ACCESS_LIST_ENTRIES, StorageItems, StorageOp, TransferItems,
+		},
+		exec::Key,
+		tests::Test,
+	};
+	use alloc::{vec, vec::Vec};
+	use sp_core::H160;
+
+	/// Returns the weight the runtime charges for `cost`.
+	fn weight(cost: &RuntimeCosts) -> Weight {
+		<RuntimeCosts as Token<Test>>::weight(cost)
+	}
 
 	#[test]
-	fn storage_pricing_by_access_kind() {
-		let len = 64u32;
-		let cold = StorageAccessKind::Persistent(Warmth::Cold { revertible: false });
-		let cold_revertible = StorageAccessKind::Persistent(Warmth::Cold { revertible: true });
-		let hot_kinds = [
-			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read }),
-			StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write }),
-		];
+	fn the_hot_price_is_charged_only_when_every_item_is_hot() {
+		// Distinct proof sizes, so the result shows which bench was charged.
+		let cold_bench = || Weight::from_parts(1_000_000, 500);
+		let hot_bench = || Weight::from_parts(10_000, 7);
+		let price = |warmths: &[Warmth]| {
+			let summary = warmths
+				.iter()
+				.fold(WarmthSummary::new(KeyFamily::ContractStorageSlot), |summary, warmth| {
+					summary.add(*warmth, StorageOp::Read)
+				});
+			weight_from_warmth_summary::<Test>(summary, cold_bench, hot_bench)
+		};
+		let hot = Warmth::new_read_paid();
+		let cold = Warmth::new_cold_non_revertible();
 
-		let with_kind = |kind: StorageAccessKind| -> Vec<RuntimeCosts> {
+		assert_eq!(price(&[hot, hot]).proof_size(), hot_bench().proof_size());
+		assert_eq!(price(&[hot, cold]).proof_size(), cold_bench().proof_size());
+	}
+
+	#[test]
+	fn a_hot_access_pays_one_overlay_lookup_per_item() {
+		let hot = Warmth::new_read_paid();
+		let hot_reads = |count| {
+			let summary = (0..count)
+				.fold(WarmthSummary::new(KeyFamily::ContractStorageSlot), |summary, _| {
+					summary.add(hot, StorageOp::Read)
+				});
+			weight_from_warmth_summary::<Test>(summary, Weight::zero, Weight::zero)
+		};
+		let hot_touch = weight(&RuntimeCosts::AccessListRegistration(
+			WarmthSummary::new(KeyFamily::ContractStorageSlot).add(hot, StorageOp::Read),
+		));
+
+		assert_eq!(
+			hot_reads(3).saturating_sub(hot_reads(2)),
+			hot_touch.saturating_add(RuntimeCosts::hot_storage_overlay_overhead::<Test>()),
+		);
+	}
+
+	#[test]
+	fn an_access_list_registration_pays_for_journaling_an_upgrade() {
+		let registration_weight = |key_family, warmth, op| {
+			weight(&RuntimeCosts::AccessListRegistration(
+				WarmthSummary::new(key_family).add(warmth, op),
+			))
+		};
+		for key_family in [KeyFamily::ContractStorageSlot, KeyFamily::PalletStorageSlot] {
+			assert_eq!(
+				registration_weight(key_family, Warmth::new_read_paid(), StorageOp::Write)
+					.saturating_sub(registration_weight(
+						key_family,
+						Warmth::new_write_paid(),
+						StorageOp::Write,
+					)),
+				access_list_upgrade_overhead::<Test>(key_family),
+				"{key_family:?}",
+			);
+			assert_eq!(
+				registration_weight(
+					key_family,
+					Warmth::new_cold_non_revertible(),
+					StorageOp::Write
+				),
+				registration_weight(key_family, Warmth::new_cold_non_revertible(), StorageOp::Read),
+				"{key_family:?}: a cold entry has nothing to upgrade",
+			);
+		}
+	}
+
+	#[test]
+	fn a_mixed_warmth_access_costs_the_same_as_an_all_cold_one() {
+		let cold = Warmth::new_cold_non_revertible();
+		let read_paid = Warmth::new_read_paid();
+		// The entries are written, so the test also covers an upgrade.
+		let overhead = |key_family, warmths: [Warmth; 2]| {
+			let summary = warmths.iter().fold(WarmthSummary::new(key_family), |summary, warmth| {
+				summary.add(*warmth, StorageOp::Write)
+			});
+			access_list_overhead::<Test>(summary)
+		};
+		for key_family in [KeyFamily::ContractStorageSlot, KeyFamily::PalletStorageSlot] {
+			assert_eq!(
+				overhead(key_family, [cold, read_paid]),
+				overhead(key_family, [cold, cold]),
+				"{key_family:?}: the cold bench's price covers the hot entry and its upgrade",
+			);
+		}
+	}
+
+	#[test]
+	fn a_mixed_warmth_access_never_underpays_an_upgraded_entry() {
+		let cold = Warmth::new_cold_non_revertible();
+		let read_paid = Warmth::new_read_paid();
+		let overhead = |key_family, warmths: &[Warmth]| {
+			let summary = warmths.iter().fold(WarmthSummary::new(key_family), |summary, warmth| {
+				summary.add(*warmth, StorageOp::Write)
+			});
+			access_list_overhead::<Test>(summary)
+		};
+		for key_family in [KeyFamily::ContractStorageSlot, KeyFamily::PalletStorageSlot] {
+			let upgraded_entry_in_mixed_access = overhead(key_family, &[cold, read_paid])
+				.saturating_sub(overhead(key_family, &[cold]));
+			let upgraded_entry_alone = overhead(key_family, &[read_paid]);
+			assert!(
+				upgraded_entry_in_mixed_access.all_gte(upgraded_entry_alone),
+				"{key_family:?}: mixed={upgraded_entry_in_mixed_access:?} alone={upgraded_entry_alone:?}",
+			);
+		}
+	}
+
+	#[test]
+	fn derived_overheads_stay_positive() {
+		let cold = Warmth::new_cold_non_revertible();
+		let hot = Warmth::new_read_paid();
+		let overlay_overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
+		let touch_overhead = |warmth, key_family| {
+			let summary = WarmthSummary::new(key_family).add(warmth, StorageOp::Read);
+			access_list_overhead::<Test>(summary)
+		};
+		let rollback_overhead = |key_family| {
+			touch_overhead(Warmth::new_cold_revertible(), key_family)
+				.saturating_sub(touch_overhead(cold, key_family))
+		};
+		let derived_overheads = [
+			("cold slot touch", touch_overhead(cold, KeyFamily::ContractStorageSlot)),
+			("cold address touch", touch_overhead(cold, KeyFamily::PalletStorageSlot)),
+			("hot slot touch", touch_overhead(hot, KeyFamily::ContractStorageSlot)),
+			("hot address touch", touch_overhead(hot, KeyFamily::PalletStorageSlot)),
+			("slot rollback", rollback_overhead(KeyFamily::ContractStorageSlot)),
+			("address rollback", rollback_overhead(KeyFamily::PalletStorageSlot)),
+			(
+				"journaled slot upgrade",
+				access_list_upgrade_overhead::<Test>(KeyFamily::ContractStorageSlot),
+			),
+			(
+				"journaled address upgrade",
+				access_list_upgrade_overhead::<Test>(KeyFamily::PalletStorageSlot),
+			),
+			("hot storage overlay", overlay_overhead),
+		];
+		for (overhead_name, overhead) in derived_overheads {
+			assert!(overhead.ref_time() > 0, "{overhead_name}: {overhead:?}");
+		}
+
+		assert_eq!(overlay_overhead.proof_size(), 0);
+
+		let transfer_hot = <Test as Config>::WeightInfo::seal_call_transfer_hot(0);
+		let call_hot = <Test as Config>::WeightInfo::seal_call_hot();
+		assert!(
+			transfer_hot.ref_time() > call_hot.ref_time(),
+			"a hot transfer pays the gap between these benches: \
+			 transfer={transfer_hot:?} call={call_hot:?}",
+		);
+	}
+
+	#[test]
+	fn persistent_cold_matches_an_untracked_slot() {
+		let mut al = AccessList::new();
+		al.fill_to(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
+		let untracked = |op| {
+			let slot = StorageItems::new(H160::repeat_byte(0xab), &Key::Fix([0xab; 32]), op);
+			StorageAccessKind::Persistent(al.warmth_of_summarized(slot))
+		};
+		let read = |kind| weight(&RuntimeCosts::GetStorage { len: 0, kind });
+		let write = |kind| weight(&RuntimeCosts::SetStorage { new_bytes: 0, old_bytes: 0, kind });
+
+		assert_eq!(
+			read(StorageAccessKind::new_persistent_cold()),
+			read(untracked(StorageOp::Read))
+		);
+		assert_eq!(
+			write(StorageAccessKind::new_persistent_cold()),
+			write(untracked(StorageOp::Write))
+		);
+	}
+
+	#[test]
+	fn contract_storage_pricing_by_access_kind() {
+		let len = 64u32;
+		let cold_non_revertible = Warmth::new_cold_non_revertible();
+		let cold_revertible = Warmth::new_cold_revertible();
+		let hot_warmths = [Warmth::new_read_paid(), Warmth::new_write_paid()];
+
+		let persistent = |warmth| {
+			move |op| StorageAccessKind::Persistent(StorageItems::summarize_single(warmth, op))
+		};
+		let transient = |_op| StorageAccessKind::Transient;
+		let with_kind = |kind_for: &dyn Fn(StorageOp) -> StorageAccessKind| -> Vec<RuntimeCosts> {
 			vec![
-				RuntimeCosts::GetStorage { len, kind },
-				RuntimeCosts::SetStorage { new_bytes: len, old_bytes: len, kind },
-				RuntimeCosts::ClearStorage { len, kind },
-				RuntimeCosts::ContainsStorage { len, kind },
-				RuntimeCosts::TakeStorage { len, kind },
+				RuntimeCosts::GetStorage { len, kind: kind_for(StorageOp::Read) },
+				RuntimeCosts::SetStorage {
+					new_bytes: len,
+					old_bytes: len,
+					kind: kind_for(StorageOp::Write),
+				},
+				RuntimeCosts::ClearStorage { len, kind: kind_for(StorageOp::Write) },
+				RuntimeCosts::ContainsStorage { len, kind: kind_for(StorageOp::Read) },
+				RuntimeCosts::TakeStorage { len, kind: kind_for(StorageOp::Write) },
 			]
 		};
 
-		for hot in hot_kinds {
-			for (cold_cost, hot_cost) in with_kind(cold).into_iter().zip(with_kind(hot)) {
-				let cold_weight = <RuntimeCosts as Token<Test>>::weight(&cold_cost);
-				let hot_weight = <RuntimeCosts as Token<Test>>::weight(&hot_cost);
+		for hot in hot_warmths {
+			for (cold_cost, hot_cost) in with_kind(&persistent(cold_non_revertible))
+				.into_iter()
+				.zip(with_kind(&persistent(hot)))
+			{
+				let cold_weight = weight(&cold_cost);
+				let hot_weight = weight(&hot_cost);
 				assert!(
 					cold_weight.ref_time() > hot_weight.ref_time(),
 					"expected cold > hot ref_time for {cold_cost:?}: \
@@ -486,53 +789,64 @@ mod tests {
 			}
 		}
 
-		for (rev_cost, non_rev_cost) in with_kind(cold_revertible).into_iter().zip(with_kind(cold))
+		let rollback = <Test as Config>::WeightInfo::access_list_rollback_amortization();
+		for (rev_cost, non_rev_cost) in with_kind(&persistent(cold_revertible))
+			.into_iter()
+			.zip(with_kind(&persistent(cold_non_revertible)))
 		{
-			let rev_weight = <RuntimeCosts as Token<Test>>::weight(&rev_cost);
-			let non_rev_weight = <RuntimeCosts as Token<Test>>::weight(&non_rev_cost);
-			assert!(
-				rev_weight.ref_time() > non_rev_weight.ref_time(),
-				"expected revertible > non-revertible ref_time for {rev_cost:?}: \
-				 rev={rev_weight:?} non={non_rev_weight:?}",
-			);
 			assert_eq!(
-				rev_weight.proof_size(),
-				non_rev_weight.proof_size(),
-				"proof_size differs {rev_cost:?}: rev={rev_weight:?} non={non_rev_weight:?}",
+				weight(&rev_cost),
+				weight(&non_rev_cost).saturating_add(rollback),
+				"{rev_cost:?}"
 			);
 		}
 
-		for transient_cost in with_kind(StorageAccessKind::Transient) {
-			let weight = <RuntimeCosts as Token<Test>>::weight(&transient_cost);
+		for transient_cost in with_kind(&transient) {
+			let transient_weight = weight(&transient_cost);
 			assert_eq!(
-				weight.proof_size(),
+				transient_weight.proof_size(),
 				0,
-				"transient storage is priced without proof: {transient_cost:?}: {weight:?}"
+				"transient storage is priced without proof: {transient_cost:?}: {transient_weight:?}"
 			);
 			assert!(
-				weight.ref_time() > 0,
-				"transient storage ref_time must be above zero: {transient_cost:?}: {weight:?}"
+				transient_weight.ref_time() > 0,
+				"transient storage ref_time must be above zero: {transient_cost:?}: \
+				 {transient_weight:?}"
 			);
 		}
 	}
 
 	#[test]
-	fn the_first_hot_write_pays_the_surcharge() {
+	fn the_first_hot_write_pays_the_surcharge_and_journals_the_upgrade() {
 		const LEN: u32 = 64;
-		let weight = |cost: &RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(cost);
 
-		let surcharge = RuntimeCosts::hot_write_surcharge::<Test>();
+		let deferred_write = deferred_write_cost::<Test>();
+		let upgrade_overhead = access_list_upgrade_overhead::<Test>(KeyFamily::ContractStorageSlot);
 		let db = <Test as frame_system::Config>::DbWeight::get();
+		let read_paid = Warmth::new_read_paid();
+		let write_paid = Warmth::new_write_paid();
+
 		assert!(
-			surcharge.ref_time() > 0 && surcharge.ref_time() < db.writes(1).ref_time(),
-			"the surcharge is part of a write: above zero, below all of it: {surcharge:?}",
+			deferred_write.ref_time() > 0 && deferred_write.ref_time() < db.writes(1).ref_time(),
+			"the deferred write is only part of a write: {deferred_write:?}",
 		);
-		assert_eq!(surcharge.proof_size(), 0, "the surcharge adds no proof: {surcharge:?}");
+		assert_eq!(deferred_write.proof_size(), 0);
 
-		let read_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Read });
-		let write_paid = StorageAccessKind::Persistent(Warmth::Hot { charged: StorageOp::Write });
+		let surcharge_of = |warmth| {
+			RuntimeCosts::write_surcharge::<Test>(
+				StorageItems::summarize_single(warmth, StorageOp::Write).summary(),
+			)
+		};
 
-		let write_costs = |kind: StorageAccessKind| {
+		assert_eq!(surcharge_of(Warmth::new_cold_non_revertible()), Weight::zero());
+
+		assert_eq!(surcharge_of(read_paid), deferred_write);
+
+		let write_costs = |warmth| {
+			let kind = StorageAccessKind::Persistent(StorageItems::summarize_single(
+				warmth,
+				StorageOp::Write,
+			));
 			[
 				RuntimeCosts::SetStorage { new_bytes: LEN, old_bytes: LEN, kind },
 				RuntimeCosts::ClearStorage { len: LEN, kind },
@@ -544,13 +858,17 @@ mod tests {
 		{
 			assert_eq!(
 				weight(&write_to_read_paid_slot).saturating_sub(weight(&write_to_write_paid_slot)),
-				surcharge,
-				"a write to a read-paid slot pays exactly the surcharge: \
+				deferred_write.saturating_add(upgrade_overhead),
+				"a write to a read-paid slot pays the deferred write and journals the upgrade: \
 				 {write_to_read_paid_slot:?}",
 			);
 		}
 
-		let read_costs = |kind: StorageAccessKind| {
+		let read_costs = |warmth| {
+			let kind = StorageAccessKind::Persistent(StorageItems::summarize_single(
+				warmth,
+				StorageOp::Read,
+			));
 			[
 				RuntimeCosts::GetStorage { len: LEN, kind },
 				RuntimeCosts::ContainsStorage { len: LEN, kind },
@@ -576,12 +894,211 @@ mod tests {
 	}
 
 	#[test]
-	fn hot_storage_overlay_overhead_is_not_zero() {
-		let overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
+	fn call_base_cold_hot_pricing() {
+		let hot = Warmth::new_read_paid();
+		let cold = Warmth::new_cold_non_revertible();
+		let target = H160::repeat_byte(2);
+		let plain_call_weight = |warmth| {
+			weight(&RuntimeCosts::CallBase(Summarized::from_warmths(
+				CallItems::new(target, false),
+				[warmth, warmth],
+			)))
+		};
+		let delegate_call_weight = |warmth| {
+			weight(&RuntimeCosts::CallBase(Summarized::from_warmths(
+				CallItems::new(target, true),
+				[warmth],
+			)))
+		};
+
+		let (plain_hot, delegate_hot) = (plain_call_weight(hot), delegate_call_weight(hot));
 		assert!(
-			overhead.ref_time() > 0,
-			"the per-read cost of overlay_probe_full must stay above overlay_probe_empty",
+			plain_hot.ref_time() > delegate_hot.ref_time(),
+			"plain={plain_hot:?} delegate={delegate_hot:?}",
 		);
-		assert_eq!(overhead.proof_size(), 0, "the overlay probe is in-memory only: {overhead:?}");
+		let (plain_cold, delegate_cold) = (plain_call_weight(cold), delegate_call_weight(cold));
+		assert!(
+			plain_cold.proof_size() > delegate_cold.proof_size(),
+			"plain={plain_cold:?} delegate={delegate_cold:?}",
+		);
+
+		for (call_kind, cold_weight, hot_weight) in [
+			("plain", plain_call_weight(cold), plain_call_weight(hot)),
+			("delegate", delegate_call_weight(cold), delegate_call_weight(hot)),
+		] {
+			assert!(
+				cold_weight.ref_time() > hot_weight.ref_time(),
+				"{call_kind}: cold={cold_weight:?} hot={hot_weight:?}",
+			);
+			assert_eq!(hot_weight.proof_size(), 0, "{call_kind}");
+			assert!(cold_weight.proof_size() > 0, "{call_kind}: cold={cold_weight:?}");
+		}
+	}
+
+	#[test]
+	fn a_partly_cold_call_pays_only_the_cold_bench_and_the_access_list_overhead() {
+		let cold = Warmth::new_cold_non_revertible();
+		let read_paid = Warmth::new_read_paid();
+		let write_paid = Warmth::new_write_paid();
+		// The entries in the order the call visits them: `OriginalAccount`, then `AccountInfo`,
+		// which the call writes.
+		for (case, original_account, account_info) in [
+			("cold original account, cold info", cold, cold),
+			("cold original account, read-paid info", cold, read_paid),
+			("cold original account, write-paid info", cold, write_paid),
+			("read-paid original account, cold info", read_paid, cold),
+		] {
+			let call_warmth = Summarized::from_warmths(
+				CallItems::new(H160::repeat_byte(2), false),
+				[original_account, account_info],
+			);
+			assert_eq!(
+				weight(&RuntimeCosts::CallBase(call_warmth)),
+				<Test as Config>::WeightInfo::seal_call(0, 0, 0)
+					.saturating_add(access_list_overhead::<Test>(call_warmth.summary())),
+				"{case}",
+			);
+		}
+	}
+
+	#[test]
+	fn a_chained_delegation_check_pays_the_bench_of_its_warmth() {
+		let check_cost = |warmth| {
+			weight(&RuntimeCosts::ChainedDelegationCheck(Summarized::from_warmth(
+				KeyFamily::PalletStorageSlot,
+				warmth,
+				StorageOp::Read,
+			)))
+		};
+		let cold_cost = check_cost(Warmth::new_cold_non_revertible());
+		let hot_cost = check_cost(Warmth::new_read_paid());
+		let cold_bench_weight = <Test as Config>::WeightInfo::chained_delegation_check();
+		let hot_bench_weight = <Test as Config>::WeightInfo::chained_delegation_check_hot();
+
+		assert!(
+			cold_cost.all_gte(cold_bench_weight),
+			"cold_cost={cold_cost:?} cold_bench_weight={cold_bench_weight:?}",
+		);
+		assert!(
+			hot_cost.all_gte(hot_bench_weight),
+			"hot_cost={hot_cost:?} hot_bench_weight={hot_bench_weight:?}",
+		);
+		assert!(
+			cold_cost.ref_time() > hot_cost.ref_time(),
+			"a cold check also reads from storage: cold_cost={cold_cost:?} hot_cost={hot_cost:?}",
+		);
+		assert_eq!(hot_cost.proof_size(), 0, "a hot entry is already in the proof");
+	}
+
+	#[test]
+	fn a_value_call_prices_the_transfer_at_its_own_warmth() {
+		let write_paid = Warmth::new_write_paid();
+		let transfer = |dust| TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust };
+		let weight_of = |dust, warmth: Option<Warmth>| {
+			weight(&RuntimeCosts::CallTransferSurcharge(match warmth {
+				Some(warmth) => TransferAccessKind::Tracked(Summarized::from_warmths(
+					transfer(dust),
+					[warmth, warmth, write_paid, warmth],
+				)),
+				None => TransferAccessKind::Untracked { dust },
+			}))
+		};
+
+		for (case, warmth) in [
+			("hot", Some(write_paid)),
+			("cold", Some(Warmth::new_cold_non_revertible())),
+			("untracked (precompile)", None),
+		] {
+			let (with_dust, without_dust) = (weight_of(true, warmth), weight_of(false, warmth));
+			assert!(
+				with_dust.ref_time() > without_dust.ref_time(),
+				"{case}: with_dust={with_dust:?} without_dust={without_dust:?}",
+			);
+		}
+
+		for dust in [false, true] {
+			let cold_weight = weight_of(dust, Some(Warmth::new_cold_non_revertible()));
+			let hot_weight = weight_of(dust, Some(write_paid));
+			assert!(
+				cold_weight.ref_time() > hot_weight.ref_time(),
+				"dust={dust}: cold={cold_weight:?} hot={hot_weight:?}",
+			);
+		}
+
+		let untracked = weight_of(false, None);
+		let tracked_cold = weight_of(false, Some(Warmth::new_cold_non_revertible()));
+		assert!(
+			untracked.ref_time() < tracked_cold.ref_time(),
+			"untracked state pays the bench alone, with no access-list overhead on top: \
+			 untracked={untracked:?} tracked_cold={tracked_cold:?}",
+		);
+	}
+
+	#[test]
+	fn a_hot_value_call_pays_its_bench_once() {
+		let write_paid = Warmth::new_write_paid();
+		let target = H160::repeat_byte(2);
+		let overlay_overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
+		let access_list_costs = |summary: WarmthSummary| {
+			weight(&RuntimeCosts::AccessListRegistration(summary))
+				.saturating_add(overlay_overhead.saturating_mul(summary.total().into()))
+		};
+
+		for dust in [false, true] {
+			let call = Summarized::from_warmths(CallItems::new(target, false), [write_paid; 2]);
+			let transfer = Summarized::from_warmths(
+				TransferItems { from: H160::zero(), to: target, dust },
+				[write_paid; 4],
+			);
+			let charged = weight(&RuntimeCosts::CallBase(call)).saturating_add(weight(
+				&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked(transfer)),
+			));
+
+			assert_eq!(
+				charged
+					.saturating_sub(access_list_costs(call.summary()))
+					.saturating_sub(access_list_costs(transfer.summary())),
+				<Test as Config>::WeightInfo::seal_call_transfer_hot(dust.into()),
+				"dust={dust}: the call and its transfer together pay the hot value call bench once",
+			);
+		}
+	}
+
+	#[test]
+	fn a_transfer_owes_the_surcharge_and_an_upgrade_for_each_read_paid_key() {
+		let read_paid = Warmth::new_read_paid();
+		let write_paid = Warmth::new_write_paid();
+		let transfer = |dust| TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust };
+		// Each pair at the same paid level, so a difference is only what the writes owe.
+		let weight_of = |dust, account_warmth, account_info_warmth| {
+			weight(&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked(
+				Summarized::from_warmths(
+					transfer(dust),
+					[account_warmth, account_warmth, account_info_warmth, account_info_warmth],
+				),
+			)))
+		};
+
+		let surcharge_and_upgrade = deferred_write_cost::<Test>()
+			.saturating_add(access_list_upgrade_overhead::<Test>(KeyFamily::PalletStorageSlot));
+		let write_paid_dust_transfer = weight_of(true, write_paid, write_paid);
+
+		assert_eq!(
+			weight_of(true, read_paid, write_paid).saturating_sub(write_paid_dust_transfer),
+			surcharge_and_upgrade.saturating_mul(2),
+			"the read-paid `System::Account` entries each owe the surcharge and an upgrade",
+		);
+
+		assert_eq!(
+			weight_of(true, write_paid, read_paid).saturating_sub(write_paid_dust_transfer),
+			surcharge_and_upgrade.saturating_mul(2),
+			"with dust, the read-paid `AccountInfoOf` entries each owe the surcharge and an upgrade",
+		);
+
+		assert_eq!(
+			weight_of(false, write_paid, read_paid),
+			weight_of(false, write_paid, write_paid),
+			"without dust the `AccountInfoOf` entries are only read, so nothing is owed"
+		);
 	}
 }
