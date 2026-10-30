@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793360418826,
+  "lastUpdate": 1793379938780,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5e15555a5c52e422d12bca05dbfaf7e0f425f75c",
-          "message": "Bump westend runtimes spec_versions (#11757)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-15T09:46:10Z",
-          "tree_id": "5c750c7d6797db721a1bd172049d7d189645e391",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e15555a5c52e422d12bca05dbfaf7e0f425f75c"
-        },
-        "date": 1776251264470,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.092,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08375877469599996,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03824222258999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0887184630979999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "oliver.tale-yazdi@parity.io",
+            "name": "Oliver Tale-Yazdi",
+            "username": "ggwpez"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "06ccd162f5991e7e93c6bc5129bc7adae8534282",
+          "message": "[FRAME] Small Balance Fixes (#12674)\n\nChanges:\n- Keep frozen accounts alive below ED\n- Handle dust when releasing holds\n- Remove empty hold entries\n- Handle dust when thawing freezes and test reentrant dust handlers\n- Handle dust when removing locks and test reentrant dust handlers\n- Document inactive issuance during burns\n- Prevent aggregate balance overflow\n- Preserve inactive issuance when deactivating\n\n---------\n\nSigned-off-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: Kian Paimani <kian@parity.io>",
+          "timestamp": "2026-10-30T15:35:05Z",
+          "tree_id": "d3e0b34b562fbfffb67a8143de9969c7f42305ed",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/06ccd162f5991e7e93c6bc5129bc7adae8534282"
+        },
+        "date": 1793379910750,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.08799999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03930799577600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08790385250799992,
             "unit": "seconds"
           }
         ]
