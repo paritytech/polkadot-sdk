@@ -89,13 +89,14 @@ pub fn derive_clone_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 		},
 		syn::Data::Union(_) => {
 			let msg = "Union type not supported by `derive(CloneNoBound)`";
-			return syn::Error::new(input.span(), msg).to_compile_error().into()
+			return syn::Error::new(input.span(), msg).to_compile_error().into();
 		},
 	};
 
 	quote::quote!(
 		const _: () = {
 			#[automatically_derived]
+			#[allow(deprecated)]
 			impl #impl_generics ::core::clone::Clone for #name #ty_generics #where_clause {
 				fn clone(&self) -> Self {
 					#impl_

@@ -29,7 +29,6 @@
 
 use crate::{
 	behaviour::{self, Behaviour, BehaviourOut},
-	bitswap::BitswapRequestHandler,
 	config::{
 		parse_addr, FullNetworkConfiguration, IncomingRequest, MultiaddrWithPeerId,
 		NonDefaultSetConfig, NotificationHandshake, Params, SetConfig, TransportConfig,
@@ -78,7 +77,6 @@ use parking_lot::Mutex;
 use prometheus_endpoint::Registry;
 use sc_network_types::kad::{Key as KademliaKey, Record};
 
-use sc_client_api::BlockBackend;
 use sc_network_common::{
 	role::{ObservedRole, Roles},
 	ExHashT,
@@ -171,7 +169,6 @@ where
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<NetworkService<B, H>>;
 	type PeerStore = PeerStore;
-	type BitswapConfig = RequestResponseConfig;
 
 	fn new(params: Params<B, H, Self>) -> Result<Self, Error>
 	where
@@ -195,14 +192,6 @@ where
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
 		NotificationMetrics::new(registry)
-	}
-
-	fn bitswap_server(
-		client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		let (handler, protocol_config) = BitswapRequestHandler::new(client.clone());
-
-		(Box::pin(async move { handler.run().await }), protocol_config)
 	}
 
 	/// Create notification protocol configuration.
@@ -529,8 +518,9 @@ where
 
 				match result {
 					Ok(b) => b,
-					Err(crate::request_responses::RegisterError::DuplicateProtocol(proto)) =>
-						return Err(Error::DuplicateRequestResponseProtocol { protocol: proto }),
+					Err(crate::request_responses::RegisterError::DuplicateProtocol(proto)) => {
+						return Err(Error::DuplicateRequestResponseProtocol { protocol: proto })
+					},
 				}
 			};
 
@@ -549,7 +539,7 @@ where
 					// necessary. See <https://github.com/paritytech/substrate/pull/6080>
 					.with_per_connection_event_buffer_size(24)
 					.with_max_negotiating_inbound_streams(2048)
-					.with_idle_connection_timeout(Duration::from_secs(10));
+					.with_idle_connection_timeout(network_config.idle_connection_timeout);
 
 				Swarm::new(transport, behaviour, local_peer_id, config)
 			};
@@ -559,13 +549,9 @@ where
 
 		// Initialize the metrics.
 		let metrics = match &params.metrics_registry {
-			Some(registry) => Some(metrics::register(
-				registry,
-				MetricSources {
-					bandwidth: bandwidth.clone(),
-					connected_peers: num_connected.clone(),
-				},
-			)?),
+			Some(registry) => {
+				Some(metrics::register(registry, MetricSources { bandwidth: bandwidth.clone() })?)
+			},
 			None => None,
 		};
 
@@ -685,7 +671,7 @@ where
 						addrs.into_iter().collect()
 					} else {
 						error!(target: LOG_TARGET, "Was not able to get known addresses for {:?}", peer_id);
-						return None
+						return None;
 					};
 
 					let endpoint = if let Some(e) =
@@ -695,7 +681,7 @@ where
 					} else {
 						error!(target: LOG_TARGET, "Found state inconsistency between custom protocol \
 						and debug information about {:?}", peer_id);
-						return None
+						return None;
 					};
 
 					Some((
@@ -892,6 +878,16 @@ where
 	B: BlockT + 'static,
 	H: ExHashT,
 {
+	/// Start finding closest peerst to the target peer ID in the DHT.
+	///
+	/// This will generate either a `ClosestPeersFound` or a `ClosestPeersNotFound` event and pass
+	/// it as an item on the [`NetworkWorker`] stream.
+	fn find_closest_peers(&self, target: sc_network_types::PeerId) {
+		let _ = self
+			.to_worker
+			.unbounded_send(ServiceToWorkerMsg::FindClosestPeers(target.into()));
+	}
+
 	/// Start getting a value from the DHT.
 	///
 	/// This will generate either a `ValueFound` or a `ValueNotFound` event and pass it as an
@@ -1034,7 +1030,7 @@ where
 	fn add_reserved_peer(&self, peer: MultiaddrWithPeerId) -> Result<(), String> {
 		// Make sure the local peer ID is never added as a reserved peer.
 		if peer.peer_id == self.local_peer_id.into() {
-			return Err("Local peer ID cannot be added as a reserved peer.".to_string())
+			return Err("Local peer ID cannot be added as a reserved peer.".to_string());
 		}
 
 		let _ = self.to_worker.unbounded_send(ServiceToWorkerMsg::AddKnownAddress(
@@ -1056,7 +1052,7 @@ where
 		peers: HashSet<sc_network_types::multiaddr::Multiaddr>,
 	) -> Result<(), String> {
 		let Some(set_id) = self.notification_protocol_ids.get(&protocol) else {
-			return Err(format!("Cannot set reserved peers for unknown protocol: {}", protocol))
+			return Err(format!("Cannot set reserved peers for unknown protocol: {}", protocol));
 		};
 
 		let peers: HashSet<Multiaddr> = peers.into_iter().map(Into::into).collect();
@@ -1067,7 +1063,7 @@ where
 		for (peer_id, addr) in peers_addrs.into_iter() {
 			// Make sure the local peer ID is never added to the PSM.
 			if peer_id == self.local_peer_id {
-				return Err("Local peer ID cannot be added as a reserved peer.".to_string())
+				return Err("Local peer ID cannot be added as a reserved peer.".to_string());
 			}
 
 			peers.insert(peer_id.into());
@@ -1093,7 +1089,7 @@ where
 			return Err(format!(
 				"Cannot add peers to reserved set of unknown protocol: {}",
 				protocol
-			))
+			));
 		};
 
 		let peers: HashSet<Multiaddr> = peers.into_iter().map(Into::into).collect();
@@ -1102,7 +1098,7 @@ where
 		for (peer_id, addr) in peers.into_iter() {
 			// Make sure the local peer ID is never added to the PSM.
 			if peer_id == self.local_peer_id {
-				return Err("Local peer ID cannot be added as a reserved peer.".to_string())
+				return Err("Local peer ID cannot be added as a reserved peer.".to_string());
 			}
 
 			if !addr.is_empty() {
@@ -1126,7 +1122,7 @@ where
 			return Err(format!(
 				"Cannot remove peers from reserved set of unknown protocol: {}",
 				protocol
-			))
+			));
 		};
 
 		for peer_id in peers.into_iter() {
@@ -1299,6 +1295,7 @@ impl<'a> NotificationSenderReadyT for NotificationSenderReady<'a> {
 ///
 /// Each entry corresponds to a method of `NetworkService`.
 enum ServiceToWorkerMsg {
+	FindClosestPeers(PeerId),
 	GetValue(KademliaKey),
 	PutValue(KademliaKey, Vec<u8>),
 	PutRecordTo {
@@ -1431,10 +1428,15 @@ where
 	/// Process the next message coming from the `NetworkService`.
 	fn handle_worker_message(&mut self, msg: ServiceToWorkerMsg) {
 		match msg {
-			ServiceToWorkerMsg::GetValue(key) =>
-				self.network_service.behaviour_mut().get_value(key.into()),
-			ServiceToWorkerMsg::PutValue(key, value) =>
-				self.network_service.behaviour_mut().put_value(key.into(), value),
+			ServiceToWorkerMsg::FindClosestPeers(target) => {
+				self.network_service.behaviour_mut().find_closest_peers(target)
+			},
+			ServiceToWorkerMsg::GetValue(key) => {
+				self.network_service.behaviour_mut().get_value(key.into())
+			},
+			ServiceToWorkerMsg::PutValue(key, value) => {
+				self.network_service.behaviour_mut().put_value(key.into(), value)
+			},
 			ServiceToWorkerMsg::PutRecordTo { record, peers, update_local_storage } => self
 				.network_service
 				.behaviour_mut()
@@ -1443,14 +1445,18 @@ where
 				.network_service
 				.behaviour_mut()
 				.store_record(key.into(), value, publisher, expires),
-			ServiceToWorkerMsg::StartProviding(key) =>
-				self.network_service.behaviour_mut().start_providing(key.into()),
-			ServiceToWorkerMsg::StopProviding(key) =>
-				self.network_service.behaviour_mut().stop_providing(&key.into()),
-			ServiceToWorkerMsg::GetProviders(key) =>
-				self.network_service.behaviour_mut().get_providers(key.into()),
-			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) =>
-				self.network_service.behaviour_mut().add_known_address(peer_id, addr),
+			ServiceToWorkerMsg::StartProviding(key) => {
+				self.network_service.behaviour_mut().start_providing(key.into())
+			},
+			ServiceToWorkerMsg::StopProviding(key) => {
+				self.network_service.behaviour_mut().stop_providing(&key.into())
+			},
+			ServiceToWorkerMsg::GetProviders(key) => {
+				self.network_service.behaviour_mut().get_providers(key.into())
+			},
+			ServiceToWorkerMsg::AddKnownAddress(peer_id, addr) => {
+				self.network_service.behaviour_mut().add_known_address(peer_id, addr)
+			},
 			ServiceToWorkerMsg::EventStream(sender) => self.event_streams.push(sender),
 			ServiceToWorkerMsg::Request {
 				target,
@@ -1497,18 +1503,23 @@ where
 						},
 						Err(err) => {
 							let reason = match err {
-								ResponseFailure::Network(InboundFailure::Timeout) =>
-									Some("timeout"),
+								ResponseFailure::Network(InboundFailure::Timeout) => {
+									Some("timeout")
+								},
 								ResponseFailure::Network(InboundFailure::UnsupportedProtocols) =>
 								// `UnsupportedProtocols` is reported for every single
 								// inbound request whenever a request with an unsupported
 								// protocol is received. This is not reported in order to
 								// avoid confusions.
-									None,
-								ResponseFailure::Network(InboundFailure::ResponseOmission) =>
-									Some("busy-omitted"),
-								ResponseFailure::Network(InboundFailure::ConnectionClosed) =>
-									Some("connection-closed"),
+								{
+									None
+								},
+								ResponseFailure::Network(InboundFailure::ResponseOmission) => {
+									Some("busy-omitted")
+								},
+								ResponseFailure::Network(InboundFailure::ConnectionClosed) => {
+									Some("connection-closed")
+								},
 								ResponseFailure::Network(InboundFailure::Io(_)) => Some("io"),
 							};
 
@@ -1527,7 +1538,7 @@ where
 				duration,
 				result,
 				..
-			}) =>
+			}) => {
 				if let Some(metrics) = self.metrics.as_ref() {
 					match result {
 						Ok(_) => {
@@ -1540,15 +1551,19 @@ where
 							let reason = match err {
 								RequestFailure::NotConnected => "not-connected",
 								RequestFailure::UnknownProtocol => "unknown-protocol",
+								RequestFailure::InvalidRequest => "invalid-request",
 								RequestFailure::Refused => "refused",
 								RequestFailure::Obsolete => "obsolete",
-								RequestFailure::Network(OutboundFailure::DialFailure) =>
-									"dial-failure",
+								RequestFailure::Network(OutboundFailure::DialFailure) => {
+									"dial-failure"
+								},
 								RequestFailure::Network(OutboundFailure::Timeout) => "timeout",
-								RequestFailure::Network(OutboundFailure::ConnectionClosed) =>
-									"connection-closed",
-								RequestFailure::Network(OutboundFailure::UnsupportedProtocols) =>
-									"unsupported",
+								RequestFailure::Network(OutboundFailure::ConnectionClosed) => {
+									"connection-closed"
+								},
+								RequestFailure::Network(OutboundFailure::UnsupportedProtocols) => {
+									"unsupported"
+								},
 								RequestFailure::Network(OutboundFailure::Io(_)) => "io",
 							};
 
@@ -1558,7 +1573,8 @@ where
 								.inc();
 						},
 					}
-				},
+				}
+			},
 			SwarmEvent::Behaviour(BehaviourOut::ReputationChanges { peer, changes }) => {
 				for change in changes {
 					self.peer_store_handle.report_peer(peer.into(), change);
@@ -1657,13 +1673,17 @@ where
 				match (self.metrics.as_ref(), duration) {
 					(Some(metrics), Some(duration)) => {
 						let query_type = match event {
+							DhtEvent::ClosestPeersFound(_, _) => "peers-found",
+							DhtEvent::ClosestPeersNotFound(_) => "peers-not-found",
 							DhtEvent::ValueFound(_) => "value-found",
 							DhtEvent::ValueNotFound(_) => "value-not-found",
 							DhtEvent::ValuePut(_) => "value-put",
 							DhtEvent::ValuePutFailed(_) => "value-put-failed",
 							DhtEvent::PutRecordRequest(_, _, _, _) => "put-record-request",
+							DhtEvent::StartedProviding(_) => "started-providing",
 							DhtEvent::StartProvidingFailed(_) => "start-providing-failed",
 							DhtEvent::ProvidersFound(_, _) => "providers-found",
+							DhtEvent::NoMoreProviders(_) => "no-more-providers",
 							DhtEvent::ProvidersNotFound(_) => "providers-not-found",
 						};
 						metrics
@@ -1784,12 +1804,13 @@ where
 
 				if let Some(metrics) = self.metrics.as_ref() {
 					let reason = match error {
-						DialError::Denied { cause } =>
+						DialError::Denied { cause } => {
 							if cause.downcast::<Exceeded>().is_ok() {
 								Some("limit-reached")
 							} else {
 								None
-							},
+							}
+						},
 						DialError::LocalPeerId { .. } => Some("local-peer-id"),
 						DialError::WrongPeerId { .. } => Some("invalid-peer-id"),
 						DialError::Transport(_) => Some("transport-error"),
@@ -1823,14 +1844,16 @@ where
 				);
 				if let Some(metrics) = self.metrics.as_ref() {
 					let reason = match error {
-						ListenError::Denied { cause } =>
+						ListenError::Denied { cause } => {
 							if cause.downcast::<Exceeded>().is_ok() {
 								Some("limit-reached")
 							} else {
 								None
-							},
-						ListenError::WrongPeerId { .. } | ListenError::LocalPeerId { .. } =>
-							Some("invalid-peer-id"),
+							}
+						},
+						ListenError::WrongPeerId { .. } | ListenError::LocalPeerId { .. } => {
+							Some("invalid-peer-id")
+						},
 						ListenError::Transport(_) => Some("transport-error"),
 						ListenError::Aborted => None, // ignore it
 					};
@@ -1916,7 +1939,7 @@ pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
 			return Err(Error::AddressesForAnotherTransport {
 				transport: transport.clone(),
 				addresses,
-			})
+			});
 		}
 	} else {
 		let addresses: Vec<_> = addresses
@@ -1928,7 +1951,7 @@ pub(crate) fn ensure_addresses_consistent_with_transport<'a>(
 			return Err(Error::AddressesForAnotherTransport {
 				transport: transport.clone(),
 				addresses,
-			})
+			});
 		}
 	}
 

@@ -29,12 +29,11 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, WorkerError, WorkerResponse},
-	worker_dir, SecurityStatus,
+	execute::{Handshake, ValidationContext, WorkerError, WorkerResponse},
+	worker_dir, ArtifactChecksum, SecurityStatus,
 };
-use polkadot_node_primitives::PoV;
-use polkadot_primitives::{ExecutorParams, PersistedValidationData};
-use std::{path::Path, sync::Arc, time::Duration};
+use polkadot_primitives::ExecutorParams;
+use std::{path::Path, time::Duration};
 use tokio::{io, net::UnixStream};
 
 /// Spawns a new worker with the given program path that acts as the worker and the spawn timeout.
@@ -123,9 +122,7 @@ pub enum Error {
 pub async fn start_work(
 	worker: IdleWorker,
 	artifact: ArtifactPathId,
-	execution_timeout: Duration,
-	pvd: Arc<PersistedValidationData>,
-	pov: Arc<PoV>,
+	validation_context: ValidationContext,
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
@@ -138,17 +135,21 @@ pub async fn start_work(
 		artifact.path.display(),
 	);
 
+	let execution_timeout = validation_context.exec_timeout;
+
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		send_request(&mut stream, pvd, pov, execution_timeout).await.map_err(|error| {
-			gum::warn!(
-				target: LOG_TARGET,
-				worker_pid = %pid,
-				validation_code_hash = ?artifact.id.code_hash,
-				"failed to send an execute request: {}",
-				error,
-			);
-			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
-		})?;
+		send_request(&mut stream, validation_context, artifact.checksum).await.map_err(
+			|error| {
+				gum::warn!(
+					target: LOG_TARGET,
+					worker_pid = %pid,
+					validation_code_hash = ?artifact.id.code_hash,
+					"failed to send an execute request: {}",
+					error,
+				);
+				Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+			},
+		)?;
 
 		// We use a generous timeout here. This is in addition to the one in the child process, in
 		// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -222,7 +223,7 @@ async fn handle_result(
 			);
 
 			// Return a timeout error.
-			return Err(WorkerError::JobTimedOut)
+			return Err(WorkerError::JobTimedOut);
 		}
 	}
 
@@ -275,7 +276,7 @@ where
 			err: format!("{:?}", err),
 			path: worker_dir_path.to_str().map(String::from),
 		}
-		.into())
+		.into());
 	}
 
 	result
@@ -288,13 +289,11 @@ async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -
 
 async fn send_request(
 	stream: &mut UnixStream,
-	pvd: Arc<PersistedValidationData>,
-	pov: Arc<PoV>,
-	execution_timeout: Duration,
+	validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
+	artifact_checksum: ArtifactChecksum,
 ) -> io::Result<()> {
-	framed_send(stream, &pvd.encode()).await?;
-	framed_send(stream, &pov.encode()).await?;
-	framed_send(stream, &execution_timeout.encode()).await
+	let request = validation_context.into_execute_request(artifact_checksum);
+	framed_send(stream, &request.encode()).await
 }
 
 async fn recv_result(stream: &mut UnixStream) -> io::Result<Result<WorkerResponse, WorkerError>> {

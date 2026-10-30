@@ -28,13 +28,14 @@ mod tests;
 mod unchecked_extrinsic;
 
 pub use self::{
-	block::{Block, BlockId, SignedBlock},
+	block::{Block, BlockId, LazyBlock, SignedBlock},
 	checked_extrinsic::{CheckedExtrinsic, ExtrinsicFormat},
 	digest::{Digest, DigestItem, DigestItemRef, OpaqueDigestItemId},
 	era::{Era, Phase},
 	header::Header,
 	unchecked_extrinsic::{
-		ExtensionVersion, Preamble, SignedPayload, UncheckedExtrinsic, EXTRINSIC_FORMAT_VERSION,
+		CallAndMaybeEncoded, ExtensionVersion, Preamble, SignedPayload, UncheckedExtrinsic,
+		EXTRINSIC_FORMAT_VERSION,
 	},
 };
 pub use unchecked_extrinsic::UncheckedSignaturePayload;

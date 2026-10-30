@@ -1,0 +1,8 @@
+title: bugfix revm set_storage gas cost
+doc:
+- audience: Runtime Dev
+  description: "Fixes bug in revm gasmetering where the initial charge was less than\
+    \ the adjusted charge.\r\n"
+crates:
+- name: pallet-revive
+  bump: patch

@@ -81,7 +81,7 @@ pub mod __private {
 	mod std_imports {
 		pub use hash_db::Hasher;
 		pub use sp_core::traits::CallContext;
-		pub use sp_externalities::{Extension, Extensions};
+		pub use sp_externalities::{Extension, Extensions, TransactionType};
 		pub use sp_runtime::StateVersion;
 		pub use sp_state_machine::{
 			Backend as StateBackend, InMemoryBackend, OverlayedChanges, StorageProof, TrieBackend,
@@ -130,9 +130,6 @@ use sp_state_machine::{backend::AsTrieBackend, Backend as StateBackend, Overlaye
 use sp_version::RuntimeVersion;
 #[cfg(feature = "std")]
 use std::cell::RefCell;
-
-/// Maximum nesting level for extrinsics.
-pub const MAX_EXTRINSIC_DEPTH: u32 = 256;
 
 /// Declares given traits as runtime apis.
 ///
@@ -314,7 +311,7 @@ pub use sp_api_proc_macro::decl_runtime_apis;
 /// #       fn version() -> sp_version::RuntimeVersion {
 /// #           unimplemented!()
 /// #       }
-/// #       fn execute_block(_block: Block) {}
+/// #       fn execute_block(_block: <Block as BlockT>::LazyBlock) {}
 /// #       fn initialize_block(_header: &<Block as BlockT>::Header) -> ExtrinsicInclusionMode {
 /// #           unimplemented!()
 /// #       }
@@ -528,6 +525,9 @@ pub use sp_api_proc_macro::mock_impl_runtime_apis;
 pub type ProofRecorder<B> = sp_trie::recorder::Recorder<HashingFor<B>>;
 
 #[cfg(feature = "std")]
+pub type ProofRecorderIgnoredNodes<B> = sp_trie::recorder::IgnoredNodes<<B as BlockT>::Hash>;
+
+#[cfg(feature = "std")]
 pub type StorageChanges<Block> = sp_state_machine::StorageChanges<HashingFor<Block>>;
 
 /// Something that can be constructed to a runtime api.
@@ -537,7 +537,7 @@ pub trait ConstructRuntimeApi<Block: BlockT, C: CallApiAt<Block>> {
 	type RuntimeApi: ApiExt<Block>;
 
 	/// Construct an instance of the runtime api.
-	fn construct_runtime_api(call: &C) -> ApiRef<Self::RuntimeApi>;
+	fn construct_runtime_api(call: &C) -> ApiRef<'_, Self::RuntimeApi>;
 }
 
 #[docify::export]
@@ -615,8 +615,15 @@ pub trait ApiExt<Block: BlockT> {
 	where
 		Self: Sized;
 
-	/// Start recording all accessed trie nodes for generating proofs.
+	/// Start recording all accessed trie nodes.
+	///
+	/// The recorded trie nodes can be converted into a proof using [`Self::extract_proof`].
 	fn record_proof(&mut self);
+
+	/// Start recording all accessed trie nodes using the given proof recorder.
+	///
+	/// The recorded trie nodes can be converted into a proof using [`Self::extract_proof`].
+	fn record_proof_with_recorder(&mut self, recorder: ProofRecorder<Block>);
 
 	/// Extract the recorded proof.
 	///
@@ -645,6 +652,9 @@ pub trait ApiExt<Block: BlockT> {
 
 	/// Register an [`Extension`] that will be accessible while executing a runtime api call.
 	fn register_extension<E: Extension>(&mut self, extension: E);
+
+	/// Replace the overlayed changes used by subsequent runtime API calls on this instance.
+	fn set_overlayed_changes(&mut self, changes: OverlayedChanges<HashingFor<Block>>);
 }
 
 /// Parameters for [`CallApiAt::call_api_at`].
@@ -677,7 +687,11 @@ pub trait CallApiAt<Block: BlockT> {
 	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError>;
 
 	/// Returns the runtime version at the given block.
-	fn runtime_version_at(&self, at_hash: Block::Hash) -> Result<RuntimeVersion, ApiError>;
+	fn runtime_version_at(
+		&self,
+		at_hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, ApiError>;
 
 	/// Get the state `at` the given block.
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, ApiError>;
@@ -701,8 +715,9 @@ impl<Block: BlockT, T: CallApiAt<Block>> CallApiAt<Block> for std::sync::Arc<T> 
 	fn runtime_version_at(
 		&self,
 		at_hash: <Block as BlockT>::Hash,
+		call_context: CallContext,
 	) -> Result<RuntimeVersion, ApiError> {
-		(**self).runtime_version_at(at_hash)
+		(**self).runtime_version_at(at_hash, call_context)
 	}
 
 	fn state_at(&self, at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {
@@ -756,7 +771,7 @@ pub trait ProvideRuntimeApi<Block: BlockT> {
 	/// call to an api function, will `commit` its changes to an internal buffer. Otherwise,
 	/// the modifications will be `discarded`. The modifications will not be applied to the
 	/// storage, even on a `commit`.
-	fn runtime_api(&self) -> ApiRef<Self::Api>;
+	fn runtime_api(&self) -> ApiRef<'_, Self::Api>;
 }
 
 /// Something that provides information about a runtime api.
@@ -817,7 +832,7 @@ decl_runtime_apis! {
 		/// Returns the version of the runtime.
 		fn version() -> RuntimeVersion;
 		/// Execute the given block.
-		fn execute_block(block: Block);
+		fn execute_block(block: Block::LazyBlock);
 		/// Initialize a block with the given header.
 		#[changed_in(5)]
 		#[renamed("initialise_block", 2)]

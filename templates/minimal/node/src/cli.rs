@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use polkadot_sdk::{sc_cli::RunCmd, *};
+use polkadot_sdk::*;
 
 #[derive(Debug, Clone)]
 pub enum Consensus {
@@ -49,7 +49,7 @@ pub struct Cli {
 	pub consensus: Consensus,
 
 	#[clap(flatten)]
-	pub run: RunCmd,
+	pub run: sc_cli::RunCmd,
 }
 
 #[derive(Debug, clap::Subcommand)]
@@ -58,8 +58,8 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

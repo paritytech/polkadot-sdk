@@ -18,7 +18,6 @@
 //! coordinate relations between relayers.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![warn(missing_docs)]
 
 extern crate alloc;
 
@@ -75,6 +74,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -157,12 +157,12 @@ pub mod pallet {
 					} else if let Some(to_reserve) = required_stake.checked_sub(&registration.stake)
 					{
 						T::StakeAndSlash::reserve(&relayer, to_reserve).map_err(|e| {
-							log::trace!(
+							tracing::trace!(
 								target: LOG_TARGET,
-								"Failed to reserve {:?} on relayer {:?} account: {:?}",
-								to_reserve,
-								relayer,
-								e,
+								error=?e,
+								?relayer,
+								?to_reserve,
+								"Failed to reserve on relayer account"
 							);
 
 							Error::<T, I>::FailedToReserve
@@ -170,7 +170,7 @@ pub mod pallet {
 					}
 					registration.stake = required_stake;
 
-					log::trace!(target: LOG_TARGET, "Successfully registered relayer: {:?}", relayer);
+					tracing::trace!(target: LOG_TARGET, ?relayer, "Successfully registered relayer");
 					Self::deposit_event(Event::<T, I>::RegistrationUpdated {
 						relayer: relayer.clone(),
 						registration,
@@ -211,7 +211,7 @@ pub mod pallet {
 						Self::do_unreserve(&relayer, registration.stake)?;
 					}
 
-					log::trace!(target: LOG_TARGET, "Successfully deregistered relayer: {:?}", relayer);
+					tracing::trace!(target: LOG_TARGET, ?relayer, "Successfully deregistered relayer");
 					Self::deposit_event(Event::<T, I>::Deregistered { relayer: relayer.clone() });
 
 					*maybe_registration = None;
@@ -236,6 +236,30 @@ pub mod pallet {
 	}
 
 	impl<T: Config<I>, I: 'static> Pallet<T, I> {
+		/// Relayers that have reserved some of their balance to get free priority boost
+		/// for their message delivery transactions.
+		pub fn registered_relayer(
+			relayer: &T::AccountId,
+		) -> Option<Registration<BlockNumberFor<T>, T::Balance>> {
+			RegisteredRelayers::<T, I>::get(relayer)
+		}
+
+		/// Map of the relayer => accumulated reward.
+		pub fn relayer_reward<EncodeLikeAccountId, EncodeLikeReward>(
+			key1: EncodeLikeAccountId,
+			key2: EncodeLikeReward,
+		) -> Option<<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Value>
+		where
+			EncodeLikeAccountId: codec::EncodeLike<
+				<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key1,
+			>,
+			EncodeLikeReward: codec::EncodeLike<
+				<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Key2,
+			>,
+		{
+			RelayerRewards::<T, I>::get(key1, key2)
+		}
+
 		fn do_claim_rewards(
 			relayer: T::AccountId,
 			reward_kind: T::Reward,
@@ -254,14 +278,14 @@ pub mod pallet {
 						beneficiary.clone(),
 					)
 					.map_err(|e| {
-						log::error!(
+						tracing::error!(
 							target: LOG_TARGET,
-							"Failed to pay ({:?} / {:?}) rewards to {:?}(beneficiary: {:?}), error: {:?}",
-							reward_kind,
-							reward_balance,
-							relayer,
-							beneficiary,
-							e,
+							error=?e,
+							?relayer,
+							?reward_kind,
+							?reward_balance,
+							?beneficiary,
+							"Failed to pay rewards"
 						);
 						Error::<T, I>::FailedToPayReward
 					})?;
@@ -290,7 +314,7 @@ pub mod pallet {
 
 			// registration is inactive if relayer stake is less than required
 			if registration.stake < Self::required_stake() {
-				return false
+				return false;
 			}
 
 			// registration is inactive if it ends soon
@@ -298,7 +322,7 @@ pub mod pallet {
 				.valid_till
 				.saturating_sub(frame_system::Pallet::<T>::block_number());
 			if remaining_lease <= Self::required_registration_lease() {
-				return false
+				return false;
 			}
 
 			true
@@ -314,13 +338,13 @@ pub mod pallet {
 			let registration = match RegisteredRelayers::<T, I>::take(relayer) {
 				Some(registration) => registration,
 				None => {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"Cannot slash unregistered relayer {:?}",
-						relayer,
+						?relayer,
+						"Cannot slash unregistered relayer"
 					);
 
-					return
+					return;
 				},
 			};
 			let slash_destination = slash_destination.into_account();
@@ -331,23 +355,22 @@ pub mod pallet {
 				registration.stake,
 			) {
 				Ok(failed_to_slash) if failed_to_slash.is_zero() => {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"Relayer account {:?} has been slashed for {:?}. Funds were deposited to {:?}",
-						relayer,
-						registration.stake,
-						slash_destination,
+						?relayer,
+						amount=?registration.stake,
+						?slash_destination,
+						"Relayer account has been slashed. Funds were deposited."
 					);
 				},
 				Ok(failed_to_slash) => {
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"Relayer account {:?} has been partially slashed for {:?}. Funds were deposited to {:?}. \
-						Failed to slash: {:?}",
-						relayer,
-						registration.stake,
-						slash_destination,
-						failed_to_slash,
+						?relayer,
+						amount=?registration.stake,
+						?slash_destination,
+						?failed_to_slash,
+						"Relayer account has been partially slashed. Funds were deposited.",
 					);
 				},
 				Err(e) => {
@@ -355,18 +378,22 @@ pub mod pallet {
 
 					// it may fail if there's no beneficiary account. For us, it means that this
 					// account must exist before we'll deploy the bridge
-					log::debug!(
+					tracing::debug!(
 						target: crate::LOG_TARGET,
-						"Failed to slash relayer account {:?}: {:?}. Maybe beneficiary account doesn't exist? \
-						Beneficiary: {:?}, amount: {:?}, failed to slash: {:?}",
-						relayer,
-						e,
-						slash_destination,
-						registration.stake,
-						registration.stake,
+						error=?e,
+						?relayer,
+						beneficiary=?slash_destination,
+						amount=?registration.stake,
+						failed_to_slash=?registration.stake,
+						"Failed to slash relayer account. Maybe beneficiary account doesn't exist?"
 					);
 				},
 			}
+
+			Self::deposit_event(Event::<T, I>::SlashedAndDeregistered {
+				relayer: relayer.clone(),
+				registration,
+			});
 		}
 
 		/// Register reward for given relayer.
@@ -376,7 +403,7 @@ pub mod pallet {
 			reward_balance: T::RewardBalance,
 		) {
 			if reward_balance.is_zero() {
-				return
+				return;
 			}
 
 			RelayerRewards::<T, I>::mutate(
@@ -387,12 +414,12 @@ pub mod pallet {
 						old_reward.unwrap_or_else(Zero::zero).saturating_add(reward_balance);
 					*old_reward = Some(new_reward);
 
-					log::trace!(
+					tracing::trace!(
 						target: crate::LOG_TARGET,
-						"Relayer {:?} can now claim reward for serving payer {:?}: {:?}",
-						relayer,
-						reward_kind,
-						new_reward,
+						?relayer,
+						?reward_kind,
+						?new_reward,
+						"Relayer can now claim reward for serving payer"
 					);
 
 					Self::deposit_event(Event::<T, I>::RewardRegistered {
@@ -426,12 +453,12 @@ pub mod pallet {
 		fn do_unreserve(relayer: &T::AccountId, amount: T::Balance) -> DispatchResult {
 			let failed_to_unreserve = T::StakeAndSlash::unreserve(relayer, amount);
 			if !failed_to_unreserve.is_zero() {
-				log::trace!(
+				tracing::trace!(
 					target: LOG_TARGET,
-					"Failed to unreserve {:?}/{:?} on relayer {:?} account",
-					failed_to_unreserve,
-					amount,
-					relayer,
+					?relayer,
+					?failed_to_unreserve,
+					?amount,
+					"Failed to unreserve on relayer account",
 				);
 
 				fail!(Error::<T, I>::FailedToUnreserve)
@@ -508,7 +535,6 @@ pub mod pallet {
 
 	/// Map of the relayer => accumulated reward.
 	#[pallet::storage]
-	#[pallet::getter(fn relayer_reward)]
 	pub type RelayerRewards<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		<RelayerRewardsKeyProviderOf<T, I> as StorageDoubleMapKeyProvider>::Hasher1,
@@ -526,7 +552,6 @@ pub mod pallet {
 	/// priority and will be rejected (without significant tip) in case if registered
 	/// relayer is present.
 	#[pallet::storage]
-	#[pallet::getter(fn registered_relayer)]
 	pub type RegisteredRelayers<T: Config<I>, I: 'static = ()> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -553,6 +578,8 @@ mod tests {
 	use super::*;
 	use mock::{RuntimeEvent as TestEvent, *};
 
+	use bp_messages::{HashedLaneId, LaneIdType};
+	use bp_relayers::{RewardsAccountOwner, RewardsAccountParams};
 	use frame_support::{assert_noop, assert_ok, traits::fungible::Mutate};
 	use frame_system::{EventRecord, Pallet as System, Phase};
 	use sp_runtime::DispatchError;
@@ -586,6 +613,44 @@ mod tests {
 					topics: vec![],
 				}),
 			);
+		});
+	}
+
+	#[test]
+	fn slash_and_deregister_works() {
+		run_test(|| {
+			get_ready_for_events();
+
+			// register
+			assert_ok!(Pallet::<TestRuntime>::register(
+				RuntimeOrigin::signed(REGISTER_RELAYER),
+				150,
+			));
+			// check if registered
+			let registration =
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER).unwrap();
+			assert_eq!(registration, Registration { valid_till: 150, stake: Stake::get() });
+
+			// slash and deregister
+			let slash_destination = RewardsAccountParams::new(
+				HashedLaneId::try_new(1, 2).unwrap(),
+				*b"test",
+				RewardsAccountOwner::ThisChain,
+			);
+			let slash_destination = bp_relayers::ExplicitOrAccountParams::Params(slash_destination);
+			Pallet::<TestRuntime>::slash_and_deregister(&REGISTER_RELAYER, slash_destination);
+			// check if event emitted
+			assert_eq!(
+				System::<TestRuntime>::events().last(),
+				Some(&EventRecord {
+					phase: Phase::Initialization,
+					event: TestEvent::BridgeRelayers(Event::SlashedAndDeregistered {
+						relayer: REGISTER_RELAYER,
+						registration,
+					}),
+					topics: vec![],
+				})
+			)
 		});
 	}
 
@@ -744,7 +809,7 @@ mod tests {
 			));
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
@@ -812,7 +877,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(Balances::free_balance(REGISTER_RELAYER), free_balance + 1);
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 
@@ -876,7 +941,7 @@ mod tests {
 			assert_eq!(Balances::reserved_balance(REGISTER_RELAYER), Stake::get());
 			assert_eq!(Balances::free_balance(REGISTER_RELAYER), free_balance - 1);
 			assert_eq!(
-				Pallet::<TestRuntime>::registered_relayer(REGISTER_RELAYER),
+				Pallet::<TestRuntime>::registered_relayer(&REGISTER_RELAYER),
 				Some(Registration { valid_till: 150, stake: Stake::get() }),
 			);
 

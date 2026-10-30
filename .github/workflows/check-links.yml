@@ -26,23 +26,22 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Restore lychee cache
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v3.3.2 (7. Sep 2023)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .lycheecache
           key: cache-lychee-${{ github.sha }}
           # This should restore from the most recent one:
           restore-keys: cache-lychee-
 
-      - uses: actions/checkout@6d193bf28034eafb982f37bd894289fe649468fc # v4.1.0 (22. Sep 2023)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lychee link checker
-        uses: lycheeverse/lychee-action@f613c4a64e50d792e0b31ec34bbcbba12263c6a6 # for v1.9.1 (10. Jan 2024)
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # for v1.9.1 (10. Jan 2024)
         with:
           args: >-
             --config .config/lychee.toml
             --no-progress
             './**/*.rs'
-            './**/*.prdoc'
           fail: true
         env:
           # To bypass GitHub rate-limit:

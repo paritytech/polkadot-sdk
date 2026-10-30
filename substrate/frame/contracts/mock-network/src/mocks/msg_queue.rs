@@ -34,6 +34,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
@@ -112,12 +113,15 @@ pub mod pallet {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } => (Err(error), Event::Fail(Some(hash), error)),
+						Outcome::Error(InstructionError { error, .. }) => {
+							(Err(error), Event::Fail(Some(hash), error))
+						},
 						Outcome::Complete { used } => (Ok(used), Event::Success(Some(hash))),
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail(Some(hash), error)),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail(Some(hash), error)),
 					}
 				},
 				Err(()) => (Err(XcmError::UnhandledXcmVersion), Event::BadVersion(Some(hash))),
@@ -131,8 +135,10 @@ pub mod pallet {
 		fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 			iter: I,
 			max_weight: Weight,
-		) -> Weight {
+		) -> (usize, Weight) {
+			let mut num_processed_messages = 0;
 			for (sender, sent_at, data) in iter {
+				num_processed_messages += 1;
 				let mut data_ref = data;
 				let _ = XcmpMessageFormat::decode(&mut data_ref)
 					.expect("Simulator encodes with versioned xcm format; qed");
@@ -148,7 +154,7 @@ pub mod pallet {
 					}
 				}
 			}
-			max_weight
+			(num_processed_messages, max_weight)
 		}
 	}
 

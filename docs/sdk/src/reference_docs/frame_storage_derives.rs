@@ -155,7 +155,7 @@
 //! 		codec::MaxEncodedLen,
 //! 		scale_info::TypeInfo,
 //! 		DefaultNoBound
-//!		)]
+//! 		)]
 //! 	#[scale_info(skip_type_params(T))]
 //! 	pub struct NewType<T:Config>(BlockNumberFor<T>);
 //!

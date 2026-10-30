@@ -34,7 +34,7 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	self as util, request_availability_cores, runtime::recv_runtime, Validator,
 };
-use polkadot_primitives::{vstaging::CoreState, AvailabilityBitfield, Hash, ValidatorIndex};
+use polkadot_primitives::{AvailabilityBitfield, CoreState, Hash, ValidatorIndex};
 use sp_keystore::{Error as KeystoreError, KeystorePtr};
 use std::{collections::HashMap, time::Duration};
 use wasm_timer::{Delay, Instant};
@@ -249,7 +249,7 @@ where
 			Err(Error::Runtime(runtime_err)) => {
 				// Don't take down the node on runtime API errors.
 				gum::warn!(target: LOG_TARGET, err = ?runtime_err, "Encountered a runtime API error");
-				return Ok(())
+				return Ok(());
 			},
 			Err(err) => return Err(err),
 			Ok(bitfield) => bitfield,
@@ -263,7 +263,7 @@ where
 					target: LOG_TARGET,
 					"Key was found at construction, but while signing it could not be found.",
 				);
-				return Ok(())
+				return Ok(());
 			},
 		};
 

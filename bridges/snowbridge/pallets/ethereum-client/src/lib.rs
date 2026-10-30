@@ -27,13 +27,7 @@ pub mod weights;
 pub mod mock;
 
 #[cfg(test)]
-pub mod mock_electra;
-
-#[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-mod tests_electra;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -48,8 +42,9 @@ use frame_system::ensure_signed;
 use snowbridge_beacon_primitives::{
 	fast_aggregate_verify,
 	merkle_proof::{generalized_index_length, subtree_index},
-	verify_merkle_branch, verify_receipt_proof, BeaconHeader, BlsError, CompactBeaconState,
-	ForkData, ForkVersion, ForkVersions, PublicKeyPrepared, SigningData,
+	verify_merkle_branch, BeaconHeader, BlsError, CommitmentError, CommitmentScheme,
+	CompactBeaconState, ExecutionCommitment, ForkData, ForkVersion, ForkVersions,
+	PublicKeyPrepared, SigningData, VersionedExecutionPayloadHeader,
 };
 use snowbridge_core::{BasicOperatingMode, RingBufferMap};
 use sp_core::H256;
@@ -90,6 +85,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		#[pallet::constant]
 		type ForkVersions: Get<ForkVersions>;
@@ -148,6 +144,10 @@ pub mod pallet {
 		ExecutionHeaderTooFarBehind,
 		ExecutionHeaderSkippedBlock,
 		Halted,
+		/// The submitted Gloas execution header is not one canonical RLP header.
+		MalformedExecutionHeader,
+		/// The proof's commitment scheme does not match the fork era of the beacon header's slot.
+		ExecutionHeaderEraMismatch,
 	}
 
 	/// Latest imported checkpoint root
@@ -309,7 +309,7 @@ pub mod pallet {
 			Self::apply_update(update)
 		}
 
-		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
+		/// References and strictly follows <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#validate_light_client_update>
 		/// Verifies that provided next sync committee is valid through a series of checks
 		/// (including checking that a sync committee period isn't skipped and that the header is
 		/// signed by the current sync committee.
@@ -465,7 +465,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/dev/specs/altair/light-client/sync-protocol.md#apply_light_client_update
+		/// Reference and strictly follows <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#apply_light_client_update>
 		/// Applies a finalized beacon header update to the beacon client. If a next sync committee
 		/// is present in the update, verify the sync committee by converting it to a
 		/// SyncCommitteePrepared type. Stores the provided finalized header. Updates are free
@@ -499,10 +499,10 @@ pub mod pallet {
 					<CurrentSyncCommittee<T>>::set(<NextSyncCommittee<T>>::get());
 					<NextSyncCommittee<T>>::set(sync_committee_prepared);
 				}
-				log::info!(
+				tracing::info!(
 					target: LOG_TARGET,
-					"💫 SyncCommitteeUpdated at period {}.",
-					update_finalized_period
+					period=%update_finalized_period,
+					"💫 SyncCommitteeUpdated."
 				);
 				<LatestSyncCommitteeUpdatePeriod<T>>::set(update_finalized_period);
 				Self::deposit_event(Event::SyncCommitteeUpdated {
@@ -553,11 +553,11 @@ pub mod pallet {
 			);
 			<LatestFinalizedBlockRoot<T>>::set(header_root);
 
-			log::info!(
+			tracing::info!(
 				target: LOG_TARGET,
-				"💫 Updated latest finalized block root {} at slot {}.",
-				header_root,
-				slot
+				root=%header_root,
+				%slot,
+				"💫 Updated latest finalized block."
 			);
 
 			Self::deposit_event(Event::BeaconHeaderImported { block_hash: header_root, slot });
@@ -632,20 +632,26 @@ pub mod pallet {
 
 		/// Returns the fork version based on the current epoch.
 		pub(super) fn select_fork_version(fork_versions: &ForkVersions, epoch: u64) -> ForkVersion {
+			if epoch >= fork_versions.gloas.epoch {
+				return fork_versions.gloas.version;
+			}
+			if epoch >= fork_versions.fulu.epoch {
+				return fork_versions.fulu.version;
+			}
 			if epoch >= fork_versions.electra.epoch {
-				return fork_versions.electra.version
+				return fork_versions.electra.version;
 			}
 			if epoch >= fork_versions.deneb.epoch {
-				return fork_versions.deneb.version
+				return fork_versions.deneb.version;
 			}
 			if epoch >= fork_versions.capella.epoch {
-				return fork_versions.capella.version
+				return fork_versions.capella.version;
 			}
 			if epoch >= fork_versions.bellatrix.epoch {
-				return fork_versions.bellatrix.version
+				return fork_versions.bellatrix.version;
 			}
 			if epoch >= fork_versions.altair.epoch {
-				return fork_versions.altair.version
+				return fork_versions.altair.version;
 			}
 			fork_versions.genesis.version
 		}
@@ -677,8 +683,11 @@ pub mod pallet {
 			validators_root: H256,
 			signature_slot: u64,
 		) -> Result<H256, DispatchError> {
+			// Per Ethereum Altair light-client spec, fork version is derived from signature_slot -
+			// 1. See: https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#validate_light_client_update
+			// In validate_light_client_update: fork_version_slot = max(signature_slot, 1) - 1
 			let fork_version = Self::compute_fork_version(compute_epoch(
-				signature_slot,
+				signature_slot.saturating_sub(1),
 				config::SLOTS_PER_EPOCH as u64,
 			));
 			let domain_type = config::DOMAIN_SYNC_COMMITTEE.to_vec();
@@ -719,6 +728,10 @@ pub mod pallet {
 		pub fn finalized_root_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::FINALIZED_ROOT_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::FINALIZED_ROOT_INDEX;
 			}
@@ -732,6 +745,10 @@ pub mod pallet {
 		) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::CURRENT_SYNC_COMMITTEE_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::CURRENT_SYNC_COMMITTEE_INDEX;
 			}
@@ -741,6 +758,10 @@ pub mod pallet {
 
 		pub fn next_sync_committee_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::NEXT_SYNC_COMMITTEE_INDEX;
+			}
 
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::NEXT_SYNC_COMMITTEE_INDEX;
@@ -752,6 +773,10 @@ pub mod pallet {
 		pub fn block_roots_gindex_at_slot(slot: u64, fork_versions: ForkVersions) -> usize {
 			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
 
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::BLOCK_ROOTS_INDEX;
+			}
+
 			if epoch >= fork_versions.electra.epoch {
 				return config::electra::BLOCK_ROOTS_INDEX;
 			}
@@ -759,8 +784,44 @@ pub mod pallet {
 			config::altair::BLOCK_ROOTS_INDEX
 		}
 
-		pub fn execution_header_gindex() -> usize {
+		/// The commitment scheme a proof at `slot` must use.
+		pub fn commitment_scheme_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> CommitmentScheme {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return CommitmentScheme::BlockHash;
+			}
+
+			CommitmentScheme::PayloadHeaderRoot
+		}
+
+		/// Generalized index of the execution commitment in `BeaconBlockBody` at `slot`.
+		pub fn execution_commitment_gindex_at_slot(
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> usize {
+			let epoch = compute_epoch(slot, config::SLOTS_PER_EPOCH as u64);
+
+			if epoch >= fork_versions.gloas.epoch {
+				return config::gloas::EXECUTION_BLOCK_HASH_INDEX;
+			}
+
 			config::altair::EXECUTION_HEADER_INDEX
+		}
+
+		/// The commitment and gindex a proof at `slot` must prove, both chosen by the slot.
+		pub fn execution_commitment_at_slot(
+			header: &VersionedExecutionPayloadHeader,
+			slot: u64,
+			fork_versions: ForkVersions,
+		) -> Result<(ExecutionCommitment, usize), CommitmentError> {
+			let scheme = Self::commitment_scheme_at_slot(slot, fork_versions.clone());
+			let gindex = Self::execution_commitment_gindex_at_slot(slot, fork_versions);
+
+			Ok((header.commitment(scheme)?, gindex))
 		}
 	}
 }

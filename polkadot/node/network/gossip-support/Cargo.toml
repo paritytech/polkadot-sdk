@@ -13,7 +13,6 @@ workspace = true
 
 [dependencies]
 sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }

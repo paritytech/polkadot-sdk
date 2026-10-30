@@ -1,0 +1,6 @@
+title: Bridges - relax trait bound from Codec to Encode
+doc:
+- audience: Runtime Dev
+  description: |-
+   Relaxing the `type SignedTransaction` constraint from `Codec` to `Encode`.
+crates: []

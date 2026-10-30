@@ -1,0 +1,20 @@
+title: Elastic scaling runtime upgrade tests
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Add runtime upgrade tests for sync and async backing chains
+
+crates: 
+- name: cumulus-test-runtime
+  bump: minor
+- name: cumulus-test-service
+  bump: minor
+- name: cumulus-zombienet-sdk-helpers
+  bump: minor
+- name: cumulus-zombienet-sdk-tests
+  bump: minor
+
+
+
+
+

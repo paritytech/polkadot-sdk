@@ -24,13 +24,14 @@ use crate::{
 		TransactionSource, TransactionValidity, TransactionValidityError, UnknownTransaction,
 		ValidTransaction,
 	},
-	DispatchResult,
+	DispatchResult, KeyTypeId, OpaqueExtrinsic,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode, EncodeLike, FullCodec, MaxEncodedLen};
+use codec::{
+	Codec, Decode, DecodeWithMemTracking, Encode, EncodeLike, FullCodec, HasCompact, MaxEncodedLen,
+};
 #[doc(hidden)]
 pub use core::{fmt::Debug, marker::PhantomData};
-use impl_trait_for_tuples::impl_for_tuples;
 #[cfg(feature = "serde")]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sp_application_crypto::AppCrypto;
@@ -41,7 +42,7 @@ pub use sp_arithmetic::traits::{
 	EnsureOp, EnsureOpAssign, EnsureSub, EnsureSubAssign, IntegerSquareRoot, One,
 	SaturatedConversion, Saturating, UniqueSaturatedFrom, UniqueSaturatedInto, Zero,
 };
-use sp_core::{self, storage::StateVersion, Hasher, RuntimeDebug, TypeId, U256};
+use sp_core::{self, storage::StateVersion, Hasher, TypeId, U256};
 #[doc(hidden)]
 pub use sp_core::{
 	parameter_types, ConstBool, ConstI128, ConstI16, ConstI32, ConstI64, ConstI8, ConstInt,
@@ -54,9 +55,14 @@ use std::fmt::Display;
 use std::str::FromStr;
 
 pub mod transaction_extension;
+pub mod vers_tx_ext;
 pub use transaction_extension::{
 	DispatchTransaction, Implication, ImplicationParts, TransactionExtension,
 	TransactionExtensionMetadata, TxBaseImplication, ValidateResult,
+};
+pub use vers_tx_ext::{
+	DecodeWithVersion, DecodeWithVersionWithMemTracking, ExtensionVariant, InvalidVersion,
+	MultiVersion, Pipeline, PipelineAtVers, PipelineMetadataBuilder, PipelineVersion,
 };
 
 /// A lazy value.
@@ -103,6 +109,14 @@ impl IdentifyAccount for sp_core::ecdsa::Public {
 	}
 }
 
+#[cfg(feature = "bls-experimental")]
+impl IdentifyAccount for sp_core::ecdsa_bls381::Public {
+	type AccountId = Self;
+	fn into_account(self) -> Self {
+		self
+	}
+}
+
 /// Means of signature verification.
 pub trait Verify {
 	/// Type of the signer.
@@ -136,6 +150,9 @@ impl Verify for sp_core::sr25519::Signature {
 impl Verify for sp_core::ecdsa::Signature {
 	type Signer = sp_core::ecdsa::Public;
 	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa::Public) -> bool {
+		if !sp_core::ecdsa::is_signature_normalized(self.as_ref()) {
+			return false;
+		}
 		match sp_io::crypto::secp256k1_ecdsa_recover_compressed(
 			self.as_ref(),
 			&sp_io::hashing::blake2_256(msg.get()),
@@ -143,6 +160,14 @@ impl Verify for sp_core::ecdsa::Signature {
 			Ok(pubkey) => signer.0 == pubkey,
 			_ => false,
 		}
+	}
+}
+
+#[cfg(feature = "bls-experimental")]
+impl Verify for sp_core::ecdsa_bls381::Signature {
+	type Signer = sp_core::ecdsa_bls381::Public;
+	fn verify<L: Lazy<[u8]>>(&self, mut msg: L, signer: &sp_core::ecdsa_bls381::Public) -> bool {
+		<sp_core::ecdsa_bls381::Pair as sp_core::Pair>::verify(self, msg.get(), signer)
 	}
 }
 
@@ -183,7 +208,7 @@ where
 }
 
 /// An error type that indicates that the origin is invalid.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, Debug)]
 pub struct BadOrigin;
 
 impl From<BadOrigin> for &'static str {
@@ -193,7 +218,7 @@ impl From<BadOrigin> for &'static str {
 }
 
 /// An error that indicates that a lookup failed.
-#[derive(Encode, Decode, RuntimeDebug)]
+#[derive(Encode, Decode, Debug)]
 pub struct LookupError;
 
 impl From<LookupError> for &'static str {
@@ -1009,6 +1034,7 @@ pub trait HashOutput:
 	+ Default
 	+ Encode
 	+ Decode
+	+ DecodeWithMemTracking
 	+ EncodeLike
 	+ MaxEncodedLen
 	+ TypeInfo
@@ -1029,6 +1055,7 @@ impl<T> HashOutput for T where
 		+ Default
 		+ Encode
 		+ Decode
+		+ DecodeWithMemTracking
 		+ EncodeLike
 		+ MaxEncodedLen
 		+ TypeInfo
@@ -1036,7 +1063,7 @@ impl<T> HashOutput for T where
 }
 
 /// Blake2-256 Hash implementation.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BlakeTwo256;
 
@@ -1063,7 +1090,7 @@ impl Hash for BlakeTwo256 {
 }
 
 /// Keccak-256 Hash implementation.
-#[derive(PartialEq, Eq, Clone, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, Clone, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Keccak256;
 
@@ -1111,9 +1138,7 @@ impl CheckEqual for sp_core::H256 {
 	#[cfg(not(feature = "std"))]
 	fn check_equal(&self, other: &Self) {
 		if self != other {
-			"Hash not equal".print();
-			self.as_bytes().print();
-			other.as_bytes().print();
+			log::error!("Hash not equal: given={:?}, expected={:?}", self, other);
 		}
 	}
 }
@@ -1129,9 +1154,7 @@ impl CheckEqual for super::generic::DigestItem {
 	#[cfg(not(feature = "std"))]
 	fn check_equal(&self, other: &Self) {
 		if self != other {
-			"DigestItem not equal".print();
-			(&Encode::encode(self)[..]).print();
-			(&Encode::encode(other)[..]).print();
+			log::error!("DigestItem not equal: given={:?}, expected={:?}", self, other);
 		}
 	}
 }
@@ -1181,6 +1204,8 @@ pub trait BlockNumber:
 	+ TypeInfo
 	+ MaxEncodedLen
 	+ FullCodec
+	+ DecodeWithMemTracking
+	+ HasCompact<Type: DecodeWithMemTracking>
 {
 }
 
@@ -1198,7 +1223,9 @@ impl<
 			+ Default
 			+ TypeInfo
 			+ MaxEncodedLen
-			+ FullCodec,
+			+ FullCodec
+			+ DecodeWithMemTracking
+			+ HasCompact<Type: DecodeWithMemTracking>,
 	> BlockNumber for T
 {
 }
@@ -1209,7 +1236,16 @@ impl<
 ///
 /// You can also create a `new` one from those fields.
 pub trait Header:
-	Clone + Send + Sync + Codec + Eq + MaybeSerialize + Debug + TypeInfo + 'static
+	Clone
+	+ Send
+	+ Sync
+	+ Codec
+	+ DecodeWithMemTracking
+	+ Eq
+	+ MaybeSerialize
+	+ Debug
+	+ TypeInfo
+	+ 'static
 {
 	/// Header number.
 	type Number: BlockNumber;
@@ -1283,27 +1319,65 @@ pub trait HeaderProvider {
 	type HeaderT: Header;
 }
 
+/// An extrinsic that can be lazily decoded.
+pub trait LazyExtrinsic: Sized {
+	/// Try to decode the lazy extrinsic.
+	///
+	/// Usually an encoded extrinsic is composed of 2 parts:
+	/// - a `Compact<u32>` prefix (`len)`
+	/// - a blob of size `len`
+	/// This method expects to receive just the blob as a byte slice.
+	/// The size of the blob is the `len`.
+	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error>;
+}
+
+/// A Substrate block that allows us to lazily decode its extrinsics.
+pub trait LazyBlock: Debug + Encode + Decode + Sized {
+	/// Type for the decoded extrinsics.
+	type Extrinsic: LazyExtrinsic;
+	/// Header type.
+	type Header: Header;
+
+	/// Returns a reference to the header.
+	fn header(&self) -> &Self::Header;
+
+	/// Returns a mut reference to the header.
+	fn header_mut(&mut self) -> &mut Self::Header;
+
+	/// Returns an iterator over all extrinsics.
+	///
+	/// The extrinsics are lazily decoded (if possible) as they are pulled by the iterator.
+	fn extrinsics(&self) -> impl Iterator<Item = Result<Self::Extrinsic, codec::Error>>;
+}
+
 /// Something which fulfills the abstract idea of a Substrate block. It has types for
 /// `Extrinsic` pieces of information as well as a `Header`.
 ///
 /// You can get an iterator over each of the `extrinsics` and retrieve the `header`.
 pub trait Block:
-	HeaderProvider<HeaderT = <Self as Block>::Header>
+	HeaderProvider<HeaderT = Self::Header>
+	+ Into<Self::LazyBlock>
+	+ EncodeLike<Self::LazyBlock>
 	+ Clone
 	+ Send
 	+ Sync
 	+ Codec
+	+ DecodeWithMemTracking
 	+ Eq
 	+ MaybeSerialize
 	+ Debug
 	+ 'static
 {
 	/// Type for extrinsics.
-	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize;
+	type Extrinsic: Member + Codec + ExtrinsicLike + MaybeSerialize + Into<OpaqueExtrinsic>;
 	/// Header type.
 	type Header: Header<Hash = Self::Hash> + MaybeSerializeDeserialize;
 	/// Block hash type.
 	type Hash: HashOutput;
+
+	/// A shadow structure which allows us to lazily decode the extrinsics.
+	/// The `LazyBlock` must have the same encoded representation as the `Block`.
+	type LazyBlock: LazyBlock<Extrinsic = Self::Extrinsic, Header = Self::Header> + EncodeLike<Self>;
 
 	/// Returns a reference to the header.
 	fn header(&self) -> &Self::Header;
@@ -1317,9 +1391,6 @@ pub trait Block:
 	fn hash(&self) -> Self::Hash {
 		<<Self::Header as Header>::Hashing as Hash>::hash_of(self.header())
 	}
-	/// Creates an encoded block from the given `header` and `extrinsics` without requiring the
-	/// creation of an instance.
-	fn encode_from(header: &Self::Header, extrinsics: &[Self::Extrinsic]) -> Vec<u8>;
 }
 
 /// Something that acts like an `Extrinsic`.
@@ -1384,6 +1455,18 @@ where
 	}
 }
 
+/// An extrinsic on which we can get access to call.
+pub trait ExtrinsicCall: ExtrinsicLike {
+	/// The type of the call.
+	type Call;
+
+	/// Get a reference to the call of the extrinsic.
+	fn call(&self) -> &Self::Call;
+
+	/// Convert the extrinsic into its call.
+	fn into_call(self) -> Self::Call;
+}
+
 /// Something that acts like a [`SignaturePayload`](Extrinsic::SignaturePayload) of an
 /// [`Extrinsic`].
 pub trait SignaturePayload {
@@ -1416,8 +1499,13 @@ pub trait ExtrinsicMetadata {
 	/// By format we mean the encoded representation of the `Extrinsic`.
 	const VERSIONS: &'static [u8];
 
-	/// Transaction extensions attached to this `Extrinsic`.
-	type TransactionExtensions;
+	/// All version of transaction extensions attached to this `Extrinsic`.
+	///
+	/// For extrinsic version 4, extrinsics don't specify any version, the pipeline version 0 is
+	/// used.
+	/// For extrinsic version 5, bare extrinsics don't specify any version, the pipeline version 0
+	/// is used.
+	type TransactionExtensionPipelines;
 }
 
 /// Extract the hashing type for a block.
@@ -1523,7 +1611,6 @@ pub trait Dispatchable {
 		+ Copy
 		+ Encode
 		+ Decode
-		+ Printable
 		+ ExtensionPostDispatchWeightHandler<Self::Info>;
 	/// Actually dispatch this call and return the result of it.
 	fn dispatch(self, origin: Self::RuntimeOrigin)
@@ -1551,7 +1638,7 @@ impl Dispatchable for () {
 }
 
 /// Dispatchable impl containing an arbitrary value which panics if it actually is dispatched.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct FakeDispatchable<Inner>(pub Inner);
 impl<Inner> From<Inner> for FakeDispatchable<Inner> {
 	fn from(inner: Inner) -> Self {
@@ -1620,7 +1707,7 @@ pub trait AsTransactionAuthorizedOrigin {
 /// that should be additionally associated with the transaction. It should be plain old data.
 #[deprecated = "Use `TransactionExtension` instead."]
 pub trait SignedExtension:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -1771,6 +1858,7 @@ pub trait Applyable: Sized + Send + Sync {
 	///
 	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the transaction.
 	/// If no origin was authorized, the transaction must be rejected.
+	#[allow(deprecated)]
 	fn validate<V: ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
@@ -1783,6 +1871,7 @@ pub trait Applyable: Sized + Send + Sync {
 	///
 	/// IMPORTANT: Ensure that *some* origin has been authorized after validating the
 	/// transaction. If no origin was authorized, the transaction must be rejected.
+	#[allow(deprecated)]
 	fn apply<V: ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
@@ -1809,6 +1898,16 @@ pub trait GetNodeBlockType {
 /// function is called right before dispatching the call wrapped by an unsigned extrinsic. The
 /// [`validate_unsigned`](Self::validate_unsigned) function is mainly being used in the context of
 /// the transaction pool to check the validity of the call wrapped by an unsigned extrinsic.
+///
+/// # Deprecation Notice
+///
+/// This trait is deprecated and will be removed after April 2027. Use
+/// `#[pallet::authorize]` with `frame_system::AuthorizeCall` transaction extension instead.
+///
+/// For more information, see: <https://github.com/paritytech/polkadot-sdk/issues/2415>
+#[deprecated(
+	note = "`ValidateUnsigned` will be removed after April 2027. Use `#[pallet::authorize]` with `frame_system::AuthorizeCall` instead. See https://github.com/paritytech/polkadot-sdk/issues/2415"
+)]
 pub trait ValidateUnsigned {
 	/// The call to validate
 	type Call;
@@ -1849,21 +1948,25 @@ pub trait ValidateUnsigned {
 /// Opaque data type that may be destructured into a series of raw byte slices (which represent
 /// individual keys).
 pub trait OpaqueKeys: Clone {
-	/// Types bound to this opaque keys that provide the key type ids returned.
+	/// The types that are bound to the [`KeyTypeId`]s.
+	///
+	/// They can be seen as the ones working with the keys associated to the [`KeyTypeId`]s.
 	type KeyTypeIdProviders;
 
 	/// Return the key-type IDs supported by this set.
-	fn key_ids() -> &'static [crate::KeyTypeId];
+	fn key_ids() -> &'static [KeyTypeId];
+
 	/// Get the raw bytes of key with key-type ID `i`.
-	fn get_raw(&self, i: super::KeyTypeId) -> &[u8];
+	fn get_raw(&self, i: KeyTypeId) -> &[u8];
+
 	/// Get the decoded key with key-type ID `i`.
-	fn get<T: Decode>(&self, i: super::KeyTypeId) -> Option<T> {
+	fn get<T: Decode>(&self, i: KeyTypeId) -> Option<T> {
 		T::decode(&mut self.get_raw(i)).ok()
 	}
-	/// Verify a proof of ownership for the keys.
-	fn ownership_proof_is_valid(&self, _proof: &[u8]) -> bool {
-		true
-	}
+
+	/// Proof the ownership of `owner` over the keys using `proof`.
+	#[must_use]
+	fn ownership_proof_is_valid(&self, owner: &[u8], proof: &[u8]) -> bool;
 }
 
 /// Input that adds infinite number of zero after wrapped input.
@@ -1899,7 +2002,7 @@ impl<'a, T: codec::Input> codec::Input for AppendZerosInput<'a, T> {
 					into[i] = b;
 					i += 1;
 				} else {
-					break
+					break;
 				}
 			}
 			i
@@ -2016,7 +2119,7 @@ impl<T: Encode + Decode, Id: Encode + Decode + TypeId> AccountIdConversion<T> fo
 	fn try_from_sub_account<S: Decode>(x: &T) -> Option<(Self, S)> {
 		x.using_encoded(|d| {
 			if d[0..4] != Id::TYPE_ID {
-				return None
+				return None;
 			}
 			let mut cursor = &d[4..];
 			let result = Decode::decode(&mut cursor).ok()?;
@@ -2059,16 +2162,19 @@ macro_rules! impl_opaque_keys_inner {
 				$( #[ $inner_attr:meta ] )*
 				pub $field:ident: $type:ty,
 			)*
-		}
+		},
+		$crate_path:path,
 	) => {
 		$( #[ $attr ] )*
+		///
+		#[doc = concat!("Generated by [`impl_opaque_keys!`](", stringify!($crate_path),"::impl_opaque_keys).")]
 		#[derive(
 			Clone, PartialEq, Eq,
 			$crate::codec::Encode,
 			$crate::codec::Decode,
 			$crate::codec::DecodeWithMemTracking,
 			$crate::scale_info::TypeInfo,
-			$crate::RuntimeDebug,
+			Debug,
 		)]
 		pub struct $name {
 			$(
@@ -2082,9 +2188,30 @@ macro_rules! impl_opaque_keys_inner {
 			///
 			/// The generated key pairs are stored in the keystore.
 			///
-			/// Returns the concatenated SCALE encoded public keys.
-			pub fn generate(seed: Option<$crate::Vec<u8>>) -> $crate::Vec<u8> {
-				let keys = Self{
+			/// - `owner`: Some bytes that will be signed by the generated private keys.
+			/// These signatures are put into a tuple in the same order as the public keys.
+			/// The SCALE encoded signature tuple corresponds to the `proof` returned by this
+			/// function.
+			///
+			/// - `seed`: Optional `seed` for seeding the private key generation.
+			///
+			/// Returns the generated public session keys and proof.
+			#[allow(dead_code)]
+			pub fn generate(
+				owner: &[u8],
+				seed: Option<$crate::sp_std::vec::Vec<u8>>,
+			) -> $crate::traits::GeneratedSessionKeys<
+				Self,
+				(
+					$(
+						<
+							<$type as $crate::BoundToRuntimeAppPublic>::Public
+								as $crate::RuntimeAppPublic
+						>::ProofOfPossession
+					),*
+				)
+			> {
+				let mut keys = Self {
 					$(
 						$field: <
 							<
@@ -2093,10 +2220,18 @@ macro_rules! impl_opaque_keys_inner {
 						>::generate_pair(seed.clone()),
 					)*
 				};
-				$crate::codec::Encode::encode(&keys)
+
+				let proof = keys.create_ownership_proof(owner)
+					.expect("Private key that was generated a moment ago, should exist; qed");
+
+				$crate::traits::GeneratedSessionKeys {
+					keys,
+					proof
+				}
 			}
 
 			/// Converts `Self` into a `Vec` of `(raw public key, KeyTypeId)`.
+			#[allow(dead_code)]
 			pub fn into_raw_public_keys(
 				self,
 			) -> $crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)> {
@@ -2119,12 +2254,44 @@ macro_rules! impl_opaque_keys_inner {
 			/// keys (see [`Self::into_raw_public_keys`]).
 			///
 			/// Returns `None` when the decoding failed, otherwise `Some(_)`.
+			#[allow(dead_code)]
 			pub fn decode_into_raw_public_keys(
 				encoded: &[u8],
 			) -> Option<$crate::Vec<($crate::Vec<u8>, $crate::KeyTypeId)>> {
 				<Self as $crate::codec::Decode>::decode(&mut &encoded[..])
 					.ok()
 					.map(|s| s.into_raw_public_keys())
+			}
+
+			/// Create the ownership proof.
+			///
+			/// - `owner`: Some bytes that will be signed by the private keys associated to the
+			/// public keys in this session key object. These signatures are put into a tuple in
+			/// the same order as the public keys. The SCALE encoded signature tuple corresponds
+			/// to the `proof` returned by this function.
+			///
+			/// Returns the SCALE encoded proof that will proof the ownership of the keys for `user`.
+			/// An error is returned if the signing of `user` failed, e.g. a private key isn't present in the keystore.
+			#[allow(dead_code)]
+			pub fn create_ownership_proof(
+				&mut self,
+				owner: &[u8],
+			) -> $crate::sp_std::result::Result<
+				(
+					$(
+						<
+							<$type as $crate::BoundToRuntimeAppPublic>::Public
+								as $crate::RuntimeAppPublic
+						>::ProofOfPossession
+					),*
+				),
+				()
+			> {
+				let res = ($(
+					$crate::RuntimeAppPublic::generate_proof_of_possession(&mut self.$field, &owner).ok_or(())?
+				),*);
+
+				Ok(res)
 			}
 		}
 
@@ -2156,14 +2323,62 @@ macro_rules! impl_opaque_keys_inner {
 					_ => &[],
 				}
 			}
+
+			fn ownership_proof_is_valid(&self, owner: &[u8], proof: &[u8]) -> bool {
+				// The proof is expected to be a tuple of all the signatures.
+				let Ok(proof) = <($(
+						<
+							<
+								$type as $crate::BoundToRuntimeAppPublic
+							>::Public as $crate::RuntimeAppPublic
+						>::ProofOfPossession
+				),*) as $crate::codec::DecodeAll>::decode_all(&mut &proof[..]) else {
+					return false
+				};
+
+				// "unpack" the proof so that we can access the individual signatures.
+				let ( $( $field ),* ) = proof;
+
+				// Verify that all the signatures signed `owner`.
+				$(
+					let valid = $crate::RuntimeAppPublic::verify_proof_of_possession(&self.$field, &owner, &$field);
+
+					if !valid {
+						// We found an invalid signature.
+						return false
+					}
+				)*
+
+				true
+			}
 		}
 	};
 }
 
-/// Implement `OpaqueKeys` for a described struct.
+/// The output of generating session keys.
+///
+/// Contains the public session keys and a `proof` to verify the ownership of these keys.
+///
+/// To generate session keys the [`impl_opaque_keys!`](crate::impl_opaque_keys) needs to be used
+/// first to create the session keys type and this type provides the `generate` function.
+#[derive(Debug, Clone, Encode, Decode, TypeInfo)]
+pub struct GeneratedSessionKeys<Keys, Proof> {
+	/// The opaque public session keys for registering on-chain.
+	pub keys: Keys,
+	/// The opaque proof to verify the ownership of the keys.
+	pub proof: Proof,
+}
+
+/// Implement [`OpaqueKeys`] for a described struct.
 ///
 /// Every field type must implement [`BoundToRuntimeAppPublic`](crate::BoundToRuntimeAppPublic).
-/// `KeyTypeIdProviders` is set to the types given as fields.
+/// The [`KeyTypeIdProviders`](OpaqueKeys::KeyTypeIdProviders) type is set to tuple of all field
+/// types passed to the macro.
+///
+/// The `proof` type used by the generated session keys for
+/// [`ownership_proof_is_valid`](OpaqueKeys::ownership_proof_is_valid) is the SCALE encoded tuple of
+/// all signatures. The order of the signatures is the same as the order of the fields in the
+/// struct. Each signature is created by signing the `owner` given to the `generate` function.
 ///
 /// ```rust
 /// use sp_runtime::{
@@ -2207,7 +2422,8 @@ macro_rules! impl_opaque_keys {
 						$( #[ $inner_attr ] )*
 						pub $field: $type,
 					)*
-				}
+				},
+				$crate,
 			}
 		}
 	}
@@ -2233,91 +2449,9 @@ macro_rules! impl_opaque_keys {
 					$( #[ $inner_attr ] )*
 					pub $field: $type,
 				)*
-			}
+			},
+			$crate,
 		}
-	}
-}
-
-/// Trait for things which can be printed from the runtime.
-pub trait Printable {
-	/// Print the object.
-	fn print(&self);
-}
-
-impl<T: Printable> Printable for &T {
-	fn print(&self) {
-		(*self).print()
-	}
-}
-
-impl Printable for u8 {
-	fn print(&self) {
-		(*self as u64).print()
-	}
-}
-
-impl Printable for u32 {
-	fn print(&self) {
-		(*self as u64).print()
-	}
-}
-
-impl Printable for usize {
-	fn print(&self) {
-		(*self as u64).print()
-	}
-}
-
-impl Printable for u64 {
-	fn print(&self) {
-		sp_io::misc::print_num(*self);
-	}
-}
-
-impl Printable for &[u8] {
-	fn print(&self) {
-		sp_io::misc::print_hex(self);
-	}
-}
-
-impl<const N: usize> Printable for [u8; N] {
-	fn print(&self) {
-		sp_io::misc::print_hex(&self[..]);
-	}
-}
-
-impl Printable for &str {
-	fn print(&self) {
-		sp_io::misc::print_utf8(self.as_bytes());
-	}
-}
-
-impl Printable for bool {
-	fn print(&self) {
-		if *self {
-			"true".print()
-		} else {
-			"false".print()
-		}
-	}
-}
-
-impl Printable for sp_weights::Weight {
-	fn print(&self) {
-		self.ref_time().print()
-	}
-}
-
-impl Printable for () {
-	fn print(&self) {
-		"()".print()
-	}
-}
-
-#[impl_for_tuples(1, 12)]
-impl Printable for Tuple {
-	fn print(&self) {
-		for_tuples!( #( Tuple.print(); )* )
 	}
 }
 
@@ -2344,6 +2478,7 @@ pub trait BlockIdTo<Block: self::Block> {
 pub trait BlockNumberProvider {
 	/// Type of `BlockNumber` to provide.
 	type BlockNumber: Codec
+		+ DecodeWithMemTracking
 		+ Clone
 		+ Ord
 		+ Eq
@@ -2392,10 +2527,15 @@ impl BlockNumberProvider for () {
 mod tests {
 	use super::*;
 	use crate::codec::{Decode, Encode, Input};
+	#[cfg(feature = "bls-experimental")]
+	use sp_core::ecdsa_bls381;
 	use sp_core::{
 		crypto::{Pair, UncheckedFrom},
-		ecdsa, ed25519, sr25519,
+		ecdsa, ed25519,
+		proof_of_possession::ProofOfPossessionGenerator,
+		sr25519,
 	};
+	use std::sync::Arc;
 
 	macro_rules! signature_verify_test {
 		($algorithm:ident) => {
@@ -2533,5 +2673,108 @@ mod tests {
 	#[test]
 	fn ecdsa_verify_works() {
 		signature_verify_test!(ecdsa);
+
+		let msg = &b"test-message"[..];
+		let (pair, _) = ecdsa::Pair::generate();
+		let signature = pair.sign(msg);
+		let high_s_signature =
+			ecdsa::Signature::from_raw(crate::tests::make_high_s_signature(signature.as_ref()));
+		assert!(!high_s_signature.verify(msg, &pair.public()));
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_verify_works() {
+		signature_verify_test!(ecdsa_bls381);
+	}
+
+	pub struct Sr25519Key;
+	impl crate::BoundToRuntimeAppPublic for Sr25519Key {
+		type Public = sp_application_crypto::sr25519::AppPublic;
+	}
+
+	pub struct Ed25519Key;
+	impl crate::BoundToRuntimeAppPublic for Ed25519Key {
+		type Public = sp_application_crypto::ed25519::AppPublic;
+	}
+
+	pub struct EcdsaKey;
+	impl crate::BoundToRuntimeAppPublic for EcdsaKey {
+		type Public = sp_application_crypto::ecdsa::AppPublic;
+	}
+
+	impl_opaque_keys! {
+		/// Some comment
+		pub struct SessionKeys {
+			pub sr25519: Sr25519Key,
+			pub ed25519: Ed25519Key,
+			pub ecdsa: EcdsaKey,
+		}
+	}
+
+	#[test]
+	fn opaque_keys_ownership_proof_works() {
+		let mut sr25519 = sp_core::sr25519::Pair::generate().0;
+		let mut ed25519 = sp_core::ed25519::Pair::generate().0;
+		let mut ecdsa = sp_core::ecdsa::Pair::generate().0;
+
+		let session_keys = SessionKeys {
+			sr25519: sr25519.public().into(),
+			ed25519: ed25519.public().into(),
+			ecdsa: ecdsa.public().into(),
+		};
+
+		let owner = &b"owner"[..];
+
+		let sr25519_sig = sr25519.generate_proof_of_possession(&owner);
+		let ed25519_sig = ed25519.generate_proof_of_possession(&owner);
+		let ecdsa_sig = ecdsa.generate_proof_of_possession(&owner);
+
+		for invalidate in [None, Some(0), Some(1), Some(2)] {
+			let proof = if let Some(invalidate) = invalidate {
+				match invalidate {
+					0 => (
+						sr25519.generate_proof_of_possession(&b"invalid"[..]),
+						&ed25519_sig,
+						&ecdsa_sig,
+					)
+						.encode(),
+					1 => (
+						&sr25519_sig,
+						ed25519.generate_proof_of_possession(&b"invalid"[..]),
+						&ecdsa_sig,
+					)
+						.encode(),
+					2 => (
+						&sr25519_sig,
+						&ed25519_sig,
+						ecdsa.generate_proof_of_possession(&b"invalid"[..]),
+					)
+						.encode(),
+					_ => unreachable!(),
+				}
+			} else {
+				(&sr25519_sig, &ed25519_sig, &ecdsa_sig).encode()
+			};
+
+			assert_eq!(session_keys.ownership_proof_is_valid(owner, &proof), invalidate.is_none());
+		}
+
+		// Ensure that a `proof` with extra junk data is rejected.
+		let proof = (&sr25519_sig, &ed25519_sig, &ecdsa_sig, "hello").encode();
+		assert!(!session_keys.ownership_proof_is_valid(owner, &proof));
+
+		let mut ext = sp_io::TestExternalities::default();
+		ext.register_extension(sp_keystore::KeystoreExt(Arc::new(
+			sp_keystore::testing::MemoryKeystore::new(),
+		)));
+
+		ext.execute_with(|| {
+			let session_keys = SessionKeys::generate(&owner, None);
+
+			assert!(session_keys
+				.keys
+				.ownership_proof_is_valid(&owner, &session_keys.proof.encode()));
+		});
 	}
 }

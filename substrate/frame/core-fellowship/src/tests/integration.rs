@@ -25,9 +25,9 @@ use frame_support::{
 	parameter_types,
 	traits::{ConstU16, EitherOf, IsInVec, MapSuccess, NoOpPoll, TryMapSuccess},
 };
-use frame_system::EnsureSignedBy;
+use frame_system::{pallet_prelude::BlockNumberFor, EnsureSignedBy};
 use pallet_ranked_collective::{EnsureRanked, Geometric, Rank};
-use sp_core::{ConstU32, Get};
+use sp_core::Get;
 use sp_runtime::{
 	bounded_vec,
 	traits::{Convert, ReduceBy, ReplaceWithDefault, TryMorphInto},
@@ -51,7 +51,7 @@ frame_support::construct_runtime!(
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::max_value()));
+		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::MAX));
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
@@ -82,7 +82,8 @@ impl Config for Test {
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = EvidenceSize;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 /// Convert the tally class into the minimum rank required to vote on the poll.
@@ -117,7 +118,7 @@ impl pallet_ranked_collective::Config for Test {
 		// Members can exchange up to the rank of 2 below them.
 		MapSuccess<EnsureRanked<Test, (), 2>, ReduceBy<ConstU16<2>>>,
 	>;
-	type Polls = NoOpPoll;
+	type Polls = NoOpPoll<BlockNumberFor<Test>>;
 	type MinRankOfClass = MinRankOfClass<MinRankOfClassDelta>;
 	type MemberSwappedHandler = CoreFellowship;
 	type VoteWeight = Geometric;
@@ -143,6 +144,13 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		System::set_block_number(1);
 	});
 	ext
+}
+
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		CoreFellowship::do_try_state().expect("All invariants must hold after a test");
+	});
 }
 
 fn promote_n_times(acc: u64, r: u16) {
@@ -174,7 +182,7 @@ fn evidence(e: u32) -> Evidence<Test, ()> {
 
 #[test]
 fn import_simple_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 0u16..9 {
 			let acc = i as u64;
 
@@ -205,7 +213,7 @@ fn import_simple_works() {
 
 #[test]
 fn swap_simple_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for i in 0u16..9 {
 			let acc = i as u64;
 
@@ -226,7 +234,7 @@ fn swap_simple_works() {
 /// The member also submits evidence before the swap.
 #[test]
 fn swap_exhaustive_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let root_add = hypothetically!({
 			assert_ok!(Club::add_member(RuntimeOrigin::root(), 1));
 			promote_n_times(1, 4);
@@ -259,7 +267,7 @@ fn swap_exhaustive_works() {
 
 #[test]
 fn swap_bad_noops() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(Club::add_member(RuntimeOrigin::root(), 0));
 		promote_n_times(0, 0);
 		assert_ok!(CoreFellowship::import(signed(0)));

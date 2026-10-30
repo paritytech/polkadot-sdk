@@ -91,14 +91,14 @@ impl<T: V5Config> UncheckedOnRuntimeUpgrade for unversioned::UncheckedMigrateV4T
 				.expect("All listed channels must provide info");
 
 			if info.max_message_size > max_msg_len {
-				log::error!(
+				tracing::error!(
+					target: "runtime::xcmp-queue-migration::v5",
+					channel_max=%info.max_message_size,
+					max_page_size=%max_msg_len,
 					"Max message size for channel is too large. This means that the V5 \
-				migration can be front-run and an attacker could place a large message just right \
-				before the migration to make other messages un-decodable. Please either increase \
-				`MaxPageSize` or decrease the `max_message_size` for this channel. Channel max: {}, \
-				MaxPageSize: {}",
-					info.max_message_size,
-					max_msg_len
+					migration can be front-run and an attacker could place a large message just right \
+					before the migration to make other messages un-decodable. Please either increase \
+					`MaxPageSize` or decrease the `max_message_size` for this channel."
 				);
 				return Err("Migration can be front-run".into());
 			}

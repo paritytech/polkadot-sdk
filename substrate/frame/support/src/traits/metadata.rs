@@ -21,7 +21,7 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::ops::Add;
 use impl_trait_for_tuples::impl_for_tuples;
-use sp_runtime::RuntimeDebug;
+use Debug;
 
 /// Provides information about the pallet itself and its setup in the runtime.
 ///
@@ -41,7 +41,7 @@ pub trait PalletInfo {
 }
 
 /// Information regarding an instance of a pallet.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, RuntimeDebug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct PalletInfoData {
 	/// Index of the pallet as configured in the runtime.
 	pub index: usize,
@@ -96,7 +96,7 @@ impl PalletsInfoAccess for Tuple {
 }
 
 /// The function and pallet name of the Call.
-#[derive(Clone, Eq, PartialEq, Default, RuntimeDebug)]
+#[derive(Clone, Eq, PartialEq, Default, Debug)]
 pub struct CallMetadata {
 	/// Name of the function.
 	pub function_name: &'static str,
@@ -303,18 +303,6 @@ pub trait GetStorageVersion {
 	/// case that they wish to compare the in-code storage version to the on-chain storage version.
 	type InCodeStorageVersion;
 
-	#[deprecated(
-		note = "This method has been renamed to `in_code_storage_version` and will be removed after March 2024."
-	)]
-	/// DEPRECATED: Use [`Self::current_storage_version`] instead.
-	///
-	/// Returns the in-code storage version as specified in the
-	/// [`storage_version`](crate::pallet_macros::storage_version) attribute, or
-	/// [`NoStorageVersionSet`] if the attribute is missing.
-	fn current_storage_version() -> Self::InCodeStorageVersion {
-		Self::in_code_storage_version()
-	}
-
 	/// Returns the in-code storage version as specified in the
 	/// [`storage_version`](crate::pallet_macros::storage_version) attribute, or
 	/// [`NoStorageVersionSet`] if the attribute is missing.
@@ -328,6 +316,7 @@ mod tests {
 	use super::*;
 	use sp_crypto_hashing::twox_128;
 
+	#[allow(dead_code)]
 	struct Pallet1;
 	impl PalletInfoAccess for Pallet1 {
 		fn index() -> usize {
@@ -346,6 +335,7 @@ mod tests {
 			CrateVersion::new(1, 0, 0)
 		}
 	}
+	#[allow(dead_code)]
 	struct Pallet2;
 	impl PalletInfoAccess for Pallet2 {
 		fn index() -> usize {

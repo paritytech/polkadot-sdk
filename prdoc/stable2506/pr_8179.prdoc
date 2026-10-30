@@ -1,0 +1,33 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Do not make pallet-identity benchmarks signature-dependent
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Includes a `BenchmarkHelper` configuration item in `pallet-identity` to handle signing operations.
+      - Abstracts away the explicit link with Sr25519 schema in the benchmarks, allowing chains with a different one to be able to run them and calculate the weights.
+      - Adds a default implementation for the empty tuple that leaves the code equivalent.
+
+      Adding the following to your implementation of the `frame_identity::Config` should be enough:
+      ```diff
+      #[cfg(feature = "runtime-benchmarks")]
+      type BenchmarkHelper = ();
+      ```
+
+crates:
+    - name: pallet-identity
+      bump: major
+    - name: polkadot-runtime-common
+      bump: patch
+    - name: westend-runtime
+      bump: patch
+    - name: rococo-runtime
+      bump: patch
+    - name: pallet-alliance
+      bump: patch
+    - name: people-rococo-runtime
+      bump: patch
+    - name: people-westend-runtime
+      bump: patch

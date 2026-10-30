@@ -1,0 +1,7 @@
+title: '`fatxpool`: some more integration tests'
+doc:
+- audience: Node Dev
+  description: Some new test cases and improvements of zombienet integration tests for `fatxpool`. 
+crates:
+- name: sc-transaction-pool
+  bump: minor

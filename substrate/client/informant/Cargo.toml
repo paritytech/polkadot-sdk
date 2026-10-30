@@ -22,7 +22,6 @@ futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
 sc-network-sync = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }

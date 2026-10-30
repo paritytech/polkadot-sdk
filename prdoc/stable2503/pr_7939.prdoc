@@ -1,0 +1,47 @@
+title: Revert pallet-staking changes which should be released as a separate pallet
+doc:
+- audience: Runtime Dev
+  description: |-
+    Revert multi-block election, slashing and staking client pallets.
+
+    Reverted PRs: #7582, #7424, #7282
+
+crates:
+- name: sp-staking
+  bump: major
+- name: polkadot-sdk
+  bump: patch
+- name: polkadot-runtime-parachains
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: frame-election-provider-support
+  bump: major
+- name: sp-npos-elections
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: pallet-grandpa
+  bump: patch
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: pallet-election-provider-support-benchmarking
+  bump: patch
+- name: pallet-fast-unstake
+  bump: patch
+- name: pallet-beefy
+  bump: patch
+- name: pallet-delegated-staking
+  bump: patch
+- name: pallet-elections-phragmen
+  bump: patch
+- name: pallet-nomination-pools-benchmarking
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: westend-runtime
+  bump: major

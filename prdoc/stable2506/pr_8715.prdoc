@@ -1,0 +1,32 @@
+title: '[AHM] Prepare For Westend Cleanup'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Pulling out the simple pieces of https://github.com/paritytech/polkadot-sdk/pull/7997 for easier review:
+    - Fix `hypothetically` macro to use proper `Result` type
+    - Add `DefensiveTruncateInto` as counter part to `DefensiveTruncateFrom`
+    - Add DecodeWithMemTracking to many structs
+    - Make storage items public
+crates:
+- name: pallet-staking
+  bump: major
+- name: pallet-sudo
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-balances
+  bump: minor
+- name: pallet-conviction-voting
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: minor
+- name: pallet-nomination-pools
+  bump: minor
+- name: pallet-proxy
+  bump: minor
+- name: pallet-referenda
+  bump: minor
+- name: pallet-scheduler
+  bump: minor
+- name: pallet-staking-async
+  bump: major

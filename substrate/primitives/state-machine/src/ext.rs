@@ -29,6 +29,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
+#[cfg(feature = "std")]
+use sp_externalities::TransactionType;
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
 
 use crate::{trace, warn};
@@ -37,8 +39,6 @@ use core::{
 	any::{Any, TypeId},
 	cmp::Ordering,
 };
-#[cfg(feature = "std")]
-use std::error;
 
 const EXT_NOT_ALLOWED_TO_FAIL: &str = "Externalities not allowed to fail within runtime";
 const BENCHMARKING_FN: &str = "\
@@ -56,38 +56,6 @@ fn guard() -> () {
 	()
 }
 
-/// Errors that can occur when interacting with the externalities.
-#[cfg(feature = "std")]
-#[derive(Debug, Copy, Clone)]
-pub enum Error<B, E> {
-	/// Failure to load state data from the backend.
-	#[allow(unused)]
-	Backend(B),
-	/// Failure to execute a function.
-	#[allow(unused)]
-	Executor(E),
-}
-
-#[cfg(feature = "std")]
-impl<B: std::fmt::Display, E: std::fmt::Display> std::fmt::Display for Error<B, E> {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-		match *self {
-			Error::Backend(ref e) => write!(f, "Storage backend error: {}", e),
-			Error::Executor(ref e) => write!(f, "Sub-call execution error: {}", e),
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-impl<B: error::Error, E: error::Error> error::Error for Error<B, E> {
-	fn description(&self) -> &str {
-		match *self {
-			Error::Backend(..) => "backend error",
-			Error::Executor(..) => "executor error",
-		}
-	}
-}
-
 /// Wraps a read-only backend, call executor, and current overlayed changes.
 pub struct Ext<'a, H, B>
 where
@@ -103,6 +71,8 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// State version used by `storage_root` and `child_storage_root` to compute the trie layout.
+	state_version: StateVersion,
 }
 
 impl<'a, H, B> Ext<'a, H, B>
@@ -112,8 +82,12 @@ where
 {
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
-	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0 }
+	pub fn new(
+		overlay: &'a mut OverlayedChanges<H>,
+		backend: &'a B,
+		state_version: StateVersion,
+	) -> Self {
+		Ext { overlay, backend, id: 0, state_version }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -122,12 +96,14 @@ where
 		overlay: &'a mut OverlayedChanges<H>,
 		backend: &'a B,
 		extensions: Option<&'a mut sp_externalities::Extensions>,
+		state_version: StateVersion,
 	) -> Self {
 		Self {
 			overlay,
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			state_version,
 		}
 	}
 }
@@ -307,11 +283,11 @@ where
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						return next_backend_key;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						return Some(overlay_key.0.to_vec());
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -348,11 +324,11 @@ where
 
 					// If `backend_key` is less than the `overlay_key`, we found out next key.
 					if cmp == Some(Ordering::Less) {
-						return next_backend_key
+						return next_backend_key;
 					} else if overlay_key.1.value().is_some() {
 						// If there exists a value for the `overlay_key` in the overlay
 						// (aka the key is still valid), it means we have found our next key.
-						return Some(overlay_key.0.to_vec())
+						return Some(overlay_key.0.to_vec());
 					} else if cmp == Some(Ordering::Equal) {
 						// If the `backend_key` and `overlay_key` are equal, it means that we need
 						// to search for the next backend key, because the overlay has overwritten
@@ -377,7 +353,7 @@ where
 		let _guard = guard();
 		if is_child_storage_key(&key) {
 			warn!(target: "trie", "Refuse to directly set child storage key");
-			return
+			return;
 		}
 
 		// NOTE: be careful about touching the key names – used outside substrate!
@@ -455,7 +431,7 @@ where
 				target: "trie",
 				"Refuse to directly clear prefix that is part or contains of child storage key",
 			);
-			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 }
+			return MultiRemovalResults { maybe_cursor: None, backend: 0, unique: 0, loops: 0 };
 		}
 
 		let overlay = self.overlay.clear_prefix(prefix);
@@ -507,7 +483,11 @@ where
 		});
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
+		self.storage_root_with_version(self.state_version)
+	}
+
+	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let _guard = guard();
 
 		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
@@ -523,7 +503,11 @@ where
 		root.encode()
 	}
 
-	fn child_storage_root(
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
+		self.child_storage_root_with_version(child_info, self.state_version)
+	}
+
+	fn child_storage_root_with_version(
 		&mut self,
 		child_info: &ChildInfo,
 		state_version: StateVersion,
@@ -579,15 +563,34 @@ where
 	}
 
 	fn storage_start_transaction(&mut self) {
-		self.overlay.start_transaction()
+		self.overlay.start_transaction();
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.start_transaction(TransactionType::Runtime);
+		}
 	}
 
 	fn storage_rollback_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.rollback_transaction().map_err(|_| ())
+		self.overlay.rollback_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.rollback_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn storage_commit_transaction(&mut self) -> Result<(), ()> {
-		self.overlay.commit_transaction().map_err(|_| ())
+		self.overlay.commit_transaction().map_err(|_| ())?;
+
+		#[cfg(feature = "std")]
+		if let Some(exts) = self.extensions.as_mut() {
+			exts.commit_transaction(TransactionType::Runtime);
+		}
+
+		Ok(())
 	}
 
 	fn wipe(&mut self) {
@@ -604,14 +607,12 @@ where
 	}
 
 	fn commit(&mut self) {
-		// Bench always use latest state.
-		let state_version = StateVersion::default();
 		for _ in 0..self.overlay.transaction_depth() {
 			self.overlay.commit_transaction().expect(BENCHMARKING_FN);
 		}
 		let changes = self
 			.overlay
-			.drain_storage_changes(self.backend, state_version)
+			.drain_storage_changes(self.backend, self.state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 		self.backend
 			.commit(
@@ -673,7 +674,7 @@ where
 			Ok(iter) => iter,
 			Err(error) => {
 				log::debug!(target: "trie", "Error while iterating the storage: {}", error);
-				return (None, 0, 0)
+				return (None, 0, 0);
 			},
 		};
 
@@ -685,13 +686,13 @@ where
 				Ok(key) => key,
 				Err(error) => {
 					log::debug!(target: "trie", "Error while iterating the storage: {}", error);
-					break
+					break;
 				},
 			};
 
 			if maybe_limit.map_or(false, |limit| loop_count == limit) {
 				maybe_next_key = Some(key);
-				break
+				break;
 			}
 			let overlay = match child_info {
 				Some(child_info) => self.overlay.child_storage(child_info, &key),
@@ -852,6 +853,7 @@ mod tests {
 		storage::{Storage, StorageChild},
 		Blake2Hasher,
 	};
+	use sp_trie::{LayoutV0, TrieConfiguration};
 
 	type TestBackend = InMemoryBackend<Blake2Hasher>;
 	type TestExt<'a> = Ext<'a, Blake2Hasher, TestBackend>;
@@ -874,7 +876,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_backend < next_overlay
 		assert_eq!(ext.next_storage_key(&[5]), Some(vec![10]));
@@ -890,7 +892,7 @@ mod tests {
 
 		drop(ext);
 		overlay.set_storage(vec![50], Some(vec![50]));
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_storage_key(&[40]), Some(vec![50]));
@@ -920,7 +922,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		assert_eq!(ext.next_storage_key(&[5]), Some(vec![30]));
 
@@ -953,7 +955,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_backend < next_overlay
 		assert_eq!(ext.next_child_storage_key(child_info, &[5]), Some(vec![10]));
@@ -969,7 +971,7 @@ mod tests {
 
 		drop(ext);
 		overlay.set_child_storage(child_info, vec![50], Some(vec![50]));
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		// next_overlay exist but next_backend doesn't exist
 		assert_eq!(ext.next_child_storage_key(child_info, &[40]), Some(vec![50]));
@@ -1000,7 +1002,7 @@ mod tests {
 		)
 			.into();
 
-		let mut ext = TestExt::new(&mut overlay, &backend, None);
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		assert_eq!(ext.child_storage(child_info, &[10]), Some(vec![10]));
 		assert_eq!(
@@ -1039,7 +1041,7 @@ mod tests {
 		)
 			.into();
 
-		let ext = TestExt::new(&mut overlay, &backend, None);
+		let ext = TestExt::new(&mut overlay, &backend, None, StateVersion::default());
 
 		use sp_core::storage::well_known_keys;
 		let mut ext = ext;
@@ -1077,5 +1079,31 @@ mod tests {
 		drop(append);
 
 		assert_eq!(Vec::<u32>::decode(&mut &data[..]).unwrap(), vec![1, 2]);
+	}
+
+	#[test]
+	fn state_version_is_used_for_root() {
+		let backend = TestBackend::default();
+		let mut overlay = OverlayedChanges::default();
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::V1);
+
+		// A value of at least `TRIE_VALUE_NODE_THRESHOLD` bytes is inlined under V0 but stored as
+		// a separate hashed node under V1, producing distinct roots.
+		let key = b"key".to_vec();
+		let value = vec![0x42; sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1];
+		ext.set_storage(key.clone(), value.clone());
+
+		let root_v1 = ext.storage_root();
+
+		let mut ext = TestExt::new(&mut overlay, &backend, None, StateVersion::V0);
+		let root_v0 = ext.storage_root();
+		assert_ne!(root_v0, root_v1);
+
+		let expected_v0 = LayoutV0::<Blake2Hasher>::trie_root(
+			vec![(key, value)].into_iter().collect::<std::collections::BTreeMap<_, _>>(),
+		)
+		.as_ref()
+		.to_vec();
+		assert_eq!(root_v0, expected_v0);
 	}
 }

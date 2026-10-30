@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix regression benchmarks
+
+doc:
+  - audience: Node Dev
+    description: |
+      Updates benchmark thresholds
+
+crates:
+  - name: polkadot-availability-distribution
+    bump: none
+  - name: polkadot-availability-recovery
+    bump: none
+  - name: polkadot-node-core-approval-voting
+    bump: none
+  - name: polkadot-statement-distribution
+    bump: none

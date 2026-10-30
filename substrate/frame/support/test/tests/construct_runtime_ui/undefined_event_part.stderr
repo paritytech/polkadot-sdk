@@ -8,22 +8,20 @@ error: `Pallet` does not have #[pallet::event] defined, perhaps you should remov
 67 | |     pub struct Runtime
 68 | |     {
 69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
-70 | |         Pallet: pallet expanded::{}::{Pallet, Event},
-71 | |     }
+...  |
 72 | | }
    | |_- in this macro invocation
    |
    = note: this error originates in the macro `pallet::__substrate_event_check::is_event_part_defined` which comes from the expansion of the macro `construct_runtime` (in Nightly builds, run with -Z macro-backtrace for more info)
 
-error[E0412]: cannot find type `Event` in module `pallet`
+error[E0425]: cannot find type `Event` in module `pallet`
   --> tests/construct_runtime_ui/undefined_event_part.rs:66:1
    |
 66 | / construct_runtime! {
 67 | |     pub struct Runtime
 68 | |     {
 69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
-70 | |         Pallet: pallet expanded::{}::{Pallet, Event},
-71 | |     }
+...  |
 72 | | }
    | |_^ not found in `pallet`
    |
@@ -42,8 +40,7 @@ error[E0433]: failed to resolve: could not find `Event` in `pallet`
 67 | |     pub struct Runtime
 68 | |     {
 69 | |         System: frame_system expanded::{}::{Pallet, Call, Storage, Config<T>, Event<T>},
-70 | |         Pallet: pallet expanded::{}::{Pallet, Event},
-71 | |     }
+...  |
 72 | | }
    | |_^ could not find `Event` in `pallet`
    |
@@ -54,3 +51,9 @@ help: consider importing one of these enums
    |
 18 + use frame_system::Event;
    |
+
+error[E0282]: type annotations needed
+  --> tests/construct_runtime_ui/undefined_event_part.rs:70:11
+   |
+70 |         Pallet: pallet expanded::{}::{Pallet, Event},
+   |                 ^^^^^^ cannot infer type

@@ -1,0 +1,24 @@
+title: 'Remove TakeFirstAssetTrader from AH Westend and Rococo'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Removed `TakeFirstAssetTrader` from Asset Hub Westend and Rococo. Improved macros, fixed tests.
+    This implies asset sufficiency no longer guarantees that weight can also be bought with it.
+    `SwapFirstAssetTrader` is used instead which will attempt to swap some of the given asset for the
+    required amount of native asset to buy weight. This may or may not succeed depending on whether
+    there is a local pool present with enough liquidity to serve the swap.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: asset-hub-rococo-runtime
+  bump: minor
+- name: asset-hub-westend-integration-tests
+  bump: minor
+- name: asset-hub-rococo-integration-tests
+  bump: minor
+- name: emulated-integration-tests-common
+  bump: minor
+- name: bridge-hub-westend-integration-tests
+  bump: minor
+- name: bridge-hub-rococo-integration-tests
+  bump: minor

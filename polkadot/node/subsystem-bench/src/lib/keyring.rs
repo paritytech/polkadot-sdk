@@ -44,6 +44,10 @@ impl Keyring {
 		self.keystore.clone()
 	}
 
+	pub fn local_keystore(&self) -> Arc<LocalKeystore> {
+		self.keystore.clone()
+	}
+
 	pub fn keystore_ref(&self) -> &LocalKeystore {
 		self.keystore.as_ref()
 	}

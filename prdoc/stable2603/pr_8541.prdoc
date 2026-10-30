@@ -1,0 +1,26 @@
+title: 'collator-protocol-revamp: CollationManager and subsystem impl'
+doc:
+- audience: Node Operator
+  description: |-
+    This PR adds a new experimental validator-side collator protocol subsystem implementation,
+    which can be enabled via the `--experimental-collator-protocol` CLI flag.
+
+    The new implementation introduces a reputation-based collator selection mechanism. Collators
+    are assigned scores based on the outcome of their submitted collations: valid included
+    candidates increase the score, while invalid collations or failed fetches decrease it.
+    When multiple collation advertisements are received, validators prioritize fetching from
+    higher-reputation collators first (with timestamp as a tiebreaker for equal scores).
+
+crates:
+- name: cumulus-relay-chain-inprocess-interface
+  bump: patch
+- name: polkadot-cli
+  bump: major
+- name: polkadot-collator-protocol
+  bump: major
+- name: polkadot-service
+  bump: major
+- name: polkadot-node-subsystem-types
+  bump: minor
+- name: polkadot-node-core-prospective-parachains
+  bump: patch

@@ -62,6 +62,7 @@ impl pallet_bridge_parachains::Config<BridgeParachainWestendInstance> for Runtim
 		SingleParaStoredHeaderDataBuilder<bp_bridge_hub_westend::BridgeHubWestend>;
 	type HeadsToKeep = ParachainHeadsToKeep;
 	type MaxParaHeadDataSize = MaxWestendParaHeadDataSize;
+	type OnNewHead = ();
 }
 
 /// Allows collect and claim rewards for relayers
@@ -110,23 +111,4 @@ impl pallet_bridge_relayers::Config<RelayersForPermissionlessLanesInstance> for 
 	>;
 	type Balance = Balance;
 	type WeightInfo = weights::pallet_bridge_relayers_permissionless_lanes::WeightInfo<Runtime>;
-}
-
-/// Add GRANDPA bridge pallet to track Rococo Bulletin chain.
-pub type BridgeGrandpaRococoBulletinInstance = pallet_bridge_grandpa::Instance4;
-impl pallet_bridge_grandpa::Config<BridgeGrandpaRococoBulletinInstance> for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type BridgedChain = bp_polkadot_bulletin::PolkadotBulletin;
-	type MaxFreeHeadersPerBlock = ConstU32<4>;
-	type FreeHeadersInterval = ConstU32<5>;
-	type HeadersToKeep = RelayChainHeadersToKeep;
-	// Technically this is incorrect - we have two pallet instances and ideally we shall
-	// benchmark every instance separately. But the benchmarking engine has a flaw - it
-	// messes with components. E.g. in Kusama maximal validators count is 1024 and in
-	// Bulletin chain it is 100. But benchmarking engine runs Bulletin benchmarks using
-	// components range, computed for Kusama => it causes an error.
-	//
-	// In practice, however, GRANDPA pallet works the same way for all bridged chains, so
-	// weights are also the same for both bridges.
-	type WeightInfo = weights::pallet_bridge_grandpa::WeightInfo<Runtime>;
 }

@@ -16,20 +16,24 @@
 
 use super::*;
 
-use frame_support::traits::{AsEnsureOriginWithArg, Nothing};
-
-use frame_support::derive_impl;
+use codec::Decode;
 
 use frame_support::{
-	construct_runtime, parameter_types,
-	traits::{ConstU32, Everything},
+	construct_runtime, derive_impl, parameter_types,
+	traits::{AsEnsureOriginWithArg, ConstU32, Disabled, Everything, Nothing},
 };
 use frame_system::{EnsureRoot, EnsureSigned};
 use polkadot_primitives::{AccountIndex, BlakeTwo256, Signature};
-use sp_runtime::{generic, traits::MaybeEquivalence, AccountId32, BuildStorage};
+use sp_runtime::{
+	generic,
+	traits::{MaybeEquivalence, TryConvertInto},
+	AccountId32, BuildStorage,
+};
 use xcm_executor::{traits::ConvertLocation, XcmExecutor};
+use xcm_simulator::ParaId;
 
 pub type TxExtension = (
+	frame_system::AuthorizeCall<Test>,
 	frame_system::CheckNonZeroSender<Test>,
 	frame_system::CheckSpecVersion<Test>,
 	frame_system::CheckTxVersion<Test>,
@@ -84,8 +88,6 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
-	type FreezeIdentifier = ();
-	type MaxFreezes = ConstU32<0>;
 	type DoneSlashHandler = ();
 }
 
@@ -103,6 +105,7 @@ impl pallet_assets::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type Balance = Balance;
 	type AssetId = AssetIdForAssets;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -119,14 +122,16 @@ impl pallet_assets::Config for Test {
 	type RemoveItemsLimit = RemoveItemsLimit;
 	type AssetIdParameter = AssetIdForAssets;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
 
 parameter_types! {
-	pub const RelayLocation: Location = Here.into_location();
+	pub const RelayLocation: Location = Location::parent();
 	pub const AnyNetwork: Option<NetworkId> = None;
-	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(42)).into();
+	pub MockRuntimeParachainId: ParaId = 42u32.into();
+	pub UniversalLocation: InteriorLocation = (ByGenesis([0; 32]), Parachain(MockRuntimeParachainId::get().into())).into();
 	pub UnitWeightCost: u64 = 1_000;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
 	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
@@ -134,6 +139,21 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub CheckingAccount: AccountId = XcmPallet::check_account();
+}
+
+/// Type representing both a location and an asset that is held at that location.
+/// The id of the held asset is relative to the location where it is being held.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub struct AssetKind {
+	pub destination: Location,
+	pub asset_id: AssetId,
+}
+
+pub struct LocatableAssetKindConverter;
+impl sp_runtime::traits::TryConvert<AssetKind, LocatableAssetId> for LocatableAssetKindConverter {
+	fn try_convert(value: AssetKind) -> Result<LocatableAssetId, AssetKind> {
+		Ok(LocatableAssetId { asset_id: value.asset_id, location: value.destination })
+	}
 }
 
 type AssetIdForAssets = u128;
@@ -146,8 +166,9 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 		match value.unpack() {
 			(0, []) => Some(0 as AssetIdForAssets),
 			(1, []) => Some(1 as AssetIdForAssets),
-			(0, [PalletInstance(1), GeneralIndex(index)]) if ![0, 1].contains(index) =>
-				Some(*index as AssetIdForAssets),
+			(0, [PalletInstance(1), GeneralIndex(index)]) if ![0, 1].contains(index) => {
+				Some(*index as AssetIdForAssets)
+			},
 			_ => None,
 		}
 	}
@@ -155,13 +176,17 @@ impl MaybeEquivalence<Location, AssetIdForAssets>
 	fn convert_back(value: &AssetIdForAssets) -> Option<Location> {
 		match value {
 			0u128 => Some(Location { parents: 1, interior: Here }),
-			para_id @ 1..=1000 =>
-				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() }),
+			1u128 => Some(Location { parents: 0, interior: Here }),
+			para_id @ 1..=1000 => {
+				Some(Location { parents: 1, interior: [Parachain(*para_id as u32)].into() })
+			},
 			_ => None,
 		}
 	}
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 pub type LocalAssetsTransactor = FungiblesAdapter<
 	Assets,
@@ -169,7 +194,7 @@ pub type LocalAssetsTransactor = FungiblesAdapter<
 		AssetIdForAssets,
 		Balance,
 		FromLocationToAsset<Location, AssetIdForAssets>,
-		JustTry,
+		TryConvertInto,
 	>,
 	SovereignAccountOf,
 	AccountId,
@@ -195,8 +220,9 @@ impl WeightTrader for DummyWeightTrader {
 		_weight: Weight,
 		_payment: xcm_executor::AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<xcm_executor::AssetsInHolding, XcmError> {
-		Ok(xcm_executor::AssetsInHolding::default())
+	) -> Result<xcm_executor::AssetsInHolding, (xcm_executor::AssetsInHolding, XcmError)> {
+		// Consume all payment, no refund
+		Ok(xcm_executor::AssetsInHolding::new())
 	}
 }
 
@@ -204,6 +230,7 @@ pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = TestMessageSender;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = LocalAssetsTransactor;
 	type OriginConverter = OriginConverter;
 	type IsReserve = ();
@@ -216,7 +243,6 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -241,14 +267,15 @@ pub struct TreasuryToAccount;
 impl ConvertLocation<AccountId> for TreasuryToAccount {
 	fn convert_location(location: &Location) -> Option<AccountId> {
 		match location.unpack() {
-			(1, [Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) =>
-				Some(TreasuryAccountId::get()), // Hardcoded test treasury account id
+			(1, [Parachain(42), Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]) => {
+				Some(TreasuryAccountId::get())
+			}, // Hardcoded test treasury account id
 			_ => None,
 		}
 	}
 }
 
-type SovereignAccountOf = (
+pub(crate) type SovereignAccountOf = (
 	AccountId32Aliases<AnyNetwork, AccountId>,
 	TreasuryToAccount,
 	HashedDescription<AccountId, DescribeFamily<DescribeAllTerminal>>,
@@ -278,6 +305,7 @@ impl pallet_xcm::Config for Test {
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = pallet_xcm::TestWeightInfo;
 	type AdminOrigin = EnsureRoot<AccountId>;
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 pub const UNITS: Balance = 1_000_000_000_000;
@@ -310,6 +338,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 			(100, TreasuryAccountId::get(), INITIAL_BALANCE),
 		],
 		next_asset_id: None,
+		reserves: vec![],
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

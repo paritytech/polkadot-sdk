@@ -98,7 +98,7 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 			let mut current_hash = signed.precommit.target_hash;
 			loop {
 				if current_hash == base_hash {
-					break
+					break;
 				}
 
 				match client.header(current_hash)? {
@@ -107,7 +107,7 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 						// as base and only traverse backwards from the other blocks
 						// in the commit. but better be safe to avoid an unbound loop.
 						if *current_header.number() <= base_number {
-							return error()
+							return error();
 						}
 
 						let parent_hash = *current_header.parent_hash();
@@ -125,6 +125,33 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 		Ok(sp_consensus_grandpa::GrandpaJustification { round, commit, votes_ancestries }.into())
 	}
 
+	/// Decode a GRANDPA justification from its SCALE encoding.
+	pub fn decode(encoded: &[u8]) -> Result<Self, ClientError> {
+		GrandpaJustification::<Block>::decode_all(&mut &*encoded)
+			.map_err(|_| ClientError::JustificationDecode)
+	}
+
+	/// Validate that this justification finalizes the given block and that its
+	/// commit and ancestry proofs are valid for the given voter set.
+	pub fn verify_finalizes(
+		&self,
+		finalized_target: (Block::Hash, NumberFor<Block>),
+		set_id: u64,
+		voters: &VoterSet<AuthorityId>,
+	) -> Result<(), ClientError>
+	where
+		NumberFor<Block>: finality_grandpa::BlockNumberOps,
+	{
+		if (self.justification.commit.target_hash, self.justification.commit.target_number) !=
+			finalized_target
+		{
+			let msg = "invalid commit target in grandpa justification".to_string();
+			return Err(ClientError::BadJustification(msg));
+		}
+
+		self.verify_with_voter_set(set_id, voters)
+	}
+
 	/// Decode a GRANDPA justification and validate the commit and the votes'
 	/// ancestry proofs finalize the given block.
 	pub fn decode_and_verify_finalizes(
@@ -136,19 +163,9 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 	where
 		NumberFor<Block>: finality_grandpa::BlockNumberOps,
 	{
-		let justification = GrandpaJustification::<Block>::decode_all(&mut &*encoded)
-			.map_err(|_| ClientError::JustificationDecode)?;
-
-		if (
-			justification.justification.commit.target_hash,
-			justification.justification.commit.target_number,
-		) != finalized_target
-		{
-			let msg = "invalid commit target in grandpa justification".to_string();
-			Err(ClientError::BadJustification(msg))
-		} else {
-			justification.verify_with_voter_set(set_id, voters).map(|_| justification)
-		}
+		let justification = Self::decode(encoded)?;
+		justification.verify_finalizes(finalized_target, set_id, voters)?;
+		Ok(justification)
 	}
 
 	/// Validate the commit and the votes' ancestry proofs.
@@ -180,7 +197,7 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 			Ok(ref result) if result.is_valid() => {},
 			_ => {
 				let msg = "invalid commit in grandpa justification".to_string();
-				return Err(ClientError::BadJustification(msg))
+				return Err(ClientError::BadJustification(msg));
 			},
 		}
 
@@ -205,21 +222,28 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 		let mut buf = Vec::new();
 		let mut visited_hashes = HashSet::new();
 		for signed in self.justification.commit.precommits.iter() {
-			if !sp_consensus_grandpa::check_message_signature_with_buffer(
+			let signature_result = sp_consensus_grandpa::check_message_signature_with_buffer(
 				&finality_grandpa::Message::Precommit(signed.precommit.clone()),
 				&signed.id,
 				&signed.signature,
 				self.justification.round,
 				set_id,
 				&mut buf,
-			) {
-				return Err(ClientError::BadJustification(
-					"invalid signature for precommit in grandpa justification".to_string(),
-				))
+			);
+			match signature_result {
+				sp_consensus_grandpa::SignatureResult::Invalid => {
+					return Err(ClientError::BadJustification(
+						"invalid signature for precommit in grandpa justification".to_string(),
+					))
+				},
+				sp_consensus_grandpa::SignatureResult::OutdatedSet => {
+					return Err(ClientError::OutdatedJustification)
+				},
+				sp_consensus_grandpa::SignatureResult::Valid => {},
 			}
 
 			if base_hash == signed.precommit.target_hash {
-				continue
+				continue;
 			}
 
 			match ancestry_chain.ancestry(base_hash, signed.precommit.target_hash) {
@@ -231,10 +255,11 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 						visited_hashes.insert(hash);
 					}
 				},
-				_ =>
+				_ => {
 					return Err(ClientError::BadJustification(
 						"invalid precommit ancestry proof in grandpa justification".to_string(),
-					)),
+					))
+				},
 			}
 		}
 
@@ -249,7 +274,7 @@ impl<Block: BlockT> GrandpaJustification<Block> {
 			return Err(ClientError::BadJustification(
 				"invalid precommit ancestries in grandpa justification with unused headers"
 					.to_string(),
-			))
+			));
 		}
 
 		Ok(())
@@ -290,7 +315,7 @@ where
 		let mut current_hash = block;
 		loop {
 			if current_hash == base {
-				break
+				break;
 			}
 			match self.ancestry.get(&current_hash) {
 				Some(current_header) => {

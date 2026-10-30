@@ -95,7 +95,7 @@ fn handle_packet<X, E: Decode>(
 						debug!(target: LOG_TARGET, "No space in extrinsic queue; dropping request");
 						// We don't send a reply in this case; we want the requester to retry
 						reply_manager.abandon(reply_context);
-						return
+						return;
 					}
 
 					// Decode the extrinsic
@@ -109,7 +109,7 @@ fn handle_packet<X, E: Decode>(
 								Err(RemoteErr::Decode(format!("Bad extrinsic: {}", err))),
 								mixnet,
 							);
-							return
+							return;
 						},
 					};
 
@@ -132,7 +132,7 @@ fn handle_packet<X, E: Decode>(
 					"Received reply to already-completed request with message ID {:x?}",
 					message.request_id
 				);
-				return
+				return;
 			};
 			request.send_reply(&message.data);
 		},
@@ -161,14 +161,14 @@ pub async fn run<B, C, S, P>(
 	C: BlockchainEvents<B> + ProvideRuntimeApi<B> + HeaderBackend<B>,
 	C::Api: MixnetApi<B>,
 	S: SyncOracle,
-	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static,
+	P: TransactionPool<Block = B> + LocalTransactionPool<Block = B> + 'static + ?Sized,
 {
 	let local_peer_id = network.local_peer_id();
 	let Some(local_peer_id) = to_core_peer_id(&local_peer_id) else {
 		error!(target: LOG_TARGET,
 			"Failed to convert libp2p local peer ID {local_peer_id} to mixnet peer ID; \
 			mixnet not running");
-		return
+		return;
 	};
 
 	let offchain_transaction_pool_factory =

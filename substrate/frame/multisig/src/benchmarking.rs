@@ -296,5 +296,68 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// `s`: Signatories, need at least 2 people
+	#[benchmark]
+	fn poke_deposit(s: Linear<2, { T::MaxSignatories::get() }>) -> Result<(), BenchmarkError> {
+		// The call is neither in storage or an argument, so just use any:
+		let call_len = 10_000;
+		let (mut signatories, call) = setup_multi::<T>(s, call_len)?;
+		let multi_account_id = Multisig::<T>::multi_account_id(&signatories, s.try_into().unwrap());
+		let caller = signatories.pop().ok_or("signatories should have len 2 or more")?;
+		let call_hash = call.using_encoded(blake2_256);
+		// Create the multi
+		Multisig::<T>::as_multi(
+			RawOrigin::Signed(caller.clone()).into(),
+			s as u16,
+			signatories.clone(),
+			None,
+			call,
+			Weight::zero(),
+		)?;
+
+		// Get the current multisig data
+		let multisig = Multisigs::<T>::get(multi_account_id.clone(), call_hash)
+			.ok_or("multisig not created")?;
+		// The original deposit
+		let old_deposit = multisig.deposit;
+		assert_eq!(T::Currency::reserved_balance(&caller), old_deposit);
+
+		let additional_amount = 2u32.into();
+		let new_deposit = old_deposit.saturating_add(additional_amount);
+
+		// Reserve the additional amount from the caller's balance
+		T::Currency::reserve(&caller, additional_amount)?;
+		assert_eq!(T::Currency::reserved_balance(&caller), new_deposit);
+		// Update the storage with the new deposit
+		Multisigs::<T>::try_mutate(
+			&multi_account_id,
+			call_hash,
+			|maybe_multisig| -> DispatchResult {
+				let mut multisig = maybe_multisig.take().ok_or(Error::<T>::NotFound)?;
+				multisig.deposit = new_deposit;
+				*maybe_multisig = Some(multisig);
+				Ok(())
+			},
+		)
+		.map_err(|_| BenchmarkError::Stop("Mutating storage to change deposits failed"))?;
+		// Check that the deposit was updated in storage
+		let multisig = Multisigs::<T>::get(multi_account_id.clone(), call_hash)
+			.ok_or("Multisig not created")?;
+		assert_eq!(multisig.deposit, new_deposit);
+
+		// Whitelist caller account
+		let caller_key = frame_system::Account::<T>::hashed_key_for(&caller);
+		add_to_whitelist(caller_key.into());
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(caller.clone()), s as u16, signatories, call_hash);
+
+		let multisig = Multisigs::<T>::get(multi_account_id.clone(), call_hash)
+			.ok_or("Multisig not created")?;
+		assert_eq!(multisig.deposit, old_deposit);
+		assert_eq!(T::Currency::reserved_balance(&caller), old_deposit);
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Multisig, crate::tests::new_test_ext(), crate::tests::Test);
 }

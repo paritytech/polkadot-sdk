@@ -1,0 +1,36 @@
+title: 'Snowbridge V2: Add generic AggregateMessageOrigin'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR introduces a generic `AggregateMessageOrigin` in Snowbridge V2 to provide a more flexible mechanism for message-queue origin recognition and handling. This approach aims to support broader use cases beyond parachains. By enabling custom origins, scenarios like solo chains, can build specialized message routing and processing making use of this configuration.
+
+    ## Motivation
+
+    - **Enhanced Integration**: While Snowbridge traditionally focuses on bridging parachains, there is also a need to send messages from various substrate-based chains (e.g., solo chains) and in different contexts. This change expands the protocol's ability to handle multiple, distinct origin types.
+
+    - **Custom Command Structures**: Some projects need to incorporate custom Snowbridge commands or message structures, which cannot be processed by the default outbound queue. By introducing a more generic origin, these commands can be cleanly differentiated and securely processed.
+
+    - **Flexibility**: Parachains, solo chains, or any environment running Snowbridge benefit from a uniform pattern to handle both common and custom message processing.
+
+    ## Use Case
+
+    Consider a scenario where you need to send messages to Ethereum directly from your runtime:
+
+    - You have your own set of commands or data structures different from those provided by the traditional Snowbridge outbound queue.
+    - You want to introduce a custom message processor that specifically handles your commands.
+    - You need a distinct origin to differentiate your messages from standard Snowbridge traffic.
+
+    By using the `AggregateMessageOrigin`, you can verify whether a message comes from a parachain, from Snowbridge itself, or from a custom origin. This is especially relevant in solo chain contexts, where you might not rely on the parachain assumptions but still want to leverage a robust bridging framework.
+crates:
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: bridge-hub-common
+  bump: major
+- name: snowbridge-core
+  bump: minor
+- name: snowbridge-pallet-outbound-queue
+  bump: patch    

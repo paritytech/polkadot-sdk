@@ -32,7 +32,7 @@ jobs:
       image: ${{ needs.preflight.outputs.IMAGE }}
     name: Extract runtimes from matrix
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: master
 
@@ -79,7 +79,7 @@ jobs:
     steps:
     
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ needs.runtime-matrix.outputs.branch }} # checkout always from the initially created branch to avoid conflicts
@@ -91,7 +91,7 @@ jobs:
           # Fixes "detected dubious ownership" error in the ci
           git config --global --add safe.directory $GITHUB_WORKSPACE
           git remote -v
-          python3 -m pip install -r .github/scripts/generate-prdoc.requirements.txt
+          python3 -m pip install --break-system-packages -r .github/scripts/generate-prdoc.requirements.txt
           python3 .github/scripts/cmd/cmd.py bench --runtime ${{ matrix.runtime.name }}
           git add .
           git status
@@ -112,7 +112,7 @@ jobs:
           git reset
       
       - name: Upload diff
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: diff-${{ matrix.runtime.name }}
           path: diff-${{ matrix.runtime.name }}.patch
@@ -122,18 +122,18 @@ jobs:
     needs: [runtime-matrix, run-frame-omni-bencher]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           ref: ${{ needs.runtime-matrix.outputs.branch }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: patches      
 
       # needs to be able to trigger CI
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         id: generate_token
         with:
           app-id: ${{ secrets.CMD_BOT_APP_ID }}
@@ -210,5 +210,5 @@ jobs:
             --reviewer paritytech/ci \
             --reviewer paritytech/release-engineering \
             $MAYBE_DRAFT \
-            --label "R0-silent" \
+            --label "R0-no-crate-publish-required" \
             --body "$(cat /tmp/pr_body.md)"

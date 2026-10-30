@@ -19,24 +19,27 @@
 
 use crate::{
 	codec::{Decode, Encode},
-	RuntimeDebug,
+	Debug, ModuleInvalidity,
 };
 use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
+use sp_weights::Weight;
 
 /// Priority for a transaction. Additive. Higher is better.
 pub type TransactionPriority = u64;
 
 /// Minimum number of blocks a transaction will remain valid for.
-/// `TransactionLongevity::max_value()` means "forever".
+/// `TransactionLongevity::MAX` means "forever".
 pub type TransactionLongevity = u64;
 
 /// Tag for a transaction. No two transactions with the same tag should be placed on-chain.
 pub type TransactionTag = Vec<u8>;
 
 /// An invalid transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum InvalidTransaction {
 	/// The call of the transaction is not expected.
 	Call,
@@ -86,6 +89,8 @@ pub enum InvalidTransaction {
 	IndeterminateImplicit,
 	/// The transaction extension did not authorize any origin.
 	UnknownOrigin,
+	/// An error in a module.
+	Module(ModuleInvalidity),
 }
 
 impl InvalidTransaction {
@@ -109,25 +114,33 @@ impl From<InvalidTransaction> for &'static str {
 			InvalidTransaction::BadProof => "Transaction has a bad signature",
 			InvalidTransaction::AncientBirthBlock => "Transaction has an ancient birth block",
 			InvalidTransaction::ExhaustsResources => "Transaction would exhaust the block limits",
-			InvalidTransaction::Payment =>
-				"Inability to pay some fees (e.g. account balance too low)",
-			InvalidTransaction::BadMandatory =>
-				"A call was labelled as mandatory, but resulted in an Error.",
-			InvalidTransaction::MandatoryValidation =>
-				"Transaction dispatch is mandatory; transactions must not be validated.",
+			InvalidTransaction::Payment => {
+				"Inability to pay some fees (e.g. account balance too low)"
+			},
+			InvalidTransaction::BadMandatory => {
+				"A call was labelled as mandatory, but resulted in an Error."
+			},
+			InvalidTransaction::MandatoryValidation => {
+				"Transaction dispatch is mandatory; transactions must not be validated."
+			},
 			InvalidTransaction::Custom(_) => "InvalidTransaction custom error",
 			InvalidTransaction::BadSigner => "Invalid signing address",
-			InvalidTransaction::IndeterminateImplicit =>
-				"The implicit data was unable to be calculated",
-			InvalidTransaction::UnknownOrigin =>
-				"The transaction extension did not authorize any origin",
+			InvalidTransaction::IndeterminateImplicit => {
+				"The implicit data was unable to be calculated"
+			},
+			InvalidTransaction::UnknownOrigin => {
+				"The transaction extension did not authorize any origin"
+			},
+			InvalidTransaction::Module(_) => "Invalid transaction: module error",
 		}
 	}
 }
 
 /// An unknown transaction validity.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum UnknownTransaction {
 	/// Could not lookup some information that is required to validate the transaction.
 	CannotLookup,
@@ -140,17 +153,19 @@ pub enum UnknownTransaction {
 impl From<UnknownTransaction> for &'static str {
 	fn from(unknown: UnknownTransaction) -> &'static str {
 		match unknown {
-			UnknownTransaction::CannotLookup =>
-				"Could not lookup information required to validate the transaction",
-			UnknownTransaction::NoUnsignedValidator =>
-				"Could not find an unsigned validator for the unsigned transaction",
+			UnknownTransaction::CannotLookup => {
+				"Could not lookup information required to validate the transaction"
+			},
+			UnknownTransaction::NoUnsignedValidator => {
+				"Could not find an unsigned validator for the unsigned transaction"
+			},
 			UnknownTransaction::Custom(_) => "UnknownTransaction custom error",
 		}
 	}
 }
 
 /// Errors that can occur while checking the validity of a transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Copy, Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TransactionValidityError {
 	/// The transaction is invalid.
@@ -217,6 +232,11 @@ impl std::fmt::Display for TransactionValidityError {
 /// Information on a transaction's validity and, if valid, on how it relates to other transactions.
 pub type TransactionValidity = Result<ValidTransaction, TransactionValidityError>;
 
+/// Information on a transaction's validity and, if valid, on how it relates to other transactions
+/// and some refund for the operation.
+pub type TransactionValidityWithRefund =
+	Result<(ValidTransaction, Weight), TransactionValidityError>;
+
 impl From<InvalidTransaction> for TransactionValidity {
 	fn from(invalid_transaction: InvalidTransaction) -> Self {
 		Err(TransactionValidityError::Invalid(invalid_transaction))
@@ -234,7 +254,7 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// Depending on the source we might apply different validation schemes.
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Hash)]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///
@@ -259,7 +279,7 @@ pub enum TransactionSource {
 }
 
 /// Information concerning a valid transaction.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo)]
 pub struct ValidTransaction {
 	/// Priority of the transaction.
 	///
@@ -277,6 +297,16 @@ pub struct ValidTransaction {
 	/// will enable other transactions that depend on (require) those tags to be included as well.
 	/// Provided and required tags allow Substrate to build a dependency graph of transactions
 	/// and import them in the right (linear) order.
+	///
+	/// <div class="warning">
+	///
+	/// If two different transactions have the same `provides` tags, the transaction pool
+	/// treats them as conflicting. One of these transactions will be dropped - e.g. depending on
+	/// submission time, priority of transaction.
+	///
+	/// A transaction that has no provided tags, will be dropped by the transaction pool.
+	///
+	/// </div>
 	pub provides: Vec<TransactionTag>,
 	/// Transaction longevity
 	///
@@ -297,7 +327,7 @@ impl Default for ValidTransaction {
 			priority: 0,
 			requires: vec![],
 			provides: vec![],
-			longevity: TransactionLongevity::max_value(),
+			longevity: TransactionLongevity::MAX,
 			propagate: true,
 		}
 	}
@@ -337,7 +367,7 @@ impl ValidTransaction {
 ///
 /// Allows to easily construct `ValidTransaction` and most importantly takes care of
 /// prefixing `requires` and `provides` tags to avoid conflicts.
-#[derive(Default, Clone, RuntimeDebug)]
+#[derive(Default, Clone, Debug)]
 pub struct ValidTransactionBuilder {
 	prefix: Option<&'static str>,
 	validity: ValidTransaction,
@@ -479,5 +509,24 @@ mod tests {
 				provides: vec![(PREFIX, 3).encode(), (PREFIX, 4).encode()],
 			}
 		);
+	}
+
+	#[test]
+	fn module_invalidity_should_encode_and_decode_in_validity() {
+		let invalidity = ModuleInvalidity { index: 1, error: 2 };
+		let v: TransactionValidity = InvalidTransaction::Module(invalidity).into();
+
+		let encoded = v.encode();
+		// Pin the actual encoding: `Module` must stay at index 13 so an old node can still
+		// decode every variant that existed before it, even though it won't recognise `Module`
+		// itself.
+		assert_eq!(encoded, vec![1, 0, 13, 1, 2, 0]);
+		let decoded = TransactionValidity::decode(&mut &*encoded).unwrap();
+		let Err(TransactionValidityError::Invalid(InvalidTransaction::Module(on_node))) = decoded
+		else {
+			panic!("Expected invalid module error");
+		};
+
+		assert_eq!(on_node, invalidity);
 	}
 }

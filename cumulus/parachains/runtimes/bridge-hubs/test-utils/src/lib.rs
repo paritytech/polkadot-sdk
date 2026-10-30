@@ -46,9 +46,10 @@ pub fn check_sane_fees_values(
 	let diff_to_estimated_plus_overestimate = diff_as_percent(actual, estimated_plus_overestimate);
 
 	sp_tracing::try_init_simple();
-	log::error!(
+	tracing::error!(
 		target: "bridges::estimate",
-		"{label}:\nconstant: {const_name}\n[+] actual: {actual}\n[+] estimated: {estimated} ({diff_to_estimated:.2?})\n[+] estimated(+33%): {estimated_plus_overestimate} ({diff_to_estimated_plus_overestimate:.2?})",
+		%label, constant=%const_name, %actual, %estimated,
+		"{diff_to_estimated:.2?})\n[+] estimated(+33%): {estimated_plus_overestimate} ({diff_to_estimated_plus_overestimate:.2?}"
 	);
 
 	// check if estimated value is sane

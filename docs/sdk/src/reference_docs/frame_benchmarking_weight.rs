@@ -68,7 +68,6 @@
 //!
 //! Consider:
 #![doc = docify::embed!("./src/reference_docs/frame_benchmarking_weight.rs", simple_transfer)]
-//!
 //! If this block of code is to be benchmarked, then the benchmarking code must be written such that
 //! it captures the worst case.
 //!
@@ -79,18 +78,15 @@
 //! below](#running-benchmarks)). The outcome of running these benchmarks are meant to be fed back
 //! into the pallet via a conventional `trait WeightInfo` on `Config`:
 #![doc = docify::embed!("src/reference_docs/frame_benchmarking_weight.rs", WeightInfo)]
-//!
 //! Then, individual functions of this trait are the final values that we assigned to the
 //! [`frame::pallet_macros::weight`] attribute:
 #![doc = docify::embed!("./src/reference_docs/frame_benchmarking_weight.rs", simple_transfer_2)]
-//!
 //! ## Manual Refund
 //!
 //! Back to the assumption of writing benchmarks for worst case: Sometimes, the pre-dispatch weight
 //! significantly differ from the post-dispatch actual weight consumed. This can be expressed with
 //! the following FRAME syntax:
 #![doc = docify::embed!("./src/reference_docs/frame_benchmarking_weight.rs", simple_transfer_3)]
-//!
 //! ## Running Benchmarks
 //!
 //! Two ways exist to run the benchmarks of a runtime.

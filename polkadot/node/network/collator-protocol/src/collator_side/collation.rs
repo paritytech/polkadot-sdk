@@ -20,17 +20,20 @@ use std::collections::{HashSet, VecDeque};
 
 use futures::{future::BoxFuture, stream::FuturesUnordered};
 
+use futures::channel::oneshot;
 use polkadot_node_network_protocol::{
-	request_response::{incoming::OutgoingResponse, v2 as protocol_v2, IncomingRequest},
+	request_response::{
+		incoming::OutgoingResponse, v2 as protocol_v2, v3 as protocol_v3, IncomingRequest,
+	},
 	PeerId,
 };
 use polkadot_node_primitives::PoV;
-use polkadot_node_subsystem::messages::ParentHeadData;
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, CandidateHash, Hash, Id as ParaId,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, HeadData, Id as ParaId,
 };
 
 /// The status of a collation as seen from the collator.
+#[derive(Clone, Debug, PartialEq)]
 pub enum CollationStatus {
 	/// The collation was created, but we did not advertise it to any validator.
 	Created,
@@ -54,6 +57,15 @@ impl CollationStatus {
 	pub fn advance_to_requested(&mut self) {
 		*self = Self::Requested;
 	}
+
+	/// Return label for metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			CollationStatus::Created => "created",
+			CollationStatus::Advertised => "advertised",
+			CollationStatus::Requested => "requested",
+		}
+	}
 }
 
 /// A collation built by the collator.
@@ -62,8 +74,8 @@ pub struct Collation {
 	pub receipt: CandidateReceipt,
 	/// Proof to verify the state transition of the parachain.
 	pub pov: PoV,
-	/// Parent head-data (or just hash).
-	pub parent_head_data: ParentHeadData,
+	/// Parent head-data
+	pub parent_head_data: HeadData,
 	/// Collation status.
 	pub status: CollationStatus,
 }
@@ -89,6 +101,7 @@ pub struct WaitingCollationFetches {
 /// Backwards-compatible wrapper for incoming collations requests.
 pub enum VersionedCollationRequest {
 	V2(IncomingRequest<protocol_v2::CollationFetchingRequest>),
+	V3(IncomingRequest<protocol_v3::CollationFetchingRequest>),
 }
 
 impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>> for VersionedCollationRequest {
@@ -97,25 +110,26 @@ impl From<IncomingRequest<protocol_v2::CollationFetchingRequest>> for VersionedC
 	}
 }
 
+impl From<IncomingRequest<protocol_v3::CollationFetchingRequest>> for VersionedCollationRequest {
+	fn from(req: IncomingRequest<protocol_v3::CollationFetchingRequest>) -> Self {
+		Self::V3(req)
+	}
+}
+
 impl VersionedCollationRequest {
 	/// Returns parachain id from the request payload.
 	pub fn para_id(&self) -> ParaId {
 		match self {
 			VersionedCollationRequest::V2(req) => req.payload.para_id,
-		}
-	}
-
-	/// Returns candidate hash from the request payload.
-	pub fn candidate_hash(&self) -> CandidateHash {
-		match self {
-			VersionedCollationRequest::V2(req) => req.payload.candidate_hash,
+			VersionedCollationRequest::V3(req) => req.payload.para_id,
 		}
 	}
 
 	/// Returns relay parent from the request payload.
-	pub fn relay_parent(&self) -> Hash {
+	pub fn scheduling_parent(&self) -> Hash {
 		match self {
-			VersionedCollationRequest::V2(req) => req.payload.relay_parent,
+			VersionedCollationRequest::V2(req) => req.payload.scheduling_parent,
+			VersionedCollationRequest::V3(req) => req.payload.scheduling_parent,
 		}
 	}
 
@@ -123,16 +137,37 @@ impl VersionedCollationRequest {
 	pub fn peer_id(&self) -> PeerId {
 		match self {
 			VersionedCollationRequest::V2(req) => req.peer,
+			VersionedCollationRequest::V3(req) => req.peer,
 		}
 	}
 
-	/// Sends the response back to requester.
-	pub fn send_outgoing_response(
+	/// Builds and sends the versioned response carrying the collation.
+	pub fn send_collation_response(
 		self,
-		response: OutgoingResponse<protocol_v2::CollationFetchingResponse>,
+		receipt: CandidateReceipt,
+		pov: PoV,
+		parent_head_data: HeadData,
+		sent_feedback: oneshot::Sender<()>,
 	) -> Result<(), ()> {
 		match self {
-			VersionedCollationRequest::V2(req) => req.send_outgoing_response(response),
+			Self::V2(req) => req.send_outgoing_response(OutgoingResponse {
+				result: Ok(protocol_v2::CollationFetchingResponse::CollationWithParentHeadData {
+					receipt,
+					pov,
+					parent_head_data,
+				}),
+				reputation_changes: Vec::new(),
+				sent_feedback: Some(sent_feedback),
+			}),
+			Self::V3(req) => req.send_outgoing_response(OutgoingResponse {
+				result: Ok(protocol_v3::CollationFetchingResponse::Collation {
+					receipt,
+					pov,
+					parent_head_data,
+				}),
+				reputation_changes: Vec::new(),
+				sent_feedback: Some(sent_feedback),
+			}),
 		}
 	}
 }
@@ -143,8 +178,8 @@ impl VersionedCollationRequest {
 /// aborted, it only indicates that we should start processing
 /// the next one from the queue.
 pub struct CollationSendResult {
-	/// Candidate's relay parent.
-	pub relay_parent: Hash,
+	/// Candidate's scheduling parent.
+	pub scheduling_parent: Hash,
 	/// Candidate hash.
 	pub candidate_hash: CandidateHash,
 	/// Peer id.

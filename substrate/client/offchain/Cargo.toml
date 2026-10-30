@@ -16,7 +16,6 @@ workspace = true
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-array-bytes = { workspace = true, default-features = true }
 bytes = { workspace = true, default-features = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
 fnv = { workspace = true }
@@ -26,7 +25,6 @@ http-body-util = { workspace = true }
 hyper = { features = ["http1", "http2"], workspace = true, default-features = true }
 hyper-rustls = { workspace = true }
 hyper-util = { features = ["client-legacy", "http1", "http2"], workspace = true }
-log = { workspace = true, default-features = true }
 num_cpus = { workspace = true }
 once_cell = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
@@ -34,7 +32,6 @@ rand = { workspace = true, default-features = true }
 rustls = { workspace = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-common = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
 sc-transaction-pool-api = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
@@ -52,7 +49,6 @@ async-trait = { workspace = true }
 sc-block-builder = { workspace = true, default-features = true }
 sc-client-db = { default-features = true, workspace = true }
 sc-transaction-pool = { workspace = true, default-features = true }
-sc-transaction-pool-api = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }

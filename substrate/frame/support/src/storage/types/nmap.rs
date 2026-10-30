@@ -598,7 +598,7 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	fn build_metadata(
-		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		deprecation_status: sp_metadata_ir::ItemDeprecationInfoIR,
 		docs: Vec<&'static str>,
 		entries: &mut Vec<StorageEntryMetadataIR>,
 	) {
@@ -814,7 +814,7 @@ mod test {
 
 			A::insert((3,), 10);
 			A::insert((4,), 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key((3,)), false);
 			assert_eq!(A::contains_key((4,)), false);
 
@@ -840,12 +840,12 @@ mod test {
 
 			let mut entries = vec![];
 			A::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
 			AValueQueryWithAnOnEmpty::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
@@ -862,7 +862,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -874,12 +874,12 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 					}
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3,)), None);
 			WithLen::append((0,), 10);
 			assert_eq!(WithLen::decode_len((0,)), Some(1));
@@ -1024,7 +1024,7 @@ mod test {
 
 			A::insert((3, 30), 10);
 			A::insert((4, 40), 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key((3, 30)), false);
 			assert_eq!(A::contains_key((4, 40)), false);
 
@@ -1050,12 +1050,12 @@ mod test {
 
 			let mut entries = vec![];
 			A::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
 			AValueQueryWithAnOnEmpty::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
@@ -1075,7 +1075,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1090,12 +1090,12 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 					}
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30)), None);
 			WithLen::append((0, 100), 10);
 			assert_eq!(WithLen::decode_len((0, 100)), Some(1));
@@ -1270,7 +1270,7 @@ mod test {
 
 			A::insert((3, 30, 300), 10);
 			A::insert((4, 40, 400), 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key((3, 30, 300)), false);
 			assert_eq!(A::contains_key((4, 40, 400)), false);
 
@@ -1301,12 +1301,12 @@ mod test {
 
 			let mut entries = vec![];
 			A::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
 			AValueQueryWithAnOnEmpty::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
@@ -1327,7 +1327,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 					},
 					StorageEntryMetadataIR {
 						name: "Foo",
@@ -1343,12 +1343,12 @@ mod test {
 						},
 						default: 98u32.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 					}
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30, 300)), None);
 			WithLen::append((0, 100, 1000), 10);
 			assert_eq!(WithLen::decode_len((0, 100, 1000)), Some(1));

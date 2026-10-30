@@ -20,7 +20,9 @@ use core::{marker::PhantomData, result};
 use frame_support::traits::{Contains, Get};
 use sp_runtime::traits::MaybeEquivalence;
 use xcm::latest::prelude::*;
-use xcm_executor::traits::{Error as MatchError, MatchesFungibles, MatchesNonFungibles};
+use xcm_executor::traits::{
+	Error as MatchError, MatchesFungibles, MatchesInstance, MatchesNonFungible, MatchesNonFungibles,
+};
 
 /// Converter struct implementing `AssetIdConversion` converting a numeric asset ID (must be
 /// `TryFrom/TryInto<u128>`) into a `GeneralIndex` junction, prefixed by some `Location` value.
@@ -46,7 +48,7 @@ impl<
 				.enumerate()
 				.any(|(index, junction)| latest_id.interior().at(index) != Some(junction))
 		{
-			return None
+			return None;
 		}
 		match latest_id.interior().at(latest_prefix.interior().len()) {
 			Some(Junction::GeneralIndex(id)) => ConvertAssetId::convert(&id),
@@ -104,9 +106,6 @@ impl<
 	}
 }
 
-#[deprecated = "Use `ConvertedConcreteId` instead"]
-pub type ConvertedConcreteAssetId<A, B, C, O> = ConvertedConcreteId<A, B, C, O>;
-
 pub struct MatchedConvertedConcreteId<AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther>(
 	PhantomData<(AssetId, Balance, MatchAssetId, ConvertAssetId, ConvertOther)>,
 );
@@ -147,8 +146,9 @@ impl<
 {
 	fn matches_nonfungibles(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
 		let (instance, class) = match (&a.fun, &a.id) {
-			(NonFungible(ref instance), AssetId(ref class)) if MatchClassId::contains(class) =>
-				(instance, class),
+			(NonFungible(ref instance), AssetId(ref class)) if MatchClassId::contains(class) => {
+				(instance, class)
+			},
 			_ => return Err(MatchError::AssetNotHandled),
 		};
 		let what = ConvertClassId::convert(class).ok_or(MatchError::AssetIdConversionFailed)?;
@@ -158,11 +158,46 @@ impl<
 	}
 }
 
+/// An adapter that implements the unified unique instances matcher [`MatchesInstance`] trait
+/// for the [`MatchesNonFungibles`].
+/// The resulting matcher expects the instances to be part of some class (i.e., instance group,
+/// such as an NFT collection).
+///
+/// * `ClassId` is the ID of an instance class (e.g., NFT collection ID),
+/// * `InstanceId` is a class-scoped ID of a class member's unique instance (e.g., an NFT ID inside
+///   a collection).
+pub struct MatchInClassInstances<Matcher>(PhantomData<Matcher>);
+
+impl<ClassId, InstanceId, Matcher: MatchesNonFungibles<ClassId, InstanceId>>
+	MatchesInstance<(ClassId, InstanceId)> for MatchInClassInstances<Matcher>
+{
+	fn matches_instance(a: &Asset) -> result::Result<(ClassId, InstanceId), MatchError> {
+		Matcher::matches_nonfungibles(a)
+	}
+}
+
+/// An adapter that implements the unified unique instances matcher [`MatchesInstance`] trait
+/// for the [`MatchesNonFungible`].
+/// The resulting matcher expects the instances to be fully individual, not belonging to any group
+/// (such as an NFT collection).
+///
+/// In practice, this typically means that the `InstanceId` is an indivisible ID (i.e., it is not
+/// composed of multiple IDs).
+pub struct MatchClasslessInstances<Matcher>(PhantomData<Matcher>);
+
+impl<InstanceId, Matcher: MatchesNonFungible<InstanceId>> MatchesInstance<InstanceId>
+	for MatchClasslessInstances<Matcher>
+{
+	fn matches_instance(a: &Asset) -> result::Result<InstanceId, MatchError> {
+		Matcher::matches_nonfungible(a).ok_or(MatchError::AssetNotHandled)
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 
-	use xcm_executor::traits::JustTry;
+	use sp_runtime::traits::TryConvertInto;
 
 	struct OnlyParentZero;
 	impl Contains<Location> for OnlyParentZero {
@@ -190,9 +225,9 @@ mod tests {
 			AsPrefixedGeneralIndex<
 				TrustBackedAssetsPalletLocation,
 				AssetIdForTrustBackedAssets,
-				JustTry,
+				TryConvertInto,
 			>,
-			JustTry,
+			TryConvertInto,
 		>;
 		assert_eq!(
 			TrustBackedAssetsPalletLocation::get(),
@@ -263,7 +298,7 @@ mod tests {
 			ClassId,
 			ClassInstanceId,
 			OnlyParentZero,
-			AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, ClassId, JustTry>,
+			AsPrefixedGeneralIndex<TrustBackedAssetsPalletLocation, ClassId, TryConvertInto>,
 			ClassInstanceIdConverter,
 		>;
 		assert_eq!(

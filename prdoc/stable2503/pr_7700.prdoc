@@ -1,0 +1,29 @@
+title: '[AHM] Poke deposits: Multisig pallet'
+doc:
+- audience: Runtime Dev
+  description: This PR adds a new extrinsic `poke_deposit` to `pallet-multisig`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a multisig operation.
+crates:
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-multisig
+  bump: major

@@ -150,9 +150,30 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<Public, Signature> {
+		fn sign_message(message: &[u8]) -> (Public, Signature);
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	impl BenchmarkHelper<sp_runtime::MultiSigner, sp_runtime::MultiSignature> for () {
+		fn sign_message(message: &[u8]) -> (sp_runtime::MultiSigner, sp_runtime::MultiSignature) {
+			let public = sp_io::crypto::sr25519_generate(0.into(), None);
+			let signature = sp_runtime::MultiSignature::Sr25519(
+				sp_io::crypto::sr25519_sign(
+					0.into(),
+					&public.into_account().try_into().unwrap(),
+					message,
+				)
+				.unwrap(),
+			);
+			(public.into(), signature)
+		}
+	}
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency trait.
@@ -225,6 +246,11 @@ pub mod pallet {
 		/// The maximum length of a username, including its suffix and any system-added delimiters.
 		#[pallet::constant]
 		type MaxUsernameLength: Get<u32>;
+
+		/// A set of helper functions for benchmarking.
+		/// The default configuration `()` uses the `SR25519` signature schema.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper<Self::SigningPublicKey, Self::OffchainSignature>;
 
 		/// Weight information for extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -419,6 +445,8 @@ pub mod pallet {
 		JudgementGiven { target: T::AccountId, registrar_index: RegistrarIndex },
 		/// A registrar was added.
 		RegistrarAdded { registrar_index: RegistrarIndex },
+		/// A registrar was removed.
+		RegistrarRemoved { registrar_index: RegistrarIndex },
 		/// A sub-identity was added to an identity and the deposit paid.
 		SubIdentityAdded { sub: T::AccountId, main: T::AccountId, deposit: BalanceOf<T> },
 		/// An account's sub-identities were set (in bulk).
@@ -488,6 +516,45 @@ pub mod pallet {
 			Self::deposit_event(Event::RegistrarAdded { registrar_index: i });
 
 			Ok(Some(T::WeightInfo::add_registrar(registrar_count as u32)).into())
+		}
+
+		/// Remove a registrar from the system.
+		///
+		/// The dispatch origin for this call must be `T::RegistrarOrigin`.
+		///
+		/// The registrar's slot is tombstoned (set to `None`) rather than removed, so that the
+		/// `RegistrarIndex` of every other registrar — and any judgements already recorded against
+		/// them — stays stable. The freed index is not reused by `add_registrar`, so each removal
+		/// permanently consumes one slot against `MaxRegistrars` (reusing the slot would let a new
+		/// registrar inherit an index that historical judgements still reference).
+		///
+		/// Deposits reserved by pending `request_judgement` calls against this registrar are
+		/// **not** returned; once the registrar is removed `provide_judgement` can no longer
+		/// release them, so affected users should reclaim their funds manually with
+		/// `cancel_request`.
+		///
+		/// - `index`: the index of the registrar to remove.
+		///
+		/// Emits `RegistrarRemoved` if successful.
+		#[pallet::call_index(24)]
+		#[pallet::weight(T::WeightInfo::remove_registrar(T::MaxRegistrars::get()))]
+		pub fn remove_registrar(
+			origin: OriginFor<T>,
+			#[pallet::compact] index: RegistrarIndex,
+		) -> DispatchResultWithPostInfo {
+			T::RegistrarOrigin::ensure_origin(origin)?;
+
+			let registrar_count =
+				Registrars::<T>::try_mutate(|registrars| -> Result<usize, DispatchError> {
+					let slot =
+						registrars.get_mut(index as usize).ok_or(Error::<T>::InvalidIndex)?;
+					ensure!(slot.take().is_some(), Error::<T>::EmptyIndex);
+					Ok(registrars.len())
+				})?;
+
+			Self::deposit_event(Event::RegistrarRemoved { registrar_index: index });
+
+			Ok(Some(T::WeightInfo::remove_registrar(registrar_count as u32)).into())
 		}
 
 		/// Set an account's identity information and reserve the appropriate deposit.
@@ -679,14 +746,16 @@ pub mod pallet {
 
 			let item = (reg_index, Judgement::FeePaid(registrar.fee));
 			match id.judgements.binary_search_by_key(&reg_index, |x| x.0) {
-				Ok(i) =>
+				Ok(i) => {
 					if id.judgements[i].1.is_sticky() {
-						return Err(Error::<T>::StickyJudgement.into())
+						return Err(Error::<T>::StickyJudgement.into());
 					} else {
 						id.judgements[i] = item
-					},
-				Err(i) =>
-					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?,
+					}
+				},
+				Err(i) => {
+					id.judgements.try_insert(i, item).map_err(|_| Error::<T>::TooManyRegistrars)?
+				},
 			}
 
 			T::Currency::reserve(&sender, registrar.fee)?;
@@ -728,7 +797,7 @@ pub mod pallet {
 			let fee = if let Judgement::FeePaid(fee) = id.judgements.remove(pos).1 {
 				fee
 			} else {
-				return Err(Error::<T>::JudgementGiven.into())
+				return Err(Error::<T>::JudgementGiven.into());
 			};
 
 			let err_amount = T::Currency::unreserve(&sender, fee);
@@ -876,7 +945,7 @@ pub mod pallet {
 			let mut id = IdentityOf::<T>::get(&target).ok_or(Error::<T>::InvalidTarget)?;
 
 			if T::Hashing::hash_of(&id.info) != identity {
-				return Err(Error::<T>::JudgementForDifferentIdentity.into())
+				return Err(Error::<T>::JudgementForDifferentIdentity.into());
 			}
 
 			let item = (reg_index, judgement);
@@ -1208,7 +1277,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			if let Some((who, expiration, provider)) = PendingUsernames::<T>::take(&username) {
 				let now = frame_system::Pallet::<T>::block_number();
 				ensure!(now > expiration, Error::<T>::NotExpired);
@@ -1293,7 +1362,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			username: Username<T>,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let grace_period_expiry =
 				UnbindingUsernames::<T>::take(&username).ok_or(Error::<T>::NotUnbinding)?;
 			let now = frame_system::Pallet::<T>::block_number();
@@ -1414,7 +1483,7 @@ impl<T: Config> Pallet<T> {
 		fields: <T::IdentityInformation as IdentityInformationProvider>::FieldsIdentifier,
 	) -> bool {
 		IdentityOf::<T>::get(who)
-			.map_or(false, |registration| (registration.info.has_identity(fields)))
+			.map_or(false, |registration| registration.info.has_identity(fields))
 	}
 
 	/// Calculate the deposit required for an identity.
@@ -1487,7 +1556,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		// Happy path, user has signed the raw data.
 		if signature.verify(data, &signer) {
-			return Ok(())
+			return Ok(());
 		}
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into
 		// `<Bytes> + data + </Bytes>`, so why we support both wrapped and raw versions.

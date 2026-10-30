@@ -1,0 +1,57 @@
+title: Remove `SelectCore` and `GetCoreSelectorApi`
+doc:
+- audience: Runtime Dev
+  description: |
+    Downstream users need to remove the `SelectCore` type from the `parachain_system::Config`:
+    ```diff
+    - type SelectCore = ...;
+    +
+    ```
+
+    Also the `GetCoreSelectorApi` got removed. If you had implemented it before in your runtime, you can remove it.
+
+crates:
+- name: cumulus-client-consensus-aura
+  bump: major
+- name: polkadot-node-subsystem-util
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-primitives-core
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: major
+- name: cumulus-pallet-aura-ext
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: glutton-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: penpal-runtime
+  bump: major
+- name: rococo-parachain-runtime
+  bump: major
+- name: yet-another-parachain-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major

@@ -223,7 +223,6 @@ impl<B: BlockT> StateStrategy<B> {
 					hash,
 					header: Some(header),
 					body,
-					indexed_body: None,
 					justifications,
 					origin: None,
 					allow_missing_state: true,
@@ -285,7 +284,7 @@ impl<B: BlockT> StateStrategy<B> {
 	/// Produce state request.
 	fn state_request(&mut self) -> Option<(PeerId, StateRequest)> {
 		if self.state_sync.is_complete() {
-			return None
+			return None;
 		}
 
 		if self
@@ -294,7 +293,7 @@ impl<B: BlockT> StateStrategy<B> {
 			.any(|peer| matches!(peer.state, PeerState::DownloadingState))
 		{
 			// Only one state request at a time is possible.
-			return None
+			return None;
 		}
 
 		let peer_id =
@@ -314,7 +313,7 @@ impl<B: BlockT> StateStrategy<B> {
 	) -> Option<PeerId> {
 		let mut targets: Vec<_> = self.peers.values().map(|p| p.best_number).collect();
 		if targets.is_empty() {
-			return None
+			return None;
 		}
 		targets.sort();
 		let median = targets[targets.len() / 2];
@@ -327,7 +326,7 @@ impl<B: BlockT> StateStrategy<B> {
 				self.disconnected_peers.is_peer_available(peer_id)
 			{
 				peer.state = new_state;
-				return Some(*peer_id)
+				return Some(*peer_id);
 			}
 		}
 		None
@@ -375,7 +374,6 @@ impl<B: BlockT> StateStrategy<B> {
 					}))
 				}
 				.boxed(),
-				remove_obsolete: false,
 			}
 		});
 		self.actions.extend(state_request);
@@ -396,7 +394,7 @@ mod test {
 	use crate::{
 		schema::v1::{StateRequest, StateResponse},
 		service::network::NetworkServiceProvider,
-		strategy::state_sync::{ImportResult, StateSyncProgress, StateSyncProvider},
+		strategy::state_sync::{ImportResult, StateSync, StateSyncProgress, StateSyncProvider},
 	};
 	use codec::Decode;
 	use sc_block_builder::BlockBuilderBuilder;
@@ -676,6 +674,56 @@ mod test {
 	}
 
 	#[test]
+	fn empty_unverified_state_response_is_rejected() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let mut state_sync =
+			StateSync::new(client, target_block.header().clone(), None, None, true);
+
+		let response = StateResponse { entries: Vec::new(), proof: vec![1] };
+
+		assert!(matches!(state_sync.import(response), ImportResult::BadResponse));
+	}
+
+	#[test]
+	fn empty_unverified_state_response_drops_peer() {
+		let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+		let target_block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().best_hash)
+			.with_parent_block_number(client.chain_info().best_number)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		let peer_id = PeerId::random();
+		let mut state_strategy = StateStrategy::new(
+			client,
+			target_block.header().clone(),
+			None,
+			None,
+			true,
+			std::iter::once((peer_id, 10)),
+			ProtocolName::Static(""),
+		);
+		let response = StateResponse { entries: Vec::new(), proof: vec![1] }.encode_to_vec();
+
+		state_strategy.on_state_response(&peer_id, response);
+
+		assert!(matches!(
+			state_strategy.actions.as_slice(),
+			[SyncingAction::DropPeer(BadPeer(id, _))] if *id == peer_id,
+		));
+	}
+
+	#[test]
 	fn partial_state_response_doesnt_generate_actions() {
 		let mut state_sync_provider = MockStateSync::<Block>::new();
 		// Sync provider says that the response is partial.
@@ -731,7 +779,6 @@ mod test {
 			hash,
 			header: Some(header),
 			body,
-			indexed_body: None,
 			justifications,
 			origin: None,
 			allow_missing_state: true,

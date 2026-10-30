@@ -1,0 +1,25 @@
+title: Rework EC Hostcalls
+doc:
+- audience: Runtime Dev
+  description: |-
+    Rework all elliptic curve hostcalls: BLS12-381, BLS12-377, BW6-761,
+    Ed-on-BLS12-377, and Ed-on-BLS12-381-Bandersnatch.
+
+    Changes:
+    - Use affine representation for point arguments instead of projective.
+      `mul_projective_*` hostcalls renamed to `mul_*` and now accept/return
+      affine points. `msm_*` hostcalls now return affine points.
+    - Eliminate host-side memory allocation. Hostcalls now take an output
+      buffer parameter (`&mut [u8]`) instead of returning allocated memory.
+    - Hostcalls now return `Result<(), Error>` (marshaled as `u32`) to signal
+      success or error conditions.
+
+    New pass-by strategy (in `sp-runtime-interface`):
+    - `PassFatPointerAndWrite`: Passes a mutable buffer pointer to the host.
+      The host creates a zero-initialized buffer, the host function writes to it,
+      and the result is written back to guest memory.
+crates:
+- name: sp-crypto-ec-utils
+  bump: major
+- name: sp-runtime-interface
+  bump: minor

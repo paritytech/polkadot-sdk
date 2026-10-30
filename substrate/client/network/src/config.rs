@@ -35,13 +35,18 @@ pub use crate::{
 	types::ProtocolName,
 };
 
+pub use litep2p::protocol::libp2p::bitswap::BitswapHandle as Litep2pBitswapHandle;
 pub use sc_network_types::{build_multiaddr, ed25519};
 use sc_network_types::{
 	multiaddr::{self, Multiaddr},
+	multihash::Multihash,
 	PeerId,
 };
 
-use crate::service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend};
+use crate::{
+	service::{ensure_addresses_consistent_with_transport, traits::NetworkBackend},
+	webrtc,
+};
 use codec::Encode;
 use prometheus_endpoint::Registry;
 use zeroize::Zeroize;
@@ -66,7 +71,31 @@ use std::{
 	pin::Pin,
 	str::{self, FromStr},
 	sync::Arc,
+	time::Duration,
 };
+
+/// Default timeout for idle connections of 10 seconds is good enough for most networks.
+/// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
+/// are possible in custom nodes through [`NetworkConfiguration`].
+pub const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Maximum number of locally kept Kademlia provider keys.
+///
+/// 10000 keys is enough for a testnet with fast runtime (1-minute epoch) and 13 parachains.
+pub const KADEMLIA_MAX_PROVIDER_KEYS: usize = 10000;
+
+/// Time to keep Kademlia content provider records.
+///
+/// 10 h is enough time to keep the parachain bootnode record for two 4-hour epochs.
+pub const KADEMLIA_PROVIDER_RECORD_TTL: Duration = Duration::from_secs(10 * 3600);
+
+/// Interval of republishing Kademlia provider records.
+///
+/// 3.5 h means we refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(12600);
+
+/// Default value for the `--light-request-execution-timeout-ms` parameter.
+pub const DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
@@ -123,6 +152,96 @@ pub fn parse_addr(mut addr: Multiaddr) -> Result<(PeerId, Multiaddr), ParseErr> 
 	Ok((peer_id, addr))
 }
 
+/// The first component of `address` derived from the node key, if it carries one.
+fn configured_identity(address: &Multiaddr) -> Option<multiaddr::Protocol<'_>> {
+	address.iter().find(|protocol| {
+		matches!(protocol, multiaddr::Protocol::P2p(_) | multiaddr::Protocol::Certhash(_))
+	})
+}
+
+/// Verify and remove the identity components an operator appended to a configured address.
+///
+/// `/p2p/<peer id>` and `/certhash/<hash>` are both derived from the node key, so one that
+/// disagrees with the key in use means the address published elsewhere names a different node.
+/// Refuse to start rather than listen under an identity nobody dials, or advertise one.
+///
+/// `node_key_origin` names where the key compared against comes from, for the operator to correct.
+fn check_and_strip_identity(
+	address: &mut Multiaddr,
+	local_peer_id: PeerId,
+	certhash: Option<Multihash>,
+	node_key_origin: &str,
+) -> Result<(), crate::error::Error> {
+	let configured_address = address.clone();
+
+	// `/p2p/<peer id>` comes last, whatever the transport, and `/certhash/<hash>` sits before it.
+	let configured_peer_id = match address.iter().last() {
+		Some(multiaddr::Protocol::P2p(peer_id)) => {
+			address.pop();
+			Some(peer_id)
+		},
+		// Not a peer id, so it belongs to the address.
+		_ => None,
+	};
+
+	let configured_certhash = match address.iter().last() {
+		Some(multiaddr::Protocol::Certhash(hash)) => {
+			address.pop();
+			Some(hash)
+		},
+		_ => None,
+	};
+
+	// If an identity is still present within the address it must be a malformed one.
+	if let Some(identity) = configured_identity(address) {
+		return Err(crate::error::Error::MalformedAddressIdentity {
+			component: identity.to_string(),
+			address: configured_address,
+		});
+	}
+
+	// Nothing left once stripped: the address named an identity and no socket to reach it at.
+	if address.iter().next().is_none() {
+		if let Some(identity) = configured_identity(&configured_address) {
+			return Err(crate::error::Error::MalformedAddressIdentity {
+				component: identity.to_string(),
+				address: configured_address,
+			});
+		}
+	}
+
+	// A certificate to hash is something only a `webrtc-direct` address presents.
+	if let Some(configured) = configured_certhash {
+		let expected =
+			certhash.filter(|_| webrtc::is_webrtc_address(address)).ok_or_else(|| {
+				crate::error::Error::InvalidWebRtcAddress { address: configured_address.clone() }
+			})?;
+
+		if configured != expected {
+			return Err(crate::error::Error::MismatchedAddressIdentity {
+				address: configured_address,
+				configured: multiaddr::Protocol::Certhash(configured).to_string(),
+				expected: multiaddr::Protocol::Certhash(expected).to_string(),
+				node_key_origin: node_key_origin.to_string(),
+			});
+		}
+	}
+
+	if let Some(configured) = configured_peer_id {
+		let expected = local_peer_id.into();
+		if configured != expected {
+			return Err(crate::error::Error::MismatchedAddressIdentity {
+				address: configured_address,
+				configured: multiaddr::Protocol::P2p(configured).to_string(),
+				expected: multiaddr::Protocol::P2p(expected).to_string(),
+				node_key_origin: node_key_origin.to_string(),
+			});
+		}
+	}
+
+	Ok(())
+}
+
 /// Address of a node, including its identity.
 ///
 /// This struct represents a decoded version of a multiaddress that ends with `/p2p/<peerid>`.
@@ -149,8 +268,12 @@ pub struct MultiaddrWithPeerId {
 impl MultiaddrWithPeerId {
 	/// Concatenates the multiaddress and peer ID into one multiaddress containing both.
 	pub fn concat(&self) -> Multiaddr {
-		let proto = multiaddr::Protocol::P2p(From::from(self.peer_id));
-		self.multiaddr.clone().with(proto)
+		let mut addr = self.multiaddr.clone();
+		// Ensure that the address not already contains the `p2p` protocol.
+		if matches!(addr.iter().last(), Some(multiaddr::Protocol::P2p(_))) {
+			addr.pop();
+		}
+		addr.with(multiaddr::Protocol::P2p(From::from(self.peer_id)))
 	}
 }
 
@@ -332,6 +455,24 @@ impl<K> fmt::Debug for Secret<K> {
 }
 
 impl NodeKeyConfig {
+	/// Where the key comes from, to point an operator at what to correct.
+	fn source(&self) -> String {
+		match self {
+			Self::Ed25519(Secret::Input(_)) => "the node key given with `--node-key`".into(),
+			Self::Ed25519(Secret::File(path)) => format!("the node key file `{}`", path.display()),
+			Self::Ed25519(Secret::New) => "the node key generated anew on each start".into(),
+		}
+	}
+
+	/// Whether resolving this key generates a new one instead of loading a configured one.
+	fn missing(&self) -> bool {
+		match self {
+			Self::Ed25519(Secret::Input(_)) => false,
+			Self::Ed25519(Secret::File(path)) => !path.exists(),
+			Self::Ed25519(Secret::New) => true,
+		}
+	}
+
 	/// Evaluate a `NodeKeyConfig` to obtain an identity `Keypair`:
 	///
 	///  * If the secret is configured as input, the corresponding keypair is returned.
@@ -399,7 +540,7 @@ where
 }
 
 /// Write secret bytes to a file.
-fn write_secret_file<P>(path: P, sk_bytes: &[u8]) -> io::Result<()>
+pub(super) fn write_secret_file<P>(path: P, sk_bytes: &[u8]) -> io::Result<()>
 where
 	P: AsRef<Path>,
 {
@@ -620,11 +761,19 @@ pub struct NetworkConfiguration {
 	/// Configuration for the transport layer.
 	pub transport: TransportConfig,
 
+	/// Idle connection timeout.
+	///
+	/// Set by default to [`DEFAULT_IDLE_CONNECTION_TIMEOUT`].
+	pub idle_connection_timeout: Duration,
+
 	/// Maximum number of peers to ask the same blocks in parallel.
 	pub max_parallel_downloads: u32,
 
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
+
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
 
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
@@ -647,8 +796,19 @@ pub struct NetworkConfiguration {
 	/// `kademlia_replication_factor` peers to consider record successfully put.
 	pub kademlia_replication_factor: NonZeroUsize,
 
-	/// Enable serving block data over IPFS bitswap.
+	/// Enable serving indexed transaction data using IPFS Bitswap protocol.
 	pub ipfs_server: bool,
+
+	/// List of IPFS bootstrap nodes to register in IPFS DHT as a provider of indexed transaction
+	/// data.
+	///
+	/// If IPFS bootstrap nodes are not provided, this node will only handle direct Bitswap
+	/// requests from peers that already know its address.
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
+
+	/// Wall-clock limit for a single runtime call serving an (untrusted) light-client request.
+	/// `None` disables the limit.
+	pub light_request_execution_timeout: Option<Duration>,
 
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
@@ -674,8 +834,10 @@ impl NetworkConfiguration {
 			client_version: client_version.into(),
 			node_name: node_name.into(),
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
@@ -683,7 +845,9 @@ impl NetworkConfiguration {
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
-			network_backend: NetworkBackendType::Libp2p,
+			ipfs_bootnodes: Vec::new(),
+			light_request_execution_timeout: Some(DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT),
+			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
 
@@ -716,6 +880,120 @@ impl NetworkConfiguration {
 		config.allow_non_globals_in_dht = true;
 		config
 	}
+
+	/// Validate this node's listen and public addresses against its node key, and append its
+	/// WebRTC `/certhash` to the public `webrtc-direct` ones.
+	///
+	/// A listen or public address may carry `/p2p/<peer id>`, and a `webrtc-direct` one
+	/// `/certhash/<hash>`. Both are checked against the node key and removed.
+	pub fn validate_and_complete_addresses(&mut self) -> Result<(), crate::error::Error> {
+		let listen_webrtc = self.listen_addresses.iter().any(webrtc::is_webrtc_address);
+		let public_webrtc = self.public_addresses.iter().any(webrtc::is_webrtc_address);
+		let addresses = || self.listen_addresses.iter().chain(&self.public_addresses);
+
+		// WebRTC is a litep2p-only transport.
+		if matches!(self.network_backend, NetworkBackendType::Libp2p) &&
+			(listen_webrtc || public_webrtc)
+		{
+			return Err(crate::error::Error::WebRtcNotSupportedByBackend);
+		}
+
+		// An address peers would be told to dial with no listener behind it. The default listen
+		// addresses have already been appended, so there is effectively no listener behind.
+		if !listen_webrtc && public_webrtc {
+			return Err(crate::error::Error::WebRtcTransportNotConfigured);
+		}
+
+		let has_identity = addresses().any(|address| configured_identity(address).is_some());
+
+		// Resolving the node key can write its file, so only do it for a configuration that names
+		// an identity to check or needs a certificate to present.
+		if !listen_webrtc && !has_identity {
+			return Ok(());
+		}
+
+		// A key that does not exist yet cannot have a configured identity.
+		if has_identity && self.node_key.missing() {
+			return Err(crate::error::Error::AddressIdentityWithoutNodeKey);
+		}
+
+		// Take the source before resolving, otherwise every key would look like a `--node-key`.
+		let node_key_origin = self.node_key.source();
+		let keypair = self.node_key.clone().into_keypair()?;
+		let local_peer_id = keypair.public().to_peer_id();
+
+		let certhash = listen_webrtc
+			.then(|| webrtc::derive_certificate(keypair.secret().into()))
+			.transpose()
+			.map_err(crate::error::Error::Litep2p)?
+			.map(|certificate| certificate.certhash().into());
+
+		// Pin the resolved key, so that each following `into_keypair()`
+		// returns the same secret key.
+		self.node_key = NodeKeyConfig::Ed25519(Secret::Input(keypair.secret()));
+
+		for address in self.listen_addresses.iter_mut() {
+			check_and_strip_identity(address, local_peer_id, certhash, &node_key_origin)?;
+		}
+
+		// A `/certhash` the node agrees with is stripped here and put back by the completion below.
+		for address in self.public_addresses.iter_mut() {
+			check_and_strip_identity(address, local_peer_id, certhash, &node_key_origin)?;
+		}
+
+		// The listen addresses are bare now, shape check applies,
+		// `/certhash` is appended to the public addresses.
+		if let Some(certhash) = certhash {
+			webrtc::validate_and_complete_addresses(
+				&self.listen_addresses,
+				&mut self.public_addresses,
+				certhash,
+			)?;
+		}
+
+		Ok(())
+	}
+
+	/// Remove every `webrtc-direct` address of this node.
+	///
+	/// The relay chain side of a collator uses this to drop the WebRTC listeners appended by
+	/// default for a full node. The public WebRTC addresses go with the listeners serving them.
+	/// Dropping one is warned about, as it can only have been configured explicitly.
+	pub fn remove_webrtc_addresses(&mut self) {
+		self.listen_addresses.retain(|address| !webrtc::is_webrtc_address(address));
+		self.public_addresses.retain(|address| {
+			let keep = !webrtc::is_webrtc_address(address);
+			if !keep {
+				log::warn!(
+					target: crate::LOG_TARGET,
+					"removing public WebRTC address {address}: no WebRTC listener on this node",
+				);
+			}
+			keep
+		});
+	}
+}
+
+/// IPFS server configuration.
+pub struct IpfsConfig {
+	/// Litep2p Bitswap protocol config, consumed by the litep2p network backend.
+	pub litep2p_bitswap_config: litep2p::protocol::libp2p::bitswap::Config,
+	/// Indexed transactions provider.
+	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
+	/// IPFS bootstrap nodes.
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
+impl IpfsConfig {
+	/// Construct an [`IpfsConfig`] together with the litep2p transport-side Bitswap handle.
+	pub fn new(
+		block_provider: Box<dyn crate::IpfsBlockProvider>,
+		bootnodes: Vec<MultiaddrWithPeerId>,
+	) -> (Self, Litep2pBitswapHandle) {
+		let (litep2p_bitswap_config, litep2p_handle) =
+			litep2p::protocol::libp2p::bitswap::Config::new();
+		(Self { litep2p_bitswap_config, block_provider, bootnodes }, litep2p_handle)
+	}
 }
 
 /// Network initialization parameters.
@@ -746,7 +1024,7 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub block_announce_config: N::NotificationProtocolConfig,
 
 	/// Bitswap configuration, if the server has been enabled.
-	pub bitswap_config: Option<N::BitswapConfig>,
+	pub ipfs_config: Option<IpfsConfig>,
 
 	/// Notification metrics.
 	pub notification_metrics: NotificationMetrics,
@@ -909,13 +1187,21 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	Libp2p,
-
 	/// Use litep2p for P2P networking.
+	///
+	/// This is the preferred option for Substrate-based chains.
+	#[default]
 	Litep2p,
+
+	/// Use libp2p for P2P networking.
+	///
+	/// The libp2p is still used for compatibility reasons until the
+	/// ecosystem switches entirely to litep2p. The backend will enter
+	/// a "best-effort" maintenance mode, where only critical issues will
+	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
+	Libp2p,
 }
 
 #[cfg(test)]

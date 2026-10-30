@@ -1,0 +1,10 @@
+title: Improve metadata for `SkipCheckIfFeeless`
+doc:
+- audience: Runtime Dev
+  description: |-
+    If the inner transaction extension used inside `SkipCheckIfFeeless` are multiples then the metadata is not correct, it is now fixed.
+
+    E.g. if the transaction extension is `SkipCheckIfFeeless::<Runtime, (Payment1, Payment2)>` then the metadata was wrong.
+crates:
+- name: pallet-skip-feeless-payment
+  bump: patch

@@ -34,7 +34,6 @@ use crate::{
 use futures::{channel::oneshot, Stream};
 use prometheus_endpoint::Registry;
 
-use sc_client_api::BlockBackend;
 use sc_network_common::{role::ObservedRole, ExHashT};
 pub use sc_network_types::{
 	kad::{Key as KademliaKey, Record},
@@ -111,6 +110,9 @@ pub trait PeerStore {
 /// Networking backend.
 #[async_trait::async_trait]
 pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
+	/// Whether this backend supports Bitswap ([`crate::config::Params::ipfs_config`]).
+	const SUPPORTS_IPFS: bool = false;
+
 	/// Type representing notification protocol-related configuration.
 	type NotificationProtocolConfig: NotificationConfig;
 
@@ -126,9 +128,6 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 	/// Type implementing [`PeerStore`].
 	type PeerStore: PeerStore;
 
-	/// Bitswap config.
-	type BitswapConfig;
-
 	/// Create new `NetworkBackend`.
 	fn new(params: Params<B, H, Self>) -> Result<Self, Error>
 	where
@@ -142,11 +141,6 @@ pub trait NetworkBackend<B: BlockT + 'static, H: ExHashT>: Send + 'static {
 
 	/// Register metrics that are used by the notification protocols.
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics;
-
-	/// Create Bitswap server.
-	fn bitswap_server(
-		client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig);
 
 	/// Create notification protocol configuration and an associated `NotificationService`
 	/// for the protocol.
@@ -215,6 +209,9 @@ where
 
 /// Provides access to the networking DHT.
 pub trait NetworkDHTProvider {
+	/// Start finding closest peers to the target.
+	fn find_closest_peers(&self, target: PeerId);
+
 	/// Start getting a value from the DHT.
 	fn get_value(&self, key: &KademliaKey);
 
@@ -250,6 +247,10 @@ where
 	T: ?Sized,
 	T: NetworkDHTProvider,
 {
+	fn find_closest_peers(&self, target: PeerId) {
+		T::find_closest_peers(self, target)
+	}
+
 	fn get_value(&self, key: &KademliaKey) {
 		T::get_value(self, key)
 	}
@@ -893,7 +894,6 @@ pub trait NotificationService: Debug + Send {
 	async fn open_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 
 	/// Instruct `Notifications` to close substream for `peer`.
-	//
 	// NOTE: not offered by the current implementation
 	async fn close_substream(&mut self, peer: PeerId) -> Result<(), ()>;
 

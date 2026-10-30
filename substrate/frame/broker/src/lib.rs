@@ -22,9 +22,9 @@ pub use pallet::*;
 
 mod adapt_price;
 mod benchmarking;
-mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
@@ -43,8 +43,11 @@ pub mod weights;
 pub use weights::WeightInfo;
 
 pub use adapt_price::*;
-pub use core_mask::*;
 pub use coretime_interface::*;
+pub use fp_coretime::{
+	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	CORE_MASK_BITS,
+};
 pub use types::*;
 
 extern crate alloc;
@@ -67,7 +70,7 @@ pub mod pallet {
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::traits::{Convert, ConvertBack, MaybeConvert};
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(4);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(5);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -75,6 +78,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Weight information for all calls of this pallet.
@@ -139,6 +143,12 @@ pub mod pallet {
 	/// The Polkadot Core reservations (generally tasked with the maintenance of System Chains).
 	#[pallet::storage]
 	pub type Reservations<T> = StorageValue<_, ReservationsRecordOf<T>, ValueQuery>;
+
+	/// Force reservations that need to be inserted into the workplan at the next sale rotation.
+	///
+	/// They are automatically freed at the next sale rotation.
+	#[pallet::storage]
+	pub type ForceReservations<T> = StorageValue<_, ReservationsRecordOf<T>, ValueQuery>;
 
 	/// The Polkadot Core legacy leases.
 	#[pallet::storage]
@@ -335,6 +345,8 @@ pub mod pallet {
 			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
+			/// Sequential identifier for the current sale period.
+			sale_index: SaleIndex,
 		},
 		/// A new lease has been created.
 		Leased {
@@ -408,6 +420,14 @@ pub mod pallet {
 			/// The Region whose contribution is no longer exists.
 			region_id: RegionId,
 		},
+		/// A region has been force-removed from the pool. This is usually due to a provisionally
+		/// pooled region being redeployed.
+		RegionUnpooled {
+			/// The Region which has been force-removed from the pool.
+			region_id: RegionId,
+			/// The timeslice at which the region was force-removed.
+			when: Timeslice,
+		},
 		/// Some historical Instantaneous Core Pool payment record has been initialized.
 		HistoryInitialized {
 			/// The timeslice whose history has been initialized.
@@ -471,7 +491,7 @@ pub mod pallet {
 			task: TaskId,
 		},
 		/// Failed to auto-renew a core, likely due to the payer account not being sufficiently
-		/// funded.
+		/// funded or the workload on the core no longer belonging to the paying task.
 		AutoRenewalFailed {
 			/// The core for which the renewal failed.
 			core: CoreIndex,
@@ -485,6 +505,18 @@ pub mod pallet {
 		/// This should never happen, given that enable_auto_renew checks for this before enabling
 		/// auto-renewal.
 		AutoRenewalLimitReached,
+		/// Failed to assign a force reservation due to no free cores available.
+		ForceReservationFailed {
+			/// The schedule that could not be assigned.
+			schedule: Schedule,
+		},
+		/// Potential renewal was forcefully removed.
+		PotentialRenewalRemoved {
+			/// The core associated with the potential renewal that was removed.
+			core: CoreIndex,
+			/// The timeslice associated with the potential renewal that was removed.
+			timeslice: Timeslice,
+		},
 	}
 
 	#[pallet::error]
@@ -568,6 +600,10 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.The amount of credits the user attempted to purchase is
 		/// below `T::MinimumCreditPurchase`.
 		CreditPurchaseTooSmall,
+		/// The renewable workload of the core does not include the given task.
+		TaskNotInWorkload,
+		/// Attempted to enable auto-renewal for a core that already has it enabled.
+		AutoRenewalAlreadyEnabled,
 	}
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -803,6 +839,11 @@ pub mod pallet {
 		///   must be greater than 0. This may affect the weight of the call but should be ideally
 		///   made equivalent to the length of the Region `region_id`. If less, further dispatches
 		///   will be required with the same `region_id` to claim revenue for the remainder.
+		///   Processing stops at the first timeslice whose revenue the relay chain has not yet
+		///   reported; the remainder can be claimed once it has been.
+		///
+		/// The fee is waived only if at least one timeslice was processed, and the weight of the
+		/// timeslices that were not processed is refunded.
 		#[pallet::call_index(12)]
 		#[pallet::weight(T::WeightInfo::claim_revenue(*max_timeslices))]
 		pub fn claim_revenue(
@@ -810,9 +851,10 @@ pub mod pallet {
 			region_id: RegionId,
 			max_timeslices: Timeslice,
 		) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
-			Self::do_claim_revenue(region_id, max_timeslices)?;
-			Ok(Pays::No.into())
+			ensure_signed(origin)?;
+			let checked = Self::do_claim_revenue(region_id, max_timeslices)?;
+			let pays = if checked > 1 { Pays::No } else { Pays::Yes };
+			Ok((Some(T::WeightInfo::claim_revenue(checked)), pays).into())
 		}
 
 		/// Purchase credit for use in the Instantaneous Coretime Pool.
@@ -924,7 +966,9 @@ pub mod pallet {
 		/// - `task`: The task for which we want to enable auto renewal.
 		/// - `workload_end_hint`: should be used when enabling auto-renewal for a core that is not
 		///   expiring in the upcoming bulk period (e.g., due to holding a lease) since it would be
-		///   inefficient to look up when the core expires to schedule the next renewal.
+		///   inefficient to look up when the core expires to schedule the next renewal. Also used
+		///   when the core is expiring with another task's workload, in which case it must point at
+		///   the task's own renewal record.
 		#[pallet::call_index(21)]
 		#[pallet::weight(T::WeightInfo::enable_auto_renew())]
 		pub fn enable_auto_renew(
@@ -1011,6 +1055,43 @@ pub mod pallet {
 		pub fn remove_assignment(origin: OriginFor<T>, region_id: RegionId) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_assignment(region_id)
+		}
+
+		/// Forcefully remove a potential renewal record from chain.
+		///
+		/// Note that only the specified potential renewal will be removed while any related auto
+		/// renewals will stay intact and will fail.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `core`: Core which the target potential renewal record refers to.
+		/// - `when`: Timeslice which the target potential renewal record refers to.
+		#[pallet::call_index(27)]
+		pub fn remove_potential_renewal(
+			origin: OriginFor<T>,
+			core: CoreIndex,
+			when: Timeslice,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_remove_potential_renewal(core, when)
+		}
+
+		/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
+		///
+		/// This can also be used to recover regions that have been "burned" (e.g., from an
+		/// XCM reserve transfer).
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
+		#[pallet::call_index(28)]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]

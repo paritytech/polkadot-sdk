@@ -15,10 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::cmp;
+
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
-	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
+	traits::{fungible::Mutate, tokens::Preservation::Expendable},
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, Convert};
@@ -67,8 +69,10 @@ impl<T: Config> Pallet<T> {
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
 
-		// Add to workload - grants one region from the next sale boundary.
-		Workplan::<T>::insert((sale.region_begin, core), &workload);
+		// Add to ForceReservations for dynamic core assignment in rotate_sale.
+		ForceReservations::<T>::try_mutate(|r| {
+			r.try_push(workload.clone()).map_err(|_| Error::<T>::TooManyReservations)
+		})?;
 
 		// Assign now until the next sale boundary unless the next timeslice is already the sale
 		// boundary.
@@ -134,6 +138,7 @@ impl<T: Config> Pallet<T> {
 			ideal_cores_sold: 0,
 			cores_offered: 0,
 			cores_sold: 0,
+			sale_index: 0,
 		};
 		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
 		Self::rotate_sale(old_sale, &config, &status);
@@ -200,7 +205,9 @@ impl<T: Config> Pallet<T> {
 		Workplan::<T>::insert((sale.region_begin, core), &workload);
 
 		let begin = sale.region_end;
-		let price_cap = record.price + config.renewal_bump * record.price;
+		let end_price = sale.end_price;
+		// Renewals should never be priced lower than the current `end_price`:
+		let price_cap = cmp::max(record.price + config.renewal_bump * record.price, end_price);
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		let price = Self::sale_price(&sale, now).min(price_cap);
 		log::debug!(
@@ -250,6 +257,7 @@ impl<T: Config> Pallet<T> {
 		maybe_check_owner: Option<T::AccountId>,
 		pivot_offset: Timeslice,
 	) -> Result<(RegionId, RegionId), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let mut region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
@@ -262,6 +270,13 @@ impl<T: Config> Pallet<T> {
 		region.paid = None;
 		let new_region_ids = (region_id, RegionId { begin: pivot, ..region_id });
 
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
+
+		// Overwrite the previous region with its new end and create a new region for the second
+		// part of the partition.
 		Regions::<T>::insert(&new_region_ids.0, &RegionRecord { end: pivot, ..region.clone() });
 		Regions::<T>::insert(&new_region_ids.1, &region);
 		Self::deposit_event(Event::Partitioned { old_region_id: region_id, new_region_ids });
@@ -274,6 +289,7 @@ impl<T: Config> Pallet<T> {
 		maybe_check_owner: Option<T::AccountId>,
 		pivot: CoreMask,
 	) -> Result<(RegionId, RegionId), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let region = Regions::<T>::get(&region_id).ok_or(Error::<T>::UnknownRegion)?;
 
 		if let Some(check_owner) = maybe_check_owner {
@@ -283,6 +299,11 @@ impl<T: Config> Pallet<T> {
 		ensure!((pivot & !region_id.mask).is_void(), Error::<T>::ExteriorPivot);
 		ensure!(!pivot.is_void(), Error::<T>::VoidPivot);
 		ensure!(pivot != region_id.mask, Error::<T>::CompletePivot);
+
+		// Remove this region from the pool in case it has been assigned provisionally. If we get
+		// this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
 
 		// The old region should be removed.
 		Regions::<T>::remove(&region_id);
@@ -304,9 +325,17 @@ impl<T: Config> Pallet<T> {
 		finality: Finality,
 	) -> Result<(), Error<T>> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been assigned provisionally. If we
+			// get this far then it is still in `Regions` and thus could only have been pooled
+			// provisionally.
+			Self::force_unpool_region(region_id, &region, &status);
+
 			// Ensure no previous allocations exist.
 			workplan.retain(|i| (i.mask & region_id.mask).is_void());
 			if workplan
@@ -326,7 +355,9 @@ impl<T: Config> Pallet<T> {
 					let assigned = match PotentialRenewals::<T>::get(renewal_id) {
 						Some(PotentialRenewalRecord { completion: Partial(w), price: p })
 							if price == p =>
-							w,
+						{
+							w
+						},
 						_ => CoreMask::void(),
 					} | region_id.mask;
 					let workload =
@@ -364,9 +395,16 @@ impl<T: Config> Pallet<T> {
 		payee: T::AccountId,
 		finality: Finality,
 	) -> Result<(), Error<T>> {
+		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
+
 		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
 			let workplan_key = (region_id.begin, region_id.core);
 			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+
+			// Remove this region from the pool in case it has been pooled provisionally, so that
+			// pooling it again does not count it twice.
+			Self::force_unpool_region(region_id, &region, &status);
+
 			let duration = region.end.saturating_sub(region_id.begin);
 			if workplan
 				.try_push(ScheduleItem { mask: region_id.mask, assignment: CoreAssignment::Pool })
@@ -385,11 +423,14 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	/// Returns the number of timeslices whose history was checked: the consumed ones plus the
+	/// one that stopped the claim.
 	pub(crate) fn do_claim_revenue(
 		mut region: RegionId,
 		max_timeslices: Timeslice,
-	) -> DispatchResult {
+	) -> Result<Timeslice, DispatchError> {
 		ensure!(max_timeslices > 0, Error::<T>::NoClaimTimeslices);
+		let first = region.begin;
 		let mut contribution =
 			InstaPoolContribution::<T>::take(region).ok_or(Error::<T>::UnknownContribution)?;
 		let contributed_parts = region.mask.count_ones();
@@ -398,12 +439,26 @@ impl<T: Config> Pallet<T> {
 
 		let mut payout = BalanceOf::<T>::zero();
 		let last = region.begin + contribution.length.min(max_timeslices);
+		let last_committed_timeslice = Status::<T>::get()
+			.map(|status| status.last_committed_timeslice)
+			.unwrap_or_default();
 		for r in region.begin..last {
+			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else {
+				// History exists for every committed timeslice, so a missing entry at or before
+				// the last committed one was dropped after `contribution_timeout` and its revenue
+				// is gone. A later one is not committed yet: stop and leave it for a future claim.
+				if r > last_committed_timeslice {
+					break;
+				}
+				region.begin = r + 1;
+				contribution.length.saturating_dec();
+				continue;
+			};
+			let Some(total_payout) = pool_record.maybe_payout else { break };
+
 			region.begin = r + 1;
 			contribution.length.saturating_dec();
 
-			let Some(mut pool_record) = InstaPoolHistory::<T>::get(r) else { continue };
-			let Some(total_payout) = pool_record.maybe_payout else { break };
 			let p = total_payout
 				.saturating_mul(contributed_parts.into())
 				.checked_div(&pool_record.private_contributions.into())
@@ -427,15 +482,17 @@ impl<T: Config> Pallet<T> {
 		if contribution.length > 0 {
 			InstaPoolContribution::<T>::insert(region, &contribution);
 		}
-		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)
-			.defensive_ok();
-		let next = if last < region.begin + contribution.length { Some(region) } else { None };
+		// The steps above removed the contribution and reduced the stored payouts. If the
+		// transfer fails, the error must revert them. The storage changes and the payment
+		// must both happen, or neither.
+		T::Currency::transfer(&Self::account_id(), &contribution.payee, payout, Expendable)?;
+		let next = if contribution.length > 0 { Some(region) } else { None };
 		Self::deposit_event(Event::RevenueClaimPaid {
 			who: contribution.payee,
 			amount: payout,
 			next,
 		});
-		Ok(())
+		Ok(region.begin.saturating_sub(first).saturating_add(1))
 	}
 
 	pub(crate) fn do_purchase_credit(
@@ -532,40 +589,47 @@ impl<T: Config> Pallet<T> {
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let mut core = core;
 
-		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
+		// Check if the core is expiring in the next bulk period with the task's own workload;
+		// if so, we will renew it now.
 		//
-		// In case we renew it now, we don't need to check the workload end since we know it is
-		// eligible for renewal.
-		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
-			.is_some()
-		{
-			Self::do_renew(sovereign_account.clone(), core)?;
-		} else if let Some(workload_end) = workload_end_hint {
-			ensure!(
-				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
-					.is_some(),
-				Error::<T>::NotAllowed
-			);
-		} else {
-			return Err(Error::<T>::NotAllowed.into())
-		}
+		// A core index can be assigned a different workload each bulk period, so the core could
+		// instead be expiring with another task's workload, which `task` must not pay to renew.
+		// In that case the `workload_end_hint` can still point to the task's own renewal record.
+		let renewable_now =
+			PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
+				.map_or(false, |record| record.completion.is_complete_and_contains_task(task));
 
-		// We are sorting auto renewals by `CoreIndex`.
-		AutoRenewals::<T>::try_mutate(|renewals| {
-			let pos = renewals
-				.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core))
-				.unwrap_or_else(|e| e);
-			renewals.try_insert(
-				pos,
-				AutoRenewalRecord {
-					core,
-					task,
-					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
-				},
-			)
-		})
-		.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+		let next_renewal = if renewable_now {
+			core = Self::do_renew(sovereign_account.clone(), core)?;
+			// The next renewal is due when the period we just renewed for ends.
+			sale.region_end
+		} else if let Some(workload_end) = workload_end_hint {
+			let record =
+				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
+					.ok_or(Error::<T>::NotAllowed)?;
+			let workload = record.completion.complete().ok_or(Error::<T>::IncompleteAssignment)?;
+			ensure!(
+				workload.iter().any(|item| item.assignment == CoreAssignment::Task(task)),
+				Error::<T>::TaskNotInWorkload
+			);
+			workload_end
+		} else {
+			return Err(Error::<T>::TaskNotInWorkload.into());
+		};
+
+		// Auto renewals are kept sorted by and unique per `CoreIndex`.
+		AutoRenewals::<T>::try_mutate(|renewals| -> DispatchResult {
+			let pos = match renewals.binary_search_by(|r: &AutoRenewalRecord| r.core.cmp(&core)) {
+				Ok(_) => return Err(Error::<T>::AutoRenewalAlreadyEnabled.into()),
+				Err(pos) => pos,
+			};
+			renewals
+				.try_insert(pos, AutoRenewalRecord { core, task, next_renewal })
+				.map_err(|_| Error::<T>::TooManyAutoRenewals)?;
+			Ok(())
+		})?;
 
 		Self::deposit_event(Event::AutoRenewalEnabled { core, task });
 		Ok(())
@@ -588,6 +652,16 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		Self::deposit_event(Event::AutoRenewalDisabled { core, task });
+		Ok(())
+	}
+
+	pub(crate) fn do_remove_potential_renewal(core: CoreIndex, when: Timeslice) -> DispatchResult {
+		let renewal_id = PotentialRenewalId { core, when };
+
+		PotentialRenewals::<T>::take(renewal_id).ok_or(Error::<T>::UnknownRenewal)?;
+
+		Self::deposit_event(Event::PotentialRenewalRemoved { core, timeslice: when });
+
 		Ok(())
 	}
 

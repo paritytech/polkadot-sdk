@@ -16,17 +16,27 @@ Parity builds and publishes a container image that can be found as `docker.io/pa
 ## Parity CI image
 
 Parity maintains and uses internally a generic "CI" image that can be used as a base to build binaries: [Parity CI
-container image](https://github.com/paritytech/scripts/tree/master/dockerfiles/ci-unified):
+container image](https://github.com/paritytech/dockerfiles/tree/main/ci-unified):
 
 The command below allows building a Linux binary without having to even install Rust or any dependency locally:
 
 ```bash
+export $(curl https://raw.githubusercontent.com/paritytech/polkadot-sdk/refs/heads/master/.github/env | tr -d '"')
 docker run --rm -it \
     -w /polkadot-sdk \
     -v $(pwd):/polkadot-sdk \
-    docker.io/paritytech/ci-unified:bullseye-1.84.1-2025-01-28-v202502131220 \
+    $IMAGE \
     cargo build --release --locked -p polkadot-parachain-bin --bin polkadot-parachain
 sudo chown -R $(id -u):$(id -g) target/
+```
+
+To reproduce the clean CI environment locally you can use the following commands:
+
+```bash
+export $(curl https://raw.githubusercontent.com/paritytech/polkadot-sdk/refs/heads/master/.github/env | tr -d '"')
+docker run -it --rm $IMAGE bash
+root@e2ff8a3f347b:/builds# git clone https://github.com/paritytech/polkadot-sdk.git && cd polkadot-sdk
+root@e2ff8a3f347b:/builds# <your cargo command goes here>
 ```
 
 ## Injected image

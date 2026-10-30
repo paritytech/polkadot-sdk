@@ -14,21 +14,26 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use codec::Encode;
 pub use core::cell::RefCell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
-		AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals, Everything, EverythingBut,
-		Nothing,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU128, ConstU32, Contains, Equals,
+		Everything, EverythingBut, Footprint, Nothing,
 	},
-	weights::Weight,
+	weights::{
+		constants::{WEIGHT_PROOF_SIZE_PER_MB, WEIGHT_REF_TIME_PER_SECOND},
+		Weight,
+	},
 };
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_parachains::origin;
 use sp_core::H256;
-use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
+use sp_runtime::{
+	traits::{Convert, Identity, IdentityLookup, TryConvertInto},
+	AccountId32, BuildStorage,
+};
 use xcm::prelude::*;
 use xcm_builder::{
 	AccountId32Aliases, AllowKnownQueryResponses, AllowSubscriptionsFrom,
@@ -39,10 +44,8 @@ use xcm_builder::{
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
 	XcmFeeManagerFromComponents,
 };
-use xcm_executor::{
-	traits::{Identity, JustTry},
-	XcmExecutor,
-};
+use xcm_executor::XcmExecutor;
+use xcm_simulator::helpers::derive_topic_id;
 
 use crate::{self as pallet_xcm, TestWeightInfo};
 
@@ -64,6 +67,7 @@ pub mod pallet_test_notifier {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config + crate::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: IsType<<Self as frame_system::Config>::RuntimeEvent> + From<Event<Self>>;
 		type RuntimeOrigin: IsType<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<Result<crate::Origin, <Self as Config>::RuntimeOrigin>>;
@@ -144,6 +148,7 @@ construct_runtime!(
 		ParasOrigin: origin,
 		XcmPallet: pallet_xcm,
 		TestNotifier: pallet_test_notifier,
+		Utility: pallet_utility,
 	}
 );
 
@@ -179,7 +184,14 @@ impl SendXcm for TestSendXcm {
 		Ok((pair, Assets::new()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let message = pair.1.clone();
+		if message
+			.iter()
+			.any(|instr| matches!(instr, ExpectError(Some((1, XcmError::Unimplemented)))))
+		{
+			return Err(SendError::Transport("Intentional deliver failure used in tests".into()));
+		}
+		let hash = derive_topic_id(&message);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -200,7 +212,7 @@ impl SendXcm for TestSendXcmErrX8 {
 		}
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -222,17 +234,17 @@ impl SendXcm for TestPaidForPara3000SendXcm {
 	) -> SendResult<(Location, Xcm<()>)> {
 		if let Some(dest) = dest.as_ref() {
 			if !dest.eq(&Para3000Location::get()) {
-				return Err(SendError::NotApplicable)
+				return Err(SendError::NotApplicable);
 			}
 		} else {
-			return Err(SendError::NotApplicable)
+			return Err(SendError::NotApplicable);
 		}
 
 		let pair = (dest.take().unwrap(), msg.take().unwrap());
 		Ok((pair, Para3000PaymentAssets::get()))
 	}
 	fn deliver(pair: (Location, Xcm<()>)) -> Result<XcmHash, SendError> {
-		let hash = fake_message_hash(&pair.1);
+		let hash = derive_topic_id(&pair.1);
 		SENT_XCM.with(|q| q.borrow_mut().push(pair));
 		Ok(hash)
 	}
@@ -275,14 +287,24 @@ impl pallet_balances::Config for Test {
 	type AccountStore = System;
 }
 
+// Lets the `weigh_message` benchmark build the same batched worst case real runtimes do;
+// see `benchmarking::Config::batch_call`.
+impl pallet_utility::Config for Test {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = ();
+}
+
 #[cfg(feature = "runtime-benchmarks")]
 /// Simple conversion of `u32` into an `AssetId` for use in benchmarking.
 pub struct XcmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_assets::BenchmarkHelper<Location> for XcmBenchmarkHelper {
+impl pallet_assets::BenchmarkHelper<Location, ()> for XcmBenchmarkHelper {
 	fn create_asset_id_parameter(id: u32) -> Location {
 		Location::new(1, [Parachain(id)])
 	}
+	fn create_reserve_id_parameter(_: u32) {}
 }
 
 impl pallet_assets::Config for Test {
@@ -290,6 +312,7 @@ impl pallet_assets::Config for Test {
 	type Balance = Balance;
 	type AssetId = Location;
 	type AssetIdParameter = Location;
+	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
@@ -303,6 +326,7 @@ impl pallet_assets::Config for Test {
 	type Freezer = ();
 	type WeightInfo = ();
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<5>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -416,7 +440,7 @@ pub type ForeignAssetsConvertedConcreteId = MatchedConvertedConcreteId<
 	// Excludes relay/parent chain currency
 	EverythingBut<(Equals<RelayLocation>,)>,
 	Identity,
-	JustTry,
+	TryConvertInto,
 >;
 
 pub type AssetTransactors = (
@@ -440,7 +464,7 @@ type LocalOriginConverter = (
 
 parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
-	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), 1, 1);
+	pub CurrencyPerSecondPerByte: (AssetId, u128, u128) = (AssetId(RelayLocation::get()), WEIGHT_REF_TIME_PER_SECOND.into(), WEIGHT_PROOF_SIZE_PER_MB.into());
 	pub TrustedLocal: (AssetFilter, Location) = (All.into(), Here.into());
 	pub TrustedSystemPara: (AssetFilter, Location) = (NativeAsset::get().into(), SystemParachainLocation::get());
 	pub TrustedUsdt: (AssetFilter, Location) = (Usdt::get().into(), UsdtTeleportLocation::get());
@@ -477,10 +501,13 @@ pub type Barrier = (
 pub type XcmRouter =
 	EnsureDecodableXcm<(TestPaidForPara3000SendXcm, TestSendXcmErrX8, TestSendXcm)>;
 
+pub type Trader = FixedRateOfFungible<CurrencyPerSecondPerByte, ()>;
+
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
 	type XcmSender = XcmRouter;
+	type XcmEventEmitter = XcmPallet;
 	type AssetTransactor = AssetTransactors;
 	type OriginConverter = LocalOriginConverter;
 	type IsReserve = (Case<TrustedForeign>, Case<TrustedUsdc>, Case<TrustedPaidParaForeign>);
@@ -494,12 +521,11 @@ impl xcm_executor::Config for XcmConfig {
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
 	type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
-	type Trader = FixedRateOfFungible<CurrencyPerSecondPerByte, ()>;
+	type Trader = Trader;
 	type ResponseHandler = XcmPallet;
 	type AssetTrap = XcmPallet;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = XcmPallet;
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
@@ -519,10 +545,20 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, AnyNetwork>;
 
 parameter_types! {
 	pub static AdvertisedXcmVersion: pallet_xcm::XcmVersion = 4;
+	pub const AuthorizeAliasHoldReason: RuntimeHoldReason = RuntimeHoldReason::XcmPallet(pallet_xcm::HoldReason::AuthorizeAlias);
+}
+
+pub struct ConvertDeposit;
+impl Convert<Footprint, u128> for ConvertDeposit {
+	fn convert(a: Footprint) -> u128 {
+		(a.count * 2 + a.size) as u128
+	}
 }
 
 pub struct XcmTeleportFiltered;
@@ -557,6 +593,8 @@ impl pallet_xcm::Config for Test {
 	type MaxRemoteLockConsumers = frame_support::traits::ConstU32<0>;
 	type RemoteLockConsumerIdentifier = ();
 	type WeightInfo = TestWeightInfo;
+	type AuthorizedAliasConsideration =
+		HoldConsideration<AccountId, Balances, AuthorizeAliasHoldReason, ConvertDeposit>;
 }
 
 impl origin::Config for Test {}
@@ -662,14 +700,42 @@ impl super::benchmarking::Config for Test {
 	fn get_asset() -> Asset {
 		Asset { id: AssetId(Location::here()), fun: Fungible(ExistentialDeposit::get()) }
 	}
+
+	fn get_assets(n: u32) -> Assets {
+		let owner: AccountId = frame_benchmarking::whitelisted_caller();
+		let mut assets: Vec<Asset> = vec![Self::get_asset()];
+		for i in 1..n {
+			// Distinct, depositable foreign assets handled by the `FungiblesAdapter`.
+			let asset_id_location = Location::new(0, [Parachain(2_000 + i)]);
+			frame_support::assert_ok!(AssetsPallet::force_create(
+				RuntimeOrigin::root(),
+				asset_id_location.clone(),
+				owner.clone(),
+				true, // sufficient, so the beneficiary needs no provider reference
+				1,
+			));
+			assets.push(Asset { id: AssetId(asset_id_location), fun: Fungible(100) });
+		}
+		assets.into()
+	}
+
+	fn batch_call(calls: Vec<RuntimeCall>) -> Option<RuntimeCall> {
+		Some(RuntimeCall::Utility(pallet_utility::Call::batch { calls }))
+	}
 }
 
-pub(crate) fn last_event() -> RuntimeEvent {
-	System::events().pop().expect("RuntimeEvent expected").event
+pub(crate) fn all_events() -> Vec<RuntimeEvent> {
+	System::events().into_iter().map(|e| e.event).collect()
 }
 
 pub(crate) fn last_events(n: usize) -> Vec<RuntimeEvent> {
-	System::events().into_iter().map(|e| e.event).rev().take(n).rev().collect()
+	let all_events = all_events();
+	let split_idx = all_events.len().saturating_sub(n);
+	all_events.split_at(split_idx).1.to_vec()
+}
+
+pub(crate) fn last_event() -> RuntimeEvent {
+	last_events(1).pop().expect("RuntimeEvent expected")
 }
 
 pub(crate) fn buy_execution<C>(fees: impl Into<Asset>) -> Instruction<C> {
@@ -692,28 +758,27 @@ pub(crate) fn new_test_ext_with_balances(
 		balances,
 		// By default set actual latest XCM version
 		Some(XCM_VERSION),
+		vec![],
 	)
 }
 
 pub(crate) fn new_test_ext_with_balances_and_xcm_version(
 	balances: Vec<(AccountId, Balance)>,
 	safe_xcm_version: Option<XcmVersion>,
+	supported_version: Vec<(Location, XcmVersion)>,
 ) -> sp_io::TestExternalities {
+	sp_tracing::try_init_simple();
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> { balances, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, ..Default::default() }
+	pallet_xcm::GenesisConfig::<Test> { safe_xcm_version, supported_version, ..Default::default() }
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
-}
-
-pub(crate) fn fake_message_hash<T>(message: &Xcm<T>) -> XcmHash {
-	message.using_encoded(sp_io::hashing::blake2_256)
 }

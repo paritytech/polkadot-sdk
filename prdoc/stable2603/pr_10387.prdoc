@@ -1,0 +1,11 @@
+title: "pallet-revive: add DebugSetting for bypassing eip-3607 for contracts and precompiles"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds a new DebugSetting option which, if enabled, allows transactions coming from contract accounts or precompiles.
+    This is needed so that test nodes like anvil can send transactions from
+    contract or precompile accounts, a widely-used feature in tests.
+    
+crates: 
+- name: pallet-revive
+  bump: major

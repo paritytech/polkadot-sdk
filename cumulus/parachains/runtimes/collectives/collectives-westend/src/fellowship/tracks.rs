@@ -72,7 +72,7 @@ impl Convert<TrackId, Rank> for MinRankOfClass {
 			// A promotion vote; the track ID turns out to be 18 more than the minimum required
 			// rank.
 			promotion @ 21..=26 => promotion - 18,
-			_ => Rank::max_value(),
+			_ => Rank::MAX,
 		}
 	}
 }
@@ -500,7 +500,7 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 			// It is important that this is not available in production!
 			let root: Self::RuntimeOrigin = frame_system::RawOrigin::Root.into();
 			if &root == id {
-				return Ok(tracks::GRAND_MASTERS)
+				return Ok(tracks::GRAND_MASTERS);
 			}
 		}
 

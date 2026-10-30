@@ -1,0 +1,11 @@
+title: '[pallet-revive] dev-node constant fee multiplier'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This will let us have stable gas cost (as long as the state of the dev net does not change)
+
+    In mainnet you can't rely on stable gas anyway since the state of the blockchain can change between two dry runs,
+    but we are probably better off if we have stable gas cost in testing environments.
+crates:
+- name: revive-dev-runtime
+  bump: patch

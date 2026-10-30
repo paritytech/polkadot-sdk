@@ -1,0 +1,10 @@
+title: align eth-rpc response with geth
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Update serde encoding for eth-rpc to match serialization behavior of Geth
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch

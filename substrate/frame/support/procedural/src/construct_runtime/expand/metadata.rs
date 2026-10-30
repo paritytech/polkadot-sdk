@@ -74,6 +74,7 @@ pub fn expand_runtime_metadata(
 
 	quote! {
 		impl #runtime {
+			#[allow(deprecated)]
 			fn metadata_ir() -> #scrate::__private::metadata_ir::MetadataIR {
 				// Each runtime must expose the `runtime_metadata()` to fetch the runtime API metadata.
 				// The function is implemented by calling `impl_runtime_apis!`.
@@ -98,7 +99,7 @@ pub fn expand_runtime_metadata(
 						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Address
 					>();
 				let call_ty = #scrate::__private::scale_info::meta_type::<
-						<#extrinsic as #scrate::traits::ExtrinsicCall>::Call
+						<#extrinsic as #scrate::sp_runtime::traits::ExtrinsicCall>::Call
 					>();
 				let signature_ty = #scrate::__private::scale_info::meta_type::<
 						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Signature
@@ -109,6 +110,20 @@ pub fn expand_runtime_metadata(
 
 				use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
 
+
+				let mut versioned_extensions_metadata =
+					#scrate::sp_runtime::traits::PipelineMetadataBuilder::new();
+
+				<
+					<
+						#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
+					>::TransactionExtensionPipelines
+					as
+					#scrate::sp_runtime::traits::Pipeline::<
+						<#runtime as #system_path::Config>::RuntimeCall
+					>
+				>::build_metadata(&mut versioned_extensions_metadata);
+
 				#scrate::__private::metadata_ir::MetadataIR {
 					pallets: #scrate::__private::vec![ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
@@ -118,15 +133,8 @@ pub fn expand_runtime_metadata(
 						call_ty,
 						signature_ty,
 						extra_ty,
-						extensions: <
-								<
-									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::TransactionExtensions
-								as
-								#scrate::sp_runtime::traits::TransactionExtension::<
-									<#runtime as #system_path::Config>::RuntimeCall
-								>
-							>::metadata()
+						extensions_by_version: versioned_extensions_metadata.by_version,
+						extensions_in_versions: versioned_extensions_metadata.in_versions
 								.into_iter()
 								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,

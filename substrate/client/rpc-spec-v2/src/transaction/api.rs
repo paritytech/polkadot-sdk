@@ -26,7 +26,7 @@ use sp_core::Bytes;
 pub trait TransactionApi<Hash: Clone> {
 	/// Submit an extrinsic to watch.
 	///
-	/// See [`TransactionEvent`](crate::transaction::event::TransactionEvent) for details on
+	/// See [`TransactionEvent`] for details on
 	/// transaction life cycle.
 	///
 	/// # Unstable

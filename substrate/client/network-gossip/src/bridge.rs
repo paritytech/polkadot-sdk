@@ -127,6 +127,12 @@ impl<B: BlockT> GossipEngine<B> {
 		self.state_machine.register_message(topic, message);
 	}
 
+	/// Marks a message as known without registering it, so it is never propagated. Incoming
+	/// copies of the message are ignored, as for a registered message.
+	pub fn mark_message_known(&mut self, message: &[u8]) {
+		self.state_machine.mark_message_known(message);
+	}
+
 	/// Broadcast all messages with given topic.
 	pub fn broadcast_topic(&mut self, topic: B::Hash, force: bool) {
 		self.state_machine.broadcast_topic(&mut self.notification_service, topic, force);
@@ -200,7 +206,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 					let sync_event_stream = this.sync_event_stream.poll_next_unpin(cx);
 
 					if next_notification_event.is_pending() && sync_event_stream.is_pending() {
-						break
+						break;
 					}
 
 					match next_notification_event {
@@ -220,7 +226,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							},
 							NotificationEvent::NotificationStreamOpened {
 								peer, handshake, ..
-							} =>
+							} => {
 								if let Some(role) = this.network.peer_role(peer, handshake) {
 									this.state_machine.new_peer(
 										&mut this.notification_service,
@@ -229,7 +235,8 @@ impl<B: BlockT> Future for GossipEngine<B> {
 									);
 								} else {
 									log::debug!(target: "gossip", "role for {peer} couldn't be determined");
-								},
+								}
+							},
 							NotificationEvent::NotificationStreamClosed { peer } => {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
@@ -247,22 +254,24 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						// The network event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
 							self.is_terminated = true;
-							return Poll::Ready(())
+							return Poll::Ready(());
 						},
 						Poll::Pending => {},
 					}
 
 					match sync_event_stream {
 						Poll::Ready(Some(event)) => match event {
-							SyncEvent::PeerConnected(remote) =>
-								this.network.add_set_reserved(remote, this.protocol.clone()),
-							SyncEvent::PeerDisconnected(remote) =>
-								this.network.remove_set_reserved(remote, this.protocol.clone()),
+							SyncEvent::PeerConnected { peer_id: remote, roles: _ } => {
+								this.network.add_set_reserved(remote, this.protocol.clone())
+							},
+							SyncEvent::PeerDisconnected(remote) => {
+								this.network.remove_set_reserved(remote, this.protocol.clone())
+							},
 						},
 						// The sync event stream closed. Do the same for [`GossipValidator`].
 						Poll::Ready(None) => {
 							self.is_terminated = true;
-							return Poll::Ready(())
+							return Poll::Ready(());
 						},
 						Poll::Pending => {},
 					}
@@ -272,7 +281,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 						Some(n) => n,
 						None => {
 							this.forwarding_state = ForwardingState::Idle;
-							continue
+							continue;
 						},
 					};
 
@@ -290,7 +299,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 							Poll::Pending => {
 								// Push back onto queue for later.
 								to_forward.push_front((topic, notification));
-								break 'outer
+								break 'outer;
 							},
 						}
 					}
@@ -300,7 +309,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 
 					if sinks.is_empty() {
 						this.message_sinks.remove(&topic);
-						continue
+						continue;
 					}
 
 					trace!(
@@ -857,7 +866,7 @@ mod tests {
 					}
 
 					if !progress {
-						break
+						break;
 					}
 				}
 				Poll::Ready(())

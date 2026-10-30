@@ -19,15 +19,15 @@
 
 use super::*;
 use alloc::borrow::Cow;
-use codec::{Decode, DecodeWithMemTracking, Encode, EncodeLike, MaxEncodedLen};
+use codec::{Compact, Decode, DecodeWithMemTracking, Encode, EncodeLike, Input, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{
 	traits::{schedule::v3::Anon, Bounded},
 	Parameter,
 };
-use scale_info::TypeInfo;
+use scale_info::{Type, TypeInfo};
 use sp_arithmetic::{Rounding::*, SignedRounding::*};
-use sp_runtime::{FixedI64, PerThing, RuntimeDebug};
+use sp_runtime::{FixedI64, PerThing};
 
 pub type BalanceOf<T, I = ()> =
 	<<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -100,7 +100,9 @@ impl<T: Ord, S: Get<u32>> InsertSorted<T> for BoundedVec<T, S> {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct DecidingStatus<BlockNumber> {
 	/// When this referendum began being "decided". If confirming, then the
 	/// end will actually be delayed until the end of the confirmation period.
@@ -110,7 +112,9 @@ pub struct DecidingStatus<BlockNumber> {
 	pub confirming: Option<BlockNumber>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct Deposit<AccountId, Balance> {
 	pub who: AccountId,
 	pub amount: Balance,
@@ -118,13 +122,61 @@ pub struct Deposit<AccountId, Balance> {
 
 pub const DEFAULT_MAX_TRACK_NAME_LEN: usize = 25;
 
+/// Helper structure to treat a `[u8; N]` array as a string.
+///
+/// This is a temporary fix (see [#7671](https://github.com/paritytech/polkadot-sdk/pull/7671)) in
+/// order to stop `polkadot.js` apps to fail when trying to decode the `name` field in `TrackInfo`.
+#[derive(Clone, Eq, DecodeWithMemTracking, PartialEq, Debug)]
+pub struct StringLike<const N: usize>(pub [u8; N]);
+
+impl<const N: usize> TypeInfo for StringLike<N> {
+	type Identity = <&'static str as TypeInfo>::Identity;
+
+	fn type_info() -> Type {
+		<&str as TypeInfo>::type_info()
+	}
+}
+
+impl<const N: usize> MaxEncodedLen for StringLike<N> {
+	fn max_encoded_len() -> usize {
+		<Compact<u32> as MaxEncodedLen>::max_encoded_len().saturating_add(N)
+	}
+}
+
+impl<const N: usize> Encode for StringLike<N> {
+	fn encode(&self) -> Vec<u8> {
+		use codec::Compact;
+		(Compact(N as u32), self.0).encode()
+	}
+}
+
+impl<const N: usize> Decode for StringLike<N> {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let Compact(size): Compact<u32> = Decode::decode(input)?;
+		if size != N as u32 {
+			return Err("Invalid size".into());
+		}
+
+		let bytes: [u8; N] = Decode::decode(input)?;
+		Ok(Self(bytes))
+	}
+}
+
+/// Detailed information about the configuration of a referenda track. Used for internal storage.
+pub type TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, [u8; N]>;
+
+/// Detailed information about the configuration of a referenda track. Used for const querying.
+pub type ConstTrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> =
+	TrackDetails<Balance, Moment, StringLike<N>>;
+
 /// Detailed information about the configuration of a referenda track
 #[derive(
 	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, Eq, PartialEq, Debug,
 )]
-pub struct TrackInfo<Balance, Moment, const N: usize = DEFAULT_MAX_TRACK_NAME_LEN> {
+pub struct TrackDetails<Balance, Moment, Name> {
 	/// Name of this track.
-	pub name: [u8; N],
+	pub name: Name,
 	/// A limit for the number of referenda on this track that can be being decided at once.
 	/// For Root origin this should generally be just one.
 	pub max_deciding: u32,
@@ -213,11 +265,13 @@ where
 }
 
 /// Info regarding an ongoing referendum.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct ReferendumStatus<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-	Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+	Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 	Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -250,7 +304,9 @@ pub struct ReferendumStatus<
 }
 
 /// Info regarding a referendum, present or past.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum ReferendumInfo<
 	TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 	RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -289,7 +345,7 @@ pub enum ReferendumInfo<
 impl<
 		TrackId: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		RuntimeOrigin: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
-		Moment: Parameter + Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
+		Moment: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone + EncodeLike,
 		Call: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Balance: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
 		Tally: Eq + PartialEq + Debug + Encode + Decode + TypeInfo + Clone,
@@ -306,8 +362,9 @@ impl<
 			Ongoing(x) if x.decision_deposit.is_none() => Ok(None),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
 			Ongoing(_) => Err(()),
-			Approved(_, _, d) | Rejected(_, _, d) | TimedOut(_, _, d) | Cancelled(_, _, d) =>
-				Ok(d.take()),
+			Approved(_, _, d) | Rejected(_, _, d) | TimedOut(_, _, d) | Cancelled(_, _, d) => {
+				Ok(d.take())
+			},
 			Killed(_) => Ok(None),
 		}
 	}
@@ -318,7 +375,7 @@ impl<
 	pub fn take_submission_deposit(&mut self) -> Result<Option<Deposit<AccountId, Balance>>, ()> {
 		use ReferendumInfo::*;
 		match self {
-			// Can only refund deposit if it's appoved or cancelled.
+			// Can only refund deposit if it's approved or cancelled.
 			Approved(_, s, _) | Cancelled(_, s, _) => Ok(s.take()),
 			// Cannot refund deposit if Ongoing as this breaks assumptions.
 			Ongoing(..) | Rejected(..) | TimedOut(..) | Killed(..) => Err(()),
@@ -329,7 +386,7 @@ impl<
 /// Type for describing a curve over the 2-dimensional space of axes between 0-1, as represented
 /// by `(Perbill, Perbill)`.
 #[derive(Clone, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo, MaxEncodedLen)]
-#[cfg_attr(not(feature = "std"), derive(RuntimeDebug))]
+#[cfg_attr(not(feature = "std"), derive(Debug))]
 pub enum Curve {
 	/// Linear curve starting at `(0, ceil)`, proceeding linearly to `(length, floor)`, then
 	/// remaining at `floor` until the end of the period.
@@ -381,12 +438,12 @@ impl Curve {
 			(
 				FixedI64::from_u32(0),
 				Self::reciprocal_from_parts(FixedI64::from_u32(0), floor, ceil),
-				FixedI64::from_inner(i64::max_value()),
+				FixedI64::from_inner(i64::MAX),
 			),
 			(
 				FixedI64::from_u32(1),
 				Self::reciprocal_from_parts(FixedI64::from_u32(1), floor, ceil),
-				FixedI64::from_inner(i64::max_value()),
+				FixedI64::from_inner(i64::MAX),
 			),
 		);
 		const TWO: FixedI64 = FixedI64::from_u32(2);
@@ -445,11 +502,11 @@ impl Curve {
 				let minutes = p * (hours * 60);
 				if minutes < 60 {
 					format!("{} minutes", minutes)
-				} else if minutes < 8 * 60 && minutes % 60 != 0 {
+				} else if minutes < 8 * 60 && !minutes.is_multiple_of(60) {
 					format!("{} hours {} minutes", minutes / 60, minutes % 60)
 				} else if minutes < 72 * 60 {
 					format!("{} hours", minutes / 60)
-				} else if minutes / 60 % 24 == 0 {
+				} else if (minutes / 60).is_multiple_of(24) {
 					format!("{} days", minutes / 60 / 24)
 				} else {
 					format!("{} days {} hours", minutes / 60 / 24, minutes / 60 % 24)
@@ -479,10 +536,12 @@ impl Curve {
 	/// Determine the `y` value for the given `x` value.
 	pub fn threshold(&self, x: Perbill) -> Perbill {
 		match self {
-			Self::LinearDecreasing { length, floor, ceil } =>
-				*ceil - (x.min(*length).saturating_div(*length, Down) * (*ceil - *floor)),
-			Self::SteppedDecreasing { begin, end, step, period } =>
-				(*begin - (step.int_mul(x.int_div(*period))).min(*begin)).max(*end),
+			Self::LinearDecreasing { length, floor, ceil } => {
+				*ceil - (x.min(*length).saturating_div(*length, Down) * (*ceil - *floor))
+			},
+			Self::SteppedDecreasing { begin, end, step, period } => {
+				(*begin - (step.int_mul(x.int_div(*period))).min(*begin)).max(*end)
+			},
 			Self::Reciprocal { factor, x_offset, y_offset } => factor
 				.checked_rounding_div(FixedI64::from(x) + *x_offset, Low)
 				.map(|yp| (yp + *y_offset).into_clamped_perthing())
@@ -521,20 +580,22 @@ impl Curve {
 	/// ```
 	pub fn delay(&self, y: Perbill) -> Perbill {
 		match self {
-			Self::LinearDecreasing { length, floor, ceil } =>
+			Self::LinearDecreasing { length, floor, ceil } => {
 				if y < *floor {
 					Perbill::one()
 				} else if y > *ceil {
 					Perbill::zero()
 				} else {
 					(*ceil - y).saturating_div(*ceil - *floor, Up).saturating_mul(*length)
-				},
-			Self::SteppedDecreasing { begin, end, step, period } =>
+				}
+			},
+			Self::SteppedDecreasing { begin, end, step, period } => {
 				if y < *end {
 					Perbill::one()
 				} else {
 					period.int_mul((*begin - y.min(*begin) + step.less_epsilon()).int_div(*step))
-				},
+				}
+			},
 			Self::Reciprocal { factor, x_offset, y_offset } => {
 				let y = FixedI64::from(y);
 				let maybe_term = factor.checked_rounding_div(y - *y_offset, High);
@@ -794,5 +855,21 @@ mod tests {
 			BadTracksInfo::check_integrity(),
 			Err("The tracks that were returned by `tracks` were not sorted by `Id`")
 		);
+	}
+
+	#[test]
+	fn encoding_and_decoding_of_string_like_structure_works() {
+		let string_like = StringLike::<13>(*b"hello, world!");
+		let encoded: Vec<u8> = string_like.encode();
+
+		let decoded_as_vec: Vec<u8> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as Vec<u8> should work");
+		assert_eq!(decoded_as_vec.len(), 13);
+		let decoded_as_str: alloc::string::String =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as str should work");
+		assert_eq!(decoded_as_str.len(), 13);
+		let decoded_as_string_like: StringLike<13> =
+			Decode::decode(&mut &encoded.clone()[..]).expect("decoding as StringLike should work");
+		assert_eq!(decoded_as_string_like.0.len(), 13);
 	}
 }

@@ -44,22 +44,21 @@ extern crate alloc;
 
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
+use frame_support::{
+	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
+	ensure, impl_ensure_origin_with_arg_ignoring_arg,
+	traits::{
+		EnsureOrigin, EnsureOriginWithArg, OriginTrait, PollStatus, Polling, RankedMembers,
+		RankedMembersSwapHandler, VoteTally,
+	},
+	CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
+};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::Saturating;
 use sp_runtime::{
 	traits::{Convert, StaticLookup},
 	ArithmeticError::Overflow,
-	DispatchError, Perbill, RuntimeDebug,
-};
-
-use frame_support::{
-	dispatch::{DispatchResultWithPostInfo, PostDispatchInfo},
-	ensure, impl_ensure_origin_with_arg_ignoring_arg,
-	traits::{
-		EnsureOrigin, EnsureOriginWithArg, PollStatus, Polling, RankedMembers,
-		RankedMembersSwapHandler, VoteTally,
-	},
-	CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	Debug, DispatchError, Perbill,
 };
 
 #[cfg(test)]
@@ -86,7 +85,7 @@ pub type Votes = u32;
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	Encode,
 	Decode,
@@ -133,7 +132,9 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 		Perbill::from_rational(self.bare_ayes, M::get_max_voters(class))
 	}
 	fn approval(&self, _: ClassOf<T, I>) -> Perbill {
-		Perbill::from_rational(self.ayes, 1.max(self.ayes + self.nays))
+		// Both fields accrue saturatingly, so their sum can exceed `Votes`.
+		let (ayes, nays) = (u64::from(self.ayes), u64::from(self.nays));
+		Perbill::from_rational(ayes, 1.max(ayes + nays))
 	}
 	#[cfg(feature = "runtime-benchmarks")]
 	fn unanimity(class: ClassOf<T, I>) -> Self {
@@ -176,7 +177,7 @@ impl<T: Config<I>, I: 'static, M: GetMaxVoters<Class = ClassOf<T, I>>>
 }
 
 /// Record needed for every member.
-#[derive(PartialEq, Eq, Clone, Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug, TypeInfo, MaxEncodedLen)]
 pub struct MemberRecord {
 	/// The rank of the member.
 	rank: Rank,
@@ -198,7 +199,7 @@ impl MemberRecord {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -237,7 +238,8 @@ impl Convert<Rank, Votes> for Unit {
 pub struct Linear;
 impl Convert<Rank, Votes> for Linear {
 	fn convert(r: Rank) -> Votes {
-		(r + 1) as Votes
+		// `r + 1` would overflow `Rank` at the maximum rank; the result always fits in `Votes`.
+		Votes::from(r) + 1
 	}
 }
 
@@ -252,8 +254,11 @@ impl Convert<Rank, Votes> for Linear {
 pub struct Geometric;
 impl Convert<Rank, Votes> for Geometric {
 	fn convert(r: Rank) -> Votes {
-		let v = (r + 1) as Votes;
-		v * (v + 1) / 2
+		// Computed in `u64`: at the maximum rank `r + 1` would overflow `Rank`, and once widened,
+		// `v * (v + 1)` would overflow `Votes`. The result is at most 2_147_516_416, so it always
+		// fits in `Votes`.
+		let v = u64::from(r) + 1;
+		(v * (v + 1) / 2) as Votes
 	}
 }
 
@@ -280,10 +285,9 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = Rank;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
+		match o.as_signer().and_then(|who| Members::<T, I>::get(who)) {
 			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(rank),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+			_ => Err(o),
 		}
 	}
 
@@ -306,10 +310,12 @@ impl<T: Config<I>, I: 'static> EnsureOriginWithArg<T::RuntimeOrigin, Rank> for E
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin, min_rank: &Rank) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= *min_rank => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -331,10 +337,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = T::AccountId;
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok(who.clone()),
+			_ => Err(o),
 		}
 	}
 
@@ -359,10 +367,12 @@ impl<T: Config<I>, I: 'static, const MIN_RANK: u16> EnsureOrigin<T::RuntimeOrigi
 	type Success = (T::AccountId, Rank);
 
 	fn try_origin(o: T::RuntimeOrigin) -> Result<Self::Success, T::RuntimeOrigin> {
-		let who = <frame_system::EnsureSigned<_> as EnsureOrigin<_>>::try_origin(o)?;
-		match Members::<T, I>::get(&who) {
-			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who, rank)),
-			_ => Err(frame_system::RawOrigin::Signed(who).into()),
+		let Some(who) = o.as_signer() else {
+			return Err(o);
+		};
+		match Members::<T, I>::get(who) {
+			Some(MemberRecord { rank, .. }) if rank >= MIN_RANK => Ok((who.clone(), rank)),
+			_ => Err(o),
 		}
 	}
 
@@ -404,6 +414,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -638,8 +649,9 @@ pub mod pallet {
 				poll,
 				|mut status| -> Result<(TallyOf<T, I>, VoteRecord), DispatchError> {
 					match status {
-						PollStatus::None | PollStatus::Completed(..) =>
-							Err(Error::<T, I>::NotPolling)?,
+						PollStatus::None | PollStatus::Completed(..) => {
+							Err(Error::<T, I>::NotPolling)?
+						},
 						PollStatus::Ongoing(ref mut tally, class) => {
 							match Voting::<T, I>::get(&poll, &who) {
 								Some(Aye(votes)) => {
@@ -696,7 +708,7 @@ pub mod pallet {
 			);
 			if r.unique == 0 {
 				// return Err(Error::<T, I>::NoneRemaining)
-				return Ok(Pays::Yes.into())
+				return Ok(Pays::Yes.into());
 			}
 			if let Some(cursor) = r.maybe_cursor {
 				VotingCleanup::<T, I>::insert(poll_index, BoundedVec::truncate_from(cursor));

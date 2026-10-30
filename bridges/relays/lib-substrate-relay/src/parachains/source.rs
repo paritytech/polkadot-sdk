@@ -20,7 +20,6 @@ use crate::{
 	parachains::{ParachainsPipelineAdapter, SubstrateParachainsPipeline},
 	proofs::to_raw_storage_proof,
 };
-use async_std::sync::{Arc, Mutex};
 use async_trait::async_trait;
 use bp_parachains::parachain_head_storage_key_at_source;
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
@@ -32,6 +31,8 @@ use relay_substrate_client::{
 	RelayChain,
 };
 use relay_utils::relay_loop::Client as RelayClient;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 /// Shared updatable reference to the maximal parachain header id that we want to sync from the
 /// source.
@@ -112,14 +113,14 @@ where
 		// parachain head - we simply return `Unavailable`
 		let best_block_number = self.client.best_finalized_header_number().await?;
 		if is_ancient_block(at_block.number(), best_block_number) {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"{} block {:?} is ancient. Cannot prove the {} header there",
-				P::SourceRelayChain::NAME,
-				at_block,
-				P::SourceParachain::NAME,
+				source_relay_chain=%P::SourceRelayChain::NAME,
+				?at_block,
+				source=%P::SourceParachain::NAME,
+				"Block is ancient. Cannot prove the header there"
 			);
-			return Ok(AvailableHeader::Unavailable)
+			return Ok(AvailableHeader::Unavailable);
 		}
 
 		// else - try to read head from the source client

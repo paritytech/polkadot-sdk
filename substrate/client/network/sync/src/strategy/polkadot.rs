@@ -24,7 +24,7 @@ use crate::{
 	block_request_handler::MAX_BLOCKS_IN_RESPONSE,
 	service::network::NetworkServiceHandle,
 	strategy::{
-		chain_sync::{ChainSync, ChainSyncMode},
+		chain_sync::{ChainSync, ChainSyncMode, GapSyncBodyPolicyProvider},
 		state::StateStrategy,
 		warp::{WarpSync, WarpSyncConfig},
 		StrategyKey, SyncingAction, SyncingStrategy,
@@ -47,14 +47,13 @@ use std::{any::Any, collections::HashMap, sync::Arc};
 fn chain_sync_mode(sync_mode: SyncMode) -> ChainSyncMode {
 	match sync_mode {
 		SyncMode::Full => ChainSyncMode::Full,
-		SyncMode::LightState { skip_proofs, storage_chain_mode } =>
-			ChainSyncMode::LightState { skip_proofs, storage_chain_mode },
+		SyncMode::LightState { skip_proofs } => ChainSyncMode::LightState { skip_proofs },
 		SyncMode::Warp => ChainSyncMode::Full,
 	}
 }
 
 /// Syncing configuration containing data for [`PolkadotSyncingStrategy`].
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct PolkadotSyncingStrategyConfig<Block>
 where
 	Block: BlockT,
@@ -65,12 +64,16 @@ where
 	pub max_parallel_downloads: u32,
 	/// Maximum number of blocks to request.
 	pub max_blocks_per_request: u32,
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<Registry>,
 	/// Protocol name used to send out state requests
 	pub state_request_protocol_name: ProtocolName,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
+	/// Resolves the gap sync body policy when a `ChainSync` instance is created.
+	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
@@ -80,7 +83,7 @@ pub struct PolkadotSyncingStrategy<B: BlockT, Client> {
 	/// Client used by syncing strategies.
 	client: Arc<Client>,
 	/// Warp strategy.
-	warp: Option<WarpSync<B, Client>>,
+	warp: Option<WarpSync<B>>,
 	/// State strategy.
 	state: Option<StateStrategy<B>>,
 	/// `ChainSync` strategy.`
@@ -186,7 +189,7 @@ where
 		response: Box<dyn Any + Send>,
 	) {
 		match key {
-			StateStrategy::<B>::STRATEGY_KEY =>
+			StateStrategy::<B>::STRATEGY_KEY => {
 				if let Some(state) = &mut self.state {
 					let Ok(response) = response.downcast::<Vec<u8>>() else {
 						warn!(target: LOG_TARGET, "Failed to downcast state response");
@@ -204,8 +207,9 @@ where
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
-				},
-			WarpSync::<B, Client>::STRATEGY_KEY =>
+				}
+			},
+			WarpSync::<B>::STRATEGY_KEY => {
 				if let Some(warp) = &mut self.warp {
 					warp.on_generic_response(peer_id, protocol_name, response);
 				} else {
@@ -215,8 +219,9 @@ where
 						 or warp strategy is not active",
 					);
 					debug_assert!(false);
-				},
-			ChainSync::<B, Client>::STRATEGY_KEY =>
+				}
+			},
+			ChainSync::<B, Client>::STRATEGY_KEY => {
 				if let Some(chain_sync) = &mut self.chain_sync {
 					chain_sync.on_generic_response(peer_id, key, protocol_name, response);
 				} else {
@@ -226,7 +231,8 @@ where
 						 or corresponding strategy is not active.",
 					);
 					debug_assert!(false);
-				},
+				}
+			},
 			key => {
 				warn!(
 					target: LOG_TARGET,
@@ -360,6 +366,7 @@ where
 				warp_sync_config,
 				warp_sync_protocol_name,
 				config.block_downloader.clone(),
+				config.min_peers_to_start_warp_sync,
 			);
 			Ok(Self {
 				config,
@@ -377,6 +384,7 @@ where
 				config.max_blocks_per_request,
 				config.state_request_protocol_name.clone(),
 				config.block_downloader.clone(),
+				(config.gap_sync_body_policy)()?,
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
@@ -429,6 +437,7 @@ where
 						self.config.max_blocks_per_request,
 						self.config.state_request_protocol_name.clone(),
 						self.config.block_downloader.clone(),
+						(self.config.gap_sync_body_policy)()?,
 						self.config.metrics_registry.as_ref(),
 						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 							(*peer_id, *best_hash, *best_number)
@@ -437,7 +446,7 @@ where
 						Ok(chain_sync) => chain_sync,
 						Err(e) => {
 							error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-							return Err(e)
+							return Err(e);
 						},
 					};
 
@@ -459,6 +468,7 @@ where
 				self.config.max_blocks_per_request,
 				self.config.state_request_protocol_name.clone(),
 				self.config.block_downloader.clone(),
+				(self.config.gap_sync_body_policy)()?,
 				self.config.metrics_registry.as_ref(),
 				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
 					(*peer_id, *best_hash, *best_number)

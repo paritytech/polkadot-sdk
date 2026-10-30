@@ -1,0 +1,8 @@
+title: Cleanup HRMP channels that were force removed from RC state
+doc:
+- audience: Runtime Dev
+  description: |-
+    Cleanup old LastHrmpMqcHeads entries when the corresponding channel was remove from RC state
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch

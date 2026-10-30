@@ -18,7 +18,12 @@
 //! Basic implementation for Externalities.
 
 use crate::{Backend, OverlayedChanges, StorageKey, StorageValue};
+use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
 use codec::Encode;
+use core::{
+	any::{Any, TypeId},
+	iter::FromIterator,
+};
 use hash_db::Hasher;
 use log::warn;
 use sp_core::{
@@ -30,27 +35,34 @@ use sp_core::{
 };
 use sp_externalities::{Extension, Extensions, MultiRemovalResults};
 use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
-use std::{
-	any::{Any, TypeId},
-	collections::BTreeMap,
-};
 
 /// Simple Map-based Externalities impl.
 #[derive(Debug)]
 pub struct BasicExternalities {
 	overlay: OverlayedChanges<Blake2Hasher>,
 	extensions: Extensions,
+	state_version: StateVersion,
 }
 
 impl BasicExternalities {
 	/// Create a new instance of `BasicExternalities`
 	pub fn new(inner: Storage) -> Self {
-		BasicExternalities { overlay: inner.into(), extensions: Default::default() }
+		BasicExternalities {
+			overlay: inner.into(),
+			extensions: Default::default(),
+			state_version: StateVersion::default(),
+		}
 	}
 
 	/// New basic externalities with empty storage.
 	pub fn new_empty() -> Self {
 		Self::new(Storage::default())
+	}
+
+	/// Set the state version used by `storage_root` and `child_storage_root`.
+	pub fn with_state_version(mut self, state_version: StateVersion) -> Self {
+		self.state_version = state_version;
+		self
 	}
 
 	/// Insert key/value
@@ -93,7 +105,7 @@ impl BasicExternalities {
 		storage: &mut sp_core::storage::Storage,
 		f: impl FnOnce() -> R,
 	) -> R {
-		let mut ext = Self::new(std::mem::take(storage));
+		let mut ext = Self::new(core::mem::take(storage));
 
 		let r = ext.execute_with(f);
 
@@ -208,7 +220,7 @@ impl Externalities for BasicExternalities {
 	fn place_storage(&mut self, key: StorageKey, maybe_value: Option<StorageValue>) {
 		if is_child_storage_key(&key) {
 			warn!(target: "trie", "Refuse to set child storage key via main storage");
-			return
+			return;
 		}
 
 		self.overlay.set_storage(key, maybe_value)
@@ -245,7 +257,7 @@ impl Externalities for BasicExternalities {
 				"Refuse to clear prefix that is part of child storage key via main storage"
 			);
 			let maybe_cursor = Some(prefix.to_vec());
-			return MultiRemovalResults { maybe_cursor, backend: 0, unique: 0, loops: 0 }
+			return MultiRemovalResults { maybe_cursor, backend: 0, unique: 0, loops: 0 };
 		}
 
 		let count = self.overlay.clear_prefix(prefix);
@@ -267,7 +279,11 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
+		self.storage_root_with_version(self.state_version)
+	}
+
+	fn storage_root_with_version(&mut self, state_version: StateVersion) -> Vec<u8> {
 		let mut top = self
 			.overlay
 			.changes_mut()
@@ -278,7 +294,7 @@ impl Externalities for BasicExternalities {
 		// type of child trie support.
 		let empty_hash = empty_child_trie_root::<LayoutV1<Blake2Hasher>>();
 		for child_info in self.overlay.children().map(|d| d.1.clone()).collect::<Vec<_>>() {
-			let child_root = self.child_storage_root(&child_info, state_version);
+			let child_root = self.child_storage_root_with_version(&child_info, state_version);
 			if empty_hash[..] == child_root[..] {
 				top.remove(child_info.prefixed_storage_key().as_slice());
 			} else {
@@ -292,7 +308,11 @@ impl Externalities for BasicExternalities {
 		}
 	}
 
-	fn child_storage_root(
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
+		self.child_storage_root_with_version(child_info, self.state_version)
+	}
+
+	fn child_storage_root_with_version(
 		&mut self,
 		child_info: &ChildInfo,
 		state_version: StateVersion,
@@ -389,7 +409,29 @@ mod tests {
 			"39245109cef3758c2eed2ccba8d9b370a917850af3824bc8348d505df2c298fa",
 		);
 
-		assert_eq!(&ext.storage_root(StateVersion::default())[..], &root);
+		assert_eq!(&ext.storage_root()[..], &root);
+	}
+
+	#[test]
+	fn storage_root_follows_runtime_state_version() {
+		let mut ext = BasicExternalities::default();
+		// A value of at least `TRIE_VALUE_NODE_THRESHOLD` bytes is inlined under V0 but stored as a
+		// separate hashed node under V1, producing distinct roots.
+		let key = b"key".to_vec();
+		let value = vec![0x42; sp_core::storage::TRIE_VALUE_NODE_THRESHOLD as usize + 1];
+		ext.set_storage(key.clone(), value.clone());
+
+		let root_v1 = ext.storage_root();
+		let mut ext = ext.with_state_version(StateVersion::V0);
+		let root_v0 = ext.storage_root();
+
+		assert_ne!(root_v0, root_v1);
+		let expected_v0 = LayoutV0::<Blake2Hasher>::trie_root(
+			vec![(key, value)].into_iter().collect::<BTreeMap<_, _>>(),
+		)
+		.as_ref()
+		.to_vec();
+		assert_eq!(root_v0, expected_v0);
 	}
 
 	#[test]

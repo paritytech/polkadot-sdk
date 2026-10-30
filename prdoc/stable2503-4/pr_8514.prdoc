@@ -1,0 +1,15 @@
+title: Allow block-announce to exist in the background of minimal relay chains
+
+doc:
+  - audience: [Node Dev, Node Operator]
+    description: |
+      This PR fixes an issue with the collators that would not get advertised.
+      The issue relates to the /block-announces/1 protocol for the litep2p network backends.
+      Previously, the notification service handle was dropped, causing the litep2p backend to
+      terminate the long-running task that handled the /block-announces/1 protocol.
+      This represents a subtle difference between libp2p and litep2p, where libp2p would continue
+      to operate the protocol under the hood even without the respective handle.
+
+crates:
+  - name: cumulus-relay-chain-minimal-node
+    bump: minor

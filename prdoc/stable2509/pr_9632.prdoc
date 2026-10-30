@@ -1,0 +1,12 @@
+title: 'staking-async: implement lazy era pruning extrinsic'
+doc:
+- audience: Runtime User
+  description: |-
+    Move era pruning from automatic unbounded deletions to a permissionless lazy pruning system.
+    The new system processes era pruning across multiple blocks using a state machine pattern, ensuring storage operations remain bounded and preventing PoV size exhaustion.
+
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major

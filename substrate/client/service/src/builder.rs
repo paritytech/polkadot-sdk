@@ -22,33 +22,34 @@ use crate::{
 	config::{Configuration, ExecutorConfiguration, KeystoreConfig, Multiaddr, PrometheusConfig},
 	error::Error,
 	metrics::MetricsService,
-	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers, SpawnTaskHandle,
-	TaskManager, TransactionPoolAdapter,
+	start_rpc_servers, BuildGenesisBlock, GenesisBlockBuilder, RpcHandlers,
+	SpawnEssentialTaskHandle, SpawnTaskHandle, TaskManager, TransactionPoolAdapter,
 };
 use futures::{select, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::info;
+use log::{debug, error, info};
 use prometheus_endpoint::Registry;
 use sc_chain_spec::{get_extension, ChainSpec};
 use sc_client_api::{
 	execution_extensions::ExecutionExtensions, proof_provider::ProofProvider, BadBlocks,
-	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, StorageProvider, UsageProvider,
+	BlockBackend, BlockchainEvents, ExecutorProvider, ForkBlocks, KeysIter, StorageProvider,
+	TrieCacheContext, UsageProvider,
 };
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, PruningMode};
 use sc_consensus::import_queue::{ImportQueue, ImportQueueService};
 use sc_executor::{
-	sp_wasm_interface::HostFunctions, HeapAllocStrategy, NativeExecutionDispatch, RuntimeVersionOf,
-	WasmExecutor, DEFAULT_HEAP_ALLOC_STRATEGY,
+	sp_wasm_interface::HostFunctions, HeapAllocStrategy, RuntimeVersionOf, WasmExecutor,
+	DEFAULT_HEAP_ALLOC_STRATEGY,
 };
 use sc_keystore::LocalKeystore;
 use sc_network::{
-	config::{FullNetworkConfiguration, ProtocolId, SyncMode},
+	config::{FullNetworkConfiguration, IpfsConfig, ProtocolId, SyncMode},
 	multiaddr::Protocol,
 	service::{
 		traits::{PeerStore, RequestResponseConfig},
 		NotificationMetrics,
 	},
-	NetworkBackend, NetworkStateInfo,
+	IpfsIndexedTransactions, NetworkBackend, NetworkStateInfo,
 };
 use sc_network_common::role::{Role, Roles};
 use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
@@ -59,6 +60,7 @@ use sc_network_sync::{
 	service::network::{NetworkServiceHandle, NetworkServiceProvider},
 	state_request_handler::StateRequestHandler,
 	strategy::{
+		chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider},
 		polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 		SyncingStrategy,
 	},
@@ -75,11 +77,13 @@ use sc_rpc::{
 };
 use sc_rpc_spec_v2::{
 	archive::ArchiveApiServer,
+	bitswap::BitswapApiServer,
 	chain_head::ChainHeadApiServer,
 	chain_spec::ChainSpecApiServer,
 	transaction::{TransactionApiServer, TransactionBroadcastApiServer},
 };
 use sc_telemetry::{telemetry, ConnectionMessage, Telemetry, TelemetryHandle, SUBSTRATE_INFO};
+use sc_tracing::block::TracingExecuteBlock;
 use sc_transaction_pool_api::{MaintainedTransactionPool, TransactionPool};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_api::{CallApiAt, ProvideRuntimeApi};
@@ -89,12 +93,17 @@ use sp_consensus::block_validation::{
 };
 use sp_core::traits::{CodeExecutor, SpawnNamed};
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, BlockIdTo, NumberFor, Zero};
+use sp_runtime::traits::{Block as BlockT, NumberFor, Zero};
+use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey};
 use std::{
 	str::FromStr,
 	sync::Arc,
 	time::{Duration, SystemTime},
 };
+
+/// Cap the maximum number of blocks advertized to IPFS to two weeks at 6-second block time.
+/// Block pruning depth will be used if it is shorter.
+const IPFS_MAX_BLOCKS: u32 = 201600;
 
 /// Full client type.
 pub type TFullClient<TBl, TRtApi, TExec> =
@@ -116,8 +125,9 @@ impl KeystoreContainer {
 	/// Construct KeystoreContainer
 	pub fn new(config: &KeystoreConfig) -> Result<Self, Error> {
 		let keystore = Arc::new(match config {
-			KeystoreConfig::Path { path, password } =>
-				LocalKeystore::open(path.clone(), password.clone())?,
+			KeystoreConfig::Path { path, password } => {
+				LocalKeystore::open(path.clone(), password.clone())?
+			},
 			KeystoreConfig::InMemory => LocalKeystore::in_memory(),
 		});
 
@@ -140,26 +150,33 @@ pub fn new_full_client<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullClient<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts(config, telemetry, executor).map(|parts| parts.0)
+	new_full_parts(config, telemetry, executor, pruning_filters).map(|parts| parts.0)
 }
 
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts_record_import<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
 	enable_import_proof_recording: bool,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	let backend = new_db_backend(config.db_config())?;
+	let mut db_config = config.db_config();
+	db_config.pruning_filters = pruning_filters;
+	let backend = new_db_backend(db_config)?;
 
 	let genesis_block_builder = GenesisBlockBuilder::new(
 		config.chain_spec.as_storage_builder(),
@@ -177,17 +194,22 @@ where
 		enable_import_proof_recording,
 	)
 }
+
 /// Create the initial parts of a full node with the default genesis block builder.
+///
+/// The `pruning_filters` parameter allows configuring which blocks should be preserved
+/// during pruning.
 pub fn new_full_parts<TBl, TRtApi, TExec>(
 	config: &Configuration,
 	telemetry: Option<TelemetryHandle>,
 	executor: TExec,
+	pruning_filters: Vec<Arc<dyn sc_client_db::PruningFilter>>,
 ) -> Result<TFullParts<TBl, TRtApi, TExec>, Error>
 where
 	TBl: BlockT,
 	TExec: CodeExecutor + RuntimeVersionOf + Clone,
 {
-	new_full_parts_record_import(config, telemetry, executor, false)
+	new_full_parts_record_import(config, telemetry, executor, false, pruning_filters)
 }
 
 /// Create the initial parts of a full node.
@@ -263,21 +285,87 @@ where
 			},
 		)?;
 
+		if let Some(warm_up_strategy) = config.warm_up_trie_cache {
+			let storage_root = client.usage_info().chain.best_hash;
+			let backend_clone = backend.clone();
+
+			if warm_up_strategy.is_blocking() {
+				// We use the blocking strategy for testing purposes.
+				// So better to error out if it fails.
+				warm_up_trie_cache(backend_clone, storage_root)?;
+			} else {
+				task_manager.spawn_handle().spawn_blocking(
+					"warm-up-trie-cache",
+					None,
+					async move {
+						if let Err(e) = warm_up_trie_cache(backend_clone, storage_root) {
+							error!("Failed to warm up trie cache: {e}");
+						}
+					},
+				);
+			}
+		}
+
 		client
 	};
 
 	Ok((client, backend, keystore_container, task_manager))
 }
 
-/// Creates a [`NativeElseWasmExecutor`](sc_executor::NativeElseWasmExecutor) according to
-/// [`Configuration`].
-#[deprecated(note = "Please switch to `new_wasm_executor`. Will be removed at end of 2024.")]
-#[allow(deprecated)]
-pub fn new_native_or_wasm_executor<D: NativeExecutionDispatch>(
-	config: &Configuration,
-) -> sc_executor::NativeElseWasmExecutor<D> {
-	#[allow(deprecated)]
-	sc_executor::NativeElseWasmExecutor::new_with_wasm_executor(new_wasm_executor(&config.executor))
+fn child_info(key: Vec<u8>) -> Option<ChildInfo> {
+	let prefixed_key = PrefixedStorageKey::new(key);
+	ChildType::from_prefixed_key(&prefixed_key).and_then(|(child_type, storage_key)| {
+		(child_type == ChildType::ParentKeyId).then(|| ChildInfo::new_default(storage_key))
+	})
+}
+
+fn warm_up_trie_cache<TBl: BlockT>(
+	backend: Arc<TFullBackend<TBl>>,
+	storage_root: TBl::Hash,
+) -> Result<(), Error> {
+	use sc_client_api::backend::Backend;
+	use sp_state_machine::Backend as StateBackend;
+
+	let untrusted_state = || backend.state_at(storage_root, TrieCacheContext::Untrusted);
+	let trusted_state = || backend.state_at(storage_root, TrieCacheContext::Trusted);
+
+	debug!("Populating trie cache started",);
+	let start_time = std::time::Instant::now();
+	let mut keys_count = 0;
+	let mut child_keys_count = 0;
+	for key in KeysIter::<_, TBl>::new(untrusted_state()?, None, None)? {
+		if keys_count != 0 && keys_count % 100_000 == 0 {
+			debug!("{} keys and {} child keys have been warmed", keys_count, child_keys_count);
+		}
+		match child_info(key.0.clone()) {
+			Some(info) => {
+				for child_key in
+					KeysIter::<_, TBl>::new_child(untrusted_state()?, info.clone(), None, None)?
+				{
+					if trusted_state()?
+						.child_storage(&info, &child_key.0)
+						.unwrap_or_default()
+						.is_none()
+					{
+						debug!("Child storage value unexpectedly empty: {child_key:?}");
+					}
+					child_keys_count += 1;
+				}
+			},
+			None => {
+				if trusted_state()?.storage(&key.0).unwrap_or_default().is_none() {
+					debug!("Storage value unexpectedly empty: {key:?}");
+				}
+				keys_count += 1;
+			},
+		}
+	}
+	debug!(
+		"Trie cache populated with {keys_count} keys and {child_keys_count} child keys in {} s",
+		start_time.elapsed().as_secs_f32()
+	);
+
+	Ok(())
 }
 
 /// Creates a [`WasmExecutor`] according to [`ExecutorConfiguration`].
@@ -294,7 +382,10 @@ pub fn new_wasm_executor<H: HostFunctions>(config: &ExecutorConfiguration) -> Wa
 		.build()
 }
 
-/// Create an instance of default DB-backend backend.
+/// Create an instance of the default DB-backend.
+///
+/// Pruning filters can be configured via `settings.pruning_filters`.
+/// If any filter returns `true` for a block's justifications, the block will not be pruned.
 pub fn new_db_backend<Block>(
 	settings: DatabaseSettings,
 ) -> Result<Arc<Backend<Block>>, sp_blockchain::Error>
@@ -355,8 +446,35 @@ where
 	)
 }
 
-/// Parameters to pass into `build`.
-pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
+/// The client capabilities every service entry point relies on.
+///
+/// It is blanket implemented, so every full client qualifies. Having it as a single bound keeps
+/// the client bounds readable at [`build_network`], [`build_network_advanced`], [`spawn_tasks`]
+/// and [`gen_rpc_module`], each of which adds only the few capabilities it genuinely needs on top.
+pub trait ClientForService<Block: BlockT>:
+	ProvideRuntimeApi<Block>
+	+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+	+ HeaderBackend<Block>
+	+ BlockBackend<Block>
+	+ ProofProvider<Block>
+	+ BlockchainEvents<Block>
+	+ 'static
+{
+}
+
+impl<Block: BlockT, T> ClientForService<Block> for T where
+	T: ProvideRuntimeApi<Block>
+		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ ProofProvider<Block>
+		+ BlockchainEvents<Block>
+		+ 'static
+{
+}
+
+/// Parameters to pass into [`spawn_tasks`].
+pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool: ?Sized, TRpc, Backend> {
 	/// The service configuration.
 	pub config: Configuration,
 	/// A shared client returned by `new_full_parts`.
@@ -382,38 +500,15 @@ pub struct SpawnTasksParams<'a, TBl: BlockT, TCl, TExPool, TRpc, Backend> {
 	pub sync_service: Arc<SyncingService<TBl>>,
 	/// Telemetry instance for this node.
 	pub telemetry: Option<&'a mut Telemetry>,
+	/// Optional [`TracingExecuteBlock`] handle.
+	///
+	/// Will be used by the `trace_block` RPC to execute the actual block.
+	pub tracing_execute_block: Option<Arc<dyn TracingExecuteBlock<TBl>>>,
 }
 
 /// Spawn the tasks that are required to run a node.
 pub fn spawn_tasks<TBl, TBackend, TExPool, TRpc, TCl>(
-	params: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
-) -> Result<RpcHandlers, Error>
-where
-	TCl: ProvideRuntimeApi<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
-		+ Chain<TBl>
-		+ BlockBackend<TBl>
-		+ BlockIdTo<TBl, Error = sp_blockchain::Error>
-		+ ProofProvider<TBl>
-		+ HeaderBackend<TBl>
-		+ BlockchainEvents<TBl>
-		+ ExecutorProvider<TBl>
-		+ UsageProvider<TBl>
-		+ StorageProvider<TBl, TBackend>
-		+ CallApiAt<TBl>
-		+ Send
-		+ 'static,
-	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_api::Metadata<TBl>
-		+ sp_transaction_pool::runtime_api::TaggedTransactionQueue<TBl>
-		+ sp_session::SessionKeys<TBl>
-		+ sp_api::ApiExt<TBl>,
-	TBl: BlockT,
-	TBl::Hash: Unpin,
-	TBl::Header: Unpin,
-	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
-{
-	let SpawnTasksParams {
+	SpawnTasksParams {
 		mut config,
 		task_manager,
 		client,
@@ -426,8 +521,25 @@ where
 		tx_handler_controller,
 		sync_service,
 		telemetry,
-	} = params;
-
+		tracing_execute_block: execute_block,
+	}: SpawnTasksParams<TBl, TCl, TExPool, TRpc, TBackend>,
+) -> Result<RpcHandlers, Error>
+where
+	TCl: ClientForService<TBl>
+		+ Chain<TBl>
+		+ ExecutorProvider<TBl>
+		+ UsageProvider<TBl>
+		+ StorageProvider<TBl, TBackend>
+		+ CallApiAt<TBl>,
+	<TCl as ProvideRuntimeApi<TBl>>::Api:
+		sp_api::Metadata<TBl> + sp_session::SessionKeys<TBl> + sp_api::ApiExt<TBl>,
+	TBl: BlockT,
+	TBl::Hash: Unpin,
+	TBl::Header: Unpin,
+	TBackend: 'static + sc_client_api::backend::Backend<TBl> + Send,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
+{
 	let chain_info = client.usage_info().chain;
 
 	sp_session::generate_initial_session_keys(
@@ -465,7 +577,11 @@ where
 	spawn_handle.spawn(
 		"txpool-notifications",
 		Some("transaction-pool"),
-		sc_transaction_pool::notification_future(client.clone(), transaction_pool.clone()),
+		sc_transaction_pool::notification_future(
+			client.clone(),
+			transaction_pool.clone(),
+			config.transaction_pool.use_all_block_notifications(),
+		),
 	);
 
 	spawn_handle.spawn(
@@ -515,28 +631,53 @@ where
 	let rpc_id_provider = config.rpc.id_provider.take();
 
 	// jsonrpsee RPC
+	// RPC-V2 specific metrics need to be registered before the RPC server is started,
+	// since we might have two instances running (one for the in-memory RPC and one for the network
+	// RPC).
+	let rpc_v2_metrics = config
+		.prometheus_registry()
+		.map(|registry| sc_rpc_spec_v2::transaction::TransactionMetrics::new(registry))
+		.transpose()?;
+
+	// Create dedicated RPC runtime with limited blocking threads.
+	// This isolates RPC blocking operations from the rest of the node.
+	let rpc_runtime = sc_rpc_server::create_rpc_runtime(config.rpc.max_connections)
+		.map_err(|e| Error::Application(Box::new(e)))?;
+
+	// Create spawn handle for RPC tasks
+	let rpc_spawn_handle: Arc<dyn sp_core::traits::SpawnNamed> =
+		Arc::new(sc_rpc_server::RpcSpawnHandle::new(rpc_runtime.handle().clone()));
+
+	// Factory that creates RPC module
 	let gen_rpc_module = || {
-		gen_rpc_module(
-			task_manager.spawn_handle(),
-			client.clone(),
-			transaction_pool.clone(),
-			keystore.clone(),
-			system_rpc_tx.clone(),
-			config.impl_name.clone(),
-			config.impl_version.clone(),
-			config.chain_spec.as_ref(),
-			&config.state_pruning,
-			config.blocks_pruning,
-			backend.clone(),
-			&*rpc_builder,
-		)
+		gen_rpc_module(GenRpcModuleParams {
+			spawn_handle: rpc_spawn_handle.clone(),
+			client: client.clone(),
+			transaction_pool: transaction_pool.clone(),
+			keystore: keystore.clone(),
+			system_rpc_tx: system_rpc_tx.clone(),
+			impl_name: config.impl_name.clone(),
+			impl_version: config.impl_version.clone(),
+			chain_spec: config.chain_spec.as_ref(),
+			state_pruning: &config.state_pruning,
+			blocks_pruning: config.blocks_pruning,
+			backend: backend.clone(),
+			rpc_builder: &*rpc_builder,
+			metrics: rpc_v2_metrics.clone(),
+			sync_oracle: sync_service.clone(),
+			tracing_execute_block: execute_block.clone(),
+		})
 	};
+
+	// Generate the RPC module for the server
+	let rpc_api = gen_rpc_module()?;
 
 	let rpc_server_handle = start_rpc_servers(
 		&config.rpc,
 		config.prometheus_registry(),
 		&config.tokio_handle,
-		gen_rpc_module,
+		rpc_api,
+		rpc_runtime,
 		rpc_id_provider,
 	)?;
 
@@ -550,6 +691,7 @@ where
 		})
 		.collect();
 
+	// In-memory RPC uses the same dedicated RPC runtime
 	let in_memory_rpc = {
 		let mut module = gen_rpc_module()?;
 		module.extensions_mut().insert(DenyUnsafe::No);
@@ -579,7 +721,7 @@ pub async fn propagate_transaction_notifications<Block, ExPool>(
 	telemetry: Option<TelemetryHandle>,
 ) where
 	Block: BlockT,
-	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash>,
+	ExPool: MaintainedTransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized,
 {
 	const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -662,40 +804,74 @@ where
 	Ok(telemetry.handle())
 }
 
+/// Parameters for [`gen_rpc_module`].
+pub struct GenRpcModuleParams<'a, TBl: BlockT, TBackend, TCl, TRpc, TExPool: ?Sized> {
+	/// The handle to spawn tasks on the RPC runtime.
+	pub spawn_handle: Arc<dyn sp_core::traits::SpawnNamed>,
+	/// Access to the client.
+	pub client: Arc<TCl>,
+	/// The transaction pool.
+	pub transaction_pool: Arc<TExPool>,
+	/// Keystore handle.
+	pub keystore: KeystorePtr,
+	/// Sender for system requests.
+	pub system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
+	/// Implementation name of this node.
+	pub impl_name: String,
+	/// Implementation version of this node.
+	pub impl_version: String,
+	/// The chain spec.
+	pub chain_spec: &'a dyn ChainSpec,
+	/// Enabled pruning mode for this node.
+	pub state_pruning: &'a Option<PruningMode>,
+	/// Enabled blocks pruning mode.
+	pub blocks_pruning: BlocksPruning,
+	/// Backend of the node.
+	pub backend: Arc<TBackend>,
+	/// RPC builder.
+	pub rpc_builder: &'a dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>,
+	/// Transaction metrics handle.
+	pub metrics: Option<sc_rpc_spec_v2::transaction::TransactionMetrics>,
+	/// Sync oracle for determining sync status.
+	pub sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
+	/// Optional [`TracingExecuteBlock`] handle.
+	///
+	/// Will be used by the `trace_block` RPC to execute the actual block.
+	pub tracing_execute_block: Option<Arc<dyn TracingExecuteBlock<TBl>>>,
+}
+
 /// Generate RPC module using provided configuration
 pub fn gen_rpc_module<TBl, TBackend, TCl, TRpc, TExPool>(
-	spawn_handle: SpawnTaskHandle,
-	client: Arc<TCl>,
-	transaction_pool: Arc<TExPool>,
-	keystore: KeystorePtr,
-	system_rpc_tx: TracingUnboundedSender<sc_rpc::system::Request<TBl>>,
-	impl_name: String,
-	impl_version: String,
-	chain_spec: &dyn ChainSpec,
-	state_pruning: &Option<PruningMode>,
-	blocks_pruning: BlocksPruning,
-	backend: Arc<TBackend>,
-	rpc_builder: &(dyn Fn(SubscriptionTaskExecutor) -> Result<RpcModule<TRpc>, Error>),
+	GenRpcModuleParams {
+		spawn_handle,
+		client,
+		transaction_pool,
+		keystore,
+		system_rpc_tx,
+		impl_name,
+		impl_version,
+		chain_spec,
+		state_pruning,
+		blocks_pruning,
+		backend,
+		rpc_builder,
+		metrics,
+		sync_oracle,
+		tracing_execute_block: execute_block,
+	}: GenRpcModuleParams<TBl, TBackend, TCl, TRpc, TExPool>,
 ) -> Result<RpcModule<()>, Error>
 where
 	TBl: BlockT,
-	TCl: ProvideRuntimeApi<TBl>
-		+ BlockchainEvents<TBl>
-		+ HeaderBackend<TBl>
-		+ HeaderMetadata<TBl, Error = sp_blockchain::Error>
+	TCl: ClientForService<TBl>
 		+ ExecutorProvider<TBl>
 		+ CallApiAt<TBl>
-		+ ProofProvider<TBl>
-		+ StorageProvider<TBl, TBackend>
-		+ BlockBackend<TBl>
-		+ Send
-		+ Sync
-		+ 'static,
+		+ StorageProvider<TBl, TBackend>,
 	TBackend: sc_client_api::backend::Backend<TBl> + 'static,
 	<TCl as ProvideRuntimeApi<TBl>>::Api: sp_session::SessionKeys<TBl> + sp_api::Metadata<TBl>,
-	TExPool: MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + 'static,
 	TBl::Hash: Unpin,
 	TBl::Header: Unpin,
+	TExPool:
+		MaintainedTransactionPool<Block = TBl, Hash = <TBl as BlockT>::Hash> + ?Sized + 'static,
 {
 	let system_info = sc_rpc::system::SystemInfo {
 		chain_name: chain_spec.name().into(),
@@ -706,11 +882,12 @@ where
 	};
 
 	let mut rpc_api = RpcModule::new(());
-	let task_executor = Arc::new(spawn_handle);
+	let task_executor = spawn_handle;
 
 	let (chain, state, child_state) = {
 		let chain = sc_rpc::chain::new_full(client.clone(), task_executor.clone()).into_rpc();
-		let (state, child_state) = sc_rpc::state::new_full(client.clone(), task_executor.clone());
+		let (state, child_state) =
+			sc_rpc::state::new_full(client.clone(), task_executor.clone(), execute_block);
 		let state = state.into_rpc();
 		let child_state = child_state.into_rpc();
 
@@ -731,6 +908,7 @@ where
 		client.clone(),
 		transaction_pool.clone(),
 		task_executor.clone(),
+		metrics,
 	)
 	.into_rpc();
 
@@ -769,6 +947,14 @@ where
 	)
 	.into_rpc();
 
+	// Bitswap RPC-v2 (`bitswap_unstable_*`; `bitswap_v1_get` is registered as an alias of
+	// `bitswap_unstable_get` during the migration). Do not confuse with the Bitswap network
+	// protocol itself, which is the IPFS-style block-exchange wire format these methods may
+	// dispatch to.
+	let bitswap_v2 =
+		sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle, task_executor.clone())
+			.into_rpc();
+
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
 		transaction_pool,
@@ -792,6 +978,7 @@ where
 		.map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_head_v2).map_err(|e| Error::Application(e.into()))?;
 	rpc_api.merge(chain_spec_v2).map_err(|e| Error::Application(e.into()))?;
+	rpc_api.merge(bitswap_v2).map_err(|e| Error::Application(e.into()))?;
 
 	// Part of the old RPC spec.
 	rpc_api.merge(chain).map_err(|e| Error::Application(e.into()))?;
@@ -807,7 +994,7 @@ where
 }
 
 /// Parameters to pass into [`build_network`].
-pub struct BuildNetworkParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -822,6 +1009,8 @@ where
 	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
+	/// A handle for spawning essential tasks.
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
 	/// A block announce validator builder.
@@ -835,6 +1024,10 @@ where
 	pub block_relay: Option<BlockRelayParams<Block, Net>>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Which block bodies gap sync downloads after warp sync. `None` derives the
+	/// default from the block pruning configuration, see
+	/// [`default_gap_sync_body_policy`].
+	pub gap_sync_body_policy: Option<GapSyncBodyPolicyProvider>,
 }
 
 /// Build the network service, the network status sinks and an RPC sender.
@@ -846,21 +1039,14 @@ pub fn build_network<Block, Net, TxPool, IQ, Client>(
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		Arc<SyncingService<Block>>,
+		Option<sc_network_bitswap::BitswapHandle>,
 	),
 	Error,
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -870,11 +1056,13 @@ where
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		block_announce_validator_builder,
 		warp_sync_config,
 		block_relay,
 		metrics,
+		gap_sync_body_policy,
 	} = params;
 
 	let block_announce_validator = if let Some(f) = block_announce_validator_builder {
@@ -912,6 +1100,8 @@ where
 		),
 	};
 
+	let gap_sync_body_policy =
+		gap_sync_body_policy.unwrap_or_else(|| default_gap_sync_body_policy(config.blocks_pruning));
 	let syncing_strategy = build_polkadot_syncing_strategy(
 		protocol_id.clone(),
 		fork_id,
@@ -921,6 +1111,7 @@ where
 		client.clone(),
 		&spawn_handle,
 		metrics_registry,
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -938,29 +1129,32 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	build_network_advanced(BuildNetworkAdvancedParams {
 		role: config.role,
 		protocol_id,
 		fork_id,
-		ipfs_server: config.network.ipfs_server,
 		announce_block: config.announce_block,
 		net_config,
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		sync_service,
 		block_announce_config,
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning: config.blocks_pruning,
 	})
 }
 
 /// Parameters to pass into [`build_network_advanced`].
-pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool, IQ, Client>
+pub struct BuildNetworkAdvancedParams<'a, Block, Net, TxPool: ?Sized, IQ, Client>
 where
 	Block: BlockT,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
@@ -971,8 +1165,6 @@ where
 	pub protocol_id: ProtocolId,
 	/// Fork ID.
 	pub fork_id: Option<&'a str>,
-	/// Enable serving block data over IPFS bitswap.
-	pub ipfs_server: bool,
 	/// Announce block automatically after they have been imported.
 	pub announce_block: bool,
 	/// Full network configuration.
@@ -983,6 +1175,8 @@ where
 	pub transaction_pool: Arc<TxPool>,
 	/// A handle for spawning tasks.
 	pub spawn_handle: SpawnTaskHandle,
+	/// A handle for spawning essential tasks.
+	pub spawn_essential_handle: SpawnEssentialTaskHandle,
 	/// An import queue.
 	pub import_queue: IQ,
 	/// Syncing service to communicate with syncing engine.
@@ -995,10 +1189,13 @@ where
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Block pruning configuration.
+	pub blocks_pruning: BlocksPruning,
 }
 
-/// Build the network service, the network status sinks and an RPC sender, this is a lower-level
-/// version of [`build_network`] for those needing more control.
+/// Builds the lower-level network service.
+///
+/// The final tuple element contains the Bitswap handle when IPFS is enabled.
 pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 	params: BuildNetworkAdvancedParams<Block, Net, TxPool, IQ, Client>,
 ) -> Result<
@@ -1007,21 +1204,14 @@ pub fn build_network_advanced<Block, Net, TxPool, IQ, Client>(
 		TracingUnboundedSender<sc_rpc::system::Request<Block>>,
 		sc_network_transactions::TransactionsHandlerController<<Block as BlockT>::Hash>,
 		Arc<SyncingService<Block>>,
+		Option<sc_network_bitswap::BitswapHandle>,
 	),
 	Error,
 >
 where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>
-		+ HeaderMetadata<Block, Error = sp_blockchain::Error>
-		+ Chain<Block>
-		+ BlockBackend<Block>
-		+ BlockIdTo<Block, Error = sp_blockchain::Error>
-		+ ProofProvider<Block>
-		+ HeaderBackend<Block>
-		+ BlockchainEvents<Block>
-		+ 'static,
-	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + 'static,
+	Client: ClientForService<Block> + Chain<Block>,
+	TxPool: TransactionPool<Block = Block, Hash = <Block as BlockT>::Hash> + ?Sized + 'static,
 	IQ: ImportQueue<Block> + 'static,
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
@@ -1029,39 +1219,75 @@ where
 		role,
 		protocol_id,
 		fork_id,
-		ipfs_server,
 		announce_block,
 		mut net_config,
 		client,
 		transaction_pool,
 		spawn_handle,
+		spawn_essential_handle,
 		import_queue,
 		sync_service,
 		block_announce_config,
 		network_service_provider,
 		metrics_registry,
 		metrics,
+		blocks_pruning,
 	} = params;
 
 	let genesis_hash = client.info().genesis_hash;
+	let sync_service = Arc::new(sync_service);
 
 	let light_client_request_protocol_config = {
 		// Allow both outgoing and incoming requests.
-		let (handler, protocol_config) =
-			LightClientRequestHandler::new::<Net>(&protocol_id, fork_id, client.clone());
-		spawn_handle.spawn("light-client-request-handler", Some("networking"), handler.run());
+		let (handler, protocol_config) = LightClientRequestHandler::new::<Net>(
+			&protocol_id,
+			fork_id,
+			client.clone(),
+			net_config.network_config.light_request_execution_timeout,
+		);
+		// Handling a request executes runtime code synchronously, see
+		// `LightClientRequestHandler::run`.
+		spawn_handle.spawn_blocking(
+			"light-client-request-handler",
+			Some("networking"),
+			handler.run(),
+		);
 		protocol_config
 	};
 
 	// install request handlers to `FullNetworkConfiguration`
 	net_config.add_request_response_protocol(light_client_request_protocol_config);
 
-	let bitswap_config = ipfs_server.then(|| {
-		let (handler, config) = Net::bitswap_server(client.clone());
-		spawn_handle.spawn("bitswap-request-handler", Some("networking"), handler);
+	let (ipfs_config, bitswap) = if net_config.network_config.ipfs_server {
+		if !Net::SUPPORTS_IPFS {
+			return Err(Error::Other(
+				"the selected network backend does not support Bitswap; \
+					 set --network-backend litep2p or disable --ipfs-server"
+					.into(),
+			));
+		}
 
-		config
-	});
+		let ipfs_num_blocks = match blocks_pruning {
+			BlocksPruning::KeepAll | BlocksPruning::KeepFinalized => IPFS_MAX_BLOCKS,
+			BlocksPruning::Some(num) => std::cmp::min(num, IPFS_MAX_BLOCKS),
+		};
+
+		let (ipfs_config, litep2p_bitswap_handle) = IpfsConfig::new(
+			Box::new(IpfsIndexedTransactions::new(client.clone(), ipfs_num_blocks)),
+			net_config.network_config.ipfs_bootnodes.clone(),
+		);
+
+		let (handler, handle) = sc_network_bitswap::start::<Block, _>(
+			client.clone(),
+			&*sync_service,
+			litep2p_bitswap_handle,
+			metrics_registry,
+		);
+
+		(Some(ipfs_config), Some((handler, handle)))
+	} else {
+		(None, None)
+	};
 
 	// Create transactions protocol and add it to the list of supported protocols of
 	let (transactions_handler_proto, transactions_config) =
@@ -1078,8 +1304,6 @@ where
 	let peer_store = net_config.take_peer_store();
 	spawn_handle.spawn("peer-store", Some("networking"), peer_store.run());
 
-	let sync_service = Arc::new(sync_service);
-
 	let network_params = sc_network::config::Params::<Block, <Block as BlockT>::Hash, Net> {
 		role,
 		executor: {
@@ -1094,13 +1318,20 @@ where
 		fork_id: fork_id.map(ToOwned::to_owned),
 		metrics_registry: metrics_registry.cloned(),
 		block_announce_config,
-		bitswap_config,
+		ipfs_config,
 		notification_metrics: metrics,
 	};
 
 	let has_bootnodes = !network_params.network_config.network_config.boot_nodes.is_empty();
 	let network_mut = Net::new(network_params)?;
 	let network = network_mut.network_service().clone();
+
+	// Essential: on storage chains block import depends on the bitswap actor, so its
+	// death must shut the node down instead of stalling sync silently.
+	let bitswap_handle = bitswap.map(|(handler, handle)| {
+		spawn_essential_handle.spawn("bitswap-service", Some("networking"), handler);
+		handle
+	});
 
 	let (tx_handler, tx_handler_controller) = transactions_handler_proto.build(
 		network.clone(),
@@ -1153,9 +1384,12 @@ where
 	// issue, and ideally we would like to fix the network future to take as little time as
 	// possible, but we also take the extra harm-prevention measure to execute the networking
 	// future using `spawn_blocking`.
-	spawn_handle.spawn_blocking("network-worker", Some("networking"), future);
+	//
+	// The network worker is spawned as an essential task, meaning if it exits unexpectedly
+	// the service will shut down.
+	spawn_essential_handle.spawn_blocking("network-worker", Some("networking"), future);
 
-	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone()))
+	Ok((network, system_rpc_tx, tx_handler_controller, sync_service.clone(), bitswap_handle))
 }
 
 /// Configuration for [`build_default_syncing_engine`].
@@ -1186,10 +1420,16 @@ where
 	pub num_peers_hint: usize,
 	/// A handle for spawning tasks.
 	pub spawn_handle: &'a SpawnTaskHandle,
+	/// A handle for spawning essential tasks. Used for the syncing engine itself.
+	pub spawn_essential_handle: &'a SpawnEssentialTaskHandle,
 	/// Prometheus metrics registry.
 	pub metrics_registry: Option<&'a Registry>,
 	/// Metrics.
 	pub metrics: NotificationMetrics,
+	/// Resolves the gap sync body policy when a `ChainSync` instance is created. Use
+	/// [`default_gap_sync_body_policy`] unless the node opts into storage-chain body
+	/// recovery.
+	pub gap_sync_body_policy: GapSyncBodyPolicyProvider,
 }
 
 /// Build default syncing engine using [`build_default_block_downloader`] and
@@ -1220,8 +1460,10 @@ where
 		import_queue_service,
 		num_peers_hint,
 		spawn_handle,
+		spawn_essential_handle,
 		metrics_registry,
 		metrics,
+		gap_sync_body_policy,
 	} = config;
 
 	let block_downloader = build_default_block_downloader(
@@ -1242,6 +1484,7 @@ where
 		client.clone(),
 		spawn_handle,
 		metrics_registry,
+		gap_sync_body_policy,
 	)?;
 
 	let (syncing_engine, sync_service, block_announce_config) = SyncingEngine::new(
@@ -1259,7 +1502,9 @@ where
 		net_config.peer_store_handle(),
 	)?;
 
-	spawn_handle.spawn_blocking("syncing", None, syncing_engine.run());
+	// The syncing engine is spawned as an essential task: a node that can no longer
+	// sync is better shut down than kept running.
+	spawn_essential_handle.spawn_blocking("syncing", None, syncing_engine.run());
 
 	Ok((sync_service, block_announce_config))
 }
@@ -1299,6 +1544,21 @@ where
 	downloader
 }
 
+/// The default gap sync body policy provider, derived from the block pruning
+/// configuration: archive nodes backfill the whole gap with bodies, pruned nodes
+/// headers and justifications only.
+///
+/// Storage-chain nodes install their own provider instead, via
+/// [`BuildNetworkParams::gap_sync_body_policy`].
+pub fn default_gap_sync_body_policy(blocks_pruning: BlocksPruning) -> GapSyncBodyPolicyProvider {
+	Arc::new(move || {
+		Ok(blocks_pruning
+			.is_archive()
+			.then_some(GapSyncBodyPolicy::All)
+			.unwrap_or(GapSyncBodyPolicy::HeadersOnly))
+	})
+}
+
 /// Build standard polkadot syncing strategy
 pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	protocol_id: ProtocolId,
@@ -1309,6 +1569,7 @@ pub fn build_polkadot_syncing_strategy<Block, Client, Net>(
 	client: Arc<Client>,
 	spawn_handle: &SpawnTaskHandle,
 	metrics_registry: Option<&Registry>,
+	gap_sync_body_policy: GapSyncBodyPolicyProvider,
 ) -> Result<Box<dyn SyncingStrategy<Block>>, Error>
 where
 	Block: BlockT,
@@ -1322,13 +1583,14 @@ where
 	Net: NetworkBackend<Block, <Block as BlockT>::Hash>,
 {
 	if warp_sync_config.is_none() && net_config.network_config.sync_mode.is_warp() {
-		return Err("Warp sync enabled, but no warp sync provider configured.".into())
+		return Err("Warp sync enabled, but no warp sync provider configured.".into());
 	}
 
 	if client.requires_full_sync() {
 		match net_config.network_config.sync_mode {
-			SyncMode::LightState { .. } =>
-				return Err("Fast sync doesn't work for archive nodes".into()),
+			SyncMode::LightState { .. } => {
+				return Err("Fast sync doesn't work for archive nodes".into())
+			},
 			SyncMode::Warp => return Err("Warp sync doesn't work for archive nodes".into()),
 			SyncMode::Full => {},
 		}
@@ -1373,9 +1635,11 @@ where
 		mode: net_config.network_config.sync_mode,
 		max_parallel_downloads: net_config.network_config.max_parallel_downloads,
 		max_blocks_per_request: net_config.network_config.max_blocks_per_request,
+		min_peers_to_start_warp_sync: net_config.network_config.min_peers_to_start_warp_sync,
 		metrics_registry: metrics_registry.cloned(),
 		state_request_protocol_name,
 		block_downloader,
+		gap_sync_body_policy,
 	};
 	Ok(Box::new(PolkadotSyncingStrategy::new(
 		syncing_config,

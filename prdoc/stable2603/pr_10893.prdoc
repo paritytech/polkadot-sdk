@@ -1,0 +1,27 @@
+title: Do not prune blocks with GrandPa justifications
+doc:
+- audience:
+  - Node Dev
+  - Node Operator
+  description: |-
+    Warp sync requires GRANDPA justifications at authority set change boundaries to construct proofs. When block pruning is enabled, all block bodies are removed regardless of whether they contain important justifications. The pruned nodes can then not be used to fetch warp proofs.
+    We now have the capability to filter which blocks can be safely pruned. For parachain nodes, everything can be pruned, solochain nodes using grandpa keep blocks with justifications. This ensures warp sync ability within the network.
+crates:
+- name: polkadot-service
+  bump: major
+- name: sc-cli
+  bump: major
+- name: sc-consensus-beefy
+  bump: major
+- name: sc-consensus-grandpa
+  bump: major
+- name: sc-client-db
+  bump: major
+- name: sc-service
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: staging-node-inspect
+  bump: major

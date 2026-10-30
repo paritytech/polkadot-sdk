@@ -111,31 +111,33 @@ impl<C: Chain, E: Environment<C>> TransactionTracker<C, E> {
 
 		match futures::future::select(wait_for_stall_timeout, wait_for_invalidation).await {
 			Either::Left((_, _)) => {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} is considered lost after timeout (no status response from the node)",
-					C::NAME,
-					self.transaction_hash,
+					node=%C::NAME,
+					transaction=?self.transaction_hash,
+					"Transaction is considered lost after timeout (no status response from the node)"
 				);
 
 				(TrackedTransactionStatus::Lost, None)
 			},
 			Either::Right((invalidation_status, _)) => match invalidation_status {
-				InvalidationStatus::Finalized(at_block) =>
-					(TrackedTransactionStatus::Finalized(at_block), Some(invalidation_status)),
-				InvalidationStatus::Invalid =>
-					(TrackedTransactionStatus::Lost, Some(invalidation_status)),
+				InvalidationStatus::Finalized(at_block) => {
+					(TrackedTransactionStatus::Finalized(at_block), Some(invalidation_status))
+				},
+				InvalidationStatus::Invalid => {
+					(TrackedTransactionStatus::Lost, Some(invalidation_status))
+				},
 				InvalidationStatus::Lost => {
 					// wait for the rest of stall timeout - this way we'll be sure that the
 					// transaction is actually dead if it has been crafted properly
 					wait_for_stall_timeout_rest.await;
 					// if someone is still watching for our transaction, then we're reporting
 					// an error here (which is treated as "transaction lost")
-					log::trace!(
+					tracing::trace!(
 						target: "bridge",
-						"{} transaction {:?} is considered lost after timeout",
-						C::NAME,
-						self.transaction_hash,
+						node=%C::NAME,
+						transaction=?self.transaction_hash,
+						"Transaction is considered lost after timeout"
 					);
 
 					(TrackedTransactionStatus::Lost, Some(invalidation_status))
@@ -150,7 +152,7 @@ impl<C: Chain, E: Environment<C>> relay_utils::TransactionTracker for Transactio
 	type HeaderId = HeaderIdOf<C>;
 
 	async fn wait(self) -> TrackedTransactionStatus<HeaderIdOf<C>> {
-		let wait_for_stall_timeout = async_std::task::sleep(self.stall_timeout).shared();
+		let wait_for_stall_timeout = tokio::time::sleep(self.stall_timeout).shared();
 		let wait_for_stall_timeout_rest = wait_for_stall_timeout.clone();
 		self.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).await.0
 	}
@@ -188,30 +190,30 @@ async fn watch_transaction_status<
 			Some(TransactionStatusOf::<C>::Finalized((block_hash, _))) => {
 				// the only "successful" outcome of this method is when the block with transaction
 				// has been finalized
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been finalized at block: {:?}",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has been finalized"
 				);
 
 				let header_id = match environment.header_id_by_hash(block_hash).await {
 					Ok(header_id) => header_id,
 					Err(e) => {
-						log::error!(
+						tracing::error!(
 							target: "bridge",
-							"Failed to read header {:?} when watching for {} transaction {:?}: {:?}",
-							block_hash,
-							C::NAME,
-							transaction_hash,
-							e,
+							error=?e,
+							node=%C::NAME,
+							transaction=?transaction_hash,
+							block=?block_hash,
+							"Failed to read header when watching for transaction",
 						);
 						// that's the best option we have here
-						return InvalidationStatus::Lost
+						return InvalidationStatus::Lost;
 					},
 				};
-				return InvalidationStatus::Finalized(header_id)
+				return InvalidationStatus::Finalized(header_id);
 			},
 			Some(TransactionStatusOf::<C>::Invalid) => {
 				// if node says that the transaction is invalid, there are still chances that
@@ -220,13 +222,13 @@ async fn watch_transaction_status<
 				// valid again on other fork. But let's assume that the chances of this event
 				// are almost zero - there's a lot of things that must happen for this to be the
 				// case.
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been invalidated",
-					C::NAME,
-					transaction_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					"Transaction has been invalidated"
 				);
-				return InvalidationStatus::Invalid
+				return InvalidationStatus::Invalid;
 			},
 			Some(TransactionStatusOf::<C>::Future) |
 			Some(TransactionStatusOf::<C>::Ready) |
@@ -237,62 +239,62 @@ async fn watch_transaction_status<
 				// TODO: read matching system event (ExtrinsicSuccess or ExtrinsicFailed), log it
 				// here and use it later (on finality) for reporting invalid transaction
 				// https://github.com/paritytech/parity-bridges-common/issues/1464
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been included in block: {:?}",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has been included"
 				);
 			},
 			Some(TransactionStatusOf::<C>::Retracted(block_hash)) => {
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} at block {:?} has been retracted",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has been retracted"
 				);
 			},
 			Some(TransactionStatusOf::<C>::FinalityTimeout(block_hash)) => {
 				// finality is lagging? let's wait a bit more and report a stall
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} block {:?} has not been finalized for too long",
-					C::NAME,
-					transaction_hash,
-					block_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					block=?block_hash,
+					"Transaction has not been finalized for too long"
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			Some(TransactionStatusOf::<C>::Usurped(new_transaction_hash)) => {
 				// this may be result of our transaction resubmitter work or some manual
 				// intervention. In both cases - let's start stall timeout, because the meaning
 				// of transaction may have changed
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been usurped by new transaction: {:?}",
-					C::NAME,
-					transaction_hash,
-					new_transaction_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					new_transaction=?new_transaction_hash,
+					"Transaction has been usurped"
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			Some(TransactionStatusOf::<C>::Dropped) => {
 				// the transaction has been removed from the pool because of its limits. Let's wait
 				// a bit and report a stall
-				log::trace!(
+				tracing::trace!(
 					target: "bridge",
-					"{} transaction {:?} has been dropped from the pool",
-					C::NAME,
-					transaction_hash,
+					node=%C::NAME,
+					transaction=?transaction_hash,
+					"Transaction has been dropped from the pool"
 				);
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 			None => {
 				// the status of transaction is unknown to us (the subscription has been closed?).
 				// Let's wait a bit and report a stall
-				return InvalidationStatus::Lost
+				return InvalidationStatus::Lost;
 			},
 		}
 	}
@@ -337,7 +339,7 @@ mod tests {
 		// we can't do `.now_or_never()` on `do_wait()` call, because `Subscription` has its own
 		// background thread, which may cause additional async task switches => let's leave some
 		// relatively small timeout here
-		let wait_for_stall_timeout = async_std::task::sleep(std::time::Duration::from_millis(100));
+		let wait_for_stall_timeout = tokio::time::sleep(std::time::Duration::from_millis(100));
 		let wait_for_stall_timeout_rest = futures::future::ready(());
 		sender.send(Ok(status)).await.unwrap();
 
@@ -346,7 +348,7 @@ mod tests {
 		is.map(|is| (ts, is))
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn returns_finalized_on_finalized() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Finalized(Default::default())).await,
@@ -357,7 +359,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn returns_lost_on_finalized_and_environment_error() {
 		assert_eq!(
 			watch_transaction_status::<_, TestChain, _>(
@@ -370,7 +372,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn returns_invalid_on_invalid() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Invalid).await,
@@ -378,17 +380,17 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_future() {
 		assert_eq!(on_transaction_status(TransactionStatus::Future).await, None,);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_ready() {
 		assert_eq!(on_transaction_status(TransactionStatus::Ready).await, None,);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_broadcast() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Broadcast(Default::default())).await,
@@ -396,7 +398,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_in_block() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::InBlock(Default::default())).await,
@@ -404,7 +406,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_retracted() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Retracted(Default::default())).await,
@@ -412,7 +414,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_finality_timeout() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::FinalityTimeout(Default::default())).await,
@@ -420,7 +422,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_usurped() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Usurped(Default::default())).await,
@@ -428,7 +430,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_dropped() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Dropped).await,
@@ -436,7 +438,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_subscription_error() {
 		assert_eq!(
 			watch_transaction_status::<_, TestChain, _>(
@@ -449,7 +451,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_timeout_when_waiting_for_invalidation_status() {
 		let (_sender, receiver) = futures::channel::mpsc::channel(1);
 		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(

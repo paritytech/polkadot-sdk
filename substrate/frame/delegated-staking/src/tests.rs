@@ -65,31 +65,6 @@ fn cannot_become_agent() {
 			DelegatedStaking::register_agent(RawOrigin::Signed(100).into(), 100),
 			Error::<T>::InvalidRewardDestination
 		);
-
-		// an existing validator cannot become agent
-		assert_noop!(
-			DelegatedStaking::register_agent(
-				RawOrigin::Signed(mock::GENESIS_VALIDATOR).into(),
-				100
-			),
-			Error::<T>::AlreadyStaking
-		);
-
-		// an existing direct staker to `CoreStaking` cannot become an agent.
-		assert_noop!(
-			DelegatedStaking::register_agent(
-				RawOrigin::Signed(mock::GENESIS_NOMINATOR_ONE).into(),
-				100
-			),
-			Error::<T>::AlreadyStaking
-		);
-		assert_noop!(
-			DelegatedStaking::register_agent(
-				RawOrigin::Signed(mock::GENESIS_NOMINATOR_TWO).into(),
-				100
-			),
-			Error::<T>::AlreadyStaking
-		);
 	});
 }
 
@@ -361,6 +336,112 @@ fn allow_full_amount_to_be_delegated() {
 			1000
 		);
 		assert_eq!(DelegatedStaking::held_balance_of(Delegator::from(delegator)), 1000);
+	});
+}
+
+#[test]
+fn zero_amount_new_delegation_is_a_noop() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+
+		fund(&delegator, 1000);
+
+		// a zero amount delegation succeeds and does nothing.
+		assert_ok!(DelegatedStaking::delegate_to_agent(
+			RawOrigin::Signed(delegator).into(),
+			agent,
+			0
+		));
+
+		// no delegation record is stored and no provider reference is taken, so the account is
+		// not wrongly marked as a delegator.
+		assert!(Delegators::<T>::get(delegator).is_none());
+		assert!(!DelegatedStaking::is_delegator(&delegator));
+
+		// the agent ledger is untouched.
+		assert_eq!(get_agent_ledger(&agent).ledger.total_delegated, 0);
+
+		// exactly one provider reference, from the funded balance: the no-op did not
+		// `inc_providers`. A leak would have taken this to 2.
+		assert_eq!(System::providers(&delegator), 1);
+
+		// the account is left in no blocking state, so it can still register as an agent.
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(delegator).into(), 301));
+	});
+}
+
+#[test]
+fn zero_amount_migration_is_a_noop() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+
+		fund(&delegator, 1000);
+
+		// a zero amount migration succeeds and does nothing.
+		assert_ok!(DelegatedStaking::migrate_delegation(
+			RawOrigin::Signed(agent).into(),
+			delegator,
+			0
+		));
+
+		// no delegation record is stored for the destination and no provider reference is
+		// taken, so it is not wrongly marked as a delegator.
+		assert!(Delegators::<T>::get(delegator).is_none());
+		assert!(!DelegatedStaking::is_delegator(&delegator));
+
+		// exactly one provider reference, from the funded balance: the no-op did not
+		// `inc_providers`. A leak would have taken this to 2.
+		assert_eq!(System::providers(&delegator), 1);
+
+		// the destination is left in no blocking state, so it can still register as an agent.
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(delegator).into(), 301));
+	});
+}
+
+#[test]
+fn zero_amount_topup_on_existing_delegation_is_a_noop() {
+	ExtBuilder::default().build_and_execute(|| {
+		let agent: AccountId = 200;
+		let reward_acc: AccountId = 201;
+		let delegator: AccountId = 300;
+
+		// set intention to accept delegation.
+		fund(&agent, 1000);
+		assert_ok!(DelegatedStaking::register_agent(RawOrigin::Signed(agent).into(), reward_acc));
+
+		fund(&delegator, 1000);
+
+		// a legitimate delegation first, so the delegator already exists in storage.
+		assert_ok!(DelegatedStaking::delegate_to_agent(
+			RawOrigin::Signed(delegator).into(),
+			agent,
+			100
+		));
+
+		// a zero amount top-up on an existing delegation is a no-op rather than an error.
+		// nomination-pools depends on this: `bond_extra(BondExtra::Rewards)` bonds a claimed
+		// amount of zero when there is nothing pending, e.g. at 100% commission.
+		assert_ok!(DelegatedStaking::delegate_to_agent(
+			RawOrigin::Signed(delegator).into(),
+			agent,
+			0
+		));
+
+		// the existing delegation is left untouched.
+		assert_eq!(Delegators::<T>::get(delegator).unwrap().amount, 100);
+		assert_eq!(get_agent_ledger(&agent).ledger.total_delegated, 100);
 	});
 }
 
@@ -636,18 +717,6 @@ mod staking_integration {
 			assert_noop!(
 				DelegatedStaking::register_agent(RawOrigin::Signed(202).into(), 203),
 				Error::<T>::NotAllowed
-			);
-			// existing staker cannot become a delegate
-			assert_noop!(
-				DelegatedStaking::register_agent(
-					RawOrigin::Signed(GENESIS_NOMINATOR_ONE).into(),
-					201
-				),
-				Error::<T>::AlreadyStaking
-			);
-			assert_noop!(
-				DelegatedStaking::register_agent(RawOrigin::Signed(GENESIS_VALIDATOR).into(), 201),
-				Error::<T>::AlreadyStaking
 			);
 		});
 	}
@@ -1362,7 +1431,7 @@ mod pool_integration {
 	}
 
 	#[test]
-	fn existing_pool_member_can_stake() {
+	fn existing_pool_member_cannot_stake() {
 		// A pool member is able to stake directly since staking only uses free funds but once a
 		// staker, they cannot join/add extra bond to the pool. They can still withdraw funds.
 		ExtBuilder::default().build_and_execute(|| {
@@ -1376,28 +1445,42 @@ mod pool_integration {
 			fund(&delegator, 1000);
 			assert_ok!(Pools::join(RawOrigin::Signed(delegator).into(), 200, pool_id));
 
-			// THEN: they can still stake directly.
+			// THEN: they cannot stake anymore
+			assert_noop!(
+				Staking::bond(
+					RuntimeOrigin::signed(delegator),
+					500,
+					RewardDestination::Account(101)
+				),
+				StakingError::<T>::Restricted
+			);
+		});
+	}
+
+	#[test]
+	fn stakers_cannot_join_pool() {
+		ExtBuilder::default().build_and_execute(|| {
+			start_era(1);
+			// GIVEN: a pool.
+			fund(&200, 1000);
+			let pool_id = create_pool(200, 800);
+
+			// WHEN: an account is a staker.
+			let staker = 100;
+			fund(&staker, 1000);
+
 			assert_ok!(Staking::bond(
-				RuntimeOrigin::signed(delegator),
+				RuntimeOrigin::signed(staker),
 				500,
 				RewardDestination::Account(101)
 			));
-			assert_ok!(Staking::nominate(
-				RuntimeOrigin::signed(delegator),
-				vec![GENESIS_VALIDATOR]
-			));
+			assert_ok!(Staking::nominate(RuntimeOrigin::signed(staker), vec![GENESIS_VALIDATOR]));
 
-			// The delegator cannot add any extra bond to the pool anymore.
+			// THEN: they cannot join pool.
 			assert_noop!(
-				Pools::bond_extra(RawOrigin::Signed(delegator).into(), BondExtra::FreeBalance(100)),
-				Error::<T>::AlreadyStaking
+				Pools::join(RawOrigin::Signed(staker).into(), 200, pool_id),
+				PoolsError::<T>::Restricted
 			);
-
-			// But they can unbond
-			assert_ok!(Pools::unbond(RawOrigin::Signed(delegator).into(), delegator, 50));
-			// and withdraw
-			start_era(4);
-			assert_ok!(Pools::withdraw_unbonded(RawOrigin::Signed(delegator).into(), delegator, 0));
 		});
 	}
 

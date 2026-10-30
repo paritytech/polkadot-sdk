@@ -21,6 +21,7 @@ frame-support = { workspace = true }
 polkadot-primitives = { workspace = true }
 polkadot-runtime-common = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-runtime = { workspace = true }
 sp-weights = { workspace = true }
 
@@ -34,11 +35,19 @@ std = [
 	"polkadot-primitives/std",
 	"polkadot-runtime-common/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-runtime/std",
 	"sp-weights/std",
 	"xcm-builder/std",
 	"xcm/std",
 ]
-
+runtime-benchmarks = [
+	"frame-support/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"polkadot-runtime-common/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+	"xcm/runtime-benchmarks",
+]
 # Set timing constants (e.g. session period) to faster versions to speed up testing.
 fast-runtime = []

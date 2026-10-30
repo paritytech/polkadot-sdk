@@ -46,6 +46,9 @@ pub mod prelude {
 	};
 	// Keyring
 	pub use super::Sr25519Keyring;
+	pub use futures::executor::block_on;
+	pub use sc_block_builder::BlockBuilderBuilder;
+	pub use sp_blockchain::HeaderBackend;
 }
 
 /// Test client database backend.
@@ -205,10 +208,4 @@ where
 /// Creates new client instance used for tests.
 pub fn new() -> Client<Backend> {
 	TestClientBuilder::new().build()
-}
-
-/// Create a new native executor.
-#[deprecated(note = "Switch to `WasmExecutor:default()`.")]
-pub fn new_native_or_wasm_executor() -> WasmExecutor {
-	WasmExecutor::default()
 }

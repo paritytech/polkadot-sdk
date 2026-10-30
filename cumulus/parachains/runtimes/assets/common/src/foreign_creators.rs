@@ -34,20 +34,19 @@ impl<
 		L: TryFrom<Location> + TryInto<Location> + Clone + Debug,
 	> EnsureOriginWithArg<RuntimeOrigin, L> for ForeignCreators<IsForeign, AccountOf, AccountId, L>
 where
-	RuntimeOrigin::PalletsOrigin:
-		From<XcmOrigin> + TryInto<XcmOrigin, Error = RuntimeOrigin::PalletsOrigin>,
+	for<'a> &'a RuntimeOrigin::PalletsOrigin: TryInto<&'a XcmOrigin>,
 {
 	type Success = AccountId;
 
 	fn try_origin(
 		origin: RuntimeOrigin,
 		asset_location: &L,
-	) -> core::result::Result<Self::Success, RuntimeOrigin> {
+	) -> Result<Self::Success, RuntimeOrigin> {
 		tracing::trace!(target: "xcm::try_origin", ?origin, ?asset_location, "ForeignCreators");
 		let origin_location = EnsureXcm::<Everything, L>::try_origin(origin.clone())?;
 		if !IsForeign::contains(asset_location, &origin_location) {
 			tracing::trace!(target: "xcm::try_origin", ?asset_location, ?origin_location, "ForeignCreators: no match");
-			return Err(origin)
+			return Err(origin);
 		}
 		let latest_location: Location =
 			origin_location.clone().try_into().map_err(|_| origin.clone())?;

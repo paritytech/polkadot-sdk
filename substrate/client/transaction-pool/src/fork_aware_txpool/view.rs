@@ -28,8 +28,8 @@ use crate::{
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
 		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, TransactionFor, ValidatedPoolSubmitOutcome, ValidatedTransaction,
-		ValidatedTransactionFor,
+		IsValidator, TransactionFor, ValidateTransactionPriority, ValidatedPoolSubmitOutcome,
+		ValidatedTransaction, ValidatedTransactionFor,
 	},
 	LOG_TARGET,
 };
@@ -43,7 +43,25 @@ use sp_runtime::{
 	SaturatedConversion,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{debug, trace};
+use tracing::{debug, instrument, trace, Level};
+
+/// Status of a transaction with respect to a view.
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum ImportedStatus {
+	/// Transaction is not known to the view and can be submitted.
+	NotImported,
+	/// Transaction is temporarily banned in the view's rotator.
+	Banned,
+	/// Transaction is already imported into the view's pool.
+	Imported,
+}
+
+impl ImportedStatus {
+	/// Returns `true` if the transaction is known to the view (either imported or banned).
+	pub(super) fn is_imported(&self) -> bool {
+		!matches!(self, ImportedStatus::NotImported)
+	}
+}
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
@@ -185,7 +203,7 @@ impl<C: graph::ChainApi> graph::EventHandler<C> for ViewPoolObserver<C> {
 	}
 
 	fn finality_timeout(&self, tx: ExtrinsicHash<C>, hash: BlockHash<C>) {
-		//todo: do we need this? [related issue: #5482]
+		// todo: do we need this? [related issue: #5482]
 		self.send_to_aggregated_stream_sink(tx, TransactionStatus::FinalityTimeout(hash));
 	}
 }
@@ -311,21 +329,25 @@ where
 	}
 
 	/// Imports single unvalidated extrinsic into the view.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view::submit_one")]
 	pub(super) async fn submit_one(
 		&self,
 		source: TimedTransactionSource,
 		xt: ExtrinsicFor<ChainApi>,
+		validation_priority: ValidateTransactionPriority,
 	) -> Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error> {
-		self.submit_many(std::iter::once((source, xt)))
+		self.submit_many(std::iter::once((source, xt)), validation_priority)
 			.await
 			.pop()
 			.expect("There is exactly one result, qed.")
 	}
 
 	/// Imports many unvalidated extrinsics into the view.
+	#[instrument(level = Level::TRACE, skip_all, target = "txpool", name = "view::submit_many")]
 	pub(super) async fn submit_many(
 		&self,
 		xts: impl IntoIterator<Item = (TimedTransactionSource, ExtrinsicFor<ChainApi>)>,
+		validation_priority: ValidateTransactionPriority,
 	) -> Vec<Result<ValidatedPoolSubmitOutcome<ChainApi>, ChainApi::Error>> {
 		if tracing::enabled!(target: LOG_TARGET, tracing::Level::TRACE) {
 			let xts = xts.into_iter().collect::<Vec<_>>();
@@ -333,10 +355,11 @@ where
 				target: LOG_TARGET,
 				xts.iter().map(|(_,xt)| self.pool.validated_pool().api().hash_and_length(xt).0),
 				"view::submit_many at:{}",
-				self.at.hash);
-			self.pool.submit_at(&self.at, xts).await
+				self.at.hash
+			);
+			self.pool.submit_at(&self.at, xts, validation_priority).await
 		} else {
-			self.pool.submit_at(&self.at, xts).await
+			self.pool.submit_at(&self.at, xts, validation_priority).await
 		}
 	}
 
@@ -412,7 +435,7 @@ where
 			revalidation_result_tx,
 		} = finish_revalidation_worker_channels;
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: at starting"
@@ -424,9 +447,9 @@ where
 		let batch: Vec<_> = validated_pool.ready().collect();
 		let batch_len = batch.len();
 
-		//todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
-		//out of the view...
-		//todo: revalidate future, remove if invalid [#5496]
+		// todo: sort batch by revalidation timestamp | maybe not needed at all? xts will be getting
+		// out of the view...
+		// todo: revalidate future, remove if invalid [#5496]
 
 		let mut invalid_hashes = Vec::new();
 		let mut revalidated = IndexMap::new();
@@ -437,7 +460,7 @@ where
 			let mut should_break = false;
 			tokio::select! {
 				_ = finish_revalidation_request_rx.recv() => {
-					trace!(
+					debug!(
 						target: LOG_TARGET,
 						at_hash = ?self.at.hash,
 						"view::revalidate: finish revalidation request received"
@@ -446,7 +469,15 @@ where
 				}
 				_ = async {
 					if let Some(tx) = batch_iter.next() {
-						let validation_result = (api.validate_transaction(self.at.hash, tx.source.clone().into(), tx.data.clone()).await, tx.hash, tx);
+						let validation_result = (
+							api.validate_transaction(
+								self.at.hash,
+								tx.source.clone().into(),
+								tx.data.clone(),
+								ValidateTransactionPriority::Maintained).await,
+							tx.hash,
+							tx
+						);
 						validation_results.push(validation_result);
 					} else {
 						self.revalidation_worker_channels.lock().as_mut().map(|ch| ch.remove_sender());
@@ -481,6 +512,12 @@ where
 		for (validation_result, tx_hash, tx) in validation_results {
 			match validation_result {
 				Ok(Err(TransactionValidityError::Invalid(_))) => {
+					trace!(
+						target: LOG_TARGET,
+						?tx_hash,
+						?validation_result,
+						"Removing. Transaction is invalid"
+					);
 					invalid_hashes.push(tx_hash);
 				},
 				Ok(Ok(validity)) => {
@@ -496,20 +533,20 @@ where
 						),
 					);
 				},
-				Ok(Err(TransactionValidityError::Unknown(error))) => {
+				Ok(Err(TransactionValidityError::Unknown(_))) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						?error,
+						?validation_result,
 						"Removing. Cannot determine transaction validity"
 					);
 					invalid_hashes.push(tx_hash);
 				},
-				Err(error) => {
+				Err(_) => {
 					trace!(
 						target: LOG_TARGET,
 						?tx_hash,
-						%error,
+						?validation_result,
 						"Removing due to error during revalidation"
 					);
 					invalid_hashes.push(tx_hash);
@@ -517,7 +554,7 @@ where
 			}
 		}
 
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?self.at.hash,
 			"view::revalidate: sending revalidation result"
@@ -549,7 +586,7 @@ where
 			super::revalidation_worker::RevalidationQueue<ChainApi, ChainApi::Block>,
 		>,
 	) {
-		trace!(
+		debug!(
 			target: LOG_TARGET,
 			at_hash = ?view.at.hash,
 			"view::start_background_revalidation"
@@ -591,7 +628,7 @@ where
 		let Some(revalidation_worker_channels) = self.revalidation_worker_channels.lock().take()
 		else {
 			trace!(target:LOG_TARGET, "view::finish_revalidation: no finish_revalidation_request_tx");
-			return
+			return;
 		};
 
 		let FinishRevalidationLocalChannels {
@@ -643,10 +680,19 @@ where
 		}
 	}
 
-	/// Returns true if the transaction with given hash is already imported into the view.
-	pub(super) fn is_imported(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> bool {
+	/// Checks if the transaction with given hash is already known to the view.
+	pub(super) fn imported_status(&self, tx_hash: &ExtrinsicHash<ChainApi>) -> ImportedStatus {
 		const IGNORE_BANNED: bool = false;
-		self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED).is_err()
+		match self.pool.validated_pool().check_is_known(tx_hash, IGNORE_BANNED) {
+			Ok(()) => ImportedStatus::NotImported,
+			Err(err) => {
+				use sc_transaction_pool_api::error::IntoPoolError;
+				match err.into_pool_error() {
+					Ok(TxPoolError::TemporarilyBanned) => ImportedStatus::Banned,
+					_ => ImportedStatus::Imported,
+				}
+			},
+		}
 	}
 
 	/// Removes the whole transaction subtree from the inner pool.
@@ -655,6 +701,7 @@ where
 	pub fn remove_subtree<F>(
 		&self,
 		hashes: &[ExtrinsicHash<ChainApi>],
+		ban_transactions: bool,
 		listener_action: F,
 	) -> Vec<TransactionFor<ChainApi>>
 	where
@@ -663,6 +710,8 @@ where
 			ExtrinsicHash<ChainApi>,
 		),
 	{
-		self.pool.validated_pool().remove_subtree(hashes, listener_action)
+		self.pool
+			.validated_pool()
+			.remove_subtree(hashes, ban_transactions, listener_action)
 	}
 }

@@ -1,0 +1,10 @@
+title: Collator protocol revamp - update `calculate_delay`
+doc:
+- audience: Node Dev
+  description: |-
+    A followup from https://github.com/paritytech/polkadot-sdk/pull/8541 with changes requested by @eskimor:
+    - Adjust the protocol parameters and add comments about the picked values
+    - Simpler fetch mechanism - advertisements from unknown collators (those with 0 reputation) are delayed. Everything else is fetched immediately.
+crates:
+- name: polkadot-collator-protocol
+  bump: major

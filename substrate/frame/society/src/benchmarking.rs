@@ -510,6 +510,91 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn poke_deposit() -> Result<(), BenchmarkError> {
+		// Set up society
+		setup_society::<T, I>()?;
+		let bidder: T::AccountId = whitelisted_caller();
+		T::Currency::make_free_balance_be(&bidder, BalanceOf::<T, I>::max_value());
+
+		// Make initial bid
+		let initial_deposit = mock_balance_deposit::<T, I>();
+		Society::<T, I>::bid(RawOrigin::Signed(bidder.clone()).into(), 0u32.into())?;
+
+		// Verify initial state
+		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
+
+		// Artificially increase deposit in storage and reserve extra balance
+		let extra_amount = 2u32.into();
+		let increased_deposit = initial_deposit.saturating_add(extra_amount);
+		Bids::<T, I>::try_mutate(|bids| -> Result<(), BenchmarkError> {
+			if let Some(existing_bid) = bids.iter_mut().find(|b| b.who == bidder) {
+				existing_bid.kind = BidKind::Deposit(increased_deposit);
+				Ok(())
+			} else {
+				Err(BenchmarkError::Stop("Bid not found"))
+			}
+		})?;
+		T::Currency::reserve(&bidder, extra_amount)?;
+
+		// Verify increased state
+		assert_eq!(T::Currency::reserved_balance(&bidder), increased_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(increased_deposit));
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(bidder.clone()));
+
+		// Verify final state returned to initial deposit
+		assert_eq!(T::Currency::reserved_balance(&bidder), initial_deposit);
+		let bids = Bids::<T, I>::get();
+		let existing_bid = bids.iter().find(|b| b.who == bidder).expect("Bid should exist");
+		assert_eq!(existing_bid.kind, BidKind::Deposit(initial_deposit));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn kick_member() -> Result<(), BenchmarkError> {
+		// Add member
+		let founder = setup_funded_society::<T, I>()?;
+		let member: T::AccountId = account("member", 0, 0);
+		let member_lookup: <T::Lookup as StaticLookup>::Source =
+			T::Lookup::unlookup(member.clone());
+
+		let _ = Society::<T, I>::insert_member(&member, 0u32.into());
+		let mut record = Members::<T, I>::get(&member).ok_or("Member not found")?;
+		record.vouching = Some(VouchingStatus::Vouching);
+		Members::<T, I>::insert(&member, &record);
+
+		// Populate payouts to max to cover worst-case slashing scenario
+		for i in 0..T::MaxPayouts::get() {
+			Society::<T, I>::bump_payout(&member, i.into(), 1u32.into());
+		}
+
+		// Add vouch to cover worst-case scenario
+		let vouched: T::AccountId = account("vouched", 0, 0);
+		let mut bids = Bids::<T, I>::get();
+		Society::<T, I>::insert_bid(
+			&mut bids,
+			&vouched,
+			10u32.into(),
+			BidKind::Vouch(member.clone(), 0u32.into()),
+		);
+		Bids::<T, I>::put(bids);
+
+		#[extrinsic_call]
+		_(RawOrigin::Signed(founder), member_lookup);
+
+		assert!(!Members::<T, I>::contains_key(&member));
+		assert!(!SuspendedMembers::<T, I>::contains_key(&member));
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Society,
 		sp_io::TestExternalities::from(

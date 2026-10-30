@@ -103,7 +103,8 @@ use super::{benefit, cost, Round, SetId, NEIGHBOR_REBROADCAST_PERIOD};
 use crate::{environment, CatchUp, CompactCommit, SignedMessage, LOG_TARGET};
 
 use std::{
-	collections::{HashSet, VecDeque},
+	collections::{BTreeSet, HashSet, VecDeque},
+	ops::Bound,
 	time::{Duration, Instant},
 };
 
@@ -131,6 +132,19 @@ const PROPAGATION_ALL: f32 = 3.0;
 /// Assuming a network of 3000 nodes, using a fanout of 4, after about 6 iterations
 /// of gossip a message has very likely reached all nodes on the network (`log4(3000)`).
 const LUCKY_PEERS: usize = 4;
+
+/// Number of rounds it takes to gossip commit messages to all light clients.
+///
+/// Light clients are split into this many groups, which take turns on every round, so each
+/// light client gets a commit at least every `LIGHT_PEERS_ROUNDS` rounds. The outbound bandwidth
+/// spent on light clients stays bounded, as the number of light clients is limited by the node's
+/// configuration.
+const LIGHT_PEERS_ROUNDS: usize = 5;
+
+/// Minimum number of light clients we gossip commit messages to in a round.
+///
+/// Nodes with at most this many light clients gossip every commit to all of them.
+const LIGHT_PEERS_MIN_GROUP_SIZE: usize = 50;
 
 type Report = (PeerId, ReputationChange);
 
@@ -167,18 +181,18 @@ impl<N: Ord> View<N> {
 	fn consider_vote(&self, round: Round, set_id: SetId) -> Consider {
 		// only from current set
 		if set_id < self.set_id {
-			return Consider::RejectPast
+			return Consider::RejectPast;
 		}
 		if set_id > self.set_id {
-			return Consider::RejectFuture
+			return Consider::RejectFuture;
 		}
 
 		// only r-1 ... r+1
 		if round.0 > self.round.0.saturating_add(1) {
-			return Consider::RejectFuture
+			return Consider::RejectFuture;
 		}
 		if round.0 < self.round.0.saturating_sub(1) {
-			return Consider::RejectPast
+			return Consider::RejectPast;
 		}
 
 		Consider::Accept
@@ -189,22 +203,23 @@ impl<N: Ord> View<N> {
 	fn consider_global(&self, set_id: SetId, number: N) -> Consider {
 		// only from current set
 		if set_id < self.set_id {
-			return Consider::RejectPast
+			return Consider::RejectPast;
 		}
 		if set_id > self.set_id {
-			return Consider::RejectFuture
+			return Consider::RejectFuture;
 		}
 
 		// only commits which claim to prove a higher block number than
 		// the one we're aware of.
 		match self.last_commit {
 			None => Consider::Accept,
-			Some(ref num) =>
+			Some(ref num) => {
 				if num < &number {
 					Consider::Accept
 				} else {
 					Consider::RejectPast
-				},
+				}
+			},
 		}
 	}
 }
@@ -487,6 +502,16 @@ impl<N> PeerInfo<N> {
 	}
 }
 
+/// The light clients we gossip commit messages to in the current round.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LightPeersInTurn {
+	/// All light clients, as there are no more of them than `LIGHT_PEERS_MIN_GROUP_SIZE`.
+	All,
+	/// The light clients with a peer id in `(after, until]`, wrapping around the end of the
+	/// sorted order of peer ids.
+	Range { after: PeerId, until: PeerId },
+}
+
 /// The peers we're connected to in gossip.
 struct Peers<N> {
 	inner: AHashMap<PeerId, PeerInfo<N>>,
@@ -497,8 +522,10 @@ struct Peers<N> {
 	/// first stage didn't allow us to spread the voting data enough to conclude the round. This
 	/// set should have size `sqrt(connected_peers)`.
 	second_stage_peers: HashSet<PeerId>,
-	/// The randomly picked set of `LUCKY_PEERS` light clients we'll gossip commit messages to.
-	lucky_light_peers: HashSet<PeerId>,
+	/// All connected light clients, sorted by peer id.
+	light_peers: BTreeSet<PeerId>,
+	/// The light clients we'll gossip commit messages to in the current round.
+	light_peers_in_turn: LightPeersInTurn,
 	/// Neighbor packet rebroadcast period --- we reduce the reputation of peers sending duplicate
 	/// packets too often.
 	neighbor_rebroadcast_period: Duration,
@@ -510,7 +537,8 @@ impl<N: Ord> Peers<N> {
 			inner: Default::default(),
 			first_stage_peers: Default::default(),
 			second_stage_peers: Default::default(),
-			lucky_light_peers: Default::default(),
+			light_peers: Default::default(),
+			light_peers_in_turn: LightPeersInTurn::All,
 			neighbor_rebroadcast_period,
 		}
 	}
@@ -523,8 +551,10 @@ impl<N: Ord> Peers<N> {
 			ObservedRole::Authority if self.second_stage_peers.len() < LUCKY_PEERS => {
 				self.second_stage_peers.insert(who);
 			},
-			ObservedRole::Light if self.lucky_light_peers.len() < LUCKY_PEERS => {
-				self.lucky_light_peers.insert(who);
+			ObservedRole::Light => {
+				// Best effort: `light_peers_in_turn` is not updated until the next round. That's
+				// fine, all light clients still get a commit soon enough.
+				self.light_peers.insert(who);
 			},
 			_ => {},
 		}
@@ -538,7 +568,7 @@ impl<N: Ord> Peers<N> {
 		// so we don't reshuffle.
 		self.first_stage_peers.remove(who);
 		self.second_stage_peers.remove(who);
-		self.lucky_light_peers.remove(who);
+		self.light_peers.remove(who);
 	}
 
 	// returns a reference to the new view, if the peer is known.
@@ -554,7 +584,7 @@ impl<N: Ord> Peers<N> {
 			peer.view.last_commit.as_ref() > Some(&update.commit_finalized_height);
 
 		if invalid_change {
-			return Err(Misbehavior::InvalidViewChange)
+			return Err(Misbehavior::InvalidViewChange);
 		}
 
 		let now = Instant::now();
@@ -564,7 +594,7 @@ impl<N: Ord> Peers<N> {
 		if duplicate_packet {
 			if let Some(last_update) = peer.view.last_update {
 				if now < last_update + self.neighbor_rebroadcast_period / 2 {
-					return Err(Misbehavior::DuplicateNeighborMessage)
+					return Err(Misbehavior::DuplicateNeighborMessage);
 				}
 			}
 		}
@@ -597,7 +627,7 @@ impl<N: Ord> Peers<N> {
 		// same height, because there is still a misbehavior condition based on
 		// sending commits that are <= the best we are aware of.
 		if peer.view.last_commit.as_ref() > Some(&new_height) {
-			return Err(Misbehavior::InvalidViewChange)
+			return Err(Misbehavior::InvalidViewChange);
 		}
 
 		peer.view.last_commit = Some(new_height);
@@ -609,14 +639,30 @@ impl<N: Ord> Peers<N> {
 		self.inner.get(who)
 	}
 
+	/// Whether `who` is a connected light client we'll gossip commit messages to in the current
+	/// round.
+	fn is_light_peer_in_turn(&self, who: &PeerId) -> bool {
+		if !self.peer(who).is_some_and(|info| info.roles.is_light()) {
+			return false;
+		}
+
+		match &self.light_peers_in_turn {
+			LightPeersInTurn::All => true,
+			LightPeersInTurn::Range { after, until } if after < until => {
+				who > after && who <= until
+			},
+			LightPeersInTurn::Range { after, until } => who > after || who <= until,
+		}
+	}
+
 	fn reshuffle(&mut self) {
-		// we want to randomly select peers into three sets according to the following logic:
+		// we want to select peers into three sets according to the following logic:
 		// - first set: LUCKY_PEERS random peers where at least LUCKY_PEERS/2 are authorities
-		//   (unless
-		// we're not connected to that many authorities)
-		// - second set: max(LUCKY_PEERS, sqrt(peers)) peers where at least LUCKY_PEERS are
+		//   (unless we're not connected to that many authorities)
+		// - second set: max(LUCKY_PEERS, sqrt(peers)) random peers where at least LUCKY_PEERS are
 		//   authorities.
-		// - third set: LUCKY_PEERS random light client peers
+		// - third set: the next group of light client peers, in the order of their peer ids (see
+		//   `rotate_light_peers`).
 
 		let shuffled_peers = {
 			let mut peers =
@@ -647,7 +693,7 @@ impl<N: Ord> Peers<N> {
 			} else if n_authorities_added < one_and_a_half_lucky {
 				second_stage_peers.insert(*peer_id);
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -656,7 +702,7 @@ impl<N: Ord> Peers<N> {
 		let n_second_stage_peers = LUCKY_PEERS.max((shuffled_peers.len() as f32).sqrt() as usize);
 		for (peer_id, info) in &shuffled_peers {
 			if info.roles.is_light() {
-				continue
+				continue;
 			}
 
 			if first_stage_peers.len() < LUCKY_PEERS {
@@ -667,20 +713,49 @@ impl<N: Ord> Peers<N> {
 					second_stage_peers.insert(*peer_id);
 				}
 			} else {
-				break
+				break;
 			}
 		}
 
-		// pick `LUCKY_PEERS` random light peers
-		let lucky_light_peers = shuffled_peers
-			.into_iter()
-			.filter_map(|(peer_id, info)| if info.roles.is_light() { Some(peer_id) } else { None })
-			.take(LUCKY_PEERS)
-			.collect();
-
 		self.first_stage_peers = first_stage_peers;
 		self.second_stage_peers = second_stage_peers;
-		self.lucky_light_peers = lucky_light_peers;
+		self.rotate_light_peers();
+	}
+
+	/// Select the next group of light clients to gossip commit messages to.
+	///
+	/// We walk through all light clients in the order of their peer ids, continuing after the
+	/// last light client served in the previous round. Every light client gets a commit at least
+	/// every `LIGHT_PEERS_ROUNDS` rounds, regardless of other light clients connecting or
+	/// disconnecting in the meantime.
+	fn rotate_light_peers(&mut self) {
+		if self.light_peers.len() <= LIGHT_PEERS_MIN_GROUP_SIZE {
+			self.light_peers_in_turn = LightPeersInTurn::All;
+			return;
+		}
+
+		// continue after the end of the previous group, or from the start of the order.
+		let after = match self.light_peers_in_turn {
+			LightPeersInTurn::Range { until, .. } => until,
+			LightPeersInTurn::All => *self
+				.light_peers
+				.last()
+				.expect("there are more light peers than a group, so the set is not empty; qed"),
+		};
+
+		let until = *self
+			.light_peers
+			.range((Bound::Excluded(after), Bound::Unbounded))
+			.chain(self.light_peers.iter())
+			.nth(self.light_peers_group_size() - 1)
+			.expect("there are more light peers than a group, so the chain yields enough; qed");
+
+		self.light_peers_in_turn = LightPeersInTurn::Range { after, until };
+	}
+
+	/// The number of light clients we gossip commit messages to in a round.
+	fn light_peers_group_size(&self) -> usize {
+		LIGHT_PEERS_MIN_GROUP_SIZE.max(self.light_peers.len().div_ceil(LIGHT_PEERS_ROUNDS))
 	}
 }
 
@@ -793,7 +868,7 @@ impl<Block: BlockT> Inner<Block> {
 		if local_view.round == round {
 			// Do not send neighbor packets out if `round` has not changed ---
 			// such behavior is punishable.
-			return None
+			return None;
 		}
 
 		let set_id = local_view.set_id;
@@ -836,7 +911,7 @@ impl<Block: BlockT> Inner<Block> {
 
 					// Do not send neighbor packets out if the `set_id` has not changed ---
 					// such behavior is punishable.
-					return None
+					return None;
 				} else {
 					v
 				}
@@ -863,7 +938,7 @@ impl<Block: BlockT> Inner<Block> {
 		if local_view.last_commit_height() < Some(&finalized) {
 			local_view.last_commit = Some((finalized, round, set_id));
 		} else {
-			return None
+			return None;
 		}
 
 		self.multicast_neighbor_packet()
@@ -902,10 +977,12 @@ impl<Block: BlockT> Inner<Block> {
 	) -> Action<Block::Hash> {
 		match self.consider_vote(full.round, full.set_id) {
 			Consider::RejectFuture => return Action::Discard(Misbehavior::FutureMessage.cost()),
-			Consider::RejectOutOfScope =>
-				return Action::Discard(Misbehavior::OutOfScopeMessage.cost()),
-			Consider::RejectPast =>
-				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id)),
+			Consider::RejectOutOfScope => {
+				return Action::Discard(Misbehavior::OutOfScopeMessage.cost())
+			},
+			Consider::RejectPast => {
+				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id))
+			},
 			Consider::Accept => {},
 		}
 
@@ -918,7 +995,7 @@ impl<Block: BlockT> Inner<Block> {
 				"afg.bad_msg_signature";
 				"signature" => ?full.message.id,
 			);
-			return Action::Discard(cost::UNKNOWN_VOTER)
+			return Action::Discard(cost::UNKNOWN_VOTER);
 		}
 
 		if !sp_consensus_grandpa::check_message_signature(
@@ -927,7 +1004,9 @@ impl<Block: BlockT> Inner<Block> {
 			&full.message.signature,
 			full.round.0,
 			full.set_id.0,
-		) {
+		)
+		.is_valid()
+		{
 			debug!(target: LOG_TARGET, "Bad message signature {}", full.message.id);
 			telemetry!(
 				self.config.telemetry;
@@ -935,7 +1014,7 @@ impl<Block: BlockT> Inner<Block> {
 				"afg.bad_msg_signature";
 				"signature" => ?full.message.id,
 			);
-			return Action::Discard(cost::BAD_SIGNATURE)
+			return Action::Discard(cost::BAD_SIGNATURE);
 		}
 
 		let topic = super::round_topic::<Block>(full.round.0, full.set_id.0);
@@ -948,15 +1027,17 @@ impl<Block: BlockT> Inner<Block> {
 		full: &FullCommitMessage<Block>,
 	) -> Action<Block::Hash> {
 		if let Err(misbehavior) = self.peers.update_commit_height(who, full.message.target_number) {
-			return Action::Discard(misbehavior.cost())
+			return Action::Discard(misbehavior.cost());
 		}
 
 		match self.consider_global(full.set_id, full.message.target_number) {
 			Consider::RejectFuture => return Action::Discard(Misbehavior::FutureMessage.cost()),
-			Consider::RejectPast =>
-				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id)),
-			Consider::RejectOutOfScope =>
-				return Action::Discard(Misbehavior::OutOfScopeMessage.cost()),
+			Consider::RejectPast => {
+				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id))
+			},
+			Consider::RejectOutOfScope => {
+				return Action::Discard(Misbehavior::OutOfScopeMessage.cost())
+			},
 			Consider::Accept => {},
 		}
 
@@ -972,7 +1053,7 @@ impl<Block: BlockT> Inner<Block> {
 				"auth_data_len" => ?full.message.auth_data.len(),
 				"precommits_is_empty" => ?full.message.precommits.is_empty(),
 			);
-			return Action::Discard(cost::MALFORMED_COMMIT)
+			return Action::Discard(cost::MALFORMED_COMMIT);
 		}
 
 		// always discard commits initially and rebroadcast after doing full
@@ -989,19 +1070,19 @@ impl<Block: BlockT> Inner<Block> {
 		match &self.pending_catch_up {
 			PendingCatchUp::Requesting { who: peer, request, instant } => {
 				if peer != who {
-					return Action::Discard(Misbehavior::OutOfScopeMessage.cost())
+					return Action::Discard(Misbehavior::OutOfScopeMessage.cost());
 				}
 
 				if request.set_id != full.set_id {
-					return Action::Discard(cost::MALFORMED_CATCH_UP)
+					return Action::Discard(cost::MALFORMED_CATCH_UP);
 				}
 
 				if request.round.0 > full.message.round_number {
-					return Action::Discard(cost::MALFORMED_CATCH_UP)
+					return Action::Discard(cost::MALFORMED_CATCH_UP);
 				}
 
 				if full.message.prevotes.is_empty() || full.message.precommits.is_empty() {
-					return Action::Discard(cost::MALFORMED_CATCH_UP)
+					return Action::Discard(cost::MALFORMED_CATCH_UP);
 				}
 
 				// move request to pending processing state, we won't push out
@@ -1036,7 +1117,7 @@ impl<Block: BlockT> Inner<Block> {
 		set_state: &environment::SharedVoterSetState<Block>,
 	) -> (Option<GossipMessage<Block>>, Action<Block::Hash>) {
 		let Some(local_view) = &self.local_view else {
-			return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()))
+			return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()));
 		};
 
 		if request.set_id != local_view.set_id {
@@ -1047,22 +1128,23 @@ impl<Block: BlockT> Inner<Block> {
 			if request.set_id.0.saturating_add(1) == local_view.set_id.0 &&
 				local_view.round.0.saturating_sub(CATCH_UP_THRESHOLD) == 0
 			{
-				return (None, Action::Discard(cost::HONEST_OUT_OF_SCOPE_CATCH_UP))
+				return (None, Action::Discard(cost::HONEST_OUT_OF_SCOPE_CATCH_UP));
 			}
 
-			return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()))
+			return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()));
 		}
 
 		match self.peers.peer(who) {
 			None => return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost())),
-			Some(peer) if peer.view.round >= request.round =>
-				return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost())),
+			Some(peer) if peer.view.round >= request.round => {
+				return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()))
+			},
 			_ => {},
 		}
 
 		let last_completed_round = set_state.read().last_completed_round();
 		if last_completed_round.number < request.round.0 {
-			return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()))
+			return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()));
 		}
 
 		trace!(
@@ -1164,8 +1246,9 @@ impl<Block: BlockT> Inner<Block> {
 		let update_res = self.peers.update_peer_state(who, update);
 
 		let (cost_benefit, topics) = match update_res {
-			Ok(view) =>
-				(benefit::NEIGHBOR_MESSAGE, view.map(|view| neighbor_topics::<Block>(view))),
+			Ok(view) => {
+				(benefit::NEIGHBOR_MESSAGE, view.map(|view| neighbor_topics::<Block>(view)))
+			},
 			Err(misbehavior) => (misbehavior.cost(), None),
 		};
 
@@ -1188,7 +1271,7 @@ impl<Block: BlockT> Inner<Block> {
 				commit_finalized_height: *local_view.last_commit_height().unwrap_or(&Zero::zero()),
 			};
 
-			let peers = self.peers.inner.iter().map(|(id, _)| id).cloned().collect();
+			let peers = self.peers.inner.keys().cloned().collect();
 
 			(peers, packet)
 		})
@@ -1202,7 +1285,7 @@ impl<Block: BlockT> Inner<Block> {
 		let report = match &self.pending_catch_up {
 			PendingCatchUp::Requesting { who: peer, instant, .. } => {
 				if instant.elapsed() <= CATCH_UP_REQUEST_TIMEOUT {
-					return (false, None)
+					return (false, None);
 				} else {
 					// report peer for timeout
 					Some((*peer, cost::CATCH_UP_REQUEST_TIMEOUT))
@@ -1210,7 +1293,7 @@ impl<Block: BlockT> Inner<Block> {
 			},
 			PendingCatchUp::Processing { instant, .. } => {
 				if instant.elapsed() < CATCH_UP_PROCESS_TIMEOUT {
-					return (false, None)
+					return (false, None);
 				} else {
 					None
 				}
@@ -1258,16 +1341,22 @@ impl<Block: BlockT> Inner<Block> {
 	/// transitions:
 	///
 	/// - State 1: allowed to max(LUCKY_PEERS, sqrt(peers)) (where at least LUCKY_PEERS are
-	///   authorities)
-	/// - State 2: allowed to all peers
+	///   authorities) and to the current group of light clients
+	/// - State 2: allowed to all peers except light clients
 	///
 	/// We are more lenient with global messages since there should be a lot
 	/// less global messages than round messages (just commits), and we want
 	/// these to propagate to non-authorities fast enough so that they can
 	/// observe finality.
 	///
+	/// Light clients take turns in groups (see `Peers::rotate_light_peers`). A commit also
+	/// finalizes all of its ancestors, so a light client skipping a few commits still observes
+	/// every block being finalized, just with a bounded delay. Light clients don't help to
+	/// conclude a round, so State 2 doesn't include them, as it could be a lot of outbound
+	/// traffic with many light clients connected.
+	///
 	/// Transitions will be triggered on repropagation attempts by the
-	/// underlying gossip layer, which should happen every 30 seconds.
+	/// underlying gossip layer.
 	fn global_message_allowed(&self, who: &PeerId) -> bool {
 		let round_duration = self.config.gossip_duration * ROUND_DURATION;
 		let round_elapsed = match self.local_view {
@@ -1278,9 +1367,9 @@ impl<Block: BlockT> Inner<Block> {
 		if round_elapsed < round_duration.mul_f32(PROPAGATION_ALL) {
 			self.peers.first_stage_peers.contains(who) ||
 				self.peers.second_stage_peers.contains(who) ||
-				self.peers.lucky_light_peers.contains(who)
+				self.peers.is_light_peer_in_turn(who)
 		} else {
-			true
+			self.peers.peer(who).is_some_and(|info| !info.roles.is_light())
 		}
 	}
 }
@@ -1375,19 +1464,27 @@ impl<Block: BlockT> GossipValidator<Block> {
 	/// Note that we've imported a commit finalizing a given block.
 	/// `set_id` & `round` are the ones the commit message is from and not necessarily
 	/// the latest set ID & round started.
+	///
+	/// Returns `true` if the commit advanced our view of the finalized height, i.e. it isn't a
+	/// duplicate of (or older than) a commit we've already noted.
 	pub(super) fn note_commit_finalized<F>(
 		&self,
 		round: Round,
 		set_id: SetId,
 		finalized: NumberFor<Block>,
 		send_neighbor: F,
-	) where
+	) -> bool
+	where
 		F: FnOnce(Vec<PeerId>, NeighborPacket<NumberFor<Block>>),
 	{
 		let maybe_msg = self.inner.write().note_commit_finalized(round, set_id, finalized);
 
-		if let Some((to, msg)) = maybe_msg {
-			send_neighbor(to, msg);
+		match maybe_msg {
+			Some((to, msg)) => {
+				send_neighbor(to, msg);
+				true
+			},
+			None => false,
 		}
 	}
 
@@ -1566,7 +1663,7 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 
 		Box::new(move |who, intent, topic, mut data| {
 			if let MessageIntent::PeriodicRebroadcast = intent {
-				return do_rebroadcast
+				return do_rebroadcast;
 			}
 
 			let peer = match inner.peers.peer(who) {
@@ -1577,41 +1674,46 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 			// if the topic is not something we're keeping at the moment,
 			// do not send.
 			let Some((maybe_round, set_id)) = inner.live_topics.topic_info(topic) else {
-				return false
+				return false;
 			};
 
 			if let MessageIntent::Broadcast = intent {
 				if maybe_round.is_some() {
 					if !inner.round_message_allowed(who) {
 						// early return if the vote message isn't allowed at this stage.
-						return false
+						return false;
 					}
 				} else if !inner.global_message_allowed(who) {
 					// early return if the global message isn't allowed at this stage.
-					return false
+					return false;
 				}
 			}
 
 			// if the topic is not something the peer accepts, discard.
 			if let Some(round) = maybe_round {
-				return peer.view.consider_vote(round, set_id) == Consider::Accept
+				return peer.view.consider_vote(round, set_id) == Consider::Accept;
 			}
 
 			// global message.
 			let Some(local_view) = &inner.local_view else {
-				return false // cannot evaluate until we have a local view.
+				return false; // cannot evaluate until we have a local view.
 			};
+
+			// we only broadcast our best commit, so check its height before decoding.
+			let Some(best_commit_height) = local_view.last_commit_height() else {
+				return false;
+			};
+
+			if peer.view.consider_global(set_id, *best_commit_height) != Consider::Accept {
+				return false;
+			}
 
 			match GossipMessage::<Block>::decode_all(&mut data) {
 				Err(_) => false,
 				Ok(GossipMessage::Commit(full)) => {
-					// we only broadcast commit messages if they're for the same
-					// set the peer is in and if the commit is better than the
-					// last received by peer, additionally we make sure to only
-					// broadcast our best commit.
-					peer.view.consider_global(set_id, full.message.target_number) ==
-						Consider::Accept && Some(&full.message.target_number) ==
-						local_view.last_commit_height()
+					// only broadcast our best commit, the peer accepting its height
+					// was checked above.
+					full.message.target_number == *best_commit_height
 				},
 				Ok(GossipMessage::Neighbor(_)) => false,
 				Ok(GossipMessage::CatchUpRequest(_)) => false,
@@ -1634,7 +1736,7 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 			};
 
 			let Some(local_view) = &inner.local_view else {
-				return true // no local view means we can't evaluate or hold any topic.
+				return true; // no local view means we can't evaluate or hold any topic.
 			};
 
 			// global messages -- only keep the best commit.
@@ -1644,8 +1746,10 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 					Some((number, round, set_id)) =>
 					// we expire any commit message that doesn't target the same block
 					// as our best commit or isn't from the same round and set id
+					{
 						!(full.message.target_number == number &&
-							full.round == round && full.set_id == set_id),
+							full.round == round && full.set_id == set_id)
+					},
 					None => true,
 				},
 				Ok(_) => true,
@@ -2448,13 +2552,268 @@ mod tests {
 			.encode()
 		};
 
-		// global messages are gossiped to light clients though
+		// global messages are gossiped to light clients though, unless the round takes long
+		// (see `does_not_gossip_commits_to_light_clients_in_long_rounds`)
+		val.inner.write().local_view.as_mut().unwrap().round_start = Instant::now();
+
 		assert!(val.message_allowed()(
 			&light_peer,
 			MessageIntent::Broadcast,
 			&communication::global_topic::<Block>(0),
 			&commit,
 		));
+	}
+
+	#[test]
+	fn note_commit_finalized_reports_whether_finality_advanced() {
+		let (val, _) = GossipValidator::<Block>::new(config(), voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		// the first commit advances finality
+		assert!(val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {}));
+
+		// a second commit for the same height (e.g. from another voter) doesn't
+		assert!(!val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {}));
+
+		// neither does an older one
+		assert!(!val.note_commit_finalized(Round(1), SetId(0), 1, |_, _| {}));
+
+		// a higher one does
+		assert!(val.note_commit_finalized(Round(2), SetId(0), 3, |_, _| {}));
+	}
+
+	#[test]
+	fn gossips_commits_to_light_clients_in_rotating_groups() {
+		// (light clients, group size, rounds to serve all of them): groups of the minimum size,
+		// and groups growing to keep the number of rounds
+		let cases = [
+			(LIGHT_PEERS_MIN_GROUP_SIZE * 5 / 2, LIGHT_PEERS_MIN_GROUP_SIZE, 3),
+			(
+				LIGHT_PEERS_MIN_GROUP_SIZE * LIGHT_PEERS_ROUNDS * 4,
+				LIGHT_PEERS_MIN_GROUP_SIZE * 4,
+				5,
+			),
+		];
+
+		for (n_light_peers, group_size, n_rounds) in cases {
+			let mut config = config();
+			config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+			let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+			// the validator starts at set id 0
+			val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+			// add a few full nodes and the light clients
+			for _ in 0..4 {
+				val.inner.write().peers.new_peer(PeerId::random(), ObservedRole::Full);
+			}
+
+			let mut light_peers = Vec::new();
+			light_peers.resize_with(n_light_peers, || PeerId::random());
+
+			for peer in &light_peers {
+				val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+			}
+
+			let mut served = HashSet::new();
+
+			for _ in 0..n_rounds {
+				// a new round starts
+				val.inner.write().peers.reshuffle();
+
+				let inner = val.inner.read();
+				let allowed = light_peers
+					.iter()
+					.filter(|peer| inner.global_message_allowed(peer))
+					.copied()
+					.collect::<Vec<_>>();
+
+				// every round serves exactly one full group
+				assert_eq!(allowed.len(), group_size);
+				served.extend(allowed);
+			}
+
+			// after `n_rounds` rounds every light client got a commit
+			assert_eq!(served.len(), n_light_peers);
+		}
+	}
+
+	#[test]
+	fn light_clients_rotation_is_not_affected_by_churn() {
+		let mut config = config();
+		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE * 3, || PeerId::random());
+
+		for peer in &light_peers {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+		}
+
+		let served = |val: &GossipValidator<Block>, peers: &[PeerId]| {
+			let inner = val.inner.read();
+			peers
+				.iter()
+				.filter(|peer| inner.global_message_allowed(peer))
+				.copied()
+				.collect::<HashSet<_>>()
+		};
+
+		val.inner.write().peers.reshuffle();
+		let first_group = served(&val, &light_peers);
+		assert_eq!(first_group.len(), LIGHT_PEERS_MIN_GROUP_SIZE);
+
+		// some light clients that were already served disconnect, and new ones connect with
+		// peer ids anywhere in the order
+		for peer in first_group.iter().take(10) {
+			val.inner.write().peers.peer_disconnected(peer);
+		}
+
+		let mut new_light_peers = Vec::new();
+		new_light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE / 2, || PeerId::random());
+
+		for peer in &new_light_peers {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+		}
+
+		light_peers.extend(new_light_peers);
+
+		val.inner.write().peers.reshuffle();
+		let second_group = served(&val, &light_peers);
+
+		// the next group is a full one, and nobody from the previous group is served twice
+		assert_eq!(second_group.len(), LIGHT_PEERS_MIN_GROUP_SIZE);
+		assert!(first_group.is_disjoint(&second_group));
+	}
+
+	#[test]
+	fn does_not_gossip_commits_to_light_clients_in_long_rounds() {
+		let mut config = config();
+		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+		let round_duration = config.gossip_duration * ROUND_DURATION;
+		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let mut full_nodes = Vec::new();
+		full_nodes.resize_with(10, || PeerId::random());
+
+		for peer in &full_nodes {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Full);
+		}
+
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE * 3, || PeerId::random());
+
+		for peer in &light_peers {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+		}
+
+		val.inner.write().peers.reshuffle();
+
+		// the round has been going for longer than `PROPAGATION_ALL` round durations
+		val.inner.write().local_view.as_mut().unwrap().round_start =
+			Instant::now() - round_duration.mul_f32(PROPAGATION_ALL * 1.1);
+
+		let inner = val.inner.read();
+
+		// commits are gossiped to all full nodes
+		assert!(full_nodes.iter().all(|peer| inner.global_message_allowed(peer)));
+
+		// but not to light clients
+		assert!(!light_peers.iter().any(|peer| inner.global_message_allowed(peer)));
+	}
+
+	#[test]
+	fn gossips_commits_to_all_light_clients_if_less_than_a_group() {
+		let mut config = config();
+		config.gossip_duration = Duration::from_secs(300); // Set to high value to prevent test race
+		let (val, _) = GossipValidator::<Block>::new(config, voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let mut light_peers = Vec::new();
+		light_peers.resize_with(LIGHT_PEERS_MIN_GROUP_SIZE / 2, || PeerId::random());
+
+		for peer in &light_peers {
+			val.inner.write().peers.new_peer(*peer, ObservedRole::Light);
+		}
+
+		// newly connected light clients are served before the next round starts
+		for peer in &light_peers {
+			assert!(val.inner.read().global_message_allowed(peer));
+		}
+
+		// and all of them keep being served on every round
+		for _ in 0..3 {
+			val.inner.write().peers.reshuffle();
+
+			for peer in &light_peers {
+				assert!(val.inner.read().global_message_allowed(peer));
+			}
+		}
+
+		// a disconnected light client is not served anymore
+		val.inner.write().peers.peer_disconnected(&light_peers[0]);
+		assert!(!val.inner.read().global_message_allowed(&light_peers[0]));
+	}
+
+	#[test]
+	fn doesnt_gossip_best_commit_to_peers_already_at_its_height() {
+		let (val, _) = GossipValidator::<Block>::new(config(), voter_set_state(), None, None);
+
+		// the validator starts at set id 0
+		val.note_set(SetId(0), Vec::new(), |_, _| {});
+
+		let peer_behind = PeerId::random();
+		let peer_up_to_date = PeerId::random();
+
+		for (peer, commit_finalized_height) in [(peer_behind, 1), (peer_up_to_date, 2)] {
+			val.inner.write().peers.new_peer(peer, ObservedRole::Authority);
+			val.inner
+				.write()
+				.peers
+				.update_peer_state(
+					&peer,
+					NeighborPacket { round: Round(1), set_id: SetId(0), commit_finalized_height },
+				)
+				.unwrap();
+		}
+
+		// our best commit finalizes block 2
+		val.note_commit_finalized(Round(1), SetId(0), 2, |_, _| {});
+
+		let commit = communication::gossip::GossipMessage::<Block>::Commit(
+			communication::gossip::FullCommitMessage {
+				round: Round(1),
+				set_id: SetId(0),
+				message: finality_grandpa::CompactCommit {
+					target_hash: H256::random(),
+					target_number: 2,
+					precommits: Vec::new(),
+					auth_data: Vec::new(),
+				},
+			},
+		)
+		.encode();
+
+		let mut message_allowed = val.message_allowed();
+		let topic = communication::global_topic::<Block>(0);
+
+		// the peer behind gets the commit, the one already at its height doesn't
+		assert!(message_allowed(&peer_behind, MessageIntent::Broadcast, &topic, &commit));
+		assert!(!message_allowed(&peer_up_to_date, MessageIntent::Broadcast, &topic, &commit));
+
+		// the peer behind still doesn't get messages we fail to decode
+		assert!(!message_allowed(&peer_behind, MessageIntent::Broadcast, &topic, &[1, 2, 3]));
 	}
 
 	#[test]

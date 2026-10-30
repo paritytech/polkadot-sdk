@@ -1,4 +1,4 @@
-error: expected one of: `weight`, `call_index`, `feeless_if`
+error: expected one of: `weight`, `call_index`, `feeless_if`, `authorize`, `weight_of_authorize`
   --> tests/pallet_ui/call_invalid_attr.rs:31:13
    |
 31 |         #[pallet::weird_attr]

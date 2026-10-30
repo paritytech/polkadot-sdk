@@ -13,28 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Mechanism to reclaim PoV proof size weight after an extrinsic has been applied.
+//! Utilities to reclaim PoV proof size weight.
+//!
+//! Provides [`StorageWeightReclaimer`] to manually reclaim storage weight and [`get_proof_size`]
+//! to read the current storage proof size from the host.
+//!
+//! To reclaim storage weight after an extrinsic has been applied, use the `StorageWeightReclaim`
+//! transaction extension from the `cumulus-pallet-weight-reclaim` crate.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
-use core::marker::PhantomData;
 use cumulus_primitives_core::Weight;
 use cumulus_primitives_proof_size_hostfunction::{
 	storage_proof_size::storage_proof_size, PROOF_RECORDING_DISABLED,
 };
-use frame_support::{
-	dispatch::{DispatchInfo, PostDispatchInfo},
-	weights::WeightMeter,
-};
-use frame_system::Config;
-use scale_info::TypeInfo;
-use sp_runtime::{
-	impl_tx_ext_default,
-	traits::{DispatchInfoOf, Dispatchable, PostDispatchInfoOf, TransactionExtension},
-	transaction_validity::TransactionValidityError,
-	DispatchResult,
-};
+use frame_support::weights::WeightMeter;
 
 #[cfg(test)]
 mod tests;
@@ -98,132 +91,4 @@ impl StorageWeightReclaimer {
 pub fn get_proof_size() -> Option<u64> {
 	let proof_size = storage_proof_size();
 	(proof_size != PROOF_RECORDING_DISABLED).then_some(proof_size)
-}
-
-// Encapsulate into a mod so that macro generated code doesn't trigger a warning about deprecated
-// usage.
-#[allow(deprecated)]
-mod allow_deprecated {
-	use super::*;
-
-	/// Storage weight reclaim mechanism.
-	///
-	/// This extension checks the size of the node-side storage proof
-	/// before and after executing a given extrinsic. The difference between
-	/// benchmarked and spent weight can be reclaimed.
-	#[deprecated(note = "This extension doesn't provide accurate reclaim for storage intensive \
-		transaction extension pipeline; it ignores the validation and preparation of extensions prior \
-		to itself and ignores the post dispatch logic for extensions subsequent to itself, it also
-		doesn't provide weight information. \
-		Use `StorageWeightReclaim` in the `cumulus-pallet-weight-reclaim` crate")]
-	#[derive(Encode, Decode, Clone, Eq, PartialEq, Default, TypeInfo)]
-	#[scale_info(skip_type_params(T))]
-	pub struct StorageWeightReclaim<T: Config + Send + Sync>(pub(super) PhantomData<T>);
-}
-#[allow(deprecated)]
-pub use allow_deprecated::StorageWeightReclaim;
-
-#[allow(deprecated)]
-impl<T: Config + Send + Sync> StorageWeightReclaim<T> {
-	/// Create a new `StorageWeightReclaim` instance.
-	pub fn new() -> Self {
-		Self(Default::default())
-	}
-}
-
-#[allow(deprecated)]
-impl<T: Config + Send + Sync> core::fmt::Debug for StorageWeightReclaim<T> {
-	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-		let _ = write!(f, "StorageWeightReclaim");
-		Ok(())
-	}
-}
-
-#[allow(deprecated)]
-impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for StorageWeightReclaim<T>
-where
-	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-{
-	const IDENTIFIER: &'static str = "StorageWeightReclaim";
-	type Implicit = ();
-	type Val = ();
-	type Pre = Option<u64>;
-
-	fn prepare(
-		self,
-		_val: Self::Val,
-		_origin: &T::RuntimeOrigin,
-		_call: &T::RuntimeCall,
-		_info: &DispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(get_proof_size())
-	}
-
-	fn post_dispatch_details(
-		pre: Self::Pre,
-		info: &DispatchInfoOf<T::RuntimeCall>,
-		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
-		_result: &DispatchResult,
-	) -> Result<Weight, TransactionValidityError> {
-		let Some(pre_dispatch_proof_size) = pre else {
-			return Ok(Weight::zero());
-		};
-
-		let Some(post_dispatch_proof_size) = get_proof_size() else {
-			log::debug!(
-				target: LOG_TARGET,
-				"Proof recording enabled during pre-dispatch, now disabled. This should not happen."
-			);
-			return Ok(Weight::zero())
-		};
-		// Unspent weight according to the `actual_weight` from `PostDispatchInfo`
-		// This unspent weight will be refunded by the `CheckWeight` extension, so we need to
-		// account for that.
-		let unspent = post_info.calc_unspent(info).proof_size();
-		let benchmarked_weight = info.total_weight().proof_size().saturating_sub(unspent);
-		let consumed_weight = post_dispatch_proof_size.saturating_sub(pre_dispatch_proof_size);
-
-		let storage_size_diff = benchmarked_weight.abs_diff(consumed_weight as u64);
-
-		let extrinsic_len = frame_system::AllExtrinsicsLen::<T>::get().unwrap_or(0);
-		let node_side_pov_size = post_dispatch_proof_size.saturating_add(extrinsic_len.into());
-
-		// This value will be reclaimed by [`frame_system::CheckWeight`], so we need to calculate
-		// that in.
-		frame_system::BlockWeight::<T>::mutate(|current| {
-			if consumed_weight > benchmarked_weight {
-				log::error!(
-					target: LOG_TARGET,
-					"Benchmarked storage weight smaller than consumed storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
-					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
-				);
-				current.accrue(Weight::from_parts(0, storage_size_diff), info.class)
-			} else {
-				log::trace!(
-					target: LOG_TARGET,
-					"Reclaiming storage weight. extrinsic: {} benchmarked: {benchmarked_weight} consumed: {consumed_weight} unspent: {unspent}",
-					frame_system::Pallet::<T>::extrinsic_index().unwrap_or(0)
-				);
-				current.reduce(Weight::from_parts(0, storage_size_diff), info.class)
-			}
-
-			// If we encounter a situation where the node-side proof size is already higher than
-			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
-			// This prevents that the proof size grows faster than the runtime proof size.
-			let block_weight_proof_size = current.total().proof_size();
-			let missing_from_node = node_side_pov_size.saturating_sub(block_weight_proof_size);
-			if missing_from_node > 0 {
-				log::debug!(
-					target: LOG_TARGET,
-					"Node-side PoV size higher than runtime proof size weight. node-side: {node_side_pov_size} extrinsic_len: {extrinsic_len} runtime: {block_weight_proof_size}, missing: {missing_from_node}. Setting to node-side proof size."
-				);
-				current.accrue(Weight::from_parts(0, missing_from_node), info.class);
-			}
-		});
-		Ok(Weight::zero())
-	}
-
-	impl_tx_ext_default!(T::RuntimeCall; weight validate);
 }

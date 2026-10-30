@@ -119,6 +119,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] addition. Computes `self + rhs`, saturating at the numeric bounds of
 	/// all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_add(self, rhs: Self) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_add(rhs.ref_time),
@@ -128,6 +129,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] subtraction. Computes `self - rhs`, saturating at the numeric bounds
 	/// of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_sub(self, rhs: Self) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_sub(rhs.ref_time),
@@ -137,6 +139,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] scalar multiplication. Computes `self.field * scalar` for all fields,
 	/// saturating at the numeric bounds of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_mul(self, scalar: u64) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_mul(scalar),
@@ -146,6 +149,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] scalar division. Computes `self.field / scalar` for all fields,
 	/// saturating at the numeric bounds of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_div(self, scalar: u64) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_div(scalar),
@@ -155,6 +159,7 @@ impl Weight {
 
 	/// Saturating [`Weight`] scalar exponentiation. Computes `self.field.pow(exp)` for all fields,
 	/// saturating at the numeric bounds of all fields instead of overflowing.
+	#[must_use]
 	pub const fn saturating_pow(self, exp: u32) -> Self {
 		Self {
 			ref_time: self.ref_time.saturating_pow(exp),
@@ -173,6 +178,7 @@ impl Weight {
 	}
 
 	/// Checked [`Weight`] addition. Computes `self + rhs`, returning `None` if overflow occurred.
+	#[must_use]
 	pub const fn checked_add(&self, rhs: &Self) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_add(rhs.ref_time) {
 			Some(t) => t,
@@ -187,6 +193,7 @@ impl Weight {
 
 	/// Checked [`Weight`] subtraction. Computes `self - rhs`, returning `None` if overflow
 	/// occurred.
+	#[must_use]
 	pub const fn checked_sub(&self, rhs: &Self) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_sub(rhs.ref_time) {
 			Some(t) => t,
@@ -201,6 +208,7 @@ impl Weight {
 
 	/// Checked [`Weight`] scalar multiplication. Computes `self.field * scalar` for each field,
 	/// returning `None` if overflow occurred.
+	#[must_use]
 	pub const fn checked_mul(self, scalar: u64) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_mul(scalar) {
 			Some(t) => t,
@@ -215,6 +223,7 @@ impl Weight {
 
 	/// Checked [`Weight`] scalar division. Computes `self.field / scalar` for each field, returning
 	/// `None` if overflow occurred.
+	#[must_use]
 	pub const fn checked_div(self, scalar: u64) -> Option<Self> {
 		let ref_time = match self.ref_time.checked_div(scalar) {
 			Some(t) => t,
@@ -236,6 +245,7 @@ impl Weight {
 	/// one non-zero component in `other`. The division for this particular component will then
 	/// yield the maximum value (e.g u64::MAX). This is because we assume not every operation and
 	/// hence each `Weight` will necessarily use each resource.
+	#[must_use]
 	pub const fn checked_div_per_component(self, other: &Self) -> Option<u64> {
 		let mut all_zero = true;
 		let ref_time = match self.ref_time.checked_div(other.ref_time) {
@@ -277,6 +287,7 @@ impl Weight {
 	/// Constant version of Add for `ref_time` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn add_ref_time(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time + scalar, proof_size: self.proof_size }
 	}
@@ -284,6 +295,7 @@ impl Weight {
 	/// Constant version of Add for `proof_size` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn add_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size + scalar }
 	}
@@ -291,6 +303,7 @@ impl Weight {
 	/// Constant version of Sub for `ref_time` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn sub_ref_time(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time - scalar, proof_size: self.proof_size }
 	}
@@ -298,13 +311,39 @@ impl Weight {
 	/// Constant version of Sub for `proof_size` component with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn sub_proof_size(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time, proof_size: self.proof_size - scalar }
+	}
+
+	/// Saturating version of Add for `ref_time` component with u64.
+	#[must_use]
+	pub const fn saturating_add_ref_time(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time.saturating_add(scalar), proof_size: self.proof_size }
+	}
+
+	/// Saturating version of Add for `proof_size` component with u64.
+	#[must_use]
+	pub const fn saturating_add_proof_size(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_add(scalar) }
+	}
+
+	/// Saturating version of Sub for `ref_time` component with u64.
+	#[must_use]
+	pub const fn saturating_sub_ref_time(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time.saturating_sub(scalar), proof_size: self.proof_size }
+	}
+
+	/// Saturating version of Sub for `proof_size` component with u64.
+	#[must_use]
+	pub const fn saturating_sub_proof_size(self, scalar: u64) -> Self {
+		Self { ref_time: self.ref_time, proof_size: self.proof_size.saturating_sub(scalar) }
 	}
 
 	/// Constant version of Div with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn div(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time / scalar, proof_size: self.proof_size / scalar }
 	}
@@ -312,6 +351,7 @@ impl Weight {
 	/// Constant version of Mul with u64.
 	///
 	/// Is only overflow safe when evaluated at compile-time.
+	#[must_use]
 	pub const fn mul(self, scalar: u64) -> Self {
 		Self { ref_time: self.ref_time * scalar, proof_size: self.proof_size * scalar }
 	}
@@ -652,5 +692,105 @@ mod tests {
 			Weight::from_parts(0, 0).checked_div_per_component(&Weight::from_parts(0, 0)),
 			None,
 		);
+	}
+
+	#[test]
+	fn saturating_add_ref_time_works() {
+		// Normal addition
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_ref_time(5), Weight::from_parts(15, 20));
+
+		// Saturation at MAX
+		let weight = Weight::from_parts(u64::MAX - 5, 20);
+		assert_eq!(weight.saturating_add_ref_time(10), Weight::from_parts(u64::MAX, 20));
+
+		// Already at MAX
+		let weight = Weight::from_parts(u64::MAX, 20);
+		assert_eq!(weight.saturating_add_ref_time(1), Weight::from_parts(u64::MAX, 20));
+
+		// Adding zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_ref_time(0), Weight::from_parts(10, 20));
+
+		// Proof size remains unchanged
+		let weight = Weight::from_parts(10, 42);
+		assert_eq!(weight.saturating_add_ref_time(5).proof_size(), 42);
+	}
+
+	#[test]
+	fn saturating_add_proof_size_works() {
+		// Normal addition
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_proof_size(5), Weight::from_parts(10, 25));
+
+		// Saturation at MAX
+		let weight = Weight::from_parts(10, u64::MAX - 5);
+		assert_eq!(weight.saturating_add_proof_size(10), Weight::from_parts(10, u64::MAX));
+
+		// Already at MAX
+		let weight = Weight::from_parts(10, u64::MAX);
+		assert_eq!(weight.saturating_add_proof_size(1), Weight::from_parts(10, u64::MAX));
+
+		// Adding zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_add_proof_size(0), Weight::from_parts(10, 20));
+
+		// Ref time remains unchanged
+		let weight = Weight::from_parts(42, 20);
+		assert_eq!(weight.saturating_add_proof_size(5).ref_time(), 42);
+	}
+
+	#[test]
+	fn saturating_sub_ref_time_works() {
+		// Normal subtraction
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_ref_time(5), Weight::from_parts(5, 20));
+
+		// Saturation at zero (underflow)
+		let weight = Weight::from_parts(5, 20);
+		assert_eq!(weight.saturating_sub_ref_time(10), Weight::from_parts(0, 20));
+
+		// Already at zero
+		let weight = Weight::from_parts(0, 20);
+		assert_eq!(weight.saturating_sub_ref_time(1), Weight::from_parts(0, 20));
+
+		// Subtracting zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_ref_time(0), Weight::from_parts(10, 20));
+
+		// Exact subtraction to zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_ref_time(10), Weight::from_parts(0, 20));
+
+		// Proof size remains unchanged
+		let weight = Weight::from_parts(10, 42);
+		assert_eq!(weight.saturating_sub_ref_time(5).proof_size(), 42);
+	}
+
+	#[test]
+	fn saturating_sub_proof_size_works() {
+		// Normal subtraction
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_proof_size(5), Weight::from_parts(10, 15));
+
+		// Saturation at zero (underflow)
+		let weight = Weight::from_parts(10, 5);
+		assert_eq!(weight.saturating_sub_proof_size(10), Weight::from_parts(10, 0));
+
+		// Already at zero
+		let weight = Weight::from_parts(10, 0);
+		assert_eq!(weight.saturating_sub_proof_size(1), Weight::from_parts(10, 0));
+
+		// Subtracting zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_proof_size(0), Weight::from_parts(10, 20));
+
+		// Exact subtraction to zero
+		let weight = Weight::from_parts(10, 20);
+		assert_eq!(weight.saturating_sub_proof_size(20), Weight::from_parts(10, 0));
+
+		// Ref time remains unchanged
+		let weight = Weight::from_parts(42, 20);
+		assert_eq!(weight.saturating_sub_proof_size(5).ref_time(), 42);
 	}
 }

@@ -21,12 +21,15 @@
 
 use super::*;
 use alloc::vec;
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
+use frame_benchmarking::{
+	v1::{
+		account, benchmarks_instance_pallet, whitelist_account, whitelisted_caller, BenchmarkError,
+	},
+	BenchmarkResult,
 };
 use frame_support::traits::{EnsureOrigin, Get, UnfilteredDispatchable};
 use frame_system::RawOrigin as SystemOrigin;
-use sp_runtime::traits::Bounded;
+use sp_runtime::{traits::Bounded, Weight};
 
 use crate::Pallet as Assets;
 
@@ -53,6 +56,19 @@ fn create_default_asset<T: Config<I>, I: 'static>(
 	)
 	.is_ok());
 	(asset_id, caller, caller_lookup)
+}
+
+fn create_default_reserves<T: Config<I>, I: 'static>(
+	count: u32,
+) -> (T::AssetIdParameter, T::AccountId, Vec<T::ReserveData>) {
+	// create asset
+	let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+	// build max number of reserves
+	let mut reserves = Vec::<T::ReserveData>::new();
+	for i in 0..count {
+		reserves.push(T::BenchmarkHelper::create_reserve_id_parameter(i));
+	}
+	(asset_id, caller, reserves)
 }
 
 pub fn create_default_minted_asset<T: Config<I>, I: 'static>(
@@ -94,7 +110,7 @@ fn add_sufficients<T: Config<I>, I: 'static>(minter: T::AccountId, n: u32) {
 			origin.clone().into(),
 			asset_id.clone(),
 			target_lookup,
-			100u32.into()
+			100u32.into(),
 		)
 		.is_ok());
 	}
@@ -147,6 +163,9 @@ benchmarks_instance_pallet! {
 		let caller = T::CreateOrigin::ensure_origin(origin.clone(), &asset_id.clone().into()).unwrap();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
 		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		// Set `NextAssetId` so the `AutoIncAssetId` write is measured.
+		let next_id: T::AssetId = asset_id.clone().into();
+		NextAssetId::<T, I>::put(next_id);
 	}: _<T::RuntimeOrigin>(origin, asset_id.clone(), caller_lookup, 1u32.into())
 	verify {
 		assert_last_event::<T, I>(Event::Created { asset_id: asset_id.into(), creator: caller.clone(), owner: caller }.into());
@@ -156,6 +175,9 @@ benchmarks_instance_pallet! {
 		let asset_id = default_asset_id::<T, I>();
 		let caller: T::AccountId = whitelisted_caller();
 		let caller_lookup = T::Lookup::unlookup(caller.clone());
+		// Set `NextAssetId` so the `AutoIncAssetId` write is measured.
+		let next_id: T::AssetId = asset_id.clone().into();
+		NextAssetId::<T, I>::put(next_id);
 	}: _(SystemOrigin::Root, asset_id.clone(), caller_lookup, true, 1u32.into())
 	verify {
 		assert_last_event::<T, I>(Event::ForceCreated { asset_id: asset_id.into(), owner: caller }.into());
@@ -228,7 +250,7 @@ benchmarks_instance_pallet! {
 		let amount = T::Balance::from(100u32);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(Event::Issued { asset_id: asset_id.into(), owner: caller, amount }.into());
+		assert_event::<T, I>(Event::Issued { asset_id: asset_id.into(), owner: caller, amount }.into());
 	}
 
 	burn {
@@ -236,7 +258,7 @@ benchmarks_instance_pallet! {
 		let (asset_id, caller, caller_lookup) = create_default_minted_asset::<T, I>(true, amount);
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(Event::Burned { asset_id: asset_id.into(), owner: caller, balance: amount }.into());
+		assert_event::<T, I>(Event::Burned { asset_id: asset_id.into(), owner: caller, balance: amount }.into());
 	}
 
 	transfer {
@@ -246,7 +268,7 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
 	transfer_keep_alive {
@@ -258,7 +280,7 @@ benchmarks_instance_pallet! {
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, amount)
 	verify {
 		assert!(frame_system::Pallet::<T>::account_exists(&caller));
-		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
 	}
 
 	force_transfer {
@@ -268,7 +290,7 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), caller_lookup, target_lookup, amount)
 	verify {
-		assert_last_event::<T, I>(
+		assert_event::<T, I>(
 			Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into()
 		);
 	}
@@ -332,6 +354,21 @@ benchmarks_instance_pallet! {
 			admin: account("target", 1, SEED),
 			freezer: account("target", 2, SEED),
 		}.into());
+	}
+
+	set_reserves {
+		let n in 0 .. MAX_RESERVES;
+		let (asset_id, caller, reserves) = create_default_reserves::<T, I>(n);
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		let bounded_reserves = reserves.clone().try_into().unwrap();
+	}: _(SystemOrigin::Signed(caller), asset_id.clone(), bounded_reserves)
+	verify {
+		let expected_event = if reserves.is_empty() {
+			Event::ReservesRemoved { asset_id: asset_id.into() }
+		} else {
+			Event::ReservesUpdated { asset_id: asset_id.into(), reserves: reserves }
+		};
+		assert_last_event::<T, I>(expected_event.into());
 	}
 
 	set_metadata {
@@ -561,7 +598,72 @@ benchmarks_instance_pallet! {
 		let target_lookup = T::Lookup::unlookup(target.clone());
 	}: _(SystemOrigin::Signed(caller.clone()), asset_id.clone(), target_lookup, false)
 	verify {
-		assert_last_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+		assert_event::<T, I>(Event::Transferred { asset_id: asset_id.into(), from: caller, to: target, amount }.into());
+	}
+
+	total_issuance {
+		use frame_support::traits::fungibles::Inspect;
+		let (asset_id, _, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		let amount;
+	}: {
+		amount = Pallet::<T, I>::total_issuance(asset_id.into());
+	} verify {
+		assert_eq!(amount, 100u32.into());
+	}
+
+	balance {
+		use frame_support::traits::fungibles::Inspect;
+		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		let amount;
+	}: {
+		amount = <Pallet<T, I> as Inspect<_>>::total_balance(asset_id.into(), &caller);
+	} verify {
+		assert_eq!(amount, 100u32.into());
+	}
+
+	allowance {
+		use frame_support::traits::fungibles::approvals::Inspect;
+		let (asset_id, caller, _) = create_default_minted_asset::<T, I>(true, 100u32.into());
+		add_approvals::<T, I>(caller.clone(), 1);
+		let delegate: T::AccountId = account("approval", 0, SEED);
+		let amount;
+	}: {
+		amount = Pallet::<T, I>::allowance(asset_id.into(), &caller, &delegate);
+	} verify {
+		assert_eq!(amount, 100u32.into());
+	}
+
+	migration_v2_foreign_asset_set_reserve_weight {
+		let (id, _, _) = create_default_asset::<T, I>(true);
+		let id: <T as pallet::Config<I>>::AssetId = id.into();
+		let reserve = T::BenchmarkHelper::create_reserve_id_parameter(42);
+	}: {
+		let asset_id = Asset::<T, I>::iter_keys().next()
+			.ok_or_else(|| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		assert_eq!(id, asset_id);
+		let bounded_reserves = vec![reserve.clone()].try_into().unwrap();
+		Pallet::<T, I>::unchecked_update_reserves(asset_id, bounded_reserves).unwrap();
+	}
+	verify {
+		assert_eq!(Reserves::<T, I>::get(id)[0], reserve);
+	}
+
+	get_metadata {
+		let (asset_id, caller, _) = create_default_asset::<T, I>(true);
+		T::Currency::make_free_balance_be(&caller, DepositBalanceOf::<T, I>::max_value());
+		let name_bytes = vec![0u8; T::StringLimit::get() as usize];
+		let symbol_bytes = vec![0u8; T::StringLimit::get() as usize];
+		let origin = SystemOrigin::Signed(caller).into();
+		Assets::<T, I>::set_metadata(origin, asset_id.clone(), name_bytes.clone(), symbol_bytes.clone(), 12)?;
+	}: {
+		let _ = Pallet::<T, I>::get_metadata(asset_id.clone().into());
+	} verify {
+		let metadata = Pallet::<T, I>::get_metadata(asset_id.into());
+		assert!(metadata.is_some());
+		let metadata = metadata.unwrap();
+		assert_eq!(metadata.name.to_vec(), name_bytes);
+		assert_eq!(metadata.symbol.to_vec(), symbol_bytes);
+		assert_eq!(metadata.decimals, 12);
 	}
 
 	impl_benchmark_test_suite!(Assets, crate::mock::new_test_ext(), crate::mock::Test)

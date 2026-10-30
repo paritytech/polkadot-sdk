@@ -42,7 +42,7 @@ use bp_messages::{
 use bp_runtime::{
 	messages::MessageDispatchResult, Chain, ChainId, Size, UnverifiedStorageProofParams,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	derive_impl,
 	weights::{constants::RocksDbWeight, Weight},
@@ -58,7 +58,7 @@ use std::{collections::VecDeque, ops::RangeInclusive};
 
 pub type AccountId = u64;
 pub type Balance = u64;
-#[derive(Decode, Encode, Clone, Debug, PartialEq, Eq, TypeInfo)]
+#[derive(Decode, DecodeWithMemTracking, Encode, Clone, Debug, PartialEq, Eq, TypeInfo)]
 pub struct TestPayload {
 	/// Field that may be used to identify messages.
 	pub id: u64,

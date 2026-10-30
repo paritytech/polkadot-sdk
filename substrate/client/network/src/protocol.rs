@@ -36,7 +36,7 @@ use libp2p::{
 use log::{debug, warn};
 
 use codec::DecodeAll;
-use sc_network_common::role::Roles;
+use sc_network_common::{role::Roles, types::ReputationChange};
 use sc_utils::mpsc::TracingUnboundedReceiver;
 use sp_runtime::traits::Block as BlockT;
 
@@ -49,8 +49,6 @@ pub(crate) use notifications::ProtocolHandle;
 pub use notifications::{notification_service, NotificationsSink, ProtocolHandlePair, Ready};
 
 mod notifications;
-
-pub mod message;
 
 // Log target for this file.
 const LOG_TARGET: &str = "sub-libp2p";
@@ -309,7 +307,7 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 				notifications_sink,
 				negotiated_fallback,
 				..
-			} =>
+			} => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self.sync_handle.report_substream_opened(
 						peer_id,
@@ -334,8 +332,9 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							None
 						},
 					}
-				},
-			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } =>
+				}
+			},
+			NotificationsOut::CustomProtocolReplaced { peer_id, notifications_sink, set_id } => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self
 						.sync_handle
@@ -349,7 +348,8 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 							notifications_sink,
 						},
 					)
-				},
+				}
+			},
 			NotificationsOut::CustomProtocolClosed { peer_id, set_id } => {
 				if set_id == HARDCODED_PEERSETS_SYNC {
 					let _ = self.sync_handle.report_substream_closed(peer_id);
@@ -375,6 +375,27 @@ impl<B: BlockT> NetworkBehaviour for Protocol<B> {
 						},
 					)
 				}
+			},
+
+			NotificationsOut::ProtocolMisbehavior { peer_id, set_id } => {
+				let index: usize = set_id.into();
+				let protocol_name = self.notification_protocols.get(index);
+
+				debug!(
+					target: LOG_TARGET,
+					"Received unexpected data on outbound notification stream from peer {:?} on protocol {:?}",
+					peer_id,
+					protocol_name
+				);
+
+				self.peer_store_handle.report_peer(
+					peer_id.into(),
+					ReputationChange::new_fatal(
+						"Received unexpected data on outbound notification stream",
+					),
+				);
+
+				None
 			},
 		};
 

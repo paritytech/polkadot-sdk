@@ -80,14 +80,14 @@ impl<H, N> Clone for SharedAuthoritySet<H, N> {
 
 impl<H, N> SharedAuthoritySet<H, N> {
 	/// Returns access to the [`AuthoritySet`].
-	pub(crate) fn inner(&self) -> MappedMutexGuard<AuthoritySet<H, N>> {
+	pub(crate) fn inner(&self) -> MappedMutexGuard<'_, AuthoritySet<H, N>> {
 		self.inner.shared_data()
 	}
 
 	/// Returns access to the [`AuthoritySet`] and locks it.
 	///
 	/// For more information see [`SharedDataLocked`].
-	pub(crate) fn inner_locked(&self) -> SharedDataLocked<AuthoritySet<H, N>> {
+	pub(crate) fn inner_locked(&self) -> SharedDataLocked<'_, AuthoritySet<H, N>> {
 		self.inner.shared_data_locked()
 	}
 }
@@ -110,11 +110,7 @@ where
 
 	/// Get the current authorities and their weights (for the current set ID).
 	pub fn current_authorities(&self) -> VoterSet<AuthorityId> {
-		VoterSet::new(self.inner().current_authorities.iter().cloned()).expect(
-			"current_authorities is non-empty and weights are non-zero; \
-			 constructor and all mutating operations on `AuthoritySet` ensure this; \
-			 qed.",
-		)
+		self.inner().current_voter_set()
 	}
 
 	/// Clone the inner `AuthoritySet`.
@@ -183,7 +179,7 @@ where
 	/// Get a genesis set with given authorities.
 	pub(crate) fn genesis(initial: AuthorityList) -> Option<Self> {
 		if Self::invalid_authority_list(&initial) {
-			return None
+			return None;
 		}
 
 		Some(AuthoritySet {
@@ -204,7 +200,7 @@ where
 		authority_set_changes: AuthoritySetChanges<N>,
 	) -> Option<Self> {
 		if Self::invalid_authority_list(&authorities) {
-			return None
+			return None;
 		}
 
 		Some(AuthoritySet {
@@ -219,6 +215,15 @@ where
 	/// Get the current set id and a reference to the current authority set.
 	pub(crate) fn current(&self) -> (u64, &[(AuthorityId, u64)]) {
 		(self.set_id, &self.current_authorities[..])
+	}
+
+	/// Get the current authorities as a [`VoterSet`].
+	pub(crate) fn current_voter_set(&self) -> VoterSet<AuthorityId> {
+		VoterSet::new(self.current_authorities.iter().cloned()).expect(
+			"current_authorities is non-empty and weights are non-zero; \
+			 constructor and all mutating operations on `AuthoritySet` ensure this; \
+			 qed.",
+		)
 	}
 
 	/// Revert to a specified block given its `hash` and `number`.
@@ -278,7 +283,7 @@ where
 		for change in &self.pending_forced_changes {
 			if is_descendent_of(&change.canon_hash, best_hash)? {
 				forced = Some((change.canon_hash.clone(), change.canon_height.clone()));
-				break
+				break;
 			}
 		}
 
@@ -286,13 +291,14 @@ where
 		for (_, _, change) in self.pending_standard_changes.roots() {
 			if is_descendent_of(&change.canon_hash, best_hash)? {
 				standard = Some((change.canon_hash.clone(), change.canon_height.clone()));
-				break
+				break;
 			}
 		}
 
 		let earliest = match (forced, standard) {
-			(Some(forced), Some(standard)) =>
-				Some(if forced.1 < standard.1 { forced } else { standard }),
+			(Some(forced), Some(standard)) => {
+				Some(if forced.1 < standard.1 { forced } else { standard })
+			},
 			(Some(forced), None) => Some(forced),
 			(None, Some(standard)) => Some(standard),
 			(None, None) => None,
@@ -344,11 +350,11 @@ where
 	{
 		for change in &self.pending_forced_changes {
 			if change.canon_hash == pending.canon_hash {
-				return Err(Error::DuplicateAuthoritySetChange)
+				return Err(Error::DuplicateAuthoritySetChange);
 			}
 
 			if is_descendent_of(&change.canon_hash, &pending.canon_hash)? {
-				return Err(Error::MultiplePendingForcedAuthoritySetChanges)
+				return Err(Error::MultiplePendingForcedAuthoritySetChanges);
 			}
 		}
 
@@ -395,7 +401,7 @@ where
 		E: std::error::Error,
 	{
 		if Self::invalid_authority_list(&pending.next_authorities) {
-			return Err(Error::InvalidAuthoritySet)
+			return Err(Error::InvalidAuthoritySet);
 		}
 
 		match pending.delay_kind {
@@ -487,7 +493,7 @@ where
 
 						return Err(Error::ForcedAuthoritySetChangeDependencyUnsatisfied(
 							standard_change.effective_number(),
-						))
+						));
 					}
 				}
 
@@ -519,7 +525,7 @@ where
 					},
 				));
 
-				break
+				break;
 			}
 		}
 
@@ -681,6 +687,12 @@ impl<H, N: Add<Output = N> + Clone> PendingChange<H, N> {
 	}
 }
 
+/// Inserting a historical change would reuse a set id that is already
+/// tracked at a higher block.
+#[derive(Debug, thiserror::Error)]
+#[error("authority set change would duplicate set id {0}")]
+pub(crate) struct SetIdConflict(SetId);
+
 /// Tracks historical authority set changes. We store the block numbers for the last block
 /// of each authority set, once they have been finalized. These blocks are guaranteed to
 /// have a justification unless they were triggered by a forced change.
@@ -723,7 +735,7 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 			.map(|last_auth_change| last_auth_change.1 < block_number)
 			.unwrap_or(false)
 		{
-			return AuthoritySetChangeId::Latest
+			return AuthoritySetChangeId::Latest;
 		}
 
 		let idx = self
@@ -736,7 +748,7 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 
 			// if this is the first index but not the first set id then we are missing data.
 			if idx == 0 && set_id != 0 {
-				return AuthoritySetChangeId::Unknown
+				return AuthoritySetChangeId::Unknown;
 			}
 
 			AuthoritySetChangeId::Set(set_id, block_number)
@@ -745,15 +757,23 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 		}
 	}
 
-	pub(crate) fn insert(&mut self, block_number: N) {
+	/// Insert a historical authority set change.
+	///
+	/// Set ids are derived from the position in the list,
+	/// so changes must be inserted in ascending block order.
+	pub(crate) fn insert(&mut self, block_number: N) -> Result<(), SetIdConflict> {
 		let idx = self
 			.0
 			.binary_search_by_key(&block_number, |(_, n)| n.clone())
 			.unwrap_or_else(|b| b);
 
 		let set_id = if idx == 0 { 0 } else { self.0[idx - 1].0 + 1 };
-		assert!(idx == self.0.len() || self.0[idx].0 != set_id);
+		if idx != self.0.len() && self.0[idx].0 == set_id {
+			return Err(SetIdConflict(set_id));
+		}
+
 		self.0.insert(idx, (set_id, block_number));
+		Ok(())
 	}
 
 	/// Returns an iterator over all historical authority set changes starting at the given block
@@ -773,7 +793,7 @@ impl<N: Ord + Clone> AuthoritySetChanges<N> {
 
 			// if this is the first index but not the first set id then we are missing data.
 			if idx == 0 && set_id != 0 {
-				return None
+				return None;
 			}
 		}
 
@@ -1684,9 +1704,21 @@ mod tests {
 		authority_set_changes.append(1, 81);
 		authority_set_changes.append(4, 121);
 
-		authority_set_changes.insert(101);
+		authority_set_changes.insert(101).unwrap();
 		assert_eq!(authority_set_changes.get_set_id(100), AuthoritySetChangeId::Set(2, 101));
 		assert_eq!(authority_set_changes.get_set_id(101), AuthoritySetChangeId::Set(2, 101));
+	}
+
+	#[test]
+	fn authority_set_changes_insert_rejects_duplicate_set_id() {
+		let mut changes = AuthoritySetChanges::empty();
+		changes.insert(10).unwrap();
+		changes.insert(20).unwrap();
+		changes.insert(30).unwrap();
+
+		let before = changes.clone();
+		assert_eq!(changes.insert(25).unwrap_err().0, 2);
+		assert_eq!(changes, before);
 	}
 
 	#[test]

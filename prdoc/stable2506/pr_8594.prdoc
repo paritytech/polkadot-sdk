@@ -1,0 +1,19 @@
+title: 'omni-node: fix `benchmark pallet` to work with `--runtime`'
+doc:
+- audience: Node Dev 
+  description: |
+    `polkadot-omni-node benchmark pallet` can use one of `--runtime` or `--chain` now, like `frame-omni-bencher` does.
+
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch
+- name: frame-benchmarking-cli
+  bump: major
+- name: frame-omni-bencher
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
+- name: polkadot-omni-node
+  bump: patch
+- name: polkadot-parachain-bin
+  bump: patch

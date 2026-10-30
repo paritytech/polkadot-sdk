@@ -15,17 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Salary pallet benchmarking.
+//! Core Fellowship pallet benchmarking.
 
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::*;
-use crate::Pallet as CoreFellowship;
+use crate::{BlockNumberFor as CoreFellowshipBlockNumberFor, Pallet as CoreFellowship};
 
 use alloc::{boxed::Box, vec};
 use frame_benchmarking::v2::*;
-use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin};
+use frame_system::RawOrigin;
 use sp_arithmetic::traits::Bounded;
+use sp_runtime::traits::BlockNumberProvider;
 
 const SEED: u32 = 0;
 
@@ -34,6 +35,10 @@ type BenchResult = Result<(), BenchmarkError>;
 #[instance_benchmarks]
 mod benchmarks {
 	use super::*;
+
+	fn set_block_number<T: Config<I>, I: 'static>(n: CoreFellowshipBlockNumberFor<T, I>) {
+		T::BlockNumberProvider::set_block_number(n);
+	}
 
 	fn ensure_evidence<T: Config<I>, I: 'static>(who: &T::AccountId) -> BenchResult {
 		let evidence = BoundedVec::try_from(vec![0; Evidence::<T, I>::bound()]).unwrap();
@@ -56,7 +61,7 @@ mod benchmarks {
 	}
 
 	fn set_benchmark_params<T: Config<I>, I: 'static>() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -71,7 +76,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_params() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 		let params = ParamsType {
 			active_salary: BoundedVec::try_from(vec![100u32.into(); max_rank]).unwrap(),
 			passive_salary: BoundedVec::try_from(vec![10u32.into(); max_rank]).unwrap(),
@@ -89,7 +94,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn set_partial_params() -> Result<(), BenchmarkError> {
-		let max_rank = T::MaxRank::get().try_into().unwrap();
+		let max_rank = T::MaxRank::get() as usize;
 
 		// Set up the initial default state for the Params storage
 		let params = ParamsType {
@@ -133,7 +138,7 @@ mod benchmarks {
 		let member = make_member::<T, I>(0)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
-		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
+		set_block_number::<T, I>(CoreFellowshipBlockNumberFor::<T, I>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 		assert!(Member::<T, I>::contains_key(&member));
 
@@ -149,19 +154,22 @@ mod benchmarks {
 	fn bump_demote() -> Result<(), BenchmarkError> {
 		set_benchmark_params::<T, I>()?;
 
-		let member = make_member::<T, I>(2)?;
+		let initial_rank = T::MaxRank::get();
+
+		let member = make_member::<T, I>(initial_rank)?;
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
-		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
+		set_block_number::<T, I>(CoreFellowshipBlockNumberFor::<T, I>::max_value());
 		ensure_evidence::<T, I>(&member)?;
+
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(2));
+		assert_eq!(T::Members::rank_of(&member), Some(initial_rank));
 
 		#[extrinsic_call]
 		CoreFellowship::<T, I>::bump(RawOrigin::Signed(member.clone()), member.clone());
 
 		assert!(Member::<T, I>::contains_key(&member));
-		assert_eq!(T::Members::rank_of(&member), Some(1));
+		assert_eq!(T::Members::rank_of(&member), Some(initial_rank.saturating_sub(1)));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -194,36 +202,51 @@ mod benchmarks {
 	fn promote() -> Result<(), BenchmarkError> {
 		// Ensure that the `min_promotion_period` wont get in our way.
 		let mut params = Params::<T, I>::get();
-		let max_rank = T::MaxRank::get().try_into().unwrap();
-		params.min_promotion_period = BoundedVec::try_from(vec![Zero::zero(); max_rank]).unwrap();
+		let max_rank = T::MaxRank::get();
+
+		// Get minimum promotion period.
+		params.min_promotion_period =
+			BoundedVec::try_from(vec![Zero::zero(); max_rank as usize]).unwrap();
 		Params::<T, I>::put(&params);
 
-		let member = make_member::<T, I>(1)?;
+		// Start at rank 0 to allow at least one promotion.
+		let current_rank = 0;
+		let member = make_member::<T, I>(current_rank)?;
+
+		// Set `to_rank` dynamically based on `max_rank`.
+		let to_rank = (current_rank + 1).min(max_rank); // Ensure `to_rank` <= `max_rank`.
 
 		// Set it to the max value to ensure that any possible auto-demotion period has passed.
-		frame_system::Pallet::<T>::set_block_number(BlockNumberFor::<T>::max_value());
+		set_block_number::<T, I>(CoreFellowshipBlockNumberFor::<T, I>::max_value());
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), 2u8.into());
+		_(RawOrigin::Root, member.clone(), to_rank);
 
-		assert_eq!(T::Members::rank_of(&member), Some(2));
+		// Assert the new rank matches `to_rank` (not a hardcoded value).
+		assert_eq!(T::Members::rank_of(&member), Some(to_rank));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
 
 	/// Benchmark the `promote_fast` extrinsic to promote someone up to `r`.
 	#[benchmark]
-	fn promote_fast(r: Linear<1, { T::MaxRank::get() as u32 }>) -> Result<(), BenchmarkError> {
-		let r = r.try_into().expect("r is too large");
+	fn promote_fast(
+		r: Linear<1, { ConvertU16ToU32::<T::MaxRank>::get() }>,
+	) -> Result<(), BenchmarkError> {
+		// Get a target rank for promotion.
+		let max_rank = T::MaxRank::get();
+		let target_rank = (r as u16).min(max_rank);
+
+		// Begin with Candidate.
 		let member = make_member::<T, I>(0)?;
 
 		ensure_evidence::<T, I>(&member)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, member.clone(), r);
+		_(RawOrigin::Root, member.clone(), target_rank);
 
-		assert_eq!(T::Members::rank_of(&member), Some(r));
+		assert_eq!(T::Members::rank_of(&member), Some(target_rank));
 		assert!(!MemberEvidence::<T, I>::contains_key(&member));
 		Ok(())
 	}
@@ -281,9 +304,9 @@ mod benchmarks {
 	#[benchmark]
 	fn approve() -> Result<(), BenchmarkError> {
 		let member = make_member::<T, I>(1)?;
-		let then = frame_system::Pallet::<T>::block_number();
+		let then = T::BlockNumberProvider::current_block_number();
 		let now = then.saturating_plus_one();
-		frame_system::Pallet::<T>::set_block_number(now);
+		set_block_number::<T, I>(now);
 		ensure_evidence::<T, I>(&member)?;
 
 		assert_eq!(Member::<T, I>::get(&member).unwrap().last_proof, then);

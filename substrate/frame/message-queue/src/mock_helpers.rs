@@ -89,7 +89,7 @@ where
 }
 
 /// Create a message from the given data.
-pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<u8, N> {
+pub fn msg<N: Get<u32>>(x: &str) -> BoundedSlice<'_, u8, N> {
 	BoundedSlice::defensive_truncate_from(x.as_bytes())
 }
 
@@ -119,7 +119,7 @@ pub fn full_page<T: Config>() -> (PageOf<T>, usize) {
 	for i in 0..u32::MAX {
 		let r = i.using_encoded(|d| page.try_append_message::<T>(d.try_into().unwrap()));
 		if r.is_err() {
-			break
+			break;
 		} else {
 			msgs += 1;
 		}

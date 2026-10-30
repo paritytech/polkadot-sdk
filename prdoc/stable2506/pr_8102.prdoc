@@ -1,0 +1,19 @@
+title: Make min_peers_to_start_warp_sync configurable
+doc:
+- audience: Node Dev
+  description: |-
+    Make `min_peers_to_start_warp_sync` configurable. Parachains for example only need 1 peer, because the target block is downloaded from the relay chain.
+
+    Parachains automatically will get this change via `cumulus_service::prepare_node_config`.
+
+crates:
+- name: sc-cli
+  bump: minor
+- name: sc-network
+  bump: major
+- name: sc-network-sync
+  bump: major
+- name: sc-service
+  bump: minor
+- name: cumulus-client-service
+  bump: minor

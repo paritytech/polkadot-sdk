@@ -23,6 +23,7 @@ use std::{
 	path::PathBuf,
 };
 
+use anyhow::Context;
 use inflector::Inflector;
 use itertools::Itertools;
 use serde::Serialize;
@@ -142,10 +143,10 @@ fn map_results(
 	pov_analysis_choice: &AnalysisChoice,
 	worst_case_map_values: u32,
 	additional_trie_layers: u8,
-) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, std::io::Error> {
+) -> Result<HashMap<(String, String), Vec<BenchmarkData>>, sc_cli::Error> {
 	// Skip if batches is empty.
 	if batches.is_empty() {
-		return Err(io_error("empty batches"))
+		return Err(io_error("empty batches").into());
 	}
 
 	let mut all_benchmarks = HashMap::<_, Vec<BenchmarkData>>::new();
@@ -153,7 +154,7 @@ fn map_results(
 	for batch in batches {
 		// Skip if there are no results
 		if batch.time_results.is_empty() {
-			continue
+			continue;
 		}
 
 		let pallet_name = String::from_utf8(batch.pallet.clone()).unwrap();
@@ -168,7 +169,7 @@ fn map_results(
 			pov_analysis_choice,
 			worst_case_map_values,
 			additional_trie_layers,
-		);
+		)?;
 		let pallet_benchmarks = all_benchmarks.entry((pallet_name, instance_name)).or_default();
 		pallet_benchmarks.push(benchmark_data);
 	}
@@ -186,6 +187,23 @@ fn extract_errors(errors: &Option<Vec<u128>>) -> impl Iterator<Item = u128> + '_
 		.chain(std::iter::repeat(0))
 }
 
+// Removes the components that have a single value across `results`.
+fn remove_constant_components(results: &mut [BenchmarkResult]) {
+	let Some(first) = results.first() else { return };
+	let varies = first
+		.components
+		.iter()
+		.enumerate()
+		.map(|(i, &(_, value))| results.iter().any(|result| result.components[i].1 != value))
+		.collect::<Vec<_>>();
+	for result in results.iter_mut() {
+		let mut varies = varies.iter();
+		result
+			.components
+			.retain(|_| *varies.next().expect("one flag per component; qed"));
+	}
+}
+
 // Analyze and return the relevant results for a given benchmark.
 fn get_benchmark_data(
 	batch: &BenchmarkBatchSplitResults,
@@ -198,7 +216,7 @@ fn get_benchmark_data(
 	pov_analysis_choice: &AnalysisChoice,
 	worst_case_map_values: u32,
 	additional_trie_layers: u8,
-) -> BenchmarkData {
+) -> Result<BenchmarkData, sc_cli::Error> {
 	// Analyze benchmarks to get the linear regression.
 	let analysis_function = match analysis_choice {
 		AnalysisChoice::MinSquares => Analysis::min_squares_iqr,
@@ -214,14 +232,18 @@ fn get_benchmark_data(
 	let benchmark = String::from_utf8(batch.benchmark.clone()).unwrap();
 
 	let extrinsic_time = analysis_function(&batch.time_results, BenchmarkSelector::ExtrinsicTime)
-		.expect("analysis function should return an extrinsic time for valid inputs");
+		.context(format!("benchmark '{pallet}::{benchmark}'"))
+		.map_err(|e| sc_cli::Error::Application(e.into()))?;
 	let reads = analysis_function(&batch.db_results, BenchmarkSelector::Reads)
-		.expect("analysis function should return the number of reads for valid inputs");
+		.context(format!("benchmark '{pallet}::{benchmark}'"))
+		.map_err(|e| sc_cli::Error::Application(e.into()))?;
 	let writes = analysis_function(&batch.db_results, BenchmarkSelector::Writes)
-		.expect("analysis function should return the number of writes for valid inputs");
+		.context(format!("benchmark '{pallet}::{benchmark}'"))
+		.map_err(|e| sc_cli::Error::Application(e.into()))?;
 	let recorded_proof_size =
 		pov_analysis_function(&batch.db_results, BenchmarkSelector::ProofSize)
-			.expect("analysis function should return proof sizes for valid inputs");
+			.context(format!("benchmark '{pallet}::{benchmark}'"))
+			.map_err(|e| sc_cli::Error::Application(e.into()))?;
 
 	// Analysis data may include components that are not used, this filters out anything whose value
 	// is zero.
@@ -298,11 +320,18 @@ fn get_benchmark_data(
 		additional_trie_layers,
 	);
 
-	let proof_size_per_components = storage_per_prefix
+	// The samples touching a storage prefix need not cover every component, e.g. a key touched
+	// only at the component max. Components with a single value across them determine no slope.
+	for results in storage_per_prefix.values_mut() {
+		remove_constant_components(results);
+	}
+
+	let proof_size_per_components: Vec<_> = storage_per_prefix
 		.iter()
 		.map(|(prefix, results)| {
 			let proof_size = analysis_function(results, BenchmarkSelector::ProofSize)
-				.expect("analysis function should return proof sizes for valid inputs");
+				.context(format!("benchmark '{pallet}::{benchmark}'"))
+				.map_err(|e| sc_cli::Error::Application(e.into()))?;
 			let slope = proof_size
 				.slopes
 				.into_iter()
@@ -310,9 +339,9 @@ fn get_benchmark_data(
 				.zip(extract_errors(&proof_size.errors))
 				.map(|((slope, name), error)| ComponentSlope { name: name.clone(), slope, error })
 				.collect::<Vec<_>>();
-			(prefix.clone(), slope, proof_size.base)
+			Ok((prefix.clone(), slope, proof_size.base))
 		})
-		.collect::<Vec<_>>();
+		.collect::<Result<_, sc_cli::Error>>()?;
 
 	let mut base_calculated_proof_size = 0;
 	// Sum up the proof sizes per component
@@ -324,7 +353,7 @@ fn get_benchmark_data(
 				if used_component.name == component.name {
 					used_component.slope = used_component.slope.max(component.slope);
 					found = true;
-					break
+					break;
 				}
 			}
 			if !found && !component.slope.is_zero() {
@@ -357,7 +386,7 @@ fn get_benchmark_data(
 		.map(|c| c.clone())
 		.unwrap_or_default();
 
-	BenchmarkData {
+	Ok(BenchmarkData {
 		name: benchmark,
 		components,
 		base_weight: extrinsic_time.base,
@@ -373,7 +402,7 @@ fn get_benchmark_data(
 		component_ranges,
 		comments,
 		min_execution_time: extrinsic_time.minimum,
-	}
+	})
 }
 
 /// Create weight file from benchmark data and Handlebars template.
@@ -467,7 +496,10 @@ pub(crate) fn write_results(
 				file_name = format!("{}_{}", file_name, instance.to_snake_case());
 			}
 			// "mod::pallet_name.rs" becomes "mod_pallet_name.rs".
-			file_path.push(file_name.replace("::", "_"));
+			file_name = file_name.replace("::", "_");
+			// Some old runtimes have a bug with the pallet and instance name containing a space
+			file_name = file_name.replace(" ", "");
+			file_path.push(file_name);
 			file_path.set_extension("rs");
 		}
 
@@ -507,7 +539,7 @@ pub(crate) fn write_results(
 		if cmd.unsafe_overwrite_results {
 			println!("{msg}");
 		} else {
-			return Err(msg.into())
+			return Err(msg.into());
 		}
 	}
 	Ok(())
@@ -557,7 +589,9 @@ pub(crate) fn process_storage_results(
 	let mut identified_prefix = HashSet::<Vec<u8>>::new();
 	let mut identified_key = HashSet::<Vec<u8>>::new();
 
-	// TODO Emit a warning for unused `pov_mode` attributes.
+	// We don't warn about unused `pov_modes` keys: proactively setting a PoV mode for a storage
+	// item not accessed by every benchmark is legitimate, and truly unknown keys are already
+	// caught by `PalletCmd::check_pov_modes`.
 
 	// We have to iterate in reverse order to catch the largest values for read/write since the
 	// components start low and then increase and only the first value is used.
@@ -565,7 +599,7 @@ pub(crate) fn process_storage_results(
 		for (key, reads, writes, whitelisted) in &result.keys {
 			// skip keys which are whitelisted
 			if *whitelisted {
-				continue
+				continue;
 			}
 
 			let prefix_length = key.len().min(32);
@@ -860,7 +894,7 @@ mod test {
 			benchmark: [benchmark.to_vec(), b"_benchmark".to_vec()].concat(),
 			time_results: results.clone(),
 			db_results: results,
-		}
+		};
 	}
 
 	fn test_storage_info() -> Vec<StorageInfo> {
@@ -1194,6 +1228,67 @@ mod test {
 		let base = result.base_calculated_proof_size;
 		assert!(result.component_calculated_proof_size.is_empty(), "There is no slope");
 		assert_eq!(base, 0);
+	}
+
+	/// Regression: keys touched only in some samples, so that a component has a single value
+	/// across them, used to fail the per-prefix proof-size analysis.
+	#[test]
+	fn pov_partially_touched_prefixes_work() {
+		use BenchmarkParameter::{n, s};
+		let sample = |sv, nv, keys| BenchmarkResult {
+			components: vec![(s, sv), (n, nv)],
+			extrinsic_time: 0,
+			storage_root_time: 0,
+			reads: 0,
+			repeat_reads: 0,
+			writes: 0,
+			repeat_writes: 0,
+			proof_size: 0,
+			keys,
+		};
+		// `s` swept at `n = 4`, then `n` swept at `s = 4`. The `per_n` key is read only in the
+		// `n` sweep, `n + 1` times, and the `at_max` key only at `s = n = 4`.
+		let mut results = (0..4).map(|i| sample(i, 4, vec![])).collect::<Vec<_>>();
+		for i in 0..5 {
+			let mut keys = vec![(b"per_n".to_vec(), i + 1, 0, false)];
+			if i == 4 {
+				keys.push((b"at_max".to_vec(), 1, 0, false));
+			}
+			results.push(sample(4, i, keys));
+		}
+
+		let data = BenchmarkBatchSplitResults {
+			pallet: b"scheduler".to_vec(),
+			instance: b"instance".to_vec(),
+			benchmark: b"first_benchmark".to_vec(),
+			time_results: results.clone(),
+			db_results: results,
+		};
+
+		// Results are mapped with the median-slopes analysis.
+		let mapped_results = map_results(
+			&[data],
+			&[],
+			&Default::default(),
+			Default::default(),
+			PovEstimationMode::Measured,
+			&AnalysisChoice::MedianSlopes,
+			&AnalysisChoice::MedianSlopes,
+			1_000_000,
+			0,
+		)
+		.unwrap();
+		let result =
+			mapped_results.get(&("scheduler".to_string(), "instance".to_string())).unwrap()[0]
+				.clone();
+
+		// The proof size is one read overhead plus one per `n`.
+		let overhead = single_read_pov_overhead(None, 1_000_000) as u128;
+		assert_eq!(result.base_calculated_proof_size, overhead);
+		assert_eq!(
+			result.component_calculated_proof_size,
+			vec![ComponentSlope { name: "n".to_string(), slope: overhead, error: 0 }]
+		);
 	}
 
 	#[test]

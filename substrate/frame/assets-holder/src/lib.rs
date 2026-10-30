@@ -34,7 +34,7 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks allowing [`pallet-assets`] to know the balance on hold for an account on a given
+//! - Pallet hooks allowing `pallet-assets` to know the balance on hold for an account on a given
 //!   asset (see [`pallet_assets::BalanceOnHold`]).
 //! - An implementation of
 //!   [`fungibles::hold::Inspect`](frame_support::traits::fungibles::hold::Inspect),
@@ -74,6 +74,7 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}

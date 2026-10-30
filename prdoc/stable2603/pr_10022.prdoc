@@ -1,0 +1,10 @@
+title: "Aura: Support automatic slot migration"
+doc:
+- audience: Runtime Dev
+  description:
+    This brings support to `pallet-aura` for automatically migrated the `Slot` on a change of `SlotDuration`. This
+    is done by `on_runtime_upgrade` of `pallet-aura`.
+  
+crates:
+- name: pallet-aura
+  bump: patch

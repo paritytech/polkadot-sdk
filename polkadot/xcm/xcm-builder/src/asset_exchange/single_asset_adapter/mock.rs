@@ -23,7 +23,8 @@ use frame_support::{
 		fungible::{self, NativeFromLeft, NativeOrWithId},
 		fungibles::Mutate,
 		tokens::imbalance::ResolveAssetTo,
-		AsEnsureOriginWithArg, Equals, Everything, Nothing, OriginTrait, PalletInfoAccess,
+		AsEnsureOriginWithArg, Disabled, Equals, Everything, Nothing, OriginTrait,
+		PalletInfoAccess,
 	},
 	PalletId,
 };
@@ -109,6 +110,8 @@ pub type NativeAndAssets =
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
+	pub MaxSwapFee: Permill = Permill::from_percent(10);
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -141,10 +144,12 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
+	type AdminOrigin = frame_system::EnsureRoot<AccountId>;
+	type MaxSwapFee = MaxSwapFee;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -160,6 +165,8 @@ parameter_types! {
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(Polkadot), Parachain(1000)].into();
 	pub TrustBackedAssetsPalletIndex: u8 = <AssetsPallet as PalletInfoAccess>::index() as u8;
 	pub TrustBackedAssetsPalletLocation: Location =	PalletInstance(TrustBackedAssetsPalletIndex::get()).into();
+	// Weight is free.
+	pub WeightPrice: (AssetId, u128, u128) = (Here.into(), 0, 0);
 }
 
 /// Adapter for the native token.
@@ -187,7 +194,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 		match location.unpack() {
 			(0, [PalletInstance(instance), GeneralIndex(index)])
 				if *instance == pallet_instance =>
-				Some(NativeOrWithId::WithId(*index as u32)),
+			{
+				Some(NativeOrWithId::WithId(*index as u32))
+			},
 			(0, []) => Some(NativeOrWithId::Native),
 			_ => None,
 		}
@@ -196,8 +205,9 @@ impl MaybeEquivalence<Location, NativeOrWithId<u32>> for LocationToAssetId {
 	fn convert_back(asset_id: &NativeOrWithId<u32>) -> Option<Location> {
 		let pallet_instance = TrustBackedAssetsPalletIndex::get();
 		Some(match asset_id {
-			NativeOrWithId::WithId(id) =>
-				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())]),
+			NativeOrWithId::WithId(id) => {
+				Location::new(0, [PalletInstance(pallet_instance), GeneralIndex((*id).into())])
+			},
 			NativeOrWithId::Native => Location::new(0, []),
 		})
 	}
@@ -219,7 +229,8 @@ pub type PoolAssetsExchanger = crate::SingleAssetExchangeAdapter<
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
 	type RuntimeCall = RuntimeCall;
-	type XcmSender = ();
+	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = FungibleTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
@@ -229,12 +240,11 @@ impl xcm_executor::Config for XcmConfig {
 	// production chain
 	type Barrier = crate::AllowUnpaidExecutionFrom<Everything>;
 	type Weigher = Weigher;
-	type Trader = ();
+	type Trader = crate::FixedRateOfFungible<WeightPrice, ()>;
 	type ResponseHandler = ();
 	type AssetTrap = ();
 	type AssetLocker = ();
-	type AssetExchanger = PoolAssetsExchanger;
-	type AssetClaims = ();
+	type AssetExchanger = ToggleExchanger;
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type FeeManager = ();
@@ -280,8 +290,9 @@ where
 {
 	fn try_convert(o: RuntimeOrigin) -> Result<Location, RuntimeOrigin> {
 		o.try_with_caller(|caller| match caller.try_into() {
-			Ok(frame_system::RawOrigin::Signed(who)) =>
-				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into()),
+			Ok(frame_system::RawOrigin::Signed(who)) => {
+				Ok(Junction::AccountIndex64 { network: Network::get(), index: who.into() }.into())
+			},
 			Ok(other) => Err(other.into()),
 			Err(other) => Err(other),
 		})
@@ -292,6 +303,8 @@ parameter_types! {
 	pub const NoNetwork: Option<NetworkId> = None;
 }
 
+/// Converts a local signed origin into an XCM location. Forms the basis for local origins
+/// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountIndex64<RuntimeOrigin, AccountId, NoNetwork>;
 
 impl pallet_xcm::Config for Runtime {
@@ -332,6 +345,8 @@ impl pallet_xcm::Config for Runtime {
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
+	// Aliasing is disabled: xcm_executor::Config::Aliasers is set to `Nothing`.
+	type AuthorizedAliasConsideration = Disabled;
 }
 
 pub const INITIAL_BALANCE: Balance = 1_000_000_000;
@@ -370,4 +385,51 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 		));
 	});
 	ext
+}
+
+thread_local! {
+	static FAIL_EXCHANGE: core::cell::Cell<bool> = core::cell::Cell::new(false);
+}
+
+/// Makes [`ToggleExchanger::exchange_asset`] fail.
+pub fn set_fail_exchange(fail: bool) {
+	FAIL_EXCHANGE.with(|f| f.set(fail));
+}
+
+/// Quotes through the real pool. When [`set_fail_exchange`] is set, `exchange_asset` fails the
+/// way the trait allows it to (returning `give`), e.g. because pool state moved after the quote.
+pub struct ToggleExchanger;
+impl xcm_executor::traits::AssetExchange for ToggleExchanger {
+	fn exchange_asset(
+		origin: Option<&Location>,
+		give: xcm_executor::AssetsInHolding,
+		want: &Assets,
+		maximal: bool,
+	) -> Result<xcm_executor::AssetsInHolding, xcm_executor::AssetsInHolding> {
+		if FAIL_EXCHANGE.with(|f| f.get()) {
+			return Err(give);
+		}
+		PoolAssetsExchanger::exchange_asset(origin, give, want, maximal)
+	}
+	fn quote_exchange_price(give: &Assets, want: &Assets, maximal: bool) -> Option<Assets> {
+		PoolAssetsExchanger::quote_exchange_price(give, want, maximal)
+	}
+}
+
+/// Router that charges a delivery fee of `500` of asset `1` and always delivers.
+pub struct TestSender;
+impl SendXcm for TestSender {
+	type Ticket = ();
+	fn validate(dest: &mut Option<Location>, msg: &mut Option<Xcm<()>>) -> SendResult<()> {
+		dest.take();
+		msg.take();
+		let fee_asset = Location::new(
+			0,
+			[PalletInstance(TrustBackedAssetsPalletIndex::get()), GeneralIndex(1)],
+		);
+		Ok(((), (fee_asset, 500u128).into()))
+	}
+	fn deliver(_: ()) -> Result<XcmHash, SendError> {
+		Ok([0; 32])
+	}
 }

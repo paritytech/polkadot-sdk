@@ -116,8 +116,8 @@ pub mod v1 {
 			let number_of_inbound = InboundLanes::<T, I>::iter_keys().count();
 			let number_of_outbound = OutboundLanes::<T, I>::iter_keys().count();
 
-			log::info!(target: LOG_TARGET, "post-upgrade expects '{number_of_inbound_to_migrate}' inbound lanes to have been migrated.");
-			log::info!(target: LOG_TARGET, "post-upgrade expects '{number_of_outbound_to_migrate}' outbound lanes to have been migrated.");
+			tracing::info!(target: LOG_TARGET, %number_of_inbound_to_migrate, "post-upgrade expects inbound lanes to have been migrated.");
+			tracing::info!(target: LOG_TARGET, %number_of_outbound_to_migrate, "post-upgrade expects outbound lanes to have been migrated.");
 
 			frame_support::ensure!(
 				number_of_inbound_to_migrate as usize == number_of_inbound,
@@ -128,7 +128,7 @@ pub mod v1 {
 				"must migrate all `OutboundLanes`."
 			);
 
-			log::info!(target: LOG_TARGET, "migrated all.");
+			tracing::info!(target: LOG_TARGET, "migrated all.");
 			Ok(())
 		}
 	}

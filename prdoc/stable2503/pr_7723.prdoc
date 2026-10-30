@@ -1,0 +1,14 @@
+title: '[pallet-bounties] Allow bounties to never expire'
+doc:
+- audience: Runtime Dev
+  description: |
+    Refactored the `update_due` calculation to use `saturating_add`, allowing bounties to remain active   
+    indefinitely without requiring `extend_bounty_expiry` and preventing automatic curator slashing for  
+    inactivity. Previously, setting `BountyUpdatePeriod` to a large value, such as `BlockNumber::max_value()`,  
+    could cause an overflow. 
+
+crates:
+- name: pallet-bounties
+  bump: patch
+- name: pallet-child-bounties
+  bump: patch

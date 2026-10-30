@@ -1,0 +1,7 @@
+title: Fix flaxy 0003-block-building-warp-sync test - one more approach
+doc:
+- audience: Node Dev
+  description: |-
+    See the explanation in this comment:
+    https://github.com/paritytech/polkadot-sdk/issues/8868#issuecomment-3003739535
+crates: []

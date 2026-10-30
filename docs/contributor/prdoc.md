@@ -6,7 +6,7 @@ team to apply the correct crate version bumps and to generate the CHANGELOG of t
 
 ## Requirements
 
-When creating a PR, the author needs to decide with the `R0-silent` label whether the PR has to
+When creating a PR, the author needs to decide with the `R0-no-crate-publish-required` label whether the PR has to
 contain a prdoc. The `R0` label should only be placed for No-OP changes like correcting a typo in a
 comment or CI stuff. If unsure, ping the [CODEOWNERS](../../.github/CODEOWNERS) for advice.
 
@@ -41,11 +41,15 @@ Options:
     No functionality has been changed. Should be limited to adding new features.
   - `major`: Anything goes.
 - `force: true|false`: Whether to overwrite any existing PrDoc file.
+- `topic`: Optional changelog topic, one of the ids in [`prdoc/topics.yaml`](../../prdoc/topics.yaml).
+  Omit it unless the topic derived from the crates would be wrong, see
+  [Changelog Topic](#changelog-topic).
 
 ### Example
 
 ```bash
 /cmd prdoc --audience runtime_dev --bump patch
+/cmd prdoc --audience runtime_dev --bump patch --topic xcm
 ```
 
 ## Local Generation
@@ -65,8 +69,30 @@ to generate one:
    it.
 
 > **Tip:** GitHub CLI and jq can be used to provide the number of your PR to generate the correct
-> file:  
+> file:
 > `prdoc generate $(gh pr view --json number | jq '.number') -o prdoc`
+
+## Changelog Topic
+
+The release changelog groups changes by topic (XCM, Bridges, Staking & Elections, ...). The topic of
+a PR is derived from the crates listed in its prdoc, using the ordered patterns in
+[`prdoc/topics.yaml`](../../prdoc/topics.yaml), so most prdocs do not need to set it.
+
+The optional `topic` field overrides the derivation. Set it only when:
+
+- the derived topic would be wrong, e.g. a bridge fix that only touches `bridge-hub-westend-runtime`
+  would otherwise land under "Testnets & Test Utilities", or
+- the change belongs to a named initiative that has its own topic in `topics.yaml` without crate
+  patterns.
+
+```yaml
+title: Fix message dispatch on Bridge Hub Westend
+topic: bridges
+```
+
+Use the topic `id` from `topics.yaml` (labels are accepted too, case-insensitively). An unknown value
+does not fail CI: the `check-prdoc` job prints a warning and the changelog derives the topic from the
+crates instead. To add a crate pattern or a new topic, open a PR against `prdoc/topics.yaml`.
 
 ## Record SemVer Changes
 
@@ -77,7 +103,7 @@ downstream teams.
 
 The bump can either be `major`, `minor`, `patch` or `none`. The three first options are defined by
 [rust-lang.org](https://doc.rust-lang.org/cargo/reference/semver.html), whereas `None` should be
-picked if no other applies. The `None` option is equivalent to the `R0-silent` label, but on a crate
+picked if no other applies. The `None` option is equivalent to the `R0-no-crate-publish-required` label, but on a crate
 level. Experimental and private APIs are exempt from bumping and can be broken at any time. Please
 read the [Crate Section](../RELEASE.md) of the RELEASE doc about them.
 
@@ -104,7 +130,7 @@ crate with a breaking change.
 `minor` an `patch` bumps do not need to be inherited, since `cargo` will automatically update them
 to the latest compatible version.
 
-### Overwrite CI check
+### Overwrite CI Check
 
 The `check-semver` CI check is doing sanity checks based on the provided `PRDoc` and the mentioned
 crate version bumps. The tooling is not perfect and it may recommends incorrect bumps of the version.
@@ -121,3 +147,30 @@ crates:
 
 By putting `validate: false` for `frame-example`, the version bump is ignored by the tooling. For
 `frame-example-pallet` the version bump is still validated by the CI check.
+
+### Backporting PRs
+
+When [backporting changes](../BACKPORT.md) to a stable release branch (e.g. `stable2503`), stricter versioning rules
+apply to minimise risk for downstream users.
+
+#### ✅ Allowed Bump Levels
+
+Only the following `bump` levels are allowed by default:
+
+- `none`: No observable change. No detectable difference between old and new versions.
+- `patch`: Bug fixes or internal changes. Do not affect functionality or cause compilation errors.
+- `minor`: Backward-compatible additions. Safe to adopt; adds features only, no behaviour changes.
+
+Backport PRs with `major` bumps will fail CI.
+
+#### 🚨 Overriding the CI Check
+
+If a `major` bump is truly needed, you must:
+
+1. Set `validate: false` in the `.prdoc`. See [Overwrite CI Check](#overwrite-ci-check).
+2. Include a justification in the PR description explaining:
+    - Why the bump is necessary.
+    - Why it is safe for downstream users.
+3. Notify a release engineer or senior reviewer for approval.
+
+> Use this override sparingly, and only when you’re confident the change is safe and justified.

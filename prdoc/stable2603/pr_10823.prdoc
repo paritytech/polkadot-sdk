@@ -1,0 +1,14 @@
+title: Enforce statement allowances
+doc:
+- audience: Node Dev
+  description: |-
+    Add statement allowance enforcement to statement store client
+crates:
+- name: sc-statement-store
+  bump: minor
+- name: pallet-statement
+  bump: minor
+- name: sp-storage
+  bump: minor
+- name: sp-statement-store
+  bump: minor

@@ -21,11 +21,17 @@ use xcm_builder::{
 
 pub type AgentId = H256;
 
-/// Creates an AgentId from a Location. An AgentId is a unique mapping to a Agent contract on
+/// Creates an AgentId from a Location. An AgentId is a unique mapping to an Agent contract on
 /// Ethereum which acts as the sovereign account for the Location.
-#[allow(deprecated)]
-pub type AgentIdOf =
-	HashedDescription<AgentId, (DescribeHere, DescribeFamily<DescribeAllTerminal>)>;
+/// Resolves Polkadot locations (as seen by Ethereum) to unique `AgentId` identifiers.
+pub type AgentIdOf = HashedDescription<
+	AgentId,
+	(
+		DescribeHere,
+		DescribeFamily<DescribeAllTerminal>,
+		DescribeGlobalPrefix<(DescribeTerminus, DescribeFamily<DescribeTokenTerminal>)>,
+	),
+>;
 
 pub type TokenId = H256;
 
@@ -40,7 +46,6 @@ pub type TokenIdOf = HashedDescription<
 /// `encode` to the Vector producing a different output to DescribeTerminus. `DescribeHere`
 /// should NOT be used for new code. This is left here for backwards compatibility of channels and
 /// agents.
-#[deprecated(note = "Use DescribeTerminus from xcm-builder instead.")]
 pub struct DescribeHere;
 #[allow(deprecated)]
 impl DescribeLocation for DescribeHere {
@@ -72,21 +77,25 @@ impl DescribeLocation for DescribeTokenTerminal {
 		match l.unpack().1 {
 			[] => Some(Vec::<u8>::new().encode()),
 			[GeneralIndex(index)] => Some((b"GeneralIndex", *index).encode()),
-			[GeneralKey { data, .. }] => Some((b"GeneralKey", *data).encode()),
+			[GeneralKey { length, data }] => Some((b"GeneralKey", *length, *data).encode()),
 			[AccountKey20 { key, .. }] => Some((b"AccountKey20", *key).encode()),
 			[AccountId32 { id, .. }] => Some((b"AccountId32", *id).encode()),
 
 			// Pallet
 			[PalletInstance(instance)] => Some((b"PalletInstance", *instance).encode()),
-			[PalletInstance(instance), GeneralIndex(index)] =>
-				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode()),
-			[PalletInstance(instance), GeneralKey { data, .. }] =>
-				Some((b"PalletInstance", *instance, b"GeneralKey", *data).encode()),
+			[PalletInstance(instance), GeneralIndex(index)] => {
+				Some((b"PalletInstance", *instance, b"GeneralIndex", *index).encode())
+			},
+			[PalletInstance(instance), GeneralKey { length, data }] => {
+				Some((b"PalletInstance", *instance, b"GeneralKey", *length, *data).encode())
+			},
 
-			[PalletInstance(instance), AccountKey20 { key, .. }] =>
-				Some((b"PalletInstance", *instance, b"AccountKey20", *key).encode()),
-			[PalletInstance(instance), AccountId32 { id, .. }] =>
-				Some((b"PalletInstance", *instance, b"AccountId32", *id).encode()),
+			[PalletInstance(instance), AccountKey20 { key, .. }] => {
+				Some((b"PalletInstance", *instance, b"AccountKey20", *key).encode())
+			},
+			[PalletInstance(instance), AccountId32 { id, .. }] => {
+				Some((b"PalletInstance", *instance, b"AccountId32", *id).encode())
+			},
 
 			// Reject all other locations
 			_ => None,

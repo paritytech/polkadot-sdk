@@ -1,0 +1,13 @@
+title: 'Log: fix bug where incorrect `relay_parent` was used for expired collations.'
+doc:
+- audience: Node Dev
+  description: |-
+    Fixes a bug in logging of expried collations, the wrong `relay_parent` hash
+    was used.
+
+    Now we properly log the correct `relay_parent` in the "Collation expired"
+    message.
+    
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

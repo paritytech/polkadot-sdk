@@ -73,7 +73,7 @@ fn test_weight(mut count: u64) -> Weight {
 
 fn maybe_forward_id_for(topic: &XcmHash) -> XcmHash {
 	match UsingTopic::get() {
-		true => forward_id_for(topic),
+		true => *topic,
 		false => fake_id(),
 	}
 }
@@ -195,7 +195,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	) -> SendResult<Xcm<()>> {
 		let expect_dest = Remote::get().relative_to(&Local::get());
 		if destination.as_ref().ok_or(MissingArgument)? != &expect_dest {
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		}
 		let message = message.take().ok_or(MissingArgument)?;
 		Ok((message, Assets::new()))
@@ -225,7 +225,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete { .. } => Ok(id),
 			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Error(_) => Err(Transport("Unable to execute")),
 		}
 	}
 }
@@ -245,7 +245,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 	) -> SendResult<Xcm<()>> {
 		let expect_dest = Remote::get().relative_to(&Local::get());
 		if destination.as_ref().ok_or(MissingArgument)? != &expect_dest {
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		}
 		let message = message.take().ok_or(MissingArgument)?;
 		Ok((message, Assets::new()))
@@ -275,7 +275,7 @@ impl<Local: Get<Junctions>, Remote: Get<Junctions>, RemoteExporter: ExportXcm> S
 		match outcome {
 			Outcome::Complete { .. } => Ok(id),
 			Outcome::Incomplete { .. } => Err(Transport("Error executing")),
-			Outcome::Error { .. } => Err(Transport("Unable to execute")),
+			Outcome::Error(_) => Err(Transport("Unable to execute")),
 		}
 	}
 }

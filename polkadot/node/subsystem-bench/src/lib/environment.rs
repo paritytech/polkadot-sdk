@@ -344,7 +344,7 @@ impl TestEnvironment {
 
 			gum::debug!(target: LOG_TARGET, metric_name, current_value, "Waiting for metric");
 			if condition(current_value) {
-				break
+				break;
 			}
 			// Check value every 50ms.
 			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
@@ -409,7 +409,7 @@ impl TestEnvironment {
 
 					if let Some(task_name) = metric.label_value("task_name") {
 						usage.push(ResourceUsage {
-							resource_name: format!("{}/{}", subsystem, task_name),
+							resource_name: format!("{subsystem}/{task_name}"),
 							total: metric.value(),
 							per_block: metric.value() / num_blocks,
 						});

@@ -1,0 +1,10 @@
+title: Add expensive scenario for asset exchange
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces an implementation for `worst_case_asset_exchange()` in the `AssetHubWestend` benchmarking setup.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-xcm-benchmarks
+  bump: patch

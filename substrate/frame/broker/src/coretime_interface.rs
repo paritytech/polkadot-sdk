@@ -23,19 +23,9 @@ use core::fmt::Debug;
 use frame_support::Parameter;
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
-use sp_core::RuntimeDebug;
 use sp_runtime::traits::BlockNumberProvider;
 
-use crate::Timeslice;
-
-/// Index of a Polkadot Core.
-pub type CoreIndex = u16;
-
-/// A Task Id. In general this is called a ParachainId.
-pub type TaskId = u32;
-
-/// Fraction expressed as a nominator with an assumed denominator of 57,600.
-pub type PartsOf57600 = u16;
+use crate::{CoreIndex, PartsOf57600, TaskId, Timeslice};
 
 /// An element to which a core can be assigned.
 #[derive(
@@ -47,7 +37,7 @@ pub type PartsOf57600 = u16;
 	PartialEq,
 	Ord,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -98,7 +88,7 @@ pub trait CoretimeInterface {
 	/// Credit account of `who`.
 	///
 	/// It is expected that Instantaneous Coretime Market Credit on the Relay-chain is NOT
-	/// transferrable and only redeemable when used to assign cores in the Instantaneous Coretime
+	/// transferable and only redeemable when used to assign cores in the Instantaneous Coretime
 	/// Pool.
 	fn credit_account(who: Self::AccountId, amount: Self::Balance);
 
@@ -121,7 +111,7 @@ pub trait CoretimeInterface {
 	);
 
 	/// A hook supposed to be called right after a new timeslice has begun. Likely to be used for
-	/// batching different matters happened during the timeslice that may benifit from batched
+	/// batching different matters happened during the timeslice that may benefit from batched
 	/// processing.
 	fn on_new_timeslice(_timeslice: Timeslice) {}
 }

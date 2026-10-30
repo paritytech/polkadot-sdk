@@ -4,7 +4,7 @@ Get the receipt of a candidate pending availability. This returns `Some` for any
 `availability_cores` and `None` otherwise.
 
 ```rust
-// Deprectated.
+// Deprecated.
 fn candidate_pending_availability(at: Block, ParaId) -> Option<CommittedCandidateReceipt>;
 // Use this one
 fn candidates_pending_availability(at: Block, ParaId) -> Vec<CommittedCandidateReceipt>;

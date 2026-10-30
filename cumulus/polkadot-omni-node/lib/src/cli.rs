@@ -16,6 +16,9 @@
 
 //! CLI options of the omni-node. See [`Command`].
 
+/// Default block time for dev mode when using `--dev` flag.
+const DEFAULT_DEV_BLOCK_TIME_MS: u64 = 3000;
+
 use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
@@ -24,14 +27,19 @@ use crate::{
 	},
 };
 use chain_spec_builder::ChainSpecBuilder;
-use clap::{Command, CommandFactory, FromArgMatches};
+use clap::{Command, CommandFactory, FromArgMatches, ValueEnum};
 use sc_chain_spec::ChainSpec;
 use sc_cli::{
 	CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
 	RpcEndpoint, SharedParams, SubstrateCli,
 };
 use sc_service::{config::PrometheusConfig, BasePath};
-use std::{fmt::Debug, marker::PhantomData, path::PathBuf};
+use sc_storage_monitor::StorageMonitorParams;
+use std::{
+	fmt::{Display, Formatter},
+	marker::PhantomData,
+	path::PathBuf,
+};
 /// Trait that can be used to customize some of the customer-facing info related to the node binary
 /// that is being built using this library.
 ///
@@ -71,9 +79,6 @@ pub enum Subcommand {
 	#[command(subcommand)]
 	Key(sc_cli::KeySubcommand),
 
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
-
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
 
@@ -91,10 +96,15 @@ pub enum Subcommand {
 
 	/// Subcommand for generating and managing chain specifications.
 	///
-	/// Unlike `build-spec`, which generates a chain specification based on existing
-	/// configurations, `chain-spec-builder` provides a more interactive and customizable approach
-	/// to defining a chain spec. It allows users to create specifications with additional
-	/// parameters and validation steps before finalizing the output.
+	/// A `chain-spec-builder` subcommand corresponds to the existing `chain-spec-builder` tool
+	/// (<https://crates.io/crates/staging-chain-spec-builder>), which can be used already standalone.
+	/// It provides the same functionality as the tool but bundled with `polkadot-omni-node` to
+	/// enable easier access to chain-spec generation, patching, converting to raw or validation,
+	/// from a single binary, which can be used as a parachain node tool
+	/// For a detailed usage guide please check out the standalone tool's crates.io or docs.rs
+	/// pages:
+	/// - <https://crates.io/crates/staging-chain-spec-builder>
+	/// - <https://docs.rs/staging-chain-spec-builder/latest/staging_chain_spec_builder/>
 	ChainSpecBuilder(ChainSpecBuilder),
 
 	/// Remove the whole chain.
@@ -131,6 +141,10 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub run: cumulus_client_cli::RunCmd,
 
+	/// Parameters for storage monitoring.
+	#[command(flatten)]
+	pub storage_monitor: StorageMonitorParams,
+
 	/// Start a dev node that produces a block each `dev_block_time` ms.
 	///
 	/// This is a dev option. It enables a manual sealing, meaning blocks are produced manually
@@ -141,14 +155,22 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// The `--dev` flag sets the `dev_block_time` to a default value of 3000ms unless explicitly
 	/// provided.
-	#[arg(long)]
+	#[arg(long, conflicts_with = "instant_seal")]
 	pub dev_block_time: Option<u64>,
 
-	/// EXPERIMENTAL: Use slot-based collator which can handle elastic scaling.
+	/// Start a dev node with instant seal.
 	///
-	/// Use with care, this flag is unstable and subject to change.
-	#[arg(long)]
-	pub experimental_use_slot_based: bool,
+	/// This is a dev option that enables instant sealing, meaning blocks are produced
+	/// immediately when transactions are received, rather than at fixed intervals.
+	/// Using this option won't result in starting or connecting to a parachain network.
+	/// The resulting node will work on its own, running the wasm blob and producing blocks
+	/// instantly upon receiving transactions.
+	#[arg(long, conflicts_with = "dev_block_time")]
+	pub instant_seal: bool,
+
+	/// Authoring style to use.
+	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
+	pub authoring: AuthoringPolicy,
 
 	/// Disable automatic hardware benchmarks.
 	///
@@ -171,15 +193,246 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(raw = true)]
 	pub relay_chain_args: Vec<String>,
 
+	/// Enable the statement store.
+	///
+	/// The statement store reads the storage of the chain to determine if users are allowed to
+	/// store statements or not.
+	#[arg(long)]
+	pub enable_statement_store: bool,
+
+	/// Route statements through the DHT instead of gossiping them to every peer.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, hide = true)]
+	pub statement_v2_dht: bool,
+
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_NETWORK_WORKERS)]
+	pub statement_network_workers: usize,
+
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_RATE_LIMIT)]
+	pub statement_rate_limit: u32,
+
+	/// Maximum number of statements the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_STATEMENTS)]
+	pub statement_store_max_total_statements: usize,
+
+	/// Maximum total data size (in bytes) the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_SIZE)]
+	pub statement_store_max_total_size: usize,
+
+	/// Number of seconds for which removed statements won't be allowed to be added back.
+	///
+	/// This prevents old statements from being re-propagated on the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
+	pub statement_store_purge_after_sec: u64,
+
+	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
+	/// hash.
+	///
+	/// Makes the node responsible for finding and storing all statements with topics in this
+	/// list.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
+	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
+
+	/// File with affinity topics advertised by this node, one 32-byte hex topic per line.
+	/// Blank lines and lines starting with `#` are skipped. Adds to `--statement-affinity-topic`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
+	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
+
+	/// Number of K-closest peers (replication factor) used for DHT-affinity statement routing.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
+
+	/// Number of peers to gossip a statement to in addition to DHT-affinity routing targets.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
+	/// False-positive rate of the topic-affinity bloom filter this node advertises.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "RATE",
+		default_value_t = sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
+		hide = true
+	)]
+	pub statement_bloom_false_positive_rate: f64,
+
+	/// Seed of the topic-affinity bloom filter this node advertises. Defaults to a random
+	/// value per node.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long, value_name = "SEED", hide = true)]
+	pub statement_bloom_seed: Option<u128>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
+	/// Upper bound on collator reserved-peer slots.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
+
+	/// HOP (Hand-Off Protocol) configuration parameters.
+	#[command(flatten)]
+	pub hop: sc_hop::HopParams,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
+}
+
+/// Development sealing mode.
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum DevSealMode {
+	/// Produces blocks immediately upon receiving transactions.
+	InstantSeal,
+	/// Produces blocks at fixed time intervals.
+	/// The u64 parameter represents the block time in milliseconds.
+	ManualSeal(u64),
+}
+
+/// Collator implementation to use.
+#[derive(PartialEq, Debug, ValueEnum, Clone, Copy)]
+pub enum AuthoringPolicy {
+	/// Use the lookahead collator. Builds a block once per imported relay chain block and
+	/// on relay chain forks. Default for asynchronous backing chains.
+	Lookahead,
+	/// Use the slot-based collator. Builds a block based on time. Can utilize multiple cores,
+	/// always builds on the best relay chain block available. Should be used with elastic-scaling
+	/// chains.
+	SlotBased,
+}
+
+impl Display for AuthoringPolicy {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AuthoringPolicy::Lookahead => write!(f, "lookahead"),
+			AuthoringPolicy::SlotBased => write!(f, "slot-based"),
+		}
+	}
 }
 
 impl<Config: CliConfig> Cli<Config> {
 	pub(crate) fn node_extra_args(&self) -> NodeExtraArgs {
 		NodeExtraArgs {
-			use_slot_based_consensus: self.experimental_use_slot_based,
+			authoring_policy: self.authoring,
 			export_pov: self.export_pov_to_path.clone(),
+			max_pov_percentage: self.run.experimental_max_pov_percentage,
+			statement_store_config: self.enable_statement_store.then_some(
+				sc_statement_store::Config {
+					max_total_statements: self.statement_store_max_total_statements,
+					max_total_size: self.statement_store_max_total_size,
+					purge_after_sec: self.statement_store_purge_after_sec,
+					network_workers: self.statement_network_workers,
+					rate_limit: self.statement_rate_limit,
+					v2dht: sc_network_statement::v2dht_enabled().then(|| {
+						sc_statement_store::V2DhtConfig {
+							affinity_topics: self.statement_affinity_topics.clone(),
+							affinity_topics_file: self.statement_affinity_topics_file.clone(),
+							bloom_false_pos_rate: self.statement_bloom_false_positive_rate,
+							bloom_seed: self.statement_bloom_seed,
+							replication_factor: self.statement_replication_factor,
+							gossip_target: self.statement_gossip_target,
+							dht_affinity_max_size: self.statement_store_max_dht_affinity_size,
+							transient_max_size: self.statement_store_max_transient_size,
+							in_peers: self.statement_in_peers,
+						}
+					}),
+				},
+			),
+			storage_monitor: self.storage_monitor.clone(),
+			collator_reserved_slots: self.collator_reserved_slots,
+			hop: self.hop.enabled.then(|| self.hop.clone()),
+		}
+	}
+
+	/// Returns the dev seal mode if the node is in dev mode.
+	pub(crate) fn dev_mode(&self) -> Option<DevSealMode> {
+		if self.instant_seal {
+			Some(DevSealMode::InstantSeal)
+		} else if let Some(dev_block_time) = self.dev_block_time {
+			Some(DevSealMode::ManualSeal(dev_block_time))
+		} else if self.run.base.is_dev().unwrap_or(false) {
+			Some(DevSealMode::ManualSeal(DEFAULT_DEV_BLOCK_TIME_MS))
+		} else {
+			None
 		}
 	}
 }
@@ -256,7 +509,7 @@ impl<Config: CliConfig> RelayChainCli<Config> {
 		let base = FromArgMatches::from_arg_matches(&matches).unwrap_or_else(|e| e.exit());
 
 		let extension = Extensions::try_get(&*para_config.chain_spec);
-		let chain_id = extension.map(|e| e.relay_chain.clone());
+		let chain_id = extension.map(|e| e.relay_chain());
 
 		let base_path = para_config.base_path.path().join("polkadot");
 		Self { base, chain_id, base_path: Some(base_path), _phantom: Default::default() }
@@ -417,5 +670,71 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 
 	fn node_name(&self) -> sc_cli::Result<String> {
 		self.base.base.node_name()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use clap::{CommandFactory, FromArgMatches};
+
+	struct TestCliConfig;
+	impl CliConfig for TestCliConfig {
+		fn impl_version() -> String {
+			"0.0.0".into()
+		}
+		fn author() -> String {
+			"test".into()
+		}
+		fn support_url() -> String {
+			"https://example.invalid".into()
+		}
+		fn copyright_start_year() -> u16 {
+			2025
+		}
+	}
+
+	#[test]
+	fn statement_affinity_topics_accumulate_repeated_flags() {
+		let topic_a = "11".repeat(32);
+		let topic_b = "22".repeat(32);
+		// `propagate_version = true` on the command requires a version; the binary injects one via
+		// `SubstrateCli` at runtime, so set one here to drive clap directly.
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--statement-affinity-topic",
+			&format!("0x{topic_a}"),
+			"--statement-affinity-topic",
+			&format!("0x{topic_b}"),
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(
+			cli.statement_affinity_topics,
+			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
+		);
+	}
+
+	#[test]
+	fn statement_bloom_flags_parse() {
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--statement-bloom-false-positive-rate",
+			"0.001",
+			"--statement-bloom-seed",
+			"12345678901234567890123456789012345678",
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(cli.statement_bloom_false_positive_rate, 0.001);
+		assert_eq!(cli.statement_bloom_seed, Some(12345678901234567890123456789012345678));
+
+		let matches = Cli::<TestCliConfig>::command()
+			.version("0.0.0")
+			.get_matches_from(["polkadot-omni-node"]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert_eq!(
+			cli.statement_bloom_false_positive_rate,
+			sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE
+		);
+		assert_eq!(cli.statement_bloom_seed, None);
 	}
 }

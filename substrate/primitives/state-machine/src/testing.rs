@@ -36,7 +36,7 @@ use sp_core::{
 	},
 };
 use sp_externalities::{Extension, ExtensionStore, Extensions};
-use sp_trie::{PrefixedMemoryDB, StorageProof};
+use sp_trie::{recorder::Recorder, PrefixedMemoryDB, StorageProof};
 
 /// Simple HashMap-based Externalities impl.
 pub struct TestExternalities<H>
@@ -61,8 +61,8 @@ where
 	H::Out: Ord + 'static + codec::Codec,
 {
 	/// Get externalities implementation.
-	pub fn ext(&mut self) -> Ext<H, InMemoryBackend<H>> {
-		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions))
+	pub fn ext(&mut self) -> Ext<'_, H, InMemoryBackend<H>> {
+		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions), self.state_version)
 	}
 
 	/// Create a new instance of `TestExternalities` with storage.
@@ -169,7 +169,7 @@ where
 
 			if key.len() < hash_len {
 				log::warn!("Invalid key in `from_raw_snapshot`: {key:?}");
-				continue
+				continue;
 			}
 
 			hash.as_mut().copy_from_slice(&key[(key.len() - hash_len)..]);
@@ -257,13 +257,36 @@ where
 		let proving_backend = TrieBackendBuilder::wrap(&self.backend)
 			.with_recorder(Default::default())
 			.build();
-		let mut proving_ext =
-			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+		let mut proving_ext = Ext::new(
+			&mut self.overlay,
+			&proving_backend,
+			Some(&mut self.extensions),
+			self.state_version,
+		);
 
 		let outcome = sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute);
 		let proof = proving_backend.extract_proof().expect("Failed to extract storage proof");
 
 		(outcome, proof)
+	}
+
+	/// Execute the given closure while `self` set as externalities and the given `proof_recorder`
+	/// enabled.
+	pub fn execute_with_recorder<R>(
+		&mut self,
+		proof_recorder: Recorder<H>,
+		execute: impl FnOnce() -> R,
+	) -> R {
+		let proving_backend =
+			TrieBackendBuilder::wrap(&self.backend).with_recorder(proof_recorder).build();
+		let mut proving_ext = Ext::new(
+			&mut self.overlay,
+			&proving_backend,
+			Some(&mut self.extensions),
+			self.state_version,
+		);
+
+		sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute)
 	}
 
 	/// Execute the given closure while `self` is set as externalities.
@@ -279,6 +302,11 @@ where
 			sp_externalities::set_and_run_with_externalities(&mut *ext, f)
 		})
 		.map_err(|e| format!("Closure panicked: {:?}", e))
+	}
+
+	/// Resets the overlay to its default state.
+	pub fn reset_overlay(&mut self) {
+		self.overlay = Default::default();
 	}
 }
 
@@ -400,7 +428,7 @@ mod tests {
 		let root = array_bytes::hex_n_into_unchecked::<_, H256, 32>(
 			"ed4d8c799d996add422395a6abd7545491d40bd838d738afafa1b8a4de625489",
 		);
-		assert_eq!(H256::from_slice(ext.storage_root(Default::default()).as_slice()), root);
+		assert_eq!(H256::from_slice(ext.storage_root().as_slice()), root);
 	}
 
 	#[test]

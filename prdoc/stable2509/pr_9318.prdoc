@@ -1,0 +1,8 @@
+title: Replace `log` with `tracing` on `pallet-bridge-parachains`
+doc:
+- audience: Runtime Dev
+  description: This PR replaces `log` with `tracing` instrumentation on `pallet-bridge-parachains`
+    by providing structured logging.
+crates:
+- name: pallet-bridge-parachains
+  bump: minor

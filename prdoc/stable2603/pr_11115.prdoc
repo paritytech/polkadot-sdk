@@ -1,0 +1,10 @@
+title: Remove MaxSessionKeysLength and MaxSessionKeysProofLength
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes the issue #11083 where MaxSessionKeysLength and MaxSessionKeysProofLength were unnecessary because there are not stored, just validated.
+crates:
+- name: pallet-staking-async-rc-client
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch

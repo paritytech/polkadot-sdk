@@ -10,10 +10,10 @@ use frame_support::{
 
 use snowbridge_core::{
 	gwei, meth,
-	outbound::*,
 	pricing::{PricingParameters, Rewards},
 	ParaId, PRIMARY_GOVERNANCE_CHANNEL,
 };
+use snowbridge_outbound_queue_primitives::v1::*;
 use sp_core::{ConstU32, ConstU8, H160, H256};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup, Keccak256},
@@ -164,7 +164,7 @@ pub fn mock_message(sibling_para_id: u32) -> Message {
 	Message {
 		id: None,
 		channel_id: ParaId::from(sibling_para_id).into(),
-		command: Command::TransferNativeToken {
+		command: Command::UnlockNativeToken {
 			agent_id: Default::default(),
 			token: Default::default(),
 			recipient: Default::default(),

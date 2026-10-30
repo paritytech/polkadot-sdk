@@ -1,0 +1,25 @@
+[package]
+name = "pallet-oracle-runtime-api"
+version = "1.0.0"
+authors = ["Acala Developers", "Parity Technologies <admin@parity.io>"]
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "Runtime API for the oracle pallet."
+
+[dependencies]
+codec = { workspace = true, features = ["derive"] }
+scale-info = { workspace = true }
+sp-api = { workspace = true }
+sp-std = { workspace = true }
+
+
+[features]
+default = ["std"]
+std = [
+	"codec/std",
+	"scale-info/std",
+	"sp-api/std",
+	"sp-std/std",
+]

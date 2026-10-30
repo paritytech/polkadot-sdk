@@ -1,0 +1,14 @@
+title: 'Cumulus: Simplify parent search for block-building'
+doc:
+- audience: Node Dev
+  description: |-
+    While reviewing #10973 I found once more that our parent search is totally overengineered:
+    - It offers the option to search branches that do not contain the pending block -> These branches can never be taken
+    - It returns a list of potential parents -> Nobody uses the list, we only care about the latest block that we should build on
+
+    By eliminating these two annoyances, the code is a lot more simple and easier to follow. There are still some defensive checks that are not strictly necessary, but does not hurt to keep them.
+crates:
+- name: cumulus-client-consensus-common
+  bump: major
+- name: cumulus-client-consensus-aura
+  bump: major

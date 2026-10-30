@@ -23,6 +23,7 @@ use jsonrpsee::{
 	types::error::{ErrorCode, ErrorObject, ErrorObjectOwned},
 	Extensions,
 };
+use sc_client_api::TrieCacheContext;
 use sc_rpc_api::check_if_safe;
 use serde::{Deserialize, Serialize};
 use sp_runtime::traits::Block as BlockT;
@@ -167,7 +168,10 @@ where
 		check_if_safe(ext)?;
 
 		let hash = at.unwrap_or_else(|| self.client.info().best_hash);
-		let state = self.backend.state_at(hash).map_err(error_into_rpc_err)?;
+		let state = self
+			.backend
+			.state_at(hash, TrieCacheContext::Untrusted)
+			.map_err(error_into_rpc_err)?;
 		migration_status(&state).map_err(error_into_rpc_err)
 	}
 }

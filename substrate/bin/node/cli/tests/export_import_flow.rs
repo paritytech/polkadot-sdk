@@ -111,7 +111,10 @@ impl<'a> ExportImportRevertExecutor<'a> {
 			assert!(!output.status.success());
 		} else {
 			// Making sure no error were logged.
-			assert!(!contains_error(&logged_output), "expected not to error but error'd!");
+			assert!(
+				!contains_error(&logged_output),
+				"expected not to error but error'd: \n{logged_output}"
+			);
 			assert!(output.status.success());
 		}
 

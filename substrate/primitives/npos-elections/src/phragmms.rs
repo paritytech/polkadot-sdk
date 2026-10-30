@@ -62,13 +62,13 @@ pub fn phragmms<AccountId: IdentifierT, P: PerThing128>(
 				balance(&mut voters, config);
 			}
 		} else {
-			break
+			break;
 		}
 	}
 
 	let mut assignments =
 		voters.into_iter().filter_map(|v| v.into_assignment()).collect::<Vec<_>>();
-	let _ = assignments
+	assignments
 		.iter_mut()
 		.try_for_each(|a| a.try_normalize())
 		.map_err(|_| crate::Error::ArithmeticError)?;

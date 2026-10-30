@@ -6,7 +6,6 @@ use crate::Pallet as InboundQueue;
 use frame_benchmarking::v2::*;
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
-use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
 
 #[benchmarks]
 mod benchmarks {
@@ -16,33 +15,24 @@ mod benchmarks {
 	fn submit() -> Result<(), BenchmarkError> {
 		let caller: T::AccountId = whitelisted_caller();
 
-		let create_message = make_register_token_message();
-
-		T::Helper::initialize_storage(
-			create_message.finalized_header,
-			create_message.block_roots_root,
-		);
+		let create_message = T::Helper::initialize_storage();
 
 		let sovereign_account = sibling_sovereign_account::<T>(1000u32.into());
 
-		let minimum_balance = T::Token::minimum_balance();
+		let working_capital = 3_000_000_000_000u128
+			.try_into()
+			.unwrap_or_else(|_| panic!("unable to cast benchmark working capital"));
 
-		// So that the receiving account exists
-		assert_ok!(T::Token::mint_into(&caller, minimum_balance));
-		// Fund the sovereign account (parachain sovereign account) so it can transfer a reward
-		// fee to the caller account
-		assert_ok!(T::Token::mint_into(
-			&sovereign_account,
-			3_000_000_000_000u128
-				.try_into()
-				.unwrap_or_else(|_| panic!("unable to cast sovereign account balance")),
-		));
+		// Fund the relayer so it can front the AssetHub execution fee.
+		assert_ok!(T::Token::mint_into(&caller, working_capital));
+		// Fund the sovereign account so it can reimburse the caller.
+		assert_ok!(T::Token::mint_into(&sovereign_account, working_capital));
 
 		#[block]
 		{
 			assert_ok!(InboundQueue::<T>::submit(
 				RawOrigin::Signed(caller.clone()).into(),
-				create_message.message,
+				create_message.event,
 			));
 		}
 

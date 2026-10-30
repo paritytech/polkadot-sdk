@@ -67,7 +67,7 @@
 #![allow(missing_docs)]
 #![allow(dead_code)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame::weights_prelude::*;
 use core::marker::PhantomData;
 
 /// Weight functions needed for `pallet_nft_fractionalization`.

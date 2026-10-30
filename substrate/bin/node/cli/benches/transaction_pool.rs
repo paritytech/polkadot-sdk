@@ -23,7 +23,6 @@ use node_cli::service::{create_extrinsic, fetch_nonce, FullClient, TransactionPo
 use node_primitives::AccountId;
 use polkadot_sdk::{
 	sc_service::config::{ExecutorConfiguration, RpcConfiguration},
-	sc_transaction_pool_api::TransactionPool as _,
 	*,
 };
 use sc_service::{
@@ -63,6 +62,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 		keystore: KeystoreConfig::InMemory,
 		database: DatabaseSource::RocksDb { path: root.join("db"), cache_size: 128 },
 		trie_cache_maximum_size: Some(64 * 1024 * 1024),
+		warm_up_trie_cache: None,
 		state_pruning: Some(PruningMode::ArchiveAll),
 		blocks_pruning: BlocksPruning::KeepAll,
 		chain_spec: spec,
@@ -82,6 +82,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 			rate_limit: None,
 			rate_limit_whitelisted_ips: Default::default(),
 			rate_limit_trust_proxy_headers: Default::default(),
+			request_logger_limit: 1024,
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,
@@ -102,6 +103,7 @@ fn new_node(tokio_handle: Handle) -> node_cli::service::NewFullBase {
 			config,
 			None,
 			false,
+			Default::default(),
 			|_, _| (),
 		)
 		.expect("Creates node")
@@ -241,7 +243,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 
 					runtime.block_on(future::join_all(prepare_extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&node.transaction_pool,
+							&*node.transaction_pool,
 							tx,
 							&node.client,
 							true,
@@ -253,7 +255,7 @@ fn transaction_pool_benchmarks(c: &mut Criterion) {
 				|extrinsics| {
 					runtime.block_on(future::join_all(extrinsics.into_iter().map(|tx| {
 						submit_tx_and_wait_for_inclusion(
-							&node.transaction_pool,
+							&*node.transaction_pool,
 							tx,
 							&node.client,
 							false,

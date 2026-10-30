@@ -81,8 +81,6 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ConstU64<1>;
 	type AccountStore = System;
 	type WeightInfo = ();
-	type FreezeIdentifier = ();
-	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
 	type DoneSlashHandler = ();
@@ -91,6 +89,7 @@ impl pallet_balances::Config for Test {
 impl pallet_assets::Config for Test {
 	type AssetId = AssetId;
 	type AssetIdParameter = Compact<AssetId>;
+	type ReserveData = ();
 	type AssetDeposit = ConstU64<1>;
 	type Balance = Balance;
 	type AssetAccountDeposit = ConstU64<1>;
@@ -103,6 +102,7 @@ impl pallet_assets::Config for Test {
 	type Extra = ();
 	type RemoveItemsLimit = ConstU32<10>;
 	type CallbackHandle = ();
+	type AssetIdAllocator = ();
 	type Currency = Balances;
 	type Holder = ();
 	type Freezer = AssetsFreezer;
@@ -113,7 +113,18 @@ impl pallet_assets::Config for Test {
 }
 
 #[derive(
-	Decode, Encode, MaxEncodedLen, PartialEq, Eq, Ord, PartialOrd, TypeInfo, Debug, Clone, Copy,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Ord,
+	PartialOrd,
+	TypeInfo,
+	Debug,
+	Clone,
+	Copy,
 )]
 pub enum DummyFreezeReason {
 	Governance,
@@ -138,6 +149,7 @@ pub fn new_test_ext(execute: impl FnOnce()) -> TestExternalities {
 			metadata: vec![],
 			accounts: vec![(1, 1, 100)],
 			next_asset_id: None,
+			reserves: vec![],
 		},
 		system: Default::default(),
 		balances: Default::default(),

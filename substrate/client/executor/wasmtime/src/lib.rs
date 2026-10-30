@@ -25,8 +25,10 @@
 //! |-------------|-------------------------|
 //! | undefined   | No profiling            |
 //! | `"jitdump"` | jitdump profiling       |
+//! | `"perfmap"` | perfmap profiling       |
 //! | other value | No profiling (warning)  |
 
+mod epoch;
 mod host;
 mod imports;
 mod instance_wrapper;

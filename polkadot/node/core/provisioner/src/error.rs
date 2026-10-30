@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-///! Error types for provisioner module
+/// ! Error types for provisioner module
 use fatality::Nested;
 use futures::channel::{mpsc, oneshot};
 use polkadot_node_subsystem::errors::{ChainApiError, RuntimeApiError, SubsystemError};
@@ -46,6 +46,9 @@ pub enum Error {
 
 	#[error("failed to get session index")]
 	CanceledSessionIndex(#[source] oneshot::Canceled),
+
+	#[error("failed to get node features")]
+	CanceledNodeFeatures(#[source] oneshot::Canceled),
 
 	#[error("failed to get backed candidates")]
 	CanceledBackedCandidates(#[source] oneshot::Canceled),

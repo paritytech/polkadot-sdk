@@ -25,7 +25,6 @@
 //! ```
 //! # struct Runtime;
 //! # struct Executive;
-//! # struct CheckInherents;
 //! cumulus_pallet_parachain_system::register_validate_block! {
 //!     Runtime = Runtime,
 //!     BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
@@ -34,16 +33,22 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::traits::{ExecuteBlock, FindAuthor};
+use frame_support::traits::ExecuteBlock;
 use sp_application_crypto::RuntimeAppPublic;
-use sp_consensus_aura::{digests::CompatibleDigestItem, Slot};
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT};
+use sp_consensus_aura::{
+	digests::{find_pre_digest, take_seal},
+	Slot,
+};
+use sp_runtime::traits::{Block as BlockT, Header as HeaderT, LazyBlock};
 
 pub mod consensus_hook;
 pub mod migration;
+pub mod signature_verifier;
+#[cfg(test)]
 mod test;
 
 pub use consensus_hook::FixedVelocityConsensusHook;
+pub use signature_verifier::AuraSchedulingVerifier;
 
 type Aura<T> = pallet_aura::Pallet<T>;
 
@@ -125,32 +130,20 @@ where
 	T: Config,
 	I: ExecuteBlock<Block>,
 {
-	fn execute_block(block: Block) {
-		let (mut header, extrinsics) = block.deconstruct();
+	fn verify_and_remove_seal(block: &mut <Block as BlockT>::LazyBlock) {
+		let header = block.header_mut();
 		// We need to fetch the authorities before we execute the block, to get the authorities
 		// before any potential update.
 		let authorities = Authorities::<T>::get();
 
-		let mut seal = None;
-		header.digest_mut().logs.retain(|s| {
-			let s =
-				CompatibleDigestItem::<<T::AuthorityId as RuntimeAppPublic>::Signature>::as_aura_seal(s);
-			match (s, seal.is_some()) {
-				(Some(_), true) => panic!("Found multiple AuRa seal digests"),
-				(None, _) => true,
-				(Some(s), false) => {
-					seal = Some(s);
-					false
-				},
-			}
-		});
+		let (_, seal) =
+			take_seal::<<T::AuthorityId as RuntimeAppPublic>::Signature>(header.digest_mut())
+				.unwrap_or_else(|e| panic!("Invalid AuRa seal: {e:?}"));
 
-		let seal = seal.expect("Could not find an AuRa seal digest!");
+		let slot = find_pre_digest(header.digest())
+			.unwrap_or_else(|e| panic!("Invalid AuRa pre-digest: {e:?}"));
 
-		let author = Aura::<T>::find_author(
-			header.digest().logs().iter().filter_map(|d| d.as_pre_runtime()),
-		)
-		.expect("Could not find AuRa author index!");
+		let author = Aura::<T>::slot_author_index(slot).expect("Could not find AuRa author index!");
 
 		let pre_hash = header.hash();
 
@@ -163,7 +156,9 @@ where
 		{
 			panic!("Invalid AuRa seal");
 		}
+	}
 
-		I::execute_block(Block::new(header, extrinsics));
+	fn execute_verified_block(block: Block::LazyBlock) {
+		I::execute_verified_block(block);
 	}
 }

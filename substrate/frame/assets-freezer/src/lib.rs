@@ -39,7 +39,7 @@
 //!
 //! This pallet provides the following functionality:
 //!
-//! - Pallet hooks allowing [`pallet-assets`] to know the frozen balance for an account on a given
+//! - Pallet hooks allowing `pallet-assets` to know the frozen balance for an account on a given
 //!   asset (see [`pallet_assets::FrozenBalance`]).
 //! - An implementation of [`fungibles::freeze::Inspect`](InspectFreeze) and
 //!   [`fungibles::freeze::Mutate`](MutateFreeze), allowing other pallets to manage freezes for the
@@ -81,13 +81,14 @@ pub mod pallet {
 
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
 	#[pallet::error]
 	pub enum Error<T, I = ()> {
-		/// Number of freezes on an account would exceed `MaxFreezes`.
+		/// Number of freezes on an account would exceed `VariantCountOf<T::RuntimeFreezeReason>`.
 		TooManyFreezes,
 	}
 

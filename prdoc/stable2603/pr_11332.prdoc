@@ -1,0 +1,22 @@
+title: 'client/db: Close missing body gaps for non archive nodes'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR closes missing body gaps in the database for non-archive nodes.
+
+
+    Effectively, a missing body gap cannot be closed on the DB side if the node is non-archive. Since execution is already skipped, the node will close the memory gap in the sync engine; however, the gap remains open in the db.
+
+    This leads to wasting resources at every startup:
+    - client info contains a gap that cannot be filled (since we don't have the state around for execution)
+    - blocks are fetched from the connected peers
+    - gap is filled by ignoring blocks in the sync engine
+
+    Further, for collators on origin master this causes an infinite loop of sync engine restarts that get punished via banning and disconnecting. For more details and root cause check:
+    - https://github.com/paritytech/polkadot-sdk/pull/11330
+
+    Part of:
+    - https://github.com/paritytech/polkadot-sdk/issues/11299
+crates:
+- name: sc-client-db
+  bump: patch

@@ -17,7 +17,7 @@
 //! Mock types and XcmConfig for all executor unit tests.
 
 use alloc::collections::btree_map::BTreeMap;
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::cell::RefCell;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResultWithPostInfo, GetDispatchInfo, PostDispatchInfo},
@@ -30,11 +30,14 @@ use xcm::prelude::*;
 
 use crate::{
 	traits::{
-		DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute, TransactAsset,
-		WeightBounds, WeightTrader,
+		ClaimAssets, DropAssets, FeeManager, ProcessTransaction, Properties, ShouldExecute,
+		TransactAsset, WeightBounds, WeightTrader,
 	},
 	AssetsInHolding, Config, FeeReason, XcmExecutor,
 };
+
+/// Mock credit implementation for testing purposes.
+pub use crate::test_helpers::MockCredit;
 
 /// We create an XCVM instance instead of calling `XcmExecutor::<_>::prepare_and_execute` so we
 /// can inspect its fields.
@@ -44,7 +47,9 @@ pub fn instantiate_executor(
 ) -> (XcmExecutor<XcmConfig>, Weight) {
 	let mut vm =
 		XcmExecutor::<XcmConfig>::new(origin, message.using_encoded(sp_io::hashing::blake2_256));
-	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone()).unwrap().weight_of();
+	let weight = XcmExecutor::<XcmConfig>::prepare(message.clone(), Weight::MAX)
+		.unwrap()
+		.weight_of();
 	vm.message_weight = weight;
 	(vm, weight)
 }
@@ -54,6 +59,8 @@ parameter_types! {
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1, 1);
 	pub const MaxInstructions: u32 = 10;
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(ByGenesis([0; 32])), Parachain(1000)].into();
+	/// Simulate the chain’s existential deposit.
+	pub const ExistentialDeposit: u128 = 2;
 }
 
 /// Test origin.
@@ -64,7 +71,9 @@ pub struct TestOrigin;
 ///
 /// Doesn't dispatch anything, has an empty implementation of [`Dispatchable`] that
 /// just returns `Ok` with an empty [`PostDispatchInfo`].
-#[derive(Debug, Encode, Decode, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo)]
+#[derive(
+	Debug, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, Clone, Copy, scale_info::TypeInfo,
+)]
 pub struct TestCall;
 impl Dispatchable for TestCall {
 	type RuntimeOrigin = TestOrigin;
@@ -85,11 +94,11 @@ impl GetDispatchInfo for TestCall {
 /// Test weigher that just returns a fixed weight for every program.
 pub struct TestWeigher;
 impl<C> WeightBounds<C> for TestWeigher {
-	fn weight(_message: &mut Xcm<C>) -> Result<Weight, ()> {
+	fn weight(_message: &mut Xcm<C>, _weight_limit: Weight) -> Result<Weight, InstructionError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 
-	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, ()> {
+	fn instr_weight(_instruction: &mut Instruction<C>) -> Result<Weight, XcmError> {
 		Ok(Weight::from_parts(2, 2))
 	}
 }
@@ -100,20 +109,34 @@ thread_local! {
 }
 
 pub fn add_asset(who: impl Into<Location>, what: impl Into<Asset>) {
+	use xcm::latest::Fungibility;
+
+	let asset = what.into();
+	let mut holding = AssetsInHolding::new();
+	match asset.fun {
+		Fungibility::Fungible(amount) => {
+			holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+		},
+		Fungibility::NonFungible(instance) => {
+			holding.non_fungible.insert((asset.id, instance));
+		},
+	}
 	ASSETS.with(|a| {
 		a.borrow_mut()
 			.entry(who.into())
 			.or_insert(AssetsInHolding::new())
-			.subsume(what.into())
+			.subsume_assets(holding)
 	});
 }
 
 pub fn asset_list(who: impl Into<Location>) -> Vec<Asset> {
-	Assets::from(assets(who)).into_inner()
+	assets(who).assets_iter().collect()
 }
 
 pub fn assets(who: impl Into<Location>) -> AssetsInHolding {
-	ASSETS.with(|a| a.borrow().get(&who.into()).cloned()).unwrap_or_default()
+	ASSETS
+		.with(|a| a.borrow().get(&who.into()).map(|h| h.unsafe_clone_for_tests()))
+		.unwrap_or_else(|| AssetsInHolding::new())
 }
 
 pub fn get_first_fungible(assets: &AssetsInHolding) -> Option<Asset> {
@@ -124,11 +147,28 @@ pub fn get_first_fungible(assets: &AssetsInHolding) -> Option<Asset> {
 pub struct TestAssetTransactor;
 impl TransactAsset for TestAssetTransactor {
 	fn deposit_asset(
-		what: &Asset,
+		what: AssetsInHolding,
 		who: &Location,
 		_context: Option<&XcmContext>,
-	) -> Result<(), XcmError> {
-		add_asset(who.clone(), what.clone());
+	) -> Result<(), (AssetsInHolding, XcmError)> {
+		// Collect assets first to avoid borrow/move conflict
+		let assets_vec: Vec<_> = what.assets_iter().collect();
+		for asset in &assets_vec {
+			if let Fungibility::Fungible(amount) = asset.fun {
+				// fail if below the configured existential deposit
+				if amount < ExistentialDeposit::get() {
+					return Err((
+						what,
+						XcmError::FailedToTransactAsset(
+							sp_runtime::TokenError::BelowMinimum.into(),
+						),
+					));
+				}
+			}
+		}
+		for asset in assets_vec {
+			add_asset(who.clone(), asset);
+		}
 		Ok(())
 	}
 
@@ -144,6 +184,10 @@ impl TransactAsset for TestAssetTransactor {
 				.try_take(what.clone().into())
 				.map_err(|_| XcmError::NotWithdrawable)
 		})
+	}
+
+	fn mint_asset(what: &Asset, _: &XcmContext) -> Result<AssetsInHolding, XcmError> {
+		Ok(crate::test_helpers::mock_asset_to_holding(what.clone()))
 	}
 }
 
@@ -181,22 +225,40 @@ impl WeightTrader for TestTrader {
 	fn buy_weight(
 		&mut self,
 		weight: Weight,
-		payment: AssetsInHolding,
+		mut payment: AssetsInHolding,
 		_context: &XcmContext,
-	) -> Result<AssetsInHolding, XcmError> {
+	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let required: Asset = (Here, amount).into();
-		let unused = payment.checked_sub(required).map_err(|_| XcmError::TooExpensive)?;
-		self.weight_bought_so_far.saturating_add(weight);
-		Ok(unused)
+		// Try to take the required amount from payment
+		match payment.try_take(required.into()) {
+			Ok(_) => {
+				self.weight_bought_so_far.saturating_accrue(weight);
+				// Return the unused payment
+				Ok(payment)
+			},
+			Err(_) => Err((payment, XcmError::TooExpensive)),
+		}
 	}
 
-	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<Asset> {
+	fn refund_weight(&mut self, weight: Weight, _context: &XcmContext) -> Option<AssetsInHolding> {
+		use xcm::latest::Fungibility;
+
 		let weight = weight.min(self.weight_bought_so_far);
 		let amount = WeightToFee::weight_to_fee(&weight);
 		self.weight_bought_so_far -= weight;
 		if amount > 0 {
-			Some((Here, amount).into())
+			let asset: Asset = (Here, amount).into();
+			let mut holding = AssetsInHolding::new();
+			match asset.fun {
+				Fungibility::Fungible(amount) => {
+					holding.fungible.insert(asset.id, Box::new(MockCredit(amount)));
+				},
+				Fungibility::NonFungible(instance) => {
+					holding.non_fungible.insert((asset.id, instance));
+				},
+			}
+			Some(holding)
 		} else {
 			None
 		}
@@ -220,7 +282,38 @@ impl DropAssets for TestAssetTrap {
 	}
 }
 
-/// Test sender that always succeeds and puts messages in a dummy queue.
+impl ClaimAssets for TestAssetTrap {
+	fn claim_assets(
+		_origin: &Location,
+		_ticket: &Location,
+		what: &Assets,
+		_context: &XcmContext,
+	) -> Option<AssetsInHolding> {
+		ASSETS.with(|a| {
+			let mut assets = a.borrow_mut();
+			let trapped = assets.get_mut(&TRAPPED_ASSETS.into())?;
+			let mut claimed = AssetsInHolding::new();
+			for asset in what.inner().iter() {
+				if let Ok(taken) = trapped.try_take(asset.clone().into()) {
+					claimed.subsume_assets(taken);
+				}
+			}
+			if claimed.is_empty() {
+				None
+			} else {
+				Some(claimed)
+			}
+		})
+	}
+}
+
+/// A destination that passes validation but whose delivery always fails.
+pub fn undeliverable_destination() -> Location {
+	Location::new(1, [Parachain(9999)])
+}
+
+/// Test sender that puts messages in a dummy queue. Delivery succeeds for every destination
+/// except [`undeliverable_destination`].
 ///
 /// It charges `1` for the delivery fee.
 pub struct TestSender;
@@ -237,6 +330,9 @@ impl SendXcm for TestSender {
 	}
 
 	fn deliver(ticket: Self::Ticket) -> Result<XcmHash, SendError> {
+		if ticket.0 == undeliverable_destination() {
+			return Err(SendError::Transport("undeliverable destination"));
+		}
 		SENT_XCM.with(|q| q.borrow_mut().push(ticket));
 		Ok([0; 32])
 	}
@@ -264,7 +360,7 @@ impl FeeManager for TestFeeManager {
 		)
 	}
 
-	fn handle_fee(_: Assets, _: Option<&XcmContext>, _: FeeReason) {}
+	fn handle_fee(_: AssetsInHolding, _: Option<&XcmContext>, _: FeeReason) {}
 }
 
 /// Dummy transactional processor that doesn't rollback storage changes, just
@@ -286,6 +382,7 @@ pub struct XcmConfig;
 impl Config for XcmConfig {
 	type RuntimeCall = TestCall;
 	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
 	type AssetTransactor = TestAssetTransactor;
 	type OriginConverter = ();
 	type IsReserve = ();
@@ -298,7 +395,6 @@ impl Config for XcmConfig {
 	type AssetTrap = TestAssetTrap;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

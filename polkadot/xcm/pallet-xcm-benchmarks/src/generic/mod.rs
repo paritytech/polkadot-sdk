@@ -26,7 +26,9 @@ pub mod pallet {
 	use frame_benchmarking::BenchmarkError;
 	use frame_support::{dispatch::GetDispatchInfo, pallet_prelude::Encode};
 	use sp_runtime::traits::Dispatchable;
-	use xcm::latest::{Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response};
+	use xcm::latest::{
+		Asset, Assets, InteriorLocation, Junction, Location, NetworkId, Response, WeightLimit,
+	};
 
 	#[pallet::config]
 	pub trait Config<I: 'static = ()>: frame_system::Config + crate::Config {
@@ -40,7 +42,7 @@ pub mod pallet {
 		/// This is useful for testing and checking.
 		type TransactAsset: frame_support::traits::fungible::Mutate<Self::AccountId>;
 
-		///	The response which causes the most runtime weight.
+		/// 	The response which causes the most runtime weight.
 		fn worst_case_response() -> (u64, Response);
 
 		/// The pair of asset collections which causes the most runtime weight if demanded to be
@@ -73,9 +75,11 @@ pub mod pallet {
 		/// Return an origin, ticket, and assets that can be trapped and claimed.
 		fn claimable_asset() -> Result<(Location, Location, Assets), BenchmarkError>;
 
-		/// Asset used to pay for fees. Used to buy weight in benchmarks, for example in
+		/// The worst case buy execution weight limit and
+		/// asset to trigger the Trader::buy_execution in the XCM executor
+		/// Used to buy weight in benchmarks, for example in
 		/// `refund_surplus`.
-		fn fee_asset() -> Result<Asset, BenchmarkError>;
+		fn worst_case_for_trader() -> Result<(Asset, WeightLimit), BenchmarkError>;
 
 		/// Return an unlocker, owner and assets that can be locked and unlocked.
 		fn unlockable_asset() -> Result<(Location, Location, Asset), BenchmarkError>;
@@ -87,8 +91,13 @@ pub mod pallet {
 		fn export_message_origin_and_destination(
 		) -> Result<(Location, NetworkId, InteriorLocation), BenchmarkError>;
 
-		/// A `(Location, Location)` that is one of the `Aliasers` configured by the XCM
+		/// A `(Location, Location)` that is matched by one of the `Aliasers` configured by the XCM
 		/// executor.
+		///
+		/// Should be the *most expensive* such pair, since `Aliasers` is tried in order and stops
+		/// at the first match: a pair matched by the first, storage-free filter measures none of
+		/// the work a later one does. Chains whose last aliaser consults an on-chain
+		/// authorization list must also set that list up at its maximum size.
 		///
 		/// If set to `Err`, benchmarks which rely on a universal alias will be skipped.
 		fn alias_origin() -> Result<(Location, Location), BenchmarkError>;

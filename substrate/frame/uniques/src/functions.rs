@@ -242,6 +242,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			|maybe_collection_details| -> Result<T::AccountId, DispatchError> {
 				let collection_details =
 					maybe_collection_details.as_mut().ok_or(Error::<T, I>::UnknownCollection)?;
+
+				// TODO should it be UnknownItem instead of UnknownCollection?
 				let details = Item::<T, I>::get(&collection, &item)
 					.ok_or(Error::<T, I>::UnknownCollection)?;
 				with_details(collection_details, &details)?;

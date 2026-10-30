@@ -37,6 +37,7 @@ use sc_client_api::{
 	StorageProvider,
 };
 use sc_rpc_api::state::ReadProof;
+use sc_tracing::block::TracingExecuteBlock;
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
 use sp_blockchain::{
 	CachedHeaderMetadata, Error as ClientError, HeaderBackend, HeaderMetadata,
@@ -55,7 +56,7 @@ use sp_version::RuntimeVersion;
 /// The maximum time allowed for an RPC call when running without unsafe RPC enabled.
 const MAXIMUM_SAFE_RPC_CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Ranges to query in state_queryStorage.
+/// Ranges to query in `state_queryStorage`.
 struct QueryStorageRange<Block: BlockT> {
 	/// Hashes of all the blocks in the range.
 	pub hashes: Vec<Block::Hash>,
@@ -65,7 +66,9 @@ struct QueryStorageRange<Block: BlockT> {
 pub struct FullState<BE, Block: BlockT, Client> {
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
-	_phantom: PhantomData<(BE, Block)>,
+	/// Proof-size-recording block executor; `None` on nodes that do not record proof size.
+	execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
+	_phantom: PhantomData<BE>,
 }
 
 impl<BE, Block: BlockT, Client> FullState<BE, Block, Client>
@@ -78,8 +81,12 @@ where
 	Block: BlockT + 'static,
 {
 	/// Create new state API backend for full nodes.
-	pub fn new(client: Arc<Client>, executor: SubscriptionTaskExecutor) -> Self {
-		Self { client, executor, _phantom: PhantomData }
+	pub fn new(
+		client: Arc<Client>,
+		executor: SubscriptionTaskExecutor,
+		execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
+	) -> Self {
+		Self { client, executor, execute_block, _phantom: PhantomData }
 	}
 
 	/// Returns given block hash or best block hash if None is passed.
@@ -107,7 +114,7 @@ where
 				&from_meta,
 				&to_meta,
 				"from number > to number".to_owned(),
-			))
+			));
 		}
 
 		// check if we can get from `to` to `from` by going through parent_hashes.
@@ -128,7 +135,7 @@ where
 					&from_meta,
 					&to_meta,
 					"from and to are on different forks".to_owned(),
-				))
+				));
 			}
 			hashes.reverse();
 			hashes
@@ -327,7 +334,9 @@ where
 		block: Option<Block::Hash>,
 	) -> std::result::Result<RuntimeVersion, Error> {
 		self.block_or_best(block).map_err(client_err).and_then(|block| {
-			self.client.runtime_version_at(block).map_err(|e| Error::Client(Box::new(e)))
+			self.client
+				.runtime_version_at(block, CallContext::Offchain)
+				.map_err(|e| Error::Client(Box::new(e)))
 		})
 	}
 
@@ -374,13 +383,15 @@ where
 	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
 		let initial = match self
 			.block_or_best(None)
-			.and_then(|block| self.client.runtime_version_at(block).map_err(Into::into))
+			.and_then(|block| {
+				self.client.runtime_version_at(block, CallContext::Offchain).map_err(Into::into)
+			})
 			.map_err(|e| Error::Client(Box::new(e)))
 		{
 			Ok(initial) => initial,
 			Err(e) => {
 				spawn_subscription_task(&self.executor, pending.reject(e));
-				return
+				return;
 			},
 		};
 
@@ -392,8 +403,9 @@ where
 			.import_notification_stream()
 			.filter(|n| future::ready(n.is_new_best))
 			.filter_map(move |n| {
-				let version =
-					client.runtime_version_at(n.hash).map_err(|e| Error::Client(Box::new(e)));
+				let version = client
+					.runtime_version_at(n.hash, CallContext::Offchain)
+					.map_err(|e| Error::Client(Box::new(e)));
 
 				match version {
 					Ok(version) if version != previous_version => {
@@ -420,7 +432,7 @@ where
 		if keys.is_none() {
 			if let Err(err) = deny_unsafe.check_if_safe() {
 				spawn_subscription_task(&self.executor, pending.reject(ErrorObject::from(err)));
-				return
+				return;
 			}
 		}
 
@@ -431,7 +443,7 @@ where
 					&self.executor,
 					pending.reject(Error::Client(Box::new(blockchain_err))),
 				);
-				return
+				return;
 			},
 		};
 
@@ -479,9 +491,32 @@ where
 			targets,
 			storage_keys,
 			methods,
+			self.execute_block.clone(),
 		)
 		.trace_block()
 		.map_err(|e| invalid_block::<Block>(block, None, e.to_string()))
+	}
+
+	fn call_recorded(
+		&self,
+		block: Block::Hash,
+		method: String,
+		call_data: Bytes,
+	) -> std::result::Result<Bytes, Error> {
+		let execute_block = self.execute_block.as_ref().ok_or(Error::CallRecordedUnsupported)?;
+		execute_block
+			.call_recorded(block, &method, &call_data.0)
+			.map(Into::into)
+			.map_err(|e| match e {
+				sp_blockchain::Error::Application(ref inner)
+					if inner
+						.downcast_ref::<sc_tracing::block::CallRecordedUnsupported>()
+						.is_some() =>
+				{
+					Error::CallRecordedUnsupported
+				},
+				e => Error::Client(Box::new(e)),
+			})
 	}
 }
 
@@ -512,8 +547,9 @@ where
 		self.block_or_best(block)
 			.and_then(|block| {
 				let child_info = match ChildType::from_prefixed_key(&storage_key) {
-					Some((ChildType::ParentKeyId, storage_key)) =>
-						ChildInfo::new_default(storage_key),
+					Some((ChildType::ParentKeyId, storage_key)) => {
+						ChildInfo::new_default(storage_key)
+					},
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
 				self.client
@@ -538,8 +574,9 @@ where
 		self.block_or_best(block)
 			.and_then(|block| {
 				let child_info = match ChildType::from_prefixed_key(&storage_key) {
-					Some((ChildType::ParentKeyId, storage_key)) =>
-						ChildInfo::new_default(storage_key),
+					Some((ChildType::ParentKeyId, storage_key)) => {
+						ChildInfo::new_default(storage_key)
+					},
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
 				self.client.child_storage_keys(block, child_info, Some(&prefix), None)
@@ -559,8 +596,9 @@ where
 		self.block_or_best(block)
 			.and_then(|block| {
 				let child_info = match ChildType::from_prefixed_key(&storage_key) {
-					Some((ChildType::ParentKeyId, storage_key)) =>
-						ChildInfo::new_default(storage_key),
+					Some((ChildType::ParentKeyId, storage_key)) => {
+						ChildInfo::new_default(storage_key)
+					},
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
 				self.client.child_storage_keys(
@@ -583,8 +621,9 @@ where
 		self.block_or_best(block)
 			.and_then(|block| {
 				let child_info = match ChildType::from_prefixed_key(&storage_key) {
-					Some((ChildType::ParentKeyId, storage_key)) =>
-						ChildInfo::new_default(storage_key),
+					Some((ChildType::ParentKeyId, storage_key)) => {
+						ChildInfo::new_default(storage_key)
+					},
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
 				self.client.child_storage(block, &child_info, &key)
@@ -603,7 +642,7 @@ where
 		{
 			Arc::new(ChildInfo::new_default(storage_key))
 		} else {
-			return Err(client_err(sp_blockchain::Error::InvalidChildStorageKey))
+			return Err(client_err(sp_blockchain::Error::InvalidChildStorageKey));
 		};
 		let block = self.block_or_best(block).map_err(client_err)?;
 		let client = self.client.clone();
@@ -624,8 +663,9 @@ where
 		self.block_or_best(block)
 			.and_then(|block| {
 				let child_info = match ChildType::from_prefixed_key(&storage_key) {
-					Some((ChildType::ParentKeyId, storage_key)) =>
-						ChildInfo::new_default(storage_key),
+					Some((ChildType::ParentKeyId, storage_key)) => {
+						ChildInfo::new_default(storage_key)
+					},
 					None => return Err(sp_blockchain::Error::InvalidChildStorageKey),
 				};
 				self.client.child_storage_hash(block, &child_info, &key)

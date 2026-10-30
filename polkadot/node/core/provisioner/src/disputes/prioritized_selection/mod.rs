@@ -153,15 +153,15 @@ where
 	);
 
 	gum::trace!(target: LOG_TARGET, ?leaf, "Filtering recent disputes");
-
 	// Filter out unconfirmed disputes. However if the dispute is already onchain - don't skip it.
 	// In this case we'd better push as much fresh votes as possible to bring it to conclusion
 	// faster.
 	let recent_disputes = recent_disputes
 		.into_iter()
-		.filter(|d| d.2.is_confirmed_concluded() || onchain.contains_key(&(d.0, d.1)))
-		.collect::<Vec<_>>();
-
+		.filter(|(key, dispute_status)| {
+			dispute_status.is_confirmed_concluded() || onchain.contains_key(key)
+		})
+		.collect::<BTreeMap<_, _>>();
 	gum::trace!(target: LOG_TARGET, ?leaf, "Partitioning recent disputes");
 	let partitioned = partition_recent_disputes(recent_disputes, &onchain);
 	metrics.on_partition_recent_disputes(&partitioned);
@@ -215,7 +215,7 @@ where
 						onchain_state
 					} else {
 						// onchain knows nothing about this dispute - add all votes
-						return (session_index, candidate_hash, votes)
+						return (session_index, candidate_hash, votes);
 					};
 
 				votes.valid.retain(|validator_idx, (statement_kind, _)| {
@@ -251,7 +251,7 @@ where
 					"vote_selection DisputeCoordinatorMessage::QueryCandidateVotes counter",
 				);
 
-				return result
+				return result;
 			}
 
 			result.insert((session_index, candidate_hash), selected_votes);
@@ -337,53 +337,41 @@ fn concluded_onchain(onchain_state: &DisputeState) -> bool {
 }
 
 fn partition_recent_disputes(
-	recent: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+	recent: BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>,
 	onchain: &HashMap<(SessionIndex, CandidateHash), DisputeState>,
 ) -> PartitionedDisputes {
 	let mut partitioned = PartitionedDisputes::new();
-
-	// Drop any duplicates
-	let unique_recent = recent
-		.into_iter()
-		.map(|(session_index, candidate_hash, dispute_state)| {
-			((session_index, candidate_hash), dispute_state)
-		})
-		.collect::<HashMap<_, _>>();
-
-	// Split recent disputes in ACTIVE and INACTIVE
 	let time_now = &secs_since_epoch();
-	let (active, inactive): (
-		Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
-		Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
-	) = unique_recent
-		.into_iter()
-		.map(|((session_index, candidate_hash), dispute_state)| {
-			(session_index, candidate_hash, dispute_state)
-		})
-		.partition(|(_, _, status)| !dispute_is_inactive(status, time_now));
 
-	// Split ACTIVE in three groups...
-	for (session_index, candidate_hash, _) in active {
-		match onchain.get(&(session_index, candidate_hash)) {
-			Some(d) => match concluded_onchain(d) {
-				true => partitioned.active_concluded_onchain.push((session_index, candidate_hash)),
-				false =>
-					partitioned.active_unconcluded_onchain.push((session_index, candidate_hash)),
-			},
-			None => partitioned.active_unknown_onchain.push((session_index, candidate_hash)),
-		};
-	}
-
-	// ... and INACTIVE in three more
-	for (session_index, candidate_hash, _) in inactive {
-		match onchain.get(&(session_index, candidate_hash)) {
-			Some(onchain_state) =>
-				if concluded_onchain(onchain_state) {
-					partitioned.inactive_concluded_onchain.push((session_index, candidate_hash));
-				} else {
-					partitioned.inactive_unconcluded_onchain.push((session_index, candidate_hash));
+	for ((session_index, candidate_hash), dispute_state) in recent {
+		let key = (session_index, candidate_hash);
+		if dispute_is_inactive(&dispute_state, time_now) {
+			match onchain.get(&key) {
+				Some(onchain_state) => {
+					if concluded_onchain(onchain_state) {
+						partitioned
+							.inactive_concluded_onchain
+							.push((session_index, candidate_hash));
+					} else {
+						partitioned
+							.inactive_unconcluded_onchain
+							.push((session_index, candidate_hash));
+					}
 				},
-			None => partitioned.inactive_unknown_onchain.push((session_index, candidate_hash)),
+				None => partitioned.inactive_unknown_onchain.push((session_index, candidate_hash)),
+			}
+		} else {
+			match onchain.get(&(session_index, candidate_hash)) {
+				Some(d) => match concluded_onchain(d) {
+					true => {
+						partitioned.active_concluded_onchain.push((session_index, candidate_hash))
+					},
+					false => {
+						partitioned.active_unconcluded_onchain.push((session_index, candidate_hash))
+					},
+				},
+				None => partitioned.active_unknown_onchain.push((session_index, candidate_hash)),
+			}
 		}
 	}
 
@@ -425,13 +413,13 @@ fn is_vote_worth_to_keep(
 
 	if in_validators_for && in_validators_against {
 		// The validator has double voted and runtime knows about this. Ignore this vote.
-		return false
+		return false;
 	}
 
 	if offchain_vote && in_validators_against || !offchain_vote && in_validators_for {
 		// offchain vote differs from the onchain vote
 		// we need this vote to punish the offending validator
-		return true
+		return true;
 	}
 
 	// The vote is valid. Return true if it is not seen onchain.
@@ -441,7 +429,7 @@ fn is_vote_worth_to_keep(
 /// Request disputes identified by `CandidateHash` and the `SessionIndex`.
 async fn request_disputes(
 	sender: &mut impl overseer::ProvisionerSenderTrait,
-) -> Vec<(SessionIndex, CandidateHash, DisputeStatus)> {
+) -> BTreeMap<(SessionIndex, CandidateHash), DisputeStatus> {
 	let (tx, rx) = oneshot::channel();
 	let msg = DisputeCoordinatorMessage::RecentDisputes(tx);
 
@@ -450,7 +438,7 @@ async fn request_disputes(
 
 	let recent_disputes = rx.await.unwrap_or_else(|err| {
 		gum::warn!(target: LOG_TARGET, err=?err, "Unable to gather recent disputes");
-		Vec::new()
+		BTreeMap::new()
 	});
 	recent_disputes
 }
@@ -506,10 +494,12 @@ where
 		.map_err(|_| GetOnchainDisputesError::Channel)
 		.and_then(|res| {
 			res.map_err(|e| match e {
-				RuntimeApiError::Execution { .. } =>
-					GetOnchainDisputesError::Execution(e, relay_parent),
-				RuntimeApiError::NotSupported { .. } =>
-					GetOnchainDisputesError::NotSupported(e, relay_parent),
+				RuntimeApiError::Execution { .. } => {
+					GetOnchainDisputesError::Execution(e, relay_parent)
+				},
+				RuntimeApiError::NotSupported { .. } => {
+					GetOnchainDisputesError::NotSupported(e, relay_parent)
+				},
 			})
 		})
 		.map(|v| v.into_iter().map(|e| ((e.0, e.1), e.2)).collect())

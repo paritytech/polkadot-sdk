@@ -1,0 +1,10 @@
+title: 'cumulus-bootnodes: Do not require a specific hash'
+doc:
+- audience: Node Dev
+  description: "On the wire the hash is represented as `Vec<u8>` any way. So, there\
+    \ is no need to take this as an extra type.\r\n"
+crates:
+- name: cumulus-client-bootnodes
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major

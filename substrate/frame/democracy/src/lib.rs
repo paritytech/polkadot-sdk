@@ -222,6 +222,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + Sized {
 		type WeightInfo: WeightInfo;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The Scheduler.
@@ -783,10 +784,8 @@ pub mod pallet {
 			// - `InstantAllowed` is `true` and `origin` is `InstantOrigin`.
 			let maybe_ensure_instant = if voting_period < T::FastTrackVotingPeriod::get() {
 				Some(origin)
-			} else if let Err(origin) = T::FastTrackOrigin::try_origin(origin) {
-				Some(origin)
 			} else {
-				None
+				T::FastTrackOrigin::try_origin(origin).err()
 			};
 			if let Some(ensure_instant) = maybe_ensure_instant {
 				T::InstantOrigin::ensure_origin(ensure_instant)?;
@@ -831,7 +830,7 @@ pub mod pallet {
 			if let Some((ext_proposal, _)) = NextExternal::<T>::get() {
 				ensure!(proposal_hash == ext_proposal.hash(), Error::<T>::ProposalMissing);
 			} else {
-				return Err(Error::<T>::NoProposal.into())
+				return Err(Error::<T>::NoProposal.into());
 			}
 
 			let mut existing_vetoers =
@@ -1558,7 +1557,7 @@ impl<T: Config> Pallet<T> {
 			Self::transfer_metadata(MetadataOwner::External, MetadataOwner::Referendum(ref_index));
 			Ok(())
 		} else {
-			return Err(Error::<T>::NoneWaiting.into())
+			return Err(Error::<T>::NoneWaiting.into());
 		}
 	}
 
@@ -1591,7 +1590,7 @@ impl<T: Config> Pallet<T> {
 			}
 			Ok(())
 		} else {
-			return Err(Error::<T>::NoneWaiting.into())
+			return Err(Error::<T>::NoneWaiting.into());
 		}
 	}
 
@@ -1618,7 +1617,10 @@ impl<T: Config> Pallet<T> {
 			)
 			.is_err()
 			{
-				frame_support::print("LOGIC ERROR: bake_referendum/schedule_named failed");
+				log::error!(
+					target: "runtime::democracy",
+					"LOGIC ERROR: bake_referendum/schedule_named failed"
+				);
 			}
 		} else {
 			Self::deposit_event(Event::<T>::NotPassed { ref_index: index });
@@ -1724,13 +1726,13 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), BadOrigin> {
 		match threshold {
 			VoteThreshold::SuperMajorityApprove => {
-				let _ = T::ExternalOrigin::ensure_origin(origin)?;
+				T::ExternalOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SuperMajorityAgainst => {
-				let _ = T::ExternalDefaultOrigin::ensure_origin(origin)?;
+				T::ExternalDefaultOrigin::ensure_origin(origin)?;
 			},
 			VoteThreshold::SimpleMajority => {
-				let _ = T::ExternalMajorityOrigin::ensure_origin(origin)?;
+				T::ExternalMajorityOrigin::ensure_origin(origin)?;
 			},
 		};
 		Ok(())
@@ -1747,8 +1749,11 @@ fn decode_compact_u32_at(key: &[u8]) -> Option<u32> {
 	match codec::Compact::<u32>::decode(&mut input) {
 		Ok(c) => Some(c.0),
 		Err(_) => {
-			sp_runtime::print("Failed to decode compact u32 at:");
-			sp_runtime::print(key);
+			log::error!(
+				target: "runtime::democracy",
+				"Failed to decode compact u32 at: {:?}",
+				sp_core::hexdisplay::HexDisplay::from(&key)
+			);
 			None
 		},
 	}

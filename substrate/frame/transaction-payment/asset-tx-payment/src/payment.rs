@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-///! Traits and default implementation for paying transaction fees in assets.
+/// ! Traits and default implementation for paying transaction fees in assets.
 use super::*;
 use crate::Config;
 
@@ -40,7 +40,14 @@ pub trait OnChargeAssetTransaction<T: Config> {
 	/// The underlying integer type in which fees are calculated.
 	type Balance: Balance;
 	/// The type used to identify the assets used for transaction payment.
-	type AssetId: FullCodec + Clone + MaybeSerializeDeserialize + Debug + Default + Eq + TypeInfo;
+	type AssetId: FullCodec
+		+ DecodeWithMemTracking
+		+ Clone
+		+ MaybeSerializeDeserialize
+		+ Debug
+		+ Default
+		+ Eq
+		+ TypeInfo;
 	/// The type used to store the intermediate values between pre- and post-dispatch.
 	type LiquidityInfo;
 
@@ -142,7 +149,7 @@ where
 			converted_fee,
 		);
 		if can_withdraw != WithdrawConsequence::Success {
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 		<T::Fungibles as Balanced<T::AccountId>>::withdraw(
 			asset_id,
@@ -176,7 +183,7 @@ where
 		let can_withdraw =
 			<T::Fungibles as Inspect<T::AccountId>>::can_withdraw(asset_id, who, converted_fee);
 		if can_withdraw != WithdrawConsequence::Success {
-			return Err(InvalidTransaction::Payment.into())
+			return Err(InvalidTransaction::Payment.into());
 		}
 		Ok(())
 	}

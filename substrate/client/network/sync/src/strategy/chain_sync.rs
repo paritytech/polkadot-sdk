@@ -30,7 +30,7 @@
 
 use crate::{
 	block_relay_protocol::{BlockDownloader, BlockResponseError},
-	blocks::BlockCollection,
+	blocks::{BlockCollection, Metrics as BlockCollectionMetrics},
 	justification_requests::ExtraRequests,
 	schema::v1::{StateRequest, StateResponse},
 	service::network::NetworkServiceHandle,
@@ -44,9 +44,10 @@ use crate::{
 	LOG_TARGET,
 };
 
+use codec::Encode;
 use futures::{channel::oneshot, FutureExt};
 use log::{debug, error, info, trace, warn};
-use prometheus_endpoint::{register, Gauge, PrometheusError, Registry, U64};
+use prometheus_endpoint::{register, Counter, Gauge, PrometheusError, Registry, U64};
 use prost::Message;
 use sc_client_api::{blockchain::BlockGap, BlockBackend, ProofProvider};
 use sc_consensus::{BlockImportError, BlockImportStatus, IncomingBlock};
@@ -68,7 +69,8 @@ use sp_runtime::{
 use std::{
 	any::Any,
 	collections::{HashMap, HashSet},
-	ops::Range,
+	fmt,
+	ops::{AddAssign, Range},
 	sync::Arc,
 };
 
@@ -120,6 +122,10 @@ mod rep {
 	/// Reputation change for peers which send us non-requested block data.
 	pub const NOT_REQUESTED: Rep = Rep::new(-(1 << 29), "Not requested block data");
 
+	/// Peer could not serve any body of a gap sync request that required them.
+	/// Mild, since the peer may still be backfilling its own block history.
+	pub const NO_GAP_BODIES: Rep = Rep::new(-(1 << 26), "No gap sync bodies");
+
 	/// Reputation change for peers which send us a block with bad justifications.
 	pub const BAD_JUSTIFICATION: Rep = Rep::new(-(1 << 16), "Bad justification");
 
@@ -136,6 +142,10 @@ mod rep {
 struct Metrics {
 	queued_blocks: Gauge<U64>,
 	fork_targets: Gauge<U64>,
+	block_collection: BlockCollectionMetrics,
+	gap_body_empty_responses: Counter<U64>,
+	gap_header_only_downgrades: Counter<U64>,
+	gap_oldest_required_body: Gauge<U64>,
 }
 
 impl Metrics {
@@ -148,6 +158,31 @@ impl Metrics {
 			},
 			fork_targets: {
 				let g = Gauge::new("substrate_sync_fork_targets", "Number of fork sync targets")?;
+				register(g, r)?
+			},
+			block_collection: BlockCollectionMetrics::register(r)?,
+			gap_body_empty_responses: {
+				let c = Counter::new(
+					"substrate_sync_gap_body_empty_responses_total",
+					"Number of empty responses to gap sync requests that required bodies; \
+					 each drops the responding peer",
+				)?;
+				register(c, r)?
+			},
+			gap_header_only_downgrades: {
+				let c = Counter::new(
+					"substrate_sync_gap_header_only_downgrades_total",
+					"Number of gap sync requests issued header-only because the moving body \
+					 cutoff passed the range",
+				)?;
+				register(c, r)?
+			},
+			gap_oldest_required_body: {
+				let g = Gauge::new(
+					"substrate_sync_gap_oldest_required_body",
+					"Oldest block number for which gap sync still requires a body; \
+					 0 when gap sync is inactive or bodies are not required",
+				)?;
 				register(g, r)?
 			},
 		})
@@ -200,10 +235,62 @@ impl Default for AllowedRequests {
 	}
 }
 
+/// Statistics for gap sync operations.
+#[derive(Debug, Default, Clone)]
+struct GapSyncStats {
+	/// Size of headers downloaded during gap sync
+	header_bytes: usize,
+	/// Size of bodies downloaded during gap sync
+	body_bytes: usize,
+	/// Size of justifications downloaded during gap sync
+	justification_bytes: usize,
+}
+
+impl GapSyncStats {
+	fn new() -> Self {
+		Self::default()
+	}
+
+	fn total_bytes(&self) -> usize {
+		self.header_bytes + self.body_bytes + self.justification_bytes
+	}
+
+	fn bytes_to_mib(bytes: usize) -> f64 {
+		bytes as f64 / (1024.0 * 1024.0)
+	}
+}
+
+impl fmt::Display for GapSyncStats {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		let total = self.total_bytes();
+		write!(
+			f,
+			"hdr: {} B ({:.2} MiB), body: {} B ({:.2} MiB), just: {} B ({:.2} MiB) | total: {} B ({:.2} MiB)",
+			self.header_bytes,
+			Self::bytes_to_mib(self.header_bytes),
+			self.body_bytes,
+			Self::bytes_to_mib(self.body_bytes),
+			self.justification_bytes,
+			Self::bytes_to_mib(self.justification_bytes),
+			total,
+			Self::bytes_to_mib(total),
+		)
+	}
+}
+
+impl AddAssign for GapSyncStats {
+	fn add_assign(&mut self, other: Self) {
+		self.header_bytes += other.header_bytes;
+		self.body_bytes += other.body_bytes;
+		self.justification_bytes += other.justification_bytes;
+	}
+}
+
 struct GapSync<B: BlockT> {
 	blocks: BlockCollection<B>,
 	best_queued_number: NumberFor<B>,
 	target: NumberFor<B>,
+	stats: GapSyncStats,
 }
 
 /// Sync operation mode.
@@ -215,10 +302,38 @@ pub enum ChainSyncMode {
 	LightState {
 		/// Skip state proof download and verification.
 		skip_proofs: bool,
-		/// Download indexed transactions for recent blocks.
-		storage_chain_mode: bool,
 	},
 }
+
+/// Returns the base block attributes required for chain sync.
+fn required_block_attributes() -> BlockAttributes {
+	BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
+}
+
+/// Which block bodies gap sync downloads while backfilling the block history below a
+/// warp-synced block.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum GapSyncBodyPolicy {
+	/// Backfill gap headers and justifications without bodies.
+	HeadersOnly,
+	/// Require bodies for the complete gap.
+	All,
+	/// Require bodies for blocks within the given window below the finalized block.
+	/// The window is expected to be pre-shrunk by the node with a safety margin, so
+	/// that peers whose finality runs ahead of ours still retain every requested body.
+	///
+	/// While the node is major syncing, local finality can lag the network beyond the
+	/// safety margin, so gap ranges above the cutoff are deferred until it has caught up.
+	BodiesWithinWindow(u32),
+}
+
+/// Resolves the [`GapSyncBodyPolicy`] lazily, when a `ChainSync` instance is created.
+///
+/// On a warp-syncing node this happens right after state sync completes, so the
+/// provider can query runtime state at the warp target. Errors fail `ChainSync`
+/// creation instead of silently degrading the policy.
+pub type GapSyncBodyPolicyProvider =
+	Arc<dyn Fn() -> Result<GapSyncBodyPolicy, ClientError> + Send + Sync>;
 
 /// All the data we have about a Peer that we are trying to sync with
 #[derive(Debug, Clone)]
@@ -268,7 +383,14 @@ pub(crate) enum PeerSyncState<B: BlockT> {
 	/// Available for sync requests.
 	Available,
 	/// Searching for ancestors the Peer has in common with us.
-	AncestorSearch { start: NumberFor<B>, current: NumberFor<B>, state: AncestorSearchState<B> },
+	AncestorSearch {
+		/// The best queued number when starting the ancestor search.
+		start: NumberFor<B>,
+		/// The current block that is being downloaded.
+		current: NumberFor<B>,
+		/// The state of the search.
+		state: AncestorSearchState<B>,
+	},
 	/// Actively downloading new blocks, starting from the given Number.
 	DownloadingNew(NumberFor<B>),
 	/// Downloading a stale block with given Hash. Stale means that it is a
@@ -337,6 +459,8 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
+	/// Which block bodies gap sync downloads.
+	gap_sync_body_policy: GapSyncBodyPolicy,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -383,7 +507,7 @@ where
 			}
 		}
 
-		self.extra_justifications.peer_disconnected(peer_id);
+		self.extra_justifications.cancel_request(peer_id);
 		self.allowed_requests.set_all();
 		self.fork_targets.retain(|_, target| {
 			target.peers.remove(peer_id);
@@ -414,17 +538,23 @@ where
 		let ancient_parent = parent_status == BlockStatus::InChainPruned;
 
 		let known = self.is_known(&hash);
+		let is_major_syncing = self.is_major_syncing();
 		let peer = if let Some(peer) = self.peers.get_mut(&peer_id) {
 			peer
 		} else {
 			error!(target: LOG_TARGET, "💔 Called `on_validated_block_announce` with a bad peer ID {peer_id}");
-			return Some((hash, number))
+			return Some((hash, number));
 		};
 
 		if let PeerSyncState::AncestorSearch { .. } = peer.state {
 			trace!(target: LOG_TARGET, "Peer {} is in the ancestor search state.", peer_id);
-			return None
+			return None;
 		}
+
+		// The node is continuing a known fork if either the block itself is known, the
+		// parent is known or the block references the previously announced `best_hash`.
+		let continues_known_fork =
+			known || known_parent || announce.header.parent_hash() == &peer.best_hash;
 
 		let peer_info = is_best.then(|| {
 			// update their best block
@@ -437,12 +567,37 @@ where
 		// If the announced block is the best they have and is not ahead of us, our common number
 		// is either one further ahead or it's the one they just announced, if we know about it.
 		if is_best {
-			if known && self.best_queued_number >= number {
-				self.update_peer_common_number(&peer_id, number);
+			let best_queued_number = self.best_queued_number;
+
+			if known && best_queued_number >= number {
+				peer.update_common_number(number);
 			} else if announce.header.parent_hash() == &self.best_queued_hash ||
-				known_parent && self.best_queued_number >= number
+				known_parent && best_queued_number >= number
 			{
-				self.update_peer_common_number(&peer_id, number.saturating_sub(One::one()));
+				peer.update_common_number(number.saturating_sub(One::one()));
+			}
+
+			// If this announced block isn't following any known fork, we have to start an
+			// ancestor search to find out our real common block. However, we skip this during
+			// major sync to avoid pulling peers out of the download pool.
+			if !continues_known_fork && !is_major_syncing {
+				let current = number.min(best_queued_number);
+				peer.common_number = peer.common_number.min(self.client.info().finalized_number);
+				let old_state = std::mem::replace(
+					&mut peer.state,
+					PeerSyncState::AncestorSearch {
+						current,
+						start: best_queued_number,
+						state: AncestorSearchState::ExponentialBackoff(One::one()),
+					},
+				);
+				self.cancel_peer_request(peer_id, old_state);
+
+				let request = ancestry_request::<B>(current);
+				let action = self.create_block_request_action(peer_id, request);
+				self.actions.push(action);
+
+				return peer_info;
 			}
 		}
 		self.allowed_requests.add(&peer_id);
@@ -453,7 +608,7 @@ where
 			if let Some(target) = self.fork_targets.get_mut(&hash) {
 				target.peers.insert(peer_id);
 			}
-			return peer_info
+			return peer_info;
 		}
 
 		if ancient_parent {
@@ -464,7 +619,7 @@ where
 				hash,
 				announce.header,
 			);
-			return peer_info
+			return peer_info;
 		}
 
 		if self.status().state == SyncState::Idle {
@@ -525,14 +680,14 @@ where
 
 		if self.is_known(hash) {
 			debug!(target: LOG_TARGET, "Refusing to sync known hash {hash:?}");
-			return
+			return;
 		}
 
 		trace!(target: LOG_TARGET, "Downloading requested old fork {hash:?}");
 		for peer_id in &peers {
 			if let Some(peer) = self.peers.get_mut(peer_id) {
 				if let PeerSyncState::AncestorSearch { .. } = peer.state {
-					continue
+					continue;
 				}
 
 				if number > peer.best_number {
@@ -668,16 +823,18 @@ where
 		}
 		for (result, hash) in results {
 			if has_error {
-				break
+				break;
 			}
 
 			has_error |= result.is_err();
 
 			match result {
-				Ok(BlockImportStatus::ImportedKnown(number, peer_id)) =>
+				Ok(BlockImportStatus::ImportedKnown(number, peer_id)) => {
 					if let Some(peer) = peer_id {
 						self.update_peer_common_number(&peer, number);
-					},
+					}
+					self.complete_gap_if_target(number);
+				},
 				Ok(BlockImportStatus::ImportedUnknown(number, aux, peer_id)) => {
 					if aux.clear_justification_requests {
 						trace!(
@@ -720,17 +877,10 @@ where
 						self.mode = ChainSyncMode::Full;
 						self.restart();
 					}
-					let gap_sync_complete =
-						self.gap_sync.as_ref().map_or(false, |s| s.target == number);
-					if gap_sync_complete {
-						info!(
-							target: LOG_TARGET,
-							"Block history download is complete."
-						);
-						self.gap_sync = None;
-					}
+
+					self.complete_gap_if_target(number);
 				},
-				Err(BlockImportError::IncompleteHeader(peer_id)) =>
+				Err(BlockImportError::IncompleteHeader(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
@@ -739,7 +889,8 @@ where
 						self.actions
 							.push(SyncingAction::DropPeer(BadPeer(peer, rep::INCOMPLETE_HEADER)));
 						self.restart();
-					},
+					}
+				},
 				Err(BlockImportError::VerificationFailed(peer_id, e)) => {
 					let extra_message = peer_id
 						.map_or_else(|| "".into(), |peer| format!(" received from ({peer})"));
@@ -756,14 +907,15 @@ where
 
 					self.restart();
 				},
-				Err(BlockImportError::BadBlock(peer_id)) =>
+				Err(BlockImportError::BadBlock(peer_id)) => {
 					if let Some(peer) = peer_id {
 						warn!(
 							target: LOG_TARGET,
 							"💔 Block {hash:?} received from peer {peer} has been blacklisted",
 						);
 						self.actions.push(SyncingAction::DropPeer(BadPeer(peer, rep::BAD_BLOCK)));
-					},
+					}
+				},
 				Err(BlockImportError::MissingState) => {
 					// This may happen if the chain we were requesting upon has been discarded
 					// in the meantime because other chain has been finalized.
@@ -844,6 +996,7 @@ where
 		let warp_sync_progress = self.gap_sync.as_ref().map(|gap_sync| WarpSyncProgress {
 			phase: WarpSyncPhase::DownloadingBlocks(gap_sync.best_queued_number),
 			total_bytes: 0,
+			status: None,
 		});
 
 		SyncStatus {
@@ -894,7 +1047,7 @@ where
 		let state_request = self.state_request().into_iter().map(|(peer_id, request)| {
 			trace!(
 				target: LOG_TARGET,
-				"Created `StrategyRequest` to {peer_id}.",
+				"Created `StateRequest` to {peer_id}.",
 			);
 
 			let (tx, rx) = oneshot::channel();
@@ -916,7 +1069,6 @@ where
 					}))
 				}
 				.boxed(),
-				remove_obsolete: false,
 			}
 		});
 		self.actions.extend(state_request);
@@ -947,14 +1099,25 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
+		gap_sync_body_policy: GapSyncBodyPolicy,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
+		info!(target: LOG_TARGET, "Gap sync body policy: {gap_sync_body_policy:?}");
+		let metrics = metrics_registry.and_then(|r| match Metrics::register(r) {
+			Ok(metrics) => Some(metrics),
+			Err(err) => {
+				log::error!(target: LOG_TARGET, "Failed to register `ChainSync` metrics {err:?}");
+				None
+			},
+		});
 		let mut sync = Self {
 			client,
 			peers: HashMap::new(),
 			disconnected_peers: DisconnectedPeers::new(),
-			blocks: BlockCollection::new(),
+			blocks: BlockCollection::with_metrics(
+				metrics.as_ref().map(|m| m.block_collection.clone()),
+			),
 			best_queued_hash: Default::default(),
 			best_queued_number: Zero::zero(),
 			extra_justifications: ExtraRequests::new("justification", metrics_registry),
@@ -970,18 +1133,10 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
+			gap_sync_body_policy,
 			gap_sync: None,
 			actions: Vec::new(),
-			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
-				Ok(metrics) => Some(metrics),
-				Err(err) => {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to register `ChainSync` metrics {err:?}",
-					);
-					None
-				},
-			}),
+			metrics,
 		};
 
 		sync.reset_sync_start_point()?;
@@ -990,6 +1145,25 @@ where
 		});
 
 		Ok(sync)
+	}
+
+	/// Complete the gap sync if the target number is reached and there is a gap.
+	fn complete_gap_if_target(&mut self, number: NumberFor<B>) {
+		let Some(gap_sync) = &self.gap_sync else { return };
+
+		if gap_sync.target != number {
+			return;
+		}
+
+		info!(
+			target: LOG_TARGET,
+			"Block history download is complete. Downloaded {}.",
+			gap_sync.stats,
+		);
+		self.gap_sync = None;
+		if let Some(metrics) = &self.metrics {
+			metrics.gap_oldest_required_body.set(0);
+		}
 	}
 
 	#[must_use]
@@ -1023,7 +1197,7 @@ where
 				// If there are more than `MAJOR_SYNC_BLOCKS` in the import queue then we have
 				// enough to do in the import queue that it's not worth kicking off
 				// an ancestor search, which is what we do in the next match case below.
-				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS.into() {
+				if self.queue_blocks.len() > MAJOR_SYNC_BLOCKS as usize {
 					debug!(
 						target: LOG_TARGET,
 						"New peer {} with unknown best hash {} ({}), assuming common block.",
@@ -1110,6 +1284,35 @@ where
 		}
 	}
 
+	/// Release bookkeeping for a peer's old request and queue its cancellation.
+	///
+	/// The caller handles the peer's state transition and must call this before scheduling
+	/// replacement work. The engine only drops the old response future.
+	fn cancel_peer_request(&mut self, peer_id: PeerId, old_state: PeerSyncState<B>) {
+		match old_state {
+			PeerSyncState::Available => return,
+			PeerSyncState::DownloadingNew(_) => self.blocks.clear_peer_download(&peer_id),
+			PeerSyncState::DownloadingGap(_) => {
+				if let Some(gap_sync) = &mut self.gap_sync {
+					gap_sync.blocks.clear_peer_download(&peer_id);
+				}
+			},
+			PeerSyncState::DownloadingJustification(_) => {
+				self.extra_justifications.cancel_request(&peer_id);
+			},
+			// State requests are regenerated from the last imported cursor; fork targets
+			// remain pending. Neither has a separate in-flight range reservation.
+			PeerSyncState::DownloadingState |
+			PeerSyncState::DownloadingStale(_) |
+			PeerSyncState::AncestorSearch { .. } => {},
+		}
+		self.actions
+			.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
+		// Let any available peer pick up the released work, e.g. while this peer does
+		// ancestry search.
+		self.allowed_requests.set_all();
+	}
+
 	fn create_block_request_action(
 		&mut self,
 		peer_id: PeerId,
@@ -1131,9 +1334,6 @@ where
 				))
 			}
 			.boxed(),
-			// Sending block request implies dropping obsolete pending response as we are not
-			// interested in it anymore.
-			remove_obsolete: true,
 		}
 	}
 
@@ -1168,6 +1368,24 @@ where
 					},
 					PeerSyncState::DownloadingGap(_) => {
 						peer.state = PeerSyncState::Available;
+						if blocks.is_empty() && request.fields.contains(BlockAttributes::BODY) {
+							// An empty response means the peer holds no body of the entire
+							// range (bodies are pruned oldest-first). Disconnect it to free
+							// the slot for a peer that does; the mild penalty lets it retry
+							// later.
+							debug!(
+								target: LOG_TARGET,
+								"Peer {peer_id} sent an empty response for gap block request \
+								 {request:?} that required bodies; disconnecting it",
+							);
+							if let Some(metrics) = &self.metrics {
+								metrics.gap_body_empty_responses.inc();
+							}
+							if let Some(gap_sync) = &mut self.gap_sync {
+								gap_sync.blocks.clear_peer_download(peer_id);
+							}
+							return Err(BadPeer(*peer_id, rep::NO_GAP_BODIES));
+						}
 						if let Some(gap_sync) = &mut self.gap_sync {
 							gap_sync.blocks.clear_peer_download(peer_id);
 							if let Some(start_block) =
@@ -1176,6 +1394,7 @@ where
 								gap_sync.blocks.insert(start_block, blocks, *peer_id);
 							}
 							gap = true;
+							let mut batch_gap_sync_stats = GapSyncStats::new();
 							let blocks: Vec<_> = gap_sync
 								.blocks
 								.ready_blocks(gap_sync.best_queued_number + One::one())
@@ -1187,26 +1406,58 @@ where
 												block_data.block.justification,
 											)
 										});
+									let gap_sync_stats = GapSyncStats {
+										header_bytes: block_data
+											.block
+											.header
+											.as_ref()
+											.map(|h| h.encoded_size())
+											.unwrap_or(0),
+										body_bytes: block_data
+											.block
+											.body
+											.as_ref()
+											.map(|b| b.encoded_size())
+											.unwrap_or(0),
+										justification_bytes: justifications
+											.as_ref()
+											.map(|j| j.encoded_size())
+											.unwrap_or(0),
+									};
+									batch_gap_sync_stats += gap_sync_stats;
+
 									IncomingBlock {
 										hash: block_data.block.hash,
 										header: block_data.block.header,
 										body: block_data.block.body,
-										indexed_body: block_data.block.indexed_body,
 										justifications,
 										origin: block_data.origin,
 										allow_missing_state: true,
-										import_existing: self.import_existing,
+										// Warp-synced blocks are header-only. Allow re-import to
+										// store bodies if gap sync requested them.
+										import_existing: true,
 										skip_execution: true,
 										state: None,
 									}
 								})
 								.collect();
+
 							debug!(
 								target: LOG_TARGET,
 								"Drained {} gap blocks from {}",
 								blocks.len(),
 								gap_sync.best_queued_number,
 							);
+
+							gap_sync.stats += batch_gap_sync_stats;
+
+							if blocks.len() > 0 {
+								trace!(
+									target: LOG_TARGET,
+									"Gap sync cumulative stats: {}",
+									gap_sync.stats
+								);
+							}
 							blocks
 						} else {
 							debug!(target: LOG_TARGET, "Unexpected gap block response from {peer_id}");
@@ -1230,7 +1481,6 @@ where
 									hash: b.hash,
 									header: b.header,
 									body: b.body,
-									indexed_body: None,
 									justifications,
 									origin: Some(*peer_id),
 									allow_missing_state: true,
@@ -1372,7 +1622,6 @@ where
 							hash: b.hash,
 							header: b.header,
 							body: b.body,
-							indexed_body: None,
 							justifications,
 							origin: Some(*peer_id),
 							allow_missing_state: true,
@@ -1420,6 +1669,7 @@ where
 			(Some(first), Some(_)) => format!(" ({})", first),
 			_ => Default::default(),
 		};
+
 		trace!(
 			target: LOG_TARGET,
 			"BlockResponse {} from {} with {} blocks {}",
@@ -1514,19 +1764,6 @@ where
 		}
 	}
 
-	fn required_block_attributes(&self) -> BlockAttributes {
-		match self.mode {
-			ChainSyncMode::Full =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: false, .. } =>
-				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY,
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } =>
-				BlockAttributes::HEADER |
-					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY,
-		}
-	}
-
 	fn skip_execution(&self) -> bool {
 		match self.mode {
 			ChainSyncMode::Full => false,
@@ -1545,9 +1782,14 @@ where
 			);
 		}
 
-		let origin = if !gap && !self.status().state.is_major_syncing() {
+		let origin = if gap {
+			// Gap sync: filling historical blocks after warp sync
+			BlockOrigin::GapSync
+		} else if !self.status().state.is_major_syncing() {
+			// Normal operation: receiving new blocks
 			BlockOrigin::NetworkBroadcast
 		} else {
+			// Initial sync: catching up with the chain
 			BlockOrigin::NetworkInitialSync
 		};
 
@@ -1641,19 +1883,6 @@ where
 
 		old_peers.into_iter().for_each(|(peer_id, mut peer_sync)| {
 			match peer_sync.state {
-				PeerSyncState::Available => {
-					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
-				},
-				PeerSyncState::AncestorSearch { .. } |
-				PeerSyncState::DownloadingNew(_) |
-				PeerSyncState::DownloadingStale(_) |
-				PeerSyncState::DownloadingGap(_) |
-				PeerSyncState::DownloadingState => {
-					// Cancel a request first, as `add_peer` may generate a new request.
-					self.actions
-						.push(SyncingAction::CancelRequest { peer_id, key: Self::STRATEGY_KEY });
-					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
-				},
 				PeerSyncState::DownloadingJustification(_) => {
 					// Peers that were downloading justifications
 					// should be kept in that state.
@@ -1668,6 +1897,10 @@ where
 					peer_sync.common_number = self.best_queued_number;
 					self.peers.insert(peer_id, peer_sync);
 				},
+				_ => {
+					self.cancel_peer_request(peer_id, peer_sync.state);
+					self.add_peer(peer_id, peer_sync.best_hash, peer_sync.best_number);
+				},
 			}
 		});
 	}
@@ -1676,6 +1909,8 @@ where
 	/// state for.
 	fn reset_sync_start_point(&mut self) -> Result<(), ClientError> {
 		let info = self.client.info();
+		debug!(target: LOG_TARGET, "Restarting sync with client info {info:?}");
+
 		if matches!(self.mode, ChainSyncMode::LightState { .. }) && info.finalized_state.is_some() {
 			warn!(
 				target: LOG_TARGET,
@@ -1704,13 +1939,27 @@ where
 			}
 		}
 
+		// The client is the source of truth for the gap. Rebuild the gap sync state from it, or
+		// drop ours if the database has already closed the gap.
+		let old_gap = self.gap_sync.take().map(|g| (g.best_queued_number, g.target));
 		if let Some(BlockGap { start, end, .. }) = info.block_gap {
-			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end}");
+			debug!(target: LOG_TARGET, "Starting gap sync #{start} - #{end} (old gap best and target: {old_gap:?})");
 			self.gap_sync = Some(GapSync {
 				best_queued_number: start - One::one(),
 				target: end,
-				blocks: BlockCollection::new(),
+				blocks: BlockCollection::with_metrics(
+					self.metrics.as_ref().map(|m| m.block_collection.clone()),
+				),
+				stats: GapSyncStats::new(),
 			});
+		} else if let Some((best, target)) = old_gap {
+			debug!(
+				target: LOG_TARGET,
+				"Block gap is closed in the database, dropping gap sync state (best: #{best}, target: #{target})",
+			);
+			if let Some(metrics) = &self.metrics {
+				metrics.gap_oldest_required_body.set(0);
+			}
 		}
 		trace!(
 			target: LOG_TARGET,
@@ -1755,7 +2004,6 @@ where
 					hash: block_data.block.hash,
 					header: block_data.block.header,
 					body: block_data.block.body,
-					indexed_body: block_data.block.indexed_body,
 					justifications,
 					origin: block_data.origin,
 					allow_missing_state: true,
@@ -1794,6 +2042,29 @@ where
 		.collect()
 	}
 
+	/// Block attributes for gap requests, plus the body cutoff: bodies are required for
+	/// gap blocks above the cutoff and stripped from ranges entirely at or below it.
+	/// Recomputed every scheduling pass so the cutoff follows finality.
+	fn gap_request_attributes(
+		&self,
+		finalized_number: NumberFor<B>,
+	) -> (BlockAttributes, Option<NumberFor<B>>) {
+		let attrs = required_block_attributes();
+		match self.gap_sync_body_policy {
+			GapSyncBodyPolicy::HeadersOnly => (attrs & !BlockAttributes::BODY, None),
+			GapSyncBodyPolicy::All => (attrs, None),
+			GapSyncBodyPolicy::BodiesWithinWindow(window) => {
+				// The gap is created by importing a finalized block right above it,
+				// so `gap.target + 1` is a lower bound for the finalized number even
+				// while the client's finality info still lags right after warp sync.
+				let anchor = self.gap_sync.as_ref().map_or(finalized_number, |gap| {
+					std::cmp::max(finalized_number, gap.target + One::one())
+				});
+				(attrs, Some(anchor.saturating_sub(window.into())))
+			},
+		}
+	}
+
 	/// Get block requests scheduled by sync to be sent out.
 	fn block_requests(&mut self) -> Vec<(PeerId, BlockRequest<B>)> {
 		if self.allowed_requests.is_empty() || self.state_sync.is_some() {
@@ -1805,11 +2076,23 @@ where
 			return Vec::new();
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
-		let attrs = self.required_block_attributes();
+		let finalized_number = self.client.info().finalized_number;
+		let (gap_attrs, gap_body_cutoff) = self.gap_request_attributes(finalized_number);
+		if let (Some(metrics), Some(cutoff), Some(gap)) =
+			(self.metrics.as_ref(), gap_body_cutoff, self.gap_sync.as_ref())
+		{
+			// The oldest gap block still requiring a body: the lowest not-yet-queued
+			// block, clamped from below by the cutoff.
+			let oldest_required = std::cmp::max(gap.best_queued_number, cutoff) + One::one();
+			metrics.gap_oldest_required_body.set(if oldest_required <= gap.target {
+				oldest_required.saturated_into::<u64>()
+			} else {
+				0
+			});
+		}
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
-		let last_finalized =
-			std::cmp::min(self.best_queued_number, self.client.info().finalized_number);
+		let last_finalized = std::cmp::min(self.best_queued_number, finalized_number);
 		let best_queued = self.best_queued_number;
 		let client = &self.client;
 		let queue_blocks = &self.queue_blocks;
@@ -1839,7 +2122,7 @@ where
 					MAX_BLOCKS_TO_LOOK_BACKWARDS.into() &&
 					best_queued < peer.best_number &&
 					peer.common_number < last_finalized &&
-					queue_blocks.len() <= MAJOR_SYNC_BLOCKS.into()
+					queue_blocks.len() <= MAJOR_SYNC_BLOCKS as usize
 				{
 					trace!(
 						target: LOG_TARGET,
@@ -1859,7 +2142,7 @@ where
 					&id,
 					peer,
 					blocks,
-					attrs,
+					required_block_attributes(),
 					max_parallel,
 					max_blocks_per_request,
 					last_finalized,
@@ -1880,7 +2163,7 @@ where
 					fork_targets,
 					best_queued,
 					last_finalized,
-					attrs,
+					required_block_attributes(),
 					|hash| {
 						if queue_blocks.contains(hash) {
 							BlockStatus::Queued
@@ -1899,10 +2182,13 @@ where
 						&id,
 						peer,
 						&mut sync.blocks,
-						attrs,
+						gap_attrs,
+						gap_body_cutoff,
+						is_major_syncing,
 						sync.target,
 						sync.best_queued_number,
 						max_blocks_per_request,
+						metrics,
 					)
 				}) {
 					peer.state = PeerSyncState::DownloadingGap(range.start);
@@ -2003,7 +2289,6 @@ where
 					hash,
 					header: Some(header),
 					body,
-					indexed_body: None,
 					justifications,
 					origin: None,
 					allow_missing_state: true,
@@ -2200,20 +2485,35 @@ fn peer_block_request<B: BlockT>(
 	Some((range, request))
 }
 
-/// Get a new block request for the peer if any.
+/// Get a new gap block request for the peer if any.
+///
+/// Bodies are stripped from the request if the whole range is at or below
+/// `body_cutoff`. A range straddling the cutoff requests bodies for all its blocks
+/// rather than being split.
+///
+/// While the node is major syncing, the cutoff is a stale lower bound of the true one
+/// (peers may have pruned bodies right above it), so scheduling is clamped to the
+/// header-only region at or below it until the node has caught up.
 fn peer_gap_block_request<B: BlockT>(
 	id: &PeerId,
 	peer: &PeerSync<B>,
 	blocks: &mut BlockCollection<B>,
 	attrs: BlockAttributes,
+	body_cutoff: Option<NumberFor<B>>,
+	is_major_syncing: bool,
 	target: NumberFor<B>,
 	common_number: NumberFor<B>,
 	max_blocks_per_request: u32,
+	metrics: Option<&Metrics>,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
+	let mut scheduling_bound = std::cmp::min(peer.best_number, target);
+	if let Some(cutoff) = body_cutoff.filter(|_| is_major_syncing) {
+		scheduling_bound = std::cmp::min(scheduling_bound, cutoff);
+	}
 	let range = blocks.needed_blocks(
 		*id,
 		max_blocks_per_request,
-		std::cmp::min(peer.best_number, target),
+		scheduling_bound,
 		common_number,
 		1,
 		MAX_DOWNLOAD_AHEAD,
@@ -2222,6 +2522,16 @@ fn peer_gap_block_request<B: BlockT>(
 	// The end is not part of the range.
 	let last = range.end.saturating_sub(One::one());
 	let from = FromBlock::Number(last);
+
+	let attrs = match body_cutoff {
+		Some(cutoff) if last <= cutoff => {
+			if let Some(metrics) = metrics {
+				metrics.gap_header_only_downgrades.inc();
+			}
+			attrs & !BlockAttributes::BODY
+		},
+		_ => attrs,
+	};
 
 	let request = BlockRequest::<B> {
 		id: 0,

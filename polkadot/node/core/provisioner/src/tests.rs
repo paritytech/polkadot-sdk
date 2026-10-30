@@ -16,10 +16,7 @@
 
 use super::*;
 use bitvec::bitvec;
-use polkadot_primitives::{
-	vstaging::{MutateDescriptorV2, OccupiedCore},
-	ScheduledCore,
-};
+use polkadot_primitives::{MutateDescriptorV2, OccupiedCore, ScheduledCore};
 use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
 
 const MOCK_GROUP_SIZE: usize = 5;
@@ -249,21 +246,18 @@ mod select_candidates {
 	};
 	use futures::channel::mpsc;
 	use polkadot_node_subsystem::messages::{
-		AllMessages, RuntimeApiMessage,
+		AllMessages, BackableCandidateRef, RuntimeApiMessage,
 		RuntimeApiRequest::{
 			AvailabilityCores, PersistedValidationData as PersistedValidationDataReq,
 		},
 	};
 	use polkadot_node_subsystem_test_helpers::{mock::new_leaf, TestSubsystemSender};
 	use polkadot_primitives::{
-		vstaging::{
-			CandidateReceiptV2 as CandidateReceipt,
-			CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
-		},
-		BlockNumber, CandidateCommitments, PersistedValidationData,
+		BlockNumber, CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+		CommittedCandidateReceiptV2 as CommittedCandidateReceipt, MutateDescriptorV2,
+		PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers::{dummy_candidate_descriptor_v2, dummy_hash};
-	use rstest::rstest;
 	use std::ops::Not;
 	use CoreState::{Free, Scheduled};
 
@@ -305,7 +299,7 @@ mod select_candidates {
 					},
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
-					None,
+					CoreIndex(0),
 				)
 			})
 			.collect();
@@ -568,9 +562,10 @@ mod select_candidates {
 		});
 
 		expected.sort_by_key(|c| c.candidate().descriptor.para_id());
-		let mut candidates_iter = expected
-			.iter()
-			.map(|candidate| (candidate.hash(), candidate.descriptor().relay_parent()));
+		let mut candidates_iter = expected.iter().map(|candidate| BackableCandidateRef {
+			candidate_hash: candidate.hash(),
+			scheduling_parent: candidate.descriptor().scheduling_parent(),
+		});
 
 		while let Some(from_job) = receiver.next().await {
 			match from_job {
@@ -578,12 +573,13 @@ mod select_candidates {
 					_parent_hash,
 					PersistedValidationDataReq(_para_id, _assumption, tx),
 				)) => tx.send(Ok(Some(Default::default()))).unwrap(),
-				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) =>
-					tx.send(Ok(mock_availability_cores.clone())).unwrap(),
-				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates(
-					hashes,
+				AllMessages::RuntimeApi(Request(_parent_hash, AvailabilityCores(tx))) => {
+					tx.send(Ok(mock_availability_cores.clone())).unwrap()
+				},
+				AllMessages::CandidateBacking(CandidateBackingMessage::GetBackableCandidates {
+					candidates: hashes,
 					sender,
-				)) => {
+				}) => {
 					let mut response: HashMap<ParaId, Vec<BackedCandidate>> = HashMap::new();
 					for (para_id, requested_candidates) in hashes.clone() {
 						response.insert(
@@ -595,15 +591,18 @@ mod select_candidates {
 								.collect(),
 						);
 					}
-					let expected_hashes: HashMap<ParaId, Vec<(CandidateHash, Hash)>> = response
+					let expected_hashes: HashMap<ParaId, Vec<BackableCandidateRef>> = response
 						.iter()
 						.map(|(para_id, candidates)| {
 							(
 								*para_id,
 								candidates
 									.iter()
-									.map(|candidate| {
-										(candidate.hash(), candidate.descriptor().relay_parent())
+									.map(|candidate| BackableCandidateRef {
+										candidate_hash: candidate.hash(),
+										scheduling_parent: candidate
+											.descriptor()
+											.scheduling_parent(),
 									})
 									.collect(),
 							)
@@ -615,13 +614,13 @@ mod select_candidates {
 					let _ = sender.send(response);
 				},
 				AllMessages::ProspectiveParachains(
-					ProspectiveParachainsMessage::GetBackableCandidates(
-						_,
-						_para_id,
+					ProspectiveParachainsMessage::GetBackableCandidates {
+						leaf: _,
+						para_id: _para_id,
 						count,
-						actual_ancestors,
-						tx,
-					),
+						ancestors: actual_ancestors,
+						sender: tx,
+					},
 				) => {
 					assert!(count > 0);
 					let candidates =
@@ -634,7 +633,7 @@ mod select_candidates {
 								.clone()
 								.into_iter()
 								.take(actual_ancestors.len())
-								.map(|(c_hash, _)| c_hash)
+								.map(|c| c.candidate_hash)
 								.collect::<Vec<_>>()),
 						) {
 							assert_eq!(expected_required_ancestors, actual_ancestors);
@@ -661,7 +660,6 @@ mod select_candidates {
 				select_candidates(
 					&[],
 					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -718,7 +716,7 @@ mod select_candidates {
 					committed_receipt.clone(),
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
-					None,
+					CoreIndex(0),
 				)
 			})
 			.collect();
@@ -740,7 +738,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -821,7 +818,7 @@ mod select_candidates {
 					committed_receipt.clone(),
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
-					None,
+					CoreIndex(0),
 				)
 			})
 			.collect();
@@ -843,7 +840,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					true,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -858,11 +854,8 @@ mod select_candidates {
 			},
 		)
 	}
-
-	#[rstest]
-	#[case(true)]
-	#[case(false)]
-	fn one_core_per_para(#[case] elastic_scaling_mvp: bool) {
+	#[test]
+	fn one_core_per_para() {
 		let mock_cores = mock_availability_cores_one_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
@@ -888,7 +881,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					elastic_scaling_mvp,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -910,7 +902,7 @@ mod select_candidates {
 	}
 
 	#[test]
-	fn multiple_cores_per_para_elastic_scaling_mvp() {
+	fn multiple_cores_per_para_elastic_scaling() {
 		let mock_cores = mock_availability_cores_multiple_per_para();
 
 		// why those particular indices? see the comments on mock_availability_cores()
@@ -965,7 +957,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					true,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)
@@ -987,56 +978,7 @@ mod select_candidates {
 	}
 
 	#[test]
-	fn multiple_cores_per_para_elastic_scaling_mvp_disabled() {
-		let mock_cores = mock_availability_cores_multiple_per_para();
-
-		// why those particular indices? see the comments on mock_availability_cores()
-		let expected_candidates: Vec<_> = vec![1, 4, 7, 8, 10];
-
-		let (candidates, expected_candidates) =
-			make_candidates(mock_cores.len(), expected_candidates);
-
-		let mut required_ancestors: HashMap<Vec<CandidateHash>, Ancestors> = HashMap::new();
-		required_ancestors.insert(
-			vec![candidates[4]],
-			vec![CandidateHash(Hash::from_low_u64_be(41))].into_iter().collect(),
-		);
-		required_ancestors.insert(
-			vec![candidates[8]],
-			vec![CandidateHash(Hash::from_low_u64_be(81))].into_iter().collect(),
-		);
-
-		let mock_cores_clone = mock_cores.clone();
-		let expected_candidates_clone = expected_candidates.clone();
-		test_harness(
-			|r| mock_overseer(r, mock_cores_clone, expected_candidates, required_ancestors),
-			|mut tx: TestSubsystemSender| async move {
-				let result = select_candidates(
-					&mock_cores,
-					&[],
-					false,
-					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
-					&mut tx,
-				)
-				.await
-				.unwrap();
-
-				assert_eq!(result.len(), expected_candidates_clone.len());
-				result.into_iter().for_each(|c| {
-					assert!(
-						expected_candidates_clone
-							.iter()
-							.any(|c2| c.candidate().corresponds_to(&c2.receipt())),
-						"Failed to find candidate: {:?}",
-						c,
-					)
-				});
-			},
-		)
-	}
-
-	#[test]
-	fn request_receipts_based_on_relay_parent() {
+	fn request_receipts_based_on_scheduling_parent() {
 		let mock_cores = mock_availability_cores_one_per_para();
 		let candidate_template = dummy_candidate_template();
 
@@ -1064,7 +1006,7 @@ mod select_candidates {
 					},
 					Vec::new(),
 					default_bitvec(MOCK_GROUP_SIZE),
-					None,
+					CoreIndex(0),
 				)
 			})
 			.collect();
@@ -1076,7 +1018,6 @@ mod select_candidates {
 				let result = select_candidates(
 					&mock_cores,
 					&[],
-					false,
 					&new_leaf(Default::default(), BLOCK_UNDER_PRODUCTION - 1),
 					&mut tx,
 				)

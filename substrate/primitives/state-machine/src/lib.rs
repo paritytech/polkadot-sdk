@@ -23,16 +23,16 @@
 extern crate alloc;
 
 pub mod backend;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod basic;
 mod error;
 mod ext;
 #[cfg(feature = "fuzzing")]
 pub mod fuzzing;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod in_memory_backend;
 pub(crate) mod overlayed_changes;
-#[cfg(feature = "std")]
+#[cfg(not(substrate_runtime))]
 mod read_only;
 mod stats;
 #[cfg(feature = "std")]
@@ -142,15 +142,16 @@ pub use crate::{
 	trie_backend_essence::{Storage, TrieBackendStorage},
 };
 
+#[cfg(not(substrate_runtime))]
+pub use crate::{
+	basic::BasicExternalities,
+	in_memory_backend::new_in_mem,
+	read_only::{InspectState, ReadOnlyExternalities},
+};
+
 #[cfg(feature = "std")]
 mod std_reexport {
-	pub use crate::{
-		basic::BasicExternalities,
-		in_memory_backend::new_in_mem,
-		read_only::{InspectState, ReadOnlyExternalities},
-		testing::TestExternalities,
-		trie_backend::create_proof_check_backend,
-	};
+	pub use crate::{testing::TestExternalities, trie_backend::create_proof_check_backend};
 	pub use sp_trie::{
 		trie_types::{TrieDBMutV0, TrieDBMutV1},
 		CompactProof, DBValue, LayoutV0, LayoutV1, MemoryDB, StorageProof, TrieMut,
@@ -167,12 +168,15 @@ mod execution {
 	use smallvec::SmallVec;
 	use sp_core::{
 		hexdisplay::HexDisplay,
-		storage::{ChildInfo, ChildType, PrefixedStorageKey},
+		storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion},
 		traits::{CallContext, CodeExecutor, RuntimeCode},
 	};
 	use sp_externalities::Extensions;
 	use sp_trie::PrefixedMemoryDB;
-	use std::collections::{HashMap, HashSet};
+	use std::{
+		collections::{HashMap, HashSet},
+		time::Duration,
+	};
 
 	pub(crate) type CallResult<E> = Result<Vec<u8>, E>;
 
@@ -212,6 +216,9 @@ mod execution {
 		/// Used for logging.
 		parent_hash: Option<H::Out>,
 		context: CallContext,
+		state_version: StateVersion,
+		/// Wall-clock limit for the runtime call, see [`Self::with_timeout`].
+		timeout: Option<Duration>,
 	}
 
 	impl<'a, B, H, Exec> Drop for StateMachine<'a, B, H, Exec>
@@ -241,6 +248,7 @@ mod execution {
 			extensions: &'a mut Extensions,
 			runtime_code: &'a RuntimeCode,
 			context: CallContext,
+			state_version: StateVersion,
 		) -> Self {
 			Self {
 				backend,
@@ -253,6 +261,8 @@ mod execution {
 				stats: StateMachineStats::default(),
 				parent_hash: None,
 				context,
+				state_version,
+				timeout: None,
 			}
 		}
 
@@ -264,9 +274,18 @@ mod execution {
 			self
 		}
 
+		/// Interrupt the runtime call once `timeout` has elapsed, if `Some`.
+		///
+		/// See [`CodeExecutor::call_with_execution_timeout`].
+		pub fn with_timeout(mut self, timeout: Option<Duration>) -> Self {
+			self.timeout = timeout;
+			self
+		}
+
 		/// Execute a call using the given state backend, overlayed changes, and call executor.
 		///
-		/// On an error, no prospective changes are written to the overlay.
+		/// On an error, no prospective changes are written to the overlay. If a timeout was set
+		/// via [`Self::with_timeout`], the call is interrupted once it elapses.
 		///
 		/// Note: changes to code will be in place if this call is made again. For running partial
 		/// blocks (e.g. a transaction at a time), ensure a different method is used.
@@ -277,7 +296,8 @@ mod execution {
 				.enter_runtime()
 				.expect("StateMachine is never called from the runtime; qed");
 
-			let mut ext = Ext::new(self.overlay, self.backend, Some(self.extensions));
+			let mut ext =
+				Ext::new(self.overlay, self.backend, Some(self.extensions), self.state_version);
 
 			let ext_id = ext.id;
 
@@ -287,13 +307,31 @@ mod execution {
 				method = %self.method,
 				parent_hash = %self.parent_hash.map(|h| format!("{:?}", h)).unwrap_or_else(|| String::from("None")),
 				input = ?HexDisplay::from(&self.call_data),
+				timeout = ?self.timeout,
 				"Call",
 			);
 
-			let result = self
-				.exec
-				.call(&mut ext, self.runtime_code, self.method, self.call_data, self.context)
-				.0;
+			let result = match self.timeout {
+				Some(timeout) => self.exec.call_with_execution_timeout(
+					&mut ext,
+					self.runtime_code,
+					self.method,
+					self.call_data,
+					self.context,
+					timeout,
+				),
+				None => {
+					self.exec
+						.call(
+							&mut ext,
+							self.runtime_code,
+							self.method,
+							self.call_data,
+							self.context,
+						)
+						.0
+				},
+			};
 
 			self.overlay
 				.exit_runtime()
@@ -311,6 +349,8 @@ mod execution {
 	}
 
 	/// Prove execution using the given state backend, overlayed changes, and call executor.
+	///
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	pub fn prove_execution<B, H, Exec>(
 		backend: &mut B,
 		overlay: &mut OverlayedChanges<H>,
@@ -318,6 +358,8 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		state_version: StateVersion,
+		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
 		B: AsTrieBackend<H>,
@@ -334,6 +376,8 @@ mod execution {
 			call_data,
 			runtime_code,
 			&mut Default::default(),
+			state_version,
+			timeout,
 		)
 	}
 
@@ -341,6 +385,8 @@ mod execution {
 	/// Produces a state-backend-specific "transaction" which can be used to apply the changes
 	/// to the backing store, such as the disk.
 	/// Execution proof is the set of all 'touched' storage DBValues from the backend.
+	///
+	/// `timeout` bounds the wall-clock execution time of the runtime call if `Some`.
 	///
 	/// On an error, no prospective changes are written to the overlay.
 	///
@@ -354,6 +400,8 @@ mod execution {
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
 		extensions: &mut Extensions,
+		state_version: StateVersion,
+		timeout: Option<Duration>,
 	) -> Result<(Vec<u8>, StorageProof), Box<dyn Error>>
 	where
 		S: trie_backend_essence::TrieBackendStorage<H>,
@@ -373,7 +421,9 @@ mod execution {
 			extensions,
 			runtime_code,
 			CallContext::Offchain,
+			state_version,
 		)
+		.with_timeout(timeout)
 		.execute()?;
 
 		let proof = proving_backend
@@ -392,6 +442,7 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		state_version: StateVersion,
 	) -> Result<Vec<u8>, Box<dyn Error>>
 	where
 		H: Hasher + 'static,
@@ -406,6 +457,7 @@ mod execution {
 			method,
 			call_data,
 			runtime_code,
+			state_version,
 		)
 	}
 
@@ -417,6 +469,7 @@ mod execution {
 		method: &str,
 		call_data: &[u8],
 		runtime_code: &RuntimeCode,
+		state_version: StateVersion,
 	) -> Result<Vec<u8>, Box<dyn Error>>
 	where
 		H: Hasher,
@@ -432,6 +485,7 @@ mod execution {
 			&mut Extensions::default(),
 			runtime_code,
 			CallContext::Offchain,
+			state_version,
 		)
 		.execute()
 	}
@@ -501,7 +555,7 @@ mod execution {
 			last: &mut SmallVec<[Vec<u8>; 2]>,
 		) -> bool {
 			if stopped_at == 0 || stopped_at > MAX_NESTED_TRIE_DEPTH {
-				return false
+				return false;
 			}
 			match stopped_at {
 				1 => {
@@ -511,7 +565,7 @@ mod execution {
 						match last.len() {
 							0 => {
 								last.push(top_last);
-								return true
+								return true;
 							},
 							2 => {
 								last.pop();
@@ -520,12 +574,12 @@ mod execution {
 						}
 						// update top trie access.
 						last[0] = top_last;
-						return true
+						return true;
 					} else {
 						// No change in top trie accesses.
 						// Indicates end of reading of a child trie.
 						last.truncate(1);
-						return true
+						return true;
 					}
 				},
 				2 => {
@@ -539,7 +593,7 @@ mod execution {
 							if let Some(top_last) = top_last {
 								last.push(top_last)
 							} else {
-								return false
+								return false;
 							}
 						} else if let Some(top_last) = top_last {
 							last[0] = top_last;
@@ -548,10 +602,10 @@ mod execution {
 							last.pop();
 						}
 						last.push(child_last);
-						return true
+						return true;
 					} else {
 						// stopped at level 2 so child last is define.
-						return false
+						return false;
 					}
 				},
 				_ => (),
@@ -595,7 +649,7 @@ mod execution {
 		H::Out: Ord + Codec,
 	{
 		if start_at.len() > MAX_NESTED_TRIE_DEPTH {
-			return Err(Box::new("Invalid start of range."))
+			return Err(Box::new("Invalid start of range."));
 		}
 
 		let recorder = sp_trie::recorder::Recorder::default();
@@ -612,7 +666,7 @@ mod execution {
 			{
 				child_roots.insert(state_root);
 			} else {
-				return Err(Box::new("Invalid range start child trie key."))
+				return Err(Box::new("Invalid range start child trie key."));
 			}
 
 			(Some(storage_key), start_at.get(1).cloned())
@@ -625,8 +679,9 @@ mod execution {
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
 					Some(match ChildType::from_prefixed_key(storage_key) {
-						Some((ChildType::ParentKeyId, storage_key)) =>
-							ChildInfo::new_default(storage_key),
+						Some((ChildType::ParentKeyId, storage_key)) => {
+							ChildInfo::new_default(storage_key)
+						},
 						None => return Err(Box::new("Invalid range start child trie key.")),
 					}),
 					2,
@@ -657,12 +712,12 @@ mod execution {
 					if !child_roots.contains(value.as_slice()) {
 						child_roots.insert(value);
 						switch_child_key = Some(key);
-						break
+						break;
 					}
 				} else if recorder.estimate_encoded_size() <= size_limit {
 					count += 1;
 				} else {
-					break
+					break;
 				}
 			}
 
@@ -670,11 +725,11 @@ mod execution {
 
 			if switch_child_key.is_none() {
 				if depth == 1 {
-					break
+					break;
 				} else if completed {
 					start_at = child_key.take();
 				} else {
-					break
+					break;
 				}
 			} else {
 				child_key = switch_child_key;
@@ -745,7 +800,7 @@ mod execution {
 			if count == 0 || recorder.estimate_encoded_size() <= size_limit {
 				count += 1;
 			} else {
-				break
+				break;
 			}
 		}
 
@@ -968,7 +1023,7 @@ mod execution {
 			let (key, value) = item.map_err(|e| Box::new(e) as Box<dyn Error>)?;
 			values.push((key, value));
 			if !count.as_ref().map_or(true, |c| (values.len() as u32) < *c) {
-				break
+				break;
 			}
 		}
 
@@ -992,7 +1047,7 @@ mod execution {
 			parent_storage_keys: Default::default(),
 		}];
 		if start_at.len() > MAX_NESTED_TRIE_DEPTH {
-			return Err(Box::new("Invalid start of range."))
+			return Err(Box::new("Invalid start of range."));
 		}
 
 		let mut child_roots = HashSet::new();
@@ -1005,7 +1060,7 @@ mod execution {
 				child_roots.insert(state_root.clone());
 				Some((storage_key, state_root))
 			} else {
-				return Err(Box::new("Invalid range start child trie key."))
+				return Err(Box::new("Invalid range start child trie key."));
 			};
 
 			(child_key, start_at.get(1).cloned())
@@ -1024,8 +1079,9 @@ mod execution {
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
 					Some(match ChildType::from_prefixed_key(storage_key) {
-						Some((ChildType::ParentKeyId, storage_key)) =>
-							ChildInfo::new_default(storage_key),
+						Some((ChildType::ParentKeyId, storage_key)) => {
+							ChildInfo::new_default(storage_key)
+						},
 						None => return Err(Box::new("Invalid range start child trie key.")),
 					}),
 					2,
@@ -1063,7 +1119,7 @@ mod execution {
 					if !child_roots.contains(value.as_slice()) {
 						child_roots.insert(value.clone());
 						switch_child_key = Some((key, value));
-						break
+						break;
 					}
 				}
 			}
@@ -1072,10 +1128,10 @@ mod execution {
 
 			if switch_child_key.is_none() {
 				if !completed {
-					break depth
+					break depth;
 				}
 				if depth == 1 {
-					break 0
+					break 0;
 				} else {
 					start_at = child_key.take().map(|entry| entry.0);
 				}
@@ -1136,6 +1192,18 @@ mod tests {
 				_ => (Err(0), using_native),
 			}
 		}
+
+		fn call_with_execution_timeout(
+			&self,
+			ext: &mut dyn Externalities,
+			runtime_code: &RuntimeCode,
+			method: &str,
+			data: &[u8],
+			context: CallContext,
+			_timeout: std::time::Duration,
+		) -> CallResult<Self::Error> {
+			self.call(ext, runtime_code, method, data, context).0
+		}
 	}
 
 	impl sp_core::traits::ReadRuntimeVersion for DummyCodeExecutor {
@@ -1172,6 +1240,7 @@ mod tests {
 			&mut execution_extensions,
 			&wasm_code,
 			CallContext::Offchain,
+			state_version,
 		);
 
 		assert_eq!(state_machine.execute().unwrap(), vec![66]);
@@ -1201,6 +1270,7 @@ mod tests {
 			&mut execution_extensions,
 			&wasm_code,
 			CallContext::Offchain,
+			state_version,
 		);
 
 		assert_eq!(state_machine.execute().unwrap(), vec![66]);
@@ -1208,10 +1278,16 @@ mod tests {
 
 	#[test]
 	fn prove_execution_and_proof_check_works() {
-		prove_execution_and_proof_check_works_inner(StateVersion::V0);
-		prove_execution_and_proof_check_works_inner(StateVersion::V1);
+		for state_version in [StateVersion::V0, StateVersion::V1] {
+			for timeout in [None, Some(std::time::Duration::from_secs(1))] {
+				prove_execution_and_proof_check_works_inner(state_version, timeout);
+			}
+		}
 	}
-	fn prove_execution_and_proof_check_works_inner(state_version: StateVersion) {
+	fn prove_execution_and_proof_check_works_inner(
+		state_version: StateVersion,
+		timeout: Option<std::time::Duration>,
+	) {
 		let executor = DummyCodeExecutor {
 			native_available: true,
 			native_succeeds: true,
@@ -1228,6 +1304,8 @@ mod tests {
 			"test",
 			&[],
 			&RuntimeCode::empty(),
+			state_version,
+			timeout,
 		)
 		.unwrap();
 
@@ -1240,6 +1318,7 @@ mod tests {
 			"test",
 			&[],
 			&RuntimeCode::empty(),
+			state_version,
 		)
 		.unwrap();
 
@@ -1268,7 +1347,7 @@ mod tests {
 
 		let overlay_limit = overlay.clone();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			let _ = ext.clear_prefix(b"ab", None, None);
 		}
 		overlay.commit_transaction().unwrap();
@@ -1291,7 +1370,7 @@ mod tests {
 
 		let mut overlay = overlay_limit;
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_matches!(
 				ext.clear_prefix(b"ab", Some(1), None).deconstruct(),
 				(Some(_), 1, 3, 1)
@@ -1335,7 +1414,7 @@ mod tests {
 		overlay.set_child_storage(&child_info, b"4".to_vec(), Some(b"1312".to_vec()));
 
 		{
-			let mut ext = Ext::new(&mut overlay, &backend, None);
+			let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::default());
 			let r = ext.kill_child_storage(&child_info, Some(2), None);
 			assert_matches!(r.deconstruct(), (Some(_), 2, 6, 2));
 		}
@@ -1370,7 +1449,7 @@ mod tests {
 		];
 		let backend = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
 		let mut overlay = OverlayedChanges::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
+		let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::default());
 		let r = ext.kill_child_storage(&child_info, Some(0), None).deconstruct();
 		assert_matches!(r, (Some(_), 0, 0, 0));
 		let r = ext
@@ -1399,7 +1478,7 @@ mod tests {
 		];
 		let backend = InMemoryBackend::<BlakeTwo256>::from((initial, StateVersion::default()));
 		let mut overlay = OverlayedChanges::default();
-		let mut ext = Ext::new(&mut overlay, &backend, None);
+		let mut ext = Ext::new(&mut overlay, &backend, None, StateVersion::default());
 		assert_eq!(ext.kill_child_storage(&child_info, None, None).deconstruct(), (None, 4, 4, 4));
 	}
 
@@ -1410,7 +1489,7 @@ mod tests {
 		let state = new_in_mem::<BlakeTwo256>();
 		let backend = state.as_trie_backend();
 		let mut overlay = OverlayedChanges::default();
-		let mut ext = Ext::new(&mut overlay, backend, None);
+		let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 		ext.set_child_storage(child_info, b"abc".to_vec(), b"def".to_vec());
 		assert_eq!(ext.child_storage(child_info, b"abc"), Some(b"def".to_vec()));
@@ -1426,14 +1505,14 @@ mod tests {
 		let backend = state.as_trie_backend();
 		let mut overlay = OverlayedChanges::default();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			ext.storage_append(key.clone(), reference_data[0].encode());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![reference_data[0].clone()].encode()));
 		}
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			for i in reference_data.iter().skip(1) {
 				ext.storage_append(key.clone(), i.encode());
@@ -1442,7 +1521,7 @@ mod tests {
 		}
 		overlay.rollback_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![reference_data[0].clone()].encode()));
 		}
 	}
@@ -1466,7 +1545,7 @@ mod tests {
 		// Append first item
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			ext.clear_storage(key.as_slice());
 			ext.storage_append(key.clone(), Item::Item1.encode());
 		}
@@ -1474,7 +1553,7 @@ mod tests {
 		// Append second item
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 
@@ -1486,7 +1565,7 @@ mod tests {
 		// Remove item
 		overlay.start_transaction();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			ext.place_storage(key.clone(), None);
 
@@ -1496,20 +1575,20 @@ mod tests {
 		// Remove gets commited and merged into previous transaction
 		overlay.commit_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), None,);
 		}
 
 		// Remove gets rolled back, we should see the initial append again.
 		overlay.rollback_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 		}
 
 		overlay.commit_transaction().unwrap();
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::Item1].encode()));
 		}
 	}
@@ -1530,7 +1609,7 @@ mod tests {
 
 		// For example, block initialization with event.
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			ext.clear_storage(key.as_slice());
 			ext.storage_append(key.clone(), Item::InitializationItem.encode());
 		}
@@ -1538,7 +1617,7 @@ mod tests {
 
 		// For example, first transaction resulted in panic during block building
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::InitializationItem].encode()));
 
@@ -1553,7 +1632,7 @@ mod tests {
 
 		// Then we apply next transaction which is valid this time.
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 
 			assert_eq!(ext.storage(key.as_slice()), Some(vec![Item::InitializationItem].encode()));
 
@@ -1568,7 +1647,7 @@ mod tests {
 
 		// Then only initialization item and second (committed) item should persist.
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(
 				ext.storage(key.as_slice()),
 				Some(vec![Item::InitializationItem, Item::CommittedItem].encode()),
@@ -1579,10 +1658,7 @@ mod tests {
 	fn test_compact(remote_proof: StorageProof, remote_root: &sp_core::H256) -> StorageProof {
 		let compact_remote_proof =
 			remote_proof.into_compact_proof::<BlakeTwo256>(*remote_root).unwrap();
-		compact_remote_proof
-			.to_storage_proof::<BlakeTwo256>(Some(remote_root))
-			.unwrap()
-			.0
+		compact_remote_proof.to_storage_proof::<BlakeTwo256>(remote_root).unwrap().0
 	}
 
 	#[test]
@@ -1712,7 +1788,7 @@ mod tests {
 									key.clone(),
 									Some(value.clone()),
 								));
-								break
+								break;
 							}
 						}
 					}
@@ -1903,7 +1979,7 @@ mod tests {
 			.unwrap();
 
 			if completed_depth == 0 {
-				break
+				break;
 			}
 			assert!(result.update_last_key(completed_depth, &mut start_at));
 		}
@@ -1985,10 +2061,10 @@ mod tests {
 
 		let mut transaction = {
 			let backend = test_trie(state_version, None, None);
-			let mut ext = Ext::new(&mut overlay, &backend, None);
+			let mut ext = Ext::new(&mut overlay, &backend, None, state_version);
 			ext.set_child_storage(&child_info_1, b"abc".to_vec(), b"def".to_vec());
 			ext.set_child_storage(&child_info_2, b"abc".to_vec(), b"def".to_vec());
-			ext.storage_root(state_version);
+			ext.storage_root();
 			overlay.drain_storage_changes(&backend, state_version).unwrap().transaction
 		};
 		let mut duplicate = false;
@@ -2021,7 +2097,7 @@ mod tests {
 		assert_eq!(overlay.storage(b"bbb"), None);
 
 		{
-			let mut ext = Ext::new(&mut overlay, backend, None);
+			let mut ext = Ext::new(&mut overlay, backend, None, StateVersion::default());
 			assert_eq!(ext.storage(b"bbb"), Some(vec![]));
 			assert_eq!(ext.storage(b"ccc"), Some(vec![]));
 			ext.clear_storage(b"ccc");

@@ -1,0 +1,42 @@
+title: "Introduce `MaxParachainBlockWeight` and related functionality"
+doc:
+- audience: Runtime Dev
+  description: |
+    This PR introduces `MaxParachainBlockWeight` to calculate the max weight per parachain block dynamically.
+    This is a preparation for Block Bundling which requires that the maximum block weight is dynamic.
+    Block bundling requires a dynamic maximum block weight because it bundles multiple blocks into one PoV.
+    Each PoV gets 2s of execution time and 10MiB of proof size. These resources need to be split up between
+    all the blocks of one PoV.
+    
+    Additionally, this PR adds UMP message size tracking and enforcement across PoV to ensure that message
+    size limits are respected when multiple blocks are bundled in the same PoV.
+
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: frame-support
+  bump: patch
+- name: sp-runtime
+  bump: patch
+- name: frame-system
+  bump: patch
+- name: cumulus-primitives-core
+  bump: patch
+- name: polkadot-primitives
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch

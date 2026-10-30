@@ -92,7 +92,7 @@ pub type BlockNumberFor<T> =
 	Decode,
 	DecodeWithMemTracking,
 	Default,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -104,7 +104,18 @@ pub struct Timepoint<BlockNumber> {
 }
 
 /// An open multisig operation.
-#[derive(Clone, Eq, PartialEq, Encode, Decode, Default, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Clone,
+	Eq,
+	PartialEq,
+	Encode,
+	Decode,
+	Default,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+	DecodeWithMemTracking,
+)]
 #[scale_info(skip_type_params(MaxApprovals))]
 pub struct Multisig<BlockNumber, Balance, AccountId, MaxApprovals>
 where
@@ -134,6 +145,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The overarching call type.
@@ -226,9 +238,10 @@ pub mod pallet {
 		SignatoriesOutOfOrder,
 		/// The sender was contained in the other signatories; it shouldn't be.
 		SenderInSignatories,
-		/// Multisig operation not found when attempting to cancel.
+		/// Multisig operation not found in storage.
 		NotFound,
-		/// Only the account that originally created the multisig is able to cancel it.
+		/// Only the account that originally created the multisig is able to cancel it or update
+		/// its deposits.
 		NotOwner,
 		/// No timepoint was given, yet the multisig operation is already underway.
 		NoTimepoint,
@@ -268,6 +281,13 @@ pub mod pallet {
 			timepoint: Timepoint<BlockNumberFor<T>>,
 			multisig: T::AccountId,
 			call_hash: CallHash,
+		},
+		/// The deposit for a multisig operation has been updated/poked.
+		DepositPoked {
+			who: T::AccountId,
+			call_hash: CallHash,
+			old_deposit: BalanceOf<T>,
+			new_deposit: BalanceOf<T>,
 		},
 	}
 
@@ -309,12 +329,20 @@ pub mod pallet {
 			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
 			let other_signatories_len = other_signatories.len();
 			ensure!(other_signatories_len < max_sigs, Error::<T>::TooManySignatories);
-			let signatories = Self::ensure_sorted_and_insert(other_signatories, who)?;
+			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
 
 			let id = Self::multi_account_id(&signatories, 1);
 
-			let call_len = call.using_encoded(|c| c.len());
-			let result = call.dispatch(RawOrigin::Signed(id).into());
+			let (call_len, call_hash) = call.using_encoded(|c| (c.len(), blake2_256(&c)));
+			let result = call.dispatch(RawOrigin::Signed(id.clone()).into());
+
+			Self::deposit_event(Event::MultisigExecuted {
+				approving: who,
+				timepoint: Self::timepoint(),
+				multisig: id,
+				call_hash,
+				result: result.map(|_| ()).map_err(|e| e.error),
+			});
 
 			result
 				.map(|post_dispatch_info| {
@@ -340,7 +368,9 @@ pub mod pallet {
 		/// Register approval for a dispatch to be made from a deterministic composite account if
 		/// approved by a total of `threshold - 1` of `other_signatories`.
 		///
-		/// If there are enough, then dispatch the call.
+		/// **If the approval threshold is met (including the sender's approval), this will
+		/// immediately execute the call.** This is the only way to execute a multisig call -
+		/// `approve_as_multi` will never trigger execution.
 		///
 		/// Payment: `DepositBase` will be reserved if this is the first approval, plus
 		/// `threshold` times `DepositFactor`. It is returned once this dispatch happens or
@@ -356,8 +386,9 @@ pub mod pallet {
 		/// transaction index) of the first approval transaction.
 		/// - `call`: The call to be executed.
 		///
-		/// NOTE: Unless this is the final approval, you will generally want to use
-		/// `approve_as_multi` instead, since it only requires a hash of the call.
+		/// NOTE: For intermediate approvals (not the final approval), you should generally use
+		/// `approve_as_multi` instead, since it only requires a hash of the call and is more
+		/// efficient.
 		///
 		/// Result is equivalent to the dispatched result if `threshold` is exactly `1`. Otherwise
 		/// on success, result is `Ok` and the result from the interior call, if it was executed,
@@ -408,6 +439,13 @@ pub mod pallet {
 		/// Register approval for a dispatch to be made from a deterministic composite account if
 		/// approved by a total of `threshold - 1` of `other_signatories`.
 		///
+		/// **This function will NEVER execute the call, even if the approval threshold is
+		/// reached.** It only registers approval. To actually execute the call, `as_multi` must
+		/// be called with the full call data by any of the signatories.
+		///
+		/// This function is more efficient than `as_multi` for intermediate approvals since it
+		/// only requires the call hash, not the full call data.
+		///
 		/// Payment: `DepositBase` will be reserved if this is the first approval, plus
 		/// `threshold` times `DepositFactor`. It is returned once this dispatch happens or
 		/// is cancelled.
@@ -422,7 +460,8 @@ pub mod pallet {
 		/// transaction index) of the first approval transaction.
 		/// - `call_hash`: The hash of the call to be executed.
 		///
-		/// NOTE: If this is the final approval, you will want to use `as_multi` instead.
+		/// NOTE: To execute the call after approvals are gathered, any signatory must call
+		/// `as_multi` with the full call data. This function cannot execute the call.
 		///
 		/// ## Complexity
 		/// - `O(S)`.
@@ -516,6 +555,84 @@ pub mod pallet {
 				call_hash,
 			});
 			Ok(())
+		}
+
+		/// Poke the deposit reserved for an existing multisig operation.
+		///
+		/// The dispatch origin for this call must be _Signed_ and must be the original depositor of
+		/// the multisig operation.
+		///
+		/// The transaction fee is waived if the deposit amount has changed.
+		///
+		/// - `threshold`: The total number of approvals needed for this multisig.
+		/// - `other_signatories`: The accounts (other than the sender) who are part of the
+		///   multisig.
+		/// - `call_hash`: The hash of the call this deposit is reserved for.
+		///
+		/// Emits `DepositPoked` if successful.
+		#[pallet::call_index(4)]
+		#[pallet::weight(T::WeightInfo::poke_deposit(other_signatories.len() as u32))]
+		pub fn poke_deposit(
+			origin: OriginFor<T>,
+			threshold: u16,
+			other_signatories: Vec<T::AccountId>,
+			call_hash: [u8; 32],
+		) -> DispatchResultWithPostInfo {
+			let who = ensure_signed(origin)?;
+			ensure!(threshold >= 2, Error::<T>::MinimumThreshold);
+			let max_sigs = T::MaxSignatories::get() as usize;
+			ensure!(!other_signatories.is_empty(), Error::<T>::TooFewSignatories);
+			ensure!(other_signatories.len() < max_sigs, Error::<T>::TooManySignatories);
+			// Get the multisig account ID
+			let signatories = Self::ensure_sorted_and_insert(other_signatories, who.clone())?;
+			let id = Self::multi_account_id(&signatories, threshold);
+
+			Multisigs::<T>::try_mutate(
+				&id,
+				call_hash,
+				|maybe_multisig| -> DispatchResultWithPostInfo {
+					let mut multisig = maybe_multisig.take().ok_or(Error::<T>::NotFound)?;
+					ensure!(multisig.depositor == who, Error::<T>::NotOwner);
+
+					// Calculate the new deposit
+					let new_deposit = Self::deposit(threshold);
+					let old_deposit = multisig.deposit;
+
+					if new_deposit == old_deposit {
+						*maybe_multisig = Some(multisig);
+						return Ok(Pays::Yes.into());
+					}
+
+					// Update the reserved amount
+					if new_deposit > old_deposit {
+						let extra = new_deposit.saturating_sub(old_deposit);
+						T::Currency::reserve(&who, extra)?;
+					} else {
+						let excess = old_deposit.saturating_sub(new_deposit);
+						let remaining_unreserved = T::Currency::unreserve(&who, excess);
+						if !remaining_unreserved.is_zero() {
+							defensive!(
+								"Failed to unreserve for full amount for multisig. (Call Hash, Requested, Actual): ",
+								(call_hash, excess, excess.saturating_sub(remaining_unreserved))
+							);
+						}
+					}
+
+					// Update storage
+					multisig.deposit = new_deposit;
+					*maybe_multisig = Some(multisig);
+
+					// Emit event
+					Self::deposit_event(Event::DepositPoked {
+						who: who.clone(),
+						call_hash,
+						old_deposit,
+						new_deposit,
+					});
+
+					Ok(Pays::No.into())
+				},
+			)
 		}
 	}
 }
@@ -634,7 +751,7 @@ impl<T: Config> Pallet<T> {
 			ensure!(maybe_timepoint.is_none(), Error::<T>::UnexpectedTimepoint);
 
 			// Just start the operation by recording it in storage.
-			let deposit = T::DepositBase::get() + T::DepositFactor::get() * threshold.into();
+			let deposit = Self::deposit(threshold);
 
 			T::Currency::reserve(&who, deposit)?;
 
@@ -688,6 +805,13 @@ impl<T: Config> Pallet<T> {
 		}
 		signatories.insert(index, who);
 		Ok(signatories)
+	}
+
+	/// Calculate the deposit for a multisig operation.
+	///
+	/// The deposit is calculated as `DepositBase + DepositFactor * threshold`.
+	pub fn deposit(threshold: u16) -> BalanceOf<T> {
+		T::DepositBase::get() + T::DepositFactor::get() * threshold.into()
 	}
 }
 

@@ -20,11 +20,11 @@ use frame_support::{
 	assert_ok, derive_impl,
 	pallet_prelude::*,
 	parameter_types,
-	traits::{ConstU64, Currency, VariantCountOf},
+	traits::{ConstU64, Currency},
 	PalletId,
 };
 
-use sp_runtime::{traits::IdentityLookup, BoundedVec, BuildStorage, Perbill};
+use sp_runtime::{traits::IdentityLookup, BuildStorage, Perbill};
 
 use frame_election_provider_support::{
 	bounds::{ElectionBounds, ElectionBoundsBuilder},
@@ -70,8 +70,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
@@ -114,6 +112,7 @@ impl pallet_staking::Config for Runtime {
 	type VoterList = pallet_staking::UseNominatorsAndValidatorsMap<Self>;
 	type TargetList = pallet_staking::UseValidatorsMap<Self>;
 	type EventListeners = (Pools, DelegatedStaking);
+	type Filter = pallet_nomination_pools::AllPoolMembers<Self>;
 }
 
 parameter_types! {
@@ -155,7 +154,7 @@ impl pallet_nomination_pools::Config for Runtime {
 	type RewardCounter = sp_runtime::FixedU128;
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
-	type PostUnbondingPoolsWindow = ConstU32<2>;
+	type MaxUnbondingPools = ConstU32<5>;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = ConstU32<256>;
 	type MaxUnbonding = MaxUnbonding;
@@ -164,6 +163,7 @@ impl pallet_nomination_pools::Config for Runtime {
 		pallet_nomination_pools::adapter::DelegateStake<Self, Staking, DelegatedStaking>;
 	type AdminOrigin = frame_system::EnsureRoot<Self::AccountId>;
 	type BlockNumberProvider = System;
+	type Filter = pallet_staking::AllStakers<Runtime>;
 }
 
 frame_support::construct_runtime!(
@@ -222,7 +222,7 @@ impl ExtBuilder {
 			// ideal validator count
 			validator_count: 2,
 			minimum_validator_count: 1,
-			invulnerables: BoundedVec::new(),
+			invulnerables: vec![],
 			slash_reward_fraction: Perbill::from_percent(10),
 			min_nominator_bond: ExistentialDeposit::get(),
 			min_validator_bond: ExistentialDeposit::get(),

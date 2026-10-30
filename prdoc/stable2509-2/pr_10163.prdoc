@@ -1,0 +1,7 @@
+title: Better hadling of held off collations for AHM stop-gap solution
+doc:
+- audience: Node Dev
+  description: Make logging around held off AHM collations better.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

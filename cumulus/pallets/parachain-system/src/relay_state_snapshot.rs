@@ -98,6 +98,10 @@ pub enum Error {
 	HrmpChannel(ParaId, ParaId, ReadEntryErr),
 	/// The latest included parachain head cannot be extracted.
 	ParaHead(ReadEntryErr),
+	/// The relay chain authorities cannot be extracted
+	Authorities(ReadEntryErr),
+	/// The relay chain authorities for the next epoch cannot be extracted
+	NextAuthorities(ReadEntryErr),
 }
 
 #[derive(Debug)]
@@ -168,7 +172,7 @@ impl RelayChainStateProof {
 	) -> Result<Self, Error> {
 		let db = proof.into_memory_db::<HashingFor<relay_chain::Block>>();
 		if !db.contains(&relay_parent_storage_root, EMPTY_PREFIX) {
-			return Err(Error::RootMismatch)
+			return Err(Error::RootMismatch);
 		}
 		let trie_backend = TrieBackendBuilder::new(db, relay_parent_storage_root).build();
 
@@ -293,6 +297,26 @@ impl RelayChainStateProof {
 			.map_err(Error::ParaHead)
 	}
 
+	/// Read relay chain authorities.
+	pub fn read_authorities(
+		&self,
+	) -> Result<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>, Error>
+	{
+		read_entry(&self.trie_backend, &relay_chain::well_known_keys::AUTHORITIES, None)
+			.map_err(Error::Authorities)
+	}
+
+	/// Read relay chain authorities for the next epoch.
+	pub fn read_next_authorities(
+		&self,
+	) -> Result<
+		Option<Vec<(sp_consensus_babe::AuthorityId, sp_consensus_babe::BabeAuthorityWeight)>>,
+		Error,
+	> {
+		read_optional_entry(&self.trie_backend, &relay_chain::well_known_keys::NEXT_AUTHORITIES)
+			.map_err(Error::NextAuthorities)
+	}
+
 	/// Read the [`Slot`](relay_chain::Slot) from the relay chain state proof.
 	///
 	/// The slot is slot of the relay chain block this state proof was extracted from.
@@ -358,5 +382,21 @@ impl RelayChainStateProof {
 		T: Decode,
 	{
 		read_optional_entry(&self.trie_backend, key).map_err(Error::ReadOptionalEntry)
+	}
+
+	/// Read a value from a child trie in the relay chain state proof.
+	///
+	/// Returns `Ok(Some(value))` if the key exists in the child trie,
+	/// `Ok(None)` if the key doesn't exist,
+	/// or `Err` if there was a proof error.
+	pub fn read_child_storage(
+		&self,
+		child_info: &sp_core::storage::ChildInfo,
+		key: &[u8],
+	) -> Result<Option<Vec<u8>>, Error> {
+		use sp_state_machine::Backend;
+		self.trie_backend
+			.child_storage(child_info, key)
+			.map_err(|_| Error::ReadEntry(ReadEntryErr::Proof))
 	}
 }

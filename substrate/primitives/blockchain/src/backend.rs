@@ -19,6 +19,7 @@
 
 use codec::{Decode, Encode};
 use parking_lot::RwLock;
+use sp_core::H256;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT, NumberFor, Zero},
@@ -237,15 +238,27 @@ pub trait Backend<Block: BlockT>:
 		Ok(None)
 	}
 
-	/// Get single indexed transaction by content hash. Note that this will only fetch transactions
-	/// that are indexed by the runtime with `storage_index_transaction`.
-	fn indexed_transaction(&self, hash: Block::Hash) -> Result<Option<Vec<u8>>>;
+	/// Get single indexed transaction by content hash (BLAKE2b-256).
+	/// Note that this will only fetch transactions that are indexed
+	/// by the runtime with `storage_index_transaction`.
+	fn indexed_transaction(&self, hash: H256) -> Result<Option<Vec<u8>>>;
 
-	/// Check if indexed transaction exists.
-	fn has_indexed_transaction(&self, hash: Block::Hash) -> Result<bool> {
+	/// Check if indexed transaction exists given its BLAKE2b-256 hash.
+	fn has_indexed_transaction(&self, hash: H256) -> Result<bool> {
 		Ok(self.indexed_transaction(hash)?.is_some())
 	}
 
+	/// Get the BLAKE2b-256 hashes of all indexed transactions in a block, including renewed
+	/// transactions.
+	///
+	/// Note that this will only fetch transactions that are indexed by the runtime with
+	/// `storage_index_transaction`.
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> Result<Option<Vec<H256>>>;
+
+	/// Get all indexed transactions for a block, including renewed transactions.
+	///
+	/// Note that this will only fetch transactions that are indexed by the runtime with
+	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
 
 	/// Returns all leaves that will be displaced after the block finalization.
@@ -253,7 +266,13 @@ pub trait Backend<Block: BlockT>:
 		&self,
 		finalized_block_hash: Block::Hash,
 		finalized_block_number: NumberFor<Block>,
+		finalized_block_parent_hash: Block::Hash,
 	) -> std::result::Result<DisplacedLeavesAfterFinalization<Block>, Error> {
+		// There are no forks at genesis.
+		if finalized_block_number.is_zero() {
+			return Ok(DisplacedLeavesAfterFinalization::default());
+		}
+
 		let leaves = self.leaves()?;
 
 		let now = std::time::Instant::now();
@@ -265,37 +284,14 @@ pub trait Backend<Block: BlockT>:
 			"Checking for displaced leaves after finalization."
 		);
 
-		// If we have only one leaf there are no forks, and we can return early.
-		if finalized_block_number == Zero::zero() || leaves.len() == 1 {
-			return Ok(DisplacedLeavesAfterFinalization::default());
-		}
-
 		// Store hashes of finalized blocks for quick checking later, the last block is the
 		// finalized one
 		let mut finalized_chain = VecDeque::new();
-		let current_finalized = match self.header_metadata(finalized_block_hash) {
-			Ok(metadata) => metadata,
-			Err(Error::UnknownBlock(_)) => {
-				debug!(
-					target: crate::LOG_TARGET,
-					hash = ?finalized_block_hash,
-					elapsed = ?now.elapsed(),
-					"Tried to fetch unknown block, block ancestry has gaps.",
-				);
-				return Ok(DisplacedLeavesAfterFinalization::default());
-			},
-			Err(e) => {
-				debug!(
-					target: crate::LOG_TARGET,
-					hash = ?finalized_block_hash,
-					err = ?e,
-					elapsed = ?now.elapsed(),
-					"Failed to fetch block.",
-				);
-				return Err(e);
-			},
-		};
-		finalized_chain.push_front(MinimalBlockMetadata::from(&current_finalized));
+		finalized_chain.push_front(MinimalBlockMetadata {
+			number: finalized_block_number,
+			hash: finalized_block_hash,
+			parent: finalized_block_parent_hash,
+		});
 
 		// Local cache is a performance optimization in case of finalized block deep below the
 		// tip of the chain with a lot of leaves above finalized block

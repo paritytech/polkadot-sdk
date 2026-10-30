@@ -34,7 +34,8 @@ pub mod pallet {
 	use frame_support::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeCall: Decode> {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
@@ -106,14 +107,17 @@ pub mod pallet {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } =>
-							(Err(error), Event::Fail { message_id: Some(hash), error }),
-						Outcome::Complete { used } =>
-							(Ok(used), Event::Success { message_id: Some(hash) }),
+						Outcome::Error(InstructionError { error, .. }) => {
+							(Err(error), Event::Fail { message_id: Some(hash), error })
+						},
+						Outcome::Complete { used } => {
+							(Ok(used), Event::Success { message_id: Some(hash) })
+						},
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail { message_id: Some(hash), error }),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail { message_id: Some(hash), error }),
 					}
 				},
 				Err(()) => (
@@ -130,8 +134,10 @@ pub mod pallet {
 		fn handle_xcmp_messages<'a, I: Iterator<Item = (ParaId, RelayBlockNumber, &'a [u8])>>(
 			iter: I,
 			max_weight: xcm::latest::Weight,
-		) -> xcm::latest::Weight {
+		) -> (usize, Weight) {
+			let mut num_processed_pages = 0;
 			for (sender, sent_at, data) in iter {
+				num_processed_pages += 1;
 				let mut data_ref = data;
 				let _ = XcmpMessageFormat::decode(&mut data_ref)
 					.expect("Simulator encodes with versioned xcm format; qed");
@@ -147,7 +153,7 @@ pub mod pallet {
 					}
 				}
 			}
-			max_weight
+			(num_processed_pages, max_weight)
 		}
 	}
 
@@ -164,8 +170,9 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidFormat { message_id: id });
 					},
 					Ok(versioned) => match Xcm::try_from(versioned) {
-						Err(()) =>
-							Self::deposit_event(Event::UnsupportedVersion { message_id: id }),
+						Err(()) => {
+							Self::deposit_event(Event::UnsupportedVersion { message_id: id })
+						},
 						Ok(x) => {
 							let outcome = T::XcmExecutor::prepare_and_execute(
 								Parent,

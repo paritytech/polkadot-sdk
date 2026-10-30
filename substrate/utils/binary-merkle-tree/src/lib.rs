@@ -56,6 +56,23 @@ where
 	merkelize::<H, _, _>(iter, &mut ()).into()
 }
 
+/// Construct a root hash of a Binary Merkle Tree created from given leaves.
+///
+/// This is a raw version of the [`merkle_root`] function that expects the hashes of the leaves and
+/// not the leaves itself.
+///
+/// See crate-level docs for details about Merkle Tree construction.
+///
+/// In case an empty list of leaves is passed the function returns a 0-filled hash.
+pub fn merkle_root_raw<H, I>(leaves: I) -> H::Out
+where
+	H: Hasher,
+	H::Out: Default + AsRef<[u8]>,
+	I: IntoIterator<Item = H::Out>,
+{
+	merkelize::<H, _, _>(leaves.into_iter(), &mut ()).into()
+}
+
 fn merkelize<H, V, I>(leaves: I, visitor: &mut V) -> H::Out
 where
 	H: Hasher,
@@ -131,6 +148,49 @@ impl<T> Visitor<T> for () {
 	fn visit(&mut self, _index: u32, _left: &Option<T>, _right: &Option<T>) {}
 }
 
+/// Maximum number of nodes in a single-leaf proof, i.e. `ceil(log2(number_of_leaves))`.
+fn proof_capacity(number_of_leaves: u32) -> usize {
+	// `checked_ilog2` is `None` for 0, so empty and single-leaf trees map to a capacity of 0.
+	number_of_leaves
+		.saturating_sub(1)
+		.checked_ilog2()
+		.map_or(0, |log| log as usize + 1)
+}
+
+/// The struct collects a proof for single leaf.
+struct ProofCollection<T> {
+	proof: Vec<T>,
+	position: u32,
+}
+
+impl<T> ProofCollection<T> {
+	fn new(position: u32, number_of_leaves: u32) -> Self {
+		// Size the proof up front so collecting it does not reallocate.
+		ProofCollection { proof: Vec::with_capacity(proof_capacity(number_of_leaves)), position }
+	}
+}
+
+impl<T: Copy> Visitor<T> for ProofCollection<T> {
+	fn move_up(&mut self) {
+		self.position /= 2;
+	}
+
+	fn visit(&mut self, index: u32, left: &Option<T>, right: &Option<T>) {
+		// we are at left branch - right goes to the proof.
+		if self.position == index {
+			if let Some(right) = right {
+				self.proof.push(*right);
+			}
+		}
+		// we are at right branch - left goes to the proof.
+		if self.position == index + 1 {
+			if let Some(left) = left {
+				self.proof.push(*left);
+			}
+		}
+	}
+}
+
 /// Construct a Merkle Proof for leaves given by indices.
 ///
 /// The function constructs a (partial) Merkle Tree first and stores all elements required
@@ -158,41 +218,56 @@ where
 		hash
 	});
 
-	/// The struct collects a proof for single leaf.
-	struct ProofCollection<T> {
-		proof: Vec<T>,
-		position: u32,
-	}
+	let number_of_leaves = iter.len() as u32;
+	let mut collect_proof = ProofCollection::new(leaf_index, number_of_leaves);
 
-	impl<T> ProofCollection<T> {
-		fn new(position: u32) -> Self {
-			ProofCollection { proof: Default::default(), position }
-		}
-	}
+	let root = merkelize::<H, _, _>(iter, &mut collect_proof);
+	let leaf = leaf.expect("Requested `leaf_index` is greater than number of leaves.");
 
-	impl<T: Copy> Visitor<T> for ProofCollection<T> {
-		fn move_up(&mut self) {
-			self.position /= 2;
-		}
+	#[cfg(feature = "debug")]
+	log::debug!(
+		"[merkle_proof] Proof: {:?}",
+		collect_proof
+			.proof
+			.iter()
+			.map(|s| array_bytes::bytes2hex("", s))
+			.collect::<Vec<_>>()
+	);
 
-		fn visit(&mut self, index: u32, left: &Option<T>, right: &Option<T>) {
-			// we are at left branch - right goes to the proof.
-			if self.position == index {
-				if let Some(right) = right {
-					self.proof.push(*right);
-				}
-			}
-			// we are at right branch - left goes to the proof.
-			if self.position == index + 1 {
-				if let Some(left) = left {
-					self.proof.push(*left);
-				}
-			}
+	MerkleProof { root, proof: collect_proof.proof, number_of_leaves, leaf_index, leaf }
+}
+
+/// Construct a Merkle Proof for leaves given by indices.
+///
+/// This is a raw version of the [`merkle_proof`] function that expects the hashes of the leaves and
+/// not the leaves itself.
+///
+/// The function constructs a (partial) Merkle Tree first and stores all elements required
+/// to prove requested item (leaf) given the root hash.
+///
+/// Both the Proof and the Root Hash is returned.
+///
+/// # Panic
+///
+/// The function will panic if given `leaf_index` is greater than the number of leaves.
+pub fn merkle_proof_raw<H, I>(leaves: I, leaf_index: u32) -> MerkleProof<H::Out, H::Out>
+where
+	H: Hasher,
+	H::Out: Default + Copy + AsRef<[u8]>,
+	I: IntoIterator<Item = H::Out>,
+	I::IntoIter: ExactSizeIterator,
+{
+	let mut leaf = None;
+	let iter = leaves.into_iter().enumerate().map(|(idx, l)| {
+		let hash = l;
+		if idx as u32 == leaf_index {
+			leaf = Some(l);
 		}
-	}
+		hash
+	});
 
 	let number_of_leaves = iter.len() as u32;
-	let mut collect_proof = ProofCollection::new(leaf_index);
+	let mut collect_proof = ProofCollection::new(leaf_index, number_of_leaves);
 
 	let root = merkelize::<H, _, _>(iter, &mut collect_proof);
 	let leaf = leaf.expect("Requested `leaf_index` is greater than number of leaves.");
@@ -249,7 +324,7 @@ where
 	L: Into<Leaf<'a, H::Out>>,
 {
 	if leaf_index >= number_of_leaves {
-		return false
+		return false;
 	}
 
 	let leaf_hash = match leaf.into() {
@@ -342,7 +417,7 @@ where
 					"[merkelize_row] Next: {:?}",
 					next.iter().map(|s| array_bytes::bytes2hex("", s)).collect::<Vec<_>>()
 				);
-				return Err(next)
+				return Err(next);
 			},
 		}
 	}
@@ -519,7 +594,7 @@ mod tests {
 		let mut data = vec![];
 		for i in 1..16 {
 			for c in 'a'..'z' {
-				if c as usize % i != 0 {
+				if !(c as usize).is_multiple_of(i) {
 					data.push(c.to_string());
 				}
 			}
@@ -797,5 +872,44 @@ mod tests {
 				.to_vec(),
 			}
 		);
+	}
+
+	#[test]
+	fn proof_capacity_matches_ceil_log2() {
+		// (number_of_leaves, expected `ceil(log2(n))`).
+		let cases = [
+			(0, 0),
+			(1, 0),
+			(2, 1),
+			(3, 2),
+			(4, 2),
+			(5, 3),
+			(7, 3),
+			(8, 3),
+			(9, 4),
+			(1 << 20, 20),
+			(u32::MAX, 32),
+		];
+		for (n, expected) in cases {
+			assert_eq!(proof_capacity(n), expected, "n={n}");
+		}
+	}
+
+	#[test]
+	fn proof_length_never_exceeds_tree_height() {
+		// A proof must never exceed `proof_capacity`. Cover sizes either side of a power of
+		// two (128), where an odd node gets promoted instead of adding a proof element.
+		for n in 1u32..=130 {
+			let data: Vec<H256> = (0..n).map(|i| H256::repeat_byte(i as u8)).collect();
+			let max = proof_capacity(n);
+			for leaf_index in 0..n {
+				let proof = merkle_proof::<Keccak256, _, _>(data.clone(), leaf_index);
+				assert!(
+					proof.proof.len() <= max,
+					"n={n}, leaf={leaf_index}: proof len {} exceeds height {max}",
+					proof.proof.len(),
+				);
+			}
+		}
 	}
 }

@@ -35,7 +35,7 @@ use frame_election_provider_support::ScoreProvider;
 use frame_support::{
 	defensive, ensure,
 	traits::{Defensive, DefensiveOption, Get},
-	CloneNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound, RuntimeDebugNoBound,
+	CloneNoBound, DebugNoBound, DefaultNoBound, EqNoBound, PalletError, PartialEqNoBound,
 };
 use scale_info::TypeInfo;
 use sp_runtime::traits::{Bounded, Zero};
@@ -71,6 +71,8 @@ pub enum ListError {
 	NotInSameBag,
 	/// Given node id was not found.
 	NodeNotFound,
+	/// The List is locked, therefore updates cannot happen now.
+	Locked,
 }
 
 #[cfg(test)]
@@ -91,7 +93,6 @@ pub fn notional_bag_for<T: Config<I>, I: 'static>(score: T::Score) -> T::Score {
 
 /// The **ONLY** entry point of this module. All operations to the bags-list should happen through
 /// this interface. It is forbidden to access other module members directly.
-//
 // Data structure providing efficient mostly-accurate selection of the top N id by `Score`.
 //
 // It's implemented as a set of linked lists. Each linked list comprises a bag of ids of
@@ -130,7 +131,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the number of ids migrated.
 	pub fn unsafe_regenerate(
 		all: impl IntoIterator<Item = T::AccountId>,
-		score_of: Box<dyn Fn(&T::AccountId) -> T::Score>,
+		score_of: Box<dyn Fn(&T::AccountId) -> Option<T::Score>>,
 	) -> u32 {
 		// NOTE: This call is unsafe for the same reason as SortedListProvider::unsafe_regenerate.
 		// I.e. because it can lead to many storage accesses.
@@ -162,7 +163,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	pub fn migrate(old_thresholds: &[T::Score]) -> u32 {
 		let new_thresholds = T::BagThresholds::get();
 		if new_thresholds == old_thresholds {
-			return 0
+			return 0;
 		}
 
 		// we can't check all preconditions, but we can check one
@@ -197,7 +198,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 			if !affected_old_bags.insert(affected_bag) {
 				// If the previous threshold list was [10, 20], and we insert [3, 5], then there's
 				// no point iterating through bag 10 twice.
-				continue
+				continue;
 			}
 
 			if let Some(bag) = Bag::<T, I>::get(affected_bag) {
@@ -209,7 +210,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// a removed bag means that all members of that bag must be rebagged
 		for removed_bag in removed_bags.clone() {
 			if !affected_old_bags.insert(removed_bag) {
-				continue
+				continue;
 			}
 
 			if let Some(bag) = Bag::<T, I>::get(removed_bag) {
@@ -318,13 +319,16 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns the final count of number of ids inserted.
 	fn insert_many(
 		ids: impl IntoIterator<Item = T::AccountId>,
-		score_of: impl Fn(&T::AccountId) -> T::Score,
+		score_of: impl Fn(&T::AccountId) -> Option<T::Score>,
 	) -> u32 {
 		let mut count = 0;
 		ids.into_iter().for_each(|v| {
-			let score = score_of(&v);
-			if Self::insert(v, score).is_ok() {
-				count += 1;
+			if let Some(score) = score_of(&v) {
+				if Self::insert(v, score).is_ok() {
+					count += 1;
+				}
+			} else {
+				// nada
 			}
 		});
 
@@ -336,7 +340,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Returns an error if the list already contains `id`.
 	pub(crate) fn insert(id: T::AccountId, score: T::Score) -> Result<(), ListError> {
 		if Self::contains(&id) {
-			return Err(ListError::Duplicate)
+			return Err(ListError::Duplicate);
 		}
 
 		let bag_score = notional_bag_for::<T, I>(score);
@@ -362,7 +366,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	/// Remove an id from the list, returning an error if `id` does not exists.
 	pub(crate) fn remove(id: &T::AccountId) -> Result<(), ListError> {
 		if !Self::contains(id) {
-			return Err(ListError::NodeNotFound)
+			return Err(ListError::NodeNotFound);
 		}
 		let _ = Self::remove_many(core::iter::once(id));
 		Ok(())
@@ -569,7 +573,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 		// build map of bags and the corresponding nodes to avoid multiple lookups
 		let mut bags_map = BTreeMap::<T::Score, Vec<T::AccountId>>::new();
 
-		let _ = active_bags.clone().try_for_each(|b| {
+		active_bags.clone().try_for_each(|b| {
 			bags_map.insert(
 				b.bag_upper,
 				b.iter().map(|n: Node<T, I>| n.id().clone()).collect::<Vec<_>>(),
@@ -638,7 +642,7 @@ impl<T: Config<I>, I: 'static> List<T, I> {
 	Decode,
 	MaxEncodedLen,
 	TypeInfo,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
@@ -742,7 +746,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 				// this should never happen, but this check prevents one path to a worst case
 				// infinite loop.
 				defensive!("system logic error: inserting a node who has the id of tail");
-				return
+				return;
 			};
 		}
 
@@ -842,14 +846,7 @@ impl<T: Config<I>, I: 'static> Bag<T, I> {
 
 /// A Node is the fundamental element comprising the doubly-linked list described by `Bag`.
 #[derive(
-	Encode,
-	Decode,
-	MaxEncodedLen,
-	TypeInfo,
-	CloneNoBound,
-	PartialEqNoBound,
-	EqNoBound,
-	RuntimeDebugNoBound,
+	Encode, Decode, MaxEncodedLen, TypeInfo, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T, I))]

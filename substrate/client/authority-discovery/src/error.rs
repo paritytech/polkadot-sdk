@@ -52,6 +52,9 @@ pub enum Error {
 	#[error("Failed to encode or decode scale payload.")]
 	EncodingDecodingScale(#[from] codec::Error),
 
+	#[error("Failed to encode or decode AddrCache.")]
+	EncodingDecodingAddrCache(String),
+
 	#[error("Failed to parse a libp2p multi address.")]
 	ParsingMultiaddress(#[from] sc_network::multiaddr::ParseError),
 

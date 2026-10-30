@@ -1,4 +1,4 @@
-# GHA for test-linux-stable-int, test-linux-stable, test-linux-stable-oldkernel
+# GHA for test-linux-stable-int, test-linux-stable
 name: tests linux stable
 
 on:
@@ -35,7 +35,7 @@ jobs:
       RUN_UI_TESTS: 1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: script
         id: required
         run: WASM_BUILD_NO_COLOR=1 forklift cargo test -p staging-node-cli --release --locked -- --ignored
@@ -61,7 +61,7 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
@@ -75,21 +75,16 @@ jobs:
   test-linux-stable:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
-    runs-on: ${{ matrix.runners }}
+    runs-on: ${{ needs.preflight.outputs.RUNNER }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         partition: [1/3, 2/3, 3/3]
-        runners:
-          [
-            "${{ needs.preflight.outputs.RUNNER }}",
-            "${{ needs.preflight.outputs.RUNNER_OLDLINUX }}",
-          ]
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
       # needed for tests that use unshare syscall
-      options: --security-opt seccomp=unconfined
+      options: --privileged
     env:
       RUST_TOOLCHAIN: stable
       # Enable debug assertions since we are running optimized builds for testing
@@ -97,7 +92,23 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install resolc
+        run: |
+          . ./.github/env
+          VERSION="$RESOLC_VERSION"
+          if command -v resolc >/dev/null 2>&1 && resolc --version 2>/dev/null | grep -q "$VERSION"; then
+            echo "resolc v$VERSION already present in image at $(command -v resolc)"
+            resolc --version
+          else
+            ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
+            echo "Downloading resolc v$VERSION from $ASSET_URL"
+            curl -Lsf --show-error \
+              --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors \
+              -o /usr/local/bin/resolc "$ASSET_URL"
+            chmod +x /usr/local/bin/resolc
+            resolc --version
+          fi
       - name: script
         id: required
         run: |
@@ -124,9 +135,6 @@ jobs:
 
   # some tests do not run with `try-runtime` feature enabled
   # https://github.com/paritytech/polkadot-sdk/pull/4251#discussion_r1624282143
-  #
-  # all_security_features_work and nonexistent_cache_dir are currently skipped
-  # becuase runners don't have the necessary permissions to run them
   test-linux-stable-no-try-runtime:
     needs: [preflight]
     if: ${{ needs.preflight.outputs.changes_rust }}
@@ -134,6 +142,7 @@ jobs:
     timeout-minutes: 60
     container:
       image: ${{ needs.preflight.outputs.IMAGE }}
+      options: --privileged
     strategy:
       fail-fast: false
       matrix:
@@ -145,7 +154,23 @@ jobs:
       RUSTFLAGS: "-Cdebug-assertions=y -Dwarnings"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install resolc
+        run: |
+          . ./.github/env
+          VERSION="$RESOLC_VERSION"
+          if command -v resolc >/dev/null 2>&1 && resolc --version 2>/dev/null | grep -q "$VERSION"; then
+            echo "resolc v$VERSION already present in image at $(command -v resolc)"
+            resolc --version
+          else
+            ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-x86_64-unknown-linux-musl"
+            echo "Downloading resolc v$VERSION from $ASSET_URL"
+            curl -Lsf --show-error \
+              --retry 5 --retry-delay 5 --retry-connrefused --retry-all-errors \
+              -o /usr/local/bin/resolc "$ASSET_URL"
+            chmod +x /usr/local/bin/resolc
+            resolc --version
+          fi
       - name: script
         id: required
         run: |
@@ -155,8 +180,7 @@ jobs:
                    --no-fail-fast \
                    --cargo-quiet \
                    --features experimental,ci-only-tests \
-                   --filter-expr " !test(/all_security_features_work/) - test(/nonexistent_cache_dir/)" \
-                   --partition count:${{ matrix.partition }} \
+                   --partition count:${{ matrix.partition }}
       - name: Stop all workflows if failed
         if: ${{ failure() && steps.required.conclusion == 'failure' && !github.event.pull_request.head.repo.fork }}
         uses: ./.github/actions/workflow-stopper
@@ -179,7 +203,7 @@ jobs:
     steps:
       - run: |
           tee resultfile <<< '${{ toJSON(needs) }}'
-          FAILURES=$(cat resultfile | grep '"result": "failure"' | wc -l)
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
           if [ $FAILURES -gt 0 ]; then
             echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
             exit 1

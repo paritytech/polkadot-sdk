@@ -1,0 +1,20 @@
+title: 'Optimize buffered offence storage and prevent unbounded growth in staking-async ah-client pallet'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Prevents duplicate offences for the same offender in the same session by keeping only the highest slash fraction
+    - Introduces `BufferedOffence` struct with optional reporter and slash fraction fields
+    - Restructures buffered offences storage from `Vec<(SessionIndex, Vec<Offence>)>` to nested `BTreeMap<SessionIndex, BTreeMap<AccountId, BufferedOffence>>`
+    - Adds `MaxOffenceBatchSize` configuration parameter for batching control
+    - Processes offences in batches with configurable size limits, sending only first session's offences per block
+    - Implements proper benchmarking infrastructure for `process_buffered_offences` function
+    - Adds WeightInfo trait with benchmarked weights for batch processing in `on_initialize` hook
+
+    This addresses potential memory issues and improves efficiency of offence handling during buffered operating mode while maintaining backward compatibility.
+crates:
+- name: pallet-staking-async-ah-client
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor

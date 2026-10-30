@@ -23,16 +23,20 @@ use sc_telemetry::{Telemetry, TelemetryWorkerHandle};
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_runtime::{generic, traits::BlakeTwo256};
 
-pub use parachains_common::{AccountId, Balance, Hash, Nonce};
+pub use parachains_common_types::{AccountId, Balance, Hash, Nonce};
 
 type Header<BlockNumber> = generic::Header<BlockNumber, BlakeTwo256>;
 pub type Block<BlockNumber> = generic::Block<Header<BlockNumber>, UncheckedExtrinsic>;
 
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type ParachainHostFunctions = cumulus_client_service::ParachainHostFunctions;
+pub type ParachainHostFunctions = (
+	cumulus_client_service::ParachainHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
+);
 #[cfg(feature = "runtime-benchmarks")]
 pub type ParachainHostFunctions = (
 	cumulus_client_service::ParachainHostFunctions,
+	sp_statement_store::runtime_api::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -50,11 +54,12 @@ pub type ParachainService<Block, RuntimeApi, BI, BIExtraReturnValue> = PartialCo
 	ParachainBackend<Block>,
 	(),
 	DefaultImportQueue<Block>,
-	TransactionPoolHandle<Block, ParachainClient<Block, RuntimeApi>>,
+	TransactionPoolHandle<Block>,
 	(
 		ParachainBlockImport<Block, BI>,
 		Option<Telemetry>,
 		Option<TelemetryWorkerHandle>,
 		BIExtraReturnValue,
+		sc_storage_chain_sync::BitswapHandleSlot,
 	),
 >;

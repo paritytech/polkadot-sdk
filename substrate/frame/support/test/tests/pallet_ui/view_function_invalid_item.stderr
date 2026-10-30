@@ -1,4 +1,4 @@
-error: Invalid pallet::view_functions_experimental, expected a function
+error: Invalid pallet::view_functions, expected a function
   --> tests/pallet_ui/view_function_invalid_item.rs:30:3
    |
 30 |         pub const SECONDS_PER_MINUTE: u32 = 60;

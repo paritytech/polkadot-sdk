@@ -1,18 +1,25 @@
 [package]
 name = "polkadot-primitives-test-helpers"
-publish = false
 version = "1.0.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
+description = "Test helpers for Polkadot runtime primitives"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
+codec = { features = ["bit-vec", "derive"], workspace = true }
 polkadot-primitives = { features = ["test"], workspace = true, default-features = true }
 rand = { workspace = true, default-features = true }
+scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 sp-application-crypto = { workspace = true }
 sp-core = { features = ["std"], workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+
+[dev-dependencies]
+bitvec = { features = ["alloc", "serde"], workspace = true }

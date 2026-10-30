@@ -22,9 +22,14 @@ use super::*;
 use core::array;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
-use sp_core::{twox_128, Get};
+use sp_core::Get;
+use sp_crypto_hashing::twox_128;
 use sp_io::{storage, KillStorageResult};
 use sp_runtime::traits::One;
+
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -152,7 +157,7 @@ mod benches {
 			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
-		assert_last_event::<T>(Event::UpgradeFailed {}.into());
+		assert_has_event::<T>(Event::UpgradeFailed {}.into());
 
 		Ok(())
 	}

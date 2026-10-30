@@ -85,6 +85,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The event type of this module.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event>
 			+ Into<<Self as frame_system::Config>::RuntimeEvent>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
@@ -125,6 +126,11 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
+
 		fn on_finalize(block_number: BlockNumberFor<T>) {
 			// check for scheduled pending authority set changes
 			if let Some(pending_change) = PendingChange::<T>::get() {
@@ -358,6 +364,7 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -518,7 +525,7 @@ impl<T: Config> Pallet<T> {
 
 			if forced.is_some() {
 				if NextForced::<T>::get().map_or(false, |next| next > scheduled_at) {
-					return Err(Error::<T>::TooSoon.into())
+					return Err(Error::<T>::TooSoon.into());
 				}
 
 				// only allow the next forced change when twice the window has passed since
@@ -590,6 +597,49 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_current_set_id()?;
+		Self::try_state_set_id_session_entries()?;
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * `SetIdSession` must contain an entry for `CurrentSetId`.
+	fn try_state_current_set_id() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_set_id = CurrentSetId::<T>::get();
+
+		frame_support::ensure!(
+			SetIdSession::<T>::get(current_set_id).is_some(),
+			"`SetIdSession` must contain an entry for `CurrentSetId`"
+		);
+
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * No entry in `SetIdSession` should have a set ID greater than `CurrentSetId`.
+	fn try_state_set_id_session_entries() -> Result<(), sp_runtime::TryRuntimeError> {
+		let current_set_id = CurrentSetId::<T>::get();
+
+		for (set_id, _) in SetIdSession::<T>::iter() {
+			frame_support::ensure!(
+				set_id <= current_set_id,
+				"`SetIdSession` contains an entry with a set ID greater than `CurrentSetId`"
+			);
+		}
+
+		Ok(())
+	}
+}
+
 impl<T: Config> sp_runtime::BoundToRuntimeAppPublic for Pallet<T> {
 	type Public = AuthorityId;
 }
@@ -612,41 +662,33 @@ where
 	where
 		I: Iterator<Item = (&'a T::AccountId, AuthorityId)>,
 	{
+		let mut current_set_id = CurrentSetId::<T>::get();
+
 		// Always issue a change if `session` says that the validators have changed.
 		// Even if their session keys are the same as before, the underlying economic
 		// identities have changed.
-		let current_set_id = if changed || Stalled::<T>::exists() {
+		if changed || Stalled::<T>::exists() {
 			let next_authorities = validators.map(|(_, k)| (k, 1)).collect::<Vec<_>>();
 
-			let res = if let Some((further_wait, median)) = Stalled::<T>::take() {
-				Self::schedule_change(next_authorities, further_wait, Some(median))
-			} else {
-				Self::schedule_change(next_authorities, Zero::zero(), None)
+			let res = match Stalled::<T>::get() {
+				Some((further_wait, median)) => {
+					Self::schedule_change(next_authorities, further_wait, Some(median))
+				},
+				None => Self::schedule_change(next_authorities, Zero::zero(), None),
 			};
 
 			if res.is_ok() {
-				let current_set_id = CurrentSetId::<T>::mutate(|s| {
-					*s += 1;
-					*s
-				});
+				Stalled::<T>::kill();
+
+				current_set_id += 1;
+				CurrentSetId::<T>::set(current_set_id);
 
 				let max_set_id_session_entries = T::MaxSetIdSessionEntries::get().max(1);
 				if current_set_id >= max_set_id_session_entries {
 					SetIdSession::<T>::remove(current_set_id - max_set_id_session_entries);
 				}
-
-				current_set_id
-			} else {
-				// either the session module signalled that the validators have changed
-				// or the set was stalled. but since we didn't successfully schedule
-				// an authority set change we do not increment the set id.
-				CurrentSetId::<T>::get()
 			}
-		} else {
-			// nothing's changed, neither economic conditions nor session keys. update the pointer
-			// of the current set.
-			CurrentSetId::<T>::get()
-		};
+		}
 
 		// update the mapping to note that the current set corresponds to the
 		// latest equivalent session (i.e. now).

@@ -1,0 +1,16 @@
+title: '[pallet-revive] Implement the consume_all_gas syscall'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR implements a new API `consume_all_gas` which is required for 100% EVM `INVALID` opcode compatibility.
+
+    Since ceding of all remaining gas is handled in the EVM interpreter,  I decided to not add a return flag but make this a dedicated syscall for consistency instead.
+
+    Didn't implement a benchmark since the first (and only) thing this does is consuming all remaining gas anyways.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

@@ -25,7 +25,6 @@ futures = { workspace = true }
 futures-timer = { workspace = true }
 log = { workspace = true, default-features = true }
 mixnet = { workspace = true }
-multiaddr = { workspace = true }
 parking_lot = { workspace = true, default-features = true }
 sc-client-api = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }

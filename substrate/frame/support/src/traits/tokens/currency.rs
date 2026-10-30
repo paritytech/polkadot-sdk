@@ -28,10 +28,11 @@ use crate::{dispatch::DispatchResult, traits::Get};
 use sp_runtime::{traits::MaybeSerializeDeserialize, DispatchError};
 
 mod reservable;
-pub use reservable::{NamedReservableCurrency, ReservableCurrency};
+pub use reservable::{NamedReservableCurrency, ReservableCurrency, ReservableWithName};
 mod lockable;
 pub use lockable::{
-	InspectLockableCurrency, LockIdentifier, LockableCurrency, VestedTransfer, VestingSchedule,
+	InspectLockableCurrency, LockIdentifier, LockableCurrency, NoVestedTransfers, VestedTransfer,
+	VestingSchedule,
 };
 
 /// Abstraction over a fungible assets system.

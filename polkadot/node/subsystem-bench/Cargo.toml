@@ -19,26 +19,23 @@ path = "src/cli/subsystem-bench.rs"
 # Prevent rustdoc error. Already documented from top-level Cargo.toml.
 doc = false
 
-
 [dependencies]
-assert_matches = { workspace = true }
 async-trait = { workspace = true }
 bincode = { workspace = true }
+bitvec = { workspace = true, default-features = true }
 clap = { features = ["derive"], workspace = true }
 color-eyre = { workspace = true }
 colored = { workspace = true }
 futures = { workspace = true }
-futures-timer = { workspace = true }
 gum = { workspace = true, default-features = true }
 hex = { workspace = true, default-features = true }
-jemalloc_pprof = { workspace = true, optional = true }
-log = { workspace = true, default-features = true }
+kvdb-memorydb = { workspace = true }
 polkadot-availability-bitfield-distribution = { workspace = true, default-features = true }
 polkadot-availability-distribution = { workspace = true, default-features = true }
 polkadot-availability-recovery = { features = ["subsystem-benchmarks"], workspace = true, default-features = true }
-polkadot-erasure-coding = { workspace = true, default-features = true }
+polkadot-dispute-distribution = { workspace = true, default-features = true }
 polkadot-node-core-av-store = { workspace = true, default-features = true }
-polkadot-node-core-chain-api = { workspace = true, default-features = true }
+polkadot-node-core-dispute-coordinator = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
@@ -46,21 +43,17 @@ polkadot-node-subsystem-types = { workspace = true, default-features = true }
 polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, features = ["test"] }
-polkadot-service = { workspace = true, default-features = true }
 polkadot-statement-distribution = { workspace = true, default-features = true }
+# `rand` only supports uniform distribution, we need normal distribution for latency.
 rand = { workspace = true, default-features = true }
+rand_distr = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 sha1 = { workspace = true }
 sp-core = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 tikv-jemallocator = { features = ["profiling", "unprefixed_malloc_on_supported_platforms"], workspace = true, optional = true }
-# `rand` only supports uniform distribution, we need normal distribution for latency.
-bitvec = { workspace = true, default-features = true }
-kvdb-memorydb = { workspace = true }
-rand_distr = { workspace = true }
 
-clap-num = { workspace = true }
 codec = { features = ["derive", "std"], workspace = true, default-features = true }
 itertools = { workspace = true }
 polkadot-node-metrics = { workspace = true, default-features = true }
@@ -86,19 +79,15 @@ sp-consensus-babe = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 sp-timestamp = { workspace = true, default-features = true }
 
-schnorrkel = { workspace = true }
-# rand_core should match schnorrkel
 orchestra = { features = ["futures_channel"], workspace = true }
 paste = { workspace = true, default-features = true }
 pyroscope = { workspace = true }
 pyroscope_pprofrs = { workspace = true }
 rand_chacha = { workspace = true, default-features = true }
-rand_core = { workspace = true }
 strum = { features = ["derive"], workspace = true, default-features = true }
 
 [features]
 default = []
 memprofile = [
-	"dep:jemalloc_pprof",
 	"dep:tikv-jemallocator",
 ]

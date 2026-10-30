@@ -30,6 +30,7 @@ use sc_client_api::{
 	Backend, BlockBackend, BlockchainEvents, ExecutorProvider, ProofProvider, StorageProvider,
 };
 use sc_rpc_api::{check_if_safe, DenyUnsafe};
+use sc_tracing::block::TracingExecuteBlock;
 use sp_api::{CallApiAt, Metadata, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_core::{
@@ -148,6 +149,15 @@ where
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
 
+	/// Run `method` re-enacting `block` at its parent state with a proof-size recorder, replaying
+	/// `block`'s stored recording when available.
+	fn call_recorded(
+		&self,
+		block: Block::Hash,
+		method: String,
+		call_data: Bytes,
+	) -> Result<Bytes, Error>;
+
 	/// New runtime version subscription
 	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink);
 
@@ -161,9 +171,14 @@ where
 }
 
 /// Create new state API that works on full node.
+///
+/// `execute_block` is the optional proof-size-recording block executor (`Some` on parachains).
+/// When `None`, `state_traceBlock` runs without recording and `state_callRecorded` reports
+/// `CallRecordedUnsupported`.
 pub fn new_full<BE, Block: BlockT, Client>(
 	client: Arc<Client>,
 	executor: SubscriptionTaskExecutor,
+	execute_block: Option<Arc<dyn TracingExecuteBlock<Block>>>,
 ) -> (State<Block, Client>, ChildState<Block, Client>)
 where
 	Block: BlockT + 'static,
@@ -183,9 +198,13 @@ where
 		+ 'static,
 	Client::Api: Metadata<Block>,
 {
-	let child_backend =
-		Box::new(self::state_full::FullState::new(client.clone(), executor.clone()));
-	let backend = Box::new(self::state_full::FullState::new(client, executor));
+	let child_backend = Box::new(self::state_full::FullState::new(
+		client.clone(),
+		executor.clone(),
+		execute_block.clone(),
+	));
+	let backend =
+		Box::new(self::state_full::FullState::new(client, executor, execute_block.clone()));
 	(State { backend }, ChildState { backend: child_backend })
 }
 
@@ -211,9 +230,11 @@ where
 
 	fn storage_keys(
 		&self,
+		ext: &Extensions,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Vec<StorageKey>, Error> {
+		check_if_safe(ext)?;
 		self.backend.storage_keys(block, key_prefix).map_err(Into::into)
 	}
 
@@ -235,7 +256,7 @@ where
 		block: Option<Block::Hash>,
 	) -> Result<Vec<StorageKey>, Error> {
 		if count > STORAGE_KEYS_PAGED_MAX_COUNT {
-			return Err(Error::InvalidCount { value: count, max: STORAGE_KEYS_PAGED_MAX_COUNT })
+			return Err(Error::InvalidCount { value: count, max: STORAGE_KEYS_PAGED_MAX_COUNT });
 		}
 		self.backend
 			.storage_keys_paged(block, prefix, count, start_key)
@@ -323,6 +344,17 @@ where
 		self.backend
 			.trace_block(block, targets, storage_keys, methods)
 			.map_err(Into::into)
+	}
+
+	fn call_recorded(
+		&self,
+		ext: &Extensions,
+		method: String,
+		data: Bytes,
+		block: Block::Hash,
+	) -> Result<Bytes, Error> {
+		check_if_safe(ext).map_err(|_| Error::CallRecordedDenied)?;
+		self.backend.call_recorded(block, method, data).map_err(Into::into)
 	}
 
 	fn subscribe_runtime_version(&self, pending: PendingSubscriptionSink) {
@@ -423,10 +455,12 @@ where
 {
 	fn storage_keys(
 		&self,
+		ext: &Extensions,
 		storage_key: PrefixedStorageKey,
 		key_prefix: StorageKey,
 		block: Option<Block::Hash>,
 	) -> Result<Vec<StorageKey>, Error> {
+		check_if_safe(ext)?;
 		self.backend.storage_keys(block, storage_key, key_prefix).map_err(Into::into)
 	}
 

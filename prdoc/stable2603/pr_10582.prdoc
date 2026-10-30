@@ -1,0 +1,306 @@
+title: Deprecate `RuntimeDebug` and replace it with `Debug`
+doc:
+- audience: Runtime Dev
+  description: "I compared multiple builds which each other:\n\n\n| Runtime | RuntimeDebug\
+    \ .compact.wasm | Debug .compact.wasm | \u0394 bytes | \u0394 % |\n|---------|---------------------------|---------------------|---------|-----|\n\
+    | westend-runtime | 10,004,155 | 10,093,902 | +89,747 | +0.90% |\n| asset-hub-westend-runtime\
+    \ | 13,453,435 | 13,491,827 | +38,392 | +0.29% |\n| bridge-hub-westend-runtime\
+    \ | 6,975,911 | 7,078,591 | +102,680 | +1.47% |\n| collectives-westend-runtime\
+    \ | 6,660,307 | 6,725,426 | +65,119 | +0.98% |\n| people-westend-runtime | 5,639,941\
+    \ | 5,661,539 | +21,598 | +0.38% |\n| coretime-westend-runtime | 5,667,343 | 5,689,961\
+    \ | +22,618 | +0.40% |\n| glutton-westend-runtime | 2,502,303 | 2,514,727 | +12,424\
+    \ | +0.50% |\n\n\n\n| Runtime | RuntimeDebug .compact.compressed.wasm | Debug\
+    \ .compact.compressed.wasm | \u0394 bytes | \u0394 % |\n|---------|--------------------------------------|--------------------------------|---------|-----|\n\
+    | westend-runtime | 1,911,531 | 1,918,414 | +6,883 | +0.36% |\n| asset-hub-westend-runtime\
+    \ | 2,402,348 | 2,408,262 | +5,914 | +0.25% |\n| bridge-hub-westend-runtime |\
+    \ 1,397,714 | 1,409,183 | +11,469 | +0.82% |\n| collectives-westend-runtime |\
+    \ 1,265,180 | 1,268,329 | +3,149 | +0.25% |\n| people-westend-runtime | 1,125,880\
+    \ | 1,126,034 | +154 | +0.01% |\n| coretime-westend-runtime | 1,132,311 | 1,135,300\
+    \ | +2,989 | +0.26% |\n| glutton-westend-runtime | 543,780 | 546,127 | +2,347\
+    \ | +0.43% |\n\n\nWith `--features on-chain-release-build`:\n\n| Runtime | RuntimeDebug\
+    \ .compact.wasm | Debug .compact.wasm | \u0394 bytes | \u0394 % |\n|---------|---------------------------|---------------------|---------|-----|\n\
+    | westend-runtime | 10,088,725 | 10,088,725 | 0 | 0.00% |\n| asset-hub-westend-runtime\
+    \ | 13,491,318 | 13,491,318 | 0 | 0.00% |\n| bridge-hub-westend-runtime | 7,078,244\
+    \ | 7,078,244 | 0 | 0.00% |\n| collectives-westend-runtime | 6,724,948 | 6,724,948\
+    \ | 0 | 0.00% |\n| people-westend-runtime | 5,640,009 | 5,661,591 | +21,582 |\
+    \ +0.38% |\n| coretime-westend-runtime | 5,689,735 | 5,689,735 | 0 | 0.00% |\n\
+    | glutton-westend-runtime | 2,504,593 | 2,517,004 | +12,411 | +0.50% |\n\n\n\n\
+    | Runtime | RuntimeDebug .compact.compressed.wasm | Debug .compact.compressed.wasm\
+    \ | \u0394 bytes | \u0394 % |\n|---------|--------------------------------------|--------------------------------|---------|-----|\n\
+    | westend-runtime | 1,917,250 | 1,917,250 | 0 | 0.00% |\n| asset-hub-westend-runtime\
+    \ | 2,408,382 | 2,408,382 | 0 | 0.00% |\n| bridge-hub-westend-runtime | 1,409,259\
+    \ | 1,409,259 | 0 | 0.00% |\n| collectives-westend-runtime | 1,267,981 | 1,267,981\
+    \ | 0 | 0.00% |\n| people-westend-runtime | 1,126,034 | 1,130,613 | +4,579 | +0.41%\
+    \ |\n| coretime-westend-runtime | 1,135,207 | 1,135,207 | 0 | 0.00% |\n| glutton-westend-runtime\
+    \ | 545,344 | 548,753 | +3,409 | +0.63% |\n\n\nThis shows that the size increase\
+    \ is neglectable and not worth the increased hassle when it comes to debuggin\
+    \ inside wasm.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/3005"
+crates:
+- name: bridge-runtime-common
+  bump: major
+- name: pallet-bridge-grandpa
+  bump: major
+- name: pallet-bridge-messages
+  bump: major
+- name: pallet-bridge-parachains
+  bump: major
+- name: pallet-bridge-relayers
+  bump: major
+- name: bp-header-chain
+  bump: major
+- name: bp-messages
+  bump: major
+- name: bp-parachains
+  bump: major
+- name: bp-polkadot-core
+  bump: major
+- name: bp-relayers
+  bump: major
+- name: bp-runtime
+  bump: major
+- name: bp-test-utils
+  bump: major
+- name: bp-xcm-bridge-hub-router
+  bump: major
+- name: bp-xcm-bridge-hub
+  bump: major
+- name: snowbridge-pallet-inbound-queue
+  bump: major
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: major
+- name: snowbridge-pallet-outbound-queue
+  bump: major
+- name: snowbridge-pallet-system
+  bump: major
+- name: snowbridge-beacon-primitives
+  bump: major
+- name: snowbridge-core
+  bump: major
+- name: snowbridge-inbound-queue-primitives
+  bump: major
+- name: snowbridge-merkle-tree
+  bump: major
+- name: snowbridge-outbound-queue-primitives
+  bump: major
+- name: snowbridge-verification-primitives
+  bump: major
+- name: snowbridge-test-utils
+  bump: major
+- name: pallet-collator-selection
+  bump: major
+- name: cumulus-pallet-dmp-queue
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: cumulus-pallet-xcm
+  bump: major
+- name: cumulus-pallet-xcmp-queue
+  bump: major
+- name: parachains-common
+  bump: major
+- name: bp-asset-hub-rococo
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: bp-asset-hub-westend
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: assets-common
+  bump: major
+- name: bp-bridge-hub-rococo
+  bump: major
+- name: bp-bridge-hub-westend
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: polkadot-omni-node-lib
+  bump: major
+- name: cumulus-primitives-core
+  bump: major
+- name: cumulus-primitives-parachain-inherent
+  bump: major
+- name: polkadot-core-primitives
+  bump: major
+- name: polkadot-overseer
+  bump: major
+- name: polkadot-parachain-primitives
+  bump: major
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-common
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-xcm
+  bump: major
+- name: staging-xcm-executor
+  bump: major
+- name: pallet-alliance
+  bump: major
+- name: pallet-assets
+  bump: major
+- name: pallet-atomic-swap
+  bump: major
+- name: pallet-bags-list
+  bump: major
+- name: pallet-balances
+  bump: major
+- name: pallet-bounties
+  bump: major
+- name: pallet-broker
+  bump: major
+- name: pallet-child-bounties
+  bump: major
+- name: pallet-collective
+  bump: major
+- name: pallet-contracts
+  bump: major
+- name: pallet-conviction-voting
+  bump: major
+- name: pallet-core-fellowship
+  bump: major
+- name: pallet-delegated-staking
+  bump: major
+- name: pallet-democracy
+  bump: major
+- name: pallet-dummy-dim
+  bump: major
+- name: pallet-election-provider-multi-phase
+  bump: major
+- name: frame-election-provider-support
+  bump: major
+- name: pallet-elections-phragmen
+  bump: major
+- name: frame-executive
+  bump: major
+- name: pallet-fast-unstake
+  bump: major
+- name: pallet-oracle
+  bump: major
+- name: pallet-identity
+  bump: major
+- name: pallet-im-online
+  bump: major
+- name: pallet-lottery
+  bump: major
+- name: pallet-message-queue
+  bump: major
+- name: pallet-meta-tx
+  bump: major
+- name: pallet-mixnet
+  bump: major
+- name: pallet-multi-asset-bounties
+  bump: major
+- name: pallet-multisig
+  bump: major
+- name: pallet-nfts
+  bump: major
+- name: pallet-nis
+  bump: major
+- name: pallet-nomination-pools
+  bump: major
+- name: pallet-origin-restriction
+  bump: major
+- name: pallet-people
+  bump: major
+- name: pallet-preimage
+  bump: major
+- name: pallet-proxy
+  bump: major
+- name: pallet-ranked-collective
+  bump: major
+- name: pallet-recovery
+  bump: major
+- name: pallet-referenda
+  bump: major
+- name: pallet-revive
+  bump: major
+- name: pallet-safe-mode
+  bump: major
+- name: pallet-salary
+  bump: major
+- name: pallet-scheduler
+  bump: major
+- name: pallet-society
+  bump: major
+- name: polkadot-sdk-frame
+  bump: major
+- name: pallet-staking-async-ah-client
+  bump: major
+- name: pallet-staking-async-rc-client
+  bump: major
+- name: pallet-staking-async
+  bump: major
+- name: pallet-staking
+  bump: major
+- name: frame-support-procedural
+  bump: major
+- name: frame-support
+  bump: major
+- name: frame-system
+  bump: major
+- name: pallet-tips
+  bump: major
+- name: pallet-transaction-payment
+  bump: major
+- name: pallet-transaction-storage
+  bump: major
+- name: pallet-treasury
+  bump: major
+- name: pallet-tx-pause
+  bump: major
+- name: pallet-uniques
+  bump: major
+- name: pallet-vesting
+  bump: major
+- name: sp-application-crypto
+  bump: major
+- name: sp-consensus-babe
+  bump: major
+- name: sp-consensus-grandpa
+  bump: major
+- name: sp-core
+  bump: major
+- name: sp-debug-derive
+  bump: major
+- name: sp-mmr-primitives
+  bump: major
+- name: sp-npos-elections
+  bump: major
+- name: sp-runtime
+  bump: major
+- name: sp-session
+  bump: major
+- name: sp-staking
+  bump: major
+- name: sp-statement-store
+  bump: major
+- name: sp-storage
+  bump: major
+- name: sp-timestamp
+  bump: major
+- name: sp-transaction-storage-proof
+  bump: major
+- name: sp-trie
+  bump: major
+- name: sp-version
+  bump: major
+- name: sp-weights
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major
+- name: sc-transaction-pool
+  bump: major

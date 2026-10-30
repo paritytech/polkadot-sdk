@@ -1,0 +1,10 @@
+title: '[pallet-revive] allow changing immutables'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds pallet revive methods for reading and setting immutables data of a contract.
+
+    Fixes: https://github.com/paritytech/foundry-polkadot/issues/277
+crates:
+- name: pallet-revive
+  bump: major

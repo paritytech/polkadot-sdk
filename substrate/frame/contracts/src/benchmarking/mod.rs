@@ -158,7 +158,7 @@ where
 
 	/// Create a new contract with the specified unbalanced storage trie.
 	fn with_unbalanced_storage_trie(code: WasmModule<T>, key: &[u8]) -> Result<Self, &'static str> {
-		if (key.len() as u32) < (UNBALANCED_TRIE_LAYERS + 1) / 2 {
+		if (key.len() as u32) < UNBALANCED_TRIE_LAYERS.div_ceil(2) {
 			return Err("Key size too small to create the specified trie");
 		}
 
@@ -178,7 +178,7 @@ where
 				};
 
 				if key == &key_new {
-					continue
+					continue;
 				}
 				child::put_raw(&child_trie_info, &key_new, &value);
 			}

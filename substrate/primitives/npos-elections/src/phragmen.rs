@@ -34,7 +34,7 @@ use sp_arithmetic::{
 /// The denominator used for loads. Since votes are collected as u64, the smallest ratio that we
 /// might collect is `1/approval_stake` where approval stake is the sum of votes. Hence, some number
 /// bigger than u64::MAX is needed. For maximum accuracy we simply use u128;
-const DEN: ExtendedBalance = ExtendedBalance::max_value();
+const DEN: ExtendedBalance = ExtendedBalance::MAX;
 
 /// Execute sequential phragmen with potentially some rounds of `balancing`. The return type is list
 /// of winners and a weight distribution vector of all voters who contribute to the winners.
@@ -95,7 +95,7 @@ pub fn seq_phragmen<AccountId: IdentifierT, P: PerThing128>(
 
 	let mut assignments =
 		voters.into_iter().filter_map(|v| v.into_assignment()).collect::<Vec<_>>();
-	let _ = assignments
+	assignments
 		.iter_mut()
 		.try_for_each(|a| a.try_normalize().map_err(|_| crate::Error::ArithmeticError))?;
 	let winners = winners
@@ -176,7 +176,7 @@ pub fn seq_phragmen_core<AccountId: IdentifierT>(
 				}
 			}
 		} else {
-			break
+			break;
 		}
 	}
 

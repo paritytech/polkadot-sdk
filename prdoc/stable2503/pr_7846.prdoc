@@ -1,0 +1,9 @@
+title: 'Incrementable: return None instead of saturating'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: 'Fix implementation to follow the trait specification more closely. Closes #7845 '
+crates:
+- name: frame-support
+  bump: patch

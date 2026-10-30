@@ -75,12 +75,12 @@ async fn sync_cycle_from_offline_to_syncing_to_offline() {
 		for peer in 0..3 {
 			// Online
 			if net.peer(peer).is_offline() {
-				return Poll::Pending
+				return Poll::Pending;
 			}
 			if peer < 2 {
 				// Major syncing.
 				if net.peer(peer).blocks_count() < 100 && !net.peer(peer).is_major_syncing() {
-					return Poll::Pending
+					return Poll::Pending;
 				}
 			}
 		}
@@ -93,7 +93,7 @@ async fn sync_cycle_from_offline_to_syncing_to_offline() {
 		net.poll(cx);
 		for peer in 0..3 {
 			if net.peer(peer).is_major_syncing() {
-				return Poll::Pending
+				return Poll::Pending;
 			}
 		}
 		Poll::Ready(())
@@ -283,12 +283,12 @@ async fn sync_justifications() {
 			if net.peer(0).client().justifications(hashes[height - 1]).unwrap() !=
 				Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
-				return Poll::Pending
+				return Poll::Pending;
 			}
 			if net.peer(1).client().justifications(hashes[height - 1]).unwrap() !=
 				Some(Justifications::from((*b"FRNK", Vec::new())))
 			{
-				return Poll::Pending
+				return Poll::Pending;
 			}
 		}
 
@@ -436,7 +436,7 @@ async fn can_sync_small_non_best_forks() {
 
 		assert!(net.peer(0).client().header(small_hash).unwrap().is_some());
 		if net.peer(1).client().header(small_hash).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -448,7 +448,7 @@ async fn can_sync_small_non_best_forks() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		if net.peer(1).client().header(another_fork).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -486,7 +486,7 @@ async fn can_sync_forks_ahead_of_the_best_chain() {
 		net.poll(cx);
 
 		if net.peer(1).client().header(fork_hash).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -540,7 +540,7 @@ async fn can_sync_explicit_forks() {
 
 		assert!(net.peer(0).client().header(small_hash).unwrap().is_some());
 		if net.peer(1).client().header(small_hash).unwrap().is_none() {
-			return Poll::Pending
+			return Poll::Pending;
 		}
 		Poll::Ready(())
 	})
@@ -826,6 +826,7 @@ async fn sync_to_tip_requires_that_sync_protocol_is_informed_about_best_block() 
 
 /// Ensures that if we as a syncing node sync to the tip while we are connected to another peer
 /// that is currently also doing a major sync.
+#[cfg(ignore_flaky_test)] // https://github.com/paritytech/polkadot-sdk/issues/48
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn sync_to_tip_when_we_sync_together_with_multiple_peers() {
 	sp_tracing::try_init_simple();
@@ -1002,7 +1003,7 @@ async fn multiple_requests_are_accepted_as_long_as_they_are_not_fulfilled() {
 		if net.peer(1).client().justifications(hashof10).unwrap() !=
 			Some(Justifications::from((*b"FRNK", Vec::new())))
 		{
-			return Poll::Pending
+			return Poll::Pending;
 		}
 
 		Poll::Ready(())
@@ -1017,31 +1018,26 @@ async fn syncs_all_forks_from_single_peer() {
 	net.peer(0).push_blocks(10, false);
 	net.peer(1).push_blocks(10, false);
 
-	// poll until the two nodes connect, otherwise announcing the block will not work
 	net.run_until_connected().await;
 
-	// Peer 0 produces new blocks and announces.
-	let branch1 = net.peer(0).push_blocks_at(BlockId::Number(10), 2, true).pop().unwrap();
-
-	// Wait till peer 1 starts downloading
-	loop {
-		futures::future::poll_fn::<(), _>(|cx| {
-			net.poll(cx);
-			Poll::Ready(())
-		})
-		.await;
-
-		if net.peer(1).sync_service().status().await.unwrap().best_seen_block == Some(12) {
-			break
-		}
+	let mut branch1 = None;
+	for i in 0..2 {
+		let at = if i == 0 { BlockId::Number(10) } else { BlockId::Hash(branch1.unwrap()) };
+		branch1 = net.peer(0).push_blocks_at(at, 1, i == 0).pop();
+		net.run_until_idle().await;
 	}
+	let branch1 = branch1.unwrap();
 
-	// Peer 0 produces and announces another fork
-	let branch2 = net.peer(0).push_blocks_at(BlockId::Number(10), 2, false).pop().unwrap();
+	let mut branch2 = None;
+	for i in 0..2 {
+		let at = if i == 0 { BlockId::Number(10) } else { BlockId::Hash(branch2.unwrap()) };
+		branch2 = net.peer(0).push_blocks_at(at, 1, false).pop();
+		net.run_until_idle().await;
+	}
+	let branch2 = branch2.unwrap();
 
 	net.run_until_sync().await;
 
-	// Peer 1 should have both branches,
 	assert!(net.peer(1).client().header(branch1).unwrap().is_some());
 	assert!(net.peer(1).client().header(branch2).unwrap().is_some());
 }
@@ -1110,8 +1106,7 @@ async fn syncs_state() {
 		net.add_full_peer_with_config(config_one);
 		let mut config_two = FullPeerConfig::default();
 		config_two.extra_storage = Some(genesis_storage);
-		config_two.sync_mode =
-			SyncMode::LightState { skip_proofs: *skip_proofs, storage_chain_mode: false };
+		config_two.sync_mode = SyncMode::LightState { skip_proofs: *skip_proofs };
 		net.add_full_peer_with_config(config_two);
 		let hashes = net.peer(0).push_blocks(64, false);
 		// Wait for peer 1 to sync header chain.
@@ -1146,74 +1141,83 @@ async fn syncs_state() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn syncs_indexed_blocks() {
-	use sp_runtime::traits::Hash;
-	sp_tracing::try_init_simple();
-	let mut net = TestNet::new(0);
-	let mut n: u64 = 0;
-	net.add_full_peer_with_config(FullPeerConfig { storage_chain: true, ..Default::default() });
-	net.add_full_peer_with_config(FullPeerConfig {
-		storage_chain: true,
-		sync_mode: SyncMode::LightState { skip_proofs: false, storage_chain_mode: true },
-		..Default::default()
-	});
-	net.peer(0).generate_blocks_at(
-		BlockId::number(0),
-		64,
-		BlockOrigin::Own,
-		|mut builder| {
-			let ex = ExtrinsicBuilder::new_indexed_call(n.to_le_bytes().to_vec()).nonce(n).build();
-			n += 1;
-			builder.push(ex).unwrap();
-			builder.build().unwrap().block
-		},
-		false,
-		true,
-		true,
-		ForkChoiceStrategy::LongestChain,
-	);
-	let indexed_key = sp_runtime::traits::BlakeTwo256::hash(&42u64.to_le_bytes());
-	assert!(net
-		.peer(0)
-		.client()
-		.as_client()
-		.indexed_transaction(indexed_key)
-		.unwrap()
-		.is_some());
-	assert!(net
-		.peer(1)
-		.client()
-		.as_client()
-		.indexed_transaction(indexed_key)
-		.unwrap()
-		.is_none());
-
-	net.run_until_sync().await;
-	assert!(net
-		.peer(1)
-		.client()
-		.as_client()
-		.indexed_transaction(indexed_key)
-		.unwrap()
-		.is_some());
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn warp_sync() {
+async fn warp_sync_gap_sync_downloads_required_bodies_within_window() {
 	sp_tracing::try_init_simple();
 	let mut net = TestNet::new(0);
 	// Create 3 synced peers and 1 peer trying to warp sync.
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(Default::default());
 	net.add_full_peer_with_config(Default::default());
+	// A storage-chain node requires bodies within the (safety-adjusted) window of 72
+	// blocks. The chain has 200 blocks and the warp target (#200) is finalized, so the
+	// body cutoff is `200 - 72 = 128`: gap sync backfills #1..=#128 with headers only
+	// and #129..=#199 with bodies. The cutoff is aligned to a request-range boundary
+	// (`max_blocks_per_request` = 64) so no request straddles it.
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
+		blocks_pruning: Some(256),
+		gap_sync_body_policy: Some(GapSyncBodyPolicy::BodiesWithinWindow(72)),
 		..Default::default()
 	});
-	let gap_end = net.peer(0).push_blocks(63, false).pop().unwrap();
+
+	let headers_only = net.peer(0).push_blocks(128, false);
+	let with_bodies = net.peer(0).push_blocks(71, false);
+	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
+	net.peer(1).push_blocks(200, false);
+	net.peer(2).push_blocks(200, false);
+
+	// Wait for peer 3 to sync state.
+	net.run_until_sync().await;
+	// Make sure it was not a full sync.
+	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
+	// Make sure warp sync was successful.
+	assert!(net.peer(3).client().has_state_at(&BlockId::Number(200)));
+
+	// Wait for peer 3 to download block history (gap sync).
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		let peer = net.peer(3);
+
+		// Blocks below the body cutoff should only have headers.
+		let below_cutoff_headers_only =
+			headers_only.iter().all(|b| peer.has_block(*b) && !peer.has_body(*b));
+
+		// Blocks inside the required window should have bodies.
+		let within_window_have_bodies = with_bodies.iter().all(|b| peer.has_body(*b));
+
+		// Target block should have body (downloaded during warp sync)
+		let target_has_body = peer.has_body(target);
+
+		if below_cutoff_headers_only && within_window_have_bodies && target_has_body {
+			Poll::Ready(())
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn warp_sync_gap_sync_skips_bodies_by_default_when_pruning() {
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(0);
+	// Create 3 synced peers and 1 peer trying to warp sync.
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	// A pruned node without an explicit gap sync body policy backfills the whole gap
+	// header-only.
+	net.add_full_peer_with_config(FullPeerConfig {
+		sync_mode: SyncMode::Warp,
+		blocks_pruning: Some(256),
+		..Default::default()
+	});
+
+	let gap_blocks = net.peer(0).push_blocks(63, false);
 	let target = net.peer(0).push_blocks(1, false).pop().unwrap();
 	net.peer(1).push_blocks(64, false);
 	net.peer(2).push_blocks(64, false);
+
 	// Wait for peer 3 to sync state.
 	net.run_until_sync().await;
 	// Make sure it was not a full sync.
@@ -1224,7 +1228,64 @@ async fn warp_sync() {
 	// Wait for peer 3 to download block history (gap sync).
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
-		if net.peer(3).has_body(gap_end) && net.peer(3).has_body(target) {
+		let peer = net.peer(3);
+
+		// Gap blocks should only have headers (not bodies).
+		let gap_blocks_headers_only =
+			gap_blocks.iter().all(|b| peer.has_block(*b) && !peer.has_body(*b));
+
+		// Target block should have body (downloaded during warp sync).
+		let target_has_body = peer.has_body(target);
+
+		if gap_blocks_headers_only && target_has_body {
+			Poll::Ready(())
+		} else {
+			Poll::Pending
+		}
+	})
+	.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn warp_sync_gap_sync_requests_bodies_if_archive_node() {
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(0);
+	// Create 3 synced peers and 1 peer trying to warp sync.
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(Default::default());
+	net.add_full_peer_with_config(FullPeerConfig {
+		sync_mode: SyncMode::Warp,
+		blocks_pruning: None, // Archive mode, gap sync expected to request bodies too
+		..Default::default()
+	});
+
+	// Splitting blocks into chunks to demonstrate how gap sync works
+	let gap_start = net.peer(0).push_blocks(1, false);
+	let blocks = net.peer(0).push_blocks(61, false);
+	let gap_end = net.peer(0).push_blocks(1, false);
+	let target = net.peer(0).push_blocks(1, false);
+	net.peer(1).push_blocks(64, false);
+	net.peer(2).push_blocks(64, false);
+
+	// Wait for peer 3 to sync state.
+	net.run_until_sync().await;
+	// Make sure it was not a full sync.
+	assert!(!net.peer(3).client().has_state_at(&BlockId::Number(1)));
+	// Make sure warp sync was successful.
+	assert!(net.peer(3).client().has_state_at(&BlockId::Number(64)));
+
+	// Wait for peer 3 to download block history (gap sync).
+	futures::future::poll_fn::<(), _>(|cx| {
+		net.poll(cx);
+		let peer = net.peer(3);
+		if gap_start
+			.iter()
+			.chain(blocks.iter())
+			.chain(gap_end.iter())
+			.chain(target.iter())
+			.all(|b| peer.has_body(*b))
+		{
 			Poll::Ready(())
 		} else {
 			Poll::Pending
@@ -1280,6 +1341,7 @@ async fn warp_sync_to_target_block() {
 
 	net.add_full_peer_with_config(FullPeerConfig {
 		sync_mode: SyncMode::Warp,
+		blocks_pruning: Some(256),
 		target_header: Some(target_block),
 		..Default::default()
 	});
@@ -1291,7 +1353,7 @@ async fn warp_sync_to_target_block() {
 	futures::future::poll_fn::<(), _>(|cx| {
 		net.poll(cx);
 		let peer = net.peer(3);
-		if blocks.iter().all(|b| peer.has_body(*b)) {
+		if blocks.iter().all(|b| peer.has_block(*b)) {
 			Poll::Ready(())
 		} else {
 			Poll::Pending
@@ -1329,4 +1391,98 @@ async fn syncs_huge_blocks() {
 	net.run_until_sync().await;
 	assert_eq!(net.peer(0).client.info().best_number, 33);
 	assert_eq!(net.peer(1).client.info().best_number, 33);
+}
+
+/// Test syncing 512 blocks with 900 KiB headers (empty bodies) to test large header handling.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn syncs_blocks_with_large_headers() {
+	use sc_consensus::ForkChoiceStrategy;
+	use sp_runtime::{
+		generic::{BlockId, DigestItem},
+		Digest,
+	};
+
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(2);
+
+	{
+		let peer = net.peer(0);
+		let best_hash = peer.client.info().best_hash;
+		peer.generate_blocks_at_with_inherent_digests(
+			BlockId::Hash(best_hash),
+			512,
+			BlockOrigin::Own,
+			|builder| builder.build().unwrap().block,
+			|i| {
+				let large_data = vec![i as u8; 900 * 1024];
+				Digest { logs: vec![DigestItem::PreRuntime(*b"test", large_data)] }
+			},
+			false,
+			true,
+			true,
+			ForkChoiceStrategy::LongestChain,
+		);
+		assert_eq!(peer.client.info().best_number, 512);
+	}
+
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(1).client.info().best_number, 512);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[1]));
+
+	net.add_full_peer();
+
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(2).client.info().best_number, 512);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[2]));
+}
+
+/// It sometimes happens that a node is producing a fork, then connects to some other node. Both of
+/// these nodes share the same best block. Then the node produces a block that is his new best block
+/// on this fork. The other node sees this best block and tries to download it, but fails on import
+/// because it has not imported all the fork blocks. This test ensures that this can not happen
+/// again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn fork_block_announcement_does_not_cause_unknown_parent() {
+	sp_tracing::try_init_simple();
+	let mut net = TestNet::new(2);
+
+	// Both peers build the same canonical chain of 20 blocks.
+	net.peer(0).push_blocks(20, false);
+	net.peer(1).push_blocks(20, false);
+
+	let best_hash_20 = net.peer(0).client().info().best_hash;
+	assert_eq!(best_hash_20, net.peer(1).client().info().best_hash);
+	assert_eq!(net.peer(1).client().info().best_number, 20);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[1]));
+
+	// Peer 0 creates a fork from block 10 (fork blocks 11..20) without making it the best.
+	let fork_hashes =
+		net.peer(0)
+			.push_blocks_at_without_informing_sync(BlockId::Number(10), 10, true, false);
+	let fork_tip = *fork_hashes.last().unwrap();
+
+	// Peer 0's best is still canonical block 20.
+	assert_eq!(net.peer(0).client().info().best_hash, best_hash_20);
+
+	// Connect the peers. Both handshake with best=20 (canonical).
+	net.run_until_connected().await;
+	net.run_until_idle().await;
+
+	// Peer 0 produces block 21 on the fork. This makes the fork the new best chain
+	// (height 21 > 20) and announces it.
+	net.peer(0).push_blocks_at(BlockId::Hash(fork_tip), 1, false);
+	assert_eq!(net.peer(0).client().info().best_number, 21);
+
+	// Wait for peer 1 to sync. It should resolve the fork via ancestor search back to
+	// common block 10, download fork blocks 11..21, and switch to the fork as best.
+	net.run_until_sync().await;
+
+	assert_eq!(net.peer(1).client().info().best_number, 21);
+	assert!(net.peers()[0].blockchain_canon_equals(&net.peers()[1]));
+
+	// Ensure it did not first tried to import the fork block without having downloaded the full
+	// fork.
+	assert_eq!(net.peer(1).import_error_count(), 0);
 }

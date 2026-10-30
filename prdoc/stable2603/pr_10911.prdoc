@@ -1,0 +1,10 @@
+title: '[pallet-revive] Fix EXTCODESIZE and EXTCODEHASH for mocked addresses'
+doc:
+- audience: Runtime Dev
+  description: Fixes EXTCODESIZE and EXTCODEHASH opcodes for mocked addresses. 
+    Previously, these opcodes did not check the mock handler, causing them to 
+    return values indicating no code exists at mocked addresses. Fixed by adding 
+    `mocked_code` method to `MockHandler` trait to provide dummy bytecode.
+crates:
+- name: pallet-revive
+  bump: major

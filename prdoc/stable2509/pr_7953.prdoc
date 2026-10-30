@@ -1,0 +1,64 @@
+title: Add deposit for setting session keys
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Setting session keys might put some funds on hold in the future, depending on how runtimes use this feature.
+
+    Requires `pallet_session::Config` to specify:
+    * `type Currency`, assigned to an instance of `pallet_balances`.
+    * `type KeyDeposit`, the amount of deposit. Set to `()` to assert no deposit amount is needed.
+crates:
+- name: pallet-session
+  bump: major
+- name: pallet-collator-selection
+  bump: patch
+- name: penpal-runtime
+  bump: major
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-rococo-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: asset-hub-rococo-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-rococo-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-rococo-runtime
+  bump: major
+- name: pallet-im-online
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: major
+- name: pallet-staking-async-rc-runtime
+  bump: major
+- name: pallet-authority-discovery
+  bump: patch
+- name: pallet-babe
+  bump: patch
+- name: pallet-beefy-mmr
+  bump: patch
+- name: pallet-beefy
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-staking
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: major

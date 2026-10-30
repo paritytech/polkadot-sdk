@@ -1,0 +1,10 @@
+title: Add set_storage set_storage_var_key methods
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds pallet revive methods for manipulating a contracts storage.
+
+    Fixes: https://github.com/paritytech/foundry-polkadot/issues/275
+crates:
+- name: pallet-revive
+  bump: major

@@ -11,6 +11,9 @@ documentation = "https://docs.rs/sp-consensus-sassafras"
 readme = "README.md"
 publish = false
 
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
+
 [lints]
 workspace = true
 

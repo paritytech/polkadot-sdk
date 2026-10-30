@@ -1,0 +1,25 @@
+title: 'Staking (EPMB): update the semantics of elect() and Phase::Extract(N)'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Make elect() in EPMB solely responsible for Phase::Export transitions:
+      - before this change, the handling was split between EPMB's on_initialize()/next() and elect() (triggered by staking-async's on_initialize()).
+    - Update the semantics of elect(N) and of the inner value of Export(N):
+      - calling elect(N) means now that we are expecting to serve result for page N and to transition to Phase::Export(N-1) if N > 0 or to Phase::Off if N == 0.
+
+    For a 4-page election, the flow is the following:
+
+    - elect(3): If in Done, serve result for page 3, transition to Export(2).
+    - elect(2): If in Export(2), serve result for page 2, transition to Export(1).
+    - elect(1): If in Export(1), serve result for page 1, transition to Export(0).
+    - elect(0): If in Export(0), serve result for page 0, transition to Off.
+
+    This change fixes the issue for which we were handling multiple transactions in the same block in case staking-async pallet was initialized before epmb:
+
+    In block X:
+      - when in Phase::Done, calling elect(N) as coming for staking-async's on_initialize(), forced the transition Done -> Export(N)
+      - the following next() triggered by EPMB's on_initialize() forced the transition still within block X from Export(N) to Export(N-1)
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major

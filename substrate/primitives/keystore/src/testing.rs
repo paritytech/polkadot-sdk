@@ -22,7 +22,9 @@ use crate::{Error, Keystore, KeystorePtr};
 #[cfg(feature = "bandersnatch-experimental")]
 use sp_core::bandersnatch;
 #[cfg(feature = "bls-experimental")]
-use sp_core::{bls381, ecdsa_bls381, KeccakHasher};
+use sp_core::{
+	bls381, ecdsa_bls381, proof_of_possession::ProofOfPossessionGenerator, KeccakHasher,
+};
 use sp_core::{
 	crypto::{ByteArray, KeyTypeId, Pair, VrfSecret},
 	ecdsa, ed25519, sr25519,
@@ -44,11 +46,13 @@ impl MemoryKeystore {
 		Self::default()
 	}
 
+	/// The pair stored under `public`, if its secret URI parses and derives `public`.
+	///
+	/// `insert` stores whatever it is given, so like `LocalKeystore` this checks the URI on lookup.
 	fn pair<T: Pair>(&self, key_type: KeyTypeId, public: &T::Public) -> Option<T> {
 		self.keys.read().get(&key_type).and_then(|inner| {
-			inner
-				.get(public.as_slice())
-				.map(|s| T::from_string(s, None).expect("seed slice is valid"))
+			let pair = T::from_string(inner.get(public.as_slice())?, None).ok()?;
+			(pair.public().as_slice() == public.as_slice()).then_some(pair)
 		})
 	}
 
@@ -57,9 +61,12 @@ impl MemoryKeystore {
 			.read()
 			.get(&key_type)
 			.map(|keys| {
-				keys.values()
-					.map(|s| T::from_string(s, None).expect("seed slice is valid"))
-					.map(|p| p.public())
+				keys.iter()
+					.filter_map(|(raw_pubkey, s)| {
+						let pair = T::from_string(s, None).ok()?;
+						let pubkey = pair.public();
+						(pubkey.as_slice() == raw_pubkey).then_some(pubkey)
+					})
 					.collect()
 			})
 			.unwrap_or_default()
@@ -121,6 +128,19 @@ impl MemoryKeystore {
 	) -> Result<Option<T::VrfPreOutput>, Error> {
 		let pre_output = self.pair::<T>(key_type, public).map(|pair| pair.vrf_pre_output(input));
 		Ok(pre_output)
+	}
+
+	#[cfg(feature = "bls-experimental")]
+	fn generate_proof_of_possession<T: Pair + ProofOfPossessionGenerator>(
+		&self,
+		key_type: KeyTypeId,
+		public: &T::Public,
+		owner: &[u8],
+	) -> Result<Option<T::ProofOfPossession>, Error> {
+		let proof_of_possession = self
+			.pair::<T>(key_type, public)
+			.map(|mut pair| pair.generate_proof_of_possession(owner));
+		Ok(proof_of_possession)
 	}
 }
 
@@ -299,6 +319,16 @@ impl Keystore for MemoryKeystore {
 	}
 
 	#[cfg(feature = "bls-experimental")]
+	fn bls381_generate_proof_of_possession(
+		&self,
+		key_type: KeyTypeId,
+		public: &bls381::Public,
+		owner: &[u8],
+	) -> Result<Option<bls381::ProofOfPossession>, Error> {
+		self.generate_proof_of_possession::<bls381::Pair>(key_type, public, owner)
+	}
+
+	#[cfg(feature = "bls-experimental")]
 	fn ecdsa_bls381_public_keys(&self, key_type: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
 		self.public_keys::<ecdsa_bls381::Pair>(key_type)
 	}
@@ -309,7 +339,24 @@ impl Keystore for MemoryKeystore {
 		key_type: KeyTypeId,
 		seed: Option<&str>,
 	) -> Result<ecdsa_bls381::Public, Error> {
-		self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)
+		let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
+
+		let s: String = self
+			.keys
+			.read()
+			.get(&key_type)
+			.and_then(|inner| inner.get(pubkey.as_slice()).map(|s| s.to_string()))
+			.expect("Can Retrieve Seed");
+
+		// This is done to give the keystore access to individual keys, this is necessary to avoid
+		// redundant host functions for paired keys and re-use host functions implemented for each
+		// element of the pair.
+		self.generate_new::<ecdsa::Pair>(key_type, Some(&s))
+			.expect("seed slice is valid");
+		self.generate_new::<bls381::Pair>(key_type, Some(&s))
+			.expect("seed slice is valid");
+
+		Ok(pubkey)
 	}
 
 	#[cfg(feature = "bls-experimental")]
@@ -400,6 +447,75 @@ mod tests {
 		let public_keys = store.sr25519_public_keys(SR25519);
 
 		assert!(public_keys.contains(&key_pair.public().into()));
+	}
+
+	#[test]
+	fn mismatched_secret_uri_signs_nothing() {
+		let store = MemoryKeystore::new();
+		let alice = sr25519::Pair::from_string("//Alice", None).unwrap();
+		let bob = sr25519::Pair::from_string("//Bob", None).unwrap();
+
+		// Alice's public key stored with Bob's secret URI.
+		store.insert(SR25519, "//Bob", alice.public().as_ref()).unwrap();
+
+		assert_eq!(store.sr25519_sign(SR25519, &alice.public(), b"msg").unwrap(), None);
+		assert_eq!(
+			store
+				.sign_with(SR25519, sr25519::CRYPTO_ID, alice.public().as_slice(), b"msg")
+				.unwrap(),
+			None
+		);
+		let data = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())])
+			.into_sign_data();
+		assert!(store.sr25519_vrf_sign(SR25519, &alice.public(), &data).unwrap().is_none());
+		let input = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())]);
+		assert!(store
+			.sr25519_vrf_pre_output(SR25519, &alice.public(), &input)
+			.unwrap()
+			.is_none());
+		assert!(store.sr25519_public_keys(SR25519).is_empty());
+		// Bob's key was never stored under his own public key.
+		assert_eq!(store.sr25519_sign(SR25519, &bob.public(), b"msg").unwrap(), None);
+
+		// Stored under the right public key, the same URI signs as before.
+		store.insert(SR25519, "//Bob", bob.public().as_ref()).unwrap();
+		let sig = store.sr25519_sign(SR25519, &bob.public(), b"msg").unwrap().unwrap();
+		assert!(sr25519::Pair::verify(&sig, b"msg", &bob.public()));
+		assert_eq!(store.sr25519_public_keys(SR25519), vec![bob.public()]);
+	}
+
+	#[test]
+	fn unparseable_secret_uri_does_not_panic() {
+		let store = MemoryKeystore::new();
+		let sr = sr25519::Pair::from_string("//Alice", None).unwrap();
+		let ed = ed25519::Pair::from_string("//Alice", None).unwrap();
+		let ec = ecdsa::Pair::from_string("//Alice", None).unwrap();
+		let bad = "not a valid secret uri";
+		assert!(sr25519::Pair::from_string(bad, None).is_err());
+
+		store.insert(SR25519, bad, sr.public().as_ref()).unwrap();
+		store.insert(ED25519, bad, ed.public().as_ref()).unwrap();
+		store.insert(ECDSA, bad, ec.public().as_ref()).unwrap();
+
+		assert_eq!(store.sr25519_sign(SR25519, &sr.public(), b"msg").unwrap(), None);
+		let data = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())])
+			.into_sign_data();
+		assert!(store.sr25519_vrf_sign(SR25519, &sr.public(), &data).unwrap().is_none());
+		let input = sr25519::vrf::VrfInput::new(b"Test", &[(b"one", &1_u64.to_le_bytes())]);
+		assert!(store.sr25519_vrf_pre_output(SR25519, &sr.public(), &input).unwrap().is_none());
+		assert_eq!(store.ed25519_sign(ED25519, &ed.public(), b"msg").unwrap(), None);
+		assert_eq!(store.ecdsa_sign(ECDSA, &ec.public(), b"msg").unwrap(), None);
+		assert_eq!(store.ecdsa_sign_prehashed(ECDSA, &ec.public(), &[0u8; 32]).unwrap(), None);
+		assert_eq!(
+			store
+				.sign_with(ED25519, ed25519::CRYPTO_ID, ed.public().as_slice(), b"msg")
+				.unwrap(),
+			None
+		);
+
+		assert!(store.sr25519_public_keys(SR25519).is_empty());
+		assert!(store.ed25519_public_keys(ED25519).is_empty());
+		assert!(store.ecdsa_public_keys(ECDSA).is_empty());
 	}
 
 	#[test]
@@ -515,6 +631,63 @@ mod tests {
 	}
 
 	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_none_works() {
+		use sp_core::testing::ECDSA_BLS381;
+
+		let store = MemoryKeystore::new();
+		let ecdsa_bls381_key =
+			store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).expect("Can generate key..");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_generate_with_seed_works() {
+		use sp_core::testing::ECDSA_BLS381;
+
+		let store = MemoryKeystore::new();
+		let ecdsa_bls381_key = store
+			.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice"))
+			.expect("Can generate key..");
+
+		let ecdsa_keys = store.ecdsa_public_keys(ECDSA_BLS381);
+		let bls381_keys = store.bls381_public_keys(ECDSA_BLS381);
+		let ecdsa_bls381_keys = store.ecdsa_bls381_public_keys(ECDSA_BLS381);
+
+		assert_eq!(ecdsa_keys.len(), 1);
+		assert_eq!(bls381_keys.len(), 1);
+		assert_eq!(ecdsa_bls381_keys.len(), 1);
+
+		let ecdsa_key = ecdsa_keys[0];
+		let bls381_key = bls381_keys[0];
+
+		let mut combined_key_raw = [0u8; ecdsa_bls381::PUBLIC_KEY_LEN];
+		combined_key_raw[..ecdsa::PUBLIC_KEY_SERIALIZED_SIZE].copy_from_slice(ecdsa_key.as_ref());
+		combined_key_raw[ecdsa::PUBLIC_KEY_SERIALIZED_SIZE..].copy_from_slice(bls381_key.as_ref());
+		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
+
+		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
+	#[test]
 	#[cfg(feature = "bandersnatch-experimental")]
 	fn bandersnatch_vrf_sign() {
 		use sp_core::testing::BANDERSNATCH;
@@ -524,10 +697,7 @@ mod tests {
 		let secret_uri = "//Alice";
 		let key_pair =
 			bandersnatch::Pair::from_string(secret_uri, None).expect("Generates key pair");
-
-		let in1 = bandersnatch::vrf::VrfInput::new("in", "foo");
-		let sign_data =
-			bandersnatch::vrf::VrfSignData::new_unchecked(b"Test", Some("m1"), Some(in1));
+		let sign_data = bandersnatch::vrf::VrfSignData::new(b"vrf_input", b"aux_data");
 
 		let result = store.bandersnatch_vrf_sign(BANDERSNATCH, &key_pair.public(), &sign_data);
 		assert!(result.unwrap().is_none());
@@ -555,15 +725,13 @@ mod tests {
 			.collect();
 
 		let prover_idx = 3;
-		let prover = ring_ctx.prover(&pks, prover_idx).unwrap();
+		let prover = ring_ctx.prover(&pks, prover_idx);
 
 		let secret_uri = "//Alice";
 		let pair = bandersnatch::Pair::from_string(secret_uri, None).expect("Generates key pair");
 		pks[prover_idx] = pair.public();
 
-		let in1 = bandersnatch::vrf::VrfInput::new("in1", "foo");
-		let sign_data =
-			bandersnatch::vrf::VrfSignData::new_unchecked(b"Test", &["m1", "m2"], [in1]);
+		let sign_data = bandersnatch::vrf::VrfSignData::new(b"vrf_input", b"aux_data");
 
 		let result =
 			store.bandersnatch_ring_vrf_sign(BANDERSNATCH, &pair.public(), &sign_data, &prover);

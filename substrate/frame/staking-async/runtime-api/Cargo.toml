@@ -1,0 +1,25 @@
+[package]
+name = "pallet-staking-async-runtime-api"
+version = "14.0.0"
+authors.workspace = true
+edition.workspace = true
+license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
+description = "RPC runtime API for transaction payment FRAME pallet"
+readme = "README.md"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+codec = { features = ["derive"], workspace = true }
+sp-api = { workspace = true }
+sp-staking = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["codec/std", "sp-api/std", "sp-staking/std"]

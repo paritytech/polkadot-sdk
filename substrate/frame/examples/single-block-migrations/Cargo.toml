@@ -15,10 +15,8 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { features = ["derive"], workspace = true }
 docify = { workspace = true }
-frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-frame-try-runtime = { optional = true, workspace = true }
 log = { workspace = true }
 pallet-balances = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -31,10 +29,8 @@ sp-version = { workspace = true }
 default = ["std"]
 std = [
 	"codec/std",
-	"frame-executive/std",
 	"frame-support/std",
 	"frame-system/std",
-	"frame-try-runtime/std",
 	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
@@ -50,10 +46,8 @@ runtime-benchmarks = [
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
-	"frame-executive/try-runtime",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"frame-try-runtime/try-runtime",
 	"pallet-balances/try-runtime",
 	"sp-runtime/try-runtime",
 ]

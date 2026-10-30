@@ -27,10 +27,10 @@ use crate::{
 	event::{DhtEvent, Event},
 	litep2p::{
 		discovery::{Discovery, DiscoveryEvent},
+		ipfs_dht::IpfsDht,
 		peerstore::Peerstore,
 		service::{Litep2pNetworkService, NetworkServiceCommand},
 		shim::{
-			bitswap::BitswapServer,
 			notification::{
 				config::{NotificationProtocolConfig, ProtocolControlHandle},
 				peerset::PeersetCommand,
@@ -44,7 +44,7 @@ use crate::{
 		out_events,
 		traits::{BandwidthSink, NetworkBackend, NetworkService},
 	},
-	NetworkStatus, NotificationService, ProtocolName,
+	webrtc, NetworkStatus, NotificationService, ProtocolName,
 };
 
 use codec::Encode;
@@ -55,14 +55,11 @@ use litep2p::{
 	error::{DialError, NegotiationError},
 	executor::Executor,
 	protocol::{
-		libp2p::{
-			bitswap::Config as BitswapConfig,
-			kademlia::{QueryId, Record},
-		},
+		libp2p::kademlia::{QueryId, Record},
 		request_response::ConfigBuilder as RequestResponseConfigBuilder,
 	},
 	transport::{
-		tcp::config::Config as TcpTransportConfig,
+		tcp::config::Config as TcpTransportConfig, webrtc::config::Config as WebRtcTransportConfig,
 		websocket::config::Config as WebSocketTransportConfig, ConnectionLimitsConfig, Endpoint,
 	},
 	types::{
@@ -72,11 +69,13 @@ use litep2p::{
 	Litep2p, Litep2pEvent, ProtocolName as Litep2pProtocolName,
 };
 use prometheus_endpoint::Registry;
-use sc_network_types::kad::{Key as RecordKey, PeerRecord, Record as P2PRecord};
 
-use sc_client_api::BlockBackend;
 use sc_network_common::{role::Roles, ExHashT};
-use sc_network_types::PeerId;
+use sc_network_types::{
+	kad::{Key as RecordKey, PeerRecord, Record as P2PRecord},
+	multiaddr::Protocol as NetworkProtocol,
+	PeerId,
+};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver};
 use sp_runtime::traits::Block as BlockT;
 
@@ -95,12 +94,10 @@ use std::{
 };
 
 mod discovery;
+mod ipfs_dht;
 mod peerstore;
 mod service;
 mod shim;
-
-/// Timeout for connection waiting new substreams.
-const KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Litep2p bandwidth sink.
 struct Litep2pBandwidthSink {
@@ -148,12 +145,16 @@ struct ConnectionContext {
 /// Kademlia query we are tracking.
 #[derive(Debug)]
 enum KadQuery {
+	/// `FIND_NODE` query for target and when it was initiated.
+	FindNode(PeerId, Instant),
 	/// `GET_VALUE` query for key and when it was initiated.
 	GetValue(RecordKey, Instant),
 	/// `PUT_VALUE` query for key and when it was initiated.
 	PutValue(RecordKey, Instant),
 	/// `GET_PROVIDERS` query for key and when it was initiated.
 	GetProviders(RecordKey, Instant),
+	/// `ADD_PROVIDER` query for key and when it was initiated.
+	AddProvider(RecordKey, Instant),
 }
 
 /// Networking backend for `litep2p`.
@@ -212,12 +213,10 @@ impl Litep2pNetworkBackend {
 					Protocol::Ip4(_),
 				) => match address.iter().find(|protocol| std::matches!(protocol, Protocol::P2p(_)))
 				{
-					Some(Protocol::P2p(multihash)) => PeerId::from_multihash(multihash.into())
-						.map_or(None, |peer| Some((peer, Some(address)))),
+					Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), Some(address))),
 					_ => None,
 				},
-				Some(Protocol::P2p(multihash)) =>
-					PeerId::from_multihash(multihash.into()).map_or(None, |peer| Some((peer, None))),
+				Some(Protocol::P2p(peer_id)) => Some((peer_id.into(), None)),
 				_ => None,
 			})
 			.fold(HashMap::new(), |mut acc, (peer, maybe_address)| {
@@ -235,7 +234,7 @@ impl Litep2pNetworkBackend {
 			.filter_map(|(peer, addresses)| {
 				// `peers` contained multiaddress in the form `/p2p/<peer ID>`
 				if addresses.is_empty() {
-					return Some(peer)
+					return Some(peer);
 				}
 
 				if self.litep2p.add_known_address(peer.into(), addresses.clone().into_iter()) == 0 {
@@ -243,7 +242,7 @@ impl Litep2pNetworkBackend {
 						target: LOG_TARGET,
 						"couldn't add any addresses for {peer:?} and it won't be added as reserved peer",
 					);
-					return None
+					return None;
 				}
 
 				self.peerstore_handle.add_known_peer(peer);
@@ -269,86 +268,111 @@ impl Litep2pNetworkBackend {
 	/// Configure transport protocols for `Litep2pNetworkBackend`.
 	fn configure_transport<B: BlockT + 'static, H: ExHashT>(
 		config: &FullNetworkConfiguration<B, H, Self>,
-	) -> ConfigBuilder {
+		keypair: Keypair,
+	) -> Result<ConfigBuilder, Error> {
 		let _ = match config.network_config.transport {
 			TransportConfig::MemoryOnly => panic!("memory transport not supported"),
 			TransportConfig::Normal { .. } => false,
 		};
 		let config_builder = ConfigBuilder::new();
 
-		let (tcp, websocket): (Vec<Option<_>>, Vec<Option<_>>) = config
-			.network_config
-			.listen_addresses
-			.iter()
-			.filter_map(|address| {
-				use sc_network_types::multiaddr::Protocol;
+		let listen_addr_len = config.network_config.listen_addresses.len();
+		let mut tcp_addresses = Vec::with_capacity(listen_addr_len);
+		let mut websocket_addresses = Vec::with_capacity(listen_addr_len);
+		let mut webrtc_addresses = Vec::with_capacity(listen_addr_len);
 
-				let mut iter = address.iter();
+		for addr in &config.network_config.listen_addresses {
+			let mut iter = addr.iter();
 
-				match iter.next() {
-					Some(Protocol::Ip4(_) | Protocol::Ip6(_)) => {},
-					protocol => {
-						log::error!(
-							target: LOG_TARGET,
-							"unknown protocol {protocol:?}, ignoring {address:?}",
-						);
+			let ip_version = iter.next();
+			let Some(NetworkProtocol::Ip4(_) | NetworkProtocol::Ip6(_)) = ip_version else {
+				log::error!(
+					target: LOG_TARGET,
+					"unknown protocol {ip_version:?}, ignoring {addr:?}",
+				);
+				continue;
+			};
 
-						return None
-					},
-				}
+			let transport_layer = iter.next();
+			let protocol_type = iter.next();
 
-				match iter.next() {
-					Some(Protocol::Tcp(_)) => match iter.next() {
-						Some(Protocol::Ws(_) | Protocol::Wss(_)) =>
-							Some((None, Some(address.clone()))),
-						Some(Protocol::P2p(_)) | None => Some((Some(address.clone()), None)),
-						protocol => {
-							log::error!(
-								target: LOG_TARGET,
-								"unknown protocol {protocol:?}, ignoring {address:?}",
-							);
-							None
-						},
-					},
-					protocol => {
-						log::error!(
-							target: LOG_TARGET,
-							"unknown protocol {protocol:?}, ignoring {address:?}",
-						);
-						None
-					},
-				}
-			})
-			.unzip();
+			match (&transport_layer, &protocol_type) {
+				// Plain TCP address.
+				(Some(NetworkProtocol::Tcp(_)), Some(NetworkProtocol::P2p(_)) | None) => {
+					tcp_addresses.push(addr.clone());
+				},
+				// Websocket address.
+				(
+					Some(NetworkProtocol::Tcp(_)),
+					Some(NetworkProtocol::Ws(_) | NetworkProtocol::Wss(_)),
+				) => {
+					websocket_addresses.push(addr.clone());
+				},
+				// WebRTC-Direct address.
+				(Some(NetworkProtocol::Udp(_)), Some(NetworkProtocol::WebRTCDirect)) => {
+					// An address carrying anything past `webrtc-direct` is rejected.
+					webrtc::validate_listen_address(addr)?;
+					webrtc_addresses.push(addr.clone());
+				},
+				_ => {
+					log::error!(
+						target: LOG_TARGET,
+						"unknown transport layer {transport_layer:?} and protocol type {protocol_type:?}, ignoring {addr:?}",
+					);
+				},
+			};
+		}
 
-		config_builder
+		let mut config_builder = config_builder
 			.with_websocket(WebSocketTransportConfig {
-				listen_addresses: websocket.into_iter().flatten().map(Into::into).collect(),
+				listen_addresses: websocket_addresses.into_iter().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
 			})
 			.with_tcp(TcpTransportConfig {
-				listen_addresses: tcp.into_iter().flatten().map(Into::into).collect(),
+				listen_addresses: tcp_addresses.into_iter().map(Into::into).collect(),
 				yamux_config: litep2p::yamux::Config::default(),
 				nodelay: true,
 				..Default::default()
-			})
+			});
+
+		if !webrtc_addresses.is_empty() {
+			let certificate =
+				webrtc::derive_certificate(keypair.secret()).map_err(Error::Litep2p)?;
+			log::info!(target: LOG_TARGET, "WebRTC certhash: {}", certificate.certhash_b64());
+			config_builder = config_builder.with_webrtc(WebRtcTransportConfig {
+				listen_addresses: webrtc_addresses.into_iter().map(Into::into).collect(),
+				certificate: Some(certificate),
+				..Default::default()
+			});
+		}
+
+		Ok(config_builder.with_keypair(keypair))
 	}
 }
 
 #[async_trait::async_trait]
 impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBackend {
+	const SUPPORTS_IPFS: bool = true;
+
 	type NotificationProtocolConfig = NotificationProtocolConfig;
 	type RequestResponseProtocolConfig = RequestResponseConfig;
 	type NetworkService<Block, Hash> = Arc<Litep2pNetworkService>;
 	type PeerStore = Peerstore;
-	type BitswapConfig = BitswapConfig;
 
 	fn new(mut params: Params<B, H, Self>) -> Result<Self, Error>
 	where
 		Self: Sized,
 	{
+		// Install the ring CryptoProvider for rustls before any TLS connections are made.
+		if let Err(err) = rustls::crypto::ring::default_provider().install_default() {
+			log::warn!(
+				target: LOG_TARGET,
+				"failed to install ring CryptoProvider for rustls, another provider might be installed: {err:?}",
+			);
+		}
+
 		let (keypair, local_peer_id) =
 			Self::get_keypair(&params.network_config.network_config.node_key)?;
 		let (cmd_tx, cmd_rx) = tracing_unbounded("mpsc_network_worker", 100_000);
@@ -390,7 +414,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		params.network_config.sanity_check_bootnodes()?;
 
 		let mut config_builder =
-			Self::configure_transport(&params.network_config).with_keypair(keypair.clone());
+			Self::configure_transport(&params.network_config, keypair.clone())?;
 		let known_addresses = params.network_config.known_addresses();
 		let peer_store_handle = params.network_config.peer_store_handle();
 		let executor = Arc::new(Litep2pExecutor { executor: params.executor });
@@ -480,12 +504,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 		// collect known addresses
 		let known_addresses: HashMap<litep2p::PeerId, Vec<Multiaddr>> =
 			known_addresses.into_iter().fold(HashMap::new(), |mut acc, (peer, address)| {
-				use sc_network_types::multiaddr::Protocol;
-
 				let address = match address.iter().last() {
-					Some(Protocol::Ws(_) | Protocol::Wss(_) | Protocol::Tcp(_)) =>
-						address.with(Protocol::P2p(peer.into())),
-					Some(Protocol::P2p(_)) => address,
+					Some(
+						NetworkProtocol::Ws(_) | NetworkProtocol::Wss(_) | NetworkProtocol::Tcp(_),
+					) => address.with(NetworkProtocol::P2p(peer.into())),
+					Some(NetworkProtocol::WebRTCDirect | NetworkProtocol::Certhash(_)) => {
+						address.with(NetworkProtocol::P2p(peer.into()))
+					},
+					Some(NetworkProtocol::P2p(_)) => address,
 					_ => return acc,
 				};
 
@@ -509,6 +535,22 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				Arc::clone(&peer_store_handle),
 			);
 
+		if let Some(ipfs) = params.ipfs_config {
+			config_builder = config_builder.with_libp2p_bitswap(ipfs.litep2p_bitswap_config);
+
+			if !ipfs.bootnodes.is_empty() {
+				let (ipfs_dht, kad_config) = IpfsDht::new(ipfs.bootnodes, ipfs.block_provider);
+				config_builder = config_builder.with_libp2p_kademlia(kad_config);
+				executor.run(Box::pin(ipfs_dht.run()));
+			} else {
+				log::warn!(
+					target: LOG_TARGET,
+					"Not starting IPFS DHT publisher because no IPFS bootnodes are configured. \
+					 Only direct Bitswap requests will be handled.",
+				);
+			}
+		}
+
 		config_builder = config_builder
 			.with_known_addresses(known_addresses.clone().into_iter())
 			.with_libp2p_ping(ping_config)
@@ -517,17 +559,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			.with_connection_limits(ConnectionLimitsConfig::default().max_incoming_connections(
 				Some(crate::MAX_CONNECTIONS_ESTABLISHED_INCOMING as usize),
 			))
-			// This has the same effect as `libp2p::Swarm::with_idle_connection_timeout` which is
-			// set to 10 seconds as well.
-			.with_keep_alive_timeout(KEEP_ALIVE_TIMEOUT)
+			.with_keep_alive_timeout(network_config.idle_connection_timeout)
+			// Use system DNS resolver to enable intranet domain resolution and administrator
+			// control over DNS lookup.
+			.with_system_resolver()
 			.with_executor(executor);
 
 		if let Some(config) = maybe_mdns_config {
 			config_builder = config_builder.with_mdns(config);
-		}
-
-		if let Some(config) = params.bitswap_config {
-			config_builder = config_builder.with_libp2p_bitswap(config);
 		}
 
 		let litep2p =
@@ -567,7 +606,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			Arc::new(Litep2pBandwidthSink { sink: litep2p.bandwidth_sink() });
 
 		if let Some(registry) = &params.metrics_registry {
-			MetricSources::register(registry, bandwidth, Arc::clone(&num_connected))?;
+			MetricSources::register(registry, bandwidth)?;
 		}
 
 		Ok(Self {
@@ -580,7 +619,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 			pending_queries: HashMap::new(),
 			peerstore_handle: peer_store_handle,
 			block_announce_protocol,
-			event_streams: out_events::OutChannels::new(None)?,
+			event_streams: out_events::OutChannels::new(params.metrics_registry.as_ref())?,
 			peers: HashMap::new(),
 			litep2p,
 		})
@@ -599,13 +638,6 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 	fn register_notification_metrics(registry: Option<&Registry>) -> NotificationMetrics {
 		NotificationMetrics::new(registry)
-	}
-
-	/// Create Bitswap server.
-	fn bitswap_server(
-		client: Arc<dyn BlockBackend<B> + Send + Sync>,
-	) -> (Pin<Box<dyn Future<Output = ()> + Send>>, Self::BitswapConfig) {
-		BitswapServer::new(client)
 	}
 
 	/// Create notification protocol configuration for `protocol`.
@@ -663,6 +695,10 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				command = self.cmd_rx.next() => match command {
 					None => return,
 					Some(command) => match command {
+						NetworkServiceCommand::FindClosestPeers { target } => {
+							let query_id = self.discovery.find_node(target.into()).await;
+							self.pending_queries.insert(query_id, KadQuery::FindNode(target, Instant::now()));
+						}
 						NetworkServiceCommand::GetValue{ key } => {
 							let query_id = self.discovery.get_value(key.clone()).await;
 							self.pending_queries.insert(query_id, KadQuery::GetValue(key, Instant::now()));
@@ -680,7 +716,8 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							self.discovery.store_record(key, value, publisher.map(Into::into), expires).await;
 						}
 						NetworkServiceCommand::StartProviding { key } => {
-							self.discovery.start_providing(key).await;
+							let query_id = self.discovery.start_providing(key.clone()).await;
+							self.pending_queries.insert(query_id, KadQuery::AddProvider(key, Instant::now()));
 						}
 						NetworkServiceCommand::StopProviding { key } => {
 							self.discovery.stop_providing(key).await;
@@ -722,7 +759,12 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								address.push(Protocol::P2p(litep2p::PeerId::from(peer).into()));
 							}
 
-							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) == 0usize {
+							if self.litep2p.add_known_address(peer.into(), iter::once(address.clone())) > 0 {
+								// libp2p backend generates `DiscoveryOut::Discovered(peer_id)`
+								// event when a new address is added for a peer, which leads to the
+								// peer being added to peerstore. Do the same directly here.
+								self.peerstore_handle.add_known_peer(peer);
+							} else {
 								log::debug!(
 									target: LOG_TARGET,
 									"couldn't add known address ({address}) for {peer:?}, unsupported transport"
@@ -786,10 +828,55 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 						}
 					}
 					Some(DiscoveryEvent::RoutingTableUpdate { peers }) => {
-						for peer in peers {
-							self.peerstore_handle.add_known_peer(peer.into());
+						let peers = peers.into_iter().map(Into::into).collect::<Vec<_>>();
+
+						for peer in &peers {
+							self.peerstore_handle.add_known_peer(*peer);
+						}
+
+						if !peers.is_empty() {
+							self.event_streams.send(Event::PeerRoutingTableUpdate(peers));
 						}
 					}
+					Some(DiscoveryEvent::FindNodeSuccess { query_id, target, peers }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::FindNode(_, started)) => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`FIND_NODE` for {target:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(
+									Event::Dht(
+										DhtEvent::ClosestPeersFound(
+											target.into(),
+											peers
+												.into_iter()
+												.map(|(peer, addrs)| (
+													peer.into(),
+													addrs.into_iter().map(Into::into).collect(),
+												))
+												.collect(),
+										)
+									)
+								);
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["node-find"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							query => {
+								log::error!(
+									target: LOG_TARGET,
+									"Missing/invalid pending query for `FIND_NODE`: {query:?}"
+								);
+								debug_assert!(false);
+							}
+						}
+					},
 					Some(DiscoveryEvent::GetRecordPartialResult { query_id, record }) => {
 						if !self.pending_queries.contains_key(&query_id) {
 							log::error!(
@@ -882,11 +969,25 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 									"`GET_PROVIDERS` for {key:?} ({query_id:?}) succeeded",
 								);
 
+								// We likely requested providers to connect to them,
+								// so let's add their addresses to litep2p's transport manager.
+								// Consider also looking the addresses of providers up with `FIND_NODE`
+								// query, as it can yield more up to date addresses.
+								providers.iter().for_each(|p| {
+									self.litep2p.add_known_address(p.peer, p.addresses.clone().into_iter());
+								});
+
 								self.event_streams.send(Event::Dht(
 									DhtEvent::ProvidersFound(
-										key.into(),
+										key.clone().into(),
 										providers.into_iter().map(|p| p.peer.into()).collect()
 									)
+								));
+
+								// litep2p returns all providers in a single event, so we let
+								// subscribers know no more providers will be yielded.
+								self.event_streams.send(Event::Dht(
+									DhtEvent::NoMoreProviders(key.into())
 								));
 
 								if let Some(ref metrics) = self.metrics {
@@ -905,8 +1006,61 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 							}
 						}
 					}
+					Some(DiscoveryEvent::AddProviderSuccess { query_id, provided_key }) => {
+						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::AddProvider(key, started)) => {
+								debug_assert_eq!(key, provided_key.into());
+
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for {key:?} ({query_id:?}) succeeded",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartedProviding(key.into())
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							}
+							Some(_) => {
+								log::error!(
+									target: LOG_TARGET,
+									"Invalid pending query for `ADD_PROVIDER`: {query_id:?}"
+								);
+								debug_assert!(false);
+							}
+							None => {
+								log::trace!(
+									target: LOG_TARGET,
+									"`ADD_PROVIDER` for key {provided_key:?} ({query_id:?}) succeeded (republishing)",
+								);
+							}
+						}
+					}
 					Some(DiscoveryEvent::QueryFailed { query_id }) => {
 						match self.pending_queries.remove(&query_id) {
+							Some(KadQuery::FindNode(peer_id, started)) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"`FIND_NODE` ({query_id:?}) failed for target {peer_id:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::ClosestPeersNotFound(peer_id.into())
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["node-find-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
 							Some(KadQuery::GetValue(key, started)) => {
 								log::debug!(
 									target: LOG_TARGET,
@@ -958,15 +1112,36 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 										.observe(started.elapsed().as_secs_f64());
 								}
 							},
-							None => {
-								log::warn!(
+							Some(KadQuery::AddProvider(key, started)) => {
+								log::debug!(
 									target: LOG_TARGET,
-									"non-existent query failed ({query_id:?})",
+									"`ADD_PROVIDER` ({query_id:?}) failed with key {key:?}",
+								);
+
+								self.event_streams.send(Event::Dht(
+									DhtEvent::StartProvidingFailed(key)
+								));
+
+								if let Some(ref metrics) = self.metrics {
+									metrics
+										.kademlia_query_duration
+										.with_label_values(&["provider-add-failed"])
+										.observe(started.elapsed().as_secs_f64());
+								}
+							},
+							None => {
+								log::debug!(
+									target: LOG_TARGET,
+									"non-existent query (likely republishing a provider) failed ({query_id:?})",
 								);
 							}
 						}
 					}
 					Some(DiscoveryEvent::Identified { peer, listen_addresses, supported_protocols, .. }) => {
+						self.event_streams.send(Event::PeerIdentified {
+							peer: peer.into(),
+							supported_protocols: supported_protocols.iter().cloned().map(Into::into).collect(),
+						});
 						self.discovery.add_self_reported_address(peer, supported_protocols, listen_addresses).await;
 					}
 					Some(DiscoveryEvent::ExternalAddressDiscovered { address }) => {
@@ -987,7 +1162,7 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 
 						// Litep2p requires the peer ID to be present in the address.
 						let address = if !std::matches!(address.iter().last(), Some(Protocol::P2p(_))) {
-							address.with(Protocol::P2p(*local_peer_id.as_ref()))
+							address.with(Protocol::P2p((*local_peer_id).into()))
 						} else {
 							address
 						};
@@ -1139,5 +1314,196 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 				},
 			}
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		config::{ed25519, NetworkConfiguration, ProtocolId, Role, Secret},
+		service::traits::NetworkStateInfo,
+	};
+	use sc_network_types::{
+		multiaddr::Multiaddr as NetworkMultiaddr, multihash::Multihash as NetworkMultihash,
+	};
+	use sp_core::H256;
+	use substrate_test_runtime_client::runtime::Block;
+
+	/// `--listen-addr` of a node behind a NAT. Port `0` so concurrent tests don't collide.
+	const WEBRTC_LISTEN_ADDRESS: &str = "/ip4/127.0.0.1/udp/0/webrtc-direct";
+
+	/// `--public-addr` of that node: the routable coordinate peers are told to dial.
+	/// This is the shape an operator supplies when the node sits behind a proxy.
+	const WEBRTC_PUBLIC_ADDRESS: &str = "/ip4/203.0.113.9/udp/31234/webrtc-direct";
+
+	/// The `/certhash` component of `address`.
+	fn certhash(address: &NetworkMultiaddr) -> Option<NetworkMultihash> {
+		address.iter().find_map(|protocol| match protocol {
+			NetworkProtocol::Certhash(hash) => Some(hash),
+			_ => None,
+		})
+	}
+
+	/// Bring up the backend from `network_config` through its real entry point.
+	fn start_backend(
+		network_config: &NetworkConfiguration,
+	) -> Result<Litep2pNetworkBackend, Error> {
+		let config = FullNetworkConfiguration::<Block, H256, Litep2pNetworkBackend>::new(
+			network_config,
+			None,
+		);
+
+		let (block_announce_config, _notification_service) =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::notification_config(
+				"/block-announces/1".into(),
+				vec![],
+				1024,
+				None,
+				SetConfig::default(),
+				NotificationMetrics::new(None),
+				config.peer_store_handle(),
+			);
+
+		<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::new(Params {
+			role: Role::Full,
+			executor: Box::new(|future| {
+				tokio::spawn(future);
+			}),
+			network_config: config,
+			protocol_id: ProtocolId::from("test"),
+			genesis_hash: H256::zero(),
+			fork_id: None,
+			metrics_registry: None,
+			block_announce_config,
+			ipfs_config: None,
+			notification_metrics: NotificationMetrics::new(None),
+		})
+	}
+
+	/// Both the address the node binds and the one it tells peers to dial must carry the node's
+	/// `/certhash`: a `webrtc-direct` dialer has no other way to verify the DTLS handshake.
+	#[tokio::test]
+	async fn webrtc_addresses_advertised_with_certhash() {
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+		// Fixed, so the certificate the node will present can be derived here as well.
+		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
+			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
+		));
+		network_config.validate_and_complete_addresses().unwrap();
+
+		let (keypair, _peer_id) =
+			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
+		let node_certhash: NetworkMultihash =
+			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+
+		let advertised = network_service.listen_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+
+		let advertised = network_service.external_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+	}
+
+	/// The default node key (`Secret::New`) generates a fresh key per `into_keypair()` call:
+	/// completing the addresses must pin the resolved key, or the backend would serve a
+	/// certificate matching neither the advertised `/certhash` nor each other's.
+	#[tokio::test]
+	async fn webrtc_certhash_consistent_with_default_node_key() {
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+		network_config.validate_and_complete_addresses().unwrap();
+
+		// Completing the addresses pinned the key, so this is the key the backend serves.
+		let (keypair, _peer_id) =
+			Litep2pNetworkBackend::get_keypair(&network_config.node_key).unwrap();
+		let node_certhash: NetworkMultihash =
+			webrtc::derive_certificate(keypair.secret()).unwrap().certhash().into();
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+
+		let advertised = network_service.listen_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+
+		let advertised = network_service.external_addresses();
+		assert_eq!(advertised.len(), 1);
+		assert_eq!(certhash(&advertised[0]), Some(node_certhash));
+	}
+
+	#[tokio::test]
+	async fn webrtc_public_address_completed_at_config_creation_accepted() {
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec![WEBRTC_LISTEN_ADDRESS.parse().unwrap()];
+		network_config.public_addresses = vec![WEBRTC_PUBLIC_ADDRESS.parse().unwrap()];
+		network_config.node_key = NodeKeyConfig::Ed25519(Secret::Input(
+			ed25519::SecretKey::try_from_bytes([7u8; 32]).unwrap(),
+		));
+		network_config.validate_and_complete_addresses().unwrap();
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+		let local_peer_id = network_service.local_peer_id();
+
+		assert_eq!(
+			network_service.external_addresses(),
+			vec![network_config.public_addresses[0]
+				.clone()
+				.with(NetworkProtocol::P2p(local_peer_id.into()))],
+		);
+	}
+
+	/// A configured `/certhash` is checked against the node's own and removed by
+	/// `NetworkConfiguration::validate_and_complete_addresses`, which this test deliberately skips:
+	/// the backend is the guard for a configuration built without it.
+	#[tokio::test]
+	async fn webrtc_listen_address_with_certhash_refuses_to_start() {
+		let listen_address: NetworkMultiaddr = WEBRTC_LISTEN_ADDRESS.parse().unwrap();
+
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses =
+			vec![listen_address.with(NetworkProtocol::Certhash(a_certhash()))];
+
+		assert!(matches!(start_backend(&network_config), Err(Error::InvalidWebRtcAddress { .. }),));
+	}
+
+	#[tokio::test]
+	async fn non_webrtc_public_address_untouched() {
+		let public_address: NetworkMultiaddr = "/ip4/203.0.113.9/tcp/31234".parse().unwrap();
+
+		let mut network_config = NetworkConfiguration::new_local();
+		network_config.listen_addresses = vec!["/ip4/127.0.0.1/tcp/0".parse().unwrap()];
+		network_config.public_addresses = vec![public_address.clone()];
+
+		// Held for the duration of the test: dropping it closes the node's sockets.
+		let backend = start_backend(&network_config).unwrap();
+		let network_service =
+			<Litep2pNetworkBackend as NetworkBackend<Block, H256>>::network_service(&backend);
+		let local_peer_id = network_service.local_peer_id();
+
+		// litep2p appends the local `/p2p` to every public address; nothing else is added.
+		assert_eq!(
+			network_service.external_addresses(),
+			vec![public_address.with(NetworkProtocol::P2p(local_peer_id.into()))],
+		);
+	}
+
+	/// A certhash standing in for the node's own.
+	fn a_certhash() -> NetworkMultihash {
+		sc_network_types::multihash::Code::Sha2_256.digest(b"certificate")
 	}
 }

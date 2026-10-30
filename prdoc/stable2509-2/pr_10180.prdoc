@@ -1,0 +1,8 @@
+title: 'frame-system: Ensure that `BlockNumber` is strictly increasing'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Otherwise a block should fail to build/import.
+crates:
+- name: frame-system
+  bump: patch

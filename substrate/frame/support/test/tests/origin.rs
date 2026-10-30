@@ -36,6 +36,7 @@ mod nested {
 
 		#[pallet::config]
 		pub trait Config: frame_system::Config {
+			#[allow(deprecated)]
 			type RuntimeEvent: From<Event<Self>>
 				+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		}
@@ -52,7 +53,7 @@ mod nested {
 			Clone,
 			PartialEq,
 			Eq,
-			RuntimeDebug,
+			Debug,
 			Encode,
 			Decode,
 			DecodeWithMemTracking,
@@ -95,6 +96,7 @@ pub mod module {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -129,15 +131,7 @@ pub mod module {
 
 	#[pallet::origin]
 	#[derive(
-		Clone,
-		PartialEq,
-		Eq,
-		RuntimeDebug,
-		Encode,
-		Decode,
-		DecodeWithMemTracking,
-		MaxEncodedLen,
-		TypeInfo,
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
 	)]
 	pub struct Origin<T>(pub PhantomData<T>);
 

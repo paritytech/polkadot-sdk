@@ -26,6 +26,7 @@ extern crate alloc;
 
 use codec::{
 	Decode, DecodeLimit, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen,
+	MemTrackingInput,
 };
 use derive_where::derive_where;
 use frame_support::dispatch::GetDispatchInfo;
@@ -46,11 +47,28 @@ pub mod latest {
 mod double_encoded;
 pub use double_encoded::DoubleEncoded;
 
+mod utils;
+
 #[cfg(test)]
 mod tests;
 
+/// Maximum decoded heap size for an XCM.
+pub const MAX_XCM_SIZE: usize = 8 * 1024 * 1024;
 /// Maximum nesting level for XCM decoding.
+///
+/// The `DoubleEncoded<T>` calls found within the XCM instructions are ignored when applying this
+/// limit. So from this perspective, they are treated as if they don't have depth.
 pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
+/// The maximum nesting depth allowed for `DoubleEncoded<T>` calls found within XCM instructions.
+///
+/// The limit is applied only for nested `DoubleEncoded<T>`
+pub const RECURSION_LIMIT: u8 = 10;
+/// The maximal number of instructions in an XCM before decoding fails.
+///
+/// This is a deliberate limit - not a technical one.
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
+
+const DECODE_ALL_ERR_MSG: &str = "Input buffer has still data left after decoding!";
 
 /// A version of XCM.
 pub type Version = u32;
@@ -134,12 +152,17 @@ macro_rules! versioned_type {
 		}
 		impl IntoVersion for $n {
 			fn into_version(self, n: Version) -> Result<Self, ()> {
-				Ok(match n {
-					3 => Self::V3(self.try_into()?),
-					4 => Self::V4(self.try_into()?),
-					5 => Self::V5(self.try_into()?),
-					_ => return Err(()),
-				})
+				let version = self.identify_version();
+				if version == n {
+					Ok(self)
+				} else {
+					Ok(match n {
+						3 => Self::V3(self.try_into()?),
+						4 => Self::V4(self.try_into()?),
+						5 => Self::V5(self.try_into()?),
+						_ => return Err(()),
+					})
+				}
 			}
 		}
 		impl From<$v3> for $n {
@@ -306,11 +329,28 @@ versioned_type! {
 	}
 }
 
+impl VersionedAssets {
+	/// The number of assets in the collection, regardless of XCM version.
+	pub fn len(&self) -> usize {
+		match self {
+			Self::V3(assets) => assets.len(),
+			Self::V4(assets) => assets.len(),
+			Self::V5(assets) => assets.len(),
+		}
+	}
+
+	/// Whether the collection contains no assets.
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+}
+
 /// A single XCM message, together with its version code.
 #[derive(Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[derive_where(Clone, Eq, PartialEq, Debug)]
 #[codec(encode_bound())]
-#[codec(decode_bound())]
+#[codec(decode_bound(RuntimeCall: Decode))]
+#[codec(decode_with_mem_tracking_bound(RuntimeCall: Decode))]
 #[scale_info(bounds(), skip_type_params(RuntimeCall))]
 #[scale_info(replace_segment("staging_xcm", "xcm"))]
 pub enum VersionedXcm<RuntimeCall> {
@@ -343,18 +383,44 @@ impl<C> IdentifyVersion for VersionedXcm<C> {
 	}
 }
 
-impl<C> VersionedXcm<C> {
-	/// Checks that the XCM is decodable with `MAX_XCM_DECODE_DEPTH`. Consequently, it also checks
-	/// all decode implementations and limits, such as MAX_ITEMS_IN_ASSETS or
-	/// MAX_INSTRUCTIONS_TO_DECODE.
+impl<C: Decode> VersionedXcm<C> {
+	/// Decodes an XCM, checking the [`MAX_XCM_SIZE`], [`MAX_XCM_DECODE_DEPTH`], and also that all
+	/// the input data is consumed.
 	///
-	/// Note that this uses the limit of the sender - not the receiver. It is a best effort.
-	pub fn validate_xcm_nesting(&self) -> Result<(), ()> {
+	/// The implicit constraints baked into the XCM decoding logic (e.g. `MAX_ITEMS_IN_ASSETS` and
+	/// [`MAX_INSTRUCTIONS_TO_DECODE`]) are also checked.
+	pub fn decode_all_with_mem_and_depth_limit(
+		input: &mut &[u8],
+	) -> Result<VersionedXcm<C>, CodecError> {
+		// Adds 1 byte to the `MAX_XCM_SIZE` as the decoding fails exactly at the given value and
+		// the maximum should be allowed to fit in.
+		let mut mem_tracking_input = MemTrackingInput::new(input, MAX_XCM_SIZE.saturating_add(1));
+		let xcm =
+			VersionedXcm::decode_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut mem_tracking_input)?;
+		// We need to also make sure that we consumed all the input data, but we can't use
+		// `decode_all()`, because it only accepts a byte slice as input.
+		if !input.is_empty() {
+			return Err(DECODE_ALL_ERR_MSG.into());
+		}
+
+		Ok(xcm)
+	}
+
+	/// Checks if the XCM is decodable. Consequently, it checks all decoding constraints,
+	/// such as [`MAX_XCM_DECODE_DEPTH`], [`MAX_XCM_SIZE`], `MAX_ITEMS_IN_ASSETS` or
+	/// [`MAX_INSTRUCTIONS_TO_DECODE`].
+	///
+	/// Note that this is a best effort and it has limitations. For example:
+	/// - this uses the limit of the sender - not the receiver
+	/// - if the XCM contains double encoded calls to be executed on the remote chain, they won't be
+	///   decoded here. So the `RECURSION_LIMIT` will not be checked for them, and also their
+	///   decoded heap memory will not be included when checking the `MAX_XCM_SIZE`.
+	pub fn check_is_decodable(&self) -> Result<(), ()> {
 		self.using_encoded(|mut enc| {
-			Self::decode_all_with_depth_limit(MAX_XCM_DECODE_DEPTH, &mut enc).map(|_| ())
+			Self::decode_all_with_mem_and_depth_limit(&mut enc).map(|_| ())
 		})
 		.map_err(|e| {
-			log::error!(target: "xcm::validate_xcm_nesting", "Decode error: {e:?} for xcm: {self:?}!");
+			tracing::error!(target: "xcm::check_is_decodable", error=?e, xcm=?self, "Decode error!");
 			()
 		})
 	}
@@ -469,7 +535,7 @@ impl GetVersion for AlwaysV3 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 4 before
 /// wrapping it.
 pub struct AlwaysV4;
 impl WrapVersion for AlwaysV4 {
@@ -486,7 +552,7 @@ impl GetVersion for AlwaysV4 {
 	}
 }
 
-/// `WrapVersion` implementation which attempts to always convert the XCM to version 3 before
+/// `WrapVersion` implementation which attempts to always convert the XCM to version 5 before
 /// wrapping it.
 pub struct AlwaysV5;
 impl WrapVersion for AlwaysV5 {
@@ -613,10 +679,13 @@ fn size_limits() {
 }
 
 #[test]
-fn validate_xcm_nesting_works() {
-	use crate::latest::{
-		prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
-		Assets, Xcm, MAX_INSTRUCTIONS_TO_DECODE, MAX_ITEMS_IN_ASSETS,
+fn check_is_decodable_works() {
+	use crate::{
+		latest::{
+			prelude::{GeneralIndex, ReserveAssetDeposited, SetAppendix},
+			Assets, Xcm, MAX_ITEMS_IN_ASSETS,
+		},
+		MAX_INSTRUCTIONS_TO_DECODE,
 	};
 
 	// closure generates assets of `count`
@@ -642,46 +711,46 @@ fn validate_xcm_nesting_works() {
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE - 1) as usize
 	]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![
 		ReserveAssetDeposited(assets(1));
 		MAX_INSTRUCTIONS_TO_DECODE as usize
 	]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![
 		ReserveAssetDeposited(assets(1));
 		(MAX_INSTRUCTIONS_TO_DECODE + 1) as usize
 	]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_err());
 
 	// `MAX_XCM_DECODE_DEPTH` check
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH - 1))
-		.validate_xcm_nesting()
+		.check_is_decodable()
 		.is_ok());
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH))
-		.validate_xcm_nesting()
+		.check_is_decodable()
 		.is_ok());
 	assert!(VersionedXcm::<()>::from(with_instr(MAX_XCM_DECODE_DEPTH + 1))
-		.validate_xcm_nesting()
+		.check_is_decodable()
 		.is_err());
 
 	// `MAX_ITEMS_IN_ASSETS` check
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS
 	))]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS - 1
 	))]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_ok());
 	assert!(VersionedXcm::<()>::from(Xcm(vec![ReserveAssetDeposited(assets(
 		MAX_ITEMS_IN_ASSETS + 1
 	))]))
-	.validate_xcm_nesting()
+	.check_is_decodable()
 	.is_err());
 }

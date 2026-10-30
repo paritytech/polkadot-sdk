@@ -50,6 +50,11 @@ pub struct WeightMeter {
 }
 
 impl WeightMeter {
+	/// Creates [`Self`] from `consumed` and `limit`.
+	pub fn with_consumed_and_limit(consumed: Weight, limit: Weight) -> Self {
+		Self { consumed, limit }
+	}
+
 	/// Creates [`Self`] from a limit for the maximal consumable weight.
 	pub fn with_limit(limit: Weight) -> Self {
 		Self { consumed: Weight::zero(), limit }
@@ -58,6 +63,13 @@ impl WeightMeter {
 	/// Creates [`Self`] with the maximal possible limit for the consumable weight.
 	pub fn new() -> Self {
 		Self::with_limit(Weight::MAX)
+	}
+
+	/// Change the limit to the given `weight`.
+	///
+	/// The actual weight will be determined by `min(weight, self.remaining())`.
+	pub fn limit_to(self, weight: Weight) -> Self {
+		Self::with_limit(self.remaining().min(weight))
 	}
 
 	/// The already consumed weight.
@@ -104,12 +116,6 @@ impl WeightMeter {
 		let time = Perbill::from_rational(self.consumed.ref_time(), self.limit.ref_time());
 		let pov = Perbill::from_rational(self.consumed.proof_size(), self.limit.proof_size());
 		time.max(pov)
-	}
-
-	/// Consume some weight and defensively fail if it is over the limit. Saturate in any case.
-	#[deprecated(note = "Use `consume` instead. Will be removed after December 2023.")]
-	pub fn defensive_saturating_accrue(&mut self, w: Weight) {
-		self.consume(w);
 	}
 
 	/// Consume some weight and defensively fail if it is over the limit. Saturate in any case.

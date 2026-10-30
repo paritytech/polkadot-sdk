@@ -456,6 +456,73 @@ fn poke_deposits_works() {
 	});
 }
 
+fn insert_channel_without_deposits(channel_id: &HrmpChannelId) {
+	let config = configuration::ActiveConfig::<Test>::get();
+	HrmpChannels::<Test>::insert(
+		channel_id,
+		HrmpChannel {
+			sender_deposit: 0,
+			recipient_deposit: 0,
+			max_capacity: config.hrmp_channel_max_capacity,
+			max_total_size: config.hrmp_channel_max_total_size,
+			max_message_size: config.hrmp_channel_max_message_size,
+			msg_count: 0,
+			total_size: 0,
+			mqc_head: None,
+		},
+	);
+}
+
+#[test]
+fn poke_deposits_increase_works() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		let channel = HrmpChannels::<Test>::get(&channel_id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (20, 15));
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			20
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			15
+		);
+	});
+}
+
+#[test]
+fn poke_deposits_increase_without_balance_fails() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 0);
+		insert_channel_without_deposits(&HrmpChannelId { sender: para_a, recipient: para_b });
+
+		// The sender's deposit is taken first and must be rolled back too.
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b),
+			pallet_balances::Error::<Test, _>::InsufficientBalance
+		);
+	});
+}
+
 #[test]
 fn close_channel_works() {
 	let para_a = 2005.into();
@@ -893,6 +960,86 @@ fn cancel_pending_open_channel_request() {
 }
 
 #[test]
+fn watermark_can_remain_the_same() {
+	let para_a = 2032.into();
+	let para_b = 2064.into();
+	let para_c = 3000.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_channel_max_message_size = 20;
+	genesis.hrmp_channel_max_total_size = 20;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain(para_a);
+		register_parachain(para_b);
+		register_parachain(para_c);
+
+		run_to_block(3, Some(vec![2, 3]));
+		Hrmp::init_open_channel(para_a, para_b, 2, 20).unwrap();
+		Hrmp::accept_open_channel(para_b, para_a).unwrap();
+		Hrmp::init_open_channel(para_c, para_b, 2, 20).unwrap();
+		Hrmp::accept_open_channel(para_b, para_c).unwrap();
+
+		// Update watermark
+		assert!(Hrmp::check_hrmp_watermark(para_b, 3, 3).is_ok());
+		let _ = Hrmp::prune_hrmp(para_b, 3);
+
+		// On Block 6:
+		// A sends 1 message to B
+		run_to_block(6, Some(vec![6]));
+		assert!(channel_exists(para_a, para_b));
+		let msgs: HorizontalMessages =
+			vec![OutboundHrmpMessage { recipient: para_b, data: b"HRMP message from A".to_vec() }]
+				.try_into()
+				.unwrap();
+		let config = configuration::ActiveConfig::<Test>::get();
+		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
+		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
+		Hrmp::assert_storage_consistency_exhaustive();
+		// C sends 1 message to B
+		assert!(channel_exists(para_c, para_b));
+		let msgs: HorizontalMessages =
+			vec![OutboundHrmpMessage { recipient: para_b, data: b"HRMP message from C".to_vec() }]
+				.try_into()
+				.unwrap();
+		let config = configuration::ActiveConfig::<Test>::get();
+		assert!(Hrmp::check_outbound_hrmp(&config, para_c, &msgs).is_ok());
+		let _ = Hrmp::queue_outbound_hrmp(para_c, msgs);
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Check that a smaller HRMP watermark is not accepted
+		assert!(matches!(
+			Hrmp::check_hrmp_watermark(para_b, 6, 2),
+			Err(HrmpWatermarkAcceptanceErr::AdvancementRule {
+				new_watermark: 2,
+				last_watermark: 3
+			})
+		));
+
+		// Check that an HRMP watermark representing a relay chain block that doesn't contain
+		// any message is not accepted
+		assert!(matches!(
+			Hrmp::check_hrmp_watermark(para_b, 6, 5),
+			Err(HrmpWatermarkAcceptanceErr::LandsOnBlockWithNoMessages { new_watermark: 5 })
+		));
+
+		// On block 7:
+		// B receives the messages, but can process only the one sent by A.
+		// B keeps the old watermark.
+		run_to_block(7, None);
+		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 3).is_ok());
+		let _ = Hrmp::prune_hrmp(para_b, 5);
+		Hrmp::assert_storage_consistency_exhaustive();
+
+		// On block 8:
+		// B can also process the message sent by C. B sets the watermark to 6.
+		run_to_block(8, None);
+		assert!(Hrmp::check_hrmp_watermark(para_b, 7, 6).is_ok());
+		let _ = Hrmp::prune_hrmp(para_b, 6);
+		Hrmp::assert_storage_consistency_exhaustive();
+	});
+}
+
+#[test]
 fn watermark_maxed_out_at_relay_parent() {
 	let para_a = 2032.into();
 	let para_b = 2064.into();
@@ -920,6 +1067,15 @@ fn watermark_maxed_out_at_relay_parent() {
 		assert!(Hrmp::check_outbound_hrmp(&config, para_a, &msgs).is_ok());
 		let _ = Hrmp::queue_outbound_hrmp(para_a, msgs);
 		Hrmp::assert_storage_consistency_exhaustive();
+
+		// Check that an HRMP watermark greater than the relay parent is not accepted
+		assert!(matches!(
+			Hrmp::check_hrmp_watermark(para_b, 6, 7),
+			Err(HrmpWatermarkAcceptanceErr::AheadRelayParent {
+				new_watermark: 7,
+				relay_chain_parent_number: 6,
+			})
+		));
 
 		// On block 8:
 		// B receives the message sent by A. B sets the watermark to 7.
@@ -1043,7 +1199,7 @@ fn hrmp_notifications_works() {
 
 		let assert_notification_for = |sent_at, para_id, expected| {
 			assert_eq!(
-				Dmp::dmq_contents(para_id),
+				Dmp::dmq_contents_do_not_call_in_consensus(para_id),
 				vec![InboundDownwardMessage { sent_at, msg: expected }]
 			);
 		};

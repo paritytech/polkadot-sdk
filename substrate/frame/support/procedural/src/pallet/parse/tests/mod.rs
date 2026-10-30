@@ -262,3 +262,35 @@ fn test_parse_pallet_missing_config() {
 		}
 	}
 }
+
+#[test]
+fn test_parse_pallet_deprecated_attribute_on_error_enum() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("The `\\#\\[deprecated\\]` attribute should be applied to individual variants, not the enum as a whole\\.")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::error]
+			#[deprecated(note = "This enum is deprecated and should not be used.")]
+			pub enum Error<T> {
+				Foo
+			}
+		}
+	}
+}
+
+#[test]
+fn test_parse_pallet_deprecated_attribute_on_event_enum() {
+	assert_pallet_parse_error! {
+		#[manifest_dir("../../examples/basic")]
+		#[error_regex("The `\\#\\[deprecated\\]` attribute should be applied to individual variants, not the enum as a whole\\.")]
+		#[frame_support::pallet]
+		pub mod pallet {
+			#[pallet::event]
+			#[deprecated(note = "This enum is deprecated and should not be used.")]
+			pub enum Event<T> {
+				Foo
+			}
+		}
+	}
+}

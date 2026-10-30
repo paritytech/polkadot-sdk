@@ -31,8 +31,8 @@ pub mod relay_to_relay;
 pub mod relay_to_parachain;
 
 use async_trait::async_trait;
+use clap::Parser;
 use std::{fmt::Debug, marker::PhantomData, sync::Arc};
-use structopt::StructOpt;
 
 use futures::{FutureExt, TryFutureExt};
 
@@ -55,20 +55,20 @@ use sp_core::Pair;
 use sp_runtime::traits::TryConvert;
 
 /// Parameters that have the same names across all bridges.
-#[derive(Debug, PartialEq, StructOpt)]
+#[derive(Debug, PartialEq, Parser)]
 pub struct HeadersAndMessagesSharedParams {
 	/// Hex-encoded lane identifiers that should be served by the complex relay.
-	#[structopt(long)]
+	#[arg(long)]
 	pub lane: Vec<HexLaneId>,
 	/// If passed, only mandatory headers (headers that are changing the GRANDPA authorities set)
 	/// are relayed.
-	#[structopt(long)]
+	#[arg(long)]
 	pub only_mandatory_headers: bool,
 	/// If passed, only free headers (mandatory and every Nth header, if configured in runtime)
 	/// are relayed. Overrides `only_mandatory_headers`.
-	#[structopt(long)]
+	#[arg(long)]
 	pub only_free_headers: bool,
-	#[structopt(flatten)]
+	#[command(flatten)]
 	/// Prometheus metrics params.
 	pub prometheus_params: PrometheusParams,
 }
@@ -251,7 +251,7 @@ where
 	fn mut_base(&mut self) -> &mut Self::Base;
 
 	/// Creates and returns Left to Right complex relay.
-	fn left_to_right(&mut self) -> FullBridge<Self::Left, Self::Right, Self::L2R> {
+	fn left_to_right(&mut self) -> FullBridge<'_, Self::Left, Self::Right, Self::L2R> {
 		let common = self.mut_base().mut_common();
 		FullBridge::<_, _, Self::L2R>::new(
 			&mut common.left,
@@ -261,7 +261,7 @@ where
 	}
 
 	/// Creates and returns Right to Left complex relay.
-	fn right_to_left(&mut self) -> FullBridge<Self::Right, Self::Left, Self::R2L> {
+	fn right_to_left(&mut self) -> FullBridge<'_, Self::Right, Self::Left, Self::R2L> {
 		let common = self.mut_base().mut_common();
 		FullBridge::<_, _, Self::R2L>::new(
 			&mut common.right,
@@ -413,7 +413,7 @@ mod tests {
 			Polkadot
 		);
 
-		let res = BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages::from_iter(vec![
+		let res = BridgeHubKusamaBridgeHubPolkadotHeadersAndMessages::parse_from(vec![
 			"bridge-hub-kusama-bridge-hub-polkadot-headers-and-messages",
 			"--bridge-hub-kusama-uri",
 			"ws://bridge-hub-kusama-node-collator1:9944",

@@ -56,6 +56,7 @@
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+mod liquidity;
 #[cfg(test)]
 mod mock;
 mod swap;
@@ -65,6 +66,7 @@ mod types;
 pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 pub use benchmarking::{BenchmarkHelper, NativeOrWithIdFactory};
+pub use liquidity::*;
 pub use pallet::*;
 pub use swap::*;
 pub use types::*;
@@ -75,7 +77,6 @@ extern crate alloc;
 use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
 use codec::Codec;
 use frame_support::{
-	storage::{with_storage_layer, with_transaction},
 	traits::{
 		fungibles::{Balanced, Create, Credit, Inspect, Mutate},
 		tokens::{
@@ -92,7 +93,7 @@ use sp_core::Get;
 use sp_runtime::{
 	traits::{
 		CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Ensure, IntegerSquareRoot, MaybeDisplay,
-		One, TrailingZeroInput, Zero,
+		MaybeSerializeDeserialize, One, TrailingZeroInput, Zero,
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
@@ -101,11 +102,11 @@ use sp_runtime::{
 pub mod pallet {
 	use super::*;
 	use frame_support::{
-		pallet_prelude::{DispatchResult, *},
-		traits::fungibles::Refund,
+		pallet_prelude::*,
+		traits::{fungibles::Refund, EnsureOrigin},
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{traits::Unsigned, Permill};
+	use sp_arithmetic::{traits::Unsigned, PerThing, Permill};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -113,6 +114,7 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The type in which the assets for swapping are measured.
@@ -129,7 +131,7 @@ pub mod pallet {
 
 		/// Type of asset class, sourced from [`Config::Assets`], utilized to offer liquidity to a
 		/// pool.
-		type AssetKind: Parameter + MaxEncodedLen;
+		type AssetKind: Parameter + MaxEncodedLen + MaybeSerializeDeserialize;
 
 		/// Registry of assets utilized for providing liquidity to pools.
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
@@ -158,9 +160,20 @@ pub mod pallet {
 			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>
 			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
-		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
+		/// The fraction of every swap that the liquidity providers take as a fee.
+		///
+		/// Used as the default swap fee for any pool that has no per-pool override set in
+		/// [`PoolFees`]. See [`Pallet::pool_fee`].
 		#[pallet::constant]
-		type LPFee: Get<u32>;
+		type LPFee: Get<Permill>;
+
+		/// The origin permitted to set per-pool swap fees, via
+		/// [`Pallet::create_pool_with_fee`] and [`Pallet::set_pool_fee`].
+		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// The maximum swap fee that can be set for a pool.
+		#[pallet::constant]
+		type MaxSwapFee: Get<Permill>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -208,6 +221,46 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type NextPoolAssetId<T: Config> = StorageValue<_, T::PoolAssetId, OptionQuery>;
 
+	/// Per-pool swap fee overrides.
+	///
+	/// When a pool has no entry here, the global [`Config::LPFee`] applies. This storage is purely
+	/// additive: existing pools and runtimes that never set a per-pool fee behave exactly as before
+	/// and require no migration. See [`Pallet::pool_fee`] for the resolution logic.
+	#[pallet::storage]
+	pub type PoolFees<T: Config> = StorageMap<_, Blake2_128Concat, T::PoolId, Permill, OptionQuery>;
+
+	/// Genesis config for the asset conversion pallet.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Pools to create at genesis with initial liquidity.
+		///
+		/// Each entry is `(asset1, asset2, liquidity_provider, amount1, amount2)`.
+		/// The `liquidity_provider` must hold sufficient balances of both assets
+		/// (e.g. via `pallet_balances` / `pallet_assets` genesis configs).
+		/// Set both amounts to zero to create a pool without initial liquidity.
+		/// No pool setup fee is charged at genesis.
+		pub pools: Vec<(T::AssetKind, T::AssetKind, T::AccountId, T::Balance, T::Balance)>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for (asset1, asset2, lp_provider, amount1, amount2) in &self.pools {
+				Pallet::<T>::setup_pool_from_genesis(
+					asset1,
+					asset2,
+					lp_provider,
+					*amount1,
+					*amount2,
+				)
+				.unwrap_or_else(|e| {
+					panic!("Genesis pool ({asset1:?}, {asset2:?}) setup failed: {e:?}")
+				});
+			}
+		}
+	}
+
 	// Pallet's events.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -224,6 +277,15 @@ pub mod pallet {
 			/// The id of the liquidity tokens that will be minted when assets are added to this
 			/// pool.
 			lp_token: T::PoolAssetId,
+		},
+
+		/// A pool's swap fee was set, either at creation via [`Pallet::create_pool_with_fee`]
+		/// or afterwards via [`Pallet::set_pool_fee`].
+		PoolFeeSet {
+			/// The pool whose fee was set.
+			pool_id: T::PoolId,
+			/// The swap fee now applied to the pool.
+			fee: Permill,
 		},
 
 		/// A successful call of the `AddLiquidity` extrinsic will create this event.
@@ -348,6 +410,13 @@ pub mod pallet {
 		IncorrectPoolAssetId,
 		/// The destination account cannot exist with the swapped funds.
 		BelowMinimum,
+		/// The pool exists but has no liquidity (at least one of the reserves is zero).
+		PoolEmpty,
+		/// The fee exceeds [`Config::MaxSwapFee`].
+		FeeTooHigh,
+		/// The pool account can't send one of its assets (e.g. the asset class is frozen or the
+		/// pool account is blocked).
+		PoolUnavailable,
 	}
 
 	#[pallet::hooks]
@@ -356,6 +425,10 @@ pub mod pallet {
 			assert!(
 				T::MaxSwapPathLength::get() > 1,
 				"the `MaxSwapPathLength` should be greater than 1",
+			);
+			assert!(
+				T::MaxSwapFee::get() < Permill::one(),
+				"the `MaxSwapFee` should be less than 100%",
 			);
 		}
 	}
@@ -375,50 +448,7 @@ pub mod pallet {
 			asset2: Box<T::AssetKind>,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
-
-			// prepare pool_id
-			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
-				.map_err(|_| Error::<T>::InvalidAssetPair)?;
-			ensure!(!Pools::<T>::contains_key(&pool_id), Error::<T>::PoolExists);
-
-			let pool_account =
-				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-
-			// pay the setup fee
-			let fee =
-				Self::withdraw(T::PoolSetupFeeAsset::get(), &sender, T::PoolSetupFee::get(), true)?;
-			T::PoolSetupFeeTarget::on_unbalanced(fee);
-
-			if T::Assets::should_touch(*asset1.clone(), &pool_account) {
-				T::Assets::touch(*asset1, &pool_account, &sender)?
-			};
-
-			if T::Assets::should_touch(*asset2.clone(), &pool_account) {
-				T::Assets::touch(*asset2, &pool_account, &sender)?
-			};
-
-			let lp_token = NextPoolAssetId::<T>::get()
-				.or(T::PoolAssetId::initial_value())
-				.ok_or(Error::<T>::IncorrectPoolAssetId)?;
-			let next_lp_token_id = lp_token.increment().ok_or(Error::<T>::IncorrectPoolAssetId)?;
-			NextPoolAssetId::<T>::set(Some(next_lp_token_id));
-
-			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), false, 1u32.into())?;
-			if T::PoolAssets::should_touch(lp_token.clone(), &pool_account) {
-				T::PoolAssets::touch(lp_token.clone(), &pool_account, &sender)?
-			};
-
-			let pool_info = PoolInfo { lp_token: lp_token.clone() };
-			Pools::<T>::insert(pool_id.clone(), pool_info);
-
-			Self::deposit_event(Event::PoolCreated {
-				creator: sender,
-				pool_id,
-				pool_account,
-				lp_token,
-			});
-
+			Self::do_create_pool(&sender, *asset1, *asset2, None)?;
 			Ok(())
 		}
 
@@ -449,97 +479,16 @@ pub mod pallet {
 			mint_to: T::AccountId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-
-			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
-				.map_err(|_| Error::<T>::InvalidAssetPair)?;
-
-			ensure!(
-				amount1_desired > Zero::zero() && amount2_desired > Zero::zero(),
-				Error::<T>::WrongDesiredAmount
-			);
-
-			let pool = Pools::<T>::get(&pool_id).ok_or(Error::<T>::PoolNotFound)?;
-			let pool_account =
-				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-
-			let reserve1 = Self::get_balance(&pool_account, *asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, *asset2.clone());
-
-			let amount1: T::Balance;
-			let amount2: T::Balance;
-			if reserve1.is_zero() || reserve2.is_zero() {
-				amount1 = amount1_desired;
-				amount2 = amount2_desired;
-			} else {
-				let amount2_optimal = Self::quote(&amount1_desired, &reserve1, &reserve2)?;
-
-				if amount2_optimal <= amount2_desired {
-					ensure!(
-						amount2_optimal >= amount2_min,
-						Error::<T>::AssetTwoDepositDidNotMeetMinimum
-					);
-					amount1 = amount1_desired;
-					amount2 = amount2_optimal;
-				} else {
-					let amount1_optimal = Self::quote(&amount2_desired, &reserve2, &reserve1)?;
-					ensure!(
-						amount1_optimal <= amount1_desired,
-						Error::<T>::OptimalAmountLessThanDesired
-					);
-					ensure!(
-						amount1_optimal >= amount1_min,
-						Error::<T>::AssetOneDepositDidNotMeetMinimum
-					);
-					amount1 = amount1_optimal;
-					amount2 = amount2_desired;
-				}
-			}
-
-			ensure!(
-				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(*asset1.clone()),
-				Error::<T>::AmountOneLessThanMinimal
-			);
-			ensure!(
-				amount2.saturating_add(reserve2) >= T::Assets::minimum_balance(*asset2.clone()),
-				Error::<T>::AmountTwoLessThanMinimal
-			);
-
-			T::Assets::transfer(*asset1, &sender, &pool_account, amount1, Preserve)?;
-			T::Assets::transfer(*asset2, &sender, &pool_account, amount2, Preserve)?;
-
-			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
-
-			let lp_token_amount: T::Balance;
-			if total_supply.is_zero() {
-				lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
-				T::PoolAssets::mint_into(
-					pool.lp_token.clone(),
-					&pool_account,
-					T::MintMinLiquidity::get(),
-				)?;
-			} else {
-				let side1 = Self::mul_div(&amount1, &total_supply, &reserve1)?;
-				let side2 = Self::mul_div(&amount2, &total_supply, &reserve2)?;
-				lp_token_amount = side1.min(side2);
-			}
-
-			ensure!(
-				lp_token_amount > T::MintMinLiquidity::get(),
-				Error::<T>::InsufficientLiquidityMinted
-			);
-
-			T::PoolAssets::mint_into(pool.lp_token.clone(), &mint_to, lp_token_amount)?;
-
-			Self::deposit_event(Event::LiquidityAdded {
-				who: sender,
-				mint_to,
-				pool_id,
-				amount1_provided: amount1,
-				amount2_provided: amount2,
-				lp_token: pool.lp_token,
-				lp_token_minted: lp_token_amount,
-			});
-
+			Self::do_add_liquidity(
+				&sender,
+				*asset1,
+				*asset2,
+				amount1_desired,
+				amount2_desired,
+				amount1_min,
+				amount2_min,
+				&mint_to,
+			)?;
 			Ok(())
 		}
 
@@ -558,69 +507,15 @@ pub mod pallet {
 			withdraw_to: T::AccountId,
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
-
-			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
-				.map_err(|_| Error::<T>::InvalidAssetPair)?;
-
-			ensure!(lp_token_burn > Zero::zero(), Error::<T>::ZeroLiquidity);
-
-			let pool = Pools::<T>::get(&pool_id).ok_or(Error::<T>::PoolNotFound)?;
-
-			let pool_account =
-				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
-			let reserve1 = Self::get_balance(&pool_account, *asset1.clone());
-			let reserve2 = Self::get_balance(&pool_account, *asset2.clone());
-
-			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
-			let withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
-			let lp_redeem_amount = lp_token_burn.saturating_sub(withdrawal_fee_amount);
-
-			let amount1 = Self::mul_div(&lp_redeem_amount, &reserve1, &total_supply)?;
-			let amount2 = Self::mul_div(&lp_redeem_amount, &reserve2, &total_supply)?;
-
-			ensure!(
-				!amount1.is_zero() && amount1 >= amount1_min_receive,
-				Error::<T>::AssetOneWithdrawalDidNotMeetMinimum
-			);
-			ensure!(
-				!amount2.is_zero() && amount2 >= amount2_min_receive,
-				Error::<T>::AssetTwoWithdrawalDidNotMeetMinimum
-			);
-			let reserve1_left = reserve1.saturating_sub(amount1);
-			let reserve2_left = reserve2.saturating_sub(amount2);
-			ensure!(
-				reserve1_left >= T::Assets::minimum_balance(*asset1.clone()),
-				Error::<T>::ReserveLeftLessThanMinimal
-			);
-			ensure!(
-				reserve2_left >= T::Assets::minimum_balance(*asset2.clone()),
-				Error::<T>::ReserveLeftLessThanMinimal
-			);
-
-			// burn the provided lp token amount that includes the fee
-			T::PoolAssets::burn_from(
-				pool.lp_token.clone(),
+			Self::do_remove_liquidity(
 				&sender,
+				*asset1,
+				*asset2,
 				lp_token_burn,
-				Expendable,
-				Exact,
-				Polite,
+				amount1_min_receive,
+				amount2_min_receive,
+				&withdraw_to,
 			)?;
-
-			T::Assets::transfer(*asset1, &pool_account, &withdraw_to, amount1, Expendable)?;
-			T::Assets::transfer(*asset2, &pool_account, &withdraw_to, amount2, Expendable)?;
-
-			Self::deposit_event(Event::LiquidityRemoved {
-				who: sender,
-				withdraw_to,
-				pool_id,
-				amount1,
-				amount2,
-				lp_token: pool.lp_token,
-				lp_token_burned: lp_token_burn,
-				withdrawal_fee: T::LiquidityWithdrawalFee::get(),
-			});
-
 			Ok(())
 		}
 
@@ -722,9 +617,357 @@ pub mod pallet {
 			Self::deposit_event(Event::Touched { pool_id, who });
 			Ok(Some(T::WeightInfo::touch(refunds_number)).into())
 		}
+
+		/// Like [`Pallet::create_pool`], but sets an initial per-pool swap `fee` overriding the
+		/// global [`Config::LPFee`].
+		///
+		/// Requires [`Config::AdminOrigin`]. `creator` pays the pool setup fee and deposits.
+		/// `fee` must not exceed [`Config::MaxSwapFee`].
+		///
+		/// Emits both [`Event::PoolCreated`] and [`Event::PoolFeeSet`] on success.
+		#[pallet::call_index(6)]
+		#[pallet::weight(T::WeightInfo::create_pool_with_fee())]
+		pub fn create_pool_with_fee(
+			origin: OriginFor<T>,
+			creator: T::AccountId,
+			asset1: Box<T::AssetKind>,
+			asset2: Box<T::AssetKind>,
+			fee: Permill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			Self::do_create_pool(&creator, *asset1, *asset2, Some(fee))?;
+			Ok(())
+		}
+
+		/// Set the per-pool swap `fee` for an existing pool, overriding the global
+		/// [`Config::LPFee`].
+		///
+		/// Requires [`Config::AdminOrigin`]. `fee` must not exceed [`Config::MaxSwapFee`].
+		///
+		/// Emits [`Event::PoolFeeSet`] on success.
+		#[pallet::call_index(7)]
+		#[pallet::weight(T::WeightInfo::set_pool_fee())]
+		pub fn set_pool_fee(
+			origin: OriginFor<T>,
+			pool_id: T::PoolId,
+			fee: Permill,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+			ensure!(fee <= T::MaxSwapFee::get(), Error::<T>::FeeTooHigh);
+			ensure!(Pools::<T>::contains_key(&pool_id), Error::<T>::PoolNotFound);
+			PoolFees::<T>::insert(&pool_id, fee);
+			Self::deposit_event(Event::PoolFeeSet { pool_id, fee });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
+		/// Create a pool at genesis, bypassing the setup fee.
+		///
+		/// The `lp_provider` must already hold sufficient balances of both assets.
+		/// If both `amount1` and `amount2` are non-zero, initial liquidity is added.
+		/// Returns the LP token amount minted to `lp_provider` (zero if no liquidity).
+		pub(crate) fn setup_pool_from_genesis(
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
+			lp_provider: &T::AccountId,
+			amount1: T::Balance,
+			amount2: T::Balance,
+		) -> Result<T::Balance, DispatchError> {
+			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
+
+			let pool_id = T::PoolLocator::pool_id(asset1, asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			ensure!(!Pools::<T>::contains_key(&pool_id), Error::<T>::PoolExists);
+
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			// Allocate LP token ID.
+			let lp_token = NextPoolAssetId::<T>::get()
+				.or(T::PoolAssetId::initial_value())
+				.ok_or(Error::<T>::IncorrectPoolAssetId)?;
+			let next_lp_token_id = lp_token.increment().ok_or(Error::<T>::IncorrectPoolAssetId)?;
+			NextPoolAssetId::<T>::set(Some(next_lp_token_id));
+
+			// Create LP token asset.
+			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), false, 1u32.into())?;
+
+			// Touch asset accounts for the pool account.
+			if T::Assets::should_touch(asset1.clone(), &pool_account) {
+				T::Assets::touch(asset1.clone(), &pool_account, lp_provider)?;
+			}
+			if T::Assets::should_touch(asset2.clone(), &pool_account) {
+				T::Assets::touch(asset2.clone(), &pool_account, lp_provider)?;
+			}
+			if T::PoolAssets::should_touch(lp_token.clone(), &pool_account) {
+				T::PoolAssets::touch(lp_token.clone(), &pool_account, lp_provider)?;
+			}
+
+			// Register pool.
+			Pools::<T>::insert(pool_id, PoolInfo { lp_token: lp_token.clone() });
+
+			// Add initial liquidity if amounts are non-zero.
+			if !amount1.is_zero() && !amount2.is_zero() {
+				T::Assets::transfer(asset1.clone(), lp_provider, &pool_account, amount1, Preserve)?;
+				T::Assets::transfer(asset2.clone(), lp_provider, &pool_account, amount2, Preserve)?;
+
+				let lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
+				T::PoolAssets::mint_into(
+					lp_token.clone(),
+					&pool_account,
+					T::MintMinLiquidity::get(),
+				)?;
+				T::PoolAssets::mint_into(lp_token, lp_provider, lp_token_amount)?;
+
+				Ok(lp_token_amount)
+			} else {
+				Ok(Zero::zero())
+			}
+		}
+
+		/// Create a new liquidity pool.
+		///
+		/// **Warning**: The storage must be rolled back on error.
+		pub(crate) fn do_create_pool(
+			creator: &T::AccountId,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			initial_fee: Option<Permill>,
+		) -> Result<T::PoolId, DispatchError> {
+			ensure!(asset1 != asset2, Error::<T>::InvalidAssetPair);
+			if let Some(fee) = initial_fee {
+				ensure!(fee <= T::MaxSwapFee::get(), Error::<T>::FeeTooHigh);
+			}
+
+			// prepare pool_id
+			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			ensure!(!Pools::<T>::contains_key(&pool_id), Error::<T>::PoolExists);
+
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			// pay the setup fee
+			let fee =
+				Self::withdraw(T::PoolSetupFeeAsset::get(), creator, T::PoolSetupFee::get(), true)?;
+			T::PoolSetupFeeTarget::on_unbalanced(fee);
+
+			if T::Assets::should_touch(asset1.clone(), &pool_account) {
+				T::Assets::touch(asset1.clone(), &pool_account, creator)?
+			};
+
+			if T::Assets::should_touch(asset2.clone(), &pool_account) {
+				T::Assets::touch(asset2.clone(), &pool_account, creator)?
+			};
+
+			let lp_token = NextPoolAssetId::<T>::get()
+				.or(T::PoolAssetId::initial_value())
+				.ok_or(Error::<T>::IncorrectPoolAssetId)?;
+			let next_lp_token_id = lp_token.increment().ok_or(Error::<T>::IncorrectPoolAssetId)?;
+			NextPoolAssetId::<T>::set(Some(next_lp_token_id));
+
+			T::PoolAssets::create(lp_token.clone(), pool_account.clone(), false, 1u32.into())?;
+			if T::PoolAssets::should_touch(lp_token.clone(), &pool_account) {
+				T::PoolAssets::touch(lp_token.clone(), &pool_account, creator)?
+			};
+
+			let pool_info = PoolInfo { lp_token: lp_token.clone() };
+			Pools::<T>::insert(pool_id.clone(), pool_info);
+
+			Self::deposit_event(Event::PoolCreated {
+				creator: creator.clone(),
+				pool_id: pool_id.clone(),
+				pool_account,
+				lp_token,
+			});
+
+			if let Some(fee) = initial_fee {
+				PoolFees::<T>::insert(&pool_id, fee);
+				Self::deposit_event(Event::PoolFeeSet { pool_id: pool_id.clone(), fee });
+			}
+
+			Ok(pool_id)
+		}
+
+		/// Add liquidity to a pool.
+		pub(crate) fn do_add_liquidity(
+			who: &T::AccountId,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			amount1_desired: T::Balance,
+			amount2_desired: T::Balance,
+			amount1_min: T::Balance,
+			amount2_min: T::Balance,
+			mint_to: &T::AccountId,
+		) -> Result<T::Balance, DispatchError> {
+			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			ensure!(
+				amount1_desired > Zero::zero() && amount2_desired > Zero::zero(),
+				Error::<T>::WrongDesiredAmount
+			);
+
+			let pool = Pools::<T>::get(&pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			let reserve1 = Self::get_balance(&pool_account, asset1.clone());
+			let reserve2 = Self::get_balance(&pool_account, asset2.clone());
+
+			let amount1: T::Balance;
+			let amount2: T::Balance;
+			if reserve1.is_zero() || reserve2.is_zero() {
+				amount1 = amount1_desired;
+				amount2 = amount2_desired;
+			} else {
+				let amount2_optimal = Self::quote(&amount1_desired, &reserve1, &reserve2)?;
+
+				if amount2_optimal <= amount2_desired {
+					ensure!(
+						amount2_optimal >= amount2_min,
+						Error::<T>::AssetTwoDepositDidNotMeetMinimum
+					);
+					amount1 = amount1_desired;
+					amount2 = amount2_optimal;
+				} else {
+					let amount1_optimal = Self::quote(&amount2_desired, &reserve2, &reserve1)?;
+					ensure!(
+						amount1_optimal <= amount1_desired,
+						Error::<T>::OptimalAmountLessThanDesired
+					);
+					ensure!(
+						amount1_optimal >= amount1_min,
+						Error::<T>::AssetOneDepositDidNotMeetMinimum
+					);
+					amount1 = amount1_optimal;
+					amount2 = amount2_desired;
+				}
+			}
+
+			ensure!(
+				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(asset1.clone()),
+				Error::<T>::AmountOneLessThanMinimal
+			);
+			ensure!(
+				amount2.saturating_add(reserve2) >= T::Assets::minimum_balance(asset2.clone()),
+				Error::<T>::AmountTwoLessThanMinimal
+			);
+
+			T::Assets::transfer(asset1, who, &pool_account, amount1, Preserve)?;
+			T::Assets::transfer(asset2, who, &pool_account, amount2, Preserve)?;
+
+			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
+
+			let lp_token_amount: T::Balance;
+			if total_supply.is_zero() {
+				lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
+				T::PoolAssets::mint_into(
+					pool.lp_token.clone(),
+					&pool_account,
+					T::MintMinLiquidity::get(),
+				)?;
+			} else {
+				let side1 = Self::mul_div(&amount1, &total_supply, &reserve1)?;
+				let side2 = Self::mul_div(&amount2, &total_supply, &reserve2)?;
+				lp_token_amount = side1.min(side2);
+			}
+
+			ensure!(
+				lp_token_amount > T::MintMinLiquidity::get(),
+				Error::<T>::InsufficientLiquidityMinted
+			);
+
+			T::PoolAssets::mint_into(pool.lp_token.clone(), mint_to, lp_token_amount)?;
+
+			Self::deposit_event(Event::LiquidityAdded {
+				who: who.clone(),
+				mint_to: mint_to.clone(),
+				pool_id,
+				amount1_provided: amount1,
+				amount2_provided: amount2,
+				lp_token: pool.lp_token,
+				lp_token_minted: lp_token_amount,
+			});
+
+			Ok(lp_token_amount)
+		}
+
+		/// Remove liquidity from a pool.
+		pub(crate) fn do_remove_liquidity(
+			who: &T::AccountId,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			lp_token_burn: T::Balance,
+			amount1_min_receive: T::Balance,
+			amount2_min_receive: T::Balance,
+			withdraw_to: &T::AccountId,
+		) -> Result<(T::Balance, T::Balance), DispatchError> {
+			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			ensure!(lp_token_burn > Zero::zero(), Error::<T>::ZeroLiquidity);
+
+			let pool = Pools::<T>::get(&pool_id).ok_or(Error::<T>::PoolNotFound)?;
+
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+			let (reserve1, reserve2) = Self::get_reserves(asset1.clone(), asset2.clone())?;
+
+			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
+			let withdrawal_fee_amount = T::LiquidityWithdrawalFee::get() * lp_token_burn;
+			let lp_redeem_amount = lp_token_burn.saturating_sub(withdrawal_fee_amount);
+
+			let amount1 = Self::mul_div(&lp_redeem_amount, &reserve1, &total_supply)?;
+			let amount2 = Self::mul_div(&lp_redeem_amount, &reserve2, &total_supply)?;
+
+			ensure!(
+				!amount1.is_zero() && amount1 >= amount1_min_receive,
+				Error::<T>::AssetOneWithdrawalDidNotMeetMinimum
+			);
+			ensure!(
+				!amount2.is_zero() && amount2 >= amount2_min_receive,
+				Error::<T>::AssetTwoWithdrawalDidNotMeetMinimum
+			);
+			let reserve1_left = reserve1.saturating_sub(amount1);
+			let reserve2_left = reserve2.saturating_sub(amount2);
+			ensure!(
+				reserve1_left >= T::Assets::minimum_balance(asset1.clone()),
+				Error::<T>::ReserveLeftLessThanMinimal
+			);
+			ensure!(
+				reserve2_left >= T::Assets::minimum_balance(asset2.clone()),
+				Error::<T>::ReserveLeftLessThanMinimal
+			);
+
+			// burn the provided lp token amount that includes the fee
+			T::PoolAssets::burn_from(
+				pool.lp_token.clone(),
+				who,
+				lp_token_burn,
+				Expendable,
+				Exact,
+				Polite,
+			)?;
+
+			T::Assets::transfer(asset1, &pool_account, withdraw_to, amount1, Expendable)?;
+			T::Assets::transfer(asset2, &pool_account, withdraw_to, amount2, Expendable)?;
+
+			Self::deposit_event(Event::LiquidityRemoved {
+				who: who.clone(),
+				withdraw_to: withdraw_to.clone(),
+				pool_id,
+				amount1,
+				amount2,
+				lp_token: pool.lp_token,
+				lp_token_burned: lp_token_burn,
+				withdrawal_fee: T::LiquidityWithdrawalFee::get(),
+			});
+
+			Ok((amount1, amount2))
+		}
+
 		/// Swap exactly `amount_in` of asset `path[0]` for asset `path[1]`.
 		/// If an `amount_out_min` is specified, it will return an error if it is unable to acquire
 		/// the amount desired.
@@ -911,7 +1154,17 @@ pub mod pallet {
 			};
 
 			let (credit_in, credit_change) = credit_in.split(amount_in);
-			let credit_out = Self::credit_swap(credit_in, &path)?;
+			let credit_out = match Self::credit_swap(credit_in, &path) {
+				Ok(credit_out) => credit_out,
+				Err((mut credit_in, e)) => {
+					// Return the initial `credit_in` in full. `credit_change` must not be dropped
+					// here, since the caller rolls back storage on error, including the issuance
+					// change of the drop. Both halves come from the same `split`, so they share
+					// the asset and `subsume` cannot fail.
+					let _ = credit_in.subsume(credit_change);
+					return Err((credit_in, e));
+				},
+			};
 
 			Self::deposit_event(Event::SwapCreditExecuted { amount_in, amount_out, path });
 
@@ -975,7 +1228,7 @@ pub mod pallet {
 						} else {
 							let credit_out =
 								Self::withdraw(asset2.clone(), &pool_from, *amount_out, true)?;
-							return Ok(credit_out)
+							return Ok(credit_out);
 						}
 					}
 				}
@@ -993,7 +1246,7 @@ pub mod pallet {
 					Err(_) => return Err((credit_in, Error::<T>::InvalidAssetPair.into())),
 				}
 			} else {
-				return Err((credit_in, Error::<T>::InvalidPath.into()))
+				return Err((credit_in, Error::<T>::InvalidPath.into()));
 			};
 
 			T::Assets::resolve(&pool_to, credit_in)
@@ -1024,27 +1277,43 @@ pub mod pallet {
 
 		/// Get the `owner`'s balance of `asset`, which could be the chain's native asset or another
 		/// fungible. Returns a value in the form of an `Balance`.
-		fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
-			T::Assets::reducible_balance(asset, owner, Expendable, Polite)
+		pub(crate) fn get_balance(owner: &T::AccountId, asset: T::AssetKind) -> T::Balance {
+			T::Assets::balance(asset, owner)
 		}
 
-		/// Returns the balance of each asset in the pool.
-		/// The tuple result is in the order requested (not necessarily the same as pool order).
-		pub fn get_reserves(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
-		) -> Result<(T::Balance, T::Balance), Error<T>> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
+		/// Ensures nothing like a freeze or block stops `pool_account` from sending its `asset`.
+		pub(crate) fn ensure_pool_can_send(
+			pool_account: &T::AccountId,
+			asset: T::AssetKind,
+		) -> Result<(), Error<T>> {
+			let balance = T::Assets::balance(asset.clone(), pool_account);
+			let minimum = T::Assets::minimum_balance(asset.clone());
+			let spendable = T::Assets::reducible_balance(asset, pool_account, Preserve, Polite);
+			// Only a pool that can't send anything above its minimum balance counts as blocked.
+			// Partial restrictions like locks are ignored, since anyone can add them.
+			let blocked = balance > minimum && spendable.is_zero();
+			ensure!(!blocked, Error::<T>::PoolUnavailable);
+			Ok(())
+		}
+
+		/// Resolve the effective swap fee for `pool_id`.
+		///
+		/// Returns the per-pool override from [`PoolFees`] if one is set, otherwise falls back to
+		/// the global [`Config::LPFee`].
+		pub fn pool_fee(pool_id: &T::PoolId) -> Permill {
+			PoolFees::<T>::get(pool_id).unwrap_or_else(T::LPFee::get)
+		}
+
+		/// Resolve the effective swap fee for the pool of the `asset1`/`asset2` pair.
+		///
+		/// See [`Self::pool_fee`] for the resolution logic.
+		pub(crate) fn pool_fee_for(
+			asset1: &T::AssetKind,
+			asset2: &T::AssetKind,
+		) -> Result<Permill, DispatchError> {
+			let pool_id = T::PoolLocator::pool_id(asset1, asset2)
 				.map_err(|_| Error::<T>::InvalidAssetPair)?;
-
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-
-			if balance1.is_zero() || balance2.is_zero() {
-				Err(Error::<T>::PoolNotFound)?;
-			}
-
-			Ok((balance1, balance2))
+			Ok(Self::pool_fee(&pool_id))
 		}
 
 		/// Leading to an amount at the end of a `path`, get the required amounts in.
@@ -1061,12 +1330,13 @@ pub mod pallet {
 					Some(a) => a,
 					None => {
 						balance_path.push((asset2, amount_in));
-						break
+						break;
 					},
 				};
+				let fee = Self::pool_fee_for(asset1, &asset2)?;
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset2, amount_in));
-				amount_in = Self::get_amount_in(&amount_in, &reserve_in, &reserve_out)?;
+				amount_in = Self::get_amount_in(fee, &amount_in, &reserve_in, &reserve_out)?;
 			}
 			balance_path.reverse();
 
@@ -1087,58 +1357,15 @@ pub mod pallet {
 					Some(a) => a,
 					None => {
 						balance_path.push((asset1, amount_out));
-						break
+						break;
 					},
 				};
+				let fee = Self::pool_fee_for(&asset1, asset2)?;
 				let (reserve_in, reserve_out) = Self::get_reserves(asset1.clone(), asset2.clone())?;
 				balance_path.push((asset1, amount_out));
-				amount_out = Self::get_amount_out(&amount_out, &reserve_in, &reserve_out)?;
+				amount_out = Self::get_amount_out(fee, &amount_out, &reserve_in, &reserve_out)?;
 			}
 			Ok(balance_path)
-		}
-
-		/// Used by the RPC service to provide current prices.
-		pub fn quote_price_exact_tokens_for_tokens(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
-			amount: T::Balance,
-			include_fee: bool,
-		) -> Option<T::Balance> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
-
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_out(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance1, &balance2).ok()
-				}
-			} else {
-				None
-			}
-		}
-
-		/// Used by the RPC service to provide current prices.
-		pub fn quote_price_tokens_for_exact_tokens(
-			asset1: T::AssetKind,
-			asset2: T::AssetKind,
-			amount: T::Balance,
-			include_fee: bool,
-		) -> Option<T::Balance> {
-			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
-
-			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_in(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance2, &balance1).ok()
-				}
-			} else {
-				None
-			}
 		}
 
 		/// Calculates the optimal amount from the reserves.
@@ -1182,11 +1409,12 @@ pub mod pallet {
 			result.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Calculates amount out.
+		/// Calculates amount out for a given swap `fee`.
 		///
 		/// Given an input amount of an asset and pair reserves, returns the maximum output amount
 		/// of the other asset.
 		pub fn get_amount_out(
+			fee: Permill,
 			amount_in: &T::Balance,
 			reserve_in: &T::Balance,
 			reserve_out: &T::Balance,
@@ -1196,18 +1424,19 @@ pub mod pallet {
 			let reserve_out = T::HigherPrecisionBalance::from(*reserve_out);
 
 			if reserve_in.is_zero() || reserve_out.is_zero() {
-				return Err(Error::<T>::ZeroLiquidity)
+				return Err(Error::<T>::ZeroLiquidity);
 			}
 
+			let fee_complement = fee.left_from_one().deconstruct();
 			let amount_in_with_fee = amount_in
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - (T::LPFee::get().into())))
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let numerator =
 				amount_in_with_fee.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
-				.checked_mul(&1000u32.into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?
 				.checked_add(&amount_in_with_fee)
 				.ok_or(Error::<T>::Overflow)?;
@@ -1217,11 +1446,12 @@ pub mod pallet {
 			result.try_into().map_err(|_| Error::<T>::Overflow)
 		}
 
-		/// Calculates amount in.
+		/// Calculates amount in for a given swap `fee`.
 		///
 		/// Given an output amount of an asset and pair reserves, returns a required input amount
 		/// of the other asset.
 		pub fn get_amount_in(
+			fee: Permill,
 			amount_out: &T::Balance,
 			reserve_in: &T::Balance,
 			reserve_out: &T::Balance,
@@ -1238,16 +1468,17 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
+			let fee_complement = fee.left_from_one().deconstruct();
 			let numerator = reserve_in
 				.checked_mul(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&1000u32.into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_out
 				.checked_sub(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - T::LPFee::get().into()))
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator
@@ -1273,7 +1504,7 @@ pub mod pallet {
 
 					let new_element = pools.insert(pool_id);
 					if !new_element {
-						return Err(Error::<T>::NonUniquePath.into())
+						return Err(Error::<T>::NonUniquePath.into());
 					}
 				}
 			}
@@ -1286,6 +1517,120 @@ pub mod pallet {
 			NextPoolAssetId::<T>::get()
 				.or(T::PoolAssetId::initial_value())
 				.expect("Next pool asset ID can not be None")
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the balance of each asset in the pool.
+		/// The tuple result is in the order requested (not necessarily the same as pool order).
+		pub fn get_reserves(
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+		) -> Result<(T::Balance, T::Balance), Error<T>> {
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			let balance1 = Self::get_balance(&pool_account, asset1.clone());
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+
+			if balance1.is_zero() || balance2.is_zero() {
+				Err(Error::<T>::PoolEmpty)?;
+			}
+
+			Self::ensure_pool_can_send(&pool_account, asset1)?;
+			Self::ensure_pool_can_send(&pool_account, asset2)?;
+
+			Ok((balance1, balance2))
+		}
+
+		/// Gets a quote for swapping an exact amount of `asset1` for `asset2`.
+		///
+		/// If `include_fee` is true, the quote will include the liquidity provider fee.
+		/// If the pool does not exist or has no liquidity, `None` is returned.
+		/// Note that the price may have changed by the time the transaction is executed.
+		/// (Use `amount_out_min` to control slippage.)
+		/// Returns `Some(quoted_amount)` on success.
+		pub fn quote_price_exact_tokens_for_tokens(
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			amount: T::Balance,
+			include_fee: bool,
+		) -> Option<T::Balance> {
+			// Swaps reject zero amounts, match that behavior.
+			if amount.is_zero() {
+				return None;
+			}
+
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+
+			let (balance1, balance2) = Self::get_reserves(asset1.clone(), asset2.clone()).ok()?;
+
+			if balance1.is_zero() {
+				return None;
+			}
+
+			let amount_out = if include_fee {
+				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
+				Self::get_amount_out(fee, &amount, &balance1, &balance2).ok()?
+			} else {
+				Self::quote(&amount, &balance1, &balance2).ok()?
+			};
+
+			// Small inputs can round output to zero due to integer division.
+			if amount_out.is_zero() {
+				return None;
+			}
+
+			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+			// preservation level to determine the actual withdrawable amount.
+			let max_output = T::Assets::reducible_balance(asset2, &pool_account, Preserve, Polite);
+			if amount_out > max_output {
+				return None;
+			}
+
+			Some(amount_out)
+		}
+
+		/// Gets a quote for swapping `amount` of `asset1` for an exact amount of `asset2`.
+		///
+		/// If `include_fee` is true, the quote will include the liquidity provider fee.
+		/// If the pool does not exist or has no liquidity, `None` is returned.
+		/// Note that the price may have changed by the time the transaction is executed.
+		/// (Use `amount_in_max` to control slippage.)
+		/// Returns `Some(quoted_amount)` on success.
+		pub fn quote_price_tokens_for_exact_tokens(
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			amount: T::Balance,
+			include_fee: bool,
+		) -> Option<T::Balance> {
+			// Swaps reject zero amounts, match that behavior.
+			if amount.is_zero() {
+				return None;
+			}
+			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
+
+			let (balance1, balance2) = Self::get_reserves(asset1.clone(), asset2.clone()).ok()?;
+
+			if balance1.is_zero() {
+				return None;
+			}
+
+			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+			// preservation level to determine the actual withdrawable amount.
+			let max_output =
+				T::Assets::reducible_balance(asset2.clone(), &pool_account, Preserve, Polite);
+			if amount > max_output {
+				return None;
+			}
+
+			if include_fee {
+				let fee = Self::pool_fee_for(&asset1, &asset2).ok()?;
+				Self::get_amount_in(fee, &amount, &balance1, &balance2).ok()
+			} else {
+				Self::quote(&amount, &balance2, &balance1).ok()
+			}
 		}
 	}
 }

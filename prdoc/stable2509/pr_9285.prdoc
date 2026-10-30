@@ -1,0 +1,17 @@
+title: '[revive] revm backend'
+doc:
+- audience: Runtime Dev
+  description: |
+    Initial EVM support for pallet-revive via the REVM crate to create a dual-VM system that can execute both PolkaVM and EVM
+    - Added AllowEVMBytecode: Get<bool> to the config to enable/disable EVM call and instantiation
+    - The basic flow of uploading an EVM contract and running it should work
+    - instructions are copied and adapted from REVM they should be ignored in this PR and reviewed in follow-up PR
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch

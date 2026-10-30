@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix pallet-im-online benchmarking for runtimes with MaxKeys < 1000
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes benchmarking for pallet-im-online when runtime configuration has MaxKeys < 1000.
+      Previously, the benchmark code used a hardcoded constant MAX_KEYS = 1000 which would
+      cause benchmark failures for runtimes configured with fewer maximum keys. This change
+      updates the benchmark to dynamically use the MaxKeys value from the pallet's Config trait.
+
+crates:
+- name: pallet-im-online
+  bump: patch

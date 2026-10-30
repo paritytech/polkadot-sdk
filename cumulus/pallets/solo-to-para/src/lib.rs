@@ -33,6 +33,7 @@ pub mod pallet {
 	pub trait Config:
 		frame_system::Config + parachain_system::Config + pallet_sudo::Config
 	{
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
@@ -101,6 +102,11 @@ pub mod pallet {
 		fn on_validation_data(_data: &PersistedValidationData) {}
 		fn on_validation_code_applied() {
 			crate::Pallet::<T>::set_pending_custom_validation_head_data();
+		}
+		fn on_relay_state_proof(
+			_relay_state_proof: &parachain_system::relay_state_snapshot::RelayChainStateProof,
+		) -> frame_support::weights::Weight {
+			frame_support::weights::Weight::zero()
 		}
 	}
 }

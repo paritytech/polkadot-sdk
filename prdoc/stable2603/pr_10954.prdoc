@@ -1,0 +1,20 @@
+title: 'auth-discovery: Ensure DHT published addresses have ports'
+doc:
+- audience: Node Dev
+  description: |-
+    We have seen instances in production where validators will propagate multiaddresses without ports.
+    These addresses are effectively unreachable from the networking layer perspective.
+    They might be discovered via:
+    - identify protocol
+    - or simply a wrongly configured CLI for public addresses
+
+    To close the gap on this issue, this PR checks that the published addresses will always contain a port.
+
+    Closes:
+    - https://github.com/paritytech/polkadot-sdk/issues/10466
+
+    Part of:
+    - https://github.com/paritytech/polkadot-sdk/issues/10425
+crates:
+- name: sc-authority-discovery
+  bump: patch

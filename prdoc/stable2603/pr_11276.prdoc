@@ -1,0 +1,9 @@
+title: 'pallet-revive: use u128 Balance in test config'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update the pallet-revive Test runtime configuration to use `u128` instead of `u64` for the `Balance` type
+    It makes tests closer to production configs where Balance is typically u128
+crates:
+- name: pallet-revive
+  bump: patch

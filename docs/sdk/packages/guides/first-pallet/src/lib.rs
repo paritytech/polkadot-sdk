@@ -85,7 +85,7 @@ pub mod pallet {
 			// ensure sender has enough balance, and if so, calculate what is left after `amount`.
 			let sender_balance = Balances::<T>::get(&sender).ok_or("NonExistentAccount")?;
 			if sender_balance < amount {
-				return Err("InsufficientBalance".into())
+				return Err("InsufficientBalance".into());
 			}
 			let remainder = sender_balance - amount;
 
@@ -365,6 +365,7 @@ pub mod pallet_v2 {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type of the runtime.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>
 			+ TryInto<Event<Self>>;

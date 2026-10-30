@@ -28,10 +28,11 @@ use crate::{
 	keystore::BeefyKeystore,
 	metric_inc, metric_set,
 	metrics::VoterMetrics,
-	round::{Rounds, VoteImportResult},
+	round::{Rounds, RoundsV4, VoteImportResult},
 	BeefyComms, BeefyVoterLinks, UnpinnedFinalityNotification, LOG_TARGET,
 };
 use sp_application_crypto::RuntimeAppPublic;
+use sp_blockchain::{Error as ClientError, Result as ClientResult};
 
 use codec::{Codec, Decode, DecodeAll, Encode};
 use futures::{stream::Fuse, FutureExt, StreamExt};
@@ -65,6 +66,18 @@ pub(crate) enum RoundAction {
 	Drop,
 	Process,
 	Enqueue,
+}
+
+/// `VoterOracle` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct VoterOracleV4<B: Block, AuthorityId: AuthorityIdBound> {
+	pub(crate) sessions: VecDeque<RoundsV4<B, AuthorityId>>,
+	pub(crate) min_block_delta: u32,
+	pub(crate) best_grandpa_block_header: <B as Block>::Header,
+	pub(crate) best_beefy_block: NumberFor<B>,
+	pub(crate) _phantom: PhantomData<fn() -> AuthorityId>,
 }
 
 /// Responsible for the voting strategy.
@@ -270,6 +283,42 @@ where
 	}
 }
 
+impl<B, AuthorityId> TryFrom<VoterOracleV4<B, AuthorityId>> for VoterOracle<B, AuthorityId>
+where
+	B: Block,
+	AuthorityId: AuthorityIdBound,
+{
+	type Error = ClientError;
+
+	fn try_from(old: VoterOracleV4<B, AuthorityId>) -> Result<Self, Self::Error> {
+		let sessions = old
+			.sessions
+			.into_iter()
+			.map(TryInto::try_into)
+			.collect::<ClientResult<VecDeque<_>>>()?;
+
+		VoterOracle::checked_new(
+			sessions,
+			old.min_block_delta,
+			old.best_grandpa_block_header,
+			old.best_beefy_block,
+		)
+		.ok_or_else(|| {
+			ClientError::Backend("BEEFY DB is corrupted: invalid migrated voter oracle".into())
+		})
+	}
+}
+
+/// `PersistedState` as persisted by aux-db schema v4.
+///
+/// Kept only to migrate v4 state to the current schema.
+#[derive(Debug, Decode, Encode, PartialEq)]
+pub(crate) struct PersistedStateV4<B: Block, AuthorityId: AuthorityIdBound> {
+	pub(crate) best_voted: NumberFor<B>,
+	pub(crate) voting_oracle: VoterOracleV4<B, AuthorityId>,
+	pub(crate) pallet_genesis: NumberFor<B>,
+}
+
 /// BEEFY voter state persisted in aux DB.
 ///
 /// Note: Any changes here should also bump aux-db schema version.
@@ -282,6 +331,24 @@ pub(crate) struct PersistedState<B: Block, AuthorityId: AuthorityIdBound> {
 	voting_oracle: VoterOracle<B, AuthorityId>,
 	/// Pallet-beefy genesis block - block number when BEEFY consensus started for this chain.
 	pallet_genesis: NumberFor<B>,
+}
+
+impl<B, AuthorityId> TryFrom<PersistedStateV4<B, AuthorityId>> for PersistedState<B, AuthorityId>
+where
+	B: Block,
+	AuthorityId: AuthorityIdBound,
+{
+	type Error = ClientError;
+
+	fn try_from(old: PersistedStateV4<B, AuthorityId>) -> Result<Self, Self::Error> {
+		let voting_oracle: VoterOracle<B, AuthorityId> = old.voting_oracle.try_into()?;
+
+		Ok(PersistedState {
+			best_voted: old.best_voted,
+			voting_oracle,
+			pallet_genesis: old.pallet_genesis,
+		})
+	}
 }
 
 impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
@@ -325,7 +392,9 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 		&self.voting_oracle
 	}
 
-	pub(crate) fn gossip_filter_config(&self) -> Result<GossipFilterCfg<B, AuthorityId>, Error> {
+	pub(crate) fn gossip_filter_config(
+		&self,
+	) -> Result<GossipFilterCfg<'_, B, AuthorityId>, Error> {
 		let (start, end) = self.voting_oracle.accepted_interval()?;
 		let validator_set = self.voting_oracle.current_validator_set()?;
 		Ok(GossipFilterCfg { start, end, validator_set })
@@ -361,7 +430,7 @@ impl<B: Block, AuthorityId: AuthorityIdBound> PersistedState<B, AuthorityId> {
 				target: LOG_TARGET,
 				"🥩 for session starting at block {:?} no BEEFY authority key found in store, \
 				you must generate valid session keys \
-				(https://wiki.polkadot.network/docs/maintain-guides-how-to-validate-polkadot#generating-the-session-keys)",
+				(https://docs.polkadot.com/infrastructure/running-a-validator/onboarding-and-offboarding/key-management/#set-session-keys)",
 				new_session_start,
 			);
 			metric_inc!(metrics, beefy_no_authority_found_in_store);
@@ -461,7 +530,7 @@ where
 		match self.runtime.runtime_api().beefy_genesis(notification.hash) {
 			Ok(Some(genesis)) if genesis != self.persisted_state.pallet_genesis => {
 				debug!(target: LOG_TARGET, "🥩 ConsensusReset detected. Expected genesis: {}, found genesis: {}", self.persisted_state.pallet_genesis, genesis);
-				return Err(Error::ConsensusReset)
+				return Err(Error::ConsensusReset);
 			},
 			Ok(_) => {},
 			Err(api_error) => {
@@ -524,7 +593,7 @@ where
 	{
 		let block_num = vote.commitment.block_number;
 		match self.voting_oracle().triage_round(block_num)? {
-			RoundAction::Process =>
+			RoundAction::Process => {
 				if let Some(finality_proof) = self.handle_vote(vote)? {
 					let gossip_proof =
 						GossipMessage::<B, AuthorityId>::FinalityProof(finality_proof);
@@ -534,7 +603,8 @@ where
 						encoded_proof,
 						true,
 					);
-				},
+				}
+			},
 			RoundAction::Drop => metric_inc!(self.metrics, beefy_stale_votes),
 			RoundAction::Enqueue => error!(target: LOG_TARGET, "🥩 unexpected vote: {:?}.", vote),
 		};

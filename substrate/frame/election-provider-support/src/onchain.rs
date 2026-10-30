@@ -111,7 +111,7 @@ impl<T: Config> OnChainExecution<T> {
 	) -> Result<BoundedSupportsOf<Self>, Error> {
 		if (desired_targets > T::MaxWinnersPerPage::get()) && !T::Sort::get() {
 			// early exit what will fail in the last line anyways.
-			return Err(Error::FailedToBound)
+			return Err(Error::FailedToBound);
 		}
 
 		let voters_len = voters.len() as u32;
@@ -185,6 +185,7 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 	type BlockNumber = BlockNumberFor<T::System>;
 	type Error = Error;
 	type MaxWinnersPerPage = T::MaxWinnersPerPage;
+	type MaxBackersPerWinnerFinal = T::MaxWinnersPerPage;
 	type MaxBackersPerWinner = T::MaxBackersPerWinner;
 	// can support any number of pages, as this is meant to be called "instantly". We don't care
 	// about this value here.
@@ -196,8 +197,17 @@ impl<T: Config> ElectionProvider for OnChainExecution<T> {
 		Self::elect_with(election_bounds, page)
 	}
 
-	fn ongoing() -> bool {
-		false
+	fn start() -> Result<(), Self::Error> {
+		// noop, we are always ready!
+		Ok(())
+	}
+
+	fn duration() -> Self::BlockNumber {
+		sp_runtime::traits::Zero::zero()
+	}
+
+	fn status() -> Result<Option<sp_runtime::Weight>, ()> {
+		Ok(Some(Default::default()))
 	}
 }
 

@@ -66,7 +66,6 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::{fmt::Debug, marker::PhantomData};
 use scale_info::TypeInfo;
 use sp_arithmetic::traits::{Saturating, Zero};
-use sp_runtime::RuntimeDebug;
 
 use frame_support::{
 	defensive,
@@ -76,7 +75,7 @@ use frame_support::{
 		tokens::Balance as BalanceTrait, EnsureOrigin, EnsureOriginWithArg, Get, RankedMembers,
 		RankedMembersSwapHandler,
 	},
-	BoundedVec, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
+	BoundedVec, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 
 #[cfg(test)]
@@ -101,7 +100,7 @@ pub use weights::*;
 	Clone,
 	TypeInfo,
 	MaxEncodedLen,
-	RuntimeDebug,
+	Debug,
 )]
 pub enum Wish {
 	/// Member wishes only to retain their current rank.
@@ -124,7 +123,7 @@ pub type Evidence<T, I> = BoundedVec<u8, <T as Config<I>>::EvidenceSize>;
 	CloneNoBound,
 	EqNoBound,
 	PartialEqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -163,15 +162,22 @@ impl<
 	}
 }
 
+pub struct ConvertU16ToU32<Inner>(PhantomData<Inner>);
+impl<Inner: Get<u16>> Get<u32> for ConvertU16ToU32<Inner> {
+	fn get() -> u32 {
+		Inner::get() as u32
+	}
+}
+
 /// The status of a single member.
-#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, RuntimeDebug)]
+#[derive(Encode, Decode, Eq, PartialEq, Clone, TypeInfo, MaxEncodedLen, Debug)]
 pub struct MemberStatus<BlockNumber> {
 	/// Are they currently active?
-	is_active: bool,
+	pub is_active: bool,
 	/// The block number at which we last promoted them.
-	last_promotion: BlockNumber,
+	pub last_promotion: BlockNumber,
 	/// The last time a member was demoted, promoted or proved their rank.
-	last_proof: BlockNumber,
+	pub last_proof: BlockNumber,
 }
 
 #[frame_support::pallet]
@@ -183,8 +189,9 @@ pub mod pallet {
 		traits::{tokens::GetSalary, EnsureOrigin},
 	};
 	use frame_system::{ensure_root, pallet_prelude::*};
+	use sp_runtime::traits::BlockNumberProvider;
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -196,6 +203,7 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// The runtime event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self, I>>
 			+ IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
@@ -238,17 +246,28 @@ pub mod pallet {
 		///
 		/// Increasing this value is supported, but decreasing it may lead to a broken state.
 		#[pallet::constant]
-		type MaxRank: Get<u32>;
+		type MaxRank: Get<u16>;
+
+		/// Provides the current block number.
+		///
+		/// This is usually `cumulus_pallet_parachain_system::RelaychainDataProvider` if a
+		/// parachain, or `frame_system::Pallet` if a solo- or relaychain.
+		type BlockNumberProvider: BlockNumberProvider;
 	}
 
-	pub type ParamsOf<T, I> =
-		ParamsType<<T as Config<I>>::Balance, BlockNumberFor<T>, <T as Config<I>>::MaxRank>;
+	pub type BlockNumberFor<T, I = ()> =
+		<<T as Config<I>>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
+	pub type ParamsOf<T, I> = ParamsType<
+		<T as Config<I>>::Balance,
+		BlockNumberFor<T, I>,
+		ConvertU16ToU32<<T as Config<I>>::MaxRank>,
+	>;
 	pub type PartialParamsOf<T, I> = ParamsType<
 		Option<<T as Config<I>>::Balance>,
-		Option<BlockNumberFor<T>>,
-		<T as Config<I>>::MaxRank,
+		Option<BlockNumberFor<T, I>>,
+		ConvertU16ToU32<<T as Config<I>>::MaxRank>,
 	>;
-	pub type MemberStatusOf<T> = MemberStatus<BlockNumberFor<T>>;
+	pub type MemberStatusOf<T, I> = MemberStatus<BlockNumberFor<T, I>>;
 	pub type RankOf<T, I> = <<T as Config<I>>::Members as RankedMembers>::Rank;
 
 	/// The overall status of the system.
@@ -258,7 +277,7 @@ pub mod pallet {
 	/// The status of a claimant.
 	#[pallet::storage]
 	pub type Member<T: Config<I>, I: 'static = ()> =
-		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, T::AccountId, MemberStatusOf<T, I>, OptionQuery>;
 
 	/// Some evidence together with the desired outcome for which it was presented.
 	#[pallet::storage]
@@ -341,7 +360,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::bump_offboard().max(T::WeightInfo::bump_demote()))]
 		#[pallet::call_index(0)]
 		pub fn bump(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 
@@ -350,17 +369,17 @@ pub mod pallet {
 				params.offboard_timeout
 			} else {
 				let rank_index = Self::rank_to_index(rank).ok_or(Error::<T, I>::InvalidRank)?;
-				params.demotion_period[rank_index]
+				*params.demotion_period.get(rank_index).ok_or(Error::<T, I>::InvalidRank)?
 			};
 
 			if demotion_period.is_zero() {
-				return Err(Error::<T, I>::NothingDoing.into())
+				return Err(Error::<T, I>::NothingDoing.into());
 			}
 
 			let demotion_block = member.last_proof.saturating_add(demotion_period);
 
 			// Ensure enough time has passed.
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			if now >= demotion_block {
 				T::Members::demote(&who)?;
 				let maybe_to_rank = T::Members::rank_of(&who);
@@ -374,7 +393,7 @@ pub mod pallet {
 					Event::<T, I>::Offboarded { who }
 				};
 				Self::deposit_event(event);
-				return Ok(Pays::No.into())
+				return Ok(Pays::No.into());
 			}
 
 			Err(Error::<T, I>::NothingDoing.into())
@@ -439,7 +458,7 @@ pub mod pallet {
 			ensure!(rank == at_rank, Error::<T, I>::UnexpectedRank);
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
 
-			member.last_proof = frame_system::Pallet::<T>::block_number();
+			member.last_proof = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(&who, &member);
 
 			Self::dispose_evidence(who.clone(), at_rank, Some(at_rank));
@@ -463,7 +482,7 @@ pub mod pallet {
 			ensure!(T::Members::rank_of(&who).is_none(), Error::<T, I>::Ranked);
 
 			T::Members::induct(&who)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(
 				&who,
 				MemberStatus { is_active: true, last_promotion: now, last_proof: now },
@@ -496,11 +515,12 @@ pub mod pallet {
 			);
 
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 
 			let params = Params::<T, I>::get();
 			let rank_index = Self::rank_to_index(to_rank).ok_or(Error::<T, I>::InvalidRank)?;
-			let min_period = params.min_promotion_period[rank_index];
+			let min_period =
+				*params.min_promotion_period.get(rank_index).ok_or(Error::<T, I>::InvalidRank)?;
 			// Ensure enough time has passed.
 			ensure!(
 				member.last_promotion.saturating_add(min_period) <= now,
@@ -534,12 +554,12 @@ pub mod pallet {
 				Ok(allow_rank) => ensure!(allow_rank >= to_rank, Error::<T, I>::NoPermission),
 				Err(origin) => ensure_root(origin)?,
 			}
-			ensure!(to_rank as u32 <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
+			ensure!(to_rank <= T::MaxRank::get(), Error::<T, I>::InvalidRank);
 			let curr_rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 			ensure!(to_rank > curr_rank, Error::<T, I>::UnexpectedRank);
 
 			let mut member = Member::<T, I>::get(&who).ok_or(Error::<T, I>::NotTracked)?;
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			member.last_promotion = now;
 			member.last_proof = now;
 
@@ -564,7 +584,7 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::offboard())]
 		#[pallet::call_index(6)]
 		pub fn offboard(origin: OriginFor<T>, who: T::AccountId) -> DispatchResultWithPostInfo {
-			let _ = ensure_signed(origin)?;
+			ensure_signed(origin)?;
 			ensure!(T::Members::rank_of(&who).is_none(), Error::<T, I>::Ranked);
 			ensure!(Member::<T, I>::contains_key(&who), Error::<T, I>::NotTracked);
 			Member::<T, I>::remove(&who);
@@ -681,8 +701,8 @@ pub mod pallet {
 		///
 		/// Only elements in the base slice which has a new value in the new slice will be updated.
 		pub(crate) fn set_partial_params_slice<S>(
-			base_slice: &mut BoundedVec<S, <T as Config<I>>::MaxRank>,
-			new_slice: BoundedVec<Option<S>, <T as Config<I>>::MaxRank>,
+			base_slice: &mut BoundedVec<S, ConvertU16ToU32<T::MaxRank>>,
+			new_slice: BoundedVec<Option<S>, ConvertU16ToU32<T::MaxRank>>,
 		) {
 			for (base_element, new_element) in base_slice.iter_mut().zip(new_slice) {
 				if let Some(element) = new_element {
@@ -698,7 +718,7 @@ pub mod pallet {
 			ensure!(!Member::<T, I>::contains_key(&who), Error::<T, I>::AlreadyInducted);
 			let rank = T::Members::rank_of(&who).ok_or(Error::<T, I>::Unranked)?;
 
-			let now = frame_system::Pallet::<T>::block_number();
+			let now = T::BlockNumberProvider::current_block_number();
 			Member::<T, I>::insert(
 				&who,
 				MemberStatus { is_active: true, last_promotion: 0u32.into(), last_proof: now },
@@ -713,9 +733,10 @@ pub mod pallet {
 		/// Rank 1 becomes index 0, rank `RANK_COUNT` becomes index `RANK_COUNT - 1`. Any rank not
 		/// in the range `1..=RANK_COUNT` is `None`.
 		pub(crate) fn rank_to_index(rank: RankOf<T, I>) -> Option<usize> {
-			match TryInto::<usize>::try_into(rank) {
-				Ok(r) if r as u32 <= <T as Config<I>>::MaxRank::get() && r > 0 => Some(r - 1),
-				_ => return None,
+			if rank == 0 || rank > T::MaxRank::get() {
+				None
+			} else {
+				Some((rank - 1) as usize)
 			}
 		}
 
@@ -724,6 +745,18 @@ pub mod pallet {
 				let e = Event::<T, I>::EvidenceJudged { who, wish, evidence, old_rank, new_rank };
 				Self::deposit_event(e);
 			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config<I>, I: 'static> Hooks<frame_system::pallet_prelude::BlockNumberFor<T>>
+		for Pallet<T, I>
+	{
+		#[cfg(feature = "try-runtime")]
+		fn try_state(
+			_n: frame_system::pallet_prelude::BlockNumberFor<T>,
+		) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
@@ -740,8 +773,51 @@ pub mod pallet {
 			let params = Params::<T, I>::get();
 			let salary =
 				if member.is_active { params.active_salary } else { params.passive_salary };
-			salary[index]
+			// `GetSalary::get_salary` returns `T::Balance` directly, not a `Result`, so an
+			// out-of-range rank can't be rejected here the way `bump`/`promote` reject it; fall
+			// back to zero, consistent with the early returns above.
+			salary.get(index).copied().unwrap_or_default()
 		}
+	}
+}
+
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config<I>, I: 'static> Pallet<T, I> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// This should be valid before or after each state transition of this pallet.
+	pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Self::try_state_members()?;
+		Self::try_state_member_evidence()?;
+		Ok(())
+	}
+
+	/// # Invariants
+	///
+	/// * Every account in [`Member`] must also be ranked in the underlying `T::Members` collective.
+	fn try_state_members() -> Result<(), sp_runtime::TryRuntimeError> {
+		Member::<T, I>::iter().try_for_each(|(who, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+			ensure!(
+				T::Members::rank_of(&who).is_some(),
+				"Account in `Member` is not ranked in the underlying collective"
+			);
+			Ok(())
+		})
+	}
+
+	/// # Invariants
+	///
+	/// * Every account in [`MemberEvidence`] must also exist in [`Member`].
+	fn try_state_member_evidence() -> Result<(), sp_runtime::TryRuntimeError> {
+		MemberEvidence::<T, I>::iter().try_for_each(
+			|(who, _)| -> Result<(), sp_runtime::TryRuntimeError> {
+				ensure!(
+					Member::<T, I>::contains_key(&who),
+					"Account in `MemberEvidence` is not tracked in `Member`"
+				);
+				Ok(())
+			},
+		)
 	}
 }
 
@@ -786,15 +862,15 @@ impl<T: Config<I>, I: 'static> RankedMembersSwapHandler<T::AccountId, u16> for P
 	fn swapped(old: &T::AccountId, new: &T::AccountId, _rank: u16) {
 		if old == new {
 			defensive!("Should not try to swap with self");
-			return
+			return;
 		}
 		if !Member::<T, I>::contains_key(old) {
 			defensive!("Should not try to swap non-member");
-			return
+			return;
 		}
 		if Member::<T, I>::contains_key(new) {
 			defensive!("Should not try to overwrite existing member");
-			return
+			return;
 		}
 
 		if let Some(member) = Member::<T, I>::take(old) {

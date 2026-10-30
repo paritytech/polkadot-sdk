@@ -14,12 +14,12 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#![allow(useless_deprecated, deprecated, clippy::deprecated_semver)]
+#![allow(useless_deprecated)]
 
 use frame_support::{derive_impl, traits::ConstU32};
 use scale_info::{form::MetaForm, meta_type};
 use sp_metadata_ir::{
-	DeprecationStatusIR, RuntimeApiMetadataIR, RuntimeApiMethodMetadataIR,
+	ItemDeprecationInfoIR, RuntimeApiMetadataIR, RuntimeApiMethodMetadataIR,
 	RuntimeApiMethodParamMetadataIR,
 };
 use sp_runtime::traits::Block as BlockT;
@@ -73,7 +73,7 @@ sp_api::decl_runtime_apis! {
 		fn something_with_block(block: Block) -> Block;
 		#[deprecated = "example"]
 		fn function_with_two_args(data: u64, block: Block);
-		#[deprecated(note = "example", since = "example")]
+		#[deprecated(note = "example", since = "2.0.5")]
 		fn same_name();
 		#[deprecated(note = "example")]
 		fn wild_card(_: u32);
@@ -85,6 +85,7 @@ mod apis {
 	use super::{Block, BlockT, Runtime};
 
 	sp_api::impl_runtime_apis! {
+		#[allow(deprecated)]
 		impl crate::Api<Block> for Runtime {
 			fn test(_data: u64) {
 				unimplemented!()
@@ -107,7 +108,7 @@ mod apis {
 			fn version() -> sp_version::RuntimeVersion {
 				unimplemented!()
 			}
-			fn execute_block(_: Block) {
+			fn execute_block(_: <Block as BlockT>::LazyBlock) {
 				unimplemented!()
 			}
 			fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
@@ -139,7 +140,7 @@ fn runtime_metadata() {
 					}],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatusIR::NotDeprecated,
+					deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "something_with_block",
@@ -149,7 +150,7 @@ fn runtime_metadata() {
 					}],
 					output: meta_type::<Block>(),
 					docs: maybe_docs(vec![" something_with_block."]),
-					deprecation_info: DeprecationStatusIR::NotDeprecated,
+					deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "function_with_two_args",
@@ -165,7 +166,7 @@ fn runtime_metadata() {
 					],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatusIR::Deprecated {
+					deprecation_info: ItemDeprecationInfoIR::Deprecated {
 						note: "example",
 						since: None,
 					}
@@ -175,9 +176,9 @@ fn runtime_metadata() {
 					inputs: vec![],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatusIR::Deprecated {
+					deprecation_info: ItemDeprecationInfoIR::Deprecated {
 						note: "example",
-						since: Some("example"),
+						since: Some("2.0.5"),
 					}
 			},
 				RuntimeApiMethodMetadataIR {
@@ -188,7 +189,7 @@ fn runtime_metadata() {
 					}],
 					output: meta_type::<()>(),
 					docs: vec![],
-					deprecation_info: DeprecationStatusIR::Deprecated {
+					deprecation_info: ItemDeprecationInfoIR::Deprecated {
 						                    note: "example",
 						                    since: None,
 						                }
@@ -199,7 +200,7 @@ fn runtime_metadata() {
 				"",
 				" Documentation on multiline.",
 			]),
-			deprecation_info: DeprecationStatusIR::DeprecatedWithoutNote,
+			deprecation_info: ItemDeprecationInfoIR::DeprecatedWithoutNote,
 			version: codec::Compact(1),
 
 		},
@@ -211,17 +212,17 @@ fn runtime_metadata() {
 					inputs: vec![],
 					output: meta_type::<sp_version::RuntimeVersion>(),
 					docs: maybe_docs(vec![" Returns the version of the runtime."]),
-					deprecation_info: DeprecationStatusIR::NotDeprecated,
+					deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
 				},
 				RuntimeApiMethodMetadataIR {
 					name: "execute_block",
 					inputs: vec![RuntimeApiMethodParamMetadataIR::<MetaForm> {
 						name: "block",
-						ty: meta_type::<Block>(),
+						ty: meta_type::<<Block as BlockT>::LazyBlock>(),
 					}],
 					output: meta_type::<()>(),
 					docs: maybe_docs(vec![" Execute the given block."]),
-					deprecation_info: DeprecationStatusIR::NotDeprecated,
+					deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
 
 				},
 				RuntimeApiMethodMetadataIR {
@@ -232,13 +233,13 @@ fn runtime_metadata() {
 					}],
 					output: meta_type::<sp_runtime::ExtrinsicInclusionMode>(),
 					docs: maybe_docs(vec![" Initialize a block with the given header and return the runtime executive mode."]),
-					deprecation_info: DeprecationStatusIR::NotDeprecated,
+					deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
 				},
 			],
 			docs: maybe_docs(vec![
 				" The `Core` runtime api that every Substrate runtime needs to implement.",
 			]),
-			deprecation_info: DeprecationStatusIR::NotDeprecated,
+			deprecation_info: ItemDeprecationInfoIR::NotDeprecated,
 			version: codec::Compact(5),
 		},
 	];

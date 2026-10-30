@@ -412,7 +412,9 @@ where
 		let bound = Value::bound();
 		let current = <Self as MapWrapper>::Map::decode_len(Ref::from(&key)).unwrap_or_default();
 		if current < bound {
-			CounterFor::<Prefix>::mutate(|value| value.saturating_inc());
+			if !<Self as MapWrapper>::Map::contains_key(Ref::from(&key)) {
+				CounterFor::<Prefix>::mutate(|value| value.saturating_inc());
+			}
 			let key = <Self as MapWrapper>::Map::hashed_key_for(key);
 			sp_io::storage::append(&key, item.encode());
 			Ok(())
@@ -509,7 +511,7 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	fn build_metadata(
-		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		deprecation_status: sp_metadata_ir::ItemDeprecationInfoIR,
 		docs: Vec<&'static str>,
 		entries: &mut Vec<StorageEntryMetadataIR>,
 	) {
@@ -793,7 +795,7 @@ mod test {
 			assert_eq!(A::count(), 2);
 
 			// Remove all.
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 
 			assert_eq!(A::count(), 0);
 			assert_eq!(A::initialize_counter(), 0);
@@ -1040,7 +1042,7 @@ mod test {
 			assert_eq!(B::count(), 2);
 
 			// Remove all.
-			let _ = B::clear(u32::max_value(), None);
+			let _ = B::clear(u32::MAX, None);
 
 			assert_eq!(B::count(), 0);
 			assert_eq!(B::initialize_counter(), 0);
@@ -1130,6 +1132,30 @@ mod test {
 	}
 
 	#[test]
+	fn try_append_counts_keys_not_items() {
+		type B = CountedStorageMap<Prefix, Twox64Concat, u16, BoundedVec<u32, ConstU32<3u32>>>;
+
+		TestExternalities::default().execute_with(|| {
+			B::try_append(0, 3).unwrap();
+			assert_eq!(B::count(), 1);
+			B::try_append(0, 3).unwrap();
+			B::try_append(0, 3).unwrap();
+			assert_eq!(B::count(), 1);
+			B::try_append(0, 3).err().unwrap();
+			assert_eq!(B::count(), 1);
+			B::try_append(1, 3).unwrap();
+			assert_eq!(B::count(), 2);
+			B::insert(2, BoundedVec::default());
+			B::try_append(2, 3).unwrap();
+			assert_eq!(B::count(), 3);
+			B::remove(0);
+			B::remove(1);
+			B::remove(2);
+			assert_eq!(B::count(), 0);
+		})
+	}
+
+	#[test]
 	fn migrate_keys_works() {
 		type A = CountedStorageMap<Prefix, Twox64Concat, u16, u32>;
 		type B = CountedStorageMap<Prefix, Blake2_128Concat, u16, u32>;
@@ -1198,7 +1224,11 @@ mod test {
 	fn test_metadata() {
 		type A = CountedStorageMap<Prefix, Twox64Concat, u16, u32, ValueQuery, ADefault>;
 		let mut entries = vec![];
-		A::build_metadata(sp_metadata_ir::DeprecationStatusIR::NotDeprecated, vec![], &mut entries);
+		A::build_metadata(
+			sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
+			vec![],
+			&mut entries,
+		);
 		assert_eq!(
 			entries,
 			vec![
@@ -1212,7 +1242,7 @@ mod test {
 					},
 					default: 97u32.encode(),
 					docs: vec![],
-					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+					deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				},
 				StorageEntryMetadataIR {
 					name: "counter_for_foo",
@@ -1224,7 +1254,7 @@ mod test {
 					} else {
 						vec!["Counter for the related counted storage map"]
 					},
-					deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+					deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				},
 			]
 		);

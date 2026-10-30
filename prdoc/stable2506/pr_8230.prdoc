@@ -1,0 +1,19 @@
+title: add parachain block validation latency metrics and logs
+doc:
+- audience: Node Dev
+  description: |
+    This change introduces a few metrics (and corresponding logs) to track the state of collations:
+      - time till collation fetched
+      - backing latency (counting from RP)
+      - backing latency (counting from collation fetch)
+      - inclusion latency
+      - expired collations (not backed, not advertised, not fetched)
+
+    These metrics are useful to determine the reliability of parachain block production and validation.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
+- name: polkadot-network-bridge
+  bump: patch
+- name: polkadot-node-subsystem-util
+  bump: minor

@@ -34,7 +34,6 @@ use sp_arithmetic::{
 	traits::{BaseArithmetic, SaturatedConversion, Unsigned},
 	Perbill,
 };
-use sp_debug_derive::RuntimeDebug;
 
 pub use weight_meter::*;
 pub use weight_v2::*;
@@ -53,7 +52,7 @@ pub mod constants {
 ///
 /// NOTE: This is currently only measured in computational time, and will probably
 /// be updated all together once proof size is accounted for.
-#[derive(Clone, Copy, Eq, PartialEq, Default, RuntimeDebug, Encode, Decode, TypeInfo)]
+#[derive(Clone, Copy, Eq, PartialEq, Default, Debug, Encode, Decode, TypeInfo)]
 pub struct RuntimeDbWeight {
 	pub read: u64,
 	pub write: u64,
@@ -323,14 +322,14 @@ mod tests {
 
 	#[test]
 	fn polynomial_does_not_overflow() {
-		assert_eq!(Poly::weight_to_fee(&Weight::MAX), Balance::max_value() - 10_000);
+		assert_eq!(Poly::weight_to_fee(&Weight::MAX), Balance::MAX - 10_000);
 	}
 
 	#[test]
 	fn identity_fee_works() {
 		assert_eq!(IdentityFee::<Balance>::weight_to_fee(&Weight::zero()), 0);
 		assert_eq!(IdentityFee::<Balance>::weight_to_fee(&Weight::from_parts(50, 0)), 50);
-		assert_eq!(IdentityFee::<Balance>::weight_to_fee(&Weight::MAX), Balance::max_value());
+		assert_eq!(IdentityFee::<Balance>::weight_to_fee(&Weight::MAX), Balance::MAX);
 	}
 
 	#[test]

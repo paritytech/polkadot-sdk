@@ -1,0 +1,12 @@
+title: 'pallet_revive: Only enforce EIP-3607 for dispatchables'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The EIP states that contract addresses cannot be the origin of a transaction. However, we are enforcing this rule for all contract execution (i.e all public function on the pallet). This is a problem for code that uses `pallet_revive` and explicitly wants to allow this.
+
+    This PR now only enforces this check for dispatchables so that all the `bare_*` functions are unaffected.
+
+    As a drive-by a regrouped the functions on the `Pallet` so that the public functions are no longer interleaved with the private ones. This got mixed up when we resolved some merge conflicts.
+crates:
+- name: pallet-revive
+  bump: patch

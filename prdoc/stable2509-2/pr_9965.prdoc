@@ -1,0 +1,9 @@
+title: Limit the size of the statement for further gossiping
+doc:
+- audience: Node Dev
+  description: "Limits the size of statements that are further gossiped over the network to prevent skipping oversized messages. The limit is set to match the network protocol's `MAX_STATEMENT_NOTIFICATION_SIZE` (1 MB), accounting for 1-byte vector length overhead because statements are sent as `Vec<Statement>`."
+crates:
+- name: sc-network-statement
+  bump: minor
+- name: sc-statement-store
+  bump: minor

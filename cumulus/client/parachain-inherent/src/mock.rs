@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ParachainInherentData, INHERENT_IDENTIFIER};
+use crate::ParachainInherentData;
 use codec::Decode;
 use cumulus_primitives_core::{
 	relay_chain,
@@ -54,6 +54,8 @@ pub struct MockValidationDataInherentDataProvider<R = ()> {
 	/// The relay block in which this parachain appeared to start. This will be the relay block
 	/// number in para block #P1.
 	pub relay_offset: u32,
+	/// The relay parent offset that determines how many relay parent descendants are required.
+	pub relay_parent_offset: u32,
 	/// The number of relay blocks that elapses between each parablock. Probably set this to 1 or 2
 	/// to simulate optimistic or realistic relay chain behavior.
 	pub relay_blocks_per_para_block: u32,
@@ -228,23 +230,24 @@ impl<R: Send + Sync + GenerateRandomness<u64>> InherentDataProvider
 
 		// Inject current para block head, if any
 		sproof_builder.included_para_head = self.current_para_block_head.clone();
-
-		let (relay_parent_storage_root, proof) = sproof_builder.into_state_root_and_proof();
-
-		inherent_data.put_data(
-			INHERENT_IDENTIFIER,
-			&ParachainInherentData {
-				validation_data: PersistedValidationData {
-					parent_head: Default::default(),
-					relay_parent_storage_root,
-					relay_parent_number,
-					max_pov_size: Default::default(),
-				},
-				downward_messages,
-				horizontal_messages,
-				relay_chain_state: proof,
+		sproof_builder.num_authorities = 2;
+		let (relay_parent_storage_root, proof, relay_parent_descendants) =
+			sproof_builder.into_state_root_proof_and_descendants(self.relay_parent_offset.into());
+		let parachain_inherent_data = ParachainInherentData {
+			validation_data: PersistedValidationData {
+				parent_head: Default::default(),
+				relay_parent_storage_root,
+				relay_parent_number,
+				max_pov_size: Default::default(),
 			},
-		)
+			downward_messages,
+			horizontal_messages,
+			relay_chain_state: proof,
+			relay_parent_descendants,
+			collator_peer_id: None,
+		};
+
+		parachain_inherent_data.provide_inherent_data(inherent_data).await
 	}
 
 	// Copied from the real implementation

@@ -245,8 +245,10 @@ impl RequestResponseProtocol {
 			dial_options,
 		);
 
+		let request_len = request.len();
 		match self.handle.try_send_request(peer.into(), request, dial_options) {
 			Ok(request_id) => {
+				self.metrics.register_outbound_request_bytes(request_len);
 				self.pending_inbound_responses
 					.insert(request_id, PendingRequest::new(tx, Instant::now(), fallback_request));
 			},
@@ -258,7 +260,7 @@ impl RequestResponseProtocol {
 				);
 
 				let _ = tx.send(Err(RequestFailure::Refused));
-				self.metrics.register_inbound_request_failure(error.to_string().as_ref());
+				self.metrics.register_outbound_request_failure(error.to_string().as_ref());
 			},
 		}
 	}
@@ -279,6 +281,16 @@ impl RequestResponseProtocol {
 			self.protocol,
 			request.len(),
 		);
+
+		self.metrics.register_inbound_request_bytes(request.len());
+
+		// Stamped on arrival, matching the libp2p backend, so that the serve time reported by
+		// `requests_in_success_total` covers the time spent queued and generating the response.
+		//
+		// Note that this does not cover the time between litep2p receiving the request and this
+		// event being polled from the handle. Covering it would require litep2p to stamp the
+		// request when it is received. See https://github.com/paritytech/polkadot-sdk/issues/13174.
+		let started = Instant::now();
 
 		let Some(inbound_queue) = &self.inbound_queue else {
 			log::trace!(
@@ -312,7 +324,7 @@ impl RequestResponseProtocol {
 		}) {
 			Ok(_) => {
 				self.pending_outbound_responses.push(Box::pin(async move {
-					(peer, request_id, rx.await.map_err(|_| ()), Instant::now())
+					(peer, request_id, rx.await.map_err(|_| ()), started)
 				}));
 			},
 			Err(error) => {
@@ -350,6 +362,7 @@ impl RequestResponseProtocol {
 					response.len(),
 				);
 
+				self.metrics.register_inbound_response_bytes(response.len());
 				let _ = tx.send(Ok((response, self.protocol.clone())));
 				self.metrics.register_outbound_request_success(started.elapsed());
 			},
@@ -378,40 +391,49 @@ impl RequestResponseProtocol {
 				self.protocol,
 			);
 
-			return
+			return;
 		};
 
 		let status = match error {
-			RequestResponseError::NotConnected =>
-				Some((RequestFailure::NotConnected, "not-connected")),
+			RequestResponseError::NotConnected => {
+				Some((RequestFailure::NotConnected, "not-connected"))
+			},
 			RequestResponseError::Rejected(reason) => {
 				let reason = match reason {
 					RejectReason::ConnectionClosed => "connection-closed",
 					RejectReason::SubstreamClosed => "substream-closed",
 					RejectReason::SubstreamOpenError(substream_error) => match substream_error {
-						SubstreamError::NegotiationError(NegotiationError::Timeout) =>
-							"substream-timeout",
+						SubstreamError::NegotiationError(NegotiationError::Timeout) => {
+							"substream-timeout"
+						},
 						_ => "substream-open-error",
 					},
 					RejectReason::DialFailed(None) => "dial-failed",
-					RejectReason::DialFailed(Some(ImmediateDialError::AlreadyConnected)) =>
-						"dial-already-connected",
-					RejectReason::DialFailed(Some(ImmediateDialError::PeerIdMissing)) =>
-						"dial-peerid-missing",
-					RejectReason::DialFailed(Some(ImmediateDialError::TriedToDialSelf)) =>
-						"dial-tried-to-dial-self",
-					RejectReason::DialFailed(Some(ImmediateDialError::NoAddressAvailable)) =>
-						"dial-no-address-available",
-					RejectReason::DialFailed(Some(ImmediateDialError::TaskClosed)) =>
-						"dial-task-closed",
-					RejectReason::DialFailed(Some(ImmediateDialError::ChannelClogged)) =>
-						"dial-channel-clogged",
+					RejectReason::DialFailed(Some(ImmediateDialError::AlreadyConnected)) => {
+						"dial-already-connected"
+					},
+					RejectReason::DialFailed(Some(ImmediateDialError::PeerIdMissing)) => {
+						"dial-peerid-missing"
+					},
+					RejectReason::DialFailed(Some(ImmediateDialError::TriedToDialSelf)) => {
+						"dial-tried-to-dial-self"
+					},
+					RejectReason::DialFailed(Some(ImmediateDialError::NoAddressAvailable)) => {
+						"dial-no-address-available"
+					},
+					RejectReason::DialFailed(Some(ImmediateDialError::TaskClosed)) => {
+						"dial-task-closed"
+					},
+					RejectReason::DialFailed(Some(ImmediateDialError::ChannelClogged)) => {
+						"dial-channel-clogged"
+					},
 				};
 
 				Some((RequestFailure::Refused, reason))
 			},
-			RequestResponseError::Timeout =>
-				Some((RequestFailure::Network(OutboundFailure::Timeout), "timeout")),
+			RequestResponseError::Timeout => {
+				Some((RequestFailure::Network(OutboundFailure::Timeout), "timeout"))
+			},
 			RequestResponseError::Canceled => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -433,7 +455,7 @@ impl RequestResponseProtocol {
 					Some(sender) => {
 						log::debug!(
 							target: LOG_TARGET,
-							"{}: failed to negotiate protocol with {:?}, try fallback request: ({})",
+							"{}: failed to negotiate protocol with {:?}. Trying the fallback protocol ({})",
 							self.protocol,
 							peer,
 							protocol,
@@ -512,10 +534,13 @@ impl RequestResponseProtocol {
 					response.len(),
 				);
 
+				self.metrics.register_outbound_response_bytes(response.len());
+
 				match sent_feedback {
 					None => self.handle.send_response(request_id, response),
-					Some(feedback) =>
-						self.handle.send_response_with_feedback(request_id, response, feedback),
+					Some(feedback) => {
+						self.handle.send_response_with_feedback(request_id, response, feedback)
+					},
 				}
 
 				self.metrics.register_inbound_request_success(started.elapsed());

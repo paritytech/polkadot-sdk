@@ -23,7 +23,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use polkadot_parachain_primitives::primitives::UpwardMessages;
-use polkadot_primitives::vstaging::{
+use polkadot_primitives::{
 	ClaimQueueOffset, CoreSelector, UMPSignal, DEFAULT_CLAIM_QUEUE_OFFSET, UMP_SEPARATOR,
 };
 use tiny_keccak::{Hasher as _, Keccak};
@@ -104,6 +104,8 @@ pub struct BlockData {
 	pub tombstones: u64,
 	/// The number of iterations to perform.
 	pub iterations: u32,
+	/// Whether or not to emit the experimental ApprovedPeer UMP signal.
+	pub experimental_send_approved_peer: bool,
 }
 
 pub fn hash_state(state: &GraveyardState) -> [u8; 32] {
@@ -150,7 +152,7 @@ pub fn execute(
 			hash_state(&block_data.state),
 			parent_head.post_state,
 		);
-		return Err(StateMismatch)
+		return Err(StateMismatch);
 	}
 
 	let mut upward_messages: UpwardMessages = Default::default();
@@ -162,6 +164,15 @@ pub fn execute(
 		)
 		.encode(),
 	);
+
+	if block_data.experimental_send_approved_peer {
+		// Create a valid PeerId in multihash format: [hash_code, digest_size, ...digest_bytes]
+		// Using multihash code 0x0 (identity hash) with 32 bytes of data
+		let mut peer_id_bytes = alloc::vec![0x0, 32]; // hash code 0x0, size 32
+		peer_id_bytes.extend_from_slice(&[1u8; 32]); // 32 bytes of data
+		upward_messages
+			.force_push(UMPSignal::ApprovedPeer(peer_id_bytes.try_into().unwrap()).encode());
+	}
 
 	// We need to clone the block data as the fn will mutate it's state.
 	let new_state = execute_transaction(block_data.clone());

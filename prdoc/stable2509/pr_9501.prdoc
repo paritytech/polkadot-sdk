@@ -1,0 +1,13 @@
+title: '[revive] revm move existing files'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Move exisiting files in pallet-revive to accomodate the upcoming EVM backend
+    - Add solc/resolc compilation feature for fixtures
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: patch

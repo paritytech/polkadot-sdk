@@ -25,6 +25,8 @@ pub mod accessed_nodes_tracker;
 #[cfg(feature = "std")]
 pub mod cache;
 mod error;
+#[cfg(any(not(feature = "std"), test))]
+mod hasher_random_state;
 mod node_codec;
 mod node_header;
 #[cfg(feature = "std")]
@@ -36,6 +38,12 @@ mod trie_stream;
 
 #[cfg(feature = "std")]
 pub mod proof_size_extension;
+
+#[cfg(feature = "std")]
+pub use std::hash::RandomState;
+
+#[cfg(not(feature = "std"))]
+pub use hasher_random_state::{add_extra_randomness, RandomState};
 
 use alloc::{borrow::Borrow, boxed::Box, vec, vec::Vec};
 use core::marker::PhantomData;
@@ -180,6 +188,31 @@ pub trait TrieRecorderProvider<H: Hasher> {
 pub trait ProofSizeProvider {
 	/// Returns the storage proof size.
 	fn estimate_encoded_size(&self) -> usize;
+
+	/// Start a transaction.
+	///
+	/// `is_host` is set to `true` when the transaction was started by the host.
+	fn start_transaction(&mut self, is_host: bool) {
+		let _ = is_host;
+	}
+
+	/// Rollback the last transaction.
+	///
+	/// `is_host` is set to `true` when the transaction to rollback was started by the host.
+	///
+	/// If there is no active transaction, the call should be ignored.
+	fn rollback_transaction(&mut self, is_host: bool) {
+		let _ = is_host;
+	}
+
+	/// Commit the last transaction.
+	///
+	/// `is_host` is set to `true` when the transaction to commit was started by the host.
+	///
+	/// If there is no active transaction, the call should be ignored.
+	fn commit_transaction(&mut self, is_host: bool) {
+		let _ = is_host;
+	}
 }
 
 /// TrieDB error over `TrieConfiguration` trait.
@@ -192,13 +225,16 @@ pub type HashDB<'a, H> = dyn hash_db::HashDB<H, trie_db::DBValue> + 'a;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a `KeyFunction` for prefixing keys internally (avoiding
 /// key conflict for non random keys).
-pub type PrefixedMemoryDB<H> = memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue>;
+pub type PrefixedMemoryDB<H, RS = RandomState> =
+	memory_db::MemoryDB<H, memory_db::PrefixedKey<H>, trie_db::DBValue, RS>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
 /// This uses a noops `KeyFunction` (key addressing must be hashed or using
 /// an encoding scheme that avoid key conflict).
-pub type MemoryDB<H> = memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue>;
+pub type MemoryDB<H, RS = RandomState> =
+	memory_db::MemoryDB<H, memory_db::HashKey<H>, trie_db::DBValue, RS>;
 /// Reexport from `hash_db`, with genericity set for `Hasher` trait.
-pub type GenericMemoryDB<H, KF> = memory_db::MemoryDB<H, KF, trie_db::DBValue>;
+pub type GenericMemoryDB<H, KF, RS = RandomState> =
+	memory_db::MemoryDB<H, KF, trie_db::DBValue, RS>;
 
 /// Persistent trie database read-access interface for a given hasher.
 pub type TrieDB<'a, 'cache, L> = trie_db::TrieDB<'a, 'cache, L>;

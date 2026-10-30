@@ -1,0 +1,22 @@
+title: Add Pallas and Vesta curve host functions to sp-crypto-ec-utils
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add host function modules for the Pallas and Vesta elliptic curves,
+    following the established pattern used by existing curves (BLS12-381,
+    BLS12-377, BW6-761, Ed-on-BLS12-377, Ed-on-BLS12-381-Bandersnatch).
+
+    Each curve exposes two host functions:
+    - `msm_sw`: Multi-scalar multiplication (Short Weierstrass)
+    - `mul_sw`: Scalar multiplication (Short Weierstrass)
+
+    Pallas and Vesta form a curve cycle used in Halo 2 proof systems.
+    The `ark-pallas-ext` and `ark-vesta-ext` crates from arkworks-extensions
+    provide hookable curve configurations that delegate expensive operations
+    to the host.
+
+    New feature flags `pallas` and `vesta` are added and included in
+    `all-curves`.
+crates:
+- name: sp-crypto-ec-utils
+  bump: minor

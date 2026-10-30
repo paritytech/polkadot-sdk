@@ -1,0 +1,13 @@
+title: Snowbridge Inbound Queue V2 relayer tip payout fix
+
+doc:
+- audience: Runtime Dev
+  description: |
+    Fixes a bug where relayer tips were not properly paid out, causing the tips to be lost since it had already been
+    burnt.
+
+crates:
+- name: snowbridge-pallet-inbound-queue-v2
+  bump: patch
+- name: snowbridge-test-utils
+  bump: minor

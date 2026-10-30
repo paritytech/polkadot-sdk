@@ -49,9 +49,8 @@
 //! Information about the actually used protocol will be returned alongside the raw response, so
 //! that you know how to decode it.
 
-use std::{collections::HashMap, time::Duration, u64};
+use std::{collections::HashMap, time::Duration};
 
-use polkadot_primitives::MAX_CODE_SIZE;
 use sc_network::{NetworkBackend, MAX_RESPONSE_SIZE};
 use sp_runtime::traits::Block;
 use strum::{EnumIter, IntoEnumIterator};
@@ -76,6 +75,9 @@ pub mod v1;
 /// Actual versioned requests and responses that are sent over the wire.
 pub mod v2;
 
+/// Actual versioned requests and responses that are sent over the wire.
+pub mod v3;
+
 /// A protocol per subsystem seems to make the most sense, this way we don't need any dispatching
 /// within protocols.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, EnumIter)]
@@ -86,12 +88,12 @@ pub enum Protocol {
 	CollationFetchingV1,
 	/// Protocol for fetching collations from collators when async backing is enabled.
 	CollationFetchingV2,
+	/// Protocol for fetching collations from collators by output head data hash.
+	CollationFetchingV3,
 	/// Protocol for fetching seconded PoVs from validators of the same group.
 	PoVFetchingV1,
 	/// Protocol for fetching available data.
 	AvailableDataFetchingV1,
-	/// Fetching of statements that are too large for gossip.
-	StatementFetchingV1,
 	/// Sending of dispute statements with application level confirmations.
 	DisputeSendingV1,
 
@@ -130,11 +132,6 @@ pub const CHUNK_REQUEST_TIMEOUT: Duration = DEFAULT_REQUEST_TIMEOUT_CONNECTED;
 /// - 10 parallel executions
 const POV_REQUEST_TIMEOUT_CONNECTED: Duration = Duration::from_millis(2000);
 
-/// We want timeout statement requests fast, so we don't waste time on slow nodes. Responders will
-/// try their best to either serve within that timeout or return an error immediately. (We need to
-/// fit statement distribution within a block of 6 seconds.)
-const STATEMENTS_TIMEOUT: Duration = Duration::from_secs(1);
-
 /// We want attested candidate requests to time out relatively fast,
 /// because slow requests will bottleneck the backing system. Ideally, we'd have
 /// an adaptive timeout based on the candidate size, because there will be a lot of variance
@@ -149,12 +146,6 @@ const ATTESTED_CANDIDATE_TIMEOUT: Duration = Duration::from_millis(2500);
 
 /// We don't want a slow peer to slow down all the others, at the same time we want to get out the
 /// data quickly in full to at least some peers (as this will reduce load on us as they then can
-/// start serving the data). So this value is a trade-off. 3 seems to be sensible. So we would need
-/// to have 3 slow nodes connected, to delay transfer for others by `STATEMENTS_TIMEOUT`.
-pub const MAX_PARALLEL_STATEMENT_REQUESTS: u32 = 3;
-
-/// We don't want a slow peer to slow down all the others, at the same time we want to get out the
-/// data quickly in full to at least some peers (as this will reduce load on us as they then can
 /// start serving the data). So this value is a tradeoff. 5 seems to be sensible. So we would need
 /// to have 5 slow nodes connected, to delay transfer for others by `ATTESTED_CANDIDATE_TIMEOUT`.
 pub const MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS: u32 = 5;
@@ -164,16 +155,14 @@ pub const MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS: u32 = 5;
 /// Same as what we use in substrate networking.
 const POV_RESPONSE_SIZE: u64 = MAX_RESPONSE_SIZE;
 
-/// Maximum response sizes for `StatementFetchingV1`.
-///
-/// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead.
-const STATEMENT_RESPONSE_SIZE: u64 = MAX_CODE_SIZE as u64 + 10_000;
-
 /// Maximum response sizes for `AttestedCandidateV2`.
 ///
-/// This is `MAX_CODE_SIZE` plus some additional space for protocol overhead and
-/// additional backing statements.
-const ATTESTED_CANDIDATE_RESPONSE_SIZE: u64 = MAX_CODE_SIZE as u64 + 100_000;
+/// Chosen as a safe upper bound above the governance ceiling on validation code size
+/// (`polkadot_primitives::MAX_CODE_SIZE`), leaving headroom for backing statements and
+/// protocol overhead. This is a transport-level DoS cap only; the effective policy is
+/// enforced by the runtime and the node-side inclusion emulator against the on-chain
+/// `HostConfiguration.max_code_size`.
+const ATTESTED_CANDIDATE_RESPONSE_SIZE: u64 = 8 * 1024 * 1024;
 
 /// We can have relative large timeouts here, there is no value of hitting a
 /// timeout as we want to get statements through to each node in any case.
@@ -221,7 +210,9 @@ impl Protocol {
 				CHUNK_REQUEST_TIMEOUT,
 				tx,
 			),
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 =>
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => {
 				N::request_response_config(
 					name,
 					legacy_names,
@@ -230,7 +221,8 @@ impl Protocol {
 					// Taken from initial implementation in collator protocol:
 					POV_REQUEST_TIMEOUT_CONNECTED,
 					tx,
-				),
+				)
+			},
 			Protocol::PoVFetchingV1 => N::request_response_config(
 				name,
 				legacy_names,
@@ -246,24 +238,6 @@ impl Protocol {
 				// Available data size is dominated by the PoV size.
 				POV_RESPONSE_SIZE,
 				POV_REQUEST_TIMEOUT_CONNECTED,
-				tx,
-			),
-			Protocol::StatementFetchingV1 => N::request_response_config(
-				name,
-				legacy_names,
-				1_000,
-				// Available data size is dominated code size.
-				STATEMENT_RESPONSE_SIZE,
-				// We need statement fetching to be fast and will try our best at the responding
-				// side to answer requests within that timeout, assuming a bandwidth of 500Mbit/s
-				// - which is the recommended minimum bandwidth for nodes on Kusama as of April
-				// 2021.
-				// Responders will reject requests, if it is unlikely they can serve them within
-				// the timeout, so the requester can immediately try another node, instead of
-				// waiting for timeout on an overloaded node.  Fetches from slow nodes will likely
-				// fail, but this is desired, so we can quickly move on to a faster one - we should
-				// also decrease its reputation.
-				Duration::from_secs(1),
 				tx,
 			),
 			Protocol::DisputeSendingV1 => N::request_response_config(
@@ -297,33 +271,14 @@ impl Protocol {
 			// as well.
 			Protocol::ChunkFetchingV1 | Protocol::ChunkFetchingV2 => 100,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
-			Protocol::CollationFetchingV1 | Protocol::CollationFetchingV2 => 10,
+			Protocol::CollationFetchingV1 |
+			Protocol::CollationFetchingV2 |
+			Protocol::CollationFetchingV3 => 10,
 			// 10 seems reasonable, considering group sizes of max 10 validators.
 			Protocol::PoVFetchingV1 => 10,
 			// Validators are constantly self-selecting to request available data which may lead
 			// to constant load and occasional burstiness.
 			Protocol::AvailableDataFetchingV1 => 100,
-			// Our queue size approximation is how many blocks of the size of
-			// a runtime we can transfer within a statements timeout, minus the requests we handle
-			// in parallel.
-			Protocol::StatementFetchingV1 => {
-				// We assume we can utilize up to 70% of the available bandwidth for statements.
-				// This is just a guess/estimate, with the following considerations: If we are
-				// faster than that, queue size will stay low anyway, even if not - requesters will
-				// get an immediate error, but if we are slower, requesters will run in a timeout -
-				// wasting precious time.
-				let available_bandwidth = 7 * MIN_BANDWIDTH_BYTES / 10;
-				let size = u64::saturating_sub(
-					STATEMENTS_TIMEOUT.as_millis() as u64 * available_bandwidth /
-						(1000 * MAX_CODE_SIZE as u64),
-					MAX_PARALLEL_STATEMENT_REQUESTS as u64,
-				);
-				debug_assert!(
-					size > 0,
-					"We should have a channel size greater zero, otherwise we won't accept any requests."
-				);
-				size as usize
-			},
 			// Incoming requests can get bursty, we should also be able to handle them fast on
 			// average, so something in the ballpark of 100 should be fine. Nodes will retry on
 			// failure, so having a good value here is mostly about performance tuning.
@@ -338,7 +293,7 @@ impl Protocol {
 				let available_bandwidth = 7 * MIN_BANDWIDTH_BYTES / 10;
 				let size = u64::saturating_sub(
 					ATTESTED_CANDIDATE_TIMEOUT.as_millis() as u64 * available_bandwidth /
-						(1000 * MAX_CODE_SIZE as u64),
+						(1000 * ATTESTED_CANDIDATE_RESPONSE_SIZE),
 					MAX_PARALLEL_ATTESTED_CANDIDATE_REQUESTS as u64,
 				);
 				debug_assert!(
@@ -359,13 +314,13 @@ impl Protocol {
 			Protocol::CollationFetchingV1 => Some("/polkadot/req_collation/1"),
 			Protocol::PoVFetchingV1 => Some("/polkadot/req_pov/1"),
 			Protocol::AvailableDataFetchingV1 => Some("/polkadot/req_available_data/1"),
-			Protocol::StatementFetchingV1 => Some("/polkadot/req_statement/1"),
 			Protocol::DisputeSendingV1 => Some("/polkadot/send_dispute/1"),
 
 			// Introduced after legacy names became legacy.
 			Protocol::AttestedCandidateV2 => None,
 			Protocol::CollationFetchingV2 => None,
 			Protocol::ChunkFetchingV2 => None,
+			Protocol::CollationFetchingV3 => None,
 		}
 	}
 }
@@ -421,13 +376,14 @@ impl ReqProtocolNames {
 			Protocol::CollationFetchingV1 => "/req_collation/1",
 			Protocol::PoVFetchingV1 => "/req_pov/1",
 			Protocol::AvailableDataFetchingV1 => "/req_available_data/1",
-			Protocol::StatementFetchingV1 => "/req_statement/1",
 			Protocol::DisputeSendingV1 => "/send_dispute/1",
 
 			// V2:
 			Protocol::CollationFetchingV2 => "/req_collation/2",
 			Protocol::AttestedCandidateV2 => "/req_attested_candidate/2",
 			Protocol::ChunkFetchingV2 => "/req_chunk/2",
+			// V3:
+			Protocol::CollationFetchingV3 => "/req_collation/3",
 		};
 
 		format!("{}{}", prefix, short_name).into()

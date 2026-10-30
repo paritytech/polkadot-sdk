@@ -1,0 +1,7 @@
+title: Bump AH westend spec version
+doc:
+- audience: Runtime Dev
+  description: Update spec version of westend AH
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch

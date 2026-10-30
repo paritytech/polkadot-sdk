@@ -83,7 +83,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 	fn step(&mut self, meter: &mut WeightMeter) -> IsFinished {
 		let Some(old_queue) = v10::DeletionQueue::<T>::take() else {
 			meter.consume(T::WeightInfo::v11_migration_step(0));
-			return IsFinished::Yes
+			return IsFinished::Yes;
 		};
 		let len = old_queue.len();
 
@@ -118,7 +118,7 @@ impl<T: Config> MigrationStep for Migration<T> {
 				"Injecting {len} entries to deletion queue to test migration"
 			);
 			fill_old_queue::<T>(len as usize);
-			return Ok(len.encode())
+			return Ok(len.encode());
 		}
 
 		Ok((old_queue.len() as u32).encode())

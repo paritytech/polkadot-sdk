@@ -1,0 +1,11 @@
+title: Fix Aura authorities tracker bug
+doc:
+- audience: [Node Dev, Runtime Dev]
+  description: |-
+    Fix a bug in the Aura authority tracker that resulted in an improper hash being used as the
+    key for the authority set. As a result, a new authority couldn't be introduced to the set.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: sc-consensus-aura
+  bump: patch

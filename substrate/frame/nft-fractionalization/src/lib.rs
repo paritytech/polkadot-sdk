@@ -47,50 +47,41 @@ mod tests;
 
 pub mod weights;
 
+use frame::prelude::*;
 use frame_system::Config as SystemConfig;
 pub use pallet::*;
-pub use scale_info::Type;
 pub use types::*;
 pub use weights::WeightInfo;
 
-#[frame_support::pallet]
+const LOG_TARGET: &str = "runtime::nft-fractionalization";
+
+#[frame::pallet]
 pub mod pallet {
 	use super::*;
 	use core::fmt::Display;
-	use frame_support::{
-		dispatch::DispatchResult,
-		ensure,
-		pallet_prelude::*,
-		sp_runtime::traits::{AccountIdConversion, StaticLookup},
-		traits::{
-			fungible::{
-				hold::Mutate as HoldMutateFungible, Inspect as InspectFungible,
-				Mutate as MutateFungible,
-			},
-			fungibles::{
-				metadata::{MetadataDeposit, Mutate as MutateMetadata},
-				Create, Destroy, Inspect, Mutate,
-			},
-			tokens::{
-				nonfungibles_v2::{Inspect as NonFungiblesInspect, Transfer},
-				AssetId, Balance as AssetBalance,
-				Fortitude::Polite,
-				Precision::{BestEffort, Exact},
-				Preservation::{Expendable, Preserve},
-			},
-		},
-		BoundedVec, PalletId,
+	use fungible::{
+		hold::Mutate as HoldMutateFungible, Inspect as InspectFungible, Mutate as MutateFungible,
 	};
-	use frame_system::pallet_prelude::*;
+	use fungibles::{
+		metadata::{MetadataDeposit, Mutate as MutateMetadata},
+		Create, Destroy, Inspect, Mutate,
+	};
+	use nonfungibles_v2::{Inspect as NonFungiblesInspect, Transfer};
 	use scale_info::prelude::{format, string::String};
-	use sp_runtime::traits::{One, Zero};
 
+	use tokens::{
+		AssetId, Balance as AssetBalance,
+		Fortitude::Polite,
+		Precision::{BestEffort, Exact},
+		Preservation::{Expendable, Preserve},
+	};
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// The currency mechanism, used for paying for deposits.
@@ -159,7 +150,6 @@ pub mod pallet {
 
 	/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
 	#[pallet::storage]
-	#[pallet::getter(fn nft_to_asset)]
 	pub type NftToAsset<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
@@ -276,6 +266,10 @@ pub mod pallet {
 
 		/// Burn the total issuance of the fungible asset and return (unlock) the locked NFT.
 		///
+		/// The asset is destroyed as well, unless it still has asset accounts -- from `touch` --
+		/// or approvals, or the asset registry refuses, in which case anyone can finish the
+		/// destruction later.
+		///
 		/// The dispatch origin for this call must be Signed.
 		///
 		/// `Deposit` funds will be returned to `asset_creator`.
@@ -338,6 +332,13 @@ pub mod pallet {
 			T::PalletId::get().into_account_truncating()
 		}
 
+		/// Keeps track of the corresponding NFT ID, asset ID and amount minted.
+		pub fn nft_to_asset(
+			key: (T::NftCollectionId, T::NftId),
+		) -> Option<Details<AssetIdOf<T>, AssetBalanceOf<T>, DepositOf<T>, T::AccountId>> {
+			NftToAsset::<T>::get(key)
+		}
+
 		/// Prevent further transferring of NFT.
 		fn do_lock_nft(nft_collection_id: T::NftCollectionId, nft_id: T::NftId) -> DispatchResult {
 			T::Nfts::disable_transfer(&nft_collection_id, &nft_id)
@@ -368,14 +369,32 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Burn tokens from the account.
+		/// Burn tokens from the account and destroy the asset, best effort.
 		fn do_burn_asset(
 			asset_id: AssetIdOf<T>,
 			account: &T::AccountId,
 			amount: AssetBalanceOf<T>,
 		) -> DispatchResult {
 			T::Assets::burn_from(asset_id.clone(), account, amount, Expendable, Exact, Polite)?;
-			T::Assets::start_destroy(asset_id, None)
+			T::Assets::start_destroy(asset_id.clone(), None)?;
+			// Finish the destruction, otherwise the asset entry, its metadata and the metadata
+			// deposit stay around. `burn_from` above emptied the only account holding fractions,
+			// so this normally succeeds. But if the asset still has accounts or approvals, which
+			// anyone could create, it fails. So we don't block the unify so the NFT doesn't get
+			// locked for good. We keep old behavior: the asset stays in `Destroying` state and
+			// anyone can clean it up with `destroy_accounts`/`destroy_approvals` +
+			// `finish_destroy`. The storage layer is there because a `Destroy` impl is not
+			// required to be atomic on failure, and we are swallowing that failure.
+			if let Err(error) =
+				storage::with_storage_layer(|| T::Assets::finish_destroy(asset_id.clone()))
+			{
+				log::debug!(
+					target: LOG_TARGET,
+					"asset {asset_id:?} left in destroying state: {error:?}",
+				);
+			}
+
+			Ok(())
 		}
 
 		/// Set the metadata for the newly created asset.

@@ -9,20 +9,11 @@ pub use milagro_bls::{
 };
 use scale_info::TypeInfo;
 use sp_core::H256;
-use sp_runtime::RuntimeDebug;
 use sp_std::prelude::*;
+use Debug;
 
 #[derive(
-	Copy,
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	Eq,
-	PartialEq,
-	TypeInfo,
-	RuntimeDebug,
-	PalletError,
+	Copy, Clone, Encode, Decode, DecodeWithMemTracking, Eq, PartialEq, TypeInfo, Debug, PalletError,
 )]
 pub enum BlsError {
 	InvalidSignature,
@@ -45,6 +36,8 @@ pub fn fast_aggregate_verify(
 
 /// Decompress one public key into a point in G1.
 pub fn prepare_milagro_pubkey(pubkey: &PublicKey) -> Result<PublicKeyPrepared, BlsError> {
+	// Sync committee keys are authenticated Ethereum consensus state. Avoid repeating the G1
+	// subgroup check here: doing so for all 512 keys exceeds the synchronous block budget.
 	PublicKeyPrepared::from_bytes_unchecked(&pubkey.0).map_err(|_| BlsError::InvalidPublicKey)
 }
 

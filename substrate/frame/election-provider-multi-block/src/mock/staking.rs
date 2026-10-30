@@ -70,7 +70,7 @@ impl ElectionDataProvider for MockStaking {
 			);
 		}
 		if bounds.slice_exhausted(&targets) {
-			return Err("Targets too big")
+			return Err("Targets too big");
 		}
 
 		Ok(targets)
@@ -95,7 +95,7 @@ impl ElectionDataProvider for MockStaking {
 		}
 
 		if voters.is_empty() {
-			return Ok(vec![])
+			return Ok(vec![]);
 		}
 
 		if remaining > 0 {
@@ -114,8 +114,8 @@ impl ElectionDataProvider for MockStaking {
 		Ok(DesiredTargets::get())
 	}
 
-	fn next_election_prediction(now: u64) -> u64 {
-		now + EpochLength::get() - now % EpochLength::get()
+	fn next_election_prediction(_: u64) -> u64 {
+		unreachable!("not used in this pallet")
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -132,6 +132,12 @@ impl ElectionDataProvider for MockStaking {
 	fn clear() {
 		Targets::set(vec![]);
 		Voters::set(vec![]);
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn fetch_page(page: PageIndex) {
+		use frame_election_provider_support::ElectionProvider;
+		super::MultiBlock::elect(page).unwrap();
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

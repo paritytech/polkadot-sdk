@@ -18,14 +18,14 @@
 
 pub use polkadot_node_primitives::NODE_VERSION;
 
-use clap::{ArgAction, Parser};
+use clap::Parser;
 use std::path::PathBuf;
 
 #[allow(missing_docs)]
 #[derive(Debug, Parser)]
 pub enum Subcommand {
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
@@ -64,18 +64,6 @@ pub enum Subcommand {
 pub struct RunCmd {
 	#[clap(flatten)]
 	pub base: sc_cli::RunCmd,
-
-	/// Force using Kusama native runtime.
-	#[arg(long = "force-kusama")]
-	pub force_kusama: bool,
-
-	/// Force using Westend native runtime.
-	#[arg(long = "force-westend")]
-	pub force_westend: bool,
-
-	/// Force using Rococo native runtime.
-	#[arg(long = "force-rococo")]
-	pub force_rococo: bool,
 
 	/// Disable the BEEFY gadget.
 	///
@@ -146,18 +134,41 @@ pub struct RunCmd {
 	#[arg(long, hide = true)]
 	pub disable_worker_version_check: bool,
 
-	/// Enable approval-voting message processing in parallel.
-	///
-	/// This is a flag used for gradually enabling approval-voting-parallel in production,
-	/// should not be used unless explicitly advised to. It will be removed in the future.
-	#[arg(long, default_value = "true", action=ArgAction::Set)]
-	pub enable_approval_voting_parallel: bool,
-
 	/// How long finalized data should be kept in the availability store (in hours).
 	/// Only used for testnets. If not specified, set to 1 hour. Always set to 25 hours for live
 	/// networks.
 	#[arg(long)]
 	pub keep_finalized_for: Option<u32>,
+
+	/// Overrides `HOLD_OFF_DURATION` in collator_protocol/validator_side. The value is in
+	/// milliseconds.
+	///
+	///  **Dangerous!** Do not touch unless explicitly advised to.
+	#[arg(long, hide = true)]
+	pub collator_protocol_hold_off: Option<u64>,
+
+	/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
+	/// Defaults to enabled on Kusama and disabled everywhere else. Pass `=false` to opt out.
+	#[arg(
+		long,
+		hide = true,
+		// to support `--experimental-collator-protocol=[true|false]` and
+		// just `--experimental-collator-protocol`
+		num_args = 0..=1,
+		// otherwise the parameter becomes greedy and consumes the first value after it,
+		// e.g. `--experimental-collator-protocol chain-info`
+		require_equals = true,
+		// means that `--experimental-collator-protocol` w/o explicit value equals to "on" (`true`)
+		default_missing_value = "true"
+	)]
+	pub experimental_collator_protocol: Option<bool>,
+
+	/// Collator reputation persistence interval in seconds.
+	/// If not specified, defaults to 600 seconds (10 minutes).
+	/// This should be used only with experimental_collator_protocol
+	/// and only on validators.
+	#[arg(long, requires = "experimental_collator_protocol", requires = "validator")]
+	pub collator_reputation_persist_interval: Option<u64>,
 }
 
 #[allow(missing_docs)]

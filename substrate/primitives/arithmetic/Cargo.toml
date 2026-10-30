@@ -16,11 +16,12 @@ workspace = true
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
-codec = { features = [
-	"derive",
-	"max-encoded-len",
-], workspace = true }
+codec = { features = ["derive", "max-encoded-len"], workspace = true }
 docify = { workspace = true }
 integer-sqrt = { workspace = true }
 num-traits = { workspace = true }
@@ -45,7 +46,3 @@ std = [
 ]
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]
-
-[[bench]]
-name = "bench"
-harness = false

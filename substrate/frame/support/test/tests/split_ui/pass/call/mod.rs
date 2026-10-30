@@ -32,7 +32,7 @@ mod call {
             ensure_signed(origin)?;
             Ok(())
         }
-        
+
         #[pallet::call_index(2)]
         pub fn noop2(origin: OriginFor<T>, _x: u64, _y: u64) -> DispatchResult {
             ensure_signed(origin)?;
@@ -57,6 +57,13 @@ mod call {
         #[pallet::feeless_if(|_origin: &OriginFor<T>, x: &u64, y: &u64| -> bool { *x == *y })]
         pub fn noop_feeless2(origin: OriginFor<T>, _x: u64, _y: u64) -> DispatchResult {
             ensure_signed(origin)?;
+            Ok(())
+        }
+
+        #[pallet::call_index(6)]
+        #[pallet::authorize(|_source, _x, _y| Ok(Default::default()))]
+        pub fn noop_authorize(origin: OriginFor<T>, _x: u64, _y: u64) -> DispatchResult {
+            ensure_authorized(origin)?;
             Ok(())
         }
 	}

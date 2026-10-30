@@ -16,7 +16,6 @@
 
 use crate::{Chain, Client, Error as SubstrateError};
 
-use async_std::sync::{Arc, RwLock};
 use async_trait::async_trait;
 use codec::Decode;
 use num_traits::One;
@@ -26,7 +25,8 @@ use relay_utils::metrics::{
 };
 use sp_core::storage::{StorageData, StorageKey};
 use sp_runtime::{traits::UniqueSaturatedInto, FixedPointNumber, FixedU128};
-use std::{marker::PhantomData, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
+use tokio::sync::RwLock;
 
 /// Storage value update interval (in blocks).
 const UPDATE_INTERVAL_IN_BLOCKS: u32 = 5;

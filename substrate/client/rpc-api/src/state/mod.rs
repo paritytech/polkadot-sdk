@@ -39,7 +39,7 @@ pub trait StateApi<Hash> {
 	fn call(&self, name: String, bytes: Bytes, hash: Option<Hash>) -> Result<Bytes, Error>;
 
 	/// Returns the keys with prefix, leave empty to get all the keys.
-	#[method(name = "state_getKeys", blocking)]
+	#[method(name = "state_getKeys", blocking, with_extensions)]
 	#[deprecated(since = "2.0.0", note = "Please use `getKeysPaged` with proper paging support")]
 	fn storage_keys(
 		&self,
@@ -281,8 +281,8 @@ pub trait StateApi<Hash> {
 	/// [querying substrate storage via rpc][3].
 	///
 	/// [1]: https://docs.substrate.io/main-docs/fundamentals/state-transitions-and-storage/
-	/// [2]: https://www.shawntabrizi.com/blog/substrate/transparent-keys-in-substrate/
-	/// [3]: https://www.shawntabrizi.com/blog/substrate/querying-substrate-storage-via-rpc/
+	/// [2]: https://www.shawntabrizi.com/blog/transparent-keys-in-substrate/
+	/// [3]: https://www.shawntabrizi.com/blog/interacting-with-the-substrate-rpc-endpoint/
 	///
 	/// ### Maximum payload size
 	///
@@ -300,4 +300,15 @@ pub trait StateApi<Hash> {
 		storage_keys: Option<String>,
 		methods: Option<String>,
 	) -> Result<sp_rpc::tracing::TraceBlockResponse, Error>;
+
+	/// Recorded sibling of [`Self::call`]: runs `name` re-enacting `block` at its parent state
+	/// with a proof-size recorder, replaying `block`'s stored recording when available. `bytes` is
+	/// the complete SCALE-encoded args, opaque to the node as in [`Self::call`]. Only nodes with a
+	/// proof-recording hook (parachains) can service it; others report
+	/// [`Error::CallRecordedUnsupported`].
+	///
+	/// **Unsafe** (a call replays up to a whole block); denied calls report
+	/// [`Error::CallRecordedDenied`].
+	#[method(name = "state_callRecorded", blocking, with_extensions)]
+	fn call_recorded(&self, name: String, bytes: Bytes, block: Hash) -> Result<Bytes, Error>;
 }

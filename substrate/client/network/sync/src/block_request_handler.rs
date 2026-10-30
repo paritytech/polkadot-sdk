@@ -54,20 +54,23 @@ use std::{
 	cmp::min,
 	hash::{Hash, Hasher},
 	sync::Arc,
-	time::Duration,
+	time::{Duration, Instant},
 };
 
 /// Maximum blocks per response.
 pub(crate) const MAX_BLOCKS_IN_RESPONSE: usize = 128;
 
-const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER: usize = 2;
+
+/// Reset duplicate counts this long after the first fulfilled response, allowing legitimate
+/// retries.
+const SAME_REQUEST_WINDOW: Duration = Duration::from_secs(60);
 
 mod rep {
 	use sc_network::ReputationChange as Rep;
 
 	/// Reputation change when a peer sent us the same request multiple times.
-	pub const SAME_REQUEST: Rep = Rep::new_fatal("Same block request multiple times");
+	pub const SAME_REQUEST: Rep = Rep::new(-(1 << 12), "Same block request multiple times");
 
 	/// Reputation change when a peer sent us the same "small" request multiple times.
 	pub const SAME_SMALL_REQUEST: Rep =
@@ -141,8 +144,8 @@ impl<B: BlockT> Hash for SeenRequestsKey<B> {
 enum SeenRequestsValue {
 	/// First time we have seen the request.
 	First,
-	/// We have fulfilled the request `n` times.
-	Fulfilled(usize),
+	/// Requests seen since the first fulfilled response.
+	Fulfilled { requests: usize, since: Instant },
 }
 
 /// The full block server implementation of [`BlockServer`]. It handles
@@ -262,7 +265,9 @@ where
 
 		match self.seen_requests.get(&key) {
 			Some(SeenRequestsValue::First) => {},
-			Some(SeenRequestsValue::Fulfilled(ref mut requests)) => {
+			Some(SeenRequestsValue::Fulfilled { requests, since })
+				if since.elapsed() <= SAME_REQUEST_WINDOW =>
+			{
 				*requests = requests.saturating_add(1);
 
 				if *requests > MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
@@ -272,6 +277,9 @@ where
 						rep::SAME_REQUEST
 					});
 				}
+			},
+			Some(value @ SeenRequestsValue::Fulfilled { .. }) => {
+				*value = SeenRequestsValue::First;
 			},
 			None => {
 				self.seen_requests.insert(key.clone(), SeenRequestsValue::First);
@@ -302,10 +310,9 @@ where
 				.any(|b| !b.header.is_empty() || !b.body.is_empty() || b.is_empty_justification)
 			{
 				if let Some(value) = self.seen_requests.get(&key) {
-					// If this is the first time we have processed this request, we need to change
-					// it to `Fulfilled`.
 					if let SeenRequestsValue::First = value {
-						*value = SeenRequestsValue::Fulfilled(1);
+						*value =
+							SeenRequestsValue::Fulfilled { requests: 1, since: Instant::now() };
 					}
 				}
 			}
@@ -350,7 +357,6 @@ where
 	) -> Result<BlockResponse, HandleRequestError> {
 		let get_header = attributes.contains(BlockAttributes::HEADER);
 		let get_body = attributes.contains(BlockAttributes::BODY);
-		let get_indexed_body = attributes.contains(BlockAttributes::INDEXED_BODY);
 		let get_justification = attributes.contains(BlockAttributes::JUSTIFICATION);
 
 		let mut blocks = Vec::new();
@@ -360,7 +366,7 @@ where
 		let client_header_from_block_id =
 			|block_id: BlockId<B>| -> Result<Option<B::Header>, HandleRequestError> {
 				if let Some(hash) = self.client.block_hash_from_id(&block_id)? {
-					return self.client.header(hash).map_err(Into::into)
+					return self.client.header(hash).map_err(Into::into);
 				}
 				Ok(None)
 			};
@@ -400,29 +406,12 @@ where
 
 			let body = if get_body {
 				match self.client.block_body(hash)? {
-					Some(mut extrinsics) =>
-						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect(),
+					Some(mut extrinsics) => {
+						extrinsics.iter_mut().map(|extrinsic| extrinsic.encode()).collect()
+					},
 					None => {
 						log::trace!(target: LOG_TARGET, "Missing data for block request.");
-						break
-					},
-				}
-			} else {
-				Vec::new()
-			};
-
-			let indexed_body = if get_indexed_body {
-				match self.client.block_indexed_body(hash)? {
-					Some(transactions) => transactions,
-					None => {
-						log::trace!(
-							target: LOG_TARGET,
-							"Missing indexed block data for block request."
-						);
-						// If the indexed body is missing we still continue returning headers.
-						// Ideally `None` should distinguish a missing body from the empty body,
-						// but the current protobuf based protocol does not allow it.
-						Vec::new()
+						break;
 					},
 				}
 			} else {
@@ -438,16 +427,21 @@ where
 				justification,
 				is_empty_justification,
 				justifications,
-				indexed_body,
 			};
 
-			let new_total_size = total_size +
-				block_data.body.iter().map(|ex| ex.len()).sum::<usize>() +
-				block_data.indexed_body.iter().map(|ex| ex.len()).sum::<usize>();
+			let new_total_size = total_size + block_data.encoded_len();
 
-			// Send at least one block, but make sure to not exceed the limit.
-			if !blocks.is_empty() && new_total_size > MAX_BODY_BYTES {
-				break
+			// Reserve 20 KiB for protocol overhead (length prefixes of `BlockData` + the final
+			// encoding in `BlockResponse`)
+			if new_total_size > (MAX_RESPONSE_SIZE as usize - 20 * 1024) {
+				if blocks.is_empty() {
+					log::error!(
+						target: LOG_TARGET,
+						"Single block response is bigger than the max allowed response size! This is a bug!"
+					);
+				}
+
+				break;
 			}
 
 			total_size = new_total_size;
@@ -455,14 +449,14 @@ where
 			blocks.push(block_data);
 
 			if blocks.len() >= max_blocks as usize {
-				break
+				break;
 			}
 
 			match direction {
 				Direction::Ascending => block_id = BlockId::Number(number + One::one()),
 				Direction::Descending => {
 					if number.is_zero() {
-						break
+						break;
 					}
 					block_id = BlockId::Hash(parent_hash)
 				},
@@ -542,11 +536,6 @@ impl FullBlockDownloader {
 					} else {
 						None
 					},
-					indexed_body: if request.fields.contains(BlockAttributes::INDEXED_BODY) {
-						Some(block_data.indexed_body)
-					} else {
-						None
-					},
 					receipt: if !block_data.receipt.is_empty() {
 						Some(block_data.receipt)
 					} else {
@@ -623,5 +612,136 @@ impl<B: BlockT> BlockDownloader<B> for FullBlockDownloader {
 		// Extract the block data from the protobuf
 		self.blocks_from_schema::<B>(request, response_schema)
 			.map_err(|error| BlockResponseError::ExtractionFailed(error.to_string()))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use futures::executor::block_on;
+	use sc_block_builder::BlockBuilderBuilder;
+	use sp_consensus::BlockOrigin;
+	use substrate_test_runtime_client::{
+		runtime::Block, ClientBlockImportExt, DefaultTestClientBuilderExt, TestClient,
+		TestClientBuilder, TestClientBuilderExt,
+	};
+
+	fn test_handler() -> BlockRequestHandler<Block, TestClient> {
+		let client = Arc::new(TestClientBuilder::new().build());
+
+		let block = BlockBuilderBuilder::new(&*client)
+			.on_parent_block(client.chain_info().genesis_hash)
+			.with_parent_block_number(0)
+			.build()
+			.unwrap()
+			.build()
+			.unwrap()
+			.block;
+		block_on(client.import(BlockOrigin::Own, block)).unwrap();
+
+		let (_tx, request_receiver) = async_channel::bounded(1);
+		BlockRequestHandler {
+			client,
+			request_receiver,
+			seen_requests: LruMap::new(ByLength::new(16)),
+		}
+	}
+
+	fn make_request(attributes: BlockAttributes) -> Vec<u8> {
+		BlockRequestSchema {
+			fields: attributes.to_be_u32(),
+			from_block: Some(FromBlockSchema::Number(Encode::encode(&1u64))),
+			direction: Direction::Ascending as i32,
+			max_blocks: 1,
+			support_multiple_justifications: true,
+		}
+		.encode_to_vec()
+	}
+
+	fn send_request(
+		handler: &mut BlockRequestHandler<Block, TestClient>,
+		peer: &PeerId,
+		attributes: BlockAttributes,
+	) -> OutgoingResponse {
+		let (tx, mut rx) = oneshot::channel();
+		handler.handle_request(make_request(attributes), tx, peer).unwrap();
+		rx.try_recv().unwrap().unwrap()
+	}
+
+	#[test]
+	fn same_request_limit_resets_after_window() {
+		let mut handler = test_handler();
+		let peer = PeerId::random();
+		let attributes = BlockAttributes::HEADER | BlockAttributes::BODY;
+
+		for _ in 0..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+			let response = send_request(&mut handler, &peer, attributes);
+			assert!(response.result.is_ok());
+			assert!(response.reputation_changes.is_empty());
+		}
+
+		let response = send_request(&mut handler, &peer, attributes);
+		assert!(response.result.is_err());
+		assert_eq!(response.reputation_changes, vec![rep::SAME_REQUEST]);
+		assert!(rep::SAME_REQUEST.value > i32::MIN);
+
+		// Expire the window without sleeping.
+		let key = SeenRequestsKey::<Block> {
+			peer,
+			from: BlockId::Number(1),
+			max_blocks: 1,
+			direction: Direction::Ascending,
+			attributes,
+			support_multiple_justifications: true,
+		};
+		match handler.seen_requests.get(&key) {
+			Some(SeenRequestsValue::Fulfilled { since, .. }) => {
+				*since = Instant::now() - SAME_REQUEST_WINDOW - Duration::from_secs(1)
+			},
+			_ => panic!("entry must be in the fulfilled state"),
+		}
+
+		let response = send_request(&mut handler, &peer, attributes);
+		assert!(response.result.is_ok());
+		assert!(response.reputation_changes.is_empty());
+
+		// The new window has the same limit.
+		let response = send_request(&mut handler, &peer, attributes);
+		assert!(response.result.is_ok());
+		let response = send_request(&mut handler, &peer, attributes);
+		assert!(response.result.is_err());
+		assert_eq!(response.reputation_changes, vec![rep::SAME_REQUEST]);
+	}
+
+	#[test]
+	fn same_small_request_answered_but_penalized() {
+		let mut handler = test_handler();
+		let peer = PeerId::random();
+		// Header-only requests remain answerable after the limit.
+		let attributes = BlockAttributes::HEADER;
+
+		for _ in 0..MAX_NUMBER_OF_SAME_REQUESTS_PER_PEER {
+			let response = send_request(&mut handler, &peer, attributes);
+			assert!(response.result.is_ok());
+			assert!(response.reputation_changes.is_empty());
+		}
+
+		let response = send_request(&mut handler, &peer, attributes);
+		assert!(response.result.is_ok());
+		assert_eq!(response.reputation_changes, vec![rep::SAME_SMALL_REQUEST]);
+	}
+
+	#[test]
+	fn deprecated_indexed_body_attribute_is_ignored() {
+		let mut handler = test_handler();
+		let peer = PeerId::random();
+		// Older peers may still set the removed indexed-body bit. The request must
+		// decode and be answered, with the bit ignored.
+		let attributes = BlockAttributes::HEADER | BlockAttributes::DEPRECATED_INDEXED_BODY;
+		let response = send_request(&mut handler, &peer, attributes);
+		assert!(response.result.is_ok());
+		let decoded = BlockResponseSchema::decode(&response.result.unwrap()[..]).unwrap();
+		assert_eq!(decoded.blocks.len(), 1);
+		assert!(!decoded.blocks[0].header.is_empty());
 	}
 }

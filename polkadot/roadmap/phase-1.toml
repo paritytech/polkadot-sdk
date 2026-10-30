@@ -60,5 +60,9 @@ items = [
 [[group]]
 name = "phase-1"
 label = "Phase 1: Availability and Validity"
-requires = ["grandpa-voting-rule", "non-direct-ancestor", "runtime-availability-validity-slashing"]
+requires = [
+	"grandpa-voting-rule",
+	"non-direct-ancestor",
+	"runtime-availability-validity-slashing",
+]
 items = []

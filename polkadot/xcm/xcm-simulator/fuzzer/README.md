@@ -6,7 +6,7 @@ underflows.
 ## Install dependencies
 
 ```
-cargo install honggfuzz
+cargo install honggfuzz --locked
 ```
 
 ## Run the fuzzer

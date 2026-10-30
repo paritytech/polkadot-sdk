@@ -24,7 +24,7 @@ use sc_network_types::PeerId;
 
 use polkadot_primitives::AuthorityDiscoveryId;
 
-use super::{v1, v2, IsRequest, Protocol};
+use super::{v1, v2, v3, IsRequest, Protocol};
 
 /// All requests that can be sent to the network bridge via `NetworkBridgeTxMessage::SendRequest`.
 #[derive(Debug)]
@@ -37,8 +37,6 @@ pub enum Requests {
 	PoVFetchingV1(OutgoingRequest<v1::PoVFetchingRequest>),
 	/// Request full available data from a node.
 	AvailableDataFetchingV1(OutgoingRequest<v1::AvailableDataFetchingRequest>),
-	/// Requests for fetching large statements as part of statement distribution.
-	StatementFetchingV1(OutgoingRequest<v1::StatementFetchingRequest>),
 	/// Requests for notifying about an ongoing dispute.
 	DisputeSendingV1(OutgoingRequest<v1::DisputeRequest>),
 
@@ -47,6 +45,10 @@ pub enum Requests {
 	/// Fetch a collation from a collator which previously announced it.
 	/// Compared to V1 it requires specifying which candidate is requested by its hash.
 	CollationFetchingV2(OutgoingRequest<v2::CollationFetchingRequest>),
+	/// Fetch a collation from a collator which previously announced it.
+	/// Compared to V2, the collation is keyed by the output head data hash rather
+	/// than candidate hash, and the response always carries parent head data.
+	CollationFetchingV3(OutgoingRequest<v3::CollationFetchingRequest>),
 }
 
 impl Requests {
@@ -62,9 +64,9 @@ impl Requests {
 			Self::ChunkFetching(r) => r.encode_request(),
 			Self::CollationFetchingV1(r) => r.encode_request(),
 			Self::CollationFetchingV2(r) => r.encode_request(),
+			Self::CollationFetchingV3(r) => r.encode_request(),
 			Self::PoVFetchingV1(r) => r.encode_request(),
 			Self::AvailableDataFetchingV1(r) => r.encode_request(),
-			Self::StatementFetchingV1(r) => r.encode_request(),
 			Self::DisputeSendingV1(r) => r.encode_request(),
 			Self::AttestedCandidateV2(r) => r.encode_request(),
 		}

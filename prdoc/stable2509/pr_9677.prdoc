@@ -1,0 +1,7 @@
+title: 'Update elastic scaling documentation'
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: Updated elastic scaling guide. Removes the guide for the MVP version.
+crates:
+  - name: polkadot-sdk-docs
+    bump: major

@@ -42,7 +42,7 @@ pub trait Environment<C>: Send + Sync + 'static {
 
 	/// Sleep given amount of time.
 	async fn sleep(&mut self, duration: Duration) {
-		async_std::task::sleep(duration).await
+		tokio::time::sleep(duration).await
 	}
 
 	/// Abort current process. Called when guard condition check fails.
@@ -56,12 +56,12 @@ pub fn abort_on_spec_version_change<C: Chain>(
 	mut env: impl Environment<C>,
 	expected_spec_version: u32,
 ) {
-	async_std::task::spawn(async move {
-		log::info!(
+	tokio::spawn(async move {
+		tracing::info!(
 			target: "bridge-guard",
-			"Starting spec_version guard for {}. Expected spec_version: {}",
-			C::NAME,
-			expected_spec_version,
+			node=%C::NAME,
+			%expected_spec_version,
+			"Starting spec_version guard."
 		);
 
 		loop {
@@ -69,21 +69,21 @@ pub fn abort_on_spec_version_change<C: Chain>(
 			match actual_spec_version {
 				Ok(version) if version.spec_version == expected_spec_version => (),
 				Ok(version) => {
-					log::error!(
+					tracing::error!(
 						target: "bridge-guard",
-						"{} runtime spec version has changed from {} to {}. Aborting relay",
-						C::NAME,
-						expected_spec_version,
-						version.spec_version,
+						node=%C::NAME,
+						from=%expected_spec_version,
+						to=%version.spec_version,
+						"Runtime spec version has changed. Aborting relay"
 					);
 
 					env.abort().await;
 				},
-				Err(error) => log::warn!(
+				Err(error) => tracing::warn!(
 					target: "bridge-guard",
-					"Failed to read {} runtime version: {}. Relay may need to be stopped manually",
-					C::NAME,
-					error,
+					%error,
+					node=%C::NAME,
+					"Failed to read runtime version. Relay may need to be stopped manually"
 				),
 			}
 
@@ -138,13 +138,13 @@ pub(crate) mod tests {
 		async fn abort(&mut self) {
 			let _ = self.aborted_tx.send(()).await;
 			// simulate process abort :)
-			async_std::task::sleep(Duration::from_secs(60)).await;
+			tokio::time::sleep(Duration::from_secs(60)).await;
 		}
 	}
 
 	#[test]
 	fn aborts_when_spec_version_is_changed() {
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let (
 				(mut runtime_version_tx, runtime_version_rx),
 				(slept_tx, mut slept_rx),
@@ -170,7 +170,7 @@ pub(crate) mod tests {
 
 	#[test]
 	fn does_not_aborts_when_spec_version_is_unchanged() {
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let (
 				(mut runtime_version_tx, runtime_version_rx),
 				(slept_tx, mut slept_rx),

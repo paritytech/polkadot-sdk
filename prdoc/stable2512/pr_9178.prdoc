@@ -1,0 +1,12 @@
+title: 'collator-protocol: cleanup connecting to backing group'
+doc:
+- audience: Node Dev
+  description: |-
+   
+    Have collators always connect to the backing group they got assigned to and keep the connection open 
+    until backing group changes. Also, try to connect when have something to advertise or on timeout to 
+    have more chances of being correctly connected.
+
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

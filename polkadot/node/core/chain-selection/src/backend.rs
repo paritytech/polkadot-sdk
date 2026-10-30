@@ -94,7 +94,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub(super) fn load_block_entry(&self, hash: &Hash) -> Result<Option<BlockEntry>, Error> {
 		if let Some(val) = self.block_entries.get(&hash) {
-			return Ok(val.clone())
+			return Ok(val.clone());
 		}
 
 		self.inner.load_block_entry(hash)
@@ -102,7 +102,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub(super) fn load_blocks_by_number(&self, number: BlockNumber) -> Result<Vec<Hash>, Error> {
 		if let Some(val) = self.blocks_by_number.get(&number) {
-			return Ok(val.as_ref().map_or(Vec::new(), Clone::clone))
+			return Ok(val.as_ref().map_or(Vec::new(), Clone::clone));
 		}
 
 		self.inner.load_blocks_by_number(number)
@@ -110,7 +110,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub(super) fn load_leaves(&self) -> Result<LeafEntrySet, Error> {
 		if let Some(ref set) = self.leaves {
-			return Ok(set.clone())
+			return Ok(set.clone());
 		}
 
 		self.inner.load_leaves()
@@ -118,7 +118,7 @@ impl<'a, B: 'a + Backend> OverlayedBackend<'a, B> {
 
 	pub(super) fn load_stagnant_at(&self, timestamp: Timestamp) -> Result<Vec<Hash>, Error> {
 		if let Some(val) = self.stagnant_at.get(&timestamp) {
-			return Ok(val.as_ref().map_or(Vec::new(), Clone::clone))
+			return Ok(val.as_ref().map_or(Vec::new(), Clone::clone));
 		}
 
 		self.inner.load_stagnant_at(timestamp)
@@ -196,7 +196,7 @@ fn contains_ancestor(backend: &impl Backend, head: Hash, ancestor: Hash) -> Resu
 	let mut current_hash = head;
 	loop {
 		if current_hash == ancestor {
-			return Ok(true)
+			return Ok(true);
 		}
 		match backend.load_block_entry(&current_hash)? {
 			Some(e) => current_hash = e.parent_hash,
@@ -214,7 +214,6 @@ fn contains_ancestor(backend: &impl Backend, head: Hash, ancestor: Hash) -> Resu
 ///
 /// If the required block is unfinalized but not an ancestor of any viable leaf,
 /// this will return `None`.
-//
 // Note: this is O(N^2) in the depth of `required` and the number of leaves.
 // We expect the number of unfinalized blocks to be small, as in, to not exceed
 // single digits in practice, and exceedingly unlikely to surpass 1000.
@@ -228,7 +227,7 @@ pub(super) fn find_best_leaf_containing(
 	let leaves = backend.load_leaves()?;
 	for leaf in leaves.into_hashes_descending() {
 		if contains_ancestor(backend, leaf, required)? {
-			return Ok(Some(leaf))
+			return Ok(Some(leaf));
 		}
 	}
 

@@ -14,7 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Extrinsics implementing the relay chain side of the Coretime interface.
+//! This pallet exposes the relay chain coretime functionality to the broker/coretime chain.
+//!
+//! It depends on the scheduler pallet, which does the actual ground work of handling
+//! received core assignments.
 //!
 //! <https://github.com/polkadot-fellows/RFCs/blob/main/text/0005-coretime-interface.md>
 
@@ -34,14 +37,13 @@ use xcm::prelude::*;
 use xcm_executor::traits::TransactAsset;
 
 use crate::{
-	assigner_coretime::{self, PartsOf57600},
 	initializer::{OnNewSession, SessionChangeNotification},
 	on_demand,
 	origin::{ensure_parachain, Origin},
+	scheduler::{self, PartsOf57600},
 };
 
 mod benchmarking;
-pub mod migration;
 
 const LOG_TARGET: &str = "runtime::parachains::coretime";
 
@@ -50,6 +52,7 @@ pub trait WeightInfo {
 	fn request_revenue_at() -> Weight;
 	fn credit_account() -> Weight;
 	fn assign_core(s: u32) -> Weight;
+	fn queue_on_demand_batch(s: u32) -> Weight;
 }
 
 /// A weight info that is only suitable for testing.
@@ -66,6 +69,9 @@ impl WeightInfo for TestWeightInfo {
 		Weight::MAX
 	}
 	fn assign_core(_s: u32) -> Weight {
+		Weight::MAX
+	}
+	fn queue_on_demand_batch(_s: u32) -> Weight {
 		Weight::MAX
 	}
 }
@@ -115,9 +121,10 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + assigner_coretime::Config + on_demand::Config {
+	pub trait Config: frame_system::Config + scheduler::Config + on_demand::Config {
 		type RuntimeOrigin: From<<Self as frame_system::Config>::RuntimeOrigin>
 			+ Into<result::Result<Origin, <Self as Config>::RuntimeOrigin>>;
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// The ParaId of the coretime chain.
 		#[pallet::constant]
@@ -163,7 +170,14 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
 
+	impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
+		fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
+			Self::initializer_on_new_session(notification);
+		}
+	}
+
 	#[pallet::call]
+	/// Extrinsics to be called by the Coretime chain.
 	impl<T: Config> Pallet<T> {
 		/// Request the configuration to be updated with the specified number of cores. Warning:
 		/// Since this only schedules a configuration update, it takes two sessions to come into
@@ -231,13 +245,36 @@ pub mod pallet {
 
 			let core = u32::from(core).into();
 
-			<assigner_coretime::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
+			<scheduler::Pallet<T>>::assign_core(core, begin, assignment, end_hint)?;
 			Self::deposit_event(Event::<T>::CoreAssigned { core });
+			Ok(())
+		}
+
+		/// Receive on-demand coretime orders from the `ExternalBrokerOrigin`.
+		///
+		/// Parameters:
+		/// -`origin`: The `ExternalBrokerOrigin`, assumed to be the coretime chain.
+		/// -`batch`: The batch of on-demand orders.
+		#[pallet::call_index(5)]
+		#[pallet::weight(<T as Config>::WeightInfo::queue_on_demand_batch(batch.len() as u32))]
+		pub fn queue_on_demand_batch(
+			origin: OriginFor<T>,
+			batch: Vec<(ParaId, BlockNumberFor<T>)>,
+		) -> DispatchResult {
+			// Ignore requests not coming from the coretime chain or root.
+			Self::ensure_root_or_para(origin, T::BrokerId::get().into())?;
+
+			// It is possible for the call below to not always queue the full batch. In such a case,
+			// instead of returning an error, which would revert any changes made to storage, we
+			// queue as much as possible, so that the orders don't have to wait unnecessarily long,
+			// and emit an `UnexpectedQueueFull` event for better observability.
+			<on_demand::Pallet<T>>::queue_order_batch(&batch);
 			Ok(())
 		}
 	}
 }
 
+/// Coretime chain communiation.
 impl<T: Config> Pallet<T> {
 	/// Ensure the origin is one of Root or the `para` itself.
 	fn ensure_root_or_para(
@@ -253,6 +290,15 @@ impl<T: Config> Pallet<T> {
 			ensure_root(origin.clone())?;
 		}
 		Ok(())
+	}
+
+	/// Helper function for benchmarks to ensure the broker parachain is reachable.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn ensure_broker_parachain_reachable() {
+		<T as Config>::SendXcm::ensure_successful_delivery(Some(Location::new(
+			0,
+			[Junction::Parachain(T::BrokerId::get())],
+		)));
 	}
 
 	pub fn initializer_on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
@@ -327,12 +373,6 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-impl<T: Config> OnNewSession<BlockNumberFor<T>> for Pallet<T> {
-	fn on_new_session(notification: &SessionChangeNotification<BlockNumberFor<T>>) {
-		Self::initializer_on_new_session(notification);
-	}
-}
-
 fn mk_coretime_call<T: Config>(call: crate::coretime::CoretimeCalls) -> Instruction<()> {
 	Instruction::Transact {
 		origin_kind: OriginKind::Superuser,
@@ -366,7 +406,9 @@ fn do_notify_revenue<T: Config>(when: BlockNumber, raw_revenue: Balance) -> Resu
 
 		T::AssetTransactor::can_check_out(&dest, &asset, &dummy_xcm_context)?;
 
-		let assets_reanchored = Into::<Assets>::into(withdrawn)
+		// dropping `withdrawn` effectively burns the inner imbalance
+		let assets: Vec<Asset> = withdrawn.into_assets_iter().collect();
+		let assets_reanchored = Into::<Assets>::into(assets)
 			.reanchored(&dest, &Here.into())
 			.defensive_map_err(|_| XcmError::ReanchorFailed)?;
 

@@ -246,12 +246,12 @@ pub async fn run<P: SubstrateFinalitySyncPipeline>(
 	transaction_params: TransactionParams<AccountKeyPairOf<P::TargetChain>>,
 	metrics_params: MetricsParams,
 ) -> anyhow::Result<()> {
-	log::info!(
+	tracing::info!(
 		target: "bridge",
-		"Starting {} -> {} finality proof relay: relaying {:?} headers",
-		P::SourceChain::NAME,
-		P::TargetChain::NAME,
-		headers_to_relay,
+		source=%P::SourceChain::NAME,
+		target=%P::TargetChain::NAME,
+		?headers_to_relay,
+		"Starting source -> target finality proof relay"
 	);
 
 	finality_relay::run(

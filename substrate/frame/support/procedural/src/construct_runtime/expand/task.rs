@@ -32,7 +32,7 @@ pub fn expand_outer_task(
 	let mut cfg_attrs = Vec::new();
 	for decl in pallet_decls {
 		if decl.find_part("Task").is_none() {
-			continue
+			continue;
 		}
 
 		let variant_name = &decl.name;
@@ -90,7 +90,7 @@ pub fn expand_outer_task(
 			#scrate::__private::codec::Decode,
 			#scrate::__private::codec::DecodeWithMemTracking,
 			#scrate::__private::scale_info::TypeInfo,
-			#scrate::__private::RuntimeDebug,
+			#scrate::__private::Debug,
 		)]
 		pub enum RuntimeTask {
 			#( #task_variants )*

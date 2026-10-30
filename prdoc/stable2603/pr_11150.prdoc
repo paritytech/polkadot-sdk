@@ -1,0 +1,12 @@
+title: 'Fix `sp-crypto-ec-utils` `no_std` compilation'
+doc:
+- audience: Runtime Dev
+  description: |
+    Fix `encode_into` in `sp-crypto-ec-utils` for `no_std` targets.
+    In `no_std`, `&mut [u8]` does not implement `scale::Output`, so
+    passing it directly to `encode_to` fails to compile.
+    Introduces a thin `SliceOutput` adapter that implements `Output`
+    over a mutable byte slice.
+crates:
+- name: sp-crypto-ec-utils
+  bump: patch

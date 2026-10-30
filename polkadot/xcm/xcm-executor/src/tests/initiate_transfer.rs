@@ -21,6 +21,7 @@
 //! [specification](https://github.com/polkadot-fellows/xcm-format) for more information.
 
 use codec::Encode;
+use frame_support::BoundedVec;
 use xcm::{latest::AssetTransferFilter, prelude::*};
 
 use super::mock::*;
@@ -28,6 +29,7 @@ use super::mock::*;
 // The sender and recipient we use across these tests.
 const SENDER: [u8; 32] = [0; 32];
 const RECIPIENT: [u8; 32] = [1; 32];
+const RECIPIENT2: [u8; 32] = [2; 32];
 
 #[test]
 fn clears_origin() {
@@ -44,7 +46,7 @@ fn clears_origin() {
 			destination: Parent.into(),
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(assets.into())),
 			preserve_origin: false,
-			assets: vec![],
+			assets: BoundedVec::new(),
 			remote_xcm: xcm_on_dest,
 		},
 	]);
@@ -57,7 +59,7 @@ fn clears_origin() {
 
 	let (dest, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(dest, Parent.into());
-	assert_eq!(sent_message.len(), 5);
+	assert_eq!(sent_message.len(), 6);
 	let mut instr = sent_message.inner().iter();
 	assert!(matches!(instr.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(instr.next().unwrap(), PayFees { .. }));
@@ -81,7 +83,7 @@ fn preserves_origin() {
 			destination: Parent.into(),
 			remote_fees: Some(AssetTransferFilter::ReserveDeposit(assets.into())),
 			preserve_origin: true,
-			assets: vec![],
+			assets: BoundedVec::new(),
 			remote_xcm: xcm_on_dest,
 		},
 	]);
@@ -94,7 +96,7 @@ fn preserves_origin() {
 
 	let (dest, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(dest, Parent.into());
-	assert_eq!(sent_message.len(), 5);
+	assert_eq!(sent_message.len(), 6);
 	let mut instr = sent_message.inner().iter();
 	assert!(matches!(instr.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(instr.next().unwrap(), PayFees { .. }));
@@ -135,7 +137,7 @@ fn unpaid_execution_goes_after_origin_alteration() {
 
 	let (destination, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(destination, Parent.into());
-	assert_eq!(sent_message.len(), 5);
+	assert_eq!(sent_message.len(), 6);
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(
@@ -176,7 +178,7 @@ fn no_alias_origin_if_root() {
 
 	let (destination, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(destination, Parent.into());
-	assert_eq!(sent_message.len(), 4);
+	assert_eq!(sent_message.len(), 5);
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), ReserveAssetDeposited(..)));
 	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
@@ -212,8 +214,88 @@ fn unpaid_transact() {
 
 	let (destination, sent_message) = sent_xcm().pop().unwrap();
 	assert_eq!(destination, to_another_system_para);
-	assert_eq!(sent_message.len(), 2);
+	assert_eq!(sent_message.len(), 3);
 	let mut instructions = sent_message.inner().iter();
 	assert!(matches!(instructions.next().unwrap(), UnpaidExecution { .. }));
 	assert!(matches!(instructions.next().unwrap(), Transact { .. }));
+}
+
+#[test]
+fn deposit_assets_with_retry_aborts_on_failure_and_post_process_traps() {
+	// fund sender
+	add_asset(SENDER, (Here, 200u128));
+
+	// sub-ED amount (< ED=2): this `DepositAsset` will fail and abort the program.
+	let dust: Asset = (Here, 1u128).into();
+
+	// ≥ED amount: would succeed on its own — but the program aborts at the first error,
+	// so this instruction never runs.
+	let legit: Asset = (Here, 100u128).into();
+
+	let xcm = Xcm::<TestCall>(vec![
+		WithdrawAsset((Here, 101u128).into()),
+		DepositAsset { assets: Definite(Assets::from(vec![dust])), beneficiary: RECIPIENT.into() },
+		DepositAsset { assets: Definite(Assets::from(vec![legit])), beneficiary: RECIPIENT.into() },
+	]);
+
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
+
+	let err = vm
+		.bench_process(xcm)
+		.expect_err("a sub-ED `DepositAsset` must error out and abort the rest of the XCM");
+	vm.set_error(Some((err.index, err.xcm_error)));
+
+	let outcome = vm.bench_post_process(weight);
+	assert!(
+		matches!(outcome, Outcome::Incomplete { .. }),
+		"Expected Incomplete, got {:?}",
+		outcome
+	);
+
+	// Nothing reached the recipient: the failing `DepositAsset` rolled back its own take,
+	// and the subsequent `DepositAsset(legit)` was never executed because the program is
+	// already in error state.
+	let here_assets = asset_list(RECIPIENT);
+	assert!(here_assets.is_empty(), "no deposit should reach recipient when program aborts");
+
+	// `post_process` trapped the leftover holding — the full 101 originally withdrawn.
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert_eq!(
+		trapped,
+		vec![(Here, 101u128).into()],
+		"the entire pre-instruction holding must be trapped (claimable later), not silently lost"
+	);
+}
+
+#[test]
+fn deposit_assets_with_retry_all_failures_aborts_and_traps() {
+	// fund sender
+	add_asset(SENDER, (Here, 20u128));
+
+	// two sub-ED amounts, both < ED=2
+	let d1: Asset = (Here, 1u128).into();
+	let d2: Asset = (Here, 1u128).into();
+
+	let xcm = Xcm::<TestCall>(vec![
+		// withdraw 1+1 so the withdraw itself succeeds.
+		WithdrawAsset((Here, (1u128 + 1u128)).into()),
+		DepositAsset { assets: Definite(Assets::from(vec![d1])), beneficiary: RECIPIENT.into() },
+		DepositAsset { assets: Definite(Assets::from(vec![d2])), beneficiary: RECIPIENT2.into() },
+	]);
+
+	let (mut vm, weight) = instantiate_executor(SENDER, xcm.clone());
+	let err = vm.bench_process(xcm).expect_err("first sub-ED `DepositAsset` must abort");
+	vm.set_error(Some((err.index, err.xcm_error)));
+
+	let outcome = vm.bench_post_process(weight);
+	assert!(matches!(outcome, Outcome::Incomplete { .. }));
+
+	// Neither recipient sees anything.
+	assert!(asset_list(RECIPIENT).is_empty(), "sub-ED deposit can't reach a fresh recipient");
+	assert!(asset_list(RECIPIENT2).is_empty(), "second instruction never runs after the abort");
+
+	// `post_process` trapped the entire restored holding (2 from the original
+	// `WithdrawAsset`).
+	let trapped = asset_list(TRAPPED_ASSETS);
+	assert_eq!(trapped, vec![(Here, 2u128).into()], "undeposited assets must be trapped, not lost");
 }

@@ -1,0 +1,14 @@
+title: '[WIP] Fix statement-store gossiping'
+doc:
+- audience: Node Dev
+  description: |-
+    Fixes gossiping and scalability issues in the statement-store networking:
+    reduces traffic by propagating only recent statements, skips duplicate processing,
+    and splits large batches to stay under MAX_STATEMENT_NOTIFICATION_SIZE.
+crates:
+- name: sc-network-statement
+  bump: minor
+- name: sc-statement-store
+  bump: minor
+- name: sp-statement-store
+  bump: minor

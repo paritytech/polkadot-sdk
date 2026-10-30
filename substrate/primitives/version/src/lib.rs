@@ -39,8 +39,6 @@ extern crate alloc;
 use alloc::fmt;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "std")]
-use std::collections::HashSet;
 
 #[doc(hidden)]
 pub use alloc::borrow::Cow;
@@ -51,6 +49,8 @@ pub use sp_runtime::{create_runtime_str, StateVersion};
 #[doc(hidden)]
 pub use sp_std;
 
+#[cfg(feature = "std")]
+use sp_core::traits::CallContext;
 #[cfg(feature = "std")]
 use sp_runtime::traits::Block as BlockT;
 
@@ -162,7 +162,7 @@ macro_rules! create_apis_vec {
 /// In particular: bug fixes should result in an increment of `spec_version` and possibly
 /// `authoring_version`, absolutely not `impl_version` since they change the semantics of the
 /// runtime.
-#[derive(Clone, PartialEq, Eq, Encode, Default, sp_runtime::RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Default, Debug, TypeInfo)]
 pub struct RuntimeVersion {
 	/// Identifies the different Substrate runtimes. There'll be at least polkadot and node.
 	/// A different on-chain spec_name to that of the native runtime would normally result
@@ -376,43 +376,48 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 			{
 				let spec_name = match seq.next_element()? {
 					Some(spec_name) => spec_name,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							0usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let impl_name = match seq.next_element()? {
 					Some(impl_name) => impl_name,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							1usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let authoring_version = match seq.next_element()? {
 					Some(authoring_version) => authoring_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							2usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let spec_version = match seq.next_element()? {
 					Some(spec_version) => spec_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							3usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let impl_version = match seq.next_element()? {
 					Some(impl_version) => impl_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							4usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let apis = match {
 					struct DeserializeWith<'de> {
@@ -436,27 +441,30 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 					seq.next_element::<DeserializeWith<'de>>()?.map(|wrap| wrap.value)
 				} {
 					Some(apis) => apis,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							5usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let transaction_version = match seq.next_element()? {
 					Some(transaction_version) => transaction_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							6usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				let system_version = match seq.next_element()? {
 					Some(system_version) => system_version,
-					None =>
+					None => {
 						return Err(serde::de::Error::invalid_length(
 							7usize,
 							&"struct RuntimeVersion with 8 elements",
-						)),
+						))
+					},
 				};
 				Ok(RuntimeVersion {
 					spec_name,
@@ -528,7 +536,9 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 						},
 						Field::Apis => {
 							if apis.is_some() {
-								return Err(<A::Error as serde::de::Error>::duplicate_field("apis"));
+								return Err(<A::Error as serde::de::Error>::duplicate_field(
+									"apis",
+								));
 							}
 							apis = Some({
 								struct DeserializeWith<'de> {
@@ -558,7 +568,7 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 							}
 							transaction_version = Some(map.next_value()?);
 						},
-						Field::SystemVersion =>
+						Field::SystemVersion => {
 							if let Some(system_version) = system_version {
 								let new_value = map.next_value::<u8>()?;
 								if system_version != new_value {
@@ -572,9 +582,10 @@ impl<'de> serde::Deserialize<'de> for RuntimeVersion {
 								}
 							} else {
 								system_version = Some(map.next_value()?);
-							},
+							}
+						},
 						_ => {
-							let _ = map.next_value::<serde::de::IgnoredAny>()?;
+							map.next_value::<serde::de::IgnoredAny>()?;
 						},
 					}
 				}
@@ -739,75 +750,27 @@ impl RuntimeVersion {
 	}
 }
 
-/// The version of the native runtime.
-///
-/// In contrast to the bare [`RuntimeVersion`] this also carries a list of `spec_version`s of
-/// runtimes this native runtime can be used to author blocks for.
-#[derive(Debug)]
-#[cfg(feature = "std")]
-pub struct NativeVersion {
-	/// Basic runtime version info.
-	pub runtime_version: RuntimeVersion,
-	/// Authoring runtimes (`spec_version`s) that this native runtime supports.
-	pub can_author_with: HashSet<u32>,
-}
-
-#[cfg(feature = "std")]
-impl NativeVersion {
-	/// Check if this version matches other version for authoring blocks.
-	///
-	/// # Return
-	///
-	/// - Returns `Ok(())` when authoring is supported.
-	/// - Returns `Err(_)` with a detailed error when authoring is not supported.
-	pub fn can_author_with(&self, other: &RuntimeVersion) -> Result<(), String> {
-		if self.runtime_version.spec_name != other.spec_name {
-			Err(format!(
-				"`spec_name` does not match `{}` vs `{}`",
-				self.runtime_version.spec_name, other.spec_name,
-			))
-		} else if self.runtime_version.authoring_version != other.authoring_version &&
-			!self.can_author_with.contains(&other.authoring_version)
-		{
-			Err(format!(
-				"`authoring_version` does not match `{version}` vs `{other_version}` and \
-				`can_author_with` not contains `{other_version}`",
-				version = self.runtime_version.authoring_version,
-				other_version = other.authoring_version,
-			))
-		} else {
-			Ok(())
-		}
-	}
-}
-
-#[cfg(feature = "std")]
-/// Returns the version of the native runtime.
-pub trait GetNativeVersion {
-	/// Returns the version of the native runtime.
-	fn native_version(&self) -> &NativeVersion;
-}
-
 /// Something that can provide the runtime version at a given block.
 #[cfg(feature = "std")]
 pub trait GetRuntimeVersionAt<Block: BlockT> {
 	/// Returns the version of runtime at the given block.
-	fn runtime_version(&self, at: <Block as BlockT>::Hash) -> Result<RuntimeVersion, String>;
+	fn runtime_version(
+		&self,
+		at: <Block as BlockT>::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, String>;
 }
 
 #[cfg(feature = "std")]
 impl<T: GetRuntimeVersionAt<Block>, Block: BlockT> GetRuntimeVersionAt<Block>
 	for std::sync::Arc<T>
 {
-	fn runtime_version(&self, at: <Block as BlockT>::Hash) -> Result<RuntimeVersion, String> {
-		(&**self).runtime_version(at)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<T: GetNativeVersion> GetNativeVersion for std::sync::Arc<T> {
-	fn native_version(&self) -> &NativeVersion {
-		(&**self).native_version()
+	fn runtime_version(
+		&self,
+		at: <Block as BlockT>::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, String> {
+		(&**self).runtime_version(at, call_context)
 	}
 }
 

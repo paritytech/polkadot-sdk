@@ -734,7 +734,7 @@ where
 	MaxValues: Get<Option<u32>>,
 {
 	fn build_metadata(
-		deprecation_status: sp_metadata_ir::DeprecationStatusIR,
+		deprecation_status: sp_metadata_ir::ItemDeprecationInfoIR,
 		docs: Vec<&'static str>,
 		entries: &mut Vec<StorageEntryMetadataIR>,
 	) {
@@ -966,7 +966,7 @@ mod test {
 
 			A::insert(3, 30, 10);
 			A::insert(4, 40, 10);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert_eq!(A::contains_key(3, 30), false);
 			assert_eq!(A::contains_key(4, 40), false);
 
@@ -992,12 +992,12 @@ mod test {
 
 			let mut entries = vec![];
 			A::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
 			AValueQueryWithAnOnEmpty::build_metadata(
-				sp_metadata_ir::DeprecationStatusIR::NotDeprecated,
+				sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated,
 				vec![],
 				&mut entries,
 			);
@@ -1017,7 +1017,7 @@ mod test {
 						},
 						default: Option::<u32>::None.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated
 					},
 					StorageEntryMetadataIR {
 						name: "foo",
@@ -1032,12 +1032,12 @@ mod test {
 						},
 						default: 97u32.encode(),
 						docs: vec![],
-						deprecation_info: sp_metadata_ir::DeprecationStatusIR::NotDeprecated
+						deprecation_info: sp_metadata_ir::ItemDeprecationInfoIR::NotDeprecated
 					}
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len(3, 30), None);
 			WithLen::append(0, 100, 10);
 			assert_eq!(WithLen::decode_len(0, 100), Some(1));
@@ -1051,7 +1051,7 @@ mod test {
 			assert_eq!(A::iter_prefix_values(4).collect::<Vec<_>>(), vec![13, 14]);
 			assert_eq!(A::iter_prefix(4).collect::<Vec<_>>(), vec![(40, 13), (41, 14)]);
 
-			let _ = A::clear_prefix(3, u32::max_value(), None);
+			let _ = A::clear_prefix(3, u32::MAX, None);
 			assert_eq!(A::iter_prefix(3).collect::<Vec<_>>(), vec![]);
 			assert_eq!(A::iter_prefix(4).collect::<Vec<_>>(), vec![(40, 13), (41, 14)]);
 
@@ -1081,7 +1081,7 @@ mod test {
 			assert_eq!(collected_k2_values, [42, 43].iter().copied().collect::<BTreeSet<_>>());
 
 			// Remove items from the map using k1 = 0
-			let _ = FooDoubleMap::clear_prefix(0, u32::max_value(), None);
+			let _ = FooDoubleMap::clear_prefix(0, u32::MAX, None);
 			// Values associated with (0, _) should have been removed
 			assert_eq!(FooDoubleMap::iter_prefix(0).collect::<Vec<_>>(), vec![]);
 		});

@@ -18,7 +18,7 @@
 //! Subsystem unit tests
 
 use std::{
-	collections::HashSet,
+	collections::{BTreeMap, HashSet},
 	task::Poll,
 	time::{Duration, Instant},
 };
@@ -57,8 +57,9 @@ use polkadot_node_subsystem_test_helpers::{
 	subsystem_test_harness, TestSubsystemContextHandle,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, AuthorityDiscoveryId, Block, CandidateHash,
-	ExecutorParams, Hash, NodeFeatures, SessionIndex, SessionInfo,
+	ApprovalVotingParams, AuthorityDiscoveryId, Block, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, Hash, NodeFeatures, SessionIndex, SessionInfo,
+	MAX_COALESCE_APPROVALS,
 };
 
 use self::mock::{
@@ -101,7 +102,7 @@ fn send_honors_rate_limit() {
 		// First send should not be rate limited:
 		gum::trace!("Passed time: {:#?}", Instant::now().saturating_duration_since(before_request));
 		// This test would likely be flaky on CI:
-		//assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
+		// assert!(Instant::now().saturating_duration_since(before_request) < SEND_RATE_LIMIT);
 
 		let relay_parent = Hash::random();
 		let candidate = make_candidate_receipt(relay_parent);
@@ -390,17 +391,12 @@ fn receive_rate_limit_is_enforced() {
 			rx_response_flood.await,
 			Ok(resp) => {
 				let sc_network::config::OutgoingResponse {
-					result: _,
-					reputation_changes,
+					result,
+					reputation_changes: _,
 					sent_feedback: _,
 				} = resp;
-				gum::trace!(
-					target: LOG_TARGET,
-					?reputation_changes,
-					"Received reputation changes."
-				);
-				// Received punishment for flood:
-				assert_eq!(reputation_changes.len(), 1);
+				// Received error because of flood.
+				assert!(!result.is_ok());
 			}
 		);
 		gum::trace!("Need to wait 2 patch intervals:");
@@ -496,7 +492,7 @@ fn send_dispute_gets_cleaned_up() {
 			MOCK_SESSION_INDEX,
 			None,
 			// No disputes any more:
-			Vec::new(),
+			BTreeMap::new(),
 		)
 		.await;
 
@@ -547,7 +543,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head),
 			MOCK_SESSION_INDEX,
 			None,
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeMap::from([((MOCK_SESSION_INDEX, candidate.hash()), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -562,7 +558,7 @@ fn dispute_retries_and_works_across_session_boundaries() {
 			Some(old_head2),
 			MOCK_NEXT_SESSION_INDEX,
 			Some(MOCK_NEXT_SESSION_INFO.clone()),
-			vec![(MOCK_SESSION_INDEX, candidate.hash(), DisputeStatus::Active)],
+			BTreeMap::from([((MOCK_SESSION_INDEX, candidate.hash()), DisputeStatus::Active)]),
 		)
 		.await;
 
@@ -639,20 +635,21 @@ async fn nested_network_dispute_request<'a, F, O>(
 		match handle.recv().await {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_,
-				RuntimeApiRequest::SessionExecutorParams(_, tx),
-			)) => {
-				tx.send(Ok(Some(ExecutorParams::default())))
-					.expect("Receiver should stay alive.");
-			},
-			unexpected => panic!("Unexpected message {:?}", unexpected),
-		}
-
-		match handle.recv().await {
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
 				RuntimeApiRequest::NodeFeatures(_, si_tx),
 			)) => {
 				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			},
+			unexpected => panic!("Unexpected message {:?}", unexpected),
+		}
+		match handle.recv().await {
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ApprovalVotingParams(_, tx),
+			)) => {
+				tx.send(Ok(ApprovalVotingParams {
+					max_approval_coalesce_count: MAX_COALESCE_APPROVALS,
+				}))
+				.expect("Receiver should stay alive.");
 			},
 			unexpected => panic!("Unexpected message {:?}", unexpected),
 		}
@@ -741,7 +738,7 @@ async fn activate_leaf(
 	// New session if we expect the subsystem to request it.
 	new_session: Option<SessionInfo>,
 	// Currently active disputes to send to the subsystem.
-	active_disputes: Vec<(SessionIndex, CandidateHash, DisputeStatus)>,
+	active_disputes: BTreeMap<(SessionIndex, CandidateHash), DisputeStatus>,
 ) {
 	handle
 		.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate {
@@ -760,6 +757,18 @@ async fn activate_leaf(
 		}
 	);
 
+	// The V3 feature detection in handle_signals sends a NodeFeatures request
+	// right after SessionIndexForChild.
+	assert_matches!(
+		handle.recv().await,
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_,
+			RuntimeApiRequest::NodeFeatures(_, tx)
+		)) => {
+			tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+		}
+	);
+
 	if let Some(session_info) = new_session {
 		assert_matches!(
 			handle.recv().await,
@@ -774,21 +783,20 @@ async fn activate_leaf(
 		);
 		assert_matches!(
 			handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				h,
-				RuntimeApiRequest::SessionExecutorParams(session_idx, tx)
-			)) => {
-				assert_eq!(h, activate);
-				assert_eq!(session_index, session_idx);
-				tx.send(Ok(Some(ExecutorParams::default()))).expect("Receiver should stay alive.");
-			}
-		);
-		assert_matches!(
-			handle.recv().await,
 			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 			) => {
 				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+			}
+		);
+		assert_matches!(
+			handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ApprovalVotingParams(_, tx),
+			)) => {
+				tx.send(Ok(ApprovalVotingParams { max_approval_coalesce_count: MAX_COALESCE_APPROVALS }))
+					.expect("Receiver should stay alive.");
 			}
 		);
 	}
@@ -856,7 +864,7 @@ async fn handle_subsystem_startup(
 		Some(MOCK_SESSION_INFO.clone()),
 		ongoing_dispute
 			.into_iter()
-			.map(|c| (MOCK_SESSION_INDEX, c, DisputeStatus::Active))
+			.map(|c| ((MOCK_SESSION_INDEX, c), DisputeStatus::Active))
 			.collect(),
 	)
 	.await;

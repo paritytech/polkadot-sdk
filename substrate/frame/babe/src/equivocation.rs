@@ -70,7 +70,7 @@ pub struct EquivocationOffence<Offender> {
 
 impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 	const ID: Kind = *b"babe:equivocatio";
-	type TimeSlot = Slot;
+	type Slot = Slot;
 
 	fn offenders(&self) -> Vec<Offender> {
 		vec![self.offender.clone()]
@@ -84,7 +84,7 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
+	fn slot(&self) -> Self::Slot {
 		self.slot
 	}
 
@@ -110,7 +110,7 @@ impl<T, R, P, L>
 	OffenceReportSystem<Option<T::AccountId>, (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof)>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -132,7 +132,7 @@ where
 			equivocation_proof: Box::new(equivocation_proof),
 			key_owner_proof,
 		};
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report"),
@@ -170,7 +170,7 @@ where
 
 		// Validate the equivocation proof (check votes are different and signatures are valid)
 		if !sp_consensus_babe::check_equivocation_proof(equivocation_proof) {
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProof.into());
 		}
 
 		let validator_set_count = key_owner_proof.validator_count();
@@ -182,7 +182,7 @@ where
 		// Check that the slot number is consistent with the session index
 		// in the key ownership proof (i.e. slot is for that epoch)
 		if Pallet::<T>::session_index_for_epoch(epoch_index) != session_index {
-			return Err(Error::<T>::InvalidKeyOwnershipProof.into())
+			return Err(Error::<T>::InvalidKeyOwnershipProof.into());
 		}
 
 		// Check the membership proof and extract the offender's id
@@ -214,7 +214,7 @@ impl<T: Config> Pallet<T> {
 						"rejecting unsigned report equivocation transaction because it is not local/in-block.",
 					);
 
-					return InvalidTransaction::Call.into()
+					return InvalidTransaction::Call.into();
 				},
 			}
 
@@ -227,7 +227,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix("BabeEquivocation")
 				// We assign the maximum priority for any equivocation report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one equivocation report for the same offender at the same slot.
 				.and_provides((equivocation_proof.offender.clone(), *equivocation_proof.slot))
 				.longevity(longevity)

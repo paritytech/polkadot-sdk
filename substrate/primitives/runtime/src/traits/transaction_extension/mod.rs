@@ -17,6 +17,10 @@
 
 //! The transaction extension trait.
 
+use super::{
+	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
+	PostDispatchInfoOf, RefundWeight,
+};
 use crate::{
 	scale_info::{MetaType, StaticTypeInfo},
 	transaction_validity::{
@@ -25,18 +29,13 @@ use crate::{
 	DispatchResult,
 };
 use alloc::vec::Vec;
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode};
 use core::fmt::Debug;
 #[doc(hidden)]
 pub use core::marker::PhantomData;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_weights::Weight;
 use tuplex::{PopFront, PushBack};
-
-use super::{
-	DispatchInfoOf, DispatchOriginOf, Dispatchable, ExtensionPostDispatchWeightHandler,
-	PostDispatchInfoOf, RefundWeight,
-};
 
 mod as_transaction_extension;
 mod dispatch_transaction;
@@ -228,7 +227,7 @@ pub type ValidateResult<Val, Call> =
 /// correct amount of weight used during the call. This is because one cannot know the actual weight
 /// of an extension after post dispatch without running the post dispatch ahead of time.
 pub trait TransactionExtension<Call: Dispatchable>:
-	Codec + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
+	Codec + DecodeWithMemTracking + Debug + Sync + Send + Clone + Eq + PartialEq + StaticTypeInfo
 {
 	/// Unique identifier of this signed extension.
 	///
@@ -528,6 +527,7 @@ macro_rules! impl_tx_ext_default {
 }
 
 /// Information about a [`TransactionExtension`] for the runtime metadata.
+#[derive(Clone)]
 pub struct TransactionExtensionMetadata {
 	/// The unique identifier of the [`TransactionExtension`].
 	pub identifier: &'static str,
@@ -713,7 +713,7 @@ mod test {
 		use scale_info::TypeInfo;
 		use std::cell::RefCell;
 
-		#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, TypeInfo)]
+		#[derive(Clone, Debug, Eq, PartialEq, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 		struct MockExtension {
 			also_implicit: u8,
 			explicit: u8,

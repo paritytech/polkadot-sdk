@@ -31,14 +31,12 @@ mod keywords {
 struct Input {
 	runtime: Path,
 	block_executor: Path,
-	check_inherents: Option<Path>,
 }
 
 impl Parse for Input {
 	fn parse(input: ParseStream) -> Result<Self, Error> {
 		let mut runtime = None;
 		let mut block_executor = None;
-		let mut check_inherents = None;
 
 		fn parse_inner<KW: Parse + Spanned>(
 			input: ParseStream,
@@ -67,24 +65,24 @@ impl Parse for Input {
 			} else if lookahead.peek(keywords::BlockExecutor) {
 				parse_inner::<keywords::BlockExecutor>(input, &mut block_executor)?;
 			} else if lookahead.peek(keywords::CheckInherents) {
-				parse_inner::<keywords::CheckInherents>(input, &mut check_inherents)?;
+				return Err(Error::new(input.span(), "`CheckInherents` is not supported anymore!"));
 			} else {
-				return Err(lookahead.error())
+				return Err(lookahead.error());
 			}
 		}
 
 		Ok(Self {
 			runtime: runtime.expect("Everything is parsed before; qed"),
 			block_executor: block_executor.expect("Everything is parsed before; qed"),
-			check_inherents,
 		})
 	}
 }
 
 fn crate_() -> Result<Ident, Error> {
 	match crate_name("cumulus-pallet-parachain-system") {
-		Ok(FoundCrate::Itself) =>
-			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site())),
+		Ok(FoundCrate::Itself) => {
+			Ok(syn::Ident::new("cumulus_pallet_parachain_system", Span::call_site()))
+		},
 		Ok(FoundCrate::Name(name)) => Ok(Ident::new(&name, Span::call_site())),
 		Err(e) => Err(Error::new(Span::call_site(), e)),
 	}
@@ -92,7 +90,7 @@ fn crate_() -> Result<Ident, Error> {
 
 #[proc_macro]
 pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-	let Input { runtime, block_executor, check_inherents } = match syn::parse(input) {
+	let Input { runtime, block_executor } = match syn::parse(input) {
 		Ok(t) => t,
 		Err(e) => return e.into_compile_error().into(),
 	};
@@ -102,17 +100,6 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 		Err(e) => return e.into_compile_error().into(),
 	};
 
-	let check_inherents = match check_inherents {
-		Some(_check_inherents) => {
-			quote::quote! { #_check_inherents }
-		},
-		None => {
-			quote::quote! {
-				#crate_::DummyCheckInherents<<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock>
-			}
-		},
-	};
-
 	if cfg!(not(feature = "std")) {
 		quote::quote! {
 			#[doc(hidden)]
@@ -120,6 +107,10 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 				use super::*;
 
 				#[no_mangle]
+				#[cfg_attr(
+					target_arch = "riscv64",
+					#crate_::validate_block::sp_api::__private::polkavm_export(abi = #crate_::validate_block::sp_api::__private::polkavm_abi)
+				)]
 				unsafe fn validate_block(arguments: *mut u8, arguments_len: usize) -> u64 {
 					// We convert the `arguments` into a boxed slice and then into `Bytes`.
 					let args = #crate_::validate_block::Box::from_raw(
@@ -139,7 +130,6 @@ pub fn register_validate_block(input: proc_macro::TokenStream) -> proc_macro::To
 						<#runtime as #crate_::validate_block::GetRuntimeBlockType>::RuntimeBlock,
 						#block_executor,
 						#runtime,
-						#check_inherents,
 					>(params);
 
 					#crate_::validate_block::polkadot_parachain_primitives::write_result(&res)

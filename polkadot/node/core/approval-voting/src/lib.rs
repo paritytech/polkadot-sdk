@@ -53,8 +53,8 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-	vstaging::CandidateReceiptV2 as CandidateReceipt, ApprovalVoteMultipleCandidates,
-	ApprovalVotingParams, BlockNumber, CandidateHash, CandidateIndex, CoreIndex, ExecutorParams,
+	ApprovalVoteMultipleCandidates, BlockNumber, CandidateHash, CandidateIndex,
+	CandidateReceiptV2 as CandidateReceipt, CoalescedApprovalCandidateHashes, CoreIndex,
 	GroupIndex, Hash, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair,
 	ValidatorSignature,
 };
@@ -633,7 +633,7 @@ impl Wakeups {
 	) {
 		if let Some(prev) = self.reverse_wakeups.get(&(block_hash, candidate_hash)) {
 			if prev <= &tick {
-				return
+				return;
 			}
 
 			// we are replacing previous wakeup with an earlier one.
@@ -734,7 +734,6 @@ enum ApprovalOutcome {
 struct RetryApprovalInfo {
 	candidate: CandidateReceipt,
 	backing_group: GroupIndex,
-	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
 	session_index: SessionIndex,
 	attempts_remaining: u32,
@@ -839,7 +838,7 @@ impl CurrentlyCheckingSet {
 					.unwrap_or_default();
 				approvals_cache
 					.insert(approval_state.candidate_hash, approval_state.approval_outcome);
-				return (out, approval_state)
+				return (out, approval_state);
 			}
 		}
 
@@ -847,25 +846,22 @@ impl CurrentlyCheckingSet {
 	}
 }
 
-async fn get_extended_session_info<'a, Sender>(
+async fn get_extended_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a ExtendedSessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info_by_index(sender, relay_parent, session_index)
-		.await
-	{
+	match runtime_info.get_session_info_by_index(sender, block_hash, session_index).await {
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				session = session_index,
-				?relay_parent,
+				?block_hash,
 				"Can't obtain SessionInfo or ExecutorParams"
 			);
 			None
@@ -873,16 +869,16 @@ where
 	}
 }
 
-async fn get_session_info<'a, Sender>(
+async fn get_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a SessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	get_extended_session_info(runtime_info, sender, relay_parent, session_index)
+	get_extended_session_info_by_index(runtime_info, sender, block_hash, session_index)
 		.await
 		.map(|extended_info| &extended_info.session_info)
 }
@@ -923,10 +919,10 @@ impl NoShowStats {
 		if self.last_dumped_block_number > current_block_number ||
 			current_block_number - self.last_dumped_block_number < NO_SHOW_DUMP_FREQUENCY
 		{
-			return
+			return;
 		}
 		if self.per_parachain_no_show.is_empty() && self.per_validator_no_show.is_empty() {
-			return
+			return;
 		}
 
 		gum::debug!(
@@ -976,7 +972,7 @@ impl State {
 	where
 		Sender: SubsystemSender<RuntimeApiMessage>,
 	{
-		let session_info = match get_session_info(
+		let session_info = match get_session_info_by_index(
 			session_info_provider,
 			sender,
 			block_entry.parent_hash(),
@@ -1021,51 +1017,6 @@ impl State {
 			Some((approval_entry, status))
 		} else {
 			None
-		}
-	}
-
-	// Returns the approval voting params from the RuntimeApi.
-	async fn get_approval_voting_params_or_default<Sender: SubsystemSender<RuntimeApiMessage>>(
-		&self,
-		sender: &mut Sender,
-		session_index: SessionIndex,
-		block_hash: Hash,
-	) -> Option<ApprovalVotingParams> {
-		let (s_tx, s_rx) = oneshot::channel();
-
-		sender
-			.send_message(RuntimeApiMessage::Request(
-				block_hash,
-				RuntimeApiRequest::ApprovalVotingParams(session_index, s_tx),
-			))
-			.await;
-
-		match s_rx.await {
-			Ok(Ok(params)) => {
-				gum::trace!(
-					target: LOG_TARGET,
-					approval_voting_params = ?params,
-					session = ?session_index,
-					"Using the following subsystem params"
-				);
-				Some(params)
-			},
-			Ok(Err(err)) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?err,
-					"Could not request approval voting params from runtime"
-				);
-				None
-			},
-			Err(err) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?err,
-					"Could not request approval voting params from runtime"
-				);
-				None
-			},
 		}
 	}
 
@@ -1117,7 +1068,7 @@ impl State {
 			if *block_number < remove_lower_than {
 				self.per_block_assignments_gathering_times.pop_oldest();
 			} else {
-				break
+				break;
 			}
 		}
 	}
@@ -1195,7 +1146,6 @@ enum Action {
 		assignment_tranche: DelayTranche,
 		relay_block_hash: Hash,
 		session: SessionIndex,
-		executor_params: ExecutorParams,
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
@@ -1358,7 +1308,6 @@ where
 							let spawn_handle = subsystem.spawner.clone();
 							let metrics = subsystem.metrics.clone();
 							let retry_info = retry_info.clone();
-							let executor_params = retry_info.executor_params.clone();
 							let candidate = retry_info.candidate.clone();
 
 							currently_checking_set
@@ -1376,7 +1325,6 @@ where
 											validator_index,
 											block_hash,
 											retry_info.backing_group,
-											executor_params,
 											retry_info.core_index,
 											retry_info,
 										)
@@ -1443,7 +1391,7 @@ where
 		)
 		.await?
 		{
-			break
+			break;
 		}
 
 		if !overlayed_db.is_empty() {
@@ -1607,7 +1555,6 @@ async fn handle_actions<
 				assignment_tranche,
 				relay_block_hash,
 				session,
-				executor_params,
 				candidate,
 				backing_group,
 				distribute_assignment,
@@ -1615,7 +1562,7 @@ async fn handle_actions<
 			} => {
 				// Don't launch approval work if the node is syncing.
 				if let Mode::Syncing(_) = *mode {
-					continue
+					continue;
 				}
 
 				metrics.on_assignment_produced(assignment_tranche);
@@ -1649,7 +1596,6 @@ async fn handle_actions<
 						let retry = RetryApprovalInfo {
 							candidate: candidate.clone(),
 							backing_group,
-							executor_params: executor_params.clone(),
 							core_index,
 							session_index: session,
 							attempts_remaining: max_approval_retries,
@@ -1671,7 +1617,6 @@ async fn handle_actions<
 										validator_index,
 										block_hash,
 										backing_group,
-										executor_params,
 										core_index,
 										retry,
 									)
@@ -1690,11 +1635,9 @@ async fn handle_actions<
 				*mode = Mode::Active;
 
 				let (messages, next_actions) = distribution_messages_for_activation(
-					sender,
 					overlayed_db,
 					state,
 					delayed_approvals_timers,
-					session_info_provider,
 				)
 				.await?;
 				for message in messages.into_iter() {
@@ -1734,51 +1677,20 @@ fn cores_to_candidate_indices(
 	CandidateBitfield::try_from(candidate_indices)
 }
 
-// Returns the claimed core bitfield from the assignment cert and the core index
-// from the block entry.
-fn get_core_indices_on_startup(
-	assignment: &AssignmentCertKindV2,
-	block_entry_core_index: CoreIndex,
-) -> CoreBitfield {
+// Returns the claimed core bitfield from the assignment cert.
+fn get_assignment_core_indices(assignment: &AssignmentCertKindV2) -> CoreBitfield {
 	match &assignment {
 		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => core_bitfield.clone(),
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
-			CoreBitfield::try_from(vec![block_entry_core_index]).expect("Not an empty vec; qed"),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed"),
+		AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+			CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
+		},
 	}
 }
 
-// Returns the claimed core bitfield from the assignment cert, the candidate hash and a
-// `BlockEntry`. Can fail only for VRF Delay assignments for which we cannot find the candidate hash
-// in the block entry which indicates a bug or corrupted storage.
-fn get_assignment_core_indices(
-	assignment: &AssignmentCertKindV2,
-	candidate_hash: &CandidateHash,
-	block_entry: &BlockEntry,
-) -> Option<CoreBitfield> {
-	match &assignment {
-		AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-			Some(core_bitfield.clone()),
-		AssignmentCertKindV2::RelayVRFModulo { sample: _ } => block_entry
-			.candidates()
-			.iter()
-			.find(|(_core_index, h)| candidate_hash == h)
-			.map(|(core_index, _candidate_hash)| {
-				CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")
-			}),
-		AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-			Some(CoreBitfield::try_from(vec![*core_index]).expect("Not an empty vec; qed")),
-	}
-}
-
-#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
+async fn distribution_messages_for_activation(
 	db: &OverlayedBackend<'_, impl Backend>,
 	state: &State,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
-	session_info_provider: &mut RuntimeInfo,
 ) -> SubsystemResult<(Vec<ApprovalDistributionMessage>, Vec<Action>)> {
 	let all_blocks: Vec<Hash> = db.load_all_blocks()?;
 
@@ -1795,7 +1707,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 			None => {
 				gum::warn!(target: LOG_TARGET, ?block_hash, "Missing block entry");
 
-				continue
+				continue;
 			},
 		};
 
@@ -1840,14 +1752,14 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 						"Missing candidate entry",
 					);
 
-					continue
+					continue;
 				},
 			};
 
 			match candidate_entry.approval_entry(&block_hash) {
 				Some(approval_entry) => {
 					match approval_entry.local_statements() {
-						(None, None) =>
+						(None, None) => {
 							if approval_entry
 								.our_assignment()
 								.map(|assignment| !assignment.triggered())
@@ -1859,11 +1771,12 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 									candidate_hash: *candidate_hash,
 									tick: state.clock.tick_now() + RESTART_WAKEUP_DELAY,
 								})
-							},
+							}
+						},
 						(None, Some(_)) => {}, // second is impossible case.
 						(Some(assignment), None) => {
 							let claimed_core_indices =
-								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
+								get_assignment_core_indices(&assignment.cert().kind);
 
 							if block_entry.has_candidates_pending_signature() {
 								delayed_approvals_timers.maybe_arm_timer(
@@ -1897,19 +1810,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 									if !block_entry.candidate_is_pending_signature(*candidate_hash)
 									{
-										let ExtendedSessionInfo { ref executor_params, .. } =
-											match get_extended_session_info(
-												session_info_provider,
-												sender,
-												block_entry.block_hash(),
-												block_entry.session(),
-											)
-											.await
-											{
-												Some(i) => i,
-												None => continue,
-											};
-
 										actions.push(Action::LaunchApproval {
 											claimed_candidate_indices: bitfield,
 											candidate_hash: candidate_entry
@@ -1919,7 +1819,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											assignment_tranche: assignment.tranche(),
 											relay_block_hash: block_hash,
 											session: block_entry.session(),
-											executor_params: executor_params.clone(),
 											candidate: candidate_entry.candidate_receipt().clone(),
 											backing_group: approval_entry.backing_group(),
 											distribute_assignment: false,
@@ -1942,7 +1841,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 						},
 						(Some(assignment), Some(approval_sig)) => {
 							let claimed_core_indices =
-								get_core_indices_on_startup(&assignment.cert().kind, *core_index);
+								get_assignment_core_indices(&assignment.cert().kind);
 							match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
 								Ok(bitfield) => messages.push(
 									ApprovalDistributionMessage::DistributeAssignment(
@@ -1963,7 +1862,7 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 										"Failed to create assignment bitfield",
 									);
 									// If we didn't send assignment, we don't send approval.
-									continue
+									continue;
 								},
 							}
 							if signatures_queued
@@ -2145,7 +2044,7 @@ async fn handle_from_overseer<
 					},
 					Err(e) => {
 						let _ = res.send(None);
-						return Err(e)
+						return Err(e);
 					},
 				}
 
@@ -2181,7 +2080,9 @@ async fn get_approval_signatures_for_candidate<
 	spawn_handle: &Arc<dyn overseer::gen::Spawner + 'static>,
 	db: &OverlayedBackend<'_, impl Backend>,
 	candidate_hash: CandidateHash,
-	tx: oneshot::Sender<HashMap<ValidatorIndex, (Vec<CandidateHash>, ValidatorSignature)>>,
+	tx: oneshot::Sender<
+		HashMap<ValidatorIndex, (CoalescedApprovalCandidateHashes, ValidatorSignature)>,
+	>,
 ) -> SubsystemResult<()> {
 	let send_votes = |votes| {
 		if let Err(_) = tx.send(votes) {
@@ -2199,7 +2100,7 @@ async fn get_approval_signatures_for_candidate<
 				?candidate_hash,
 				"Sent back empty votes because the candidate was not found in db."
 			);
-			return Ok(())
+			return Ok(());
 		},
 		Some(e) => e,
 	};
@@ -2222,7 +2123,7 @@ async fn get_approval_signatures_for_candidate<
 					?hash,
 					"Block entry for assignment missing."
 				);
-				continue
+				continue;
 			},
 			Some(e) => e,
 		};
@@ -2294,7 +2195,17 @@ async fn get_approval_signatures_for_candidate<
 								})
 								.collect();
 						if num_signed_candidates == signed_candidates_hashes.len() {
-							Some((validator_index, (signed_candidates_hashes, signature)))
+							match signed_candidates_hashes.try_into() {
+								Ok(signed_candidates_hashes) =>
+									Some((validator_index, (signed_candidates_hashes, signature))),
+								Err(_) => {
+									gum::warn!(
+										target: LOG_TARGET,
+										"Skipping approval signature coalescing more than MAX_COALESCE_APPROVALS candidates"
+									);
+									None
+								},
+							}
 						} else {
 							gum::warn!(
 								target: LOG_TARGET,
@@ -2352,7 +2263,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 	};
 
 	if target_number <= lower_bound {
-		return Ok(None)
+		return Ok(None);
 	}
 
 	// request ancestors up to but not including the lower bound,
@@ -2398,7 +2309,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 					lower_bound,
 					lower_bound,
 				);
-				return Ok(None)
+				return Ok(None);
 			},
 			Some(b) => b,
 		};
@@ -2457,7 +2368,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 							"Missing expected candidate in DB",
 						);
 
-						continue
+						continue;
 					},
 					Some(c_entry) => match c_entry.approval_entry(&block_hash) {
 						None => {
@@ -2541,7 +2452,7 @@ async fn handle_approved_ancestor<Sender: SubsystemSender<ChainApiMessage>>(
 			let mut s = String::with_capacity(bits.len());
 			for (i, bit) in bits.iter().enumerate().take(MAX_TRACING_WINDOW) {
 				s.push(if *bit { '1' } else { '0' });
-				if (target_number - i as u32) % 10 == 0 && i != bits.len() - 1 {
+				if (target_number - i as u32).is_multiple_of(10) && i != bits.len() - 1 {
 					s.push(' ');
 				}
 			}
@@ -2677,16 +2588,17 @@ where
 
 	let block_entry = match db.load_block_entry(&assignment.block_hash)? {
 		Some(b) => b,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownBlock(
 					assignment.block_hash,
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -2695,13 +2607,14 @@ where
 	.await
 	{
 		Some(s) => s,
-		None =>
+		None => {
 			return Ok((
 				AssignmentCheckResult::Bad(AssignmentCheckError::UnknownSessionIndex(
 					block_entry.session(),
 				)),
 				Vec::new(),
-			)),
+			))
+		},
 	};
 
 	let n_cores = session_info.n_cores as usize;
@@ -2722,7 +2635,7 @@ where
 				candidate_indices.len(),
 			)),
 			Vec::new(),
-		))
+		));
 	}
 
 	let mut claimed_core_indices = Vec::new();
@@ -2732,25 +2645,27 @@ where
 		let (claimed_core_index, assigned_candidate_hash) =
 			match block_entry.candidate(candidate_index) {
 				Some((c, h)) => (*c, *h),
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidateIndex(
 							candidate_index as _,
 						)),
 						Vec::new(),
-					)), // no candidate at core.
+					))
+				}, // no candidate at core.
 			};
 
 		let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 			Some(c) => c,
-			None =>
+			None => {
 				return Ok((
 					AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 						candidate_index as _,
 						assigned_candidate_hash,
 					)),
 					Vec::new(),
-				)), // no candidate at core.
+				))
+			}, // no candidate at core.
 		};
 
 		if candidate_entry.approval_entry_mut(&assignment.block_hash).is_none() {
@@ -2775,7 +2690,7 @@ where
 				format!("{:?}", InvalidAssignmentReason::NullAssignment),
 			)),
 			Vec::new(),
-		))
+		));
 	}
 
 	let mut actions = Vec::new();
@@ -2787,26 +2702,28 @@ where
 		{
 			let mut candidate_entry = match db.load_candidate_entry(&assigned_candidate_hash)? {
 				Some(c) => c,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::InvalidCandidate(
 							candidate_index as _,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let approval_entry = match candidate_entry.approval_entry_mut(&assignment.block_hash) {
 				Some(a) => a,
-				None =>
+				None => {
 					return Ok((
 						AssignmentCheckResult::Bad(AssignmentCheckError::Internal(
 							assignment.block_hash,
 							*assigned_candidate_hash,
 						)),
 						Vec::new(),
-					)),
+					))
+				},
 			};
 
 			let is_duplicate_for_candidate = approval_entry.is_assigned(assignment.validator);
@@ -2887,7 +2804,7 @@ where
 {
 	macro_rules! respond_early {
 		($e: expr) => {{
-			return Ok((Vec::new(), $e))
+			return Ok((Vec::new(), $e));
 		}};
 	}
 
@@ -3057,7 +2974,7 @@ where
 		// so we can early exit as long at the candidate is already concluded under the
 		// block i.e. we don't need more approvals.
 		if candidate_approved_in_block {
-			return Vec::new()
+			return Vec::new();
 		}
 	}
 
@@ -3147,7 +3064,7 @@ where
 			"No approval entry for approval under block",
 		);
 
-		return Vec::new()
+		return Vec::new();
 	};
 
 	{
@@ -3247,7 +3164,7 @@ fn should_trigger_assignment(
 					RequiredTranches::All,
 				)
 				// when all are required, we are just waiting for the first 1/3+
-				.is_approved(Tick::max_value()),
+				.is_approved(Tick::MAX),
 				RequiredTranches::Pending { maximum_broadcast, clock_drift, .. } => {
 					let drifted_tranche_now =
 						tranche_now.saturating_sub(clock_drift as DelayTranche);
@@ -3282,24 +3199,21 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 		_ => return Ok(Vec::new()),
 	};
 
-	let ExtendedSessionInfo { ref session_info, ref executor_params, .. } =
-		match get_extended_session_info(
-			session_info_provider,
-			sender,
-			block_entry.block_hash(),
-			block_entry.session(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(Vec::new()),
-		};
+	let (no_show_slots, needed_approvals) = match get_session_info_by_index(
+		session_info_provider,
+		sender,
+		block_entry.block_hash(),
+		block_entry.session(),
+	)
+	.await
+	{
+		Some(i) => (i.no_show_slots, i.needed_approvals),
+		None => return Ok(Vec::new()),
+	};
 
 	let block_tick = slot_number_to_tick(state.slot_duration_millis, block_entry.slot());
-	let no_show_duration = slot_number_to_tick(
-		state.slot_duration_millis,
-		Slot::from(u64::from(session_info.no_show_slots)),
-	);
+	let no_show_duration =
+		slot_number_to_tick(state.slot_duration_millis, Slot::from(u64::from(no_show_slots)));
 	let tranche_now = state.clock.tranche_now(state.slot_duration_millis, block_entry.slot());
 
 	gum::trace!(
@@ -3322,7 +3236,7 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 			tranche_now,
 			block_tick,
 			no_show_duration,
-			session_info.needed_approvals as _,
+			needed_approvals as _,
 		);
 
 		let should_trigger = should_trigger_assignment(
@@ -3373,51 +3287,40 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 			.iter()
 			.find_map(|(core_index, h)| (h == &candidate_hash).then_some(*core_index));
 
-		if let Some(claimed_core_indices) =
-			get_assignment_core_indices(&indirect_cert.cert.kind, &candidate_hash, &block_entry)
-		{
-			match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
-				Ok(claimed_candidate_indices) => {
-					// Ensure we distribute multiple core assignments just once.
-					let distribute_assignment = if claimed_candidate_indices.count_ones() > 1 {
-						!block_entry.mark_assignment_distributed(claimed_candidate_indices.clone())
-					} else {
-						true
-					};
-					db.write_block_entry(block_entry.clone());
-					actions.push(Action::LaunchApproval {
-						claimed_candidate_indices,
-						candidate_hash,
-						indirect_cert,
-						assignment_tranche: tranche,
-						relay_block_hash: relay_block,
-						session: block_entry.session(),
-						executor_params: executor_params.clone(),
-						candidate: candidate_receipt,
-						backing_group,
-						distribute_assignment,
-						core_index: candidate_core_index,
-					});
-				},
-				Err(err) => {
-					// Never happens, it should only happen if no cores are claimed, which is a
-					// bug.
-					gum::warn!(
-						target: LOG_TARGET,
-						block_hash = ?relay_block,
-						?err,
-						"Failed to create assignment bitfield"
-					);
-				},
-			};
-		} else {
-			gum::warn!(
-				target: LOG_TARGET,
-				block_hash = ?relay_block,
-				?candidate_hash,
-				"Cannot get assignment claimed core indices",
-			);
-		}
+		let claimed_core_indices = get_assignment_core_indices(&indirect_cert.cert.kind);
+		match cores_to_candidate_indices(&claimed_core_indices, &block_entry) {
+			Ok(claimed_candidate_indices) => {
+				// Ensure we distribute multiple core assignments just once.
+				let distribute_assignment = if claimed_candidate_indices.count_ones() > 1 {
+					!block_entry.mark_assignment_distributed(claimed_candidate_indices.clone())
+				} else {
+					true
+				};
+				db.write_block_entry(block_entry.clone());
+				actions.push(Action::LaunchApproval {
+					claimed_candidate_indices,
+					candidate_hash,
+					indirect_cert,
+					assignment_tranche: tranche,
+					relay_block_hash: relay_block,
+					session: block_entry.session(),
+					candidate: candidate_receipt,
+					backing_group,
+					distribute_assignment,
+					core_index: candidate_core_index,
+				});
+			},
+			Err(err) => {
+				// Never happens, it should only happen if no cores are claimed, which is a
+				// bug.
+				gum::warn!(
+					target: LOG_TARGET,
+					block_hash = ?relay_block,
+					?err,
+					"Failed to create assignment bitfield"
+				);
+			},
+		};
 	}
 	// Although we checked approval earlier in this function,
 	// this wakeup might have advanced the state to approved via
@@ -3462,7 +3365,6 @@ async fn launch_approval<
 	validator_index: ValidatorIndex,
 	block_hash: Hash,
 	backing_group: GroupIndex,
-	executor_params: ExecutorParams,
 	core_index: Option<CoreIndex>,
 	retry: RetryApprovalInfo,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
@@ -3547,7 +3449,6 @@ async fn launch_approval<
 							next_retry = Some(RetryApprovalInfo {
 								candidate,
 								backing_group,
-								executor_params,
 								core_index,
 								session_index,
 								attempts_remaining: retry.attempts_remaining - 1,
@@ -3586,7 +3487,11 @@ async fn launch_approval<
 						metrics_guard.take().on_approval_invalid();
 					},
 				}
-				return ApprovalState::failed_with_retry(validator_index, candidate_hash, next_retry)
+				return ApprovalState::failed_with_retry(
+					validator_index,
+					candidate_hash,
+					next_retry,
+				);
 			},
 		};
 
@@ -3605,7 +3510,7 @@ async fn launch_approval<
 				// No dispute necessary, as this indicates that the chain is not behaving
 				// according to expectations.
 				metrics_guard.take().on_approval_unavailable();
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 		};
 
@@ -3616,7 +3521,7 @@ async fn launch_approval<
 				validation_code,
 				candidate_receipt: candidate.clone(),
 				pov: available_data.pov,
-				executor_params,
+				scheduling_session_index: session_index,
 				exec_kind: PvfExecKind::Approval,
 				response_sender: val_tx,
 			})
@@ -3631,7 +3536,7 @@ async fn launch_approval<
 				gum::trace!(target: LOG_TARGET, ?candidate_hash, ?para_id, "Candidate Valid");
 
 				let _ = metrics_guard.take();
-				return ApprovalState::approved(validator_index, candidate_hash)
+				return ApprovalState::approved(validator_index, candidate_hash);
 			},
 			Ok(Ok(ValidationResult::Invalid(reason))) => {
 				gum::warn!(
@@ -3649,7 +3554,7 @@ async fn launch_approval<
 					candidate.clone(),
 				);
 				metrics_guard.take().on_approval_invalid();
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 			Ok(Err(e)) => {
 				gum::error!(
@@ -3660,7 +3565,7 @@ async fn launch_approval<
 					"Failed to validate candidate due to internal error",
 				);
 				metrics_guard.take().on_approval_error();
-				return ApprovalState::failed(validator_index, candidate_hash)
+				return ApprovalState::failed(validator_index, candidate_hash);
 			},
 		}
 	};
@@ -3692,7 +3597,7 @@ async fn issue_approval<
 		None => {
 			// not a cause for alarm - just lost a race with pruning, most likely.
 			metrics.on_approval_stale();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 	};
 
@@ -3707,7 +3612,7 @@ async fn issue_approval<
 			);
 
 			metrics.on_approval_error();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 		Some(idx) => idx,
 	};
@@ -3723,7 +3628,7 @@ async fn issue_approval<
 			);
 
 			metrics.on_approval_error();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 	};
 
@@ -3738,11 +3643,11 @@ async fn issue_approval<
 			);
 
 			metrics.on_approval_error();
-			return Ok(Vec::new())
+			return Ok(Vec::new());
 		},
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -3845,13 +3750,14 @@ async fn maybe_create_signature<
 				target: LOG_TARGET,
 				"Could not find block that needs signature {:}", block_hash
 			);
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
-	let approval_params = state
-		.get_approval_voting_params_or_default(sender, block_entry.session(), block_hash)
+	let approval_params = session_info_provider
+		.get_session_info_by_index(sender, block_hash, block_entry.session())
 		.await
+		.map(|info| info.approval_voting_params)
 		.unwrap_or_default();
 
 	gum::trace!(
@@ -3868,7 +3774,7 @@ async fn maybe_create_signature<
 		None => return Ok(sign_no_later_then),
 	};
 
-	let session_info = match get_session_info(
+	let session_info = match get_session_info_by_index(
 		session_info_provider,
 		sender,
 		block_entry.parent_hash(),
@@ -3883,7 +3789,7 @@ async fn maybe_create_signature<
 				target: LOG_TARGET,
 				"Could not retrieve the session"
 			);
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -3898,7 +3804,7 @@ async fn maybe_create_signature<
 			);
 
 			metrics.on_approval_error();
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 
@@ -3918,7 +3824,7 @@ async fn maybe_create_signature<
 			);
 
 			metrics.on_approval_error();
-			return Ok(None)
+			return Ok(None);
 		},
 	};
 	metrics.on_approval_coalesce(candidates_hashes.len() as u32);

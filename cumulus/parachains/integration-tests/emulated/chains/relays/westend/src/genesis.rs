@@ -19,7 +19,6 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
 use sp_core::storage::Storage;
-use sp_runtime::{BoundedVec, Perbill};
 
 // Polkadot
 use polkadot_primitives::{AssignmentId, ValidatorId};
@@ -33,7 +32,6 @@ use westend_runtime_constants::currency::UNITS as WND;
 
 pub const ED: Balance = westend_runtime_constants::currency::EXISTENTIAL_DEPOSIT;
 const ENDOWMENT: u128 = 1_000_000 * WND;
-const STASH: u128 = 100 * WND;
 
 fn session_keys(
 	babe: BabeId,
@@ -78,24 +76,6 @@ pub fn genesis() -> Storage {
 					)
 				})
 				.collect::<Vec<_>>(),
-			..Default::default()
-		},
-		staking: westend_runtime::StakingConfig {
-			validator_count: validators::initial_authorities().len() as u32,
-			minimum_validator_count: 1,
-			stakers: validators::initial_authorities()
-				.iter()
-				.map(|x| (x.0.clone(), x.1.clone(), STASH, pallet_staking::StakerStatus::Validator))
-				.collect(),
-			invulnerables: BoundedVec::try_from(
-				validators::initial_authorities()
-					.iter()
-					.map(|x| x.0.clone())
-					.collect::<Vec<_>>(),
-			)
-			.expect("Limit for staking invulnerables must be less than initial authorities."),
-			force_era: pallet_staking::Forcing::ForceNone,
-			slash_reward_fraction: Perbill::from_percent(10),
 			..Default::default()
 		},
 		babe: westend_runtime::BabeConfig {

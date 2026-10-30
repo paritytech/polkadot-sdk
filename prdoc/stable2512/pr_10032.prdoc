@@ -1,0 +1,13 @@
+title: 'pallet_revive: when a dry run simulates contract deployment, return the execution
+  result data.'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes https://github.com/paritytech/contract-issues/issues/177
+
+    Expose the deployed contract's runtime bytecode in eth_call responses during simulated contract creation.
+
+    The test from issue https://github.com/paritytech/contract-issues/issues/177 sends an eth_call request without a destination address, while providing contract bytecode in the data field. This simulates a contract creation transaction. The test expects the RPC response to return the result of executing the init code, which is the deployed contract's runtime bytecode. While this result is not returned in actual deployments, it is expected in dry-run simulations.
+crates:
+- name: pallet-revive
+  bump: patch

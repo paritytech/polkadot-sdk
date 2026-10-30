@@ -19,7 +19,6 @@ codec = { workspace = true }
 frame-benchmarking = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-log = { workspace = true, default-features = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
@@ -28,15 +27,9 @@ xcm-builder = { workspace = true }
 xcm-executor = { workspace = true }
 
 [dev-dependencies]
-pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
 xcm = { workspace = true, default-features = true }
-# temp
-pallet-xcm = { workspace = true, default-features = true }
-polkadot-runtime-common = { workspace = true, default-features = true }
-# westend-runtime = { path = "../../runtime/westend", features = ["runtime-benchmarks"] }
-polkadot-primitives = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -45,7 +38,6 @@ std = [
 	"frame-benchmarking/std",
 	"frame-support/std",
 	"frame-system/std",
-	"log/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
@@ -56,11 +48,7 @@ runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
-	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-xcm/runtime-benchmarks",
-	"polkadot-primitives/runtime-benchmarks",
-	"polkadot-runtime-common/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-builder/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",

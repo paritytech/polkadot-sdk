@@ -16,8 +16,8 @@
 
 //! XCM sender for relay chain.
 
-use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use codec::Encode;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
 use frame_system::pallet_prelude::BlockNumberFor;
@@ -113,7 +113,7 @@ where
 			*id
 		} else {
 			*dest = Some(d);
-			return Err(NotApplicable)
+			return Err(NotApplicable);
 		};
 
 		// Downward message passing.
@@ -122,7 +122,7 @@ where
 		let para = id.into();
 		let price = P::price_for_delivery(para, &xcm);
 		let versioned_xcm = W::wrap_version(&d, xcm).map_err(|()| DestinationUnsupported)?;
-		versioned_xcm.validate_xcm_nesting().map_err(|()| ExceedsMaxMessageSize)?;
+		versioned_xcm.check_is_decodable().map_err(|()| ExceedsMaxMessageSize)?;
 		let blob = versioned_xcm.encode();
 		dmp::Pallet::<T>::can_queue_downward_message(&config, &para, &blob)
 			.map_err(Into::<SendError>::into)?;
@@ -136,7 +136,13 @@ where
 		let hash = sp_io::hashing::blake2_256(&blob[..]);
 		dmp::Pallet::<T>::queue_downward_message(&config, para, blob)
 			.map(|()| hash)
-			.map_err(|_| SendError::Transport(&"Error placing into DMP queue"))
+			.map_err(|error| {
+				log::debug!(
+					target: "xcm::xcm_sender::deliver",
+					"Failed to place into DMP queue: error: {error:?}, id: {hash:?}",
+				);
+				SendError::Transport(&"Error placing into DMP queue")
+			})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -149,22 +155,39 @@ where
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
 	fn clear_messages() {
-		// Best effort.
-		let _ = dmp::DownwardMessageQueues::<T>::clear(u32::MAX, None);
+		// Best effort: clear all dmp storage maps.
+		let _ = dmp::DownwardMessageQueueMeta::<T>::clear(u32::MAX, None);
+		let _ = dmp::DownwardMessageQueuePages::<T>::clear(u32::MAX, None);
+		let _ = dmp::DownwardMessageQueueLazyDelete::<T>::clear(u32::MAX, None);
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		dmp::DownwardMessageQueues::<T>::iter()
-			.map(|(para_id, messages)| {
-				let decoded_messages: Vec<VersionedXcm<()>> = messages
-					.iter()
-					.map(|downward_message| {
-						let message = VersionedXcm::<()>::decode(&mut &downward_message.msg[..]).unwrap();
-						log::trace!(target: "xcm::DownwardMessageQueues::get_messages", "Message: {:?}, sent at: {:?}", message, downward_message.sent_at);
-						message
-					})
-					.collect();
-				(VersionedLocation::from(Location::from(Parachain(para_id.into()))), decoded_messages)
+		let para_ids: BTreeSet<_> = dmp::DownwardMessageQueueMeta::<T>::iter_keys()
+			.chain(dmp::migration::v0::DownwardMessageQueues::<T>::iter_keys())
+			.collect();
+
+		para_ids
+			.into_iter()
+			.map(|para_id| {
+				let decoded_messages: Vec<VersionedXcm<()>> =
+					dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(para_id)
+						.iter()
+						.map(|downward_message| {
+							let message = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(
+								&mut &downward_message.msg[..],
+							)
+							.unwrap();
+							log::trace!(
+								target: "xcm::DownwardMessageQueues::get_messages",
+								"Message: {:?}, sent at: {:?}", message, downward_message.sent_at
+							);
+							message
+						})
+						.collect();
+				(
+					VersionedLocation::from(Location::from(Parachain(para_id.into()))),
+					decoded_messages,
+				)
 			})
 			.collect()
 	}
@@ -212,6 +235,8 @@ impl<
 		dest: &Location,
 		fee_reason: xcm_executor::traits::FeeReason,
 	) -> (Option<xcm_executor::FeesMode>, Option<Assets>) {
+		use alloc::vec;
+		use xcm::{latest::MAX_ITEMS_IN_ASSETS, MAX_INSTRUCTIONS_TO_DECODE};
 		use xcm_executor::{
 			traits::{FeeManager, TransactAsset},
 			FeesMode,
@@ -220,10 +245,10 @@ impl<
 		// check if the destination matches the expected `Parachain`.
 		if let Some(Parachain(para_id)) = dest.first_interior() {
 			if ParaId::from(*para_id) != Parachain::get().into() {
-				return (None, None)
+				return (None, None);
 			}
 		} else {
-			return (None, None)
+			return (None, None);
 		}
 
 		// allow more initialization for target parachain
@@ -232,20 +257,30 @@ impl<
 		let mut fees_mode = None;
 		if !XcmConfig::FeeManager::is_waived(Some(origin_ref), fee_reason) {
 			// if not waived, we need to set up accounts for paying and receiving fees
+			let context = XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
 
 			// mint ED to origin if needed
 			if let Some(ed) = ExistentialDeposit::get() {
-				XcmConfig::AssetTransactor::deposit_asset(&ed, &origin_ref, None).unwrap();
+				let holdings = XcmConfig::AssetTransactor::mint_asset(&ed, &context).unwrap();
+				XcmConfig::AssetTransactor::deposit_asset(holdings, &origin_ref, Some(&context))
+					.unwrap();
 			}
 
 			// overestimate delivery fee
-			let overestimated_xcm = alloc::vec![ClearOrigin; 128].into();
+			let mut max_assets: Vec<Asset> = Vec::new();
+			for i in 0..MAX_ITEMS_IN_ASSETS {
+				max_assets.push((GeneralIndex(i as u128), 100u128).into());
+			}
+			let overestimated_xcm =
+				vec![WithdrawAsset(max_assets.into()); MAX_INSTRUCTIONS_TO_DECODE as usize].into();
 			let overestimated_fees =
 				PriceForDelivery::price_for_delivery(Parachain::get(), &overestimated_xcm);
 
 			// mint overestimated fee to origin
 			for fee in overestimated_fees.inner() {
-				XcmConfig::AssetTransactor::deposit_asset(&fee, &origin_ref, None).unwrap();
+				let holdings = XcmConfig::AssetTransactor::mint_asset(fee, &context).unwrap();
+				XcmConfig::AssetTransactor::deposit_asset(holdings, &origin_ref, Some(&context))
+					.unwrap();
 			}
 
 			// expected worst case - direct withdraw
@@ -279,12 +314,12 @@ mod tests {
 			FixedU128::from_rational(101, 100)
 		}
 
-		fn increase_fee_factor(_: Self::Id, _: FixedU128) -> FixedU128 {
-			FixedU128::from_rational(101, 100)
-		}
+		fn set_fee_factor(_id: Self::Id, _val: FixedU128) {}
 
-		fn decrease_fee_factor(_: Self::Id) -> FixedU128 {
-			FixedU128::from_rational(101, 100)
+		fn increase_fee_factor(_: Self::Id, _: u128) {}
+
+		fn decrease_fee_factor(_: Self::Id) -> bool {
+			true
 		}
 	}
 
@@ -357,6 +392,51 @@ mod tests {
 			assert_eq!(
 				Err(ExceedsMaxMessageSize),
 				<Router as SendXcm>::validate(&mut Some(dest.into()), &mut Some(bad))
+			);
+		});
+	}
+
+	#[test]
+	fn get_messages_surfaces_v0_only_paras() {
+		use polkadot_primitives::InboundDownwardMessage;
+
+		type Test = crate::integration_tests::Test;
+		type Router = ChildParachainRouter<Test, (), NoPriceForMessageDelivery<ParaId>>;
+
+		let para_v1: ParaId = 5000.into();
+		let para_v0: ParaId = 6000.into();
+		let xcm_v1 = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin]));
+		let xcm_v0 = VersionedXcm::from(Xcm::<()>(vec![ClearOrigin]));
+
+		new_test_ext().execute_with(|| {
+			configuration::ActiveConfig::<Test>::mutate(|c| {
+				c.max_downward_message_size = 1024;
+			});
+			dmp::Pallet::<Test>::make_parachain_reachable(para_v1);
+			let config = configuration::ActiveConfig::<Test>::get();
+			assert_ok!(dmp::Pallet::<Test>::queue_downward_message(
+				&config,
+				para_v1,
+				xcm_v1.encode()
+			));
+
+			dmp::migration::v0::DownwardMessageQueues::<Test>::insert(
+				para_v0,
+				vec![InboundDownwardMessage { sent_at: 1, msg: xcm_v0.encode() }],
+			);
+
+			assert_eq!(
+				<Router as InspectMessageQueues>::get_messages(),
+				vec![
+					(
+						VersionedLocation::from(Location::from(Parachain(u32::from(para_v1)))),
+						vec![xcm_v1],
+					),
+					(
+						VersionedLocation::from(Location::from(Parachain(u32::from(para_v0)))),
+						vec![xcm_v0],
+					),
+				]
 			);
 		});
 	}

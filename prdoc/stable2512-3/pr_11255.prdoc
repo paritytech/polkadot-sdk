@@ -1,0 +1,12 @@
+title: 'staking-async-rc-client: add proof parameter to set_keys '
+doc:
+- audience: Runtime Dev
+  description: |-
+    Add `proof: Vec<u8>` to the `set_keys` extrinsic for forward compatibility  with PR #1739, which introduces real ownership proof validation.
+    Proof validation is a no-op until we backport PR #1739.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: pallet-staking-async-rc-client
+  bump: minor
+  validate: false

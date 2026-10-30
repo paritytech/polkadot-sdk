@@ -18,7 +18,7 @@
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/sudo)
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
@@ -99,13 +99,10 @@
 //! 1. You can make a privileged runtime call using `sudo` with an account that matches the sudo
 //!    key.
 #![doc = docify::embed!("src/tests.rs", sudo_basics)]
-//!
 //! 2. Only an existing sudo key can set a new one.
 #![doc = docify::embed!("src/tests.rs", set_key_basics)]
-//!
 //! 3. You can also make non-privileged calls using `sudo_as`.
 #![doc = docify::embed!("src/tests.rs", sudo_as_emits_events_correctly)]
-//!
 //! ## Low Level / Implementation Details
 //!
 //! This pallet checks that the caller of its dispatchables is a signed account and ensures that the
@@ -175,6 +172,7 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching event type.
 		#[pallet::no_default_bounds]
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A sudo-able call.
@@ -332,7 +330,7 @@ pub mod pallet {
 
 	/// The `AccountId` of the sudo key.
 	#[pallet::storage]
-	pub(super) type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type Key<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

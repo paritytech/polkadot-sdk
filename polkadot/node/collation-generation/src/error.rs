@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use polkadot_primitives::vstaging::CommittedCandidateReceiptError;
+use polkadot_primitives::CommittedCandidateReceiptError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -37,6 +37,12 @@ pub enum Error {
 	CandidateReceiptCheck(CommittedCandidateReceiptError),
 	#[error("PoV size {0} exceeded maximum size of {1}")]
 	POVSizeExceeded(usize, usize),
+	#[error("Segment size {0} is not in allowed range")]
+	InvalidSegmentSize(usize),
+	#[error("Segments consisting of V2 candidates should have exactly one entry.")]
+	V2InvalidSegmentLength,
+	#[error("Only V2 and V3 candidate descriptor versions can be submitted")]
+	UnsupportedDescriptorVersion,
 }
 
 pub type Result<T> = std::result::Result<T, Error>;

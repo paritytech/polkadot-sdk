@@ -1,0 +1,18 @@
+title: '[XCM Precompile] Rename functions and improve docs in the Solidity interface'
+doc:
+- audience: Runtime User
+  description: |-
+    This PR changes the function names on the XCM Precompile from `xcmExecute` and `xcmSend` to `execute` and `send`, respectively. This is a breaking change because it modifies the ABI-encoded function selectors, which are calculated using `bytes4(keccak256(FUNCTION_SIGNATURE))`.
+
+    `bytes4(keccak256("xcmSend(bytes,bytes)"))` -> `0xc0addb55`
+    is going to be now
+    `bytes4(keccak256("send(bytes,bytes)"))` -> `0x7f0a3bf9`
+
+    `bytes4(keccak256("xcmExecute(bytes,(uint64,uint64)))"))` => `0x377df829`
+    is going to be  now
+    `bytes4(keccak256("execute(bytes,(uint64,uint64)))"))` => `0xd3b7e04d`
+
+    It also adds new documentation to the precompile, directing developers to the official Polkadot XCM documentation. Additionally, it explicitly sets return values for both functions to clarify that the return value matches what is returned by `pallet_xcm::send()` and `pallet_xcm::execute()`.
+crates:
+- name: pallet-xcm
+  bump: major

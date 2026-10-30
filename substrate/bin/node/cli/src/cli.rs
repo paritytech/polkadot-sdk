@@ -43,6 +43,147 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Route statements through the DHT instead of gossiping them to every peer.
+	#[arg(long, hide = true)]
+	pub statement_v2_dht: bool,
+
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_NETWORK_WORKERS)]
+	pub statement_network_workers: usize,
+
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_RATE_LIMIT)]
+	pub statement_rate_limit: u32,
+
+	/// Maximum number of statements the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_STATEMENTS)]
+	pub statement_store_max_total_statements: usize,
+
+	/// Maximum total data size (in bytes) the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_SIZE)]
+	pub statement_store_max_total_size: usize,
+
+	/// Number of seconds for which removed statements won't be allowed to be added back.
+	///
+	/// This prevents old statements from being re-propagated on the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
+	pub statement_store_purge_after_sec: u64,
+
+	/// Affinity topic advertised by this node. Repeatable; each value is a 32-byte hex
+	/// hash.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long = "statement-affinity-topic", value_name = "TOPIC", hide = true)]
+	pub statement_affinity_topics: Vec<sc_statement_store::Topic>,
+
+	/// File with affinity topics advertised by this node, one 32-byte hex topic per line.
+	/// Blank lines and lines starting with `#` are skipped. Adds to `--statement-affinity-topic`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long = "statement-affinity-topics-file", value_name = "PATH", hide = true)]
+	pub statement_affinity_topics_file: Option<sc_statement_store::AffinityTopicsFile>,
+
+	/// DHT replication factor (K): number of closest peers a statement is routed to.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "K",
+		default_value_t = sc_statement_store::DEFAULT_REPLICATION_FACTOR,
+		hide = true
+	)]
+	pub statement_replication_factor: std::num::NonZeroUsize,
+
+	/// Inbound slots for full peers on the statement protocol. Light peers get `--in-peers-light`
+	/// on top.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "COUNT",
+		default_value_t = sc_statement_store::DEFAULT_IN_PEERS,
+		hide = true
+	)]
+	pub statement_in_peers: u32,
+
+	/// Number of peers to gossip a statement to within the affinity set.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "N",
+		default_value_t = sc_statement_store::DEFAULT_GOSSIP_TARGET,
+		hide = true
+	)]
+	pub statement_gossip_target: std::num::NonZeroUsize,
+
+	/// False-positive rate of the topic-affinity bloom filter this node advertises.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(
+		long,
+		value_name = "RATE",
+		default_value_t = sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE,
+		hide = true
+	)]
+	pub statement_bloom_false_positive_rate: f64,
+
+	/// Seed of the topic-affinity bloom filter this node advertises. Defaults to a random
+	/// value per node.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long, value_name = "SEED", hide = true)]
+	pub statement_bloom_seed: Option<u128>,
+
+	/// Maximum total data size (in bytes) of the statements the store keeps for DHT affinity.
+	/// Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_dht_affinity_size: Option<usize>,
+
+	/// Maximum total data size (in bytes) of the transient statements, kept only until
+	/// propagated. Defaults to `--statement-store-max-total-size`.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	///
+	/// Hidden: takes effect only with `--statement-v2-dht`.
+	#[arg(long, value_name = "BYTES", hide = true)]
+	pub statement_store_max_transient_size: Option<usize>,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -77,8 +218,8 @@ pub enum Subcommand {
 	/// Sign a message, with a given (secret) key.
 	Sign(sc_cli::SignCmd),
 
-	/// Build a chain specification.
-	BuildSpec(sc_cli::BuildSpecCmd),
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),
@@ -100,4 +241,48 @@ pub enum Subcommand {
 
 	/// Db meta columns information.
 	ChainInfo(sc_cli::ChainInfoCmd),
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn statement_affinity_topics_accumulate_repeated_flags() {
+		use clap::Parser;
+		let topic_a = "11".repeat(32);
+		let topic_b = "22".repeat(32);
+		let cli = Cli::parse_from([
+			"substrate-node",
+			"--statement-affinity-topic",
+			&format!("0x{topic_a}"),
+			"--statement-affinity-topic",
+			&format!("0x{topic_b}"),
+		]);
+		assert_eq!(
+			cli.statement_affinity_topics,
+			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
+		);
+	}
+
+	#[test]
+	fn statement_bloom_flags_parse() {
+		use clap::Parser;
+		let cli = Cli::parse_from([
+			"substrate-node",
+			"--statement-bloom-false-positive-rate",
+			"0.001",
+			"--statement-bloom-seed",
+			"12345678901234567890123456789012345678",
+		]);
+		assert_eq!(cli.statement_bloom_false_positive_rate, 0.001);
+		assert_eq!(cli.statement_bloom_seed, Some(12345678901234567890123456789012345678));
+
+		let cli = Cli::parse_from(["substrate-node"]);
+		assert_eq!(
+			cli.statement_bloom_false_positive_rate,
+			sc_statement_store::DEFAULT_BLOOM_FALSE_POS_RATE
+		);
+		assert_eq!(cli.statement_bloom_seed, None);
+	}
 }

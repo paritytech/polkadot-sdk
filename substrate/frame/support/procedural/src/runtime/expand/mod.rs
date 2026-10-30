@@ -146,7 +146,7 @@ fn construct_runtime_final_expansion(
 		return Err(syn::Error::new(
 			system_pallet.name.span(),
 			"`System` pallet declaration is feature gated, please remove any `#[cfg]` attributes",
-		))
+		));
 	}
 
 	let features = pallets
@@ -241,7 +241,7 @@ fn construct_runtime_final_expansion(
 		&unchecked_extrinsic,
 		&system_pallet.path,
 	);
-	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
+	let outer_config: TokenStream2 = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =
 		expand::expand_outer_inherent(&name, &block, &unchecked_extrinsic, &pallets, &scrate);
 	let validate_unsigned = expand::expand_outer_validate_unsigned(&name, &pallets, &scrate);
@@ -258,7 +258,7 @@ fn construct_runtime_final_expansion(
 		};
 
 		#[derive(
-			Clone, Copy, PartialEq, Eq, #scrate::sp_runtime::RuntimeDebug,
+			Clone, Copy, PartialEq, Eq, core::fmt::Debug,
 			#scrate::__private::scale_info::TypeInfo
 		)]
 		pub struct #name;

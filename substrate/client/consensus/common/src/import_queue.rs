@@ -79,8 +79,6 @@ pub struct IncomingBlock<B: BlockT> {
 	pub header: Option<<B as BlockT>::Header>,
 	/// Block body if requested.
 	pub body: Option<Vec<<B as BlockT>::Extrinsic>>,
-	/// Indexed block body if requested.
-	pub indexed_body: Option<Vec<Vec<u8>>>,
 	/// Justification(s) if requested.
 	pub justifications: Option<Justifications>,
 	/// The peer, we received this from
@@ -141,6 +139,19 @@ pub trait ImportQueue<B: BlockT>: Send {
 	async fn run(self, link: &dyn Link<B>);
 }
 
+/// The result of importing a justification.
+#[derive(Debug, PartialEq)]
+pub enum JustificationImportResult {
+	/// Justification was imported successfully.
+	Success,
+
+	/// Justification was not imported successfully.
+	Failure,
+
+	/// Justification was not imported successfully, because it is outdated.
+	OutdatedJustification,
+}
+
 /// Hooks that the verification queue can use to influence the synchronization
 /// algorithm.
 pub trait Link<B: BlockT>: Send + Sync {
@@ -159,7 +170,7 @@ pub trait Link<B: BlockT>: Send + Sync {
 		_who: RuntimeOrigin,
 		_hash: &B::Hash,
 		_number: NumberFor<B>,
-		_success: bool,
+		_import_result: JustificationImportResult,
 	) {
 	}
 
@@ -229,8 +240,9 @@ pub async fn import_single_block<B: BlockT, V: Verifier<B>>(
 ) -> BlockImportResult<B> {
 	match verify_single_block_metered(import_handle, block_origin, block, verifier, None).await? {
 		SingleBlockVerificationOutcome::Imported(import_status) => Ok(import_status),
-		SingleBlockVerificationOutcome::Verified(import_parameters) =>
-			import_single_block_metered(import_handle, import_parameters, None).await,
+		SingleBlockVerificationOutcome::Verified(import_parameters) => {
+			import_single_block_metered(import_handle, import_parameters, None).await
+		},
 	}
 }
 
@@ -249,8 +261,9 @@ where
 			trace!(target: LOG_TARGET, "Block already in chain {}: {:?}", number, hash);
 			Ok(BlockImportStatus::ImportedKnown(number, block_origin))
 		},
-		Ok(ImportResult::Imported(aux)) =>
-			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin)),
+		Ok(ImportResult::Imported(aux)) => {
+			Ok(BlockImportStatus::ImportedUnknown(number, aux, block_origin))
+		},
 		Ok(ImportResult::MissingState) => {
 			debug!(
 				target: LOG_TARGET,
@@ -307,14 +320,25 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		} else {
 			debug!(target: LOG_TARGET, "Header {} was not provided ", block.hash);
 		}
-		return Err(BlockImportError::IncompleteHeader(peer))
+		return Err(BlockImportError::IncompleteHeader(peer));
 	};
-
-	trace!(target: LOG_TARGET, "Header {} has {:?} logs", block.hash, header.digest().logs().len());
 
 	let number = *header.number();
 	let hash = block.hash;
 	let parent_hash = *header.parent_hash();
+
+	trace!(target: LOG_TARGET, "Block {number} ({hash}) has {:?} logs (origin: {:?})", header.digest().logs().len(), block_origin);
+
+	// Skip block verification for warp synced blocks.
+	// They have been verified within warp sync proof verification.
+	if matches!(block_origin, BlockOrigin::WarpSync) {
+		return Ok(SingleBlockVerificationOutcome::Verified(SingleBlockImportParameters {
+			import_block: BlockImportParams::new(block_origin, header),
+			hash: block.hash,
+			block_origin: peer,
+			verification_time: Duration::ZERO,
+		}));
+	}
 
 	match import_handler::<B>(
 		number,
@@ -335,7 +359,7 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 		BlockImportStatus::ImportedUnknown { .. } => (),
 		r => {
 			// Any other successful result means that the block is already imported.
-			return Ok(SingleBlockVerificationOutcome::Imported(r))
+			return Ok(SingleBlockVerificationOutcome::Imported(r));
 		},
 	}
 
@@ -346,7 +370,6 @@ pub(crate) async fn verify_single_block_metered<B: BlockT, V: Verifier<B>>(
 	import_block.justifications = justifications;
 	import_block.post_hash = Some(hash);
 	import_block.import_existing = block.import_existing;
-	import_block.indexed_body = block.indexed_body;
 
 	if let Some(state) = block.state {
 		let changes = crate::block_import::StorageChanges::Import(state);

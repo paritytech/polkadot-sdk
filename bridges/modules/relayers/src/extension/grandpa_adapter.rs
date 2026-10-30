@@ -109,8 +109,9 @@ where
 			calls.next().transpose()?.and_then(|c| c.submit_finality_proof_info());
 
 		Ok(match (total_calls, relay_finality_call, msgs_call) {
-			(2, Some(relay_finality_call), Some(msgs_call)) =>
-				Some(ExtensionCallInfo::RelayFinalityAndMsgs(relay_finality_call, msgs_call)),
+			(2, Some(relay_finality_call), Some(msgs_call)) => {
+				Some(ExtensionCallInfo::RelayFinalityAndMsgs(relay_finality_call, msgs_call))
+			},
 			(1, None, Some(msgs_call)) => Some(ExtensionCallInfo::Msgs(msgs_call)),
 			_ => None,
 		})
@@ -156,14 +157,14 @@ where
 		finality_proof_info.block_number,
 	) {
 		// we only refund relayer if all calls have updated chain state
-		log::trace!(
+		tracing::trace!(
 			target: LOG_TARGET,
-			"{}.{:?}: relayer {:?} has submitted invalid GRANDPA chain finality proof",
-			C::IdProvider::STR,
-			call_info.messages_call_info().lane_id(),
-			relayer,
+			id_provider=%C::IdProvider::STR,
+			lane_id=?call_info.messages_call_info().lane_id(),
+			?relayer,
+			"Relayer has submitted invalid GRANDPA chain finality proof"
 		);
-		return false
+		return false;
 	}
 
 	// there's a conflict between how bridge GRANDPA pallet works and a `utility.batchAll`

@@ -22,7 +22,7 @@ docify::compile_markdown!("README.docify.md", "README.md");
 use clap::{Parser, Subcommand};
 use sc_chain_spec::{
 	json_patch, set_code_substitute_in_json_chain_spec, update_code_in_json_chain_spec, ChainType,
-	GenericChainSpec, GenesisConfigBuilderRuntimeCaller,
+	GenericChainSpec, GenesisConfigBuilderRuntimeCaller, MultiaddrWithPeerId,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -53,6 +53,19 @@ pub enum ChainSpecBuilderCmd {
 	ListPresets(ListPresetsCmd),
 	DisplayPreset(DisplayPresetCmd),
 	AddCodeSubstitute(AddCodeSubstituteCmd),
+	/// Manages the boot nodes of an existing chain spec.
+	#[command(subcommand, alias = "bootnode")]
+	Bootnodes(BootnodesCmd),
+}
+
+/// Manages the boot nodes stored in the `bootNodes` field of an existing chain spec.
+///
+/// All these operations support both plain and raw formats.
+#[derive(Debug, Subcommand)]
+pub enum BootnodesCmd {
+	Add(AddBootnodesCmd),
+	Remove(RemoveBootnodesCmd),
+	List(ListBootnodesCmd),
 }
 
 /// Create a new chain spec by interacting with the provided runtime wasm blob.
@@ -71,7 +84,7 @@ pub struct CreateCmd {
 	#[arg(long, value_enum, short = 'p', requires = "relay_chain")]
 	pub para_id: Option<u32>,
 	/// The relay chain you wish to connect to.
-	#[arg(long, value_enum, short = 'c', requires = "para_id")]
+	#[arg(long, value_enum, short = 'c')]
 	pub relay_chain: Option<String>,
 	/// The path to runtime wasm blob.
 	#[arg(long, short, alias = "runtime-wasm-path")]
@@ -95,6 +108,14 @@ pub struct CreateCmd {
 	/// styles can also be mixed.
 	#[arg(long, default_value = "tokenSymbol=UNIT,tokenDecimals=12")]
 	pub properties: Vec<String>,
+	/// The boot nodes to be stored in the chain spec.
+	///
+	/// Each boot node is a multiaddress that contains the peer id of the node. Multiple addresses
+	/// can be separated by a comma, or the argument can be passed multiple times.
+	///
+	/// Example: `--bootnodes /dns/node-0.example.com/tcp/30333/p2p/12D3KooW...`
+	#[arg(long, short = 'b', value_delimiter = ',')]
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
 	#[command(subcommand)]
 	action: GenesisBuildAction,
 
@@ -175,6 +196,58 @@ pub struct AddCodeSubstituteCmd {
 	pub block_height: u64,
 }
 
+/// Appends boot nodes to the provided input chain spec.
+///
+/// The addresses are appended to the end of the `bootNodes` field of the chain spec, in the given
+/// order. Addresses that are already present are skipped, so the command can be safely repeated.
+///
+/// This command does not update chain-spec file in-place. The result of this command will be stored
+/// in a file given as `-c/--chain-spec-path` command line argument.
+#[derive(Parser, Debug, Clone)]
+pub struct AddBootnodesCmd {
+	/// Chain spec to be updated.
+	///
+	/// Please note that the file will not be updated in-place.
+	pub input_chain_spec: PathBuf,
+	/// The boot nodes to be appended.
+	///
+	/// Each boot node is a multiaddress that contains the peer id of the node, e.g.
+	/// `/dns/node-0.example.com/tcp/30333/p2p/12D3KooW...`.
+	#[arg(required = true, num_args = 1..)]
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
+/// Removes boot nodes from the provided input chain spec.
+///
+/// The addresses given in the command line are removed from the `bootNodes` field of the chain
+/// spec. Addresses that are not present are ignored, so the command can be safely repeated.
+///
+/// This command does not update chain-spec file in-place. The result of this command will be stored
+/// in a file given as `-c/--chain-spec-path` command line argument.
+#[derive(Parser, Debug, Clone)]
+pub struct RemoveBootnodesCmd {
+	/// Chain spec to be updated.
+	///
+	/// Please note that the file will not be updated in-place.
+	pub input_chain_spec: PathBuf,
+	/// The boot nodes to be removed.
+	///
+	/// Each boot node is a multiaddress that contains the peer id of the node, e.g.
+	/// `/dns/node-0.example.com/tcp/30333/p2p/12D3KooW...`.
+	#[arg(required_unless_present = "all", conflicts_with = "all", num_args = 1..)]
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
+	/// Remove all the boot nodes of the chain spec.
+	#[arg(long)]
+	pub all: bool,
+}
+
+/// Lists the boot nodes of the provided input chain spec.
+#[derive(Parser, Debug, Clone)]
+pub struct ListBootnodesCmd {
+	/// Chain spec to be inspected.
+	pub input_chain_spec: PathBuf,
+}
+
 /// Converts the given chain spec into the raw format.
 #[derive(Parser, Debug, Clone)]
 pub struct ConvertToRawCmd {
@@ -217,7 +290,7 @@ pub struct ParachainExtension {
 	/// The relay chain of the Parachain.
 	pub relay_chain: String,
 	/// The id of the Parachain.
-	pub para_id: u32,
+	pub para_id: Option<u32>,
 }
 
 type ChainSpec = GenericChainSpec<()>;
@@ -265,6 +338,48 @@ impl ChainSpecBuilder {
 					.map_err(|e| format!("to pretty failed: {e}"))?;
 				fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())?;
 			},
+			ChainSpecBuilderCmd::Bootnodes(BootnodesCmd::Add(AddBootnodesCmd {
+				ref input_chain_spec,
+				ref bootnodes,
+			})) => {
+				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+				let mut updated_bootnodes = extract_bootnodes(&chain_spec_json)?;
+				for bootnode in bootnodes {
+					if !updated_bootnodes.contains(bootnode) {
+						updated_bootnodes.push(bootnode.clone());
+					}
+				}
+
+				set_bootnodes(&mut chain_spec_json, updated_bootnodes)?;
+				write_chain_spec_json(&chain_spec_json, chain_spec_path.as_path())?;
+			},
+			ChainSpecBuilderCmd::Bootnodes(BootnodesCmd::Remove(RemoveBootnodesCmd {
+				ref input_chain_spec,
+				ref bootnodes,
+				all,
+			})) => {
+				let mut chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+				// When all the boot nodes are removed the existing ones are not inspected, which
+				// allows to fix a chain spec containing an invalid address.
+				let remaining_bootnodes = if *all {
+					Vec::new()
+				} else {
+					extract_bootnodes(&chain_spec_json)?
+						.into_iter()
+						.filter(|bootnode| !bootnodes.contains(bootnode))
+						.collect()
+				};
+
+				set_bootnodes(&mut chain_spec_json, remaining_bootnodes)?;
+				write_chain_spec_json(&chain_spec_json, chain_spec_path.as_path())?;
+			},
+			ChainSpecBuilderCmd::Bootnodes(BootnodesCmd::List(ListBootnodesCmd {
+				ref input_chain_spec,
+			})) => {
+				let chain_spec_json = extract_chain_spec_json(input_chain_spec.as_path())?;
+				let bootnodes = extract_bootnodes(&chain_spec_json)?;
+				println!("{}", serde_json::json!({ "bootNodes": bootnodes }).to_string());
+			},
 			ChainSpecBuilderCmd::ConvertToRaw(ConvertToRawCmd { ref input_chain_spec }) => {
 				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
 
@@ -294,7 +409,7 @@ impl ChainSpecBuilder {
 			},
 			ChainSpecBuilderCmd::Verify(VerifyCmd { ref input_chain_spec }) => {
 				let chain_spec = ChainSpec::from_json_file(input_chain_spec.clone())?;
-				let _ = serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
+				serde_json::from_str::<serde_json::Value>(&chain_spec.as_json(true)?)
 					.map_err(|e| format!("Conversion to json failed: {e}"))?;
 			},
 			ChainSpecBuilderCmd::ListPresets(ListPresetsCmd { runtime }) => {
@@ -343,8 +458,9 @@ fn process_action<T: Serialize + Clone + Sync + 'static>(
 	builder: sc_chain_spec::ChainSpecBuilder<T>,
 ) -> Result<String, String> {
 	let builder = match cmd.action {
-		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) =>
-			builder.with_genesis_config_preset_name(&preset_name),
+		GenesisBuildAction::NamedPreset(NamedPresetCmd { ref preset_name }) => {
+			builder.with_genesis_config_preset_name(&preset_name)
+		},
 		GenesisBuildAction::Patch(PatchCmd { ref patch_path }) => {
 			let patch = fs::read(patch_path.as_path())
 				.map_err(|e| format!("patch file {patch_path:?} shall be readable: {e}"))?;
@@ -440,23 +556,69 @@ pub fn generate_chain_spec_for_runtime(cmd: &CreateCmd) -> Result<String, String
 		.with_name(&cmd.chain_name[..])
 		.with_id(&cmd.chain_id[..])
 		.with_properties(properties)
-		.with_chain_type(chain_type.clone());
+		.with_chain_type(chain_type.clone())
+		.with_boot_nodes(cmd.bootnodes.clone());
 
 	let chain_spec_json_string = process_action(&cmd, &code[..], builder)?;
+	let parachain_properties = cmd.relay_chain.as_ref().map(|rc| {
+		cmd.para_id
+			.map(|para_id| {
+				serde_json::json!({
+					"relay_chain": rc,
+					"para_id": para_id,
+				})
+			})
+			.unwrap_or(serde_json::json!({
+				"relay_chain": rc,
+			}))
+	});
 
-	if let (Some(para_id), Some(ref relay_chain)) = (cmd.para_id, &cmd.relay_chain) {
-		let parachain_properties = serde_json::json!({
-			"relay_chain": relay_chain,
-			"para_id": para_id,
-		});
-		let mut chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
-			.map_err(|e| format!("deserialization a json failed {e}"))?;
-		json_patch::merge(&mut chain_spec_json_blob, parachain_properties);
-		Ok(serde_json::to_string_pretty(&chain_spec_json_blob)
-			.map_err(|e| format!("to pretty failed: {e}"))?)
-	} else {
-		Ok(chain_spec_json_string)
-	}
+	let chain_spec = parachain_properties
+		.map(|props| {
+			let chain_spec_json_blob = serde_json::from_str(chain_spec_json_string.as_str())
+				.map_err(|e| format!("deserialization a json failed {e}"));
+			chain_spec_json_blob.and_then(|mut cs| {
+				json_patch::merge(&mut cs, props);
+				serde_json::to_string_pretty(&cs).map_err(|e| format!("to pretty failed: {e}"))
+			})
+		})
+		.unwrap_or(Ok(chain_spec_json_string));
+	chain_spec
+}
+
+/// The key of the chain spec json field holding the boot nodes.
+const BOOT_NODES_KEY: &str = "bootNodes";
+
+/// Extracts the boot nodes stored in the given chain spec json.
+///
+/// An empty list is returned if the chain spec does not contain the boot nodes field.
+fn extract_bootnodes(chain_spec_json: &Value) -> Result<Vec<MultiaddrWithPeerId>, String> {
+	let Some(bootnodes) = chain_spec_json.get(BOOT_NODES_KEY) else { return Ok(Vec::new()) };
+
+	serde_json::from_value(bootnodes.clone())
+		.map_err(|e| format!("`{BOOT_NODES_KEY}` field of the chain spec is invalid: {e}"))
+}
+
+/// Stores the given boot nodes in the given chain spec json, replacing the existing ones.
+fn set_bootnodes(
+	chain_spec_json: &mut Value,
+	bootnodes: Vec<MultiaddrWithPeerId>,
+) -> Result<(), String> {
+	let bootnodes = serde_json::to_value(bootnodes)
+		.map_err(|e| format!("Conversion of the boot nodes to json failed: {e}"))?;
+
+	chain_spec_json
+		.as_object_mut()
+		.ok_or_else(|| "Provided chain spec is not a json object".to_string())?
+		.insert(BOOT_NODES_KEY.to_string(), bootnodes);
+	Ok(())
+}
+
+/// Stores the given chain spec json in the file at the given path.
+fn write_chain_spec_json(chain_spec_json: &Value, chain_spec_path: &Path) -> Result<(), String> {
+	let chain_spec_json = serde_json::to_string_pretty(chain_spec_json)
+		.map_err(|e| format!("to pretty failed: {e}"))?;
+	fs::write(chain_spec_path, chain_spec_json).map_err(|err| err.to_string())
 }
 
 /// Extract any chain spec and convert it to JSON

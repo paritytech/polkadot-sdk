@@ -99,6 +99,12 @@ pub enum Error {
 
 	#[error("Output exceeds bounds of wasm memory")]
 	OutputExceedsBounds,
+
+	#[error("Execution timed out")]
+	ExecutionTimeout,
+
+	#[error("Execution timeouts are not supported by this runtime instance")]
+	ExecutionTimeoutUnsupported,
 }
 
 impl From<&'static str> for Error {
@@ -114,7 +120,7 @@ impl From<String> for Error {
 }
 
 /// Type for errors occurring during Wasm runtime construction.
-#[derive(Debug, thiserror::Error)]
+#[derive(Clone, Debug, thiserror::Error)]
 #[allow(missing_docs)]
 pub enum WasmError {
 	#[error("Code could not be read from the state.")]
@@ -129,8 +135,8 @@ pub enum WasmError {
 	#[error("Failure to erase the wasm memory: {0}")]
 	ErasingFailed(String),
 
-	#[error("Wasm code failed validation.")]
-	InvalidModule,
+	#[error("Code failed validation: {0}")]
+	InvalidModule(String),
 
 	#[error("Wasm code could not be deserialized.")]
 	CantDeserializeWasm,
@@ -159,6 +165,15 @@ impl From<polkavm::program::ProgramParseError> for WasmError {
 impl From<polkavm::Error> for WasmError {
 	fn from(error: polkavm::Error) -> Self {
 		WasmError::Other(error.to_string())
+	}
+}
+
+impl From<polkavm::CompileError> for WasmError {
+	fn from(error: polkavm::CompileError) -> Self {
+		match error {
+			polkavm::CompileError::ValidationFailed(msg) => WasmError::InvalidModule(msg),
+			polkavm::CompileError::Error(err) => WasmError::Other(err.to_string()),
+		}
 	}
 }
 

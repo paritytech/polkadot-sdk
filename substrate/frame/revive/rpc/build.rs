@@ -14,10 +14,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-use std::process::Command;
+use std::{fs, process::Command};
 
-/// Get the current branch and commit hash.
 fn main() {
+	generate_git_revision();
+	generate_metadata_file();
+}
+
+fn generate_git_revision() {
 	let output = Command::new("rustc")
 		.arg("--version")
 		.output()
@@ -33,12 +37,28 @@ fn main() {
 		.join("");
 	let target = std::env::var("TARGET").unwrap_or_else(|_| "unknown".to_string());
 
-	let repo = git2::Repository::open("../../../..").expect("should be a repository");
-	let head = repo.head().expect("should have head");
-	let commit = head.peel_to_commit().expect("should have commit");
-	let branch = head.shorthand().unwrap_or("unknown").to_string();
-	let id = &commit.id().to_string()[..7];
-	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
+	let (branch, id) = if let Ok(repo) = git2::Repository::open("../../../..") {
+		let head = repo.head().expect("should have head");
+		let commit = head.peel_to_commit().expect("should have commit");
+		let branch = head.shorthand().unwrap_or("unknown").to_string();
+		let id = &commit.id().to_string()[..7];
+		(branch, id.to_string())
+	} else {
+		("unknown".to_string(), "unknown".to_string())
+	};
+
 	println!("cargo:rustc-env=RUSTC_VERSION={rustc_version}");
 	println!("cargo:rustc-env=TARGET={target}");
+	println!("cargo:rustc-env=GIT_REVISION={branch}-{id}");
+}
+
+fn generate_metadata_file() {
+	let mut ext = sp_io::TestExternalities::new(Default::default());
+	ext.execute_with(|| {
+		let metadata = revive_dev_runtime::Runtime::metadata_at_version(16).unwrap();
+		let bytes: &[u8] = &metadata;
+		let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
+		let out_path = std::path::Path::new(&out_dir).join("revive_chain.scale");
+		fs::write(out_path, bytes).unwrap();
+	});
 }

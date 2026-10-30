@@ -1,7 +1,7 @@
 # Availability Recovery
 
 This subsystem is responsible for recovering the data made available via the
-[Availability Distribution](availability-distribution.md) subsystem, neccessary for candidate validation during the
+[Availability Distribution](availability-distribution.md) subsystem, necessary for candidate validation during the
 approval/disputes processes. Additionally, it is also being used by collators to recover PoVs in adversarial scenarios
 where the other collators of the para are censoring blocks.
 
@@ -180,5 +180,5 @@ As a last resort, do `FetchChunks`.
 Collators currently only use `FetchChunks`, as they only attempt recoveries in rare scenarios.
 
 Moreover, the recovery task is specially configured to not attempt requesting data from the local availability-store
-(because it doesn't exist) and to not reencode the data after a succcessful recovery (because it's an expensive check
+(because it doesn't exist) and to not reencode the data after a successful recovery (because it's an expensive check
 that is not needed; checking the pov_hash is enough for collators).

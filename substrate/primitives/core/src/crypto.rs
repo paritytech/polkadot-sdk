@@ -19,7 +19,7 @@
 
 use crate::{ed25519, sr25519, U256};
 use alloc::{format, str, vec::Vec};
-#[cfg(all(not(feature = "std"), feature = "serde"))]
+#[cfg(feature = "serde")]
 use alloc::{string::String, vec};
 use bip39::{Language, Mnemonic};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -32,7 +32,6 @@ use itertools::Itertools;
 use rand::{rngs::OsRng, RngCore};
 use scale_info::TypeInfo;
 pub use secrecy::{ExposeSecret, SecretString};
-use sp_runtime_interface::pass_by::PassByInner;
 pub use ss58_registry::{from_known_address_format, Ss58AddressFormat, Ss58AddressFormatRegistry};
 /// Trait to zeroize a memory buffer.
 pub use zeroize::Zeroize;
@@ -279,7 +278,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 
 		let data = bs58::decode(s).into_vec().map_err(|_| PublicError::BadBase58)?;
 		if data.len() < 2 {
-			return Err(PublicError::BadLength)
+			return Err(PublicError::BadLength);
 		}
 		let (prefix_len, ident) = match data[0] {
 			0..=63 => (1, data[0] as u16),
@@ -296,18 +295,18 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 			_ => return Err(PublicError::InvalidPrefix),
 		};
 		if data.len() != prefix_len + body_len + CHECKSUM_LEN {
-			return Err(PublicError::BadLength)
+			return Err(PublicError::BadLength);
 		}
 		let format = ident.into();
 		if !Self::format_is_allowed(format) {
-			return Err(PublicError::FormatNotAllowed)
+			return Err(PublicError::FormatNotAllowed);
 		}
 
 		let hash = ss58hash(&data[0..body_len + prefix_len]);
 		let checksum = &hash[0..CHECKSUM_LEN];
 		if data[body_len + prefix_len..body_len + prefix_len + CHECKSUM_LEN] != *checksum {
 			// Invalid checksum.
-			return Err(PublicError::InvalidChecksum)
+			return Err(PublicError::InvalidChecksum);
 		}
 
 		let result = Self::from_slice(&data[prefix_len..body_len + prefix_len])
@@ -338,7 +337,7 @@ pub trait Ss58Codec: Sized + AsMut<[u8]> + AsRef<[u8]> + ByteArray {
 				let first = ((ident & 0b0000_0000_1111_1100) as u8) >> 2;
 				// lower two bits of the lower byte in the high pos,
 				// lower bits of the upper byte in the low pos
-				let second = ((ident >> 8) as u8) | ((ident & 0b0000_0000_0000_0011) as u8) << 6;
+				let second = ((ident >> 8) as u8) | (((ident & 0b0000_0000_0000_0011) as u8) << 6);
 				vec![first | 0b01000000, second]
 			},
 			_ => unreachable!("masked out the upper two bits; qed"),
@@ -435,7 +434,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string(s: &str) -> Result<Self, PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed)
+			return Err(PublicError::PasswordNotAllowed);
 		}
 		let s = cap.phrase.unwrap_or(DEV_ADDRESS);
 		let addr = if let Some(stripped) = s.strip_prefix("0x") {
@@ -455,7 +454,7 @@ impl<T: Sized + AsMut<[u8]> + AsRef<[u8]> + Public + Derive> Ss58Codec for T {
 	fn from_string_with_version(s: &str) -> Result<(Self, Ss58AddressFormat), PublicError> {
 		let cap = AddressUri::parse(s)?;
 		if cap.pass.is_some() {
-			return Err(PublicError::PasswordNotAllowed)
+			return Err(PublicError::PasswordNotAllowed);
 		}
 		let (addr, v) = Self::from_ss58check_with_version(cap.phrase.unwrap_or(DEV_ADDRESS))?;
 		if cap.paths.is_empty() {
@@ -691,6 +690,7 @@ mod dummy {
 		type Public = Dummy;
 		type Seed = Dummy;
 		type Signature = Dummy;
+		type ProofOfPossession = Dummy;
 
 		#[cfg(feature = "std")]
 		fn generate_with_phrase(_: Option<&str>) -> (Self, String, Self::Seed) {
@@ -837,6 +837,11 @@ pub trait Pair: CryptoType + Sized {
 	/// The type used to represent a signature. Can be created from a key pair and a message
 	/// and verified with the message and a public key.
 	type Signature: Signature;
+
+	/// The type used to represent proof of possession and ownership of private key is usually
+	/// one or a set of signatures. Can be created from a key pair and message (owner id) and
+	/// and verified with the owner id and public key.
+	type ProofOfPossession: Signature;
 
 	/// Generate new secure (random) key pair.
 	///
@@ -1042,21 +1047,10 @@ pub trait CryptoType {
 /// Values whose first character is `_` are reserved for private use and won't conflict with any
 /// public modules.
 #[derive(
-	Copy,
-	Clone,
-	Default,
-	PartialEq,
-	Eq,
-	PartialOrd,
-	Ord,
-	Hash,
-	Encode,
-	Decode,
-	PassByInner,
-	crate::RuntimeDebug,
-	TypeInfo,
+	Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Encode, Decode, Debug, TypeInfo,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
 pub struct KeyTypeId(pub [u8; 4]);
 
 impl From<u32> for KeyTypeId {
@@ -1071,13 +1065,25 @@ impl From<KeyTypeId> for u32 {
 	}
 }
 
+impl From<[u8; 4]> for KeyTypeId {
+	fn from(value: [u8; 4]) -> Self {
+		Self(value)
+	}
+}
+
+impl AsRef<[u8]> for KeyTypeId {
+	fn as_ref(&self) -> &[u8] {
+		&self.0
+	}
+}
+
 impl<'a> TryFrom<&'a str> for KeyTypeId {
 	type Error = ();
 
 	fn try_from(x: &'a str) -> Result<Self, ()> {
 		let b = x.as_bytes();
 		if b.len() != 4 {
-			return Err(())
+			return Err(());
 		}
 		let mut res = KeyTypeId::default();
 		res.0.copy_from_slice(&b[0..4]);
@@ -1208,6 +1214,7 @@ impl_from_entropy_base!(u8, u16, u32, u64, u128, i8, i16, i32, i64, i128, U256);
 mod tests {
 	use super::*;
 	use crate::DeriveJunction;
+	use alloc::{string::String, vec};
 
 	struct TestCryptoTag;
 
@@ -1246,6 +1253,7 @@ mod tests {
 		type Public = TestPublic;
 		type Seed = [u8; 8];
 		type Signature = TestSignature;
+		type ProofOfPossession = TestSignature;
 
 		fn generate() -> (Self, <Self as Pair>::Seed) {
 			(TestPair::Generated, [0u8; 8])
@@ -1280,14 +1288,16 @@ mod tests {
 						password,
 						path: path.into_iter().chain(path_iter).collect(),
 					},
-					TestPair::GeneratedFromPhrase { phrase, password } =>
-						TestPair::Standard { phrase, password, path: path_iter.collect() },
-					x =>
+					TestPair::GeneratedFromPhrase { phrase, password } => {
+						TestPair::Standard { phrase, password, path: path_iter.collect() }
+					},
+					x => {
 						if path_iter.count() == 0 {
 							x
 						} else {
-							return Err(DeriveError::SoftKeyInPath)
-						},
+							return Err(DeriveError::SoftKeyInPath);
+						}
+					},
 				},
 				None,
 			))

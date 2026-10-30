@@ -58,14 +58,16 @@ use sp_staking::{
 
 use super::{Call, Config, Error, Pallet, LOG_TARGET};
 
-/// A round number and set id which point on the time of an offence.
+/// A set of fields which point to the time and type of an offence.
 #[derive(Copy, Clone, PartialOrd, Ord, Eq, PartialEq, Encode, Decode)]
-pub struct TimeSlot<N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode> {
+pub struct Slot<N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode> {
 	// The order of these matters for `derive(Ord)`.
 	/// BEEFY Set ID.
 	pub set_id: ValidatorSetId,
 	/// Round number.
 	pub round: N,
+	/// Equivocation type
+	pub equivocation_type: u8,
 }
 
 /// BEEFY equivocation offence report.
@@ -74,13 +76,15 @@ where
 	N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode,
 {
 	/// Time slot at which this incident happened.
-	pub time_slot: TimeSlot<N>,
+	pub slot: Slot<N>,
 	/// The session index in which the incident happened.
 	pub session_index: SessionIndex,
 	/// The size of the validator set at the time of the offence.
 	pub validator_set_count: u32,
 	/// The authority which produced this equivocation.
 	pub offender: Offender,
+	/// Optional slash fraction
+	maybe_slash_fraction: Option<Perbill>,
 }
 
 impl<Offender: Clone, N> Offence<Offender> for EquivocationOffence<Offender, N>
@@ -88,7 +92,7 @@ where
 	N: Copy + Clone + PartialOrd + Ord + Eq + PartialEq + Encode + Decode,
 {
 	const ID: Kind = *b"beefy:equivocati";
-	type TimeSlot = TimeSlot<N>;
+	type Slot = Slot<N>;
 
 	fn offenders(&self) -> Vec<Offender> {
 		vec![self.offender.clone()]
@@ -102,14 +106,18 @@ where
 		self.validator_set_count
 	}
 
-	fn time_slot(&self) -> Self::TimeSlot {
-		self.time_slot
+	fn slot(&self) -> Self::Slot {
+		self.slot
 	}
 
-	// The formula is min((3k / n)^2, 1)
-	// where k = offenders_number and n = validators_number
 	fn slash_fraction(&self, offenders_count: u32) -> Perbill {
-		// Perbill type domain is [0, 1] by definition
+		if let Some(slash_fraction) = self.maybe_slash_fraction {
+			return slash_fraction;
+		}
+
+		// `Perbill` type domain is [0, 1] by definition
+		// The formula is min((3k / n)^2, 1)
+		// where k = offenders_number and n = validators_number
 		Perbill::from_rational(3 * offenders_count, self.validator_set_count).square()
 	}
 }
@@ -146,39 +154,56 @@ pub enum EquivocationEvidenceFor<T: Config> {
 }
 
 impl<T: Config> EquivocationEvidenceFor<T> {
+	fn equivocation_type(&self) -> u8 {
+		match self {
+			EquivocationEvidenceFor::DoubleVotingProof(..) => 1,
+			EquivocationEvidenceFor::ForkVotingProof(..) => 2,
+			EquivocationEvidenceFor::FutureBlockVotingProof(..) => 3,
+		}
+	}
+
 	/// Returns the authority id of the equivocator.
 	fn offender_id(&self) -> &T::BeefyId {
 		match self {
-			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
-				equivocation_proof.offender_id(),
-			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.id,
-			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.id,
+			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
+				equivocation_proof.offender_id()
+			},
+			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.id
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.id
+			},
 		}
 	}
 
 	/// Returns the round number at which the equivocation occurred.
 	fn round_number(&self) -> &BlockNumberFor<T> {
 		match self {
-			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
-				equivocation_proof.round_number(),
-			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.commitment.block_number,
-			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
-				&equivocation_proof.vote.commitment.block_number,
+			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
+				equivocation_proof.round_number()
+			},
+			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.commitment.block_number
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				&equivocation_proof.vote.commitment.block_number
+			},
 		}
 	}
 
 	/// Returns the set id at which the equivocation occurred.
 	fn set_id(&self) -> ValidatorSetId {
 		match self {
-			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) =>
-				equivocation_proof.set_id(),
-			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) =>
-				equivocation_proof.vote.commitment.validator_set_id,
-			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) =>
-				equivocation_proof.vote.commitment.validator_set_id,
+			EquivocationEvidenceFor::DoubleVotingProof(equivocation_proof, _) => {
+				equivocation_proof.set_id()
+			},
+			EquivocationEvidenceFor::ForkVotingProof(equivocation_proof, _) => {
+				equivocation_proof.vote.commitment.validator_set_id
+			},
+			EquivocationEvidenceFor::FutureBlockVotingProof(equivocation_proof, _) => {
+				equivocation_proof.vote.commitment.validator_set_id
+			},
 		}
 	}
 
@@ -256,11 +281,19 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 				let is_signature_valid =
 					check_commitment_signature(&vote.commitment, &vote.id, &vote.signature);
 				if !is_signature_valid {
-					return Err(Error::<T>::InvalidForkVotingProof);
+					return Err(Error::<T>::InvalidFutureBlockVotingProof);
 				}
 
 				Ok(())
 			},
+		}
+	}
+
+	fn slash_fraction(&self) -> Option<Perbill> {
+		match self {
+			EquivocationEvidenceFor::DoubleVotingProof(_, _) => None,
+			EquivocationEvidenceFor::ForkVotingProof(_, _) |
+			EquivocationEvidenceFor::FutureBlockVotingProof(_, _) => Some(Perbill::from_percent(50)),
 		}
 	}
 }
@@ -268,7 +301,7 @@ impl<T: Config> EquivocationEvidenceFor<T> {
 impl<T, R, P, L> OffenceReportSystem<Option<T::AccountId>, EquivocationEvidenceFor<T>>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::CreateInherent<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -284,7 +317,7 @@ where
 		use frame_system::offchain::SubmitTransaction;
 
 		let call: Call<T> = evidence.into();
-		let xt = T::create_inherent(call.into());
+		let xt = T::create_bare(call.into());
 		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report."),
@@ -299,8 +332,12 @@ where
 		let offender = evidence.checked_offender::<P>().ok_or(InvalidTransaction::BadProof)?;
 
 		// Check if the offence has already been reported, and if so then we can discard the report.
-		let time_slot = TimeSlot { set_id: evidence.set_id(), round: *evidence.round_number() };
-		if R::is_known_offence(&[offender], &time_slot) {
+		let slot = Slot {
+			set_id: evidence.set_id(),
+			round: *evidence.round_number(),
+			equivocation_type: evidence.equivocation_type(),
+		};
+		if R::is_known_offence(&[offender], &slot) {
 			Err(InvalidTransaction::Stale.into())
 		} else {
 			Ok(())
@@ -311,13 +348,13 @@ where
 		reporter: Option<T::AccountId>,
 		evidence: EquivocationEvidenceFor<T>,
 	) -> Result<(), DispatchError> {
+		let maybe_slash_fraction = evidence.slash_fraction();
 		let reporter = reporter.or_else(|| pallet_authorship::Pallet::<T>::author());
 
 		// We check the equivocation within the context of its set id (and associated session).
 		let set_id = evidence.set_id();
-		let round = *evidence.round_number();
 		let set_id_session_index = crate::SetIdSession::<T>::get(set_id)
-			.ok_or(Error::<T>::InvalidEquivocationProofSession)?;
+			.ok_or(Error::<T>::InvalidEquivocationProofSessionMember)?;
 
 		// Check that the session id for the membership proof is within the bounds
 		// of the set id reported in the equivocation.
@@ -325,20 +362,24 @@ where
 		let validator_count = key_owner_proof.validator_count();
 		let session_index = key_owner_proof.session();
 		if session_index != set_id_session_index {
-			return Err(Error::<T>::InvalidEquivocationProofSession.into())
+			return Err(Error::<T>::InvalidEquivocationProofSession.into());
 		}
 
 		// Validate the key ownership proof extracting the id of the offender.
 		let offender =
 			evidence.checked_offender::<P>().ok_or(Error::<T>::InvalidKeyOwnershipProof)?;
 
+		let round = *evidence.round_number();
+		let equivocation_type = evidence.equivocation_type();
+
 		evidence.check_equivocation_proof()?;
 
 		let offence = EquivocationOffence {
-			time_slot: TimeSlot { set_id, round },
+			slot: Slot { set_id, round, equivocation_type },
 			session_index,
 			validator_set_count: validator_count,
 			offender,
+			maybe_slash_fraction,
 		};
 		R::report_offence(reporter.into_iter().collect(), offence)
 			.map_err(|_| Error::<T>::DuplicateOffenceReport.into())
@@ -359,7 +400,7 @@ impl<T: Config> Pallet<T> {
 					target: LOG_TARGET,
 					"rejecting unsigned report equivocation transaction because it is not local/in-block."
 				);
-				return InvalidTransaction::Call.into()
+				return InvalidTransaction::Call.into();
 			},
 		}
 

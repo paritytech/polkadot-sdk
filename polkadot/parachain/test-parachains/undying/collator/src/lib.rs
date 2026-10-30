@@ -17,20 +17,18 @@
 //! Collator for the `Undying` test parachain.
 
 use codec::{Decode, Encode};
-use futures::{channel::oneshot, StreamExt};
+use futures::StreamExt;
 use futures_timer::Delay;
 use polkadot_cli::ProvideRuntimeApi;
 use polkadot_node_primitives::{
-	maybe_compress_pov, AvailableData, Collation, CollationResult, CollationSecondedSignal,
-	CollatorFn, MaybeCompressedPoV, PoV, Statement, UpwardMessages,
+	maybe_compress_pov, AvailableData, Collation, CollationResult, CollatorFn, MaybeCompressedPoV,
+	PoV, UpwardMessages,
 };
-use polkadot_node_subsystem::messages::CollatorProtocolMessage;
+use polkadot_node_subsystem::messages::{CollatorProtocolMessage, Segment, SegmentEntry};
 use polkadot_primitives::{
-	vstaging::{
-		CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, DEFAULT_CLAIM_QUEUE_OFFSET,
-	},
-	CandidateCommitments, CollatorId, CollatorPair, CoreIndex, Hash, Id as ParaId,
-	OccupiedCoreAssumption,
+	CandidateCommitments, CandidateDescriptorV2, CandidateReceiptV2, ClaimQueueOffset, CollatorId,
+	CollatorPair, CoreIndex, Hash, Id as ParaId, OccupiedCoreAssumption,
+	DEFAULT_CLAIM_QUEUE_OFFSET,
 };
 use polkadot_service::{Handle, NewFull, ParachainHost};
 use sc_client_api::client::BlockchainEvents;
@@ -38,10 +36,7 @@ use sp_core::Pair;
 
 use std::{
 	collections::HashMap,
-	sync::{
-		atomic::{AtomicU32, Ordering},
-		Arc, Mutex,
-	},
+	sync::{Arc, Mutex},
 	time::Duration,
 };
 use test_parachain_undying::{
@@ -60,6 +55,7 @@ fn calculate_head_and_state_for_number(
 	number: u64,
 	graveyard_size: usize,
 	pvf_complexity: u32,
+	experimental_send_approved_peer: bool,
 ) -> Result<(HeadData, GraveyardState), StateMismatch> {
 	let index = 0u64;
 	let mut graveyard = vec![0u8; graveyard_size * graveyard_size];
@@ -77,7 +73,12 @@ fn calculate_head_and_state_for_number(
 		HeadData { number: 0, parent_hash: Hash::default().into(), post_state: hash_state(&state) };
 
 	while head.number < number {
-		let block = BlockData { state, tombstones: 1_000, iterations: pvf_complexity };
+		let block = BlockData {
+			state,
+			tombstones: 1_000,
+			iterations: pvf_complexity,
+			experimental_send_approved_peer,
+		};
 		let (new_head, new_state, _) = execute(head.hash(), head.clone(), block)?;
 		head = new_head;
 		state = new_state;
@@ -104,11 +105,16 @@ struct State {
 	/// TODO: Implement a static state, and use `ballast` to inflate the PoV size. This way
 	/// we can just discard the `ballast` before processing the block.
 	graveyard_size: usize,
+	experimental_send_approved_peer: bool,
 }
 
 impl State {
 	/// Init the genesis state.
-	fn genesis(graveyard_size: usize, pvf_complexity: u32) -> Self {
+	fn genesis(
+		graveyard_size: usize,
+		pvf_complexity: u32,
+		experimental_send_approved_peer: bool,
+	) -> Self {
 		let index = 0u64;
 		let mut graveyard = vec![0u8; graveyard_size * graveyard_size];
 		let zombies = 0;
@@ -132,6 +138,7 @@ impl State {
 			best_block: 0,
 			pvf_complexity,
 			graveyard_size,
+			experimental_send_approved_peer,
 		}
 	}
 
@@ -155,12 +162,18 @@ impl State {
 				parent_head.number,
 				self.graveyard_size,
 				self.pvf_complexity,
+				self.experimental_send_approved_peer,
 			)?;
 			state
 		};
 
 		// Start with prev state and transaction to execute (place 1000 tombstones).
-		let block = BlockData { state, tombstones: 1000, iterations: self.pvf_complexity };
+		let block = BlockData {
+			state,
+			tombstones: 1000,
+			iterations: self.pvf_complexity,
+			experimental_send_approved_peer: self.experimental_send_approved_peer,
+		};
 
 		let (new_head, new_state, upward_messages) =
 			execute(parent_head.hash(), parent_head, block.clone())?;
@@ -178,19 +191,22 @@ impl State {
 pub struct Collator {
 	state: Arc<Mutex<State>>,
 	key: CollatorPair,
-	seconded_collations: Arc<AtomicU32>,
 }
 
 impl Default for Collator {
 	fn default() -> Self {
-		Self::new(DEFAULT_POV_SIZE, DEFAULT_PVF_COMPLEXITY)
+		Self::new(DEFAULT_POV_SIZE, DEFAULT_PVF_COMPLEXITY, false)
 	}
 }
 
 impl Collator {
 	/// Create a new collator instance with the state initialized from genesis and `pov_size`
 	/// parameter. The same parameter needs to be passed when exporting the genesis state.
-	pub fn new(pov_size: usize, pvf_complexity: u32) -> Self {
+	pub fn new(
+		pov_size: usize,
+		pvf_complexity: u32,
+		experimental_send_approved_peer: bool,
+	) -> Self {
 		let graveyard_size = ((pov_size / std::mem::size_of::<u8>()) as f64).sqrt().ceil() as usize;
 
 		log::info!(
@@ -208,9 +224,12 @@ impl Collator {
 		);
 
 		Self {
-			state: Arc::new(Mutex::new(State::genesis(graveyard_size, pvf_complexity))),
+			state: Arc::new(Mutex::new(State::genesis(
+				graveyard_size,
+				pvf_complexity,
+				experimental_send_approved_peer,
+			))),
 			key: CollatorPair::generate().0,
-			seconded_collations: Arc::new(AtomicU32::new(0)),
 		}
 	}
 
@@ -246,12 +265,11 @@ impl Collator {
 	/// undying parachain.
 	pub fn create_collation_function(
 		&self,
-		spawner: impl SpawnNamed + Clone + 'static,
+		_spawner: impl SpawnNamed + Clone + 'static,
 	) -> CollatorFn {
 		use futures::FutureExt as _;
 
 		let state = self.state.clone();
-		let seconded_collations = self.seconded_collations.clone();
 
 		Box::new(move |relay_parent, validation_data| {
 			let parent = match HeadData::decode(&mut &validation_data.parent_head.0[..]) {
@@ -261,7 +279,7 @@ impl Collator {
 						"Requested to build on top of malformed head-data: {:?}",
 						err,
 					);
-					return futures::future::ready(None).boxed()
+					return futures::future::ready(None).boxed();
 				},
 				Ok(p) => p,
 			};
@@ -275,7 +293,7 @@ impl Collator {
 							parent,
 							err,
 						);
-						return futures::future::ready(None).boxed()
+						return futures::future::ready(None).boxed();
 					},
 					Ok(x) => x,
 				};
@@ -313,32 +331,7 @@ impl Collator {
 				compressed_pov.block_data.0.len(),
 			);
 
-			let (result_sender, recv) = oneshot::channel::<CollationSecondedSignal>();
-			let seconded_collations = seconded_collations.clone();
-			spawner.spawn(
-				"undying-collator-seconded",
-				None,
-				async move {
-					if let Ok(res) = recv.await {
-						if !matches!(
-							res.statement.payload(),
-							Statement::Seconded(s) if s.descriptor.pov_hash() == compressed_pov.hash(),
-						) {
-							log::error!(
-								target: LOG_TARGET,
-								"Seconded statement should match our collation: {:?}",
-								res.statement.payload(),
-							);
-						}
-
-						seconded_collations.fetch_add(1, Ordering::Relaxed);
-					}
-				}
-				.boxed(),
-			);
-
-			async move { Some(CollationResult { collation, result_sender: Some(result_sender) }) }
-				.boxed()
+			async move { Some(CollationResult { collation }) }.boxed()
 		})
 	}
 
@@ -351,23 +344,7 @@ impl Collator {
 			let current_block = self.state.lock().unwrap().best_block;
 
 			if start_block + blocks <= current_block {
-				return
-			}
-		}
-	}
-
-	/// Wait until `seconded` collations of this collator are seconded by a parachain validator.
-	///
-	/// The internal counter isn't de-duplicating the collations when counting the number of
-	/// seconded collations. This means when one collation is seconded by X validators, we record X
-	/// seconded messages.
-	pub async fn wait_for_seconded_collations(&self, seconded: u32) {
-		let seconded_collations = self.seconded_collations.clone();
-		loop {
-			Delay::new(Duration::from_secs(1)).await;
-
-			if seconded <= seconded_collations.load(Ordering::Relaxed) {
-				return
+				return;
 			}
 		}
 	}
@@ -509,7 +486,6 @@ impl Collator {
 
 					let persisted_validation_data_hash = validation_data.hash();
 					let parent_head_data = validation_data.parent_head.clone();
-					let parent_head_data_hash = validation_data.parent_head.hash();
 
 					// Apply compression to the block data.
 					let pov = {
@@ -602,20 +578,29 @@ impl Collator {
 						};
 
 						// We cannot use SubmitCollation here because it includes an additional
-						// check for the core index by calling `check_core_index`. This check
+						// check for the core index by calling `parse_ump_signals`. This check
 						// enforces that the parachain always selects the correct core by comparing
 						// the descriptor and commitments core indexes. To bypass this check, we are
-						// simulating the behavior of SubmitCollation while skipping the core index
+						// simulating the behavior of SubmitCollation while skipping ump signals
 						// validation.
 						overseer_handle
 							.send_msg(
-								CollatorProtocolMessage::DistributeCollation {
-									candidate_receipt,
-									parent_head_data_hash,
-									pov: pov.clone(),
-									parent_head_data: parent_head_data.clone(),
-									result_sender: None,
+								CollatorProtocolMessage::DistributeSegment {
 									core_index: *core_index,
+									para_id,
+									segment: Segment::V2(SegmentEntry {
+										relay_parent,
+										session_index,
+										validation_code_hash,
+										persisted_validation_data_hash,
+										erasure_root,
+										commitments_hash: candidate_receipt.commitments_hash,
+										output_head_data_hash: candidate_receipt
+											.descriptor()
+											.para_head(),
+										pov: pov.clone(),
+										parent_head_data: parent_head_data.clone(),
+									}),
 								},
 								"Collator",
 							)
@@ -638,7 +623,7 @@ mod tests {
 	#[test]
 	fn collator_works() {
 		let spawner = sp_core::testing::TaskExecutor::new();
-		let collator = Collator::new(1_000, 1);
+		let collator = Collator::new(1_000, 1, false);
 		let collation_function = collator.create_collation_function(spawner);
 
 		for i in 0..5 {
@@ -692,17 +677,17 @@ mod tests {
 
 	#[test]
 	fn advance_to_state_when_parent_head_is_missing() {
-		let collator = Collator::new(1_000, 1);
+		let collator = Collator::new(1_000, 1, false);
 		let graveyard_size = collator.state.lock().unwrap().graveyard_size;
 
-		let mut head = calculate_head_and_state_for_number(10, graveyard_size, 1).unwrap().0;
+		let mut head = calculate_head_and_state_for_number(10, graveyard_size, 1, false).unwrap().0;
 
 		for i in 1..10 {
 			head = collator.state.lock().unwrap().advance(head).unwrap().1;
 			assert_eq!(10 + i, head.number);
 		}
 
-		let collator = Collator::new(1_000, 1);
+		let collator = Collator::new(1_000, 1, false);
 		let mut second_head = collator
 			.state
 			.lock()

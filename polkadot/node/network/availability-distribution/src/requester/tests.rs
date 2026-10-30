@@ -21,7 +21,7 @@ use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	vstaging::CoreState, BlockNumber, ChunkIndex, ExecutorParams, GroupIndex, Hash, Id as ParaId,
+	ApprovalVotingParams, BlockNumber, ChunkIndex, CoreState, GroupIndex, Hash, Id as ParaId,
 	ScheduledCore, SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
@@ -83,7 +83,7 @@ fn spawn_virtual_overseer(
 			loop {
 				let msg = ctx_handle.try_recv().await;
 				if msg.is_none() {
-					break
+					break;
 				}
 				match msg.unwrap() {
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(..)) => {},
@@ -119,12 +119,12 @@ fn spawn_virtual_overseer(
 								tx.send(Ok(Some(test_state.session_info.clone())))
 									.expect("Receiver should be alive.");
 							},
-							RuntimeApiRequest::SessionExecutorParams(_, tx) => {
-								tx.send(Ok(Some(ExecutorParams::default())))
-									.expect("Receiver should be alive.");
-							},
 							RuntimeApiRequest::NodeFeatures(_, tx) => {
 								tx.send(Ok(node_features_with_mapping_enabled()))
+									.expect("Receiver should be alive.");
+							},
+							RuntimeApiRequest::ApprovalVotingParams(_, tx) => {
+								tx.send(Ok(ApprovalVotingParams::default()))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::AvailabilityCores(tx) => {

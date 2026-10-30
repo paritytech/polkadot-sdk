@@ -18,17 +18,29 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::{assert_ok, weights::Weight};
 use frame_system::RawOrigin;
-use xcm::latest::prelude::*;
+use xcm::{
+	latest::{prelude::*, MAX_ITEMS_IN_ASSETS},
+	MAX_INSTRUCTIONS_TO_DECODE,
+};
 use xcm_builder::EnsureDelivery;
-use xcm_executor::traits::FeeReason;
+use xcm_executor::traits::{FeeReason, WeightBounds};
 
 type RuntimeOrigin<T> = <T as frame_system::Config>::RuntimeOrigin;
+
+/// Upper bound for a caller-supplied XCM blob, in bytes.
+///
+/// Meant to be kept in sync with `pallet_revive::limits::CALLDATA_BYTES`, the largest input a
+/// contract can hand to the XCM precompile.
+const MAX_XCM_BLOB_BYTES: u32 = 128 * 1024;
+
+/// Upper bound for the `weigh_message` benchmark's input, in bytes.
+const MAX_WEIGHABLE_BLOB_BYTES: u32 = 8 * 1024;
 
 /// Pallet we're benchmarking here.
 pub struct Pallet<T: Config>(crate::Pallet<T>);
 
 /// Trait that must be implemented by runtime to be able to benchmark pallet properly.
-pub trait Config: crate::Config {
+pub trait Config: crate::Config + pallet_balances::Config {
 	/// Helper that ensures successful delivery for extrinsics/benchmarks which need `SendXcm`.
 	type DeliveryHelper: EnsureDelivery;
 
@@ -81,9 +93,35 @@ pub trait Config: crate::Config {
 	///
 	/// Used, for example, in the benchmark for `claim_assets`.
 	fn get_asset() -> Asset;
+
+	/// Gets `n` distinct fungible assets handled by the `AssetTransactor`, preferring the most
+	/// expensive-to-deposit kind the chain supports. Used only in benchmarks.
+	///
+	/// The default ignores `n` and returns a single asset, so it measures a ~zero per-asset
+	/// slope: that is sound only for chains whose `AssetTransactor` handles one asset kind.
+	/// Chains that can deposit several MUST override it, otherwise `claim_assets` is
+	/// under-weighted; there is no generic default, since which ids are depositable is
+	/// runtime-specific.
+	fn get_assets(_n: u32) -> Assets {
+		Self::get_asset().into()
+	}
+
+	/// Wraps `calls` into a single call that dispatches all of them, e.g. `utility.batch`. Used
+	/// only by [`helpers::worst_case_weighable_message`].
+	///
+	/// If `None`, that worst case degrades to a single call and measures a far cheaper slope,
+	/// so chains with a batching pallet MUST implement this or the precompile that charges
+	/// `weigh_message` is under-charged.
+	fn batch_call(
+		_calls: Vec<<Self as crate::Config>::RuntimeCall>,
+	) -> Option<<Self as crate::Config>::RuntimeCall> {
+		None
+	}
 }
 
-#[benchmarks]
+// The `From<Call<T>>` bound lets `weigh_message` build its own worst-case payload; every
+// `construct_runtime!` runtime provides that conversion.
+#[benchmarks(where <T as crate::Config>::RuntimeCall: From<crate::Call<T>>)]
 mod benchmarks {
 	use super::*;
 
@@ -92,7 +130,7 @@ mod benchmarks {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let msg = Xcm(vec![ClearOrigin]);
 		let versioned_dest: VersionedLocation = T::reachable_dest()
@@ -127,7 +165,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner()))
 		{
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -141,24 +179,47 @@ mod benchmarks {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id },
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let asset_to_mint = Asset { fun: Fungible(*amount), id: asset.id.clone() };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset_to_mint,
+					&context,
 				)
 				.map_err(|error| {
-					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Fungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error.1);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(_instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&asset,
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset, &context,
 				)
 				.map_err(|error| {
-					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Nonfungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!(
+						"Nonfungible asset couldn't be deposited, error: {:?}",
+						error.1
+					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
@@ -197,7 +258,7 @@ mod benchmarks {
 			origin_location.clone(),
 			assets.clone().into_inner(),
 		)) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -211,24 +272,47 @@ mod benchmarks {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let asset_to_mint = Asset { fun: Fungible(*amount), id: asset.id.clone() };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset_to_mint,
+					&context,
 				)
 				.map_err(|error| {
-					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Fungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error.1);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(_instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&asset,
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset, &context,
 				)
 				.map_err(|error| {
-					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Nonfungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!(
+						"Nonfungible asset couldn't be deposited, error: {:?}",
+						error.1
+					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
@@ -312,7 +396,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let msg = Xcm(vec![ClearOrigin]);
 		if !T::XcmExecuteFilter::contains(&(origin_location, msg.clone())) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let versioned_msg = VersionedXcm::from(msg);
 
@@ -396,7 +480,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateSupportedVersion,
 				Weight::zero(),
 			);
@@ -411,7 +495,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateVersionNotifiers,
 				Weight::zero(),
 			);
@@ -433,7 +517,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::NotifyCurrentTargets(None),
 				Weight::zero(),
 			);
@@ -454,7 +538,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::NotifyCurrentTargets(None),
 				Weight::zero(),
 			);
@@ -470,7 +554,7 @@ mod benchmarks {
 		let bad_location: Location = Plurality { id: BodyId::Unit, part: BodyPart::Voice }.into();
 		let bad_location = VersionedLocation::from(bad_location)
 			.into_version(older_xcm_version)
-			.expect("Version convertion should work");
+			.expect("Version conversion should work");
 		let current_version = T::AdvertisedXcmVersion::get();
 		VersionNotifyTargets::<T>::insert(
 			current_version,
@@ -480,7 +564,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -496,7 +580,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -514,7 +598,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			crate::Pallet::<T>::check_xcm_version_change(
+			crate::Pallet::<T>::lazy_migration(
 				VersionMigrationStage::MigrateAndNotifyOldTargets,
 				Weight::zero(),
 			);
@@ -574,18 +658,35 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn claim_assets() -> Result<(), BenchmarkError> {
+	fn claim_assets(n: Linear<1, { MAX_ITEMS_IN_ASSETS as u32 }>) -> Result<(), BenchmarkError> {
 		let claim_origin = RawOrigin::Signed(whitelisted_caller());
 		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
-		let asset: Asset = T::get_asset();
-		// Trap assets for claiming later
-		crate::Pallet::<T>::drop_assets(
-			&claim_location,
-			asset.clone().into(),
-			&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
-		);
-		let versioned_assets = VersionedAssets::from(Assets::from(asset));
+		let assets = T::get_assets(n);
+		if (assets.len() as u32) < n {
+			tracing::warn!(
+				target: "xcm::benchmarking::pallet_xcm::claim_assets",
+				requested = n,
+				distinct = assets.len(),
+				"`get_assets` returned fewer distinct assets than requested; the weight will \
+				 have a ~zero per-asset slope. Chains that can deposit multiple distinct \
+				 assets must override `benchmarking::Config::get_assets`.",
+			);
+		}
+		let context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
+		// Trap all assets with a single `drop_assets` call: the trap is keyed on the hash
+		// of the whole asset set, so the claim must match it exactly.
+		let mut holding = AssetsInHolding::new();
+		for asset in assets.inner() {
+			let minted =
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(asset, &context)
+					.map_err(|_| {
+						BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+					})?;
+			holding.subsume_assets(minted);
+		}
+		crate::Pallet::<T>::drop_assets(&claim_location, holding, &context);
+		let versioned_assets = VersionedAssets::from(assets);
 
 		#[extrinsic_call]
 		_(
@@ -597,6 +698,168 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn add_authorized_alias() -> Result<(), BenchmarkError> {
+		let who: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(who.clone());
+		let origin_location: VersionedLocation =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into())
+				.map_err(|_| {
+					tracing::error!(
+						target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+						?origin,
+						"try_origin failed",
+					);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?
+				.into();
+
+		// Give some multiple of ED
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max-1` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
+		}
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::add_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+		})?;
+		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
+		AuthorizedAliases::<T>::insert(&origin_location, entry);
+
+		// now benchmark adding new alias
+		let aliaser: VersionedLocation =
+			Location::new(1, [Parachain(1234), AccountId32 { network: None, id: [42_u8; 32] }])
+				.into();
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser), None);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn remove_authorized_alias() -> Result<(), BenchmarkError> {
+		let who: T::AccountId = whitelisted_caller();
+		let origin = RawOrigin::Signed(who.clone());
+		let error = BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX));
+		let origin_location =
+			T::ExecuteXcmOrigin::try_origin(origin.clone().into()).map_err(|_| {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin,
+					"try_origin failed",
+				);
+				error.clone()
+			})?;
+		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
+		// Location conversions.
+		let origin_location: VersionedLocation = match origin_location.unpack() {
+			(0, [AccountId32 { network: _, id }]) => {
+				Location::new(0, [AccountId32 { network: None, id: *id }]).into()
+			},
+			_ => {
+				tracing::error!(
+					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+					?origin_location,
+					"unexpected origin failed",
+				);
+				return Err(error.clone());
+			},
+		};
+
+		// Give some multiple of ED
+		let balance = T::ExistentialDeposit::get() * 1000000u32.into();
+		let _ =
+			<pallet_balances::Pallet::<T> as frame_support::traits::Currency<_>>::make_free_balance_be(&who, balance);
+
+		let mut existing_aliases = BoundedVec::<OriginAliaser, MaxAuthorizedAliases>::new();
+		// prepopulate list with `max` aliases to benchmark worst case
+		for i in 1..MaxAuthorizedAliases::get() + 1 {
+			let alias =
+				Location::new(1, [Parachain(i), AccountId32 { network: None, id: [42_u8; 32] }])
+					.into();
+			let aliaser = OriginAliaser { location: alias, expiry: None };
+			existing_aliases.try_push(aliaser).unwrap()
+		}
+		let footprint = aliasers_footprint(existing_aliases.len());
+		let ticket = TicketOf::<T>::new(&who, footprint).map_err(|e| {
+			tracing::error!(
+				target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
+				?who,
+				?footprint,
+				error=?e,
+				"could not create ticket",
+			);
+			error
+		})?;
+		let entry = AuthorizedAliasesEntry { aliasers: existing_aliases, ticket };
+		AuthorizedAliases::<T>::insert(&origin_location, entry);
+
+		// now benchmark removing an alias
+		let aliaser_to_remove: VersionedLocation =
+			Location::new(1, [Parachain(1), AccountId32 { network: None, id: [42_u8; 32] }]).into();
+
+		#[extrinsic_call]
+		_(origin, Box::new(aliaser_to_remove));
+
+		Ok(())
+	}
+
+	/// Decoding and weighing a caller-supplied message of `n` bytes.
+	///
+	/// The decode is measured, and goes through the precompile's entry point, because the
+	/// precompile charges this weight before decoding.
+	///
+	/// `n` stops at [`MAX_WEIGHABLE_BLOB_BYTES`] rather than [`MAX_XCM_BLOB_BYTES`].
+	#[benchmark]
+	fn weigh_message(n: Linear<0, MAX_WEIGHABLE_BLOB_BYTES>) -> Result<(), BenchmarkError> {
+		let bytes = helpers::worst_case_weighable_message::<T>(n);
+
+		#[block]
+		{
+			let decoded =
+				VersionedXcm::<<T as crate::Config>::RuntimeCall>::
+					decode_all_with_mem_and_depth_limit(&mut &bytes[..])
+					.expect("blob was just built by `worst_case_weighable_message`; qed");
+			let mut message: Xcm<<T as crate::Config>::RuntimeCall> =
+				decoded.try_into().expect("blob was built at the latest version; qed");
+			// A message this large may legitimately exceed limits; finding that out is the cost
+			// being measured.
+			let _ = <T as crate::Config>::Weigher::weight(&mut message, Weight::MAX);
+		}
+
+		Ok(())
+	}
+
+	/// Only decoding, not weighing, a caller-supplied message of `n` bytes.
+	#[benchmark]
+	fn decode_xcm(n: Linear<0, MAX_XCM_BLOB_BYTES>) -> Result<(), BenchmarkError> {
+		let bytes = helpers::worst_case_decodable_blob(n);
+
+		#[block]
+		{
+			let _ = VersionedXcm::<()>::decode_all_with_mem_and_depth_limit(&mut &bytes[..]);
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::mock::new_test_ext_with_balances(Vec::new()),
@@ -604,8 +867,108 @@ mod benchmarks {
 	);
 }
 
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::mock::Test;
+
+	/// A worst case that does not decode measures nothing, and the shared instruction budget
+	/// makes that easy to trip by accident.
+	#[test]
+	fn worst_case_weighable_message_decodes() {
+		for target_bytes in [0, 1, 1024, MAX_WEIGHABLE_BLOB_BYTES] {
+			let bytes = helpers::worst_case_weighable_message::<Test>(target_bytes);
+			assert!(
+				bytes.len() >= target_bytes as usize,
+				"undershooting the target would under-charge",
+			);
+			VersionedXcm::<<Test as crate::Config>::RuntimeCall>::decode_all_with_mem_and_depth_limit(
+				&mut &bytes[..],
+			)
+			.expect("worst case must decode, otherwise the benchmark measures nothing");
+		}
+	}
+}
+
 pub mod helpers {
 	use super::*;
+
+	/// The worst case for `WeightInfo::weigh_message`: a `Transact` carrying
+	/// `batch_call([pallet_xcm.execute(Xcm([])); N])`, encoded, of at least `target_bytes` bytes.
+	///
+	/// A `Transact` payload resolving to a local call is decoded eagerly, and weighing it recurses
+	/// `get_dispatch_info()` over every batched call, so both costs scale with the number of calls
+	/// the blob can hold. The worst case therefore spends `target_bytes` on as many calls as it
+	/// fits, leaving the inner messages empty.
+	///
+	/// Empty also keeps the blob decodable: `MAX_INSTRUCTIONS_TO_DECODE` is one budget shared by
+	/// every nesting level, so instructions inside a `Transact` spend the outer allowance.
+	///
+	/// Keep `target_bytes` at or below `MAX_WEIGHABLE_BLOB_BYTES`.
+	pub fn worst_case_weighable_message<T: Config>(target_bytes: u32) -> Vec<u8>
+	where
+		<T as crate::Config>::RuntimeCall: From<crate::Call<T>>,
+	{
+		let inner = Xcm::<<T as crate::Config>::RuntimeCall>(Vec::new());
+		let one: <T as crate::Config>::RuntimeCall = crate::Call::<T>::execute {
+			message: Box::new(VersionedXcm::from(inner)),
+			max_weight: Weight::zero(),
+		}
+		.into();
+		let count = (target_bytes as usize).div_ceil(one.encode().len());
+
+		let call = T::batch_call(vec![one.clone(); count]).unwrap_or_else(|| {
+			tracing::warn!(
+				target: "xcm::benchmarking::pallet_xcm::weigh_message",
+				"`batch_call` is not implemented, so the measured per-byte slope is far below \
+				 the real worst case. Chains with a batching pallet must implement \
+				 `benchmarking::Config::batch_call`.",
+			);
+			one
+		});
+
+		let message = Xcm::<<T as crate::Config>::RuntimeCall>(vec![Transact {
+			origin_kind: OriginKind::SovereignAccount,
+			fallback_max_weight: None,
+			call: call.encode().into(),
+		}]);
+		VersionedXcm::from(message).encode()
+	}
+
+	/// The worst case for `WeightInfo::decode_xcm`: an encoded `VersionedXcm<()>` of at least
+	/// `target_bytes` bytes, as expensive to decode as the format allows.
+	///
+	/// `MAX_INSTRUCTIONS_TO_DECODE` caps the instruction count, so bytes past a hundred have to
+	/// come from payloads. The densest decodable one is `ReserveAssetDeposited` carrying
+	/// max-length asset ids, where nearly every byte is a nested enum or bounded-vec decode
+	/// rather than a byte copy.
+	pub fn worst_case_decodable_blob(target_bytes: u32) -> Vec<u8> {
+		// `index` keeps the ids distinct so that `Assets` does not deduplicate them.
+		let dense_asset = |index: u32| -> Asset {
+			let mut data = [0u8; 32];
+			data[..4].copy_from_slice(&index.to_le_bytes());
+			Asset {
+				id: AssetId(Location::new(1, [GeneralKey { length: 32, data }; 8])),
+				fun: Fungible(u128::MAX),
+			}
+		};
+
+		// Round up; undershooting `target_bytes` would under-charge.
+		let asset_len = dense_asset(0).encode().len();
+		let count = (target_bytes as usize).div_ceil(asset_len);
+		debug_assert!(
+			count <= MAX_INSTRUCTIONS_TO_DECODE as usize * MAX_ITEMS_IN_ASSETS,
+			"more assets than the instruction limit can carry; the blob would not decode",
+		);
+		let assets = (0..count).map(|index| dense_asset(index as u32)).collect::<Vec<_>>();
+
+		let instructions = assets
+			.chunks(MAX_ITEMS_IN_ASSETS)
+			.map(|chunk| ReserveAssetDeposited(chunk.to_vec().into()))
+			.collect::<Vec<Instruction<()>>>();
+		VersionedXcm::from(Xcm::<()>(instructions)).encode()
+	}
+
 	pub fn native_teleport_as_asset_transfer<T>(
 		native_asset_location: Location,
 		destination: Location,

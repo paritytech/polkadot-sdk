@@ -25,8 +25,8 @@ use crate::{
 	ops::{add_block_entry, canonicalize, force_approve, NewCandidateInfo},
 };
 use polkadot_primitives::{
-	vstaging::{CandidateReceiptV2 as CandidateReceipt, MutateDescriptorV2},
-	BlockNumber, CandidateHash, CoreIndex, GroupIndex, Hash,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex,
+	Hash, MutateDescriptorV2,
 };
 
 use polkadot_node_subsystem_util::database::Database;
@@ -390,7 +390,7 @@ fn canonicalize_works() {
 					assert!(load_candidate_entry(store.as_ref(), &TEST_CONFIG, &c_hash)
 						.unwrap()
 						.is_none());
-					continue
+					continue;
 				},
 				Some(i) => (
 					load_candidate_entry(store.as_ref(), &TEST_CONFIG, &c_hash).unwrap().unwrap(),
@@ -413,10 +413,11 @@ fn canonicalize_works() {
 					assert!(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash)
 						.unwrap()
 						.is_none());
-					continue
+					continue;
 				},
-				Some(i) =>
-					(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i),
+				Some(i) => {
+					(load_block_entry(store.as_ref(), &TEST_CONFIG, &hash).unwrap().unwrap(), i)
+				},
 			};
 
 			assert_eq!(entry.candidates.len(), with_candidates.len());

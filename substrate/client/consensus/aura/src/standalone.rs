@@ -20,15 +20,14 @@
 
 use std::fmt::Debug;
 
-use log::trace;
-
 use codec::Codec;
 
 use sc_client_api::UsageProvider;
-use sp_api::{Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProvideRuntimeApi};
 use sp_application_crypto::{AppCrypto, AppPublic};
 use sp_blockchain::Result as CResult;
 use sp_consensus::Error as ConsensusError;
+use sp_consensus_aura::digests::SealLookupError;
 use sp_consensus_slots::Slot;
 use sp_core::crypto::{ByteArray, Pair};
 use sp_keystore::KeystorePtr;
@@ -38,10 +37,9 @@ use sp_runtime::{
 };
 
 pub use sc_consensus_slots::check_equivocation;
+pub use sp_consensus_aura::digests::PreDigestLookupError;
 
-use super::{
-	AuraApi, AuthorityId, CompatibilityMode, CompatibleDigestItem, SlotDuration, LOG_TARGET,
-};
+use super::{AuraApi, AuthorityId, CompatibilityMode, CompatibleDigestItem, SlotDuration};
 
 /// Get the slot duration for Aura by reading from a runtime API at the best block's state.
 pub fn slot_duration<A, B, C>(client: &C) -> CResult<SlotDuration>
@@ -62,13 +60,15 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	client.runtime_api().slot_duration(block_hash).map_err(|err| err.into())
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+	runtime_api.slot_duration(block_hash).map_err(|err| err.into())
 }
 
 /// Get the slot author for given block along with authorities.
 pub fn slot_author<P: Pair>(slot: Slot, authorities: &[AuthorityId<P>]) -> Option<&AuthorityId<P>> {
 	if authorities.is_empty() {
-		return None
+		return None;
 	}
 
 	let idx = *slot % (authorities.len() as u64);
@@ -141,7 +141,7 @@ where
 		})?;
 
 	let signature = signature
-		.clone()
+		.as_slice()
 		.try_into()
 		.map_err(|_| ConsensusError::InvalidSignature(signature, public.to_raw_vec()))?;
 
@@ -151,39 +151,17 @@ where
 	Ok(signature_digest_item)
 }
 
-/// Errors in pre-digest lookup.
-#[derive(Debug, thiserror::Error)]
-pub enum PreDigestLookupError {
-	/// Multiple Aura pre-runtime headers
-	#[error("Multiple Aura pre-runtime headers")]
-	MultipleHeaders,
-	/// No Aura pre-runtime digest found
-	#[error("No Aura pre-runtime digest found")]
-	NoDigestFound,
-}
-
 /// Extract a pre-digest from a block header.
 ///
 /// This fails if there is no pre-digest or there are multiple.
 ///
 /// Returns the `slot` stored in the pre-digest or an error if no pre-digest was found.
-pub fn find_pre_digest<B: BlockT, Signature: Codec>(
-	header: &B::Header,
-) -> Result<Slot, PreDigestLookupError> {
+pub fn find_pre_digest<B: BlockT>(header: &B::Header) -> Result<Slot, PreDigestLookupError> {
 	if header.number().is_zero() {
-		return Ok(0.into())
+		return Ok(0.into());
 	}
 
-	let mut pre_digest: Option<Slot> = None;
-	for log in header.digest().logs() {
-		trace!(target: LOG_TARGET, "Checking log {:?}", log);
-		match (CompatibleDigestItem::<Signature>::as_aura_pre_digest(log), pre_digest.is_some()) {
-			(Some(_), true) => return Err(PreDigestLookupError::MultipleHeaders),
-			(None, _) => trace!(target: LOG_TARGET, "Ignoring digest not meant for us"),
-			(s, false) => pre_digest = s,
-		}
-	}
-	pre_digest.ok_or_else(|| PreDigestLookupError::NoDigestFound)
+	sp_consensus_aura::digests::find_pre_digest(header.digest())
 }
 
 /// Fetch the current set of authorities from the runtime at a specific block.
@@ -203,12 +181,12 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	let runtime_api = client.runtime_api();
+	let mut runtime_api = client.runtime_api();
 
 	match compatibility_mode {
 		CompatibilityMode::None => {},
 		// Use `initialize_block` until we hit the block that should disable the mode.
-		CompatibilityMode::UseInitializeBlock { until } =>
+		CompatibilityMode::UseInitializeBlock { until } => {
 			if *until > context_block_number {
 				runtime_api
 					.initialize_block(
@@ -222,9 +200,11 @@ where
 						),
 					)
 					.map_err(|_| ConsensusError::InvalidAuthoritiesSet)?;
-			},
+			}
+		},
 	}
 
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	runtime_api
 		.authorities(parent_hash)
 		.ok()
@@ -242,8 +222,9 @@ where
 	C: ProvideRuntimeApi<B>,
 	C::Api: AuraApi<B, A>,
 {
-	client
-		.runtime_api()
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+	runtime_api
 		.authorities(parent_hash)
 		.ok()
 		.ok_or(ConsensusError::InvalidAuthoritiesSet)
@@ -294,16 +275,19 @@ where
 	P::Signature: Codec,
 	P::Public: Codec + PartialEq + Clone,
 {
-	let seal = header.digest_mut().pop().ok_or(SealVerificationError::Unsealed)?;
+	let (seal, sig) = sp_consensus_aura::digests::take_seal::<P::Signature>(header.digest_mut())
+		.map_err(|e| match e {
+			SealLookupError::Unsealed => SealVerificationError::Unsealed,
+			SealLookupError::BadSeal | SealLookupError::MultipleSeals => {
+				SealVerificationError::BadSeal
+			},
+		})?;
 
-	let sig = seal.as_aura_seal().ok_or(SealVerificationError::BadSeal)?;
-
-	let slot = find_pre_digest::<B, P::Signature>(&header)
-		.map_err(SealVerificationError::InvalidPreDigest)?;
+	let slot = find_pre_digest::<B>(&header).map_err(SealVerificationError::InvalidPreDigest)?;
 
 	if slot > slot_now {
 		header.digest_mut().push(seal);
-		return Err(SealVerificationError::Deferred(header, slot))
+		return Err(SealVerificationError::Deferred(header, slot));
 	} else {
 		// check the signature is valid under the expected authority and
 		// chain state.

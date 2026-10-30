@@ -21,12 +21,15 @@ use crate::types::{ExtendedPeerInfo, SyncEvent, SyncEventStream, SyncStatus, Syn
 use futures::{channel::oneshot, Stream};
 use sc_network_types::PeerId;
 
-use sc_consensus::{BlockImportError, BlockImportStatus, JustificationSyncLink, Link};
+use sc_consensus::{
+	BlockImportError, BlockImportStatus, JustificationImportResult, JustificationSyncLink, Link,
+};
 use sc_network::{NetworkBlock, NetworkSyncForkRequest};
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{
+	collections::HashSet,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -44,7 +47,7 @@ pub enum ToServiceCommand<B: BlockT> {
 		usize,
 		Vec<(Result<BlockImportStatus<NumberFor<B>>, BlockImportError>, B::Hash)>,
 	),
-	JustificationImported(PeerId, B::Hash, NumberFor<B>, bool),
+	JustificationImported(PeerId, B::Hash, NumberFor<B>, JustificationImportResult),
 	AnnounceBlock(B::Hash, Option<Vec<u8>>),
 	NewBestBlockImported(B::Hash, NumberFor<B>),
 	EventStream(TracingUnboundedSender<SyncEvent>),
@@ -54,6 +57,8 @@ pub enum ToServiceCommand<B: BlockT> {
 	NumSyncRequests(oneshot::Sender<usize>),
 	PeersInfo(oneshot::Sender<Vec<(PeerId, ExtendedPeerInfo<B>)>>),
 	OnBlockFinalized(B::Hash, B::Header),
+	/// Dynamically update the no-slot peer set. Does not modify the static no-slot peer set.
+	SetNoSlotPeers(HashSet<PeerId>),
 	// Status {
 	// 	pending_response: oneshot::Sender<SyncStatus<B>>,
 	// },
@@ -121,6 +126,26 @@ impl<B: BlockT> SyncingService<B> {
 	/// Notify the `SyncingEngine` that a block has been finalized.
 	pub fn on_block_finalized(&self, hash: B::Hash, header: B::Header) {
 		let _ = self.tx.unbounded_send(ToServiceCommand::OnBlockFinalized(hash, header));
+	}
+
+	/// Replace the dynamic set of no-slot peer set.
+	///
+	/// The engine maintains a per-role inbound-peer counter on top of the underlying network's
+	/// reserved-peer handling (since <https://github.com/paritytech/substrate/pull/14603>) to ensure the
+	/// `--in-peers` budget is enforced specifically for full peers in default notification set.
+	/// A peer in either the static (config-time) or dynamic (this)
+	/// no-slot set bypasses that counter, exactly mirroring what reserved-peer handling does at
+	/// the network layer.
+	///
+	/// Each call replaces the dynamic set. The engine reconciles against its previous dynamic set.
+	/// Peers added are promoted (taken off the inbound budget). Peers removed are demoted
+	/// (counted again, or disconnected if doing so would now exceed `--in-peers`).
+	///
+	/// Callers that maintain a dynamic reserved-peer relationship (e.g. parachain
+	/// collator-discovery) must call this in lockstep with `set_reserved_peers` using the same
+	/// peer set, so the two layers stay in sync.
+	pub fn set_no_slot_peers(&self, peers: HashSet<PeerId>) {
+		let _ = self.tx.unbounded_send(ToServiceCommand::SetNoSlotPeers(peers));
 	}
 
 	/// Get sync status
@@ -192,11 +217,14 @@ impl<B: BlockT> Link<B> for SyncingService<B> {
 		who: PeerId,
 		hash: &B::Hash,
 		number: NumberFor<B>,
-		success: bool,
+		import_result: JustificationImportResult,
 	) {
-		let _ = self
-			.tx
-			.unbounded_send(ToServiceCommand::JustificationImported(who, *hash, number, success));
+		let _ = self.tx.unbounded_send(ToServiceCommand::JustificationImported(
+			who,
+			*hash,
+			number,
+			import_result,
+		));
 	}
 
 	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {

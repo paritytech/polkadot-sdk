@@ -6,7 +6,6 @@ pub mod bits;
 pub mod bls;
 pub mod config;
 pub mod merkle_proof;
-pub mod receipt;
 pub mod ssz;
 pub mod types;
 pub mod updates;
@@ -15,10 +14,10 @@ pub mod updates;
 mod serde_utils;
 
 pub use types::{
-	AncestryProof, BeaconHeader, CompactBeaconState, ExecutionPayloadHeader, ExecutionProof,
-	FinalizedHeaderState, Fork, ForkData, ForkVersion, ForkVersions, Mode, PublicKey, Signature,
-	SigningData, SyncAggregate, SyncCommittee, SyncCommitteePrepared,
-	VersionedExecutionPayloadHeader,
+	AncestryProof, BeaconHeader, CommitmentError, CommitmentScheme, CompactBeaconState,
+	ExecutionCommitment, ExecutionPayloadHeader, ExecutionProof, FinalizedHeaderState, Fork,
+	ForkData, ForkVersion, ForkVersions, Mode, PublicKey, Signature, SigningData, SyncAggregate,
+	SyncCommittee, SyncCommitteePrepared, VersionedExecutionPayloadHeader,
 };
 pub use updates::{CheckpointUpdate, NextSyncCommitteeUpdate, Update};
 
@@ -29,4 +28,3 @@ pub use bls::{
 	BlsError, PublicKeyPrepared, SignaturePrepared,
 };
 pub use merkle_proof::verify_merkle_branch;
-pub use receipt::verify_receipt_proof;

@@ -1,0 +1,14 @@
+title: Introduce `SelectCore` digest in Cumulus
+doc:
+- audience: Node Dev
+  description: |-
+    Right now the select core information are only send as an `UMPSignal` to the relay chain. For a node to calculate the core of a block, it is first required execute the block to call `selected_core` runtime api.
+
+    This pull requests solves this by putting the selected core into a digest. Thus, the node can directly fetch it from the header.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: minor
+- name: cumulus-primitives-core
+  bump: minor
+- name: polkadot-primitives
+  bump: minor

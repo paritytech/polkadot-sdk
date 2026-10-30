@@ -1,0 +1,11 @@
+title: Fix prestate create traces
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix an issue on the prestate tracer, for CREATE trace.
+    The tracer was not reporting the created code properly in the post state trace.
+
+    Also added tests in evm-test-suite https://github.com/paritytech/evm-test-suite/pull/97
+crates:
+- name: pallet-revive
+  bump: patch

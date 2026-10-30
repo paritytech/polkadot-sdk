@@ -1,0 +1,9 @@
+title: '[pallet-revive] fix salt endianness '
+doc:
+- audience: Runtime Dev
+  description: 'fix <https://github.com/paritytech/polkadot-sdk/issues/9769>
+
+    '
+crates:
+- name: pallet-revive
+  bump: patch

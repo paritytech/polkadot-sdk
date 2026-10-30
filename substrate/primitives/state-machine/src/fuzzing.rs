@@ -151,7 +151,7 @@ where
 	H::Out: codec::Decode + codec::Encode + 'static,
 {
 	fn process_item(&mut self, item: FuzzAppendItem) {
-		let mut ext = Ext::new(&mut self.overlay, &mut self.backend, None);
+		let mut ext = Ext::new(&mut self.overlay, &mut self.backend, None, StateVersion::default());
 		match item {
 			FuzzAppendItem::Append(value, length) => {
 				let value = vec![value as u8; length as usize];
@@ -161,7 +161,12 @@ where
 			FuzzAppendItem::Append50(value, length) => {
 				let value = vec![value as u8; length as usize];
 				for _ in 0..50 {
-					let mut ext = Ext::new(&mut self.overlay, &mut self.backend, None);
+					let mut ext = Ext::new(
+						&mut self.overlay,
+						&mut self.backend,
+						None,
+						StateVersion::default(),
+					);
 					ext.storage_append(self.key.clone(), value.clone());
 					self.reference.append(self.key.clone(), value.clone(), &mut self.backend);
 				}
@@ -187,7 +192,7 @@ where
 			},
 			FuzzAppendItem::RollbackTransaction => {
 				if self.transaction_depth == 0 {
-					return
+					return;
 				}
 				self.transaction_depth -= 1;
 				self.reference.rollback_transaction();
@@ -195,7 +200,7 @@ where
 			},
 			FuzzAppendItem::CommitTransaction => {
 				if self.transaction_depth == 0 {
-					return
+					return;
 				}
 				self.transaction_depth -= 1;
 				self.reference.commit_transaction();
@@ -205,7 +210,7 @@ where
 	}
 
 	fn check_final_state(&mut self) {
-		let mut ext = Ext::new(&mut self.overlay, &mut self.backend, None);
+		let mut ext = Ext::new(&mut self.overlay, &mut self.backend, None, StateVersion::default());
 		let left = ext.storage(self.key.as_slice());
 		let right = self.reference.get(self.key.as_slice());
 		assert_eq!(left.as_ref(), right);

@@ -1,0 +1,11 @@
+title: '[pallet-revive] update tracing rpc methods parameters'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Update debug_trace* methods to support extra parameters supported by geth.
+    The method now can specify a `timeout` and whether or not we should only return a trace for the top call.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major

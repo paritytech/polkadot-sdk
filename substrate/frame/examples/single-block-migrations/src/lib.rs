@@ -35,7 +35,8 @@
 //! If weight is a concern or you are not sure which type of migration to use, you should probably
 //! use a multi-block migration.
 //!
-//! TODO: Link above to multi-block migration example.
+//! See the [`pallet-example-mbm`](https://paritytech.github.io/polkadot-sdk/master/pallet_example_mbm/index.html)
+//! pallet for an example of a multi-block migration.
 //!
 //! ## Pallet Overview
 //!
@@ -55,12 +56,10 @@
 #![doc = docify::embed!("src/lib.rs", CurrentAndPreviousValue)]
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
 #![doc = docify::embed!("src/lib.rs", Value)]
-//!
 //! In StorageVersion V1 of the pallet when [`set_value`](crate::Call::set_value) is called, the
 //! new value is stored in the `current` field of [`CurrentAndPreviousValue`], and the previous
 //! value (if it exists) is stored in the `previous` field.
 #![doc = docify::embed!("src/lib.rs", pallet_calls)]
-//!
 //! ## Why a migration is necessary
 //!
 //! Without a migration, there will be a discrepancy between the on-chain storage for [`Value`] (in
@@ -167,14 +166,11 @@ extern crate alloc;
 
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
-use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
 #[docify::export]
-#[derive(
-	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct CurrentAndPreviousValue {
 	/// The most recently set value.
 	pub current: u32,

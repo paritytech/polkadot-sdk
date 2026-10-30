@@ -1,0 +1,9 @@
+title: 'revert: aura tracker'
+doc:
+- audience: Node Operator
+  description: Reverts non-public-interface changes of https://github.com/paritytech/polkadot-sdk/pull/9272.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch
+- name: sc-consensus-aura
+  bump: patch

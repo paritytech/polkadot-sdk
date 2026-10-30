@@ -70,6 +70,7 @@ pub struct TestPoolBuilder {
 	ready_limits: sc_transaction_pool::PoolLimit,
 	future_limits: sc_transaction_pool::PoolLimit,
 	mempool_max_transactions_count: usize,
+	finality_timeout_threshold: Option<usize>,
 }
 
 impl Default for TestPoolBuilder {
@@ -80,6 +81,7 @@ impl Default for TestPoolBuilder {
 			ready_limits: PoolLimit { count: 8192, total_bytes: 20 * 1024 * 1024 },
 			future_limits: PoolLimit { count: 512, total_bytes: 1 * 1024 * 1024 },
 			mempool_max_transactions_count: usize::MAX,
+			finality_timeout_threshold: None,
 		}
 	}
 }
@@ -124,6 +126,11 @@ impl TestPoolBuilder {
 		self
 	}
 
+	pub fn with_finality_timeout_threshold(mut self, threshold: usize) -> Self {
+		self.finality_timeout_threshold = Some(threshold);
+		self
+	}
+
 	pub fn build(
 		self,
 	) -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::executor::ThreadPool) {
@@ -139,8 +146,13 @@ impl TestPoolBuilder {
 			.map(|blocks| blocks[0].0.header.hash())
 			.expect("there is block 0. qed");
 
-		let (pool, txpool_task) = if self.use_default_limits {
-			ForkAwareTxPool::new_test(api.clone(), genesis_hash, genesis_hash)
+		let (pool, [txpool_task, blocking_task]) = if self.use_default_limits {
+			ForkAwareTxPool::new_test(
+				api.clone(),
+				genesis_hash,
+				genesis_hash,
+				self.finality_timeout_threshold,
+			)
 		} else {
 			ForkAwareTxPool::new_test_with_limits(
 				api.clone(),
@@ -149,11 +161,13 @@ impl TestPoolBuilder {
 				self.ready_limits,
 				self.future_limits,
 				self.mempool_max_transactions_count,
+				self.finality_timeout_threshold,
 			)
 		};
 
 		let thread_pool = futures::executor::ThreadPool::new().unwrap();
 		thread_pool.spawn_ok(txpool_task);
+		thread_pool.spawn_ok(blocking_task);
 
 		(pool, api, thread_pool)
 	}
@@ -176,7 +190,7 @@ pub fn pool() -> (ForkAwareTxPool<TestApi, Block>, Arc<TestApi>, futures::execut
 macro_rules! assert_pool_status {
 	($hash:expr, $pool:expr, $ready:expr, $future:expr) => {
 		{
-			log::debug!(target:LOG_TARGET, "stats: {:#?}", $pool.status_all());
+			tracing::debug!(target: LOG_TARGET, stats = ?$pool.status_all(), "Pool stats");
 			let status = &$pool.status_all()[&$hash];
 			assert_eq!(status.ready, $ready, "ready");
 			assert_eq!(status.future, $future, "future");
@@ -185,13 +199,27 @@ macro_rules! assert_pool_status {
 }
 
 #[macro_export]
+macro_rules! assert_ready_at_light_iterator {
+	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
+		let ready_iterator = $pool.ready_at_light($hash).now_or_never().unwrap();
+		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
+		let output: Vec<_> = ready_iterator.collect();
+		tracing::debug!(target: LOG_TARGET, ?expected, "expected");
+		tracing::debug!(target: LOG_TARGET, ?output, "output");
+		let output = output.into_iter().map(|t|t.hash).collect::<Vec<_>>();
+		assert_eq!(expected.len(), output.len());
+		assert_eq!(output,expected);
+	}};
+}
+
+#[macro_export]
 macro_rules! assert_ready_iterator {
 	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
 		let ready_iterator = $pool.ready_at($hash).now_or_never().unwrap();
 		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
 		let output: Vec<_> = ready_iterator.collect();
-		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
-		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		tracing::debug!(target: LOG_TARGET, ?expected, "expected");
+		tracing::debug!(target: LOG_TARGET, ?output, "output");
 		let output = output.into_iter().map(|t|t.hash).collect::<Vec<_>>();
 		assert_eq!(expected.len(), output.len());
 		assert_eq!(output,expected);
@@ -203,8 +231,8 @@ macro_rules! assert_future_iterator {
 	($hash:expr, $pool:expr, [$( $xt:expr ),*]) => {{
 		let futures = $pool.futures_at($hash).unwrap();
 		let expected = vec![ $($pool.api().hash_and_length(&$xt).0),*];
-		log::debug!(target:LOG_TARGET, "expected: {:#?}", expected);
-		log::debug!(target:LOG_TARGET, "output: {:#?}", futures);
+		tracing::debug!(target: LOG_TARGET, ?expected, "expected");
+		tracing::debug!(target: LOG_TARGET, ?futures, "output");
 		assert_eq!(expected.len(), futures.len());
 		let hsf = futures.iter().map(|a| a.hash).collect::<std::collections::HashSet<_>>();
 		let hse = expected.into_iter().collect::<std::collections::HashSet<_>>();
@@ -216,9 +244,14 @@ macro_rules! assert_future_iterator {
 macro_rules! assert_watcher_stream {
 	($stream:ident, [$( $event:expr ),*]) => {{
 		let expected = vec![ $($event),*];
-		log::debug!(target:LOG_TARGET, "expected: {:#?} {}, block now:", expected, expected.len());
+		tracing::debug!(
+			target: LOG_TARGET,
+			?expected,
+			expected_len = expected.len(),
+    		"block now"
+		);
 		let output = futures::executor::block_on_stream($stream).take(expected.len()).collect::<Vec<_>>();
-		log::debug!(target:LOG_TARGET, "output: {:#?}", output);
+		tracing::debug!(target: LOG_TARGET, ?output, "Output");
 		assert_eq!(expected.len(), output.len());
 		assert_eq!(output, expected);
 	}};
@@ -229,6 +262,7 @@ pub const SOURCE: TransactionSource = TransactionSource::External;
 #[cfg(test)]
 pub mod test_chain_with_forks {
 	use super::*;
+	use tracing::debug;
 
 	pub fn chain(
 		include_xts: Option<&dyn Fn(usize, usize) -> bool>,
@@ -260,10 +294,10 @@ pub mod test_chain_with_forks {
 			let mut parent = genesis;
 			for block in 1..6 {
 				let xts = if include_xts.map_or(true, |v| v(fork, block)) {
-					log::debug!("{},{} -> add", fork, block);
+					debug!(fork = %fork, block = %block, "-> add");
 					vec![uxt(account, (200 + block - 1) as u64)]
 				} else {
-					log::debug!("{},{} -> skip", fork, block);
+					debug!(fork = %fork, block = %block, "-> skip");
 					vec![]
 				};
 				let header = api.push_block_with_parent(parent, xts, true);
@@ -284,12 +318,11 @@ pub mod test_chain_with_forks {
 			.iter()
 			.map(|a| api.chain().read().nonces.get(&hash).unwrap().get(a).map(Clone::clone))
 			.collect::<Vec<_>>();
-		log::debug!(
-			"number: {:?} hash: {:?}, parent: {:?}, nonces:{:?}",
-			header.number,
-			header.hash(),
-			header.parent_hash,
-			nonces
+		debug!(
+			number = ?header.number,
+			hash = ?header.hash(),
+			parent = ?header.parent_hash,
+			?nonces
 		);
 	}
 
@@ -297,12 +330,12 @@ pub mod test_chain_with_forks {
 	fn test_chain_works() {
 		sp_tracing::try_init_simple();
 		let (api, f) = chain(None);
-		log::debug!("forks: {f:#?}");
+		debug!(forks = ?f, "forks");
 		f[0].iter().for_each(|h| print_block(api.clone(), h.hash()));
 		f[1].iter().for_each(|h| print_block(api.clone(), h.hash()));
 		let tr = api.tree_route(f[0][5].hash(), f[1][5].hash()).unwrap();
-		log::debug!("{:#?}", tr);
-		log::debug!("e:{:#?}", tr.enacted());
-		log::debug!("r:{:#?}", tr.retracted());
+		debug!(?tr);
+		debug!(enacted = ?tr.enacted());
+		debug!(retracted = ?tr.retracted());
 	}
 }

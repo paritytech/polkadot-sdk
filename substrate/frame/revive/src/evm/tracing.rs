@@ -15,120 +15,89 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	evm::{decode_revert_reason, CallLog, CallTrace, CallType},
-	primitives::ExecReturnValue,
-	tracing::Tracer,
-	DispatchError, Weight,
+	Config,
+	evm::{CallTrace, ExecutionTrace, Trace},
+	tracing::Tracing,
 };
-use alloc::{format, string::ToString, vec::Vec};
-use sp_core::{H160, H256, U256};
 
-/// A Tracer that reports logs and nested call traces transactions.
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-pub struct CallTracer<Gas, GasMapper> {
-	/// Map Weight to Gas equivalent.
-	gas_mapper: GasMapper,
-	/// Store all in-progress CallTrace instances.
-	traces: Vec<CallTrace<Gas>>,
-	/// Stack of indices to the current active traces.
-	current_stack: Vec<usize>,
-	/// whether or not to capture logs.
-	with_log: bool,
+mod call_tracing;
+pub use call_tracing::*;
+
+mod prestate_tracing;
+pub use prestate_tracing::*;
+
+mod execution_tracing;
+pub use execution_tracing::*;
+
+/// A composite tracer.
+#[derive(derive_more::From, Debug)]
+pub enum Tracer<T> {
+	/// A tracer that traces calls.
+	CallTracer(CallTracer),
+	/// A tracer that traces the prestate.
+	PrestateTracer(PrestateTracer<T>),
+	/// A tracer that traces opcodes and syscalls.
+	ExecutionTracer(ExecutionTracer),
 }
 
-impl<Gas, GasMapper> CallTracer<Gas, GasMapper> {
-	/// Create a new [`CallTracer`] instance.
-	pub fn new(with_log: bool, gas_mapper: GasMapper) -> Self {
-		Self { gas_mapper, traces: Vec::new(), current_stack: Vec::new(), with_log }
+impl<T: Config> Tracer<T>
+where
+	T::Nonce: Into<u32>,
+{
+	/// Returns an empty trace.
+	pub fn empty_trace(&self) -> Trace {
+		match self {
+			Tracer::CallTracer(_) => CallTrace::default().into(),
+			Tracer::PrestateTracer(tracer) => tracer.empty_trace().into(),
+			Tracer::ExecutionTracer(_) => ExecutionTrace::default().into(),
+		}
 	}
 
-	/// Collect the traces and return them.
-	pub fn collect_traces(&mut self) -> Vec<CallTrace<Gas>> {
-		core::mem::take(&mut self.traces)
+	/// Get a mutable trait‐object reference to the inner tracer.
+	pub fn as_tracing(&mut self) -> &mut (dyn Tracing + 'static) {
+		match self {
+			Tracer::CallTracer(inner) => inner as &mut dyn Tracing,
+			Tracer::PrestateTracer(inner) => inner as &mut dyn Tracing,
+			Tracer::ExecutionTracer(inner) => inner as &mut dyn Tracing,
+		}
 	}
-}
 
-impl<Gas: Default, GasMapper: Fn(Weight) -> Gas> Tracer for CallTracer<Gas, GasMapper> {
-	fn enter_child_span(
-		&mut self,
-		from: H160,
-		to: H160,
-		is_delegate_call: bool,
-		is_read_only: bool,
-		value: U256,
-		input: &[u8],
-		gas_left: Weight,
-	) {
-		let call_type = if is_read_only {
-			CallType::StaticCall
-		} else if is_delegate_call {
-			CallType::DelegateCall
-		} else {
-			CallType::Call
+	/// Collect the trace, or `None` when it is empty. A tracer can run and still produce an empty
+	/// trace (e.g. a prestate diff with no state changes), so the caller decides what `None` means.
+	pub fn collect_trace(self) -> Option<Trace> {
+		let empty = self.empty_trace();
+		let trace = match self {
+			Tracer::CallTracer(inner) => Trace::Call(inner.collect_trace().unwrap_or_default()),
+			Tracer::PrestateTracer(inner) => Trace::Prestate(inner.collect_trace()),
+			Tracer::ExecutionTracer(inner) => Trace::Execution(inner.collect_trace()),
 		};
+		(trace != empty).then_some(trace)
+	}
 
-		self.traces.push(CallTrace {
-			from,
-			to,
-			value: if is_read_only { None } else { Some(value) },
-			call_type,
-			input: input.to_vec().into(),
-			gas: (self.gas_mapper)(gas_left),
-			..Default::default()
+	/// Check if this is an execution tracer.
+	pub fn is_execution_tracer(&self) -> bool {
+		matches!(self, Tracer::ExecutionTracer(_))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::{ExtBuilder, Test};
+
+	// An extrinsic that runs no contract code must produce no trace, so
+	// consumers can rely on a trace's presence to mean a contract actually ran.
+	#[test]
+	fn collect_trace_is_none_when_nothing_executed() {
+		ExtBuilder::default().build().execute_with(|| {
+			let call = Tracer::<Test>::CallTracer(CallTracer::new(Default::default()));
+			let prestate = Tracer::<Test>::PrestateTracer(PrestateTracer::new(Default::default()));
+			let execution =
+				Tracer::<Test>::ExecutionTracer(ExecutionTracer::new(Default::default()));
+
+			assert_eq!(call.collect_trace(), None);
+			assert_eq!(prestate.collect_trace(), None);
+			assert_eq!(execution.collect_trace(), None);
 		});
-
-		// Push the index onto the stack of the current active trace
-		self.current_stack.push(self.traces.len() - 1);
-	}
-
-	fn log_event(&mut self, address: H160, topics: &[H256], data: &[u8]) {
-		if !self.with_log {
-			return;
-		}
-
-		let current_index = self.current_stack.last().unwrap();
-		let position = self.traces[*current_index].calls.len() as u32;
-		let log =
-			CallLog { address, topics: topics.to_vec(), data: data.to_vec().into(), position };
-
-		let current_index = *self.current_stack.last().unwrap();
-		self.traces[current_index].logs.push(log);
-	}
-
-	fn exit_child_span(&mut self, output: &ExecReturnValue, gas_used: Weight) {
-		// Set the output of the current trace
-		let current_index = self.current_stack.pop().unwrap();
-		let trace = &mut self.traces[current_index];
-		trace.output = output.data.clone().into();
-		trace.gas_used = (self.gas_mapper)(gas_used);
-
-		if output.did_revert() {
-			trace.revert_reason = decode_revert_reason(&output.data);
-			trace.error = Some("execution reverted".to_string());
-		}
-
-		//  Move the current trace into its parent
-		if let Some(parent_index) = self.current_stack.last() {
-			let child_trace = self.traces.remove(current_index);
-			self.traces[*parent_index].calls.push(child_trace);
-		}
-	}
-	fn exit_child_span_with_error(&mut self, error: DispatchError, gas_used: Weight) {
-		// Set the output of the current trace
-		let current_index = self.current_stack.pop().unwrap();
-		let trace = &mut self.traces[current_index];
-		trace.gas_used = (self.gas_mapper)(gas_used);
-
-		trace.error = match error {
-			DispatchError::Module(sp_runtime::ModuleError { message, .. }) =>
-				Some(message.unwrap_or_default().to_string()),
-			_ => Some(format!("{:?}", error)),
-		};
-
-		//  Move the current trace into its parent
-		if let Some(parent_index) = self.current_stack.last() {
-			let child_trace = self.traces.remove(current_index);
-			self.traces[*parent_index].calls.push(child_trace);
-		}
 	}
 }

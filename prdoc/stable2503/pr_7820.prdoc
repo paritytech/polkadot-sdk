@@ -1,0 +1,8 @@
+title: 'Make pallet-transaction-payment-benchmark work with ed 0'
+doc:
+- audience: Runtime Dev
+  description: |
+    Make it possible to use the transaction-payment work with existential deposit 0
+crates:
+- name: pallet-transaction-payment
+  bump: minor

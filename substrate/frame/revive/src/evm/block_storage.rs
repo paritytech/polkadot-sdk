@@ -1,0 +1,413 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+use crate::{
+	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
+	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
+	Pallet, ReceiptGasInfo, ReceiptInfoData, ReceiptLogsCommitted, StorageDeposit, Weight,
+	dispatch_result,
+	evm::{
+		block_hash::{
+			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, OutsideFrameLog,
+			SyntheticTransactionInfo,
+		},
+		burn_with_dust,
+		fees::InfoT,
+	},
+	limits,
+	sp_runtime::traits::{One, Zero},
+	weights::WeightInfo,
+};
+use alloc::vec::Vec;
+use environmental::environmental;
+use frame_support::{
+	dispatch::DispatchInfo,
+	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
+	storage::with_transaction,
+	traits::Get,
+};
+use sp_core::U256;
+use sp_runtime::{Saturating, TransactionOutcome};
+
+/// The maximum number of block hashes to keep in the history.
+///
+/// Note: This might be made configurable in the future.
+pub const BLOCK_HASH_COUNT: u32 = 256;
+
+// Accumulates the receipt's events (logs) for the current transaction
+// that are needed to construct the final transaction receipt.
+environmental!(receipt: AccumulateReceipt);
+
+/// Result of an Ethereum context call execution.
+pub(crate) struct EthereumCallResult {
+	/// Receipt gas information.
+	pub receipt_gas_info: ReceiptGasInfo,
+	/// The dispatch result with post-dispatch information.
+	pub result: DispatchResultWithPostInfo,
+}
+
+impl EthereumCallResult {
+	/// Create a new `EthereumCallResult` from contract execution details.
+	///
+	/// # Parameters
+	///
+	/// - `signer`: The signer of the transaction
+	/// - `output`: The execution result
+	/// - `gas_consumed`: The weight consumed during execution
+	/// - `base_call_weight`: The base call weight
+	/// - `encoded_len`: The length of the encoded transaction in bytes
+	/// - `info`: Dispatch information used for fee computation
+	/// - `effective_gas_price`: The EVM gas price
+	pub(crate) fn new<T: Config>(
+		signer: AccountIdOf<T>,
+		mut output: ContractResult<ExecReturnValue, BalanceOf<T>>,
+		mut base_call_weight: Weight,
+		encoded_len: u32,
+		info: &DispatchInfo,
+		effective_gas_price: U256,
+	) -> Self {
+		let effective_gas_price = effective_gas_price.max(Pallet::<T>::evm_base_fee());
+
+		if let Ok(retval) = &output.result &&
+			retval.did_revert()
+		{
+			output.result = Err(<Error<T>>::ContractReverted.into());
+		}
+
+		// Refund pre-charged revert event weight if the call succeeds.
+		if output.result.is_ok() {
+			base_call_weight.saturating_reduce(T::WeightInfo::deposit_eth_extrinsic_revert_event())
+		}
+
+		crate::if_tracing(|tracer| {
+			tracer.dispatch_result(base_call_weight, output.weight_consumed);
+		});
+
+		let result = dispatch_result(output.result, output.weight_consumed, base_call_weight);
+		let native_fee = T::FeeInfo::compute_actual_fee(encoded_len, &info, &result);
+		let result = T::FeeInfo::ensure_not_overdrawn(native_fee, result);
+
+		let fee = Pallet::<T>::convert_native_to_evm(match output.storage_deposit {
+			StorageDeposit::Refund(refund) => native_fee.saturating_sub(refund),
+			StorageDeposit::Charge(amount) => native_fee.saturating_add(amount),
+		});
+
+		let (mut gas_used, rest) = fee.div_mod(effective_gas_price);
+		if !rest.is_zero() {
+			gas_used = gas_used.saturating_add(1_u32.into());
+		}
+
+		let tx_cost = gas_used.saturating_mul(effective_gas_price);
+		if tx_cost > fee {
+			let round_up_fee = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(tx_cost - fee)
+				.expect("value fits into BalanceOf<T>; qed");
+			log::debug!(target: LOG_TARGET, "Collecting round_up fee from {signer:?}: {round_up_fee:?}");
+			let _ = burn_with_dust::<T>(&signer, round_up_fee)
+					.inspect_err(|e| log::debug!(target: LOG_TARGET, "Failed to collect round up fee {round_up_fee:?} from {signer:?}: {e:?}"));
+		}
+
+		Self { receipt_gas_info: ReceiptGasInfo { gas_used, effective_gas_price }, result }
+	}
+}
+
+/// Add the log to the open ethereum transaction's receipt, if there is one, and report whether
+/// there was. Outside an ethereum transaction the caller decides what becomes of the log.
+///
+/// A log only exists if the storage change that produced it took effect, so the receipt follows
+/// storage rollback: what the transaction has committed of its receipt is kept in
+/// [`ReceiptLogsCommitted`], and rolls back with any layer that rolls back, a contract frame or a
+/// `batch_all` around a plain call. The accumulator itself lives outside storage and is cut back
+/// to the committed state before every log, and once more in [`get_receipt_details`].
+pub fn capture_into_receipt<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
+	receipt::with(|receipt| {
+		receipt.reset_to(&ReceiptLogsCommitted::<T>::get());
+		receipt.add_log(contract, data, topics);
+		ReceiptLogsCommitted::<T>::put(receipt.committed());
+	})
+	.is_some()
+}
+
+/// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
+/// nowhere.
+///
+/// A frame outside an ethereum transaction does not use the block's outside-of-frame buffer. The
+/// drain of a buffered log is charged to the block, not to the frame, so one frame could fill the
+/// buffer for a few milliseconds of weight and drop every mirrored balance change behind it. Such
+/// a log stays a substrate-only event, as before the buffer existed. This keeps the `LOG` opcode's
+/// guarantee intact: a log takes effect or its frame reverts, and here it does take effect as a
+/// `ContractEmitted` event; there is no ethereum observer outside an ethereum transaction for it
+/// to be missing from.
+///
+/// So where a contract's log ends up depends on the entry point: `eth_transact` and
+/// `eth_substrate_call`, whose inner dispatch runs inside `with_ethereum_context`, put it on the
+/// receipt; `Revive::call` and an XCM `Transact` leave it substrate-only.
+pub fn capture_frame_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
+	capture_into_receipt::<T>(contract, data, topics);
+}
+
+/// Take the receipt details of the current transaction: the logs it committed, see
+/// [`capture_into_receipt`], and their bloom.
+///
+/// This method returns `None` if and only if the function is called
+/// from outside of the ethereum context.
+pub fn get_receipt_details<T: Config>() -> Option<(Vec<u8>, LogsBloom)> {
+	receipt::with(|receipt| {
+		receipt.reset_to(&ReceiptLogsCommitted::<T>::take());
+		let encoding = core::mem::take(&mut receipt.encoding);
+		let bloom = core::mem::take(&mut receipt.bloom);
+		(encoding, bloom)
+	})
+}
+
+/// Capture the receipt events emitted from the current ethereum
+#[cfg(feature = "runtime-benchmarks")]
+pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
+	receipt::using(&mut AccumulateReceipt::new(), f)
+}
+
+/// Execute the Ethereum call, and write the block storage transaction details.
+///
+/// # Parameters
+/// - transaction_encoded: The RLP encoded transaction bytes.
+/// - call: A closure that executes the transaction logic and returns an `EthereumCallResult`.
+pub fn with_ethereum_context<T: Config>(
+	transaction_encoded: Vec<u8>,
+	call: impl FnOnce() -> EthereumCallResult,
+) -> DispatchResultWithPostInfo {
+	receipt::using(&mut AccumulateReceipt::new(), || {
+		let (err, receipt_gas_info, post_info) =
+			with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
+				let EthereumCallResult { receipt_gas_info, result } = call();
+				match result {
+					Ok(post_info) => {
+						TransactionOutcome::Commit(Ok((None, receipt_gas_info, post_info)))
+					},
+					Err(err) => TransactionOutcome::Rollback(Ok((
+						Some(err.error),
+						receipt_gas_info,
+						err.post_info,
+					))),
+				}
+			})?;
+
+		if let Some(dispatch_error) = err {
+			// A failed transaction's receipt carries no logs: the dispatch rolled back, and with
+			// it what the transaction had committed to its receipt, whether its frames reverted
+			// or it failed after them, at the fee settlement.
+			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				false,
+				receipt_gas_info,
+			);
+			Ok(post_info)
+		} else {
+			// deposit a dummy event in benchmark mode
+			#[cfg(feature = "runtime-benchmarks")]
+			deposit_eth_extrinsic_revert_event::<T>(crate::Error::<T>::BenchmarkingError.into());
+
+			crate::block_storage::process_transaction::<T>(
+				transaction_encoded,
+				true,
+				receipt_gas_info,
+			);
+			Ok(post_info)
+		}
+	})
+}
+
+fn deposit_eth_extrinsic_revert_event<T: Config>(dispatch_error: DispatchError) {
+	Pallet::<T>::deposit_event(Event::<T>::EthExtrinsicRevert { dispatch_error });
+}
+
+/// Clear the storage used to capture the block hash related data.
+pub fn on_initialize<T: Config>() {
+	ReceiptInfoData::<T>::kill();
+	EthereumBlock::<T>::kill();
+}
+
+/// Conservative upper bound on the encoded length of [`synthetic_transaction`], for charging its
+/// per-transaction weight before the payload exists.
+pub const SYNTHETIC_LOG_TX_MAX_LEN: u32 = 128;
+
+/// The synthetic transaction that carries the block's outside-of-frame logs.
+///
+/// An unsigned legacy transaction whose only distinguishing field is the block number as `nonce`,
+/// so its hash is unique per block and deterministically reproducible offchain (the eth-rpc
+/// serving layer rebuilds the identical bytes from the block number and chain id). It is not a
+/// real, executable transaction — it exists only to give the aggregated logs a receipt so they
+/// enter the block's bloom, `receipts_root` and transaction trie.
+fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> {
+	crate::evm::synthetic_log_transaction(block_number.into(), T::ChainId::get().into())
+}
+
+/// Build the ethereum block and store it into the pallet storage.
+///
+/// `outside_frame_logs` are the block's logs emitted outside any ethereum transaction, in emission
+/// order. They are flushed as one synthetic transaction after every real one, and what the block
+/// committed to it is returned for the caller to store.
+///
+/// The block hash this stores is also what tells a later emitter that the drain has run, so a log
+/// from an `on_finalize` that `construct_runtime!` orders after this pallet's is not buffered; see
+/// [`Pallet::emit_contract_log_outside_frame`].
+pub fn on_finalize_build_eth_block<T: Config>(
+	block_number: BlockNumberFor<T>,
+	outside_frame_logs: Vec<OutsideFrameLog>,
+) -> Option<SyntheticTransactionInfo> {
+	let block_builder_ir = EthBlockBuilderIR::<T>::get();
+	EthBlockBuilderIR::<T>::kill();
+
+	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+	// The synthetic transaction is how the outside-of-frame logs enter the block bloom /
+	// receipts_root / transaction trie. It goes in after all real transactions, since the trie
+	// builders are order-sensitive.
+	let log_event_indices: Vec<u32> =
+		outside_frame_logs.iter().map(|log| log.event_index).collect();
+	if !outside_frame_logs.is_empty() {
+		let mut receipt = AccumulateReceipt::new();
+		for OutsideFrameLog { contract, topics, data, .. } in &outside_frame_logs {
+			receipt.add_log(contract, data, topics);
+		}
+		block_builder.process_transaction(
+			synthetic_transaction::<T>(block_number),
+			true,
+			ReceiptGasInfo { gas_used: U256::zero(), effective_gas_price: U256::zero() },
+			receipt.encoding,
+			receipt.bloom,
+		);
+	}
+
+	let (block, mut receipt_data) = block_builder.build_block(block_number);
+
+	// The synthetic transaction is processed after every real one, so its entry is the trailing
+	// one.
+	let synthetic = if !log_event_indices.is_empty() {
+		receipt_data
+			.pop()
+			.map(|gas_info| SyntheticTransactionInfo { gas_info, log_event_indices })
+	} else {
+		None
+	};
+
+	// Put the block hash into storage.
+	BlockHash::<T>::insert(block_number, block.hash);
+
+	// Prune older block hashes.
+	let block_hash_count = BLOCK_HASH_COUNT;
+	let to_remove = block_number.saturating_sub(block_hash_count.into()).saturating_sub(One::one());
+	if !Zero::is_zero(&to_remove) {
+		<BlockHash<T>>::remove(to_remove);
+	}
+	// Store the ETH block into the last block.
+	EthereumBlock::<T>::put(block);
+	// Store the receipt info data for offchain reconstruction.
+	ReceiptInfoData::<T>::put(receipt_data);
+
+	synthetic
+}
+
+/// Process a transaction payload with extra details.
+/// This stores the RLP encoded transaction and receipt details into storage.
+///
+/// The data is used during the `on_finalize` hook to reconstruct the ETH block.
+pub fn process_transaction<T: Config>(
+	transaction_encoded: Vec<u8>,
+	success: bool,
+	receipt_gas_info: ReceiptGasInfo,
+) {
+	// Method returns `None` only when called from outside of the ethereum context.
+	// This is not the case here, since this is called from within the
+	// ethereum context.
+	let (encoded_logs, bloom) = get_receipt_details::<T>().unwrap_or_default();
+
+	let block_builder_ir = EthBlockBuilderIR::<T>::get();
+	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+	block_builder.process_transaction(
+		transaction_encoded,
+		success,
+		receipt_gas_info,
+		encoded_logs,
+		bloom,
+	);
+
+	EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+}
+
+// The `EthereumBlockBuilder` builds the Ethereum-compatible block by maintaining
+// two incremental hash builders. Each builder accumulates entries until the trie
+// is finalized:
+//  1. `transactions_root` - builds the Merkle root of transaction payloads
+//  2. `receipts_root` - builds the Merkle root of transaction receipts (event logs)
+//
+// The `EthereumBlockBuilder` is serialized and deserialized to and from storage
+// on every transaction via the `EthereumBlockBuilderIR` object. This is needed until
+// the runtime exposes a better API to preserve the state between transactions (ie,
+// the global `environment!` is wiped because each transaction will instantiate a new
+// WASM instance).
+//
+// For this reason, we need to account for the memory used by the `EthereumBlockBuilder`
+// and for the pallet storage consumed by the `EthereumBlockBuilderIR`.
+//
+// ## Memory Usage Analysis
+//
+// The incremental hash builder accumulates entries until the trie is finalized.
+// The last added entry value is kept in memory until it can be hashed.
+// The keys are always ordered and the hashing happens when the next entry is added to
+// the trie. The common prefix of the current and previous keys forms the path into the
+// trie, and together with the value of the previous entry, a hash of 32 bytes is
+// computed.
+//
+// For this reason, the memory usage of the incremental hash builder is no greater
+// than two entries of maximum size, plus some marginal book-keeping overhead
+// (ignored to simplify calculations).
+//
+// `IncrementalHashBuilder = 2 * maximum size of the entry`
+//
+// Additionally, the block builder caches the first entry for each incremental hash.
+// The entry is loaded from storage into RAM when either:
+// - The block is finalized, OR
+// - After 127 transactions.
+// Therefore, an additional entry of maximum size is needed in memory.
+//
+// That gives us 3 items of maximum size per each hash builder.
+//
+// `EthereumBlockBuilder = 3 * (max size of transactions + max size of receipts)`
+// The maximum size of a transaction is limited by
+// `limits::MAX_TRANSACTION_PAYLOAD_SIZE`, while the maximum size of a receipt is
+// limited by `limits::EVENT_BYTES`.
+//
+// Similarly, this is the amount of pallet storage consumed by the
+// `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
+pub fn block_builder_bytes_usage(max_events_size: u32) -> u32 {
+	// A block builder requires 3 times the maximum size of the entry.
+	const MEMORY_COEFFICIENT: u32 = 3;
+
+	// Because events are not capped, and the builder cannot exceed the
+	// number of bytes received, the actual memory usage for receipts is:
+	// `receipts_hash_builder = min(events_per_tx * 3, max_events_size)`
+	// where `max_events_size` can be consumed by a single transaction.
+	// Since we don't know in advance the `events_per_tx`, we'll assume the
+	// worst case scenario.
+	let receipts_hash_builder = max_events_size;
+
+	// `transactions_root` hash builder
+	let transactions_hash_builder =
+		limits::MAX_TRANSACTION_PAYLOAD_SIZE.saturating_mul(MEMORY_COEFFICIENT);
+
+	receipts_hash_builder.saturating_add(transactions_hash_builder)
+}

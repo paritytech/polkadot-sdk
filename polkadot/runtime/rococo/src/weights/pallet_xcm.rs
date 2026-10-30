@@ -95,29 +95,15 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(7))
 			.saturating_add(T::DbWeight::get().writes(3))
 	}
-	/// Storage: `XcmPallet::ShouldRecordXcm` (r:1 w:0)
-	/// Proof: `XcmPallet::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
-	/// Storage: `System::Account` (r:1 w:1)
-	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
-	/// Storage: `Dmp::DeliveryFeeFactor` (r:1 w:0)
-	/// Proof: `Dmp::DeliveryFeeFactor` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `XcmPallet::SupportedVersion` (r:1 w:0)
-	/// Proof: `XcmPallet::SupportedVersion` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Dmp::DownwardMessageQueues` (r:1 w:1)
-	/// Proof: `Dmp::DownwardMessageQueues` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Paras::Heads` (r:1 w:0)
-	/// Proof: `Paras::Heads` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// Storage: `Dmp::DownwardMessageQueueHeads` (r:1 w:1)
-	/// Proof: `Dmp::DownwardMessageQueueHeads` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Benchmark::Override` (r:0 w:0)
+	/// Proof: `Benchmark::Override` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	fn reserve_transfer_assets() -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `297`
-		//  Estimated: `3762`
-		// Minimum execution time: 137_851_000 picoseconds.
-		Weight::from_parts(141_308_000, 0)
-			.saturating_add(Weight::from_parts(0, 3762))
-			.saturating_add(T::DbWeight::get().reads(7))
-			.saturating_add(T::DbWeight::get().writes(3))
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 18_446_744_073_709_551_000 picoseconds.
+		Weight::from_parts(18_446_744_073_709_551_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
 	}
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
@@ -362,7 +348,8 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 	/// Proof: `XcmPallet::ShouldRecordXcm` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `XcmPallet::AssetTraps` (r:1 w:1)
 	/// Proof: `XcmPallet::AssetTraps` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	fn claim_assets() -> Weight {
+	/// The range of component `n` is `[1, 20]`.
+	fn claim_assets(n: u32) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `23`
 		//  Estimated: `3488`
@@ -371,5 +358,51 @@ impl<T: frame_system::Config> pallet_xcm::WeightInfo for WeightInfo<T> {
 			.saturating_add(Weight::from_parts(0, 3488))
 			.saturating_add(T::DbWeight::get().reads(2))
 			.saturating_add(T::DbWeight::get().writes(1))
+			.saturating_add(
+				// INTERIM placeholder slope; replace with `/cmd bench` output before merging.
+				Weight::from_parts(47_000_000, 3675)
+					.saturating_add(T::DbWeight::get().reads(3))
+					.saturating_add(T::DbWeight::get().writes(3))
+					.saturating_mul(n.into()),
+			)
+	}
+	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn add_authorized_alias() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `361`
+		//  Estimated: `3826`
+		// Minimum execution time: 15_975_000 picoseconds.
+		Weight::from_parts(16_398_000, 3826)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `XcmPallet::AuthorizedAliases` (r:1 w:1)
+	/// Proof: `XcmPallet::AuthorizedAliases` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn remove_authorized_alias() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `400`
+		//  Estimated: `3865`
+		// Minimum execution time: 17_326_000 picoseconds.
+		Weight::from_parts(17_622_000, 3865)
+			.saturating_add(T::DbWeight::get().reads(1))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+
+	/// The range of component `n` is `[0, 131072]`.
+	fn weigh_message(n: u32) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 7_785_000 picoseconds.
+		Weight::from_parts(8_077_000, 0)
+			.saturating_add(Weight::from_parts(0, 0))
+			// INTERIM placeholder slope; replace with `/cmd bench` output before merging.
+			.saturating_add(Weight::from_parts(100_000, 0).saturating_mul(n.into()))
+	}
+	/// The range of component `n` is `[0, 131072]`.
+	fn decode_xcm(n: u32) -> Weight {
+		// INTERIM: decoding is a subset of weighing, so this over-estimates.
+		Self::weigh_message(n)
 	}
 }

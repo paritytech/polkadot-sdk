@@ -19,7 +19,9 @@
 
 use crate::{
 	system::AccountInfo,
-	tests::{ensure_ti_valid, Balances, ExtBuilder, System, Test, TestId, UseSystem},
+	tests::{
+		ensure_ti_valid, get_test_account, Balances, ExtBuilder, System, Test, TestId, UseSystem,
+	},
 	AccountData, ExtraFlags, TotalIssuance,
 };
 use frame_support::{
@@ -50,7 +52,7 @@ fn regression_historic_acc_does_not_evaporate_reserve() {
 		System::dec_consumers(&alice);
 
 		assert_eq!(
-			System::account(&alice),
+			get_test_account(alice),
 			AccountInfo {
 				data: AccountData {
 					free: 90,
@@ -116,10 +118,10 @@ fn try_state_works() {
 	use crate::{Config, Freezes, Holds};
 	use frame_support::{
 		storage,
-		traits::{Get, Hooks, VariantCount},
+		traits::{Hooks, VariantCount},
 	};
 
-	ExtBuilder::default().build_and_execute_with(|| {
+	ExtBuilder::default().auto_try_state(false).build_and_execute_with(|| {
 		storage::unhashed::put(
 			&Holds::<Test>::hashed_key_for(1),
 			&vec![0u8; <Test as Config>::RuntimeHoldReason::VARIANT_COUNT as usize + 1],
@@ -129,12 +131,10 @@ fn try_state_works() {
 			.contains("Found `Hold` with too many elements"));
 	});
 
-	ExtBuilder::default().build_and_execute_with(|| {
-		let max_freezes: u32 = <Test as Config>::MaxFreezes::get();
-
+	ExtBuilder::default().auto_try_state(false).build_and_execute_with(|| {
 		storage::unhashed::put(
 			&Freezes::<Test>::hashed_key_for(1),
-			&vec![0u8; max_freezes as usize + 1],
+			&vec![0u8; <Test as Config>::RuntimeFreezeReason::VARIANT_COUNT as usize + 1],
 		);
 
 		assert!(format!("{:?}", Balances::try_state(0).unwrap_err())

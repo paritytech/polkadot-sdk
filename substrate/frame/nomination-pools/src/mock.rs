@@ -18,8 +18,7 @@
 use super::*;
 use crate::{self as pools};
 use frame_support::{
-	assert_ok, derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Mutate, VariantCountOf},
+	assert_ok, derive_impl, ord_parameter_types, parameter_types, traits::fungible::Mutate,
 	PalletId,
 };
 use frame_system::{EnsureSignedBy, RawOrigin};
@@ -58,6 +57,7 @@ parameter_types! {
 	pub static MaxUnbonding: u32 = 8;
 	pub static StakingMinBond: Balance = 10;
 	pub storage Nominations: Option<Vec<AccountId>> = None;
+	pub static RestrictedAccounts: Vec<AccountId> = Vec::new();
 }
 pub struct StakingMock;
 
@@ -229,8 +229,8 @@ impl sp_staking::StakingInterface for StakingMock {
 		unimplemented!("method currently not used in testing")
 	}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(_era: EraIndex) {
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_era(_era: EraIndex) {
 		unimplemented!("method currently not used in testing")
 	}
 
@@ -365,8 +365,19 @@ impl DelegationInterface for DelegateMock {
 
 impl DelegateMock {
 	pub fn set_agent_balance(who: AccountId, delegated: Balance) {
+		Self::set_agent_balance_full(who, delegated, 0, 0);
+	}
+
+	/// Set the agent balance with explicit control over delegated, unclaimed_withdrawals, and
+	/// pending_slash. This is useful for simulating edge cases in tests.
+	pub fn set_agent_balance_full(
+		who: AccountId,
+		delegated: Balance,
+		unclaimed_withdrawals: Balance,
+		pending_slash: Balance,
+	) {
 		let mut agents = AgentBalanceMap::get();
-		agents.insert(who, (delegated, 0, 0));
+		agents.insert(who, (delegated, unclaimed_withdrawals, pending_slash));
 		AgentBalanceMap::set(&agents);
 	}
 
@@ -432,8 +443,6 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
-	type FreezeIdentifier = RuntimeFreezeReason;
-	type MaxFreezes = VariantCountOf<RuntimeFreezeReason>;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
 }
 
@@ -451,8 +460,15 @@ impl Convert<U256, Balance> for U256ToBalance {
 	}
 }
 
+pub struct RestrictMock;
+impl Contains<AccountId> for RestrictMock {
+	fn contains(who: &AccountId) -> bool {
+		RestrictedAccounts::get().contains(who)
+	}
+}
+
 parameter_types! {
-	pub static PostUnbondingPoolsWindow: u32 = 2;
+	pub static MaxUnbondingPools: u32 = 5;
 	pub static MaxMetadataLen: u32 = 2;
 	pub static CheckLevel: u8 = 255;
 	pub const PoolsPalletId: PalletId = PalletId(*b"py/nopls");
@@ -471,13 +487,14 @@ impl pools::Config for Runtime {
 	type BalanceToU256 = BalanceToU256;
 	type U256ToBalance = U256ToBalance;
 	type StakeAdapter = adapter::DelegateStake<Self, StakingMock, DelegateMock>;
-	type PostUnbondingPoolsWindow = PostUnbondingPoolsWindow;
+	type MaxUnbondingPools = MaxUnbondingPools;
 	type PalletId = PoolsPalletId;
 	type MaxMetadataLen = MaxMetadataLen;
 	type MaxUnbonding = MaxUnbonding;
 	type MaxPointsToBalance = frame_support::traits::ConstU8<10>;
 	type AdminOrigin = EnsureSignedBy<Admin, AccountId>;
 	type BlockNumberProvider = System;
+	type Filter = RestrictMock;
 }
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
@@ -713,24 +730,34 @@ pub fn pool_balance(id: PoolId) -> Balance {
 		.expect("who must be a bonded pool account")
 }
 
+pub fn add_to_restrict_list(who: &AccountId) {
+	if !RestrictedAccounts::get().contains(who) {
+		RestrictedAccounts::mutate(|l| l.push(*who));
+	}
+}
+
+pub fn remove_from_restrict_list(who: &AccountId) {
+	RestrictedAccounts::mutate(|l| l.retain(|x| x != who));
+}
+
 #[cfg(test)]
 mod test {
 	use super::*;
 	#[test]
 	fn u256_to_balance_convert_works() {
 		assert_eq!(U256ToBalance::convert(0u32.into()), Zero::zero());
-		assert_eq!(U256ToBalance::convert(Balance::max_value().into()), Balance::max_value())
+		assert_eq!(U256ToBalance::convert(Balance::MAX.into()), Balance::MAX)
 	}
 
 	#[test]
 	#[should_panic]
 	fn u256_to_balance_convert_panics_correctly() {
-		U256ToBalance::convert(U256::from(Balance::max_value()).saturating_add(1u32.into()));
+		U256ToBalance::convert(U256::from(Balance::MAX).saturating_add(1u32.into()));
 	}
 
 	#[test]
 	fn balance_to_u256_convert_works() {
 		assert_eq!(BalanceToU256::convert(0u32.into()), U256::zero());
-		assert_eq!(BalanceToU256::convert(Balance::max_value()), Balance::max_value().into())
+		assert_eq!(BalanceToU256::convert(Balance::MAX), Balance::MAX.into())
 	}
 }

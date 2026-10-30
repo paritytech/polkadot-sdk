@@ -214,11 +214,11 @@ fn upgrade_accounts_should_work() {
 					Ok(())
 				}
 			));
-			assert!(!Balances::account(&7).flags.is_new_logic());
+			assert!(!get_test_account_data(7).flags.is_new_logic());
 			assert_eq!(System::providers(&7), 1);
 			assert_eq!(System::consumers(&7), 0);
 			assert_ok!(Balances::upgrade_accounts(Some(1).into(), vec![7]));
-			assert!(Balances::account(&7).flags.is_new_logic());
+			assert!(get_test_account_data(7).flags.is_new_logic());
 			assert_eq!(System::providers(&7), 1);
 			assert_eq!(System::consumers(&7), 1);
 
@@ -281,7 +281,7 @@ fn force_adjust_total_issuance_saturates() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), 1337, 64));
 		let ti = pallet_balances::TotalIssuance::<Test>::get();
-		let max = <Test as Config>::Balance::max_value();
+		let max = <Test as Config>::Balance::MAX;
 		assert_eq!(ti, 64);
 
 		// Increment saturates:
