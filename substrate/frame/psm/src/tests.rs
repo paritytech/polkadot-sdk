@@ -716,8 +716,6 @@ mod redeem {
 			);
 		});
 	}
-<<<<<<< HEAD
-=======
 
 	#[test]
 	fn redeem_with_nonzero_fee_charges_fee_destination() {
@@ -899,7 +897,6 @@ mod redeem {
 			assert_ok!(crate::Pallet::<Test>::do_try_state());
 		});
 	}
->>>>>>> 8fbb5fd2 (pallet-psm: reduce debt by the amount actually burned on redeem (#13627))
 }
 
 mod governance {
