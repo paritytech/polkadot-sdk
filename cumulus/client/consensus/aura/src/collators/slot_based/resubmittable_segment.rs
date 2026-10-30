@@ -206,8 +206,8 @@ where
 		if anchor.is_none() {
 			anchor = Some((
 				stored.relay_parent_header,
-				stored.max_pov_size,
 				stored.relay_parent_session,
+				stored.max_pov_size,
 			));
 		}
 
@@ -216,7 +216,7 @@ where
 	}
 
 	// `into_bundles` never emits an empty bundle, so the anchor is always set.
-	let (relay_parent_header, max_pov_size, relay_parent_session) =
+	let (relay_parent_header, relay_parent_session, max_pov_size) =
 		anchor.ok_or(HydrateError::EmptyBundle)?;
 	let relay_parent = relay_parent_header.hash();
 
@@ -235,8 +235,6 @@ where
 		validation_code_hash,
 		validation_data,
 		relay_parent_session,
-		relay_parent_storage_root: *relay_parent_header.state_root(),
-		relay_parent_number: *relay_parent_header.number(),
 	})
 }
 
