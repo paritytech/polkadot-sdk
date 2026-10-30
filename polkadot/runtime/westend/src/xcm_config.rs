@@ -30,6 +30,9 @@ use polkadot_runtime_common::{
 	xcm_sender::{ChildParachainRouter, ExponentialPrice},
 	ToAuthor,
 };
+use polkadot_runtime_parachains::hrmp::unpaid_requests::{
+	AllowUnpaidParaRequests, MaxUnpaidParaRequestWeight,
+};
 use sp_core::ConstU32;
 use westend_runtime_constants::{currency::CENTS, system_parachain::*};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
@@ -173,6 +176,9 @@ pub type Barrier = TrailingSetTopicAsId<(
 	TakeWeightCredit,
 	// Expected responses are OK.
 	AllowKnownQueryResponses<XcmPallet>,
+	// Non-system parachains need not pay for the one call they make for themselves, as long as it
+	// weighs no more than an HRMP call.
+	AllowUnpaidParaRequests<MaxUnpaidParaRequestWeight<Runtime, Weigher>>,
 	WithComputedOrigin<
 		(
 			// If the message is one that immediately attempts to pay for execution, then allow it.
@@ -186,6 +192,13 @@ pub type Barrier = TrailingSetTopicAsId<(
 		ConstU32<8>,
 	>,
 )>;
+
+/// How the XCM executor weighs a message.
+pub type Weigher = WeightInfoBounds<
+	crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
+	RuntimeCall,
+	MaxInstructions,
+>;
 
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
@@ -208,11 +221,7 @@ impl xcm_executor::Config for XcmConfig {
 	type IsTeleporter = TrustedTeleporters;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = Barrier;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = Weigher;
 	// TODO: once DAP allocates validator/author budgets, redirect XCM execution fees to the
 	// accumulation account instead of block author (use AccumulateForward as the OnUnbalanced
 	// handler).
@@ -255,11 +264,7 @@ impl pallet_xcm::Config for Runtime {
 	type XcmExecutor = XcmExecutor<XcmConfig>;
 	type XcmTeleportFilter = Everything;
 	type XcmReserveTransferFilter = Everything;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::WestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = Weigher;
 	type UniversalLocation = UniversalLocation;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeCall = RuntimeCall;

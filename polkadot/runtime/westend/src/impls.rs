@@ -14,15 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::xcm_config;
-use alloc::{boxed::Box, vec};
+use crate::{xcm_config, Hrmp, HrmpRelay, Runtime};
+use alloc::{boxed::Box, vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::marker::PhantomData;
-use frame_support::pallet_prelude::DispatchResult;
+use frame_support::{
+	pallet_prelude::{DispatchResult, ValueQuery},
+	weights::Weight,
+};
 use frame_system::RawOrigin;
+use hrmp_primitives::MessageToPara;
 use polkadot_primitives::Balance;
 use polkadot_runtime_common::identity_migrator::{OnReapIdentity, WeightInfo};
-use westend_runtime_constants::currency::*;
+use polkadot_runtime_parachains::hrmp::deposits::{
+	ChannelDepositProvider, DepositChangeRequest, DepositChangeResponse,
+};
+use sp_runtime::DispatchError;
+use westend_runtime_constants::{
+	currency::*, hrmp_deposits::CORETIME_PALLET_INDEX, system_parachain::BROKER_ID,
+};
 use xcm::{latest::prelude::*, VersionedLocation, VersionedXcm};
 use xcm_executor::traits::TransactAsset;
 
@@ -180,5 +190,76 @@ where
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful_identity_reaping(_: &AccountId, _: u32, _: u32) {
 		crate::Dmp::make_parachain_reachable(1004);
+	}
+}
+
+/// Sends `call`, encoded for the Coretime chain, to be dispatched there as this chain
+/// (`Superuser`, which the Coretime chain turns into Root).
+pub fn send_to_coretime(call: Vec<u8>) -> Result<(), SendError> {
+	let message = Xcm(vec![
+		Instruction::UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
+		Instruction::Transact {
+			origin_kind: OriginKind::Superuser,
+			fallback_max_weight: None,
+			call: call.into(),
+		},
+	]);
+	send_xcm::<xcm_config::XcmRouter>(Location::new(0, [Parachain(BROKER_ID)]), message).map(|_| ())
+}
+
+/// Sends `pallet-hrmp-relay`'s messages to `pallet-hrmp-para` on the Coretime chain.
+pub struct HrmpToCoretime;
+impl pallet_hrmp_relay::SendToPara for HrmpToCoretime {
+	fn send(message: MessageToPara) -> Result<(), ()> {
+		// `HrmpPara::receive` on the Coretime chain.
+		let call = (CORETIME_PALLET_INDEX, pallet_hrmp_para::RECEIVE_CALL_INDEX, message).encode();
+		send_to_coretime(call).map_err(|e| {
+			log::error!(target: "runtime::hrmp", "sending to the Coretime chain failed: {e:?}");
+		})
+	}
+}
+
+/// Where `hrmp` holds its channel deposits: reserved here until [`HrmpDepositsOnCoretime`] is
+/// set, and held on the Coretime chain through `HrmpRelay` from then on.
+pub struct HrmpDeposits;
+
+/// Whether `hrmp`'s channel deposits are held on the Coretime chain.
+///
+/// TODO: no migration moves the deposits reserved here to the Coretime chain yet. It should
+/// move each para's reserve there, hand every deposit to `HrmpPara` through
+/// `ReceiveMigratedDeposits`, and set this once done, the way the Polkadot and Kusama
+/// migration keys its switch on its own stage. Until then, root sets it with
+/// `System::set_storage`, and a channel opened before is left with its deposits reserved here.
+#[frame_support::storage_alias]
+pub type HrmpDepositsOnCoretime = StorageValue<HrmpDepositsSwitch, bool, ValueQuery>;
+
+impl ChannelDepositProvider for HrmpDeposits {
+	type OnDepositSet = Hrmp;
+
+	fn try_set_deposit(
+		request: DepositChangeRequest,
+	) -> Result<DepositChangeResponse, DispatchError> {
+		if HrmpDepositsOnCoretime::get() {
+			HrmpRelay::try_set_deposit(request)
+		} else {
+			Hrmp::try_set_deposit(request)
+		}
+	}
+
+	fn weight_of_try_set_deposit() -> Weight {
+		<Runtime as frame_system::Config>::DbWeight::get().reads(1).saturating_add(
+			HrmpRelay::weight_of_try_set_deposit().max(Hrmp::weight_of_try_set_deposit()),
+		)
+	}
+}
+
+/// Makes the Coretime chain reachable for the benchmarks of `pallet-hrmp-relay`.
+#[cfg(feature = "runtime-benchmarks")]
+pub struct HrmpBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_hrmp_relay::BenchmarkHelper for HrmpBenchmarkHelper {
+	fn ensure_send_to_para() {
+		crate::Dmp::make_parachain_reachable(BROKER_ID);
 	}
 }

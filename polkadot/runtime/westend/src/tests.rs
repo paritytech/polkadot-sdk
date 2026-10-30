@@ -422,3 +422,104 @@ mod drain_legacy_treasury_migration {
 		});
 	}
 }
+
+/// `RELAY_PALLET_INDEX` is the index of `HrmpRelay` in this runtime.
+#[test]
+fn relay_pallet_index_ok() {
+	use frame_support::traits::PalletInfoAccess;
+	use westend_runtime_constants::hrmp_deposits::RELAY_PALLET_INDEX;
+
+	assert_eq!(<HrmpRelay as PalletInfoAccess>::index(), RELAY_PALLET_INDEX as usize);
+}
+
+mod hrmp_deposit_provider_switch {
+	use super::*;
+	use crate::impls::{HrmpDeposits, HrmpDepositsOnCoretime};
+	use frame_support::traits::ReservableCurrency;
+	use parachains_hrmp::deposits::{
+		ChannelDepositProvider, DepositAction, DepositChange, DepositChangeRequest,
+		DepositChangeResponse,
+	};
+	use polkadot_primitives::HrmpChannelId;
+
+	const SENDER_DEPOSIT: Balance = 100 * UNITS;
+
+	fn sovereign(para: u32) -> AccountId {
+		ParaId::from(para).into_account_truncating()
+	}
+
+	fn reserved(para: u32) -> Balance {
+		<Balances as ReservableCurrency<AccountId>>::reserved_balance(&sovereign(para))
+	}
+
+	/// A Coretime chain that can be reached.
+	fn setup() {
+		parachains_configuration::ActiveConfig::<Runtime>::mutate(|config| {
+			config.max_downward_message_size = 51_200;
+		});
+		assert_ok!(XcmPallet::force_default_xcm_version(
+			RuntimeOrigin::root(),
+			Some(xcm::latest::VERSION)
+		));
+		Dmp::make_parachain_reachable(BROKER_ID);
+	}
+
+	fn messages_to_coretime() -> usize {
+		Dmp::dmq_contents_do_not_call_in_consensus(BROKER_ID.into()).len()
+	}
+
+	/// Deposits are reserved here until they are held on the Coretime chain, and asked of it from
+	/// then on.
+	#[test]
+	fn switch_moves_new_deposits_to_coretime() {
+		new_test_ext().execute_with(|| {
+			setup();
+			let request = DepositChangeRequest {
+				channel_id: HrmpChannelId { sender: 2004.into(), recipient: 2005.into() },
+				sender: Some(DepositChange { current: 0, target: SENDER_DEPOSIT }),
+				recipient: None,
+				action: DepositAction::InitOpenChannel {
+					max_capacity: 8,
+					max_message_size: 512,
+					max_total_size: 1024,
+				},
+			};
+			let provider_request = |request: &DepositChangeRequest| {
+				<<Runtime as parachains_hrmp::Config>::DepositProvider as ChannelDepositProvider>
+					::try_set_deposit(request.clone())
+			};
+			assert_ok!(<Balances as Mutate<AccountId>>::mint_into(
+				&sovereign(2004),
+				2 * SENDER_DEPOSIT
+			));
+
+			assert_eq!(provider_request(&request), Ok(DepositChangeResponse::Applied));
+			assert_eq!(reserved(2004), SENDER_DEPOSIT);
+			assert_eq!(messages_to_coretime(), 0);
+
+			HrmpDepositsOnCoretime::put(true);
+			assert_eq!(provider_request(&request), Ok(DepositChangeResponse::Pending));
+			assert_eq!(reserved(2004), SENDER_DEPOSIT);
+			assert_eq!(messages_to_coretime(), 1);
+		});
+	}
+
+	/// The switch charges a read and the heavier provider.
+	#[test]
+	fn switch_weight_covers_both_providers() {
+		let read = <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+		let heavier = HrmpRelay::weight_of_try_set_deposit().max(Hrmp::weight_of_try_set_deposit());
+		assert_eq!(HrmpDeposits::weight_of_try_set_deposit(), read.saturating_add(heavier));
+	}
+}
+
+/// The bound on the messages non-system paras get executed for free.
+#[test]
+fn unpaid_para_requests_weight_is_bounded() {
+	use polkadot_runtime_parachains::hrmp::unpaid_requests::MaxUnpaidParaRequestWeight;
+
+	let cap = MaxUnpaidParaRequestWeight::<Runtime, xcm_config::Weigher>::get();
+	// The weigher weighed the HRMP calls, and no one of them comes close to a block.
+	assert!(cap.all_gt(Weight::zero()));
+	assert!(cap.all_lt(BlockWeights::get().max_block));
+}

@@ -130,7 +130,7 @@ pub mod xcm_config;
 
 // Implemented types.
 mod impls;
-use impls::ToParachainIdentityReaper;
+use impls::{HrmpDeposits, HrmpToCoretime, ToParachainIdentityReaper};
 
 // XCM configuration.
 use xcm_config::XcmConfig;
@@ -1144,6 +1144,10 @@ impl parachains_dmp::Config for Runtime {
 
 parameter_types! {
 	pub const HrmpChannelSizeAndCapacityWithSystemRatio: Percent = Percent::from_percent(100);
+	/// Releases that may wait for the transport to the Coretime chain.
+	pub const HrmpMaxOutbox: u32 = 128;
+	/// The Coretime chain, which holds the HRMP deposits.
+	pub const HrmpHolderParaId: ParaId = ParaId::new(BROKER_ID);
 }
 
 impl parachains_hrmp::Config for Runtime {
@@ -1151,13 +1155,25 @@ impl parachains_hrmp::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type DepositProvider = Hrmp;
+	// Reserved here until the deposits are migrated to the Coretime chain, held there from then
+	// on.
+	type DepositProvider = HrmpDeposits;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
 	>;
 	type VersionWrapper = crate::XcmPallet;
 	type WeightInfo = weights::polkadot_runtime_parachains_hrmp::WeightInfo<Self>;
+}
+
+impl pallet_hrmp_relay::Config for Runtime {
+	type OnDepositSet = Hrmp;
+	type HolderParaId = HrmpHolderParaId;
+	type SendToPara = HrmpToCoretime;
+	type MaxOutbox = HrmpMaxOutbox;
+	type WeightInfo = pallet_hrmp_relay::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = impls::HrmpBenchmarkHelper;
 }
 
 impl parachains_paras_inherent::Config for Runtime {
@@ -1581,6 +1597,9 @@ mod runtime {
 	pub type Coretime = coretime;
 	#[runtime::pallet_index(67)]
 	pub type StakingAhClient = pallet_staking_async_ah_client;
+	// Index must match `westend_runtime_constants::hrmp_deposits::RELAY_PALLET_INDEX`.
+	#[runtime::pallet_index(68)]
+	pub type HrmpRelay = pallet_hrmp_relay;
 
 	// Migrations pallet
 	#[runtime::pallet_index(98)]
@@ -1902,6 +1921,7 @@ mod benches {
 		[polkadot_runtime_parachains::disputes, ParasDisputes]
 		[polkadot_runtime_parachains::dmp, Dmp]
 		[polkadot_runtime_parachains::hrmp, Hrmp]
+		[pallet_hrmp_relay, HrmpRelay]
 		[polkadot_runtime_parachains::inclusion, ParaInclusion]
 		[polkadot_runtime_parachains::initializer, Initializer]
 		[polkadot_runtime_parachains::paras, Paras]
