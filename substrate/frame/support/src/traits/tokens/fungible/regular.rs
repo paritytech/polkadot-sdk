@@ -207,6 +207,10 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 	/// it at all. If Ok, return the imbalance.
 	/// Minimum balance will be respected and an error will be returned if
 	/// amount < [`Inspect::minimum_balance()`] when the account of `who` is zero.
+	///
+	/// An account whose [`Inspect::total_balance`] is non-zero already exists, so it may be
+	/// credited even if its balance stays below [`Inspect::minimum_balance()`]. This is the case
+	/// for an account whose whole balance is on hold.
 	fn increase_balance(
 		who: &AccountId,
 		amount: Self::Balance,
@@ -218,7 +222,7 @@ pub trait Unbalanced<AccountId>: Inspect<AccountId> {
 		} else {
 			old_balance.checked_add(&amount).ok_or(ArithmeticError::Overflow)?
 		};
-		if new_balance < Self::minimum_balance() {
+		if new_balance < Self::minimum_balance() && Self::total_balance(who).is_zero() {
 			// Attempt to increase from 0 to below minimum -> stays at zero.
 			if let BestEffort = precision {
 				Ok(Default::default())
@@ -698,5 +702,80 @@ mod tests {
 
 		assert_eq!(<SweepingFungible as Inspect<usize>>::balance(&0), 10);
 		assert_eq!(<SweepingFungible as Inspect<usize>>::balance(&1), 90);
+	}
+
+	thread_local! {
+		static FREE: RefCell<[u64; 2]> = const { RefCell::new([0, 0]) };
+		static HELD: RefCell<[u64; 2]> = const { RefCell::new([0, 0]) };
+	}
+
+	/// A fungible with a held balance on top of the free one, relying on the default
+	/// `Unbalanced::increase_balance`.
+	struct HoldingFungible;
+
+	impl Inspect<usize> for HoldingFungible {
+		type Balance = u64;
+		fn total_issuance() -> u64 {
+			(0..2).map(|who| Self::total_balance(&who)).sum()
+		}
+		fn minimum_balance() -> u64 {
+			MIN_BALANCE
+		}
+		fn total_balance(who: &usize) -> u64 {
+			Self::balance(who) + HELD.with(|h| h.borrow()[*who])
+		}
+		fn balance(who: &usize) -> u64 {
+			FREE.with(|f| f.borrow()[*who])
+		}
+		fn reducible_balance(who: &usize, _: Preservation, _: Fortitude) -> u64 {
+			Self::balance(who)
+		}
+		fn can_deposit(_: &usize, _: u64, _: Provenance) -> DepositConsequence {
+			DepositConsequence::Success
+		}
+		fn can_withdraw(_: &usize, _: u64) -> WithdrawConsequence<u64> {
+			WithdrawConsequence::Success
+		}
+	}
+
+	impl Unbalanced<usize> for HoldingFungible {
+		fn handle_dust(_: Dust<usize, Self>) {}
+		fn write_balance(who: &usize, amount: u64) -> Result<Option<u64>, DispatchError> {
+			FREE.with(|f| f.borrow_mut()[*who] = amount);
+			Ok(None)
+		}
+		fn set_total_issuance(_: u64) {}
+	}
+
+	/// An account with nothing in it is not created by a deposit below the minimum balance.
+	#[test]
+	fn increase_balance_below_minimum_into_empty_account_fails() {
+		FREE.with(|f| *f.borrow_mut() = [0, 0]);
+		HELD.with(|h| *h.borrow_mut() = [0, 0]);
+
+		assert_eq!(
+			<HoldingFungible as Unbalanced<usize>>::increase_balance(&0, 3, Exact),
+			Err(TokenError::BelowMinimum.into()),
+		);
+		assert_eq!(
+			<HoldingFungible as Unbalanced<usize>>::increase_balance(&0, 3, BestEffort),
+			Ok(0)
+		);
+		assert_eq!(<HoldingFungible as Inspect<usize>>::balance(&0), 0);
+	}
+
+	/// An account whose whole balance is on hold already exists, so it is credited even though
+	/// its balance stays below the minimum.
+	#[test]
+	fn increase_balance_below_minimum_into_account_with_holds_works() {
+		FREE.with(|f| *f.borrow_mut() = [0, 0]);
+		HELD.with(|h| *h.borrow_mut() = [100, 0]);
+
+		assert_eq!(<HoldingFungible as Unbalanced<usize>>::increase_balance(&0, 3, Exact), Ok(3));
+		assert_eq!(
+			<HoldingFungible as Unbalanced<usize>>::increase_balance(&0, 3, BestEffort),
+			Ok(3)
+		);
+		assert_eq!(<HoldingFungible as Inspect<usize>>::balance(&0), 6);
 	}
 }

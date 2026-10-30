@@ -20,9 +20,11 @@
 use super::*;
 use frame_support::traits::{
 	tokens::{
+		DepositConsequence,
 		Fortitude::{Force, Polite},
 		Precision::{BestEffort, Exact},
 		Preservation::{Expendable, Preserve, Protect},
+		Provenance,
 		Restriction::Free,
 	},
 	Consideration, Footprint, LinearStoragePrice, MaybeConsideration,
@@ -222,6 +224,143 @@ fn unbalanced_trait_increase_balance_at_most_works() {
 		assert_eq!(Balances::increase_balance(&1337, 1, BestEffort), Ok(1));
 		assert_eq!(Balances::increase_balance(&1337, u64::MAX, BestEffort), Ok(u64::MAX - 1));
 	});
+}
+
+/// Give `who` an extra provider and put its whole balance of 100 on hold, so its free balance is
+/// below ED while the account stays alive.
+fn hold_whole_balance(who: u64) {
+	Balances::set_balance(&who, 100);
+	frame_system::Pallet::<Test>::inc_providers(&who);
+	assert_ok!(Balances::hold(&TestId::Foo, &who, 100));
+	assert_eq!(Balances::free_balance(who), 0);
+	assert_eq!(<Balances as Inspect<_>>::total_balance(&who), 100);
+}
+
+#[test]
+fn deposit_below_ed_into_empty_account_fails() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(true)
+		.build_and_execute_with(|| {
+			let issuance = <Balances as Inspect<_>>::total_issuance();
+
+			assert_eq!(
+				Balances::can_deposit(&1337, 3, Provenance::Extant),
+				DepositConsequence::BelowMinimum
+			);
+			assert_noop!(Balances::increase_balance(&1337, 3, Exact), TokenError::BelowMinimum);
+			assert_eq!(Balances::increase_balance(&1337, 3, BestEffort), Ok(0));
+			assert_noop!(
+				<Balances as Mutate<_>>::transfer(&1, &1337, 3, Expendable),
+				TokenError::BelowMinimum
+			);
+			assert_noop!(Balances::mint_into(&1337, 3), TokenError::BelowMinimum);
+
+			assert_eq!(Balances::free_balance(1337), 0);
+			assert!(!System::account_exists(&1337));
+			assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance);
+		});
+}
+
+#[test]
+fn can_deposit_below_ed_into_account_with_holds_succeeds() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		hold_whole_balance(1337);
+
+		assert_eq!(
+			Balances::can_deposit(&1337, 3, Provenance::Extant),
+			DepositConsequence::Success
+		);
+		assert_eq!(
+			Balances::can_deposit(&1337, 3, Provenance::Minted),
+			DepositConsequence::Success
+		);
+	});
+}
+
+#[test]
+fn mint_below_ed_into_account_with_holds_increases_issuance() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		hold_whole_balance(1337);
+		let issuance = <Balances as Inspect<_>>::total_issuance();
+
+		assert_eq!(Balances::mint_into(&1337, 3), Ok(3));
+
+		assert_eq!(Balances::free_balance(1337), 3);
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance + 3);
+		System::assert_last_event(RuntimeEvent::Balances(crate::Event::Minted {
+			who: 1337,
+			amount: 3,
+		}));
+	});
+}
+
+#[test]
+fn account_credited_below_ed_is_dusted_once_holds_are_gone() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		// Given: an account with its whole balance on hold receives a credit below ED.
+		hold_whole_balance(1337);
+		assert_eq!(Balances::mint_into(&1337, 3), Ok(3));
+		let issuance = <Balances as Inspect<_>>::total_issuance();
+
+		// When: the held balance is burnt, leaving the free balance below ED with nothing held.
+		assert_ok!(Balances::burn_held(&TestId::Foo, &1337, 100, Exact, Force));
+
+		// Then: the free balance is dusted, and the dust leaves the total issuance too.
+		assert_eq!(Balances::free_balance(1337), 0);
+		assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 0);
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 103);
+		System::assert_has_event(RuntimeEvent::Balances(crate::Event::DustLost {
+			account: 1337,
+			amount: 3,
+		}));
+	});
+}
+
+#[test]
+fn account_withdrawn_below_ed_is_dusted_once_holds_are_gone() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(true)
+		.build_and_execute_with(|| {
+			// Given: an account with an extra provider and a hold, whose free balance is withdrawn
+			// to below ED.
+			Balances::set_balance(&1337, 100);
+			frame_system::Pallet::<Test>::inc_providers(&1337);
+			assert_ok!(Balances::hold(&TestId::Foo, &1337, 50));
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1337, &1, 47, Expendable));
+			assert_eq!(Balances::free_balance(1337), 3);
+			let issuance = <Balances as Inspect<_>>::total_issuance();
+
+			// When: the held balance is burnt, leaving the free balance below ED with nothing held.
+			assert_ok!(Balances::burn_held(&TestId::Foo, &1337, 50, Exact, Force));
+
+			// Then: the free balance is dusted, and the dust leaves the total issuance too.
+			assert_eq!(<Balances as Inspect<_>>::total_balance(&1337), 0);
+			assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance - 53);
+			System::assert_has_event(RuntimeEvent::Balances(crate::Event::DustLost {
+				account: 1337,
+				amount: 3,
+			}));
+		});
+}
+
+#[test]
+fn deposit_below_ed_into_account_with_holds_works() {
+	ExtBuilder::default()
+		.existential_deposit(10)
+		.monied(true)
+		.build_and_execute_with(|| {
+			// Given: an account whose whole balance is on hold.
+			hold_whole_balance(1337);
+
+			// When/Then: amounts that leave the free balance below ED are still credited.
+			assert_eq!(Balances::increase_balance(&1337, 3, BestEffort), Ok(3));
+			assert_eq!(Balances::increase_balance(&1337, 3, Exact), Ok(3));
+			assert_ok!(<Balances as Mutate<_>>::transfer(&1, &1337, 3, Expendable));
+			assert_eq!(Balances::free_balance(1337), 9);
+			assert_eq!(Balances::total_balance_on_hold(&1337), 100);
+		});
 }
 
 #[test]

@@ -1992,3 +1992,28 @@ fn do_claim_trapped_balance_applies_pending_slash_first() {
 		assert_eq!(Pools::api_member_pending_slash(alice), 0);
 	});
 }
+
+#[test]
+fn member_with_no_free_balance_receives_rewards_below_ed() {
+	new_test_ext().execute_with(|| {
+		// Given: a pool member who delegated their whole balance, leaving no free balance.
+		assert_ok!(Pools::create(RuntimeOrigin::signed(10), 50, 10, 10, 10));
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 100, 1));
+		assert_eq!(Balances::free_balance(20), 0);
+
+		// And: the pool earns a reward whose share for the member is below ED.
+		assert_ok!(Balances::mint_into(&POOL1_REWARD, 6));
+		let pending = Pools::api_pending_rewards(20).unwrap();
+		assert!(!pending.is_zero() && pending < Balances::minimum_balance());
+
+		// Then: the member can unbond, which claims the reward first.
+		hypothetically!({
+			assert_ok!(Pools::unbond(RuntimeOrigin::signed(20), 20, 50));
+			assert_eq!(Balances::free_balance(20), pending);
+		});
+
+		// And: the member can claim the reward.
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(20)));
+		assert_eq!(Balances::free_balance(20), pending);
+	});
+}

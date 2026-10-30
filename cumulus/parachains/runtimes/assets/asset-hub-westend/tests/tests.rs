@@ -3432,6 +3432,156 @@ mod remote_test {
 			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
 		});
 	}
+
+	/// Find accounts that hold funds while their free balance is below ED, and check whether
+	/// they can receive a deposit, and whether such pool members can claim, bond and unbond their
+	/// pending rewards, using a state snapshot. Nothing is committed.
+	///
+	/// Run it with and without the fix for
+	/// <https://github.com/paritytech/polkadot-sdk/issues/9903> to compare the results.
+	///
+	/// Run with:
+	/// ```bash
+	/// SNAP=<PATH_TO_SNAP> cargo test -r -p asset-hub-westend-runtime deposit_below_ed_with_holds \
+	/// -- --ignored --nocapture
+	/// ```
+	///
+	/// See `np_claim_trapped_balance` for the local changes needed to run it with a PAH snapshot.
+	#[tokio::test]
+	#[ignore]
+	async fn deposit_below_ed_with_holds() {
+		use frame_support::{
+			hypothetically,
+			traits::{fungible::Unbalanced, tokens::Precision},
+		};
+		use pallet_nomination_pools::{BondExtra, Pallet as NominationPools, PoolMembers};
+		use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
+
+		let snap_path =
+			std::env::var("SNAP").expect("SNAP env var not set. Please provide snapshot path.");
+
+		println!("Loading snapshot from: {}", snap_path);
+
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path) }))
+			.build()
+			.await
+			.expect("Failed to load snapshot");
+
+		ext.execute_with(|| {
+			let ed = ExistentialDeposit::get();
+
+			let mut accounts = 0u32;
+			let mut total_held: Balance = 0;
+			let mut deposits_credited = 0u32;
+
+			for (who, info) in frame_system::Account::<Runtime>::iter() {
+				if info.data.free >= ed || info.data.reserved == 0 {
+					continue;
+				}
+				accounts += 1;
+				total_held = total_held.saturating_add(info.data.reserved);
+
+				let credited = hypothetically!(<Balances as Unbalanced<_>>::increase_balance(
+					&who,
+					1,
+					Precision::BestEffort,
+				));
+				if credited == Ok(1) {
+					deposits_credited += 1;
+				}
+			}
+
+			let mut members = 0u32;
+			let mut needed_migration = 0u32;
+			let mut claims_ok = 0u32;
+			let mut bonds_ok = 0u32;
+			let mut unbonds_ok = 0u32;
+
+			println!("member,pool_id,free,pending,migration,claim,bond_extra,unbond");
+
+			for (member, data) in PoolMembers::<Runtime>::iter() {
+				let free = Balances::free_balance(&member);
+				let pending = NominationPools::<Runtime>::api_pending_rewards(member.clone())
+					.unwrap_or_default();
+				if pending == 0 || free.saturating_add(pending) >= ed {
+					continue;
+				}
+				members += 1;
+
+				let origin = || RuntimeOrigin::signed(member.clone());
+
+				// Pool calls fail with `NotMigrated` until the pool and the member are moved to
+				// delegated staking, which anyone can do. Do it first so the calls reach the
+				// balance checks.
+				let needs_migration =
+					NominationPools::<Runtime>::api_member_needs_delegate_migration(member.clone());
+				needed_migration += needs_migration as u32;
+				let migrate = || -> sp_runtime::DispatchResult {
+					if NominationPools::<Runtime>::api_pool_needs_delegate_migration(data.pool_id) {
+						NominationPools::<Runtime>::migrate_pool_to_delegate_stake(
+							origin(),
+							data.pool_id,
+						)
+						.map_err(|e| e.error)?;
+					}
+					if needs_migration {
+						NominationPools::<Runtime>::migrate_delegation(
+							origin(),
+							member.clone().into(),
+						)
+						.map_err(|e| e.error)?;
+					}
+					Ok(())
+				};
+
+				let migration = hypothetically!(migrate());
+				let claim = hypothetically!(
+					migrate().and_then(|()| NominationPools::<Runtime>::claim_payout(origin()))
+				);
+				let bond = hypothetically!(migrate().and_then(|()| {
+					NominationPools::<Runtime>::bond_extra(origin(), BondExtra::Rewards)
+				}));
+				let unbond = hypothetically!(migrate().and_then(|()| {
+					NominationPools::<Runtime>::unbond(origin(), member.clone().into(), data.points)
+				}));
+
+				claims_ok += claim.is_ok() as u32;
+				bonds_ok += bond.is_ok() as u32;
+				unbonds_ok += unbond.is_ok() as u32;
+
+				let show = |r: &sp_runtime::DispatchResult| match r {
+					Ok(()) => "ok".to_string(),
+					Err(e) => format!("{:?}", e),
+				};
+				println!(
+					"{:?},{},{},{},{},{},{},{}",
+					member,
+					data.pool_id,
+					free,
+					pending,
+					if needs_migration { show(&migration) } else { "-".to_string() },
+					show(&claim),
+					show(&bond),
+					show(&unbond),
+				);
+			}
+
+			println!("\n--- Summary ---");
+			println!("Existential deposit: {}", ed);
+			println!("Accounts with holds and free balance below ED: {}", accounts);
+			println!("Total held by those accounts: {}", total_held);
+			println!("Of those, credited by a deposit of 1: {}", deposits_credited);
+			println!(
+				"Pool members whose free balance plus pending rewards is below ED: {}",
+				members
+			);
+			println!("Of those, needing migration to delegated staking: {}", needed_migration);
+			println!("Of those, claim_payout succeeds: {}", claims_ok);
+			println!("Of those, bond_extra(Rewards) succeeds: {}", bonds_ok);
+			println!("Of those, unbond succeeds: {}", unbonds_ok);
+		});
+	}
 }
 
 #[test]
