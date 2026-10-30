@@ -855,7 +855,7 @@ pub mod pallet {
 
 			let fee_rate = RedemptionFee::<T>::get(&internal_asset, &external_asset);
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
-			let fee = fee_rate.mul_ceil(internal_amount);
+			let mut fee = fee_rate.mul_ceil(internal_amount);
 			let internal_net = internal_amount.saturating_sub(fee);
 
 			let external_out =
@@ -878,6 +878,15 @@ pub mod pallet {
 			if reserve < external_out {
 				defensive!("PSM reserve is less than expected output amount");
 				return Err(Error::<T>::Unexpected.into());
+			}
+
+			// `burn_from` would also burn a remainder below `min_balance`, which this pair's debt
+			// may not cover. Send it to the fee destination along with the fee instead.
+			let remainder = T::Fungibles::balance(internal_asset.clone(), &who)
+				.saturating_sub(fee.saturating_add(effective_internal_net));
+
+			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) {
+				fee.saturating_accrue(remainder);
 			}
 
 			if !fee.is_zero() {
