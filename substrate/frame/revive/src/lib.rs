@@ -689,6 +689,9 @@ pub mod pallet {
 		/// `seal_terminate` was invoked on an EIP-7702 delegated EOA. Delegated accounts
 		/// cannot be torn down via the contract-termination path.
 		CannotTerminateDelegatedAccount = 0x44,
+		/// The logs of the ethereum transaction would exceed
+		/// [`limits::MAX_RECEIPT_LOGS_BYTES`] in its receipt.
+		ReceiptTooLarge = 0x45,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -830,10 +833,18 @@ pub mod pallet {
 	/// `block_storage::capture_into_receipt`. Taken when the transaction's receipt is built, so it
 	/// is empty between transactions.
 	///
-	/// Whitelisted like `frame_system::Events`: read and written on every log, yet never in a
-	/// block's pre-state, so a block pays one absence lookup for it however many logs it holds.
-	/// Without the whitelist the benchmark bills each `LOG` for that lookup as if it were the
-	/// first access of the block.
+	/// Accessed only while a receipt is open, in an ethereum transaction or its dry run. Read on
+	/// every log, and written as well until a log overflows the receipt. Read, for its overflow
+	/// flag, see `block_storage::ensure_receipt_within_limit`:
+	/// - at the successful end of every contract frame;
+	/// - after the storage deposits in `bare_call` and a successful `bare_instantiate`;
+	/// - after the runtime call dispatched by `eth_substrate_call`;
+	/// - after the runtime call dispatched by a dry run.
+	///
+	/// Whitelisted like `frame_system::Events`: accessed this often, yet never in a block's
+	/// pre-state, so a block pays one absence lookup for it however many logs and frames it holds.
+	/// Without the whitelist the benchmark bills each `LOG` and each frame for that lookup as if it
+	/// were the first access of the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	pub(crate) type ReceiptLogsCommitted<T: Config> =
@@ -873,6 +884,14 @@ pub mod pallet {
 	#[pallet::unbounded]
 	#[pallet::whitelist_storage]
 	type OutsideFrameLogs<T: Config> = StorageValue<_, Vec<OutsideFrameLog>, ValueQuery>;
+
+	/// The bytes the logs in [`OutsideFrameLogs`] take up on the synthetic transaction's receipt,
+	/// counted like an ethereum transaction's logs against [`limits::MAX_RECEIPT_LOGS_BYTES`].
+	///
+	/// Written and taken together with [`OutsideFrameLogs`], and whitelisted for the same reason.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	type OutsideFrameLogsBytes<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
@@ -1041,6 +1060,12 @@ pub mod pallet {
 		/// `topics` and `data` are bounded to the limits the `LOG` opcode enforces, so
 		/// [`Event::ContractEmitted`] keeps its documented topic cap on either path.
 		///
+		/// The receipt the log goes to is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that
+		/// would take an ethereum transaction's receipt past it fails the contract frame it was
+		/// emitted in with [`Error::ReceiptTooLarge`] when that frame returns, or the transaction
+		/// when it was emitted outside any frame. A log that would take the synthetic
+		/// transaction's receipt past it is not buffered and stays a substrate-only event.
+		///
 		/// Not for an `on_finalize` that `construct_runtime!` orders after this pallet's: the
 		/// block's buffer is drained by then, and a log arriving after the drain is not buffered,
 		/// its event standing with no receipt. `on_initialize` and `on_idle` run before any
@@ -1050,14 +1075,19 @@ pub mod pallet {
 			topics: ContractLogTopics,
 			data: ContractLogData,
 		) {
+			match block_storage::capture_into_receipt::<T>(&contract, &data, &topics) {
+				Some(Ok(())) => {},
+				None => Self::buffer_outside_frame_log(&contract, &topics, &data),
+				// A log that does not fit the receipt fails the frame or the transaction it was
+				// emitted in, see `block_storage::ensure_receipt_within_limit`. Like a log emitted
+				// from inside a frame, it is neither traced nor deposited.
+				Some(Err(_)) => return,
+			}
+
 			if_tracing(|tracer| {
 				let log_index = frame_system::Pallet::<T>::event_count();
 				tracer.log_event_outside_frame(contract, &topics, &data, log_index);
 			});
-
-			if !block_storage::capture_into_receipt::<T>(&contract, &data, &topics) {
-				Self::buffer_outside_frame_log(&contract, &topics, &data);
-			}
 
 			Self::deposit_event(Event::ContractEmitted {
 				contract,
@@ -1071,11 +1101,14 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		pub fn clear_outside_frame_logs() {
 			OutsideFrameLogs::<T>::kill();
+			OutsideFrameLogsBytes::<T>::kill();
 		}
 
-		/// Buffer a log for the block's synthetic transaction regardless of `MaxOutsideFrameLogs`,
-		/// and without the first-log check and weight registration, so a benchmark of the drain
-		/// measures exactly the entries it sets up.
+		/// Buffer a log for the block's synthetic transaction without the checks of
+		/// `buffer_outside_frame_log`: `MaxOutsideFrameLogs`, the first-log check and weight
+		/// registration, and the receipt size limit. `OutsideFrameLogsBytes` is not updated, so a
+		/// benchmark can build a buffer that admission would refuse and measures exactly the
+		/// entries it sets up.
 		#[cfg(feature = "runtime-benchmarks")]
 		pub fn bench_buffer_outside_frame_log(contract: H160, topics: Vec<H256>, data: Vec<u8>) {
 			OutsideFrameLogs::<T>::append(OutsideFrameLog {
@@ -1087,7 +1120,8 @@ pub mod pallet {
 		}
 
 		/// Buffer a log emitted outside any ethereum transaction for the block's synthetic
-		/// transaction. A log the buffer cannot take, because it is off or full, stays a
+		/// transaction. A log the buffer cannot take, because it is off, full, or the synthetic
+		/// transaction's receipt would exceed [`limits::MAX_RECEIPT_LOGS_BYTES`], stays a
 		/// substrate-only event.
 		fn buffer_outside_frame_log(contract: &H160, topics: &[H256], data: &[u8]) {
 			let cap = T::MaxOutsideFrameLogs::get();
@@ -1119,6 +1153,19 @@ pub mod pallet {
 				);
 				return;
 			}
+
+			let buffered_bytes = OutsideFrameLogsBytes::<T>::get().saturating_add(
+				evm::block_hash::AccumulateReceipt::encoded_log_len(contract, data, topics)
+					.saturated_into(),
+			);
+			if buffered_bytes > limits::MAX_RECEIPT_LOGS_BYTES {
+				log::warn!(
+					target: LOG_TARGET,
+					"outside-of-frame logs reached the receipt size limit; log for {contract:?} stays substrate-only",
+				);
+				return;
+			}
+			OutsideFrameLogsBytes::<T>::put(buffered_bytes);
 
 			// The index the `ContractEmitted` deposited right after this lands at, which is how
 			// the serving layer picks the buffered logs out of the block's events.
@@ -1164,6 +1211,7 @@ pub mod pallet {
 		/// outside-of-frame logs flushed as its synthetic transaction.
 		fn finalize_eth_block(block_number: BlockNumberFor<T>) {
 			let outside_frame_logs = OutsideFrameLogs::<T>::take();
+			OutsideFrameLogsBytes::<T>::kill();
 			if let Some(synthetic) =
 				block_storage::on_finalize_build_eth_block::<T>(block_number, outside_frame_logs)
 			{
@@ -1269,48 +1317,16 @@ pub mod pallet {
 				storage_size_limit
 			);
 
-			// The incremental block builder uses 3 x maximum entry size for receipts and
-			// for transactions. Transactions are bounded to `MAX_TRANSACTION_PAYLOAD_SIZE`.
-			//
-			// To determine the maximum size of the receipts, we know the following:
-			// - (I) first receipt is stored into pallet storage and not given to the hasher until
-			//   finalization.
-			// - (II) the hasher will not consume more memory than the receipts we are giving it.
-			// - (III) the hasher is capped by 3 x maximum entry for 3 or more transactions.
-			//
-			// # Case 1. One transaction with maximum receipts
-			//
-			// The worst case scenario for having one single transaction is for the transaction
-			// to emit the maximum receipt size (ie `max_events_size`). In this case,
-			// the maximum storage (and memory) consumed is bounded by `max_events_size` (II). The
-			// receipt is stored in pallet storage, and loaded from storage in the
-			// `on_finalize` hook (I).
-			//
-			// # Case 2. Two transactions
-			//
-			// The sum of the receipt size of both transactions cannot exceed `max_events_size`,
-			// otherwise one transaction will be reverted. From (II), the bytes utilized
-			// by the builder are capped to `max_events_size`.
-			//
-			// # Case 3. Three or more transactions
-			//
-			// Similar to the above case, the sum of all receipt size is bounded to
-			// `max_events_size`. Therefore, the bytes are capped to `max_events_size`.
-			//
-			// On average, a transaction could emit `max_events_size / num_tx`. The would
-			// consume `max_events_size / num_tx * 3` bytes, which is lower than
-			// `max_events_size` for more than 3 transactions.
-			//
-			// In practice, the builder will consume even lower amounts considering
-			// it is unlikely for a transaction to utilize all the weight of the block for events.
-			let max_eth_block_builder_bytes =
-				block_storage::block_builder_bytes_usage(max_events_size.try_into().unwrap());
+			// The incremental block builder holds at most 3 entries, each a transaction bounded by
+			// `MAX_TRANSACTION_PAYLOAD_SIZE` and a receipt whose logs are bounded by
+			// `MAX_RECEIPT_LOGS_BYTES`, see `block_storage::BLOCK_BUILDER_BYTES`.
+			let max_eth_block_builder_bytes = block_storage::BLOCK_BUILDER_BYTES;
 
 			log::debug!(
 				target: LOG_TARGET,
-				"Integrity check: max_eth_block_builder_bytes={} KB using max_events_size={} KB",
-				max_eth_block_builder_bytes / 1024,
+				"Integrity check: max_events_size={} KB, max_eth_block_builder_bytes={} KB",
 				max_events_size / 1024,
+				max_eth_block_builder_bytes / 1024,
 			);
 
 			// Check that the configured memory limits fit into runtime memory.
@@ -1745,7 +1761,13 @@ pub mod pallet {
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
-				let mut call_result = call.dispatch(RawOrigin::Signed(signer).into());
+				let mut call_result =
+					call.dispatch(RawOrigin::Signed(signer).into()).and_then(|post_info| {
+						match block_storage::ensure_receipt_within_limit::<T>() {
+							Ok(()) => Ok(post_info),
+							Err(error) => Err(DispatchErrorWithPostInfo { post_info, error }),
+						}
+					});
 
 				// Add extrinsic_overhead to the actual weight in PostDispatchInfo
 				match &mut call_result {
@@ -2024,11 +2046,14 @@ impl<T: Config> Pallet<T> {
 				&exec_config,
 			)?;
 
-			storage_deposit = transaction_meter
+			let deposit = transaction_meter
 				.execute_postponed_deposits(&origin, &exec_config)
 				.inspect_err(|err| {
-				log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
-			})?;
+					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
+				})?;
+			// Paying the deposits can mirror logs, outside any frame.
+			block_storage::ensure_receipt_within_limit::<T>()?;
+			storage_deposit = deposit;
 
 			Ok(result)
 		};
@@ -2139,11 +2164,16 @@ impl<T: Config> Pallet<T> {
 				&exec_config,
 			);
 
-			storage_deposit = transaction_meter
+			let deposit = transaction_meter
 				.execute_postponed_deposits(&instantiate_origin, &exec_config)
 				.inspect_err(|err| {
 					log::debug!(target: LOG_TARGET, "Failed to transfer deposit: {err:?}");
 				})?;
+			// Paying the deposits can mirror logs, outside any frame.
+			if result.is_ok() {
+				block_storage::ensure_receipt_within_limit::<T>()?;
+			}
+			storage_deposit = deposit;
 			result
 		};
 		let output = Self::run_guarded(try_instantiate);
@@ -2542,47 +2572,96 @@ impl<T: Config> Pallet<T> {
 			authorization_deposit: actual_auth_deposit,
 		};
 
-		// Dry run the call
-		let mut dry_run = match to {
-			// A contract call.
-			Some(dest) => {
-				if dest == RUNTIME_PALLETS_ADDR {
-					let Ok(dispatch_call) = <CallOf<T>>::decode(&mut &input[..]) else {
-						return Err(EthTransactError::Message(format!(
-							"Failed to decode pallet-call {input:?}"
-						)));
+		// Dry run the call with a receipt open, so that its logs count against the receipt size
+		// limit as they do when the transaction is included.
+		let mut dry_run = block_storage::with_receipt_scope::<T, _>(|| {
+			let dry_run = match to {
+				// A contract call.
+				Some(dest) => {
+					if dest == RUNTIME_PALLETS_ADDR {
+						let Ok(dispatch_call) = <CallOf<T>>::decode(&mut &input[..]) else {
+							return Err(EthTransactError::Message(format!(
+								"Failed to decode pallet-call {input:?}"
+							)));
+						};
+
+						if let Err(result) =
+							dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
+						{
+							return Err(EthTransactError::Message(format!(
+								"Failed to dispatch call: {:?}",
+								result.error,
+							)));
+						};
+						if let Err(err) = block_storage::ensure_receipt_within_limit::<T>() {
+							return Err(EthTransactError::Message(format!(
+								"Failed to dispatch call: {err:?}"
+							)));
+						}
+
+						Default::default()
+					} else {
+						// Dry run the call.
+						let result = crate::Pallet::<T>::bare_call(
+							OriginFor::<T>::signed(origin),
+							dest,
+							value,
+							transaction_limits,
+							input.clone(),
+							&exec_config,
+						);
+
+						let data = match result.result {
+							Ok(return_value) => {
+								if return_value.did_revert() {
+									return Err(EthTransactError::Data(return_value.data));
+								}
+								return_value.data
+							},
+							Err(err) => {
+								log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
+								return extract_error(err);
+							},
+						};
+
+						EthTransactInfo {
+							weight_required: result.weight_required,
+							storage_deposit: result.storage_deposit.charge_or_zero(),
+							max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
+							data,
+							eth_gas: Default::default(),
+						}
+					}
+				},
+				// A contract deployment
+				None => {
+					// Extract code and data from the input.
+					let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
+						extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
+					} else {
+						(input, vec![])
 					};
 
-					if let Err(result) =
-						dispatch_call.clone().dispatch(RawOrigin::Signed(origin).into())
-					{
-						return Err(EthTransactError::Message(format!(
-							"Failed to dispatch call: {:?}",
-							result.error,
-						)));
-					};
-
-					Default::default()
-				} else {
 					// Dry run the call.
-					let result = crate::Pallet::<T>::bare_call(
+					let result = crate::Pallet::<T>::bare_instantiate(
 						OriginFor::<T>::signed(origin),
-						dest,
 						value,
 						transaction_limits,
-						input.clone(),
+						Code::Upload(code.clone()),
+						data.clone(),
+						None,
 						&exec_config,
 					);
 
-					let data = match result.result {
+					let returned_data = match result.result {
 						Ok(return_value) => {
-							if return_value.did_revert() {
-								return Err(EthTransactError::Data(return_value.data));
+							if return_value.result.did_revert() {
+								return Err(EthTransactError::Data(return_value.result.data));
 							}
-							return_value.data
+							return_value.result.data
 						},
 						Err(err) => {
-							log::debug!(target: LOG_TARGET, "Failed to execute call: {err:?}");
+							log::debug!(target: LOG_TARGET, "Failed to instantiate: {err:?}");
 							return extract_error(err);
 						},
 					};
@@ -2591,53 +2670,13 @@ impl<T: Config> Pallet<T> {
 						weight_required: result.weight_required,
 						storage_deposit: result.storage_deposit.charge_or_zero(),
 						max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
-						data,
+						data: returned_data,
 						eth_gas: Default::default(),
 					}
-				}
-			},
-			// A contract deployment
-			None => {
-				// Extract code and data from the input.
-				let (code, data) = if input.starts_with(&polkavm_common::program::BLOB_MAGIC) {
-					extract_code_and_data(&input).unwrap_or_else(|| (input, Default::default()))
-				} else {
-					(input, vec![])
-				};
-
-				// Dry run the call.
-				let result = crate::Pallet::<T>::bare_instantiate(
-					OriginFor::<T>::signed(origin),
-					value,
-					transaction_limits,
-					Code::Upload(code.clone()),
-					data.clone(),
-					None,
-					&exec_config,
-				);
-
-				let returned_data = match result.result {
-					Ok(return_value) => {
-						if return_value.result.did_revert() {
-							return Err(EthTransactError::Data(return_value.result.data));
-						}
-						return_value.result.data
-					},
-					Err(err) => {
-						log::debug!(target: LOG_TARGET, "Failed to instantiate: {err:?}");
-						return extract_error(err);
-					},
-				};
-
-				EthTransactInfo {
-					weight_required: result.weight_required,
-					storage_deposit: result.storage_deposit.charge_or_zero(),
-					max_storage_deposit: result.max_storage_deposit.charge_or_zero(),
-					data: returned_data,
-					eth_gas: Default::default(),
-				}
-			},
-		};
+				},
+			};
+			Ok(dry_run)
+		})?;
 
 		// Ensure max_storage_deposit covers worst-case authorization cost for pool validation.
 		// The meter already includes the actual auth deposit; this bumps it to worst case

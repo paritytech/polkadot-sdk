@@ -437,7 +437,11 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Deposit an event with the given topics.
 	///
 	/// There should not be any duplicates in `topics`.
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>);
+	///
+	/// Fails with [`Error::ReceiptTooLarge`] when the log would take the open ethereum
+	/// transaction's receipt past [`limits::MAX_RECEIPT_LOGS_BYTES`]. Nothing is deposited then.
+	/// The frame fails with the same error when it returns, also if the error is ignored here.
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError>;
 
 	/// Returns the current block number.
 	fn block_number(&self) -> U256;
@@ -1597,6 +1601,11 @@ where
 				.finalize(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
+			// A log that did not fit the receipt fails the frame it was emitted in, also when the
+			// runtime mirrored it or a precompile did not propagate the error.
+			block_storage::ensure_receipt_within_limit::<T>()
+				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
+
 			Ok(output)
 		};
 
@@ -2641,16 +2650,17 @@ where
 		crate::Pallet::<T>::convert_native_to_evm(min)
 	}
 
-	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) {
+	fn deposit_event(&mut self, topics: Vec<H256>, data: Vec<u8>) -> Result<(), DispatchError> {
 		let contract = T::AddressMapper::to_address(self.account_id());
+		block_storage::capture_frame_log::<T>(&contract, &data, &topics)?;
+
 		if_tracing(|tracer| {
 			let log_index = frame_system::Pallet::<Self::T>::event_count();
 			tracer.log_event(contract, &topics, &data, log_index);
 		});
 
-		block_storage::capture_frame_log::<T>(&contract, &data, &topics);
-
 		Contracts::<Self::T>::deposit_event(Event::ContractEmitted { contract, data, topics });
+		Ok(())
 	}
 
 	fn block_number(&self) -> U256 {

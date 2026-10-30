@@ -1,0 +1,80 @@
+title: 'pallet-revive: bound per-transaction receipt size'
+doc:
+- audience: Runtime User
+  description: |-
+    The logs of one Ethereum transaction may now take up at most 2,097,152 bytes (2 MiB) of its
+    receipt (`limits::MAX_RECEIPT_LOGS_BYTES`). The size is the RLP encoding of every log the
+    transaction keeps: address, topics and data, each with its RLP headers. It counts the logs of
+    every contract the transaction calls and the logs the runtime mirrors, such as ERC-20
+    `Transfer` logs for asset balance changes. The limit applies to `eth_transact` and
+    `eth_substrate_call`, and to their dry runs and gas estimation, so an estimate reports the same
+    outcome as inclusion. Calls that do not run as an Ethereum transaction, such as `Revive::call`,
+    have no receipt and are not affected.
+
+    An Ethereum transaction at the EIP-7825 cap of 2^24 gas can log at most about 2.09 MB. This
+    chain enforces neither that cap nor the `LOG` price of 8 gas per byte, so a transaction whose
+    logs went past 2 MiB could succeed before and now fails with `ReceiptTooLarge`. This applies
+    to contracts deployed before the change as well. Split such work over several transactions.
+
+    A log that would take the receipt past the limit fails the call frame that emitted it with the
+    new `ReceiptTooLarge` error, the same way an oversized event or too many topics fail it. This
+    includes a `LOG` instruction, the `deposit_event` syscall, a precompile's event and a log the
+    runtime mirrors inside the frame, for example the `Transfer` of an asset precompile call. The
+    frame's state changes and logs roll back, and the calling contract can handle the failure.
+    A log mirrored outside any frame, such as for a storage deposit paid in an asset after the
+    outermost call returned, fails the whole transaction instead. A failed transaction is
+    included with a failed receipt: its state changes roll back, storage deposits are rolled
+    back, and it pays the fee for the weight it used.
+
+    Mirrored logs emitted outside any Ethereum transaction are collected into the block's
+    synthetic transaction, whose receipt has the same limit. A log that does not fit there stays a
+    substrate-only `ContractEmitted` event, as a log past `MaxOutsideFrameLogs` already does.
+
+    The RLP encoded payload of an `eth_transact` may now be at most 1,245,184 bytes
+    (`limits::MAX_TRANSACTION_PAYLOAD_SIZE`: 1 MiB of code, 128 KiB of call data and 64 KiB for the
+    rest of the transaction). A larger payload is rejected with
+    `InvalidTransaction::ExhaustsResources` when the transaction is checked, and a dry run of it
+    fails with the same error. Transactions within the code and call data limits are not affected
+    unless they also carry more than about 64 KiB of access or authorization lists.
+
+    The payload limit also applies to an `eth_transact` to `RUNTIME_PALLETS_ADDR`, whose call data
+    is a SCALE encoded runtime call and is not bound by the call data limit otherwise. A large
+    `utility::batch_all` or `preimage::note_preimage` sent that way is now rejected; submit it as a
+    native extrinsic instead. Dev chains with `DebugEnabled` and
+    `DebugSettings::allow_unlimited_contract_size` can no longer submit EVM init code that takes the
+    payload past the limit.
+- audience: Runtime Dev
+  description: |-
+    `PrecompileExt::deposit_event` now returns `Result<(), DispatchError>`. It fails with
+    `Error::ReceiptTooLarge` when the log does not fit the open receipt, and deposits nothing in
+    that case. The trait is sealed, so no implementation changes. Precompiles that emit logs
+    through it should propagate the result, so that the precompile call fails with the error:
+
+    ```rust
+    // before
+    env.deposit_event(topics, data);
+    // after
+    env.deposit_event(topics, data)?;
+    ```
+
+    Ignoring the result compiles with an unused `Result` warning and does not keep the log: the
+    frame then fails with `ReceiptTooLarge` when it returns.
+
+    `Error` has the new variant `ReceiptTooLarge` (index `0x45`). Code that matches on the error
+    exhaustively needs an arm for it.
+
+    `limits::MAX_TRANSACTION_PAYLOAD_SIZE` grows by 64 KiB and is now enforced on `eth_transact`
+    payloads, see above. `integrity_test` sizes the Ethereum block builder from this limit and the
+    receipt limit, instead of from the block weight. No storage migration and no configuration
+    change is needed.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: none
+- name: pallet-assets-precompiles
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch

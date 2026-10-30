@@ -21,8 +21,8 @@ use crate::{
 	dispatch_result,
 	evm::{
 		block_hash::{
-			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, OutsideFrameLog,
-			SyntheticTransactionInfo,
+			AccumulateReceipt, CommittedReceiptLogs, EthereumBlockBuilder, LogsBloom,
+			OutsideFrameLog, SyntheticTransactionInfo,
 		},
 		burn_with_dust,
 		fees::InfoT,
@@ -35,6 +35,7 @@ use alloc::vec::Vec;
 use environmental::environmental;
 use frame_support::{
 	dispatch::DispatchInfo,
+	ensure,
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
 	traits::Get,
@@ -123,21 +124,44 @@ impl EthereumCallResult {
 	}
 }
 
-/// Add the log to the open ethereum transaction's receipt, if there is one, and report whether
-/// there was. Outside an ethereum transaction the caller decides what becomes of the log.
+/// Add the log to the open ethereum transaction's receipt. Returns `None` outside an ethereum
+/// transaction, where the caller decides what becomes of the log.
 ///
 /// A log only exists if the storage change that produced it took effect, so the receipt follows
 /// storage rollback: what the transaction has committed of its receipt is kept in
 /// [`ReceiptLogsCommitted`], and rolls back with any layer that rolls back, a contract frame or a
 /// `batch_all` around a plain call. The accumulator itself lives outside storage and is cut back
 /// to the committed state before every log, and once more in [`get_receipt_details`].
-pub fn capture_into_receipt<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
+///
+/// The receipt is bounded by [`limits::MAX_RECEIPT_LOGS_BYTES`]. A log that would take it past
+/// the limit is not kept and fails with [`Error::ReceiptTooLarge`]. It also sets
+/// [`CommittedReceiptLogs::exceeded`]: every later log fails as well, and the frame or the
+/// transaction the log was emitted in fails, see [`ensure_receipt_within_limit`], even where the
+/// error is not propagated. The flag rolls back with the layer the log was emitted in.
+pub fn capture_into_receipt<T: Config>(
+	contract: &H160,
+	data: &[u8],
+	topics: &[H256],
+) -> Option<Result<(), DispatchError>> {
 	receipt::with(|receipt| {
-		receipt.reset_to(&ReceiptLogsCommitted::<T>::get());
-		receipt.add_log(contract, data, topics);
-		ReceiptLogsCommitted::<T>::put(receipt.committed());
+		let committed = ReceiptLogsCommitted::<T>::get();
+		if committed.exceeded {
+			return Err(Error::<T>::ReceiptTooLarge.into());
+		}
+		let fits = (committed.encoded_len as usize)
+			.saturating_add(AccumulateReceipt::encoded_log_len(contract, data, topics)) <=
+			limits::MAX_RECEIPT_LOGS_BYTES as usize;
+		let next = if fits {
+			receipt.reset_to(&committed);
+			receipt.add_log(contract, data, topics);
+			receipt.committed()
+		} else {
+			CommittedReceiptLogs { exceeded: true, ..committed }
+		};
+		ReceiptLogsCommitted::<T>::put(next);
+		ensure!(fits, Error::<T>::ReceiptTooLarge);
+		Ok(())
 	})
-	.is_some()
 }
 
 /// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
@@ -154,8 +178,15 @@ pub fn capture_into_receipt<T: Config>(contract: &H160, data: &[u8], topics: &[H
 /// So where a contract's log ends up depends on the entry point: `eth_transact` and
 /// `eth_substrate_call`, whose inner dispatch runs inside `with_ethereum_context`, put it on the
 /// receipt; `Revive::call` and an XCM `Transact` leave it substrate-only.
-pub fn capture_frame_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
-	capture_into_receipt::<T>(contract, data, topics);
+///
+/// Fails with [`Error::ReceiptTooLarge`] when the log does not fit the open receipt, see
+/// [`capture_into_receipt`]. The emitting frame then fails like on any other error.
+pub fn capture_frame_log<T: Config>(
+	contract: &H160,
+	data: &[u8],
+	topics: &[H256],
+) -> Result<(), DispatchError> {
+	capture_into_receipt::<T>(contract, data, topics).unwrap_or(Ok(()))
 }
 
 /// Take the receipt details of the current transaction: the logs it committed, see
@@ -172,10 +203,38 @@ pub fn get_receipt_details<T: Config>() -> Option<(Vec<u8>, LogsBloom)> {
 	})
 }
 
-/// Capture the receipt events emitted from the current ethereum
+/// Run `f` with an ethereum receipt open, as inside an ethereum transaction.
 #[cfg(feature = "runtime-benchmarks")]
 pub fn bench_with_ethereum_context<R>(f: impl FnOnce() -> R) -> R {
 	receipt::using(&mut AccumulateReceipt::new(), f)
+}
+
+/// Run `f` with a receipt open, as an ethereum transaction runs, and discard the receipt after.
+///
+/// For a dry run of an ethereum transaction: its logs are subject to the same
+/// [`limits::MAX_RECEIPT_LOGS_BYTES`] as when the transaction is included in a block.
+pub fn with_receipt_scope<T: Config, R>(f: impl FnOnce() -> R) -> R {
+	receipt::using(&mut AccumulateReceipt::new(), || {
+		let result = f();
+		ReceiptLogsCommitted::<T>::kill();
+		result
+	})
+}
+
+/// Fail with [`Error::ReceiptTooLarge`] if a log did not fit the open receipt, see
+/// [`capture_into_receipt`]. Outside an ethereum transaction there is no receipt and nothing is
+/// read.
+///
+/// Every contract frame, precompiles included, checks this before it returns successfully, so a
+/// log that did not fit fails the frame it was emitted in, also when the runtime mirrored it or
+/// a precompile did not propagate the error. Logs emitted outside any frame are checked where
+/// they can be emitted: after `bare_call` and `bare_instantiate` executed their storage
+/// deposits, and after the runtime call dispatched by `eth_substrate_call` or by a dry run.
+/// Failing there leaves the fee to be computed from the failed result.
+pub fn ensure_receipt_within_limit<T: Config>() -> Result<(), DispatchError> {
+	let exceeded = receipt::with(|_| ReceiptLogsCommitted::<T>::get().exceeded);
+	ensure!(exceeded != Some(true), Error::<T>::ReceiptTooLarge);
+	Ok(())
 }
 
 /// Execute the Ethereum call, and write the block storage transaction details.
@@ -205,8 +264,10 @@ pub fn with_ethereum_context<T: Config>(
 
 		if let Some(dispatch_error) = err {
 			// A failed transaction's receipt carries no logs: the dispatch rolled back, and with
-			// it what the transaction had committed to its receipt, whether its frames reverted
-			// or it failed after them, at the fee settlement.
+			// it what the transaction had committed to its receipt, whether one of its frames
+			// failed or the transaction failed outside them, for example in the runtime call of
+			// `eth_substrate_call`, at the storage deposits, at a receipt check outside any frame
+			// (see `ensure_receipt_within_limit`) or at the fee settlement.
 			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
 			crate::block_storage::process_transaction::<T>(
 				transaction_encoded,
@@ -387,27 +448,55 @@ pub fn process_transaction<T: Config>(
 // That gives us 3 items of maximum size per each hash builder.
 //
 // `EthereumBlockBuilder = 3 * (max size of transactions + max size of receipts)`
-// The maximum size of a transaction is limited by
-// `limits::MAX_TRANSACTION_PAYLOAD_SIZE`, while the maximum size of a receipt is
-// limited by `limits::EVENT_BYTES`.
+// The maximum size of a transaction is limited by `limits::MAX_TRANSACTION_PAYLOAD_SIZE`,
+// enforced when an `eth_transact` is checked, while the maximum size of a receipt is
+// `MAX_RECEIPT_BYTES`.
 //
 // Similarly, this is the amount of pallet storage consumed by the
 // `EthereumBlockBuilderIR` object, plus a marginal book-keeping overhead.
-pub fn block_builder_bytes_usage(max_events_size: u32) -> u32 {
-	// A block builder requires 3 times the maximum size of the entry.
-	const MEMORY_COEFFICIENT: u32 = 3;
 
-	// Because events are not capped, and the builder cannot exceed the
-	// number of bytes received, the actual memory usage for receipts is:
-	// `receipts_hash_builder = min(events_per_tx * 3, max_events_size)`
-	// where `max_events_size` can be consumed by a single transaction.
-	// Since we don't know in advance the `events_per_tx`, we'll assume the
-	// worst case scenario.
-	let receipts_hash_builder = max_events_size;
+/// Upper bound on the memory and pallet storage the ethereum block builder uses.
+pub const BLOCK_BUILDER_BYTES: u32 = 3 * MAX_ENTRY_BYTES;
 
-	// `transactions_root` hash builder
-	let transactions_hash_builder =
-		limits::MAX_TRANSACTION_PAYLOAD_SIZE.saturating_mul(MEMORY_COEFFICIENT);
+/// The bytes a receipt's RLP encoding adds around its logs, at most.
+///
+/// The transaction type (1), the receipt's list header (4, as the receipt is below 16 MiB), the
+/// status (1), the cumulative gas as a `u64` (9), the bloom (259) and the logs' list header (4).
+const RECEIPT_ENVELOPE_BYTES: u32 = 278;
 
-	receipts_hash_builder.saturating_add(transactions_hash_builder)
+/// Upper bound on the encoding of one transaction's receipt.
+const MAX_RECEIPT_BYTES: u32 = limits::MAX_RECEIPT_LOGS_BYTES + RECEIPT_ENVELOPE_BYTES;
+
+/// Upper bound on one transaction and its receipt, as the block builder holds them.
+const MAX_ENTRY_BYTES: u32 = limits::MAX_TRANSACTION_PAYLOAD_SIZE + MAX_RECEIPT_BYTES;
+
+// The block's first transaction and its receipt are stored as one value and loaded back as one.
+// With the few bytes its SCALE encoding adds, about 3.2 MiB, that value takes at most an eighth of
+// the largest buffer the runtime can allocate.
+const _: () = assert!(MAX_ENTRY_BYTES + 16 <= sp_core::MAX_POSSIBLE_ALLOCATION / 8);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A typed receipt with logs exactly at the limit and the largest cumulative gas takes up
+	/// exactly `MAX_RECEIPT_BYTES`.
+	#[test]
+	fn largest_receipt_is_max_receipt_bytes() {
+		let mut receipt = AccumulateReceipt::new();
+		let data = alloc::vec![0xffu8; 65_508];
+		for _ in 0..32 {
+			receipt.add_log(&H160::repeat_byte(0xff), &data, &[]);
+		}
+		assert_eq!(receipt.encoding.len(), limits::MAX_RECEIPT_LOGS_BYTES as usize);
+
+		let encoded = AccumulateReceipt::encoded_receipt(
+			receipt.encoding,
+			receipt.bloom,
+			false,
+			u64::MAX,
+			alloc::vec![0x02],
+		);
+		assert_eq!(encoded.len(), MAX_RECEIPT_BYTES as usize);
+	}
 }
