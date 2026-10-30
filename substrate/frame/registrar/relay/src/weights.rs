@@ -78,6 +78,7 @@ pub trait WeightInfo {
 	fn on_new_head() -> Weight;
 	fn on_new_head_already_noted() -> Weight;
 	fn receive_deregister() -> Weight;
+	fn receive_set_current_head(h: u32, ) -> Weight;
 }
 
 /// Weights for `pallet_registrar_relay` using the Substrate node and recommended hardware.
@@ -176,6 +177,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(4_000_000, 0)
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// The range of component `h` is `[0, 1048576]`.
+	fn receive_set_current_head(h: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(7_884_715, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(169, 0).saturating_mul(h.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -272,5 +283,15 @@ impl WeightInfo for () {
 		// Minimum execution time: 3_000_000 picoseconds.
 		Weight::from_parts(4_000_000, 0)
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// The range of component `h` is `[0, 1048576]`.
+	fn receive_set_current_head(h: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(7_884_715, 0)
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(169, 0).saturating_mul(h.into()))
 	}
 }

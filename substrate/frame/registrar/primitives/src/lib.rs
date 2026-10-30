@@ -277,6 +277,9 @@ pub enum FailureReason {
 	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
 	NotDeregisterable,
+	/// The head data is larger than the relay chain accepts.
+	#[codec(index = 5)]
+	HeadDataTooLarge,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.

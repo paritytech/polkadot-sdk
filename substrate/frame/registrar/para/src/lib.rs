@@ -362,6 +362,12 @@ pub mod pallet {
 		ParaUnlocked { para_id: ParaId },
 		/// Something that should never happen did. The pallet carried on regardless.
 		Unexpected(UnexpectedKind),
+		/// The relay chain has been asked to set this para's current head.
+		HeadUpdateRequested { para_id: ParaId, message_id: u64 },
+		/// The relay chain set the head.
+		HeadUpdated { para_id: ParaId, message_id: u64 },
+		/// The relay chain refused the head.
+		HeadUpdateFailed { para_id: ParaId, message_id: u64, reason: FailureReason },
 	}
 
 	/// A defensive check that failed, reported as [`Event::Unexpected`] so it is visible on chain
@@ -723,16 +729,35 @@ pub mod pallet {
 			Err(Error::<T>::Unimplemented.into())
 		}
 
+		/// Set the current head of a registered para.
+		///
+		/// Root, the para itself, or its manager while unlocked. Nothing is recorded here: the
+		/// outcome comes back through [`Pallet::receive`] as an event.
 		#[pallet::call_index(8)]
-		#[pallet::weight(Weight::MAX)]
+		#[pallet::weight(T::WeightInfo::set_current_head(head.len() as u32))]
 		pub fn set_current_head(
 			origin: OriginFor<T>,
 			para_id: ParaId,
 			head: Vec<u8>,
 		) -> DispatchResult {
-			let _ = (origin, para_id, head);
-			// TODO(ahm-v2): send the new head to the relay chain.
-			Err(Error::<T>::Unimplemented.into())
+			let info = Paras::<T>::get(para_id).ok_or(Error::<T>::NotReserved)?;
+			Self::ensure_root_para_or_manager(origin, para_id, &info)?;
+			ensure!(
+				matches!(info.state, RegistrationState::Registered { .. }),
+				Error::<T>::NotRegistered
+			);
+			ensure!(head.len() as u32 <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+
+			let message_id = Self::next_message_id();
+			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
+				para_id,
+				message_id,
+				head,
+			}))
+			.map_err(|()| Error::<T>::SendFailed)?;
+
+			Self::deposit_event(Event::HeadUpdateRequested { para_id, message_id });
+			Ok(())
 		}
 
 		/// Ask the relay chain to register a para id under `manager`, on [`Config::ForceOrigin`]'s
@@ -1159,9 +1184,12 @@ impl<T: Config> Pallet<T> {
 		Err(Error::<T>::Unimplemented.into())
 	}
 
+	/// Nothing was recorded for the request, so the answer is only surfaced as an event.
 	fn on_set_head_response(para_id: ParaId, message_id: u64, outcome: Outcome) -> DispatchResult {
-		let _ = (para_id, message_id, outcome);
-		// TODO(ahm-v2): settle the pending head update from the relay chain's answer.
-		Err(Error::<T>::Unimplemented.into())
+		Self::deposit_event(match outcome {
+			Ok(()) => Event::HeadUpdated { para_id, message_id },
+			Err(reason) => Event::HeadUpdateFailed { para_id, message_id, reason },
+		});
+		Ok(())
 	}
 }
