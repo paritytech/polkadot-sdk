@@ -271,3 +271,32 @@ fn try_state_works() {
 			.contains("Found `Freeze` with too many elements"));
 	});
 }
+
+/// Releasing a hold while the free balance is zero must not reset the frozen balance.
+#[test]
+fn release_hold_with_zero_free_balance_keeps_frozen() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		UseSystem::set(true);
+		let (alice, bob) = (0, 1);
+
+		Balances::set_balance(&alice, 1010);
+		TotalIssuance::<Test>::put(1010);
+		let _ = System::inc_providers(&alice);
+		Balances::set_lock(*b"locktest", &alice, 1000, WithdrawReasons::all());
+		assert_ok!(Balances::hold(&TestId::Foo, &alice, 1000));
+
+		// Leaves free = 0: kept alive by the extra provider.
+		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 10));
+		assert_eq!(get_test_account_data(alice).free, 0);
+
+		assert_ok!(Balances::release(&TestId::Foo, &alice, 1000, Precision::Exact));
+
+		let data = get_test_account_data(alice);
+		assert_eq!((data.free, data.reserved, data.frozen), (1000, 0, 1000));
+		assert_noop!(
+			Balances::transfer_allow_death(Some(alice).into(), bob, 999),
+			sp_runtime::TokenError::Frozen
+		);
+		ensure_ti_valid();
+	});
+}

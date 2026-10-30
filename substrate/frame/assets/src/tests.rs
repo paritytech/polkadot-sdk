@@ -1706,6 +1706,34 @@ fn freezing_and_holds_work() {
 }
 
 #[test]
+fn releasing_hold_at_minimum_balance_keeps_freeze() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, true, 10));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 1010));
+		set_balance_on_hold(0, 1, 1000);
+		set_frozen_balance(0, 1, 1000);
+
+		assert_eq!(Assets::balance(0, 1), 10);
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10),
+			Error::<Test>::BalanceLow
+		);
+
+		clear_balance_on_hold(0, 1);
+		assert_eq!(Assets::balance(0, 1), 1010);
+		assert_eq!(TestFreezer::frozen_balance(0, &1), Some(1000));
+		assert_eq!(Assets::total_supply(0), 1010);
+		assert_noop!(
+			Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 11),
+			Error::<Test>::BalanceLow
+		);
+		assert_ok!(Assets::transfer(RuntimeOrigin::signed(1), 0, 2, 10));
+		assert_eq!(Assets::balance(0, 1), 1000);
+		assert_eq!(Assets::total_supply(0), 1010);
+	});
+}
+
+#[test]
 fn imbalances_should_work() {
 	use frame_support::traits::fungibles::Balanced;
 
