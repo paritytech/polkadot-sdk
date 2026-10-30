@@ -21703,6 +21703,7 @@ dependencies = [
  "sc-client-api 28.0.0",
  "sc-state-db",
  "schnellru",
+ "smallvec",
  "sp-arithmetic 23.0.0",
  "sp-blockchain 28.0.0",
  "sp-core 28.0.0",

@@ -18,10 +18,13 @@
 
 //! Proof utilities
 use crate::{CompactProof, StorageProof};
-use sp_runtime::traits::Block as BlockT;
+use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::{KeyValueStates, KeyValueStorageLevel};
 use sp_storage::ChildInfo;
 use std::time::Duration;
+
+/// The trie nodes a compact proof decodes to, keyed by hash, for state sync to write.
+pub type DecodedCompactProof<H> = sp_state_machine::MemoryDB<H>;
 
 /// Interface for providing block proving utilities.
 pub trait ProofProvider<Block: BlockT> {
@@ -86,12 +89,12 @@ pub trait ProofProvider<Block: BlockT> {
 	) -> sp_blockchain::Result<Vec<(KeyValueStorageLevel, bool)>>;
 
 	/// Verify read storage proof for a set of keys.
-	/// Returns collected key-value pairs and the nested state
-	/// depth of current iteration or 0 if completed.
+	/// Returns the collected key-value pairs, the nested state depth of the current iteration (0
+	/// if completed), and the proof's decoded trie nodes keyed by hash, for state sync to write.
 	fn verify_range_proof(
 		&self,
 		root: Block::Hash,
 		proof: CompactProof,
 		start_keys: &[Vec<u8>],
-	) -> sp_blockchain::Result<(KeyValueStates, usize)>;
+	) -> sp_blockchain::Result<(KeyValueStates, usize, DecodedCompactProof<HashingFor<Block>>)>;
 }
