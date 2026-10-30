@@ -353,8 +353,12 @@ Coretime.</li>
 <li><code>max_timeslices</code>: The maximum number of timeslices which should be processed. This
 must be greater than 0. This may affect the weight of the call but should be ideally
 made equivalent to the length of the Region <code>region_id</code>. If less, further dispatches
-will be required with the same <code>region_id</code> to claim revenue for the remainder.</li>
+will be required with the same <code>region_id</code> to claim revenue for the remainder.
+Processing stops at the first timeslice whose revenue the relay chain has not yet
+reported; the remainder can be claimed once it has been.</li>
 </ul>
+<p>The fee is waived only if at least one timeslice was processed, and the weight of the
+timeslices that were not processed is refunded.</p>
 </div><div class="sub-variant" id="variant.claim_revenue.fields"><h4>Fields</h4><div class="sub-variant-field"><span id="variant.claim_revenue.field.region_id" class="section-header"><a href="#variant.claim_revenue.field.region_id" class="anchor field">§</a><code>region_id: <a class="struct" href="../../fp_coretime/struct.RegionId.html" title="struct yet_another_parachain_runtime::fp_coretime::RegionId">RegionId</a></code></span></div><div class="sub-variant-field"><span id="variant.claim_revenue.field.max_timeslices" class="section-header"><a href="#variant.claim_revenue.field.max_timeslices" class="anchor field">§</a><code>max_timeslices: <a class="primitive" href="https://doc.rust-lang.org/1.93.0/std/primitive.u32.html">u32</a></code></span></div></div><section id="variant.purchase_credit" class="variant"><a href="#variant.purchase_credit" class="anchor">§</a><h3 class="code-header">purchase_credit</h3></section><div class="docblock"><p>Purchase credit for use in the Instantaneous Coretime Pool.</p>
 <ul>
 <li><code>origin</code>: Must be a Signed origin able to pay at least <code>amount</code>.</li>

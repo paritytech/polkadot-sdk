@@ -155,8 +155,12 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <li><code>max_timeslices</code>: The maximum number of timeslices which should be processed. This
 must be greater than 0. This may affect the weight of the call but should be ideally
 made equivalent to the length of the Region <code>region_id</code>. If less, further dispatches
-will be required with the same <code>region_id</code> to claim revenue for the remainder.</li>
+will be required with the same <code>region_id</code> to claim revenue for the remainder.
+Processing stops at the first timeslice whose revenue the relay chain has not yet
+reported; the remainder can be claimed once it has been.</li>
 </ul>
+<p>The fee is waived only if at least one timeslice was processed, and the weight of the
+timeslices that were not processed is refunded.</p>
 <h2 id="warning-doc-only"><a class="doc-anchor" href="#warning-doc-only">§</a>Warning: Doc-Only</h2>
 <p>This function is an automatically generated, and is doc-only, uncallable
 stub. See the real version in
