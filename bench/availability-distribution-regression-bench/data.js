@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793311770696,
+  "lastUpdate": 1793356436785,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0688fe97808b6bff442115868beba51c3e1b9f64",
-          "message": "Fix PSM storage migration (#11770)\n\n## Summary\n\nFixes the PSM migration to run on first deployment by replacing the\nversioned `MigrateToV1` with an idempotent `InitializePsm`.\n\n### Problem\n\nWhen a pallet is first added to a runtime, `BeforeAllRuntimeMigrations`\ninitializes the on-chain storage version to the pallet's in-code\nversion. With `STORAGE_VERSION = 1`, the on-chain version was set to `1`\nbefore `MigrateToV1` ran. Since `VersionedMigration<0, 1>` only executes\nwhen the on-chain version is `0`, the migration was skipped, leaving the\nPSM unconfigured (no external assets, no fees, no ceiling weights).\n\n### Fix\n\nReplace `MigrateToV1` (versioned) with `InitializePsm` (idempotent).\nInstead of relying on storage versions, it checks whether each external\nasset already exists and skips it if so. Safe to run multiple times.\n\n### Tests\n\n- `initialize_psm_configures_new_assets` — fresh deployment configures\nall assets\n- `initialize_psm_skips_existing_assets` — already-configured assets are\nnot overwritten\n- `initialize_psm_is_idempotent` — running twice produces the same\nresult",
-          "timestamp": "2026-04-15T13:14:29Z",
-          "tree_id": "c71f0d1937252f90a3a5c3dcbbccd12e8e5886c4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0688fe97808b6bff442115868beba51c3e1b9f64"
-        },
-        "date": 1776263794109,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02538368507333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007274470279999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009479326946666646,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1405891151466667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007679814293333334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d35873d48c27f770fd318a986cd9c7dd8b81383",
+          "message": "pallet-broker: do not consume unsettled timeslices in claim_revenue (#13286)\n\n# Description\n\n`claim_revenue` advanced a pool contribution past a timeslice before\nchecking whether its revenue\ncould be paid out, so a claim made before a timeslice was settled lost\nthat timeslice's payout\npermanently. The claim now stops at the first timeslice whose revenue\nhas not yet been reported,\nor which has not yet been committed, and keeps the remaining\ncontribution so it can be retried.\nA history entry missing at or before the last committed timeslice is\nstill treated as dropped.\n\n## Integration\n\nNo API changes. The `claim_revenue` weights change: the benchmark now\nsettles every claimed\ntimeslice instead of only the first, so runtimes should regenerate\n`pallet_broker` weights.\n\n## Review Notes\n\n- `do_claim_revenue`: the history lookup and `maybe_payout` check move\nahead of the\n`region.begin` / `contribution.length` advance; a missing entry only\nadvances the contribution\nwhen `r <= Status::last_committed_timeslice`. The `next` hint in\n`RevenueClaimPaid` follows the\nremaining contribution length rather than the already-mutated\n`region.begin`.\n- `claim_revenue(m)` benchmark: seeds `m` settled history entries.\nPreviously iterations `2..m`\ntook the cheap missing-entry path, so the per-timeslice weight was\nunderestimated.\n- Tests: claiming before commit or before settlement leaves the\ncontribution intact and reports\n  `next`; claiming over dropped history skips it and pays out the rest.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T09:01:04Z",
+          "tree_id": "22a43a56e9a35160e19dc6017d66230f3cdf6da1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d35873d48c27f770fd318a986cd9c7dd8b81383"
+        },
+        "date": 1793356407098,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14130400982000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024932724086666674,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007432446946666663,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009640615266666633,
             "unit": "seconds"
           }
         ]
