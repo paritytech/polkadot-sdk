@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793356498170,
+  "lastUpdate": 1793360368955,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baaaa925927eaf4a488f33ac1f1ecd6bacd24db3",
-          "message": "asset-conversion-precompiles expose pool management (#11690)\n\nAdd createPool, addLiquidity, and removeLiquidity functions to the\nasset-conversion precompile, enabling EVM contracts to manage liquidity\npools directly. Also refactors common helpers (caller lookup, path\nvalidation) for reuse across swap and liquidity operations.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T14:06:01Z",
-          "tree_id": "1f147cb91b909822a1d2d6bd229ba65fcdc42d62",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaaa925927eaf4a488f33ac1f1ecd6bacd24db3"
-        },
-        "date": 1776266950695,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63626.590000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52943.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.00522790784,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.93100366845,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9015792598200005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.741855430749965,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.723701621789958,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000022290759999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00001914241,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000022290759999999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00001914241,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8477879625100013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8586990372799983,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.366434877512868,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4738559730600067,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8476015422800003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8fbb5fd234a836f1bf3f948200f71bb1d7973e66",
+          "message": "pallet-psm: reduce debt by the amount actually burned on redeem (#13627)\n\n`redeem` burns with `Preservation::Expendable`. When the redeemer is\nleft\n   below the internal asset's `min_balance`, `burn_from` also burns that\n   remainder and lowers the issuance by more than\n`effective_internal_net`,\n   while `PsmDebt` only dropped by `effective_internal_net`. A plain\nredeem\n   could therefore leave the issuance below the debt, failing the\n   `try_state` check and keeping the debt from ever reaching zero.\n\n   Reduce the debt by the value `burn_from` returns, and report it in\n   `Redeemed::internal_consumed`. The burned remainder's external value\n   stays in the reserve.\n\n---------\n\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T10:06:17Z",
+          "tree_id": "c1e0f7ede5438e0c611053bb035c9e95ea0b5bd7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8fbb5fd234a836f1bf3f948200f71bb1d7973e66"
+        },
+        "date": 1793360336042,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63565.96,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52945.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002150472,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020549659999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7784008391099997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.770005884950001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020549659999999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8008696577800147,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.32608269411001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.8037020080599993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.353699716939997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.00495863437000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.814445952900002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.516237460142741,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002150472,
             "unit": "seconds"
           }
         ]
