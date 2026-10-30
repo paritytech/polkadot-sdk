@@ -1709,10 +1709,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				)?;
 				self.transactional_process(|self_ref| {
 					self_ref.take_fee(fee, FeeReason::Export { network, destination })?;
-					let _ = Config::MessageExporter::deliver(ticket).defensive_proof(
-						"`deliver` called immediately after `validate_export`; \
-						`take_fee` does not affect the validity of the ticket; qed",
-					);
+					// `deliver` is called immediately after `validate_export` and `take_fee` does
+					// not affect the validity of the ticket, so this is not expected to fail. If
+					// it does anyway, the error rolls back the export fee with the rest of the
+					// instruction instead of charging for a message that was never exported.
+					Config::MessageExporter::deliver(ticket)?;
 					Ok(())
 				})
 			},

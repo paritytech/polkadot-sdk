@@ -249,3 +249,45 @@ fn failed_buy_execution_does_not_record_fee_asset() {
 	assert!(vm.bench_process(fails_again).is_err());
 	assert_eq!(vm.asset_used_in_buy_execution(), &Some(Here.into()));
 }
+
+// ========== `ExportMessage` must roll back the export fee when delivery fails ==========
+
+fn export_message(destination: InteriorLocation) -> Instruction<TestCall> {
+	ExportMessage { network: ByGenesis([1; 32]), destination, xcm: Xcm(vec![]) }
+}
+
+/// Assumption behind the rollback test below: `ExportMessage` charges the export fee from the
+/// fees register and delivers when the destination is reachable.
+#[test]
+fn export_message_charges_export_fee_from_fees_register() {
+	let mut vm = vm_with_holding_and_fees();
+	let holding_before = get_first_fungible(vm.holding());
+	let exported_before = exported_xcm().len();
+
+	assert!(vm.bench_process(Xcm(vec![export_message([Parachain(1)].into())])).is_ok());
+
+	assert_eq!(get_first_fungible(vm.holding()), holding_before);
+	// `PayFees { 10 }` bought the message weight for `4`; the test exporter then charges `1`.
+	assert_eq!(get_first_fungible(vm.fees()), Some((Here, 5u128).into()));
+	assert_eq!(exported_xcm().len(), exported_before + 1);
+}
+
+/// A failing `deliver` must surface as the instruction's error and roll back the export fee,
+/// rather than being swallowed and charging for a message that was never exported.
+#[test]
+fn export_message_delivery_failure_rolls_back_fee() {
+	let mut vm = vm_with_holding_and_fees();
+	let holding_before = get_first_fungible(vm.holding());
+	let fees_before = get_first_fungible(vm.fees());
+	let exported_before = exported_xcm().len();
+
+	let result = vm.bench_process(Xcm(vec![export_message(undeliverable_export_destination())]));
+	assert!(
+		matches!(result, Err(ExecutorError { xcm_error: XcmError::Transport(_), .. })),
+		"{result:?}"
+	);
+
+	assert_eq!(get_first_fungible(vm.holding()), holding_before);
+	assert_eq!(get_first_fungible(vm.fees()), fees_before);
+	assert_eq!(exported_xcm().len(), exported_before);
+}
