@@ -529,10 +529,13 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
 	}
 
-	fn create_asset(asset_id: NativeOrWithId<u32>) -> sp_runtime::DispatchResult {
+	fn create_asset(asset_id_seed: u32) -> Result<NativeOrWithId<u32>, sp_runtime::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 
-		NativeAndAssets::create(asset_id, AccountId::from([0; 32]), false, 1)
+		let asset_id = NativeOrWithId::WithId(asset_id_seed);
+		NativeAndAssets::create(asset_id.clone(), AccountId::from([0; 32]), false, 1)?;
+
+		Ok(asset_id)
 	}
 }
 

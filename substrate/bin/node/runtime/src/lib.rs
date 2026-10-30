@@ -771,20 +771,25 @@ parameter_types! {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-struct DapBenchmarkHelper;
+pub struct DapBenchmarkHelper;
 
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_dap::BenchmarkHelper for DapBenchmarkHelper {
+impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmarkHelper {
 	fn mint_ed(account: &AccountId) -> polkadot_sdk_frame::prelude::DispatchResult {
 		use frame_support::traits::fungible::Mutate;
 
 		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
 	}
 
-	fn create_asset(asset_id: AssetKind) -> polkadot_sdk_frame::prelude::DispatchResult {
+	fn create_asset(
+		asset_id_seed: u32,
+	) -> Result<NativeOrWithId<u32>, polkadot_sdk_frame::prelude::DispatchError> {
 		use frame_support::traits::fungibles::Create;
 
-		NativeAndAssets::create(asset_id, AccountId::from(100u32), false, 1)
+		let asset_id = NativeOrWithId::WithId(asset_id_seed);
+		NativeAndAssets::create(asset_id.clone(), AccountId::from([0; 32]), false, 1)?;
+
+		Ok(asset_id)
 	}
 }
 

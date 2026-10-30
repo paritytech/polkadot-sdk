@@ -492,10 +492,10 @@ impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmar
 		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
 	}
 
-	fn create_asset(_asset_id: NativeOrWithId<u32>) -> sp_runtime::DispatchResult {
-		use sp_runtime::{DispatchError, DispatchResult, TokenError};
+	fn create_asset(_asset_id_seed: u32) -> Result<NativeOrWithId<u32>, sp_runtime::DispatchError> {
+		use sp_runtime::{DispatchError, TokenError};
 
-		DispatchResult::Err(DispatchError::Token(TokenError::CannotCreate))
+		Err(DispatchError::Token(TokenError::CannotCreate))
 	}
 }
 

@@ -128,8 +128,8 @@ pub trait BenchmarkHelper<AccountId, AssetKind> {
 	/// Mint existential deposit to a given account.
 	fn mint_ed(account: &AccountId) -> DispatchResult;
 
-	/// Create an asset with the given id.
-	fn create_asset(asset_id: AssetKind) -> DispatchResult;
+	/// Create an asset, deriving its `asset_id` from `u32`.
+	fn create_asset(asset_id_seed: u32) -> Result<AssetKind, DispatchError>;
 }
 
 #[frame_support::pallet]

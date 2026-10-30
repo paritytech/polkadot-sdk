@@ -24,7 +24,7 @@ use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_staking::budget::BudgetRecipientList;
 
-#[benchmarks(where T: pallet_timestamp::Config<Moment = u64>, AssetKindOf<T> : From<u32>)]
+#[benchmarks(where T: pallet_timestamp::Config<Moment = u64>)]
 mod benchmarks {
 	use super::*;
 
@@ -48,11 +48,7 @@ mod benchmarks {
 		allocations
 	}
 
-	fn create_full_asset_allocations<T>() -> AssetAllocationMapOf<T>
-	where
-		T: Config,
-		AssetKindOf<T>: From<u32>,
-	{
+	fn create_full_asset_allocations<T: Config>() -> AssetAllocationMapOf<T> {
 		create_asset_allocations::<T>(T::MaxDistributableAssets::get())
 	}
 
@@ -60,11 +56,7 @@ mod benchmarks {
 	/// `AssetKind::from(1)`, ..., `AssetKind::from(count - 1)`. If some assets couldn't be created,
 	/// they are skipped. It's done so because in some runtime configurations `Pallet::Assets` won't
 	/// be configured to the real `pallet-assets` and may not allow creating the assets.
-	fn create_asset_allocations<T>(count: u32) -> AssetAllocationMapOf<T>
-	where
-		T: Config,
-		AssetKindOf<T>: From<u32>,
-	{
+	fn create_asset_allocations<T: Config>(count: u32) -> AssetAllocationMapOf<T> {
 		let mut allocations: AssetAllocationMapOf<T> = BoundedBTreeMap::new();
 
 		let recipients = T::BudgetRecipients::recipients();
@@ -77,8 +69,7 @@ mod benchmarks {
 		}
 
 		for asset_id in 0..count {
-			let asset_id: AssetKindOf<T> = asset_id.into();
-			if T::BenchmarkHelper::create_asset(asset_id.clone()).is_ok() {
+			if let Ok(asset_id) = T::BenchmarkHelper::create_asset(asset_id) {
 				assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
 			}
 		}
