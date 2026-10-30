@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793379938780,
+  "lastUpdate": 1793388522078,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "dcdeff430bc51f4056c9219a9723c375c7adb7ff",
-          "message": "Compile Zombienet Tests in release mode (#11765)\n\nRevert the unrelated wasm-builder changes.",
-          "timestamp": "2026-04-15T12:14:38Z",
-          "tree_id": "ea2dc5b1a0f8754fb387070f4f4a34307056200d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/dcdeff430bc51f4056c9219a9723c375c7adb7ff"
-        },
-        "date": 1776260666970,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.052,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038312659936,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0763134934519999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08790385250799992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e9c2ae8a595a87fe11fe6d39ba5e9554947f363e",
+          "message": "AHMv2 HRMP: part1: make polkadot hrmp support asynchronous deposit provider (#13547)\n\nHRMP was made abstract to handle asynchronous service for the setting of\ndeposits. This PR adds tests and fix some issues related to it.\n\nThe provider is expected to always apply the requests in order, but the\nanswer are accepted to be out of order.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-30T17:10:32Z",
+          "tree_id": "77a0b4a359aa99a0e6621ac26c7f3c215af4268f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9c2ae8a595a87fe11fe6d39ba5e9554947f363e"
+        },
+        "date": 1793388493816,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.122,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03855104092199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0864782446359999,
             "unit": "seconds"
           }
         ]
