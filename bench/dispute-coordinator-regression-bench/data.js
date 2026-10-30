@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793379992413,
+  "lastUpdate": 1793388574703,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5e15555a5c52e422d12bca05dbfaf7e0f425f75c",
-          "message": "Bump westend runtimes spec_versions (#11757)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-15T09:46:10Z",
-          "tree_id": "5c750c7d6797db721a1bd172049d7d189645e391",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5e15555a5c52e422d12bca05dbfaf7e0f425f75c"
-        },
-        "date": 1776251295003,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026580341800000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009226784269999986,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009064809739999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025138413000000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e9c2ae8a595a87fe11fe6d39ba5e9554947f363e",
+          "message": "AHMv2 HRMP: part1: make polkadot hrmp support asynchronous deposit provider (#13547)\n\nHRMP was made abstract to handle asynchronous service for the setting of\ndeposits. This PR adds tests and fix some issues related to it.\n\nThe provider is expected to always apply the requests in order, but the\nanswer are accepted to be out of order.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-30T17:10:32Z",
+          "tree_id": "77a0b4a359aa99a0e6621ac26c7f3c215af4268f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9c2ae8a595a87fe11fe6d39ba5e9554947f363e"
+        },
+        "date": 1793388547090,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009494463399999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010509052220000013,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025477287899999994,
             "unit": "seconds"
           }
         ]
