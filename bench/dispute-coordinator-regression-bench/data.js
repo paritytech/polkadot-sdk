@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793311921407,
+  "lastUpdate": 1793356605245,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "49718502+alexggh@users.noreply.github.com",
-            "name": "Alexandru Gheorghe",
-            "username": "alexggh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "54108b3cd17f8522aa13f94df25a95c30525f071",
-          "message": "statement-store: allow light clients to specify topic affinity (#11329)\n\n## Description\n\nAdd explicit topic affinity support to the statement protocol, allowing\nnodes to advertise at P2P level which statement topics they're\ninterested in. When a peer's affinity changes, relevant statements are\nre-sent.\n\nThe topic affinity is specified as a BloomFilter, all statements that\nmatch the filter are forwarded to new peers.\n\nCurrently, this is meant to be used by light clients like smoldot to\nreceive only the statements they are interested in. In the future, this\ncan also be used by statement store full nodes, but some other changes\nwill also be needed.\n\n##  Changes\n- Change the format of the message and introduce a new protocol\n\"statement/2\".\n```\nenum StatementMessage {\n\tStatements(Vec<Statement>),\n\t/// Bloom filter bytes representing the topics this peer is interested in.\n\tExplicitTopicAffinity(AffinityFilter),\n}\n```\n- Light client nodes connected on the new protocol need to also\nadvertise a topic affinity before they are receiving any statements.\n- If node define a topic affinity send them only the statements matching\nthat affinity.\n\n## TODO\n- [x] Integration testing of the new flow, tested with modify\n[node](https://github.com/paritytech/polkadot-sdk/commit/01460f4eb1a3b82fa7d00cb6db1a2194b8ab27fc#diff-21bd75369585eed301c19cf082010908ee6fa3c75a635da1bb8a8d3e6127f394R85)\n- [x] E2E integrations tests with smoldot:\nhttps://github.com/paritytech/polkadot-sdk/commit/e9a20b663e9a2e7a02321eec76990264a6ad7e4f.\n- [x] Rate limit Explicit Affinity\n\n---------\n\nSigned-off-by: Alexandru Gheorghe <alexandru.gheorghe@parity.io>\nCo-authored-by: Andrei Eres <eresav@me.com>",
-          "timestamp": "2026-04-14T12:29:36Z",
-          "tree_id": "523908122b5a97d22a7de56c9d0f529e02716b80",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/54108b3cd17f8522aa13f94df25a95c30525f071"
-        },
-        "date": 1776175737175,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00951565487,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00268098123,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009295904039999978,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010876930279999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d35873d48c27f770fd318a986cd9c7dd8b81383",
+          "message": "pallet-broker: do not consume unsettled timeslices in claim_revenue (#13286)\n\n# Description\n\n`claim_revenue` advanced a pool contribution past a timeslice before\nchecking whether its revenue\ncould be paid out, so a claim made before a timeslice was settled lost\nthat timeslice's payout\npermanently. The claim now stops at the first timeslice whose revenue\nhas not yet been reported,\nor which has not yet been committed, and keeps the remaining\ncontribution so it can be retried.\nA history entry missing at or before the last committed timeslice is\nstill treated as dropped.\n\n## Integration\n\nNo API changes. The `claim_revenue` weights change: the benchmark now\nsettles every claimed\ntimeslice instead of only the first, so runtimes should regenerate\n`pallet_broker` weights.\n\n## Review Notes\n\n- `do_claim_revenue`: the history lookup and `maybe_payout` check move\nahead of the\n`region.begin` / `contribution.length` advance; a missing entry only\nadvances the contribution\nwhen `r <= Status::last_committed_timeslice`. The `next` hint in\n`RevenueClaimPaid` follows the\nremaining contribution length rather than the already-mutated\n`region.begin`.\n- `claim_revenue(m)` benchmark: seeds `m` settled history entries.\nPreviously iterations `2..m`\ntook the cheap missing-entry path, so the per-timeslice weight was\nunderestimated.\n- Tests: claiming before commit or before settlement leaves the\ncontribution intact and reports\n  `next`; claiming over dropped history skips it and pays out the rest.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T09:01:04Z",
+          "tree_id": "22a43a56e9a35160e19dc6017d66230f3cdf6da1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d35873d48c27f770fd318a986cd9c7dd8b81383"
+        },
+        "date": 1793356575342,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.010308853109999992,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026745590800000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010937139669999997,
             "unit": "seconds"
           }
         ]
