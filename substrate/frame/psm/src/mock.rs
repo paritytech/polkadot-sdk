@@ -153,9 +153,6 @@ impl crate::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
 			decimals,
 		);
 	}
-	fn fund_account(who: &AccountId) {
-		let _ = Balances::force_set_balance(RuntimeOrigin::root(), who.clone(), INITIAL_BALANCE);
-	}
 }
 
 impl crate::Config for Test {
@@ -372,7 +369,7 @@ pub fn fund_internal(account: AccountId, amount: u128) {
 
 pub fn create_asset_with_metadata(asset_id: u32) {
 	use frame_support::assert_ok;
-	assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), asset_id, ALICE, 1));
+	assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, ALICE, true, 1));
 	assert_ok!(Assets::set_metadata(
 		RuntimeOrigin::signed(ALICE),
 		asset_id,

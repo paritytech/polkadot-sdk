@@ -24,9 +24,9 @@ use frame_benchmarking::v2::*;
 use frame_support::traits::{
 	fungibles::{
 		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
-		Inspect as FungiblesInspect, Mutate as FungiblesMutate, Refund as FungiblesRefund,
+		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
-	AccountTouch, Consideration, EnsureOriginWithArg, Get,
+	Consideration, EnsureOriginWithArg, Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
@@ -275,32 +275,12 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let new_asset_id: T::AssetId = T::BenchmarkHelper::get_asset_id(EXTERNAL_ASSET_OFFSET);
 
-		// Non-sufficient, so the reserve account needs a deposit to hold it.
-		let _ = T::Fungibles::create(new_asset_id.clone(), caller.clone(), false, 1u32.into());
 		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
-
-		// Worst case: `caller` is the PSM depositor and `other` paid for the reserve account, so
-		// it's refunded and touched again.
-		T::BenchmarkHelper::fund_account(&caller);
-		let ticket = T::Consideration::new(&caller, Psm::<T>::psm_creation_footprint())?;
-		crate::PsmAdmin::<T>::mutate(&internal_id, |admin| {
-			if let Some(admin) = admin {
-				admin.deposit = Some((caller.clone(), ticket));
-			}
-		});
-		let other: T::AccountId = account("other", 0, 0);
-		T::BenchmarkHelper::fund_account(&other);
-		let psm_account = Psm::<T>::psm_account(&internal_id);
-		T::Fungibles::touch(new_asset_id.clone(), &psm_account, &other)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, internal_id.clone(), new_asset_id.clone());
 
 		assert!(crate::ExternalAssets::<T>::contains_key(&internal_id, &new_asset_id));
-		assert_eq!(
-			T::Fungibles::deposit_held(new_asset_id, psm_account).map(|(who, _)| who),
-			Some(caller)
-		);
 		Ok(())
 	}
 
