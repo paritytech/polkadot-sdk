@@ -55,6 +55,7 @@ mod remote_deposit_tests;
 mod benchmarking;
 
 pub mod deposits;
+pub mod unpaid_requests;
 use deposits::{
 	ChannelDepositProvider, DepositAction, DepositChange, DepositChangeRequest, DepositError,
 };
@@ -393,6 +394,8 @@ pub mod pallet {
 		AcceptHrmpChannelRequestChanged,
 		/// The channel's deposits changed while they were being updated.
 		ChannelDepositsChanged,
+		/// The origin may not poke the deposits of this channel.
+		PokeHrmpChannelUnauthorized,
 	}
 
 	/// The set of pending HRMP open channel requests.
@@ -759,8 +762,9 @@ pub mod pallet {
 		/// - `sender`: A system chain, `ParaId`.
 		/// - `recipient`: A system chain, `ParaId`.
 		///
-		/// Any signed origin can call this function, but _both_ inputs MUST be system chains. If
-		/// the channel does not exist yet, there is no fee.
+		/// Any signed origin, the `ChannelManager`, or a system parachain can call this function,
+		/// but _both_ inputs MUST be system chains. If the channel does not exist yet, there is no
+		/// fee.
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::establish_system_channel())]
 		pub fn establish_system_channel(
@@ -768,7 +772,9 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResultWithPostInfo {
-			let _caller = ensure_signed(origin)?;
+			if let Some(caller) = Self::ensure_signed_manager_or_para(origin)? {
+				ensure!(caller.is_system(), Error::<T>::ChannelCreationNotAuthorized);
+			}
 
 			// both chains must be system
 			ensure!(
@@ -801,7 +807,8 @@ pub mod pallet {
 		/// - `sender`: A chain, `ParaId`.
 		/// - `recipient`: A chain, `ParaId`.
 		///
-		/// Any signed origin can call this function.
+		/// Any signed origin, the `ChannelManager`, or either chain of the channel can call this
+		/// function.
 		///
 		/// If the deposit provider answers later, the deposits are recorded once it does. Until
 		/// then, other deposit requests for both sides of the channel are refused.
@@ -815,7 +822,12 @@ pub mod pallet {
 			sender: ParaId,
 			recipient: ParaId,
 		) -> DispatchResult {
-			let _caller = ensure_signed(origin)?;
+			if let Some(caller) = Self::ensure_signed_manager_or_para(origin)? {
+				ensure!(
+					caller == sender || caller == recipient,
+					Error::<T>::PokeHrmpChannelUnauthorized,
+				);
+			}
 
 			let channel_id = HrmpChannelId { sender, recipient };
 			let channel = HrmpChannels::<T>::get(&channel_id)
@@ -915,6 +927,19 @@ fn preopen_hrmp_channel<T: Config>(
 
 /// Routines and getters related to HRMP.
 impl<T: Config> Pallet<T> {
+	/// Ensures the origin is signed, the `ChannelManager`, or a parachain, which it then returns.
+	fn ensure_signed_manager_or_para(
+		origin: OriginFor<T>,
+	) -> Result<Option<ParaId>, DispatchError> {
+		if ensure_signed(origin.clone()).is_ok() ||
+			T::ChannelManager::ensure_origin(origin.clone()).is_ok()
+		{
+			return Ok(None);
+		}
+		let para = ensure_parachain(<T as Config>::RuntimeOrigin::from(origin))?;
+		Ok(Some(para))
+	}
+
 	/// Block initialization logic, called by initializer.
 	pub(crate) fn initializer_initialize(_now: BlockNumberFor<T>) -> Weight {
 		Weight::zero()
