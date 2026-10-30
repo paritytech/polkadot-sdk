@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793355565110,
+  "lastUpdate": 1793359352519,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -139751,6 +139751,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2695231526,
             "range": "± 18903396",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8fbb5fd234a836f1bf3f948200f71bb1d7973e66",
+          "message": "pallet-psm: reduce debt by the amount actually burned on redeem (#13627)\n\n`redeem` burns with `Preservation::Expendable`. When the redeemer is\nleft\n   below the internal asset's `min_balance`, `burn_from` also burns that\n   remainder and lowers the issuance by more than\n`effective_internal_net`,\n   while `PsmDebt` only dropped by `effective_internal_net`. A plain\nredeem\n   could therefore leave the issuance below the debt, failing the\n   `try_state` check and keeping the debt from ever reaching zero.\n\n   Reduce the debt by the value `burn_from` returns, and report it in\n   `Redeemed::internal_consumed`. The burned remainder's external value\n   stays in the reserve.\n\n---------\n\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T10:06:17Z",
+          "tree_id": "c1e0f7ede5438e0c611053bb035c9e95ea0b5bd7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8fbb5fd234a836f1bf3f948200f71bb1d7973e66"
+        },
+        "date": 1793359317816,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20370515,
+            "range": "± 245430",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20746660,
+            "range": "± 394188",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22158760,
+            "range": "± 170676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26704124,
+            "range": "± 279608",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63378179,
+            "range": "± 1922946",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 382145732,
+            "range": "± 9181773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2836824984,
+            "range": "± 210320032",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17843810,
+            "range": "± 362731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17851105,
+            "range": "± 172895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18564341,
+            "range": "± 212754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23160629,
+            "range": "± 239014",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64792260,
+            "range": "± 1262130",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 391015101,
+            "range": "± 6536010",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2899990678,
+            "range": "± 38950387",
             "unit": "ns/iter"
           }
         ]
