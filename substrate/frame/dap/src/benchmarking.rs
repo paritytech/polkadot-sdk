@@ -20,7 +20,7 @@
 use super::*;
 use crate::SingleAssetAllocation;
 use frame_benchmarking::v2::*;
-use frame_support::{assert_ok, traits::fungibles::Create};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use sp_staking::budget::BudgetRecipientList;
 
@@ -48,30 +48,24 @@ mod benchmarks {
 		allocations
 	}
 
-	fn create_asset<T: Config>(asset: T::AssetKind) -> DispatchResult {
-		let caller: T::AccountId = whitelisted_caller();
-		T::Assets::create(asset, caller, false, T::Balance::one())
-	}
-
-	fn create_full_asset_allocations<T>() -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
+	fn create_full_asset_allocations<T>() -> AssetAllocationMapOf<T>
 	where
 		T: Config,
 		AssetKindOf<T>: From<u32>,
 	{
-		create_asset_allocations::<T>(MAX_DISTRIBUTABLE_ASSETS)
+		create_asset_allocations::<T>(T::MaxDistributableAssets::get())
 	}
 
 	/// Will attempt to create `count` assets with ids defined as `AssetKind::from(0)`,
 	/// `AssetKind::from(1)`, ..., `AssetKind::from(count - 1)`. If some assets couldn't be created,
 	/// they are skipped. It's done so because in some runtime configurations `Pallet::Assets` won't
 	/// be configured to the real `pallet-assets` and may not allow creating the assets.
-	fn create_asset_allocations<T>(count: u32) -> AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>
+	fn create_asset_allocations<T>(count: u32) -> AssetAllocationMapOf<T>
 	where
 		T: Config,
 		AssetKindOf<T>: From<u32>,
 	{
-		let mut allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>> =
-			BoundedBTreeMap::new();
+		let mut allocations: AssetAllocationMapOf<T> = BoundedBTreeMap::new();
 
 		let recipients = T::BudgetRecipients::recipients();
 		let mut single_asset_allocation = BoundedBTreeMap::new();
@@ -84,7 +78,7 @@ mod benchmarks {
 
 		for asset_id in 0..count {
 			let asset_id: AssetKindOf<T> = asset_id.into();
-			if create_asset::<T>(asset_id.clone()).is_ok() {
+			if T::BenchmarkHelper::create_asset(asset_id.clone()).is_ok() {
 				assert_ok!(allocations.try_insert(asset_id, single_asset_allocation.clone()));
 			}
 		}
@@ -129,7 +123,7 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn drip_issuance(n: Linear<0, { MAX_DISTRIBUTABLE_ASSETS.into() }>) {
+	fn drip_issuance(n: Linear<0, { T::MaxDistributableAssets::get().into() }>) {
 		let budget_allocations = build_even_allocation::<T>();
 		let asset_allocations = create_asset_allocations::<T>(n);
 		assert_ok!(Pallet::<T>::set_allocations(
@@ -142,11 +136,7 @@ mod benchmarks {
 
 		// Mint ED.
 		for (_, recipient) in &recipients {
-			assert_ok!(T::Assets::mint_into(
-				T::NativeCurrencyAssetId::get(),
-				recipient,
-				T::Balance::from(100u32),
-			));
+			assert_ok!(T::BenchmarkHelper::mint_ed(recipient));
 		}
 
 		for i in asset_allocations.keys() {

@@ -360,6 +360,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub const MaxDistributableAssets: u32 = 1;
 	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
 	pub const IssuanceCadence: u64 = 60_000;
@@ -367,19 +368,40 @@ parameter_types! {
 	pub const MaxElapsedPerDrip: u64 = 600_000;
 }
 
-type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
+type NativeAndAssets = frame_support::traits::fungible::UnionOf<
 	Balances,
-	frame_support::traits::fungibles::EmptyFungibles<u32, Balance>,
+	super::Assets,
 	frame_support::traits::fungible::NativeFromLeft,
 	NativeOrWithId<u32>,
 	AccountId,
 >;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct DapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmarkHelper {
+	fn mint_ed(account: &AccountId) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::{fungible::Mutate, Currency};
+
+		Balances::mint_into(account, Balances::minimum_balance()).map(|_| ())
+	}
+
+	fn create_asset(asset_id: NativeOrWithId<u32>) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::fungibles::Create;
+
+		NativeAndAssets::create(asset_id, AccountId::from([0; 32]), false, 1)
+	}
+}
+
 impl pallet_dap::Config for Runtime {
 	type Balance = Balance;
-	type Assets = NativeAndEmptyAssets;
+	type Assets = NativeAndAssets;
 	type AssetKind = NativeOrWithId<u32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = DapBenchmarkHelper;
 	type NativeCurrencyAssetId = NativeCurrencyAssetId;
+	type MaxDistributableAssets = MaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = IssuanceCurve;
 	type BudgetRecipients = (

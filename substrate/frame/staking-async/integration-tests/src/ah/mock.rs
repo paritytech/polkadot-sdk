@@ -605,6 +605,7 @@ type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
 
 parameter_types! {
 	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub const MaxDistributableAssets: u32 = 1;
 }
 
 impl pallet_dap::Config for Runtime {
@@ -612,6 +613,7 @@ impl pallet_dap::Config for Runtime {
 	type Assets = NativeAndEmptyAssets;
 	type AssetKind = NativeOrWithId<u32>;
 	type NativeCurrencyAssetId = NativeCurrencyAssetId;
+	type MaxDistributableAssets = MaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients = (

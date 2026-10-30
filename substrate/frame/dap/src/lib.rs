@@ -88,9 +88,6 @@ const LOG_TARGET: &str = "runtime::dap";
 /// Maximum number of budget recipients.
 pub const MAX_BUDGET_RECIPIENTS: u32 = 16;
 
-/// Maximum number of assets that can be distributed.
-pub const MAX_DISTRIBUTABLE_ASSETS: u32 = 1;
-
 /// Type alias for balance.
 pub type BalanceOf<T> = <T as Config>::Balance;
 
@@ -107,12 +104,12 @@ pub type NativeCurrencyOf<T> = ItemOf<
 /// Type alias for the native asset allocation map.
 pub type BudgetAllocationMap = BoundedBTreeMap<BudgetKey, Perbill, ConstU32<MAX_BUDGET_RECIPIENTS>>;
 
+type AssetAllocationMapOf<T> =
+	AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>, <T as Config>::MaxDistributableAssets>;
+
 /// Type alias for the non-native assets allocation map.
-pub type AssetAllocationMap<AssetKind, Balance> = BoundedBTreeMap<
-	AssetKind,
-	SingleAssetAllocationMap<Balance>,
-	ConstU32<MAX_DISTRIBUTABLE_ASSETS>,
->;
+pub type AssetAllocationMap<AssetKind, Balance, MaxDistributableAssets> =
+	BoundedBTreeMap<AssetKind, SingleAssetAllocationMap<Balance>, MaxDistributableAssets>;
 
 /// Type alias for the single non-native asset allocation map.
 pub type SingleAssetAllocationMap<Balance> =
@@ -123,8 +120,16 @@ pub type SingleAssetAllocationMap<Balance> =
 	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug, MaxEncodedLen,
 )]
 pub struct SingleAssetAllocation<Balance> {
-	/// Amount of the asset that must be distriubted to the given budget recipient per millisecond.
-	amount_per_ms: Balance,
+	/// Amount of the asset that must be distributed to the given budget recipient per millisecond.
+	pub amount_per_ms: Balance,
+}
+
+pub trait BenchmarkHelper<AccountId, AssetKind> {
+	/// Mint existential deposit to a given account.
+	fn mint_ed(account: &AccountId) -> DispatchResult;
+
+	/// Create an asset with the given id.
+	fn create_asset(asset_id: AssetKind) -> DispatchResult;
 }
 
 #[frame_support::pallet]
@@ -167,22 +172,21 @@ pub mod pallet {
 		/// 	...
 		/// }
 		/// ```
-		#[cfg(not(feature = "runtime-benchmarks"))]
 		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
 			+ Mutate<Self::AccountId>
 			+ Balanced<Self::AccountId>
 			+ Unbalanced<Self::AccountId>;
 
 		#[cfg(feature = "runtime-benchmarks")]
-		type Assets: Inspect<Self::AccountId, AssetId = Self::AssetKind, Balance = Self::Balance>
-			+ Mutate<Self::AccountId>
-			+ Balanced<Self::AccountId>
-			+ Unbalanced<Self::AccountId>
-			+ frame_support::traits::fungibles::Create<Self::AccountId>;
+		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, Self::AssetKind>;
 
 		/// Asset kind of the native currency.
 		#[pallet::constant]
 		type NativeCurrencyAssetId: Get<Self::AssetKind>;
+
+		/// Maximum number of assets that can be distributed.
+		#[pallet::constant]
+		type MaxDistributableAssets: Get<u32>;
 
 		/// Issuance curve: computes how much to mint given total issuance and elapsed time.
 		type IssuanceCurve: IssuanceCurve<BalanceOf<Self>>;
@@ -260,7 +264,7 @@ pub mod pallet {
 		/// Asset allocation was updated via governance.
 		AssetAllocationUpdated {
 			/// The new asset allocation map.
-			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
+			allocations: AssetAllocationMapOf<T>,
 		},
 	}
 
@@ -299,8 +303,7 @@ pub mod pallet {
 	/// Keys must correspond to registered `BudgetRecipients`. All `amount_per_ms` values must be
 	/// non-zero, otherwise `set_allocations` will reject such a config.
 	#[pallet::storage]
-	pub type AssetAllocation<T> =
-		StorageValue<_, AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>, ValueQuery>;
+	pub type AssetAllocation<T> = StorageValue<_, AssetAllocationMapOf<T>, ValueQuery>;
 
 	/// Timestamp (ms) of the last issuance drip.
 	///
@@ -451,7 +454,7 @@ pub mod pallet {
 		pub fn set_allocations(
 			origin: OriginFor<T>,
 			new_budget_allocations: Option<BudgetAllocationMap>,
-			new_asset_allocations: Option<AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>>,
+			new_asset_allocations: Option<AssetAllocationMapOf<T>>,
 		) -> DispatchResult {
 			T::BudgetOrigin::ensure_origin(origin)?;
 
@@ -541,9 +544,7 @@ pub mod pallet {
 		}
 
 		/// Set the asset allocations map.
-		fn set_asset_allocations_map(
-			allocations: AssetAllocationMap<AssetKindOf<T>, BalanceOf<T>>,
-		) -> DispatchResult {
+		fn set_asset_allocations_map(allocations: AssetAllocationMapOf<T>) -> DispatchResult {
 			let registered: Vec<_> =
 				T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
 			// Validate all keys are registered recipients and no zero amounts are set.

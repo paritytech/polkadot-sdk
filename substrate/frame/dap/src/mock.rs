@@ -27,7 +27,7 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureSigned;
-use sp_core::crypto::AccountId32;
+use sp_core::{crypto::AccountId32, ConstU32};
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -132,11 +132,32 @@ parameter_types! {
 pub type NativeAndAssets =
 	UnionOf<Balances, Assets, NativeFromLeft, NativeOrWithId<u32>, AccountId>;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for BenchmarkHelper {
+	fn mint_ed(account: &AccountId) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
+		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
+	}
+
+	fn create_asset(asset_id: NativeOrWithId<u32>) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::fungibles::Create;
+
+		NativeAndAssets::create(asset_id, account_id(1000), false, 1)
+	}
+}
+
 impl Config for Test {
 	type Balance = u64;
 	type AssetKind = NativeOrWithId<u32>;
 	type Assets = NativeAndAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchmarkHelper;
 	type NativeCurrencyAssetId = NativeCurrencyAssetId;
+	type MaxDistributableAssets = ConstU32<8>;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);

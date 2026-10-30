@@ -764,16 +764,38 @@ impl pallet_staking::Config for Runtime {
 
 parameter_types! {
 	pub const DapNativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub const DapMaxDistributableAssets: u32 = 1;
 	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 0; // drip every block
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+struct DapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_dap::BenchmarkHelper for DapBenchmarkHelper {
+	fn mint_ed(account: &AccountId) -> polkadot_sdk_frame::prelude::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
+		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
+	}
+
+	fn create_asset(asset_id: AssetKind) -> polkadot_sdk_frame::prelude::DispatchResult {
+		use frame_support::traits::fungibles::Create;
+
+		NativeAndAssets::create(asset_id, AccountId::from(100u32), false, 1)
+	}
+}
+
 impl pallet_dap::Config for Runtime {
 	type Balance = Balance;
 	type Assets = NativeAndAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = DapBenchmarkHelper;
 	type AssetKind = NativeOrWithId<u32>;
 	type NativeCurrencyAssetId = DapNativeCurrencyAssetId;
+	type MaxDistributableAssets = DapMaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = ();
 	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);

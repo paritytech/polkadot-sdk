@@ -478,13 +478,35 @@ type NativeAndEmptyAssets = frame_support::traits::fungible::UnionOf<
 
 parameter_types! {
 	pub const NativeCurrencyAssetId: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub const MaxDistributableAssets: u32 = 1;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct DapBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_dap::BenchmarkHelper<AccountId, NativeOrWithId<u32>> for DapBenchmarkHelper {
+	fn mint_ed(account: &AccountId) -> sp_runtime::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
+		Balances::mint_into(account, ExistentialDeposit::get()).map(|_| ())
+	}
+
+	fn create_asset(_asset_id: NativeOrWithId<u32>) -> sp_runtime::DispatchResult {
+		use sp_runtime::{DispatchError, DispatchResult, TokenError};
+
+		DispatchResult::Err(DispatchError::Token(TokenError::CannotCreate))
+	}
 }
 
 impl pallet_dap::Config for Test {
 	type Balance = Balance;
 	type Assets = NativeAndEmptyAssets;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = DapBenchmarkHelper;
 	type AssetKind = NativeOrWithId<u32>;
 	type NativeCurrencyAssetId = NativeCurrencyAssetId;
+	type MaxDistributableAssets = MaxDistributableAssets;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
 	type BudgetRecipients =
