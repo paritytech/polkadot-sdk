@@ -15,16 +15,18 @@ The harness calls the real native host functions (`sp_io::storage`,
 `sp_io::default_child_storage`, `storage_proof_size`) on a real `Ext`, overlay, trie backend and
 `Recorder`. It does not execute WASM.
 
-One of them has a new, registered-only version: `storage::append` version 2. A bare `sp_io` call
-resolves to the old version until `register_only` is dropped, and the runtime interface macro
-keeps the per-version functions private, so each version's body is a function of its own and the
-runners call those bodies directly, through `sp_externalities::with_externalities`:
+Two of them have a new, registered-only version: `storage::append` version 2 and
+`default_child_storage::root` version 3. A bare `sp_io` call resolves to the old version until
+`register_only` is dropped, and the runtime interface macro keeps the per-version functions
+private, so each version's body is a function of its own and the runners call those bodies
+directly, through `sp_externalities::with_externalities`:
 
 | Host function | Old body (trace runner) | New body (estimation runner) |
 |---|---|---|
 | `storage::append` | `Externalities::storage_append` (v1) | `Externalities::storage_append_v2` |
+| `default_child_storage::root` | `Externalities::child_storage_root_with_version` (v2) | `Externalities::child_storage_root_v3` |
 
-Calling the bodies explicitly keeps both suites valid after the marker is dropped: the trace
+Calling the bodies explicitly keeps both suites valid after the markers are dropped: the trace
 runner keeps testing what old runtimes call, the estimation runner what new runtimes call.
 
 ## Layout
@@ -177,11 +179,11 @@ the tests in `ext.rs` do, and map the estimation points to `ext.record_proof_for
 
 Old runtimes call version 1 of `storage_proof_size` forever and weight reclaim stores its value
 in state, so for version 1 callers this tree must behave exactly like master. `trace` runs a
-script as such a runtime does (plain `sp_io` calls, the old body of the host function with a
-newer version called explicitly, see the table above, no `record_proof_for_dirty_keys`, blocks
-as in the collator pass) and prints every return value, the proof size after every call and, per
-block, the root, the recorded nodes and the drained changes. `tests/v1_compat.rs` compares that
-trace with the one printed by the `trace` binary built on master.
+script as such a runtime does (plain `sp_io` calls, the old bodies of the two host functions
+with a newer version called explicitly, see the table above, no `record_proof_for_dirty_keys`,
+blocks as in the collator pass) and prints every return value, the proof size after every call
+and, per block, the root, the recorded nodes and the drained changes. `tests/v1_compat.rs`
+compares that trace with the one printed by the `trace` binary built on master.
 
 The `estimation` feature needs API master does not have, so the master build disables it. In a
 master checkout, copy this directory to the same path, add it to the workspace `members` and add
@@ -206,6 +208,15 @@ traces stored in the test and needs the binary only to check that they are still
 `POV_FUZZ_ROOT_LAST=1` restricts the scripts to the block-end root, as in FRAME.
 
 ## Status
+
+With the old child root body (version 2) in the estimation runner, three pinned scripts fail;
+they are what version 3 fixes:
+
+| Name | Result with version 2 | Cause |
+|---|---|---|
+| `fuzz_child_emptied_root_computed_then_refilled` | Overshoot, 219 to 306 | a child root computed while the child is empty writes the removal of the child root key into the main overlay; after the refill, `storage_root` reads a collapse sibling the estimation never saw |
+| `fuzz_dropped_extrinsic_discards_empty_child_changes` | ValidatorEstimateMismatch at `Final(0)`, 127 vs 125 | the collator's rollback of a dropped extrinsic discards an empty child change set; whether the later child root writes the child root key depends on it |
+| `fuzz_dropped_extrinsic_clears_root_cache` | ValidatorMissingNode | the collator's rollback drops the cached storage root, so the later child root writes the child root key on the collator and only reads it on the validator |
 
 With the old append body (version 1), `random_smoke` over 10000 large scripts
 (`POV_FUZZ_SEED=100000000 POV_FUZZ_SCALE=large`) reports two `ValidatorRootMismatch` (seeds

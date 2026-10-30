@@ -560,6 +560,30 @@ where
 		root.encode()
 	}
 
+	fn child_storage_root_v3(
+		&mut self,
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> Vec<u8> {
+		let _guard = guard();
+
+		let (root, _cached) = self
+			.overlay
+			.child_storage_root_without_overlay_write(child_info, self.backend, state_version)
+			.expect(EXT_NOT_ALLOWED_TO_FAIL);
+
+		trace!(
+			target: "state",
+			method = "ChildStorageRootV3",
+			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
+			child_info = %HexDisplay::from(&child_info.storage_key()),
+			storage_root = %HexDisplay::from(&root.as_ref()),
+			cached = %_cached,
+		);
+
+		root.encode()
+	}
+
 	fn storage_index_transaction(&mut self, index: u32, hash: &[u8], size: u32) {
 		trace!(
 			target: "state",
@@ -1576,7 +1600,7 @@ mod tests {
 				state_version,
 				|ext, _| {
 					let _ = ext.kill_child_storage(&child_info, None, None);
-					ext.child_storage_root(&child_info);
+					ext.child_storage_root_v3(&child_info, state_version);
 					ext.place_child_storage(&child_info, vec![0x77], Some(vec![7u8; 64]));
 				},
 			);
@@ -1599,7 +1623,7 @@ mod tests {
 						start_host_transaction(ext, recorder);
 						rollback_host_transaction(ext, recorder);
 					}
-					ext.child_storage_root(&child_info);
+					ext.child_storage_root_v3(&child_info, StateVersion::V1);
 				},
 			)
 		});
@@ -1625,7 +1649,7 @@ mod tests {
 						start_host_transaction(ext, recorder);
 						rollback_host_transaction(ext, recorder);
 					}
-					ext.child_storage_root(&child_info);
+					ext.child_storage_root_v3(&child_info, StateVersion::V1);
 				},
 			)
 		});

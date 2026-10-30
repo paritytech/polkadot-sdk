@@ -200,6 +200,14 @@ where
 		unimplemented!("child_storage_root_with_version is not supported in ReadOnlyExternalities")
 	}
 
+	fn child_storage_root_v3(
+		&mut self,
+		_child_info: &ChildInfo,
+		_state_version: StateVersion,
+	) -> Vec<u8> {
+		unimplemented!("child_storage_root_v3 is not supported in ReadOnlyExternalities")
+	}
+
 	fn storage_start_transaction(&mut self) {
 		unimplemented!("Transactions are not supported by ReadOnlyExternalities");
 	}

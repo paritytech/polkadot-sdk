@@ -646,6 +646,8 @@ fn host_default_child_storage_clear_prefix(
 
 fn host_default_child_storage_root(storage_key: &[u8], version: StateVersion) -> Vec<u8> {
 	let child_info = ChildInfo::new_default(storage_key);
+	// Runtimes call version 2 of `default_child_storage::root`.
+	// Switch to `ext.child_storage_root_v3(..)` once version 3 in `sp_io` drops `register_only`.
 	with_externalities(|ext| ext.child_storage_root_with_version(&child_info, version))
 }
 

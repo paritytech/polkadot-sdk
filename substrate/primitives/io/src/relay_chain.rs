@@ -556,6 +556,31 @@ pub trait DefaultChildStorage {
 		self.child_storage_root_with_version(&child_info, version)
 	}
 
+	/// Default child root calculation.
+	///
+	/// "Commit" all existing operations and compute the resulting child storage root.
+	/// The hashing algorithm is defined by the `Block`.
+	///
+	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
+	///
+	/// Unlike version 2, it never writes the child root into the main storage. It also returns the
+	/// current root after a mid-block `storage::root`, where version 2 returns a stale one. See
+	/// [`sp_externalities::Externalities::child_storage_root_v3`].
+	///
+	/// Registered only: dropping the marker goes together with switching
+	/// `host_default_child_storage_root` in `validate_block` and with dropping the markers of the
+	/// other registered-only versions, see the crate docs of
+	/// `cumulus-primitives-proof-size-hostfunction`.
+	#[version(3, register_only)]
+	fn root(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		version: PassAs<StateVersion, u8>,
+	) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.child_storage_root_v3(&child_info, version)
+	}
+
 	/// Child storage key iteration.
 	///
 	/// Get the next key in storage after the given one in lexicographic order in child storage.

@@ -16,25 +16,28 @@ doc:
     computing the root hash. This is triggered after each extrinsic via the weight reclaim
     pallet using a new version 2 of the storage_proof_size host function.
 
-    The estimation also needs a state-machine fix for runtimes that compute a storage root
-    in the middle of a block. It changes what such runtimes observe, so it comes as a new
-    host function version and the existing version keeps its exact behaviour:
+    The estimation also needs two state-machine fixes for runtimes that compute a storage
+    root or a child root in the middle of a block. Both change what such runtimes observe,
+    so they come as new host function versions and the existing versions keep their exact
+    behaviour:
     - storage::append version 2 drops a storage root cached by an earlier storage::root.
       Version 1 keeps it, so the block's root and storage transaction can miss the append.
+    - default_child_storage::root version 3 never writes the child root into the main
+      storage overlay and does not return a stale root after a mid-block storage::root.
+      Version 2 does both.
 
-    The bodies of the old and the new version are separate, callable items:
-    Externalities::storage_append and storage_append_v2.
+    The bodies of the old and the new versions are separate, callable items:
+    Externalities::storage_append and storage_append_v2, and
+    Externalities::child_storage_root_with_version and child_storage_root_v3.
 
-    storage::append version 2 and storage_proof_size version 2 are registered only: nodes
-    provide them, but runtimes keep calling the old versions, and the validate_block shims
-    in cumulus-pallet-parachain-system keep answering the old versions. The two markers
-    must be dropped together, in the same release that switches the two shims
-    (host_storage_append, host_storage_proof_size) to the new versions.
-
-    A child trie root computed in the middle of a block no longer writes that root into the
-    main storage overlay. Proofs of blocks that compute child roots mid-block therefore contain
-    fewer nodes, so the collator node and the runtime must run matching state-machine code,
-    which the estimation already requires.
+    storage::append version 2, default_child_storage::root version 3 and storage_proof_size
+    version 2 are registered only: nodes provide them, but runtimes keep calling the old
+    versions, and the validate_block shims in cumulus-pallet-parachain-system keep
+    answering the old versions. Nothing changes for runtimes until the markers are dropped.
+    The three markers must be dropped together, in the same release that switches the three
+    shims (host_storage_append, host_default_child_storage_root, host_storage_proof_size) to
+    the new versions: the estimation is only sound with the child root semantics of
+    version 3.
 crates:
 - name: sp-state-machine
   bump: major

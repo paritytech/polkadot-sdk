@@ -18,13 +18,19 @@
 //!
 //! [`trace`] executes a [`Script`] the way a runtime built against master does: plain `sp_io`
 //! calls with proof recording on, version 1 of `storage_proof_size` for [`Op::Estimate`] and the
-//! weight-reclaim points, and never `Externalities::record_proof_for_dirty_keys`. Host functions
-//! that have a newer, registered-only version are called through the body of the version master
-//! runtimes call (`Externalities::storage_append` for `storage::append` version 1), not through
-//! the bare `sp_io` call, which switches to the newest version once `register_only` is dropped.
-//! Blocks are built as in the estimation runner, including the block builder's rollback of
-//! dropped extrinsics. Every observable result goes into a text trace, so that the same script
-//! run on master and on the branch can be compared line by line:
+//! weight-reclaim points, and never `Externalities::record_proof_for_dirty_keys`. Blocks are
+//! built as in the estimation runner, including the block builder's rollback of dropped
+//! extrinsics.
+//!
+//! Host functions that have a newer, registered-only version are not called through `sp_io`,
+//! whose bare call switches to the newest version once `register_only` is dropped, but through
+//! the body of the version master runtimes call, so that the trace keeps testing that version:
+//!
+//! - `storage::append` version 1: `Externalities::storage_append`;
+//! - `default_child_storage::root` version 2: `Externalities::child_storage_root_with_version`.
+//!
+//! Every observable result goes into a text trace, so that the same script run on master and on
+//! the branch can be compared line by line:
 //!
 //! - `script <hash of the encoded script> <config> seed .. top .. extra .. children .. blocks ..`
 //! - `<n> <operation> -> <return value> | proof <storage_proof_size after it>`, one per host call
@@ -305,7 +311,9 @@ fn call(op: &Op, scale: Scale, root_version: StateVersion) -> String {
 			&p.bytes(scale),
 			limit(l, scale),
 		)),
-		Op::ChildRoot(c) => show_bytes(&child::root(child_info(*c).storage_key(), root_version)),
+		Op::ChildRoot(c) => show_bytes(&with_ext(|ext| {
+			ext.child_storage_root_with_version(&child_info(*c), root_version)
+		})),
 		Op::Root => show_bytes(&storage::root(root_version)),
 		Op::Estimate => proof_size(),
 		Op::Tx(..) => unreachable!("`Tracer::exec_op` traces transactions op by op; qed"),

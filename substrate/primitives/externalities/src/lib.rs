@@ -233,6 +233,22 @@ pub trait Externalities: ExtensionStore {
 		state_version: StateVersion,
 	) -> Vec<u8>;
 
+	/// Get the trie root of a child storage map using the given `state_version`, without
+	/// writing to the top-level storage map.
+	///
+	/// Body of `default_child_storage::root` version 3. It fixes two things in versions 1 and 2,
+	/// [`Self::child_storage_root_with_version`]. After a mid-block storage root they return a
+	/// stale root. Before one they write the root into the top-level overlay. Versions 1 and 2
+	/// stay as they are.
+	///
+	/// The rollout of version 3 is described in the crate docs of
+	/// `cumulus-primitives-proof-size-hostfunction`.
+	fn child_storage_root_v3(
+		&mut self,
+		child_info: &ChildInfo,
+		state_version: StateVersion,
+	) -> Vec<u8>;
+
 	/// Append storage item.
 	///
 	/// This assumes specific format of the storage item. Also there is no way to undo this

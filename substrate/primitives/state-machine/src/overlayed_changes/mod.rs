@@ -23,7 +23,10 @@ mod proof_size_tracker;
 
 use self::changeset::OverlayedChangeSet;
 use crate::{backend::Backend, stats::StateMachineStats, BackendTransaction, DefaultError};
-use alloc::{collections::btree_set::BTreeSet, vec::Vec};
+use alloc::{
+	collections::{btree_set::BTreeSet, BTreeMap},
+	vec::Vec,
+};
 use codec::{Decode, Encode};
 use hash_db::Hasher;
 pub use offchain::OffchainOverlayedChanges;
@@ -234,6 +237,8 @@ struct StorageTransactionCache<H: Hasher> {
 	transaction_storage_root: H::Out,
 	/// The state version that was used to compute the transaction and the root.
 	state_version: StateVersion,
+	/// The root of every child trie with changes, keyed by its storage key.
+	child_roots: BTreeMap<StorageKey, H::Out>,
 }
 
 impl<H: Hasher> StorageTransactionCache<H> {
@@ -667,12 +672,14 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.values_mut()
 			.map(|v| (&v.1, v.0.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])))));
 
-		let (root, transaction) = backend.full_storage_root(delta, child_delta, state_version);
+		let (root, transaction, child_roots) =
+			backend.full_storage_root_with_child_roots(delta, child_delta, state_version);
 
 		self.storage_transaction_cache = Some(StorageTransactionCache {
 			transaction,
 			transaction_storage_root: root,
 			state_version,
+			child_roots,
 		});
 
 		(root, false)
@@ -772,6 +779,49 @@ impl<H: Hasher> OverlayedChanges<H> {
 				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H>>);
 
 			root
+		};
+
+		Ok((root, false))
+	}
+
+	/// Generate the child storage root using `backend` and all child changes as seen by the
+	/// current transaction, without writing to the main overlay.
+	///
+	/// Returns the child storage root and whether it was already cached.
+	///
+	/// Body of [`sp_externalities::Externalities::child_storage_root_v3`]. Unlike
+	/// [`Self::child_storage_root`], it reuses only the child roots cached by
+	/// [`Self::storage_root`] and never writes the child root key into the main overlay.
+	pub fn child_storage_root_without_overlay_write<B: Backend<H>>(
+		&mut self,
+		child_info: &ChildInfo,
+		backend: &B,
+		state_version: StateVersion,
+	) -> Result<(H::Out, bool), B::Error>
+	where
+		H::Out: Ord + Encode + Decode,
+	{
+		let storage_key = child_info.storage_key();
+		let prefixed_storage_key = child_info.prefixed_storage_key();
+
+		if let Some(root) = self
+			.storage_transaction_cache
+			.as_ref()
+			.and_then(|cache| cache.child_roots.get(storage_key))
+		{
+			return Ok((*root, true));
+		}
+
+		let root = if let Some((changes, info)) = self.child_changes_mut(storage_key) {
+			let delta = changes.map(|(k, v)| (k.as_ref(), v.value().map(AsRef::as_ref)));
+			backend.child_storage_root(info, delta, state_version).0
+		} else {
+			// empty overlay
+			backend
+				.storage(prefixed_storage_key.as_slice())?
+				.and_then(|k| Decode::decode(&mut &k[..]).ok())
+				// V1 is equivalent to V0 on empty root.
+				.unwrap_or_else(empty_child_trie_root::<LayoutV1<H>>)
 		};
 
 		Ok((root, false))
@@ -1169,19 +1219,43 @@ mod tests {
 		let backend = new_in_mem::<Blake2Hasher>();
 		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
 		overlay.set_child_storage(&child_info, vec![10], Some(vec![10]));
-		overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+		overlay
+			.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
+			.unwrap();
 		overlay.set_child_storage(&child_info, vec![20], Some(vec![20]));
 		overlay.storage_root(&backend, StateVersion::V1);
 
 		let mut both_keys = OverlayedChanges::<Blake2Hasher>::default();
 		both_keys.set_child_storage(&child_info, vec![10], Some(vec![10]));
 		both_keys.set_child_storage(&child_info, vec![20], Some(vec![20]));
-		let (expected_root, _) =
-			both_keys.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+		let (expected_root, _) = both_keys
+			.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
+			.unwrap();
+
+		assert_eq!(
+			overlay
+				.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
+				.unwrap(),
+			(expected_root, true),
+		);
+	}
+
+	/// Versions 1 and 2 of `default_child_storage::root` keep the stale root on purpose: runtimes
+	/// built against them call them forever, and blocks in a chain's history were built with it.
+	#[test]
+	fn child_storage_root_after_storage_root_returns_the_stale_root() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = new_in_mem::<Blake2Hasher>();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+		overlay.set_child_storage(&child_info, vec![10], Some(vec![10]));
+		let (stale_root, _) =
+			overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+		overlay.set_child_storage(&child_info, vec![20], Some(vec![20]));
+		overlay.storage_root(&backend, StateVersion::V1);
 
 		assert_eq!(
 			overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap(),
-			(expected_root, true),
+			(stale_root, true),
 		);
 	}
 
@@ -1367,10 +1441,28 @@ mod tests {
 		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
 
 		overlay.clear_child_prefix(&child_info, &[2]);
-		overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+		overlay
+			.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
+			.unwrap();
 
 		assert_eq!(top_delta_op(&mut overlay, &root_key), Some(DeltaKeyOp::Deleted));
 		assert_eq!(overlay.storage(&root_key), None);
+	}
+
+	/// Versions 1 and 2 of `default_child_storage::root` keep writing the root on purpose: runtimes
+	/// built against them call them forever, and blocks in a chain's history were built with it.
+	#[test]
+	fn child_storage_root_writes_the_child_root_key() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let root_key = child_info.prefixed_storage_key().into_inner();
+		let backend = new_in_mem::<Blake2Hasher>();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+		overlay.set_child_storage(&child_info, vec![1], Some(vec![1]));
+
+		let (root, _) =
+			overlay.child_storage_root(&child_info, &backend, StateVersion::V1).unwrap();
+
+		assert_eq!(overlay.storage(&root_key), Some(Some(root.encode().as_slice())));
 	}
 
 	#[test]

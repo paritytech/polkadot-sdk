@@ -393,7 +393,8 @@ impl Ctx {
 				);
 			},
 			Op::ChildRoot(c) => {
-				let _ = child::root(child_info(*c).storage_key(), self.root_version);
+				let _ =
+					with_ext(|ext| ext.child_storage_root_v3(&child_info(*c), self.root_version));
 			},
 			Op::Tx(ops, outcome) => {
 				storage::start_transaction();
