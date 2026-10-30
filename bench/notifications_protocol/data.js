@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793355503220,
+  "lastUpdate": 1793359301423,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -249599,6 +249599,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2297060967,
             "range": "± 35951322",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "git@kchr.de",
+            "name": "Bastian Köcher",
+            "username": "bkchr"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8fbb5fd234a836f1bf3f948200f71bb1d7973e66",
+          "message": "pallet-psm: reduce debt by the amount actually burned on redeem (#13627)\n\n`redeem` burns with `Preservation::Expendable`. When the redeemer is\nleft\n   below the internal asset's `min_balance`, `burn_from` also burns that\n   remainder and lowers the issuance by more than\n`effective_internal_net`,\n   while `PsmDebt` only dropped by `effective_internal_net`. A plain\nredeem\n   could therefore leave the issuance below the debt, failing the\n   `try_state` check and keeping the debt from ever reaching zero.\n\n   Reduce the debt by the value `burn_from` returns, and report it in\n   `Redeemed::internal_consumed`. The burned remainder's external value\n   stays in the reserve.\n\n---------\n\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T10:06:17Z",
+          "tree_id": "c1e0f7ede5438e0c611053bb035c9e95ea0b5bd7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/8fbb5fd234a836f1bf3f948200f71bb1d7973e66"
+        },
+        "date": 1793359266580,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4128662,
+            "range": "± 22317",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 297162,
+            "range": "± 3310",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 3904794,
+            "range": "± 11833",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 370854,
+            "range": "± 1871",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 4836949,
+            "range": "± 24806",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 898068,
+            "range": "± 7274",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10365219,
+            "range": "± 68963",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4873064,
+            "range": "± 57993",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 44446866,
+            "range": "± 320161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 37778145,
+            "range": "± 501848",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 362264239,
+            "range": "± 2966304",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 300548446,
+            "range": "± 1644650",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2552964478,
+            "range": "± 9728255",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2305714248,
+            "range": "± 16239243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3397751,
+            "range": "± 22868",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1911755,
+            "range": "± 8612",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3494577,
+            "range": "± 13302",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 1982536,
+            "range": "± 14893",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4189909,
+            "range": "± 27191",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2294379,
+            "range": "± 11872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 7869940,
+            "range": "± 68714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5303935,
+            "range": "± 47536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38284271,
+            "range": "± 369663",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 38076338,
+            "range": "± 648973",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 318230162,
+            "range": "± 2898885",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 291397923,
+            "range": "± 3612665",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2490160629,
+            "range": "± 22391945",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2438393454,
+            "range": "± 78870934",
             "unit": "ns/iter"
           }
         ]
