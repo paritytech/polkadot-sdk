@@ -35,6 +35,8 @@ pub trait WeightInfo {
 	fn receive_set_deposits() -> Weight;
 	/// `receive` of `Release` with both sides set.
 	fn receive_release() -> Weight;
+	/// `receive_deposit` on top of a side already held.
+	fn receive_deposit() -> Weight;
 }
 
 /// Weights for `pallet_hrmp_para`, using the runtime's database weights.
@@ -50,6 +52,11 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
+	fn receive_deposit() -> Weight {
+		Weight::from_parts(50_000_000, 6_000)
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(3))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -63,5 +70,10 @@ impl WeightInfo for () {
 		Weight::from_parts(60_000_000, 8_000)
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(6))
+	}
+	fn receive_deposit() -> Weight {
+		Weight::from_parts(50_000_000, 6_000)
+			.saturating_add(RocksDbWeight::get().reads(4))
+			.saturating_add(RocksDbWeight::get().writes(3))
 	}
 }
