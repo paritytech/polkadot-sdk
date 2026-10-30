@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793379884521,
+  "lastUpdate": 1793388468732,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ae622e0fec600867debead185c5017fffd53c4c2",
-          "message": "Support State Overrides in Tracing (#11581)\n\n# Description\n\nAdds support for [Geth-compatible state\noverrides](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set)\nin `debug_traceCall`, extending the state override support introduced in\n#11545 (which added them to `eth_call`).\n\nPer the [Geth\nspecification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall),\n`debug_traceCall` accepts a config object that is a superset of the base\ntracer config, adding `stateOverrides` for ephemerally modifying account\nstate during traced execution.\n\n## Changes\n\n### Pallet (`pallet-revive`)\n\n- **`TracingConfig` type** — New backwards-compatible config type\nfollowing the same pattern as `DryRunConfig` from #11545 (custom\n`Decode` impl, append-only fields, must be the last runtime API\nargument).\n- **`trace_call_with_config` runtime API** — New method that applies\nstate overrides then delegates to the existing `trace_call`. Implemented\nin the macro so it can call `Self::trace_call` directly.\n- **`state_overrides` module** made `#[doc(hidden)] pub` so the\nmacro-generated code can access it from downstream runtime crates.\n\n### ETH-RPC (`pallet-revive-eth-rpc`)\n\n- **`TraceCallConfig` type** — Extends `TracerConfig` (flattened) with\nan optional `stateOverrides` field, matching Geth's `TraceCallConfig`\nschema.\n- **`debug_traceCall`** signature updated to accept\n`Option<TraceCallConfig>`. When state overrides are present, the RPC\nuses `trace_call_with_config`; otherwise it falls back to `trace_call`\nfor backwards compatibility with older runtimes.\n\n## Integration\n\nExisting `debug_traceCall` callers are unaffected — the config parameter\nremains optional, and omitting `stateOverrides` uses the original code\npath. Callers wanting state overrides pass them in the config object\nalongside the tracer settings:\n\n```json\n{\n  \"tracer\": \"callTracer\",\n  \"stateOverrides\": {\n    \"0x1234...\": {\n      \"balance\": \"0xDE0B6B3A7640000\",\n      \"code\": \"0x6080...\"\n    }\n  }\n}\n```\n\n## Review Notes\n\n- `TracingConfig` mirrors `DryRunConfig`'s backwards compatibility\nstrategy documented in #11545. The custom `Decode` impl defaults missing\nfields, and `sp_api`'s `Decode::decode` (not `decode_all`) discards\ntrailing bytes from newer encodings.\n- The macro impl applies overrides before delegating to\n`Self::trace_call`, keeping the tracing logic in one place.\n- A single integration test (`test_state_override_trace_call`) verifies\nend-to-end functionality using alloy's\n`DebugApi::debug_trace_call_callframe` with state overrides.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T18:22:26Z",
-          "tree_id": "0b4889ad70b67f6483e02d84dd42c10315d8e2bd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ae622e0fec600867debead185c5017fffd53c4c2"
-        },
-        "date": 1776284966154,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52944.59999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63628.71,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.77286848035996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.914573667199999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002561171,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002561171,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023980170000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.765227143379956,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005214469659999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023980170000000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8878056938500003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8612625554200015,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4835813658899957,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.398104292562841,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8399209110000014,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
             "value": 0.8328258851200235,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "gui.thiolliere@gmail.com",
+            "name": "Guillaume Thiolliere",
+            "username": "gui1117"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e9c2ae8a595a87fe11fe6d39ba5e9554947f363e",
+          "message": "AHMv2 HRMP: part1: make polkadot hrmp support asynchronous deposit provider (#13547)\n\nHRMP was made abstract to handle asynchronous service for the setting of\ndeposits. This PR adds tests and fix some issues related to it.\n\nThe provider is expected to always apply the requests in order, but the\nanswer are accepted to be out of order.\n\n---------\n\nCo-authored-by: Ankan <10196091+Ank4n@users.noreply.github.com>",
+          "timestamp": "2026-10-30T17:10:32Z",
+          "tree_id": "77a0b4a359aa99a0e6621ac26c7f3c215af4268f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/e9c2ae8a595a87fe11fe6d39ba5e9554947f363e"
+        },
+        "date": 1793388439887,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63556.18000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52938.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000018010950000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.52465770449267,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0049019376399999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7459545560200005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.301555643880001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000018010950000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.76993340336,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7665459419600149,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.757517244749999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017357140000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017357140000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.124495763350016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7780870357399996,
             "unit": "seconds"
           }
         ]
