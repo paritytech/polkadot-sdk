@@ -29,7 +29,7 @@ use crate::{
 		RuntimeOrigin, System, Test, builder, test_utils::get_contract_checked,
 	},
 };
-use alloy_core::sol_types::SolCall;
+use alloy_core::{primitives::U256, sol_types::SolCall};
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -46,7 +46,7 @@ use frame_support::{
 	weights::Weight,
 };
 use pallet_revive_fixtures::{
-	FixtureType, MultiContributorStorage, compile_module, compile_module_with_type,
+	FixtureType, MultiContributorStorage, SharedStorage, compile_module, compile_module_with_type,
 };
 use pretty_assertions::assert_eq;
 use sp_runtime::{AccountId32, DispatchResult};
@@ -123,6 +123,7 @@ fn refund_on_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> Dispatc
 		Funds::Balance(to),
 		amount,
 	)
+	.map(|_| ())
 }
 
 fn run(TestCase { accounts, charges, refund, expected_after_refund }: TestCase) {
@@ -755,5 +756,68 @@ fn refund_all_leaves_frozen_part_on_hold() {
 		assert_eq!(refunded, 100);
 		assert_eq!(Balances::balance_on_hold(&hold, &BOB), 500);
 		assert_eq!(Balances::balance(&ALICE), alice_before + 100);
+	});
+}
+
+/// A refund that the backend does not release stays refundable to the account that paid it.
+///
+/// BOB pays the deposit for storage in native currency. CHARLIE removes that storage but has no
+/// [`NativeDepositOf`] credit on the contract, so nothing is released to CHARLIE. The contract
+/// info keeps the unreleased deposit, so BOB releases it with a storage removal of his own
+/// instead of it staying on hold until the contract is terminated.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn unreleased_refund_stays_refundable_to_payer(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("SharedStorage", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&BOB, 100_000_000_000);
+		Balances::set_balance(&CHARLIE, 100_000_000_000);
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		let base_held = Balances::balance_on_hold(&hold, &account_id);
+		let held = || Balances::balance_on_hold(&hold, &account_id);
+		let call = |origin: AccountId32, data: Vec<u8>| {
+			assert_ok!(
+				BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(origin), addr)
+					.data(data)
+					.build()
+					.result
+			);
+		};
+		let write = |from: u64, to: u64| {
+			SharedStorage::writeCall { from: U256::from(from), to: U256::from(to) }.abi_encode()
+		};
+		let clear = |from: u64, to: u64| {
+			SharedStorage::clearCall { from: U256::from(from), to: U256::from(to) }.abi_encode()
+		};
+		let bob_before = Balances::balance(&BOB);
+		let charlie_before = Balances::balance(&CHARLIE);
+
+		call(BOB, write(0, 4));
+		let bob_deposit = bob_before - Balances::balance(&BOB);
+		assert!(bob_deposit > 0);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_deposit);
+		assert_eq!(held(), base_held + bob_deposit);
+
+		call(CHARLIE, clear(0, 4));
+		let info = get_contract_checked(&addr).unwrap();
+		assert_eq!(info.storage_items, 0);
+		assert_eq!(Balances::balance(&CHARLIE), charlie_before, "CHARLIE is not entitled");
+		assert_eq!(held(), base_held + bob_deposit, "nothing was released");
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_deposit);
+		assert_eq!(info.total_deposit(), held(), "contract info keeps the unreleased refund");
+
+		call(BOB, write(0, 1));
+		call(BOB, clear(0, 1));
+		assert_eq!(Balances::balance(&BOB), bob_before, "BOB gets his whole deposit back");
+		assert_eq!(held(), base_held);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), 0);
+		let info = get_contract_checked(&addr).unwrap();
+		assert_eq!(info.extra_deposit(), 0);
+		assert_eq!(info.total_deposit(), held());
+		assert_eq!(Balances::balance(&CHARLIE), charlie_before);
 	});
 }

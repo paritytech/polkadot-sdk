@@ -53,6 +53,15 @@ mod sealed {
 	}
 }
 
+/// Outcome of settling a refund from a PGAS hold.
+#[derive(Default)]
+struct PGasSettlement<Balance> {
+	/// Taken from the hold: the part credited to the recipient plus the part burned.
+	released: Balance,
+	/// Credited to the recipient.
+	credited: Balance,
+}
+
 /// Identifies where the native side of a storage deposit lives.
 ///
 /// Charges treat it as the source; refunds treat it as the destination.
@@ -97,6 +106,10 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 	/// Refund `amount` of held funds from contract `from`.
 	///
+	/// Returns the amount released from the hold. A backend may release less than `amount`
+	/// without failing, for example when `dst` is not entitled to the part of the hold that was
+	/// paid in a particular currency. The rest stays on hold.
+	///
 	/// # Parameters
 	/// - `reason`: hold reason the funds were placed under.
 	/// - `from`: contract whose hold is being released.
@@ -108,7 +121,7 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-	) -> DispatchResult;
+	) -> Result<BalanceOf<T>, DispatchError>;
 
 	/// Total amount held for `who` under `reason`.
 	///
@@ -216,7 +229,7 @@ impl<T: Config> Deposit<T> for () {
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-	) -> DispatchResult {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		match dst {
 			Funds::Balance(to) => {
 				T::Currency::transfer_on_hold(
@@ -242,7 +255,7 @@ impl<T: Config> Deposit<T> for () {
 				T::FeeInfo::deposit_txfee(credit);
 			},
 		}
-		Ok(())
+		Ok(amount)
 	}
 
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
@@ -391,7 +404,7 @@ where
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-	) -> DispatchResult {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		let to = match &dst {
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
@@ -412,8 +425,8 @@ where
 		};
 
 		let pgas_needed = amount.saturating_sub(native_refunded);
-		Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
-		Ok(())
+		let pgas = Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
+		Ok(native_refunded.saturating_add(pgas.released))
 	}
 
 	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
@@ -442,7 +455,7 @@ where
 
 		let pgas = Self::pgas_on_hold(reason, from);
 		let pgas = Self::settle_pgas_refund(reason, from, to, pgas)?;
-		Ok(native.saturating_add(pgas))
+		Ok(native.saturating_add(pgas.credited))
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
@@ -568,8 +581,7 @@ where
 	}
 
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
-	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
-	/// portion).
+	/// burn the rest.
 	///
 	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
 	/// account and the refund would create one below ED), the refund portion is folded into
@@ -583,9 +595,9 @@ where
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> Result<PGasSettlement<BalanceOf<T>>, DispatchError> {
 		if amount.is_zero() {
-			return Ok(BalanceOf::<T>::zero());
+			return Ok(PGasSettlement::default());
 		}
 		// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
 		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
@@ -593,7 +605,7 @@ where
 		let pgas_held = Self::pgas_on_hold(reason, from);
 		let amount = amount.min(pgas_held);
 		if amount.is_zero() {
-			return Ok(BalanceOf::<T>::zero());
+			return Ok(PGasSettlement::default());
 		}
 		let refund = RefundPercent::get().mul_floor(amount);
 		let mut burn = amount.saturating_sub(refund);
@@ -635,6 +647,6 @@ where
 				Fortitude::Polite,
 			)?;
 		}
-		Ok(refunded)
+		Ok(PGasSettlement { released: refunded.saturating_add(burn), credited: refunded })
 	}
 }
