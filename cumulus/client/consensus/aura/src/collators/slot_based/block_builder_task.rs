@@ -174,6 +174,24 @@ impl SchedulingParams {
 	}
 }
 
+/// Whether `parent` ends a bundle. Without the digest we run in compatibility mode and all parents
+/// do.
+fn is_bundle_ender<H: HeaderT>(parent: &H) -> bool {
+	CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
+}
+
+/// The relay chain context derived from a [`SchedulingParams`].
+struct RelayContext {
+	/// The params the context was derived from.
+	params: SchedulingParams,
+	/// The relay block the candidate is scheduled at.
+	scheduling_parent_header: RelayHeader,
+	/// Whether scheduling V3 applies at `scheduling_parent_header`.
+	v3_enabled: bool,
+	/// The relay parent and the descendants linking it to the scheduling parent.
+	relay_parent_data: RelayParentData,
+}
+
 /// Everything the builder needs for one slot, all derived from a single [`SchedulingParams`].
 struct BuildingPrerequisites<Block: BlockT> {
 	/// The relay block the candidate is scheduled at.
@@ -192,7 +210,7 @@ struct BuildingPrerequisites<Block: BlockT> {
 	resubmittable_headers: Vec<Block::Header>,
 	/// The included header at the execution context, i.e. at `relay_parent_data`'s relay parent.
 	/// Follows whichever phase settled that context: the second one whenever the build parent's
-	/// `v3_enabled` or `relay_parent_offset` disagree with the para best head's, since the first
+	/// `v3_enabled` or `relay_parent_offset` disagree with the parent search's, since the first
 	/// phase then took it at a scheduling parent we no longer build against.
 	included_header_at_execution: Block::Header,
 }
@@ -216,15 +234,14 @@ fn is_built_on_relay_parent<Header: HeaderT>(
 	}
 }
 
-/// The relay chain context `params` imply: the scheduling parent, whether V3 applies to it, and the
-/// relay parent with its descendants.
+/// The [`RelayContext`] `params` imply.
 async fn derive_relay_context<RelayClient>(
 	relay_client: &RelayClient,
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	scheduling_info: &mut SchedulingInfo<RelayClient>,
 	params: SchedulingParams,
 	slot: Slot,
-) -> Option<(RelayHeader, bool, RelayParentData)>
+) -> Option<RelayContext>
 where
 	RelayClient: RelayChainInterface + 'static,
 {
@@ -256,7 +273,7 @@ where
 		return None;
 	};
 
-	Some((scheduling_parent_header, v3_enabled, relay_parent_data))
+	Some(RelayContext { params, scheduling_parent_header, v3_enabled, relay_parent_data })
 }
 
 /// Environment shared by the block-builder phases; groups the clients, caches, and per-task
@@ -431,72 +448,34 @@ where
 	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = SchedulingParams::at(&*self.para_client, best_hash);
-
-		let (scheduling_parent_header, v3_enabled, relay_parent_data) = derive_relay_context(
-			&self.relay_client,
-			&mut self.relay_chain_data_cache,
-			&mut self.scheduling_info,
-			best_params,
-			slot,
-		)
-		.await?;
-
-		let search_params = ParentSearchParams::new(
-			v3_enabled,
-			scheduling_parent_header.hash(),
-			relay_parent_data.relay_parent().hash(),
-		);
-		let parent_search_result = crate::collators::find_parent(
-			&self.relay_client,
-			&*self.para_backend,
-			self.para_id,
-			search_params,
-			|parent| {
-				// Never build on a "middle block" that isn't the last block in a core. Without the
-				// digest we run in compatibility mode and all parents are valid.
-				CumulusDigestItem::is_last_block_in_core(parent.digest()).unwrap_or(true)
-			},
-		)
-		.await?;
+		let (context, parent_search_result) = self.search_parent(best_params, slot).await?;
 
 		let build_parent_hash = parent_search_result.best_parent_header.hash();
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
-		let build_parent_agrees = build_parent_hash == best_hash || build_params == best_params;
+		let build_parent_agrees = build_params == context.params;
 
-		let (scheduling_parent_header, v3_enabled, relay_parent_offset, relay_parent_data) =
-			if build_parent_agrees {
-				(
-					scheduling_parent_header,
-					v3_enabled,
-					best_params.relay_parent_offset,
-					relay_parent_data,
-				)
-			} else {
-				tracing::info!(
-					target: LOG_TARGET,
-					best = ?best_hash,
-					?build_parent_hash,
-					"Build parent's runtime disagrees with the para best's, re-deriving the relay \
-					chain context from the build parent.",
-				);
+		let context = if build_parent_agrees {
+			context
+		} else {
+			tracing::info!(
+				target: LOG_TARGET,
+				best = ?best_hash,
+				?build_parent_hash,
+				"Build parent's runtime disagrees with the parent search's, re-deriving the relay \
+				chain context from the build parent.",
+			);
 
-				let (scheduling_parent_header, v3_enabled, relay_parent_data) =
-					derive_relay_context(
-						&self.relay_client,
-						&mut self.relay_chain_data_cache,
-						&mut self.scheduling_info,
-						build_params,
-						slot,
-					)
-					.await?;
-
-				(
-					scheduling_parent_header,
-					v3_enabled,
-					build_params.relay_parent_offset,
-					relay_parent_data,
-				)
-			};
+			derive_relay_context(
+				&self.relay_client,
+				&mut self.relay_chain_data_cache,
+				&mut self.scheduling_info,
+				build_params,
+				slot,
+			)
+			.await?
+		};
+		let RelayContext { params, scheduling_parent_header, v3_enabled, relay_parent_data } =
+			context;
 
 		let best_parent_header = parent_search_result.best_parent_header;
 		let resubmittable_headers = parent_search_result.resubmittable_segment;
@@ -527,12 +506,44 @@ where
 		Some(BuildingPrerequisites {
 			scheduling_parent_header,
 			v3_enabled,
-			relay_parent_offset,
+			relay_parent_offset: params.relay_parent_offset,
 			relay_parent_data,
 			best_parent_header,
 			resubmittable_headers,
 			included_header_at_execution,
 		})
+	}
+
+	/// Derive the relay chain context for `params` and run the parent search in it.
+	async fn search_parent(
+		&mut self,
+		params: SchedulingParams,
+		slot: Slot,
+	) -> Option<(RelayContext, consensus_common::ParentSearchResult<Block>)> {
+		let context = derive_relay_context(
+			&self.relay_client,
+			&mut self.relay_chain_data_cache,
+			&mut self.scheduling_info,
+			params,
+			slot,
+		)
+		.await?;
+
+		let search_params = ParentSearchParams::new(
+			context.v3_enabled,
+			context.scheduling_parent_header.hash(),
+			context.relay_parent_data.relay_parent().hash(),
+		);
+		let result = crate::collators::find_parent(
+			&self.relay_client,
+			&*self.para_backend,
+			self.para_id,
+			search_params,
+			is_bundle_ender,
+		)
+		.await?;
+
+		Some((context, result))
 	}
 
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
