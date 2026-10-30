@@ -1,4 +1,4 @@
-title: 'collectives-westend: deny value-moving calls to the `NonTransfer` proxy'
+title: 'collectives-westend: restrict salary `payout_other` to the `Any` proxy (+ `PolkadotXcm` denial for `NonTransfer`)'
 doc:
 - audience: Runtime Dev
   description: |-
