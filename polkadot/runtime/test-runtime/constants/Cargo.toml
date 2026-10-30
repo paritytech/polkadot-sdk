@@ -11,10 +11,9 @@ workspace = true
 
 [dependencies]
 smallvec = { workspace = true, default-features = true }
-
-frame-support = { workspace = true }
-polkadot-primitives = { workspace = true }
-sp-runtime = { workspace = true }
+frame-support.workspace = true
+polkadot-primitives.workspace = true
+sp-runtime.workspace = true
 
 [features]
 default = ["std"]
