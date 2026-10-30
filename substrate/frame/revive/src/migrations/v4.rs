@@ -22,7 +22,10 @@
 //! Phase 1 iterates [`crate::CodeInfoOf`] and for each uploaded code records the uploader's
 //! existing native `CodeUploadDepositReserve` contribution under [`crate::NativeDepositOf`],
 //! keyed by the pallet's own account (the holder of that deposit). The native currency itself
-//! stays where it is.
+//! stays where it is. It first clears any rows already held by the pallet account, so a chain
+//! that enabled `PGasDeposit` before running this migration (and so already recorded some
+//! native code deposits) ends up with each owner credited exactly once. Code-upload deposits
+//! paid in PGAS before this migration ran would be credited as native.
 //!
 //! Phase 2 iterates [`crate::AccountInfoOf`] and for each contract burn the native
 //! `StorageDepositReserve` hold and replaces it with the same amount of PGAS minted into the
@@ -75,6 +78,10 @@ pub enum Cursor {
 	///
 	/// `None` is the transition sentinel from phase 2 to phase 3.
 	DeletionQueue(Option<u32>),
+	/// Clearing the pallet account's existing [`NativeDepositOf`] rows before phase 1.
+	///
+	/// No position is needed: each step removes the first remaining row.
+	ClearCodeCredits,
 }
 
 /// Switches native storage deposits over to PGAS.
@@ -93,16 +100,20 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let code_step = <T as Config>::WeightInfo::v4_code_upload_step();
+		// A clearing step removes one row or, once none are left, runs the first phase 1 step.
+		let clear_step =
+			<T as Config>::WeightInfo::v4_clear_code_credit_step().saturating_add(code_step);
 		let contract_step = <T as Config>::WeightInfo::v4_contract_step();
 		let deletion_queue_step = <T as Config>::WeightInfo::v4_deletion_queue_step();
-		let required = code_step.max(contract_step).max(deletion_queue_step);
+		let required = clear_step.max(contract_step).max(deletion_queue_step);
 		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
 		loop {
 			let step_weight = match &cursor {
-				None | Some(Cursor::CodeUpload(_)) => code_step,
+				None | Some(Cursor::ClearCodeCredits) => clear_step,
+				Some(Cursor::CodeUpload(_)) => code_step,
 				Some(Cursor::Contract(_)) => contract_step,
 				Some(Cursor::DeletionQueue(_)) => deletion_queue_step,
 			};
@@ -155,8 +166,14 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		)>::decode(&mut &prev[..])
 		.expect("Failed to decode pre_upgrade state");
 
-		// `NativeDepositOf` is introduced in this migration and starts empty.
+		// Phase 1 rebuilds the pallet account's rows from `CodeInfoOf` alone.
 		let pallet_account = Pallet::<T>::account_id();
+		for (owner, got) in NativeDepositOf::<T>::iter_prefix(&pallet_account) {
+			assert!(
+				per_owner.contains_key(&owner),
+				"v4: NativeDepositOf[pallet][{owner:?}] = {got:?} left without code in CodeInfoOf",
+			);
+		}
 		for (owner, expected) in per_owner {
 			let got = NativeDepositOf::<T>::get(&pallet_account, &owner);
 			assert_eq!(
@@ -207,9 +224,10 @@ impl<T: Config> Migration<T> {
 		// Forced on under `runtime-benchmarks` so per-phase weights are still measured.
 		if !T::Deposit::SUPPORTS_PGAS && !cfg!(feature = "runtime-benchmarks") {
 			return match cursor {
-				None | Some(Cursor::CodeUpload(_)) | Some(Cursor::Contract(_)) => {
-					Some(Cursor::DeletionQueue(None))
-				},
+				None |
+				Some(Cursor::ClearCodeCredits) |
+				Some(Cursor::CodeUpload(_)) |
+				Some(Cursor::Contract(_)) => Some(Cursor::DeletionQueue(None)),
 				Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
 					Some(next) => Some(Cursor::DeletionQueue(Some(next))),
 					None => None,
@@ -218,10 +236,14 @@ impl<T: Config> Migration<T> {
 		}
 
 		match cursor {
-			None | Some(Cursor::CodeUpload(_)) => {
-				let last = if let Some(Cursor::CodeUpload(h)) = cursor { Some(h) } else { None };
-				Self::step_1_code_upload(last)
+			None | Some(Cursor::ClearCodeCredits) => {
+				if Self::clear_one_code_credit() {
+					Some(Cursor::ClearCodeCredits)
+				} else {
+					Self::step_1_code_upload(None)
+				}
 			},
+			Some(Cursor::CodeUpload(last)) => Self::step_1_code_upload(Some(last)),
 			Some(Cursor::Contract(last)) => Some(match Self::step_2_contract(last) {
 				Some(next) => Cursor::Contract(Some(next)),
 				None => Cursor::DeletionQueue(None),
@@ -231,6 +253,17 @@ impl<T: Config> Migration<T> {
 				None => None,
 			},
 		}
+	}
+
+	/// Before phase 1: remove one [`NativeDepositOf`] row held by the pallet account. Returns
+	/// `false` once there are none left.
+	fn clear_one_code_credit() -> bool {
+		let pallet_account = Pallet::<T>::account_id();
+		let Some(owner) = NativeDepositOf::<T>::iter_key_prefix(&pallet_account).next() else {
+			return false;
+		};
+		NativeDepositOf::<T>::remove(&pallet_account, &owner);
+		true
 	}
 
 	/// Phase 1: credit the next `CodeInfoOf` entry's owner in [`NativeDepositOf`]. Returns
@@ -319,10 +352,14 @@ mod tests {
 	use crate::{
 		CodeInfo, FreezeReason,
 		storage::{AccountInfo, ContractInfo},
-		tests::{Assets, AssetsFreezer, AssetsHolder, ExtBuilder, PGasAssetId, Test},
+		tests::{
+			Assets, AssetsFreezer, AssetsHolder, ExtBuilder, PGasAssetId, RuntimeOrigin, Test,
+		},
 	};
-	use frame_support::traits::fungible::{
-		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
+	use frame_support::{
+		assert_ok,
+		traits::fungible::{Inspect as _, InspectHold as _, Mutate as _, MutateHold as _},
+		weights::Weight,
 	};
 	use sp_runtime::AccountId32;
 
@@ -361,6 +398,86 @@ mod tests {
 		.unwrap();
 	}
 
+	/// A chain that enabled `PGasDeposit` before running v4 already has rows for code uploaded
+	/// since the switch. Phase 1 must credit each code deposit once, so the pre-switch deposit
+	/// becomes refundable and the post-switch one is not counted twice.
+	#[test]
+	fn phase_one_run_late_credits_each_code_deposit_once() {
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let pallet_account = Pallet::<Test>::account_id();
+			let owner = AccountId32::new([1; 32]);
+			<Test as Config>::Currency::set_balance(&owner, 1_000_000);
+
+			// Uploaded before the switch: no credit recorded.
+			let legacy = H256::repeat_byte(0xAA);
+			seed_code_upload(legacy, owner.clone(), 1_000);
+			// Uploaded after the switch: `PGasDeposit` recorded the native contribution.
+			seed_code_upload(H256::repeat_byte(0xAB), owner.clone(), 500);
+			NativeDepositOf::<Test>::insert(&pallet_account, &owner, 500);
+
+			V4::run_to_completion();
+
+			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner), 1_500);
+
+			let free_before = <Test as Config>::Currency::balance(&owner);
+			assert_ok!(Pallet::<Test>::remove_code(RuntimeOrigin::signed(owner.clone()), legacy));
+			assert_eq!(<Test as Config>::Currency::balance(&owner), free_before + 1_000);
+			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner), 500);
+		});
+	}
+
+	/// A pallet-account row whose owner has no code left in `CodeInfoOf` is removed.
+	#[test]
+	fn phase_one_removes_rows_without_code() {
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let pallet_account = Pallet::<Test>::account_id();
+			let owner = AccountId32::new([1; 32]);
+			let stale = AccountId32::new([2; 32]);
+			seed_code_upload(H256::repeat_byte(0xAA), owner.clone(), 1_000);
+			NativeDepositOf::<Test>::insert(&pallet_account, &stale, 300);
+
+			V4::run_to_completion();
+
+			assert!(!NativeDepositOf::<Test>::contains_key(&pallet_account, &stale));
+			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner), 1_000);
+		});
+	}
+
+	/// Run with the minimum weight per block, the clearing step and phase 1 resume from their
+	/// cursors and still credit each code deposit once.
+	#[test]
+	fn phase_one_resumes_across_blocks() {
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let pallet_account = Pallet::<Test>::account_id();
+			let owner_a = AccountId32::new([1; 32]);
+			let owner_b = AccountId32::new([2; 32]);
+			seed_code_upload(H256::repeat_byte(0xAA), owner_a.clone(), 1_000);
+			seed_code_upload(H256::repeat_byte(0xAB), owner_a.clone(), 500);
+			seed_code_upload(H256::repeat_byte(0xBB), owner_b.clone(), 2_000);
+			NativeDepositOf::<Test>::insert(&pallet_account, &owner_a, 500);
+			NativeDepositOf::<Test>::insert(&pallet_account, &owner_b, 2_000);
+
+			let required = match V4::step(None, &mut WeightMeter::with_limit(Weight::zero())) {
+				Err(SteppedMigrationError::InsufficientWeight { required }) => required,
+				other => panic!("expected InsufficientWeight, got {other:?}"),
+			};
+			let mut cursor = None;
+			let mut blocks = 0;
+			loop {
+				blocks += 1;
+				let mut meter = WeightMeter::with_limit(required);
+				match V4::step(cursor, &mut meter).unwrap() {
+					Some(next) => cursor = Some(next),
+					None => break,
+				}
+			}
+
+			assert!(blocks > 1, "the migration should span several blocks");
+			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner_a), 1_500);
+			assert_eq!(NativeDepositOf::<Test>::get(&pallet_account, &owner_b), 2_000);
+		});
+	}
+
 	#[test]
 	fn phase_one_populates_native_deposit_for_code_upload() {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
@@ -391,6 +508,80 @@ mod tests {
 				),
 				3_500,
 			);
+		});
+	}
+
+	/// If the PGAS mint fails (here: the PGAS asset is not registered), the native hold must stay
+	/// in place. Phase 2 only logs the error, so a partial swap would be committed.
+	#[test]
+	fn migrate_native_to_pgas_keeps_native_hold_when_pgas_mint_fails() {
+		use crate::{PGasDeposit, tests::PGasRefundPercent};
+		use frame_support::traits::ConstU32;
+
+		type UnregisteredPGas = PGasDeposit<
+			Test,
+			Assets,
+			AssetsHolder,
+			AssetsFreezer,
+			ConstU32<999>,
+			PGasRefundPercent,
+		>;
+
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let address = H160::repeat_byte(0x10);
+			seed_contract(address, H256::repeat_byte(0xCC), 700);
+			let contract = <Test as Config>::AddressMapper::to_account_id(&address);
+			let total_issuance = <Test as Config>::Currency::total_issuance();
+
+			assert!(
+				<UnregisteredPGas as Deposit<Test>>::migrate_native_to_pgas(
+					HoldReason::StorageDepositReserve,
+					&contract,
+					700,
+				)
+				.is_err()
+			);
+
+			assert_eq!(
+				<Test as Config>::Currency::balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&contract,
+				),
+				700,
+			);
+			assert_eq!(<Test as Config>::Currency::total_issuance(), total_issuance);
+		});
+	}
+
+	/// Running v4 before the PGAS asset is registered converts nothing: every contract keeps its
+	/// native storage deposit and no currency is burned.
+	#[test]
+	fn phase_two_without_pgas_asset_keeps_native_deposits() {
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			pallet_assets::Asset::<Test>::remove(PGasAssetId::get());
+
+			let owner = AccountId32::new([1; 32]);
+			let hash = H256::repeat_byte(0xCC);
+			seed_code_upload(hash, owner, 0);
+			let c1 = H160::repeat_byte(0x10);
+			let c2 = H160::repeat_byte(0x20);
+			seed_contract(c1, hash, 700);
+			seed_contract(c2, hash, 1_300);
+			let total_issuance = <Test as Config>::Currency::total_issuance();
+
+			V4::run_to_completion();
+
+			for (address, deposit) in [(c1, 700), (c2, 1_300)] {
+				let contract = <Test as Config>::AddressMapper::to_account_id(&address);
+				assert_eq!(
+					<Test as Config>::Currency::balance_on_hold(
+						&HoldReason::StorageDepositReserve.into(),
+						&contract,
+					),
+					deposit,
+				);
+			}
+			assert_eq!(<Test as Config>::Currency::total_issuance(), total_issuance);
 		});
 	}
 

@@ -449,77 +449,83 @@ where
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
 	/// mint and freeze the PGAS ED if missing, then burn the native hold under `reason` and
 	/// replace it with the same amount of PGAS held on `contract`.
+	///
+	/// Runs in its own storage layer: phase 2 of the v4 migration only logs a failure, so a
+	/// partial swap (native burned, PGAS never minted) must roll back instead of being committed.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
-		let freeze_id = FreezeReason::PGasMinBalance.into();
-		if <Freezer as fungibles::freeze::Inspect<T::AccountId>>::balance_frozen(
-			Id::get(),
-			&freeze_id,
-			contract,
-		) < pgas_ed
-		{
-			if <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract) < pgas_ed
+		frame_support::storage::with_storage_layer(|| {
+			let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+			let freeze_id = FreezeReason::PGasMinBalance.into();
+			if <Freezer as fungibles::freeze::Inspect<T::AccountId>>::balance_frozen(
+				Id::get(),
+				&freeze_id,
+				contract,
+			) < pgas_ed
 			{
-				<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+				if <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract) <
+					pgas_ed
+				{
+					<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+						Id::get(),
+						contract,
+						pgas_ed,
+					)
+					.inspect_err(|err| {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to mint PGAS ED for contract: {err:?}",
+						)
+					})?;
+				}
+				<Freezer as fungibles::freeze::Mutate<T::AccountId>>::set_freeze(
 					Id::get(),
+					&freeze_id,
 					contract,
 					pgas_ed,
 				)
 				.inspect_err(|err| {
 					log::debug!(
 						target: LOG_TARGET,
-						"Failed to mint PGAS ED for contract: {err:?}",
+						"Failed to freeze PGAS ED for contract: {err:?}",
 					)
 				})?;
 			}
-			<Freezer as fungibles::freeze::Mutate<T::AccountId>>::set_freeze(
-				Id::get(),
-				&freeze_id,
+
+			if amount.is_zero() {
+				return Ok(());
+			}
+
+			T::Currency::burn_held(
+				&reason.into(),
 				contract,
-				pgas_ed,
+				amount,
+				Precision::Exact,
+				Fortitude::Polite,
 			)
-			.inspect_err(|err| {
-				log::debug!(
-					target: LOG_TARGET,
-					"Failed to freeze PGAS ED for contract: {err:?}",
-				)
-			})?;
-		}
-
-		if amount.is_zero() {
-			return Ok(());
-		}
-
-		T::Currency::burn_held(
-			&reason.into(),
-			contract,
-			amount,
-			Precision::Exact,
-			Fortitude::Polite,
-		)
-		.inspect_err(
-			|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
-		)?;
-
-		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)
 			.inspect_err(
-				|err| log::debug!(target: LOG_TARGET, "Failed to mint to {contract:?} amount: {amount:?}: {err:?}"),
+				|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
 			)?;
 
-		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
-			Id::get(),
-			&reason.into(),
-			contract,
-			amount,
-		)
-		.inspect_err(
-			|err| log::debug!(target: LOG_TARGET, "Failed to hold amount in {contract:?}: {amount:?}: {err:?}"),
-		)?;
-		Ok(())
+			<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)
+				.inspect_err(
+					|err| log::debug!(target: LOG_TARGET, "Failed to mint to {contract:?} amount: {amount:?}: {err:?}"),
+				)?;
+
+			<Holder as fungibles::MutateHold<T::AccountId>>::hold(
+				Id::get(),
+				&reason.into(),
+				contract,
+				amount,
+			)
+			.inspect_err(
+				|err| log::debug!(target: LOG_TARGET, "Failed to hold amount in {contract:?}: {amount:?}: {err:?}"),
+			)?;
+			Ok(())
+		})
 	}
 }
 
