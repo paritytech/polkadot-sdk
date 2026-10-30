@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793388522078,
+  "lastUpdate": 1793392736681,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0688fe97808b6bff442115868beba51c3e1b9f64",
-          "message": "Fix PSM storage migration (#11770)\n\n## Summary\n\nFixes the PSM migration to run on first deployment by replacing the\nversioned `MigrateToV1` with an idempotent `InitializePsm`.\n\n### Problem\n\nWhen a pallet is first added to a runtime, `BeforeAllRuntimeMigrations`\ninitializes the on-chain storage version to the pallet's in-code\nversion. With `STORAGE_VERSION = 1`, the on-chain version was set to `1`\nbefore `MigrateToV1` ran. Since `VersionedMigration<0, 1>` only executes\nwhen the on-chain version is `0`, the migration was skipped, leaving the\nPSM unconfigured (no external assets, no fees, no ceiling weights).\n\n### Fix\n\nReplace `MigrateToV1` (versioned) with `InitializePsm` (idempotent).\nInstead of relying on storage versions, it checks whether each external\nasset already exists and skips it if so. Safe to run multiple times.\n\n### Tests\n\n- `initialize_psm_configures_new_assets` — fresh deployment configures\nall assets\n- `initialize_psm_skips_existing_assets` — already-configured assets are\nnot overwritten\n- `initialize_psm_is_idempotent` — running twice produces the same\nresult",
-          "timestamp": "2026-04-15T13:14:29Z",
-          "tree_id": "c71f0d1937252f90a3a5c3dcbbccd12e8e5886c4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0688fe97808b6bff442115868beba51c3e1b9f64"
-        },
-        "date": 1776263853410,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038364670367999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0819966451719999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0864782446359999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "aa33a0f1f0fef63e928875cf5979c3db94698b1b",
+          "message": "statement-store: keep the no-DHT mark only while the peer's substream is open (#13563)\n\n# Description\n\nA peer marked as without the DHT path (#13497) stayed out of the DHT\nindex until a new substream opened, which may never happen once it\nrestarts with the DHT path on.\n\nThe mark now ends when the substream closes; a peer that reconnects\nstill without the DHT path is marked again. While marked, a peer\nsteering already holds reserved stays reserved, so the node does not\ndrop and redial it. Sync recovery and the flood check release it before\ndisconnecting, as litep2p ignores a disconnect of a reserved peer.\n\nA peer without the DHT path that stops accepting this node stays indexed\nbut unreachable, like a never-connected one (#13515).\n\nCloses #13554",
+          "timestamp": "2026-10-30T19:03:18Z",
+          "tree_id": "9099deb8ef2d410b1f3fb2cb4fb060861152ac2f",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/aa33a0f1f0fef63e928875cf5979c3db94698b1b"
+        },
+        "date": 1793392703800,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10199999999995,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038627639382000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.086195853918,
             "unit": "seconds"
           }
         ]
