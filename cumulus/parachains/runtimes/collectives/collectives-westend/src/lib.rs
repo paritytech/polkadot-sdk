@@ -327,6 +327,21 @@ impl Default for ProxyType {
 		Self::Any
 	}
 }
+
+/// `pallet_salary` calls that only pay the claimant itself.
+///
+/// Specifically omitting `payout_other`, which pays the claimant's salary to any account.
+macro_rules! own_salary_call {
+	() => {
+		pallet_salary::Call::init { .. } |
+			pallet_salary::Call::bump { .. } |
+			pallet_salary::Call::induct { .. } |
+			pallet_salary::Call::register { .. } |
+			pallet_salary::Call::payout { .. } |
+			pallet_salary::Call::check_payment { .. }
+	};
+}
+
 impl InstanceFilter<RuntimeCall> for ProxyType {
 	fn filter(&self, c: &RuntimeCall) -> bool {
 		match self {
@@ -366,7 +381,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::FellowshipCollective { .. } |
 					RuntimeCall::FellowshipReferenda { .. } |
 					RuntimeCall::FellowshipCore { .. } |
-					RuntimeCall::FellowshipSalary { .. } |
+					RuntimeCall::FellowshipSalary(own_salary_call!()) |
 					RuntimeCall::FellowshipTreasury { .. } |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
@@ -377,14 +392,14 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::AmbassadorReferenda { .. } |
 					RuntimeCall::AmbassadorContent { .. } |
 					RuntimeCall::AmbassadorCore { .. } |
-					RuntimeCall::AmbassadorSalary { .. } |
+					RuntimeCall::AmbassadorSalary(own_salary_call!()) |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
 			ProxyType::Secretary => matches!(
 				c,
 				RuntimeCall::SecretaryCollective { .. } |
-					RuntimeCall::SecretarySalary { .. } |
+					RuntimeCall::SecretarySalary(own_salary_call!()) |
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
@@ -395,13 +410,18 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(x, y) if x == y => true,
 			(ProxyType::Any, _) => true,
 			(_, ProxyType::Any) => false,
-			// `Fellowship`, `Ambassador` and `Secretary` admit salary `payout_other`; `NonTransfer`
-			// does not.
+			// Only list proxy types whose calls are all allowed by `NonTransfer`. Unlike
+			// Collectives Polkadot, where `NonTransfer` is an allowlist that does not cover the
+			// Secretary calls, the denylist here admits them all, so the `Secretary` edge holds.
 			(
 				ProxyType::NonTransfer,
-				ProxyType::Fellowship | ProxyType::Ambassador | ProxyType::Secretary,
-			) => false,
-			(ProxyType::NonTransfer, _) => true,
+				ProxyType::CancelProxy |
+				ProxyType::Collator |
+				ProxyType::Alliance |
+				ProxyType::Fellowship |
+				ProxyType::Ambassador |
+				ProxyType::Secretary,
+			) => true,
 			_ => false,
 		}
 	}
