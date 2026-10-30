@@ -824,7 +824,7 @@ fn revenue_which_is_partially_claimed_is_distributed_for_its_timeslices() {
 }
 
 #[test]
-fn timeslices_older_than_a_settled_one_are_settled_too() {
+fn unlisted_timeslices_keep_their_history_until_it_is_dropped() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		setup_instapool_revenue();
 
@@ -832,23 +832,23 @@ fn timeslices_older_than_a_settled_one_are_settled_too() {
 		// neither of them is settled. Nothing is ordered in timeslice 5.
 		RevenueClaimFunds::set(Some(0));
 		advance_to(12);
-		assert!(InstaPoolHistory::<Test>::get(4).is_some());
-		assert!(InstaPoolHistory::<Test>::get(5).is_some());
 
 		// Timeslice 6 ends, and the market pays out the revenue of timeslices 4 and 6 (which had
-		// none). Timeslice 5 is not listed, but as it is older than timeslice 6, it is settled.
+		// none). Timeslice 5 is not listed, so its history is kept.
 		RevenueClaimFunds::set(None);
 		System::reset_events();
 		advance_to(14);
 		System::assert_has_event(
 			Event::ClaimsReady { when: 4, system_payout: 6, private_payout: 4 }.into(),
 		);
-		assert!(revenue_distributed_for(5));
 		assert!(revenue_distributed_for(6));
+		assert!(!revenue_distributed_for(5));
+		assert_eq!(InstaPoolHistory::<Test>::get(5).map(|r| r.maybe_payout), Some(None));
+
+		// Once the contribution timeout has passed, the history can be dropped.
+		advance_to(22);
+		assert_ok!(Broker::do_drop_history(5));
 		assert!(InstaPoolHistory::<Test>::get(5).is_none());
-		assert!(InstaPoolHistory::<Test>::get(6).is_none());
-		// The walk back stops at the first timeslice which was settled before.
-		assert!(!revenue_distributed_for(3));
 	});
 }
 

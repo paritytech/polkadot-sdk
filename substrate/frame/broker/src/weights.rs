@@ -97,7 +97,6 @@ pub trait WeightInfo {
 	fn process_pool() -> Weight;
 	fn process_core_schedule() -> Weight;
 	fn tally_claimed_revenue(n: u32, ) -> Weight;
-	fn settle_older_timeslices(n: u32, ) -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
 	fn notify_revenue() -> Weight;
@@ -512,20 +511,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(222_399, 0)
 			// Standard Error: 21
 			.saturating_add(Weight::from_parts(49_056, 0).saturating_mul(n.into()))
-	}
-	/// Storage: `Broker::InstaPoolHistory` (r:100 w:0)
-	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[0, 100]`.
-	fn settle_older_timeslices(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `178 + n * (32 ±0)`
-		//  Estimated: `990 + n * (2520 ±0)`
-		// Minimum execution time: 225_000 picoseconds.
-		Weight::from_parts(2_579_314, 990)
-			// Standard Error: 1_357
-			.saturating_add(Weight::from_parts(3_158_717, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(n.into()))
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:
@@ -1078,20 +1063,6 @@ impl WeightInfo for () {
 		Weight::from_parts(222_399, 0)
 			// Standard Error: 21
 			.saturating_add(Weight::from_parts(49_056, 0).saturating_mul(n.into()))
-	}
-	/// Storage: `Broker::InstaPoolHistory` (r:100 w:0)
-	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[0, 100]`.
-	fn settle_older_timeslices(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `178 + n * (32 ±0)`
-		//  Estimated: `990 + n * (2520 ±0)`
-		// Minimum execution time: 225_000 picoseconds.
-		Weight::from_parts(2_579_314, 990)
-			// Standard Error: 1_357
-			.saturating_add(Weight::from_parts(3_158_717, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(n.into()))
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:

@@ -523,21 +523,6 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			// Standard Error: 14
 			.saturating_add(Weight::from_parts(46_014, 0).saturating_mul(n.into()))
 	}
-	/// Storage: `Broker::InstaPoolHistory` (r:100 w:0)
-	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
-	/// The range of component `n` is `[0, 100]`.
-	fn settle_older_timeslices(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `3 + n * (32 ±0)`
-		//  Estimated: `990 + n * (2520 ±0)`
-		// Minimum execution time: 205_000 picoseconds.
-		Weight::from_parts(799_935, 0)
-			.saturating_add(Weight::from_parts(0, 990))
-			// Standard Error: 1_001
-			.saturating_add(Weight::from_parts(2_995_684, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(n.into())))
-			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(n.into()))
-	}
 	/// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)

@@ -20,7 +20,7 @@
 use super::*;
 
 use crate::{CoreAssignment::Task, Pallet as Broker};
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	storage::bounded_vec::BoundedVec,
@@ -41,8 +41,6 @@ const SEED: u32 = 0;
 const MAX_CORE_COUNT: u16 = 1_000;
 /// The most timeslices whose on-demand revenue is benchmarked to be claimed at once.
 const MAX_CLAIMED_TIMESLICES: u32 = 100;
-/// The most timeslices benchmarked to be settled without their revenue being listed in a claim.
-const MAX_SETTLED_TIMESLICES: u32 = 100;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -1062,34 +1060,6 @@ mod benches {
 		}
 
 		assert_eq!(revenue.len(), n as usize);
-	}
-
-	#[benchmark]
-	fn settle_older_timeslices(n: Linear<0, MAX_SETTLED_TIMESLICES>) {
-		// Every timeslice older than `newest_settled` awaits its revenue, except the oldest one,
-		// whose missing record ends the run after `n` reads.
-		let newest_settled = n;
-		for when in 1..newest_settled {
-			InstaPoolHistory::<T>::insert(
-				when,
-				InstaPoolHistoryRecord {
-					private_contributions: 4u32.into(),
-					system_contributions: 6u32.into(),
-					maybe_payout: None,
-				},
-			);
-		}
-		let mut revenue = BTreeMap::new();
-		revenue.insert(newest_settled, 1_000_000u32.into());
-
-		let read;
-		#[block]
-		{
-			read = Broker::<T>::settle_older_timeslices(newest_settled, &mut revenue);
-		}
-
-		assert_eq!(read, n);
-		assert_eq!(revenue.len(), n.max(1) as usize);
 	}
 
 	#[benchmark]
