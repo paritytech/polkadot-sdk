@@ -85,6 +85,10 @@ impl<Header: HeaderT> JustificationVerifier<Header> for StrictJustificationVerif
 		Err(PrecommitError::InvalidAuthoritySignature)
 	}
 
+	fn process_outdated_signature_vote(&mut self, _precommit_idx: usize) -> Result<(), Error> {
+		Err(Error::OutdatedAuthoritySet)
+	}
+
 	fn process_valid_vote(&mut self, signed: &SignedPrecommit<Header>) {
 		self.votes.insert(signed.id.clone());
 	}

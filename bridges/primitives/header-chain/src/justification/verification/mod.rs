@@ -24,7 +24,7 @@ use crate::{justification::GrandpaJustification, AuthoritySet};
 
 use bp_runtime::HeaderId;
 use finality_grandpa::voter_set::VoterSet;
-use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId};
+use sp_consensus_grandpa::{AuthorityId, AuthoritySignature, SetId, SignatureResult};
 use sp_runtime::traits::Header as HeaderT;
 use sp_std::{
 	collections::{
@@ -151,6 +151,8 @@ pub enum Error {
 	TooLowCumulativeWeight,
 	/// The justification contains extra (unused) headers in its `votes_ancestries` field.
 	RedundantVotesAncestries,
+	/// The justification contains a vote signed by the previous authority set.
+	OutdatedAuthoritySet,
 }
 
 /// Justification verification error.
@@ -227,6 +229,13 @@ trait JustificationVerifier<Header: HeaderT> {
 		precommit_idx: usize,
 	) -> Result<(), PrecommitError>;
 
+	/// Called when the vote signature is valid for the previous authority set.
+	///
+	/// By default such vote is treated as a vote with invalid signature.
+	fn process_outdated_signature_vote(&mut self, precommit_idx: usize) -> Result<(), Error> {
+		self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)
+	}
+
 	fn process_valid_vote(&mut self, signed: &SignedPrecommit<Header>);
 
 	/// Called when there are redundant headers in the votes ancestries.
@@ -299,18 +308,24 @@ trait JustificationVerifier<Header: HeaderT> {
 			}
 
 			// verify authority signature
-			if !sp_consensus_grandpa::check_message_signature_with_buffer(
+			let signature_result = sp_consensus_grandpa::check_message_signature_with_buffer(
 				&finality_grandpa::Message::Precommit(signed.precommit.clone()),
 				&signed.id,
 				&signed.signature,
 				justification.round,
 				context.authority_set_id,
 				&mut signature_buffer,
-			)
-			.is_valid()
-			{
-				self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
-				continue;
+			);
+			match signature_result {
+				SignatureResult::Valid => {},
+				SignatureResult::OutdatedSet => {
+					self.process_outdated_signature_vote(precommit_idx)?;
+					continue;
+				},
+				SignatureResult::Invalid => {
+					self.process_invalid_signature_vote(precommit_idx).map_err(Error::Precommit)?;
+					continue;
+				},
 			}
 
 			// now we can count the vote since we know that it is valid
