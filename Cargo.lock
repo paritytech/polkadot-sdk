@@ -15827,6 +15827,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "xcm-procedural",
 ]
 
 [[package]]
