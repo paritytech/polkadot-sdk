@@ -1,0 +1,21 @@
+title: 'hrmp: fix request count and system-channel refund when offboarding drops open channel requests'
+doc:
+- audience: [Runtime Dev, Runtime User]
+  description: |-
+    Two fixes in the cleanup of open channel requests whose sender or recipient offboards:
+
+    - The sender's open request count is decremented when only the recipient offboards. Before,
+      the removed request kept counting against the sender's outbound channel limit for good.
+    - No recipient deposit is given back for a confirmed request with or amongst the system, since
+      `accept_open_channel` takes none for those. Before, the cleanup unreserved
+      `hrmp_recipient_deposit` from the counterparty's account anyway, freeing reserves that back
+      its other channels.
+
+    The weight of the request cleanup is benchmarked with confirmed requests, which is now the
+    worst case.
+
+    No storage, API or configuration change. Request counts already leaked by earlier versions are
+    not touched.
+crates:
+- name: polkadot-runtime-parachains
+  bump: patch
