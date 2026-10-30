@@ -130,9 +130,12 @@ fn regression_release_hold_below_ed_leaks_issuance() {
 
 		// free -> 5 (< ED), kept alive by the reserve.
 		assert_ok!(Balances::transfer_allow_death(Some(alice).into(), bob, 45));
+		assert_eq!(Balances::free_balance(alice), 5);
 
-		// Releasing the last hold dusts the 5 free units; the dust must be burned.
+		// The hold is reduced before free balance is credited, so the intermediate state
+		// (free = 5, reserved = 0) dusts the 5 free units.
 		assert_ok!(Balances::release(&TestId::Foo, &alice, 50, Precision::Exact));
+		assert_eq!(Balances::free_balance(alice), 50);
 
 		ensure_ti_valid();
 	});
