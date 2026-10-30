@@ -1,0 +1,18 @@
+title: 'HRMP: let a migration hand its deposits to `pallet-hrmp-para`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    A migration that moves the relay chain's HRMP channel deposits to the parachain holding them
+    hands each deposit to `pallet-hrmp-para` through `ReceiveMigratedDeposits`, keyed by one side
+    of one channel (`DepositKey`). The pallet holds or releases so that the side holds the migrated
+    amount, or as much of it as the paying para can cover, and reports it with `DepositMigrated`.
+    A side is one deposit: what it held is overridden, so a deposit delivered twice is held once.
+
+    `ReceiveMigratedDeposits` replaces `ReceiveMigratedChannels` and `MigratedChannel` in
+    `hrmp-primitives`.
+
+crates:
+- name: pallet-hrmp-para
+  bump: major
+- name: hrmp-primitives
+  bump: major

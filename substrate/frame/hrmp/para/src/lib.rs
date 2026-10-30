@@ -30,11 +30,14 @@ extern crate alloc;
 use frame_support::{
 	pallet_prelude::*,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
-	traits::{fungible::MutateHold, tokens::Precision},
+	traits::{
+		fungible::{Inspect, MutateHold},
+		tokens::{Fortitude, Precision, Preservation},
+	},
 };
 use hrmp_primitives::{
-	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId,
+	Balance, ChannelId, DepositError, DepositKey, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
 };
 use sp_runtime::{traits::Convert, DispatchError, DispatchResult, TokenError};
 
@@ -128,6 +131,9 @@ pub mod pallet {
 		DepositRefused { id: u64, channel: ChannelId },
 		/// Everything held for a side, `amount`, was released.
 		DepositReleased { channel: ChannelId, side: DepositSide, amount: Balance },
+		/// A migrated deposit of `amount` was taken over: the side now holds `held`, which is
+		/// `amount` unless the paying para could not cover it.
+		DepositMigrated { channel: ChannelId, side: DepositSide, amount: Balance, held: Balance },
 	}
 
 	#[pallet::error]
@@ -217,17 +223,42 @@ pub mod pallet {
 			if Deposits::<T>::get((channel, side)).unwrap_or_default() == amount {
 				return Ok(());
 			}
-			Self::set_side(channel, side, amount).map_err(|e| match e {
-				DepositError::InsufficientFunds => Error::<T>::InsufficientFunds.into(),
-				DepositError::Other => Error::<T>::CannotChangeDeposit.into(),
-			})
+			Self::set_side(channel, side, amount).map_err(Self::dispatch_error)
 		}
+	}
+}
+
+impl<T: Config> ReceiveMigratedDeposits for Pallet<T> {
+	fn receive_deposit(key: DepositKey, amount: Balance) -> DispatchResult {
+		let DepositKey { channel, side } = key;
+		let who = Self::payer(&channel, side);
+		let current = Deposits::<T>::get((channel, side)).unwrap_or_default();
+		// What a hold may take on top, as `hold` checks it.
+		let can_hold =
+			T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force);
+		let held = amount.min(current.saturating_add(can_hold));
+		if held != current {
+			Self::set_side(channel, side, held).map_err(Self::dispatch_error)?;
+		}
+		Self::deposit_event(Event::DepositMigrated { channel, side, amount, held });
+		Ok(())
+	}
+
+	fn weight_of_receive_deposit() -> Weight {
+		T::WeightInfo::receive_deposit()
 	}
 }
 
 impl<T: Config> Pallet<T> {
 	fn payer(channel: &ChannelId, side: DepositSide) -> T::AccountId {
 		T::SovereignAccountOf::convert(side.para(channel))
+	}
+
+	fn dispatch_error(e: DepositError) -> DispatchError {
+		match e {
+			DepositError::InsufficientFunds => Error::<T>::InsufficientFunds.into(),
+			DepositError::Other => Error::<T>::CannotChangeDeposit.into(),
+		}
 	}
 
 	fn send(message: MessageToRelayV1) -> DispatchResult {
