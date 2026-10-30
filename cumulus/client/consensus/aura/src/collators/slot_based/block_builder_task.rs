@@ -18,7 +18,7 @@
 use super::{
 	message::{CollationParts, CollatorMessage, CollatorMessageBuilder},
 	resubmission::resolve_session,
-	runtime_upgrade::has_runtime_upgrade_digest,
+	runtime_upgrade::{has_runtime_upgrade_digest, pending_runtime_upgrade},
 };
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
@@ -449,7 +449,35 @@ where
 	async fn building_prerequisites(&mut self, slot: Slot) -> Option<BuildingPrerequisites<Block>> {
 		let best_hash = self.para_client.info().best_hash;
 		let best_params = SchedulingParams::at(&*self.para_client, best_hash);
-		let (context, parent_search_result) = self.search_parent(best_params, slot).await?;
+		let (mut context, mut parent_search_result) = self.search_parent(best_params, slot).await?;
+
+		// Nothing may build on a runtime upgrade until it is included.
+		if let Some(upgrade) = pending_runtime_upgrade(&parent_search_result, |hash| {
+			self.para_client.header(hash).ok().flatten()
+		}) {
+			(context, parent_search_result) =
+				self.search_parent_under_rules(*upgrade.parent_hash(), slot).await?;
+
+			if let Some(pending) = pending_runtime_upgrade(&parent_search_result, |hash| {
+				self.para_client.header(hash).ok().flatten()
+			}) {
+				tracing::info!(
+					target: LOG_TARGET,
+					block = ?pending.hash(),
+					block_num = %pending.number(),
+					"Waiting for the runtime upgrade to get included, skipping slot.",
+				);
+				return None;
+			}
+
+			tracing::info!(
+				target: LOG_TARGET,
+				expired = ?upgrade.hash(),
+				expired_num = %upgrade.number(),
+				parent = ?parent_search_result.best_parent_header.hash(),
+				"The runtime upgrade can no longer be backed, forking below it.",
+			);
+		}
 
 		let build_parent_hash = parent_search_result.best_parent_header.hash();
 		let build_params = SchedulingParams::at(&*self.para_client, build_parent_hash);
@@ -545,6 +573,17 @@ where
 		.await?;
 
 		Some((context, result))
+	}
+
+	/// Run the parent search with the scheduling params at `at`, the V2 or V3 rules its children
+	/// are backed under.
+	async fn search_parent_under_rules(
+		&mut self,
+		at: Block::Hash,
+		slot: Slot,
+	) -> Option<(RelayContext, consensus_common::ParentSearchResult<Block>)> {
+		let params = SchedulingParams::at(&*self.para_client, at);
+		self.search_parent(params, slot).await
 	}
 
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
