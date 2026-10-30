@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793310805890,
+  "lastUpdate": 1793355565110,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -139643,6 +139643,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2658283114,
             "range": "± 20267384",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "donal.murray@parity.io",
+            "name": "Dónal Murray",
+            "username": "seadanda"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "7d35873d48c27f770fd318a986cd9c7dd8b81383",
+          "message": "pallet-broker: do not consume unsettled timeslices in claim_revenue (#13286)\n\n# Description\n\n`claim_revenue` advanced a pool contribution past a timeslice before\nchecking whether its revenue\ncould be paid out, so a claim made before a timeslice was settled lost\nthat timeslice's payout\npermanently. The claim now stops at the first timeslice whose revenue\nhas not yet been reported,\nor which has not yet been committed, and keeps the remaining\ncontribution so it can be retried.\nA history entry missing at or before the last committed timeslice is\nstill treated as dropped.\n\n## Integration\n\nNo API changes. The `claim_revenue` weights change: the benchmark now\nsettles every claimed\ntimeslice instead of only the first, so runtimes should regenerate\n`pallet_broker` weights.\n\n## Review Notes\n\n- `do_claim_revenue`: the history lookup and `maybe_payout` check move\nahead of the\n`region.begin` / `contribution.length` advance; a missing entry only\nadvances the contribution\nwhen `r <= Status::last_committed_timeslice`. The `next` hint in\n`RevenueClaimPaid` follows the\nremaining contribution length rather than the already-mutated\n`region.begin`.\n- `claim_revenue(m)` benchmark: seeds `m` settled history entries.\nPreviously iterations `2..m`\ntook the cheap missing-entry path, so the per-timeslice weight was\nunderestimated.\n- Tests: claiming before commit or before settlement leaves the\ncontribution intact and reports\n  `next`; claiming over dropped history skips it and pays out the rest.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <info@kchr.de>\nCo-authored-by: Sergej Sakac <sergej.sakac@parity.io>",
+          "timestamp": "2026-10-30T09:01:04Z",
+          "tree_id": "22a43a56e9a35160e19dc6017d66230f3cdf6da1",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7d35873d48c27f770fd318a986cd9c7dd8b81383"
+        },
+        "date": 1793355528714,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19206166,
+            "range": "± 103627",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19509510,
+            "range": "± 172143",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21065419,
+            "range": "± 69190",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25142577,
+            "range": "± 152497",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57119711,
+            "range": "± 520444",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 344061387,
+            "range": "± 3084002",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2686115425,
+            "range": "± 161709800",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16842397,
+            "range": "± 145159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16965075,
+            "range": "± 194719",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17566549,
+            "range": "± 106029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22295195,
+            "range": "± 201787",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60433863,
+            "range": "± 716780",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 349662073,
+            "range": "± 4665335",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2695231526,
+            "range": "± 18903396",
             "unit": "ns/iter"
           }
         ]
