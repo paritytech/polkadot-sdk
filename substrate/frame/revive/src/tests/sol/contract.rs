@@ -1062,3 +1062,214 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 		assert_eq!(echo_result, 42, "echo must return the magic number");
 	});
 }
+
+/// Solidity patterns that rely on the EIP-150 63/64 rule, in Ethereum and Substrate mode.
+mod eip_150 {
+	use super::*;
+	use crate::{
+		ContractResult, EthTxInfo, Pallet,
+		evm::GenericTransaction,
+		metering::{DENOMINATOR, NUMERATOR},
+		test_utils::ETH_GAS_LIMIT,
+	};
+	use frame_support::{
+		assert_ok,
+		storage::{TransactionOutcome, with_transaction},
+	};
+	use pallet_revive_fixtures::{CatchInvalid, Multicall3};
+	use pretty_assertions::assert_eq;
+	use test_case::test_matrix;
+
+	/// Returns the limits of an Ethereum call with `eth_gas_limit` and the default weight limit.
+	fn ethereum_limits(eth_gas_limit: u64) -> TransactionLimits<Test> {
+		TransactionLimits::EthereumGas {
+			eth_gas_limit: eth_gas_limit.into(),
+			weight_limit: WEIGHT_LIMIT,
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		}
+	}
+
+	/// Returns the limits of a Substrate call with `weight_limit` and the default deposit limit.
+	fn substrate_limits(weight_limit: Weight) -> TransactionLimits<Test> {
+		TransactionLimits::WeightAndDeposit { weight_limit, deposit_limit: deposit_limit::<Test>() }
+	}
+
+	/// Funds `ALICE` and deploys the provided callee and caller, returning their addresses.
+	fn deploy_callee_and_caller(callee_code: &[u8], caller_code: &[u8]) -> [H160; 2] {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		[callee_code, caller_code].map(|code| {
+			builder::bare_instantiate(Code::Upload(code.to_vec()))
+				.build_and_unwrap_contract()
+				.addr
+		})
+	}
+
+	/// Runs `operation` in a storage layer that is rolled back afterwards, as a dry run through
+	/// the runtime API is.
+	fn without_commit<R>(operation: impl FnOnce() -> R) -> R {
+		with_transaction(|| TransactionOutcome::Rollback(Ok::<_, DispatchError>(operation())))
+			.unwrap()
+	}
+
+	/// Asserts that `result` used at least 63/64 of the gas limit (Ethereum) or weight limit
+	/// (Substrate) in `limits`, as a call does when its callee uses up the gas it gets.
+	fn assert_callee_used_up_its_gas(
+		result: &ContractResult<ExecReturnValue, BalanceOf<Test>>,
+		limits: &TransactionLimits<Test>,
+	) {
+		let (consumed, limit): (u128, u128) = match limits {
+			TransactionLimits::EthereumGas { eth_gas_limit, .. } => {
+				(result.gas_consumed, *eth_gas_limit)
+			},
+			TransactionLimits::WeightAndDeposit { weight_limit, .. } => {
+				(result.weight_consumed.ref_time().into(), weight_limit.ref_time().into())
+			},
+		};
+		assert!(
+			consumed * u128::from(DENOMINATOR) >= limit * u128::from(NUMERATOR),
+			"the call used {consumed} of {limit}, less than 63/64"
+		);
+	}
+
+	/// With these limits, the 1/64 of its gas that a caller keeps when its callee hits INVALID is
+	/// enough for its catch block to write to storage.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	fn catch_block_writes_storage_after_callee_hits_invalid(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, caller_addr] = deploy_callee_and_caller(&callee_code, &caller_code);
+
+			let result = builder::bare_call(caller_addr)
+				.data(CatchInvalid::tryInvalidCall { callee: callee_addr.0.into() }.abi_encode())
+				.transaction_limits(limits.clone())
+				.build();
+			assert_ok!(&result.result);
+			assert_callee_used_up_its_gas(&result, &limits);
+
+			let caught = builder::bare_call(caller_addr)
+				.data(CatchInvalid::caughtCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert!(
+				CatchInvalid::caughtCall::abi_decode_returns(&caught.data).unwrap(),
+				"the catch block must write to storage"
+			);
+		});
+	}
+
+	/// With these limits, the 1/64 of its gas that `aggregate3` keeps when a call runs out of gas
+	/// is enough to make the next call.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc],
+		// A tenth of the defaults, so that the callee's endless loop ends quickly.
+		[ethereum_limits(ETH_GAS_LIMIT / 10), substrate_limits(WEIGHT_LIMIT / 10)]
+	)]
+	fn aggregate3_continues_after_call_drains_its_gas(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (multicall_code, _) = compile_module_with_type("Multicall3", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, multicall_addr] =
+				deploy_callee_and_caller(&callee_code, &multicall_code);
+
+			let calls = vec![
+				Multicall3::Call3 {
+					target: callee_addr.0.into(),
+					allowFailure: true,
+					callData: Callee::consumeAllReftimeCall {}.abi_encode().into(),
+				},
+				Multicall3::Call3 {
+					target: callee_addr.0.into(),
+					allowFailure: false,
+					callData: Callee::echoCall { _data: 42 }.abi_encode().into(),
+				},
+			];
+			let result = builder::bare_call(multicall_addr)
+				.data(Multicall3::aggregate3Call { calls }.abi_encode())
+				.transaction_limits(limits.clone())
+				.build();
+			let output = result.result.as_ref().unwrap();
+			assert!(!output.did_revert());
+			assert_callee_used_up_its_gas(&result, &limits);
+
+			let results = Multicall3::aggregate3Call::abi_decode_returns(&output.data).unwrap();
+			assert!(!results[0].success);
+			assert_eq!(Callee::echoCall::abi_decode_returns(&results[1].returnData).unwrap(), 42);
+		});
+	}
+
+	/// A nested call succeeds when its caller runs with exactly the limits a dry run returned.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	fn dry_run_estimates_suffice_for_transaction_with_nested_call(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, caller_addr] = deploy_callee_and_caller(&callee_code, &caller_code);
+			let input = Caller::normalCall {
+				_callee: callee_addr.0.into(),
+				_value: 0,
+				_data: Callee::storeCall { _data: 7 }.abi_encode().into(),
+				_gas: u64::MAX,
+			}
+			.abi_encode();
+
+			let output = match limits {
+				TransactionLimits::EthereumGas { .. } => {
+					let tx = GenericTransaction {
+						from: Some(ALICE_ADDR),
+						to: Some(caller_addr),
+						input: input.into(),
+						..Default::default()
+					};
+					let dry_run = without_commit(|| {
+						Pallet::<Test>::dry_run_eth_transact(tx.clone(), None, true, None)
+					})
+					.unwrap();
+					let tx = GenericTransaction { gas: Some(dry_run.eth_gas), ..tx };
+					Pallet::<Test>::dry_run_eth_transact(tx, None, true, None).unwrap().data
+				},
+				TransactionLimits::WeightAndDeposit { .. } => {
+					let dry_run = without_commit(|| {
+						builder::bare_call(caller_addr)
+							.data(input.clone())
+							.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
+							.build()
+					});
+					builder::bare_call(caller_addr)
+						.data(input)
+						.transaction_limits(TransactionLimits::WeightAndDeposit {
+							weight_limit: dry_run.weight_required,
+							deposit_limit: dry_run.max_storage_deposit.charge_or_zero(),
+						})
+						.build_and_unwrap_result()
+						.data
+				},
+			};
+			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+		});
+	}
+}

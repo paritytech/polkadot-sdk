@@ -187,7 +187,12 @@ pub mod eip_150 {
 
 		fn div_ceil(amount: BalanceOf<T>, divisor: u64) -> BalanceOf<T> {
 			let divisor: BalanceOf<T> = divisor.saturated_into();
-			amount.saturating_add(divisor.saturating_sub(One::one())) / divisor
+			let quotient = amount / divisor;
+			if (amount % divisor).is_zero() {
+				quotient
+			} else {
+				quotient.saturating_add(One::one())
+			}
 		}
 	}
 }
@@ -207,9 +212,7 @@ fn determine_call_stipend<T: Config>() -> Weight {
 }
 
 /// Validate that there's enough weight for the stipend and return the stipend weight.
-pub fn validate_and_get_stipend<T: Config>(
-	weight_left: Weight,
-) -> Result<Weight, DispatchError> {
+pub fn validate_and_get_stipend<T: Config>(weight_left: Weight) -> Result<Weight, DispatchError> {
 	let weight_stipend = determine_call_stipend::<T>();
 	if weight_left.any_lt(weight_stipend) {
 		return Err(<Error<T>>::OutOfGas.into());
@@ -218,10 +221,7 @@ pub fn validate_and_get_stipend<T: Config>(
 }
 
 /// Returns the ratio of `gas_limit` to `remaining_gas`, capped at 1.
-pub fn gas_ratio<T: Config>(
-	gas_limit: BalanceOf<T>,
-	remaining_gas: BalanceOf<T>,
-) -> FixedU128 {
+pub fn gas_ratio<T: Config>(gas_limit: BalanceOf<T>, remaining_gas: BalanceOf<T>) -> FixedU128 {
 	if remaining_gas.is_zero() || gas_limit >= remaining_gas {
 		return FixedU128::one();
 	}

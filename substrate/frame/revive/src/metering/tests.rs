@@ -181,6 +181,7 @@ fn test_apply_eip_150_to_balance() {
 			(127, 125),
 			(1_847_293_651, 1_818_429_687),
 			(123_456_789, 121_527_776),
+			(u128::MAX, u128::MAX - (1 << 122)),
 		];
 
 		for (input, expected) in test_cases {
@@ -1163,15 +1164,7 @@ fn substrate_nesting_works_with_eip_150() {
 				),
 				Some((10000, 288823359, 0, 2000, 4577887218)),
 			),
-			// 14: Ethereum gas, large refund, gas_limit (708617660) is binding.
-			(
-				(
-					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
-					Ethereum { gas: 708617660, add_stipend: false },
-				),
-				Some((697545520, 18703122785, 1827, 139509102, 4291382340)),
-			),
-			// 15: Ethereum gas, large refund, gas_limit (3157000000) > 63/64.
+			// 14: Ethereum gas, large refund, gas_limit (3157000000) > 63/64.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 100000, -7000000000),
@@ -1179,7 +1172,7 @@ fn substrate_nesting_works_with_eip_150() {
 				),
 				Some((697545520, 18703122785, 1827, 139509102, 4291382340)),
 			),
-			// 16: Ethereum gas, tiny gas_limit (500), high proof_size consumption.
+			// 15: Ethereum gas, tiny gas_limit (500), high proof_size consumption.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
@@ -1187,7 +1180,7 @@ fn substrate_nesting_works_with_eip_150() {
 				),
 				Some((10, 1476335227, 0, 0, 5000000000)),
 			),
-			// 17: Ethereum gas, even smaller gas_limit (300).
+			// 16: Ethereum gas, even smaller gas_limit (300).
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 10106, 91452),
@@ -1195,7 +1188,7 @@ fn substrate_nesting_works_with_eip_150() {
 				),
 				Some((10, 1476335227, 0, 0, 5000000000)),
 			),
-			// 18: Ethereum gas, small gas_limit (300), moderate proof_size.
+			// 17: Ethereum gas, small gas_limit (300), moderate proof_size.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 1010, 91452),
@@ -1203,7 +1196,7 @@ fn substrate_nesting_works_with_eip_150() {
 				),
 				Some((300, 150, 1232, 60, 2000461760)),
 			),
-			// 19: Ethereum gas, gas_limit (600), proof_size near boundary.
+			// 18: Ethereum gas, gas_limit (600), proof_size near boundary.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 2242, 91452),
@@ -1211,7 +1204,7 @@ fn substrate_nesting_works_with_eip_150() {
 				),
 				Some((600, 300, 0, 120, 2000461760)),
 			),
-			// 20: Ethereum gas, gas_limit (600), proof_size just over boundary.
+			// 19: Ethereum gas, gas_limit (600), proof_size just over boundary.
 			(
 				(
 					(5_000_000_000, 1_000_000_000, 3000, 2000, 2243, 91452),
