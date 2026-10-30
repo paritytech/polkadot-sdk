@@ -455,9 +455,12 @@ where
 		if let Some(upgrade) = pending_runtime_upgrade(&parent_search_result, |hash| {
 			self.para_client.header(hash).ok().flatten()
 		}) {
+			// The upgrade is backed under its parent's rules, so search again under those.
 			(context, parent_search_result) =
 				self.search_parent_under_rules(*upgrade.parent_hash(), slot).await?;
 
+			// An upgrade still within reach of that search can be backed, so wait for it.
+			// Otherwise it expired, and building below it re-authors the upgrade.
 			if let Some(pending) = pending_runtime_upgrade(&parent_search_result, |hash| {
 				self.para_client.header(hash).ok().flatten()
 			}) {
