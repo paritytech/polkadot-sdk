@@ -3076,14 +3076,17 @@ impl<T: Config> Pallet<T> {
 	///
 	/// `dst` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
+	///
+	/// Returns the amount released from the hold, which the deposit backend may cap below
+	/// `amount`. See [`Deposit::refund_on_hold`].
 	pub(crate) fn refund_deposit(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
 		dst: deposit_payment::Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-	) -> Result<(), DispatchError> {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		if amount.is_zero() {
-			return Ok(());
+			return Ok(Zero::zero());
 		}
 
 		let to = match &dst {

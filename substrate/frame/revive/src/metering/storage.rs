@@ -23,7 +23,9 @@ mod tests;
 use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, storage::ContractInfo,
+	StorageDeposit as Deposit,
+	address::AddressMapper,
+	storage::{AccountInfo, ContractInfo},
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
@@ -57,6 +59,10 @@ pub trait Ext<T: Config> {
 	/// The balance transfer can either flow from `origin` to `contract` or the other way
 	/// around depending on whether `amount` constitutes a `Charge` or a `Refund`.
 	/// It will fail in case the `origin` has not enough balance to cover all storage deposits.
+	///
+	/// A refund may be released only in part, for example when `origin` is not entitled to the
+	/// part of the hold that another account paid. The implementer keeps the unreleased part
+	/// refundable to an entitled origin.
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
@@ -539,14 +545,36 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 			},
 			Deposit::Refund(amount) => {
-				<Pallet<T>>::refund_deposit(
+				let released = <Pallet<T>>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					contract,
 					exec_config.funds(origin),
 					*amount,
 				)?;
+				let unreleased = amount.saturating_sub(released);
+				if !unreleased.is_zero() {
+					Self::retain_refund::<T>(contract, unreleased);
+				}
 			},
 		}
 		Ok(())
+	}
+}
+
+impl ReservingExt {
+	/// Keep the part of a refund that the deposit backend did not release refundable.
+	///
+	/// The contract info was lowered by the full refund when the storage change was recorded.
+	/// Adding the unreleased part back keeps the info in step with the hold, so a later refund
+	/// to an entitled origin releases it. Without this the amount stays on hold until the
+	/// contract is terminated.
+	fn retain_refund<T: Config>(contract: &T::AccountId, amount: BalanceOf<T>) {
+		let address = T::AddressMapper::to_address(contract);
+		let Some(mut info) = AccountInfo::<T>::load_contract(&address) else {
+			frame_support::defensive!("refund for an account without contract info");
+			return;
+		};
+		info.retain_deposit(amount);
+		AccountInfo::<T>::insert_contract(&address, info);
 	}
 }
