@@ -397,7 +397,21 @@ class TestCmd(unittest.TestCase):
             import cmd
             cmd.main()
             mock_exit.assert_not_called()
-            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0])
+            self.mock_generate_prdoc_main.assert_called_with(mock_parse_args.return_value[0], log=cmd.print_and_log)
+
+    @patch('argparse.ArgumentParser.parse_known_args', return_value=(argparse.Namespace(command='prdoc'), []))
+    @patch('os.system', return_value=0)
+    def test_prdoc_command_failure(self, mock_system, mock_parse_args):
+        # generate-prdoc.py reports the reason through the `log` callback before returning 1.
+        def failing_main(args, log):
+            log('Error generating prdoc: boom')
+            return 1
+        self.mock_generate_prdoc_main.side_effect = failing_main
+        with patch('sys.exit') as mock_exit, patch('cmd.print_and_log') as mock_log:
+            import cmd
+            cmd.main()
+            mock_log.assert_has_calls([call('Error generating prdoc: boom'), call('❌ Failed to generate prdoc')])
+            mock_exit.assert_called_with(1)
 
     @patch.dict('os.environ', {'PR_NUM': '123', 'IS_ORG_MEMBER': 'true', 'IS_PR_AUTHOR': 'false', 'GITHUB_TOKEN': 'fake_token'})
     @patch('cmd.get_allowed_labels')

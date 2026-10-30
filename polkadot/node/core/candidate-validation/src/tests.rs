@@ -2701,7 +2701,7 @@ fn pre_validation_scheduling_session_check() {
 		scheduling_parent,
 		CoreIndex(1),
 		100,
-		dummy_hash(),
+		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
 		head_data.hash(),
@@ -2809,7 +2809,7 @@ fn pre_validation_v3_scheduling_offset_mismatch() {
 		CoreIndex(0),
 		1, // session_index
 		1, // scheduling_session_index
-		dummy_hash(),
+		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
 		dummy_hash(),
@@ -2891,7 +2891,7 @@ fn pre_validation_basic_checks() {
 				dummy_hash(),
 				CoreIndex(1),
 				1,
-				dummy_hash(),
+				validation_data.hash(),
 				Hash::repeat_byte(0xFF), // wrong
 				validation_code.hash(),
 				dummy_hash(),
@@ -2907,7 +2907,7 @@ fn pre_validation_basic_checks() {
 				dummy_hash(),
 				CoreIndex(1),
 				1,
-				dummy_hash(),
+				validation_data.hash(),
 				pov.hash(),
 				ValidationCode(vec![0xFF; 16]).hash(), // wrong
 				dummy_hash(),
@@ -2923,7 +2923,7 @@ fn pre_validation_basic_checks() {
 				dummy_hash(),
 				CoreIndex(1),
 				1,
-				dummy_hash(),
+				validation_data.hash(),
 				PoV { block_data: BlockData(vec![0; 2048]) }.hash(),
 				validation_code.hash(),
 				dummy_hash(),
@@ -2931,6 +2931,22 @@ fn pre_validation_basic_checks() {
 			),
 			Some(PoV { block_data: BlockData(vec![0; 2048]) }),
 			InvalidCandidate::ParamsTooLarge(2048),
+		),
+		// PVD does not match the descriptor's `persisted_validation_data_hash`
+		(
+			make_valid_candidate_descriptor_v2(
+				ParaId::from(1_u32),
+				dummy_hash(),
+				CoreIndex(1),
+				1,
+				Hash::repeat_byte(0xFF), // wrong
+				pov.hash(),
+				validation_code.hash(),
+				dummy_hash(),
+				dummy_hash(),
+			),
+			None,
+			InvalidCandidate::PersistedValidationDataMismatch,
 		),
 	];
 
@@ -2992,6 +3008,90 @@ fn pre_validation_basic_checks() {
 	}
 }
 
+#[test]
+fn pvd_not_matching_descriptor_is_invalid() {
+	let real_validation_data = PersistedValidationData {
+		parent_head: HeadData(vec![1; 4]),
+		max_pov_size: 1024,
+		..Default::default()
+	};
+	let forged_validation_data = PersistedValidationData {
+		parent_head: HeadData(vec![0xFF; 4]),
+		..real_validation_data.clone()
+	};
+
+	let pov = PoV { block_data: BlockData(vec![1; 32]) };
+	let head_data = HeadData(vec![1, 1, 1]);
+	let validation_code = ValidationCode(vec![2; 16]);
+
+	let validation_result = WasmValidationResult {
+		head_data: head_data.clone(),
+		new_validation_code: None,
+		upward_messages: Default::default(),
+		horizontal_messages: Default::default(),
+		processed_downward_messages: 0,
+		hrmp_watermark: 0,
+	};
+	let commitments = CandidateCommitments {
+		head_data: validation_result.head_data.clone(),
+		upward_messages: validation_result.upward_messages.clone(),
+		horizontal_messages: validation_result.horizontal_messages.clone(),
+		new_validation_code: validation_result.new_validation_code.clone(),
+		processed_downward_messages: validation_result.processed_downward_messages,
+		hrmp_watermark: validation_result.hrmp_watermark,
+	};
+
+	let validate = |validation_data: &PersistedValidationData, exec_kind| {
+		let descriptor = make_valid_candidate_descriptor_v2(
+			ParaId::from(1_u32),
+			dummy_hash(),
+			CoreIndex(1),
+			1,
+			real_validation_data.hash(),
+			pov.hash(),
+			validation_code.hash(),
+			head_data.hash(),
+			dummy_hash(),
+		);
+		let candidate_receipt =
+			CandidateReceipt { descriptor, commitments_hash: commitments.hash() };
+
+		let pool = TaskExecutor::new();
+		let (mut ctx, _ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+		let (response_tx, response_rx) = oneshot::channel();
+
+		executor::block_on(handle_validation_message(
+			ctx.sender().clone(),
+			MockValidateCandidateBackend::with_hardcoded_result(Ok(validation_result.clone())),
+			Metrics::default(),
+			false,
+			CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: validation_data.clone(),
+				validation_code: validation_code.clone(),
+				candidate_receipt,
+				pov: Arc::new(pov.clone()),
+				scheduling_session_index: 1,
+				exec_kind,
+				response_sender: response_tx,
+			},
+			Some(default_session_params()),
+		));
+
+		executor::block_on(response_rx).unwrap()
+	};
+
+	for exec_kind in [PvfExecKind::Approval, PvfExecKind::Dispute] {
+		assert_matches!(
+			validate(&real_validation_data, exec_kind),
+			Ok(ValidationResult::Valid(_, _))
+		);
+		assert_matches!(
+			validate(&forged_validation_data, exec_kind),
+			Ok(ValidationResult::Invalid(InvalidCandidate::PersistedValidationDataMismatch))
+		);
+	}
+}
+
 /// Relay parent session check: for V2 candidates (scheduling_parent == relay_parent),
 /// the `check_relay_parent_session` utility takes the self-query path, verifying the
 /// session via `session_index_for_child` directly.
@@ -3012,7 +3112,7 @@ fn pre_validation_relay_parent_session_check() {
 		scheduling_parent,
 		CoreIndex(1),
 		1,
-		dummy_hash(),
+		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
 		head_data.hash(),
@@ -3177,7 +3277,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 		CoreIndex(1),
 		1,
 		1,
-		dummy_hash(),
+		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
 		head_data.hash(),
