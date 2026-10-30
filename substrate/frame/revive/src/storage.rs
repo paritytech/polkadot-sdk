@@ -444,8 +444,13 @@ impl<T: Config> AccountInfo<T> {
 impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
-	/// This returns an `Err` if an contract with the supplied `account` already exists
-	/// in storage.
+	/// This returns an `Err` if a contract with the supplied `address` already exists
+	/// in storage, or if the deposit rows of a previous contract at `address` are still queued
+	/// for cleanup ([`Error::PendingDepositCleanup`]).
+	///
+	/// The child trie id is a hash of `address`, `nonce` and the deletion queue insert counter.
+	/// `nonce` is hashed into the id, but the id is unique because of `address` and the insert
+	/// counter alone.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
@@ -464,8 +469,19 @@ impl<T: Config> ContractInfo<T> {
 			return Err(Error::<T>::PendingDepositCleanup.into());
 		}
 
+		// The address is part of the derivation, so the trie id only has to be unique per address.
+		// A contract is only created where none is live: `is_contract` above rejects a stored one,
+		// and the EIP-684 check in `Stack::push_frame` rejects one still in construction. Every
+		// earlier contract at this address was therefore removed by `Stack::do_terminate`, which
+		// queues its trie and increments the insert counter. As long as the counter never
+		// decreases or resets, the value read here differs from the one read for any earlier
+		// contract at this address, so the trie id does too. This does not depend on `nonce`. The
+		// counter is a wrapping `u32`, so a repeat needs 2^32 terminations between two creations
+		// at the same address.
 		let trie_id = {
-			let buf = ("bcontract_trie_v1", address, nonce).using_encoded(T::Hashing::hash);
+			let insert_counter = DeletionQueueManager::<T>::load().insert_counter;
+			let buf = ("bcontract_trie_v2", address, nonce, insert_counter)
+				.using_encoded(T::Hashing::hash);
 			buf.as_ref()
 				.to_vec()
 				.try_into()
@@ -824,10 +840,13 @@ impl WriteOutcome {
 #[scale_info(skip_type_params(T))]
 pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
-	/// The counter is incremented after each insertion.
+	/// The counter is incremented after each insertion, wrapping on overflow.
+	///
+	/// [`ContractInfo::new`] mixes it into the child trie id of every new contract, so it must
+	/// never decrease or be reset, apart from wrapping.
 	insert_counter: u32,
 	/// The index used to read the next element to be deleted in the queue.
-	/// The counter is incremented after each deletion.
+	/// The counter is incremented after each deletion, wrapping on overflow.
 	delete_counter: u32,
 
 	_phantom: PhantomData<T>,
