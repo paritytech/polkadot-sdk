@@ -15,19 +15,23 @@ The harness calls the real native host functions (`sp_io::storage`,
 `sp_io::default_child_storage`, `storage_proof_size`) on a real `Ext`, overlay, trie backend and
 `Recorder`. It does not execute WASM.
 
-Two of them have a new, registered-only version: `storage::append` version 2 and
-`default_child_storage::root` version 3. A bare `sp_io` call resolves to the old version until
-`register_only` is dropped, and the runtime interface macro keeps the per-version functions
-private, so each version's body is a function of its own and the runners call those bodies
-directly, through `sp_externalities::with_externalities`:
+Three of them have a new, registered-only version: `storage::append` version 2,
+`default_child_storage::root` version 3 and `storage_proof_size` version 2. A bare `sp_io` call
+resolves to the old version until `register_only` is dropped, and the runtime interface macro
+keeps the per-version functions private, so each version's body is a function of its own and the
+runners call those bodies directly, through `sp_externalities::with_externalities`:
 
 | Host function | Old body (trace runner) | New body (estimation runner) |
 |---|---|---|
 | `storage::append` | `Externalities::storage_append` (v1) | `Externalities::storage_append_v2` |
 | `default_child_storage::root` | `Externalities::child_storage_root_with_version` (v2) | `Externalities::child_storage_root_v3` |
+| `storage_proof_size` | read of `ProofSizeExt`, same as `storage_proof_size_v1` | `storage_proof_size_v2` |
 
-Calling the bodies explicitly keeps both suites valid after the markers are dropped: the trace
-runner keeps testing what old runtimes call, the estimation runner what new runtimes call.
+The trace runner reads `ProofSizeExt` itself because it also builds on master, which has no
+`storage_proof_size_v1`. Calling the bodies explicitly keeps both suites valid after the markers
+are dropped: the trace runner keeps testing what old runtimes call, the estimation runner what
+new runtimes call. The rollout of the new versions is described in the crate docs of
+`cumulus-primitives-proof-size-hostfunction`, section "Registered-only versions".
 
 ## Layout
 
@@ -179,7 +183,7 @@ the tests in `ext.rs` do, and map the estimation points to `ext.record_proof_for
 
 Old runtimes call version 1 of `storage_proof_size` forever and weight reclaim stores its value
 in state, so for version 1 callers this tree must behave exactly like master. `trace` runs a
-script as such a runtime does (plain `sp_io` calls, the old bodies of the two host functions
+script as such a runtime does (plain `sp_io` calls, the old bodies of the three host functions
 with a newer version called explicitly, see the table above, no `record_proof_for_dirty_keys`,
 blocks as in the collator pass) and prints every return value, the proof size after every call
 and, per block, the root, the recorded nodes and the drained changes. `tests/v1_compat.rs`
@@ -209,8 +213,11 @@ traces stored in the test and needs the binary only to check that they are still
 
 ## Status
 
-With the old child root body (version 2) in the estimation runner, three pinned scripts fail;
-they are what version 3 fixes:
+With the three new bodies in the estimation runner, all 18 pinned scripts pass and
+`random_smoke` reports no failure, also over 10000 large scripts (`POV_FUZZ_SEED=100000000
+POV_FUZZ_SCALE=large`). `tests/v1_compat.rs` reports no difference to master over the same 10000
+scripts. With the old child root body (version 2) in the estimation runner, three pinned scripts
+fail; they are what version 3 fixes:
 
 | Name | Result with version 2 | Cause |
 |---|---|---|
@@ -218,10 +225,10 @@ they are what version 3 fixes:
 | `fuzz_dropped_extrinsic_discards_empty_child_changes` | ValidatorEstimateMismatch at `Final(0)`, 127 vs 125 | the collator's rollback of a dropped extrinsic discards an empty child change set; whether the later child root writes the child root key depends on it |
 | `fuzz_dropped_extrinsic_clears_root_cache` | ValidatorMissingNode | the collator's rollback drops the cached storage root, so the later child root writes the child root key on the collator and only reads it on the validator |
 
-With the old append body (version 1), `random_smoke` over 10000 large scripts
-(`POV_FUZZ_SEED=100000000 POV_FUZZ_SCALE=large`) reports two `ValidatorRootMismatch` (seeds
-`0x5f5e1a3`, `0x5f5e837`): an append after a mid-block storage root keeps the stale cached root,
-and only the collator's rollback of a dropped extrinsic drops it.
+With the old append body (version 1), `random_smoke` over the 10000 large scripts reports two
+`ValidatorRootMismatch` (seeds `0x5f5e1a3`, `0x5f5e837`): an append after a mid-block storage
+root keeps the stale cached root, and only the collator's rollback of a dropped extrinsic drops
+it.
 
 ## History: status on head `0732e39745d`
 

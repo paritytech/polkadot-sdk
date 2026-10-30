@@ -27,7 +27,9 @@
 //! the body of the version master runtimes call, so that the trace keeps testing that version:
 //!
 //! - `storage::append` version 1: `Externalities::storage_append`;
-//! - `default_child_storage::root` version 2: `Externalities::child_storage_root_with_version`.
+//! - `default_child_storage::root` version 2: `Externalities::child_storage_root_with_version`;
+//! - `storage_proof_size` version 1: [`storage_proof_size_v1`], which reads `ProofSizeExt` as the
+//!   version 1 body does, because master has no public function for that body.
 //!
 //! Every observable result goes into a text trace, so that the same script run on master and on
 //! the branch can be compared line by line:
@@ -47,11 +49,13 @@ use crate::{
 	Hasher, Op, Outcome, Scale, Script, State, Xt, QUIET_PANICS,
 };
 use codec::Encode;
-use cumulus_primitives_proof_size_hostfunction::storage_proof_size;
+use cumulus_primitives_proof_size_hostfunction::PROOF_RECORDING_DISABLED;
 use sp_core::{hexdisplay::HexDisplay, storage::StateVersion, H256};
+use sp_externalities::ExternalitiesExt;
 use sp_io::{hashing::blake2_256, KillStorageResult};
 use sp_trie::{
 	cache::{CacheSize, SharedTrieCache},
+	proof_size_extension::ProofSizeExt,
 	PrefixedMemoryDB,
 };
 use std::{
@@ -200,7 +204,7 @@ impl Tracer {
 	/// Runtime side of `apply_extrinsic`, as in the estimation runner.
 	fn apply_extrinsic(&mut self, xt: &Xt) {
 		if xt.with_reclaim {
-			self.step("ReclaimPre", proof_size);
+			self.step("ReclaimPre", || storage_proof_size_v1().to_string());
 		}
 		self.exec_ops(&xt.pre);
 		self.step("BodyStart", || {
@@ -211,7 +215,7 @@ impl Tracer {
 		self.end_transaction("Body", xt.body_outcome);
 		self.exec_ops(&xt.post);
 		if xt.with_reclaim {
-			self.step("ReclaimPost", proof_size);
+			self.step("ReclaimPost", || storage_proof_size_v1().to_string());
 		}
 	}
 
@@ -251,7 +255,7 @@ impl Tracer {
 	/// Runs `host_call` in the runtime and records its result and the proof size after it.
 	fn step(&mut self, description: impl fmt::Display, host_call: impl FnOnce() -> String) {
 		let result = host_call();
-		self.push(description, result, storage_proof_size::storage_proof_size());
+		self.push(description, result, storage_proof_size_v1());
 	}
 
 	fn push(
@@ -268,8 +272,12 @@ impl Tracer {
 	}
 }
 
-fn proof_size() -> String {
-	storage_proof_size::storage_proof_size().to_string()
+/// Version 1 of `storage_proof_size`.
+fn storage_proof_size_v1() -> u64 {
+	with_ext(|mut ext| {
+		ext.extension::<ProofSizeExt>()
+			.map_or(PROOF_RECORDING_DISABLED, |e| e.storage_proof_size())
+	})
 }
 
 /// Executes one storage op, not [`Op::Tx`], through `sp_io` and shows its return value.
@@ -315,7 +323,7 @@ fn call(op: &Op, scale: Scale, root_version: StateVersion) -> String {
 			ext.child_storage_root_with_version(&child_info(*c), root_version)
 		})),
 		Op::Root => show_bytes(&storage::root(root_version)),
-		Op::Estimate => proof_size(),
+		Op::Estimate => storage_proof_size_v1().to_string(),
 		Op::Tx(..) => unreachable!("`Tracer::exec_op` traces transactions op by op; qed"),
 	}
 }
