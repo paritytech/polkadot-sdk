@@ -18,6 +18,7 @@
 use super::{
 	message::{CollationParts, CollatorMessage, CollatorMessageBuilder},
 	resubmission::resolve_session,
+	runtime_upgrade::has_runtime_upgrade_digest,
 };
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
@@ -940,6 +941,7 @@ where
 				};
 
 				let has_fresh = maybe_parts.is_some();
+				let mut runtime_upgraded = false;
 
 				// Chain the next core's PoV parent onto the freshly-built tip. No fresh block this
 				// slot (resubmit-only) is fine; built parts with no blocks are not — the builder
@@ -954,6 +956,9 @@ where
 						break;
 					};
 					pov_parent_header = tip_header.clone();
+
+					// Nothing may build on a runtime upgrade until it is included.
+					runtime_upgraded = has_runtime_upgrade_digest(tip_header);
 				}
 
 				// Breaking here assumes the next cores will not be able to build a new block
@@ -1007,6 +1012,16 @@ where
 						has_fresh,
 						"Nothing to submit for this core.",
 					),
+				}
+
+				if runtime_upgraded {
+					tracing::info!(
+						target: LOG_TARGET,
+						core_index = ?this_core_index,
+						tip = ?pov_parent_header.hash(),
+						"Built a runtime upgrade; stopping core iteration for this slot.",
+					);
+					break;
 				}
 
 				// Pace only when a fresh block was built (nothing to pace on resubmit-only).
@@ -1388,11 +1403,7 @@ where
 		proofs.push(Arc::unwrap_or_clone(proof));
 
 		let full_core_digest = CumulusDigestItem::contains_use_full_core(parent_header.digest());
-		let runtime_upgrade_digest = parent_header
-			.digest()
-			.logs
-			.iter()
-			.any(|it| matches!(it, sp_runtime::DigestItem::RuntimeEnvironmentUpdated));
+		let runtime_upgrade_digest = has_runtime_upgrade_digest(&parent_header);
 
 		if full_core_digest || runtime_upgrade_digest {
 			tracing::trace!(
