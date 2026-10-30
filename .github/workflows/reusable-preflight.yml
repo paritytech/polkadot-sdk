@@ -122,6 +122,7 @@ jobs:
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/reusable-preflight.yml'
+              - '.github/workflows/reusable-isdraft.yml'
               - '.github/env'
               - '.github/actions/**'
               - '.github/scripts/**'
