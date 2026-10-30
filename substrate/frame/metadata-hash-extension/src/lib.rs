@@ -26,9 +26,9 @@
 //!
 //! As any transaction extension you will need to add it to your runtime transaction extensions:
 #![doc = docify::embed!("src/tests.rs", add_metadata_hash_extension)]
-//! As the extension requires the `RUNTIME_METADATA_HASH` environment variable to be present at
-//! compile time, it requires a little bit more setup. To have this environment variable available
-//! at compile time required to tell the `substrate-wasm-builder` to do so:
+//! The extension can read the `RUNTIME_METADATA_HASH` environment variable at compile time,
+//! which requires a little bit more setup. To have this environment variable available at
+//! compile time you need to tell the `substrate-wasm-builder` to do so:
 #![doc = docify::embed!("src/tests.rs", enable_metadata_hash_in_wasm_builder)]
 //! As generating the metadata hash requires to compile the runtime twice, it is
 //! recommended to only enable the metadata hash generation when doing a build for a release or when
@@ -93,8 +93,8 @@ impl MetadataHash {
 
 /// Extension for optionally verifying the metadata hash.
 ///
-/// The metadata hash is cryptographical representation of the runtime metadata. This metadata hash
-/// is build as described in [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
+/// The metadata hash is a cryptographic representation of the runtime metadata. This metadata hash
+/// is built as described in [RFC78](https://polkadot-fellows.github.io/RFCs/approved/0078-merkleized-metadata.html).
 /// This metadata hash should give users the confidence that what they build with an online wallet
 /// is the same they are signing with their offline wallet and then applying on chain. To ensure
 /// that the online wallet is not tricking the offline wallet into decoding and showing an incorrect
@@ -113,6 +113,9 @@ impl MetadataHash {
 /// environment variable is for example set by the `substrate-wasm-builder` when the feature for
 /// generating the metadata hash is enabled. If the environment variable is not set and `mode = 1`
 /// is passed, the transaction is rejected with [`UnknownTransaction::CannotLookup`].
+///
+/// Alternatively, a custom hash can be supplied with [`CheckMetadataHash::new_with_custom_hash`],
+/// which is useful for testing.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo, DebugNoBound)]
 #[scale_info(skip_type_params(T))]
 pub struct CheckMetadataHash<T> {
