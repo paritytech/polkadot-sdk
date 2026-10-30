@@ -1420,6 +1420,21 @@ mod governance {
 			));
 
 			assert!(!pallet_assets::Account::<Test>::contains_key(new_asset, psm_account()));
+
+			// So the reserve account cannot receive the asset, and minting with it fails.
+			set_asset_ceiling_weight(new_asset, Permill::from_percent(10));
+			let amount = 1_000 * INTERNAL_UNIT;
+			assert_ok!(Assets::mint(RuntimeOrigin::signed(ALICE), new_asset, BOB, amount));
+			assert_noop!(
+				Psm::mint(
+					RuntimeOrigin::signed(BOB),
+					INTERNAL_ASSET_ID,
+					new_asset,
+					amount,
+					Permill::from_percent(100),
+				),
+				TokenError::CannotCreate
+			);
 		});
 	}
 

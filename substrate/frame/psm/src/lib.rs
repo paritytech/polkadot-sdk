@@ -1393,7 +1393,7 @@ pub mod pallet {
 				let paid_by_other =
 					T::Fungibles::deposit_held(external_asset.clone(), psm_account.clone())
 						.is_some_and(|(payer, _)| payer != depositor);
-				// Someone else could remove the account while it's empty, so take it over.
+				// Its payer could remove it once empty, so take over another payer's empty account.
 				if paid_by_other &&
 					T::Fungibles::balance(external_asset.clone(), &psm_account).is_zero()
 				{
