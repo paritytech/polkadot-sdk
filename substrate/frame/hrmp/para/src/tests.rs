@@ -25,8 +25,8 @@ use frame_support::{
 	},
 };
 use hrmp_primitives::{
-	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId,
+	Balance, ChannelId, DepositError, DepositKey, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
 };
 use sp_runtime::{DispatchError, DispatchResult};
 
@@ -392,6 +392,110 @@ fn force_set_cannot_hold() {
 		assert_noop!(
 			HrmpPara::force_set_deposit(RuntimeOrigin::root(), ch(1, 2), Sender, ENDOWMENT + 1),
 			Error::<Test>::InsufficientFunds
+		);
+	});
+}
+
+/// A migrated deposit sets what the side holds, from the para's free balance.
+#[test]
+fn receive_deposit_sets_the_amount() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		events();
+		sent();
+
+		let key = DepositKey { channel: ch(1, 2), side: Sender };
+		assert_ok!(HrmpPara::receive_deposit(key, 30));
+
+		assert_eq!(on_hold(1), 30);
+		assert_eq!(Balances::free_balance(1), ENDOWMENT - 30);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(30));
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 30 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 30, held: 30 },
+			]
+		);
+		assert!(sent().is_empty());
+	});
+}
+
+/// A side is one deposit: a migrated deposit delivered twice is held once, and a lower one
+/// releases the excess.
+#[test]
+fn receive_deposit_overrides_what_the_side_holds() {
+	new_test_ext(|| {
+		let key = DepositKey { channel: ch(1, 2), side: Sender };
+		assert_ok!(HrmpPara::receive_deposit(key, 20));
+		assert_ok!(HrmpPara::receive_deposit(key, 20));
+		assert_eq!(on_hold(1), 20);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(20));
+
+		assert_ok!(HrmpPara::receive_deposit(key, 15));
+		assert_eq!(on_hold(1), 15);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(15));
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 20 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 20, held: 20 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 20, held: 20 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 15 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 15, held: 15 },
+			]
+		);
+	});
+}
+
+/// A migrated deposit the para cannot cover whole is held as far as its existential deposit;
+/// a para with nothing holds nothing, and neither is an error.
+#[test]
+fn receive_deposit_holds_what_the_para_can_cover() {
+	new_test_ext(|| {
+		let key = DepositKey { channel: ch(1, 2), side: Sender };
+		assert_ok!(HrmpPara::receive_deposit(key, ENDOWMENT + 1));
+		assert_eq!(on_hold(1), ENDOWMENT - 1);
+		assert_eq!(Balances::free_balance(1), 1);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(ENDOWMENT - 1));
+		events();
+
+		let key = DepositKey { channel: ch(1, 4), side: Recipient };
+		assert_ok!(HrmpPara::receive_deposit(key, 100));
+		assert_eq!(on_hold(4), 0);
+		assert_eq!(deposit(ch(1, 4), Recipient), None);
+		assert_eq!(
+			events(),
+			vec![Event::DepositMigrated {
+				channel: ch(1, 4),
+				side: Recipient,
+				amount: 100,
+				held: 0
+			}]
+		);
+	});
+}
+
+/// A migration is charged the benchmarked weight for a deposit it hands over.
+#[test]
+fn receive_deposit_weight_is_the_benchmarked_one() {
+	assert_eq!(
+		<HrmpPara as ReceiveMigratedDeposits>::weight_of_receive_deposit(),
+		<() as crate::WeightInfo>::receive_deposit()
+	);
+}
+
+/// Nothing is held for a migrated deposit of nothing.
+#[test]
+fn receive_deposit_zero_holds_nothing() {
+	new_test_ext(|| {
+		let key = DepositKey { channel: ch(1, 2), side: Recipient };
+		assert_ok!(HrmpPara::receive_deposit(key, 0));
+		assert_eq!(on_hold(2), 0);
+		assert_eq!(deposit(ch(1, 2), Recipient), None);
+		assert_eq!(
+			events(),
+			vec![Event::DepositMigrated { channel: ch(1, 2), side: Recipient, amount: 0, held: 0 }]
 		);
 	});
 }
