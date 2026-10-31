@@ -234,3 +234,27 @@ async fn check_notifications_ping_pong() {
 	)
 	.await;
 }
+
+#[tokio::test]
+async fn a_late_event_stream_learns_the_peers_identified_before_it() {
+	use futures::StreamExt;
+	use sc_network::{Event, NetworkEventStream, NetworkStateInfo};
+
+	let left = create_network_backend::<Litep2pNetworkBackend>();
+	let right = create_network_backend::<NetworkWorker<_, _>>();
+	let right_id = right.network_service.local_peer_id();
+	let identified = |event: Option<Event>| match event {
+		Some(Event::PeerIdentified { peer, .. }) => peer == right_id,
+		_ => false,
+	};
+	let wait = std::time::Duration::from_secs(30);
+
+	let mut early = left.network_service.event_stream("early");
+	connect_backends(&left, &right).await;
+	let early_saw = tokio::time::timeout(wait, async { while !identified(early.next().await) {} });
+	assert!(early_saw.await.is_ok());
+
+	let mut late = left.network_service.event_stream("late");
+	let late_saw = tokio::time::timeout(wait, async { while !identified(late.next().await) {} });
+	assert!(late_saw.await.is_ok());
+}
