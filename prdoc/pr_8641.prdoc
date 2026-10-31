@@ -1,8 +1,13 @@
-title: RFC-145 (former RFC-4) host functions implementation
+title: RFC-145 (former RFC-4) and RFC-156 host functions implementation
 doc:
 - audience: Runtime Dev
   description: |-
-    This implements the host functions introduced by [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145).
+    This implements the host functions introduced by
+    [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145) and
+    [RFC-156](https://github.com/polkadot-fellows/RFCs/pull/156).
+
+    Also upgrades `w3f-bls` to 0.3.3 (post-audit version).
+
 crates:
 - name: sp-io
   bump: major
@@ -77,4 +82,6 @@ crates:
 - name: pallet-beefy-mmr
   bump: patch
 - name: pallet-node-authorization
+  bump: patch
+- name: sp-consensus-beefy
   bump: patch

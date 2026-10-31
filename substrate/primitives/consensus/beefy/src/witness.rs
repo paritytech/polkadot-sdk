@@ -87,8 +87,7 @@ mod tests {
 	use crate::bls_crypto::Signature as BlsSignature;
 
 	use w3f_bls::{
-		single_pop_aggregator::SignatureAggregatorAssumingPoP, Message, SerializableToBytes,
-		Signed, TinyBLS381,
+		pop_aggregator::SignatureAggregatorAssumingPoP, SerializableToBytes, Signed, TinyBLS381,
 	};
 
 	type TestCommitment = Commitment<u128>;
@@ -191,7 +190,7 @@ mod tests {
 			TestBlsSignedCommitmentWitness::from_signed::<_, _>(signed, |sigs| {
 				// we are going to aggregate the signatures here
 				let mut aggregatedsigs: SignatureAggregatorAssumingPoP<TinyBLS381> =
-					SignatureAggregatorAssumingPoP::new(Message::new(b"", b"mock payload"));
+					SignatureAggregatorAssumingPoP::new();
 
 				for sig in sigs {
 					match sig {
