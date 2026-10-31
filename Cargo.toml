@@ -400,6 +400,7 @@ members = [
 	"substrate/frame/im-online",
 	"substrate/frame/indices",
 	"substrate/frame/insecure-randomness-collective-flip",
+	"substrate/frame/jamkb",
 	"substrate/frame/lottery",
 	"substrate/frame/membership",
 	"substrate/frame/merkle-mountain-range",
@@ -1038,6 +1039,7 @@ pallet-identity = { path = "substrate/frame/identity", default-features = false 
 pallet-im-online = { path = "substrate/frame/im-online", default-features = false }
 pallet-indices = { path = "substrate/frame/indices", default-features = false }
 pallet-insecure-randomness-collective-flip = { path = "substrate/frame/insecure-randomness-collective-flip", default-features = false }
+pallet-jamkb = { path = "substrate/frame/jamkb", default-features = false }
 pallet-message-queue = { path = "substrate/frame/message-queue", default-features = false }
 pallet-meta-tx = { path = "substrate/frame/meta-tx", default-features = false }
 pallet-migrations = { path = "substrate/frame/migrations", default-features = false }
