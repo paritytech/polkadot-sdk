@@ -1,0 +1,11 @@
+title: 'pallet-collective: release stale proposal costs before re-proposing'
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      Release any consideration retained for a retired proposal before
+      recording a new proposer's consideration when the same motion is
+      re-proposed. This prevents the original proposer's held deposit from
+      being stranded. No storage migration is required.
+crates:
+  - name: pallet-collective
+    bump: patch
