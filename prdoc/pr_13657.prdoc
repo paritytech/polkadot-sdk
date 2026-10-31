@@ -1,0 +1,9 @@
+title: 'HRMP: widen the accepted origins and weigh the heaviest request a para makes'
+doc:
+- audience: Runtime Dev
+  description: |-
+    In Polkadot HRMP: Widen the accepted origins for some calls, in preparation for AHMv2, and
+    expose a function to get the maximum weight for a request made by a parachain for itself.
+crates:
+- name: polkadot-runtime-parachains
+  bump: minor
