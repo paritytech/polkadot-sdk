@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793392781107,
+  "lastUpdate": 1793476661409,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0688fe97808b6bff442115868beba51c3e1b9f64",
-          "message": "Fix PSM storage migration (#11770)\n\n## Summary\n\nFixes the PSM migration to run on first deployment by replacing the\nversioned `MigrateToV1` with an idempotent `InitializePsm`.\n\n### Problem\n\nWhen a pallet is first added to a runtime, `BeforeAllRuntimeMigrations`\ninitializes the on-chain storage version to the pallet's in-code\nversion. With `STORAGE_VERSION = 1`, the on-chain version was set to `1`\nbefore `MigrateToV1` ran. Since `VersionedMigration<0, 1>` only executes\nwhen the on-chain version is `0`, the migration was skipped, leaving the\nPSM unconfigured (no external assets, no fees, no ceiling weights).\n\n### Fix\n\nReplace `MigrateToV1` (versioned) with `InitializePsm` (idempotent).\nInstead of relying on storage versions, it checks whether each external\nasset already exists and skips it if so. Safe to run multiple times.\n\n### Tests\n\n- `initialize_psm_configures_new_assets` — fresh deployment configures\nall assets\n- `initialize_psm_skips_existing_assets` — already-configured assets are\nnot overwritten\n- `initialize_psm_is_idempotent` — running twice produces the same\nresult",
-          "timestamp": "2026-04-15T13:14:29Z",
-          "tree_id": "c71f0d1937252f90a3a5c3dcbbccd12e8e5886c4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0688fe97808b6bff442115868beba51c3e1b9f64"
-        },
-        "date": 1776263883189,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009469176689999985,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00270225908,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010378228110000005,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009409937519999991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0f50c61a952e6ec776df557d8ffd54f341bd8b6a",
+          "message": "statement-store: soak a mixed network of v2 DHT and DHT-off nodes (#13504)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13175.\n\nA soak for a network where the v2 DHT path is on for most nodes and off\non `STATEMENT_V2_SOAK_DHT_OFF_NODES` full nodes. Every wave checks\ndelivery in all four directions between the two kinds, with ring load\nand probes on hard paths. Restarts and joins of both kinds must catch up\non the statements sent before them. Misses don't stop the run: it fails\nat the end with a report per direction.\n\nA second soak walks a network through turning the path on: only the\ncollators start on it, full nodes restart onto it with their keys and\ndatabases until half and then 90% of the nodes run it, and one goes back\noff. A wave checks delivery and placement after each step.\n\nBoth run on demand through `zombienet_statement-store-soak.yml` (matrix\nentries `0002-v2-dht-mixed` and `0003-v2-dht-rollout`); the\n`soak_dht_off_nodes` input overrides the DHT-off count. `v2_dht_soak.rs`\nonly opens its helpers to the new module and moves the node stop/start\nand the log scan into functions, so the v2 soak itself is unchanged.",
+          "timestamp": "2026-10-31T18:22:11Z",
+          "tree_id": "5fdc34de1ae222d2640f6b380fecaa992c04e511",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f50c61a952e6ec776df557d8ffd54f341bd8b6a"
+        },
+        "date": 1793476627727,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009173856469999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009748149390000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025061607099999992,
             "unit": "seconds"
           }
         ]
