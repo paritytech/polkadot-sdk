@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793392736681,
+  "lastUpdate": 1793476616642,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baaaa925927eaf4a488f33ac1f1ecd6bacd24db3",
-          "message": "asset-conversion-precompiles expose pool management (#11690)\n\nAdd createPool, addLiquidity, and removeLiquidity functions to the\nasset-conversion precompile, enabling EVM contracts to manage liquidity\npools directly. Also refactors common helpers (caller lookup, path\nvalidation) for reuse across swap and liquidity operations.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T14:06:01Z",
-          "tree_id": "1f147cb91b909822a1d2d6bd229ba65fcdc42d62",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaaa925927eaf4a488f33ac1f1ecd6bacd24db3"
-        },
-        "date": 1776266980714,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08199760228399994,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038651411232,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.086195853918,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0f50c61a952e6ec776df557d8ffd54f341bd8b6a",
+          "message": "statement-store: soak a mixed network of v2 DHT and DHT-off nodes (#13504)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13175.\n\nA soak for a network where the v2 DHT path is on for most nodes and off\non `STATEMENT_V2_SOAK_DHT_OFF_NODES` full nodes. Every wave checks\ndelivery in all four directions between the two kinds, with ring load\nand probes on hard paths. Restarts and joins of both kinds must catch up\non the statements sent before them. Misses don't stop the run: it fails\nat the end with a report per direction.\n\nA second soak walks a network through turning the path on: only the\ncollators start on it, full nodes restart onto it with their keys and\ndatabases until half and then 90% of the nodes run it, and one goes back\noff. A wave checks delivery and placement after each step.\n\nBoth run on demand through `zombienet_statement-store-soak.yml` (matrix\nentries `0002-v2-dht-mixed` and `0003-v2-dht-rollout`); the\n`soak_dht_off_nodes` input overrides the DHT-off count. `v2_dht_soak.rs`\nonly opens its helpers to the new module and moves the node stop/start\nand the log scan into functions, so the v2 soak itself is unchanged.",
+          "timestamp": "2026-10-31T18:22:11Z",
+          "tree_id": "5fdc34de1ae222d2640f6b380fecaa992c04e511",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f50c61a952e6ec776df557d8ffd54f341bd8b6a"
+        },
+        "date": 1793476582849,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03888486387,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08645841414399986,
             "unit": "seconds"
           }
         ]
