@@ -120,6 +120,9 @@ impl pallet_treasury::Config for Test {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
+	type MaxQueuedSpends = ConstU32<100>;
+	type OrderExpirationPeriod = ConstU64<5>;
+	type MaxSpendDelay = ConstU64<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -143,6 +146,9 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
 	type BlockNumberProvider = System;
+	type MaxQueuedSpends = ConstU32<100>;
+	type OrderExpirationPeriod = ConstU64<5>;
+	type MaxSpendDelay = ConstU64<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }

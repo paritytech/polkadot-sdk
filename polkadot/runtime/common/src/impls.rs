@@ -399,8 +399,11 @@ mod tests {
 		type BeneficiaryLookup = IdentityLookup<Self::AccountId>;
 		type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 		type BalanceConverter = UnityAssetBalanceConversion;
-		type PayoutPeriod = ConstU64<0>;
+		type PayoutPeriod = ConstU64<10>;
 		type BlockNumberProvider = System;
+		type MaxQueuedSpends = frame_support::traits::ConstU32<100>;
+		type OrderExpirationPeriod = ConstU64<5>;
+		type MaxSpendDelay = ConstU64<10>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper = ();
 	}

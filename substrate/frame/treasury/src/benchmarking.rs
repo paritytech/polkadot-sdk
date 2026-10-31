@@ -100,6 +100,20 @@ fn assert_last_event<T: Config<I>, I: 'static>(generic_event: <T as Config<I>>::
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
 }
 
+// Fill the payout queue for `asset_kind` with `n` entries so the benchmarked call hits the
+// worst case: a full scan over (and re-encode of) a queue of up to `MaxQueuedSpends` entries.
+// The seeded indices are offset to avoid colliding with spends created by the benchmark and
+// use an order key of zero so that a subsequent sorted insert scans the entire queue.
+fn fill_payout_queue<T: Config<I>, I: 'static>(asset_kind: T::AssetKind, n: u32) {
+	let order_key = BlockNumberFor::<T, I>::zero();
+	let queue: BoundedVec<_, T::MaxQueuedSpends> = (0..n)
+		.map(|i| (i + 1_000_000, order_key))
+		.collect::<alloc::vec::Vec<_>>()
+		.try_into()
+		.expect("n is at most MaxQueuedSpends; qed");
+	PayoutQueue::<T, I>::insert(asset_kind, queue);
+}
+
 // Create the arguments for the `spend` dispatchable.
 fn create_spend_arguments<T: Config<I>, I: 'static>(
 	seed: u32,
@@ -189,6 +203,17 @@ mod benchmarks {
 			create_spend_arguments::<T, _>(SEED);
 		T::BalanceConverter::ensure_successful(asset_kind.clone());
 
+		// Worst case: `NextPayout` is already occupied by a later-maturing head, so the new spend
+		// (with `valid_from = now`) preempts it. The demoted head is re-inserted into an almost
+		// full payout queue, scanning all existing entries, and the head is rewritten.
+		let now = T::BlockNumberProvider::current_block_number();
+		let head_order_key = now.saturating_add(T::OrderExpirationPeriod::get());
+		NextPayout::<T, I>::insert(
+			asset_kind.clone(),
+			(1_000_000u32, head_order_key, head_order_key),
+		);
+		fill_payout_queue::<T, I>(asset_kind.clone(), T::MaxQueuedSpends::get().saturating_sub(1));
+
 		#[extrinsic_call]
 		_(
 			origin as T::RuntimeOrigin,
@@ -234,6 +259,28 @@ mod benchmarks {
 			false
 		};
 
+		if spend_exists {
+			// Worst case: the head's order lease has lapsed, so `payout` additionally reads
+			// `PayoutQueue` to check whether another spend is already mature. The queue is
+			// full of not-yet-mature spends, so the check decodes a full queue and the payout
+			// still proceeds.
+			NextPayout::<T, I>::mutate(&asset_kind, |entry| {
+				if let Some((_, _, expire_at)) = entry {
+					*expire_at = BlockNumberFor::<T, I>::zero();
+				}
+			});
+			let future = BlockNumberFor::<T, I>::one() + T::PayoutPeriod::get();
+			let queue: BoundedVec<_, T::MaxQueuedSpends> = (0..T::MaxQueuedSpends::get())
+				.map(|i| (i + 1_000_000, future))
+				.collect::<alloc::vec::Vec<_>>()
+				.try_into()
+				.expect("max is the bound; qed");
+			PayoutQueue::<T, I>::insert(&asset_kind, queue);
+			// Relay-block providers (e.g. asset-hub) report 0 at genesis; advance so the zeroed
+			// order expiration is in the past.
+			T::BlockNumberProvider::set_block_number(One::one());
+		}
+
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind, amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
@@ -272,44 +319,122 @@ mod benchmarks {
 		T::Paymaster::ensure_successful(&beneficiary, asset_kind.clone(), amount);
 		let caller: T::AccountId = account("caller", 0, SEED);
 
-		let spend_exists = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
+		let payment_id = if let Ok(origin) = T::SpendOrigin::try_successful_origin() {
 			Treasury::<T, _>::spend(
 				origin,
-				Box::new(asset_kind),
+				Box::new(asset_kind.clone()),
 				amount,
 				Box::new(beneficiary_lookup),
 				None,
 			)?;
 
 			Treasury::<T, _>::payout(RawOrigin::Signed(caller.clone()).into(), 0u32)?;
-			match Spends::<T, I>::get(0).unwrap().status {
+			let id = match Spends::<T, I>::get(0).unwrap().status {
 				PaymentState::Attempted { id, .. } => {
 					T::Paymaster::ensure_concluded(id);
+					// NOTE: the in-tree mock's `ensure_concluded` concludes with `Failure`, so
+					// the bench test exercises the cheaper `Failed` arm; the heavier `Success`
+					// arm (spend removal plus promotion from a full queue) is pinned in the
+					// verification below whenever the paymaster concludes with `Success`. The
+					// mock cannot be overridden from here: its status override lives in the
+					// `cfg(test)`-only tests module with a concrete `u64` payment id type.
+					id
 				},
 				_ => panic!("No payout attempt made"),
 			};
 
-			true
+			Some(id)
 		} else {
-			false
+			None
 		};
+
+		// Worst case: removing the spend promotes the next entry from a full payout queue.
+		fill_payout_queue::<T, I>(asset_kind.clone(), T::MaxQueuedSpends::get());
 
 		#[block]
 		{
 			let res =
 				Treasury::<T, _>::check_status(RawOrigin::Signed(caller.clone()).into(), 0u32);
 
-			if spend_exists {
+			if payment_id.is_some() {
 				assert_ok!(res);
 			} else {
 				assert_err!(res, crate::Error::<T, _>::InvalidIndex);
 			}
 		}
 
-		if let Some(s) = Spends::<T, I>::get(0) {
-			assert!(!matches!(s.status, PaymentState::Attempted { .. }));
+		if let Some(id) = payment_id {
+			match T::Paymaster::check_payment(id) {
+				// The payment succeeded: the spend was removed and the next queue entry promoted.
+				PaymentStatus::Success => {
+					assert!(Spends::<T, I>::get(0).is_none());
+					assert_last_event::<T, I>(Event::SpendProcessed { index: 0 }.into());
+					assert!(
+						matches!(NextPayout::<T, I>::get(&asset_kind), Some((idx, _, _)) if idx != 0)
+					);
+				},
+				// The payment failed (the in-tree mock): the spend is marked `Failed` and stays.
+				_ => {
+					let spend_status =
+						Spends::<T, I>::get(0).expect("spend must remain on failure; qed");
+					assert!(matches!(spend_status.status, PaymentState::Failed));
+					assert_last_event::<T, I>(
+						Event::PaymentFailed { index: 0, payment_id: id }.into(),
+					);
+				},
+			}
 		}
 
+		Ok(())
+	}
+
+	// The rotation branch of `check_status`: a head whose payout order has expired is rotated to
+	// the back of a (near) full queue and the front entry is promoted. Benchmarked separately so
+	// `check_status`'s declared weight can be `check_status().max(check_status_rotation())`.
+	#[benchmark]
+	fn check_status_rotation() -> Result<(), BenchmarkError> {
+		let origin =
+			T::SpendOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let (asset_kind, amount, _, beneficiary_lookup) = create_spend_arguments::<T, _>(SEED);
+		T::BalanceConverter::ensure_successful(asset_kind.clone());
+		let caller: T::AccountId = account("caller", 0, SEED);
+
+		// The spend becomes NextPayout (queue empty), status Pending. The head is left `Pending`
+		// rather than paid-and-`InProgress`: the `Pay` trait offers no way to force an
+		// `InProgress` payment status, so the InProgress rotation arm (a `check_payment` call on
+		// top of the same rotation) is not covered by this benchmark.
+		Treasury::<T, _>::spend(
+			origin,
+			Box::new(asset_kind.clone()),
+			amount,
+			Box::new(beneficiary_lookup),
+			None,
+		)?;
+
+		// Force the head's payout order to be already expired (order `expire_at` of zero is `<
+		// now`) while its spend payout window stays open, so `check_status` takes the rotation
+		// branch.
+		NextPayout::<T, I>::mutate(&asset_kind, |entry| {
+			if let Some((_, _, expire_at)) = entry {
+				*expire_at = BlockNumberFor::<T, I>::zero();
+			}
+		});
+		// Relay-block providers (e.g. asset-hub) report 0 at genesis; advance so the zeroed order
+		// expiration is in the past.
+		T::BlockNumberProvider::set_block_number(One::one());
+
+		// Worst case: a full queue, so rotation scans it, re-inserts the expired head, and
+		// promotes the front. Rotation is size-neutral, so the queue may be full.
+		fill_payout_queue::<T, I>(asset_kind.clone(), T::MaxQueuedSpends::get());
+
+		#[block]
+		{
+			assert_ok!(Treasury::<T, _>::check_status(RawOrigin::Signed(caller).into(), 0u32));
+		}
+
+		// The expired head (index 0) was rotated to the back; a queued spend is now NextPayout.
+		assert!(matches!(NextPayout::<T, I>::get(&asset_kind), Some((idx, _, _)) if idx != 0));
+		assert_last_event::<T, I>(Event::PayoutQueueRotated { asset_kind, index: 0 }.into());
 		Ok(())
 	}
 
@@ -334,6 +459,9 @@ mod benchmarks {
 
 		let origin =
 			T::RejectOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+
+		// Worst case: voiding the spend promotes the next entry from a full payout queue.
+		fill_payout_queue::<T, I>(asset_kind.clone(), T::MaxQueuedSpends::get());
 
 		#[block]
 		{
