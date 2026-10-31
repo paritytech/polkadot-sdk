@@ -71,7 +71,11 @@ jobs:
   preflight:
     runs-on: ubuntu-latest
     outputs:
-      changes_rust: ${{ steps.set_changes.outputs.rust_any_changed || steps.set_changes.outputs.currentWorkflow_any_changed }}
+      # Compare action output strings explicitly and emit an empty value for false,
+      # so existing consuming conditions can keep using truthiness.
+      changes_rust: >-
+        ${{ (steps.set_changes.outputs.rust_any_changed == 'true' ||
+             steps.set_changes.outputs.currentWorkflow_any_changed == 'true') && 'true' || '' }}
       changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -112,10 +116,17 @@ jobs:
               - '**/*'
               - '!.github/**/*'
               - '!prdoc/**/*'
-              - '!docs/**/*'
+              - '!docs/**/*.md'
+              - '!docs/**/*.mmd'
+              - '!docs/**/*.png'
             currentWorkflow:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/reusable-preflight.yml'
+              - '.github/workflows/reusable-isdraft.yml'
+              - '.github/env'
+              - '.github/actions/**'
+              - '.github/scripts/**'
+              - '.github/workflows/runtimes-matrix.json'
 
       #
       # Set image

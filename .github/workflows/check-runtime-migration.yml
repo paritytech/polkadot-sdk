@@ -200,7 +200,7 @@ jobs:
     runs-on: ubuntu-latest
     name: All runtime migrations passed
     # If any new job gets added, be sure to add it to this array
-    needs: [check-runtime-migration]
+    needs: [preflight, check-runtime-migration]
     if: always() && !cancelled() && github.event_name != 'schedule'
     steps:
       - run: |
