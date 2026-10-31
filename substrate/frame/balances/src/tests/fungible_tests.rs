@@ -441,6 +441,24 @@ fn burn_held() {
 }
 
 #[test]
+fn best_effort_release_below_ed_does_not_lose_funds() {
+	ExtBuilder::default().existential_deposit(10).build_and_execute_with(|| {
+		// Another provider lets the free balance drop below ED while funds are held.
+		System::inc_providers(&1);
+		Balances::set_balance(&1, 15);
+		assert_ok!(Balances::hold(&TestId::Foo, &1, 15));
+		assert_ok!(Balances::burn_held(&TestId::Foo, &1, 11, Exact, Polite));
+		assert_eq!(Balances::balance(&1), 0);
+		assert_eq!(Balances::balance_on_hold(&TestId::Foo, &1), 4);
+		assert_eq!(Balances::total_issuance(), 4);
+
+		// Only 4 are held, which is below ED, so nothing can be released.
+		assert_noop!(Balances::release(&TestId::Foo, &1, 10, BestEffort), TokenError::CannotCreate);
+		assert_eq!(Balances::total_balance(&1), Balances::total_issuance());
+	});
+}
+
+#[test]
 fn negative_imbalance_drop_handled_correctly() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		let account = 1;
