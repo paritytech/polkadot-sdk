@@ -1,0 +1,25 @@
+title: 'HRMP: support an asynchronous deposit provider'
+doc:
+- audience: Runtime Dev
+  description: |-
+    HRMP now supports a `ChannelDepositProvider` that answers later, e.g. one holding the deposits
+    on another chain.
+
+    - The action of a pending request resumes from the request itself once the provider answers.
+    - New `Pallet::init_and_accept_open_channel` requests and accepts a channel in one go, asking
+      the provider for both deposits at once. Because with a provider that answers later, calling
+      `init_open_channel` then directly `accept_open_channel` cannot work.
+    - `OnDepositSet` gains `weight_of_on_deposit_set`, the worst-case weight of `on_deposit_set`.
+    - `DepositAction::AcceptOpenChannel` carries the limits it was accepted with, and the new
+      `DepositAction::InitAndAcceptOpenChannel` opens a channel whole or not at all.
+- audience: Runtime User
+  description: |-
+    If the runtime uses an asynchronous deposit provider for HRMP, e.g. one holding the deposits
+    on another chain, the calls that take a deposit have a delayed effect, and wait on the answer
+    before accepting another request: `hrmp_init_open_channel`, `hrmp_accept_open_channel`,
+    `force_open_hrmp_channel` and `poke_channel_deposits`.
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: polkadot-runtime-common
+  bump: patch
