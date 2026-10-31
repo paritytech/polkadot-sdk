@@ -1,0 +1,17 @@
+title: 'Add Helixstreet bootnodes for Polkadot, Kusama, Asset Hub Polkadot, and People Polkadot'
+
+doc:
+- audience: Node Operator
+  description: |-
+    Adds eight dual-stack (IPv4/IPv6) Helixstreet WS and WSS bootnode multiaddrs to the
+    embedded chain specifications for Polkadot (`polkadot/node/service/chain-specs/polkadot.json`),
+    Kusama (`polkadot/node/service/chain-specs/kusama.json`), Polkadot Asset Hub
+    (`cumulus/parachains/chain-specs/asset-hub-polkadot.json`), and Polkadot People
+    (`cumulus/parachains/chain-specs/people-polkadot.json`).
+    No crate API or runtime code changes.
+
+crates:
+- name: polkadot-service
+  bump: none
+- name: polkadot-parachain-bin
+  bump: none
