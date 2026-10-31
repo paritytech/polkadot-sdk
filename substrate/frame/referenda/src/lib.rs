@@ -100,8 +100,8 @@ pub use self::{
 		BalanceOf, BlockNumberFor, BoundedCallOf, CallOf, ConstTrackInfo, Curve, DecidingStatus,
 		DecidingStatusOf, Deposit, InsertSorted, NegativeImbalanceOf, PalletsOriginOf,
 		ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, ReferendumStatusOf,
-		ScheduleAddressOf, StringLike, TallyOf, Track, TrackIdOf, TrackInfo, TrackInfoOf,
-		TracksInfo, VotesOf,
+		ScheduleAddressOf, SortedInsertOutcome, StringLike, TallyOf, Track, TrackIdOf, TrackInfo,
+		TrackInfoOf, TracksInfo, VotesOf,
 	},
 	weights::WeightInfo,
 };
@@ -1013,11 +1013,32 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			let r = Self::begin_deciding(status, index, now, track);
 			(r.0, r.1.into())
 		} else {
-			// Add to queue.
+			// Add to queue. On a full queue the insert either rejects `item` or evicts the
+			// weakest entry, and both outcomes need handling, or the affected referendum is
+			// flagged `in_queue` with no entry: never nudged into deciding (it cannot be
+			// popped) and never timed out (the timeout path skips flagged referenda).
 			let item = (index, status.tally.ayes(status.track));
-			status.in_queue = true;
-			TrackQueue::<T, I>::mutate(status.track, |q| q.insert_sorted_by_key(item, |x| x.1));
-			(None, ServiceBranch::Queued)
+			match TrackQueue::<T, I>::mutate(status.track, |q| {
+				q.insert_sorted_by_key(item, |x| x.1)
+			}) {
+				SortedInsertOutcome::Inserted => {
+					status.in_queue = true;
+					(None, ServiceBranch::Queued)
+				},
+				SortedInsertOutcome::Evicted((evicted, _)) => {
+					status.in_queue = true;
+					Self::note_evicted_from_queue(evicted, now);
+					(None, ServiceBranch::Queued)
+				},
+				SortedInsertOutcome::Rejected => {
+					// Keep `in_queue` unset so the undeciding timeout still applies, and set a
+					// wake-up at that timeout: the referendum queues or decides then if room
+					// exists, or times out.
+					status.in_queue = false;
+					let timeout = status.submitted.saturating_add(T::UndecidingTimeout::get());
+					(Some(timeout), ServiceBranch::NotQueued)
+				},
+			}
 		}
 	}
 
@@ -1059,6 +1080,23 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 	/// This will do nothing if the alarm is already set.
 	///
 	/// Returns `false` if nothing changed.
+	/// Restore a wake-up path for a referendum that was evicted from a full track queue.
+	///
+	/// Clears `in_queue` so the undeciding timeout applies again, and sets an alarm at that
+	/// timeout, clamped to the next block when it lies in the past. Without this the evicted
+	/// referendum keeps a set flag, no queue entry, and no alarm, and no code path ever
+	/// touches it again.
+	fn note_evicted_from_queue(index: ReferendumIndex, now: BlockNumberFor<T, I>) {
+		ReferendumInfoFor::<T, I>::mutate(index, |maybe| {
+			if let Some(ReferendumInfo::Ongoing(status)) = maybe {
+				status.in_queue = false;
+				let timeout = status.submitted.saturating_add(T::UndecidingTimeout::get());
+				let when = timeout.max(now.saturating_add(One::one()));
+				Self::ensure_alarm_at(status, index, when);
+			}
+		});
+	}
+
 	fn ensure_alarm_at(
 		status: &mut ReferendumStatusOf<T, I>,
 		index: ReferendumIndex,
@@ -1131,8 +1169,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					let maybe_old_pos = queue.iter().position(|(x, _)| *x == index);
 					let new_pos = queue.binary_search_by_key(&ayes, |x| x.1).unwrap_or_else(|x| x);
 					branch = if maybe_old_pos.is_none() && new_pos > 0 {
-						// Just insert.
-						let _ = queue.force_insert_keep_right(new_pos, (index, ayes));
+						// Just insert. A full queue evicts its weakest entry here, and the
+						// evicted referendum needs the same care as one that never fit.
+						if let Ok(Some((evicted, _))) =
+							queue.force_insert_keep_right(new_pos, (index, ayes))
+						{
+							Self::note_evicted_from_queue(evicted, now);
+						}
 						ServiceBranch::RequeuedInsertion
 					} else if let Some(old_pos) = maybe_old_pos {
 						// We were in the queue - slide into the correct position.
