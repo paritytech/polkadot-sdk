@@ -1,0 +1,81 @@
+title: '[eth-rpc] Store receipts at index time'
+
+doc:
+- audience: Node Operator
+  description: |-
+    `eth-rpc` stores the receipt and the signed transaction of every transaction it indexes, in
+    the same database transaction as the transaction hashes and logs. `eth_getTransactionReceipt`,
+    `eth_getBlockReceipts`, `eth_getTransactionByHash`, `eth_getTransactionByBlockHashAndIndex`
+    and `eth_getTransactionByBlockNumberAndIndex` read receipts and transactions from the
+    database. They no longer fetch the block body and events from the node or make the
+    `eth_receipt_data` and `eth_block_hash` runtime calls. Stored receipts are removed with the
+    rest of a block's data when the block is pruned from the `eth-rpc` database or replaced by a
+    fork.
+
+    `eth_getTransactionReceipt`, `eth_getTransactionByHash` and
+    `eth_getTransactionByBlockHashAndIndex` do not contact the node at all for a block with
+    stored receipts, so they keep answering for blocks the node has pruned.
+    `eth_getBlockReceipts` and `eth_getTransactionByBlockNumberAndIndex` still resolve the block
+    through the node first, so they depend on the node still having the block.
+
+    Against a local dev node, the median latency went from 1.4 ms to 0.13 ms for
+    `eth_getTransactionReceipt`, from 2.7 ms to 0.13 ms for `eth_getTransactionByHash` and from
+    1.6 ms to 0.59 ms for `eth_getBlockReceipts` (blocks of 1 to 300 transactions; p95 from 9.0 ms
+    to 2.4 ms). The database grows by about 1.1 KB of payload per indexed transaction (a JSON
+    receipt without logs and the RLP encoded transaction), about 1.4 KiB on disk including the
+    table's primary key index.
+
+    On start, `eth-rpc` applies database migration `0005_create_receipts`. It creates the
+    `receipts` table and adds a `receipts_version` column to `eth_to_substrate_blocks`. Nothing
+    needs to be done by hand. Blocks indexed before the upgrade are not backfilled: their receipts
+    are rebuilt from the node on request, as for any block without stored receipts. To store
+    receipts for all blocks, index into a new database.
+
+    Stored receipts keep what receipt extraction produced when the block was indexed. A later
+    `eth-rpc` release that fixes receipt extraction reaches already indexed blocks only if it also
+    bumps the stored format version (`RECEIPTS_VERSION`), which makes those blocks fall back to
+    the node, or if the blocks are indexed again into a new database.
+
+    Downgrading to an `eth-rpc` without this migration against the same database fails on start
+    with the sqlx migration error `VersionMissing(5)`. Keep a copy of the database from before
+    the upgrade, or index into a new database, if a downgrade may be needed.
+
+    `eth-rpc` keeps working with the same runtime versions as before: receipts are built through
+    the same runtime calls, once per block when it is indexed.
+- audience: Node Dev
+  description: |-
+    Code using `pallet-revive-eth-rpc` as a library needs these changes:
+
+    - `ReceiptProvider::block_receipts` returns `Vec<ReceiptInfo>` instead of
+      `Vec<(TransactionSigned, ReceiptInfo)>`. It serves the receipts stored at index time and
+      rebuilds them from the node only when they are not stored. To get the signed transactions
+      of a block, call `ReceiptExtractor::extract_from_block`.
+    - `ReceiptProvider::signed_tx_by_hash` and `Client::signed_tx_by_hash` are removed. Use
+      `ReceiptProvider::transaction_by_hash` or `Client::transaction`, which return the signed
+      transaction together with its receipt.
+    - New: `ReceiptProvider::transaction_by_block_hash_and_index` and
+      `Client::transaction_by_hash_and_index` return the signed transaction and receipt at a
+      Substrate block hash and transaction index.
+
+    Before:
+
+    ```rust
+    let receipts: Vec<ReceiptInfo> = provider
+        .block_receipts(&block)
+        .await?
+        .into_iter()
+        .map(|(_, receipt)| receipt)
+        .collect();
+    let signed_tx = client.signed_tx_by_hash(&hash).await;
+    ```
+
+    After:
+
+    ```rust
+    let receipts: Vec<ReceiptInfo> = provider.block_receipts(&block).await?;
+    let signed_tx = client.transaction(&hash).await.map(|(signed_tx, _)| signed_tx);
+    ```
+
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major

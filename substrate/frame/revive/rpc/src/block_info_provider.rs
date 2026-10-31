@@ -295,7 +295,13 @@ pub mod test {
 	};
 
 	/// A Noop BlockInfoProvider used to test [`crate::ReceiptProvider`].
-	pub struct MockBlockInfoProvider;
+	///
+	/// It knows no blocks and counts the calls to [`BlockInfoProvider::block_by_hash`], which a
+	/// receipt lookup makes when it rebuilds the receipt from the node.
+	#[derive(Default)]
+	pub struct MockBlockInfoProvider {
+		pub block_by_hash_calls: AtomicUsize,
+	}
 
 	pub struct MockBlockInfo {
 		pub number: SubstrateBlockNumber,
@@ -344,6 +350,7 @@ pub mod test {
 			&self,
 			_hash: &H256,
 		) -> Result<Option<Arc<SubstrateBlock>>, ClientError> {
+			self.block_by_hash_calls.fetch_add(1, Ordering::Relaxed);
 			Ok(None)
 		}
 	}

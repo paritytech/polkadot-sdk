@@ -18,6 +18,8 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
+// The receipt provider stores this type's JSON serialization in its database. A change to the
+// serialized form requires bumping `RECEIPTS_VERSION` in `receipt_provider.rs`.
 /// Receipt information
 #[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
