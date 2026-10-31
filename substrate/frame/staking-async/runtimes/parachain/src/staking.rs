@@ -435,10 +435,34 @@ parameter_types! {
 	pub MaxPruningItems: u32 = 100;
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+struct StakingAsyncBenchmarkHelper;
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_staking_async::BenchmarkHelper<AccountId, Balance> for StakingAsyncBenchmarkHelper {
+	fn mint_operational_expenses_token(
+		to: &AccountId,
+		amount: Balance,
+	) -> frame_support::dispatch::DispatchResult {
+		use frame_support::traits::fungible::Mutate;
+
+		Balances::mint_into(to, amount).map(|_| ())
+	}
+
+	fn operational_expenses_token_min_balance() -> Balance {
+		use frame_support::traits::fungible::Inspect;
+
+		Balances::minimum_balance()
+	}
+}
+
 impl pallet_staking_async::Config for Runtime {
 	type Filter = ();
 	type OldCurrency = Balances;
 	type Currency = Balances;
+	type OperationalExpencesCurrency = Balances;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = StakingAsyncBenchmarkHelper;
 	type CurrencyBalance = Balance;
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CurrencyToVote = sp_staking::currency_to_vote::SaturatingCurrencyToVote;
@@ -465,6 +489,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = ConstBool<true>;
 	type UnclaimedRewardHandler = Dap;
+	type UnclaimedOperationalExpensesHandler = Dap;
 	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;

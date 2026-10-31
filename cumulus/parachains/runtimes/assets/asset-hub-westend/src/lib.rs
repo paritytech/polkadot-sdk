@@ -1921,6 +1921,7 @@ pub type Migrations = (
 	// incentive formula applies; pending pre-cutoff eras keep the legacy
 	// stake-only share, avoiding a `HistoryDepth × MaxValidatorSet` backfill.
 	pallet_staking_async::migrations::SetWeightedPointsFormulaStartEra<Runtime>,
+	pallet_staking_async::migrations::CreateOperationalExpensesGeneralPotAccount<Runtime>,
 	// unreleased
 	// Appends a placeholder authority-discovery key to every collator's session keys.
 	ad_migration::AppendAuthorityDiscoveryKeys<

@@ -391,6 +391,14 @@ impl<T: Config> Eras<T> {
 		ErasValidatorIncentiveBudget::<T>::get(era)
 	}
 
+	pub(crate) fn set_operational_expenses_reward(era: EraIndex, amount: BalanceOf<T>) {
+		ErasOperationalExpensesReward::<T>::insert(era, amount);
+	}
+
+	pub(crate) fn get_operational_expenses_reward(era: EraIndex) -> Option<BalanceOf<T>> {
+		ErasOperationalExpensesReward::<T>::get(era)
+	}
+
 	pub(crate) fn add_sum_validator_incentive_weight(
 		era: EraIndex,
 		incentive_weight: BalanceOf<T>,
@@ -1052,10 +1060,12 @@ impl<T: Config> Rotator<T> {
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
 			validator_payout,
+			operational_expenses: Zero::zero(),
 			remainder,
 		});
 
 		Eras::<T>::set_stakers_reward(ending_era.index, validator_payout);
+		Eras::<T>::set_operational_expenses_reward(ending_era.index, Zero::zero());
 		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
 	}
 
@@ -1072,6 +1082,10 @@ impl<T: Config> Rotator<T> {
 
 		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
 		Eras::<T>::set_validator_incentive_budget(ending_era.index, allocation.validator_incentive);
+		Eras::<T>::set_operational_expenses_reward(
+			ending_era.index,
+			allocation.operational_expenses,
+		);
 
 		// Include both staker rewards and validator incentive in the event
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
@@ -1079,6 +1093,7 @@ impl<T: Config> Rotator<T> {
 			validator_payout: allocation
 				.staker_rewards
 				.saturating_add(allocation.validator_incentive),
+			operational_expenses: allocation.operational_expenses,
 			remainder: Zero::zero(),
 		});
 

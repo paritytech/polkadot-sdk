@@ -1,0 +1,38 @@
+title: Distribute operational expenses rewards in `pallet-staking-async`
+doc:
+  - audience: Runtime Dev
+    description: |
+      Another reward kind is added to `pallet-staking-async`.
+
+      This reward is taken from the general pot, dedicated to the operational expenses 
+      (`RewardKind::OperationalExpenses`). At era rotation, all the funds from this pot are
+      moved to the other pot to be distributed among all the validators later. The distribution
+      follows the era points performance and paid out in the `payout_stakers`. Unclaimed rewards
+      are pruned after [`HistoryDepth`] eras and processed by the [`UnclaimedOperationalExpensesHandler`].
+
+      Operational expenses reward currency may be different from the `Currency` and can be configured by 
+      `OperationalExpencesCurrency` config item.
+  - audience: Runtime User
+    description: |
+      Another reward kind is added to `pallet-staking-async`.
+
+      This reward is taken from the general pot, dedicated to the operational expenses. 
+      At era rotation, all the funds from this pot are moved to the other pot to be distributed 
+      among all the validators later. The distribution follows the era points performance and 
+      paid out in the `payout_stakers`.
+
+      Operational expenses reward currency may be different from the currency used for the other
+      reward types.
+crates:
+  - name: pallet-staking-async
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
+  - name: pallet-nomination-pools-benchmarking
+    bump: minor
+  - name: pallet-nomination-pools-test-delegate-stake
+    bump: minor
+  - name: pallet-ahm-test
+    bump: minor

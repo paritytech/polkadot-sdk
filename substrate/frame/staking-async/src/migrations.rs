@@ -18,8 +18,8 @@
 //! Storage migrations for the staking-async pallet.
 
 use crate::{
-	log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot,
-	WeightedPointsFormulaStartEra,
+	log, reward::EraRewardManager, Config, DisableMintingGuard, PotAccountProvider, RewardKind,
+	RewardPot, WeightedPointsFormulaStartEra,
 };
 use frame_support::{
 	migrations::VersionedMigration,
@@ -266,6 +266,55 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedSetWeightedPointsF
 		frame_support::ensure!(
 			WeightedPointsFormulaStartEra::<T>::get() == Some(pre_active_era.saturating_add(1)),
 			"cutoff must be active_era + 1 after the migration"
+		);
+
+		Ok(())
+	}
+}
+
+pub struct CreateOperationalExpensesGeneralPotAccount<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> OnRuntimeUpgrade for CreateOperationalExpensesGeneralPotAccount<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let pot_account =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+		if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
+			frame_system::Pallet::<T>::inc_providers(&pot_account);
+			log!(info, "Created operational expenses general pot account");
+		} else {
+			log!(info, "Operational expenses general pot account creation skipped: already exists");
+		}
+
+		T::DbWeight::get().reads_writes(2, 1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		use crate::PotAccountProvider;
+		use codec::Encode;
+
+		let pot_account =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+		let providers = frame_system::Pallet::<T>::providers(&pot_account);
+
+		Ok(providers.encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use crate::PotAccountProvider;
+		use codec::Decode;
+
+		let old_providers: u32 =
+			Decode::decode(&mut &state[..]).map_err(|_| "decode pre_upgrade state")?;
+
+		let pot_account =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+		let new_providers = frame_system::Pallet::<T>::providers(&pot_account);
+
+		frame_support::ensure!(
+			old_providers != 0 || new_providers == 1,
+			"general pot account wasn't created"
 		);
 
 		Ok(())

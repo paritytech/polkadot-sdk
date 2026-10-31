@@ -62,7 +62,12 @@ fn rewards_with_nominator_should_work() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 1,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -120,7 +125,12 @@ fn rewards_with_nominator_should_work() {
 				Event::SessionRotated { starting_session: 7, active_era: 2, planned_era: 3 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 8, active_era: 2, planned_era: 3 },
-				Event::EraPaid { era_index: 2, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 2,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
@@ -222,7 +232,12 @@ fn nominating_and_rewards_should_work() {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+					Event::EraPaid {
+						era_index: 1,
+						validator_payout: 7500,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -1787,5 +1802,100 @@ fn legacy_payout_ignores_pot_account_existence() {
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era));
 		let minted = pallet_balances::TotalIssuance::<Test>::get() - pre_issuance;
 		assert_eq!(minted, expected_stakers);
+	});
+}
+
+#[test]
+fn validator_operational_expenses_paid_out() {
+	use super::helpers::{mint_operational_expenses_asset, operational_expenses_asset_balance};
+
+	ExtBuilder::default().has_stakers(false).build_and_execute(|| {
+		bond_validator(11, 1000);
+		bond_validator(12, 1000);
+
+		let general_pot: AccountId =
+			SequentialTest::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+		let era_pot =
+			|era| SequentialTest::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
+
+		Session::roll_until_active_era(2);
+
+		mint_operational_expenses_asset(
+			general_pot,
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE + 150,
+		);
+		Staking::reward_by_ids(vec![(11, 2), (12, 3)]);
+
+		Session::roll_until_active_era(3);
+		assert_eq!(
+			operational_expenses_asset_balance(general_pot),
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(operational_expenses_asset_balance(era_pot(2)), 150);
+
+		System::assert_has_event(
+			Event::EraPaid {
+				era_index: 2,
+				validator_payout: 7500,
+				operational_expenses: 150,
+				remainder: 0,
+			}
+			.into(),
+		);
+
+		Session::roll_until_active_era(4);
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 2, 0));
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 12, 2, 0));
+		assert_eq!(
+			operational_expenses_asset_balance(general_pot),
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(operational_expenses_asset_balance(era_pot(2)), 0);
+		assert_eq!(operational_expenses_asset_balance(11), 60);
+		assert_eq!(operational_expenses_asset_balance(12), 90);
+		System::assert_has_event(
+			Event::<Test>::ValidatorOperationalExpensesPaid {
+				era: 2,
+				validator_stash: 11,
+				dest: RewardDestination::Stash,
+				amount: 60,
+			}
+			.into(),
+		);
+		System::assert_has_event(
+			Event::<Test>::ValidatorOperationalExpensesPaid {
+				era: 2,
+				validator_stash: 12,
+				dest: RewardDestination::Stash,
+				amount: 90,
+			}
+			.into(),
+		);
+
+		// No payouts when the general pot is empty.
+		Staking::reward_by_ids(vec![(11, 1)]);
+		Session::roll_until_active_era(6);
+		assert_ok!(Staking::payout_stakers_by_page(RuntimeOrigin::signed(1337), 11, 4, 0));
+		assert_eq!(operational_expenses_asset_balance(11), 60);
+	});
+}
+
+#[test]
+fn migration_creates_operational_expenses_general_pot_account() {
+	use crate::migrations::CreateOperationalExpensesGeneralPotAccount as Migration;
+	use frame_support::traits::OnRuntimeUpgrade;
+	use frame_system::Pallet as System;
+
+	ExtBuilder::default().build_and_execute(|| {
+		let pot_account = <Test as Config>::RewardPots::pot_account(RewardPot::General(
+			RewardKind::OperationalExpenses,
+		));
+
+		assert_ok!(System::<Test>::dec_providers(&pot_account));
+		assert_eq!(System::<Test>::providers(&pot_account), 0);
+
+		Migration::<Test>::on_runtime_upgrade();
+
+		assert_eq!(System::<Test>::providers(&pot_account), 1);
 	});
 }
