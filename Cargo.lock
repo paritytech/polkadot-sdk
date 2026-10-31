@@ -2003,6 +2003,7 @@ dependencies = [
  "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-bags-list",
  "pallet-balances",
@@ -5920,6 +5921,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
+ "serde_json",
  "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "tokio",
@@ -5941,6 +5943,7 @@ dependencies = [
  "frame-support",
  "futures",
  "hex",
+ "jsonrpsee 0.24.11",
  "log",
  "multihash",
  "parity-scale-codec",
@@ -5950,6 +5953,7 @@ dependencies = [
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
  "sc-network-statement",
+ "sc-rpc-spec-v2",
  "sc-statement-store",
  "scale-info",
  "serde",
@@ -12090,20 +12094,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "node-template-release"
-version = "3.0.0"
-dependencies = [
- "clap",
- "flate2",
- "fs_extra",
- "glob",
- "itertools 0.11.0",
- "tar",
- "tempfile",
- "toml_edit 0.19.15",
-]
-
-[[package]]
 name = "node-testing"
 version = "3.0.0-dev"
 dependencies = [
@@ -14633,6 +14623,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "parity-scale-codec",
+ "polkadot-primitives",
  "registrar-primitives",
  "scale-info",
  "sp-core 28.0.0",
@@ -15956,14 +15947,17 @@ version = "7.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
+ "frame-executive",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-multi-asset-bounties",
+ "pallet-session",
  "pallet-treasury",
  "pallet-xcm",
  "parachains-common-types",
@@ -15971,10 +15965,12 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-common",
  "scale-info",
+ "sp-authority-discovery",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-executor",
@@ -16350,6 +16346,7 @@ dependencies = [
  "frame-try-runtime",
  "pallet-accumulate-and-forward",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
@@ -16377,12 +16374,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
@@ -29242,17 +29241,6 @@ dependencies = [
 
 [[package]]
 name = "toml_edit"
-version = "0.19.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b5bb770da30e5cbfde35a2d7b9b8a2c4b8ef89548a7a6aeab5c9a576e3e7421"
-dependencies = [
- "indexmap 2.14.2",
- "toml_datetime 0.6.8",
- "winnow 0.5.15",
-]
-
-[[package]]
-name = "toml_edit"
 version = "0.22.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ae48d6208a266e853d946088ed816055e556cc6028c5e8e2b84d9fa5dd7c7f5"
@@ -31430,15 +31418,6 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winnow"
-version = "0.5.15"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c2e3184b9c4e92ad5167ca73039d0c42476302ab603e2fec4487511f38ccefc"
-dependencies = [
- "memchr",
-]
-
-[[package]]
-name = "winnow"
 version = "0.6.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "68a9bda4691f099d435ad181000724da8e5899daa10713c2d432552b9ccd3a6f"
@@ -31852,10 +31831,12 @@ name = "yet-another-parachain-runtime"
 version = "0.6.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
+ "log",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "sp-io 30.0.0",
  "substrate-wasm-builder",
 ]
 

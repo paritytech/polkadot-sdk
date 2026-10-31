@@ -246,8 +246,7 @@ fn get_keystore() -> sp_keystore::KeystorePtr {
 ///
 /// Assumes that the authorities of the test runtime are present in the keyring.
 pub fn seal_block(mut block: Block, client: &Client) -> Block {
-	let parachain_slot =
-		find_pre_digest::<Block, <AuraId as AppCrypto>::Signature>(&block.header).unwrap();
+	let parachain_slot = find_pre_digest::<Block>(&block.header).unwrap();
 	let parent_hash = block.header.parent_hash;
 	let authorities = client.runtime_api().authorities(parent_hash).unwrap();
 	let expected_author = slot_author::<<AuraId as AppCrypto>::Pair>(parachain_slot, &authorities)

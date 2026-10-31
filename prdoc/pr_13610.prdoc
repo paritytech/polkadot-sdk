@@ -1,0 +1,17 @@
+title: 'Aura: Unify the Seal + PreDigest code between node + runtime'
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Moves the AuRa seal and pre-digest handling into `sp-consensus-aura`, so it is shared
+      between the node and the runtime.
+
+crates:
+  - name: sp-consensus-aura
+    bump: minor
+  - name: sc-consensus-aura
+    bump: major
+  - name: cumulus-pallet-aura-ext
+    bump: patch
+  - name: sc-consensus-manual-seal
+    bump: patch
