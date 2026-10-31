@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793392602306,
+  "lastUpdate": 1793476481504,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cd3eb6de88ebeec6483b10e368a2ec56b391523e",
-          "message": "[westend] Remove pallet_treasury from RC and clean up system parachains matchers (#11763)\n\n- Remove pallet_treasury entirely from Westend relay chain.\n- Drain residual balances from the legacy `py/trsry`-derived account\ninto the local DAP satellite buffer on the relay and on each Westend\nsystem parachain (bridge-hub, collectives, coretime, people).\n- Remove RelayTreasuryLocation matchers from all Westend system\nparachains.\n\nCloses #11705.\n\n**NOTE**: a followup PR will remove also all remaining OpenGov related\npallets from RC (issue #11775, stacked PR: #11796).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-16T16:01:49Z",
-          "tree_id": "467857ff3b0324ad909c032a610e22ec83e0ebb4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd3eb6de88ebeec6483b10e368a2ec56b391523e"
-        },
-        "date": 1776360250272,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1283195835,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.800964707233337,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.935387371533334,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0f50c61a952e6ec776df557d8ffd54f341bd8b6a",
+          "message": "statement-store: soak a mixed network of v2 DHT and DHT-off nodes (#13504)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13175.\n\nA soak for a network where the v2 DHT path is on for most nodes and off\non `STATEMENT_V2_SOAK_DHT_OFF_NODES` full nodes. Every wave checks\ndelivery in all four directions between the two kinds, with ring load\nand probes on hard paths. Restarts and joins of both kinds must catch up\non the statements sent before them. Misses don't stop the run: it fails\nat the end with a report per direction.\n\nA second soak walks a network through turning the path on: only the\ncollators start on it, full nodes restart onto it with their keys and\ndatabases until half and then 90% of the nodes run it, and one goes back\noff. A wave checks delivery and placement after each step.\n\nBoth run on demand through `zombienet_statement-store-soak.yml` (matrix\nentries `0002-v2-dht-mixed` and `0003-v2-dht-rollout`); the\n`soak_dht_off_nodes` input overrides the DHT-off count. `v2_dht_soak.rs`\nonly opens its helpers to the new module and moves the node stop/start\nand the log scan into functions, so the v2 soak itself is unchanged.",
+          "timestamp": "2026-10-31T18:22:11Z",
+          "tree_id": "5fdc34de1ae222d2640f6b380fecaa992c04e511",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f50c61a952e6ec776df557d8ffd54f341bd8b6a"
+        },
+        "date": 1793476447551,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.755720791500002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12361926013333333,
             "unit": "seconds"
           }
         ]
