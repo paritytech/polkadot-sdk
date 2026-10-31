@@ -291,6 +291,9 @@ pub mod pallet {
 		///
 		/// The deposit taken can be specified for this registration. Any `ParaId`
 		/// can be registered, including sub-1000 IDs which are System Parachains.
+		///
+		/// Deprecated where registration runs through `pallet-registrar-para`: use its
+		/// `force_register` there, since a para registered here is unknown to that pallet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_register())]
 		pub fn force_register(
