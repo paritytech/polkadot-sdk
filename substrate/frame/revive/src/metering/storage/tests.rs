@@ -50,7 +50,7 @@ impl Ext<Test> for TestExt {
 		contract: &AccountIdOf<Test>,
 		amount: &DepositOf<Test>,
 		_exec_config: &ExecConfig<Test>,
-	) -> Result<(), DispatchError> {
+	) -> Result<DepositOf<Test>, DispatchError> {
 		TestExtTestValue::mutate(|ext| {
 			ext.charges.push(Charge {
 				origin: origin.clone(),
@@ -58,12 +58,42 @@ impl Ext<Test> for TestExt {
 				amount: amount.clone(),
 			})
 		});
-		Ok(())
+		Ok(amount.clone())
 	}
 }
 
 fn clear_ext() {
 	TestExtTestValue::mutate(|ext| ext.clear())
+}
+
+/// An [`Ext`] that releases at most [`PARTIAL_REFUND_CAP`] of each refund.
+///
+/// It records the deposit it transfers in [`TestExtTestValue`], as [`TestExt`] does.
+enum PartialRefundExt {}
+
+/// The largest refund that [`PartialRefundExt`] releases.
+const PARTIAL_REFUND_CAP: BalanceOf<Test> = 10;
+
+impl Ext<Test> for PartialRefundExt {
+	fn charge(
+		origin: &AccountIdOf<Test>,
+		contract: &AccountIdOf<Test>,
+		amount: &DepositOf<Test>,
+		exec_config: &ExecConfig<Test>,
+	) -> Result<DepositOf<Test>, DispatchError> {
+		let transferred = match *amount {
+			Deposit::Refund(value) => Deposit::Refund(value.min(PARTIAL_REFUND_CAP)),
+			Deposit::Charge(value) => Deposit::Charge(value),
+		};
+		TestExt::charge(origin, contract, &transferred, exec_config)
+	}
+}
+
+/// Pay the refunds and then the charges recorded in `meter`, as the transaction meter does.
+fn execute_postponed_deposits(meter: &mut TestMeter, origin: &Origin<Test>) -> DepositOf<Test> {
+	let exec_config = ExecConfig::new_substrate_tx();
+	meter.execute_postponed_refunds(origin, &exec_config).unwrap();
+	meter.execute_postponed_charges(origin, &exec_config).unwrap()
 }
 
 struct ChargingTestCase {
@@ -158,12 +188,7 @@ fn empty_charge_works() {
 	nested0.charge(&Default::default());
 	meter.absorb(nested0, &BOB, None);
 	assert_eq!(
-		meter
-			.execute_postponed_deposits(
-				&Origin::<Test>::from_account_id(ALICE),
-				&ExecConfig::new_substrate_tx(),
-			)
-			.unwrap(),
+		execute_postponed_deposits(&mut meter, &Origin::<Test>::from_account_id(ALICE)),
 		Default::default()
 	);
 	assert_eq!(TestExtTestValue::get(), TestExt { ..Default::default() })
@@ -262,12 +287,7 @@ fn charging_works() {
 		assert_eq!(meter.consumed(), Deposit::Refund(28));
 		assert_eq!(meter.available(), 128);
 
-		assert_eq!(
-			meter
-				.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
-				.unwrap(),
-			test_case.deposit
-		);
+		assert_eq!(execute_postponed_deposits(&mut meter, &test_case.origin), test_case.deposit);
 
 		assert_eq!(nested0_info.extra_deposit(), 112);
 		assert_eq!(nested1_info.extra_deposit(), 110);
@@ -338,14 +358,62 @@ fn termination_works() {
 
 		meter.terminate(CHARLIE, total_deposit);
 		assert_eq!(meter.consumed(), Deposit::Refund(98));
-		assert_eq!(
-			meter
-				.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
-				.unwrap(),
-			test_case.deposit
-		);
+		assert_eq!(execute_postponed_deposits(&mut meter, &test_case.origin), test_case.deposit);
 		assert_eq!(TestExtTestValue::get(), test_case.expected)
 	}
+}
+
+/// The part of a refund that is not released is added to the deposit consumed by the meter.
+///
+/// CHARLIE's refund of 30 is released only up to [`PARTIAL_REFUND_CAP`] and DJANGO's refund of 8
+/// in full. The 20 that are not released are returned by `execute_postponed_refunds`, added to the
+/// consumed deposit and raise the maximum charged deposit. The charge is then paid in full.
+#[test]
+fn partially_released_refunds_are_added_to_the_consumed_deposit() {
+	clear_ext();
+	let origin = Origin::<Test>::from_account_id(ALICE);
+	let exec_config = ExecConfig::new_substrate_tx();
+
+	let mut meter = RawMeter::<Test, PartialRefundExt, Root>::new(Some(100));
+	let mut nested = meter.nested(None);
+	nested.charge_deposit(CHARLIE, Deposit::Refund(30));
+	nested.charge_deposit(DJANGO, Deposit::Refund(8));
+	nested.charge_deposit(BOB, Deposit::Charge(25));
+	meter.absorb(nested, &EVE, None);
+	assert_eq!(meter.consumed(), Deposit::Refund(13));
+	assert_eq!(meter.max_charged(), Deposit::Charge(0));
+
+	assert_eq!(meter.execute_postponed_refunds(&origin, &exec_config), Ok(20));
+	assert_eq!(meter.consumed(), Deposit::Charge(7));
+	assert_eq!(meter.max_charged(), Deposit::Charge(7));
+
+	assert_eq!(meter.execute_postponed_charges(&origin, &exec_config), Ok(Deposit::Charge(7)));
+	assert_eq!(
+		TestExtTestValue::get(),
+		TestExt {
+			charges: vec![
+				Charge { origin: ALICE, contract: CHARLIE, amount: Deposit::Refund(10) },
+				Charge { origin: ALICE, contract: DJANGO, amount: Deposit::Refund(8) },
+				Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(25) },
+			],
+		}
+	);
+}
+
+/// No refund is released and nothing is added to the consumed deposit for `Origin::Root`.
+#[test]
+fn partially_released_refunds_are_ignored_for_root() {
+	clear_ext();
+	let exec_config = ExecConfig::new_substrate_tx();
+
+	let mut meter = RawMeter::<Test, PartialRefundExt, Root>::new(Some(100));
+	let mut nested = meter.nested(None);
+	nested.charge_deposit(CHARLIE, Deposit::Refund(30));
+	meter.absorb(nested, &EVE, None);
+
+	assert_eq!(meter.execute_postponed_refunds(&Origin::Root, &exec_config), Ok(0));
+	assert_eq!(meter.consumed(), Deposit::Refund(30));
+	assert_eq!(TestExtTestValue::get(), TestExt::default());
 }
 
 #[test]
