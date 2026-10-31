@@ -689,14 +689,23 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		// TODO(ahm-v2): set the para's current head.
 	}
 
-	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
-		Err(())
+	fn check_code_upgrade(para_id: u32, code_len: u32) -> Result<(), ()> {
+		let max = configuration::ActiveConfig::<T>::get().max_code_size as u32;
+		if !polkadot_runtime_parachains::can_upgrade_validation_code::<T>(ParaId::from(para_id)) ||
+			code_len > max ||
+			code_len < MIN_CODE_SIZE
+		{
+			return Err(());
+		}
+		Ok(())
 	}
 
-	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
-		// TODO(ahm-v2): schedule the validation code upgrade.
-		Err(Error::<T>::NotImplemented.into())
+	fn schedule_code_upgrade(para_id: u32, validation_code: Vec<u8>) -> DispatchResult {
+		polkadot_runtime_parachains::schedule_code_upgrade::<T>(
+			ParaId::from(para_id),
+			ValidationCode(validation_code),
+			UpgradeStrategy::ApplyAtExpectedBlock,
+		)
 	}
 }
 

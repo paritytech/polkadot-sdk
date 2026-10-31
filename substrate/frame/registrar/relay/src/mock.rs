@@ -38,6 +38,7 @@ pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const MAX_PENDING: u32 = 2;
+pub const CODE_UPGRADE_VALID_PERIOD: u32 = 100;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -82,6 +83,12 @@ parameter_types! {
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
+	/// When true, `MockRegistrar::check_code_upgrade` fails.
+	pub static UpgradeCheckFails: bool = false;
+	/// Code upgrades `MockRegistrar` has scheduled, in order.
+	pub static ScheduledUpgrades: Vec<(ParaId, Vec<u8>)> = Vec::new();
+	/// When true, `MockRegistrar::schedule_code_upgrade` fails.
+	pub static ScheduleFails: bool = false;
 }
 
 /// Stands in for the relay chain's `paras_registrar`.
@@ -139,16 +146,24 @@ impl ParachainRegistrar for MockRegistrar {
 		// TODO(ahm-v2): record the head update in the mock.
 	}
 
-	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
-		// TODO(ahm-v2): check the code upgrade in the mock.
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()> {
+		if !Self::is_registered(para_id) ||
+			UpgradeCheckFails::get() ||
+			!(MIN_CODE_SIZE..=MAX_CODE_SIZE).contains(&code_len)
+		{
+			return Err(());
+		}
 		Ok(())
 	}
 
 	fn schedule_code_upgrade(
-		_para_id: ParaId,
-		_validation_code: Vec<u8>,
+		para_id: ParaId,
+		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult {
-		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
+		if ScheduleFails::get() {
+			return Err(sp_runtime::DispatchError::Other("registrar refused"));
+		}
+		ScheduledUpgrades::mutate(|v| v.push((para_id, validation_code)));
 		Ok(())
 	}
 }
@@ -182,12 +197,9 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
+	type CodeUpgradeValidPeriod = ConstU32<CODE_UPGRADE_VALID_PERIOD>;
 	type UnsignedPriority = ConstU64<100>;
 	type WeightInfo = ();
-}
-
-parameter_types! {
-	pub const Unused: u32 = 0;
 }
 
 use frame_support::traits::ConstU64;
@@ -200,6 +212,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	DeregisterFails::set(false);
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
+	UpgradeCheckFails::set(false);
+	ScheduledUpgrades::set(Vec::new());
+	ScheduleFails::set(false);
 
 	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	let mut ext = sp_io::TestExternalities::new(t);

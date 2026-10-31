@@ -110,7 +110,8 @@ pub enum MessageToRelayV1<AccountId> {
 	/// Ask the relay chain to authorize a validation code upgrade for `para_id`.
 	///
 	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
-	/// accept and they are uploaded to it separately. Answered with
+	/// accept and they are uploaded to it separately. Ownership and the lock are checked on the
+	/// parachain, so nothing about the caller travels with this. Answered with
 	/// [`MessageToParaV1::CodeUpgradeResponse`].
 	#[codec(index = 3)]
 	AuthorizeCodeUpgrade {
@@ -269,7 +270,9 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
-	// Index 2 is reserved for `NotRegistered`, which lands with the deregister flow.
+	/// The relay chain does not know this para id.
+	#[codec(index = 2)]
+	NotRegistered,
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
@@ -277,6 +280,13 @@ pub enum FailureReason {
 	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
 	NotDeregisterable,
+	/// The registry will not take this upgrade now, e.g. one is already in flight or the para is
+	/// in its post-upgrade cooldown.
+	#[codec(index = 5)]
+	CannotUpgradeCode,
+	/// The declared validation code length is outside what the relay chain accepts.
+	#[codec(index = 6)]
+	InvalidCodeSize,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
