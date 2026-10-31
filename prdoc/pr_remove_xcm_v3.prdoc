@@ -1,0 +1,59 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove XCM v3
+
+doc:
+  - audience: [Runtime Dev, Runtime User]
+    description: |
+      XCM v3 has been removed. The minimum supported XCM version is now v4 and the
+      `xcm::v3` module, the `V3` variants of every `Versioned*` type (`VersionedXcm`,
+      `VersionedLocation`, `VersionedAssets`, `VersionedAssetId`, ...), the `AlwaysV3`
+      version wrapper and the `VersionedLocatableAsset::V3` variant are gone. The
+      `Error`, `SendError`, `XcmHash`, `BodyId`, `BodyPart`, `GetWeight`, `OriginKind`,
+      `WeightLimit`, `MaybeErrorCode` and `MaxDispatchErrorLen` definitions that v4 and
+      v5 re-exported from v3 now live in `xcm::v4`.
+
+      Wire compatibility for v4 and v5 is unchanged: the SCALE variant indices are
+      explicit and stay at 4 and 5. Anything still encoded with the v3 discriminant
+      can no longer be decoded, so before upgrading to this release a chain must:
+      - have run `pallet_xcm::migration::MigrateToLatestXcmVersion` on a previous
+        runtime, so no `Queries`, `LockedFungibles`, `RemoteLockedFungibles` or
+        version-tracking entries remain at v3;
+      - migrate any of its own storage that holds `xcm::v3` types or `V3` variants of
+        the versioned types (asset registries keyed by `xcm::v3::MultiLocation`,
+        `pallet-asset-rate` and treasury spends keyed by
+        `VersionedLocatableAsset::V3`, and similar).
+      Assets trapped under a v3 hash can no longer be claimed, and destinations that
+      only speak XCM v3 become unreachable: `wrap_version` fails with
+      `DestinationUnsupported` for them.
+
+      Metadata type paths change for the types moved out of v3 (for example
+      `xcm::v3::traits::Error` becomes `xcm::v4::traits::Error`), which renames the
+      corresponding generated types in client-side descriptors.
+
+crates:
+  - name: staging-xcm
+    bump: major
+  - name: xcm-procedural
+    bump: major
+  - name: pallet-xcm
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major
+  - name: parachains-common
+    bump: major
+  - name: staging-xcm-builder
+    bump: none
+  - name: pallet-xcm-precompiles
+    bump: none
+  - name: xcm-runtime-apis
+    bump: none
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: snowbridge-pallet-inbound-queue
+    bump: none
+  - name: cumulus-pallet-xcmp-queue
+    bump: none
+  - name: pallet-contracts-uapi
+    bump: none

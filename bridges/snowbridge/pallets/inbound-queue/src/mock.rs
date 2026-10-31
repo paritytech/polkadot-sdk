@@ -129,7 +129,7 @@ impl Verifier for MockVerifier {
 const GATEWAY_ADDRESS: [u8; 20] = hex!["eda338e4dc46038493b885327842fd3e301cab39"];
 
 parameter_types! {
-	pub const EthereumNetwork: xcm::v3::NetworkId = xcm::v3::NetworkId::Ethereum { chain_id: 11155111 };
+	pub const EthereumNetwork: xcm::v5::NetworkId = xcm::v5::NetworkId::Ethereum { chain_id: 11155111 };
 	pub const GatewayAddress: H160 = H160(GATEWAY_ADDRESS);
 	pub const CreateAssetCall: [u8;2] = [53, 0];
 	pub const CreateAssetExecutionFee: u128 = 2_000_000_000;

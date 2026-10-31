@@ -16,7 +16,7 @@
 
 //! Cross-Consensus Message format data structures.
 
-pub use crate::v3::{Error as OldError, SendError, XcmHash};
+pub use crate::v4::{Error as OldError, SendError, XcmHash};
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use core::result;
 use scale_info::TypeInfo;
