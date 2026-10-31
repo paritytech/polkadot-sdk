@@ -18,9 +18,12 @@
 
 use collectives_westend_runtime::{
 	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Balances, Block, ExistentialDeposit, Runtime, RuntimeCall, RuntimeOrigin,
+	Balances, Block, ExistentialDeposit, ProxyType, Runtime, RuntimeCall, RuntimeOrigin,
 };
-use frame_support::{assert_err, assert_ok, traits::fungible::Inspect};
+use frame_support::{
+	assert_err, assert_ok,
+	traits::{fungible::Inspect, InstanceFilter},
+};
 use parachains_common::{AccountId, AuraId};
 use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
 use sp_core::crypto::Ss58Codec;
@@ -279,4 +282,180 @@ fn dust_removal_goes_to_accumulation_account() {
 			assert_eq!(accumulation_after, accumulation_before + dust);
 			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 		});
+}
+
+const PROXY_TYPES: [ProxyType; 8] = [
+	ProxyType::Any,
+	ProxyType::NonTransfer,
+	ProxyType::CancelProxy,
+	ProxyType::Collator,
+	ProxyType::Alliance,
+	ProxyType::Fellowship,
+	ProxyType::Ambassador,
+	ProxyType::Secretary,
+];
+
+/// `payout_other` pays the claimant's salary to an arbitrary account, so only `Any` may call it.
+#[test]
+fn only_any_proxy_can_redirect_salary_payouts() {
+	let beneficiary = AccountId::from([0u8; 32]);
+	let payout_other = [
+		RuntimeCall::FellowshipSalary(pallet_salary::Call::payout_other {
+			beneficiary: beneficiary.clone(),
+		}),
+		RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout_other {
+			beneficiary: beneficiary.clone(),
+		}),
+		RuntimeCall::SecretarySalary(pallet_salary::Call::payout_other { beneficiary }),
+	];
+
+	for proxy_type in PROXY_TYPES {
+		for call in &payout_other {
+			assert_eq!(
+				proxy_type.filter(call),
+				proxy_type == ProxyType::Any,
+				"{proxy_type:?} filter is wrong for {call:?}"
+			);
+		}
+	}
+
+	// Claiming the salary to the claimant itself is still possible.
+	let fellowship_payout = RuntimeCall::FellowshipSalary(pallet_salary::Call::payout {});
+	assert!(ProxyType::NonTransfer.filter(&fellowship_payout));
+	assert!(ProxyType::Fellowship.filter(&fellowship_payout));
+	let ambassador_payout = RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout {});
+	assert!(ProxyType::NonTransfer.filter(&ambassador_payout));
+	assert!(ProxyType::Ambassador.filter(&ambassador_payout));
+	assert!(
+		ProxyType::Secretary.filter(&RuntimeCall::SecretarySalary(pallet_salary::Call::payout {}))
+	);
+}
+
+/// Every `is_superset` edge must be backed by the call filters, otherwise a proxy can escalate
+/// itself by adding a "subset" proxy that allows more calls.
+#[test]
+fn proxy_type_superset_relation_matches_call_filters() {
+	let who = AccountId::from([0u8; 32]);
+	let remark = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+	let calls = vec![
+		remark.clone(),
+		RuntimeCall::Balances(pallet_balances::Call::transfer_keep_alive {
+			dest: who.clone().into(),
+			value: 1,
+		}),
+		RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+			dest: Box::new(xcm::VersionedLocation::from(Location::here())),
+			beneficiary: Box::new(xcm::VersionedLocation::from(Location::here())),
+			assets: Box::new(xcm::VersionedAssets::from(Assets::new())),
+			fee_asset_item: 0,
+			weight_limit: WeightLimit::Unlimited,
+		}),
+		RuntimeCall::CollatorSelection(pallet_collator_selection::Call::leave_intent {}),
+		RuntimeCall::Session(pallet_session::Call::purge_keys {}),
+		RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] }),
+		RuntimeCall::Multisig(pallet_multisig::Call::as_multi_threshold_1 {
+			other_signatories: vec![],
+			call: Box::new(remark),
+		}),
+		RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement {
+			delegate: who.clone().into(),
+			call_hash: Default::default(),
+		}),
+		RuntimeCall::Alliance(pallet_alliance::Call::retire {}),
+		RuntimeCall::FellowshipCollective(pallet_ranked_collective::Call::cleanup_poll {
+			poll_index: 0,
+			max: 0,
+		}),
+		RuntimeCall::FellowshipSalary(pallet_salary::Call::payout {}),
+		RuntimeCall::FellowshipSalary(pallet_salary::Call::payout_other {
+			beneficiary: who.clone(),
+		}),
+		RuntimeCall::AmbassadorCollective(pallet_ranked_collective::Call::cleanup_poll {
+			poll_index: 0,
+			max: 0,
+		}),
+		RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout {}),
+		RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout_other {
+			beneficiary: who.clone(),
+		}),
+		RuntimeCall::SecretaryCollective(pallet_ranked_collective::Call::cleanup_poll {
+			poll_index: 0,
+			max: 0,
+		}),
+		RuntimeCall::SecretarySalary(pallet_salary::Call::payout {}),
+		RuntimeCall::SecretarySalary(pallet_salary::Call::payout_other { beneficiary: who }),
+	];
+
+	for sup in &PROXY_TYPES {
+		for sub in PROXY_TYPES.iter().filter(|sub| sup.is_superset(sub)) {
+			for call in calls.iter().filter(|call| sub.filter(call)) {
+				assert!(
+					sup.filter(call),
+					"{sup:?} is a superset of {sub:?}, but does not allow {call:?}"
+				);
+			}
+		}
+	}
+}
+
+/// Calls that move the delegator's assets to another chain, labelled so a failure names every
+/// call that slipped through.
+#[test]
+fn non_transfer_proxy_rejects_value_moving_xcm_calls() {
+	let here = Location::here();
+	let value_moving = vec![
+		(
+			"PolkadotXcm::transfer_assets",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::transfer_assets {
+				dest: Box::new(xcm::VersionedLocation::from(here.clone())),
+				beneficiary: Box::new(xcm::VersionedLocation::from(here.clone())),
+				assets: Box::new(xcm::VersionedAssets::from(Assets::new())),
+				fee_asset_item: 0,
+				weight_limit: WeightLimit::Unlimited,
+			}),
+		),
+		(
+			"PolkadotXcm::execute",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::execute {
+				message: Box::new(xcm::VersionedXcm::from(Xcm::<RuntimeCall>::new())),
+				max_weight: Weight::zero(),
+			}),
+		),
+		(
+			"PolkadotXcm::send",
+			RuntimeCall::PolkadotXcm(pallet_xcm::Call::send {
+				dest: Box::new(xcm::VersionedLocation::from(here)),
+				message: Box::new(xcm::VersionedXcm::from(Xcm::<()>::new())),
+			}),
+		),
+	];
+
+	let mut leaked = Vec::new();
+	for (name, call) in value_moving {
+		if ProxyType::NonTransfer.filter(&call) {
+			leaked.push(name);
+		}
+		assert!(ProxyType::Any.filter(&call), "Any must permit {name}");
+	}
+	assert!(
+		leaked.is_empty(),
+		"NonTransfer must reject calls that move funds, but permitted: {leaked:?}",
+	);
+}
+
+#[test]
+fn non_transfer_proxy_still_permits_non_value_moving_calls() {
+	let permitted = vec![
+		("FellowshipSalary::payout", RuntimeCall::FellowshipSalary(pallet_salary::Call::payout {})),
+		("AmbassadorSalary::payout", RuntimeCall::AmbassadorSalary(pallet_salary::Call::payout {})),
+		("SecretarySalary::payout", RuntimeCall::SecretarySalary(pallet_salary::Call::payout {})),
+		(
+			"CollatorSelection::leave_intent",
+			RuntimeCall::CollatorSelection(pallet_collator_selection::Call::leave_intent {}),
+		),
+		("Utility::batch", RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })),
+	];
+	for (name, call) in permitted {
+		assert!(ProxyType::NonTransfer.filter(&call), "NonTransfer must still permit {name}");
+	}
 }
