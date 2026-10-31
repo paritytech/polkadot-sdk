@@ -443,6 +443,8 @@ async fn notifications_state_consistent() {
 				node2_to_node1_open = false;
 				assert_eq!(peer, node1.local_peer_id());
 			},
+			future::Either::Left(NotificationEvent::NotificationStreamOpenFailure { .. }) |
+			future::Either::Right(NotificationEvent::NotificationStreamOpenFailure { .. }) => {},
 			future::Either::Left(NotificationEvent::NotificationReceived { peer, .. }) => {
 				assert!(node1_to_node2_open);
 				assert_eq!(peer, node2.local_peer_id());

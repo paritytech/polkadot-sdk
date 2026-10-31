@@ -241,6 +241,7 @@ impl<B: BlockT> Future for GossipEngine<B> {
 								this.state_machine
 									.peer_disconnected(&mut this.notification_service, peer);
 							},
+							NotificationEvent::NotificationStreamOpenFailure { .. } => {},
 							NotificationEvent::NotificationReceived { peer, notification } => {
 								let to_forward = this.state_machine.on_incoming(
 									&mut *this.network,
