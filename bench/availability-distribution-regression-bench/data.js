@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793392647353,
+  "lastUpdate": 1793476527002,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d7bc514f0cc9029f614c9a28ce01f8944dd62693",
-          "message": "Bump spec_version WAH (#11792)\n\nBumps WAH spec_version after latest upgrade",
-          "timestamp": "2026-04-16T10:31:35Z",
-          "tree_id": "e07ebe9b0f15a155ef6f4e1e10170bc0e74608ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d7bc514f0cc9029f614c9a28ce01f8944dd62693"
-        },
-        "date": 1776340216110,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025522495639999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14205752521333326,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007180151673333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009609837973333302,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010331025086666643,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "15388928+DenzelPenzel@users.noreply.github.com",
+            "name": "DenzelPenzel",
+            "username": "DenzelPenzel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "0f50c61a952e6ec776df557d8ffd54f341bd8b6a",
+          "message": "statement-store: soak a mixed network of v2 DHT and DHT-off nodes (#13504)\n\n# Description\n\nCloses https://github.com/paritytech/polkadot-sdk/issues/13175.\n\nA soak for a network where the v2 DHT path is on for most nodes and off\non `STATEMENT_V2_SOAK_DHT_OFF_NODES` full nodes. Every wave checks\ndelivery in all four directions between the two kinds, with ring load\nand probes on hard paths. Restarts and joins of both kinds must catch up\non the statements sent before them. Misses don't stop the run: it fails\nat the end with a report per direction.\n\nA second soak walks a network through turning the path on: only the\ncollators start on it, full nodes restart onto it with their keys and\ndatabases until half and then 90% of the nodes run it, and one goes back\noff. A wave checks delivery and placement after each step.\n\nBoth run on demand through `zombienet_statement-store-soak.yml` (matrix\nentries `0002-v2-dht-mixed` and `0003-v2-dht-rollout`); the\n`soak_dht_off_nodes` input overrides the DHT-off count. `v2_dht_soak.rs`\nonly opens its helpers to the new module and moves the node stop/start\nand the log scan into functions, so the v2 soak itself is unchanged.",
+          "timestamp": "2026-10-31T18:22:11Z",
+          "tree_id": "5fdc34de1ae222d2640f6b380fecaa992c04e511",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/0f50c61a952e6ec776df557d8ffd54f341bd8b6a"
+        },
+        "date": 1793476493511,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010175396866666644,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14639495246666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007717068653333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025144304593333337,
             "unit": "seconds"
           }
         ]
