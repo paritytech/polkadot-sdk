@@ -1,0 +1,44 @@
+title: Exact ERC-20 transfers and revert reasons in the assets and asset-conversion precompiles
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    The assets ERC-20 precompile now reverts a `transfer` or `transferFrom` that would leave the
+    sender a non-zero balance below `min_balance`, instead of letting pallet-assets sweep the
+    remainder to the recipient. `pallet-assets` is unchanged.
+
+    Pallet errors from both precompiles now revert with the `DispatchError` reason, which is the
+    variant name for module errors. A state change under `STATICCALL` still fails with no return
+    data.
+
+    `pallet-asset-conversion` adds `Pallet::pool_exists` and `WeightInfo::pool_exists`, used by
+    the precompile to tell a missing pool from an empty one. Its swap `withdraw` refuses a credit
+    that differs from the requested amount.
+
+- audience: Runtime User
+  description: |-
+    ERC-20 `transfer` and `transferFrom` on pallet-assets tokens revert with "Transfer would leave
+    sender below minimum balance" rather than sending more than `value`. Send the full balance or
+    keep at least the minimum. A contract that tracks deposits should pay out `balanceOf(this)` on
+    the last withdrawal, since anyone can send it a small amount that puts the tracked total in
+    that range.
+
+    Precompile reverts now use error names such as "AssetNotLive" or "PoolEmpty". Quotes report
+    "Amount can't be zero", "Pool does not exist", "Pool exists but has no liquidity" or
+    "Quote failed".
+
+crates:
+- name: pallet-asset-conversion
+  bump: major
+- name: pallet-assets-precompiles
+  bump: patch
+- name: pallet-asset-conversion-precompiles
+  bump: patch
+- name: pallet-revive
+  bump: none
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: pallet-staking-async-parachain-runtime
+  bump: patch

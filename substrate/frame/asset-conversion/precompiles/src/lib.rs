@@ -41,6 +41,7 @@ use pallet_revive::precompiles::{
 	},
 	AddressMatcher, Error, Ext, Precompile, H160,
 };
+use sp_runtime::{traits::Zero, DispatchError, TokenError};
 
 #[cfg(test)]
 mod mock;
@@ -193,10 +194,11 @@ where
 	) -> Result<Vec<u8>, Error> {
 		use IAssetConversion::IAssetConversionCalls;
 
-		frame_support::ensure!(
-			!env.is_delegate_call(),
-			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
-		);
+		if env.is_delegate_call() {
+			return Err(Error::try_to_revert::<Self::T>(
+				pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into(),
+			));
+		}
 
 		match input {
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
@@ -231,12 +233,17 @@ where
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_INVALID_ASSET_PAIR: &str = "Invalid asset pair";
-const ERR_POOL_NOT_FOUND: &str = "Pool does not exist or has no liquidity";
+const ERR_POOL_NOT_FOUND: &str = "Pool does not exist";
 const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
-const ERR_POOL_UNAVAILABLE: &str = "Pool is frozen or blocked";
-const ERR_UNEXPECTED: &str = "Unexpected error";
+const ERR_ZERO_AMOUNT: &str = "Amount can't be zero";
+/// `QuotePrice` returns `None` for more than missing liquidity, e.g. when the output rounds to
+/// zero or the computation overflows, so this does not name a cause.
+const ERR_QUOTE_FAILED: &str = "Quote failed";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
+/// In a swap, only the sender's expendable withdraw can return `Token(BelowMinimum)`: the pool's
+/// withdraw keeps the pool alive and never sweeps. Only swaps use it, see `revert_swap`.
+const ERR_INEXACT_WITHDRAW: &str = "Swap amount cannot be withdrawn exactly";
 
 impl<const ADDRESS: u16, Runtime> AssetConversion<ADDRESS, Runtime>
 where
@@ -287,6 +294,26 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
+	/// Every pallet or token failure of a state-changing call is a Solidity revert, with the
+	/// reason sp-runtime gives the error: the variant name for a module error, so a contract sees
+	/// the same name whichever precompile surfaced it. `Error::Error` comes from the blanket
+	/// `From<DispatchError>`; only charging failures should reach it.
+	fn revert_dispatch(e: DispatchError) -> Error {
+		Error::Revert(Revert { reason: <&'static str>::from(e).into() })
+	}
+
+	/// Like `revert_dispatch`, but reports `Token(BelowMinimum)` as an inexact withdraw.
+	/// Other calls hit that error for other reasons, e.g. `removeLiquidity` paying less than
+	/// the minimum balance to a new account, so they keep the plain token reason.
+	fn revert_swap(e: DispatchError) -> Error {
+		match e {
+			DispatchError::Token(TokenError::BelowMinimum) => {
+				Error::Revert(Revert { reason: ERR_INEXACT_WITHDRAW.into() })
+			},
+			e => Self::revert_dispatch(e),
+		}
+	}
+
 	fn swap_exact_tokens_for_tokens(
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
@@ -302,17 +329,19 @@ where
 
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
+		let amount_in = Self::to_balance(call.amountIn)?;
 
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_exact_tokens_for_tokens(
 			sender,
 			path,
-			Self::to_balance(call.amountIn)?,
+			amount_in,
 			Some(Self::to_balance(call.amountOutMin)?),
 			send_to,
 			call.keepAlive,
-		)?;
+		)
+		.map_err(Self::revert_swap)?;
 
 		Ok(IAssetConversion::swapExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_out,
@@ -334,17 +363,19 @@ where
 
 		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
+		let amount_out = Self::to_balance(call.amountOut)?;
 
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_tokens_for_exact_tokens(
 			sender,
 			path,
-			Self::to_balance(call.amountOut)?,
+			amount_out,
 			Some(Self::to_balance(call.amountInMax)?),
 			send_to,
 			call.keepAlive,
-		)?;
+		)
+		.map_err(Self::revert_swap)?;
 
 		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			amount_in,
@@ -367,15 +398,16 @@ where
 
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+		let amount = Self::to_balance(call.amount)?;
 
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_exact_tokens_for_tokens(
-				asset1,
-				asset2,
-				Self::to_balance(call.amount)?,
+				asset1.clone(),
+				asset2.clone(),
+				amount,
 				call.includeFee,
 			)
-			.ok_or(Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }))?;
+			.ok_or_else(|| Self::quote_failure(&asset1, &asset2, amount, env))?;
 
 		Ok(IAssetConversion::quoteExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
 			quoted,
@@ -395,15 +427,16 @@ where
 
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+		let amount = Self::to_balance(call.amount)?;
 
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_tokens_for_exact_tokens(
-				asset1,
-				asset2,
-				Self::to_balance(call.amount)?,
+				asset1.clone(),
+				asset2.clone(),
+				amount,
 				call.includeFee,
 			)
-			.ok_or(Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }))?;
+			.ok_or_else(|| Self::quote_failure(&asset1, &asset2, amount, env))?;
 
 		Ok(IAssetConversion::quoteTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			quoted,
@@ -423,7 +456,8 @@ where
 
 		<pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,
-		>>::create_pool(&sender, asset1, asset2)?;
+		>>::create_pool(&sender, asset1, asset2)
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(Vec::new())
 	}
@@ -455,7 +489,8 @@ where
 				amount_min: Self::to_balance(call.amount2Min)?,
 			},
 			&mint_to,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(IAssetConversion::addLiquidityCall::abi_encode_returns(&Self::to_u256(lp_tokens)?))
 	}
@@ -482,7 +517,8 @@ where
 			Self::to_balance(call.amount1MinReceive)?,
 			Self::to_balance(call.amount2MinReceive)?,
 			&withdraw_to,
-		)?;
+		)
+		.map_err(Self::revert_dispatch)?;
 
 		Ok(IAssetConversion::removeLiquidityCall::abi_encode_returns(
 			&IAssetConversion::removeLiquidityReturn {
@@ -501,48 +537,7 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		let (reserve1, reserve2) = pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
-			asset1, asset2,
-		)
-		.map_err(|e| match e {
-			pallet_asset_conversion::Error::InvalidAssetPair => {
-				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
-			},
-			pallet_asset_conversion::Error::PoolEmpty => {
-				Error::Revert(Revert { reason: ERR_POOL_EMPTY.into() })
-			},
-			pallet_asset_conversion::Error::PoolUnavailable => {
-				Error::Revert(Revert { reason: ERR_POOL_UNAVAILABLE.into() })
-			},
-			// get_reserves only produces the three variants above; list the rest
-			// exhaustively so adding a new Error variant triggers a compile error.
-			pallet_asset_conversion::Error::PoolExists |
-			pallet_asset_conversion::Error::WrongDesiredAmount |
-			pallet_asset_conversion::Error::AmountOneLessThanMinimal |
-			pallet_asset_conversion::Error::AmountTwoLessThanMinimal |
-			pallet_asset_conversion::Error::ReserveLeftLessThanMinimal |
-			pallet_asset_conversion::Error::AmountOutTooHigh |
-			pallet_asset_conversion::Error::PoolNotFound |
-			pallet_asset_conversion::Error::Overflow |
-			pallet_asset_conversion::Error::AssetOneDepositDidNotMeetMinimum |
-			pallet_asset_conversion::Error::AssetTwoDepositDidNotMeetMinimum |
-			pallet_asset_conversion::Error::AssetOneWithdrawalDidNotMeetMinimum |
-			pallet_asset_conversion::Error::AssetTwoWithdrawalDidNotMeetMinimum |
-			pallet_asset_conversion::Error::OptimalAmountLessThanDesired |
-			pallet_asset_conversion::Error::InsufficientLiquidityMinted |
-			pallet_asset_conversion::Error::ZeroLiquidity |
-			pallet_asset_conversion::Error::ZeroAmount |
-			pallet_asset_conversion::Error::ProvidedMinimumNotSufficientForSwap |
-			pallet_asset_conversion::Error::ProvidedMaximumNotSufficientForSwap |
-			pallet_asset_conversion::Error::InvalidPath |
-			pallet_asset_conversion::Error::NonUniquePath |
-			pallet_asset_conversion::Error::IncorrectPoolAssetId |
-			pallet_asset_conversion::Error::BelowMinimum |
-			pallet_asset_conversion::Error::FeeTooHigh => {
-				frame_support::defensive!("get_reserves returned unexpected error");
-				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
-			},
-		})?;
+		let (reserve1, reserve2) = Self::reserves(&asset1, &asset2, env)?;
 
 		Ok(IAssetConversion::getReservesCall::abi_encode_returns(
 			&IAssetConversion::getReservesReturn {
@@ -550,5 +545,80 @@ where
 				reserve2: Self::to_u256(reserve2)?,
 			},
 		))
+	}
+
+	/// Read pool reserves, telling a missing pool apart from an empty one.
+	///
+	/// `Pallet::get_reserves` reports both as `PoolEmpty`, because both have a zero
+	/// balance. `Pools` is only read in that case, and `pool_exists` is charged before it is.
+	/// The caller has already paid for the reserve reads themselves.
+	fn reserves(
+		asset1: &<Runtime as pallet_asset_conversion::Config>::AssetKind,
+		asset2: &<Runtime as pallet_asset_conversion::Config>::AssetKind,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<
+		(
+			<Runtime as pallet_asset_conversion::Config>::Balance,
+			<Runtime as pallet_asset_conversion::Config>::Balance,
+		),
+		Error,
+	> {
+		let err = match pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
+			asset1.clone(),
+			asset2.clone(),
+		) {
+			Ok(reserves) => return Ok(reserves),
+			Err(pallet_asset_conversion::Error::PoolEmpty) => {
+				env.charge(
+					<Runtime as pallet_asset_conversion::Config>::WeightInfo::pool_exists(),
+				)?;
+				match pallet_asset_conversion::Pallet::<Runtime>::pool_exists(asset1, asset2) {
+					Ok(true) => pallet_asset_conversion::Error::PoolEmpty,
+					Ok(false) => pallet_asset_conversion::Error::PoolNotFound,
+					Err(e) => e,
+				}
+			},
+			Err(e) => e,
+		};
+		Err(Self::reserves_error(err))
+	}
+
+	/// Map a reserves failure to the same revert `getReserves` returns.
+	///
+	/// A missing pool and an empty pool both reach here as `PoolEmpty` from the pallet, so they
+	/// get their own reasons once `reserves` has told them apart. Anything else is unexpected from
+	/// `get_reserves` and keeps its variant name.
+	fn reserves_error(e: pallet_asset_conversion::Error<Runtime>) -> Error {
+		use pallet_asset_conversion::Error::*;
+		let reason = match e {
+			InvalidAssetPair => ERR_INVALID_ASSET_PAIR,
+			PoolNotFound => ERR_POOL_NOT_FOUND,
+			PoolEmpty => ERR_POOL_EMPTY,
+			e => {
+				frame_support::defensive!("get_reserves returned unexpected error");
+				<&'static str>::from(DispatchError::from(e))
+			},
+		};
+		Error::Revert(Revert { reason: reason.into() })
+	}
+
+	/// Why `QuotePrice` returned `None`.
+	///
+	/// A zero amount is rejected before the pool is read. Reserve failures reuse
+	/// `reserves_error`, so a missing pool, an empty pool and an invalid pair report
+	/// the same reasons as `getReserves`. Any other `None` has no single cause.
+	fn quote_failure(
+		asset1: &<Runtime as pallet_asset_conversion::Config>::AssetKind,
+		asset2: &<Runtime as pallet_asset_conversion::Config>::AssetKind,
+		amount: <Runtime as pallet_asset_conversion::Config>::Balance,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Error {
+		if amount.is_zero() {
+			return Error::Revert(Revert { reason: ERR_ZERO_AMOUNT.into() });
+		}
+		match Self::reserves(asset1, asset2, env) {
+			Err(e) => e,
+			Ok(_) => Error::Revert(Revert { reason: ERR_QUOTE_FAILED.into() }),
+		}
 	}
 }
