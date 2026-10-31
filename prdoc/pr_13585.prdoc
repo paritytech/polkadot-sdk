@@ -1,0 +1,8 @@
+title: Remove the stale pallet-people and pallet-dummy-dim crates
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-people` and `pallet-dummy-dim` are unused: development of pallet-people continued in
+    `paritytech/individuality-community`, and nothing in this repo or in
+    `polkadot-fellows/runtimes` depends on either crate anymore. Removes both.
+crates: []
