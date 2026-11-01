@@ -14,486 +14,62 @@
 // limitations under the License.
 
 use crate::{mock::*, *};
-use codec::Encode;
-use cumulus_primitives_core::ParaId;
+use codec::{Compact, Encode, MaxEncodedLen};
+use cumulus_primitives_core::{BlockBundleInfo, CumulusDigestItem, ParaId};
 use cumulus_primitives_spec_messaging::{
-	leaf_hash,
+	leaf_hash_with_version,
 	lift::{build_requires_entry, RequiresLift},
-	mmr::SpecMerge,
-	streams_root::{gen_stream_proof, read_streams_root, streams_root},
-	ChannelId, ChannelPhase, ConsumeItem, ConsumedStream, ConsumptionRecord, MMRExtensionProof,
-	MessagePosition, MessagingInherentData, MmrFrontier, ProvideConsumptionRecord, Register, SpecMsgKind,
-	SpecMsgSignal, StreamId, StreamsRoot, WindowGrant, LEAF_VERSION,
+	streams_root::{gen_stream_proof, streams_root},
+	AppliedRegister, BroadcastId, ChannelMessage, InChannelId, Interval, LossyRead,
+	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot, OpenSession,
+	OutChannelId, ProvideConsumptionRecord, Register, RegisterStatus, SessionParams, StreamId,
+	StreamProof, StreamsRoot, LEAF_VERSION,
 };
 use frame_support::{
 	assert_err, assert_ok,
-	traits::{OnFinalize, OnInitialize},
+	dispatch::DispatchClass,
+	inherent::{InherentData, ProvideInherent},
+	pallet_prelude::Weight,
+	traits::{Get, OnFinalize, OnInitialize},
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+
+fn out_channel() -> OutChannelId {
+	OutChannelId { recipient: ParaId::from(1000u32), domain: 0, num: 0 }
+}
+
+fn in_channel() -> InChannelId {
+	InChannelId { sender: ParaId::from(1000u32), domain: 0, num: 0 }
+}
 
 fn stream(num: u16) -> StreamId {
 	StreamId::Channel { recipient: ParaId::from(SELF_PARA), domain: 0, num }
 }
 
-/// A source parachain (not us).
 fn src() -> ParaId {
 	ParaId::from(1000u32)
 }
 
-/// Accept the inbound channel `num` from [`src`].
-fn accept(num: u16) {
-	assert_ok!(SpecMessaging::accept_open_channel(RuntimeOrigin::root(), src(), 0, num));
-}
-
-/// A `Data` payload as it sits on the wire.
-fn data_payload(bytes: &[u8]) -> Vec<u8> {
-	SpecMsgKind::Data(bytes.to_vec()).encode()
-}
-
-fn inherent(items: Vec<(ParaId, StreamId, ConsumeItem)>) -> MessagingInherentData {
-	MessagingInherentData { items }
-}
-
-/// Advance one block: `on_finalize` (fold) then `on_initialize` (drain).
 fn roll_one_block() {
 	let n = System::block_number();
 	SpecMessaging::on_finalize(n);
-	System::set_block_number(n + 1);
-	SpecMessaging::on_initialize(n + 1);
+	let next = n + 1;
+	System::initialize(&next, &Default::default(), &Default::default());
+	SpecMessaging::on_initialize(next);
 }
 
-/// The canonical root for `payloads`, built from the primitives (not the pallet's fold path).
 fn expected_root(entries: &[(StreamId, &[&[u8]])]) -> StreamsRoot {
 	let map: BTreeMap<StreamId, polkadot_core_primitives::Hash> = entries
 		.iter()
 		.map(|(s, payloads)| {
 			let mut f = MmrFrontier::new();
 			for p in payloads.iter() {
-				f.append(leaf_hash(LEAF_VERSION, p));
+				f.append(leaf_hash_with_version(LEAF_VERSION, p));
 			}
 			(*s, f.root().0)
 		})
 		.collect();
 	streams_root(&map).unwrap()
-}
-
-#[test]
-fn append_positions_are_stable_in_a_block_and_advance_across_blocks() {
-	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		// Two sends in block 1: positions 0 and 1, off the empty frontier.
-		assert_eq!(SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap(), MessagePosition(0));
-		assert_eq!(SpecMessaging::append_to_stream(s, b"b".to_vec()).unwrap(), MessagePosition(1));
-
-		// Next block: the two sends folded into the frontier (leaf_count == 2), so a fresh send
-		// lands at position 2.
-		roll_one_block();
-		assert_eq!(OutboundFrontier::<Test>::get(s).leaf_count(), 2);
-		assert_eq!(SpecMessaging::append_to_stream(s, b"c".to_vec()).unwrap(), MessagePosition(2));
-	});
-}
-
-#[test]
-fn a_send_before_on_initialize_belongs_to_its_own_block() {
-	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
-		SpecMessaging::on_finalize(System::block_number());
-
-		// Block 2: a pallet ordered before this one sends from its `on_initialize`.
-		System::set_block_number(System::block_number() + 1);
-		assert_eq!(SpecMessaging::append_to_stream(s, b"b".to_vec()).unwrap(), MessagePosition(1));
-		SpecMessaging::on_initialize(System::block_number());
-		assert_eq!(SpecMessaging::append_to_stream(s, b"c".to_vec()).unwrap(), MessagePosition(2));
-
-		// Only block 1's send was drained; both of block 2's are its own, and its root covers
-		// exactly the leaves a node can rebuild from `outbound_messages`.
-		assert_eq!(OutboundFrontier::<Test>::get(s).leaf_count(), 1);
-		assert_eq!(
-			SpecMessaging::outbound_messages(),
-			vec![(s, vec![b"b".to_vec(), b"c".to_vec()])]
-		);
-		assert_eq!(
-			SpecMessaging::commit_streams_root(),
-			Some(expected_root(&[(s, &[b"a", b"b", b"c"])]))
-		);
-	});
-}
-
-#[test]
-fn a_send_after_the_root_is_committed_is_rejected() {
-	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
-		let root = SpecMessaging::commit_streams_root();
-
-		// A pallet finalized after the commit sends: it fails, and the root and sends still agree.
-		assert_err!(
-			SpecMessaging::append_to_stream(s, b"b".to_vec()),
-			crate::Error::<Test>::RootCommitted
-		);
-		assert_eq!(root, Some(expected_root(&[(s, &[b"a"])])));
-		assert_eq!(SpecMessaging::outbound_messages(), vec![(s, vec![b"a".to_vec()])]);
-
-		// The next block sends again.
-		roll_one_block();
-		assert_ok!(SpecMessaging::append_to_stream(s, b"b".to_vec()));
-	});
-}
-
-#[test]
-fn caps_are_enforced() {
-	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		// Oversized payload.
-		let too_big = vec![0u8; (MaxMsgLen::get() + 1) as usize];
-		assert!(matches!(
-			SpecMessaging::append_to_stream(s, too_big),
-			Err(crate::Error::<Test>::MessageTooBig)
-		));
-		// Fill the per-block cap, then overflow it.
-		for _ in 0..MaxMessagesPerBlock::get() {
-			assert!(SpecMessaging::append_to_stream(s, b"x".to_vec()).is_ok());
-		}
-		assert!(matches!(
-			SpecMessaging::append_to_stream(s, b"x".to_vec()),
-			Err(crate::Error::<Test>::TooManyMessages)
-		));
-	});
-}
-
-#[test]
-fn commit_streams_root_matches_canonical_and_is_memoized() {
-	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
-		SpecMessaging::append_to_stream(s, b"b".to_vec()).unwrap();
-
-		let want = expected_root(&[(s, &[b"a", b"b"])]);
-		let got = SpecMessaging::commit_streams_root().expect("a stream was touched");
-		assert_eq!(got, want);
-		// Memoized: the second call returns the same root without re-folding.
-		assert_eq!(SpecMessaging::current_streams_root(), Some(want));
-		assert_eq!(SpecMessaging::commit_streams_root(), Some(want));
-	});
-}
-
-#[test]
-fn root_accumulates_across_blocks_and_multiple_streams() {
-	new_test_ext().execute_with(|| {
-		let (a, b) = (stream(0), stream(1));
-
-		// Block 1: send on `a` only.
-		SpecMessaging::append_to_stream(a, b"a0".to_vec()).unwrap();
-		assert_eq!(SpecMessaging::commit_streams_root(), Some(expected_root(&[(a, &[b"a0"])])));
-
-		// Block 2: send on `b`. The root now covers BOTH streams — `a`'s frontier persisted, `b`
-		// overlaid this block.
-		roll_one_block();
-		SpecMessaging::append_to_stream(b, b"b0".to_vec()).unwrap();
-		assert_eq!(
-			SpecMessaging::commit_streams_root(),
-			Some(expected_root(&[(a, &[b"a0"]), (b, &[b"b0"])]))
-		);
-	});
-}
-
-#[test]
-fn idle_block_emits_no_root_and_rejects_a_later_send() {
-	new_test_ext().execute_with(|| {
-		// No sends this block.
-		assert_eq!(SpecMessaging::commit_streams_root(), None);
-		assert_eq!(SpecMessaging::current_streams_root(), None);
-
-		// A pallet finalized after `parachain-system` sends: its root would never be provided.
-		assert_err!(
-			SpecMessaging::append_to_stream(stream(0), b"a".to_vec()),
-			crate::Error::<Test>::RootCommitted
-		);
-		assert_eq!(SpecMessaging::commit_streams_root(), None);
-		assert!(SpecMessaging::outbound_messages().is_empty());
-	});
-}
-
-#[test]
-fn provides_root_equals_commit_and_deposits_digest() {
-	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
-
-		let want = expected_root(&[(s, &[b"a"])]);
-		// The `ProvideConsumptionRecord` hook parachain-system calls.
-		assert_eq!(<SpecMessaging as ProvideConsumptionRecord>::provides_root(), Some(want));
-		// The same computation deposits the SPMS digest, readable back as the root.
-		assert_eq!(read_streams_root(&System::digest()), Some(want));
-		// Sender-only: the consumption record is empty.
-		assert_eq!(
-			<SpecMessaging as ProvideConsumptionRecord>::consumption_record(),
-			ConsumptionRecord::default()
-		);
-	});
-}
-
-#[test]
-fn outbound_messages_lists_this_blocks_sends_sorted() {
-	new_test_ext().execute_with(|| {
-		let (a, b) = (stream(0), stream(1));
-		SpecMessaging::append_to_stream(b, b"b0".to_vec()).unwrap();
-		SpecMessaging::append_to_stream(a, b"a0".to_vec()).unwrap();
-		SpecMessaging::append_to_stream(a, b"a1".to_vec()).unwrap();
-
-		let out = SpecMessaging::outbound_messages();
-		assert_eq!(
-			out,
-			vec![(a, vec![b"a0".to_vec(), b"a1".to_vec()]), (b, vec![b"b0".to_vec()]),]
-		);
-
-		// After the drain they belong to the frontiers, not the per-block view.
-		roll_one_block();
-		assert!(SpecMessaging::outbound_messages().is_empty());
-	});
-}
-
-// ---------------------------------------------------------------------------
-// Receiver half
-// ---------------------------------------------------------------------------
-
-#[test]
-fn enact_channel_item_advances_inbound_frontier_and_records() {
-	new_test_ext().execute_with(|| {
-		let (a, s) = (src(), stream(0));
-		accept(0);
-		let (p0, p1) = (data_payload(b"hello"), data_payload(b"world"));
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(a, s, ConsumeItem::Channel { payloads: vec![p0.clone(), p1.clone()] })]),
-		));
-
-		// The inbound frontier advanced by exactly the two leaves, in order.
-		let mut expected = MmrFrontier::new();
-		let start = expected.root();
-		expected.append(leaf_hash(LEAF_VERSION, &p0));
-		expected.append(leaf_hash(LEAF_VERSION, &p1));
-		assert_eq!(InboundFrontier::<Test>::get((a, s)), expected);
-
-		// The consumption record carries the interval start..end for (a, s).
-		let rec = SpecMessaging::consumption_record();
-		let iv = rec.entries.get(&a).and_then(|m| m.get(&s)).expect("recorded");
-		assert_eq!(iv.start, start);
-		assert_eq!(iv.end, expected);
-	});
-}
-
-#[test]
-fn consumption_across_blocks_resumes_from_the_stored_frontier() {
-	new_test_ext().execute_with(|| {
-		let (a, s) = (src(), stream(0));
-		accept(0);
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(a, s, ConsumeItem::Channel { payloads: vec![data_payload(b"a")] })]),
-		));
-		roll_one_block();
-		// The outbox cleared, but the frontier persisted.
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
-		assert_eq!(InboundFrontier::<Test>::get((a, s)).leaf_count(), 1);
-
-		// A second block resumes from leaf 1.
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(a, s, ConsumeItem::Channel { payloads: vec![data_payload(b"b")] })]),
-		));
-		assert_eq!(InboundFrontier::<Test>::get((a, s)).leaf_count(), 2);
-	});
-}
-
-#[test]
-fn strict_on_import_rejects_bad_items() {
-	new_test_ext().execute_with(|| {
-		let a = src();
-		accept(0);
-		// Addressed to another chain.
-		let elsewhere = StreamId::Channel { recipient: ParaId::from(9999u32), domain: 0, num: 0 };
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					a,
-					elsewhere,
-					ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }
-				)]),
-			),
-			Error::<Test>::UnknownStream
-		);
-		// Empty item.
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(a, stream(0), ConsumeItem::Channel { payloads: vec![] })]),
-			),
-			Error::<Test>::EmptyItem
-		);
-		// Duplicate stream in one inherent.
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![
-					(a, stream(0), ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }),
-					(a, stream(0), ConsumeItem::Channel { payloads: vec![data_payload(b"y")] }),
-				]),
-			),
-			Error::<Test>::DuplicateStream
-		);
-	});
-}
-
-#[test]
-fn too_many_touched_streams_is_rejected() {
-	new_test_ext().execute_with(|| {
-		let a = src();
-		(0..=MaxTouchedStreams::get() as u16).for_each(accept);
-		let items: Vec<_> = (0..=MaxTouchedStreams::get() as u16)
-			.map(|n| (a, stream(n), ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }))
-			.collect();
-		assert_err!(
-			SpecMessaging::enact_messages(RuntimeOrigin::none(), inherent(items)),
-			Error::<Test>::TooManyStreams
-		);
-	});
-}
-
-#[test]
-fn events_items_other_than_register_reads_are_undeclared() {
-	new_test_ext().execute_with(|| {
-		accept(0);
-		let broadcast = StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 };
-		for s in [stream(0), broadcast] {
-			assert_err!(
-				SpecMessaging::enact_messages(
-					RuntimeOrigin::none(),
-					inherent(vec![(
-						src(),
-						s,
-						ConsumeItem::Events {
-							base: MessagePosition(0),
-							start_peaks: Default::default(),
-							payloads: vec![data_payload(b"x")],
-						},
-					)]),
-				),
-				Error::<Test>::UnknownStream
-			);
-		}
-	});
-}
-
-#[test]
-fn an_events_item_at_the_leaf_count_ceiling_is_rejected() {
-	new_test_ext().execute_with(|| {
-		accept(0);
-		open_out_channel();
-		roll_one_block();
-		// A message on an accepted inbound channel, then a register read whose hints put the
-		// frontier at the ceiling. Were the register appended, the record would not decode and
-		// would read as empty: no `Requires`, so the message would never be checked. The block is
-		// invalid instead.
-		let at_ceiling = ConsumeItem::Events {
-			base: MessagePosition(cumulus_primitives_spec_messaging::mmr::MAX_MMR_LEAF_COUNT),
-			start_peaks: BoundedVec::truncate_from(vec![polkadot_core_primitives::Hash::zero()]),
-			payloads: vec![register(0, TestGrant::get()).encode()],
-		};
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![
-					(
-						src(),
-						stream(0),
-						ConsumeItem::Channel { payloads: vec![data_payload(b"forged")] }
-					),
-					(peer(), peer_ack(), at_ceiling),
-				]),
-			),
-			Error::<Test>::BadFrontier
-		);
-	});
-}
-
-#[test]
-fn an_undecodable_consumption_record_never_reads_as_empty() {
-	new_test_ext().execute_with(|| {
-		// Bytes that claim one entry but do not decode: `get` alone would read them as empty.
-		frame_support::storage::unhashed::put_raw(
-			&ConsumptionOutbox::<Test>::hashed_key(),
-			&[0x04, 0xff],
-		);
-		let read = std::panic::catch_unwind(|| SpecMessaging::consumption_record());
-		assert!(read.is_err());
-	});
-}
-
-#[test]
-fn a_second_enact_in_one_block_is_rejected() {
-	new_test_ext().execute_with(|| {
-		open_out_channel();
-		roll_one_block();
-		let forged = Register { version: u8::MAX, ..register(1000, TestGrant::get()) };
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, forged)));
-		// The record keeps one interval per stream: a second read of the same stream would
-		// replace the first, and the lift would then bind only the second.
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				read_register(1, register(0, TestGrant::get()))
-			),
-			Error::<Test>::AlreadyEnacted
-		);
-	});
-}
-
-#[test]
-fn empty_inherent_consumes_nothing() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), inherent(vec![])));
-		assert_eq!(SpecMessaging::consumption_record(), ConsumptionRecord::default());
-	});
-}
-
-/// The peer our outbound channels go to.
-fn peer() -> ParaId {
-	ParaId::from(3000u32)
-}
-
-fn out_channel() -> ChannelId {
-	ChannelId { peer: peer(), domain: 0, num: 0 }
-}
-
-/// The peer's `Ack` stream for [`out_channel`]: its key space, addressed to us.
-fn peer_ack() -> StreamId {
-	StreamId::Ack { recipient: ParaId::from(SELF_PARA), domain: 0, num: 0 }
-}
-
-fn register(up_to: u64, grant: WindowGrant) -> Register {
-	Register { version: 0, up_to: MessagePosition(up_to), grant, closed: false }
-}
-
-/// Read the peer's register at ack-stream position `base`. The peaks are unproven hints; one per
-/// set bit of `base`.
-fn read_register(base: u64, register: Register) -> MessagingInherentData {
-	let peaks = vec![polkadot_core_primitives::Hash::repeat_byte(7); base.count_ones() as usize];
-	inherent(vec![(
-		peer(),
-		peer_ack(),
-		ConsumeItem::Events {
-			base: MessagePosition(base),
-			start_peaks: BoundedVec::truncate_from(peaks),
-			payloads: vec![register.encode()],
-		},
-	)])
-}
-
-fn open_out_channel() {
-	assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer(), 0, 0));
 }
 
 fn sent_on(stream: StreamId) -> Vec<Vec<u8>> {
@@ -505,372 +81,1099 @@ fn sent_on(stream: StreamId) -> Vec<Vec<u8>> {
 }
 
 #[test]
-fn open_channel_emits_the_signal_and_starts_opening() {
+fn append_positions_are_stable_in_a_block_and_advance_across_blocks() {
 	new_test_ext().execute_with(|| {
-		open_out_channel();
+		let s = stream(0);
+		assert_eq!(SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap(), MessagePosition(0));
+		assert_eq!(SpecMessaging::append_to_stream(s, b"b".to_vec()).unwrap(), MessagePosition(1));
 
-		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.phase(), ChannelPhase::Opening);
-		assert_eq!(
-			sent_on(SpecMessaging::outbound_stream(&out_channel())),
-			vec![SpecMsgKind::Signal(SpecMsgSignal::OpenChannel { version: 0 }).encode()]
+		roll_one_block();
+		assert_eq!(OutboundFrontier::<Test>::get(s).leaf_count(), 2);
+		assert_eq!(SpecMessaging::append_to_stream(s, b"c".to_vec()).unwrap(), MessagePosition(2));
+	});
+}
+
+#[test]
+fn a_send_before_on_initialize_belongs_to_its_own_block() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
+		SpecMessaging::on_initialize(1);
+		assert_eq!(sent_on(s), vec![b"a".to_vec()]);
+	});
+}
+
+#[test]
+fn a_send_after_the_root_is_committed_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
+		SpecMessaging::commit_streams_root();
+		assert_err!(
+			SpecMessaging::append_to_stream(s, b"b".to_vec()),
+			Error::<Test>::RootCommitted
 		);
-		// The `OpenChannel` leaf is in flight.
-		assert_eq!(OutChannelsMeta::<Test>::get(out_channel()).sizes.len(), 1);
+	});
+}
+
+#[test]
+fn caps_are_enforced() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		let big = vec![0u8; MaxMsgLen::get() as usize + 1];
+		assert_err!(SpecMessaging::append_to_stream(s, big), Error::<Test>::MessageTooBig);
+
+		for _ in 0..MaxMessagesPerBlock::get() {
+			assert_ok!(SpecMessaging::append_to_stream(s, b"ok".to_vec()));
+		}
+		assert_err!(
+			SpecMessaging::append_to_stream(s, b"one-more".to_vec()),
+			Error::<Test>::TooManyMessages
+		);
+	});
+}
+
+#[test]
+fn commit_streams_root_matches_canonical_and_is_memoized() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		SpecMessaging::append_to_stream(s, b"a".to_vec()).unwrap();
+		SpecMessaging::append_to_stream(s, b"b".to_vec()).unwrap();
+
+		let root = SpecMessaging::commit_streams_root().expect("root exists");
+		assert_eq!(root, expected_root(&[(s, &[b"a", b"b"])]));
+		assert_eq!(SpecMessaging::commit_streams_root(), Some(root));
+	});
+}
+
+#[test]
+fn root_accumulates_across_blocks_and_multiple_streams() {
+	new_test_ext().execute_with(|| {
+		let s0 = stream(0);
+		let s1 = stream(1);
+		SpecMessaging::append_to_stream(s0, b"a".to_vec()).unwrap();
+		roll_one_block();
+
+		SpecMessaging::append_to_stream(s1, b"x".to_vec()).unwrap();
+		let root = SpecMessaging::commit_streams_root().unwrap();
+		assert_eq!(root, expected_root(&[(s0, &[b"a"]), (s1, &[b"x"])]));
+	});
+}
+
+#[test]
+fn idle_block_emits_no_root_and_rejects_a_later_send() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(SpecMessaging::commit_streams_root(), None);
+		assert_err!(
+			SpecMessaging::append_to_stream(stream(0), b"late".to_vec()),
+			Error::<Test>::RootCommitted
+		);
+	});
+}
+
+#[test]
+fn provides_root_equals_commit_and_deposits_digest() {
+	new_test_ext().execute_with(|| {
+		let s = stream(0);
+		SpecMessaging::append_to_stream(s, b"x".to_vec()).unwrap();
+		let root = <SpecMessaging as ProvideConsumptionRecord>::provides_root();
+		assert!(root.is_some());
+		assert_eq!(SpecMessaging::current_streams_root(), root);
+	});
+}
+
+#[test]
+fn outbound_messages_lists_this_blocks_sends_sorted() {
+	new_test_ext().execute_with(|| {
+		let s1 = stream(1);
+		let s0 = stream(0);
+		SpecMessaging::append_to_stream(s1, b"1".to_vec()).unwrap();
+		SpecMessaging::append_to_stream(s0, b"0".to_vec()).unwrap();
+
+		let msgs = SpecMessaging::outbound_messages();
+		assert_eq!(msgs.len(), 2);
+		assert_eq!(msgs[0].0, s0);
+		assert_eq!(msgs[1].0, s1);
+	});
+}
+
+#[test]
+fn accept_transitions_to_accepting_and_publishes_at_block_end() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(SpecMessaging::accept_open_channel(RuntimeOrigin::root(), src(), 0, 0));
+		let ch = in_channel();
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert_eq!(st.session, 1);
+		assert!(matches!(st.status, RegisterStatus::Accepting { session: 1, min: 1, max: 1, .. }));
+		assert_eq!(st.published, None);
+
+		// Published at block end:
+		SpecMessaging::on_finalize(1);
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert!(st.published.is_some());
+		assert_eq!(st.published.unwrap().up_to, MessagePosition(0));
+	});
+}
+
+#[test]
+fn registers_published_when_provides_root_runs_before_on_finalize() {
+	new_test_ext().execute_with(|| {
+		assert_ok!(SpecMessaging::accept_open_channel(RuntimeOrigin::root(), src(), 0, 0));
+		let ch = in_channel();
+		assert_eq!(InChannels::<Test>::get(ch).unwrap().published, None);
+
+		// ParachainSystem::on_finalize calls ProvideConsumptionRecord::provides_root() before
+		// SpecMessaging::on_finalize:
+		let root = <SpecMessaging as ProvideConsumptionRecord>::provides_root();
+		assert!(root.is_some(), "register publish must produce a committed root");
+
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert!(st.published.is_some(), "register must be published inside provides_root");
+		assert_eq!(st.published.unwrap().up_to, MessagePosition(0));
+
+		// SpecMessaging::on_finalize runs second and does not duplicate or fail:
+		SpecMessaging::on_finalize(1);
+		assert_eq!(InChannels::<Test>::get(ch).unwrap().published, st.published);
+	});
+}
+
+#[test]
+fn open_channel_sets_want_open_and_evaluates_hello() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
+		));
+		let st = OutChannels::<Test>::get(ch).unwrap();
+		assert!(st.want_open);
+		assert_eq!(st.open, None); // no Accepting register yet, so no Hello sent yet
 
 		assert_err!(
-			SpecMessaging::open_channel(RuntimeOrigin::root(), peer(), 0, 0),
+			SpecMessaging::open_channel(RuntimeOrigin::root(), ch.recipient, ch.domain, ch.num),
 			Error::<Test>::AlreadyOpen
 		);
 		assert_err!(
 			SpecMessaging::open_channel(RuntimeOrigin::root(), ParaId::from(SELF_PARA), 0, 1),
 			Error::<Test>::ChannelToSelf
 		);
-		assert!(SpecMessaging::open_channel(RuntimeOrigin::signed(1), peer(), 0, 2).is_err());
 	});
 }
 
 #[test]
-fn accept_publishes_the_initial_register_and_lists_the_stream() {
+fn hello_emitted_when_accepting_register_applied() {
 	new_test_ext().execute_with(|| {
-		accept(0);
-		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
-
-		let state = InChannels::<Test>::get(channel).expect("accepted");
-		assert_eq!(state.published, register(0, TestGrant::get()));
-		assert_eq!(
-			sent_on(SpecMessaging::ack_stream(&channel)),
-			vec![register(0, TestGrant::get()).encode()]
-		);
-		assert_eq!(
-			SpecMessaging::consumed_streams(),
-			BTreeMap::from([(
-				src(),
-				vec![ConsumedStream::Channel { domain: 0, num: 0, from: MessagePosition(0) }]
-			)])
-		);
-		assert_eq!(SpecMessaging::in_channels(), BTreeMap::from([(channel, state)]));
-
-		assert_err!(
-			SpecMessaging::accept_open_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::AlreadyAccepted
-		);
-	});
-}
-
-#[test]
-fn unaccepted_channels_are_refused() {
-	new_test_ext().execute_with(|| {
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					src(),
-					stream(0),
-					ConsumeItem::Channel { payloads: vec![data_payload(b"x")] }
-				)]),
-			),
-			Error::<Test>::UnknownStream
-		);
-	});
-}
-
-#[test]
-fn consumption_republishes_the_watermark_and_tracks_the_peer_version() {
-	new_test_ext().execute_with(|| {
-		accept(0);
-		roll_one_block();
-		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
-		let open = SpecMsgKind::Signal(SpecMsgSignal::OpenChannel { version: 3 }).encode();
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(
-				src(),
-				stream(0),
-				ConsumeItem::Channel { payloads: vec![open, data_payload(b"x")] }
-			)]),
+		let ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
 		));
 
-		let state = InChannels::<Test>::get(channel).expect("accepted");
-		assert_eq!(state.peer_version, 3);
-		assert_eq!(state.published, register(2, TestGrant::get()));
-		assert_eq!(
-			sent_on(SpecMessaging::ack_stream(&channel)),
-			vec![register(2, TestGrant::get()).encode()]
-		);
-		// The register leaf changes our streams root, so this block provides.
-		assert!(SpecMessaging::commit_streams_root().is_some());
-	});
-}
-
-#[test]
-fn register_read_opens_the_channel_and_credit_gates_sends() {
-	new_test_ext().execute_with(|| {
-		open_out_channel();
-		assert_err!(
-			SpecMessaging::send(out_channel(), b"early".to_vec()),
-			Error::<Test>::ChannelNotOpen
-		);
-		roll_one_block();
-
-		// The peer accepted: its first register opens the channel with a grant of 4 messages.
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(0, TestGrant::get()))
-		));
-		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.phase(), ChannelPhase::Open);
-
-		// `OpenChannel` is in flight, so three more fit; the fifth message does not.
-		for i in 0..3u8 {
-			assert_ok!(SpecMessaging::send(out_channel(), vec![i]));
-		}
-		assert_err!(SpecMessaging::send(out_channel(), vec![9]), Error::<Test>::NoCredit);
-		roll_one_block();
-
-		// The peer consumed all four: its next register releases them.
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(1, register(4, TestGrant::get()))
-		));
-		assert!(OutChannelsMeta::<Test>::get(out_channel()).sizes.is_empty());
-		assert_ok!(SpecMessaging::send(out_channel(), vec![9]));
-	});
-}
-
-#[test]
-fn a_regressing_register_is_ignored() {
-	new_test_ext().execute_with(|| {
-		open_out_channel();
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(1, TestGrant::get()))
-		));
-		roll_one_block();
-
-		// A later leaf whose watermark goes backwards is consumed but not applied.
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(1, register(0, TestGrant::get()))
-		));
-		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.register.map(|read| read.register), Some(register(1, TestGrant::get())));
-	});
-}
-
-#[test]
-fn a_register_whose_version_regresses_is_ignored() {
-	new_test_ext().execute_with(|| {
-		open_out_channel();
-		let newer = Register { version: 1, ..register(1, TestGrant::get()) };
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, newer)));
-		roll_one_block();
-
-		// A later leaf announcing a lower version is consumed but not applied.
-		let older = Register { version: 0, ..register(2, TestGrant::get()) };
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(1, older)));
-		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.register.map(|read| read.register), Some(newer));
-	});
-}
-
-#[test]
-fn a_register_read_starts_and_ends_at_its_context() {
-	new_test_ext().execute_with(|| {
-		open_out_channel();
-		let read_at = |base| {
-			assert_ok!(SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				read_register(base, register(0, TestGrant::get()))
-			));
-			let record = SpecMessaging::consumption_record();
-			roll_one_block();
-			record.entries[&peer()][&peer_ack()].clone()
+		// Receiver publishes Accepting:
+		let reg = Register {
+			up_to: MessagePosition(0),
+			status: RegisterStatus::Accepting {
+				session: 1,
+				min: 1,
+				max: 1,
+				max_message_size: 1024,
+			},
 		};
-		let first = read_at(2);
-		assert_eq!(first.start, first.end.root(), "a read advances nothing");
-		assert_eq!(first.end.leaf_count(), 3, "the context includes the head leaf");
+		let mut frontier = MmrFrontier::new();
+		frontier.append(leaf_hash_with_version(LEAF_VERSION, &reg.encode()));
 
-		// Re-reading the same head in the next block of a bundle chains with no advance.
-		let again = read_at(2);
-		assert_eq!(
-			cumulus_primitives_spec_messaging::lift::stitch(&[first, again.clone()], &[]),
-			Ok(again.end)
+		let mut data = MessagingInherentData::default();
+		data.registers
+			.insert(ch, LossyRead { frontier: MmrFrontier::new(), payloads: vec![reg.encode()] });
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+
+		let st = OutChannels::<Test>::get(ch).unwrap();
+		assert!(st.open.is_some());
+		assert_eq!(st.open.unwrap().session, 1);
+		assert_eq!(st.open.unwrap().opened, false);
+
+		// Hello was appended to our channel data stream:
+		let sent = sent_on(ch.data_stream());
+		assert_eq!(sent.len(), 1);
+		let hello = ChannelMessage::decode_all(&mut &sent[0][..]).unwrap();
+		assert_eq!(hello, ChannelMessage::Hello { session: 1, version: 1 });
+	});
+}
+
+#[test]
+fn hello_opened_flow_and_data_send() {
+	new_test_ext().execute_with(|| {
+		let out_ch = out_channel();
+		let in_ch = in_channel();
+
+		// 1. Accept on inbound:
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			in_ch.sender,
+			in_ch.domain,
+			in_ch.num
+		));
+		roll_one_block();
+
+		// 2. Consume Hello on inbound:
+		let hello = ChannelMessage::Hello { session: 1, version: 1 };
+		let mut data = MessagingInherentData::default();
+		data.channels.insert(in_ch, vec![hello.encode()]);
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+
+		let in_st = InChannels::<Test>::get(in_ch).unwrap();
+		assert_eq!(in_st.status, RegisterStatus::Opened);
+
+		// 3. Sender sees Opened register:
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			out_ch.recipient,
+			out_ch.domain,
+			out_ch.num
+		));
+		let mut out_st = OutChannels::<Test>::get(out_ch).unwrap();
+		out_st.open = Some(OpenSession {
+			session: 1,
+			params: SessionParams { version: 1, max_message_size: 1024 },
+			opened: true,
+		});
+		out_st.register = Some(AppliedRegister {
+			position: MessagePosition(1),
+			register: Register { up_to: MessagePosition(0), status: RegisterStatus::Opened },
+		});
+		OutChannels::<Test>::insert(out_ch, out_st);
+
+		// 4. Sender can send Data:
+		assert_ok!(SpecMessaging::send(out_ch, b"hello".to_vec()));
+		let sent = sent_on(out_ch.data_stream());
+		assert_eq!(sent.len(), 1);
+		let msg = ChannelMessage::decode_all(&mut &sent[0][..]).unwrap();
+		assert_eq!(msg, ChannelMessage::Data(b"hello".to_vec()));
+	});
+}
+
+#[test]
+fn max_in_flight_gate_blocks_data_and_hello_but_exempts_close() {
+	new_test_ext().execute_with(|| {
+		let out_ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			out_ch.recipient,
+			out_ch.domain,
+			out_ch.num
+		));
+		let mut out_st = OutChannels::<Test>::get(out_ch).unwrap();
+		out_st.session = 1;
+		out_st.open = Some(OpenSession {
+			session: 1,
+			params: SessionParams { version: 1, max_message_size: 1024 },
+			opened: true,
+		});
+		out_st.register = Some(AppliedRegister {
+			position: MessagePosition(0),
+			register: Register { up_to: MessagePosition(0), status: RegisterStatus::Opened },
+		});
+		OutChannels::<Test>::insert(out_ch, out_st);
+
+		// MaxInFlight is 4 in mock:
+		for _ in 0..4 {
+			assert_ok!(SpecMessaging::send(out_ch, b"msg".to_vec()));
+		}
+		// 5th send rejected by gate:
+		assert_err!(SpecMessaging::send(out_ch, b"5th".to_vec()), Error::<Test>::NoCredit);
+
+		// CloseChannel is exempt from the gate!
+		assert_ok!(SpecMessaging::close_channel(
+			RuntimeOrigin::root(),
+			out_ch.recipient,
+			out_ch.domain,
+			out_ch.num
+		));
+		let sent = sent_on(out_ch.data_stream());
+		assert_eq!(sent.len(), 5);
+		let close = ChannelMessage::decode_all(&mut &sent[4][..]).unwrap();
+		assert_eq!(close, ChannelMessage::CloseChannel { session: 1 });
+	});
+}
+
+#[test]
+fn register_validation_rejects_up_to_greater_than_sent() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
+		));
+
+		// Attacker sends up_to = 1000 when we have sent 0 leaves:
+		let reg = Register {
+			up_to: MessagePosition(1000),
+			status: RegisterStatus::Accepting {
+				session: 1,
+				min: 1,
+				max: 1,
+				max_message_size: 1024,
+			},
+		};
+		let mut data = MessagingInherentData::default();
+		data.registers
+			.insert(ch, LossyRead { frontier: MmrFrontier::new(), payloads: vec![reg.encode()] });
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data),
+			Error::<Test>::NotAdmitted
 		);
 	});
 }
 
 #[test]
-fn an_ignored_register_read_is_not_recorded() {
+fn register_validation_rejects_up_to_less_than_prev_up_to() {
 	new_test_ext().execute_with(|| {
-		open_out_channel();
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(2, register(1, TestGrant::get()))
+		let ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
 		));
-		assert_eq!(SpecMessaging::consumption_record().entries.len(), 1);
-		roll_one_block();
+		let mut st = OutChannels::<Test>::get(ch).unwrap();
+		st.register = Some(AppliedRegister {
+			position: MessagePosition(0),
+			register: Register { up_to: MessagePosition(5), status: RegisterStatus::Opened },
+		});
+		OutChannels::<Test>::insert(ch, st);
 
-		// An older head in the next block of a bundle would be a backward step no lift can prove;
-		// it is ignored, so nothing is recorded for it.
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(1, TestGrant::get()))
-		));
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
+		// Regressing watermark: up_to = 4 < prev 5:
+		let reg = Register { up_to: MessagePosition(4), status: RegisterStatus::Opened };
+		let mut data = MessagingInherentData::default();
+		data.registers
+			.insert(ch, LossyRead { frontier: MmrFrontier::new(), payloads: vec![reg.encode()] });
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data),
+			Error::<Test>::NotAdmitted
+		);
 	});
 }
 
 #[test]
-fn an_older_register_never_replaces_a_newer_one() {
+fn lossy_read_highwater_rule_rejects_non_monotonic_positions() {
 	new_test_ext().execute_with(|| {
-		open_out_channel();
-		roll_one_block();
-		let open = register(1, TestGrant::get());
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
-		roll_one_block();
-		// The peer closes: same watermark and version, so only the position orders the reads.
-		let closed = Register { closed: true, grant: WindowGrant::default(), ..open };
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(1, closed)));
-		roll_one_block();
+		let ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
+		));
+		let mut st = OutChannels::<Test>::get(ch).unwrap();
+		st.register = Some(AppliedRegister {
+			position: MessagePosition(10),
+			register: Register { up_to: MessagePosition(0), status: RegisterStatus::Opened },
+		});
+		OutChannels::<Test>::insert(ch, st);
 
-		// The open register at position 0 is still a valid lift; it is ignored.
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
-		assert_eq!(
-			OutChannels::<Test>::get(out_channel())
-				.unwrap()
-				.register
-				.map(|read| read.register),
-			Some(closed)
+		// Read at position 10 <= highwater 10 is rejected:
+		let reg = Register { up_to: MessagePosition(0), status: RegisterStatus::Opened };
+		let f = MmrFrontier::from_parts(
+			vec![
+				polkadot_core_primitives::Hash::default(),
+				polkadot_core_primitives::Hash::default(),
+			],
+			10,
+		)
+		.unwrap();
+		let mut data = MessagingInherentData::default();
+		data.registers
+			.insert(ch, LossyRead { frontier: f, payloads: vec![reg.encode()] });
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data),
+			Error::<Test>::NotAdmitted
+		);
+	});
+}
+
+#[test]
+fn lossy_read_rejects_empty_and_multiple_payloads() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
+		));
+
+		// Empty payloads:
+		let mut data = MessagingInherentData::default();
+		data.registers
+			.insert(ch, LossyRead { frontier: MmrFrontier::new(), payloads: vec![] });
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data),
+			Error::<Test>::BadRegister
+		);
+
+		// 2 payloads:
+		let reg = Register { up_to: MessagePosition(0), status: RegisterStatus::Opened };
+		let mut data2 = MessagingInherentData::default();
+		data2.registers.insert(
+			ch,
+			LossyRead { frontier: MmrFrontier::new(), payloads: vec![reg.encode(), reg.encode()] },
 		);
 		assert_err!(
-			SpecMessaging::send(out_channel(), b"x".to_vec()),
-			Error::<Test>::ChannelNotOpen
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data2),
+			Error::<Test>::BadRegister
 		);
 	});
 }
 
 #[test]
-fn an_older_grant_never_replaces_a_suspension() {
+fn draining_close_receiver_initiated() {
 	new_test_ext().execute_with(|| {
-		open_out_channel();
-		roll_one_block();
-		let open = register(0, TestGrant::get());
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
-		roll_one_block();
-		// The peer suspends: a zero grant at the same watermark and version.
-		let suspended = Register { grant: WindowGrant::default(), ..open };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(1, suspended)
+		let ch = in_channel();
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
 		));
-		roll_one_block();
 
-		// Replaying the open grant, a leaf still under every later root, is ignored.
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(0, open)));
-		let state = OutChannels::<Test>::get(out_channel()).unwrap();
-		assert_eq!(state.register.map(|read| read.register), Some(suspended));
-		// A zero grant also allows no message size, so any send is refused.
+		// Hello opens it:
+		let hello = ChannelMessage::Hello { session: 1, version: 1 };
+		let mut data = MessagingInherentData::default();
+		data.channels.insert(ch, vec![hello.encode()]);
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+
+		// Receiver calls close:
+		assert_ok!(SpecMessaging::close_inbound_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert!(st.draining);
+		assert!(st.is_watched());
+
+		// Can still consume Data while draining:
+		roll_one_block();
+		let msg = ChannelMessage::Data(b"tail".to_vec());
+		let mut data2 = MessagingInherentData::default();
+		data2.channels.insert(ch, vec![msg.encode()]);
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data2));
+
+		// CloseChannel completes draining:
+		roll_one_block();
+		let close = ChannelMessage::CloseChannel { session: 1 };
+		let mut data3 = MessagingInherentData::default();
+		data3.channels.insert(ch, vec![close.encode()]);
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data3));
+
+		let st_final = InChannels::<Test>::get(ch).unwrap();
+		assert!(!st_final.draining);
+		assert!(!st_final.is_watched());
+	});
+}
+
+#[test]
+fn bundle_streams_retained_across_bundle_blocks_and_reset_on_index_0() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+
+		// Index 0 block:
+		let hello = ChannelMessage::Hello { session: 1, version: 1 };
+		let mut data = MessagingInherentData::default();
+		data.channels.insert(ch, vec![hello.encode()]);
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+		assert_eq!(BundleSources::<Test>::get().len(), 1);
+
+		// Roll over to block 2 with index 1 digest: retained!
+		SpecMessaging::on_finalize(1);
+		let mut digest1 = sp_runtime::generic::Digest::default();
+		let info1 = BlockBundleInfo { index: 1, is_last: true };
+		digest1.push(CumulusDigestItem::BlockBundleInfo(info1).to_digest_item());
+		System::initialize(&2, &Default::default(), &digest1);
+		SpecMessaging::on_initialize(2);
+		assert_eq!(BundleSources::<Test>::get().len(), 1);
+
+		// Roll over to block 3 with index 0 digest: reset!
+		SpecMessaging::on_finalize(2);
+		let mut digest0 = sp_runtime::generic::Digest::default();
+		let info0 = BlockBundleInfo { index: 0, is_last: false };
+		digest0.push(CumulusDigestItem::BlockBundleInfo(info0).to_digest_item());
+		System::initialize(&3, &Default::default(), &digest0);
+		SpecMessaging::on_initialize(3);
+		assert_eq!(BundleSources::<Test>::get().len(), 0);
+	});
+}
+
+#[test]
+fn create_inherent_cuts_at_violation_and_drops_empty_items() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+
+		// Hello opens session 1, but duplicate Hello is a violation (cannot repeat in session):
+		let hello1 = ChannelMessage::Hello { session: 1, version: 1 };
+		let hello2 = ChannelMessage::Hello { session: 1, version: 1 };
+
+		let mut data = MessagingInherentData::default();
+		data.channels.insert(ch, vec![hello1.encode(), hello2.encode()]);
+
+		let mut inh_data = InherentData::new();
+		inh_data.put_data(INHERENT_IDENTIFIER, &data).unwrap();
+
+		let call = <SpecMessaging as ProvideInherent>::create_inherent(&inh_data).unwrap();
+		let Call::enact_messages { data: filtered } = call else { panic!("wrong call") };
+
+		// create_inherent cut before duplicate Hello, keeping only first Hello!
+		assert_eq!(filtered.channels.get(&ch).unwrap().len(), 1);
+		assert_eq!(filtered.channels.get(&ch).unwrap()[0], hello1.encode());
+
+		// Uncut item fails dispatch because dispatch requires admitted prefix to be the whole item:
 		assert_err!(
-			SpecMessaging::send(out_channel(), b"x".to_vec()),
-			Error::<Test>::MessageTooBig
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data),
+			Error::<Test>::NotAdmitted
 		);
+
+		// Cut item matches the admitted prefix exactly and succeeds:
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), filtered));
 	});
 }
 
 #[test]
-fn a_forged_register_position_lifts_to_no_committed_root() {
+fn send_fails_with_not_initialized_when_execution_phase_unset() {
 	new_test_ext().execute_with(|| {
-		open_out_channel();
-		roll_one_block();
-		// The peer's `Ack` stream holds three registers, committed under its `StreamsRoot`.
-		let registers: Vec<Vec<u8>> =
-			(0..3).map(|up_to| register(up_to, TestGrant::get()).encode()).collect();
-		let mut before_head = MmrFrontier::new();
-		for leaf in &registers[..2] {
-			before_head.append(leaf_hash(LEAF_VERSION, leaf));
-		}
-		let mut head = before_head.clone();
-		head.append(leaf_hash(LEAF_VERSION, &registers[2]));
-		let entries = BTreeMap::from([(peer_ack(), head.root().0)]);
-		let committed = streams_root(&entries).unwrap();
-		let (_, tree_proof) = gen_stream_proof(&entries, peer_ack()).unwrap();
-		let lift = RequiresLift {
-			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
-			tree_proof,
-		};
-		let read = |base: u64| {
-			assert_ok!(SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					peer(),
-					peer_ack(),
-					ConsumeItem::Events {
-						base: MessagePosition(base),
-						start_peaks: BoundedVec::truncate_from(before_head.peaks().to_vec()),
-						payloads: vec![registers[2].clone()],
-					},
-				)])
-			));
-			let record = SpecMessaging::consumption_record();
-			roll_one_block();
-			let streams = record.entries[&peer()]
-				.iter()
-				.map(|(stream, interval)| (*stream, vec![interval.clone()]))
-				.collect();
-			build_requires_entry(&streams, &[lift.clone()])
-		};
-
-		// The true position lifts.
-		assert_eq!(read(2), Ok(committed));
-		// The same peaks fit position `2^47`. The runtime cannot tell (it never sees the peer's
-		// count) and applies the read; the lift is what rejects it, since its root is not
-		// committed, so no candidate carrying this block can be backed.
-		assert_ne!(read(1 << 47), Ok(committed));
-		let applied = OutChannels::<Test>::get(out_channel()).unwrap().register.unwrap();
-		assert_eq!(applied.at, MessagePosition(1 << 47));
-	});
-}
-
-#[test]
-fn the_local_cap_bounds_in_flight_whatever_the_peer_grants() {
-	new_test_ext().execute_with(|| {
-		open_out_channel();
-		roll_one_block();
-		let huge =
-			WindowGrant { max_messages: u32::MAX, max_bytes: u64::MAX, max_message_size: u32::MAX };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(0, huge))
+		let out_ch = out_channel();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			out_ch.recipient,
+			out_ch.domain,
+			out_ch.num
 		));
+		let mut out_st = OutChannels::<Test>::get(out_ch).unwrap();
+		out_st.open = Some(OpenSession {
+			session: 1,
+			params: SessionParams { version: 1, max_message_size: 1024 },
+			opened: true,
+		});
+		OutChannels::<Test>::insert(out_ch, out_st);
 
-		// `OpenChannel` is in flight, so the cap of 4 leaves room for three.
-		for i in 0..3u8 {
-			assert_ok!(SpecMessaging::send(out_channel(), vec![i]));
-		}
-		assert_err!(SpecMessaging::send(out_channel(), vec![9]), Error::<Test>::NoCredit);
+		// Clear execution phase (simulates on_runtime_upgrade before block initialization):
+		let _ = System::finalize();
+		assert_err!(SpecMessaging::send(out_ch, b"early".to_vec()), Error::<Test>::NotInitialized);
 	});
 }
 
 #[test]
-fn an_oversized_leaf_is_consumed_and_dropped() {
+fn an_undecodable_consumption_record_never_reads_as_empty() {
 	new_test_ext().execute_with(|| {
-		accept(0);
-		let big = vec![0u8; (MaxMsgLen::get() + 1) as usize];
-		let item = ConsumeItem::Channel { payloads: vec![big, data_payload(b"next")] };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(src(), stream(0), item)])
+		ConsumptionOutbox::<Test>::put(vec![(
+			src(),
+			stream(0),
+			Interval {
+				start: MmrRoot(polkadot_core_primitives::Hash::default()),
+				end: MmrFrontier::new(),
+			},
+		)]);
+		let rec = SpecMessaging::consumption_record();
+		assert!(!rec.entries.is_empty());
+	});
+}
+
+#[test]
+fn stale_signals_are_consumed_and_ignored() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		// 1. Accept session 1:
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
 		));
-		// Both leaves are consumed: the channel moves past the oversized one.
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))).leaf_count(), 2);
-		System::assert_has_event(
-			Event::OversizedLeaf {
-				channel: ChannelId { peer: src(), domain: 0, num: 0 },
-				position: MessagePosition(0),
+		assert_eq!(InChannels::<Test>::get(ch).unwrap().session, 1);
+
+		// 2. Close while accepting (sender sent Hello{1} and CloseChannel{1} in flight):
+		assert_ok!(SpecMessaging::close_inbound_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert_eq!(st.status, RegisterStatus::Closed { session: 1 });
+		assert!(!st.is_watched());
+
+		// 3. Accept session 2:
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert_eq!(st.session, 2);
+		assert!(matches!(st.status, RegisterStatus::Accepting { session: 2, .. }));
+
+		// 4. Inbound stream delivers stale Hello{1}, stale CloseChannel{1}, valid Hello{2}, and
+		//    Data:
+		let payloads = vec![
+			ChannelMessage::Hello { session: 1, version: 1 }.encode(),
+			ChannelMessage::CloseChannel { session: 1 }.encode(),
+			ChannelMessage::Hello { session: 2, version: 1 }.encode(),
+			ChannelMessage::Data(b"session 2 message".to_vec()).encode(),
+		];
+
+		// create_inherent must admit all 4 payloads without breaking at the stale items:
+		let data = MessagingInherentData {
+			channels: BTreeMap::from([(ch, payloads.clone())]),
+			registers: BTreeMap::new(),
+			events: BTreeMap::new(),
+		};
+		let mut inh_data = InherentData::new();
+		inh_data.put_data(INHERENT_IDENTIFIER, &data).unwrap();
+		let call = <SpecMessaging as ProvideInherent>::create_inherent(&inh_data).unwrap();
+		let Call::enact_messages { data: filtered } = call else { panic!("wrong call") };
+		assert_eq!(filtered.channels.get(&ch).unwrap().len(), 4);
+
+		// enact_messages consumes all 4 items, ignores stale ones, and opens session 2:
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+
+		let st = InChannels::<Test>::get(ch).unwrap();
+		assert_eq!(st.session, 2);
+		assert_eq!(st.status, RegisterStatus::Opened);
+		assert_eq!(st.frontier.leaf_count(), 4);
+		assert!(st.open.is_some());
+	});
+}
+
+#[test]
+fn register_read_interval_starts_before_payload_and_stitches() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		OutChannels::<Test>::insert(
+			ch,
+			OutChannelState {
+				want_open: true,
+				session: 0,
+				register: None,
+				open: None,
+				closed_session: None,
+			},
+		);
+
+		let initial_frontier = MmrFrontier::new();
+		let initial_root = initial_frontier.root();
+
+		let reg1 = Register {
+			status: RegisterStatus::Accepting {
+				session: 1,
+				min: 1,
+				max: 1,
+				max_message_size: 1024,
+			},
+			up_to: MessagePosition(0),
+		};
+		let lossy1 =
+			LossyRead { frontier: initial_frontier.clone(), payloads: vec![reg1.encode()] };
+		let data1 = MessagingInherentData {
+			channels: BTreeMap::new(),
+			registers: BTreeMap::from([(ch, lossy1)]),
+			events: BTreeMap::new(),
+		};
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data1));
+
+		let outbox1 = ConsumptionOutbox::<Test>::get();
+		assert_eq!(outbox1.len(), 1);
+		let (peer, stream, interval1) = outbox1[0].clone();
+		assert_eq!(peer, ch.recipient);
+		assert_eq!(stream, ch.peer_ack_stream(SELF_PARA.into()).1);
+		// start MUST be the root BEFORE the read's payload is appended:
+		assert_eq!(interval1.start, initial_root);
+		assert_ne!(interval1.start, interval1.end.root());
+		assert_eq!(interval1.end.leaf_count(), 1);
+
+		// Second contiguous register read starting exactly from interval1.end in the next block:
+		let reg2 = Register {
+			status: RegisterStatus::Accepting {
+				session: 2,
+				min: 1,
+				max: 1,
+				max_message_size: 1024,
+			},
+			up_to: MessagePosition(0),
+		};
+		let lossy2 = LossyRead { frontier: interval1.end.clone(), payloads: vec![reg2.encode()] };
+		roll_one_block();
+		let data2 = MessagingInherentData {
+			channels: BTreeMap::new(),
+			registers: BTreeMap::from([(ch, lossy2)]),
+			events: BTreeMap::new(),
+		};
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data2));
+
+		let outbox2 = ConsumptionOutbox::<Test>::get();
+		assert_eq!(outbox2.len(), 1);
+		let (_, _, interval2) = outbox2[0].clone();
+		// start MUST equal interval1's end root:
+		assert_eq!(interval2.start, interval1.end.root());
+		assert_eq!(interval2.end.leaf_count(), 2);
+
+		// Contiguous register reads must stitch with zero advance proofs:
+		let stitched =
+			cumulus_primitives_spec_messaging::lift::stitch(&[interval1, interval2.clone()], &[]);
+		assert_eq!(stitched.unwrap(), interval2.end);
+	});
+}
+
+fn roll_in_bundle(index: u8) {
+	let n = System::block_number();
+	SpecMessaging::on_finalize(n);
+	let mut digest = sp_runtime::generic::Digest::default();
+	let info = BlockBundleInfo { index, is_last: false };
+	digest.push(CumulusDigestItem::BlockBundleInfo(info).to_digest_item());
+	System::initialize(&(n + 1), &Default::default(), &digest);
+	SpecMessaging::on_initialize(n + 1);
+}
+
+fn reserved_proof() -> u64 {
+	System::block_weight().get(DispatchClass::Mandatory).proof_size()
+}
+
+/// A bundle's first lift: the transport's outer prefix, the source's framing and one lift.
+fn first_lift_bytes() -> u64 {
+	(Compact(polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES).encoded_size() +
+		ParaId::max_encoded_len() +
+		Compact::<u32>::max_encoded_len() +
+		2 + MMRExtensionProof::max_encoded_len() +
+		StreamProof::max_encoded_len()) as u64
+}
+
+fn accepting(session: u32) -> Register {
+	Register {
+		up_to: MessagePosition(0),
+		status: RegisterStatus::Accepting { session, min: 1, max: 1, max_message_size: 1024 },
+	}
+}
+
+fn registers(ch: OutChannelId, read: LossyRead) -> MessagingInherentData {
+	MessagingInherentData { registers: BTreeMap::from([(ch, read)]), ..Default::default() }
+}
+
+fn want_open(ch: OutChannelId) {
+	OutChannels::<Test>::insert(ch, OutChannelState { want_open: true, ..Default::default() });
+}
+
+#[test]
+fn enact_reserves_one_lift_per_stream_and_bundle() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+		let hello = ChannelMessage::Hello { session: 1, version: 1 }.encode();
+		let data = MessagingInherentData {
+			channels: BTreeMap::from([(ch, vec![hello])]),
+			..Default::default()
+		};
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+		assert_eq!(reserved_proof(), first_lift_bytes());
+
+		// A later block of the same bundle: the candidate's one lift already covers the channel.
+		roll_in_bundle(1);
+		let msg = ChannelMessage::Data(b"x".to_vec()).encode();
+		let data = MessagingInherentData {
+			channels: BTreeMap::from([(ch, vec![msg])]),
+			..Default::default()
+		};
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+		assert_eq!(reserved_proof(), 0);
+	});
+}
+
+#[test]
+fn enact_reserves_the_exact_skip_proof_for_a_later_register_read() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		want_open(ch);
+		let read =
+			LossyRead { frontier: MmrFrontier::new(), payloads: vec![accepting(1).encode()] };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), registers(ch, read)));
+		assert_eq!(reserved_proof(), first_lift_bytes());
+
+		// The previous read ended at 1 leaf; this one starts at 5, so the lift needs a skip proof.
+		roll_in_bundle(1);
+		let mut frontier = MmrFrontier::new();
+		for i in 0u8..5 {
+			frontier.append(leaf_hash_with_version(LEAF_VERSION, &[i]));
+		}
+		let read = LossyRead { frontier, payloads: vec![accepting(2).encode()] };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), registers(ch, read)));
+		let skip = MMRExtensionProof::encoded_len_for(1, 5).unwrap() as u64;
+		assert!(skip > 0);
+		assert_eq!(reserved_proof(), skip);
+	});
+}
+
+#[test]
+fn create_inherent_trims_to_the_proof_budget() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+		let payloads = vec![
+			ChannelMessage::Hello { session: 1, version: 1 }.encode(),
+			ChannelMessage::Data(vec![1; 100]).encode(),
+			ChannelMessage::Data(vec![2; 100]).encode(),
+		];
+		let mut inherent = InherentData::new();
+		inherent
+			.put_data(
+				INHERENT_IDENTIFIER,
+				&MessagingInherentData {
+					channels: BTreeMap::from([(ch, payloads.clone())]),
+					..Default::default()
+				},
+			)
+			.unwrap();
+
+		let fixed = first_lift_bytes() +
+			ch.encoded_size() as u64 +
+			Compact::<u32>::max_encoded_len() as u64;
+		let two = fixed + (payloads[0].encoded_size() + payloads[1].encoded_size()) as u64;
+		let weights: frame_system::limits::BlockWeights =
+			<Test as frame_system::Config>::BlockWeights::get();
+		let max = weights.max_block.proof_size();
+		let kept = |budget: u64| {
+			frame_system::BlockWeight::<Test>::kill();
+			System::register_extra_weight_unchecked(
+				Weight::from_parts(0, max - budget),
+				DispatchClass::Mandatory,
+			);
+			match SpecMessaging::create_inherent(&inherent) {
+				Some(Call::enact_messages { data }) => data.channels[&ch].len(),
+				_ => 0,
 			}
-			.into(),
+		};
+
+		assert_eq!(kept(two), 2);
+		assert_eq!(kept(two - 1), 1);
+		assert_eq!(kept(fixed), 0);
+	});
+}
+
+#[test]
+fn enact_rejects_items_the_watching_rule_excludes() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		assert_ok!(SpecMessaging::accept_open_channel(
+			RuntimeOrigin::root(),
+			ch.sender,
+			ch.domain,
+			ch.num
+		));
+		let hello = MessagingInherentData {
+			channels: BTreeMap::from([(
+				ch,
+				vec![ChannelMessage::Hello { session: 1, version: 1 }.encode()],
+			)]),
+			..Default::default()
+		};
+
+		// A full delivery queue drops the channel from consumption.
+		READY_PAGES.with(|p| p.set(MaxQueueFootprint::get()));
+		assert!(SpecMessaging::consumed_streams().channels.is_empty());
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), hello.clone()),
+			Error::<Test>::NotAdmitted
+		);
+		READY_PAGES.with(|p| p.set(0));
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), hello));
+
+		// A sender that does not want the channel reads no register.
+		let out = out_channel();
+		OutChannels::<Test>::insert(out, OutChannelState::default());
+		roll_one_block();
+		let read =
+			LossyRead { frontier: MmrFrontier::new(), payloads: vec![accepting(1).encode()] };
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), registers(out, read)),
+			Error::<Test>::NotAdmitted
+		);
+	});
+}
+
+fn channel_item(ch: InChannelId, payloads: Vec<Vec<u8>>) -> MessagingInherentData {
+	MessagingInherentData { channels: BTreeMap::from([(ch, payloads)]), ..Default::default() }
+}
+
+fn accept(ch: InChannelId) {
+	assert_ok!(SpecMessaging::accept_open_channel(
+		RuntimeOrigin::root(),
+		ch.sender,
+		ch.domain,
+		ch.num
+	));
+}
+
+fn hello(session: u32) -> Vec<u8> {
+	ChannelMessage::Hello { session, version: 1 }.encode()
+}
+
+fn data(bytes: &[u8]) -> Vec<u8> {
+	ChannelMessage::Data(bytes.to_vec()).encode()
+}
+
+/// A sender that took part in `session` and applied its `Opened`.
+fn opened(ch: OutChannelId, session: u32, max_message_size: u32) {
+	OutChannels::<Test>::insert(
+		ch,
+		OutChannelState {
+			want_open: true,
+			session,
+			register: Some(AppliedRegister {
+				position: MessagePosition(0),
+				register: Register { up_to: MessagePosition(0), status: RegisterStatus::Opened },
+			}),
+			open: Some(OpenSession {
+				session,
+				params: SessionParams { version: 1, max_message_size },
+				opened: true,
+			}),
+			closed_session: None,
+		},
+	);
+}
+
+#[test]
+fn channel_consumption_records_its_interval_and_resumes_next_block() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			channel_item(ch, vec![hello(1)])
+		));
+		let first = SpecMessaging::consumption_record().entries[&ch.sender]
+			[&ch.sender_data_stream(SELF_PARA.into()).1]
+			.clone();
+		assert_eq!(first.start, MmrFrontier::new().root());
+		assert_eq!(first.end.leaf_count(), 1);
+
+		roll_one_block();
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			channel_item(ch, vec![data(b"a"), data(b"b")])
+		));
+		let second = SpecMessaging::consumption_record().entries[&ch.sender]
+			[&ch.sender_data_stream(SELF_PARA.into()).1]
+			.clone();
+		assert_eq!(second.start, first.end.root());
+		assert_eq!(second.end.leaf_count(), 3);
+		assert_eq!(InChannels::<Test>::get(ch).unwrap().frontier, second.end);
+	});
+}
+
+#[test]
+fn strict_on_import_rejects_bad_items() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		let enact = |data| SpecMessaging::enact_messages(RuntimeOrigin::none(), data);
+
+		// Never accepted, so not consumed.
+		assert_err!(enact(channel_item(ch, vec![hello(1)])), Error::<Test>::NotAdmitted);
+		roll_one_block();
+		accept(ch);
+		assert_err!(enact(channel_item(ch, vec![])), Error::<Test>::EmptyItem);
+		roll_one_block();
+		let too_many = vec![hello(1); MaxInboundMessagesPerItem::get() as usize + 1];
+		assert_err!(enact(channel_item(ch, too_many)), Error::<Test>::TooManyInboundMessages);
+		roll_one_block();
+		let event = MessagingInherentData {
+			events: BTreeMap::from([(
+				BroadcastId { sender: src(), domain: 0, subdomain: 0, num: 0 },
+				LossyRead::default(),
+			)]),
+			..Default::default()
+		};
+		assert_err!(enact(event), Error::<Test>::NotAdmitted);
+
+		roll_one_block();
+		assert_ok!(enact(channel_item(ch, vec![hello(1)])));
+		assert_err!(enact(MessagingInherentData::default()), Error::<Test>::AlreadyEnacted);
+	});
+}
+
+#[test]
+fn too_many_touched_streams_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let max = MaxTouchedStreams::get() as u16;
+		let read =
+			|| LossyRead { frontier: MmrFrontier::new(), payloads: vec![accepting(1).encode()] };
+		let mut data = MessagingInherentData::default();
+		for num in 0..=max {
+			let ch = OutChannelId { recipient: src(), domain: 0, num };
+			want_open(ch);
+			data.registers.insert(ch, read());
+		}
+		let mut inherent = InherentData::new();
+		inherent.put_data(INHERENT_IDENTIFIER, &data).unwrap();
+		let Some(Call::enact_messages { data: trimmed }) =
+			SpecMessaging::create_inherent(&inherent)
+		else {
+			panic!("expected an inherent");
+		};
+		assert_eq!(trimmed.registers.len(), max as usize);
+
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), data),
+			Error::<Test>::TooManyStreams
+		);
+	});
+}
+
+#[test]
+fn a_new_source_over_the_commitment_cap_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		SpecMessaging::roll_over();
+		let full: BTreeSet<ParaId> = (0..polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES)
+			.map(|i| ParaId::from(5000 + i))
+			.collect();
+		BundleSources::<Test>::put(full);
+
+		let mut inherent = InherentData::new();
+		inherent
+			.put_data(INHERENT_IDENTIFIER, &channel_item(ch, vec![hello(1)]))
+			.unwrap();
+		assert!(SpecMessaging::create_inherent(&inherent).is_none());
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), channel_item(ch, vec![hello(1)])),
+			Error::<Test>::MaxCommitmentEntriesExceeded
 		);
 	});
 }
@@ -878,557 +1181,110 @@ fn an_oversized_leaf_is_consumed_and_dropped() {
 #[test]
 fn a_send_over_the_peers_max_message_size_is_refused() {
 	new_test_ext().execute_with(|| {
-		open_out_channel();
+		let ch = out_channel();
+		opened(ch, 1, 10);
+		// `Data` framing takes 2 bytes here, so 8 bytes of data fill the limit exactly.
+		assert_ok!(SpecMessaging::send(ch, vec![0; 8]));
+		assert_err!(SpecMessaging::send(ch, vec![0; 9]), Error::<Test>::MessageTooBig);
+	});
+}
+
+#[test]
+fn sender_close_answers_only_the_latest_session() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		let close = || {
+			assert_ok!(SpecMessaging::close_channel(
+				RuntimeOrigin::root(),
+				ch.recipient,
+				ch.domain,
+				ch.num
+			));
+		};
+
+		// Took part in session 1, but the latest session is 2: nothing to close.
+		opened(ch, 1, 1024);
+		OutChannels::<Test>::mutate(ch, |s| s.as_mut().unwrap().session = 2);
+		close();
+		assert!(sent_on(ch.data_stream()).is_empty());
+		assert!(!OutChannels::<Test>::get(ch).unwrap().want_open);
+
 		roll_one_block();
-		let grant = WindowGrant { max_message_size: 8, ..TestGrant::get() };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(0, grant))
-		));
-		// `Data` adds a variant byte and a compact length: 5 bytes of data is a 7-byte leaf.
-		assert_ok!(SpecMessaging::send(out_channel(), vec![0; 5]));
-		assert_err!(SpecMessaging::send(out_channel(), vec![0; 7]), Error::<Test>::MessageTooBig);
+		opened(ch, 2, 1024);
+		close();
+		assert_eq!(
+			sent_on(ch.data_stream()),
+			vec![ChannelMessage::CloseChannel { session: 2 }.encode()]
+		);
+		assert_eq!(OutChannels::<Test>::get(ch).unwrap().closed_session, Some(2));
 	});
 }
 
 #[test]
-fn register_reads_must_target_an_outbound_channel_and_decode() {
+fn a_closed_register_makes_the_sender_close_and_keep_wanting_the_channel() {
 	new_test_ext().execute_with(|| {
-		// No outbound channel to this peer yet.
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				read_register(0, register(0, TestGrant::get()))
-			),
-			Error::<Test>::UnknownStream
-		);
+		let ch = out_channel();
+		opened(ch, 1, 1024);
+		let closed =
+			Register { up_to: MessagePosition(0), status: RegisterStatus::Closed { session: 1 } };
+		let mut frontier = MmrFrontier::new();
+		frontier.append(leaf_hash_with_version(LEAF_VERSION, b"earlier"));
+		let read = LossyRead { frontier, payloads: vec![closed.encode()] };
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), registers(ch, read)));
 
-		open_out_channel();
-		let read = |payloads: Vec<Vec<u8>>| {
-			inherent(vec![(
-				peer(),
-				peer_ack(),
-				ConsumeItem::Events {
-					base: MessagePosition(0),
-					start_peaks: Default::default(),
-					payloads,
-				},
-			)])
-		};
-		assert_err!(
-			SpecMessaging::enact_messages(RuntimeOrigin::none(), read(vec![b"junk".to_vec()])),
-			Error::<Test>::BadRegister
+		assert_eq!(
+			sent_on(ch.data_stream()),
+			vec![ChannelMessage::CloseChannel { session: 1 }.encode()]
 		);
-		let leaf = register(0, TestGrant::get()).encode();
-		assert_err!(
-			SpecMessaging::enact_messages(RuntimeOrigin::none(), read(vec![leaf.clone(), leaf])),
-			Error::<Test>::BadRegister
-		);
-
-		// The peer's register for another chain, on the same `(domain, num)`: the peer committed
-		// it, so a lift would bind it, and only the recipient check refuses it.
-		let for_another =
-			StreamId::Ack { recipient: ParaId::from(SELF_PARA + 1), domain: 0, num: 0 };
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent(vec![(
-					peer(),
-					for_another,
-					ConsumeItem::Events {
-						base: MessagePosition(0),
-						start_peaks: Default::default(),
-						payloads: vec![register(0, TestGrant::get()).encode()],
-					},
-				)])
-			),
-			Error::<Test>::UnknownStream
-		);
+		let state = OutChannels::<Test>::get(ch).unwrap();
+		assert_eq!(state.closed_session, Some(1));
+		assert!(state.want_open);
+		assert_err!(SpecMessaging::send(ch, b"x".to_vec()), Error::<Test>::NotOpen);
 	});
 }
 
 #[test]
-fn register_reads_beyond_the_context_gap_cap_are_rejected() {
+fn a_forged_register_position_lifts_to_no_committed_root() {
 	new_test_ext().execute_with(|| {
-		let gaps = <Test as crate::Config>::MaxContextGaps::get() as u16;
-		let read = |num| {
-			(
-				peer(),
-				StreamId::Ack { recipient: ParaId::from(SELF_PARA), domain: 0, num },
-				ConsumeItem::Events {
-					base: MessagePosition(0),
-					start_peaks: Default::default(),
-					payloads: vec![register(0, TestGrant::get()).encode()],
-				},
-			)
-		};
-		for num in 0..=gaps {
-			assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer(), 0, num));
+		let ch = out_channel();
+		want_open(ch);
+		let (peer, ack) = ch.peer_ack_stream(SELF_PARA.into());
+
+		// The peer's `Ack` stream holds three registers, committed under its `StreamsRoot`.
+		let register = accepting(1).encode();
+		let mut before_head = MmrFrontier::new();
+		for _ in 0..2 {
+			before_head.append(leaf_hash_with_version(LEAF_VERSION, &register));
 		}
-		roll_one_block();
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent((0..gaps).map(read).collect())
-		));
-		roll_one_block();
-		assert_err!(
-			SpecMessaging::enact_messages(
-				RuntimeOrigin::none(),
-				inherent((0..=gaps).map(read).collect())
-			),
-			Error::<Test>::TooManyGaps
-		);
-	});
-}
-
-/// Open [`out_channel`] and read the peer's first register, so the channel is `Open`.
-fn open_and_accepted() {
-	open_out_channel();
-	assert_ok!(SpecMessaging::enact_messages(
-		RuntimeOrigin::none(),
-		read_register(0, register(0, TestGrant::get()))
-	));
-}
-
-#[test]
-fn close_channel_sends_the_signal_and_reopen_resumes() {
-	new_test_ext().execute_with(|| {
-		// Closing needs an `Open` channel.
-		open_out_channel();
-		assert_err!(
-			SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0),
-			Error::<Test>::ChannelNotOpen
-		);
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(0, TestGrant::get()))
-		));
-		roll_one_block();
-
-		assert_ok!(SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0));
-		assert_eq!(
-			sent_on(SpecMessaging::outbound_stream(&out_channel())),
-			vec![SpecMsgKind::Signal(SpecMsgSignal::CloseChannel).encode()]
-		);
-		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.phase(), ChannelPhase::Closed);
-		assert_err!(SpecMessaging::send(out_channel(), vec![1]), Error::<Test>::ChannelNotOpen);
-		assert_err!(
-			SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0),
-			Error::<Test>::AlreadyClosed
-		);
-		roll_one_block();
-
-		// After our own close the peer's register still stands: reopening is `Open` at once.
-		assert_ok!(SpecMessaging::open_channel(RuntimeOrigin::root(), peer(), 0, 0));
-		assert_eq!(
-			OutChannels::<Test>::get(out_channel()).expect("opened").phase(),
-			ChannelPhase::Open
-		);
-		assert_ok!(SpecMessaging::send(out_channel(), vec![1]));
-	});
-}
-
-#[test]
-fn a_closed_register_closes_the_outbound_channel() {
-	new_test_ext().execute_with(|| {
-		open_and_accepted();
-		roll_one_block();
-		let closed = Register { closed: true, ..register(1, WindowGrant::default()) };
-		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), read_register(1, closed)));
-		assert_eq!(
-			OutChannels::<Test>::get(out_channel()).expect("opened").phase(),
-			ChannelPhase::Closed
-		);
-		assert_err!(SpecMessaging::send(out_channel(), vec![1]), Error::<Test>::ChannelNotOpen);
-	});
-}
-
-#[test]
-fn receiver_close_publishes_a_closed_register_and_reaccept_resumes() {
-	new_test_ext().execute_with(|| {
-		accept(0);
-		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(
-				src(),
-				stream(0),
-				ConsumeItem::Channel { payloads: vec![data_payload(b"a")] }
-			)]),
-		));
-		roll_one_block();
-
-		assert_ok!(SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0));
-		let closed = Register { closed: true, ..register(1, WindowGrant::default()) };
-		assert_eq!(InChannels::<Test>::get(channel).expect("accepted").published, closed);
-		assert_eq!(sent_on(SpecMessaging::ack_stream(&channel)), vec![closed.encode()]);
-		assert!(SpecMessaging::consumed_streams().is_empty());
-		// A stale item is dropped, not consumed: the block stays valid.
-		let consumed = InboundFrontier::<Test>::get((src(), stream(0))).leaf_count();
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(
-				src(),
-				stream(0),
-				ConsumeItem::Channel { payloads: vec![data_payload(b"b")] }
-			)]),
-		));
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))).leaf_count(), consumed);
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
-		assert_err!(
-			SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::AlreadyClosed
-		);
-		roll_one_block();
-
-		// Re-accepting resumes from the kept frontier.
-		accept(0);
-		assert_eq!(
-			InChannels::<Test>::get(channel).expect("accepted").published,
-			register(1, TestGrant::get())
-		);
-		assert_eq!(
-			SpecMessaging::consumed_streams(),
-			BTreeMap::from([(
-				src(),
-				vec![ConsumedStream::Channel { domain: 0, num: 0, from: MessagePosition(1) }]
-			)])
-		);
-	});
-}
-
-#[test]
-fn suspend_pauses_consumption_and_resume_restores_the_grant() {
-	new_test_ext().execute_with(|| {
-		accept(0);
-		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
-		assert!(
-			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::signed(1), src(), 0, 0).is_err()
-		);
-
-		assert_ok!(SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0));
-		let state = InChannels::<Test>::get(channel).expect("accepted");
-		assert!(state.suspended);
-		assert_eq!(state.published, register(0, WindowGrant::default()));
-		assert!(SpecMessaging::consumed_streams().is_empty());
-		// A stale item is dropped, not consumed: the block stays valid.
-		let consumed = InboundFrontier::<Test>::get((src(), stream(0))).leaf_count();
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(
-				src(),
-				stream(0),
-				ConsumeItem::Channel { payloads: vec![data_payload(b"a")] }
-			)]),
-		));
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))).leaf_count(), consumed);
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
-		assert_err!(
-			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::AlreadySuspended
-		);
-
-		assert_ok!(SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0));
-		let state = InChannels::<Test>::get(channel).expect("accepted");
-		assert!(!state.suspended);
-		assert_eq!(state.published, register(0, TestGrant::get()));
-		assert_eq!(SpecMessaging::consumed_streams().len(), 1);
-		assert_err!(
-			SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::NotSuspended
-		);
-	});
-}
-
-#[test]
-fn lifecycle_calls_need_a_known_channel() {
-	new_test_ext().execute_with(|| {
-		assert_err!(
-			SpecMessaging::close_channel(RuntimeOrigin::root(), peer(), 0, 0),
-			Error::<Test>::UnknownChannel
-		);
-		assert_err!(
-			SpecMessaging::close_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::UnknownChannel
-		);
-		assert_err!(
-			SpecMessaging::suspend_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::UnknownChannel
-		);
-		assert_err!(
-			SpecMessaging::resume_inbound_channel(RuntimeOrigin::root(), src(), 0, 0),
-			Error::<Test>::UnknownChannel
-		);
-	});
-}
-
-#[test]
-fn rereading_an_unchanged_register_head_is_harmless() {
-	new_test_ext().execute_with(|| {
-		open_and_accepted();
-		roll_one_block();
-
-		// The same head again is accepted and changes nothing.
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			read_register(0, register(0, TestGrant::get()))
-		));
-		let state = OutChannels::<Test>::get(out_channel()).expect("opened");
-		assert_eq!(state.register.map(|read| read.register), Some(register(0, TestGrant::get())));
-
-		// The read is still recorded at its context: the rebuilt frontier plus the register leaf.
-		let record = SpecMessaging::consumption_record();
-		let interval = record.entries.get(&peer()).and_then(|m| m.get(&peer_ack())).expect("read");
-		assert_eq!(interval.end.leaf_count(), 1);
-		assert_eq!(interval.start, interval.end.root());
-	});
-}
-
-/// The first `n` leaves of [`src`]'s channel `0`, as `Data` payloads.
-fn skip_payloads(n: usize) -> Vec<Vec<u8>> {
-	(0..n).map(|i| data_payload(&[i as u8])).collect()
-}
-
-/// The frontier over the first `n` leaves of `payloads`.
-fn frontier_over(payloads: &[Vec<u8>], n: usize) -> MmrFrontier {
-	let mut frontier = MmrFrontier::new();
-	for payload in &payloads[..n] {
-		frontier.append(leaf_hash(LEAF_VERSION, payload));
-	}
-	frontier
-}
-
-/// The `mmr_lib` extension proof from `k` to `n` leaves of `payloads` (`0 < k < n`).
-fn extension(payloads: &[Vec<u8>], k: usize, n: usize) -> MMRExtensionProof {
-	use mmr_lib::{
-		leaf_index_to_mmr_size,
-		util::{MemMMR, MemStore},
-	};
-	let store = MemStore::default();
-	let mut mmr = MemMMR::<_, SpecMerge>::new(0, &store);
-	for payload in &payloads[..n] {
-		mmr.push(leaf_hash(LEAF_VERSION, payload)).unwrap();
-	}
-	let proof = mmr.gen_ancestry_proof(leaf_index_to_mmr_size(k as u64 - 1)).unwrap();
-	MMRExtensionProof {
-		leaf_count: n as u64,
-		connecting_nodes: proof
-			.prev_peaks_proof
-			.proof_items()
-			.iter()
-			.map(|(_, h)| *h)
-			.collect::<Vec<_>>()
-			.try_into()
-			.expect("fits the bound; qed"),
-	}
-}
-
-/// Skip [`src`]'s channel `0` to `to` with `extension`.
-fn skip(to: &MmrFrontier, extension: MMRExtensionProof) -> sp_runtime::DispatchResult {
-	SpecMessaging::skip_inbound_stream(
-		RuntimeOrigin::root(),
-		src(),
-		0,
-		0,
-		to.peaks().to_vec(),
-		to.leaf_count(),
-		extension,
-	)
-}
-
-/// Consume the first `k` leaves of `payloads` on [`src`]'s channel `0`.
-fn consume_first(payloads: &[Vec<u8>], k: usize) {
-	let item = ConsumeItem::Channel { payloads: payloads[..k].to_vec() };
-	assert_ok!(SpecMessaging::enact_messages(
-		RuntimeOrigin::none(),
-		inherent(vec![(src(), stream(0), item)])
-	));
-}
-
-#[test]
-fn skip_moves_the_frontier_and_republishes_without_a_record() {
-	new_test_ext().execute_with(|| {
-		let payloads = skip_payloads(7);
-		accept(0);
-		consume_first(&payloads, 3);
-		roll_one_block();
-
-		let old = frontier_over(&payloads, 3);
-		let new = frontier_over(&payloads, 7);
-		assert_ok!(skip(&new, extension(&payloads, 3, 7)));
-
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
-		// Nothing to lift: a frontier the sender never committed cannot make this block
-		// unbackable, only the channel's later consumption.
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
-		let _ = old;
-		let channel = ChannelId { peer: src(), domain: 0, num: 0 };
-		let state = InChannels::<Test>::get(channel).unwrap();
-		assert_eq!(state.published.up_to, MessagePosition(7));
-		System::assert_last_event(
-			Event::StreamSkipped { channel, from: MessagePosition(3), to: MessagePosition(7) }
-				.into(),
-		);
-
-		// Consumption resumes from the new frontier.
-		roll_one_block();
-		let more = skip_payloads(8);
-		let item = ConsumeItem::Channel { payloads: more[7..].to_vec() };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(src(), stream(0), item)])
-		));
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), frontier_over(&more, 8));
-	});
-}
-
-#[test]
-fn skip_from_the_empty_stream_takes_the_peaks_as_proof() {
-	new_test_ext().execute_with(|| {
-		let payloads = skip_payloads(5);
-		accept(0);
-		let new = frontier_over(&payloads, 5);
-		let extension = MMRExtensionProof {
-			leaf_count: 5,
-			connecting_nodes: new.peaks().to_vec().try_into().expect("fits the bound; qed"),
+		let mut head = before_head.clone();
+		head.append(leaf_hash_with_version(LEAF_VERSION, &register));
+		let entries = BTreeMap::from([(ack, head.root().0)]);
+		let (committed, tree_proof) = gen_stream_proof(&entries, ack).unwrap();
+		let lift = RequiresLift {
+			advances: Vec::new(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof,
 		};
-		assert_ok!(skip(&new, extension));
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
-	});
-}
 
-#[test]
-fn a_skip_scheduled_before_the_inherent_drops_its_item() {
-	new_test_ext().execute_with(|| {
-		let payloads = skip_payloads(5);
-		accept(0);
-		consume_first(&payloads, 1);
-		// A scheduled skip runs in an earlier pallet's `on_initialize`, before this pallet's and
-		// before the inherent planned on the parent.
-		let n = System::block_number();
-		SpecMessaging::on_finalize(n);
-		System::set_block_number(n + 1);
-		let new = frontier_over(&payloads, 5);
-		assert_ok!(skip(&new, extension(&payloads, 1, 5)));
-		SpecMessaging::on_initialize(n + 1);
+		let read = |frontier: MmrFrontier| {
+			roll_one_block();
+			let read = LossyRead { frontier, payloads: vec![register.clone()] };
+			assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), registers(ch, read)));
+			let streams = SpecMessaging::consumption_record().entries[&peer]
+				.iter()
+				.map(|(stream, interval)| (*stream, vec![interval.clone()]))
+				.collect();
+			build_requires_entry(&streams, &[lift.clone()])
+		};
 
-		let item = ConsumeItem::Channel { payloads: vec![payloads[1].clone()] };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(src(), stream(0), item)])
-		));
-		// The item changed nothing, and nothing is recorded.
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), new);
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
-		System::assert_has_event(
-			Event::ItemDropped { channel: ChannelId { peer: src(), domain: 0, num: 0 } }.into(),
-		);
-	});
-}
-
-#[test]
-fn skip_rejects_bad_claims() {
-	new_test_ext().execute_with(|| {
-		let payloads = skip_payloads(7);
-		accept(0);
-		consume_first(&payloads, 3);
-		roll_one_block();
-		let new = frontier_over(&payloads, 7);
-		let good = extension(&payloads, 3, 7);
-
-		// Not governance.
-		assert_err!(
-			SpecMessaging::skip_inbound_stream(
-				RuntimeOrigin::signed(1),
-				src(),
-				0,
-				0,
-				new.peaks().to_vec(),
-				7,
-				good.clone()
-			),
-			sp_runtime::DispatchError::BadOrigin
-		);
-		// No such channel.
-		assert_err!(
-			SpecMessaging::skip_inbound_stream(
-				RuntimeOrigin::root(),
-				src(),
-				0,
-				1,
-				new.peaks().to_vec(),
-				7,
-				good.clone()
-			),
-			Error::<Test>::UnknownChannel
-		);
-		// Peaks that do not fit the leaf count.
-		assert_err!(
-			SpecMessaging::skip_inbound_stream(
-				RuntimeOrigin::root(),
-				src(),
-				0,
-				0,
-				new.peaks().to_vec(),
-				8,
-				good.clone()
-			),
-			Error::<Test>::BadFrontier
-		);
-		// Not forward: back to where we are.
-		let here = frontier_over(&payloads, 3);
-		assert_err!(skip(&here, MMRExtensionProof::identity()), Error::<Test>::BadExtension);
-		// The proof's leaf count differs from the claim.
-		assert_err!(skip(&new, extension(&payloads, 3, 6)), Error::<Test>::BadExtension);
-		// The proof does not extend our frontier: it starts from another one.
-		assert_err!(skip(&new, extension(&payloads, 2, 7)), Error::<Test>::BadExtension);
-		// The claimed peaks do not match the proven root: another history.
-		let mut forged = skip_payloads(7);
-		forged[6] = data_payload(b"forged");
-		assert_err!(
-			skip(&frontier_over(&forged, 7), extension(&payloads, 3, 7)),
-			Error::<Test>::BadExtension
-		);
-
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), here);
-		assert!(SpecMessaging::consumption_record().entries.is_empty());
-	});
-}
-
-#[test]
-fn skip_refuses_a_stream_consumed_this_block() {
-	new_test_ext().execute_with(|| {
-		let payloads = skip_payloads(7);
-		accept(0);
-		consume_first(&payloads, 3);
-		let new = frontier_over(&payloads, 7);
-		assert_err!(skip(&new, extension(&payloads, 3, 7)), Error::<Test>::StreamTouched);
-		roll_one_block();
-		assert_ok!(skip(&new, extension(&payloads, 3, 7)));
-		// A skip records nothing, so a second one in the block moves on from the first.
-		let further = skip_payloads(9);
-		assert_ok!(skip(&frontier_over(&further, 9), extension(&further, 7, 9)));
-	});
-}
-
-#[test]
-fn an_undecodable_leaf_is_consumed_and_reported() {
-	new_test_ext().execute_with(|| {
-		accept(0);
-		let payloads = vec![data_payload(b"ok"), vec![0xff, 0xff]];
-		let item = ConsumeItem::Channel { payloads: payloads.clone() };
-		assert_ok!(SpecMessaging::enact_messages(
-			RuntimeOrigin::none(),
-			inherent(vec![(src(), stream(0), item)])
-		));
-		assert_eq!(InboundFrontier::<Test>::get((src(), stream(0))), frontier_over(&payloads, 2));
-		System::assert_last_event(
-			Event::UndecodableLeaf {
-				channel: ChannelId { peer: src(), domain: 0, num: 0 },
-				position: MessagePosition(1),
-			}
-			.into(),
-		);
+		// The true position lifts.
+		assert_eq!(read(before_head.clone()), Ok(committed));
+		// The same peaks fit position `2^47`. The runtime cannot tell, since it never sees the
+		// peer's count, and applies the read. The lift rejects it, so no candidate carrying this
+		// block can be backed.
+		let forged = MmrFrontier::from_parts(before_head.peaks().to_vec(), 1 << 47).unwrap();
+		assert_ne!(read(forged), Ok(committed));
+		let applied = OutChannels::<Test>::get(ch).unwrap().register.unwrap();
+		assert_eq!(applied.position, MessagePosition(1 << 47));
 	});
 }

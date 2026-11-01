@@ -14,7 +14,7 @@
 // limitations under the License.
 
 use crate as cumulus_pallet_spec_messaging;
-use cumulus_primitives_spec_messaging::WindowGrant;
+use core::ops::RangeInclusive;
 use frame_support::{derive_impl, parameter_types};
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -40,31 +40,52 @@ pub const SELF_PARA: u32 = 2000;
 parameter_types! {
 	pub const MaxMsgLen: u32 = 1024;
 	pub const MaxMessagesPerBlock: u32 = 16;
+	pub const MaxInFlight: u32 = 4;
 	pub const MaxTouchedStreams: u32 = 8;
-	pub const MaxContextGaps: u32 = 4;
+	pub const MaxInboundMessagesPerItem: u32 = 16;
+	pub const SupportedVersions: RangeInclusive<u8> = 1..=1;
+	pub const MaxMessageSize: u32 = 1024;
+	pub const MaxQueueFootprint: u32 = 4;
 	pub SelfParaId: ParaId = ParaId::from(SELF_PARA);
-	/// Small, so tests reach the credit gate.
-	pub const TestGrant: WindowGrant =
-		WindowGrant { max_messages: 4, max_bytes: 4096, max_message_size: 1024 };
 }
 
 impl cumulus_pallet_spec_messaging::Config for Test {
 	type SelfParaId = SelfParaId;
 	type MaxMsgLen = MaxMsgLen;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
+	type MaxInFlight = MaxInFlight;
 	type MaxTouchedStreams = MaxTouchedStreams;
-	type MaxContextGaps = MaxContextGaps;
+	type MaxInboundMessagesPerItem = MaxInboundMessagesPerItem;
+	type SupportedVersions = SupportedVersions;
+	type MaxMessageSize = MaxMessageSize;
+	type MaxQueueFootprint = MaxQueueFootprint;
+	type QueueFootprint = MockQueueFootprint;
 	type DataHandler = ();
 	type OpenChannelOrigin = EnsureRoot<u64>;
 	type AcceptChannelOrigin = EnsureRoot<u64>;
 	type ChannelManagementOrigin = EnsureRoot<u64>;
-	type DefaultWindowGrant = TestGrant;
-	type MaxInFlight = TestGrant;
+}
+
+std::thread_local! {
+	/// Ready pages every delivery queue reports.
+	pub static READY_PAGES: core::cell::Cell<u32> = const { core::cell::Cell::new(0) };
+}
+
+pub struct MockQueueFootprint;
+
+impl crate::QueueFootprintQuery<cumulus_primitives_spec_messaging::InChannelId>
+	for MockQueueFootprint
+{
+	fn ready_pages(_: &cumulus_primitives_spec_messaging::InChannelId) -> u32 {
+		READY_PAGES.with(|p| p.get())
+	}
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities =
 		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
-	ext.execute_with(|| System::set_block_number(1));
+	ext.execute_with(|| {
+		System::initialize(&1, &Default::default(), &Default::default());
+	});
 	ext
 }

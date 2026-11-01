@@ -23,8 +23,8 @@ use cumulus_primitives_core::{
 	CumulusDigestItem, ParaId, ParachainBlockData, PersistedValidationData,
 };
 use cumulus_primitives_spec_messaging::{
-	leaf_hash, streams_root::gen_stream_proof, ConsumeItem, LiftsBySource, MMRExtensionProof,
-	MessagingInherentData, MmrFrontier, RequiresLift, StreamId, StreamsRoot, LEAF_VERSION,
+	leaf_hash, streams_root::gen_stream_proof, ChannelMessage, InChannelId, LiftsBySource,
+	MMRExtensionProof, MessagingInherentData, MmrFrontier, RequiresLift, StreamId, StreamsRoot,
 };
 use cumulus_test_client::{
 	generate_extrinsic, generate_extrinsic_with_pair,
@@ -677,6 +677,44 @@ fn validate_block_handles_ump_signal() {
 	);
 }
 
+fn accept_channels(client: &Client, parent_head: Header, sources: &[ParaId]) -> Header {
+	let extrinsics: Vec<UncheckedExtrinsic> = sources
+		.iter()
+		.enumerate()
+		.map(|(nonce, &source)| {
+			generate_extrinsic_with_pair(
+				client,
+				Alice.into(),
+				SudoCall::sudo {
+					call: Box::new(
+						test_runtime::SpecMessagingCall::accept_open_channel {
+							sender: source,
+							domain: 0,
+							num: 0,
+						}
+						.into(),
+					),
+				},
+				Some(nonce as u32),
+			)
+		})
+		.collect();
+
+	let TestBlockData { block, .. } =
+		build_block_with_witness(client, extrinsics, parent_head, Default::default(), vec![]);
+
+	let (mut header, extrinsics) = block.blocks()[0].clone().deconstruct();
+	let seal = header.digest.pop().unwrap();
+
+	let mut import = BlockImportParams::new(BlockOrigin::Own, header);
+	import.body = Some(extrinsics);
+	import.post_digests.push(seal);
+	import.fork_choice = Some(ForkChoiceStrategy::Custom(true));
+
+	futures::executor::block_on(BlockImport::import_block(client, import)).unwrap();
+	block.blocks()[0].header.clone()
+}
+
 /// A block that consumes three payloads from `source` on a channel to this para, the lift
 /// binding them to a `StreamsRoot` that commits exactly those payloads, and that root.
 fn consuming_block(
@@ -684,20 +722,29 @@ fn consuming_block(
 	parent_head: Header,
 	source: ParaId,
 ) -> (TestBlockData, LiftsBySource, StreamsRoot) {
+	let channel = InChannelId { sender: source, domain: 0, num: 0 };
 	let stream =
 		StreamId::Channel { recipient: test_runtime::PARACHAIN_ID.into(), domain: 0, num: 0 };
-	let payloads: Vec<Vec<u8>> = (1..=3u8).map(|i| vec![i; 8]).collect();
+	let payloads: Vec<Vec<u8>> = vec![
+		ChannelMessage::Hello { session: 1, version: 1 }.encode(),
+		ChannelMessage::Data(vec![1; 8]).encode(),
+		ChannelMessage::Data(vec![2; 8]).encode(),
+		ChannelMessage::Data(vec![3; 8]).encode(),
+	];
 
 	let mut frontier = MmrFrontier::new();
-	payloads.iter().for_each(|p| frontier.append(leaf_hash(LEAF_VERSION, p)));
+	payloads.iter().for_each(|p| frontier.append(leaf_hash(p)));
 	let entries = BTreeMap::from([(stream, frontier.root().0)]);
 	let (committed, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 	let lift =
 		RequiresLift { advances: Vec::new(), extension: MMRExtensionProof::identity(), tree_proof };
 	let lifts = LiftsBySource::try_from(BTreeMap::from([(source, vec![lift])])).unwrap();
 
-	let data =
-		MessagingInherentData { items: vec![(source, stream, ConsumeItem::Channel { payloads })] };
+	let data = MessagingInherentData {
+		channels: BTreeMap::from([(channel, payloads)]),
+		registers: BTreeMap::new(),
+		events: BTreeMap::new(),
+	};
 	let inherent = UncheckedExtrinsic::new_bare(
 		test_runtime::SpecMessagingCall::enact_messages { data }.into(),
 	);
@@ -715,8 +762,9 @@ fn with_lifts(block: ParachainBlockData<Block>, lifts: LiftsBySource) -> Paracha
 fn validate_block_synthesizes_requires_from_the_lifts() {
 	sp_tracing::try_init_simple();
 
-	let (client, parent_head) = create_test_client();
+	let (client, genesis_head) = create_test_client();
 	let source = ParaId::from(2000);
+	let parent_head = accept_channels(&client, genesis_head, &[source]);
 	let (TestBlockData { block, validation_data }, lifts, committed) =
 		consuming_block(&client, parent_head.clone(), source);
 
@@ -750,9 +798,11 @@ fn validate_block_rejects_consumption_without_lifts() {
 	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_test_client();
+		let (client, genesis_head) = create_test_client();
+		let source = ParaId::from(2000);
+		let parent_head = accept_channels(&client, genesis_head, &[source]);
 		let (TestBlockData { block, validation_data }, ..) =
-			consuming_block(&client, parent_head.clone(), ParaId::from(2000));
+			consuming_block(&client, parent_head.clone(), source);
 
 		call_validate_block(parent_head, block, validation_data.relay_parent_storage_root)
 			.unwrap_err();
@@ -769,11 +819,14 @@ fn validate_block_rejects_a_lift_for_another_source() {
 	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
-		let (client, parent_head) = create_test_client();
+		let (client, genesis_head) = create_test_client();
+		let source = ParaId::from(2000);
+		let other_source = ParaId::from(3000);
+		let parent_head = accept_channels(&client, genesis_head, &[source, other_source]);
 		let (TestBlockData { block, validation_data }, ..) =
-			consuming_block(&client, parent_head.clone(), ParaId::from(2000));
+			consuming_block(&client, parent_head.clone(), source);
 		// A lift that verifies on its own, but for a source the block did not consume.
-		let (_, other_lifts, _) = consuming_block(&client, parent_head.clone(), ParaId::from(3000));
+		let (_, other_lifts, _) = consuming_block(&client, parent_head.clone(), other_source);
 
 		call_validate_block(
 			parent_head,

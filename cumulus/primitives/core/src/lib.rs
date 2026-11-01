@@ -20,7 +20,7 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, vec::Vec};
+use alloc::vec::Vec;
 use codec::{Compact, Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::HeadData;
 use scale_info::TypeInfo;
@@ -35,9 +35,7 @@ pub mod parachain_block_data;
 pub mod scheduling;
 pub mod spec_messaging;
 
-use cumulus_primitives_spec_messaging::{
-	ChannelId, ConsumedStream, ConsumptionRecord, InChannelState, OutChannelState, StreamId,
-};
+use cumulus_primitives_spec_messaging::{ConsumedStreams, ConsumptionRecord, StreamId};
 pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
 pub use polkadot_parachain_primitives::primitives::{
@@ -761,26 +759,15 @@ sp_api::decl_runtime_apis! {
 		/// order. What a collator appends to its archive. Empty for an idle block.
 		fn outbound_messages() -> Vec<(StreamId, Vec<Vec<u8>>)>;
 
-		/// Everything this chain currently consumes, grouped by source: what the inherent
-		/// provider fetches, from which position. Suspended channels are omitted. Ack registers
-		/// are absent; which to read follows from [`Self::out_channels`].
-		fn consumed_streams() -> BTreeMap<ParaId, Vec<ConsumedStream>>;
+		/// Everything the inherent provider should fetch, and from which position on.
+		fn consumed_streams() -> ConsumedStreams;
 
-		/// Outbound channel views: credit and watermark standing, phases, and via the keys which
-		/// ack registers to read.
-		fn out_channels() -> BTreeMap<ChannelId, OutChannelState>;
-
-		/// Inbound channel views: which channels are due a register publish, suspension standing.
-		fn in_channels() -> BTreeMap<ChannelId, InChannelState>;
+		/// `MaxTouchedStreams`: how many streams one inherent may touch per block.
+		fn max_touched_streams() -> u32;
 
 		/// The block's consumption record. The node uses it for acknowledgement checks and lift
 		/// assembly; the `validate_block` wrapper calls the same implementation in-wasm after
 		/// each block of a bundle.
 		fn consumption_record() -> ConsumptionRecord;
-
-		/// The most streams the messaging inherent may touch per block, and the most register
-		/// reads among them: `MaxTouchedStreams` and `MaxContextGaps`. An inherent over either
-		/// fails the block, so the node plans within them.
-		fn consumption_caps() -> (u32, u32);
 	}
 }
