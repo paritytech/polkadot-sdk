@@ -1,6 +1,6 @@
 [package]
 name = "sp-core-hashing"
-version = "15.0.0"
+version = "16.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
@@ -16,7 +16,8 @@ maintenance = { status = "deprecated" }
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-sp-crypto-hashing = { workspace = true, default-features = true }
+sp-crypto-hashing.workspace = true
+sp-crypto-hashing.default-features = true
 
 [features]
 default = ["std"]

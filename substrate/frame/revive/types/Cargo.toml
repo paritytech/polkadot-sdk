@@ -28,7 +28,7 @@ scale-info = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true, features = ["alloc"] }
 sp-core = { workspace = true, features = ["serde"] }
-sp-runtime = { workspace = true }
+sp-runtime.workspace = true
 sp-weights = { workspace = true, features = ["serde"] }
 strum = { workspace = true, features = ["derive"] }
 

@@ -1,6 +1,6 @@
 [package]
 name = "sp-virtualization"
-version = "1.0.0"
+version = "0.4.0"
 license = "Apache-2.0"
 authors.workspace = true
 edition.workspace = true
@@ -14,12 +14,15 @@ workspace = true
 codec = { workspace = true, default-features = false, features = ["bytes"] }
 log = { workspace = true }
 num_enum = { workspace = true, default-features = false }
-sp-runtime-interface = { workspace = true, default-features = false }
+sp-runtime-interface.workspace = true
+sp-runtime-interface.default-features = false
 strum = { features = ["derive"], workspace = true }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
-sp-externalities = { workspace = true, default-features = true }
-sp-storage = { workspace = true, default-features = true }
+sp-externalities.workspace = true
+sp-externalities.default-features = true
+sp-storage.workspace = true
+sp-storage.default-features = true
 
 [features]
 default = ["std"]
