@@ -27,6 +27,7 @@
 
 use crate::{Count, Edit, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
+use codec::Encode;
 use cumulus_primitives_spec_messaging::{
 	build_requires,
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
@@ -349,6 +350,26 @@ impl Oracle {
 		}
 	}
 
+	/// The STF reserves `encoded_len_for(previous end, read start)` per later read. For a lift that
+	/// reached its committed root, the advances it carried must take exactly those bytes.
+	fn check_reserved_skips(&self, intervals: &[Interval], advances: &[MMRExtensionProof]) {
+		let mut reserved = 0;
+		for w in intervals.windows(2) {
+			let Some(&start) = self.roots.get(&w[1].start.0) else { return };
+			// The STF records no empty read, so a read never starts from an empty frontier.
+			let Some(len) = MMRExtensionProof::encoded_len_for(w[0].end.leaf_count(), start as u64)
+			else {
+				return;
+			};
+			reserved += len;
+		}
+		let carried: usize = advances.iter().map(Encode::encoded_size).sum();
+		assert_eq!(
+			carried, reserved,
+			"advances take {carried} bytes, but {reserved} were reserved"
+		);
+	}
+
 	/// Fuzz entry point for `build_requires`.
 	pub fn check_pipeline_input(&self, input: &PipelineInput) -> Outcome {
 		let mut sources = self.honest_sources(input);
@@ -421,6 +442,7 @@ impl Oracle {
 						c.committed
 					);
 				}
+				self.check_reserved_skips(ivs, &c.lift.advances);
 			}
 		}
 		if any_real {
