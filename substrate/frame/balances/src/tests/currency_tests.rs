@@ -762,6 +762,22 @@ fn burn_must_work() {
 }
 
 #[test]
+fn inactive_issuance_survives_reverted_currency_burn() {
+	ExtBuilder::default().monied(true).build_and_execute_with(|| {
+		let init_total_issuance = pallet_balances::TotalIssuance::<Test>::get();
+		Balances::deactivate(init_total_issuance - 5);
+
+		let imbalance = <Balances as Currency<_>>::burn(10);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance - 10);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), init_total_issuance - 5);
+
+		drop(imbalance);
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), init_total_issuance);
+		assert_eq!(crate::InactiveIssuance::<Test>::get(), init_total_issuance - 5);
+	});
+}
+
+#[test]
 #[should_panic = "the balance of any account should always be at least the existential deposit."]
 fn cannot_set_genesis_value_below_ed() {
 	EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = 11);
