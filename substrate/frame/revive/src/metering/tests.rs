@@ -864,60 +864,12 @@ mod nesting {
 		gas_left: 708617665,
 	};
 
-	const VERY_LARGE_REFUND: CallerMeter = CallerMeter {
-		gas_limit: 5_000_000_000,
-		extra_weight: Weight::from_parts(1_000_000_000, 3000),
-		weight_charged: Weight::from_parts(2000, 100000),
-		deposit_charged: -70000000000,
-		gas_left: 315708617665,
-	};
-
-	const PROOF_FEE_ABOVE_REF_TIME_FEE: CallerMeter = CallerMeter {
-		gas_limit: 4_000_000_000,
-		extra_weight: Weight::from_parts(100_000_000, 3_000),
-		weight_charged: Weight::from_parts(1000, 1000),
-		deposit_charged: 100,
-		gas_left: 2474120094,
-	};
-
-	const REF_TIME_FEE_ABOVE_PROOF_FEE: CallerMeter = CallerMeter {
-		gas_limit: 4_000_000_000,
-		extra_weight: Weight::from_parts(100_000_000, 3_000),
-		weight_charged: Weight::from_parts(1800000000, 1000),
-		deposit_charged: 100,
-		gas_left: 199999000,
-	};
-
 	const HIGH_PROOF_SIZE: CallerMeter = CallerMeter {
 		gas_limit: 5_000_000_000,
 		extra_weight: Weight::from_parts(1_000_000_000, 3000),
 		weight_charged: Weight::from_parts(2000, 10106),
 		deposit_charged: 91452,
 		gas_left: 4,
-	};
-
-	const MODERATE_PROOF_SIZE: CallerMeter = CallerMeter {
-		gas_limit: 5_000_000_000,
-		extra_weight: Weight::from_parts(1_000_000_000, 3000),
-		weight_charged: Weight::from_parts(2000, 1010),
-		deposit_charged: 91452,
-		gas_left: 2999538240,
-	};
-
-	const PROOF_FEE_JUST_BELOW_REF_TIME_FEE: CallerMeter = CallerMeter {
-		gas_limit: 5_000_000_000,
-		extra_weight: Weight::from_parts(1_000_000_000, 3000),
-		weight_charged: Weight::from_parts(2000, 2242),
-		deposit_charged: 91452,
-		gas_left: 2999538240,
-	};
-
-	const PROOF_FEE_JUST_ABOVE_REF_TIME_FEE: CallerMeter = CallerMeter {
-		gas_limit: 5_000_000_000,
-		extra_weight: Weight::from_parts(1_000_000_000, 3000),
-		weight_charged: Weight::from_parts(2000, 2243),
-		deposit_charged: 91452,
-		gas_left: 2999496464,
 	};
 
 	#[test_case(eip_150::Rule::Skip  ; "without the 63/64 rule")]
@@ -980,7 +932,13 @@ mod nesting {
 			},
 			// 3: NoLimits, very large deposit refund.
 			CallCase {
-				caller: VERY_LARGE_REFUND,
+				caller: CallerMeter {
+					gas_limit: 5_000_000_000,
+					extra_weight: Weight::from_parts(1_000_000_000, 3000),
+					weight_charged: Weight::from_parts(2000, 100000),
+					deposit_charged: -70000000000,
+					gas_left: 315708617665,
+				},
 				call_resources: NoLimits,
 				expected_without_rule: CalleeMeter {
 					gas_left: 315708617665,
@@ -1097,7 +1055,13 @@ mod nesting {
 			},
 			// 9: WeightDeposit, proof-size fee above the ref_time fee, the call's limits apply.
 			CallCase {
-				caller: PROOF_FEE_ABOVE_REF_TIME_FEE,
+				caller: CallerMeter {
+					gas_limit: 4_000_000_000,
+					extra_weight: Weight::from_parts(100_000_000, 3_000),
+					weight_charged: Weight::from_parts(1000, 1000),
+					deposit_charged: 100,
+					gas_left: 2474120094,
+				},
 				call_resources: WeightDeposit {
 					weight: Weight::from_parts(40000, 200),
 					deposit_limit: 300000,
@@ -1117,7 +1081,13 @@ mod nesting {
 			},
 			// 10: WeightDeposit, ref_time fee above the proof-size fee, the call's limits apply.
 			CallCase {
-				caller: REF_TIME_FEE_ABOVE_PROOF_FEE,
+				caller: CallerMeter {
+					gas_limit: 4_000_000_000,
+					extra_weight: Weight::from_parts(100_000_000, 3_000),
+					weight_charged: Weight::from_parts(1800000000, 1000),
+					deposit_charged: 100,
+					gas_left: 199999000,
+				},
 				call_resources: WeightDeposit {
 					weight: Weight::from_parts(40000, 200),
 					deposit_limit: 300000,
@@ -1273,7 +1243,13 @@ mod nesting {
 			},
 			// 19: Ethereum gas, small requested gas, moderate proof_size charge.
 			CallCase {
-				caller: MODERATE_PROOF_SIZE,
+				caller: CallerMeter {
+					gas_limit: 5_000_000_000,
+					extra_weight: Weight::from_parts(1_000_000_000, 3000),
+					weight_charged: Weight::from_parts(2000, 1010),
+					deposit_charged: 91452,
+					gas_left: 2999538240,
+				},
 				call_resources: Ethereum { gas: 300, add_stipend: false },
 				expected_without_rule: CalleeMeter {
 					gas_left: 300,
@@ -1290,7 +1266,13 @@ mod nesting {
 			},
 			// 20: Ethereum gas, proof-size fee just below the ref_time fee.
 			CallCase {
-				caller: PROOF_FEE_JUST_BELOW_REF_TIME_FEE,
+				caller: CallerMeter {
+					gas_limit: 5_000_000_000,
+					extra_weight: Weight::from_parts(1_000_000_000, 3000),
+					weight_charged: Weight::from_parts(2000, 2242),
+					deposit_charged: 91452,
+					gas_left: 2999538240,
+				},
 				call_resources: Ethereum { gas: 600, add_stipend: false },
 				expected_without_rule: CalleeMeter {
 					gas_left: 600,
@@ -1307,7 +1289,13 @@ mod nesting {
 			},
 			// 21: Ethereum gas, proof-size fee just above the ref_time fee.
 			CallCase {
-				caller: PROOF_FEE_JUST_ABOVE_REF_TIME_FEE,
+				caller: CallerMeter {
+					gas_limit: 5_000_000_000,
+					extra_weight: Weight::from_parts(1_000_000_000, 3000),
+					weight_charged: Weight::from_parts(2000, 2243),
+					deposit_charged: 91452,
+					gas_left: 2999496464,
+				},
 				call_resources: Ethereum { gas: 600, add_stipend: false },
 				expected_without_rule: CalleeMeter {
 					gas_left: 600,

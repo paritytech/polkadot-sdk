@@ -57,10 +57,13 @@ pub struct ContractResult<R, Balance> {
 	///
 	/// # Note
 	///
-	/// This can only be different from [`Self::weight_consumed`] when weight pre charging
-	/// is used. Currently, only `seal_call_runtime` makes use of pre charging.
-	/// Additionally, any `seal_call` or `seal_instantiate` makes use of pre-charging
-	/// when a non-zero `weight_limit` argument is supplied.
+	/// This is higher than [`Self::weight_consumed`] in the following cases:
+	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
+	///   weight, so the retained weight is added on top of what each nested call needs.
+	/// - Weight pre-charging: an operation charges its worst-case weight up front and refunds the
+	///   unused part once its actual cost is known.
+	/// - Call stipends: a call that gets a stipend counts the whole stipend as required, even if
+	///   the callee uses less.
 	pub weight_required: Weight,
 	/// How much balance was paid by the origin into the contract's deposit account in order to
 	/// pay for storage.
@@ -69,9 +72,14 @@ pub struct ContractResult<R, Balance> {
 	/// is `Err`. This is because on error all storage changes are rolled back including the
 	/// payment of the deposit.
 	pub storage_deposit: StorageDeposit<Balance>,
-	/// The maximal storage deposit amount that occured at any time during the execution.
-	/// This can be higher than the final storage_deposit due to refunds
-	/// This is always a StorageDeposit::Charge(..)
+	/// The maximal storage deposit amount required at any time during the execution.
+	///
+	/// This is higher than [`Self::storage_deposit`] in the following two cases:
+	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
+	///   deposit, so the retained deposit is added on top of what each nested call needs.
+	/// - Refunds: deposit charged and then refunded during the execution.
+	///
+	/// This is always a `StorageDeposit::Charge(..)`.
 	pub max_storage_deposit: StorageDeposit<Balance>,
 	/// The amount of Ethereum gas that has been consumed during execution.
 	pub gas_consumed: Balance,
@@ -115,7 +123,12 @@ pub struct EthTransactInfo<Balance> {
 	pub weight_required: Weight,
 	/// Final storage deposit charged.
 	pub storage_deposit: Balance,
-	/// Maximal storage deposit charged at any time during execution.
+	/// Maximal storage deposit required at any time during execution.
+	///
+	/// This is higher than [`Self::storage_deposit`] in the following two cases:
+	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
+	///   deposit, so the retained deposit is added on top of what each nested call needs.
+	/// - Refunds: deposit charged and then refunded during the execution.
 	pub max_storage_deposit: Balance,
 	/// The weight and deposit equivalent in EVM Gas.
 	pub eth_gas: U256,

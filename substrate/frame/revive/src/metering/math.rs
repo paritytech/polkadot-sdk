@@ -29,7 +29,7 @@ use sp_runtime::Saturating;
 
 /// EIP-150 63/64 gas rule helpers.
 ///
-/// A subcall receives at most 63/64ths of the parent's remaining gas.
+/// A subcall receives at most 63/64 of the parent's remaining resources, plus any call stipend.
 /// This module provides the [`Peak`] type for tracking the minimum starting
 /// value a meter needs, as well as the [`Resource`] trait with the operations the rule needs.
 pub mod eip_150 {
@@ -270,8 +270,10 @@ pub mod substrate_execution {
 	/// to the nested frame by:
 	/// - collecting the parent's own consumed amounts (`self_consumed_*`),
 	/// - deriving the total consumed amounts up to this point,
+	/// - applying the EIP-150 63/64 rule (`S::EIP_150_RULE`) to the remaining weight and deposit,
 	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
-	///   weight+deposit) to derive per-frame limits.
+	///   weight+deposit) to derive per-frame limits,
+	/// - adding the call stipend, if `limit` asks for one, on top of the 63/64 share.
 	///
 	/// Returns `Err(Error::OutOfGas)` when weight is exhausted, or
 	/// `Err(Error::StorageDepositLimitExhausted)` when deposit bookkeeping forbids further storage.
@@ -489,6 +491,9 @@ pub mod ethereum_execution {
 	/// Create a nested (frame) meter for an Ethereum-style execution.
 	///
 	/// - computes the gas already consumed by the transaction and determines how much gas is left,
+	/// - applies the EIP-150 63/64 rule (`S::EIP_150_RULE`) to the remaining gas, weight and
+	///   deposit,
+	/// - adds the call stipend, if `limit` asks for one, on top of the 63/64 share,
 	/// - if the parent is in a simple gas-only mode, returns a child meter that is limited only by
 	///   gas (no per-frame weight/deposit limits),
 	/// - otherwise computes concrete nested weight/deposit limits derived from the remaining

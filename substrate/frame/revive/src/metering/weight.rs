@@ -205,8 +205,8 @@ impl<T: Config> WeightMeter<T> {
 
 	/// Compute the total EIP-150 overhead for this meter.
 	///
-	/// Returns the extra weight the parent needs beyond `weight_required()` to account for
-	/// all 63/64 losses at and below this level.
+	/// Returns the extra weight the parent needs beyond `weight_required()` to cover the part
+	/// each caller keeps at and below this level.
 	fn eip_150_total_overhead(&self) -> Weight {
 		self.eip_150_peak.total_overhead(self.weight_required())
 	}

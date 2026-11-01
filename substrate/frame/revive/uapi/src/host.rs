@@ -91,8 +91,7 @@ pub trait HostFn: private::Sealed {
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
-	///   specific limit for the call, which implies storage usage up to the limit of the parent
-	///   call.
+	///   specific limit for the call.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
@@ -122,7 +121,7 @@ pub trait HostFn: private::Sealed {
 	///
 	/// Adds the EVM gas stipend for non-zero value calls.
 	///
-	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	/// If gas is `u64::MAX`, the call sets no gas limit of its own.
 	fn call_evm(
 		flags: CallFlags,
 		callee: &[u8; 20],
@@ -196,8 +195,7 @@ pub trait HostFn: private::Sealed {
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting
-	///   no specific limit for the call, which implies storage usage up to the limit of the parent
-	///   call.
+	///   no specific limit for the call.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -222,7 +220,7 @@ pub trait HostFn: private::Sealed {
 
 	/// Same as [HostFn::delegate_call] but receives the one-dimensional EVM gas argument.
 	///
-	/// If gas is `u64::MAX`, the call will run with uncapped limits.
+	/// If gas is `u64::MAX`, the call sets no gas limit of its own.
 	fn delegate_call_evm(
 		flags: CallFlags,
 		address: &[u8; 20],
@@ -315,8 +313,7 @@ pub trait HostFn: private::Sealed {
 	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
 	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
 	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
-	///   specific limit for the call, which implies storage usage up to the limit of the parent
-	///   call.
+	///   specific limit for the call.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The code hash and constructor input data buffer. The first 32 bytes are the code
 	///   hash of the code to be instantiated. The remaining bytes are the constructor call data.

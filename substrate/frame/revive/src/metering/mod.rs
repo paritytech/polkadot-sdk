@@ -167,7 +167,12 @@ impl<T: Config> Default for TransactionLimits<T> {
 }
 
 impl<T: Config, S: State> ResourceMeter<T, S> {
-	/// Create a new nested meter with derived resource limits.
+	/// Creates a nested meter with limits derived from `limit` and this meter's remaining
+	/// resources.
+	///
+	/// Except for the transaction's first call, the nested meter gets at most 63/64 of the
+	/// remaining resources under the EIP-150 63/64 rule, plus the call stipend if `limit` adds
+	/// one.
 	pub fn new_nested(&self, limit: &CallResources<T>) -> Result<FrameMeter<T>, DispatchError> {
 		log::trace!(
 			target: LOG_TARGET,
@@ -465,9 +470,9 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 
 	/// Get total weight required including the EIP-150 63/64 overhead for nested calls.
 	///
-	/// This is the maximum amount of weight consumption that occurred during execution so far.
-	/// This is relevant because consumed weight can decrease in case it is adjusted a posteriori
-	/// for some operations.
+	/// This is at least the maximum amount of weight consumption that occurred during execution so
+	/// far. This is relevant because consumed weight can decrease in case it is adjusted a
+	/// posteriori for some operations.
 	pub fn weight_required(&self) -> Weight {
 		self.weight.weight_required_with_eip_150()
 	}
