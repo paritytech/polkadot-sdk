@@ -944,8 +944,8 @@ reason = "changed"
 [[crate]]
 # polkadot/node/primitives
 name = "polkadot-node-primitives"
-from = "26.0.0"
-to = "27.0.0"
+from = "27.0.0"
+to = "28.0.0"
 bump = "major"
 reason = "changed"
 
@@ -982,9 +982,9 @@ reason = "changed"
 [[crate]]
 # bridges/snowbridge/primitives/beacon
 name = "snowbridge-beacon-primitives"
-from = "0.21.0"
-to = "0.22.0"
-bump = "major"
+from = "0.22.0"
+to = "0.22.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -1090,8 +1090,8 @@ reason = "changed"
 [[crate]]
 # cumulus/bin/pov-validator
 name = "cumulus-pov-validator"
-from = "0.13.0"
-to = "0.14.0"
+from = "0.14.0"
+to = "0.15.0"
 bump = "major"
 reason = "changed"
 
@@ -1240,16 +1240,16 @@ reason = "changed"
 [[crate]]
 # polkadot/erasure-coding
 name = "polkadot-erasure-coding"
-from = "26.0.0"
-to = "27.0.0"
+from = "27.0.0"
+to = "28.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/pvf/common
 name = "polkadot-node-core-pvf-common"
-from = "27.0.0"
-to = "28.0.0"
+from = "28.0.0"
+to = "29.0.0"
 bump = "major"
 reason = "changed"
 
@@ -1810,16 +1810,16 @@ reason = "changed"
 [[crate]]
 # polkadot/node/core/pvf/execute-worker
 name = "polkadot-node-core-pvf-execute-worker"
-from = "27.0.0"
-to = "28.0.0"
+from = "28.0.0"
+to = "29.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/pvf/prepare-worker
 name = "polkadot-node-core-pvf-prepare-worker"
-from = "27.0.0"
-to = "28.0.0"
+from = "28.0.0"
+to = "29.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3380,8 +3380,8 @@ reason = "changed"
 [[crate]]
 # polkadot/node/network/protocol
 name = "polkadot-node-network-protocol"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3498,8 +3498,8 @@ reason = "changed"
 [[crate]]
 # polkadot/node/subsystem-types
 name = "polkadot-node-subsystem-types"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3592,8 +3592,8 @@ reason = "changed"
 [[crate]]
 # polkadot/node/overseer
 name = "polkadot-overseer"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3640,8 +3640,8 @@ reason = "changed"
 [[crate]]
 # cumulus/client/relay-chain-interface
 name = "cumulus-relay-chain-interface"
-from = "0.33.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
@@ -3662,8 +3662,8 @@ to = "0.15.0"
 [[crate]]
 # polkadot/node/subsystem
 name = "polkadot-node-subsystem"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3698,40 +3698,40 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/bootnodes
 name = "cumulus-client-bootnodes"
-from = "0.12.0"
-to = "0.13.0"
+from = "0.13.0"
+to = "0.15.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/network
 name = "cumulus-client-network"
-from = "0.33.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/parachain-inherent
 name = "cumulus-client-parachain-inherent"
-from = "0.27.0"
-to = "0.28.0"
+from = "0.28.0"
+to = "0.30.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/relay-chain-rpc-interface
 name = "cumulus-relay-chain-rpc-interface"
-from = "0.34.0"
-to = "0.34.1"
-bump = "patch"
+from = "0.34.1"
+to = "0.36.0"
+bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/relay-chain-streams
 name = "cumulus-relay-chain-streams"
-from = "0.11.0"
-to = "0.12.0"
+from = "0.12.0"
+to = "0.14.0"
 bump = "major"
 reason = "changed"
 
@@ -3750,48 +3750,48 @@ to = "0.1.0"
 [[crate]]
 # polkadot/node/network/bridge
 name = "polkadot-network-bridge"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/chain-api
 name = "polkadot-node-core-chain-api"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/parachains-inherent
 name = "polkadot-node-core-parachains-inherent"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/pvf
 name = "polkadot-node-core-pvf"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/runtime-api
 name = "polkadot-node-core-runtime-api"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/subsystem-util
 name = "polkadot-node-subsystem-util"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -3830,9 +3830,9 @@ to = "0.1.0"
 [[crate]]
 # bridges/snowbridge/pallets/inbound-queue
 name = "snowbridge-pallet-inbound-queue"
-from = "0.29.0"
-to = "0.30.0"
-bump = "major"
+from = "0.30.0"
+to = "0.30.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
@@ -3872,168 +3872,168 @@ reason = "changed"
 [[crate]]
 # cumulus/parachains/runtimes/bridge-hubs/bridge-hub-westend
 name = "bridge-hub-westend-runtime"
-from = "0.33.0"
-to = "0.34.0"
-bump = "major"
+from = "0.34.0"
+to = "0.34.1"
+bump = "patch"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/pov-recovery
 name = "cumulus-client-pov-recovery"
-from = "0.33.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # substrate/utils/frame/benchmarking-cli
 name = "frame-benchmarking-cli"
-from = "60.0.0"
-to = "61.0.0"
+from = "61.0.0"
+to = "63.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/approval-distribution
 name = "polkadot-approval-distribution"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/bitfield-distribution
 name = "polkadot-availability-bitfield-distribution"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/availability-distribution
 name = "polkadot-availability-distribution"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/availability-recovery
 name = "polkadot-availability-recovery"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/collator-protocol
 name = "polkadot-collator-protocol"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/dispute-distribution
 name = "polkadot-dispute-distribution"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/network/gossip-support
 name = "polkadot-gossip-support"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/collation-generation
 name = "polkadot-node-collation-generation"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/approval-voting
 name = "polkadot-node-core-approval-voting"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/av-store
 name = "polkadot-node-core-av-store"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/backing
 name = "polkadot-node-core-backing"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/bitfield-signing
 name = "polkadot-node-core-bitfield-signing"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/candidate-validation
 name = "polkadot-node-core-candidate-validation"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/chain-selection
 name = "polkadot-node-core-chain-selection"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/dispute-coordinator
 name = "polkadot-node-core-dispute-coordinator"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/prospective-parachains
 name = "polkadot-node-core-prospective-parachains"
-from = "32.0.0"
-to = "33.0.0"
+from = "33.0.0"
+to = "35.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/provisioner
 name = "polkadot-node-core-provisioner"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/pvf-checker
 name = "polkadot-node-core-pvf-checker"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -4046,8 +4046,8 @@ to = "0.1.0"
 [[crate]]
 # polkadot/node/network/statement-distribution
 name = "polkadot-statement-distribution"
-from = "33.0.0"
-to = "34.0.0"
+from = "34.0.0"
+to = "36.0.0"
 bump = "major"
 reason = "changed"
 
@@ -4066,16 +4066,16 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/consensus/common
 name = "cumulus-client-consensus-common"
-from = "0.33.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/core/approval-voting-parallel
 name = "polkadot-node-core-approval-voting-parallel"
-from = "0.16.0"
-to = "0.17.0"
+from = "0.17.0"
+to = "0.19.0"
 bump = "major"
 reason = "changed"
 
@@ -4094,24 +4094,24 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/collator
 name = "cumulus-client-collator"
-from = "0.33.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/consensus/relay-chain
 name = "cumulus-client-consensus-relay-chain"
-from = "0.33.0"
-to = "0.34.0"
+from = "0.34.0"
+to = "0.36.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/node/service
 name = "polkadot-service"
-from = "38.0.0"
-to = "39.0.0"
+from = "39.0.0"
+to = "41.0.0"
 bump = "major"
 reason = "changed"
 
@@ -4166,16 +4166,16 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/consensus/aura
 name = "cumulus-client-consensus-aura"
-from = "0.34.0"
-to = "0.34.1"
-bump = "patch"
+from = "0.34.1"
+to = "0.36.0"
+bump = "major"
 reason = "changed"
 
 [[crate]]
 # cumulus/client/relay-chain-minimal-node
 name = "cumulus-relay-chain-minimal-node"
-from = "0.38.0"
-to = "0.39.0"
+from = "0.39.0"
+to = "0.41.0"
 bump = "major"
 reason = "changed"
 
@@ -4194,8 +4194,8 @@ to = "0.1.0"
 [[crate]]
 # polkadot/cli
 name = "polkadot-cli"
-from = "38.0.0"
-to = "39.0.0"
+from = "39.0.0"
+to = "41.0.0"
 bump = "major"
 reason = "changed"
 
@@ -4208,16 +4208,16 @@ to = "0.1.0"
 [[crate]]
 # cumulus/client/relay-chain-inprocess-interface
 name = "cumulus-relay-chain-inprocess-interface"
-from = "0.38.0"
-to = "0.39.0"
+from = "0.39.0"
+to = "0.41.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot/jemalloc-shim
 name = "polkadot-jemalloc-shim"
-from = "0.8.0"
-to = "0.9.0"
+from = "0.9.0"
+to = "0.11.0"
 bump = "major"
 reason = "changed"
 
@@ -4248,24 +4248,24 @@ to = "1.0.0"
 [[crate]]
 # cumulus/client/service
 name = "cumulus-client-service"
-from = "0.38.0"
-to = "0.39.0"
+from = "0.39.0"
+to = "0.41.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # substrate/utils/frame/omni-bencher
 name = "frame-omni-bencher"
-from = "0.24.0"
-to = "0.25.0"
+from = "0.25.0"
+to = "0.27.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # polkadot
 name = "polkadot"
-from = "37.0.0"
-to = "38.0.0"
+from = "38.0.0"
+to = "40.0.0"
 bump = "major"
 reason = "changed"
 
@@ -4284,8 +4284,8 @@ to = "0.1.0"
 [[crate]]
 # cumulus/polkadot-omni-node/lib
 name = "polkadot-omni-node-lib"
-from = "0.20.0"
-to = "0.21.0"
+from = "0.21.0"
+to = "0.23.0"
 bump = "major"
 reason = "changed"
 
@@ -4298,17 +4298,17 @@ to = "0.1.0"
 [[crate]]
 # cumulus/polkadot-omni-node
 name = "polkadot-omni-node"
-from = "0.20.0"
-to = "0.21.0"
+from = "0.21.0"
+to = "0.23.0"
 bump = "major"
 reason = "changed"
 
 [[crate]]
 # umbrella
 name = "polkadot-sdk"
-from = "2606.4.0"
-to = "2609.0.0"
-bump = "major"
+from = "2609.0.0"
+to = "2609.1.0"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
