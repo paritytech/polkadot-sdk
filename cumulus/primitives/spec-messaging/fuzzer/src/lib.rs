@@ -35,13 +35,13 @@
 use arbitrary::Arbitrary;
 use codec::Decode;
 use cumulus_primitives_spec_messaging::{
-	build_requires, leaf_hash,
+	build_requires, leaf_hash_with_version,
 	mmr::{bag_peaks, empty_root, SpecMerge},
-	stitch, ConsumptionRecord, Interval, LiftsBySource, MMRExtensionProof, MessagePosition,
-	MmrFrontier, MmrInclusionProof, LEAF_VERSION,
+	stitch, ConsumptionRecord, Interval, LiftsBySource, MMRExtensionProof, MmrFrontier,
+	LEAF_VERSION,
 };
 use mmr_lib::{
-	leaf_index_to_mmr_size, leaf_index_to_pos,
+	leaf_index_to_mmr_size,
 	util::{MemMMR, MemStore},
 	MMRStoreReadOps,
 };
@@ -52,7 +52,7 @@ pub mod frontier;
 pub mod message;
 mod pipeline;
 pub use frontier::FrontierInput;
-pub use message::{EventInput, FetchInput, MessageOracle};
+pub use message::{check_inherent_decode, FetchInput, MessageOracle};
 pub use pipeline::PipelineInput;
 
 /// Enough for every peak layout up to six peaks, small enough to precompute every proof.
@@ -92,8 +92,6 @@ pub struct Oracle {
 	pub roots: HashMap<Hash, usize>,
 	/// `[k][m]`: from `k` to `m` leaves, `None` unless `k < m`.
 	extensions: Vec<Vec<Option<MMRExtensionProof>>>,
-	/// `[i][n]`: leaf `i` in `n` leaves, `None` unless `i < n`.
-	inclusions: Vec<Vec<Option<MmrInclusionProof>>>,
 	/// Every real hash an attacker could replay: nodes, partial peak bags and roots.
 	pub palette: Vec<Hash>,
 }
@@ -109,10 +107,11 @@ impl Oracle {
 		Self::with_leaf_version(LEAF_VERSION)
 	}
 
-	/// Leaf `i` is `leaf_hash(leaf_version, &payload(i))`.
+	/// Leaf `i` is `leaf_hash_with_version(leaf_version, &payload(i))`.
 	pub fn with_leaf_version(leaf_version: u8) -> Self {
-		let leaves: Vec<Hash> =
-			(0..N as u64).map(|i| leaf_hash(leaf_version, &payload(i))).collect();
+		let leaves: Vec<Hash> = (0..N as u64)
+			.map(|i| leaf_hash_with_version(leaf_version, &payload(i)))
+			.collect();
 
 		let store = MemStore::<Hash>::default();
 		{
@@ -164,26 +163,6 @@ impl Oracle {
 			})
 			.collect();
 
-		let inclusions = (0..N)
-			.map(|i| {
-				(0..=N)
-					.map(|n| {
-						(i < n).then(|| MmrInclusionProof {
-							mmr_size: mmr_size(n as u64),
-							items: BoundedVec::try_from(
-								at(n)
-									.gen_proof(vec![leaf_index_to_pos(i as u64)])
-									.expect("leaf i < n is in the n-leaf MMR; qed")
-									.proof_items()
-									.to_vec(),
-							)
-							.expect("an honest proof fits the bound; qed"),
-						})
-					})
-					.collect()
-			})
-			.collect();
-
 		let mut palette = BTreeSet::new();
 		for pos in 0..mmr_size(N as u64) {
 			if let Ok(Some(node)) = (&store).get_elem(pos) {
@@ -198,22 +177,11 @@ impl Oracle {
 		}
 		palette.extend(roots.keys().copied());
 
-		Self {
-			leaves,
-			frontiers,
-			roots,
-			extensions,
-			inclusions,
-			palette: palette.into_iter().collect(),
-		}
+		Self { leaves, frontiers, roots, extensions, palette: palette.into_iter().collect() }
 	}
 
 	pub fn extension(&self, k: u64, m: u64) -> Option<&MMRExtensionProof> {
 		self.extensions.get(k as usize)?.get(m as usize)?.as_ref()
-	}
-
-	pub fn inclusion(&self, i: u64, n: u64) -> Option<&MmrInclusionProof> {
-		self.inclusions.get(i as usize)?.get(n as usize)?.as_ref()
 	}
 
 	pub fn frontier(&self, k: u64) -> Option<&MmrFrontier> {
@@ -286,88 +254,11 @@ impl Oracle {
 		Outcome::Real
 	}
 
-	fn inclusion_proof(&self, input: &InclusionInput) -> (MmrInclusionProof, Hash) {
-		let template = input.template.and_then(|(i, n)| {
-			let (i, n) = (i as u64 % N as u64, n as u64 % (N as u64 + 1));
-			self.inclusion(i, n).map(|p| (i, p.clone()))
-		});
-		let (leaf, mut proof) = match template {
-			Some((i, proof)) => (self.leaves[i as usize], proof),
-			None => (self.leaves[0], MmrInclusionProof { mmr_size: 0, items: BoundedVec::new() }),
-		};
-		if let Some(size) = input.mmr_size {
-			proof.mmr_size = size.get();
-		}
-		self.apply_bounded(&mut proof.items, &input.edits);
-		(proof, input.leaf.map_or(leaf, |c| self.hash(c)))
-	}
-
-	/// Fuzz entry point for [`MmrInclusionProof::verify_head`] and `verify_leaf`.
-	pub fn check_inclusion_input(&self, input: &InclusionInput) -> Outcome {
-		let (proof, leaf) = self.inclusion_proof(input);
-		match input.position {
-			None => self.check_head(&proof, leaf),
-			Some(position) => self.check_leaf(&proof, MessagePosition(position.get()), leaf),
-		}
-	}
-
-	/// A real root must come from the honest head proof of a real prefix.
-	pub fn check_head(&self, proof: &MmrInclusionProof, leaf: Hash) -> Outcome {
-		let Ok((position, frontier)) = proof.verify_head(leaf) else { return Outcome::Rejected };
-		assert_eq!(
-			frontier.leaf_count(),
-			position.0 + 1,
-			"verify_head returned a frontier that does not end at the returned position"
-		);
-		let Some(&m) = self.roots.get(&frontier.root().0) else { return Outcome::Unbound };
-		let m = m as u64;
-		assert!(
-			m == position.0 + 1 && self.frontier(m) == Some(&frontier),
-			"FORGERY: head proof claims position {} but yields the real root of {m} leaves",
-			position.0
-		);
-		assert_eq!(
-			self.leaves.get(position.0 as usize),
-			Some(&leaf),
-			"FORGERY: a non-head leaf is accepted as the head of {m} leaves"
-		);
-		assert_eq!(
-			Some(proof),
-			self.inclusion(m - 1, m),
-			"MALLEABLE: a non-honest head proof yields the real root of {m} leaves"
-		);
-		Outcome::Real
-	}
-
-	/// A real root must come from the honest proof of the real leaf at `position`.
-	pub fn check_leaf(
-		&self,
-		proof: &MmrInclusionProof,
-		position: MessagePosition,
-		leaf: Hash,
-	) -> Outcome {
-		let Ok(root) = proof.verify_leaf(position, leaf) else { return Outcome::Rejected };
-		let Some(&m) = self.roots.get(&root.0) else { return Outcome::Unbound };
-		let m = m as u64;
-		assert!(
-			position.0 < m && self.leaves.get(position.0 as usize) == Some(&leaf),
-			"FORGERY: leaf {leaf:?} accepted at position {} of the real {m}-leaf root",
-			position.0
-		);
-		assert_eq!(
-			Some(proof),
-			self.inclusion(position.0, m),
-			"MALLEABLE: a non-honest proof of leaf {} yields the real root of {m} leaves",
-			position.0
-		);
-		Outcome::Real
-	}
-
 	/// Fuzz entry point for raw SCALE bytes. The first byte picks what to decode.
 	pub fn check_decode(&self, data: &[u8]) -> Outcome {
 		let Some((&selector, mut rest)) = data.split_first() else { return Outcome::Skipped };
 		let input = &mut rest;
-		match selector % 4 {
+		match selector % 3 {
 			0 => {
 				let Ok((k, proof)) = <(u8, MMRExtensionProof)>::decode(input) else {
 					return Outcome::Skipped;
@@ -375,17 +266,6 @@ impl Oracle {
 				self.check_extension(&self.frontiers[k as usize % (N + 1)], &proof)
 			},
 			1 => {
-				let Ok((proof, position, leaf)) =
-					<(MmrInclusionProof, Option<u64>, Hash)>::decode(input)
-				else {
-					return Outcome::Skipped;
-				};
-				match position {
-					None => self.check_head(&proof, leaf),
-					Some(p) => self.check_leaf(&proof, MessagePosition(p), leaf),
-				}
-			},
-			2 => {
 				let Ok((intervals, advances)) =
 					<(Vec<Interval>, Vec<MMRExtensionProof>)>::decode(input)
 				else {
@@ -512,18 +392,6 @@ pub struct ExtensionInput {
 	pub edits: Vec<Edit>,
 }
 
-#[derive(Arbitrary, Debug)]
-pub struct InclusionInput {
-	/// `None` fuzzes `verify_head`, `Some` fuzzes `verify_leaf`.
-	pub position: Option<Count>,
-	/// Start from the honest proof of leaf `i % N` in `n % (N + 1)` leaves, if `i < n`.
-	pub template: Option<(u8, u8)>,
-	pub mmr_size: Option<Count>,
-	/// Defaults to the template's leaf.
-	pub leaf: Option<HashChoice>,
-	pub edits: Vec<Edit>,
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -540,13 +408,6 @@ mod tests {
 					Outcome::Real
 				);
 			}
-			for i in 0..m {
-				let proof = oracle.inclusion(i, m).unwrap();
-				let leaf = oracle.leaves[i as usize];
-				assert_eq!(oracle.check_leaf(proof, MessagePosition(i), leaf), Outcome::Real);
-			}
-			let head = oracle.inclusion(m - 1, m).unwrap();
-			assert_eq!(oracle.check_head(head, oracle.leaves[m as usize - 1]), Outcome::Real);
 		}
 	}
 
@@ -588,9 +449,6 @@ mod tests {
 			if let Ok(input) = ExtensionInput::arbitrary(&mut Unstructured::new(&bytes)) {
 				real += (oracle.check_extension_input(&input) == Outcome::Real) as u32;
 			}
-			if let Ok(input) = InclusionInput::arbitrary(&mut Unstructured::new(&bytes)) {
-				real += (oracle.check_inclusion_input(&input) == Outcome::Real) as u32;
-			}
 			if let Ok(input) = PipelineInput::arbitrary(&mut Unstructured::new(&bytes)) {
 				real += (oracle.check_pipeline_input(&input) == Outcome::Real) as u32;
 			}
@@ -599,9 +457,6 @@ mod tests {
 			}
 			if let Ok(input) = FetchInput::arbitrary(&mut Unstructured::new(&bytes)) {
 				real += (messages.check_fetch_input(&input) == Outcome::Real) as u32;
-			}
-			if let Ok(input) = EventInput::arbitrary(&mut Unstructured::new(&bytes)) {
-				real += (messages.check_event_input(&input) == Outcome::Real) as u32;
 			}
 			oracle.check_decode(&bytes);
 			oracle.check_frontier_decode(&bytes);
@@ -612,7 +467,7 @@ mod tests {
 
 	/// Replays honggfuzz inputs without a debugger, picking the target from the path. A single file
 	/// also prints the decoded input. Run under `cargo llvm-cov` for corpus coverage, e.g.
-	/// `REPLAY="hfuzz_workspace/lift_inclusion/*.fuzz" cargo test --release replay -- --ignored
+	/// `REPLAY="hfuzz_workspace/lift_extension/*.fuzz" cargo test --release replay -- --ignored
 	/// --nocapture`.
 	#[test]
 	#[ignore]
@@ -642,15 +497,6 @@ mod tests {
 					println!("{input:#?}");
 				}
 				("lift_extension", oracle.check_extension_input(&input))
-			} else if name.contains("lift_inclusion") {
-				let Ok(input) = InclusionInput::arbitrary(input) else {
-					*tally.entry(("lift_inclusion", "Unparsed".into())).or_default() += 1;
-					continue;
-				};
-				if verbose {
-					println!("{input:#?}");
-				}
-				("lift_inclusion", oracle.check_inclusion_input(&input))
 			} else if name.contains("mmr_frontier") {
 				let Ok(input) = FrontierInput::arbitrary(input) else {
 					*tally.entry(("mmr_frontier", "Unparsed".into())).or_default() += 1;
@@ -671,15 +517,6 @@ mod tests {
 					println!("{input:#?}");
 				}
 				("message_fetch", messages.check_fetch_input(&input))
-			} else if name.contains("message_event") {
-				let Ok(input) = EventInput::arbitrary(input) else {
-					*tally.entry(("message_event", "Unparsed".into())).or_default() += 1;
-					continue;
-				};
-				if verbose {
-					println!("{input:#?}");
-				}
-				("message_event", messages.check_event_input(&input))
 			} else if name.contains("message_decode") {
 				("message_decode", messages.check_message_decode(&bytes))
 			} else if name.contains("lift_pipeline") {

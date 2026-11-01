@@ -41,20 +41,22 @@ mod adversarial_tests;
 #[cfg(test)]
 mod test_utils;
 
-pub use channel::{ChannelId, ChannelPhase, InChannelState, OutChannelState, RegisterRead};
-pub use flow_control::{Register, SpecMsgKind, SpecMsgSignal, WindowGrant};
+pub use channel::{
+	AppliedRegister, BroadcastId, InChannelId, InChannelState, OpenSession, OutChannelId,
+	OutChannelState, SessionParams,
+};
+pub use flow_control::{ChannelMessage, Register, RegisterStatus};
 pub use inherent::{
-	ConsumeItem, ConsumedStream, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
+	ConsumedStreams, LossyRead, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
 };
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
-	LiftsBySource, MMRExtensionProof, MmrInclusionProof, ProofError, RequiresLift, SourceStreams,
-	TreeInclusionProof,
+	LiftsBySource, MMRExtensionProof, ProofError, RequiresLift, SourceStreams, TreeInclusionProof,
 };
 pub use message::{
-	leaf_hash, verify_event, verify_exchange, verify_messages, EventRequest, EventResponse,
-	ExchangeRequest, ExchangeResponse, ExchangeVerified, MessagesRequest, MessagesResponse,
-	VerifiedEvent, VerifyError, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
+	leaf_hash, leaf_hash_with_version, verify_channel_messages, verify_messages, FetchError,
+	FetchResponse, MessagesRequest, MessagesResponse, VerifyError, MAX_MESSAGES_PER_RESPONSE,
+	MAX_SPECULATIVE_MESSAGE_LEN,
 };
 pub use mmr::{FrontierFull, MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
