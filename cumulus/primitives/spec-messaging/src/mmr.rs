@@ -40,9 +40,9 @@ use crate::{SpecHasher, INNER_TAG, PEAK_TAG, ROOT_TAG};
 /// `u64` above 2^63. Peer-supplied counts are checked against this first.
 pub const MAX_MMR_LEAF_COUNT: u64 = 1 << 48;
 
-/// Upper bound on a peak set or other hash list that a leaf count determines: one per bit of a
-/// `u64`.
-pub const MAX_MMR_HASHES: u32 = 64;
+/// Upper bound on a peak set or connecting-node list: at most 48 hashes up to
+/// [`MAX_MMR_LEAF_COUNT`].
+pub const MAX_MMR_HASHES: u32 = 48;
 
 /// A leaf position within a stream's MMR.
 #[derive(
@@ -105,7 +105,18 @@ pub struct FrontierFull;
 
 /// A stream's committed root at some point in its history: the leaf count bound over the bagged
 /// peaks. A newtype so it cannot be confused with a `StreamsRoot`, the commitment-tree root.
-#[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
+)]
 pub struct MmrRoot(pub Hash);
 
 impl MmrRoot {
@@ -133,7 +144,7 @@ impl MmrRoot {
 ///
 /// Encodes as `leaf_count ‖ peaks`. A decoder reads the count first, and the `BoundedVec` rejects
 /// an over-long length prefix before any peak is read.
-#[derive(Clone, Encode, PartialEq, Eq, Debug, TypeInfo, Default)]
+#[derive(Clone, Encode, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MmrFrontier {
 	/// Number of leaves these peaks summarize; also the position of the next message to append.
 	leaf_count: u64,
@@ -152,7 +163,7 @@ impl MmrFrontier {
 		if leaf_count > MAX_MMR_LEAF_COUNT || peaks.len() != leaf_count.count_ones() as usize {
 			return None;
 		}
-		// ≤ 64 is implied by the set-bit count of a `u64`, so this cannot fail.
+		// ≤ 48 is implied by the set-bit count up to `MAX_MMR_LEAF_COUNT`, so this cannot fail.
 		BoundedVec::try_from(peaks).ok().map(|peaks| Self { leaf_count, peaks })
 	}
 
@@ -184,7 +195,7 @@ impl MmrFrontier {
 		}
 		self.peaks
 			.try_push(node)
-			.expect("a `u64` leaf count never has more than 64 set bits; qed");
+			.expect("a leaf count up to `MAX_MMR_LEAF_COUNT` never has more than 48 set bits; qed");
 		self.leaf_count += 1;
 		Ok(())
 	}
@@ -323,8 +334,8 @@ mod tests {
 		assert!(MmrFrontier::decode(&mut &bad_shape[..]).is_err());
 		let too_large = (1u64 << 63, vec![h(1)]).encode();
 		assert!(MmrFrontier::decode(&mut &too_large[..]).is_err());
-		// The bound is checked at the length prefix: 65 peaks are refused before being read.
-		let too_many = (u64::MAX, vec![h(1); 65]).encode();
+		// The bound is checked at the length prefix: 49 peaks are refused before being read.
+		let too_many = (u64::MAX, vec![h(1); MAX_MMR_HASHES as usize + 1]).encode();
 		assert!(MmrFrontier::decode(&mut &too_many[..]).is_err());
 		// And the wire order is the design's: `leaf_count` first.
 		assert_eq!(good.encode(), (3u64, vec![h(1), h(2)]).encode());

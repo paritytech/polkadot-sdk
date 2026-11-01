@@ -37,7 +37,7 @@
 //! A leaf hash binds the full key, an inner hash its split bit.
 
 use alloc::{collections::BTreeMap, vec::Vec};
-use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_core_primitives::Hash;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec, Digest, DigestItem};
@@ -55,7 +55,16 @@ pub use polkadot_primitives::StreamsRoot;
 /// One step of a trie walk. The branch direction is not stored; verification takes it from the
 /// proven key's bit at `split_bit`.
 #[derive(
-	Clone, Copy, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, scale_info::TypeInfo,
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
 )]
 pub struct TreeStep {
 	/// Key-bit index this node branches on, `0..KEY_BITS` with `0` the MSB. Part of the inner-node
@@ -67,7 +76,15 @@ pub struct TreeStep {
 /// A membership proof that `(stream, stream_root)` is committed under a `StreamsRoot`. Served by
 /// the sender, verified by the receiver. Carries no leaf index; the key drives the walk.
 #[derive(
-	Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, scale_info::TypeInfo,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
 )]
 pub struct StreamProof {
 	/// Branch steps leaf to root, split bits strictly decreasing. Empty for a single-stream tree.

@@ -14,61 +14,59 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Off-chain wire types and their verifiers.
+//! Off-chain wire types and their verifier.
 //!
 //! The relay chain decodes none of this; it only matches the `StreamsRoot` commitments in the UMP
-//! signals. But the two ends of each protocol are different chains' collators, so the encodings and
-//! the envelope variant indices are part of the wire format.
+//! signals. The two ends of the fetch protocol are different chains' collators, so the encodings
+//! and error variant indices are normative for interoperability.
 //!
-//! - [`leaf_hash`] turns a payload into an MMR leaf. A message is a bounded payload keyed by
-//! `StreamId`; source, stream and position are structural, so there is no message struct.
-//! - Fetch: [`MessagesRequest`] / [`MessagesResponse`], verified by [`verify_messages`] against a
-//! `StreamsRoot` the requester has already verified. The `extension` + `tree_proof` check is the
-//! same one the requires-lift performs.
-//! - Event read: [`EventRequest`] / [`EventResponse`], the single-leaf read of an `Ack` /
-//! `Broadcast` / `Private` stream, verified by [`verify_event`].
-//! - Envelope: [`ExchangeRequest`] / [`ExchangeResponse`] multiplex both over `/spec-msg/exchange`,
-//! verified by [`verify_exchange`], which also binds the response variant to the request's. Variant
-//! indices are frozen.
+//! - [`leaf_hash`] turns a payload into an MMR leaf (`H(LEAF_TAG ++ LEAF_VERSION ++ payload)`).
+//! - [`MessagesRequest`] / [`MessagesResponse`] and [`FetchError`] are the single request/response
+//! pair for all off-chain reads: ordered channel consumption, lossy head reads (`start: None`),
+//! range reads, gap leaves and proofs-only lift material (`max_bytes: 0`).
+//! - [`verify_messages`] authenticates a [`MessagesResponse`] against its [`MessagesRequest`].
 
 use alloc::vec::Vec;
-use codec::{Decode, DecodeWithMemTracking, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{
-	lift::{MMRExtensionProof, MmrInclusionProof, ProofError},
-	mmr::{MessagePosition, MmrFrontier, MmrRoot, MAX_MMR_HASHES, MAX_MMR_LEAF_COUNT},
+	lift::{MMRExtensionProof, ProofError},
+	mmr::{MessagePosition, MmrFrontier, MmrRoot, MAX_MMR_LEAF_COUNT},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
-	SpecHasher, LEAF_TAG,
+	SpecHasher, LEAF_TAG, LEAF_VERSION,
 };
 
-/// Why verifying an off-chain response failed. [`RootMismatch`](VerifyError::RootMismatch) is
-/// benign (retry under a fresher root); the rest indicate a malformed or forged response.
+/// Why verifying a [`MessagesResponse`] failed. [`RootMismatch`](VerifyError::RootMismatch) is
+/// benign when a peer served under a different root; the rest indicate a malformed or forged
+/// response.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum VerifyError {
-	/// An embedded MMR proof (inclusion or extension) did not verify.
+	/// The embedded MMR extension proof did not verify.
 	Proof(ProofError),
 	/// The `StreamsRoot` keyed-tree walk (`tree_proof`) did not resolve.
 	TreeProof,
-	/// Everything verified, but the recomputed `StreamsRoot` is not the requested `under`. The
-	/// peer served under a different root, stale or wrong. Not necessarily malicious.
+	/// Everything verified, but the recomputed `StreamsRoot` is not the requested `under`.
 	RootMismatch,
-	/// The response's `base` is not the requested `start`. Only surfaced by [`verify_messages`].
+	/// For `start: Some(pos)`, the response's `frontier.leaf_count()` is not `pos`.
 	UnexpectedBase,
+	/// For an inbound channel fetch, the response's `frontier` does not match the receiver's
+	/// local stored frontier.
+	FrontierMismatch,
+	/// For `start: None` (a head request), the response does not end at
+	/// `frontier.leaf_count() + 1`.
+	NotAtHead,
 	/// The payloads total more than the request's `max_bytes`, or `max_bytes == 0` and the
-	/// response carries any payload, even an empty one. Only surfaced by [`verify_messages`].
+	/// response carries any payload, even an empty one.
 	ExceedsBudget,
-	/// The response envelope variant does not match the request's. Only surfaced by
-	/// [`verify_exchange`].
-	VariantMismatch,
 	/// A payload exceeded the protocol's single-message bound ([`MAX_SPECULATIVE_MESSAGE_LEN`]).
 	PayloadTooLarge,
-	/// The response is structurally malformed independently of its proofs (e.g. a `start_peaks`
-	/// set inconsistent with `base`, or a `base + len` leaf-counter overflow).
+	/// The response is structurally malformed independently of its proofs (e.g. `frontier +
+	/// payloads` overflows `MAX_MMR_LEAF_COUNT`).
 	MalformedResponse,
 }
 
@@ -87,10 +85,17 @@ pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
 /// request.
 pub const MAX_MESSAGES_PER_RESPONSE: u32 = 1024;
 
-/// Hash a payload into a stream MMR leaf: `H(LEAF_TAG ++ leaf_version ++ payload)`. Source, stream
-/// and position are structural and not in the preimage. Versions are hash-disjoint, so only the
-/// correct one reproduces a committed root.
-pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
+/// Hash a payload into a stream MMR leaf: `H(LEAF_TAG ++ LEAF_VERSION ++ payload)`. Source, stream
+/// and position are structural and not in the preimage.
+pub fn leaf_hash(payload: &[u8]) -> Hash {
+	leaf_hash_with_version(LEAF_VERSION, payload)
+}
+
+/// Hash a payload with an explicit leaf version: `H(LEAF_TAG ++ leaf_version ++ payload)`.
+///
+/// Versions are hash-disjoint, so only the correct one reproduces a committed root. Used to test
+/// format disjointness across format revisions.
+pub fn leaf_hash_with_version(leaf_version: u8, payload: &[u8]) -> Hash {
 	let mut preimage = Vec::with_capacity(2 + payload.len());
 	preimage.push(LEAF_TAG);
 	preimage.push(leaf_version);
@@ -98,75 +103,138 @@ pub fn leaf_hash(leaf_version: u8, payload: &[u8]) -> Hash {
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
-/// Request for a range of a stream's messages, verified under a chosen `StreamsRoot`.
+/// The fetch protocol's request. Every off-chain read (channel consumption, register and event
+/// head reads, range reads, gap leaves, lift material) uses this request with different parameters.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesRequest {
+	/// A stream of the serving chain.
 	pub stream: StreamId,
-	/// Where to start; typically the receiver's frontier leaf count.
-	pub start: MessagePosition,
-	/// The `StreamsRoot` the response must verify under: one the requester has already
-	/// authenticated. Freshness is the requester's job; re-request under a newer root once
-	/// verified.
+	/// The `StreamsRoot` the response must verify under: one the requester has already verified at
+	/// its tier.
 	pub under: StreamsRoot,
-	/// Response size bound; the server may cap harder. `0` requests a payload-free proof (lift
-	/// material).
+	/// First leaf wanted. `None` means the head under `under`; the server resolves the position.
+	pub start: Option<MessagePosition>,
+	/// Payload budget; the server returns payloads from `start` until the budget runs out (it may
+	/// cap lower) and covers the rest with `extension`. `0` asks for proofs only (lift material).
 	pub max_bytes: u32,
 }
 
-/// Response: payloads from `base` on, plus the proofs binding them and everything before them to
-/// the requested `StreamsRoot`. Nothing is trusted; fabricated peaks, payloads or proofs cannot
-/// reproduce a committed root.
+/// Response: the frontier before the first served leaf, the payloads from `frontier.leaf_count()`
+/// on, and the proofs binding them to the requested `StreamsRoot`. Nothing is trusted: roots bind
+/// their leaf counts, so a wrong frontier or count cannot verify under `under`.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesResponse {
-	/// Position of the first payload. A hint; a lie fails the proofs.
-	pub base: MessagePosition,
-	/// Leaf-format version for these payloads. A hint; only the correct version reproduces a
-	/// committed root. A response never spans a version change.
-	pub leaf_version: u8,
-	/// The payloads, in MMR order; payload `i` has position `base + i`. At most
-	/// [`MAX_MESSAGES_PER_RESPONSE`], rejected at the length prefix.
+	/// The stream just before the first leaf served. Its `leaf_count()` is the start position.
+	/// Decodes through [`MmrFrontier::from_parts`].
+	pub frontier: MmrFrontier,
+	/// The payloads, in MMR order; payload `i` sits at position `frontier.leaf_count() + i`. At
+	/// most [`MAX_MESSAGES_PER_RESPONSE`], rejected at the length prefix.
 	pub payloads: BoundedVec<Vec<u8>, ConstU32<MAX_MESSAGES_PER_RESPONSE>>,
-	/// The stream's peak set at `base`, for a consumer that holds no frontier. Fabricated peaks
-	/// cannot extend to a committed root.
-	pub start_peaks: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
-	/// From the frontier recomputed over `payloads` to the stream's current root; the identity
-	/// extension when the payloads already reach it.
+	/// From the frontier after `payloads` to the stream's state under `under`; the identity
+	/// extension when `payloads` already reach it.
 	pub extension: MMRExtensionProof,
-	/// From the stream's root to the `StreamsRoot` the response verifies under.
+	/// From the stream's root to `under`.
 	pub tree_proof: StreamProof,
 }
 
-/// Verify a [`MessagesResponse`] against its [`MessagesRequest`]: `resp.base == req.start`, total
-/// payload bytes within `req.max_bytes` (`0` means proofs only), then the payloads under
-/// `req.stream` / `req.under`. On `Ok`, `resp.payloads` are verified. The public entry for the
-/// fetch protocol.
+/// What the fetch server sends back for one [`MessagesRequest`].
+pub type FetchResponse = Result<MessagesResponse, FetchError>;
+
+/// Typed refusal returned by the fetch server when it cannot serve a [`MessagesRequest`].
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
+)]
+pub enum FetchError {
+	/// The stream has no entry under `under`.
+	#[codec(index = 0)]
+	UnknownStream,
+	/// The server does not know `under` (not yet seen, or pruned).
+	#[codec(index = 1)]
+	UnknownRoot,
+	/// `start` is below the server's retention boundary; `lowest` is the first position it can
+	/// serve.
+	#[codec(index = 2)]
+	OutsideHorizon { lowest: MessagePosition },
+	/// `start` is past the stream's leaf count under `under`.
+	#[codec(index = 3)]
+	BeyondHead,
+}
+
+/// Verify a [`MessagesResponse`] against its [`MessagesRequest`]:
+/// - for `start: Some(pos)`, `resp.frontier.leaf_count() == pos.0`;
+/// - for `start: None` (a head request), the stream under `under` ends at
+///   `resp.frontier.leaf_count() + 1`;
+/// - total payload bytes are within `req.max_bytes` (`0` means proofs only);
+/// - the payloads, `extension` and `tree_proof` recompute to `req.under` for `req.stream`.
+///
+/// For a channel fetch, use [`verify_channel_messages`] to also check that `resp.frontier`
+/// equals the stored frontier from `consumed_streams()`.
 pub fn verify_messages(req: &MessagesRequest, resp: &MessagesResponse) -> Result<(), VerifyError> {
-	if resp.base != req.start {
-		return Err(VerifyError::UnexpectedBase);
+	let base = resp.frontier.leaf_count();
+	match req.start {
+		Some(start) if base != start.0 => return Err(VerifyError::UnexpectedBase),
+		Some(_) => {},
+		None => {
+			let after_payloads = base
+				.checked_add(resp.payloads.len() as u64)
+				.ok_or(VerifyError::MalformedResponse)?;
+			let end_count = if resp.extension.leaf_count == 0 {
+				after_payloads
+			} else {
+				resp.extension.leaf_count
+			};
+			if base.checked_add(1) != Some(end_count) {
+				return Err(VerifyError::NotAtHead);
+			}
+		},
 	}
+
 	let total = resp.payloads.iter().map(|p| p.len() as u64).fold(0u64, u64::saturating_add);
 	if total > req.max_bytes as u64 || (req.max_bytes == 0 && !resp.payloads.is_empty()) {
 		return Err(VerifyError::ExceedsBudget);
 	}
+
 	verify_messages_response(req.stream, req.under, resp)
 }
 
+/// Verify a [`MessagesResponse`] for an inbound channel stream against its [`MessagesRequest`] and
+/// the receiver's local stored frontier (from `consumed_streams()`).
+///
+/// Ensures `resp.frontier == *stored_frontier` (both leaf count and peaks) before verifying the
+/// response against `under`.
+pub fn verify_channel_messages(
+	req: &MessagesRequest,
+	resp: &MessagesResponse,
+	stored_frontier: &MmrFrontier,
+) -> Result<(), VerifyError> {
+	if resp.frontier != *stored_frontier {
+		return Err(VerifyError::FrontierMismatch);
+	}
+	verify_messages(req, resp)
+}
+
 /// Verify a [`MessagesResponse`] for `stream` under `under`: the same check the requires-lift
-/// performs. Crate-internal: it does not bind `resp.base` to a requested start; [`verify_messages`]
-/// does.
+/// performs. Crate-internal: it does not bind `resp.frontier` to a requested start or head rule;
+/// [`verify_messages`] does.
 pub(crate) fn verify_messages_response(
 	stream: StreamId,
 	under: StreamsRoot,
 	resp: &MessagesResponse,
 ) -> Result<(), VerifyError> {
-	// `base` and `start_peaks` are untrusted; `from_parts` rejects an inconsistent shape and a
-	// `base` past the ceiling.
-	let mut frontier = MmrFrontier::from_parts(resp.start_peaks.to_vec(), resp.base.0)
-		.ok_or(VerifyError::MalformedResponse)?;
+	let mut frontier = resp.frontier.clone();
 	// The frontier after the payloads must stay within `MAX_MMR_LEAF_COUNT`, or it would not
 	// decode. Checked up front; `try_append` refuses it too.
-	resp.base
-		.0
+	frontier
+		.leaf_count()
 		.checked_add(resp.payloads.len() as u64)
 		.filter(|end| *end <= MAX_MMR_LEAF_COUNT)
 		.ok_or(VerifyError::MalformedResponse)?;
@@ -176,7 +244,7 @@ pub(crate) fn verify_messages_response(
 
 	for payload in &resp.payloads {
 		frontier
-			.try_append(leaf_hash(resp.leaf_version, payload))
+			.try_append(leaf_hash(payload))
 			.map_err(|_| VerifyError::MalformedResponse)?;
 	}
 
@@ -205,156 +273,11 @@ fn bind_under(
 	(root == under).then_some(()).ok_or(VerifyError::RootMismatch)
 }
 
-fn event_leaf(resp: &EventResponse) -> Result<Hash, VerifyError> {
-	check_payload_len(&resp.payload)?;
-	Ok(leaf_hash(resp.leaf_version, &resp.payload))
-}
-
-/// Request for a single event of a lossy stream (`Ack` / `Broadcast` / `Private`), verified under a
-/// chosen `StreamsRoot`. The server either serves or fails; nothing is resolved server-side.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-pub struct EventRequest {
-	pub stream: StreamId,
-	/// The `StreamsRoot` the response must verify under. Always explicit.
-	pub under: StreamsRoot,
-	/// A specific position, or `None` for the head as of `under`.
-	pub at: Option<MessagePosition>,
-}
-
-/// Response carrying one event leaf and the proofs placing it under the requested `StreamsRoot`.
-/// Nothing is trusted. `under` fixes the stream's leaf count, so the head is the leaf at `count -
-/// 1`; an old leaf cannot be served as the head.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-pub struct EventResponse {
-	/// The event payload; its position is proven by `inclusion`.
-	pub payload: Vec<u8>,
-	/// Leaf-format version for `payload`. A hint; only the correct version reproduces a committed
-	/// root.
-	pub leaf_version: u8,
-	/// Single-leaf inclusion proof: the sibling path plus the other peaks.
-	pub inclusion: MmrInclusionProof,
-	/// From the stream's root (derived from `inclusion`) to the `StreamsRoot` the response
-	/// verifies under.
-	pub tree_proof: StreamProof,
-}
-
-/// The `/spec-msg/exchange` request envelope. Variant indices are frozen; foreign implementations
-/// decode by them.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-pub enum ExchangeRequest {
-	/// Ordered fetching or lift material. Answered by [`ExchangeResponse::Messages`].
-	#[codec(index = 0)]
-	Messages(MessagesRequest),
-	/// Single-event read. Answered by [`ExchangeResponse::Event`].
-	#[codec(index = 1)]
-	Event(EventRequest),
-}
-
-/// The `/spec-msg/exchange` response envelope. No error variant: a server that cannot serve refuses
-/// at the transport level.
-#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
-pub enum ExchangeResponse {
-	/// Response to [`ExchangeRequest::Messages`].
-	#[codec(index = 0)]
-	Messages(MessagesResponse),
-	/// Response to [`ExchangeRequest::Event`].
-	#[codec(index = 1)]
-	Event(EventResponse),
-}
-
-/// Outcome of verifying an [`EventResponse`]. A head read yields the stream [`MmrFrontier`], which
-/// lossy consumption records as its interval endpoint; a positional read yields none, since an
-/// inclusion proof reconstructs a root, not a frontier.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum VerifiedEvent {
-	/// Head (register / latest-event) read: the head position and the stream frontier at that
-	/// head.
-	Head { position: MessagePosition, frontier: MmrFrontier },
-	/// Positional read: the requested position.
-	Positional { position: MessagePosition },
-}
-
-/// Verify an [`EventResponse`] against its [`EventRequest`]: `req.at` selects head (`None`) or leaf
-/// `k`, so a head response is never accepted for a positional request or vice versa. On `Ok`,
-/// `resp.payload` is verified. The public entry for event reads.
-pub fn verify_event(
-	req: &EventRequest,
-	resp: &EventResponse,
-) -> Result<VerifiedEvent, VerifyError> {
-	match req.at {
-		None => {
-			let (position, frontier) = verify_event_response(req.stream, req.under, resp)?;
-			Ok(VerifiedEvent::Head { position, frontier })
-		},
-		Some(position) => {
-			verify_positional_event_response(req.stream, req.under, position, resp)?;
-			Ok(VerifiedEvent::Positional { position })
-		},
-	}
-}
-
-/// Verify an [`EventResponse`] as the head of `stream` under `under`; returns the position and the
-/// frontier at that head. Crate-internal; [`verify_event`] is the public entry.
-///
-/// The frontier is returned because lossy consumption needs it as the interval endpoint.
-pub(crate) fn verify_event_response(
-	stream: StreamId,
-	under: StreamsRoot,
-	resp: &EventResponse,
-) -> Result<(MessagePosition, MmrFrontier), VerifyError> {
-	let (position, frontier) = resp.inclusion.verify_head(event_leaf(resp)?)?;
-	bind_under(stream, under, frontier.root(), &resp.tree_proof)?;
-	Ok((position, frontier))
-}
-
-/// Verify an [`EventResponse`] as the leaf at `position` of `stream` under `under`.
-/// Crate-internal; [`verify_event`] is the public entry. Same chain as the head read, with
-/// [`MmrInclusionProof::verify_leaf`].
-pub(crate) fn verify_positional_event_response(
-	stream: StreamId,
-	under: StreamsRoot,
-	position: MessagePosition,
-	resp: &EventResponse,
-) -> Result<(), VerifyError> {
-	let root = resp.inclusion.verify_leaf(position, event_leaf(resp)?)?;
-	bind_under(stream, under, root, &resp.tree_proof)
-}
-
-/// Verified outcome of an [`ExchangeResponse`]: a fetch, or a [`VerifiedEvent`].
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum ExchangeVerified {
-	/// Answer to an [`ExchangeRequest::Messages`]; the response's payloads are verified.
-	Messages,
-	/// Answer to an [`ExchangeRequest::Event`]: the verified event.
-	Event(VerifiedEvent),
-}
-
-/// Verify a `/spec-msg/exchange` response against its request. The variants must match
-/// ([`VariantMismatch`](VerifyError::VariantMismatch) otherwise); then dispatches to
-/// [`verify_messages`] or [`verify_event`]. The top-level public entry.
-pub fn verify_exchange(
-	req: &ExchangeRequest,
-	resp: &ExchangeResponse,
-) -> Result<ExchangeVerified, VerifyError> {
-	match (req, resp) {
-		(ExchangeRequest::Messages(mreq), ExchangeResponse::Messages(mresp)) => {
-			verify_messages(mreq, mresp).map(|()| ExchangeVerified::Messages)
-		},
-		(ExchangeRequest::Event(ereq), ExchangeResponse::Event(eresp)) => {
-			verify_event(ereq, eresp).map(ExchangeVerified::Event)
-		},
-		_ => Err(VerifyError::VariantMismatch),
-	}
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate::{
-		lift::{
-			build_requires, ConsumptionRecord, Interval, LiftsBySource, MmrInclusionProof,
-			RequiresLift,
-		},
+		lift::{build_requires, ConsumptionRecord, Interval, LiftsBySource, RequiresLift},
 		mmr::{MmrRoot, SpecMerge},
 		streams_root::{gen_stream_proof, streams_root, TreeStep},
 		test_utils::{ch, frontier_at, mmr_size},
@@ -363,7 +286,6 @@ mod tests {
 	use codec::Encode;
 	use mmr_lib::{
 		helper::get_peak_map,
-		leaf_index_to_mmr_size,
 		util::{MemMMR, MemStore},
 	};
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -409,7 +331,7 @@ mod tests {
 		let stream = ch(2000);
 
 		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(10)]).collect();
-		let leaves: Vec<Hash> = payloads.iter().map(|p| leaf_hash(0, p)).collect();
+		let leaves: Vec<Hash> = payloads.iter().map(|p| leaf_hash(p)).collect();
 
 		// Sender's current stream root (6 leaves) and the StreamsRoot committing it.
 		let r_current = current_root(&leaves, 6);
@@ -417,12 +339,10 @@ mod tests {
 		let (_r, tree_proof) =
 			gen_stream_proof(&BTreeMap::from([(stream, r_current)]), stream).unwrap();
 
-		// Fetch: base 2 (non-empty start_peaks), payloads [2,3] only → a real extension (4 → 6).
+		// Fetch: frontier at 2, payloads [2,3] only → a real extension (4 → 6).
 		let resp = MessagesResponse {
-			base: MessagePosition(2),
-			leaf_version: 0,
+			frontier: frontier_at(&leaves, 2),
 			payloads: vec![payloads[2].clone(), payloads[3].clone()].try_into().unwrap(),
-			start_peaks: BoundedVec::truncate_from(frontier_at(&leaves, 2).peaks().to_vec()),
 			extension: ancestry(&leaves, 4, 6),
 			tree_proof: tree_proof.clone(),
 		};
@@ -465,9 +385,10 @@ mod tests {
 		pre.push(LEAF_TAG);
 		pre.push(0u8);
 		pre.extend_from_slice(payload);
-		assert_eq!(leaf_hash(0, payload), <SpecHasher as HashT>::hash(&pre));
+		assert_eq!(leaf_hash(payload), <SpecHasher as HashT>::hash(&pre));
+		assert_eq!(leaf_hash(payload), leaf_hash_with_version(0, payload));
 		// Different version → different leaf (hash-disjoint domains).
-		assert_ne!(leaf_hash(0, payload), leaf_hash(1, payload));
+		assert_ne!(leaf_hash(payload), leaf_hash_with_version(1, payload));
 	}
 
 	#[test]
@@ -475,23 +396,22 @@ mod tests {
 		// FROZEN consensus vector: `H(0x01 ‖ 0x00 ‖ "hello")`. Any change to `LEAF_TAG`,
 		// `LEAF_VERSION`, the preimage layout or the hasher breaks this.
 		assert_eq!(
-			leaf_hash(crate::LEAF_VERSION, b"hello"),
+			leaf_hash(b"hello"),
 			Hash::from(hex_literal::hex!(
 				"cd31917fb8992dae762dbaaf276d8eb65aa89cdfb87daf69e05f8c08b490e78b"
 			))
 		);
 	}
 
-	/// A response for the whole stream from `base = 0` verifies under the committed root.
+	/// A response for the whole stream from `frontier = empty` verifies under the committed root.
 	#[test]
 	fn messages_response_round_trips_under_streams_root() {
 		let payloads: Vec<Vec<u8>> = (0..4u8).map(|i| vec![i, i + 1, i + 2]).collect();
 
-		// Sender stream MMR over the payload leaves; its root is the stream root.
 		let store = MemStore::<Hash>::default();
 		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for p in &payloads {
-			src.push(leaf_hash(0, p)).unwrap();
+			src.push(leaf_hash(p)).unwrap();
 		}
 		let stream_root = bound(src.mmr_size(), src.get_root().unwrap());
 
@@ -500,21 +420,17 @@ mod tests {
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
-		// Full stream from base 0: empty start_peaks, identity extension (payloads reach the root).
 		let resp = MessagesResponse {
-			base: MessagePosition(0),
-			leaf_version: 0,
+			frontier: MmrFrontier::new(),
 			payloads: payloads.clone().try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
 
 		assert_eq!(verify_messages_response(stream, under, &resp), Ok(()));
-		// Sanity: the recomputed root matches the sender's.
 		let mut mmr = MmrFrontier::new();
 		for p in &resp.payloads {
-			mmr.append(leaf_hash(0, p));
+			mmr.append(leaf_hash(p));
 		}
 		assert_eq!(mmr.root().0, stream_root);
 	}
@@ -525,91 +441,168 @@ mod tests {
 		let store = MemStore::<Hash>::default();
 		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for p in &payloads {
-			src.push(leaf_hash(0, p)).unwrap();
+			src.push(leaf_hash(p)).unwrap();
 		}
 		let stream = ch(2000);
 		let entries = BTreeMap::from([(stream, bound(src.mmr_size(), src.get_root().unwrap()))]);
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
-		// Full stream from base 0 (identity extension) verifies under `under`.
 		let resp = MessagesResponse {
-			base: MessagePosition(0),
-			leaf_version: 0,
+			frontier: MmrFrontier::new(),
 			payloads: payloads.clone().try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
 
-		// 4 payloads × 2 bytes = 8 bytes; a budget that comfortably fits them.
 		let total_bytes = payloads.iter().map(|p| p.len() as u32).sum::<u32>();
 
-		// start == base and within budget → dispatches and authenticates.
-		let req =
-			MessagesRequest { stream, start: MessagePosition(0), under, max_bytes: total_bytes };
+		// start == Some(0) and within budget → dispatches and authenticates.
+		let req = MessagesRequest {
+			stream,
+			under,
+			start: Some(MessagePosition(0)),
+			max_bytes: total_bytes,
+		};
 		assert_eq!(verify_messages(&req, &resp), Ok(()));
 
-		// start != base → rejected up front (before any crypto), and distinct from RootMismatch:
-		// the payloads do verify under `under`; only the answered range is wrong.
-		let req_wrong =
-			MessagesRequest { stream, start: MessagePosition(2), under, max_bytes: total_bytes };
+		// start != frontier.leaf_count() → rejected up front (before any crypto).
+		let req_wrong = MessagesRequest {
+			stream,
+			under,
+			start: Some(MessagePosition(2)),
+			max_bytes: total_bytes,
+		};
 		assert_eq!(verify_messages(&req_wrong, &resp), Err(VerifyError::UnexpectedBase));
 
-		// Payloads exceed the byte budget → ExceedsBudget (not a proof/root failure).
+		// Payloads exceed the byte budget → ExceedsBudget.
 		let req_tight = MessagesRequest {
 			stream,
-			start: MessagePosition(0),
 			under,
+			start: Some(MessagePosition(0)),
 			max_bytes: total_bytes - 1,
 		};
 		assert_eq!(verify_messages(&req_tight, &resp), Err(VerifyError::ExceedsBudget));
 
 		// `max_bytes == 0` requests a payload-free (lift-material) proof, so any payload trips it.
 		let req_liftonly =
-			MessagesRequest { stream, start: MessagePosition(0), under, max_bytes: 0 };
+			MessagesRequest { stream, under, start: Some(MessagePosition(0)), max_bytes: 0 };
 		assert_eq!(verify_messages(&req_liftonly, &resp), Err(VerifyError::ExceedsBudget));
 	}
 
 	#[test]
+	fn verify_channel_messages_enforces_stored_frontier_equality() {
+		let t = two_streams();
+		let (stream, ref payloads, ref leaves, ref tree_proof) = t.streams[0];
+
+		let stored_frontier = frontier_at(leaves, 2);
+		let honest_resp = MessagesResponse {
+			frontier: stored_frontier.clone(),
+			payloads: vec![payloads[2].clone(), payloads[3].clone()].try_into().unwrap(),
+			extension: ancestry(leaves, 4, 6),
+			tree_proof: tree_proof.clone(),
+		};
+		let req = MessagesRequest {
+			stream,
+			under: t.under,
+			start: Some(MessagePosition(2)),
+			max_bytes: 1024,
+		};
+
+		// Exact match passes.
+		assert_eq!(verify_channel_messages(&req, &honest_resp, &stored_frontier), Ok(()));
+
+		// Different leaf count fails.
+		let other_count_frontier = frontier_at(leaves, 1);
+		assert_eq!(
+			verify_channel_messages(&req, &honest_resp, &other_count_frontier),
+			Err(VerifyError::FrontierMismatch)
+		);
+
+		// Same leaf count but different peaks (e.g. from an alternate branch/fork) fails.
+		let alt_leaves = vec![H256::repeat_byte(0xAA), H256::repeat_byte(0xBB)];
+		let alt_frontier = frontier_at(&alt_leaves, 2);
+		assert_eq!(stored_frontier.leaf_count(), alt_frontier.leaf_count());
+		assert_ne!(stored_frontier.peaks(), alt_frontier.peaks());
+		assert_eq!(
+			verify_channel_messages(&req, &honest_resp, &alt_frontier),
+			Err(VerifyError::FrontierMismatch)
+		);
+	}
+
+	#[test]
+	fn verify_messages_enforces_head_rule_for_start_none() {
+		let t = two_streams();
+		let (stream, ref payloads, ref leaves, ref tree_proof) = t.streams[0];
+
+		// Honest head response for a 6-leaf stream: frontier at 5, payload[5], identity extension.
+		let head_resp = MessagesResponse {
+			frontier: frontier_at(leaves, 5),
+			payloads: vec![payloads[5].clone()].try_into().unwrap(),
+			extension: MMRExtensionProof::identity(),
+			tree_proof: tree_proof.clone(),
+		};
+		let head_req = MessagesRequest { stream, under: t.under, start: None, max_bytes: 1024 };
+		assert_eq!(verify_messages(&head_req, &head_resp), Ok(()));
+		// The verified frontier's leaf_count is the head's position (5).
+		assert_eq!(head_resp.frontier.leaf_count(), 5);
+
+		// Budget too small for the head payload: server returns frontier at 5, no payloads, and
+		// extension 5 -> 6, proving the head position (5) without the payload.
+		let pos_only_resp = MessagesResponse {
+			frontier: frontier_at(leaves, 5),
+			payloads: BoundedVec::new(),
+			extension: ancestry(leaves, 5, 6),
+			tree_proof: tree_proof.clone(),
+		};
+		let small_req = MessagesRequest { stream, under: t.under, start: None, max_bytes: 1 };
+		assert_eq!(verify_messages(&small_req, &pos_only_resp), Ok(()));
+
+		// Passing off an older leaf (index 3, with extension 4 -> 6) as the head: rejected by the
+		// head rule (`NotAtHead`) even though the proofs verify under `under`.
+		let stale_head = fetch(&t.streams[0], 3, 4);
+		assert_eq!(verify_messages(&head_req, &stale_head), Err(VerifyError::NotAtHead));
+
+		// Multi-leaf range [4, 5] reaching the head: starts at 4, ends at 6 != 4 + 1 → NotAtHead.
+		let two_leaves = fetch(&t.streams[0], 4, 6);
+		assert_eq!(verify_messages(&head_req, &two_leaves), Err(VerifyError::NotAtHead));
+	}
+
+	#[test]
 	fn zero_budget_refuses_even_empty_payloads() {
-		// A stream of two empty payloads: they total 0 bytes, so only the "proofs only" rule
-		// refuses them under `max_bytes == 0`.
 		let payloads: Vec<Vec<u8>> = vec![Vec::new(), Vec::new()];
 		let stream = ch(2000);
 		let entries = BTreeMap::from([(
 			stream,
-			frontier_at(&payloads.iter().map(|p| leaf_hash(0, p)).collect::<Vec<_>>(), 2)
+			frontier_at(&payloads.iter().map(|p| leaf_hash(p)).collect::<Vec<_>>(), 2)
 				.root()
 				.0,
 		)]);
 		let under = streams_root(&entries).unwrap();
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 		let resp = MessagesResponse {
-			base: MessagePosition(0),
-			leaf_version: 0,
+			frontier: MmrFrontier::new(),
 			payloads: payloads.clone().try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
-		let req =
-			|max_bytes| MessagesRequest { stream, start: MessagePosition(0), under, max_bytes };
+		let req = |max_bytes| MessagesRequest {
+			stream,
+			under,
+			start: Some(MessagePosition(0)),
+			max_bytes,
+		};
 		assert_eq!(verify_messages(&req(1), &resp), Ok(()));
 		assert_eq!(verify_messages(&req(0), &resp), Err(VerifyError::ExceedsBudget));
 	}
 
 	#[test]
 	fn a_response_past_the_payload_cap_fails_to_decode() {
-		// Empty payloads cost one wire byte each and no budget, but each would be hashed: the
-		// count is bounded at the length prefix, before anything is allocated or hashed.
 		let cap = MAX_MESSAGES_PER_RESPONSE as usize;
 		let encoded = |count: usize| {
 			(
-				MessagePosition(0),
-				0u8,
+				MmrFrontier::new(),
 				vec![Vec::<u8>::new(); count],
-				Vec::<Hash>::new(),
 				MMRExtensionProof::identity(),
 				StreamProof { steps: Default::default() },
 			)
@@ -625,7 +618,7 @@ mod tests {
 		let store = MemStore::<Hash>::default();
 		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
 		for p in &payloads {
-			src.push(leaf_hash(0, p)).unwrap();
+			src.push(leaf_hash(p)).unwrap();
 		}
 		let stream = ch(2000);
 		let entries = BTreeMap::from([(stream, bound(src.mmr_size(), src.get_root().unwrap()))]);
@@ -633,10 +626,8 @@ mod tests {
 		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
 
 		let resp = MessagesResponse {
-			base: MessagePosition(0),
-			leaf_version: 0,
+			frontier: MmrFrontier::new(),
 			payloads: payloads.try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
 			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
@@ -653,47 +644,15 @@ mod tests {
 	}
 
 	#[test]
-	fn malformed_frontier_rejects_without_panicking() {
+	fn frontier_at_ceiling_rejects_extra_payload_without_panicking() {
 		let stream = ch(2000);
 		let under = StreamsRoot(H256::repeat_byte(0xff));
 
-		// `start_peaks` shape inconsistent with `base` (empty peaks, base = 1): the pre-fix
-		// pop-from-empty panic in `append`. `from_parts` must reject it cleanly, not panic.
-		let crafted = MessagesResponse {
-			base: MessagePosition(1),
-			leaf_version: 0,
-			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
-			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Default::default() },
-		};
-		assert_eq!(
-			verify_messages_response(stream, under, &crafted),
-			Err(VerifyError::MalformedResponse),
-		);
-
-		// A `base` past the ceiling. One set bit means one peak passes the shape check, so the
-		// ceiling is what rejects.
-		let too_large = MessagesResponse {
-			base: MessagePosition(1 << 63),
-			leaf_version: 0,
-			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); 1]),
-			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Default::default() },
-		};
-		assert_eq!(
-			verify_messages_response(stream, under, &too_large),
-			Err(VerifyError::MalformedResponse),
-		);
-
-		// A `base` at the ceiling is a valid frontier, but its next leaf would carry the count past
-		// it: the frontier would no longer decode. Rejected before anything is appended.
+		// A frontier at `MAX_MMR_LEAF_COUNT` is a valid frontier, but appending a payload would
+		// carry the count past the ceiling. Rejected before anything is appended.
 		let at_ceiling = MessagesResponse {
-			base: MessagePosition(MAX_MMR_LEAF_COUNT),
-			leaf_version: 0,
+			frontier: MmrFrontier::from_parts(vec![H256::zero(); 1], MAX_MMR_LEAF_COUNT).unwrap(),
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); 1]),
 			extension: MMRExtensionProof::identity(),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
@@ -701,321 +660,69 @@ mod tests {
 			verify_messages_response(stream, under, &at_ceiling),
 			Err(VerifyError::MalformedResponse),
 		);
-
-		// `base = u64::MAX` (64 set bits, 64 peaks) once reached the `base + payloads` counter
-		// guard; `from_parts`'s ceiling now rejects it first. Kept so both stay covered.
-		let overflow = MessagesResponse {
-			base: MessagePosition(u64::MAX),
-			leaf_version: 0,
-			payloads: vec![vec![0x01]].try_into().unwrap(),
-			start_peaks: BoundedVec::truncate_from(vec![H256::zero(); MAX_MMR_HASHES as usize]),
-			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Default::default() },
-		};
-		assert_eq!(
-			verify_messages_response(stream, under, &overflow),
-			Err(VerifyError::MalformedResponse),
-		);
-	}
-
-	/// The exchange envelope's variant indices are wire-format-critical: foreign implementations
-	/// decode by them, forever. Messages = 0x00, Event = 0x01 on both request and response.
-	#[test]
-	fn exchange_envelope_indices_are_frozen() {
-		let mreq = MessagesRequest {
-			stream: ch(1),
-			start: MessagePosition(0),
-			under: StreamsRoot(H256::zero()),
-			max_bytes: 0,
-		};
-		let ereq = EventRequest { stream: ch(1), under: StreamsRoot(H256::zero()), at: None };
-		assert_eq!(ExchangeRequest::Messages(mreq).encode()[0], 0x00);
-		assert_eq!(ExchangeRequest::Event(ereq).encode()[0], 0x01);
-
-		let mresp = MessagesResponse {
-			base: MessagePosition(0),
-			leaf_version: 0,
-			payloads: Vec::new().try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
-			extension: MMRExtensionProof::identity(),
-			tree_proof: StreamProof { steps: Default::default() },
-		};
-		let eresp = EventResponse {
-			payload: Vec::new(),
-			leaf_version: 0,
-			inclusion: MmrInclusionProof { mmr_size: 0, items: BoundedVec::new() },
-			tree_proof: StreamProof { steps: Default::default() },
-		};
-		assert_eq!(ExchangeResponse::Messages(mresp).encode()[0], 0x00);
-		assert_eq!(ExchangeResponse::Event(eresp).encode()[0], 0x01);
-	}
-
-	/// The head event verifies under the committed root; a wrong root or payload does not.
-	#[test]
-	fn event_response_round_trips_under_streams_root() {
-		let stream = ch(2000);
-		// 6 leaves: the head (index 5) has a non-trivial sibling path AND other peaks, exercising
-		// both halves of `verify_head`'s item split.
-		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(7)]).collect();
-
-		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		let positions: Vec<u64> =
-			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
-		let stream_root = bound(src.mmr_size(), src.get_root().unwrap());
-
-		let entries = BTreeMap::from([(stream, stream_root)]);
-		let under = streams_root(&entries).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
-
-		// Inclusion proof for the head leaf (index 5).
-		let head = payloads.len() - 1;
-		let mproof = src.gen_proof(vec![positions[head]]).unwrap();
-		let inclusion = MmrInclusionProof {
-			mmr_size: mmr_size(payloads.len()),
-			items: BoundedVec::truncate_from(mproof.proof_items().to_vec()),
-		};
-
-		let resp = EventResponse {
-			payload: payloads[head].clone(),
-			leaf_version: 0,
-			inclusion,
-			tree_proof,
-		};
-
-		// Head verify returns the frontier too (needed as the lossy-consumption interval endpoint).
-		let (pos, frontier) = verify_event_response(stream, under, &resp).expect("head verifies");
-		assert_eq!(pos, MessagePosition(head as u64));
-		assert_eq!(frontier.leaf_count(), 6);
-		assert_eq!(frontier.root().0, stream_root);
-
-		// The request-aware dispatcher (`at = None`) yields the same head result.
-		let req = EventRequest { stream, under, at: None };
-		assert_eq!(
-			verify_event(&req, &resp),
-			Ok(VerifiedEvent::Head { position: MessagePosition(head as u64), frontier }),
-		);
-
-		// A head proof used *positionally* at a non-head index → rejected (the proof's shape
-		// doesn't match that position; exact error is mmr_lib-dependent).
-		assert!(verify_positional_event_response(stream, under, MessagePosition(0), &resp).is_err());
-		// Wrong `under` → the recomputed root doesn't match the requested one.
-		assert_eq!(
-			verify_event_response(stream, StreamsRoot(H256::repeat_byte(0xff)), &resp),
-			Err(VerifyError::RootMismatch),
-		);
-		// Tampered payload → verify_head succeeds structurally but derives a diverging root.
-		let mut bad = resp.clone();
-		bad.payload = vec![0xAA];
-		assert_eq!(verify_event_response(stream, under, &bad), Err(VerifyError::RootMismatch));
-		// Oversized payload → rejected before hashing.
-		let mut big = resp.clone();
-		big.payload = vec![0u8; MAX_SPECULATIVE_MESSAGE_LEN as usize + 1];
-		assert_eq!(verify_event_response(stream, under, &big), Err(VerifyError::PayloadTooLarge));
-		// At the bound the size check passes; the forged payload then fails the proof.
-		big.payload.pop();
-		assert_eq!(verify_event_response(stream, under, &big), Err(VerifyError::RootMismatch));
-
-		// Structurally invalid inclusion proof (invalid mmr_size) → surfaced as `Proof(..)`.
-		let mut bogus = resp.clone();
-		bogus.inclusion.mmr_size = 2;
-		assert_eq!(
-			verify_event_response(stream, under, &bogus),
-			Err(VerifyError::Proof(ProofError::InvalidProof)),
-		);
 	}
 
 	#[test]
-	fn event_response_rejects_a_forged_head_position() {
-		// The two peaks of 3 leaves also form a frontier of `2^47 + 1` leaves, and bag identically.
-		// A server claiming that size in `mmr_size` must not pass the head off at position `2^47`.
-		let stream = ch(2000);
-		let payloads: Vec<Vec<u8>> = (0..3u8).map(|i| vec![i]).collect();
-		let leaves: Vec<Hash> = payloads.iter().map(|p| leaf_hash(0, p)).collect();
-		let entries = BTreeMap::from([(stream, frontier_at(&leaves, 3).root().0)]);
-		let under = streams_root(&entries).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
+	fn fetch_error_variant_indices_are_frozen() {
+		assert_eq!(FetchError::UnknownStream.encode(), vec![0x00]);
+		assert_eq!(FetchError::UnknownRoot.encode(), vec![0x01]);
+		assert_eq!(
+			FetchError::OutsideHorizon { lowest: MessagePosition(7) }.encode(),
+			vec![0x02, 0x07, 0, 0, 0, 0, 0, 0, 0],
+		);
+		assert_eq!(FetchError::BeyondHead.encode(), vec![0x03]);
+	}
 
-		let forged_count = (1u64 << 47) + 1;
-		let resp = EventResponse {
-			payload: payloads[2].clone(),
-			leaf_version: 0,
-			inclusion: MmrInclusionProof {
-				mmr_size: leaf_index_to_mmr_size(forged_count - 1),
-				items: BoundedVec::truncate_from(frontier_at(&leaves, 2).peaks().to_vec()),
+	#[test]
+	fn fetch_wire_frozen_layout() {
+		let request = MessagesRequest {
+			stream: StreamId::Channel { recipient: ParaId::from(2000), domain: 0, num: 0 },
+			under: StreamsRoot(H256::repeat_byte(0x11)),
+			start: Some(MessagePosition(5)),
+			max_bytes: 1024,
+		};
+		let mut expected = vec![0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00]; // stream
+		expected.extend([0x11; 32]); // under
+		expected.extend([0x01, 0x05, 0, 0, 0, 0, 0, 0, 0]); // start: Some, u64 LE
+		expected.extend([0x00, 0x04, 0, 0]); // max_bytes: u32 LE
+		assert_eq!(request.encode(), expected);
+		assert_eq!(MessagesRequest::decode(&mut &expected[..]).unwrap(), request);
+
+		let head = MessagesRequest { start: None, ..request };
+		let mut expected = vec![0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00];
+		expected.extend([0x11; 32]);
+		expected.push(0x00); // start: None
+		expected.extend([0x00, 0x04, 0, 0]);
+		assert_eq!(head.encode(), expected);
+
+		let response = MessagesResponse {
+			frontier: MmrFrontier::from_parts(vec![H256::repeat_byte(0x22)], 1).unwrap(),
+			payloads: BoundedVec::truncate_from(vec![vec![0xAA]]),
+			extension: MMRExtensionProof {
+				leaf_count: 3,
+				connecting_nodes: BoundedVec::truncate_from(vec![H256::repeat_byte(0x33)]),
 			},
-			tree_proof,
-		};
-		assert_eq!(verify_event_response(stream, under, &resp), Err(VerifyError::RootMismatch));
-	}
-
-	#[test]
-	fn positional_event_response_round_trips_under_streams_root() {
-		let stream = ch(2000);
-		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i.wrapping_add(7)]).collect();
-
-		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		let positions: Vec<u64> =
-			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
-		let stream_root = bound(src.mmr_size(), src.get_root().unwrap());
-
-		let entries = BTreeMap::from([(stream, stream_root)]);
-		let under = streams_root(&entries).unwrap();
-		let (_r, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
-
-		// Inclusion proof for a non-head leaf (index 2): the positional read path.
-		let at = 2usize;
-		let mproof = src.gen_proof(vec![positions[at]]).unwrap();
-		let inclusion = MmrInclusionProof {
-			mmr_size: mmr_size(payloads.len()),
-			items: BoundedVec::truncate_from(mproof.proof_items().to_vec()),
-		};
-
-		let resp =
-			EventResponse { payload: payloads[at].clone(), leaf_version: 0, inclusion, tree_proof };
-
-		// Correct position → payload authenticated under `under`.
-		assert_eq!(
-			verify_positional_event_response(stream, under, MessagePosition(at as u64), &resp),
-			Ok(()),
-		);
-		// Wrong position (same proof) → rejected (exact error is mmr_lib-dependent).
-		assert!(verify_positional_event_response(stream, under, MessagePosition(3), &resp).is_err());
-		// Wrong `under` → the recomputed root doesn't match the requested one.
-		assert_eq!(
-			verify_positional_event_response(
-				stream,
-				StreamsRoot(H256::repeat_byte(0xff)),
-				MessagePosition(at as u64),
-				&resp,
-			),
-			Err(VerifyError::RootMismatch),
-		);
-		// Tampered payload → verify_leaf succeeds structurally but derives a diverging root.
-		let mut bad = resp.clone();
-		bad.payload = vec![0xAA];
-		assert_eq!(
-			verify_positional_event_response(stream, under, MessagePosition(at as u64), &bad),
-			Err(VerifyError::RootMismatch),
-		);
-
-		// The request-aware dispatcher (`at = Some(2)`) yields the positional result.
-		let req = EventRequest { stream, under, at: Some(MessagePosition(at as u64)) };
-		assert_eq!(
-			verify_event(&req, &resp),
-			Ok(VerifiedEvent::Positional { position: MessagePosition(at as u64) }),
-		);
-	}
-
-	#[test]
-	fn event_response_tree_proof_failure_surfaces_as_treeproof() {
-		// A split bit past the key width fails the tree walk (`TreeProof`, not `RootMismatch`).
-		let stream = ch(2000);
-		let payloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i]).collect();
-		let store = MemStore::<Hash>::default();
-		let mut src = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		let positions: Vec<u64> =
-			payloads.iter().map(|p| src.push(leaf_hash(0, p)).unwrap()).collect();
-		let head = payloads.len() - 1;
-		let mproof = src.gen_proof(vec![positions[head]]).unwrap();
-		let resp = EventResponse {
-			payload: payloads[head].clone(),
-			leaf_version: 0,
-			inclusion: MmrInclusionProof {
-				mmr_size: mmr_size(payloads.len()),
-				items: BoundedVec::truncate_from(mproof.proof_items().to_vec()),
-			},
-			// `split_bit = 255` is >= KEY_BITS, so `streams_root_from_proof` rejects the walk.
 			tree_proof: StreamProof {
-				steps: vec![TreeStep { split_bit: 255, sibling: H256::zero() }].try_into().unwrap(),
+				steps: BoundedVec::truncate_from(vec![TreeStep {
+					split_bit: 7,
+					sibling: H256::repeat_byte(0x44),
+				}]),
 			},
 		};
-		assert_eq!(
-			verify_event_response(stream, StreamsRoot(H256::repeat_byte(0xff)), &resp),
-			Err(VerifyError::TreeProof),
-		);
-	}
+		let mut expected = vec![0x01, 0, 0, 0, 0, 0, 0, 0, 0x04]; // frontier: count, 1 peak
+		expected.extend([0x22; 32]);
+		expected.extend([0x04, 0x04, 0xAA]); // payloads: 1 payload of 1 byte
+		expected.extend([0x0C, 0x04]); // extension: compact count 3, 1 node
+		expected.extend([0x33; 32]);
+		expected.extend([0x04, 0x07]); // tree_proof: 1 step, split bit 7
+		expected.extend([0x44; 32]);
+		assert_eq!(response.encode(), expected);
+		assert_eq!(MessagesResponse::decode(&mut &expected[..]).unwrap(), response);
 
-	#[test]
-	fn verify_exchange_dispatches_and_binds_variant() {
-		// A valid Messages request/response pair.
-		let mpayloads: Vec<Vec<u8>> = (0..3u8).map(|i| vec![i]).collect();
-		let mstore = MemStore::<Hash>::default();
-		let mut msrc = MemMMR::<Hash, SpecMerge>::new(0, &mstore);
-		for p in &mpayloads {
-			msrc.push(leaf_hash(0, p)).unwrap();
-		}
-		let mstream = ch(2000);
-		let mentries =
-			BTreeMap::from([(mstream, bound(msrc.mmr_size(), msrc.get_root().unwrap()))]);
-		let munder = streams_root(&mentries).unwrap();
-		let (_r, mtree) = gen_stream_proof(&mentries, mstream).unwrap();
-		let mresp = MessagesResponse {
-			base: MessagePosition(0),
-			leaf_version: 0,
-			payloads: mpayloads.clone().try_into().unwrap(),
-			start_peaks: BoundedVec::new(),
-			extension: MMRExtensionProof::identity(),
-			tree_proof: mtree,
-		};
-		let mbytes = mpayloads.iter().map(|p| p.len() as u32).sum::<u32>();
-		let mreq = MessagesRequest {
-			stream: mstream,
-			start: MessagePosition(0),
-			under: munder,
-			max_bytes: mbytes,
-		};
-
-		// A valid Event (head) request/response pair.
-		let epayloads: Vec<Vec<u8>> = (0..6u8).map(|i| vec![i, i + 1]).collect();
-		let estore = MemStore::<Hash>::default();
-		let mut esrc = MemMMR::<Hash, SpecMerge>::new(0, &estore);
-		let epos: Vec<u64> =
-			epayloads.iter().map(|p| esrc.push(leaf_hash(0, p)).unwrap()).collect();
-		let estream = ch(3000);
-		let eentries =
-			BTreeMap::from([(estream, bound(esrc.mmr_size(), esrc.get_root().unwrap()))]);
-		let eunder = streams_root(&eentries).unwrap();
-		let (_r2, etree) = gen_stream_proof(&eentries, estream).unwrap();
-		let ehead = epayloads.len() - 1;
-		let eproof = esrc.gen_proof(vec![epos[ehead]]).unwrap();
-		let eresp = EventResponse {
-			payload: epayloads[ehead].clone(),
-			leaf_version: 0,
-			inclusion: MmrInclusionProof {
-				mmr_size: mmr_size(epayloads.len()),
-				items: BoundedVec::truncate_from(eproof.proof_items().to_vec()),
-			},
-			tree_proof: etree,
-		};
-		let ereq = EventRequest { stream: estream, under: eunder, at: None };
-
-		// Matching variants → dispatched and authenticated.
-		assert_eq!(
-			verify_exchange(
-				&ExchangeRequest::Messages(mreq.clone()),
-				&ExchangeResponse::Messages(mresp.clone()),
-			),
-			Ok(ExchangeVerified::Messages),
-		);
-		assert!(matches!(
-			verify_exchange(
-				&ExchangeRequest::Event(ereq.clone()),
-				&ExchangeResponse::Event(eresp.clone()),
-			),
-			Ok(ExchangeVerified::Event(VerifiedEvent::Head { .. })),
-		));
-
-		// Cross-variant answers → VariantMismatch, before any crypto.
-		assert_eq!(
-			verify_exchange(&ExchangeRequest::Messages(mreq), &ExchangeResponse::Event(eresp)),
-			Err(VerifyError::VariantMismatch),
-		);
-		assert_eq!(
-			verify_exchange(&ExchangeRequest::Event(ereq), &ExchangeResponse::Messages(mresp)),
-			Err(VerifyError::VariantMismatch),
-		);
+		let served: FetchResponse = Ok(response);
+		assert_eq!(served.encode(), [&[0x00][..], &expected[..]].concat());
+		let refused: FetchResponse = Err(FetchError::BeyondHead);
+		assert_eq!(refused.encode(), vec![0x01, 0x03]);
 	}
 
 	/// Two committed 6-leaf streams with distinct payloads, and the `StreamsRoot` over both.
@@ -1030,7 +737,7 @@ mod tests {
 		let payloads: [Vec<Vec<u8>>; 2] =
 			core::array::from_fn(|s| (0..6u8).map(|i| vec![s as u8, i]).collect());
 		let leaves: [Vec<Hash>; 2] =
-			core::array::from_fn(|s| payloads[s].iter().map(|p| leaf_hash(0, p)).collect());
+			core::array::from_fn(|s| payloads[s].iter().map(|p| leaf_hash(p)).collect());
 		let entries: BTreeMap<_, _> =
 			(0..2).map(|s| (ids[s], frontier_at(&leaves[s], 6).root().0)).collect();
 		let under = streams_root(&entries).unwrap();
@@ -1047,31 +754,12 @@ mod tests {
 		base: usize,
 		end: usize,
 	) -> MessagesResponse {
+		let extension =
+			if end == 6 { MMRExtensionProof::identity() } else { ancestry(leaves, end, 6) };
 		MessagesResponse {
-			base: MessagePosition(base as u64),
-			leaf_version: 0,
+			frontier: frontier_at(leaves, base),
 			payloads: payloads[base..end].to_vec().try_into().unwrap(),
-			start_peaks: BoundedVec::truncate_from(frontier_at(leaves, base).peaks().to_vec()),
-			extension: ancestry(leaves, end, 6),
-			tree_proof: tree_proof.clone(),
-		}
-	}
-
-	/// The honest head read of a 6-leaf stream.
-	fn head(
-		(_, payloads, leaves, tree_proof): &(StreamId, Vec<Vec<u8>>, Vec<Hash>, StreamProof),
-	) -> EventResponse {
-		let store = MemStore::<Hash>::default();
-		let mut mmr = MemMMR::<Hash, SpecMerge>::new(0, &store);
-		let positions: Vec<u64> = leaves.iter().map(|l| mmr.push(*l).unwrap()).collect();
-		let proof = mmr.gen_proof(vec![positions[5]]).unwrap();
-		EventResponse {
-			payload: payloads[5].clone(),
-			leaf_version: 0,
-			inclusion: MmrInclusionProof {
-				mmr_size: mmr_size(6),
-				items: BoundedVec::truncate_from(proof.proof_items().to_vec()),
-			},
+			extension,
 			tree_proof: tree_proof.clone(),
 		}
 	}
@@ -1109,8 +797,8 @@ mod tests {
 		resp.payloads[1] = vec![0; MAX_SPECULATIVE_MESSAGE_LEN as usize + 1];
 		let req = MessagesRequest {
 			stream,
-			start: MessagePosition(2),
 			under: t.under,
+			start: Some(MessagePosition(2)),
 			max_bytes: u32::MAX,
 		};
 		assert_eq!(verify_messages(&req, &resp), Err(VerifyError::PayloadTooLarge));
@@ -1118,22 +806,6 @@ mod tests {
 		// At the bound the size check passes; the forged payload then fails the proof.
 		resp.payloads[1].pop();
 		assert_eq!(verify_messages(&req, &resp), Err(VerifyError::RootMismatch));
-	}
-
-	#[test]
-	fn a_wrong_leaf_version_is_a_root_mismatch() {
-		let t = two_streams();
-		let (stream, ..) = t.streams[0];
-		let mut resp = fetch(&t.streams[0], 2, 4);
-		resp.leaf_version = 1;
-		assert_eq!(
-			verify_messages_response(stream, t.under, &resp),
-			Err(VerifyError::RootMismatch)
-		);
-
-		let mut event = head(&t.streams[0]);
-		event.leaf_version = 1;
-		assert_eq!(verify_event_response(stream, t.under, &event), Err(VerifyError::RootMismatch));
 	}
 
 	#[test]
@@ -1151,10 +823,6 @@ mod tests {
 		let resp = fetch(&t.streams[1], 2, 4);
 		assert_eq!(verify_messages_response(b, t.under, &resp), Ok(()));
 		assert_eq!(verify_messages_response(a, t.under, &resp), Err(VerifyError::RootMismatch));
-
-		let event = head(&t.streams[1]);
-		assert!(verify_event_response(b, t.under, &event).is_ok());
-		assert_eq!(verify_event_response(a, t.under, &event), Err(VerifyError::RootMismatch));
 	}
 
 	#[test]
@@ -1166,9 +834,24 @@ mod tests {
 		let resp = fetch(&t.streams[0], 2, 2);
 		assert!(resp.payloads.is_empty());
 		for max_bytes in [0, u32::MAX] {
-			let req =
-				MessagesRequest { stream, start: MessagePosition(2), under: t.under, max_bytes };
+			let req = MessagesRequest {
+				stream,
+				under: t.under,
+				start: Some(MessagePosition(2)),
+				max_bytes,
+			};
 			assert_eq!(verify_messages(&req, &resp), Ok(()));
 		}
+	}
+
+	#[test]
+	fn tree_proof_failure_surfaces_as_treeproof() {
+		let t = two_streams();
+		let (stream, ..) = t.streams[0];
+		let mut resp = fetch(&t.streams[0], 5, 6);
+		resp.tree_proof = StreamProof {
+			steps: vec![TreeStep { split_bit: 255, sibling: H256::zero() }].try_into().unwrap(),
+		};
+		assert_eq!(verify_messages_response(stream, t.under, &resp), Err(VerifyError::TreeProof));
 	}
 }

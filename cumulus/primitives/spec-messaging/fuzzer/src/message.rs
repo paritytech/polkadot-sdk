@@ -14,36 +14,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The off-chain response verifiers in `message`.
+//! The off-chain response verifier in `message`.
 //!
 //! [`MessageOracle`] commits `STREAMS` streams under `N` successive `StreamsRoot`s. At height `h`
 //! stream 0 has `h` leaves, stream 1 `h / 2` and stream 2 `h / 3`; a stream with none is left out
-//! of the tree. Streams 0 and 1 share leaves (leaf version 0), stream 2 hashes the same payloads as
-//! version 1, so material for one stream can be offered for another. A fourth stream is never
-//! committed.
+//! of the tree. Streams 0, 1 and 2 share payload shapes, so material for one stream can be offered
+//! for another. A fourth stream is never committed.
 //!
-//! Responses start honest, then take arbitrary edits. Whenever a verifier accepts one under a real
-//! `StreamsRoot`, the claim behind it must hold:
+//! Responses start honest, then take arbitrary edits. Whenever `verify_messages` accepts one under
+//! a real `StreamsRoot`, the claim behind it must hold:
 //! - `FORGERY`: payloads, a position or a frontier the committed stream does not have.
 //! - `MALLEABLE`: the right answer, from material other than the honest proof.
 //!
 //! An accepted response must also honour its request.
 //!
-//! - `message_fetch`: [`verify_messages`].
-//! - `message_event`: [`verify_event`], head and positional reads.
-//! - `message_decode`: wire bytes through [`verify_exchange`]. Every decoded value must be
+//! - `message_fetch`: [`verify_messages`] (range and head reads).
+//! - `message_decode`: wire bytes through [`verify_messages`]. Every decoded value must be
 //!   canonical (`NONCANONICAL`). Seed it with honest encodings first, from this crate:
 //!   `SEED_DIR=hfuzz_workspace/message_decode/input cargo test write_decode_seeds -- --ignored`
 
-use crate::{apply_bounded, payload, Count, Edit, HashChoice, Oracle, Outcome, N};
+use crate::{apply, apply_bounded, payload, Count, Edit, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	verify_event, verify_exchange, verify_messages, EventRequest, EventResponse, ExchangeRequest,
-	ExchangeResponse, ExchangeVerified, MessagePosition, MessagesRequest, MessagesResponse,
-	MmrInclusionProof, StreamId, StreamProof, StreamsRoot, VerifiedEvent, VerifyError,
-	LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
+	verify_messages, ChannelMessage, MessagePosition, MessagesRequest, MessagesResponse,
+	MessagingInherentData, MmrFrontier, Register, StreamId, StreamProof, StreamsRoot, LEAF_VERSION,
+	MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::{bounded::BoundedVec, H256 as Hash};
@@ -76,14 +73,6 @@ fn committed_len(s: usize, h: u64) -> u64 {
 	}
 }
 
-fn leaf_version(s: usize) -> u8 {
-	if s == 2 {
-		LEAF_VERSION + 1
-	} else {
-		LEAF_VERSION
-	}
-}
-
 struct Commit {
 	under: StreamsRoot,
 	/// The honest membership proof of each committed stream.
@@ -91,13 +80,12 @@ struct Commit {
 }
 
 pub struct MessageOracle {
-	/// Leaf versions 0 and 1.
-	mmrs: [Oracle; 2],
+	mmr: Oracle,
 	/// Index `h - 1`.
 	commits: Vec<Commit>,
 	/// `StreamsRoot` to height.
 	heights: HashMap<Hash, u64>,
-	/// Both MMR palettes, plus every `StreamsRoot` and tree sibling.
+	/// MMR palette, plus every `StreamsRoot` and tree sibling.
 	palette: Vec<Hash>,
 }
 
@@ -109,15 +97,14 @@ impl Default for MessageOracle {
 
 impl MessageOracle {
 	pub fn new() -> Self {
-		let mmrs =
-			[Oracle::with_leaf_version(LEAF_VERSION), Oracle::with_leaf_version(LEAF_VERSION + 1)];
+		let mmr = Oracle::with_leaf_version(LEAF_VERSION);
 		let commits: Vec<Commit> = (1..=N as u64)
 			.map(|h| {
 				let entries: BTreeMap<StreamId, Hash> = (0..STREAMS)
 					.filter(|s| committed_len(*s, h) > 0)
 					.map(|s| {
 						let m = committed_len(s, h);
-						(stream_id(s), mmrs[(s == 2) as usize].frontiers[m as usize].root().0)
+						(stream_id(s), mmr.frontiers[m as usize].root().0)
 					})
 					.collect();
 				let under = streams_root(&entries).expect("stream 0 is always committed; qed");
@@ -131,19 +118,14 @@ impl MessageOracle {
 			})
 			.collect();
 		let heights = commits.iter().zip(1..).map(|(c, h)| (c.under.0, h)).collect();
-		let mut palette: BTreeSet<Hash> =
-			mmrs.iter().flat_map(|o| o.palette.iter().copied()).collect();
+		let mut palette: BTreeSet<Hash> = mmr.palette.iter().copied().collect();
 		for commit in &commits {
 			palette.insert(commit.under.0);
 			for proof in commit.proofs.iter().flatten() {
 				palette.extend(proof.steps.iter().map(|step| step.sibling));
 			}
 		}
-		Self { mmrs, commits, heights, palette: palette.into_iter().collect() }
-	}
-
-	fn mmr(&self, s: usize) -> &Oracle {
-		&self.mmrs[(s == 2) as usize]
+		Self { mmr, commits, heights, palette: palette.into_iter().collect() }
 	}
 
 	fn commit(&self, h: u64) -> &Commit {
@@ -182,69 +164,78 @@ impl MessageOracle {
 			.unwrap_or(StreamProof { steps: BoundedVec::new() })
 	}
 
-	/// The honest fetch of stream `s` under height `h`: payloads `base..base + len` with both
-	/// reduced into range, the extension from there to the committed count.
+	/// The honest fetch of stream `s` under height `h`:
+	/// - If `start` is `Some(base)`: payloads `base..base + len` with both reduced into range, the
+	///   extension from there to the committed count.
+	/// - If `start` is `None`: the head at `m - 1` (if `m > 0`) with either 1 payload and identity
+	///   extension (`len % 2 == 1`) or 0 payloads and the `(m - 1) -> m` extension (`len % 2 == 0`,
+	///   position-only head when budget was too small).
 	pub fn honest_fetch(
 		&self,
 		h: u64,
 		s: usize,
-		base: u64,
+		start: Option<u64>,
 		len: u64,
 	) -> (MessagesRequest, MessagesResponse) {
 		let m = committed_len(s, h);
-		let base = base % (m + 1);
-		let end = base + len % (m - base + 1);
-		let mmr = self.mmr(s);
+		let (req_start, base, end) = match start {
+			Some(b) => {
+				let base = b % (m + 1);
+				let end = base + len % (m - base + 1);
+				(Some(MessagePosition(base)), base, end)
+			},
+			None => {
+				let base = m.saturating_sub(1);
+				let end = (base + len % 2).min(m);
+				(None, base, end)
+			},
+		};
 		let payloads: Vec<Vec<u8>> = (base..end).map(payload).collect();
 		let max_bytes = payloads.iter().map(|p| p.len() as u32).sum();
 		let resp = MessagesResponse {
-			base: MessagePosition(base),
-			leaf_version: leaf_version(s),
+			frontier: self.mmr.frontiers[base as usize].clone(),
 			payloads: payloads.try_into().expect("N < MAX_MESSAGES_PER_RESPONSE; qed"),
-			start_peaks: BoundedVec::try_from(mmr.frontiers[base as usize].peaks().to_vec())
-				.expect("a frontier fits the bound; qed"),
-			extension: mmr.extension(end, m).cloned().unwrap_or_default(),
+			extension: self.mmr.extension(end, m).cloned().unwrap_or_default(),
 			tree_proof: self.tree_proof(h, s),
 		};
 		let req = MessagesRequest {
 			stream: stream_id(s),
-			start: MessagePosition(base),
+			start: req_start,
 			under: self.commit(h).under,
 			max_bytes,
 		};
 		(req, resp)
 	}
 
-	/// The honest event read of stream `s` under height `h`: the head, or leaf `at` reduced into
-	/// range.
-	pub fn honest_event(&self, h: u64, s: usize, at: Option<u64>) -> (EventRequest, EventResponse) {
-		let m = committed_len(s, h);
-		let at = at.map(|i| i % m.max(1));
-		let leaf = at.unwrap_or(m.saturating_sub(1));
-		let inclusion = self
-			.mmr(s)
-			.inclusion(leaf, m)
-			.cloned()
-			.unwrap_or(MmrInclusionProof { mmr_size: 0, items: BoundedVec::new() });
-		let resp = EventResponse {
-			payload: payload(leaf),
-			leaf_version: leaf_version(s),
-			inclusion,
-			tree_proof: self.tree_proof(h, s),
-		};
-		let req = EventRequest {
-			stream: stream_id(s),
-			under: self.commit(h).under,
-			at: at.map(MessagePosition),
-		};
-		(req, resp)
-	}
-
-	/// What an accepted fetch claims: the requested range of the committed stream, from the honest
-	/// proof.
+	/// What an accepted fetch claims: the requested range (or head) of the committed stream, from
+	/// the honest proof.
 	fn fetch_claim(&self, req: &MessagesRequest, resp: &MessagesResponse) -> Outcome {
 		let payloads = &resp.payloads[..];
-		assert_eq!(resp.base, req.start, "accepted a response that does not start at the request");
+		let base = resp.frontier.leaf_count();
+		if let Some(start) = req.start {
+			assert_eq!(
+				MessagePosition(base),
+				start,
+				"accepted a response that does not start at the request"
+			);
+		} else {
+			let end_count = if resp.extension.leaf_count == 0 {
+				base + payloads.len() as u64
+			} else {
+				resp.extension.leaf_count
+			};
+			assert_eq!(
+				end_count,
+				base + 1,
+				"accepted a head response ending at {end_count} instead of {}",
+				base + 1
+			);
+			assert!(
+				payloads.len() <= 1,
+				"accepted a head response with {} payloads",
+				payloads.len()
+			);
+		}
 		let total: u64 = payloads.iter().map(|p| p.len() as u64).sum();
 		assert!(
 			total <= req.max_bytes as u64 && (req.max_bytes != 0 || payloads.is_empty()),
@@ -260,93 +251,28 @@ impl MessageOracle {
 			panic!("FORGERY: {:?} is not committed at height {h}, yet a fetch verified", req.stream)
 		};
 		let m = committed_len(s, h);
-		let base = resp.base.0;
 		let end = base + payloads.len() as u64;
 		assert!(end <= m, "FORGERY: positions {base}..{end} of stream {s}, which has {m} leaves");
-		// With no payloads the version is never hashed, and nothing returned depends on it.
-		if !payloads.is_empty() {
-			assert_eq!(resp.leaf_version, leaf_version(s), "FORGERY: leaf version of stream {s}");
+		if req.start.is_none() {
+			assert_eq!(
+				base + 1,
+				m,
+				"FORGERY: head response for stream {s} placed head at {base} instead of {}",
+				m.saturating_sub(1)
+			);
 		}
 		for (j, p) in payloads.iter().enumerate() {
 			let at = base + j as u64;
 			assert_eq!(p, &payload(at), "FORGERY: wrong payload at position {at} of stream {s}");
 		}
-		let mmr = self.mmr(s);
 		assert_eq!(
-			&resp.start_peaks[..],
-			mmr.frontiers[base as usize].peaks(),
-			"MALLEABLE: non-honest start peaks at {base} for stream {s}"
+			&resp.frontier, &self.mmr.frontiers[base as usize],
+			"MALLEABLE: non-honest frontier at {base} for stream {s}"
 		);
 		assert_eq!(
 			resp.extension,
-			mmr.extension(end, m).cloned().unwrap_or_default(),
+			self.mmr.extension(end, m).cloned().unwrap_or_default(),
 			"MALLEABLE: non-honest extension from {end} to {m} for stream {s}"
-		);
-		assert_eq!(
-			Some(&resp.tree_proof),
-			self.commit(h).proofs[s].as_ref(),
-			"MALLEABLE: non-honest tree proof for stream {s} at height {h}"
-		);
-		Outcome::Real
-	}
-
-	/// What an accepted event read claims: the head, or the requested leaf, of the committed
-	/// stream, from the honest proof.
-	fn event_claim(
-		&self,
-		req: &EventRequest,
-		resp: &EventResponse,
-		verified: &VerifiedEvent,
-	) -> Outcome {
-		let position = match verified {
-			VerifiedEvent::Head { position, frontier } => {
-				assert!(req.at.is_none(), "a positional request verified as a head read");
-				assert_eq!(
-					frontier.leaf_count(),
-					position.0 + 1,
-					"a head read's frontier does not end at its position"
-				);
-				*position
-			},
-			VerifiedEvent::Positional { position } => {
-				assert_eq!(req.at, Some(*position), "a positional read at another position");
-				*position
-			},
-		};
-		assert!(
-			resp.payload.len() <= MAX_SPECULATIVE_MESSAGE_LEN as usize,
-			"accepted a payload over the single-message bound"
-		);
-		let Some(&h) = self.heights.get(&req.under.0) else { return Outcome::Unbound };
-		let Some(s) = Self::committed(req.stream, h) else {
-			panic!(
-				"FORGERY: {:?} is not committed at height {h}, yet an event verified",
-				req.stream
-			)
-		};
-		let m = committed_len(s, h);
-		let mmr = self.mmr(s);
-		assert!(
-			position.0 < m,
-			"FORGERY: position {} of stream {s}, which has {m} leaves",
-			position.0
-		);
-		if let VerifiedEvent::Head { frontier, .. } = verified {
-			assert_eq!(position.0 + 1, m, "FORGERY: leaf {} served as the head of {m}", position.0);
-			assert_eq!(Some(frontier), mmr.frontier(m), "FORGERY: a head frontier of stream {s}");
-		}
-		assert_eq!(resp.leaf_version, leaf_version(s), "FORGERY: leaf version of stream {s}");
-		assert_eq!(
-			resp.payload,
-			payload(position.0),
-			"FORGERY: wrong payload at position {} of stream {s}",
-			position.0
-		);
-		assert_eq!(
-			Some(&resp.inclusion),
-			mmr.inclusion(position.0, m),
-			"MALLEABLE: non-honest inclusion proof of leaf {} in {m} for stream {s}",
-			position.0
 		);
 		assert_eq!(
 			Some(&resp.tree_proof),
@@ -364,74 +290,46 @@ impl MessageOracle {
 		}
 	}
 
-	/// Verify an event read, and check the claim behind it if accepted.
-	pub fn check_event(&self, req: &EventRequest, resp: &EventResponse) -> Outcome {
-		match verify_event(req, resp) {
-			Ok(verified) => self.event_claim(req, resp, &verified),
-			Err(_) => Outcome::Rejected,
-		}
-	}
-
-	/// [`Self::check_fetch`] or [`Self::check_event`], by variant. `verify_exchange` must agree
-	/// with the verifier the variants select.
-	pub fn check_exchange(&self, req: &ExchangeRequest, resp: &ExchangeResponse) -> Outcome {
-		let result = verify_exchange(req, resp);
-		match (req, resp) {
-			(ExchangeRequest::Messages(req), ExchangeResponse::Messages(resp)) => {
-				let direct = verify_messages(req, resp).map(|()| ExchangeVerified::Messages);
-				assert_eq!(result, direct, "verify_exchange disagrees with verify_messages");
-				self.check_fetch(req, resp)
-			},
-			(ExchangeRequest::Event(req), ExchangeResponse::Event(resp)) => {
-				let direct = verify_event(req, resp).map(ExchangeVerified::Event);
-				assert_eq!(result, direct, "verify_exchange disagrees with verify_event");
-				self.check_event(req, resp)
-			},
-			_ => {
-				assert_eq!(
-					result,
-					Err(VerifyError::VariantMismatch),
-					"accepted a cross-variant answer"
-				);
-				Outcome::Rejected
-			},
-		}
-	}
-
 	/// Fuzz entry point for [`verify_messages`].
 	pub fn check_fetch_input(&self, input: &FetchInput) -> Outcome {
 		let Some(stream) = input.stream.get() else { return Outcome::Skipped };
 		let h = Self::height(input.commit);
 		let material = Self::material(stream, input.material);
 		let (mut req, mut resp) =
-			self.honest_fetch(h, material, input.base as u64, input.len as u64);
+			self.honest_fetch(h, material, input.base.map(u64::from), input.len as u64);
 		req.stream = stream;
 		if let Some(target) = input.target {
-			let end = resp.base.0 + resp.payloads.len() as u64;
+			let end = resp.frontier.leaf_count() + resp.payloads.len() as u64;
 			resp.extension = self
-				.mmr(material)
+				.mmr
 				.extension(end, target as u64 % (N as u64 + 1))
 				.cloned()
 				.unwrap_or_default();
 		}
-		if let Some(base) = input.resp_base {
-			resp.base = MessagePosition(base.get());
-		}
-		if let Some(version) = input.leaf_version {
-			resp.leaf_version = version;
+		let leaf_count = input.resp_base.map_or(resp.frontier.leaf_count(), Count::get);
+		let mut peaks = resp.frontier.peaks().to_vec();
+		apply(&self.palette, &mut peaks, &input.peak_edits);
+		if input.resp_base.is_some() || !input.peak_edits.is_empty() {
+			let Some(frontier) = MmrFrontier::from_parts(peaks, leaf_count) else {
+				return Outcome::Skipped;
+			};
+			resp.frontier = frontier;
 		}
 		let mut payloads = resp.payloads.to_vec();
 		apply_payload_edits(&mut payloads, &input.payload_edits);
 		if let Ok(payloads) = payloads.try_into() {
 			resp.payloads = payloads;
 		}
-		apply_bounded(&self.palette, &mut resp.start_peaks, &input.peak_edits);
 		if let Some(count) = input.ext_count {
 			resp.extension.leaf_count = count.get();
 		}
 		apply_bounded(&self.palette, &mut resp.extension.connecting_nodes, &input.ext_edits);
 		apply_tree_edits(&self.palette, &mut resp.tree_proof, &input.tree_edits);
-		req.start = input.start.map_or(resp.base, |c| MessagePosition(c.get()));
+		req.start = match input.start {
+			Some(Some(c)) => Some(MessagePosition(c.get())),
+			Some(None) => None,
+			None => req.start.map(|_| MessagePosition(resp.frontier.leaf_count())),
+		};
 		req.max_bytes = input.max_bytes.unwrap_or_else(|| {
 			let total = resp.payloads.iter().map(|p| p.len() as u32).sum::<u32>();
 			if resp.payloads.is_empty() {
@@ -446,90 +344,37 @@ impl MessageOracle {
 		self.check_fetch(&req, &resp)
 	}
 
-	/// Fuzz entry point for [`verify_event`].
-	pub fn check_event_input(&self, input: &EventInput) -> Outcome {
-		let Some(stream) = input.stream.get() else { return Outcome::Skipped };
-		let h = Self::height(input.commit);
-		let material = Self::material(stream, input.material);
-		let at = input.at.map(|c| c.get());
-		let (mut req, mut resp) = self.honest_event(h, material, at);
-		req.stream = stream;
-		// `honest_event` reduced the position into range; the request keeps it as is.
-		req.at = at.map(MessagePosition);
-		if let Some((i, n)) = input.template {
-			let (i, n) = (i as u64 % N as u64, n as u64 % (N as u64 + 1));
-			if let Some(proof) = self.mmr(material).inclusion(i, n) {
-				resp.inclusion = proof.clone();
-				resp.payload = payload(i);
-			}
-		}
-		if let Some(size) = input.mmr_size {
-			resp.inclusion.mmr_size = size.get();
-		}
-		apply_bounded(&self.palette, &mut resp.inclusion.items, &input.item_edits);
-		let mut payloads = vec![resp.payload];
-		apply_payload_edits(&mut payloads, &input.payload_edits);
-		resp.payload = payloads.into_iter().next().unwrap_or_default();
-		if let Some(version) = input.leaf_version {
-			resp.leaf_version = version;
-		}
-		apply_tree_edits(&self.palette, &mut resp.tree_proof, &input.tree_edits);
-		if let Some(under) = input.under {
-			req.under = self.under(under);
-		}
-		self.check_event(&req, &resp)
-	}
-
 	/// Fuzz entry point for raw wire bytes. The first byte picks the layout:
-	/// - `0`: `[h, s, max_bytes[4]]` then an `ExchangeResponse`, answering a fetch of known stream
-	///   `s` under height `h` from the response's own base.
-	/// - `1`: `[h, s, positional, at[8]]` then an `ExchangeResponse`, answering an event read.
-	/// - `2`: an `(ExchangeRequest, ExchangeResponse)` pair.
+	/// - `0`: `[h, s, is_range, max_bytes[4]]` then a `MessagesResponse`, answering a fetch of
+	///   known stream `s` under height `h` from the response's own frontier count (or head if
+	///   `!is_range`).
+	/// - `1`: a `(MessagesRequest, MessagesResponse)` pair.
 	pub fn check_message_decode(&self, data: &[u8]) -> Outcome {
 		let Some((&selector, rest)) = data.split_first() else { return Outcome::Skipped };
-		match selector % 3 {
+		match selector % 2 {
 			0 => {
-				let Some(([h, s, b0, b1, b2, b3], body)) = split_header(rest) else {
+				let Some(([h, s, is_range, b0, b1, b2, b3], body)) = split_header(rest) else {
 					return Outcome::Skipped;
 				};
-				let Some(resp) = canonical::<ExchangeResponse>(body) else {
+				let Some(resp) = canonical::<MessagesResponse>(body) else {
 					return Outcome::Skipped;
 				};
-				let start = match &resp {
-					ExchangeResponse::Messages(m) => m.base,
-					ExchangeResponse::Event(_) => MessagePosition(0),
-				};
-				let req = ExchangeRequest::Messages(MessagesRequest {
+				let start =
+					(is_range & 1 == 1).then_some(MessagePosition(resp.frontier.leaf_count()));
+				let req = MessagesRequest {
 					stream: stream_id(s as usize % (STREAMS + 1)),
 					start,
 					under: self.commit(Self::height(h)).under,
 					max_bytes: u32::from_le_bytes([b0, b1, b2, b3]),
-				});
-				self.check_exchange(&req, &resp)
-			},
-			1 => {
-				let Some(([h, s, positional, a0, a1, a2, a3, a4, a5, a6, a7], body)) =
-					split_header(rest)
-				else {
-					return Outcome::Skipped;
 				};
-				let Some(resp) = canonical::<ExchangeResponse>(body) else {
-					return Outcome::Skipped;
-				};
-				let at = u64::from_le_bytes([a0, a1, a2, a3, a4, a5, a6, a7]);
-				let req = ExchangeRequest::Event(EventRequest {
-					stream: stream_id(s as usize % (STREAMS + 1)),
-					under: self.commit(Self::height(h)).under,
-					at: (positional & 1 == 1).then_some(MessagePosition(at)),
-				});
-				self.check_exchange(&req, &resp)
+				self.check_fetch(&req, &resp)
 			},
 			_ => {
-				let Some((req, resp)) = canonical::<(ExchangeRequest, ExchangeResponse)>(rest)
+				let Some((req, resp)) = canonical::<(MessagesRequest, MessagesResponse)>(rest)
 				else {
 					return Outcome::Skipped;
 				};
-				self.check_exchange(&req, &resp)
+				self.check_fetch(&req, &resp)
 			},
 		}
 	}
@@ -539,28 +384,22 @@ impl MessageOracle {
 		let mut seeds = Vec::new();
 		for h in [1u64, 2, 3, 6, 7, 13, 31, 32, 33, 63, 64] {
 			for s in 0..=STREAMS {
-				for (base, len) in [(0, 0), (0, 64), (1, 1), (5, 3), (64, 0)] {
-					let (req, resp) = self.honest_fetch(h, s, base, len);
-					let mut seed = vec![0, h as u8 - 1, s as u8];
+				for (start, len) in [
+					(Some(0), 0),
+					(Some(0), 64),
+					(Some(1), 1),
+					(Some(5), 3),
+					(Some(64), 0),
+					(None, 0),
+					(None, 1),
+				] {
+					let (req, resp) = self.honest_fetch(h, s, start, len);
+					let mut seed = vec![0, h as u8 - 1, s as u8, req.start.is_some() as u8];
 					seed.extend_from_slice(&req.max_bytes.to_le_bytes());
-					seed.extend(ExchangeResponse::Messages(resp.clone()).encode());
+					seed.extend(resp.encode());
 					seeds.push(seed);
-					let mut seed = vec![2];
-					seed.extend(
-						(ExchangeRequest::Messages(req), ExchangeResponse::Messages(resp)).encode(),
-					);
-					seeds.push(seed);
-				}
-				for at in [None, Some(0), Some(5), Some(63)] {
-					let (req, resp) = self.honest_event(h, s, at);
-					let mut seed = vec![1, h as u8 - 1, s as u8, req.at.is_some() as u8];
-					seed.extend_from_slice(&req.at.map_or(0, |p| p.0).to_le_bytes());
-					seed.extend(ExchangeResponse::Event(resp.clone()).encode());
-					seeds.push(seed);
-					let mut seed = vec![2];
-					seed.extend(
-						(ExchangeRequest::Event(req), ExchangeResponse::Event(resp)).encode(),
-					);
+					let mut seed = vec![1];
+					seed.extend((req, resp).encode());
 					seeds.push(seed);
 				}
 			}
@@ -587,6 +426,19 @@ fn canonical<T: Decode + Encode + PartialEq + Debug>(data: &[u8]) -> Option<T> {
 		"NONCANONICAL: round trip"
 	);
 	Some(value)
+}
+
+/// Fuzz entry point for the inherent and the channel leaf formats. The first byte picks the type:
+/// [`MessagingInherentData`], [`ChannelMessage`] or [`Register`]. Each must accept only canonical
+/// bytes, so no two encodings mean the same value. For the inherent, this includes strictly
+/// increasing map keys.
+pub fn check_inherent_decode(data: &[u8]) {
+	let Some((&selector, rest)) = data.split_first() else { return };
+	match selector % 3 {
+		0 => drop(canonical::<MessagingInherentData>(rest)),
+		1 => drop(canonical::<ChannelMessage>(rest)),
+		_ => drop(canonical::<Register>(rest)),
+	}
 }
 
 fn apply_payload_edits(payloads: &mut Vec<Vec<u8>>, edits: &[PayloadEdit]) {
@@ -744,41 +596,24 @@ pub struct FetchInput {
 	pub stream: StreamChoice,
 	/// Build the honest material for stream `s % (STREAMS + 1)` instead of the requested one.
 	pub material: Option<u8>,
-	/// The honest range, reduced into the committed count.
-	pub base: u8,
+	/// `None` starts from an honest head read; `Some` starts from an honest range read reduced
+	/// into the committed count.
+	pub base: Option<u8>,
 	pub len: u8,
 	/// Extend to `target % (N + 1)` leaves instead of the committed count.
 	pub target: Option<u8>,
 	pub resp_base: Option<Count>,
-	/// Defaults to the response's base.
-	pub start: Option<Count>,
+	/// `None` defaults to matching the honest template's mode (`Some(frontier.leaf_count())` for
+	/// range, `None` for head).
+	pub start: Option<Option<Count>>,
 	/// Defaults to the payloads' total, at least 1 if there are any.
 	pub max_bytes: Option<u32>,
-	pub leaf_version: Option<u8>,
 	pub payload_edits: Vec<PayloadEdit>,
 	pub peak_edits: Vec<Edit>,
 	pub ext_count: Option<Count>,
 	pub ext_edits: Vec<Edit>,
 	pub tree_edits: Vec<TreeEdit>,
 	/// Defaults to the real `StreamsRoot` at the height.
-	pub under: Option<UnderChoice>,
-}
-
-#[derive(Arbitrary, Debug)]
-pub struct EventInput {
-	/// Height `commit % N + 1`.
-	pub commit: u8,
-	pub stream: StreamChoice,
-	pub material: Option<u8>,
-	/// `None` reads the head. Requested as is; the honest template reduces it into range.
-	pub at: Option<Count>,
-	/// Use the honest proof of leaf `i % N` in `n % (N + 1)` leaves, and leaf `i`'s payload.
-	pub template: Option<(u8, u8)>,
-	pub mmr_size: Option<Count>,
-	pub item_edits: Vec<Edit>,
-	pub payload_edits: Vec<PayloadEdit>,
-	pub leaf_version: Option<u8>,
-	pub tree_edits: Vec<TreeEdit>,
 	pub under: Option<UnderChoice>,
 }
 
@@ -794,28 +629,40 @@ mod tests {
 				let m = committed_len(s, h);
 				for base in 0..=m {
 					for len in [0, 1, m - base] {
-						let (req, resp) = oracle.honest_fetch(h, s, base, len);
+						let (req, resp) = oracle.honest_fetch(h, s, Some(base), len);
 						let outcome = oracle.check_fetch(&req, &resp);
 						assert_eq!(outcome, if m > 0 { Outcome::Real } else { Outcome::Rejected });
 					}
+				}
+				for len in [0, 1] {
+					let (req, resp) = oracle.honest_fetch(h, s, None, len);
+					let outcome = oracle.check_fetch(&req, &resp);
+					assert_eq!(outcome, if m > 0 { Outcome::Real } else { Outcome::Rejected });
 				}
 			}
 		}
 	}
 
 	#[test]
-	fn honest_events_are_real() {
-		let oracle = MessageOracle::new();
-		for h in 1..=N as u64 {
-			for s in 0..=STREAMS {
-				let m = committed_len(s, h);
-				for at in core::iter::once(None).chain((0..m.max(1)).map(Some)) {
-					let (req, resp) = oracle.honest_event(h, s, at);
-					let outcome = oracle.check_event(&req, &resp);
-					assert_eq!(outcome, if m > 0 { Outcome::Real } else { Outcome::Rejected });
-				}
-			}
-		}
+	fn inherent_decode_accepts_canonical_and_refuses_unsorted_bytes() {
+		use cumulus_primitives_spec_messaging::{InChannelId, RegisterStatus};
+		let a = InChannelId { sender: ParaId::from(1000), domain: 0, num: 0 };
+		let b = InChannelId { sender: ParaId::from(2000), domain: 0, num: 0 };
+		let data = MessagingInherentData {
+			channels: BTreeMap::from([(a, vec![vec![1]]), (b, vec![vec![2]])]),
+			..Default::default()
+		};
+		check_inherent_decode(&[&[0][..], &data.encode()].concat());
+		let register = Register { up_to: MessagePosition(3), status: RegisterStatus::Opened };
+		check_inherent_decode(&[&[2][..], &register.encode()].concat());
+		check_inherent_decode(&[&[1][..], &ChannelMessage::Data(vec![7]).encode()].concat());
+
+		// Unsorted keys are refused at decode, not accepted and re-sorted.
+		let empty = Vec::<u8>::new;
+		let unsorted =
+			(vec![(b, vec![vec![2u8]]), (a, vec![vec![1u8]])], empty(), empty()).encode();
+		assert!(MessagingInherentData::decode(&mut &unsorted[..]).is_err());
+		check_inherent_decode(&[&[0][..], &unsorted].concat());
 	}
 
 	#[test]

@@ -27,7 +27,7 @@ use crate::{Count, HashChoice, Oracle, Outcome, N};
 use arbitrary::Arbitrary;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
-	leaf_hash,
+	leaf_hash_with_version,
 	mmr::{bag_peaks, empty_root, SpecMerge, MAX_MMR_LEAF_COUNT},
 	FrontierFull, MmrFrontier, MmrRoot, INNER_TAG, PEAK_TAG, ROOT_TAG,
 };
@@ -271,7 +271,7 @@ fn run_ops(
 			FrontierOp::Append(choice) => append(&mut frontier, choice.resolve(palette)),
 			FrontierOp::AppendMany { n, seed } => {
 				for j in 0..*n {
-					append(&mut frontier, leaf_hash(*seed, &[j]));
+					append(&mut frontier, leaf_hash_with_version(*seed, &[j]));
 				}
 			},
 			FrontierOp::RoundTrip => check_round_trip(&frontier),
