@@ -364,19 +364,19 @@ mod benchmarks {
 		}
 
 		if let Some(id) = payment_id {
-			match T::Paymaster::check_payment(id) {
+			// Branch on what the block left behind rather than calling `check_payment` again:
+			// `PayOverXcm::check_payment` takes the XCM response, so a second call observes
+			// `NotFound` and the verification would take the wrong arm on those runtimes.
+			match Spends::<T, I>::get(0) {
 				// The payment succeeded: the spend was removed and the next queue entry promoted.
-				PaymentStatus::Success => {
-					assert!(Spends::<T, I>::get(0).is_none());
+				None => {
 					assert_last_event::<T, I>(Event::SpendProcessed { index: 0 }.into());
 					assert!(
 						matches!(NextPayout::<T, I>::get(&asset_kind), Some((idx, _, _)) if idx != 0)
 					);
 				},
 				// The payment failed (the in-tree mock): the spend is marked `Failed` and stays.
-				_ => {
-					let spend_status =
-						Spends::<T, I>::get(0).expect("spend must remain on failure; qed");
+				Some(spend_status) => {
 					assert!(matches!(spend_status.status, PaymentState::Failed));
 					assert_last_event::<T, I>(
 						Event::PaymentFailed { index: 0, payment_id: id }.into(),

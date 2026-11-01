@@ -81,10 +81,10 @@
 //! queue for that asset kind.
 //!
 //! If a spend at the head of the queue cannot be paid out (e.g., due to insufficient funds),
-//! its order will expire after [`Config::OrderExpirationPeriod`] blocks. The `check_status` call
-//! will then rotate it back into the queue with the current block number as its order key,
-//! placing it behind every already-mature spend and allowing other spends of the same asset kind
-//! to be processed.
+//! its order expires [`Config::OrderExpirationPeriod`] blocks after it matures. Once another
+//! queued spend is mature, `check_status` rotates the head (even one whose payment is still in
+//! flight) to the back of the queue with the current block number as its order key; an in-flight
+//! spend past its `expire_at` is removed from the order instead.
 //!
 //! Payout ordering is managed independently per asset kind - a spend of one asset cannot block
 //! payouts of a different asset.

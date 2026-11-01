@@ -1929,8 +1929,8 @@ fn in_flight_spend_past_expire_at_leaves_the_payout_order() {
 
 		// Block 20: both are long past `expire_at`, so neither can ever be paid again.
 		System::set_block_number(20);
-		let _ = Treasury::check_status(RuntimeOrigin::signed(1), 1);
-		let _ = Treasury::check_status(RuntimeOrigin::signed(1), 0);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 1));
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
 
 		// A payable spend approved now (window 20..25) must reach the head inside its window,
 		// with a keeper calling `check_status` on the head every block.
@@ -2032,8 +2032,114 @@ fn migration_overflow_spend_is_not_stranded() {
 			set_status(get_payment_id(i).unwrap(), PaymentStatus::Success);
 			assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), i));
 		}
-		let _ = Treasury::check_status(RuntimeOrigin::signed(1), orphan);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), orphan));
 		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), orphan));
+	});
+}
+
+/// Re-admission of an unordered live spend fails with `QueueFull` while the queue is full; the
+/// spend stays unordered and is admitted once there is room.
+#[test]
+fn orphan_re_admission_fails_on_full_queue() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		// Fill the order for asset 1: one head plus a full queue.
+		for i in 0..=<Test as Config>::MaxQueuedSpends::get() {
+			assert_ok!(Treasury::spend(
+				RuntimeOrigin::signed(10),
+				Box::new(1),
+				1,
+				Box::new((100 + i) as u128),
+				None
+			));
+		}
+		// An unordered live spend, as the migration would leave behind on overflow.
+		let orphan = <Test as Config>::MaxQueuedSpends::get() + 1;
+		Spends::<Test>::insert(
+			orphan,
+			SpendStatus {
+				asset_kind: 1u32,
+				amount: 1u64,
+				beneficiary: 999u128,
+				valid_from: 1u64,
+				expire_at: 100u64,
+				status: PaymentState::Pending,
+			},
+		);
+		SpendCount::<Test>::put(orphan + 1);
+
+		assert_noop!(
+			Treasury::check_status(RuntimeOrigin::signed(1), orphan),
+			Error::<Test, _>::QueueFull
+		);
+		assert!(!PayoutQueue::<Test>::get(1u32).iter().any(|(i, _)| *i == orphan));
+
+		// Once there is room the same call admits it.
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		set_status(get_payment_id(0).unwrap(), PaymentStatus::Success);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), orphan));
+		assert!(PayoutQueue::<Test>::get(1u32).iter().any(|(i, _)| *i == orphan));
+		assert_ok!(Treasury::do_try_state());
+	});
+}
+
+/// A `Failed` spend that is in no payout order is re-admitted by `check_status`, just like a
+/// `Pending` one, so its payout can be retried. Re-admission charges no fee.
+#[test]
+fn failed_orphan_is_re_admitted() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		Spends::<Test>::insert(
+			0,
+			SpendStatus {
+				asset_kind: 1u32,
+				amount: 1u64,
+				beneficiary: 1000u128,
+				valid_from: 1u64,
+				expire_at: 100u64,
+				status: PaymentState::Failed,
+			},
+		);
+		SpendCount::<Test>::put(1);
+
+		let info = Treasury::check_status(RuntimeOrigin::signed(1), 0).unwrap();
+		assert_eq!(info.pays_fee, Pays::No);
+		assert_eq!(NextPayout::<Test>::get(1u32).map(|(i, _, _)| i), Some(0));
+		// Re-admitted, so it can be paid out.
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Treasury::do_try_state());
+	});
+}
+
+/// A second `check_status` on an in-flight spend that already left the payout order reports
+/// `Inconclusive` and writes nothing.
+#[test]
+fn check_status_twice_on_dead_in_flight_spend_is_inconclusive_noop() {
+	ExtBuilder::default().build().execute_with(|| {
+		System::set_block_number(1);
+		assert_ok!(Treasury::spend(RuntimeOrigin::signed(10), Box::new(1), 1, Box::new(100), None));
+		assert_ok!(Treasury::payout(RuntimeOrigin::signed(1), 0));
+		set_status(get_payment_id(0).unwrap(), PaymentStatus::InProgress);
+		assert_eq!(Spends::<Test>::get(0).unwrap().expire_at, 6);
+
+		// Past `expire_at`: the spend leaves the order but stays in storage.
+		System::set_block_number(7);
+		assert_ok!(Treasury::check_status(RuntimeOrigin::signed(1), 0));
+		assert!(NextPayout::<Test>::get(1u32).is_none());
+		assert!(!PayoutQueue::<Test>::contains_key(1u32));
+
+		assert_noop!(
+			Treasury::check_status(RuntimeOrigin::signed(1), 0),
+			Error::<Test, _>::Inconclusive
+		);
+		// Nothing was written: the spend is untouched and still in no payout order.
+		let spend = Spends::<Test>::get(0).unwrap();
+		assert!(matches!(spend.status, PaymentState::Attempted { .. }));
+		assert_eq!(spend.expire_at, 6);
+		assert!(NextPayout::<Test>::get(1u32).is_none());
+		assert!(!PayoutQueue::<Test>::contains_key(1u32));
+		assert_ok!(Treasury::do_try_state());
 	});
 }
 
