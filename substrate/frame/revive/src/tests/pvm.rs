@@ -2873,25 +2873,43 @@ fn deposit_limit_in_nested_instantiate() {
 			.data(vec![0, 0, 0, 0])
 			.build_and_unwrap_contract();
 
+		// A storage item with no data costs 2 for the item and 48 for its key.
+		let empty_item_deposit = 2 + 48;
+
 		// This is the deposit we expect to be charged just for instantiatiting the callee.
 		//
 		// - callee_info_len + 2 for storing the new contract info
 		// - the deposit for depending on a code hash
-		// - 2 for the storage item of 0 bytes being created in the callee constructor
-		// - 48 for the key
+		// - the empty storage item created in the callee constructor
 		//
 		// ED is not charged: `init_contract` mints it rather than taking it from the origin.
 		let callee_min_deposit = {
 			let callee_info_len =
 				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u128;
 			let code_deposit = lockup_deposit(&code_hash_callee);
-			callee_info_len + code_deposit + 2 + 2 + 48
+			callee_info_len + code_deposit + 2 + empty_item_deposit
 		};
 
 		// The parent just stores an item of the passed size so at least
 		// we need to pay for the item itself.
 		// stores 2 storage items: one before the subcall and one after
-		let caller_min_deposit = callee_min_deposit + 2 * (2 + 48);
+		let caller_min_deposit = callee_min_deposit + 2 * empty_item_deposit;
+
+		// The smallest deposit limit with which the child instantiate succeeds when caller and
+		// callee store one byte each.
+		//
+		// After the caller's 1st storage item, the callee gets 63/64 of what the caller has left.
+		// For that to cover the callee's deposit, the caller needs 64/63 of that deposit left.
+		// The caller's 2nd storage item fits in the 1/64 the caller keeps.
+		let caller_min_deposit_limit = {
+			let storage_len = 1;
+			let caller_item_deposit = empty_item_deposit + storage_len;
+			let callee_deposit = callee_min_deposit + storage_len;
+			let callee_eip_150_peak =
+				(callee_deposit * DENOMINATOR.get() as u128).div_ceil(NUMERATOR.get() as u128);
+			assert!(callee_eip_150_peak - callee_deposit >= caller_item_deposit);
+			caller_item_deposit + callee_eip_150_peak
+		};
 
 		// Fail in callee.
 		//
@@ -2911,12 +2929,13 @@ fn deposit_limit_in_nested_instantiate() {
 
 		// Fail in the callee with bytes.
 		//
-		// Same as above but stores one byte in both caller and callee.
+		// Same as above but stores one byte in both caller and callee. The transaction's limit
+		// covers the callee, so only the callee's own limit, one below its deposit, makes it fail.
 		let ret = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
 				weight_limit: WEIGHT_LIMIT,
-				deposit_limit: caller_min_deposit + 1,
+				deposit_limit: caller_min_deposit_limit,
 			})
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit)).encode())
 			.build_and_unwrap_result();
@@ -2926,10 +2945,11 @@ fn deposit_limit_in_nested_instantiate() {
 
 		// Fail in the caller with bytes.
 		//
-		// Callee succeeds but caller fails on its 2nd storage operation.
-		// EIP-150 retains 1/64. For caller to fail: caller_deposit > eip_150_retained.
+		// Callee succeeds but caller fails on its 2nd storage operation. The limit is the
+		// smallest with which the callee succeeds, which leaves the caller less than its 2nd
+		// storage item costs.
 		let storage_len = 50u32;
-		let caller_deposit = 2u128 + 48 + storage_len as u128;
+		let caller_deposit = empty_item_deposit + storage_len as u128;
 		let callee_deposit = callee_min_deposit + storage_len as u128;
 		let callee_eip_150_peak =
 			(callee_deposit * DENOMINATOR.get() as u128).div_ceil(NUMERATOR.get() as u128);
@@ -2954,19 +2974,11 @@ fn deposit_limit_in_nested_instantiate() {
 		assert_eq!(<Test as Config>::Currency::free_balance(&BOB), 1_000_000);
 
 		// Set enough deposit limit for the child instantiate. This should succeed.
-		//
-		// With EIP-150 63/64 rule, nested calls receive floor(remaining * 63/64).
-		// To compensate, we add ceil((callee_min_deposit + 1) / 63) as overhead.
-		let eip_150_overhead = (callee_min_deposit + 1).div_ceil(NUMERATOR.get() as u128);
-		// The +3 accounts for using 1-byte storage while caller_min_deposit assumes 0-byte:
-		// - +1 for callee's 1-byte storage data
-		// - +2 for caller's two 1-byte storage items
-		let caller_total_deposit = caller_min_deposit + eip_150_overhead + 3;
 		let result = builder::bare_call(addr_caller)
 			.origin(RuntimeOrigin::signed(BOB))
 			.transaction_limits(TransactionLimits::WeightAndDeposit {
 				weight_limit: WEIGHT_LIMIT,
-				deposit_limit: caller_total_deposit.into(),
+				deposit_limit: caller_min_deposit_limit.into(),
 			})
 			.data((&code_hash_callee, 1u32, U256::from(callee_min_deposit + 1)).encode())
 			.build();

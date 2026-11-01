@@ -1115,6 +1115,52 @@ mod eip_150 {
 			.unwrap()
 	}
 
+	/// Runs `input` on `contract` in an Ethereum transaction with the gas that a dry run without a
+	/// gas limit returned, and returns the output.
+	fn eth_transact_with_estimated_gas(contract: H160, input: Vec<u8>) -> Vec<u8> {
+		let tx = GenericTransaction {
+			from: Some(ALICE_ADDR),
+			to: Some(contract),
+			input: input.into(),
+			..Default::default()
+		};
+		let dry_run =
+			without_commit(|| Pallet::<Test>::dry_run_eth_transact(tx.clone(), None, true, None))
+				.unwrap();
+		let tx = GenericTransaction { gas: Some(dry_run.eth_gas), ..tx };
+		Pallet::<Test>::dry_run_eth_transact(tx, None, true, None).unwrap().data
+	}
+
+	/// Runs `input` on `contract` with exactly the limits a dry run returned, in the mode of
+	/// `limits`, and returns the output.
+	fn call_with_estimated_limits(
+		contract: H160,
+		input: Vec<u8>,
+		limits: &TransactionLimits<Test>,
+	) -> Vec<u8> {
+		match limits {
+			TransactionLimits::EthereumGas { .. } => {
+				eth_transact_with_estimated_gas(contract, input)
+			},
+			TransactionLimits::WeightAndDeposit { .. } => {
+				let dry_run = without_commit(|| {
+					builder::bare_call(contract)
+						.data(input.clone())
+						.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
+						.build()
+				});
+				builder::bare_call(contract)
+					.data(input)
+					.transaction_limits(TransactionLimits::WeightAndDeposit {
+						weight_limit: dry_run.weight_required,
+						deposit_limit: dry_run.max_storage_deposit.charge_or_zero(),
+					})
+					.build_and_unwrap_result()
+					.data
+			},
+		}
+	}
+
 	/// Asserts that `result` used at least 63/64 of its gas limit or weight limit (Ethereum) or
 	/// of its weight limit (Substrate), as a call does when its callee uses up the gas it gets.
 	fn assert_callee_used_up_its_gas(
@@ -1287,38 +1333,39 @@ mod eip_150 {
 			}
 			.abi_encode();
 
-			let output = match limits {
-				TransactionLimits::EthereumGas { .. } => {
-					let tx = GenericTransaction {
-						from: Some(ALICE_ADDR),
-						to: Some(caller_addr),
-						input: input.into(),
-						..Default::default()
-					};
-					let dry_run = without_commit(|| {
-						Pallet::<Test>::dry_run_eth_transact(tx.clone(), None, true, None)
-					})
-					.unwrap();
-					let tx = GenericTransaction { gas: Some(dry_run.eth_gas), ..tx };
-					Pallet::<Test>::dry_run_eth_transact(tx, None, true, None).unwrap().data
-				},
-				TransactionLimits::WeightAndDeposit { .. } => {
-					let dry_run = without_commit(|| {
-						builder::bare_call(caller_addr)
-							.data(input.clone())
-							.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
-							.build()
-					});
-					builder::bare_call(caller_addr)
-						.data(input)
-						.transaction_limits(TransactionLimits::WeightAndDeposit {
-							weight_limit: dry_run.weight_required,
-							deposit_limit: dry_run.max_storage_deposit.charge_or_zero(),
-						})
-						.build_and_unwrap_result()
-						.data
-				},
-			};
+			let output = call_with_estimated_limits(caller_addr, input, &limits);
+			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+		});
+	}
+
+	/// A value transfer without gas gets only the stipend, and succeeds when its caller runs with
+	/// exactly the limits a dry run returned.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	fn dry_run_estimates_suffice_for_transaction_with_value_transfer(
+		caller_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		// An EVM receiver, so the test does not depend on how much PVM code fits in the stipend.
+		let (receiver_code, _) =
+			compile_module_with_type("DoNothingReceiver", FixtureType::Solc).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
+			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+			let input = Caller::normalCall {
+				_callee: receiver_addr.0.into(),
+				_value: 1,
+				_data: Default::default(),
+				_gas: 0,
+			}
+			.abi_encode();
+
+			let output = call_with_estimated_limits(caller_addr, input, &limits);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
 		});
 	}

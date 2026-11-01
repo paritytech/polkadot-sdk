@@ -38,9 +38,10 @@ pub mod eip_150 {
 	use frame_support::DebugNoBound;
 
 	/// Denominator of the 63/64 rule.
-	pub const DENOMINATOR: NonZero<u64> = NonZero::new(64).unwrap();
+	pub const DENOMINATOR: NonZero<u64> = NonZero::new(64).expect("64 is not zero; qed");
 	/// Numerator of the 63/64 rule; the caller keeps the one remaining part.
-	pub const NUMERATOR: NonZero<u64> = NonZero::new(DENOMINATOR.get() - 1).unwrap();
+	pub const NUMERATOR: NonZero<u64> =
+		NonZero::new(DENOMINATOR.get() - 1).expect("`DENOMINATOR` is greater than 1; qed");
 
 	/// The minimum starting amount a call needs so that each of its subcalls still receives
 	/// enough after the 63/64 split.
@@ -60,11 +61,6 @@ pub mod eip_150 {
 	}
 
 	impl Rule {
-		/// Returns `true` when the 63/64 rule should be applied.
-		pub fn should_apply(&self) -> bool {
-			matches!(self, Self::Apply)
-		}
-
 		/// Returns the share of `amount` that a subcall can receive under this rule.
 		pub fn apply<R: Resource>(self, amount: R::Amount) -> R::Amount {
 			match self {
@@ -118,14 +114,14 @@ pub mod eip_150 {
 		/// The type the resource is measured in.
 		type Amount: Copy + Default + Debug;
 
-		/// Returns the maximum of `a` and `b`.
-		fn max(a: Self::Amount, b: Self::Amount) -> Self::Amount;
+		/// Returns the maximum of `lhs` and `rhs`.
+		fn max(lhs: Self::Amount, rhs: Self::Amount) -> Self::Amount;
 
-		/// Returns `a + b`, saturating at the numeric bounds instead of overflowing.
-		fn saturating_add(a: Self::Amount, b: Self::Amount) -> Self::Amount;
+		/// Returns `lhs + rhs`, saturating at the numeric bounds instead of overflowing.
+		fn saturating_add(lhs: Self::Amount, rhs: Self::Amount) -> Self::Amount;
 
-		/// Returns `a - b`, saturating at the numeric bounds instead of overflowing.
-		fn saturating_sub(a: Self::Amount, b: Self::Amount) -> Self::Amount;
+		/// Returns `lhs - rhs`, saturating at the numeric bounds instead of overflowing.
+		fn saturating_sub(lhs: Self::Amount, rhs: Self::Amount) -> Self::Amount;
 
 		/// Returns `amount / divisor`, rounded up.
 		fn div_ceil(amount: Self::Amount, divisor: NonZero<u64>) -> Self::Amount;
@@ -150,16 +146,16 @@ pub mod eip_150 {
 	impl Resource for WeightEip150 {
 		type Amount = Weight;
 
-		fn max(a: Weight, b: Weight) -> Weight {
-			a.max(b)
+		fn max(lhs: Weight, rhs: Weight) -> Weight {
+			lhs.max(rhs)
 		}
 
-		fn saturating_add(a: Weight, b: Weight) -> Weight {
-			a.saturating_add(b)
+		fn saturating_add(lhs: Weight, rhs: Weight) -> Weight {
+			lhs.saturating_add(rhs)
 		}
 
-		fn saturating_sub(a: Weight, b: Weight) -> Weight {
-			a.saturating_sub(b)
+		fn saturating_sub(lhs: Weight, rhs: Weight) -> Weight {
+			lhs.saturating_sub(rhs)
 		}
 
 		fn div_ceil(amount: Weight, divisor: NonZero<u64>) -> Weight {
@@ -173,16 +169,16 @@ pub mod eip_150 {
 	impl<T: Config> Resource for BalanceEip150<T> {
 		type Amount = BalanceOf<T>;
 
-		fn max(a: BalanceOf<T>, b: BalanceOf<T>) -> BalanceOf<T> {
-			a.max(b)
+		fn max(lhs: BalanceOf<T>, rhs: BalanceOf<T>) -> BalanceOf<T> {
+			lhs.max(rhs)
 		}
 
-		fn saturating_add(a: BalanceOf<T>, b: BalanceOf<T>) -> BalanceOf<T> {
-			a.saturating_add(b)
+		fn saturating_add(lhs: BalanceOf<T>, rhs: BalanceOf<T>) -> BalanceOf<T> {
+			lhs.saturating_add(rhs)
 		}
 
-		fn saturating_sub(a: BalanceOf<T>, b: BalanceOf<T>) -> BalanceOf<T> {
-			a.saturating_sub(b)
+		fn saturating_sub(lhs: BalanceOf<T>, rhs: BalanceOf<T>) -> BalanceOf<T> {
+			lhs.saturating_sub(rhs)
 		}
 
 		fn div_ceil(amount: BalanceOf<T>, divisor: NonZero<u64>) -> BalanceOf<T> {
@@ -520,14 +516,8 @@ pub mod ethereum_execution {
 		let remaining_gas_before_rule = meter.max_total_gas.saturating_sub(&total_gas_consumption);
 
 		let eip_150_rule = S::EIP_150_RULE;
-		let (remaining_gas, max_total_gas) = if eip_150_rule.should_apply() {
-			let capped_remaining_gas = remaining_gas_before_rule.apply_eip_150();
-			let retained_gas = remaining_gas_before_rule.saturating_sub(&capped_remaining_gas);
-			let max_total_gas = meter.max_total_gas.saturating_sub(&retained_gas);
-			(capped_remaining_gas, max_total_gas)
-		} else {
-			(remaining_gas_before_rule.clone(), meter.max_total_gas.clone())
-		};
+		let remaining_gas = remaining_gas_before_rule.apply_eip_150(eip_150_rule);
+		let max_total_gas = total_gas_consumption.saturating_add(&remaining_gas);
 
 		let weight_left = {
 			let unbounded_weight_left = eth_tx_info

@@ -84,7 +84,11 @@ fn test_apply_eip_150_to_signed_gas() {
 		];
 
 		for (input, expected) in test_cases {
-			assert_eq!(input.apply_eip_150(), expected, "failed for input {input:?}");
+			assert_eq!(
+				input.apply_eip_150(eip_150::Rule::Apply),
+				expected,
+				"failed for input {input:?}"
+			);
 		}
 	});
 }
@@ -134,7 +138,8 @@ fn test_eip_150_overhead_of_weight() {
 
 		assert_eq!(
 			available_to_nested, consumed,
-			"failed for consumed={consumed:?}: overhead={overhead:?}, required={required:?}, available={available_to_nested:?}"
+			"failed for consumed={consumed:?}: overhead={overhead:?}, required={required:?}, \
+			available={available_to_nested:?}"
 		);
 	}
 }
@@ -1960,7 +1965,7 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 		});
 }
 
-/// The caller keeps 1/64 of its weight when its weight limit is below what its gas buys.
+/// The caller keeps 1/64 of its remaining weight when its weight limit is below what its gas buys.
 #[test]
 fn ethereum_execution_caller_keeps_weight_under_weight_limit() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -1972,6 +1977,10 @@ fn ethereum_execution_caller_keeps_weight_under_weight_limit() {
 		})
 		.unwrap();
 		let mut caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
+		let caller_charge = caller_meter.weight_left().unwrap() / 2;
+		caller_meter
+			.charge_weight_token(TestToken(caller_charge.ref_time(), caller_charge.proof_size()))
+			.unwrap();
 		let available_weight = caller_meter.weight_left().unwrap();
 		let forwarded_weight = WeightEip150::apply(available_weight);
 		let retained_weight = available_weight - forwarded_weight;

@@ -4,7 +4,7 @@ doc:
   description: |-
     When a contract calls another contract or a precompile, or creates a contract, the nested call
     now gets at most 63/64 of the gas, weight and storage deposit the caller has left, plus the
-    call stipend if it gets one. Only nested calls with higher limits, or none, get less than
+    call stipend if it gets one. Nested calls with higher limits, or none, get less than
     before, for example a Solidity `call` without a gas argument. The rule does not apply to the
     transaction's first call.
 

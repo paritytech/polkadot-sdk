@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
+use super::math::eip_150::{self, BalanceEip150};
 use crate::{BalanceOf, Config, StorageDeposit, evm::fees::InfoT};
 use frame_support::DebugNoBound;
 use sp_core::Get;
@@ -167,13 +168,12 @@ impl<T: Config> SignedGas<T> {
 		}
 	}
 
-	/// Returns the gas a subcall can receive under the 63/64 rule.
+	/// Returns the gas a subcall can receive under `rule`.
 	///
 	/// Negative gas is returned unchanged.
-	pub fn apply_eip_150(&self) -> Self {
-		use super::math::eip_150::{BalanceEip150, Resource};
+	pub fn apply_eip_150(&self, rule: eip_150::Rule) -> Self {
 		match self {
-			Positive(gas) => Positive(BalanceEip150::<T>::apply(*gas)),
+			Positive(gas) => Positive(rule.apply::<BalanceEip150<T>>(*gas)),
 			Negative(gas) => Self::safe_new_negative(*gas),
 		}
 	}
