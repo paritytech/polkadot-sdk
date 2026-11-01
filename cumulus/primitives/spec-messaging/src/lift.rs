@@ -1054,6 +1054,50 @@ mod tests {
 		assert_eq!(StreamProof::max_encoded_len(), 2_114);
 	}
 
+	/// The PoV reservation for a lossy read is `encoded_len_for(previous end, read start)`. Over
+	/// random read sequences (adjacent reads, skips, cut reads), the reserved bytes must equal the
+	/// encoded advances that `stitch` accepts.
+	#[test]
+	fn reserved_skip_bytes_equal_the_advances_stitch_accepts() {
+		const N: usize = 256;
+		let all = leaves(N as u64);
+		let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+		let mut next = |bound: usize| {
+			seed ^= seed << 13;
+			seed ^= seed >> 7;
+			seed ^= seed << 17;
+			seed as usize % bound
+		};
+
+		for _ in 0..300 {
+			let first = next(N / 2);
+			let mut prev_end = first + 1 + next(8);
+			let mut intervals =
+				vec![Interval { start: root_at(&all, first), end: frontier_at(&all, prev_end) }];
+			let (mut reserved, mut advances) = (0, Vec::new());
+			loop {
+				// A third of reads continue where the last one ended; the rest skip ahead.
+				let skip_bound = 1 << next(7);
+				let start = prev_end + if next(3) == 0 { 0 } else { 1 + next(skip_bound) };
+				let end = start + 1 + next(8);
+				if end > N {
+					break;
+				}
+				reserved += MMRExtensionProof::encoded_len_for(prev_end as u64, start as u64)
+					.expect("1 <= prev_end <= start <= N; qed");
+				if start > prev_end {
+					advances.push(extension(&all, prev_end, start));
+				}
+				intervals
+					.push(Interval { start: root_at(&all, start), end: frontier_at(&all, end) });
+				prev_end = end;
+			}
+
+			assert_eq!(stitch(&intervals, &advances), Ok(frontier_at(&all, prev_end)));
+			assert_eq!(reserved, advances.iter().map(Encode::encoded_size).sum::<usize>());
+		}
+	}
+
 	#[test]
 	fn extension_proof_frozen_layout() {
 		assert_eq!(MMRExtensionProof::identity().encode(), vec![0x00, 0x00]);
