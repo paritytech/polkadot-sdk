@@ -641,15 +641,7 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		// The sample size the paras pallet's own benchmarks assume for per-para lists.
 		const OTHER_PARAS: u32 = 1024;
 
-		let code = Self::worst_validation_code();
-		<Self as registrar_primitives::ParachainRegistrar>::register(
-			frame_benchmarking::account("manager", 0, 0),
-			para_id,
-			Self::worst_head_data().0,
-			code.0.clone(),
-		)?;
-		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
-		Self::execute_pending_transitions();
+		<Self as registrar_primitives::ParachainRegistrar>::setup_code_upgrade(para_id)?;
 
 		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
 		// gets no vote of its own, which would make offboarding fail.
@@ -697,6 +689,22 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 		{
 			return Err(());
 		}
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_code_upgrade(para_id: u32) -> DispatchResult {
+		use frame_system::RawOrigin;
+
+		let code = Self::worst_validation_code();
+		<Self as registrar_primitives::ParachainRegistrar>::register(
+			frame_benchmarking::account("manager", 0, 0),
+			para_id,
+			Self::worst_head_data().0,
+			code.0.clone(),
+		)?;
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
+		Self::execute_pending_transitions();
 		Ok(())
 	}
 

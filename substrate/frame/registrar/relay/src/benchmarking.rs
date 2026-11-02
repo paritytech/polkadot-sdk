@@ -148,6 +148,7 @@ mod benchmarks {
 	/// Authorizing a code upgrade. One look at the registry, one write, one report.
 	#[benchmark]
 	fn receive_authorize_code_upgrade() -> Result<(), BenchmarkError> {
+		T::Registrar::setup_code_upgrade(PARA_ID)?;
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
 			para_id: PARA_ID,
@@ -159,6 +160,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
+		assert!(PendingCodeUpgrades::<T>::contains_key(PARA_ID));
 		Ok(())
 	}
 

@@ -2740,6 +2740,11 @@ impl pallet_registrar_para::Config for Runtime {
 	type BenchmarkHelper = RegistrarHostConfig;
 }
 
+parameter_types! {
+	// Only benchmark setup puts paras here; `register` does not.
+	pub storage RegisteredParas: Vec<registrar_primitives::ParaId> = Vec::new();
+}
+
 /// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
 pub struct AcceptingRegistrar;
 
@@ -2750,8 +2755,8 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		Ok(())
 	}
 
-	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
-		false
+	fn is_registered(para_id: registrar_primitives::ParaId) -> bool {
+		RegisteredParas::get().contains(&para_id)
 	}
 
 	fn register(
@@ -2784,6 +2789,14 @@ impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
 		_para_id: registrar_primitives::ParaId,
 		_code_len: u32,
 	) -> Result<(), ()> {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_code_upgrade(para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		let mut paras = RegisteredParas::get();
+		paras.push(para_id);
+		RegisteredParas::set(&paras);
 		Ok(())
 	}
 

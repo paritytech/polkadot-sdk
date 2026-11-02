@@ -342,6 +342,10 @@ pub trait ParachainRegistrar {
 	#[allow(clippy::result_unit_err)]
 	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()>;
 
+	/// Leave `para_id` registered and free to take a code upgrade.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_code_upgrade(para_id: ParaId) -> sp_runtime::DispatchResult;
+
 	/// Schedule a validation code upgrade for `para_id`.
 	fn schedule_code_upgrade(
 		para_id: ParaId,

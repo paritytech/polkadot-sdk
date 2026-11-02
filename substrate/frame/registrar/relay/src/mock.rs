@@ -156,6 +156,12 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_code_upgrade(para_id: ParaId) -> sp_runtime::DispatchResult {
+		AlreadyKnown::mutate(|v| v.push(para_id));
+		Ok(())
+	}
+
 	fn schedule_code_upgrade(
 		para_id: ParaId,
 		validation_code: Vec<u8>,
