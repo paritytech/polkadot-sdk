@@ -20,27 +20,34 @@
 //! - [`Receiver::on_root`]: under a source's newest included root, fetch channel data and `Ack`
 //!   heads, and rebind every unfinalized endpoint to it.
 //! - [`Receiver::inherent_data`]: consume within a [`Budget`], only items already liftable.
-//! - [`Receiver::on_block`]: note a block's record and fetch the advance for a read-context gap.
+//! - [`Receiver::on_block`]: note a block's record and fetch the leaves for a read-context gap.
 //! - [`Receiver::assemble`]: one lift per recorded stream, checked with `build_requires_entry`.
 
 use crate::{
-	fetch::{fetch, Transport, Verified},
-	pool::{peaks_before_head, Binding, HeadRead, SourcePool},
+	fetch::{fetch, RequestError, Transport},
+	pool::{Binding, HeadRead, SourcePool},
 	LOG_TARGET,
 };
-use codec::DecodeAll;
+use codec::{DecodeAll, MaxEncodedLen};
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
-	lift::{build_requires_entry, SourceStreams},
-	ChannelId, ConsumeItem, ConsumedStream, ConsumptionRecord, EventRequest, ExchangeRequest,
-	ExchangeResponse, ExchangeVerified, Interval, LiftsBySource, MessagePosition, MessagesRequest,
-	MessagingInherentData, MmrFrontier, MmrRoot, OutChannelState, Register, RequiresLift, StreamId,
-	StreamProof, StreamsRoot, VerifiedEvent,
+	build_requires_entry, leaf_hash, mmr::SpecMerge, BroadcastId, ConsumedStreams,
+	ConsumptionRecord, FetchError, InChannelId, Interval, LiftsBySource, LossyRead,
+	MMRExtensionProof, MessagePosition, MessagesRequest, MessagingInherentData, MmrFrontier,
+	MmrRoot, OutChannelId, Register, RequiresLift, SourceStreams, StreamId, StreamProof,
+	StreamsRoot, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use futures::FutureExt;
+use mmr_lib::{
+	helper::{get_peaks, leaf_index_to_mmr_size},
+	MMRStoreReadOps, MMRStoreWriteOps, MMR,
+};
 use parking_lot::Mutex;
+use polkadot_core_primitives::Hash;
+use sc_network::PeerId;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap},
+	cell::RefCell,
+	collections::{BTreeMap, HashMap},
 	fmt::Debug,
 	hash::Hash as StdHash,
 	sync::{
@@ -64,8 +71,8 @@ pub const MAX_BUFFERED_BYTES: u64 = 8 * 1024 * 1024;
 pub const INHERENT_FETCH_TIMEOUT: Duration = Duration::from_millis(500);
 
 /// Per-block consumption limits. `enact_messages` is a mandatory inherent, so its cost must fit the
-/// block whatever arrived. `max_streams` and `max_reads` are clamped to the runtime's caps
-/// ([`ChainView::caps`]): an inherent over them fails the block.
+/// block whatever arrived. `max_streams` is clamped to the runtime's `max_touched_streams()`
+/// ([`ChainView::max_touched_streams`]): an inherent over it fails the block.
 #[derive(Clone, Copy, Debug)]
 pub struct Budget {
 	/// Streams touched per block: channel items and register reads.
@@ -88,11 +95,12 @@ impl Default for Budget {
 /// What the chain consumes from one source at some block.
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct SourceWants {
-	/// The source's channel streams to us, with their cursors (`consumed_streams()`).
-	pub channels: Vec<ConsumedStream>,
-	/// The source's `Ack` streams to us, with the register last read from each
-	/// (`out_channels()`).
-	pub registers: Vec<(StreamId, Option<Register>)>,
+	/// The source's channels to us, with our stored frontier of each.
+	pub channels: BTreeMap<InChannelId, MmrFrontier>,
+	/// Our channels to the source, with the cursor of the register to read from its `Ack` stream.
+	pub registers: BTreeMap<OutChannelId, MessagePosition>,
+	/// The source's broadcasts we follow, with their cursors. Not fetched yet.
+	pub events: BTreeMap<BroadcastId, MessagePosition>,
 }
 
 /// The chain's consumption view at a block, per source.
@@ -100,31 +108,55 @@ pub struct SourceWants {
 pub struct ChainView {
 	/// What is consumed from each source.
 	pub sources: BTreeMap<ParaId, SourceWants>,
-	/// The runtime's caps on streams and register reads per block (`consumption_caps()`). `None`
-	/// leaves the [`Budget`] alone.
-	pub caps: Option<(u32, u32)>,
+	/// The runtime's cap on streams touched per block (`max_touched_streams()`).
+	pub max_touched_streams: u32,
 }
 
 impl ChainView {
-	/// The view from `consumed_streams()` and `out_channels()` of chain `us`.
-	pub fn new(
-		us: ParaId,
-		consumed: BTreeMap<ParaId, Vec<ConsumedStream>>,
-		out_channels: BTreeMap<ChannelId, OutChannelState>,
-	) -> Self {
-		let mut sources: BTreeMap<ParaId, SourceWants> = consumed
-			.into_iter()
-			.map(|(source, channels)| (source, SourceWants { channels, registers: Vec::new() }))
-			.collect();
-		for (channel, state) in out_channels {
-			let stream = StreamId::Ack { recipient: us, domain: channel.domain, num: channel.num };
-			sources
-				.entry(channel.peer)
-				.or_default()
-				.registers
-				.push((stream, state.register.map(|read| read.register)));
+	/// The view from `consumed_streams()` and `max_touched_streams()`: channels and broadcasts
+	/// are grouped by their sender, registers by their recipient.
+	pub fn new(consumed: ConsumedStreams, max_touched_streams: u32) -> Self {
+		let mut sources: BTreeMap<ParaId, SourceWants> = BTreeMap::new();
+		for (id, frontier) in consumed.channels {
+			sources.entry(id.sender).or_default().channels.insert(id, frontier);
 		}
-		Self { sources, caps: None }
+		for (id, cursor) in consumed.registers {
+			sources.entry(id.recipient).or_default().registers.insert(id, cursor);
+		}
+		for (id, cursor) in consumed.events {
+			sources.entry(id.sender).or_default().events.insert(id, cursor);
+		}
+		Self { sources, max_touched_streams }
+	}
+}
+
+/// Wraps a transport so the peer asked first changes every round: one unresponsive peer then
+/// delays only the rounds it leads.
+struct Rotating<T: ?Sized> {
+	inner: Arc<T>,
+	rounds: Mutex<BTreeMap<ParaId, usize>>,
+}
+
+impl<T: ?Sized> Rotating<T> {
+	fn next_round(&self, source: ParaId) {
+		*self.rounds.lock().entry(source).or_default() += 1;
+	}
+}
+
+#[async_trait::async_trait]
+impl<T: Transport + ?Sized> Transport for Rotating<T> {
+	fn peers(&self, source: ParaId) -> Vec<PeerId> {
+		let mut peers = self.inner.peers(source);
+		if !peers.is_empty() {
+			let round = self.rounds.lock().get(&source).copied().unwrap_or_default();
+			let by = round % peers.len();
+			peers.rotate_left(by);
+		}
+		peers
+	}
+
+	async fn request(&self, peer: PeerId, request: Vec<u8>) -> Result<Vec<u8>, String> {
+		self.inner.request(peer, request).await
 	}
 }
 
@@ -145,36 +177,47 @@ impl<H: Copy + Eq + StdHash> State<H> {
 	fn nearest(&self, mut from: H, source: &ParaId, stream: &StreamId) -> Option<&Interval> {
 		for _ in 0..self.live.len() {
 			let block = self.live.get(&from)?;
-			if let Some(interval) = block.record.entries.get(source).and_then(|s| s.get(stream)) {
-				return Some(interval);
+			let touched = block.record.entries.get(source).and_then(|streams| {
+				streams
+					.iter()
+					.find(|(touched, _)| touched == stream)
+					.map(|(_, interval)| interval)
+			});
+			if touched.is_some() {
+				return touched;
 			}
 			from = block.parent;
 		}
 		None
 	}
 
-	/// The `(stream, leaf count)` endpoints of `source` in live blocks.
-	fn live_endpoints(&self, source: &ParaId) -> BTreeSet<(StreamId, u64)> {
+	/// The `(stream, leaf count)` endpoints of `source` in live blocks, with their frontiers.
+	fn live_endpoints(&self, source: &ParaId) -> BTreeMap<(StreamId, u64), MmrFrontier> {
 		self.live
 			.values()
 			.filter_map(|block| block.record.entries.get(source))
-			.flat_map(|streams| {
-				streams.iter().map(|(stream, interval)| (*stream, interval.end.leaf_count()))
-			})
+			.flatten()
+			.map(|(stream, interval)| ((*stream, interval.end.leaf_count()), interval.end.clone()))
 			.collect()
 	}
+}
+
+/// What a planned item puts in the inherent.
+enum Item {
+	Channel(InChannelId, Vec<Vec<u8>>),
+	Register(OutChannelId, LossyRead),
 }
 
 /// One planned inherent item and the endpoint it creates.
 struct Planned {
 	source: ParaId,
 	stream: StreamId,
-	item: ConsumeItem,
-	endpoint: u64,
+	item: Item,
+	endpoint: MmrFrontier,
 	root: StreamsRoot,
 }
 
-/// A gap between two reads of a stream, and where its advance comes from.
+/// A gap between two reads of a stream, and where its leaves come from.
 struct Gap {
 	source: ParaId,
 	stream: StreamId,
@@ -188,9 +231,9 @@ struct Gap {
 pub struct Receiver<H, T: ?Sized> {
 	us: ParaId,
 	budget: Budget,
-	transport: Arc<T>,
+	transport: Rotating<T>,
 	state: Mutex<State<H>>,
-	/// Where the next block starts handing out channel budget.
+	/// Where the next block starts handing out budget.
 	rotation: AtomicUsize,
 }
 
@@ -204,7 +247,7 @@ where
 		Self {
 			us,
 			budget,
-			transport,
+			transport: Rotating { inner: transport, rounds: Mutex::new(BTreeMap::new()) },
 			state: Mutex::new(State { sources: BTreeMap::new(), live: HashMap::new() }),
 			rotation: AtomicUsize::new(0),
 		}
@@ -220,66 +263,76 @@ where
 		self.state.lock().sources.get(source).and_then(SourcePool::newest_root)
 	}
 
-	/// Whether everything under `root`, `source`'s newest root, has been fetched.
-	pub fn is_settled(&self, source: &ParaId, root: &StreamsRoot) -> bool {
-		self.state
-			.lock()
-			.sources
-			.get(source)
-			.is_some_and(|pool| pool.newest_root().as_ref() == Some(root) && pool.settled)
+	/// Whether everything `wants` names has been fetched under `root`, `source`'s newest root: the
+	/// last round had no failed fetch, and the pool holds every channel's payloads from its cursor.
+	pub fn is_settled(&self, source: &ParaId, root: &StreamsRoot, wants: &SourceWants) -> bool {
+		let state = self.state.lock();
+		let Some(pool) = state.sources.get(source) else { return false };
+		pool.newest_root().as_ref() == Some(root) &&
+			pool.settled &&
+			wants.channels.iter().all(|(id, stored)| {
+				covers(pool, &id.sender_data_stream(self.us).1, stored.leaf_count())
+			})
 	}
 
 	/// `root` is `source`'s newest included root: fetch under it what `wants` names, and bind the
 	/// live endpoints to it. Under a root already settled this does nothing; under one whose last
 	/// round had a failed fetch, it fetches again.
 	pub async fn on_root(&self, source: ParaId, root: StreamsRoot, wants: &SourceWants) {
-		if self.is_settled(&source, &root) {
+		if self.is_settled(&source, &root, wants) {
 			return;
 		}
+		self.transport.next_round(source);
 		self.state.lock().sources.entry(source).or_default().push_root(root);
 		log::debug!(target: LOG_TARGET, "New root {root:?} of {source:?}: fetching");
 		let started = std::time::Instant::now();
 		let mut settled = true;
 
-		for consumed in &wants.channels {
-			let stream = consumed.stream_id(self.us);
-			let start = {
-				let mut state = self.state.lock();
-				let pool = state.sources.entry(source).or_default();
-				let from = consumed.from().0;
-				pool.prune_payloads(&stream, from);
-				let (count, bytes) = pool
-					.contiguous_from(&stream, from)
-					.fold((0u64, 0u64), |(n, b), p| (n + 1, b + p.len() as u64));
-				(count < MAX_BUFFERED_PAYLOADS as u64 && bytes < MAX_BUFFERED_BYTES)
-					.then_some(from + count)
+		for (id, stored) in &wants.channels {
+			let stream = id.sender_data_stream(self.us).1;
+			let Some((start, frontier)) = self.channel_start(source, &stream, stored) else {
+				continue;
 			};
-			let Some(start) = start else { continue };
 			let request = MessagesRequest {
 				stream,
-				start: MessagePosition(start),
 				under: root,
+				start: Some(MessagePosition(start)),
 				max_bytes: FETCH_MAX_BYTES,
 			};
-			match self.fetch_messages(source, request).await {
-				Some((payloads, binding)) => {
-					let end = start + payloads.len() as u64;
+			match fetch(&self.transport, source, &request, Some(&frontier)).await {
+				Ok(response) => {
+					let end = start + response.payloads.len() as u64;
+					let reach = match response.extension.leaf_count {
+						0 => end,
+						count => count,
+					};
 					let mut state = self.state.lock();
 					let pool = state.sources.entry(source).or_default();
-					pool.insert_payloads(stream, start, payloads);
+					pool.insert_payloads(stream, start, response.payloads.into_inner());
+					pool.reach.insert(stream, reach);
+					let binding =
+						Binding { extension: response.extension, tree_proof: response.tree_proof };
 					pool.insert_binding(stream, end, root, binding);
 				},
-				None => settled = false,
+				Err(e) if start == 0 && unknown_stream(&e) => {
+					log::trace!(target: LOG_TARGET, "{stream:?} of {source:?} does not exist yet");
+					self.state.lock().sources.entry(source).or_default().reach.insert(stream, 0);
+				},
+				Err(_) => settled = false,
 			}
 		}
 
-		for (stream, _) in &wants.registers {
-			match self.fetch_head(source, *stream, root).await {
-				Some((head, tree_proof)) => {
+		for (id, cursor) in &wants.registers {
+			let stream = id.peer_ack_stream(self.us).1;
+			match self.fetch_head(source, stream, root).await {
+				Ok((head, tree_proof)) => {
 					let mut state = self.state.lock();
-					state.sources.entry(source).or_default().insert_head(*stream, head, tree_proof);
+					state.sources.entry(source).or_default().insert_head(stream, head, tree_proof);
 				},
-				None => settled = false,
+				Err(e) if cursor.0 == 0 && unknown_stream(&e) => {
+					log::trace!(target: LOG_TARGET, "{stream:?} of {source:?} does not exist yet");
+				},
+				Err(_) => settled = false,
 			}
 		}
 
@@ -289,13 +342,13 @@ where
 			state
 				.live_endpoints(&source)
 				.into_iter()
-				.filter(|(stream, count)| {
+				.filter(|((stream, count), _)| {
 					pool.and_then(|pool| pool.binding(stream, *count, &root)).is_none()
 				})
 				.collect()
 		};
-		for (stream, count) in unbound {
-			settled &= self.fetch_binding(source, stream, count, root).await;
+		for ((stream, _), endpoint) in unbound {
+			settled &= self.fetch_binding(source, stream, &endpoint, root).await;
 		}
 
 		let mut state = self.state.lock();
@@ -313,116 +366,149 @@ where
 		);
 	}
 
+	/// Where the next fetch of the channel `stream` starts: after the payloads the pool holds from
+	/// the cursor, with the frontier there. `None` while the buffer is full.
+	fn channel_start(
+		&self,
+		source: ParaId,
+		stream: &StreamId,
+		stored: &MmrFrontier,
+	) -> Option<(u64, MmrFrontier)> {
+		let state = self.state.lock();
+		let cursor = stored.leaf_count();
+		let Some(pool) = state.sources.get(&source) else { return Some((cursor, stored.clone())) };
+		let (count, bytes) = pool.buffered(stream, cursor);
+		if buffer_full(count, bytes) {
+			return None;
+		}
+		let frontier = extended(stored, pool.contiguous_from(stream, cursor))?;
+		Some((cursor + count, frontier))
+	}
+
 	/// The messaging inherent for a block whose parent has `view`.
 	pub async fn inherent_data(&self, view: &ChainView) -> MessagingInherentData {
 		let planned = self.plan(view);
 		let bound = |p: &Planned| {
-			self.state
-				.lock()
-				.sources
-				.get(&p.source)
-				.is_some_and(|pool| pool.binding(&p.stream, p.endpoint, &p.root).is_some())
+			self.state.lock().sources.get(&p.source).is_some_and(|pool| {
+				pool.binding(&p.stream, p.endpoint.leaf_count(), &p.root).is_some()
+			})
 		};
 		// Fetch every missing binding at once, under one deadline: authoring waits at most
 		// `INHERENT_FETCH_TIMEOUT`, however many items there are and whatever their peers do.
-		let missing: Vec<_> = planned
-			.iter()
-			.filter(|p| !bound(p))
-			.map(|p| self.fetch_binding(p.source, p.stream, p.endpoint, p.root))
-			.collect();
-		if !missing.is_empty() {
-			futures::select! {
-				_ = futures::future::join_all(missing).fuse() => {},
-				_ = futures_timer::Delay::new(INHERENT_FETCH_TIMEOUT).fuse() => {},
+		{
+			let missing: Vec<_> = planned
+				.iter()
+				.filter(|p| !bound(p))
+				.map(|p| self.fetch_binding(p.source, p.stream, &p.endpoint, p.root))
+				.collect();
+			if !missing.is_empty() {
+				futures::select! {
+					_ = futures::future::join_all(missing).fuse() => {},
+					_ = futures_timer::Delay::new(INHERENT_FETCH_TIMEOUT).fuse() => {},
+				}
 			}
 		}
-		let mut items = Vec::with_capacity(planned.len());
+		let mut data = MessagingInherentData::default();
 		for p in planned {
-			if bound(&p) {
-				items.push((p.source, p.stream, p.item));
-			} else {
+			if !bound(&p) {
 				log::debug!(
 					target: LOG_TARGET,
 					"Not consuming {:?} of {:?}: no lift material at {}",
 					p.stream,
 					p.source,
-					p.endpoint,
+					p.endpoint.leaf_count(),
 				);
+				continue;
+			}
+			match p.item {
+				Item::Channel(id, payloads) => {
+					data.channels.insert(id, payloads);
+				},
+				Item::Register(id, read) => {
+					data.registers.insert(id, read);
+				},
 			}
 		}
-		if !items.is_empty() {
-			log::debug!(target: LOG_TARGET, "Messaging inherent: {} items", items.len());
+		if !data.is_empty() {
+			log::debug!(target: LOG_TARGET, "Messaging inherent: {} streams", data.len());
 		}
-		MessagingInherentData { items }
+		data
 	}
 
 	/// Choose the items within the budget, from what the pool holds under each source's newest
 	/// root. Register reads go first: one leaf each, so channel backlogs cannot take every stream
-	/// slot and stall our own sends. Channels then fill the budget from a start that rotates each
-	/// block, so no source's backlog takes every block.
+	/// slot and stall our own sends. Both lists start from a position that rotates each block, so
+	/// no source's backlog takes every block.
 	fn plan(&self, view: &ChainView) -> Vec<Planned> {
-		let Budget { mut max_streams, mut max_reads, max_payloads, max_bytes } = self.budget;
-		if let Some((streams, reads)) = view.caps {
-			max_streams = max_streams.min(streams);
-			max_reads = max_reads.min(reads);
-		}
+		let Budget { max_streams, max_reads, max_payloads, max_bytes } = self.budget;
+		let max_streams = max_streams.min(view.max_touched_streams);
 		let (mut streams, mut reads, mut payloads, mut bytes) = (0u32, 0u32, 0u32, 0u64);
 		let mut planned = Vec::new();
+		let rotation = self.rotation.fetch_add(1, Ordering::Relaxed);
 		let state = self.state.lock();
 		let newest = |source: &ParaId| {
 			let pool = state.sources.get(source)?;
 			Some((pool, pool.newest_root()?))
 		};
 
-		for (source, wants) in &view.sources {
+		let registers: Vec<_> = view
+			.sources
+			.iter()
+			.flat_map(|(source, wants)| {
+				wants.registers.iter().map(move |(id, cursor)| (*source, *id, *cursor))
+			})
+			.collect();
+		let (first, rest) = registers.split_at(rotation % registers.len().max(1));
+		for (source, id, cursor) in rest.iter().chain(first) {
+			if streams >= max_streams || reads >= max_reads {
+				break;
+			}
 			let Some((pool, root)) = newest(source) else { continue };
-			for (stream, last) in &wants.registers {
-				if streams >= max_streams || reads >= max_reads {
-					break;
-				}
-				let Some(head) = pool.heads.get(stream) else { continue };
-				// The pallet rejects the whole block on an undecodable register; an unchanged one
-				// would cost a read for nothing.
-				let Ok(register) = Register::decode_all(&mut &head.payload[..]) else { continue };
-				if Some(register) == *last {
-					continue;
-				}
-				streams += 1;
-				reads += 1;
-				planned.push(Planned {
-					source: *source,
-					stream: *stream,
-					endpoint: head.end_count(),
-					item: ConsumeItem::Events {
-						base: head.base,
-						start_peaks: head
-							.start_peaks
-							.clone()
-							.try_into()
-							.expect("a verified head's peaks fit the bound; qed"),
+			let stream = id.peer_ack_stream(self.us).1;
+			let Some(head) = pool.heads.get(&stream) else { continue };
+			// The pallet rejects the block on a head at or below the applied one, and on an
+			// undecodable register.
+			if head.frontier.leaf_count() < cursor.0 ||
+				Register::decode_all(&mut &head.payload[..]).is_err()
+			{
+				continue;
+			}
+			let Some(endpoint) = extended(&head.frontier, std::iter::once(&head.payload)) else {
+				continue;
+			};
+			streams += 1;
+			reads += 1;
+			planned.push(Planned {
+				source: *source,
+				stream,
+				item: Item::Register(
+					*id,
+					LossyRead {
+						frontier: head.frontier.clone(),
 						payloads: vec![head.payload.clone()],
 					},
-					root,
-				});
-			}
+				),
+				endpoint,
+				root,
+			});
 		}
 
 		let channels: Vec<_> = view
 			.sources
 			.iter()
-			.flat_map(|(source, wants)| wants.channels.iter().map(move |c| (*source, c)))
+			.flat_map(|(source, wants)| {
+				wants.channels.iter().map(move |(id, stored)| (*source, *id, stored))
+			})
 			.collect();
-		let offset = self.rotation.fetch_add(1, Ordering::Relaxed) % channels.len().max(1);
-		let (after, before) = channels.split_at(offset);
-		for (source, consumed) in before.iter().chain(after) {
+		let (first, rest) = channels.split_at(rotation % channels.len().max(1));
+		for (source, id, stored) in rest.iter().chain(first) {
 			if streams >= max_streams {
 				break;
 			}
 			let Some((pool, root)) = newest(source) else { continue };
-			let stream = consumed.stream_id(self.us);
-			let from = consumed.from().0;
+			let stream = id.sender_data_stream(self.us).1;
 			let mut taken = Vec::new();
-			for payload in pool.contiguous_from(&stream, from) {
+			for payload in pool.contiguous_from(&stream, stored.leaf_count()) {
 				let len = payload.len() as u64;
 				if payloads >= max_payloads || bytes + len > max_bytes {
 					break;
@@ -434,19 +520,20 @@ where
 			if taken.is_empty() {
 				continue;
 			}
+			let Some(endpoint) = extended(stored, taken.iter()) else { continue };
 			streams += 1;
 			planned.push(Planned {
 				source: *source,
 				stream,
-				endpoint: from + taken.len() as u64,
-				item: ConsumeItem::Channel { payloads: taken },
+				item: Item::Channel(*id, taken),
+				endpoint,
 				root,
 			});
 		}
 		planned
 	}
 
-	/// Note an imported block's consumption record, and fetch the advances its reads need.
+	/// Note an imported block's consumption record, and fetch the leaves its reads skipped.
 	pub async fn on_block(&self, hash: H, parent: H, number: u64, record: ConsumptionRecord) {
 		let gaps = {
 			let mut state = self.state.lock();
@@ -463,7 +550,7 @@ where
 					if pool.advances.contains_key(&(*stream, from.leaf_count(), to_count)) {
 						continue;
 					}
-					// Only a read context the pool fetched has a root to fetch the advance under.
+					// Only a read context the pool fetched has a root to fetch the leaves under.
 					let Some(under) = pool.read_under.get(&(*stream, to_count)).copied() else {
 						continue;
 					};
@@ -480,34 +567,63 @@ where
 			state.live.insert(hash, LiveBlock { number, parent, record });
 			gaps
 		};
-		for Gap { source, stream, from, to_start, to_count, under } in gaps {
-			let request = MessagesRequest {
-				stream,
-				start: MessagePosition(from.leaf_count()),
-				under,
-				max_bytes: 0,
-			};
-			let Some((_, Binding { extension, .. })) = self.fetch_messages(source, request).await
-			else {
-				continue;
-			};
-			// Under the read's own root, the extension ends exactly at the read's context.
-			if extension.verify(&from) == Ok(to_start) {
+		for gap in gaps {
+			let (source, stream, from_count, to_count) =
+				(gap.source, gap.stream, gap.from.leaf_count(), gap.to_count);
+			if let Some(extension) = self.fetch_skip_proof(gap).await {
 				let mut state = self.state.lock();
-				state
-					.sources
-					.entry(source)
-					.or_default()
-					.advances
-					.insert((stream, from.leaf_count(), to_count), extension);
+				let pool = state.sources.entry(source).or_default();
+				pool.advances.insert((stream, from_count, to_count), extension);
 			}
 		}
 	}
 
+	/// The extension from where the previous read ended to the start of the next read, built from
+	/// the leaves between them.
+	async fn fetch_skip_proof(&self, gap: Gap) -> Option<MMRExtensionProof> {
+		let Gap { source, stream, from, to_start, to_count, under } = gap;
+		// The next read's own leaf is not part of the gap.
+		let read_position = to_count.checked_sub(1)?;
+		let mut frontier = from.clone();
+		let mut leaves = Vec::new();
+		while frontier.leaf_count() < read_position {
+			let request = MessagesRequest {
+				stream,
+				under,
+				start: Some(MessagePosition(frontier.leaf_count())),
+				max_bytes: FETCH_MAX_BYTES,
+			};
+			let response = fetch(&self.transport, source, &request, Some(&frontier)).await.ok()?;
+			let wanted = (read_position - frontier.leaf_count()) as usize;
+			let payloads = &response.payloads[..response.payloads.len().min(wanted)];
+			if payloads.is_empty() {
+				return None;
+			}
+			for payload in payloads {
+				let leaf = leaf_hash(payload);
+				frontier.try_append(leaf).ok()?;
+				leaves.push(leaf);
+			}
+		}
+		if frontier.root() != to_start {
+			return None;
+		}
+		skip_proof(&from, &leaves)
+	}
+
 	/// Blocks up to `number` are final: drop their consumption and the material only they used.
-	pub fn on_finalized(&self, number: u64) {
+	/// `finalized` is the view at the finalized block; the pool keeps every payload from the
+	/// cursors there, since the best chain may still sit on an earlier fork's cursor.
+	pub fn on_finalized(&self, number: u64, finalized: &ChainView) {
 		let mut state = self.state.lock();
 		state.live.retain(|_, block| block.number > number);
+		for (source, wants) in &finalized.sources {
+			if let Some(pool) = state.sources.get_mut(source) {
+				for (id, stored) in &wants.channels {
+					pool.prune_payloads(&id.sender_data_stream(self.us).1, stored.leaf_count());
+				}
+			}
+		}
 		let sources: Vec<ParaId> = state.sources.keys().copied().collect();
 		for source in sources {
 			let live = state.live_endpoints(&source);
@@ -550,35 +666,26 @@ where
 		LiftsBySource::try_from(lifts).map_err(|e| format!("{e:?}"))
 	}
 
-	/// A verified `MessagesResponse`: its payloads, and the binding of its end under its root.
-	async fn fetch_messages(
-		&self,
-		source: ParaId,
-		request: MessagesRequest,
-	) -> Option<(Vec<Vec<u8>>, Binding)> {
-		match fetch(&*self.transport, source, &ExchangeRequest::Messages(request)).await {
-			Ok(Verified {
-				response: ExchangeResponse::Messages(response),
-				outcome: ExchangeVerified::Messages,
-			}) => Some((
-				response.payloads.into_inner(),
-				Binding { extension: response.extension, tree_proof: response.tree_proof },
-			)),
-			_ => None,
-		}
-	}
-
-	/// Fetch and store the binding of `stream` at `count` under `root`.
+	/// Fetch and store the binding of `stream` at `endpoint` under `root`: a proofs-only request
+	/// whose response must start from the endpoint.
 	async fn fetch_binding(
 		&self,
 		source: ParaId,
 		stream: StreamId,
-		count: u64,
+		endpoint: &MmrFrontier,
 		root: StreamsRoot,
 	) -> bool {
-		let request =
-			MessagesRequest { stream, start: MessagePosition(count), under: root, max_bytes: 0 };
-		let Some((_, binding)) = self.fetch_messages(source, request).await else { return false };
+		let count = endpoint.leaf_count();
+		let request = MessagesRequest {
+			stream,
+			under: root,
+			start: Some(MessagePosition(count)),
+			max_bytes: 0,
+		};
+		let Ok(response) = fetch(&self.transport, source, &request, Some(endpoint)).await else {
+			return false;
+		};
+		let binding = Binding { extension: response.extension, tree_proof: response.tree_proof };
 		let mut state = self.state.lock();
 		state
 			.sources
@@ -588,27 +695,138 @@ where
 		true
 	}
 
-	/// Read the head of `stream` under `root`.
+	/// Read the head of `stream` under `root`. When the first budget is too small for the payload,
+	/// the response proves only the position, and the payload is asked for there.
 	async fn fetch_head(
 		&self,
 		source: ParaId,
 		stream: StreamId,
 		root: StreamsRoot,
-	) -> Option<(HeadRead, StreamProof)> {
-		let request = ExchangeRequest::Event(EventRequest { stream, under: root, at: None });
-		let Verified { response, outcome } =
-			fetch(&*self.transport, source, &request).await.ok()?;
-		let (
-			ExchangeResponse::Event(response),
-			ExchangeVerified::Event(VerifiedEvent::Head { position, frontier }),
-		) = (response, outcome)
-		else {
-			return None;
+	) -> Result<(HeadRead, StreamProof), RequestError> {
+		let request = MessagesRequest {
+			stream,
+			under: root,
+			start: None,
+			max_bytes: Register::max_encoded_len() as u32,
 		};
-		let start_peaks = peaks_before_head(&response, position, &frontier)?;
-		let payload = response.payload;
-		Some((HeadRead { under: root, base: position, start_peaks, payload }, response.tree_proof))
+		let mut response = fetch(&self.transport, source, &request, None).await?;
+		if response.payloads.is_empty() {
+			let request = MessagesRequest {
+				start: Some(MessagePosition(response.frontier.leaf_count())),
+				max_bytes: MAX_SPECULATIVE_MESSAGE_LEN,
+				..request
+			};
+			response = fetch(&self.transport, source, &request, Some(&response.frontier)).await?;
+		}
+		let [payload] = <[Vec<u8>; 1]>::try_from(response.payloads.into_inner())
+			.map_err(|_| RequestError::Unserved { refusals: Vec::new() })?;
+		Ok((HeadRead { under: root, frontier: response.frontier, payload }, response.tree_proof))
 	}
+}
+
+/// Whether a failed fetch was refused because the stream does not exist under the root.
+fn unknown_stream(error: &RequestError) -> bool {
+	matches!(
+		error,
+		RequestError::Unserved { refusals }
+			if refusals.iter().any(|(_, refusal)| *refusal == FetchError::UnknownStream)
+	)
+}
+
+fn buffer_full(count: u64, bytes: u64) -> bool {
+	count >= MAX_BUFFERED_PAYLOADS as u64 || bytes >= MAX_BUFFERED_BYTES
+}
+
+/// Whether the pool holds `stream`'s payloads from `cursor` up to what the source had at the last
+/// fetch, or enough that fetching pauses.
+fn covers(pool: &SourcePool, stream: &StreamId, cursor: u64) -> bool {
+	let (count, bytes) = pool.buffered(stream, cursor);
+	buffer_full(count, bytes) ||
+		pool.reach.get(stream).is_some_and(|reach| cursor + count >= *reach)
+}
+
+/// `frontier` with the leaves of `payloads` appended.
+fn extended<'a>(
+	frontier: &MmrFrontier,
+	payloads: impl IntoIterator<Item = &'a Vec<u8>>,
+) -> Option<MmrFrontier> {
+	let mut frontier = frontier.clone();
+	for payload in payloads {
+		frontier.try_append(leaf_hash(payload)).ok()?;
+	}
+	Some(frontier)
+}
+
+/// MMR nodes held in memory for [`skip_proof`].
+#[derive(Default)]
+struct Nodes(RefCell<BTreeMap<u64, Hash>>);
+
+impl MMRStoreReadOps<Hash> for &Nodes {
+	fn get_elem(&self, pos: u64) -> mmr_lib::Result<Option<Hash>> {
+		Ok(self.0.borrow().get(&pos).copied())
+	}
+}
+
+impl MMRStoreWriteOps<Hash> for &Nodes {
+	fn append(&mut self, pos: u64, elems: Vec<Hash>) -> mmr_lib::Result<()> {
+		let mut nodes = self.0.borrow_mut();
+		for (i, elem) in elems.into_iter().enumerate() {
+			nodes.insert(pos + i as u64, elem);
+		}
+		Ok(())
+	}
+}
+
+fn mmr_size(leaf_count: u64) -> u64 {
+	if leaf_count == 0 {
+		0
+	} else {
+		leaf_index_to_mmr_size(leaf_count - 1)
+	}
+}
+
+/// The extension from `from` to the stream after `leaves` are appended, built from `from`'s peaks
+/// and the leaves alone.
+pub(crate) fn skip_proof(from: &MmrFrontier, leaves: &[Hash]) -> Option<MMRExtensionProof> {
+	let to = from.leaf_count() + leaves.len() as u64;
+	if leaves.is_empty() {
+		return None;
+	}
+	if from.leaf_count() == 0 {
+		let mut frontier = from.clone();
+		for leaf in leaves {
+			frontier.try_append(*leaf).ok()?;
+		}
+		return Some(MMRExtensionProof {
+			leaf_count: to,
+			connecting_nodes: frontier.peaks().to_vec().try_into().ok()?,
+		});
+	}
+	let nodes = Nodes::default();
+	let old_size = mmr_size(from.leaf_count());
+	nodes
+		.0
+		.borrow_mut()
+		.extend(get_peaks(old_size).into_iter().zip(from.peaks().iter().copied()));
+	let mut mmr = MMR::<Hash, SpecMerge, _>::new(old_size, &nodes);
+	for leaf in leaves {
+		mmr.push(*leaf).ok()?;
+	}
+	mmr.commit().ok()?;
+	let proof = MMR::<Hash, SpecMerge, _>::new(mmr_size(to), &nodes)
+		.gen_ancestry_proof(old_size)
+		.ok()?;
+	Some(MMRExtensionProof {
+		leaf_count: to,
+		connecting_nodes: proof
+			.prev_peaks_proof
+			.proof_items()
+			.iter()
+			.map(|(_, hash)| *hash)
+			.collect::<Vec<_>>()
+			.try_into()
+			.ok()?,
+	})
 }
 
 /// The lift of one stream's `intervals` to `root`, from the pool's material.

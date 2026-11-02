@@ -20,8 +20,7 @@
 //! and all of it fetchable again.
 
 use cumulus_primitives_spec_messaging::{
-	EventResponse, MMRExtensionProof, MessagePosition, MmrFrontier, StreamId, StreamProof,
-	StreamsRoot,
+	MMRExtensionProof, MmrFrontier, StreamId, StreamProof, StreamsRoot,
 };
 use polkadot_core_primitives::Hash;
 use std::collections::{BTreeMap, VecDeque};
@@ -39,15 +38,13 @@ pub struct Binding {
 	pub tree_proof: StreamProof,
 }
 
-/// A verified head read of an `Ack` stream: what one `Events` item carries.
+/// A verified head read of an `Ack` stream: what one register read carries.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HeadRead {
 	/// The root the head was read under.
 	pub under: StreamsRoot,
-	/// The head's position.
-	pub base: MessagePosition,
-	/// The stream's peaks before the head leaf.
-	pub start_peaks: Vec<Hash>,
+	/// The stream just before the head leaf; its leaf count is the head's position.
+	pub frontier: MmrFrontier,
 	/// The head payload: an encoded `Register`.
 	pub payload: Vec<u8>,
 }
@@ -55,32 +52,8 @@ pub struct HeadRead {
 impl HeadRead {
 	/// The leaf count of the read's context: the head included.
 	pub fn end_count(&self) -> u64 {
-		self.base.0 + 1
+		self.frontier.leaf_count() + 1
 	}
-}
-
-/// The peaks before the head leaf of a head response that verified as `frontier` at `position`:
-/// the proof's other peaks, then the head's left siblings top down (the peaks the head merged).
-/// Checked by appending the head leaf again.
-pub fn peaks_before_head(
-	response: &EventResponse,
-	position: MessagePosition,
-	frontier: &MmrFrontier,
-) -> Option<Vec<Hash>> {
-	let leaf_count = position.0.checked_add(1)?;
-	let other = leaf_count.count_ones() as usize - 1;
-	let items = &response.inclusion.items;
-	if items.len() != other + leaf_count.trailing_zeros() as usize {
-		return None;
-	}
-	let peaks: Vec<Hash> =
-		items[..other].iter().chain(items[other..].iter().rev()).copied().collect();
-	let mut rebuilt = MmrFrontier::from_parts(peaks.clone(), position.0)?;
-	rebuilt.append(cumulus_primitives_spec_messaging::leaf_hash(
-		response.leaf_version,
-		&response.payload,
-	));
-	(&rebuilt == frontier).then_some(peaks)
 }
 
 /// One source's verified material.
@@ -102,6 +75,8 @@ pub struct SourcePool {
 	/// The root each read context was fetched under, by `(stream, leaf count)`. An advance to that
 	/// context is fetched under it.
 	pub(crate) read_under: BTreeMap<(StreamId, u64), StreamsRoot>,
+	/// Per channel stream, the leaf count the source had at the last successful fetch.
+	pub(crate) reach: BTreeMap<StreamId, u64>,
 }
 
 impl SourcePool {
@@ -136,6 +111,12 @@ impl SourcePool {
 		}
 	}
 
+	/// The count and total bytes of the payloads of `stream` held contiguously from `from`.
+	pub fn buffered(&self, stream: &StreamId, from: u64) -> (u64, u64) {
+		self.contiguous_from(stream, from)
+			.fold((0, 0), |(count, bytes), payload| (count + 1, bytes + payload.len() as u64))
+	}
+
 	/// The payloads of `stream` from `from` on, as long as they are contiguous.
 	pub fn contiguous_from(&self, stream: &StreamId, from: u64) -> impl Iterator<Item = &Vec<u8>> {
 		self.payloads
@@ -147,7 +128,7 @@ impl SourcePool {
 			.map(|((_, payload), _)| payload)
 	}
 
-	/// Drop the payloads of `stream` below `cursor`: consumed on the chain the cursor came from.
+	/// Drop the payloads of `stream` below `cursor`: consumed on a finalized block.
 	pub fn prune_payloads(&mut self, stream: &StreamId, cursor: u64) {
 		if let Some(stored) = self.payloads.get_mut(stream) {
 			*stored = stored.split_off(&cursor);
@@ -186,10 +167,10 @@ impl SourcePool {
 
 	/// Keep the bindings, advances and read contexts that `live` still names, plus those of the
 	/// newest head reads. `live` holds `(stream, leaf count)` endpoints of unfinalized blocks.
-	pub fn retain_endpoints(&mut self, live: &std::collections::BTreeSet<(StreamId, u64)>) {
+	pub fn retain_endpoints(&mut self, live: &BTreeMap<(StreamId, u64), MmrFrontier>) {
 		let heads: std::collections::BTreeSet<_> =
 			self.heads.iter().map(|(stream, head)| (*stream, head.end_count())).collect();
-		let keep = |key: &(StreamId, u64)| live.contains(key) || heads.contains(key);
+		let keep = |key: &(StreamId, u64)| live.contains_key(key) || heads.contains(key);
 		self.read_under.retain(|key, _| keep(key));
 		self.advances.retain(|(stream, _, to), _| keep(&(*stream, *to)));
 		// Other bindings are kept under the newest root only: the next block may consume up to

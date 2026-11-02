@@ -584,10 +584,7 @@ mod tests {
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
 				source,
-				BTreeMap::from([(
-					stream,
-					Interval { start: MmrRoot(Hash::zero()), end: frontier },
-				)]),
+				vec![(stream, Interval { start: MmrRoot(Hash::zero()), end: frontier })],
 			)]),
 		};
 		let lift = RequiresLift {

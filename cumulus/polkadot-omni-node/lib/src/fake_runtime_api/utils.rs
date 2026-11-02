@@ -281,32 +281,15 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn consumed_streams() -> std::collections::BTreeMap<
-					ParaId,
-					Vec<cumulus_primitives_spec_messaging::ConsumedStream>,
-				> {
+				fn consumed_streams() -> cumulus_primitives_spec_messaging::ConsumedStreams {
 					unimplemented!()
 				}
 
-				fn out_channels() -> std::collections::BTreeMap<
-					cumulus_primitives_spec_messaging::ChannelId,
-					cumulus_primitives_spec_messaging::OutChannelState,
-				> {
-					unimplemented!()
-				}
-
-				fn in_channels() -> std::collections::BTreeMap<
-					cumulus_primitives_spec_messaging::ChannelId,
-					cumulus_primitives_spec_messaging::InChannelState,
-				> {
+				fn max_touched_streams() -> u32 {
 					unimplemented!()
 				}
 
 				fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
-					unimplemented!()
-				}
-
-				fn consumption_caps() -> (u32, u32) {
 					unimplemented!()
 				}
 			}

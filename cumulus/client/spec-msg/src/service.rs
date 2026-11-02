@@ -27,16 +27,16 @@
 use crate::{
 	fetch::Transport,
 	receiver::{ChainView, Receiver},
+	relay::{newest_included_provides, relay_has_api},
 	LOG_TARGET,
 };
 use cumulus_client_collator::service::{SpecMsgAssembler, SpecMsgInputs};
-use cumulus_primitives_core::{ParaId, SpecMsgApi};
-use cumulus_primitives_spec_messaging::{ConsumptionRecord, MessagingInherentData, StreamsRoot};
-use cumulus_relay_chain_interface::{call_runtime_api, PHash, RelayChainInterface};
+use cumulus_primitives_core::SpecMsgApi;
+use cumulus_primitives_spec_messaging::{ConsumptionRecord, MessagingInherentData};
+use cumulus_relay_chain_interface::{PHash, RelayChainInterface};
 use futures::{select, StreamExt};
-use polkadot_primitives::runtime_api::ParachainHost;
 use sc_client_api::BlockchainEvents;
-use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
 	traits::{Block as BlockT, Header as HeaderT},
@@ -44,14 +44,8 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-/// The relay runtime API giving a source's newest included `StreamsRoot`.
-pub const NEWEST_INCLUDED_PROVIDES: &str = "ParachainHost_newest_included_provides";
-
-/// The `ParachainHost` version that added [`NEWEST_INCLUDED_PROVIDES`].
-pub const NEWEST_INCLUDED_PROVIDES_VERSION: u32 = 17;
-
 /// The consumption view at `at`, or `None` if its runtime has no `SpecMsgApi`.
-pub fn chain_view<Block, C>(client: &C, at: Block::Hash, us: ParaId) -> Option<ChainView>
+pub fn chain_view<Block, C>(client: &C, at: Block::Hash) -> Option<ChainView>
 where
 	Block: BlockT,
 	C: ProvideRuntimeApi<Block>,
@@ -65,15 +59,11 @@ where
 		.consumed_streams(at)
 		.map_err(|e| log::warn!(target: LOG_TARGET, "consumed_streams at {at:?} failed: {e}"))
 		.ok()?;
-	let out_channels = api
-		.out_channels(at)
-		.map_err(|e| log::warn!(target: LOG_TARGET, "out_channels at {at:?} failed: {e}"))
+	let max_touched = api
+		.max_touched_streams(at)
+		.map_err(|e| log::warn!(target: LOG_TARGET, "max_touched_streams at {at:?} failed: {e}"))
 		.ok()?;
-	let caps = api
-		.consumption_caps(at)
-		.map_err(|e| log::warn!(target: LOG_TARGET, "consumption_caps at {at:?} failed: {e}"))
-		.ok()?;
-	Some(ChainView { caps: Some(caps), ..ChainView::new(us, consumed, out_channels) })
+	Some(ChainView::new(consumed, max_touched))
 }
 
 /// The consumption record of block `at`; empty if its runtime has no `SpecMsgApi`.
@@ -91,34 +81,6 @@ where
 		return Ok(ConsumptionRecord::default());
 	}
 	api.consumption_record(at).map_err(|e| e.to_string())
-}
-
-/// `source`'s newest included root as of relay block `at`. `None` also when the relay runtime
-/// predates the API.
-pub async fn newest_included_provides(
-	relay: &(impl RelayChainInterface + ?Sized),
-	at: PHash,
-	source: ParaId,
-) -> Option<StreamsRoot> {
-	call_runtime_api::<Option<StreamsRoot>>(relay, NEWEST_INCLUDED_PROVIDES, at, source)
-		.await
-		.map_err(|e| log::debug!(target: LOG_TARGET, "{NEWEST_INCLUDED_PROVIDES} failed: {e}"))
-		.ok()
-		.flatten()
-}
-
-/// Whether relay block `at` has [`NEWEST_INCLUDED_PROVIDES`].
-async fn relay_has_api(relay: &(impl RelayChainInterface + ?Sized), at: PHash) -> bool {
-	let id = <dyn ParachainHost<polkadot_primitives::Block>>::ID;
-	match relay.version(at).await {
-		Ok(version) => version
-			.api_version(&id)
-			.is_some_and(|version| version >= NEWEST_INCLUDED_PROVIDES_VERSION),
-		Err(e) => {
-			log::debug!(target: LOG_TARGET, "Relay runtime version at {at:?} unavailable: {e}");
-			false
-		},
-	}
 }
 
 /// Keep `receiver` fed from `client` and `relay` until a notification stream ends.
@@ -167,7 +129,8 @@ pub async fn run_receiver<Block, C, T>(
 			},
 			finalized = finality.next() => match finalized {
 				Some(finalized) => {
-					receiver.on_finalized((*finalized.header.number()).saturated_into())
+					let view = chain_view(&*client, finalized.hash).unwrap_or_default();
+					receiver.on_finalized((*finalized.header.number()).saturated_into(), &view);
 				},
 				None => return,
 			},
@@ -187,7 +150,7 @@ async fn on_relay_block<Block, C, T>(
 	C::Api: SpecMsgApi<Block>,
 	T: Transport + ?Sized,
 {
-	let Some(view) = chain_view(client, client.info().best_hash, receiver.para_id()) else {
+	let Some(view) = chain_view(client, client.info().best_hash) else {
 		return;
 	};
 	if view.sources.is_empty() || !relay_has_api(relay, relay_hash).await {
@@ -195,9 +158,7 @@ async fn on_relay_block<Block, C, T>(
 	}
 	let updates = view.sources.iter().map(|(source, wants)| async move {
 		let root = newest_included_provides(relay, relay_hash, *source).await?;
-		if !receiver.is_settled(source, &root) {
-			receiver.on_root(*source, root, wants).await;
-		}
+		receiver.on_root(*source, root, wants).await;
 		Some(())
 	});
 	futures::future::join_all(updates).await;
@@ -216,7 +177,7 @@ where
 	C::Api: SpecMsgApi<Block>,
 	T: Transport + ?Sized,
 {
-	match chain_view(client, parent, receiver.para_id()) {
+	match chain_view(client, parent) {
 		Some(view) => receiver.inherent_data(&view).await,
 		None => MessagingInherentData::default(),
 	}

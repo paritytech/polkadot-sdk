@@ -355,7 +355,7 @@ pub struct Cli<Config: CliConfig> {
 
 	/// A collator of a source chain to fetch speculative messages from, as
 	/// `<PARA_ID>=<MULTIADDR>`. The address must end in `/p2p/<PEER_ID>`. Repeat it for more
-	/// peers; peers of one source are tried in the given order.
+	/// peers; peers of one source are tried in turn, starting from a different one each round.
 	///
 	/// Only relevant when `--enable-spec-msg` is used.
 	#[arg(long, value_name = "PARA_ID=MULTIADDR", value_parser = parse_spec_msg_peer)]
