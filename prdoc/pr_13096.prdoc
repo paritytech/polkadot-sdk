@@ -8,10 +8,12 @@ doc:
     sends `SetCurrentHead` to the relay chain. Nothing is stored on the parachain, since setting a
     head holds no deposit and can simply be asked again.
 
-    On the relay chain, `pallet-registrar-relay` checks the head against the live
-    `max_head_data_size`, sets it through `paras_registrar` and reports back. A head that is too
-    large is refused with the new `FailureReason::HeadDataTooLarge`. The parachain surfaces the
-    answer as `HeadUpdated` or `HeadUpdateFailed`.
+    On the relay chain, `pallet-registrar-relay` checks that the para is still registered and that
+    the head fits the live `max_head_data_size`, sets it through `paras_registrar` and reports
+    back. A para the relay chain no longer knows, e.g. after a deregistration overtook the request,
+    is refused with the new `FailureReason::NotRegistered`, and a head that is too large with the
+    new `FailureReason::HeadDataTooLarge`. The parachain surfaces the answer as `HeadUpdated` or
+    `HeadUpdateFailed`.
 crates:
 - name: registrar-primitives
   bump: major

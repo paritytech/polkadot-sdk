@@ -657,7 +657,8 @@ mod receive_set_current_head {
 	#[test]
 	fn sets_the_head_and_confirms_it() {
 		new_test_ext().execute_with(|| {
-			// The parachain vouches for the request, so the para need not be known here.
+			AlreadyKnown::set(vec![PARA_A]);
+
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
 
 			assert_eq!(Heads::get(), vec![(PARA_A, head(20))]);
@@ -672,6 +673,8 @@ mod receive_set_current_head {
 	#[test]
 	fn refuses_a_head_the_relay_chain_will_not_take() {
 		new_test_ext().execute_with(|| {
+			AlreadyKnown::set(vec![PARA_A]);
+
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
 				set_head_msg(PARA_A, MAX_HEAD_SIZE as usize + 1)
@@ -697,6 +700,53 @@ mod receive_set_current_head {
 				set_head_msg(PARA_A, MAX_HEAD_SIZE as usize)
 			));
 			assert_eq!(Heads::get(), vec![(PARA_A, head(MAX_HEAD_SIZE as usize))]);
+		});
+	}
+
+	#[test]
+	fn refuses_a_head_for_a_para_the_relay_chain_does_not_know() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![set_head_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRejected {
+					para_id: PARA_A,
+					message_id: HEAD_ID,
+					reason: FailureReason::NotRegistered,
+				}]
+			);
+		});
+	}
+
+	#[test]
+	fn a_head_overtaken_by_the_deregistration_is_refused() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), set_head_msg(PARA_A, 20)));
+
+			assert!(Heads::get().is_empty());
+			assert_eq!(
+				take_sent(),
+				vec![set_head_report(PARA_A, Err(FailureReason::NotRegistered))]
+			);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::HeadUpdateRejected {
+					para_id: PARA_A,
+					message_id: HEAD_ID,
+					reason: FailureReason::NotRegistered,
+				}]
+			);
 		});
 	}
 

@@ -171,6 +171,8 @@ mod benchmarks {
 	fn receive_set_current_head(
 		h: Linear<0, { T::MaxHeadDataSize::get() }>,
 	) -> Result<(), BenchmarkError> {
+		// Any registered para will do; this is the only registry setup the trait offers.
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
 		let message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
 			para_id: PARA_ID,
 			message_id: 0,

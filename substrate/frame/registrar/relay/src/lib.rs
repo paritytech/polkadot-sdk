@@ -505,12 +505,20 @@ pub mod pallet {
 			// TODO(ahm-v2): authorize the code upgrade and report the outcome back.
 		}
 
-		/// Set `para_id`'s head if it fits the live configuration, and report either way.
+		/// Set `para_id`'s head if the para is known and the head fits, and report either way.
+		///
+		/// Registration is re-checked here since a deregistration can land before an earlier head.
 		fn on_set_current_head_request(para_id: ParaId, message_id: u64, head: Vec<u8>) {
 			let fits = u32::try_from(head.len())
 				.is_ok_and(|len| T::Registrar::check_head_data(len).is_ok());
-			if !fits {
-				let reason = FailureReason::HeadDataTooLarge;
+			let reason = if !T::Registrar::is_registered(para_id) {
+				Some(FailureReason::NotRegistered)
+			} else if !fits {
+				Some(FailureReason::HeadDataTooLarge)
+			} else {
+				None
+			};
+			if let Some(reason) = reason {
 				Self::report_set_head(para_id, message_id, Err(reason.clone()));
 				Self::deposit_event(Event::HeadUpdateRejected { para_id, message_id, reason });
 				return;
