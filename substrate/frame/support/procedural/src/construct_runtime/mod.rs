@@ -348,7 +348,7 @@ fn construct_runtime_explicit_to_explicit_expanded(
 fn construct_runtime_final_expansion(
 	definition: ExplicitRuntimeDeclaration,
 ) -> Result<TokenStream2> {
-	let ExplicitRuntimeDeclaration { name, pallets, pallets_token, where_section } = definition;
+	let ExplicitRuntimeDeclaration { name, pallets, pallets_token } = definition;
 
 	let system_pallet =
 		pallets.iter().find(|decl| decl.name == SYSTEM_PALLET_NAME).ok_or_else(|| {
@@ -419,23 +419,7 @@ fn construct_runtime_final_expansion(
 	let integrity_test = decl_integrity_test(&scrate);
 	let static_assertions = decl_static_assertions(&name, &pallets, &scrate);
 
-	let warning = where_section.map_or(None, |where_section| {
-		Some(
-			proc_macro_warning::Warning::new_deprecated("WhereSection")
-				.old("use a `where` clause in `construct_runtime`")
-				.new(
-					"use `frame_system::Config` to set the `Block` type and delete this clause.
-				It is planned to be removed in December 2023",
-				)
-				.help_links(&["https://github.com/paritytech/substrate/pull/14437"])
-				.span(where_section.span)
-				.build_or_panic(),
-		)
-	});
-
 	let res = quote!(
-		#warning
-
 		#scrate_decl
 
 		// Prevent UncheckedExtrinsic to print unused warning.
