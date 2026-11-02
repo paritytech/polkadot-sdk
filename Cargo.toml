@@ -1614,3 +1614,8 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+# The AURA authorizer utilities and zombienet name `jam-types` from crates.io; one vendored copy
+# serves all of them.
+[patch.crates-io]
+jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types" }

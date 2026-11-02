@@ -18,26 +18,31 @@ use crate::{
 };
 use anyhow::Context;
 use codec::Encode;
-use parachain_authorizer::aura::{build_collator_proofs, AuthConfig, CollatorKey};
+use parachain_authorizer::aura::{build_collator_proof, AuthConfig, CollatorKey};
 use parachain_service_core::authorizer::{AuthConfigBlob, Authorizer, AuthorizerHash, CodeHash};
 use sp_core::crypto::ByteArray;
-use std::path::Path;
+use std::{num::NonZero, path::Path};
 
 /// One JAM timeslot per parachain slot, which is the collator's `--jam-slot-duration` default and
 /// therefore what the harness starts every collator with.
-const SLOT_DURATION: u32 = 1;
+const SLOT_DURATION: NonZero<u32> = NonZero::<u32>::MIN;
 
 /// The authorizer config `para`'s core is queued with, built the way the collator builds it:
 /// the para id and host service, the collator-set root in the runtime's own order, the set size
 /// and the slot duration — everything `blake2b-256(code_hash ‖ SCALE(config))` commits to.
 pub fn aura_config(para: &Para) -> anyhow::Result<AuthConfig> {
-	let (collator_set_root, _proofs) = build_collator_proofs(&collator_set(para)?)
+	let collators = collator_set(para)?;
+	let (collator_set_root, _proof) = build_collator_proof(&collators, 0)
 		.map_err(|error| anyhow::anyhow!("para {}'s collator set: {error:?}", para.id))?;
+	let collator_set_size = u32::try_from(collators.len())
+		.ok()
+		.and_then(NonZero::new)
+		.with_context(|| format!("para {}'s collator set size", para.id))?;
 	Ok(AuthConfig {
 		para_ids: vec![para.id.into()],
 		parachain_service: PARACHAIN_SERVICE_ID,
 		collator_set_root,
-		collator_set_size: para.collators.len() as u32,
+		collator_set_size,
 		slot_duration: SLOT_DURATION,
 	})
 }
@@ -91,7 +96,7 @@ mod tests {
 	/// three separate binaries have to agree on — this harness, the collator and the guest.
 	fn expected(id: u32, keys: &[[u8; 32]]) -> AuthorizerHash {
 		let leaves: Vec<CollatorKey> = keys.to_vec();
-		let (root, _) = build_collator_proofs(&leaves).expect("a non-empty collator set; qed");
+		let (root, _) = build_collator_proof(&leaves, 0).expect("a non-empty collator set; qed");
 		let mut config = Vec::new();
 		// SCALE, field by field: a length-prefixed vec of one para id, the service, the root, the
 		// set size, the slot duration.
@@ -100,7 +105,7 @@ mod tests {
 		config.extend(PARACHAIN_SERVICE_ID.to_le_bytes());
 		config.extend(root.as_bytes());
 		config.extend((keys.len() as u32).to_le_bytes());
-		config.extend(SLOT_DURATION.to_le_bytes());
+		config.extend(SLOT_DURATION.get().to_le_bytes());
 
 		let blob = std::fs::read(SOME_BLOB).expect("the manifest is readable");
 		let concatenated: Vec<u8> = [&jam_std_common::hash_raw(&blob)[..], &config[..]].concat();
