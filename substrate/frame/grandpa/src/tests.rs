@@ -706,7 +706,7 @@ fn report_equivocation_authorize_prevents_duplicates() {
 			call.authorize(TransactionSource::Local),
 			Some(Ok((
 				ValidTransaction {
-					priority: TransactionPriority::max_value(),
+					priority: TransactionPriority::MAX,
 					requires: vec![],
 					provides: vec![("GrandpaEquivocation", tx_tag).encode()],
 					longevity: ReportLongevity::get(),

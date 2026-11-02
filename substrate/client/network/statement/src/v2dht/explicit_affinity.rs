@@ -171,8 +171,20 @@ impl ExplicitAffinity {
 	// === Queries ===
 
 	/// Whether the peer's advertised filter accepts the statement.
+	#[cfg(test)]
 	pub(crate) fn peer_has_explicit_affinity(&self, peer: PeerId, stmt: &Statement) -> bool {
 		self.peers.get(&peer).is_some_and(|filter| filter.matches_statement(stmt))
+	}
+
+	/// The peers whose advertised filter accepts the statement.
+	pub(crate) fn peers_with_explicit_affinity<'a>(
+		&'a self,
+		stmt: &'a Statement,
+	) -> impl Iterator<Item = PeerId> + 'a {
+		self.peers
+			.iter()
+			.filter(move |(_, filter)| filter.matches_statement(stmt))
+			.map(|(peer, _)| *peer)
 	}
 }
 

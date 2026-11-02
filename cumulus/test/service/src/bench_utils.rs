@@ -209,6 +209,7 @@ pub fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule
 			wasm_bulk_memory: false,
 			wasm_reference_types: false,
 			wasm_simd: false,
+			epoch_interruption: false,
 		},
 	};
 	Box::new(

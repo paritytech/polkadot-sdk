@@ -171,8 +171,8 @@ pub mod pallet {
 
 		/// Forcefully establish a channel from the sender to the recipient.
 		///
-		/// This is equivalent to sending an `Hrmp::hrmp_init_open_channel` extrinsic followed by
-		/// `Hrmp::hrmp_accept_open_channel`.
+		/// This is similar to sending an `Hrmp::hrmp_init_open_channel` extrinsic followed by
+		/// `Hrmp::hrmp_accept_open_channel` but in one go.
 		#[pallet::call_index(5)]
 		#[pallet::weight((1_000, DispatchClass::Operational))]
 		pub fn sudo_establish_hrmp_channel(
@@ -184,14 +184,12 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			hrmp::Pallet::<T>::init_open_channel(
+			hrmp::Pallet::<T>::init_and_accept_open_channel(
 				sender,
 				recipient,
 				max_capacity,
 				max_message_size,
-			)?;
-			hrmp::Pallet::<T>::accept_open_channel(recipient, sender)?;
-			Ok(())
+			)
 		}
 	}
 }
