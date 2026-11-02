@@ -151,5 +151,20 @@ mod benchmarks {
 		}
 	}
 
+	/// Dropping a para from the registry, which is where the whole cost of this sits.
+	#[benchmark]
+	fn receive_deregister() -> Result<(), BenchmarkError> {
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+		let message =
+			MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_ID, message_id: 0 });
+
+		#[extrinsic_call]
+		receive(RawOrigin::Root, message);
+
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
