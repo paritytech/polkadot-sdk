@@ -117,7 +117,7 @@ identify the PSM instance being configured.
 | `set_max_debt(internal_asset, value)` | Full or Emergency | Update absolute debt ceiling for the PSM |
 | `set_asset_ceiling_weight(internal_asset, asset_id, weight)` | Full or Emergency | Update external ceiling weight |
 | `set_asset_status(internal_asset, asset_id, status)` | Full or Emergency | Set per-external circuit breaker level |
-| `add_external_asset(internal_asset, asset_id)` | Full | Approve external on a PSM (the reserve account must be able to receive it) |
+| `add_external_asset(internal_asset, asset_id)` | Full | Approve external on a PSM (reserve must accept it) |
 | `remove_external_asset(internal_asset, asset_id)` | Full | Remove external from a PSM (zero debt) |
 
 ### Privilege Levels
