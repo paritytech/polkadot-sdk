@@ -1,0 +1,25 @@
+title: 'pallet-revive: fix v4 migration double credit and partial swap'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fixes `pallet_revive::migrations::v4` for runtimes that switched `Config::Deposit` to
+    `PGasDeposit` before scheduling v4.
+
+    Phase 1 now clears the pallet account's `NativeDepositOf` rows and rebuilds them from
+    `CodeInfoOf`. Before, it added to rows already written since the switch, crediting those code
+    deposits twice. `PGasDeposit::migrate_native_to_pgas` now rolls back if minting or holding
+    PGAS fails. Before, phase 2 could burn a contract's native deposit and leave nothing in its
+    place, for example when the PGAS asset was not registered yet.
+
+    Runtimes that already ran v4 are unaffected. Runtimes that have not:
+    - Register the PGAS asset before scheduling v4. Without it phase 2 converts nothing (it no
+      longer burns), and partial storage-deposit refunds on old contracts stay unavailable.
+    - If you implement `pallet_revive::WeightInfo` yourself, add `v4_clear_code_credit_step`, or
+      regenerate your weights.
+    - If you match on `pallet_revive::migrations::v4::Cursor`, handle the new `ClearCodeCredits`
+      variant.
+crates:
+- name: pallet-revive
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch
