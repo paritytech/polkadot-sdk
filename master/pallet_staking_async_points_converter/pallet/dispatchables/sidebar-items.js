@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["report_authored_blocks","set_points_per_service"]};

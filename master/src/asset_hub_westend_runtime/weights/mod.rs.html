@@ -208,30 +208,31 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <a href=#58 id=58 data-nosnippet>58</a><span class="kw">pub mod </span>pallet_scheduler;
 <a href=#59 id=59 data-nosnippet>59</a><span class="kw">pub mod </span>pallet_session;
 <a href=#60 id=60 data-nosnippet>60</a><span class="kw">pub mod </span>pallet_staking_async;
-<a href=#61 id=61 data-nosnippet>61</a><span class="kw">pub mod </span>pallet_staking_async_rc_client;
-<a href=#62 id=62 data-nosnippet>62</a><span class="kw">pub mod </span>pallet_sudo;
-<a href=#63 id=63 data-nosnippet>63</a><span class="kw">pub mod </span>pallet_timestamp;
-<a href=#64 id=64 data-nosnippet>64</a><span class="kw">pub mod </span>pallet_transaction_payment;
-<a href=#65 id=65 data-nosnippet>65</a><span class="kw">pub mod </span>pallet_treasury;
-<a href=#66 id=66 data-nosnippet>66</a><span class="kw">pub mod </span>pallet_uniques;
-<a href=#67 id=67 data-nosnippet>67</a><span class="kw">pub mod </span>pallet_utility;
-<a href=#68 id=68 data-nosnippet>68</a><span class="kw">pub mod </span>pallet_validator_collators;
-<a href=#69 id=69 data-nosnippet>69</a><span class="kw">pub mod </span>pallet_validator_set_announcer;
-<a href=#70 id=70 data-nosnippet>70</a><span class="kw">pub mod </span>pallet_verify_signature;
-<a href=#71 id=71 data-nosnippet>71</a><span class="kw">pub mod </span>pallet_vesting;
-<a href=#72 id=72 data-nosnippet>72</a><span class="kw">pub mod </span>pallet_vesting_precompiles;
-<a href=#73 id=73 data-nosnippet>73</a><span class="kw">pub mod </span>pallet_whitelist;
-<a href=#74 id=74 data-nosnippet>74</a><span class="kw">pub mod </span>pallet_xcm;
-<a href=#75 id=75 data-nosnippet>75</a><span class="kw">pub mod </span>pallet_xcm_bridge_hub_router;
-<a href=#76 id=76 data-nosnippet>76</a><span class="kw">pub mod </span>paritydb_weights;
-<a href=#77 id=77 data-nosnippet>77</a><span class="kw">pub mod </span>rocksdb_weights;
-<a href=#78 id=78 data-nosnippet>78</a><span class="kw">pub mod </span>snowbridge_pallet_system_backend;
-<a href=#79 id=79 data-nosnippet>79</a><span class="kw">pub mod </span>snowbridge_pallet_system_frontend;
-<a href=#80 id=80 data-nosnippet>80</a><span class="kw">pub mod </span>xcm;
-<a href=#81 id=81 data-nosnippet>81</a>
-<a href=#82 id=82 data-nosnippet>82</a><span class="kw">pub use </span>block_weights::constants::BlockExecutionWeight;
-<a href=#83 id=83 data-nosnippet>83</a><span class="kw">pub use </span>extrinsic_weights::constants::ExtrinsicBaseWeight;
-<a href=#84 id=84 data-nosnippet>84</a><span class="kw">pub use </span>inmemorydb_weights::constants::InMemoryDbWeight;
+<a href=#61 id=61 data-nosnippet>61</a><span class="kw">pub mod </span>pallet_staking_async_points_converter;
+<a href=#62 id=62 data-nosnippet>62</a><span class="kw">pub mod </span>pallet_staking_async_rc_client;
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">pub mod </span>pallet_sudo;
+<a href=#64 id=64 data-nosnippet>64</a><span class="kw">pub mod </span>pallet_timestamp;
+<a href=#65 id=65 data-nosnippet>65</a><span class="kw">pub mod </span>pallet_transaction_payment;
+<a href=#66 id=66 data-nosnippet>66</a><span class="kw">pub mod </span>pallet_treasury;
+<a href=#67 id=67 data-nosnippet>67</a><span class="kw">pub mod </span>pallet_uniques;
+<a href=#68 id=68 data-nosnippet>68</a><span class="kw">pub mod </span>pallet_utility;
+<a href=#69 id=69 data-nosnippet>69</a><span class="kw">pub mod </span>pallet_validator_collators;
+<a href=#70 id=70 data-nosnippet>70</a><span class="kw">pub mod </span>pallet_validator_set_announcer;
+<a href=#71 id=71 data-nosnippet>71</a><span class="kw">pub mod </span>pallet_verify_signature;
+<a href=#72 id=72 data-nosnippet>72</a><span class="kw">pub mod </span>pallet_vesting;
+<a href=#73 id=73 data-nosnippet>73</a><span class="kw">pub mod </span>pallet_vesting_precompiles;
+<a href=#74 id=74 data-nosnippet>74</a><span class="kw">pub mod </span>pallet_whitelist;
+<a href=#75 id=75 data-nosnippet>75</a><span class="kw">pub mod </span>pallet_xcm;
+<a href=#76 id=76 data-nosnippet>76</a><span class="kw">pub mod </span>pallet_xcm_bridge_hub_router;
+<a href=#77 id=77 data-nosnippet>77</a><span class="kw">pub mod </span>paritydb_weights;
+<a href=#78 id=78 data-nosnippet>78</a><span class="kw">pub mod </span>rocksdb_weights;
+<a href=#79 id=79 data-nosnippet>79</a><span class="kw">pub mod </span>snowbridge_pallet_system_backend;
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">pub mod </span>snowbridge_pallet_system_frontend;
+<a href=#81 id=81 data-nosnippet>81</a><span class="kw">pub mod </span>xcm;
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a><span class="kw">pub use </span>block_weights::constants::BlockExecutionWeight;
+<a href=#84 id=84 data-nosnippet>84</a><span class="kw">pub use </span>extrinsic_weights::constants::ExtrinsicBaseWeight;
+<a href=#85 id=85 data-nosnippet>85</a><span class="kw">pub use </span>inmemorydb_weights::constants::InMemoryDbWeight;
 </code></pre></div></section></main><script> mermaid.init({ startOnLoad: true, theme: "dark" }, "pre.language-mermaid > code");</script>
 
 

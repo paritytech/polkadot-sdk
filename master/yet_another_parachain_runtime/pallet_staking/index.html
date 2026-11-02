@@ -295,7 +295,7 @@ defined staking rate. The full specification can be found
 <a href="https://research.web3.foundation/en/latest/polkadot/Token%20Economics.html#inflation-model">here</a>.</p>
 <p>Total reward is split among validators and their nominators depending on the number of points
 they received during the era. Points are added to a validator using the method
-<a href="../polkadot_sdk_frame/traits/trait.RewardsReporter.html#tymethod.reward_by_ids" title="associated function yet_another_parachain_runtime::polkadot_sdk_frame::traits::RewardsReporter::reward_by_ids"><code>frame_support::traits::RewardsReporter::reward_by_ids</code></a> implemented by the <a href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_staking::Pallet"><code>Pallet</code></a>.</p>
+<a href="../sp_staking/trait.RewardsReporter.html#tymethod.reward_by_ids" title="associated function yet_another_parachain_runtime::sp_staking::RewardsReporter::reward_by_ids"><code>frame_support::traits::RewardsReporter::reward_by_ids</code></a> implemented by the <a href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_staking::Pallet"><code>Pallet</code></a>.</p>
 <p><a href="struct.Pallet.html" title="struct yet_another_parachain_runtime::pallet_staking::Pallet"><code>Pallet</code></a> implements <a href="../pallet_authorship/trait.EventHandler.html" title="trait yet_another_parachain_runtime::pallet_authorship::EventHandler"><code>pallet_authorship::EventHandler</code></a> to add reward points to block producer
 and block producer of referenced uncles.</p>
 <p>The validator and its nominator split their reward as following:</p>

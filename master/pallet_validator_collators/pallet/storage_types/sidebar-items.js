@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Collators","EpochRandomness","MaxCollators","PendingRotation","ValidatorSet"]};
+window.SIDEBAR_ITEMS = {"struct":["AuthoredBlocks","DrawnCollators","EpochRandomness","ExpectedEraDuration","ExternalSetReceivedAt","ExternalValidatorSet","MaxCollators","PendingRotation","ReportMargin","ReportPeriod"]};

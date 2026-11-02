@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["set_max_collators","set_validators"]};
+window.SIDEBAR_ITEMS = {"fn":["set_expected_era_duration","set_max_collators","set_report_margin","set_report_period","set_validators"]};
