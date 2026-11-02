@@ -212,10 +212,19 @@ impl WeightToFee {
 	}
 }
 
+thread_local! {
+	pub static FAIL_BUY_WEIGHT: core::cell::Cell<bool> = core::cell::Cell::new(false);
+}
+
+/// Makes every [`TestTrader::buy_weight`] fail with `TooExpensive`, returning the payment.
+pub fn set_fail_buy_weight(fail: bool) {
+	FAIL_BUY_WEIGHT.with(|f| f.set(fail));
+}
+
 /// Test weight trader that just buys weight with the native asset (`Here`) and
 /// uses the test `WeightToFee`.
 pub struct TestTrader {
-	weight_bought_so_far: Weight,
+	pub(crate) weight_bought_so_far: Weight,
 }
 impl WeightTrader for TestTrader {
 	fn new() -> Self {
@@ -228,6 +237,9 @@ impl WeightTrader for TestTrader {
 		mut payment: AssetsInHolding,
 		_context: &XcmContext,
 	) -> Result<AssetsInHolding, (AssetsInHolding, XcmError)> {
+		if FAIL_BUY_WEIGHT.with(|f| f.get()) {
+			return Err((payment, XcmError::TooExpensive));
+		}
 		let amount = WeightToFee::weight_to_fee(&weight);
 		let required: Asset = (Here, amount).into();
 		// Try to take the required amount from payment
@@ -450,6 +462,40 @@ impl Config for XcmConfig {
 	type SafeCallFilter = Everything;
 	type Aliasers = Nothing;
 	type TransactionalProcessor = TestTransactionalProcessor;
+	type HrmpNewChannelOpenRequestHandler = ();
+	type HrmpChannelAcceptedHandler = ();
+	type HrmpChannelClosingHandler = ();
+	type XcmRecorder = ();
+}
+
+/// Like [`XcmConfig`], but with the non-transactional `()` processor.
+pub struct NonTransactionalXcmConfig;
+impl Config for NonTransactionalXcmConfig {
+	type RuntimeCall = TestCall;
+	type XcmSender = TestSender;
+	type XcmEventEmitter = ();
+	type AssetTransactor = TestAssetTransactor;
+	type OriginConverter = ();
+	type IsReserve = ();
+	type IsTeleporter = ();
+	type UniversalLocation = UniversalLocation;
+	type Barrier = TestBarrier;
+	type Weigher = TestWeigher;
+	type Trader = TestTrader;
+	type ResponseHandler = ();
+	type AssetTrap = TestAssetTrap;
+	type AssetLocker = ();
+	type AssetExchanger = ();
+	type SubscriptionService = ();
+	type PalletInstancesInfo = ();
+	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
+	type FeeManager = TestFeeManager;
+	type MessageExporter = TestExporter;
+	type UniversalAliases = Nothing;
+	type CallDispatcher = Self::RuntimeCall;
+	type SafeCallFilter = Everything;
+	type Aliasers = Nothing;
+	type TransactionalProcessor = ();
 	type HrmpNewChannelOpenRequestHandler = ();
 	type HrmpChannelAcceptedHandler = ();
 	type HrmpChannelClosingHandler = ();

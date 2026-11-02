@@ -310,3 +310,66 @@ fn rejected_claim_leaves_registers_untouched() {
 	assert_eq!(get_first_fungible(vm.holding()), holding_before);
 	assert_eq!(get_first_fungible(vm.fees()), fees_before);
 }
+
+// ========== Invariants the register rollback relies on ==========
+
+/// The trader is not backed up by `transactional_process`. That is sound only because
+/// `buy_weight` is the last fallible operation of `BuyExecution` and `PayFees`: a failed purchase
+/// hands the payment back and leaves the trader untouched, so restoring holding and fees from
+/// the backup duplicates nothing.
+#[test]
+fn failed_weight_purchase_leaves_trader_and_registers_untouched() {
+	add_asset(SENDER, (Here, 100u128));
+	let setup = Xcm::<TestCall>(vec![WithdrawAsset((Here, 100u128).into())]);
+	let (mut vm, _weight) = instantiate_executor(SENDER, setup.clone());
+	assert!(vm.bench_process(setup).is_ok());
+
+	set_fail_buy_weight(true);
+	let buy = Xcm::<TestCall>(vec![BuyExecution {
+		fees: (Here, 10u128).into(),
+		weight_limit: Limited(Weight::from_parts(2, 2)),
+	}]);
+	assert!(matches!(
+		vm.bench_process(buy),
+		Err(ExecutorError { xcm_error: XcmError::TooExpensive, .. })
+	));
+	let pay = Xcm::<TestCall>(vec![PayFees { asset: (Here, 10u128).into() }]);
+	assert!(matches!(
+		vm.bench_process(pay),
+		Err(ExecutorError { xcm_error: XcmError::TooExpensive, .. })
+	));
+	set_fail_buy_weight(false);
+
+	assert_eq!(vm.trader().weight_bought_so_far, Weight::zero());
+	assert_eq!(get_first_fungible(vm.holding()), Some((Here, 100u128).into()));
+	assert!(vm.fees().is_empty());
+	assert!(!vm.already_paid_fees());
+	assert_eq!(vm.asset_used_in_buy_execution(), &None);
+}
+
+/// With a non-transactional processor (`()`) the registers are not restored either: storage is
+/// not rolled back, so restoring them would duplicate whatever the failed instruction already
+/// committed. The documented flip side is that credits a failed instruction took out of holding
+/// are gone (burned on a real runtime) instead of restored.
+#[test]
+fn non_transactional_processor_does_not_restore_registers() {
+	// A deposit of `1` is below the mock's existential deposit, so it fails.
+	let xcm = Xcm::<TestCall>(vec![
+		WithdrawAsset((Here, 1u128).into()),
+		DepositAsset { assets: All.into(), beneficiary: RECIPIENT.into() },
+	]);
+
+	add_asset(SENDER, (Here, 1u128));
+	let mut vm = XcmExecutor::<NonTransactionalXcmConfig>::new(SENDER, [0; 32]);
+	assert!(vm.bench_process(xcm.clone()).is_err());
+	// Taken out of holding, not deposited, not restored.
+	assert!(vm.holding().is_empty());
+	assert_eq!(asset_list(RECIPIENT), vec![]);
+
+	// The transactional configuration restores the credit into holding.
+	add_asset(SENDER, (Here, 1u128));
+	let (mut vm, _weight) = instantiate_executor(SENDER, xcm.clone());
+	assert!(vm.bench_process(xcm).is_err());
+	assert_eq!(get_first_fungible(vm.holding()), Some((Here, 1u128).into()));
+	assert_eq!(asset_list(RECIPIENT), vec![]);
+}

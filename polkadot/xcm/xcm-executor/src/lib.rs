@@ -448,7 +448,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	}
 
 	/// Send an XCM, charging fees from Holding as needed.
-	/// Note: Should be called under a transactional processor to ensure storage noop on failures.
+	///
+	/// Note: Must be called within [`Self::transactional_process`]. On a failed fee swap,
+	/// `take_fee` leaves the fee asset in the `fees` register, and on a failed delivery the fee
+	/// stays charged. The caller is responsible for rollback of the registers and storage.
 	fn send(
 		&mut self,
 		dest: Location,
@@ -902,6 +905,23 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 	/// Execute `f` inside a transactional context that backs up and restores `holding` and
 	/// `fees` on failure.
+	///
+	/// # Invariants
+	///
+	/// The register backup is only sound together with the storage rollback, and it only covers
+	/// the `holding` and `fees` registers. Code running inside `f` must respect the following:
+	///
+	/// - Every credit that leaves `holding` or `fees` inside `f` must, by the time `f` returns an
+	///   error, either be back in one of the two registers, be resolved into storage, or be dropped
+	///   inside `f`. All three are undone by a rollback in case of errors. A credit parked anywhere
+	///   else survives the rollback and is duplicated by the restored backup.
+	/// - The trader is not backed up. If `f` is using a trader, `Config::Trader::buy_weight` must
+	///   therefore be the last fallible operation of `f` (a failed purchase hands the payment back
+	///   untouched), and `Config::Trader::refund_weight` must never be called inside `f`: a refund
+	///   extracted from the trader cannot be undone when its storage effects are rolled back.
+	/// - Nothing else in the executor state is backed up. Any other register written inside `f`
+	///   must be written after the last fallible operation, or restored through
+	///   [`Self::transactional_process_with_custom_rollback`].
 	fn transactional_process(
 		&mut self,
 		f: impl FnOnce(&mut Self) -> Result<(), XcmError>,
