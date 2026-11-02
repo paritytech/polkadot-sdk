@@ -585,6 +585,36 @@ async fn wildcard_storage_subscriptions_are_rpc_unsafe() {
 }
 
 #[tokio::test]
+async fn get_keys_is_rpc_unsafe() {
+	let client = Arc::new(substrate_test_runtime_client::new());
+	let (api, child) = new_full(client, test_executor(), None);
+	let mut api_rpc = api.into_rpc();
+	let mut child_rpc = child.into_rpc();
+	let prefix = StorageKey(Vec::new());
+	let child_params = (prefixed_storage_key(), prefix.clone());
+
+	api_rpc.extensions_mut().insert(DenyUnsafe::Yes);
+	child_rpc.extensions_mut().insert(DenyUnsafe::Yes);
+
+	let err = api_rpc.call::<_, Vec<StorageKey>>("state_getKeys", [prefix.clone()]).await;
+	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
+	let err = child_rpc
+		.call::<_, Vec<StorageKey>>("childstate_getKeys", child_params.clone())
+		.await;
+	assert_matches!(err, Err(RpcError::JsonRpc(e)) if e.message() == "RPC call is unsafe to be called externally");
+
+	api_rpc.extensions_mut().insert(DenyUnsafe::No);
+	child_rpc.extensions_mut().insert(DenyUnsafe::No);
+
+	let keys = api_rpc.call::<_, Vec<StorageKey>>("state_getKeys", [prefix]).await.unwrap();
+	assert!(!keys.is_empty());
+	assert!(child_rpc
+		.call::<_, Vec<StorageKey>>("childstate_getKeys", child_params)
+		.await
+		.is_ok());
+}
+
+#[tokio::test]
 async fn concrete_storage_subscriptions_are_rpc_safe() {
 	let client = Arc::new(substrate_test_runtime_client::new());
 	let (api, _child) = new_full(client, test_executor(), None);

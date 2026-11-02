@@ -370,6 +370,9 @@ pub enum InvalidCandidate {
 	ParaHeadHashMismatch,
 	/// Validation code hash does not match.
 	CodeHashMismatch,
+	/// Persisted validation data does not match the descriptor's
+	/// `persisted_validation_data_hash`.
+	PersistedValidationDataMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
 	/// The descriptor's scheduling session does not match the runtime.
