@@ -26,13 +26,14 @@ asset id. Each instance:
 
 - **Holds a per-instance reserve account** derived from
   `blake2_256((PalletId::TYPE_ID, PalletId, internal_asset).encode())`.
-  External assets deposited by users are held there.
+  External assets deposited by users are held there. The `reserve_account`
+  view function returns it.
 - **Mints and burns its own internal asset**. Users receive the internal asset
   when depositing external assets, and burn the internal asset when
   redeeming.
 - **Routes fees to the instance's `fee_destination`**. Mint and redeem fees are
   collected in the internal asset and transferred to the per-instance account
-  recorded in `PsmInfo`.
+  recorded in `PsmInfo`. A fee is waived if that account cannot receive it.
 - **Has independent per-external circuit breakers**. Each approved external on
   each instance can be paused without affecting others.
 
@@ -116,7 +117,7 @@ identify the PSM instance being configured.
 | `set_max_debt(internal_asset, value)` | Full or Emergency | Update absolute debt ceiling for the PSM |
 | `set_asset_ceiling_weight(internal_asset, asset_id, weight)` | Full or Emergency | Update external ceiling weight |
 | `set_asset_status(internal_asset, asset_id, status)` | Full or Emergency | Set per-external circuit breaker level |
-| `add_external_asset(internal_asset, asset_id)` | Full | Approve external on a PSM |
+| `add_external_asset(internal_asset, asset_id)` | Full | Approve external on a PSM (the reserve account must be able to receive it) |
 | `remove_external_asset(internal_asset, asset_id)` | Full | Remove external from a PSM (zero debt) |
 
 ### Privilege Levels
