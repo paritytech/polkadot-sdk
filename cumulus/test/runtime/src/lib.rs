@@ -381,6 +381,7 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	// Channel lifecycle is governance-driven on the test chain.
 	type OpenChannelOrigin = EnsureRoot<AccountId>;
 	type AcceptChannelOrigin = EnsureRoot<AccountId>;
+	type ChannelManagementOrigin = EnsureRoot<AccountId>;
 }
 
 impl parachain_info::Config for Runtime {}

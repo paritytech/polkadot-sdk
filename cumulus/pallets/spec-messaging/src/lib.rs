@@ -182,6 +182,9 @@ pub mod pallet {
 
 		/// Origin allowed to accept and close an inbound channel.
 		type AcceptChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Origin allowed to flag a sibling's HRMP channel as closing in favour of spec-msg.
+		type ChannelManagementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// Per-stream outbound MMR frontiers; reflects state as of the previous block.

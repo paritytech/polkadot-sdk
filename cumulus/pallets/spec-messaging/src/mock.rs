@@ -81,6 +81,7 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type WeightInfo = ();
 	type OpenChannelOrigin = EnsureRoot<u64>;
 	type AcceptChannelOrigin = EnsureRoot<u64>;
+	type ChannelManagementOrigin = EnsureRoot<u64>;
 }
 
 parameter_types! {
