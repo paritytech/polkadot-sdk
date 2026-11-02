@@ -28,7 +28,6 @@
 extern crate alloc;
 
 pub mod channel;
-pub mod flow_control;
 pub mod inherent;
 pub mod lift;
 pub mod message;
@@ -42,10 +41,9 @@ mod adversarial_tests;
 mod test_utils;
 
 pub use channel::{
-	AppliedRegister, BroadcastId, InChannelId, InChannelState, OpenSession, OutChannelId,
-	OutChannelState, SessionParams,
+	AppliedRegister, BroadcastId, ChannelMessage, InChannelId, InChannelState, OpenSession,
+	OutChannelId, OutChannelState, Register, RegisterStatus, SessionParams,
 };
-pub use flow_control::{ChannelMessage, Register, RegisterStatus};
 pub use inherent::{
 	ConsumedStreams, LossyRead, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
 };
