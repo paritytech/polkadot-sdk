@@ -1779,7 +1779,7 @@ in the list. The newest entry points to itself.
 
 The settlement check reads only `messages_member`, once per declared `(ParaId, StreamsRoot)`.
 
-#### Pushing a Root*
+#### Pushing a Root
 
 1. Read `messages_member` under `(para_id, new_root)`. Stop if the ring already contains the new root.
 
