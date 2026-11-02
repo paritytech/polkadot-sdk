@@ -20,6 +20,7 @@ use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationPara
 use alloc::vec::Vec;
 use codec::Encode;
 use cumulus_primitives_core::{
+	bundle_provides,
 	relay_chain::{
 		BlockNumber as RNumber, Hash as RHash, Header as RelayChainHeader, MAX_HEAD_DATA_SIZE,
 		UMP_SEPARATOR,
@@ -27,7 +28,7 @@ use cumulus_primitives_core::{
 	ump_signal_tail, CumulusDigestItem, ParachainBlockData, PersistedValidationData,
 	SchedulingSignals, SignedSchedulingInfo, SpecMessagingSignals, VerifySchedulingSignature,
 };
-use cumulus_primitives_spec_messaging::ProvideUmpSignals;
+use cumulus_primitives_spec_messaging::ProvideConsumptionRecord;
 use frame_support::{
 	traits::{ExecuteBlock, Get, IsSubType},
 	BoundedVec,
@@ -175,6 +176,10 @@ where
 	let (blocks, proof) = block_data.into_inner();
 
 	verify_blocks_form_chain::<B>(&blocks, &parent_header);
+
+	// The bundle's `Provides`, from the blocks' SPMS digests. Executing each block below checks
+	// its header digest against the one the runtime deposits.
+	let provides = bundle_provides(blocks.iter().map(|block| block.header().digest()));
 
 	let mut processed_downward_messages = 0;
 	let mut upward_messages = BoundedVec::default();
@@ -345,7 +350,7 @@ where
 				// The block's consumption record, in bundle order: the same read the
 				// `consumption_record()` runtime API serves node-side, executed in-wasm.
 				consumption_records
-					.push(<PSC as crate::Config>::UmpSignalSource::consumption_record());
+					.push(<PSC as crate::Config>::ConsumptionRecordSource::consumption_record());
 
 				if block_index + 1 == num_blocks {
 					head_data = Some(
@@ -383,10 +388,15 @@ where
 		None => SchedulingSignals::from_block_signals(&upward_message_signals),
 	};
 
-	// On both paths: pass `Provides` through and synthesize `Requires`; any failure invalidates.
-	let spec_msg_signals =
-		SpecMessagingSignals::build(&upward_message_signals, &consumption_records, lifts.as_ref())
-			.unwrap_or_else(|error| panic!("{}", error));
+	// On both paths: emit the digests' `Provides` and synthesize `Requires`; any failure
+	// invalidates.
+	let spec_msg_signals = SpecMessagingSignals::build(
+		provides,
+		&upward_message_signals,
+		&consumption_records,
+		lifts.as_ref(),
+	)
+	.unwrap_or_else(|error| panic!("{}", error));
 
 	for message in ump_signal_tail(scheduling_signals, spec_msg_signals) {
 		upward_messages
