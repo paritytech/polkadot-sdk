@@ -440,8 +440,8 @@ module accumulate {
           // restricted host calls from the wrong parachain.
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else if (not(settlementCheck(s, r.messagesRequiresRoots))) {
-          // Settlement check (§5.1 step 5, §8). Positioned as the final gate 
-          // before the head write to ensure rejected consumers cannot publish 
+          // Settlement check (§5.1 step 5, §8). Positioned as the final gate
+          // before the head write to ensure rejected consumers cannot publish
           // their own roots. Silently rejects if any requirement is missing.
           { state: s, rejected: true, jamSolicit: Set(), jamForget: Set(), logs: List() }
         } else {
@@ -456,7 +456,7 @@ module accumulate {
             parachains: pruned.parachains.put(r.paraId, { ...pi2, headData: r.headData })
           }
           // Push the candidate's `messages_streams_root` (§5.1 step 6, §8.1).
-          // Executed after the head write to guarantee roots only enter the 
+          // Executed after the head write to guarantee roots only enter the
           // ring upon successful enactment.
           val pushed = match r.messagesStreamsRoot {
             | Some(root) => settlementRingPush(sAfterHead, r.paraId, root)
@@ -567,7 +567,7 @@ module accumulate {
     }
   }
 
-  /// Accumulate a block's work packages in order (§5.1). 
+  /// Accumulate a block's work packages in order (§5.1).
   pure def accumulateAll(
     state: ParachainServiceState,
     solicited: Set[(ParaId, Hash, int)],
