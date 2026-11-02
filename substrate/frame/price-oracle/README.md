@@ -82,9 +82,9 @@ USDT/USD rate:
 
 ```text
 set_venue(BINANCE, Venue { name: "Binance" })
-set_pair(DOT_USDT, 3)                               // needs 3 market votes
-set_pair(USDT_USD, 2)
-set_pair(DOT_USD, 3)
+set_pair(DOT_USDT, PairConfig { market_quorum: 3 }) // needs 3 market votes
+set_pair(USDT_USD, PairConfig { market_quorum: 2 })
+set_pair(DOT_USD, PairConfig { market_quorum: 3 })
 set_cross_rates(DOT_USD, [(DOT_USDT, USDT_USD)])    // DOT/USD = DOT/USDT * USDT/USD
 set_market(0, StoredMarket { venue: BINANCE, pair: DOT_USDT, pricing, active: true })
 set_parameters(Parameters { report_window, quorum, tick_interval_ms })

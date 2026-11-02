@@ -90,6 +90,16 @@ pub struct Parameters {
 	pub tick_interval_ms: u32,
 }
 
+/// Settings of a registered pair.
+#[derive(
+	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+)]
+pub struct PairConfig {
+	/// How many market votes an oracle node needs to quote the pair. Used by the nodes, not by
+	/// the on-chain vote.
+	pub market_quorum: u32,
+}
+
 /// Provides the current anchor, against which the age of reports is measured.
 ///
 /// Oracle nodes anchor their reports to the same clock, so it must be one both the runtime and
@@ -228,13 +238,15 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Paused<T: Config> = StorageValue<_, Pause, OptionQuery>;
 
-	/// Registered pairs, with the number of market votes each needs to be priced.
+	/// Registered pairs and their settings.
 	#[pallet::storage]
-	pub type Pairs<T: Config> = StorageMap<_, Twox64Concat, PairId, u32, OptionQuery>;
+	pub type Pairs<T: Config> = StorageMap<_, Twox64Concat, PairId, PairConfig, OptionQuery>;
 
 	/// Other ways to price a pair, as `(source, rate)` such that `pair = source * rate`.
 	///
 	/// E.g. DOT/USD => [(DOT/USDT, USDT/USD), (DOT/USDC, USDC/USD)].
+	///
+	/// Read by the oracle nodes; not used by the on-chain vote.
 	#[pallet::storage]
 	pub type CrossRates<T: Config> = StorageMap<
 		_,
@@ -244,11 +256,11 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Registered venues.
+	/// Registered venues. Read by the oracle nodes; not used by the on-chain vote.
 	#[pallet::storage]
 	pub type Venues<T: Config> = StorageMap<_, Twox64Concat, VenueId, Venue, OptionQuery>;
 
-	/// Registered markets.
+	/// Registered markets. Read by the oracle nodes; not used by the on-chain vote.
 	#[pallet::storage]
 	pub type Markets<T: Config> =
 		StorageMap<_, Twox64Concat, MarketId, StoredMarketOf<T>, OptionQuery>;
@@ -412,15 +424,15 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Add or update a pair. `quorum` is the number of market votes it needs to be priced.
+		/// Add or update a pair.
 		///
-		/// `quorum` must be non-zero.
+		/// `market_quorum` must be non-zero.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_pair())]
-		pub fn set_pair(origin: OriginFor<T>, pair: PairId, quorum: u32) -> DispatchResult {
+		pub fn set_pair(origin: OriginFor<T>, pair: PairId, config: PairConfig) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(quorum >= 1, Error::<T>::InvalidParameters);
-			Pairs::<T>::insert(pair, quorum);
+			ensure!(config.market_quorum >= 1, Error::<T>::InvalidParameters);
+			Pairs::<T>::insert(pair, config);
 			Self::deposit_event(Event::PairSet { pair });
 			Ok(())
 		}
@@ -568,7 +580,7 @@ impl<T: Config> Pallet<T> {
 			.collect();
 		let pairs: Vec<PairId> = Pairs::<T>::iter_keys().collect();
 		let cross_rates = |pair| CrossRates::<T>::get(pair).into_inner();
-		let quorum = |pair| Pairs::<T>::get(pair).unwrap_or(u32::MAX);
+		let quorum = |pair| Pairs::<T>::get(pair).map_or(u32::MAX, |c| c.market_quorum);
 		pricing::aggregate(markets, &pairs, cross_rates, quorum)
 	}
 }
