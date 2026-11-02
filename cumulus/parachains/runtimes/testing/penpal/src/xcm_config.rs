@@ -455,6 +455,16 @@ pub type PriceForParentDelivery =
 pub type XcmRouter = WithUniqueTopic<(
 	// Two routers - use UMP to communicate with the relay chain:
 	cumulus_primitives_utility::ParentAsUmp<ParachainSystem, PolkadotXcm, PriceForParentDelivery>,
+	// ..Speculative Messaging to siblings with no HRMP channel. It must come before `XcmpQueue`,
+	// which accepts any sibling: HRMP still wins while a channel exists.
+	cumulus_pallet_spec_messaging::SpecMsgRouter<
+		Runtime,
+		ParachainSystem,
+		PolkadotXcm,
+		polkadot_runtime_common::xcm_sender::NoPriceForMessageDelivery<
+			cumulus_primitives_core::ParaId,
+		>,
+	>,
 	// ..and XCMP to communicate with the sibling chains.
 	XcmpQueue,
 )>;

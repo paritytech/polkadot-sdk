@@ -42,6 +42,8 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 mod genesis_config_presets;
+#[cfg(test)]
+mod tests;
 mod weights;
 pub mod xcm_config;
 
@@ -51,7 +53,9 @@ use alloc::{vec, vec::Vec};
 pub use assets_common::local_and_foreign_assets::ForeignAssetReserveData;
 use assets_common::{foreign_creators::ForeignCreators, local_and_foreign_assets::TargetFromLeft};
 use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId, VerifySchedulingSignature};
+use cumulus_primitives_core::{
+	AggregateMessageOrigin, InChannelId, ParaId, VerifySchedulingSignature,
+};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -80,7 +84,7 @@ use frame_system::{
 use pallet_revive::evm::runtime::EthExtra;
 use parachains_common::{
 	impls::BlockAuthor,
-	message_queue::{NarrowOriginToSibling, ParaIdToSibling},
+	message_queue::{ChannelToSpecMsg, NarrowOriginToSibling, ParaIdToSibling},
 	AccountId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
 };
 use polkadot_runtime_common::{BlockHashCount, SlowAdjustingFeeUpdate};
@@ -613,7 +617,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 	type SchedulingSignatureVerifier = ();
-	type ConsumptionRecordSource = ();
+	type ConsumptionRecordSource = SpecMessaging;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -671,6 +675,55 @@ impl cumulus_pallet_xcmp_queue::Config for Runtime {
 	type ControllerOriginConverter = XcmOriginToTransactDispatchOrigin;
 	type WeightInfo = ();
 	type PriceForSiblingDelivery = PriceForSiblingParachainDelivery;
+}
+
+parameter_types! {
+	pub const SpecMsgSupportedVersions: core::ops::RangeInclusive<u8> = 1..=1;
+}
+
+/// Weight of enqueueing a spec-msg payload: the same message-queue work as an HRMP message.
+pub struct SpecMsgEnqueueWeight;
+impl sp_runtime::traits::Convert<u32, Weight> for SpecMsgEnqueueWeight {
+	fn convert(len: u32) -> Weight {
+		use cumulus_pallet_xcmp_queue::weights::WeightInfo;
+		cumulus_pallet_xcmp_queue::weights::SubstrateWeight::<Runtime>::enqueue_n_bytes_xcmp_message(
+			len,
+		)
+	}
+}
+
+impl cumulus_pallet_spec_messaging::Config for Runtime {
+	type SelfParaId = ParachainInfo;
+	// The protocol's single-message bound (`MAX_SPECULATIVE_MESSAGE_LEN`), which is also the usual
+	// HRMP `max_message_size`. The message queue's `MaxMessageLen` must hold it, which
+	// `integrity_test` checks. The `Data` leaf's framing takes 5 bytes of it: see
+	// `an_xcm_one_framing_short_of_the_bound_is_the_largest_that_fits`.
+	type MaxMsgLen = ConstU32<102400>;
+	type MaxMessagesPerBlock = ConstU32<256>;
+	type MaxInFlight = ConstU32<128>;
+	type MaxSendsPerBlock = ConstU32<1024>;
+	type MaxTouchedStreams = ConstU32<24>;
+	type MaxBundleStreams = ConstU32<3000>;
+	type MaxTreeDepth = ConstU32<32>;
+	type MaxInboundMessagesPerItem = ConstU32<256>;
+	type MaxHelloPassPerBlock = ConstU32<8>;
+	type SupportedVersions = SpecMsgSupportedVersions;
+	type MaxMessageSize = ConstU32<102400>;
+	type MaxQueueFootprint = ConstU32<48>;
+	type QueueFootprint = cumulus_pallet_spec_messaging::QueueFootprintOf<
+		TransformOrigin<MessageQueue, AggregateMessageOrigin, InChannelId, ChannelToSpecMsg>,
+	>;
+	// Execute the XCM channel's payloads in the channel's own queue, which XCM sees as the
+	// sibling.
+	type DataHandler = cumulus_pallet_spec_messaging::EnqueueToXcmQueue<
+		TransformOrigin<MessageQueue, AggregateMessageOrigin, InChannelId, ChannelToSpecMsg>,
+		SpecMsgEnqueueWeight,
+	>;
+	type WeightInfo = cumulus_pallet_spec_messaging::weights::SubstrateWeight<Runtime>;
+	// Channel lifecycle is governance-driven on the test chain.
+	type OpenChannelOrigin = EnsureRoot<AccountId>;
+	type AcceptChannelOrigin = EnsureRoot<AccountId>;
+	type ChannelManagementOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
@@ -840,6 +893,7 @@ construct_runtime!(
 		PolkadotXcm: pallet_xcm = 31,
 		CumulusXcm: cumulus_pallet_xcm = 32,
 		MessageQueue: pallet_message_queue = 34,
+		SpecMessaging: cumulus_pallet_spec_messaging = 35,
 
 		// Handy utilities.
 		Utility: pallet_utility = 40,
@@ -1172,6 +1226,24 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn preset_names() -> Vec<sp_genesis_builder::PresetId> {
 			genesis_config_presets::preset_names()
+		}
+	}
+
+	impl cumulus_primitives_core::SpecMsgApi<Block> for Runtime {
+		fn outbound_messages() -> Vec<(cumulus_primitives_spec_messaging::StreamId, Vec<Vec<u8>>)> {
+			SpecMessaging::outbound_messages()
+		}
+
+		fn consumed_streams() -> cumulus_primitives_spec_messaging::ConsumedStreams {
+			SpecMessaging::consumed_streams()
+		}
+
+		fn max_touched_streams() -> u32 {
+			SpecMessaging::max_touched_streams()
+		}
+
+		fn consumption_record() -> cumulus_primitives_spec_messaging::ConsumptionRecord {
+			SpecMessaging::consumption_record()
 		}
 	}
 
