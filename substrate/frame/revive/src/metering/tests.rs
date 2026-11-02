@@ -759,12 +759,13 @@ fn clear_and_terminate_then_write(target: H160, slots: BalanceOf<Test>) -> Vec<u
 ///
 /// With `unheld_slots`, half of the slots were written by `Origin::Root` and are not held, so the
 /// recorded refund exceeds the hold and the deposit consumed at the end is the binding one: one
-/// unit below it, the call fails with `StorageDepositNotEnoughFunds` after the refunds are paid.
-/// Otherwise ALICE pays all slots in PGAS. The termination releases the whole PGAS hold, burning
-/// all but `PGasRefundPercent` of it, and that release is what counts against the limit. The peak
-/// during execution is the binding one: one unit below it, the call fails during execution. At
-/// exactly the binding deposit, the call succeeds, reports the deposit consumed at the end as the
-/// storage deposit and the binding one as the maximum storage deposit, and changes nothing.
+/// unit below it, the call fails with `StorageDepositNotEnoughFunds` after the refunds are paid
+/// and changes nothing. Otherwise ALICE pays all slots in PGAS. The termination releases the whole
+/// PGAS hold, burning all but `PGasRefundPercent` of it, and that release is what counts against
+/// the limit. The peak during execution is the binding one: one unit below it, the call fails
+/// during execution and changes nothing. At exactly the binding deposit, the call succeeds and
+/// reports the deposit consumed at the end as the storage deposit and the binding one as the
+/// maximum storage deposit.
 #[test_case(FixtureType::Solc  , true  ; "solc unheld slots")]
 #[test_case(FixtureType::Solc  , false ; "solc pgas")]
 #[test_case(FixtureType::Resolc, true  ; "resolc unheld slots")]

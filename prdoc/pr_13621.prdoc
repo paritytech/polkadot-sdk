@@ -58,8 +58,12 @@ doc:
     and then terminates: only the deposit released by the termination counts against the limit,
     not the refund recorded for the cleared storage on top of it. On runtimes using
     `PGasDeposit`, the refund reported for terminating a contract includes the burned share of
-    its PGAS deposit. Contracts instantiated by `Origin::Root` record a base deposit of zero, so
-    storage deposits paid for them are refunded in full.
+    its PGAS deposit. On these runtimes the deposit limit is checked against the charges minus the
+    deposit released from the holds, while the origin is credited only `RefundPercent` of a
+    released PGAS hold. The limit therefore does not cap the origin's out-of-pocket PGAS cost
+    when its call releases PGAS deposits, by clearing storage or terminating a contract.
+    Contracts instantiated by `Origin::Root` record a base deposit of zero, so storage deposits
+    paid for them are refunded in full.
 crates:
 - name: pallet-revive
   bump: patch
