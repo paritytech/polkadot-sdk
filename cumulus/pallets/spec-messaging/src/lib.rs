@@ -172,9 +172,6 @@ pub mod pallet {
 
 		/// Origin allowed to accept and close an inbound channel.
 		type AcceptChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// Origin allowed to suspend and resume an inbound channel.
-		type ChannelManagementOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	/// Per-stream outbound MMR frontiers; reflects state as of the previous block.
