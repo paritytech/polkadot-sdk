@@ -20,7 +20,7 @@
 //! # Formats (consensus surface)
 //!
 //! - [`ChannelMessage`] is the SCALE payload of every channel-stream MMR leaf, inside
-//! [`crate::message::leaf_hash`]'s framing.
+//! [`crate::mmr::leaf_hash`]'s framing.
 //! - [`Register`] is the SCALE payload of every ack-stream leaf: the receiver's complete voice in
 //! the channel, lossy and latest-wins, read out-of-band by the sender.
 //!
@@ -481,7 +481,7 @@ mod tests {
 	fn data_at_the_protocol_bound_takes_five_bytes_of_framing() {
 		// The bound is on the encoded leaf. At this size the compact length takes 4 bytes, so 5
 		// bytes less data fill it exactly and one more overflows it.
-		let max = crate::message::MAX_SPECULATIVE_MESSAGE_LEN as usize;
+		let max = crate::fetch::MAX_SPECULATIVE_MESSAGE_LEN as usize;
 		assert_eq!(ChannelMessage::Data(vec![0; max - 5]).encoded_size(), max);
 		assert_eq!(ChannelMessage::Data(vec![0; max - 4]).encoded_size(), max + 1);
 	}
