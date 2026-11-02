@@ -200,10 +200,10 @@ pub mod test_pallet {
 		type Call = Call<T>;
 		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			Ok(ValidTransaction {
-				priority: u64::max_value(),
+				priority: u64::MAX,
 				requires: Vec::new(),
 				provides: vec![call.encode()],
-				longevity: TransactionLongevity::max_value(),
+				longevity: TransactionLongevity::MAX,
 				propagate: true,
 			})
 		}
