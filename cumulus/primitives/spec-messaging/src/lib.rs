@@ -67,24 +67,17 @@ pub use streams_root::{
 	TreeError, TreeRootEntry,
 };
 
-/// How `parachain-system` sources the speculative-messaging signals without depending on the
-/// messaging pallet. `()` emits nothing. There is no `Requires` hook: blocks never emit it.
-pub trait ProvideUmpSignals {
-	/// The block's `StreamsRoot` for `Provides`, or `None` if no stream was touched (an unchanged
-	/// root would duplicate a window entry). Also deposits the [`SPMS_ENGINE_ID`] digest.
-	fn provides_root() -> Option<StreamsRoot>;
-
+/// How `parachain-system` reads a block's consumption record without depending on the messaging
+/// pallet. `()` records nothing. `Provides` needs no hook: `validate_block` takes it from the
+/// blocks' [`SPMS_ENGINE_ID`] digests.
+pub trait ProvideConsumptionRecord {
 	/// The block's consumption record: what the messaging inherent did. Called by the
 	/// `consumption_record()` runtime API node-side and by the `validate_block` wrapper in-wasm
 	/// after executing each block of a bundle.
 	fn consumption_record() -> ConsumptionRecord;
 }
 
-impl ProvideUmpSignals for () {
-	fn provides_root() -> Option<StreamsRoot> {
-		None
-	}
-
+impl ProvideConsumptionRecord for () {
 	fn consumption_record() -> ConsumptionRecord {
 		ConsumptionRecord::default()
 	}

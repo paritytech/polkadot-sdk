@@ -54,7 +54,9 @@ pub use sp_runtime::{
 	traits::Block as BlockT,
 	ConsensusEngineId,
 };
-pub use spec_messaging::{ump_signal_tail, SpecMessagingError, SpecMessagingSignals};
+pub use spec_messaging::{
+	bundle_provides, ump_signal_tail, SpecMessagingError, SpecMessagingSignals,
+};
 pub use xcm::latest::prelude::*;
 
 /// A module that re-exports relevant relay chain definitions.
