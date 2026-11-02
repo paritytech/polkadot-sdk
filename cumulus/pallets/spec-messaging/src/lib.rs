@@ -35,15 +35,16 @@ use alloc::{
 	vec::Vec,
 };
 use codec::{Compact, DecodeAll, Encode, MaxEncodedLen};
-use core::ops::RangeInclusive;
+use core::{marker::PhantomData, ops::RangeInclusive};
 use cumulus_primitives_core::CumulusDigestItem;
 use cumulus_primitives_spec_messaging::{
-	leaf_hash_with_version, streams_root::streams_root, AppliedRegister, ChannelMessage,
-	ConsumedStreams, ConsumptionRecord, InChannelId, InChannelState, Interval, LossyRead,
-	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot, OpenSession,
-	OutChannelId, OutChannelState, Payload, ProvideConsumptionRecord, Register, RegisterStatus,
-	SessionParams, StreamId, StreamProof, StreamsRoot, INHERENT_IDENTIFIER, LEAF_VERSION,
-	MAX_SPECULATIVE_MESSAGE_LEN, SPMS_ENGINE_ID,
+	leaf_hash_with_version, streams_root::update_tree_leaf, AppliedRegister, ChannelMessage,
+	ConsumedStreams, ConsumptionRecord, InChannelId, InChannelState, InnerNode, Interval,
+	LossyRead, MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot,
+	NodeKey, NodeLookup, NodeStore, OpenSession, OutChannelId, OutChannelState, Payload,
+	ProvideConsumptionRecord, Register, RegisterStatus, SessionParams, StreamId, StreamProof, StreamsRoot,
+	TreeError, TreeRootEntry, INHERENT_IDENTIFIER, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
+	SPMS_ENGINE_ID,
 };
 use frame_support::{
 	ensure,
@@ -174,6 +175,15 @@ pub mod pallet {
 	/// an idle block has committed, so a later send is rejected there too.
 	#[pallet::storage]
 	pub type BlockStreamsRoot<T: Config> = StorageValue<_, Option<StreamsRoot>, OptionQuery>;
+
+	/// Root of the commitment-tree node cache over every outbound stream. Each commit folds the
+	/// block's touched streams into it, so it must hold every stream from the first send on.
+	#[pallet::storage]
+	pub type TreeRoot<T: Config> = StorageValue<_, TreeRootEntry, OptionQuery>;
+
+	/// Inner nodes of the [`TreeRoot`] trie.
+	#[pallet::storage]
+	pub type TreeNodes<T: Config> = StorageMap<_, Twox64Concat, NodeKey, InnerNode, OptionQuery>;
 
 	/// The block whose roll-over has run, with the number of sends it drained. See
 	/// [`Pallet::roll_over`].
@@ -619,6 +629,36 @@ impl BundleBudget {
 	}
 }
 
+/// [`TreeNodes`] with writes buffered until [`Self::flush`], so a failed fold writes nothing and a
+/// node on several touched paths is written once.
+struct TreeNodeOverlay<T>(BTreeMap<NodeKey, InnerNode>, PhantomData<T>);
+
+impl<T> Default for TreeNodeOverlay<T> {
+	fn default() -> Self {
+		Self(BTreeMap::new(), PhantomData)
+	}
+}
+
+impl<T: Config> TreeNodeOverlay<T> {
+	fn flush(self) {
+		for (key, node) in self.0 {
+			TreeNodes::<T>::insert(key, node);
+		}
+	}
+}
+
+impl<T: Config> NodeLookup for TreeNodeOverlay<T> {
+	fn get_node(&self, key: &NodeKey) -> Option<InnerNode> {
+		self.0.get(key).copied().or_else(|| TreeNodes::<T>::get(key))
+	}
+}
+
+impl<T: Config> NodeStore for TreeNodeOverlay<T> {
+	fn set_node(&mut self, key: NodeKey, node: InnerNode) {
+		self.0.insert(key, node);
+	}
+}
+
 /// Decodes to the length of an inherent's raw data, so other inherents can be sized without
 /// knowing their types.
 struct EncodedLen(usize);
@@ -702,23 +742,32 @@ impl<T: Config> Pallet<T> {
 
 		Self::publish_pending_registers();
 
-		let mut entries: BTreeMap<StreamId, Hash> = BTreeMap::new();
+		let mut touched: BTreeMap<StreamId, Hash> = BTreeMap::new();
 		for (stream, messages) in OutboundMessages::<T>::iter() {
 			let mut frontier = OutboundFrontier::<T>::get(stream);
 			for payload in &messages {
 				frontier.append(leaf_hash_with_version(LEAF_VERSION, payload));
 			}
-			entries.insert(stream, frontier.root().0);
+			touched.insert(stream, frontier.root().0);
 		}
-		if entries.is_empty() {
+		if touched.is_empty() {
 			BlockStreamsRoot::<T>::put(None::<StreamsRoot>);
 			return None;
 		}
-		for (stream, frontier) in OutboundFrontier::<T>::iter() {
-			entries.entry(stream).or_insert_with(|| frontier.root().0);
-		}
 
-		let root = streams_root(&entries).expect("touched, so non-empty; qed");
+		let root = match Self::fold_into_tree(&touched) {
+			Ok(root) => root,
+			Err(error) => {
+				// Fail closed: a root from a corrupt cache would not commit the real stream roots.
+				log::error!(
+					target: LOG_TARGET,
+					"Block {:?}: streams root not committed: {error:?}",
+					frame_system::Pallet::<T>::block_number(),
+				);
+				BlockStreamsRoot::<T>::put(None::<StreamsRoot>);
+				return None;
+			},
+		};
 		BlockStreamsRoot::<T>::put(Some(root));
 		frame_system::Pallet::<T>::deposit_log(DigestItem::Consensus(
 			SPMS_ENGINE_ID,
@@ -726,12 +775,26 @@ impl<T: Config> Pallet<T> {
 		));
 		log::debug!(
 			target: LOG_TARGET,
-			"Block {:?}: committed streams root {root:?} over {} streams",
+			"Block {:?}: committed streams root {root:?} over {} touched streams",
 			frame_system::Pallet::<T>::block_number(),
-			entries.len(),
+			touched.len(),
 		);
 
 		Some(root)
+	}
+
+	/// Fold the touched streams' roots into the node cache and return the new [`StreamsRoot`].
+	/// On error, nothing is written.
+	fn fold_into_tree(touched: &BTreeMap<StreamId, Hash>) -> Result<StreamsRoot, TreeError> {
+		let mut entry = TreeRoot::<T>::get();
+		let mut nodes = TreeNodeOverlay::<T>::default();
+		let mut root = None;
+		for (stream, stream_root) in touched {
+			root = Some(update_tree_leaf(&mut entry, *stream, *stream_root, &mut nodes)?);
+		}
+		nodes.flush();
+		TreeRoot::<T>::set(entry);
+		Ok(root.expect("callers pass at least one touched stream; qed"))
 	}
 
 	/// This block's committed [`StreamsRoot`], if any.

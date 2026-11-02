@@ -19,11 +19,11 @@ use cumulus_primitives_core::{BlockBundleInfo, CumulusDigestItem, ParaId};
 use cumulus_primitives_spec_messaging::{
 	leaf_hash_with_version,
 	lift::{build_requires_entry, RequiresLift},
-	streams_root::{gen_stream_proof, streams_root},
+	streams_root::{gen_stream_proof, read_streams_root, streams_root},
 	AppliedRegister, BroadcastId, ChannelMessage, InChannelId, Interval, LossyRead,
 	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot, OpenSession,
 	OutChannelId, ProvideConsumptionRecord, Register, RegisterStatus, SessionParams, StreamId,
-	StreamProof, StreamsRoot, LEAF_VERSION,
+	StreamProof, StreamsRoot, TreeRootEntry, LEAF_VERSION,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -157,6 +157,72 @@ fn root_accumulates_across_blocks_and_multiple_streams() {
 		SpecMessaging::append_to_stream(s1, b"x".to_vec()).unwrap();
 		let root = SpecMessaging::commit_streams_root().unwrap();
 		assert_eq!(root, expected_root(&[(s0, &[b"a"]), (s1, &[b"x"])]));
+	});
+}
+
+/// The root over every stream's frontier with this block's sends folded in, built from scratch.
+fn scratch_root() -> Option<StreamsRoot> {
+	let mut entries: BTreeMap<StreamId, polkadot_core_primitives::Hash> =
+		OutboundFrontier::<Test>::iter().map(|(s, f)| (s, f.root().0)).collect();
+	for (stream, payloads) in SpecMessaging::outbound_messages() {
+		let mut frontier = OutboundFrontier::<Test>::get(stream);
+		for payload in &payloads {
+			frontier.append(leaf_hash_with_version(LEAF_VERSION, payload));
+		}
+		entries.insert(stream, frontier.root().0);
+	}
+	streams_root(&entries)
+}
+
+#[test]
+fn the_tree_cache_commits_the_from_scratch_root_across_blocks() {
+	new_test_ext().execute_with(|| {
+		let mut seed = 0x9E37_79B9_7F4A_7C15u64;
+		let mut rng = || {
+			seed ^= seed << 13;
+			seed ^= seed >> 7;
+			seed ^= seed << 17;
+			seed
+		};
+		for _ in 0..30 {
+			for _ in 0..rng() % 6 {
+				let x = rng();
+				let (recipient, num) = (ParaId::from((x >> 8) as u32 % 64), (x >> 16) as u16 % 4);
+				let stream = if x % 2 == 0 {
+					StreamId::Channel { recipient, domain: 0, num }
+				} else {
+					StreamId::Ack { recipient, domain: 0, num }
+				};
+				SpecMessaging::append_to_stream(stream, x.encode()).unwrap();
+			}
+			let expected =
+				if SpecMessaging::outbound_messages().is_empty() { None } else { scratch_root() };
+			assert_eq!(SpecMessaging::commit_streams_root(), expected);
+			roll_one_block();
+		}
+		assert!(OutboundFrontier::<Test>::iter().count() > 20);
+	});
+}
+
+#[test]
+fn a_missing_tree_node_commits_no_root_and_writes_nothing() {
+	new_test_ext().execute_with(|| {
+		for num in 0..3 {
+			SpecMessaging::append_to_stream(stream(num), b"a".to_vec()).unwrap();
+		}
+		roll_one_block();
+		let Some(TreeRootEntry::Node { key, .. }) = TreeRoot::<Test>::get() else {
+			panic!("three streams have an inner root node");
+		};
+		TreeNodes::<Test>::remove(key);
+		let (entry, nodes) =
+			(TreeRoot::<Test>::get(), TreeNodes::<Test>::iter().collect::<Vec<_>>());
+
+		SpecMessaging::append_to_stream(stream(0), b"b".to_vec()).unwrap();
+		assert_eq!(SpecMessaging::commit_streams_root(), None);
+		assert_eq!(read_streams_root(&System::digest()), None);
+		assert_eq!(TreeRoot::<Test>::get(), entry);
+		assert_eq!(TreeNodes::<Test>::iter().collect::<Vec<_>>(), nodes);
 	});
 }
 
