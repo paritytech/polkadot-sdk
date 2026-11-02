@@ -97,6 +97,13 @@ pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(1
 /// Default value for the `--light-request-execution-timeout-ms` parameter.
 pub const DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT: Duration = Duration::from_secs(3);
 
+/// Default value for the `--light-request-call-workers` parameter: half the available CPU cores,
+/// at most 4.
+pub fn default_light_request_call_workers() -> NonZeroUsize {
+	let cpus = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
+	NonZeroUsize::new((cpus / 2).clamp(1, 4)).unwrap_or(NonZeroUsize::MIN)
+}
+
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
 /// Deprecated in favour of genesis hash & fork ID based protocol names.
@@ -810,6 +817,9 @@ pub struct NetworkConfiguration {
 	/// `None` disables the limit.
 	pub light_request_execution_timeout: Option<Duration>,
 
+	/// Number of light-client call requests executed in parallel.
+	pub light_request_call_workers: NonZeroUsize,
+
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
 }
@@ -847,6 +857,7 @@ impl NetworkConfiguration {
 			ipfs_server: false,
 			ipfs_bootnodes: Vec::new(),
 			light_request_execution_timeout: Some(DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT),
+			light_request_call_workers: default_light_request_call_workers(),
 			network_backend: NetworkBackendType::Litep2p,
 		}
 	}

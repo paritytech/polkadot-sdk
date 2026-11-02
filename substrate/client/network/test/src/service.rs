@@ -46,7 +46,7 @@ use substrate_test_runtime_client::{
 	TestClientBuilder, TestClientBuilderExt as _,
 };
 
-use std::{sync::Arc, time::Duration};
+use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
 type TestNetworkWorker = NetworkWorker<TestBlock, TestHash>;
 type TestNetworkService = NetworkService<TestBlock, TestHash>;
@@ -186,13 +186,14 @@ impl TestNetworkBuilder {
 		};
 
 		let light_client_request_protocol_config = {
-			let (handler, protocol_config) = LightClientRequestHandler::new::<
-				NetworkWorker<
-					substrate_test_runtime_client::runtime::Block,
-					substrate_test_runtime_client::runtime::Hash,
-				>,
-			>(&protocol_id, None, client.clone(), None);
-			tokio::spawn(handler.run().boxed());
+			let (handler, protocol_config) =
+				LightClientRequestHandler::new::<
+					NetworkWorker<
+						substrate_test_runtime_client::runtime::Block,
+						substrate_test_runtime_client::runtime::Hash,
+					>,
+				>(&protocol_id, None, client.clone(), None, NonZeroUsize::MIN, None);
+			tokio::spawn(handler.run(crate::TokioSpawner).boxed());
 			protocol_config
 		};
 

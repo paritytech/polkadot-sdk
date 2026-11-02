@@ -30,6 +30,7 @@ mod sync;
 
 use std::{
 	collections::HashMap,
+	num::NonZeroUsize,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicU32, Ordering},
@@ -90,7 +91,7 @@ use sp_consensus::{
 	block_validation::{BlockAnnounceValidator, DefaultBlockAnnounceValidator},
 	BlockOrigin, Error as ConsensusError, SyncOracle,
 };
-use sp_core::H256;
+use sp_core::{traits::SpawnNamed, H256};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	generic::BlockId,
@@ -103,6 +104,30 @@ pub use substrate_test_runtime_client::{
 	TestClient, TestClientBuilder, TestClientBuilderExt,
 };
 use tokio::time::timeout;
+
+/// Spawns tasks on the current tokio runtime.
+#[derive(Clone)]
+pub(crate) struct TokioSpawner;
+
+impl SpawnNamed for TokioSpawner {
+	fn spawn_blocking(
+		&self,
+		_name: &'static str,
+		_group: Option<&'static str>,
+		future: BoxFuture<'static, ()>,
+	) {
+		tokio::task::spawn_blocking(move || futures::executor::block_on(future));
+	}
+
+	fn spawn(
+		&self,
+		_name: &'static str,
+		_group: Option<&'static str>,
+		future: BoxFuture<'static, ()>,
+	) {
+		tokio::spawn(future);
+	}
+}
 
 /// A Verifier that accepts all blocks and passes them on with the configured
 /// finality to be imported.
@@ -933,14 +958,18 @@ pub trait TestNetFactory: Default + Sized + Send {
 			protocol_config
 		};
 
-		let light_client_request_protocol_config =
-			{
-				let (handler, protocol_config) = LightClientRequestHandler::new::<
-					NetworkWorker<_, _>,
-				>(&protocol_id, None, client.clone(), None);
-				self.spawn_task(handler.run().boxed());
-				protocol_config
-			};
+		let light_client_request_protocol_config = {
+			let (handler, protocol_config) = LightClientRequestHandler::new::<NetworkWorker<_, _>>(
+				&protocol_id,
+				None,
+				client.clone(),
+				None,
+				NonZeroUsize::MIN,
+				None,
+			);
+			self.spawn_task(handler.run(TokioSpawner).boxed());
+			protocol_config
+		};
 
 		let warp_sync = Arc::new(TestWarpSyncProvider(client.clone()));
 
