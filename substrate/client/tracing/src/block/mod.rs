@@ -329,16 +329,7 @@ where
 			.lock()
 			.drain(..)
 			.filter(|e| {
-				self.storage_keys
-					.as_ref()
-					.map(|keys| event_values_filter(e, "key", keys))
-					.unwrap_or(false)
-			})
-			.filter(|e| {
-				self.methods
-					.as_ref()
-					.map(|methods| event_values_filter(e, "method", methods))
-					.unwrap_or(false)
+				event_matches_filters(e, self.storage_keys.as_deref(), self.methods.as_deref())
 			})
 			.map(|s| s.into())
 			.collect();
@@ -356,7 +347,25 @@ where
 	}
 }
 
+fn event_matches_filters(
+	event: &TraceEvent,
+	storage_keys: Option<&str>,
+	methods: Option<&str>,
+) -> bool {
+	storage_keys
+		.map(|keys| event_values_filter(event, "key", keys))
+		.unwrap_or(false) &&
+		methods
+			.map(|methods| event_values_filter(event, "method", methods))
+			.unwrap_or(false)
+}
+
+/// An empty string keeps every event, including those without the filtered field.
 fn event_values_filter(event: &TraceEvent, filter_kind: &str, values: &str) -> bool {
+	if values.is_empty() {
+		return true;
+	}
+
 	event
 		.values
 		.string_values
@@ -405,5 +414,110 @@ fn block_id_as_string<T: BlockT>(block_id: BlockId<T>) -> String {
 	match block_id {
 		BlockId::Hash(h) => HexDisplay::from(&h.encode()).to_string(),
 		BlockId::Number(n) => HexDisplay::from(&n.encode()).to_string(),
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn trace_event(name: &str, method: &str, key: Option<&str>) -> TraceEvent {
+		let mut values = Values::default();
+		values.string_values.insert("method".into(), method.into());
+		if let Some(key) = key {
+			values.string_values.insert("key".into(), key.into());
+		}
+		TraceEvent {
+			name: name.into(),
+			target: "state".into(),
+			level: Level::TRACE,
+			values,
+			parent_id: None,
+		}
+	}
+
+	#[test]
+	fn empty_key_filter_keeps_keyless_events() {
+		for method in [
+			"ClearPrefix",
+			"ChildKill",
+			"ChildClearPrefix",
+			"StorageRoot",
+			"ChildStorageRoot",
+			"IndexTransaction",
+			"RenewTransactionIndex",
+		] {
+			assert!(
+				event_values_filter(&trace_event("storage", method, None), "key", ""),
+				"{method}"
+			);
+		}
+	}
+
+	#[test]
+	fn empty_key_filter_keeps_call_events() {
+		// StateMachine::execute emits a Call event with a method but no storage key.
+		let event = trace_event("Call", "Core_execute_block", None);
+		assert!(event_values_filter(&event, "key", ""));
+		assert!(!event_values_filter(&event, "key", "aabb"));
+	}
+
+	#[test]
+	fn key_and_method_filters_are_combined() {
+		let events = [
+			trace_event("storage", "Put", Some("aabbcc")),
+			trace_event("storage", "Get", Some("aabbdd")),
+			trace_event("storage", "Put", Some("ddeeff")),
+			trace_event("Call", "Core_execute_block", None),
+		];
+		for (keys, methods, expected) in [
+			("", "", vec!["Put", "Get", "Put", "Core_execute_block"]),
+			("aabb", "Put", vec!["Put"]),
+			("aabb", "", vec!["Put", "Get"]),
+			("", "Core_", vec!["Core_execute_block"]),
+			("aabb", "Core_", vec![]),
+			("", "Get,Core_", vec!["Get", "Core_execute_block"]),
+		] {
+			let actual: Vec<_> = events
+				.iter()
+				.filter(|e| event_matches_filters(e, Some(keys), Some(methods)))
+				.map(|e| e.values.string_values["method"].as_str())
+				.collect();
+			assert_eq!(actual, expected, "keys={keys:?}, methods={methods:?}");
+		}
+	}
+
+	#[test]
+	fn omitted_key_or_method_filter_drops_events() {
+		let events = [
+			trace_event("storage", "Put", Some("aabbcc")),
+			trace_event("Call", "Core_execute_block", None),
+		];
+		for (keys, methods) in [(None, Some("")), (Some(""), None), (None, None)] {
+			for event in &events {
+				assert!(!event_matches_filters(event, keys, methods));
+			}
+		}
+	}
+
+	#[test]
+	fn non_empty_key_filter_matches_only_key_prefixes() {
+		let event = trace_event("storage", "Put", Some("aabbcc"));
+		assert!(event_values_filter(&event, "key", "aabb"));
+		assert!(event_values_filter(&event, "key", "dd,aabb"));
+		assert!(!event_values_filter(&event, "key", "bb"));
+		assert!(!event_values_filter(&trace_event("storage", "ClearPrefix", None), "key", "aabb"));
+	}
+
+	#[test]
+	fn empty_method_filter_keeps_events_without_method() {
+		let mut event = trace_event("storage", "ClearPrefix", None);
+		assert!(event_values_filter(&event, "method", ""));
+		assert!(event_values_filter(&event, "method", "ClearPrefix"));
+		assert!(!event_values_filter(&event, "method", "Put"));
+
+		event.values.string_values.remove("method");
+		assert!(event_values_filter(&event, "method", ""));
+		assert!(!event_values_filter(&event, "method", "ClearPrefix"));
 	}
 }
