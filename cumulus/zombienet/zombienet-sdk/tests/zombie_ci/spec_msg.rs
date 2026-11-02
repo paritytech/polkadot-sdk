@@ -496,23 +496,16 @@ async fn open_spec_msg_channel(
 		);
 		tokio::try_join!(open, accept)?;
 
-		// Two legs run at once, so one wait covers both. The receiver consumes the `OpenChannel`
-		// signal from the sender's data stream, fetched from the sender's collator. The sender
-		// reads the receiver's register, a lossy read of its `Ack` stream. Best blocks, not
-		// finalized: finality adds about 30 s, and checkpoints 3 to 6 still prove inclusion,
-		// backing and finality of the send.
-		wait_for(
-			"the receiver to consume the open signal and the sender to read its register",
-			|| async {
-				let (in_channels, out_channels) = channel_states(sender, receiver).await?;
-				Ok(in_channels
-					.get(&in_channel())
-					.is_some_and(|state| state.published.is_some_and(|r| r.up_to.0 > 0)) &&
-					out_channels
-						.get(&out_channel())
-						.is_some_and(|state| state.register.is_some()))
-			},
-		)
+		// The handshake takes two register reads: the sender reads `Accepting` and sends `Hello`,
+		// the receiver consumes it and publishes `Opened`, and the sender's read of that opens the
+		// session. Best blocks, not finalized: finality adds about 30 s, and checkpoints 3 to 6
+		// still prove inclusion, backing and finality of the send.
+		wait_for("the sender to read the receiver's `Opened` register", || async {
+			let (_, out_channels) = channel_states(sender, receiver).await?;
+			Ok(out_channels
+				.get(&out_channel())
+				.is_some_and(|state| state.open.is_some_and(|session| session.opened)))
+		})
 		.await?;
 	}
 
