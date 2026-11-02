@@ -44,8 +44,6 @@ pub trait MutateLiquidity<AccountId> {
 
 	/// Creates a new liquidity pool for the given assets.
 	///
-	/// Mints LP tokens to the `creator` account.
-	///
 	/// Returns the ID of the newly created pool.
 	fn create_pool(
 		creator: &AccountId,
