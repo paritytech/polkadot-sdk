@@ -300,7 +300,7 @@ fn termination_works() {
 		let mut meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
 
-		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::max_value()));
+		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::MAX));
 		assert_eq!(nested0.available(), 1_000);
 
 		nested0.charge(&Diff {
@@ -321,7 +321,7 @@ fn termination_works() {
 			items_deposit: 20,
 			immutable_data_len: 0,
 		});
-		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::max_value()));
+		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::MAX));
 		assert_eq!(nested1.consumed(), Default::default());
 		let total_deposit = nested1_info.total_deposit();
 		nested1.charge(&Diff { items_removed: 5, ..Default::default() });

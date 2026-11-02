@@ -43,9 +43,10 @@ Remove this section when the feature stabilizes and the gate is removed.
 
 ### The v2 path is gated
 
-`v2dht_enabled()` in `lib.rs` reads the `STATEMENT_STORE_V2_DHT_ENABLED` environment variable, off
-by default. Until the feature is ready, a default-configured node never takes the v2 path. Two
-invariants hold while the gate exists:
+`v2dht_enabled()` in `lib.rs` is off by default. A node binary turns it on with `set_v2dht_enabled`
+when its CLI sees `--statement-v2-dht`. A default-configured node never takes the v2 path, and a
+node with the path on serves peers without it like v1 peers. Two invariants hold while the gate
+exists:
 
 - Keep the v1 path working: with the gate off, behavior must match a node without the v2 code.
 - Put every v2 call site behind `v2dht_enabled()`; never let the v2 path leak into v1 handling.

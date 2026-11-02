@@ -129,8 +129,7 @@ async fn statement_store_mixed_version() -> Result<(), anyhow::Error> {
 		(OLD_COLLATORS[0], Some(old_command.as_str())),
 		(OLD_COLLATORS[1], Some(old_command.as_str())),
 	];
-	let network =
-		launch_network_with_commands(&collators, &[], &chain_spec_path, args, &[]).await?;
+	let network = launch_network_with_commands(&collators, &[], &chain_spec_path, args).await?;
 
 	let alice = network.get_node(NEW_COLLATORS[0])?;
 	let bob = network.get_node(NEW_COLLATORS[1])?;
