@@ -16,10 +16,7 @@
 // limitations under the License.
 
 use super::{Token, Weight, WeightMeter};
-use crate::{
-	metering::math::eip_150::{NUMERATOR, Rule},
-	tests::Test,
-};
+use crate::tests::Test;
 
 /// A simple utility macro that helps to match against a
 /// list of tokens.
@@ -153,185 +150,194 @@ fn charge_exact_amount() {
 	assert!(!weight_meter.charge(SimpleToken(25)).is_err());
 }
 
-#[test]
-fn eip_150_overhead_top_call() {
-	// Fresh top-call meter with no consumption
-	let meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
-	assert_eq!(meter.eip_150_peak(), Weight::zero());
-	assert_eq!(meter.weight_required(), Weight::zero());
-	assert_eq!(meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
+mod eip_150 {
+	use super::*;
+	use crate::metering::math::eip_150::Rule;
 
-	// Top-call meter with consumption
-	let mut top_call_meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
-	top_call_meter.charge(SimpleToken(6300)).unwrap();
-	assert_eq!(top_call_meter.eip_150_peak(), Weight::zero());
-	assert_eq!(top_call_meter.weight_required(), Weight::from_parts(6300, 0));
-	// Top-call meter doesn't add overhead for its own consumption
-	assert_eq!(top_call_meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
-}
+	#[test]
+	fn call_without_subcalls_has_no_peak() {
+		let mut meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
+		// Before any charge, the peak, the required weight and the overhead are all zero.
+		assert_eq!(meter.eip_150_peak(), Weight::zero());
+		assert_eq!(meter.weight_required(), Weight::zero());
+		assert_eq!(meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
 
-#[test]
-fn eip_150_overhead_subcall() {
-	// Subcall leaf meter (no children): peak stays at zero
-	let mut subcall_meter = WeightMeter::<Test>::new(Weight::from_parts(10000, 5000), None);
-	subcall_meter.charge(SimpleToken(6300)).unwrap();
-	assert_eq!(subcall_meter.eip_150_peak(), Weight::zero());
-	assert_eq!(subcall_meter.weight_required(), Weight::from_parts(6300, 0));
-	// overhead = ceil(6300/63) = 100
-	assert_eq!(subcall_meter.eip_150_total_overhead(Rule::Apply), Weight::from_parts(100, 0));
-}
+		meter.charge(SimpleToken(6300)).unwrap();
+		// Without subcalls, a meter has no peak and requires only what it consumed.
+		assert_eq!(meter.eip_150_peak(), Weight::zero());
+		assert_eq!(meter.weight_required(), Weight::from_parts(6300, 0));
+		// As the transaction's first call, nothing is kept back for it. As a nested call, its
+		// caller keeps ceil(6300/63) = 100.
+		assert_eq!(meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
+		assert_eq!(meter.eip_150_total_overhead(Rule::Apply), Weight::from_parts(100, 0));
+	}
 
-#[test]
-fn eip_150_overhead_single_subcall() {
-	let parent_consumption = 1000u64;
-	let child_consumption = 6300u64;
-	// Child is a leaf subcall (no children), so its overhead is ceil(6300/63) = 100.
-	let child_overhead = child_consumption.div_ceil(NUMERATOR.get());
-	// Parent consumed + child's weight_required = 1000 + 6300 = 7300.
-	let parent_weight_required = parent_consumption + child_consumption;
-	// Peak = parent consumed + child weight_required + child overhead = 1000 + 6300 + 100 = 7400.
-	let expected_peak = parent_consumption + child_consumption + child_overhead;
+	#[test]
+	fn peak_includes_the_part_retained_during_a_subcall() {
+		struct Case {
+			description: &'static str,
+			parent_consumption: u64,
+			child_consumption: u64,
+			weight_required: u64,
+			peak: u64,
+			overhead: u64,
+		}
 
-	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
-	parent.charge(SimpleToken(parent_consumption)).unwrap();
+		let cases = [
+			Case {
+				description: "subcall consumes",
+				parent_consumption: 1000,
+				child_consumption: 6300,
+				weight_required: 7300,
+				peak: 7400, // 1000 + 6300 + ceil(6300/63) = 7400
+				overhead: 100,
+			},
+			Case {
+				description: "subcall consumes nothing",
+				parent_consumption: 5000,
+				child_consumption: 0,
+				weight_required: 5000,
+				peak: 5000,
+				overhead: 0,
+			},
+		];
 
-	let mut child = WeightMeter::<Test>::new(Weight::from_parts(50_000, 25_000), None);
-	child.charge(SimpleToken(child_consumption)).unwrap();
+		for case in &cases {
+			let mut parent_meter =
+				WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
+			parent_meter.charge(SimpleToken(case.parent_consumption)).unwrap();
+			let mut child_meter =
+				WeightMeter::<Test>::new(Weight::from_parts(50_000, 25_000), None);
+			child_meter.charge(SimpleToken(case.child_consumption)).unwrap();
+			parent_meter.absorb_nested(child_meter, Rule::Apply);
 
-	// Before absorb: parent is top-call with no children yet, peak and overhead are zero.
-	assert_eq!(parent.eip_150_peak(), Weight::zero());
-	assert_eq!(parent.weight_required(), Weight::from_parts(parent_consumption, 0));
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), Weight::zero());
+			let peak = Weight::from_parts(case.peak, 0);
+			assert_eq!(
+				parent_meter.weight_required(),
+				Weight::from_parts(case.weight_required, 0),
+				"{}",
+				case.description,
+			);
+			assert_eq!(parent_meter.eip_150_peak(), peak, "{}", case.description);
+			assert_eq!(parent_meter.weight_required_with_eip_150(), peak, "{}", case.description);
+			assert_eq!(
+				parent_meter.eip_150_total_overhead(Rule::Skip),
+				Weight::from_parts(case.overhead, 0),
+				"{}",
+				case.description,
+			);
+		}
+	}
 
-	// Child is a leaf subcall: peak is zero (no children), overhead = ceil(6300/63) = 100.
-	assert_eq!(child.eip_150_peak(), Weight::zero());
-	assert_eq!(child.weight_required(), Weight::from_parts(child_consumption, 0));
-	assert_eq!(child.eip_150_total_overhead(Rule::Apply), Weight::from_parts(child_overhead, 0));
+	#[test]
+	fn retained_parts_add_up_across_levels() {
+		let mut first_call_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+		first_call_meter.charge(SimpleToken(1000)).unwrap();
 
-	parent.absorb_nested(child, Rule::Apply);
+		let mut first_level_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		first_level_meter.charge(SimpleToken(2000)).unwrap();
 
-	assert_eq!(parent.eip_150_peak(), Weight::from_parts(expected_peak, 0));
-	assert_eq!(parent.weight_required(), Weight::from_parts(parent_weight_required, 0));
-	assert_eq!(parent.weight_required_with_eip_150(), Weight::from_parts(expected_peak, 0));
-	// Parent is top-call: overhead = peak - weight_required.
-	assert_eq!(
-		parent.eip_150_total_overhead(Rule::Skip),
-		Weight::from_parts(expected_peak - parent_weight_required, 0)
-	);
-	assert_eq!(
-		parent.weight_required_with_eip_150(),
-		parent
-			.weight_required()
-			.saturating_add(parent.eip_150_total_overhead(Rule::Skip)),
-		"weight_required_with_eip_150 must equal weight_required + overhead"
-	);
-}
+		let mut second_level_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(250_000, 125_000), None);
+		second_level_meter.charge(SimpleToken(6300)).unwrap();
 
-#[test]
-fn eip_150_overhead_nested_two_levels() {
-	let mut top_call_meter = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
-	top_call_meter.charge(SimpleToken(1000)).unwrap();
+		// second_level_meter is a leaf subcall: peak=0, overhead = ceil(6300/63) = 100
+		assert_eq!(second_level_meter.eip_150_peak(), Weight::zero());
+		assert_eq!(second_level_meter.weight_required(), Weight::from_parts(6300, 0));
+		assert_eq!(
+			second_level_meter.eip_150_total_overhead(Rule::Apply),
+			Weight::from_parts(100, 0),
+		);
 
-	let mut level1 = WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
-	level1.charge(SimpleToken(2000)).unwrap();
+		first_level_meter.absorb_nested(second_level_meter, Rule::Apply);
 
-	let mut level2 = WeightMeter::<Test>::new(Weight::from_parts(250_000, 125_000), None);
-	level2.charge(SimpleToken(6300)).unwrap();
+		// first_level_meter: peak_at_subcall = 2000 + 6300 + 100 = 8400
+		assert_eq!(first_level_meter.eip_150_peak(), Weight::from_parts(8400, 0));
+		assert_eq!(first_level_meter.weight_required(), Weight::from_parts(8300, 0));
+		// children_overhead = 8400 - 8300 = 100, ceil(8400/63) = 134, total = 234
+		assert_eq!(
+			first_level_meter.eip_150_total_overhead(Rule::Apply),
+			Weight::from_parts(234, 0),
+		);
 
-	// level2 is a leaf subcall: peak=0, overhead = ceil(6300/63) = 100
-	assert_eq!(level2.eip_150_peak(), Weight::zero());
-	assert_eq!(level2.weight_required(), Weight::from_parts(6300, 0));
-	assert_eq!(level2.eip_150_total_overhead(Rule::Apply), Weight::from_parts(100, 0));
+		first_call_meter.absorb_nested(first_level_meter, Rule::Apply);
 
-	level1.absorb_nested(level2, Rule::Apply);
+		// first_call_meter: peak_at_subcall = 1000 + 8300 + 234 = 9534
+		assert_eq!(first_call_meter.eip_150_peak(), Weight::from_parts(9534, 0));
+		assert_eq!(first_call_meter.weight_required(), Weight::from_parts(9300, 0));
+		assert_eq!(first_call_meter.weight_required_with_eip_150(), Weight::from_parts(9534, 0));
+		// The transaction's first call: overhead = peak - weight_required = 234
+		assert_eq!(first_call_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(234, 0));
+	}
 
-	// level1: peak_at_subcall = 2000 + 6300 + 100 = 8400
-	assert_eq!(level1.eip_150_peak(), Weight::from_parts(8400, 0));
-	assert_eq!(level1.weight_required(), Weight::from_parts(8300, 0));
-	// children_overhead = 8400 - 8300 = 100, ceil(8400/63) = 134, total = 234
-	assert_eq!(level1.eip_150_total_overhead(Rule::Apply), Weight::from_parts(234, 0));
+	#[test]
+	fn peak_rises_when_a_later_subcall_exceeds_it() {
+		let mut parent_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+		parent_meter.charge(SimpleToken(500)).unwrap();
 
-	top_call_meter.absorb_nested(level1, Rule::Apply);
+		// First child: 3000 weight, overhead = ceil(3000/63) = 48
+		let mut first_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		first_child_meter.charge(SimpleToken(3000)).unwrap();
+		parent_meter.absorb_nested(first_child_meter, Rule::Apply);
+		// peak = max(0, 500 + 3000 + ceil(3000/63)) = 3548, consumed = 3500
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(3500, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(3548, 0));
+		// The transaction's first call: overhead = peak - weight_required = 48
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(48, 0));
 
-	// top_call: peak_at_subcall = 1000 + 8300 + 234 = 9534
-	assert_eq!(top_call_meter.eip_150_peak(), Weight::from_parts(9534, 0));
-	assert_eq!(top_call_meter.weight_required(), Weight::from_parts(9300, 0));
-	assert_eq!(top_call_meter.weight_required_with_eip_150(), Weight::from_parts(9534, 0));
-	// Top call: overhead = peak - weight_required = 234
-	assert_eq!(top_call_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(234, 0));
-}
+		parent_meter.charge(SimpleToken(700)).unwrap();
+		// consumed = 4200, past the peak (3548), so the overhead drops to 0
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(4200, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(3548, 0));
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::zero());
 
-#[test]
-fn eip_150_overhead_two_sequential_children() {
-	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
-	parent.charge(SimpleToken(500)).unwrap();
+		// Second child
+		let mut second_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		second_child_meter.charge(SimpleToken(1000)).unwrap();
+		// Subcall leaf: no children, overhead = ceil(1000/63) = 16
+		assert_eq!(second_child_meter.weight_required(), Weight::from_parts(1000, 0));
+		assert_eq!(second_child_meter.eip_150_peak(), Weight::zero());
+		assert_eq!(
+			second_child_meter.eip_150_total_overhead(Rule::Apply),
+			Weight::from_parts(16, 0),
+		);
 
-	// First child: 3000 weight, overhead = ceil(3000/63) = 48
-	let mut child_a = WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
-	child_a.charge(SimpleToken(3000)).unwrap();
-	parent.absorb_nested(child_a, Rule::Apply);
-	// peak = max(0, 500 + 3000 + ceil(3000/63)) = 3548, consumed = 3500
-	assert_eq!(parent.weight_required(), Weight::from_parts(3500, 0));
-	assert_eq!(parent.eip_150_peak(), Weight::from_parts(3548, 0));
-	// Top call: overhead = peak - weight_required = 48
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), Weight::from_parts(48, 0));
+		parent_meter.absorb_nested(second_child_meter, Rule::Apply);
 
-	parent.charge(SimpleToken(700)).unwrap();
-	// consumed = 4200, which exceeds old peak (3548) → overhead drops to 0
-	assert_eq!(parent.weight_required(), Weight::from_parts(4200, 0));
-	assert_eq!(parent.eip_150_peak(), Weight::from_parts(3548, 0));
-	// Top call: overhead = peak - weight_required = 0 (consumed past old peak)
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), Weight::zero());
+		// peak = max(3548, 4200 + 1000 + 16) = 5216
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(5200, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(5216, 0));
+		assert_eq!(parent_meter.weight_required_with_eip_150(), Weight::from_parts(5216, 0));
+		// The transaction's first call: overhead = peak - weight_required = 16
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(16, 0));
+	}
 
-	// Second child
-	let mut child_b = WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
-	child_b.charge(SimpleToken(1000)).unwrap();
-	// Subcall leaf: no children, overhead = ceil(1000/63) = 16
-	assert_eq!(child_b.weight_required(), Weight::from_parts(1000, 0));
-	assert_eq!(child_b.eip_150_peak(), Weight::zero());
-	assert_eq!(child_b.eip_150_total_overhead(Rule::Apply), Weight::from_parts(16, 0));
+	#[test]
+	fn peak_stays_when_a_later_subcall_needs_less() {
+		let mut parent_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
+		parent_meter.charge(SimpleToken(500)).unwrap();
 
-	parent.absorb_nested(child_b, Rule::Apply);
+		// First child: 6300 weight, peak = 500 + 6300 + ceil(6300/63) = 6900
+		let mut first_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		first_child_meter.charge(SimpleToken(6300)).unwrap();
+		parent_meter.absorb_nested(first_child_meter, Rule::Apply);
 
-	// peak = max(3548, 4200 + 1000 + 16) = 5216
-	assert_eq!(parent.weight_required(), Weight::from_parts(5200, 0));
-	assert_eq!(parent.eip_150_peak(), Weight::from_parts(5216, 0));
-	assert_eq!(parent.weight_required_with_eip_150(), Weight::from_parts(5216, 0));
-	// Top call: overhead = peak - weight_required = 16
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), Weight::from_parts(16, 0));
-}
+		// Second child: 10 weight, 6800 + 10 + ceil(10/63) = 6811, below the earlier peak
+		let mut second_child_meter =
+			WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
+		second_child_meter.charge(SimpleToken(10)).unwrap();
+		parent_meter.absorb_nested(second_child_meter, Rule::Apply);
 
-#[test]
-fn eip_150_overhead_zero_consumption_child() {
-	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(100_000, 50_000), None);
-	parent.charge(SimpleToken(5000)).unwrap();
-
-	// Child consumes zero weight
-	let child = WeightMeter::<Test>::new(Weight::from_parts(50_000, 25_000), None);
-	parent.absorb_nested(child, Rule::Apply);
-
-	// Zero-consumption child: overhead = ceil(0/63) = 0
-	// Peak should be max(0, 5000 + 0 + 0) = 5000
-	assert_eq!(parent.weight_required(), Weight::from_parts(5000, 0));
-	assert_eq!(parent.eip_150_peak(), Weight::from_parts(5000, 0));
-	// Top call: overhead = peak - weight_required = 0
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), Weight::zero());
-}
-
-#[test]
-fn eip_150_overhead_child_heavier_than_parent() {
-	// The parent consumes 1 and the child 63_000.
-	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
-	parent.charge(SimpleToken(1)).unwrap();
-
-	let mut child = WeightMeter::<Test>::new(Weight::from_parts(500_000, 250_000), None);
-	child.charge(SimpleToken(63_000)).unwrap();
-
-	parent.absorb_nested(child, Rule::Apply);
-
-	// child overhead = ceil(63000/63) = 1000
-	// peak = 1 + 63000 + 1000 = 64001
-	assert_eq!(parent.weight_required(), Weight::from_parts(63_001, 0));
-	assert_eq!(parent.eip_150_peak(), Weight::from_parts(64_001, 0));
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), Weight::from_parts(1000, 0));
+		assert_eq!(parent_meter.weight_required(), Weight::from_parts(6810, 0));
+		assert_eq!(parent_meter.eip_150_peak(), Weight::from_parts(6900, 0));
+		assert_eq!(parent_meter.weight_required_with_eip_150(), Weight::from_parts(6900, 0));
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), Weight::from_parts(90, 0));
+	}
 }

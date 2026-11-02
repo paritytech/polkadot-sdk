@@ -38,6 +38,7 @@ use frame_support::{DebugNoBound, DefaultNoBound};
 use num_traits::Zero;
 
 use core::{fmt::Debug, marker::PhantomData, ops::ControlFlow};
+use math::eip_150::Rule;
 use sp_runtime::{FixedPointNumber, Weight};
 use storage::{DepositOf, GenericMeter as GenericStorageMeter, Meter as RootStorageMeter};
 use weight::WeightMeter;
@@ -49,7 +50,7 @@ use sp_runtime::{DispatchError, DispatchResult, FixedU128, SaturatedConversion};
 /// It is sealed and cannot be implemented outside of this module.
 pub trait State: private::Sealed + Default + Debug {
 	/// Whether the EIP-150 63/64 rule applies to the frames a meter in this state creates.
-	const EIP_150_RULE: math::eip_150::Rule;
+	const EIP_150_RULE: Rule;
 }
 
 /// Root state for transaction-level resource metering.
@@ -65,10 +66,10 @@ pub struct Root;
 pub struct Nested;
 
 impl State for Root {
-	const EIP_150_RULE: math::eip_150::Rule = math::eip_150::Rule::Skip;
+	const EIP_150_RULE: Rule = Rule::Skip;
 }
 impl State for Nested {
-	const EIP_150_RULE: math::eip_150::Rule = math::eip_150::Rule::Apply;
+	const EIP_150_RULE: Rule = Rule::Apply;
 }
 
 mod private {
@@ -215,7 +216,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 		Ok(new_meter)
 	}
 
-	/// Returns self-consumed and total-consumed weight and deposit.
+	/// Returns the weight and deposit this frame consumed, and the transaction's totals so far.
 	fn consumed_resources(&self) -> (Weight, DepositOf<T>, Weight, DepositOf<T>) {
 		let self_weight = self.weight.weight_consumed();
 		let self_deposit = self.deposit.consumed();

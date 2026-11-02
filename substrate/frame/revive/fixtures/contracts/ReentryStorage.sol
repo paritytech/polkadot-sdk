@@ -3,12 +3,12 @@ pragma solidity >=0.8.20;
 
 interface IReentryStorage {
 	function noop() external;
-	function writeOnce() external;
+	function writeS0() external;
 }
 
 interface IReentryProxy {
 	function bounce(address target) external;
-	function bounceWriteOnce(address target) external;
+	function bounceWriteS0(address target) external;
 }
 
 /// Fixtures for the same-contract storage-deposit double-count regression
@@ -44,7 +44,7 @@ contract ReentryStorage {
 	function writeFreeAndRewriteVia(address proxy) external {
 		this.writeS1();
 		s0 = 0;
-		IReentryProxy(proxy).bounceWriteOnce(address(this));
+		IReentryProxy(proxy).bounceWriteS0(address(this));
 	}
 
 	/// One write, to `s1`.
@@ -56,14 +56,14 @@ contract ReentryStorage {
 	function noop() external {}
 
 	/// One write, to `s0`.
-	function writeOnce() external {
+	function writeS0() external {
 		s0 = 1;
 	}
 
 	/// Free `s0`, then reenter self transitively through `proxy` to write `s0` again.
 	function freeAndRewriteViaReentryProxy(address proxy) external {
 		s0 = 0;
-		IReentryProxy(proxy).bounceWriteOnce(address(this));
+		IReentryProxy(proxy).bounceWriteS0(address(this));
 	}
 }
 
@@ -73,7 +73,7 @@ contract ReentryProxy {
 		IReentryStorage(target).noop();
 	}
 
-	function bounceWriteOnce(address target) external {
-		IReentryStorage(target).writeOnce();
+	function bounceWriteS0(address target) external {
+		IReentryStorage(target).writeS0();
 	}
 }

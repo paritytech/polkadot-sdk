@@ -24,7 +24,7 @@ use super::{Nested, Root, State};
 use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
 	StorageDeposit as Deposit,
-	metering::math::eip_150::{self, BalanceEip150, Peak as Eip150Peak},
+	metering::math::eip_150::{self, BalanceEip150, Peak},
 	storage::ContractInfo,
 };
 use alloc::vec::Vec;
@@ -95,7 +95,7 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// Sometimes we cannot know at compile time.
 	pub(crate) is_root: bool,
 	/// EIP-150 63/64 peak deposit tracking for dry-run estimation.
-	eip_150_peak: Eip150Peak<BalanceEip150<T>>,
+	eip_150_peak: Peak<BalanceEip150<T>>,
 	/// Type parameter only used in impls.
 	_phantom: PhantomData<(E, S)>,
 }
@@ -277,8 +277,8 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
-		// Track deposit EIP-150 peak before absorb modifies the meters.
-		self.update_eip_150_peak_from_child(&absorbed);
+		// Update the 63/64 peak first, from this meter's consumption without the child's deposit.
+		self.update_eip_150_peak(&absorbed);
 
 		// We are now at the position to calculate the actual final net charge of `absorbed` as we
 		// now have the contract information `info`. Before that we only took net charges related to
@@ -316,8 +316,7 @@ where
 	///
 	/// - `absorbed`: The child storage meter
 	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
-		// Track deposit EIP-150 peak before absorb modifies the meters.
-		self.update_eip_150_peak_from_child(&absorbed);
+		self.update_eip_150_peak(&absorbed);
 
 		self.max_charged = self
 			.max_charged
@@ -351,13 +350,13 @@ where
 		self.max_charged = self.max_charged.max(self.consumed().charge_or_zero());
 	}
 
-	/// Get the deposit required including EIP-150 63/64 overhead.
+	/// Returns the deposit required, including the part each caller keeps under the 63/64 rule.
 	pub fn deposit_required_with_eip_150(&self) -> DepositOf<T> {
 		Deposit::Charge(self.eip_150_peak.get()).max(self.max_charged())
 	}
 
-	/// Track the EIP-150 deposit peak when absorbing a child meter.
-	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
+	/// Raises the 63/64 peak to the deposit this meter needed for `child`, if that is higher.
+	fn update_eip_150_peak(&mut self, child: &RawMeter<T, E, Nested>) {
 		// Without a deposit limit, the child can use a refund the caller received. With a limit,
 		// the child never gets more than that limit, so a net refund counts as zero.
 		let consumed_deposit = match self.limit {
@@ -373,18 +372,18 @@ where
 		self.eip_150_peak.update(current_deposit_peak);
 	}
 
-	/// Get the tracked EIP-150 deposit peak.
+	/// Returns the 63/64 deposit peak.
 	#[cfg(test)]
 	fn eip_150_peak(&self) -> BalanceOf<T> {
 		self.eip_150_peak.get()
 	}
 
-	/// Compute the total EIP-150 deposit overhead for this meter.
+	/// Returns the extra deposit the parent needs beyond `max_charged()` to cover the part each
+	/// caller keeps at and below this level.
 	///
-	/// `eip_150_rule` is the rule this meter was created under.
-	fn eip_150_total_overhead(&self, eip_150_rule: eip_150::Rule) -> BalanceOf<T> {
-		self.eip_150_peak
-			.total_overhead(self.max_charged().charge_or_zero(), eip_150_rule)
+	/// `rule` must be the `State::EIP_150_RULE` of the meter that created this one.
+	fn eip_150_total_overhead(&self, rule: eip_150::Rule) -> BalanceOf<T> {
+		self.eip_150_peak.total_overhead(self.max_charged().charge_or_zero(), rule)
 	}
 
 	/// The amount of balance still available from the current meter.

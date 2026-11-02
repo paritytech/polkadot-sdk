@@ -57,7 +57,7 @@ pub struct ContractResult<R, Balance> {
 	///
 	/// # Note
 	///
-	/// This is higher than [`Self::weight_consumed`] in the following cases:
+	/// This can be higher than [`Self::weight_consumed`] in the following cases:
 	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
 	///   weight, so the retained weight is added on top of what each nested call needs.
 	/// - Weight pre-charging: an operation charges its worst-case weight up front and refunds the
@@ -74,7 +74,7 @@ pub struct ContractResult<R, Balance> {
 	pub storage_deposit: StorageDeposit<Balance>,
 	/// The maximal storage deposit amount required at any time during the execution.
 	///
-	/// This is higher than [`Self::storage_deposit`] in the following two cases:
+	/// This can be higher than [`Self::storage_deposit`] in the following two cases:
 	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
 	///   deposit, so the retained deposit is added on top of what each nested call needs.
 	/// - Refunds: deposit charged and then refunded during the execution.
@@ -125,10 +125,8 @@ pub struct EthTransactInfo<Balance> {
 	pub storage_deposit: Balance,
 	/// Maximal storage deposit required at any time during execution.
 	///
-	/// This is higher than [`Self::storage_deposit`] in the following two cases:
-	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
-	///   deposit, so the retained deposit is added on top of what each nested call needs.
-	/// - Refunds: deposit charged and then refunded during the execution.
+	/// This is [`ContractResult::max_storage_deposit`], or the worst-case deposit for the
+	/// transaction's authorizations if that is higher.
 	pub max_storage_deposit: Balance,
 	/// The weight and deposit equivalent in EVM Gas.
 	pub eth_gas: U256,

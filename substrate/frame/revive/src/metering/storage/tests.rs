@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{exec::AccountIdOf, metering::math::eip_150::Rule, test_utils::*, tests::Test};
+use crate::{exec::AccountIdOf, test_utils::*, tests::Test};
 use frame_support::parameter_types;
 use pretty_assertions::assert_eq;
 
@@ -534,317 +534,283 @@ fn max_deposits_work_for_reverts() {
 	assert_eq!(meter.max_charged(), Deposit::Charge(10));
 }
 
-#[test]
-fn eip_150_deposit_overhead_math_helper() {
-	use crate::metering::math::eip_150::{BalanceEip150, Resource};
+mod eip_150 {
+	use super::*;
+	use crate::metering::math::eip_150::Rule;
+	use pretty_assertions::assert_eq;
 
-	// Verify: apply(consumed + overhead) == consumed
-	let values: Vec<u128> = vec![0, 1, 62, 63, 64, 126, 630, 6300, 100_000, 847_293_651];
-	for consumed in values {
-		let overhead = BalanceEip150::<Test>::overhead(consumed);
-		let required = consumed.saturating_add(overhead);
-		let available = BalanceEip150::<Test>::apply(required);
-		assert_eq!(available, consumed, "failed for consumed={consumed}");
-	}
-}
+	#[test]
+	fn call_without_subcalls_has_no_peak() {
+		let mut meter = TestMeter::new(Some(100_000)).nested(Some(50_000));
+		meter.record_charge(&Deposit::Charge(6300));
 
-#[test]
-fn eip_150_deposit_overhead_top_call_no_children() {
-	clear_ext();
-	let mut meter = TestMeter::new(Some(100_000));
-	meter.record_charge(&Deposit::Charge(6300));
-
-	// Top call: peak is zero (no subcall boundaries), no overhead
-	assert_eq!(meter.max_charged(), Deposit::Charge(6300));
-	assert_eq!(meter.eip_150_peak(), 0);
-	assert_eq!(meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(meter.eip_150_total_overhead(Rule::Skip), 0);
-}
-
-#[test]
-fn eip_150_deposit_overhead_leaf_subcall() {
-	clear_ext();
-	let parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
-	let mut child = parent.nested(Some(50_000));
-	child.record_charge(&Deposit::Charge(6300));
-
-	// Leaf subcall: no children (no subcall boundaries), overhead = ceil(6300/63) = 100
-	assert_eq!(child.max_charged(), Deposit::Charge(6300));
-	assert_eq!(child.eip_150_peak(), 0);
-	assert_eq!(child.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(child.eip_150_total_overhead(Rule::Apply), 100);
-}
-
-#[test]
-fn eip_150_deposit_overhead_single_subcall() {
-	clear_ext();
-	let mut parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
-	parent.record_charge(&Deposit::Charge(1000));
-
-	let mut child = parent.nested(Some(50_000));
-	child.record_charge(&Deposit::Charge(6300));
-
-	parent.absorb_only_max_charged(child);
-
-	// peak = 1000 + 6300 + 100 = 7400, max_charged = 7300, overhead = 100
-	assert_eq!(parent.max_charged(), Deposit::Charge(7300));
-	assert_eq!(parent.eip_150_peak(), 7400);
-	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(7400));
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 100);
-}
-
-#[test]
-fn eip_150_deposit_overhead_two_levels() {
-	clear_ext();
-	let mut top = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
-	top.record_charge(&Deposit::Charge(1000));
-
-	let mut level1 = top.nested(Some(500_000));
-	level1.record_charge(&Deposit::Charge(2000));
-
-	let mut level2 = level1.nested(Some(250_000));
-	level2.record_charge(&Deposit::Charge(6300));
-
-	// level2 leaf: no subcall boundaries so peak is zero, overhead = ceil(6300/63) = 100
-	assert_eq!(level2.max_charged(), Deposit::Charge(6300));
-	assert_eq!(level2.eip_150_peak(), 0);
-	assert_eq!(level2.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(level2.eip_150_total_overhead(Rule::Apply), 100);
-
-	level1.absorb_only_max_charged(level2);
-
-	// level1: peak = 2000 + 6300 + 100 = 8400, max_charged = 8300
-	// children_overhead = 100, own = ceil(8400/63) = 134, total = 234
-	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
-	assert_eq!(level1.eip_150_peak(), 8400);
-	assert_eq!(level1.deposit_required_with_eip_150(), Deposit::Charge(8400));
-	assert_eq!(level1.eip_150_total_overhead(Rule::Apply), 234);
-
-	top.absorb_only_max_charged(level1);
-
-	// top: peak = 1000 + 8300 + 234 = 9534, max_charged = 9300, overhead = 234
-	assert_eq!(top.max_charged(), Deposit::Charge(9300));
-	assert_eq!(top.eip_150_peak(), 9534);
-	assert_eq!(top.deposit_required_with_eip_150(), Deposit::Charge(9534));
-	assert_eq!(top.eip_150_total_overhead(Rule::Skip), 234);
-}
-
-#[test]
-fn eip_150_deposit_overhead_two_sequential_children() {
-	clear_ext();
-	let mut parent = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
-	parent.record_charge(&Deposit::Charge(500));
-
-	// First child (succeeds): 3000 deposit, overhead = ceil(3000/63) = 48
-	let mut child_a = parent.nested(Some(500_000));
-	child_a.record_charge(&Deposit::Charge(3000));
-	parent.absorb(child_a, &ALICE, None);
-	// peak = max(0, 500 + 3000 + 48) = 3548, consumed now = 3500
-
-	parent.record_charge(&Deposit::Charge(700));
-	// consumed = 3500 + 700 = 4200, max_charged = 4200
-
-	// Second child (succeeds): 1000 deposit, overhead = ceil(1000/63) = 16
-	let mut child_b = parent.nested(Some(500_000));
-	child_b.record_charge(&Deposit::Charge(1000));
-	parent.absorb(child_b, &ALICE, None);
-	// peak = max(3548, 4200 + 1000 + 16) = 5216
-
-	// After second child: peak = max(3548, 4200 + 1000 + 16) = 5216
-	// max_charged = max(4200, 5200) = 5200
-	assert_eq!(parent.max_charged(), Deposit::Charge(5200));
-	assert_eq!(parent.eip_150_peak(), 5216);
-	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(5216));
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 16);
-}
-
-#[test]
-fn eip_150_deposit_required_includes_overhead() {
-	clear_ext();
-	let mut parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
-	parent.record_charge(&Deposit::Charge(1000));
-
-	let mut child = parent.nested(Some(50_000));
-	child.record_charge(&Deposit::Charge(6300));
-
-	parent.absorb_only_max_charged(child);
-
-	let max_charged = parent.max_charged().charge_or_zero();
-	let overhead = parent.eip_150_total_overhead(Rule::Skip);
-	let deposit_required = parent.deposit_required_with_eip_150().charge_or_zero();
-
-	assert!(overhead > 0, "there should be EIP-150 overhead from the subcall");
-	assert!(
-		deposit_required > max_charged,
-		"deposit_required_with_eip_150 ({deposit_required}) must be greater \
-		 than max_charged ({max_charged}) when EIP-150 overhead is present"
-	);
-	assert_eq!(deposit_required, max_charged + overhead);
-}
-
-#[test]
-fn eip_150_deposit_overhead_child_with_children_reverts() {
-	clear_ext();
-	let mut top = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
-	top.record_charge(&Deposit::Charge(500));
-
-	// level1 succeeds and has its own child (level2)
-	let mut level1 = top.nested(Some(500_000));
-	level1.record_charge(&Deposit::Charge(2000));
-
-	let mut level2 = level1.nested(Some(250_000));
-	level2.record_charge(&Deposit::Charge(6300));
-
-	// Absorb level2 into level1 (success path)
-	level1.absorb(level2, &ALICE, None);
-	// level1: peak = 2000 + 6300 + ceil(6300/63) = 8400, max_charged = 8300
-	// overhead = children(100) + own(ceil(8400/63)=134) = 234
-	assert_eq!(level1.eip_150_peak(), 8400);
-	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
-	assert_eq!(level1.eip_150_total_overhead(Rule::Apply), 234);
-
-	// Absorb level1 into top (only max_charged, simulating a revert)
-	top.absorb_only_max_charged(level1);
-
-	// top: peak = 500 + 8300 + 234 = 9034, max_charged = max(500, 500 + 8300) = 8800
-	assert_eq!(top.max_charged(), Deposit::Charge(8800));
-	assert_eq!(top.eip_150_peak(), 9034);
-	assert_eq!(top.deposit_required_with_eip_150(), Deposit::Charge(9034));
-	assert_eq!(top.eip_150_total_overhead(Rule::Skip), 234);
-}
-
-#[test]
-fn eip_150_deposit_overhead_zero_consumption_child() {
-	clear_ext();
-	let mut parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
-	parent.record_charge(&Deposit::Charge(5000));
-
-	// Child consumes zero deposit
-	let child = parent.nested(Some(50_000));
-	parent.absorb_only_max_charged(child);
-
-	// Zero-consumption child: overhead = ceil(0/63) = 0
-	// peak = max(0, 5000 + 0 + 0) = 5000
-	assert_eq!(parent.max_charged(), Deposit::Charge(5000));
-	assert_eq!(parent.eip_150_peak(), 5000);
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 0);
-	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(5000));
-}
-
-#[test]
-fn eip_150_deposit_overhead_child_heavier_than_parent() {
-	clear_ext();
-	// The parent consumes 1 and the child 63_000.
-	let mut parent = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
-	parent.record_charge(&Deposit::Charge(1));
-
-	let mut child = parent.nested(Some(500_000));
-	child.record_charge(&Deposit::Charge(63_000));
-
-	parent.absorb_only_max_charged(child);
-
-	// child overhead = ceil(63000/63) = 1000
-	// peak = 1 + 63000 + 1000 = 64001
-	assert_eq!(parent.max_charged(), Deposit::Charge(63_001));
-	assert_eq!(parent.eip_150_peak(), 64_001);
-	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(64_001));
-	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 1000);
-}
-
-#[test]
-fn eip_150_earlier_deposit_refund_pays_for_later_charges() {
-	enum DepositChange {
-		Caller(DepositOf<Test>),
-		Callee(&'static [DepositOf<Test>]),
-	}
-	use DepositChange::{Callee, Caller};
-
-	struct Case {
-		description: &'static str,
-		top_level: bool,
-		limit: Option<u128>,
-		changes: &'static [DepositChange],
-		expected: u128,
+		// Without subcalls, a meter has no peak and requires only what it charged.
+		assert_eq!(meter.max_charged(), Deposit::Charge(6300));
+		assert_eq!(meter.eip_150_peak(), 0);
+		assert_eq!(meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
+		// As the transaction's first call, nothing is kept back for it. As a nested call, its
+		// caller keeps ceil(6300/63) = 100.
+		assert_eq!(meter.eip_150_total_overhead(Rule::Skip), 0);
+		assert_eq!(meter.eip_150_total_overhead(Rule::Apply), 100);
 	}
 
-	/// Applies each of `case.changes` to `caller` or to a callee it calls, then checks the
-	/// deposit `caller` reports as required.
-	fn run_and_assert_case<S: State>(mut caller: RawMeter<Test, TestExt, S>, case: &Case) {
-		for change in case.changes {
-			match change {
-				Caller(deposit) => caller.record_charge(deposit),
-				Callee(deposits) => {
-					let mut callee = caller.nested(caller.limit);
-					for deposit in *deposits {
-						callee.record_charge(deposit);
-					}
-					caller.absorb(callee, &ALICE, None);
-				},
+	#[test]
+	fn peak_includes_the_part_retained_during_a_subcall() {
+		struct Case {
+			description: &'static str,
+			parent_charge: u128,
+			child_charge: u128,
+			max_charged: u128,
+			peak: u128,
+			overhead: u128,
+		}
+
+		let cases = [
+			Case {
+				description: "subcall charges",
+				parent_charge: 1000,
+				child_charge: 6300,
+				max_charged: 7300,
+				peak: 7400, // 1000 + 6300 + ceil(6300/63) = 7400
+				overhead: 100,
+			},
+			Case {
+				description: "subcall charges nothing",
+				parent_charge: 5000,
+				child_charge: 0,
+				max_charged: 5000,
+				peak: 5000,
+				overhead: 0,
+			},
+		];
+
+		for case in &cases {
+			for subcall_reverts in [false, true] {
+				let mut parent_meter = TestMeter::new(Some(100_000)).nested(Some(100_000));
+				parent_meter.record_charge(&Deposit::Charge(case.parent_charge));
+				let mut child_meter = parent_meter.nested(Some(50_000));
+				child_meter.record_charge(&Deposit::Charge(case.child_charge));
+				if subcall_reverts {
+					parent_meter.absorb_only_max_charged(child_meter);
+				} else {
+					parent_meter.absorb(child_meter, &ALICE, None);
+				}
+
+				let context = format!("{}, subcall reverts: {subcall_reverts}", case.description);
+				assert_eq!(
+					parent_meter.max_charged(),
+					Deposit::Charge(case.max_charged),
+					"{context}",
+				);
+				assert_eq!(parent_meter.eip_150_peak(), case.peak, "{context}");
+				assert_eq!(
+					parent_meter.deposit_required_with_eip_150(),
+					Deposit::Charge(case.peak),
+					"{context}",
+				);
+				assert_eq!(
+					parent_meter.eip_150_total_overhead(Rule::Skip),
+					case.overhead,
+					"{context}",
+				);
 			}
 		}
-		let required = caller.deposit_required_with_eip_150();
-		assert_eq!(required, Deposit::Charge(case.expected), "{}", case.description);
 	}
 
-	let cases = [
-		Case {
-			description: "caller refund pays for a later call's charge",
-			top_level: false,
-			limit: None,
-			changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
-			expected: 100,
-		},
-		Case {
-			description: "refund from an earlier call pays for a later call's charge",
-			top_level: false,
-			limit: None,
-			changes: &[Callee(&[Deposit::Refund(6300)]), Callee(&[Deposit::Charge(6300)])],
-			expected: 100,
-		},
-		Case {
-			description: "refund does not pay for a later call when a deposit limit is set",
-			top_level: false,
-			limit: Some(100_000),
-			changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
-			expected: 6400,
-		},
-		Case {
-			description: "refund larger than a later call's charge plus the part the caller keeps",
-			top_level: false,
-			limit: None,
-			changes: &[Caller(Deposit::Refund(10_000)), Callee(&[Deposit::Charge(6300)])],
-			expected: 0,
-		},
-		Case {
-			description: "callee refund does not pay for its own earlier charge",
-			top_level: false,
-			limit: None,
-			changes: &[Callee(&[Deposit::Charge(6300), Deposit::Refund(6300)])],
-			expected: 6400,
-		},
-		Case {
-			description: "caller refund after a call does not pay for that call",
-			top_level: false,
-			limit: None,
-			changes: &[Callee(&[Deposit::Charge(6300)]), Caller(Deposit::Refund(6300))],
-			expected: 6400,
-		},
-		Case {
-			description: "top-level refund pays for all of the first call's charge",
-			top_level: true,
-			limit: None,
-			changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
-			expected: 0,
-		},
-	];
+	#[test]
+	fn retained_parts_add_up_across_levels() {
+		for first_level_reverts in [false, true] {
+			let mut first_call_meter = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
+			first_call_meter.record_charge(&Deposit::Charge(1000));
 
-	for case in &cases {
-		clear_ext();
-		let top_level_meter = TestMeter::new(case.limit);
-		if case.top_level {
-			run_and_assert_case(top_level_meter, case);
-		} else {
-			run_and_assert_case(top_level_meter.nested(case.limit), case);
+			let mut first_level_meter = first_call_meter.nested(Some(500_000));
+			first_level_meter.record_charge(&Deposit::Charge(2000));
+
+			let mut second_level_meter = first_level_meter.nested(Some(250_000));
+			second_level_meter.record_charge(&Deposit::Charge(6300));
+
+			// second_level_meter has no subcalls, so no peak; overhead = ceil(6300/63) = 100
+			assert_eq!(second_level_meter.max_charged(), Deposit::Charge(6300));
+			assert_eq!(second_level_meter.eip_150_peak(), 0);
+			assert_eq!(second_level_meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
+			assert_eq!(second_level_meter.eip_150_total_overhead(Rule::Apply), 100);
+
+			first_level_meter.absorb(second_level_meter, &ALICE, None);
+
+			// first_level_meter: peak = 2000 + 6300 + 100 = 8400, max_charged = 8300
+			// children_overhead = 100, own = ceil(8400/63) = 134, total = 234
+			assert_eq!(first_level_meter.max_charged(), Deposit::Charge(8300));
+			assert_eq!(first_level_meter.eip_150_peak(), 8400);
+			assert_eq!(first_level_meter.deposit_required_with_eip_150(), Deposit::Charge(8400));
+			assert_eq!(first_level_meter.eip_150_total_overhead(Rule::Apply), 234);
+
+			// A reverted call keeps the peak of everything it did, so both paths give the same.
+			if first_level_reverts {
+				first_call_meter.absorb_only_max_charged(first_level_meter);
+			} else {
+				first_call_meter.absorb(first_level_meter, &ALICE, None);
+			}
+
+			// first_call_meter: peak = 1000 + 8300 + 234 = 9534, max_charged = 9300, overhead = 234
+			let context = format!("first level reverts: {first_level_reverts}");
+			assert_eq!(first_call_meter.max_charged(), Deposit::Charge(9300), "{context}");
+			assert_eq!(first_call_meter.eip_150_peak(), 9534, "{context}");
+			assert_eq!(
+				first_call_meter.deposit_required_with_eip_150(),
+				Deposit::Charge(9534),
+				"{context}",
+			);
+			assert_eq!(first_call_meter.eip_150_total_overhead(Rule::Skip), 234, "{context}");
+		}
+	}
+
+	#[test]
+	fn peak_rises_when_a_later_subcall_exceeds_it() {
+		let mut parent_meter = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
+		parent_meter.record_charge(&Deposit::Charge(500));
+
+		// First child: 3000 deposit, overhead = ceil(3000/63) = 48
+		let mut first_child_meter = parent_meter.nested(Some(500_000));
+		first_child_meter.record_charge(&Deposit::Charge(3000));
+		parent_meter.absorb(first_child_meter, &ALICE, None);
+		// peak = 500 + 3000 + 48 = 3548, consumed = 3500
+		assert_eq!(parent_meter.max_charged(), Deposit::Charge(3500));
+		assert_eq!(parent_meter.eip_150_peak(), 3548);
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 48);
+
+		parent_meter.record_charge(&Deposit::Charge(700));
+		// consumed = 4200, past the peak (3548), so the overhead drops to 0
+		assert_eq!(parent_meter.max_charged(), Deposit::Charge(4200));
+		assert_eq!(parent_meter.eip_150_peak(), 3548);
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 0);
+
+		// Second child: 1000 deposit, overhead = ceil(1000/63) = 16
+		let mut second_child_meter = parent_meter.nested(Some(500_000));
+		second_child_meter.record_charge(&Deposit::Charge(1000));
+		parent_meter.absorb(second_child_meter, &ALICE, None);
+
+		// peak = max(3548, 4200 + 1000 + 16) = 5216, max_charged = max(4200, 5200) = 5200
+		assert_eq!(parent_meter.max_charged(), Deposit::Charge(5200));
+		assert_eq!(parent_meter.eip_150_peak(), 5216);
+		assert_eq!(parent_meter.deposit_required_with_eip_150(), Deposit::Charge(5216));
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 16);
+	}
+
+	#[test]
+	fn peak_stays_when_a_later_subcall_needs_less() {
+		let mut parent_meter = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
+		parent_meter.record_charge(&Deposit::Charge(500));
+
+		// First child: 6300 deposit, peak = 500 + 6300 + ceil(6300/63) = 6900
+		let mut first_child_meter = parent_meter.nested(Some(500_000));
+		first_child_meter.record_charge(&Deposit::Charge(6300));
+		parent_meter.absorb(first_child_meter, &ALICE, None);
+
+		// Second child: 10 deposit, 6800 + 10 + ceil(10/63) = 6811, below the earlier peak
+		let mut second_child_meter = parent_meter.nested(Some(500_000));
+		second_child_meter.record_charge(&Deposit::Charge(10));
+		parent_meter.absorb(second_child_meter, &ALICE, None);
+
+		assert_eq!(parent_meter.max_charged(), Deposit::Charge(6810));
+		assert_eq!(parent_meter.eip_150_peak(), 6900);
+		assert_eq!(parent_meter.deposit_required_with_eip_150(), Deposit::Charge(6900));
+		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 90);
+	}
+
+	#[test]
+	fn earlier_deposit_refund_pays_for_later_charges() {
+		enum DepositChange {
+			Caller(DepositOf<Test>),
+			Callee(&'static [DepositOf<Test>]),
+		}
+		use DepositChange::{Callee, Caller};
+
+		struct Case {
+			description: &'static str,
+			top_level: bool,
+			limit: Option<u128>,
+			changes: &'static [DepositChange],
+			expected: u128,
+		}
+
+		/// Applies each of `case.changes` to `caller` or to a callee it calls, then checks the
+		/// deposit `caller` reports as required.
+		fn run_and_assert_case<S: State>(mut caller: RawMeter<Test, TestExt, S>, case: &Case) {
+			for change in case.changes {
+				match change {
+					Caller(deposit) => caller.record_charge(deposit),
+					Callee(deposits) => {
+						let mut callee = caller.nested(caller.limit);
+						for deposit in *deposits {
+							callee.record_charge(deposit);
+						}
+						caller.absorb(callee, &ALICE, None);
+					},
+				}
+			}
+			let required = caller.deposit_required_with_eip_150();
+			assert_eq!(required, Deposit::Charge(case.expected), "{}", case.description);
+		}
+
+		let cases = [
+			Case {
+				description: "caller refund pays for a later call's charge",
+				top_level: false,
+				limit: None,
+				changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
+				expected: 100,
+			},
+			Case {
+				description: "refund from an earlier call pays for a later call's charge",
+				top_level: false,
+				limit: None,
+				changes: &[Callee(&[Deposit::Refund(6300)]), Callee(&[Deposit::Charge(6300)])],
+				expected: 100,
+			},
+			Case {
+				description: "refund does not pay for a later call when a deposit limit is set",
+				top_level: false,
+				limit: Some(100_000),
+				changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
+				expected: 6400,
+			},
+			Case {
+				description: "refund larger than a later charge plus the part the caller keeps",
+				top_level: false,
+				limit: None,
+				changes: &[Caller(Deposit::Refund(10_000)), Callee(&[Deposit::Charge(6300)])],
+				expected: 0,
+			},
+			Case {
+				description: "callee refund does not pay for its own earlier charge",
+				top_level: false,
+				limit: None,
+				changes: &[Callee(&[Deposit::Charge(6300), Deposit::Refund(6300)])],
+				expected: 6400,
+			},
+			Case {
+				description: "caller refund after a call does not pay for that call",
+				top_level: false,
+				limit: None,
+				changes: &[Callee(&[Deposit::Charge(6300)]), Caller(Deposit::Refund(6300))],
+				expected: 6400,
+			},
+			Case {
+				description: "top-level refund pays for all of the first call's charge",
+				top_level: true,
+				limit: None,
+				changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
+				expected: 0,
+			},
+		];
+
+		for case in &cases {
+			let top_level_meter = TestMeter::new(case.limit);
+			if case.top_level {
+				run_and_assert_case(top_level_meter, case);
+			} else {
+				run_and_assert_case(top_level_meter.nested(case.limit), case);
+			}
 		}
 	}
 }

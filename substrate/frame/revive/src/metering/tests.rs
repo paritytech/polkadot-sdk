@@ -145,6 +145,18 @@ fn test_eip_150_overhead_of_weight() {
 }
 
 #[test]
+fn test_eip_150_overhead_of_balance() {
+	// Verify: apply(consumed + overhead) == consumed
+	let values: Vec<u128> = vec![0, 1, 62, 63, 64, 126, 630, 6300, 100_000, 847_293_651];
+	for consumed in values {
+		let overhead = BalanceEip150::<Test>::overhead(consumed);
+		let required = consumed.saturating_add(overhead);
+		let available = BalanceEip150::<Test>::apply(required);
+		assert_eq!(available, consumed);
+	}
+}
+
+#[test]
 fn test_gas_ratio() {
 	use super::math::gas_ratio;
 
@@ -1932,36 +1944,38 @@ fn ethereum_execution_substrate_deposit_limit_respected() {
 
 			// 1. Substrate call sets weight = 10_000, deposit_limit = 1000.
 			let deposit_limit = 1_000u128;
-			let mut parent = root
+			let mut parent_meter = root
 				.new_nested(&WeightDeposit { weight: Weight::from_parts(10_000, 0), deposit_limit })
 				.unwrap();
 
-			assert_eq!(parent.deposit_left().unwrap(), deposit_limit);
+			assert_eq!(parent_meter.deposit_left().unwrap(), deposit_limit);
 
 			// 2. Ethereum contract makes two calls, each with half the gas.
-			let remaining_gas = parent.eth_gas_left().unwrap();
+			let remaining_gas = parent_meter.eth_gas_left().unwrap();
 			let child_gas = remaining_gas / 2;
 
 			// 3. First child uses 680 deposit (more than the ~500 ratio scaling would allow, but
 			//    within the total budget).
-			let mut child1 =
-				parent.new_nested(&Ethereum { gas: child_gas, add_stipend: false }).unwrap();
+			let mut first_child_meter = parent_meter
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false })
+				.unwrap();
 
-			child1.charge_deposit(&StorageDeposit::Charge(680)).unwrap();
-			parent.absorb_all_meters(child1, &ALICE, None);
+			first_child_meter.charge_deposit(&StorageDeposit::Charge(680)).unwrap();
+			parent_meter.absorb_all_meters(first_child_meter, &ALICE, None);
 
-			assert_eq!(parent.deposit_left().unwrap(), 320);
+			assert_eq!(parent_meter.deposit_left().unwrap(), 320);
 
 			// 4. Second child can use 63/64 of the remaining 320 deposit.
-			let mut child2 =
-				parent.new_nested(&Ethereum { gas: child_gas, add_stipend: false }).unwrap();
-			assert_eq!(child2.deposit_left().unwrap(), 315);
+			let mut second_child_meter = parent_meter
+				.new_nested(&Ethereum { gas: child_gas, add_stipend: false })
+				.unwrap();
+			assert_eq!(second_child_meter.deposit_left().unwrap(), 315);
 
-			child2.charge_deposit(&StorageDeposit::Charge(315)).unwrap();
-			parent.absorb_all_meters(child2, &ALICE, None);
+			second_child_meter.charge_deposit(&StorageDeposit::Charge(315)).unwrap();
+			parent_meter.absorb_all_meters(second_child_meter, &ALICE, None);
 
 			// Total deposit = 680 + 315 = 995. The parent keeps 1/64 of what it had left.
-			assert_eq!(parent.deposit_left().unwrap(), 5);
+			assert_eq!(parent_meter.deposit_left().unwrap(), 5);
 		});
 }
 

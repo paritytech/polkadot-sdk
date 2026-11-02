@@ -254,7 +254,8 @@ pub mod substrate_execution {
 	/// to the nested frame by:
 	/// - collecting the parent's own consumed amounts (`self_consumed_*`),
 	/// - deriving the total consumed amounts up to this point,
-	/// - applying the EIP-150 63/64 rule (`S::EIP_150_RULE`) to the remaining weight and deposit,
+	/// - applying the EIP-150 63/64 rule to the remaining weight and deposit, except for the
+	///   transaction's first call,
 	/// - applying the requested `CallResources` (no limits, ethereum gas conversion, or explicit
 	///   weight+deposit) to derive per-frame limits,
 	/// - adding the call stipend, if `limit` asks for one, on top of the 63/64 share.
@@ -294,9 +295,9 @@ pub mod substrate_execution {
 			match limit {
 				CallResources::NoLimits => (weight_left, deposit_left, None),
 
-				CallResources::Ethereum { gas, add_stipend } => {
+				CallResources::Ethereum { gas: requested_gas, add_stipend } => {
 					// Convert leftover weight and deposit to an ethereum-gas equivalent,
-					// then cap that gas by the requested `gas`. Distribute the capped gas
+					// then cap that gas by `requested_gas`. Distribute the capped gas
 					// back into weight and deposit portions using the same ratio so that
 					// the nested frame receives proportional limits.
 					let weight_gas_left = SignedGas::<T>::from_weight_fee(
@@ -314,9 +315,7 @@ pub mod substrate_execution {
 					// Cap to u64::MAX since Ethereum gas is u64. Without this, large deposit_left
 					// (e.g., u128::MAX) causes ratio ≈ 0, giving nested calls almost no weight.
 					let remaining_gas = remaining_gas.min(u64::MAX.saturated_into());
-
-					let callee_gas_limit = remaining_gas.min(*gas);
-
+					let callee_gas_limit = remaining_gas.min(*requested_gas);
 					let ratio = gas_ratio::<T>(callee_gas_limit, remaining_gas);
 					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
@@ -475,8 +474,8 @@ pub mod ethereum_execution {
 	/// Create a nested (frame) meter for an Ethereum-style execution.
 	///
 	/// - computes the gas already consumed by the transaction and determines how much gas is left,
-	/// - applies the EIP-150 63/64 rule (`S::EIP_150_RULE`) to the remaining gas, weight and
-	///   deposit,
+	/// - applies the EIP-150 63/64 rule to the remaining gas, weight and deposit, except for the
+	///   transaction's first call,
 	/// - adds the call stipend, if `limit` asks for one, on top of the 63/64 share,
 	/// - if the parent is in a simple gas-only mode, returns a child meter that is limited only by
 	///   gas (no per-frame weight/deposit limits),
@@ -548,8 +547,9 @@ pub mod ethereum_execution {
 					None,
 				),
 
-				CallResources::Ethereum { gas, add_stipend } => {
-					let gas_limit = remaining_gas.min(&SignedGas::from_ethereum_gas(*gas));
+				CallResources::Ethereum { gas: requested_gas, add_stipend } => {
+					let gas_limit =
+						remaining_gas.min(&SignedGas::from_ethereum_gas(*requested_gas));
 					let (gas_limit, weight_limit, stipend) = if *add_stipend {
 						let weight_left_before_rule =
 							self::weight_left(meter, eth_tx_info).ok_or(<Error<T>>::OutOfGas)?;

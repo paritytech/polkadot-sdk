@@ -1066,9 +1066,6 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 }
 
 /// Solidity patterns that rely on the EIP-150 63/64 rule, in Ethereum and Substrate mode.
-///
-/// A callee gets at most 63/64 of its caller's remaining gas. When a callee uses up all it gets,
-/// the caller continues on the 1/64 it kept, which is enough at the limits these tests use.
 mod eip_150 {
 	use super::*;
 	use crate::{
@@ -1150,7 +1147,7 @@ mod eip_150 {
 	}
 
 	/// Runs `input` on `contract` with exactly the limits a dry run returned, in the mode of
-	/// `limits`, and returns the output. Panics if the call fails or reverts.
+	/// `limits`, and returns the output.
 	fn call_with_estimated_limits(
 		contract: H160,
 		input: Vec<u8>,
@@ -1180,8 +1177,8 @@ mod eip_150 {
 		}
 	}
 
-	/// Asserts that `result` used at least 63/64 of its gas limit or weight limit (Ethereum) or
-	/// of its weight limit (Substrate), as a call does when its callee uses up the gas it gets.
+	/// Asserts that `result` used at least 63/64 of its weight limit or, in Ethereum mode, of its
+	/// gas limit.
 	fn assert_callee_used_up_its_gas(
 		result: &ContractResult<ExecReturnValue, BalanceOf<Test>>,
 		limits: &TransactionLimits<Test>,
@@ -1283,8 +1280,8 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[FixtureType::Solc, FixtureType::Resolc],
 		// A tenth of the default gas or weight limit, to shorten the test execution time spent in
-		// the callee's endless loop. In the second case the weight limit runs out first, as in a
-		// dry run without gas.
+		// the callee's endless loop. With `u64::MAX` gas, the weight limit runs out first, as in
+		// a dry run of a transaction that sets no gas limit.
 		[
 			ethereum_limits(ETH_GAS_LIMIT / 10, WEIGHT_LIMIT),
 			ethereum_limits(u64::MAX, WEIGHT_LIMIT / 10),
@@ -1444,7 +1441,7 @@ mod eip_150 {
 			// Polkadot and Kusama, and far below it relative to weight fees.
 			with_parameter(DepositPerByte::get, DepositPerByte::set, 70_000, || {
 				builder::bare_call(storage_addr)
-					.data(ReentryStorage::writeOnceCall {}.abi_encode())
+					.data(ReentryStorage::writeS0Call {}.abi_encode())
 					.build_and_unwrap_result();
 
 				// Writing `s1` first leaves the storage contract with a charge of its own, so that
