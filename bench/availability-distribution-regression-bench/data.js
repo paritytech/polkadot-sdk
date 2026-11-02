@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793616516766,
+  "lastUpdate": 1793623326745,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cd3eb6de88ebeec6483b10e368a2ec56b391523e",
-          "message": "[westend] Remove pallet_treasury from RC and clean up system parachains matchers (#11763)\n\n- Remove pallet_treasury entirely from Westend relay chain.\n- Drain residual balances from the legacy `py/trsry`-derived account\ninto the local DAP satellite buffer on the relay and on each Westend\nsystem parachain (bridge-hub, collectives, coretime, people).\n- Remove RelayTreasuryLocation matchers from all Westend system\nparachains.\n\nCloses #11705.\n\n**NOTE**: a followup PR will remove also all remaining OpenGov related\npallets from RC (issue #11775, stacked PR: #11796).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-16T16:01:49Z",
-          "tree_id": "467857ff3b0324ad909c032a610e22ec83e0ebb4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd3eb6de88ebeec6483b10e368a2ec56b391523e"
-        },
-        "date": 1776360281139,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007248647439999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14102836468666669,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025532614340000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00968729407999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14603871040666677,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ross@jkrb.io",
+            "name": "Ross Bulat",
+            "username": "rossbulat"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c50e3922182168884d0c108b17b23db9baca2242",
+          "message": "Fix CI change filtering at the producer (#13611)\n\n## Description\n\nFix CI change filtering at its shared producer so excluded changes skip\nunnecessary guarded jobs, while relevant code and CI changes still run\nthem.\n\nGitHub Actions exposes action and job outputs as strings. The string\n`'false'` is truthy, and a raw `||` returns its first non-empty string.\nCompare both action flags explicitly with `'true'`, then emit `'true'`\nwhen either flag is set and an empty string otherwise. All 30 consuming\njob conditions stay unchanged.\n\nThis also addresses [the required-check and path-filter\nreview](https://github.com/paritytech/polkadot-sdk/pull/13611#issuecomment-6518748224):\n\n- Narrow the docs exclusions to `!docs/**/*.md`, `!docs/**/*.mmd` and\n`!docs/**/*.png`. Other files under `docs/` enable the guarded jobs.\n- Enable the guarded jobs for changes to `.github/env`,\n`.github/actions/**`, `.github/scripts/**` and\n`.github/workflows/runtimes-matrix.json`, as well as the caller workflow\nand shared preflight. These shared inputs are included in the producer's\n`currentWorkflow` group.\n- Add preflight as a direct dependency of every `confirm-required-*` job\n(nine jobs) and the three equivalent final checks for benchmarks,\nruntime compatibility and zombienet. Their existing result scripts now\nsee preflight failure or cancellation even when its downstream jobs are\nskipped.\n\nWorkflow triggers, job names, consumer conditions, aggregate scripts and\nthe scheduled-migration exclusion are unchanged. The branch updates its\nexisting `prdoc/pr_13611.prdoc`; no crates require publishing. Related\nto #11591.\n\n## Evidence and validation\n\nThe original bug was observed in the [docs-only Linux run for PR\n#12157](https://github.com/paritytech/polkadot-sdk/actions/runs/35357368389).\nIts seven unnecessary Linux test jobs totaled 169m 04s of aggregate\nrunner time. This is observed work that the corrected producer would\nhave avoided, not a measured reduction in PR completion time.\n\nExtended the existing copy-paste Node regression harness below, reading\nfilters, expressions, dependency lists and aggregate scripts directly\nfrom the checkout. It uses `@actions/expressions@0.3.61`, `yaml@2.9.1`\nand `micromatch@4.0.8`. Path matching uses the pinned changed-files\naction's `dot: true`, `windows: false`, `noext: true` options.\n\n| Local regression | Result |\n| --- | ---: |\n| Boolean decisions across all 30 consumers and four event contexts |\n480 passed |\n| Path-driven consumer decisions, including all tracked shared\nactions/scripts | 7,920 passed |\n| Final-job conditions across all 12 aggregate jobs | 2,464 passed |\n| Executions of the actual aggregate Bash scripts | 308 passed |\n\nPath fixtures cover root and nested Markdown/Mermaid/PNG exclusions,\nother docs files, Rust, each caller workflow, shared preflight, all four\nshared CI input groups, mixed changes, unrelated workflows and\nprdoc-only changes. The 41 shared-input fixtures include all tracked\naction/script files and two synthetic nested paths.\n\nFinal-check fixtures cover successful preflight with downstream jobs\nskipped; all skipped, all successful and mixed dependencies; failure and\ncancellation at every direct dependency position with the others\nsuccessful or skipped; active and cancelled workflows; and the schedule\nexclusion. The build aggregate's `build_success` output is checked too.\n\nFour negative controls are rejected: replacing the final guard with\n`success()`, restoring the broad docs exclusion, removing shared CI\ninputs, and hiding preflight from the aggregate script's `needs` data.\nThe last reproduces a false pass with failed preflight and skipped\ndownstream jobs.\n\nAll workflow YAML parses and job dependencies resolve. Structural\ncomparison against the preceding head confirms only the shared filters\nand the 12 aggregate dependency lists change in this amendment.\nDifferential `actionlint` reports no new diagnostics; the existing\n`github.head_ref` untrusted-input warning remains. `git diff --check`\npasses.\n\nThese are local fixtures, not GitHub scheduler validation. The glob test\nsupplies changed paths rather than invoking changed-files against a live\nPR. Status functions use fixture values, while the actual result scripts\nrun under Bash. A live docs-only run with the corrected producer remains\nunperformed: adding a docs-only commit to this PR would still include\nthe shared preflight change in its complete diff. That path needs a PR\nwhose base already contains the fix. Upstream branch-protection\nconfiguration has not been inspected.\n\nThe previous head's eight affected final checks passed on GitHub with\nthe run-enabled path. That is historical evidence only; CI for this\namendment is tracked separately in the follow-up comment.\n\n## Reproduction\n\nRun from this PR's repository root with Node.js 20+, npm, Git and Bash.\nThe command creates a temporary harness, installs pinned dependencies\nand cleans up afterwards. It does not edit the checkout. Expected counts\non this revision are listed above; the four negative controls must fail.\n\n<details>\n<summary>Copy-paste regression test</summary>\n\n```bash\n(\nset -eu\nci_check_dir=\"$(mktemp -d)\"\ntrap 'rm -rf \"$ci_check_dir\"' EXIT\nnpm install --prefix \"$ci_check_dir\" --ignore-scripts --no-audit --no-fund \\\n  @actions/expressions@0.3.61 yaml@2.9.1 micromatch@4.0.8\ncat > \"$ci_check_dir/check.mjs\" <<'JS'\nimport assert from 'node:assert/strict';\nimport {readFileSync, readdirSync, mkdtempSync, writeFileSync, rmSync} from 'node:fs';\nimport {resolve, join} from 'node:path';\nimport {tmpdir} from 'node:os';\nimport {spawnSync} from 'node:child_process';\nimport YAML from 'yaml';\nimport micromatch from 'micromatch';\nimport {Lexer, Parser, Evaluator, data} from '@actions/expressions';\nimport {truthy} from '@actions/expressions/result';\n\nconst root = resolve(process.argv[2]);\nconst dir = join(root, '.github/workflows');\nconst workflows = readdirSync(dir).filter(f => /\\.ya?ml$/.test(f))\n  .map(file => [file, YAML.parse(readFileSync(join(dir, file), 'utf8'))]);\nconst preflight = workflows.find(([file]) => file === 'reusable-preflight.yml')[1];\nfunction value(v) {\n  if (typeof v === 'string') return new data.StringData(v);\n  if (typeof v === 'boolean') return new data.BooleanData(v);\n  return new data.Dictionary(...Object.entries(v).map(([key, v]) => ({key, value: value(v)})));\n}\nfunction evaluate(expression, context, status = {}) {\n  const functions = new Map(Object.entries(status).map(([name, v]) => [name,\n    {name, minArgs: 0, maxArgs: 0, call: () => new data.BooleanData(v)}]));\n  const text = expression.trim().replace(/^\\$\\{\\{\\s*/, '').replace(/\\s*\\}\\}$/, '');\n  const tree = new Parser(new Lexer(text).lex().tokens, Object.keys(context),\n    [...functions.values()]).parse();\n  return new Evaluator(tree, value(context), functions).evaluate();\n}\nlet consumerChecks = 0, pathChecks = 0, conditionChecks = 0, shellChecks = 0, consumerJobs = 0;\nlet requiredAggregates = 0;\nconst results = [];\nconst changedFiles = preflight.jobs.preflight.steps.find(s => s.id === 'set_changes');\nconst tracked = spawnSync('git', ['ls-files', '--', '.github/actions', '.github/scripts'], {\n  cwd: root, encoding: 'utf8'\n});\nassert.equal(tracked.status, 0, tracked.stderr);\nconst sharedPaths = ['.github/env', '.github/workflows/runtimes-matrix.json',\n  '.github/actions/future/nested/action.yml', '.github/scripts/future/nested/check.py',\n  ...tracked.stdout.trim().split('\\n').filter(Boolean)];\nconst fixtures = [\n  [[], false],\n  ...['docs/README.md', 'docs/nested/README.md', 'docs/diagram.mmd',\n    'docs/nested/diagram.mmd', 'docs/image.png', 'docs/nested/image.png',\n    'prdoc/pr_13611.prdoc', '.github/CODEOWNERS', '.github/env.backup',\n    '.github/workflows/unrelated-fixture.yml'].map(p => [[p], false]),\n  ...['docs/example.rs', 'docs/nested/example.rs', 'docs/config.json',\n    'docs/nested/config.toml', 'docs/script.sh', 'docs/page.html', 'docs/image.svg',\n    'README.md', 'substrate/client/network/src/lib.rs', ...sharedPaths]\n    .map(p => [[p], true]),\n  [['docs/README.md', 'docs/nested/image.png'], false],\n  [['docs/README.md', '.github/env'], true],\n  [['docs/README.md', 'substrate/client/network/src/lib.rs'], true],\n  [['.github/workflows/reusable-preflight.yml'], true]\n];\nfunction outputFor(rust, current) {\n  const produced = evaluate(preflight.jobs.preflight.outputs.changes_rust, {steps: {\n    set_changes: {outputs: {rust_any_changed: rust, currentWorkflow_any_changed: current}}\n  }}).coerceString();\n  const enabled = rust === 'true' || current === 'true';\n  assert.equal(produced, enabled ? 'true' : '');\n  // Empty job outputs may be omitted at the reusable-workflow boundary.\n  const output = evaluate(preflight.on.workflow_call.outputs.changes_rust.value,\n    {jobs: {preflight: {outputs: produced ? {changes_rust: produced} : {}}}}).coerceString();\n  assert.equal(output, produced);\n  return output;\n}\nfunction checkConsumers(file, consumers, output, enabled) {\n  let count = 0;\n  for (const [id, job] of consumers) for (const event of ['pull_request', 'push', 'merge_group', 'schedule']) {\n    const actual = truthy(evaluate(job.if, {\n      needs: {preflight: {outputs: {changes_rust: output}}}, github: {event_name: event}\n    }));\n    const excluded = file === 'check-runtime-migration.yml' &&\n      id === 'check-runtime-migration' && event === 'schedule';\n    assert.equal(actual, enabled && !excluded, `${file}/${id}/${event}`);\n    count++;\n  }\n  return count;\n}\nfor (const [file, workflow] of workflows) {\n  const consumers = Object.entries(workflow.jobs ?? {})\n    .filter(([, job]) => job.if?.includes?.('needs.preflight.outputs.changes_rust'));\n  consumerJobs += consumers.length;\n  if (consumers.length) {\n    const patterns = YAML.parse(changedFiles.with.files_yaml.replace(\n      '${{ steps.current_file.outputs.currentWorkflowFile }}', `.github/workflows/${file}`));\n    if (process.argv.includes('--broad-docs')) patterns.rust = [\n      ...patterns.rust.filter(p => !p.startsWith('!docs/')), '!docs/**/*'];\n    if (process.argv.includes('--without-shared-ci')) patterns.currentWorkflow = patterns.currentWorkflow.slice(0, 2);\n    for (const [paths, expected] of [...fixtures, [[`.github/workflows/${file}`], true]]) {\n      const flag = group => micromatch(paths, patterns[group], {\n        dot: true, windows: false, noext: true\n      }).length ? 'true' : 'false';\n      const output = outputFor(flag('rust'), flag('currentWorkflow'));\n      assert.equal(output, expected ? 'true' : '', `${file}: ${paths}`);\n      pathChecks += checkConsumers(file, consumers, output, expected);\n    }\n  }\n  for (const rust of ['false', 'true']) for (const current of ['false', 'true']) {\n    const enabled = rust === 'true' || current === 'true';\n    consumerChecks += checkConsumers(file, consumers, outputFor(rust, current), enabled);\n  }\n  for (const [id, job] of Object.entries(workflow.jobs)) {\n    const step = job.steps?.find(s => s.run?.includes('FAILURES=') && s.run.includes('toJSON(needs)'));\n    if (!step) continue;\n    const deps = Array.isArray(job.needs) ? job.needs : [job.needs];\n    assert(deps.includes('preflight'), `${file}/${id} must depend directly on preflight`);\n    if (id.startsWith('confirm-required-')) requiredAggregates++;\n    const scenarios = ['skipped', 'success', 'mixed'].map(outcome =>\n      deps.map((_, i) => outcome === 'mixed' ? (i % 2 ? 'success' : 'skipped') : outcome));\n    scenarios.push(deps.map(name => name === 'preflight' ? 'success' : 'skipped'));\n    for (let i = 0; i < deps.length; i++) for (const outcome of ['failure', 'cancelled']) {\n      for (const others of ['skipped', 'success']) {\n        scenarios.push(deps.map((_, j) => i === j ? outcome : others));\n      }\n    }\n    for (const outcomes of scenarios) {\n      const needs = Object.fromEntries(deps.map((name, i) => [name, {result: outcomes[i], outputs: {}}]));\n      for (const event of ['pull_request', 'push', 'merge_group', 'schedule']) {\n        for (const cancelled of [false, true]) {\n          const guard = process.argv.includes('--negative-control') ? 'success()' : job.if;\n          const actual = truthy(evaluate(guard, {needs, github: {event_name: event}}, {\n            always: true, cancelled, success: outcomes.every(x => x === 'success'),\n            failure: outcomes.includes('failure')\n          }));\n          const excluded = file === 'check-runtime-migration.yml' && event === 'schedule';\n          assert.equal(actual, !cancelled && !excluded, `${file}/${id}/${event}/${outcomes}`);\n          conditionChecks++;\n        }\n      }\n      const temp = mkdtempSync(join(tmpdir(), 'required-checks-'));\n      try {\n        const scriptNeeds = {...needs};\n        if (process.argv.includes('--without-preflight')) delete scriptNeeds.preflight;\n        const script = step.run.replace('${{ toJSON(needs) }}', JSON.stringify(scriptNeeds, null, 2));\n        assert(!script.includes('${{'), 'Unhandled expression in actual aggregate script');\n        assert.equal(step.shell, undefined, 'Revisit the test if the workflow changes shell');\n        writeFileSync(join(temp, 'check.sh'), script);\n        const run = spawnSync('bash', ['-e', join(temp, 'check.sh')], {\n          cwd: temp, env: {...process.env, GITHUB_STEP_SUMMARY: join(temp, 'summary'),\n            GITHUB_OUTPUT: join(temp, 'output')}, encoding: 'utf8'\n        });\n        const failed = outcomes.some(x => ['failure', 'cancelled'].includes(x));\n        assert.equal(run.status, failed ? 1 : 0, `${file}/${id}/${outcomes}: ${run.stderr}`);\n        if (step.run.includes('build_success=')) {\n          assert.equal(readFileSync(join(temp, 'output'), 'utf8').trim(), `build_success=${!failed}`);\n        }\n        shellChecks++;\n      } finally { rmSync(temp, {recursive: true, force: true}); }\n    }\n    results.push({workflow: file, aggregate: job.name, dependencies: deps.length, scenarios: scenarios.length});\n  }\n}\nassert.equal(consumerJobs, 30, 'Unexpected consumer coverage');\nassert.equal(requiredAggregates, 9, 'Unexpected confirm-required-* coverage');\nassert.equal(results.length, 12, 'Unexpected aggregate coverage');\nconsole.log(JSON.stringify({consumerChecks, pathChecks, conditionChecks, shellChecks,\n  sharedPaths: sharedPaths.length, requiredAggregates, failures: 0, results}, null, 2));\nJS\nnode \"$ci_check_dir/check.mjs\" \"$PWD\"\nfor flag in --negative-control --broad-docs --without-shared-ci --without-preflight; do\n  if node \"$ci_check_dir/check.mjs\" \"$PWD\" \"$flag\" >/dev/null 2>&1; then\n    echo \"ERROR: negative control $flag unexpectedly passed\"\n    exit 1\n  fi\n  echo \"Negative control $flag correctly rejected.\"\ndone\n)\n```\n\n</details>\n\n## Integration\n\nCI-only change; no crates require publishing or downstream changes. The\nbranch includes its required `prdoc/pr_13611.prdoc`. Required labels\nstill need a maintainer: `T10-tests` and `R0-no-crate-publish-required`\n(the author's account cannot apply upstream labels).",
+          "timestamp": "2026-11-02T11:05:18Z",
+          "tree_id": "e48f1f2652eaeb74df1949ef31ed677c105a3325",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/c50e3922182168884d0c108b17b23db9baca2242"
+        },
+        "date": 1793623294063,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02554531080666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007778238133333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1479381110800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010335105946666645,
             "unit": "seconds"
           }
         ]
