@@ -488,6 +488,37 @@ mod tests {
 	}
 
 	#[test]
+	fn a_cyclic_or_out_of_range_node_is_corrupt_not_an_endless_walk() {
+		let (mut entry, mut store) = (None, BTreeMap::new());
+		for stream in [ch(1000), ch(1001)] {
+			update_tree_leaf(&mut entry, stream, root(0x1), &mut store).unwrap();
+		}
+		let Some(TreeRootEntry::Node { key, .. }) = entry else { panic!("two streams") };
+
+		// The root's children point back at the root.
+		let mut node = store[&key];
+		(node.left_child, node.right_child) = (TreeChild::Node { key }, TreeChild::Node { key });
+		let mut cyclic = BTreeMap::from([(key, node)]);
+		let mut e = entry;
+		assert_eq!(
+			update_tree_leaf(&mut e, ch(1000), root(0x2), &mut cyclic),
+			Err(TreeError::CorruptNode(key))
+		);
+		assert_eq!(gen_stream_proof_from_nodes(&entry, ch(1000), &cyclic), None);
+
+		// A split bit past the key width would index the key out of bounds.
+		let wide = NodeKey { prefix: key.prefix, prefix_len: KEY_BITS as u8 };
+		let mut node = store[&key];
+		node.split_bit = KEY_BITS as u8;
+		let mut out_of_range = BTreeMap::from([(wide, node)]);
+		let mut e = Some(TreeRootEntry::Node { key: wide, root_hash: root(0x1) });
+		assert_eq!(
+			update_tree_leaf(&mut e, ch(1002), root(0x2), &mut out_of_range),
+			Err(TreeError::CorruptNode(wide))
+		);
+	}
+
+	#[test]
 	fn missing_node_returns_error() {
 		// Tree with an entry pointing to a missing inner node
 		let node_key = NodeKey::new(&ch(1000).to_bytes(), 10);

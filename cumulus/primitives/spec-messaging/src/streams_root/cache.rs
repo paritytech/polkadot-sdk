@@ -165,6 +165,24 @@ impl NodeStore for BTreeMap<NodeKey, InnerNode> {
 pub enum TreeError {
 	/// An expected inner node was missing from the node store.
 	MissingNode(NodeKey),
+	/// A stored inner node does not branch at its key's prefix length, below its parent.
+	CorruptNode(NodeKey),
+}
+
+/// Load the inner node at `key`. Requiring each node to branch at its key's prefix length, strictly
+/// below `parent`'s split bit and within the key, bounds every walk at [`KEY_BITS`] steps, even
+/// over a corrupt store.
+fn load_node(
+	store: &impl NodeLookup,
+	key: NodeKey,
+	parent: Option<u8>,
+) -> Result<InnerNode, TreeError> {
+	let node = store.get_node(&key).ok_or(TreeError::MissingNode(key))?;
+	let below_parent = parent.map_or(true, |p| node.split_bit > p);
+	if node.split_bit != key.prefix_len || (node.split_bit as usize) >= KEY_BITS || !below_parent {
+		return Err(TreeError::CorruptNode(key));
+	}
+	Ok(node)
 }
 
 /// An inner node at `split_bit` with `ours` on the side `ours_right` names and `other` opposite.
@@ -200,11 +218,12 @@ fn split_leaf(
 /// Recursively insert or update `(key, stream_root)` into an inner node subtree.
 fn insert_inner_node(
 	curr_key: NodeKey,
+	parent: Option<u8>,
 	key: &[u8; STREAM_ID_LEN],
 	stream_root: Hash,
 	store: &mut impl NodeStore,
 ) -> Result<(NodeKey, Hash), TreeError> {
-	let mut inner = store.get_node(&curr_key).ok_or(TreeError::MissingNode(curr_key))?;
+	let mut inner = load_node(store, curr_key, parent)?;
 	let d = first_diverging_bit(key, &curr_key.prefix);
 
 	// `key` leaves this node's prefix above its split bit: a new inner node goes above it.
@@ -230,7 +249,8 @@ fn insert_inner_node(
 			(TreeChild::Node { key: node_key }, hash)
 		},
 		TreeChild::Node { key: child_key } => {
-			let (child_key, hash) = insert_inner_node(child_key, key, stream_root, store)?;
+			let (child_key, hash) =
+				insert_inner_node(child_key, Some(inner.split_bit), key, stream_root, store)?;
 			(TreeChild::Node { key: child_key }, hash)
 		},
 	};
@@ -273,7 +293,7 @@ pub fn update_tree_leaf(
 		Some(TreeRootEntry::Node { key: root_key, .. }) => {
 			let root_key = *root_key;
 			let (new_root_key, new_root_hash) =
-				insert_inner_node(root_key, &key, stream_root, store)?;
+				insert_inner_node(root_key, None, &key, stream_root, store)?;
 			*root_entry = Some(TreeRootEntry::Node { key: new_root_key, root_hash: new_root_hash });
 			Ok(StreamsRoot(new_root_hash))
 		},
@@ -303,9 +323,11 @@ pub fn gen_stream_proof_from_nodes(
 		},
 		TreeRootEntry::Node { key: root_key, root_hash } => {
 			let mut curr_key = *root_key;
+			let mut parent = None;
 			let mut steps = Vec::new();
 			loop {
-				let inner = lookup.get_node(&curr_key)?;
+				let inner = load_node(lookup, curr_key, parent).ok()?;
+				parent = Some(inner.split_bit);
 				let d = first_diverging_bit(&key, &curr_key.prefix);
 				if d < inner.split_bit as usize {
 					return None;
