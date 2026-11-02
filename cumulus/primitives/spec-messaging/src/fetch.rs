@@ -334,13 +334,13 @@ mod tests {
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
 				source,
-				BTreeMap::from([(
+				vec![(
 					stream,
 					Interval {
 						start: frontier_at(&leaves, 2).root(),
 						end: frontier_at(&leaves, 4),
 					},
-				)]),
+				)],
 			)]),
 		};
 		let mut lifts = BTreeMap::new();
