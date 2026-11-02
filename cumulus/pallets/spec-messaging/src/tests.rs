@@ -1190,6 +1190,20 @@ fn a_send_over_the_peers_max_message_size_is_refused() {
 }
 
 #[test]
+fn a_data_leaf_at_max_msg_len_is_the_largest_sendable() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		// A peer limit past `MaxMsgLen`, so the pallet's own bound decides.
+		opened(ch, 1, 4 * MaxMsgLen::get());
+		// The bound is on the encoded leaf: at this size, a variant byte and a 2-byte compact
+		// length.
+		let max = MaxMsgLen::get() as usize;
+		assert_err!(SpecMessaging::send(ch, vec![0; max - 2]), Error::<Test>::MessageTooBig);
+		assert_ok!(SpecMessaging::send(ch, vec![0; max - 3]));
+	});
+}
+
+#[test]
 fn sender_close_answers_only_the_latest_session() {
 	new_test_ext().execute_with(|| {
 		let ch = out_channel();

@@ -43,7 +43,7 @@ use cumulus_primitives_spec_messaging::{
 	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot, OpenSession,
 	OutChannelId, OutChannelState, Payload, ProvideConsumptionRecord, Register, RegisterStatus,
 	SessionParams, StreamId, StreamProof, StreamsRoot, INHERENT_IDENTIFIER, LEAF_VERSION,
-	SPMS_ENGINE_ID,
+	MAX_SPECULATIVE_MESSAGE_LEN, SPMS_ENGINE_ID,
 };
 use frame_support::{
 	ensure,
@@ -311,6 +311,11 @@ pub mod pallet {
 			assert!(
 				T::MaxMessageSize::get() <= T::MaxMsgLen::get(),
 				"`MaxMessageSize` must not exceed `MaxMsgLen`",
+			);
+			// Receivers refuse to fetch a longer leaf, which would stall its channel for good.
+			assert!(
+				T::MaxMsgLen::get() <= MAX_SPECULATIVE_MESSAGE_LEN,
+				"`MaxMsgLen` must not exceed `MAX_SPECULATIVE_MESSAGE_LEN`",
 			);
 			assert!(
 				!T::SupportedVersions::get().is_empty(),
