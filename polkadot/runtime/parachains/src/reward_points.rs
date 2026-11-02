@@ -23,29 +23,36 @@
 
 use crate::{session_info, shared};
 use alloc::collections::btree_set::BTreeSet;
-use frame_support::traits::{Defensive, RewardsReporter, ValidatorSet};
+use frame_support::traits::{Defensive, Get, RewardsReporter, ValidatorSet};
 use polkadot_primitives::{SessionIndex, ValidatorIndex};
 
-/// The amount of era points given by backing a candidate that is included.
-pub const BACKING_POINTS: u32 = 20;
-/// The amount of era points given by dispute voting on a candidate.
-pub const DISPUTE_STATEMENT_POINTS: u32 = 20;
-
 /// Rewards validators for participating in parachains with era points in pallet-staking.
-pub struct RewardValidatorsWithEraPoints<C, R>(core::marker::PhantomData<(C, R)>);
+///
+/// `PointsPerWork` is the amount of era points given per unit of work. The unit of work depends on
+/// where this type is used:
+///
+/// - As `inclusion::Config::RewardValidators`: backing a candidate that is included.
+/// - As `disputes::Config::RewardValidators`: casting a dispute statement on a candidate.
+///
+/// Use a separate instance with a different `PointsPerWork` for each pallet to reward them
+/// differently.
+pub struct RewardValidatorsWithEraPoints<C, R, PointsPerWork>(
+	core::marker::PhantomData<(C, R, PointsPerWork)>,
+);
 
-impl<C, R> RewardValidatorsWithEraPoints<C, R>
+impl<C, R, PointsPerWork> RewardValidatorsWithEraPoints<C, R, PointsPerWork>
 where
 	C: session_info::Config,
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
 	R: RewardsReporter<C::AccountId>,
+	PointsPerWork: Get<u32>,
 {
 	/// Reward validators in session with points, but only if they are in the active set.
 	fn reward_only_active(
 		session_index: SessionIndex,
 		indices: impl IntoIterator<Item = ValidatorIndex>,
-		points: u32,
 	) {
+		let points = PointsPerWork::get();
 		let validators = session_info::AccountKeys::<C>::get(&session_index);
 		let validators = match validators
 			.defensive_proof("account_keys are present for dispute_period sessions")
@@ -66,30 +73,34 @@ where
 	}
 }
 
-impl<C, R> crate::inclusion::RewardValidators for RewardValidatorsWithEraPoints<C, R>
+impl<C, R, PointsPerWork> crate::inclusion::RewardValidators
+	for RewardValidatorsWithEraPoints<C, R, PointsPerWork>
 where
 	C: shared::Config + session_info::Config,
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
 	R: RewardsReporter<C::AccountId>,
+	PointsPerWork: Get<u32>,
 {
 	fn reward_backing(indices: impl IntoIterator<Item = ValidatorIndex>) {
 		let session_index = shared::CurrentSessionIndex::<C>::get();
-		Self::reward_only_active(session_index, indices, BACKING_POINTS);
+		Self::reward_only_active(session_index, indices);
 	}
 
 	fn reward_bitfields(_validators: impl IntoIterator<Item = ValidatorIndex>) {}
 }
 
-impl<C, R> crate::disputes::RewardValidators for RewardValidatorsWithEraPoints<C, R>
+impl<C, R, PointsPerWork> crate::disputes::RewardValidators
+	for RewardValidatorsWithEraPoints<C, R, PointsPerWork>
 where
 	C: session_info::Config,
 	C::ValidatorSet: ValidatorSet<C::AccountId, ValidatorId = C::AccountId>,
 	R: RewardsReporter<C::AccountId>,
+	PointsPerWork: Get<u32>,
 {
 	fn reward_dispute_statement(
 		session: SessionIndex,
 		validators: impl IntoIterator<Item = ValidatorIndex>,
 	) {
-		Self::reward_only_active(session, validators, DISPUTE_STATEMENT_POINTS);
+		Self::reward_only_active(session, validators);
 	}
 }

@@ -61,7 +61,7 @@
 //! In your runtime, you will find a list of TransactionExtensions.
 //! To enable the reclaiming,
 //! set [`StorageWeightReclaim`](cumulus_pallet_weight_reclaim::StorageWeightReclaim)
-//! as a warpper of that list.
+//! as a wrapper of that list.
 //! It is necessary that this extension wraps all the other transaction extensions in order to catch
 //! the whole PoV size of the transactions.
 //! The extension will check the size of the storage proof before and after an extrinsic execution.
@@ -69,13 +69,13 @@
 #![doc = docify::embed!("../../templates/parachain/runtime/src/lib.rs", template_signed_extra)]
 //! ## Optional: Verify that reclaim works
 //!
-//! Start your node with the log target `runtime::storage_reclaim` set to `trace` to enable full
-//! logging for `StorageWeightReclaim`. The following log is an example from a local testnet. To
-//! trigger the log, execute any extrinsic on the network.
+//! Start your node with the log target `runtime::storage_reclaim_pallet` set to `trace` to enable
+//! full logging for `StorageWeightReclaim`. The following log is an example from a local testnet.
+//! To trigger the log, execute any extrinsic on the network.
 //!
 //! ```ignore
 //! ...
-//! 2024-04-22 17:31:48.014 TRACE runtime::storage_reclaim: [ferdie] Reclaiming storage weight. benchmarked: 3593, consumed: 265 unspent: 0
+//! 2024-04-22 17:31:48.014 TRACE runtime::storage_reclaim_pallet: [ferdie] Reclaiming storage weight. benchmarked: 3593, consumed: 265
 //! ...
 //! ```
 //!

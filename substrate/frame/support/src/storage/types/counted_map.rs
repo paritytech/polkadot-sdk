@@ -795,7 +795,7 @@ mod test {
 			assert_eq!(A::count(), 2);
 
 			// Remove all.
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 
 			assert_eq!(A::count(), 0);
 			assert_eq!(A::initialize_counter(), 0);
@@ -1042,7 +1042,7 @@ mod test {
 			assert_eq!(B::count(), 2);
 
 			// Remove all.
-			let _ = B::clear(u32::max_value(), None);
+			let _ = B::clear(u32::MAX, None);
 
 			assert_eq!(B::count(), 0);
 			assert_eq!(B::initialize_counter(), 0);
