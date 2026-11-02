@@ -387,8 +387,9 @@ async fn wait_for_credits_from_both_chains(
 }
 
 /// Waits for the report before the expected era end on `chain`: the first finalized block that
-/// removes `ValidatorCollators::SetReceivedAt`. A new arrival that replaces it does not count. The
-/// block must hold `ValidatorCollators::BlocksReported`, since periodic reports alone emit it too.
+/// removes `ValidatorCollators::ExternalSetReceivedAt`. A new arrival that replaces it does not
+/// count. The block must hold `ValidatorCollators::BlocksReported`, since periodic reports alone
+/// emit it too.
 async fn wait_for_early_report(
 	client: OnlineClient<PolkadotConfig>,
 	chain: &'static str,
@@ -398,10 +399,15 @@ async fn wait_for_early_report(
 		let mut arrival_stored = false;
 		while let Some(block) = blocks.next().await {
 			let block = block?;
-			let stored =
-				fetch_raw_at(&client, block.hash(), "ValidatorCollators", "SetReceivedAt", vec![])
-					.await?
-					.is_some();
+			let stored = fetch_raw_at(
+				&client,
+				block.hash(),
+				"ValidatorCollators",
+				"ExternalSetReceivedAt",
+				vec![],
+			)
+			.await?
+			.is_some();
 			if arrival_stored && !stored {
 				let reported = block.events().await?.iter().any(|event| {
 					event.is_ok_and(|event| {
@@ -411,7 +417,7 @@ async fn wait_for_early_report(
 				});
 				if !reported {
 					return Err(anyhow!(
-						"{chain} #{} removed `SetReceivedAt` without `BlocksReported`",
+						"{chain} #{} removed `ExternalSetReceivedAt` without `BlocksReported`",
 						block.number()
 					));
 				}

@@ -191,6 +191,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	MaxEntriesPerReport::set(100);
 	ReportCalls::set(0);
 	FailingReportCall::set(None);
+	ObservedEvents::set(0);
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	let balances = COLLATORS.iter().chain(VALIDATORS.iter()).map(|&a| (a, 100)).collect();
@@ -250,4 +251,19 @@ pub fn initialize_to_block(n: u64) {
 				.unwrap_or_else(|e| panic!("the invariants hold after block {i}: {e:?}"));
 		}
 	}
+}
+
+parameter_types! {
+	/// Number of events of the pallet that [`events_since_last_call`] has returned so far.
+	pub static ObservedEvents: usize = 0;
+}
+
+/// The events of the pallet deposited since the last call, or since the start of the test.
+///
+/// It counts the events seen so far, so a test that uses it must not reset the events.
+pub(crate) fn events_since_last_call() -> Vec<crate::Event<Test>> {
+	let events = System::read_events_for_pallet::<crate::Event<Test>>();
+	let already_seen = ObservedEvents::get();
+	ObservedEvents::set(events.len());
+	events.into_iter().skip(already_seen).collect()
 }

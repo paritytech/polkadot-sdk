@@ -26,6 +26,18 @@ doc:
     `MaxEntriesPerReport`, `UnixTime`, `DefaultExpectedEraDuration`, `DefaultReportMargin` and
     `MaxReportMargin`. The runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
 
+    `pallet-validator-collators` storage is renamed: `ValidatorSet` to `ExternalValidatorSet`,
+    `Collators` to `DrawnCollators` and the stored struct `DrawnCollators` to `EraCollators`, whose
+    `validators` field is now `collators`. `DrawnCollators` now always holds the list last returned
+    to pallet-session, with or without a cap, of validators with registered keys at that rotation.
+    Under a cap, a drawn validator that removes its keys is dropped from it at the next rotation
+    and is not drawn again until the next set or cap change. `set_max_collators(None)` no longer
+    clears it. Under a cap with no drawn collators outside a redraw it returns `None` instead of an
+    empty list. `CollatorsDrawn` now carries
+    `external_len`, `drawn_len` and `new_external`, and is emitted at every rotation with a stored
+    set. `StoredSetUndecodable` becomes `Unexpected(StoredSetUndecodable)`, next to
+    `Unexpected(NoPreviousDrawSet)` and the new `NothingToDraw`.
+
     New `pallet-staking-async-points-converter`, for Asset Hub, converts the reported counts into
     era points using `PointsPerService`, set by governance. A count is credited up to
     `MaxBlocksPerEntry`.

@@ -27,7 +27,7 @@ use frame_benchmarking::{account, v2::*, BenchmarkError};
 use frame_support::{
 	traits::{EnsureOrigin, Get, Hooks},
 	weights::WeightMeter,
-	BoundedBTreeSet, BoundedVec,
+	BoundedBTreeSet,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::Saturating;
@@ -53,14 +53,14 @@ mod benchmarks {
 		}
 
 		assert_eq!(
-			ValidatorSet::<T>::get().map(|set| (set.era, set.validators.len() as u32)),
+			ExternalValidatorSet::<T>::get().map(|set| (set.era, set.validators.len() as u32)),
 			Some((1, n))
 		);
 		assert_eq!(PendingRotation::<T>::get(), RotationState::AwaitingQueue);
 		Ok(())
 	}
 
-	/// Worst case: removing the cap with a stored set and drawn collators.
+	/// Worst case: a change with a stored set, which forces the rotations.
 	#[benchmark]
 	fn set_max_collators() -> Result<(), BenchmarkError> {
 		let origin =
@@ -70,15 +70,12 @@ mod benchmarks {
 			(0..max).map(|i| account("stored", i, 0)).collect::<BTreeSet<_>>(),
 		)
 		.map_err(|_| BenchmarkError::Stop("the set exceeds MaxValidators"))?;
-		let drawn = BoundedVec::truncate_from(stored.iter().cloned().collect());
 		Pallet::<T>::do_receive_validator_set(0, stored)?;
-		Collators::<T>::put(DrawnCollators { era: 0, validators: drawn });
 
 		#[extrinsic_call]
 		_(origin as T::RuntimeOrigin, None);
 
 		assert_eq!(MaxCollators::<T>::get(), None);
-		assert!(!Collators::<T>::exists());
 		assert_eq!(PendingRotation::<T>::get(), RotationState::AwaitingQueue);
 		Ok(())
 	}
@@ -171,7 +168,7 @@ mod benchmarks {
 			<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_poll(now, &mut WeightMeter::new());
 		}
 
-		assert_eq!(SetReceivedAt::<T>::get(), None);
+		assert_eq!(ExternalSetReceivedAt::<T>::get(), None);
 		// The reporter was not reached: every call to it ends in `BlocksReported` or
 		// `BlocksReportFailed`, and the poll deposited no event.
 		assert_eq!(frame_system::Pallet::<T>::events().len(), events);

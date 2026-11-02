@@ -29,23 +29,26 @@
 //!
 //! The pallet is a [`pallet_session::SessionManager`]. At every session rotation it returns the
 //! stored validators that have registered local session keys, checked with
-//! [`Config::ValidatorRegistration`]. The runtime may combine this pallet with
-//! `pallet-collator-selection` through [`pallet_session::UnionSessionManager`], so invulnerables
-//! and candidates keep collating next to the validators.
+//! [`Config::ValidatorRegistration`], and records the returned list in [`DrawnCollators`]. The
+//! runtime may combine this pallet with `pallet-collator-selection` through
+//! [`pallet_session::UnionSessionManager`], so invulnerables and candidates keep collating next to
+//! the validators.
 //!
 //! [`MaxCollators`] optionally caps how many validators are returned. Governance can start with a
 //! low cap and raise it in steps, or lower it again, to roll out validator collators gradually.
 //! Under a cap the pallet draws the validators at random at the first forced rotation after a set
-//! arrives or the cap changes, stores them in [`Collators`] and returns those with registered keys
-//! until the next draw. The draw shuffles the whole set with a seed made of the genesis hash, the
-//! era and the relay chain epoch randomness cached in [`EpochRandomness`], then keeps the first
-//! validators with registered keys up to the cap. Every validator with keys has the same chance to
-//! be drawn in each era. A cap change draws again from the stored set, so the drawn validators
-//! can change. Every draw takes its seed from the randomness cached at the time of the draw. The
-//! seed includes the genesis hash, so each chain draws independently from the same set. A
-//! validator that registers keys after the draw waits for the next set or for a cap change. Each
-//! set, so each era, gets a new draw, which is enacted at the second forced rotation with no
-//! notice, so a validator with keys must already run a synced collator node to collate when drawn.
+//! arrives or the cap changes, and returns them until the next draw. The draw shuffles the whole
+//! set with a seed made of the genesis hash, the era and the relay chain epoch randomness cached in
+//! [`EpochRandomness`], then keeps the first validators with registered keys up to the cap. Every
+//! validator with keys has the same chance to be drawn in each era. A cap change draws again from
+//! the stored set, so the drawn validators can change. Every draw takes its seed from the
+//! randomness cached at the time of the draw. The seed includes the genesis hash, so each chain
+//! draws independently from the same set. A drawn validator that removes its keys is dropped at
+//! the next rotation and its place stays empty, and a validator that registers keys after the draw
+//! waits, until the next set or cap change. Without a cap, key changes take effect at the next
+//! rotation. Each set, so each era, gets a new draw, which is enacted at the second forced rotation
+//! with no notice, so a validator with keys must already run a synced collator node to collate
+//! when drawn.
 //!
 //! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`]. The runtime must
 //! include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or in a tuple
@@ -86,15 +89,15 @@
 //!
 //! A report runs in every block whose number is a multiple of [`ReportPeriod`], and once per
 //! stored set shortly before the expected end of its era. The pallet records the arrival time of
-//! each set in [`SetReceivedAt`], from [`Config::UnixTime`], and expects the era to end
+//! each set in [`ExternalSetReceivedAt`], from [`Config::UnixTime`], and expects the era to end
 //! [`ExpectedEraDuration`] after it. The early report runs in the first block at or after
 //! [`ReportMargin`] before that end, so that in a normal era the counts reach the chain that runs
 //! `pallet-staking-async` before the era rotates. The margin used is at most
 //! [`Config::MaxReportMargin`] and at most half of [`ExpectedEraDuration`]. The early report
-//! removes [`SetReceivedAt`] and is not retried: if the reporter rejects it, its counts go out with
-//! the next [`ReportPeriod`] report. The periodic report also covers eras that end earlier or later
-//! than expected, a set that never arrives, and the time before the first set arrives. If both
-//! reports fall in the same block, the pallet reports once.
+//! removes [`ExternalSetReceivedAt`] and is not retried: if the reporter rejects it, its counts go
+//! out with the next [`ReportPeriod`] report. The periodic report also covers eras that end earlier
+//! or later than expected, a set that never arrives, and the time before the first set arrives. If
+//! both reports fall in the same block, the pallet reports once.
 //!
 //! A runtime must configure `pallet-collator-selection`'s `KickThreshold` to exceed a full Aura
 //! round of the merged list, [`Config::MaxValidators`] plus the invulnerables and candidates, times
@@ -212,13 +215,16 @@ pub mod pallet {
 		pub validators: BoundedBTreeSet<AccountId, MaxValidators>,
 	}
 
-	/// The validators drawn under [`MaxCollators`], with the era of the set they were drawn from.
+	/// The collators returned for a session from the validator set of `era`.
+	///
+	/// Always a subset of the [`EraValidatorSet`] of the same `era`, which need not be the one in
+	/// [`ExternalValidatorSet`] any more.
 	#[frame_support::stored]
-	pub struct DrawnCollators<AccountId, MaxValidators: Get<u32>> {
-		/// The era of the set the validators were drawn from.
+	pub struct EraCollators<AccountId, MaxValidators: Get<u32>> {
+		/// The era of the set the collators were taken from.
 		pub era: EraIndex,
-		/// The drawn validators, in drawn order.
-		pub validators: BoundedVec<AccountId, MaxValidators>,
+		/// The collators, in drawn order under a cap and in account order without one.
+		pub collators: BoundedVec<AccountId, MaxValidators>,
 	}
 
 	/// Progress of the two rotations that bring a received set into force.
@@ -300,15 +306,16 @@ pub mod pallet {
 
 	/// The latest received validator set.
 	#[pallet::storage]
-	pub type ValidatorSet<T: Config> =
+	pub type ExternalValidatorSet<T: Config> =
 		StorageValue<_, EraValidatorSet<T::AccountId, T::MaxValidators>, OptionQuery>;
 
-	/// Progress of the forced rotations for the latest received set.
+	/// Time at which we received the last [`ExternalValidatorSet`], in milliseconds. Removed when
+	/// the report before the expected end of its era is made.
 	#[pallet::storage]
-	pub type PendingRotation<T: Config> = StorageValue<_, RotationState, ValueQuery>;
+	pub type ExternalSetReceivedAt<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	/// Maximum number of validators returned as collators, `None` returns every validator with
-	/// registered keys.
+	/// registered keys. Only validators with keys count against the cap.
 	///
 	/// The cap applies before the union with the other session manager. A validator that the
 	/// other session manager also returns takes a place under the cap without adding a collator.
@@ -318,23 +325,38 @@ pub mod pallet {
 	/// the cap so that the merged list, invulnerables and candidates included, keeps a
 	/// session-change header within that limit.
 	///
-	/// Under a cap the validators are drawn at random, see [`Collators`].
+	/// Under a cap the validators are drawn at random, see [`DrawnCollators`].
 	///
-	/// A change with a stored set forces two rotations. The first draws [`Collators`] again from
-	/// the stored set, so the drawn validators can change. The change is in force two blocks
-	/// later. Removing the cap returns every validator with registered keys.
+	/// A change with a stored set forces two rotations. The first draws [`DrawnCollators`] again
+	/// from the stored set, so the drawn validators can change. The change is in force two blocks
+	/// later. Removing the cap returns every validator of the stored set with registered keys.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
 
-	/// The validators drawn from the stored set under [`MaxCollators`].
+	/// The collators last returned to pallet-session, taken from [`ExternalValidatorSet`].
 	///
-	/// Drawn at the first forced rotation after a set arrives or the cap changes, with a seed made
-	/// of the genesis hash, the era of the stored set and the cached [`EpochRandomness`]. Removed
-	/// when the cap is removed. At every rotation the pallet returns the drawn validators that
-	/// still have registered keys.
+	/// Written at every session rotation, and holds only validators that had registered keys at
+	/// that rotation. Without [`MaxCollators`] it is every validator of the set with keys, in
+	/// account order. Under a cap it is the draw made at the first rotation after a set arrives or
+	/// the cap changes, and each later rotation returns it again without the validators that have
+	/// removed their keys since. `None` when the last rotation returned no list, as before the
+	/// first set arrives.
+	///
+	/// Pallet-session queues the returned list at one rotation and enacts it at the next, so this
+	/// is ahead of the session validators while [`PendingRotation`] is
+	/// [`RotationState::AwaitingEnactment`].
+	///
+	/// While [`PendingRotation`] is [`RotationState::AwaitingQueue`] it still belongs to the
+	/// previous set or cap: it can be of an older era, missing before the first draw, and not a
+	/// subset of [`ExternalValidatorSet`]. Otherwise it belongs to the era of
+	/// [`ExternalValidatorSet`] and is a subset of it, of at most [`MaxCollators`] validators.
 	#[pallet::storage]
-	pub type Collators<T: Config> =
-		StorageValue<_, DrawnCollators<T::AccountId, T::MaxValidators>, OptionQuery>;
+	pub type DrawnCollators<T: Config> =
+		StorageValue<_, EraCollators<T::AccountId, T::MaxValidators>, OptionQuery>;
+
+	/// Progress of the forced rotations for the latest received set.
+	#[pallet::storage]
+	pub type PendingRotation<T: Config> = StorageValue<_, RotationState, ValueQuery>;
 
 	/// The relay chain randomness of one epoch ago, read from the relay chain state proof of every
 	/// block and written when it changes.
@@ -351,11 +373,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type AuthoredBlocks<T: Config> =
 		CountedStorageMap<_, Twox64Concat, T::AccountId, u32, ValueQuery>;
-
-	/// Time at which the stored validator set arrived, in milliseconds. Removed when the report
-	/// before the expected end of its era is made.
-	#[pallet::storage]
-	pub type SetReceivedAt<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	/// Expected time from the arrival of a validator set to the end of its era, in milliseconds.
 	#[pallet::storage]
@@ -374,11 +391,15 @@ pub mod pallet {
 		ValidatorSetReceived { era: EraIndex, count: u32 },
 		/// The maximum number of validator collators was changed.
 		MaxCollatorsSet { max: Option<u32> },
-		/// Validators were drawn from the set of `era` under the cap.
-		CollatorsDrawn { era: EraIndex, validators: Vec<T::AccountId> },
-		/// The stored validator set does not decode, so no validators were returned for the
-		/// session.
-		StoredSetUndecodable,
+		/// No external set is stored, so no validators were returned for the session, with or
+		/// without a cap. This happens in the sessions after this pallet is added to a runtime and
+		/// before the first set arrives, so it is not an `UnexpectedKind`.
+		NothingToDraw,
+		/// `drawn_len` of the `external_len` validators of the set of `era`, all with registered
+		/// keys, were returned for a session and recorded in [`DrawnCollators`]. `new_external` is
+		/// `true` at the first rotation after a set arrives or the cap changes, and `false` at the
+		/// later ones, which under a cap return the previous draw again.
+		CollatorsDrawn { era: EraIndex, external_len: u32, drawn_len: u32, new_external: bool },
 		/// The number of blocks between two reports was changed.
 		ReportPeriodSet { period: BlockNumberFor<T> },
 		/// The block counts of `authors` authors were removed. The `reported` of them in the
@@ -393,6 +414,18 @@ pub mod pallet {
 		/// The time before the expected end of an era at which the counts are reported was
 		/// changed.
 		ReportMarginSet { margin: u64 },
+		/// Something that should never happen happened. See [`UnexpectedKind`].
+		Unexpected(UnexpectedKind),
+	}
+
+	/// The kinds of [`Event::Unexpected`].
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
+	pub enum UnexpectedKind {
+		/// We expected a previously drawn set, but none was found.
+		NoPreviousDrawSet,
+		/// The stored validator set does not decode, so no validators were returned for the
+		/// session.
+		StoredSetUndecodable,
 	}
 
 	#[pallet::error]
@@ -421,9 +454,9 @@ pub mod pallet {
 
 		/// Reports [`AuthoredBlocks`] at every multiple of [`ReportPeriod`] (`periodic_send` in the
 		/// code), and once per stored set when [`ReportMargin`] or less remains until
-		/// [`SetReceivedAt`] plus [`ExpectedEraDuration`] (`early_send` in the code).
+		/// [`ExternalSetReceivedAt`] plus [`ExpectedEraDuration`] (`early_send` in the code).
 		///
-		/// The early report removes [`SetReceivedAt`], so it is made once per set and not
+		/// The early report removes [`ExternalSetReceivedAt`], so it is made once per set and not
 		/// retried. If the reporter rejects it, the counts go out with the next [`ReportPeriod`]
 		/// report. Both rules in the same block make one report.
 		///
@@ -438,7 +471,7 @@ pub mod pallet {
 				return;
 			}
 
-			let early_send = SetReceivedAt::<T>::get().is_some_and(|received_at| {
+			let early_send = ExternalSetReceivedAt::<T>::get().is_some_and(|received_at| {
 				let duration = ExpectedEraDuration::<T>::get();
 				let margin =
 					ReportMargin::<T>::get().min(T::MaxReportMargin::get()).min(duration / 2);
@@ -470,9 +503,10 @@ pub mod pallet {
 			}
 
 			// Remove the arrival only once the report is made, so the early report is made once
-			// per set.
+			// per set. Removing it sooner would lose an early report that does not fit `meter`,
+			// which stays due for the next block.
 			if early_send {
-				SetReceivedAt::<T>::kill();
+				ExternalSetReceivedAt::<T>::kill();
 			}
 			Self::report_blocks(authors);
 			meter.consume(base_weight.saturating_add(report_weight));
@@ -549,17 +583,15 @@ pub mod pallet {
 
 		/// Set the maximum number of validators returned as collators.
 		///
-		/// With a stored set, the change forces two rotations and the first draws [`Collators`]
-		/// again, so the drawn validators can change. `None` clears [`Collators`].
+		/// With a stored set, the change forces two rotations and the first draws
+		/// [`DrawnCollators`] again, so the drawn validators can change. `None` returns the whole
+		/// stored set from then on.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			MaxCollators::<T>::set(max);
-			if max.is_none() {
-				Collators::<T>::kill();
-			}
-			if ValidatorSet::<T>::exists() {
+			if ExternalValidatorSet::<T>::exists() {
 				PendingRotation::<T>::put(RotationState::AwaitingQueue);
 			}
 			Self::deposit_event(Event::MaxCollatorsSet { max });
@@ -633,12 +665,12 @@ pub mod pallet {
 			validators: BoundedBTreeSet<T::AccountId, T::MaxValidators>,
 		) -> DispatchResult {
 			ensure!(
-				ValidatorSet::<T>::get().is_none_or(|stored| era > stored.era),
+				ExternalValidatorSet::<T>::get().is_none_or(|stored| era > stored.era),
 				Error::<T>::StaleEra
 			);
 			let count = validators.len() as u32;
-			ValidatorSet::<T>::put(EraValidatorSet { era, validators });
-			SetReceivedAt::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
+			ExternalValidatorSet::<T>::put(EraValidatorSet { era, validators });
+			ExternalSetReceivedAt::<T>::put(T::UnixTime::now().as_millis().saturated_into::<u64>());
 			PendingRotation::<T>::put(RotationState::AwaitingQueue);
 			Self::deposit_event(Event::ValidatorSetReceived { era, count });
 			Ok(())
@@ -666,28 +698,22 @@ pub mod pallet {
 			BlakeTwo256::hash_of(&(b"validator-collators", genesis, era, randomness)).into()
 		}
 
-		/// Draw up to `cap` validators with registered keys from `set` into [`Collators`] and
-		/// emit [`Event::CollatorsDrawn`].
+		/// Draw up to `cap` validators with registered keys from `set`, in drawn order.
 		///
 		/// The whole set is shuffled before the key filter, so the order depends only on the seed
 		/// and the set.
 		fn draw_collators(
 			set: EraValidatorSet<T::AccountId, T::MaxValidators>,
 			cap: u32,
-		) -> BoundedVec<T::AccountId, T::MaxValidators> {
+		) -> Vec<T::AccountId> {
 			let EraValidatorSet { era, validators } = set;
 			let mut order: Vec<_> = validators.into_iter().collect();
 			order.shuffle(&mut ChaCha20Rng::from_seed(Self::draw_seed(era)));
-			let drawn: Vec<_> = order
+			order
 				.into_iter()
 				.filter(T::ValidatorRegistration::is_registered)
 				.take(cap as usize)
-				.collect();
-			Self::deposit_event(Event::CollatorsDrawn { era, validators: drawn.clone() });
-			// At most the length of the set, which is bounded by `MaxValidators`.
-			let validators = BoundedVec::truncate_from(drawn);
-			Collators::<T>::put(DrawnCollators { era, validators: validators.clone() });
-			validators
+				.collect()
 		}
 
 		/// Weight of [`Self::report_blocks`] with `authors` entries read from [`AuthoredBlocks`].
@@ -702,10 +728,12 @@ pub mod pallet {
 
 		/// Hand the counted blocks of the stored validators to [`Config::BlockReporter`].
 		///
-		/// Hands the counts of every author in the stored set to the reporter in one call, and
-		/// removes the counts of the other authors. The counts handed over are removed only if
-		/// the reporter accepts them, and the reporter's storage changes are rolled back if it
-		/// rejects them. Without a stored set every count is removed.
+		/// Hands the counts of every author in [`ExternalValidatorSet`] to the reporter in one
+		/// call, and removes the counts of the other authors. The filter is the latest set, so
+		/// once a new set arrives, the counts of a [`DrawnCollators`] validator that is not in it
+		/// are dropped. The counts handed over are removed only if the reporter accepts them, and
+		/// the reporter's storage changes are rolled back if it rejects them. Without a stored
+		/// set every count is removed.
 		///
 		/// `authors` is the number of entries in [`AuthoredBlocks`], which the caller reads to
 		/// weigh the report with [`Self::report_weight`] before making it. A rejected report
@@ -715,7 +743,8 @@ pub mod pallet {
 				return;
 			}
 
-			let validators = ValidatorSet::<T>::get().map(|set| set.validators).unwrap_or_default();
+			let validators =
+				ExternalValidatorSet::<T>::get().map(|set| set.validators).unwrap_or_default();
 
 			// read all authored-blocks, and partition them in those that we send and those we may
 			// drop.
@@ -757,29 +786,30 @@ pub mod pallet {
 		/// Check the pallet invariants.
 		#[cfg(any(test, feature = "try-runtime"))]
 		pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			// `a` implies `b`: fails only if `a` holds and `b` does not.
+			let implies = |a: bool, b: bool| !a || b;
+
+			// ExternalValidatorSet related
 			ensure!(
-				ValidatorSet::<T>::exists() || PendingRotation::<T>::get() == RotationState::Idle,
+				implies(
+					PendingRotation::<T>::get() != RotationState::Idle,
+					ExternalValidatorSet::<T>::exists()
+				),
 				"a rotation is pending without a stored validator set"
 			);
 			ensure!(
-				ValidatorSet::<T>::exists() == ValidatorSet::<T>::get().is_some(),
+				ExternalValidatorSet::<T>::exists() == ExternalValidatorSet::<T>::get().is_some(),
 				"the stored validator set does not decode, it may exceed `MaxValidators`"
 			);
+
+			// DrawnCollators related
 			ensure!(
-				!Collators::<T>::exists() ||
-					(MaxCollators::<T>::exists() && ValidatorSet::<T>::exists()),
-				"drawn collators are stored without both a cap and a validator set"
+				implies(DrawnCollators::<T>::exists(), ExternalValidatorSet::<T>::exists()),
+				"drawn collators are stored without a validator set"
 			);
 			ensure!(
-				Collators::<T>::exists() == Collators::<T>::get().is_some(),
+				DrawnCollators::<T>::exists() == DrawnCollators::<T>::get().is_some(),
 				"the drawn collators do not decode"
-			);
-			// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a value in
-			// every block's inherent and the cache is never removed. So this holds for every draw
-			// after the first block that runs the pallet, and flags a runtime without that wiring.
-			ensure!(
-				!Collators::<T>::exists() || EpochRandomness::<T>::exists(),
-				"collators are drawn without a cached relay chain epoch randomness"
 			);
 			ensure!(
 				AuthoredBlocks::<T>::iter_values().all(|blocks| blocks > 0),
@@ -787,80 +817,136 @@ pub mod pallet {
 			);
 			ensure!(ExpectedEraDuration::<T>::get() > 0, "the expected era duration is zero");
 			ensure!(ReportMargin::<T>::get() > 0, "the report margin is zero");
-			// Until the first forced rotation the drawn collators may be missing or belong to a
-			// previous set or cap.
+
 			if PendingRotation::<T>::get() == RotationState::AwaitingQueue {
+				// Until the next rotation draws, the drawn collators still belong to the previous
+				// set or cap: of an older era after a new set, possibly by more than one era, or of
+				// the same era after a cap change. Only their era is checked.
+				if let (Some(set), Some(drawn)) =
+					(ExternalValidatorSet::<T>::get(), DrawnCollators::<T>::get())
+				{
+					ensure!(
+						drawn.era <= set.era,
+						"the drawn collators belong to a newer era than the stored set"
+					);
+				}
 				return Ok(());
 			}
-			if let (Some(set), Some(cap)) = (ValidatorSet::<T>::get(), MaxCollators::<T>::get()) {
-				let drawn = Collators::<T>::get().ok_or("no collators are drawn under a cap")?;
-				ensure!(drawn.era == set.era, "the drawn collators belong to another era");
-				let mut seen = BTreeSet::new();
-				ensure!(
-					drawn.validators.iter().all(|v| seen.insert(v)),
-					"the drawn collators contain duplicates"
-				);
-				ensure!(
-					drawn.validators.iter().all(|v| set.validators.contains(v)),
-					"a drawn collator is not in the stored validator set"
-				);
-				ensure!(
-					drawn.validators.len() <= cap as usize,
-					"more collators are drawn than the cap allows"
-				);
+
+			// Keys can change between rotations, so the key filter of the last rotation is not
+			// checked.
+			let Some(set) = ExternalValidatorSet::<T>::get() else { return Ok(()) };
+			let drawn = DrawnCollators::<T>::get().ok_or("no collators are drawn for the set")?;
+			ensure!(drawn.era == set.era, "the drawn collators belong to another era");
+			let mut seen = BTreeSet::new();
+			ensure!(
+				drawn.collators.iter().all(|v| seen.insert(v)),
+				"the drawn collators contain duplicates"
+			);
+			ensure!(
+				drawn.collators.iter().all(|v| set.validators.contains(v)),
+				"a drawn collator is not in the stored validator set"
+			);
+			match MaxCollators::<T>::get() {
+				Some(cap) => {
+					ensure!(
+						drawn.collators.len() <= cap as usize,
+						"more collators are drawn than the cap allows"
+					);
+					// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a
+					// value in every block's inherent and the cache is never removed. So this holds
+					// for every draw after the first block that runs the pallet, and flags a
+					// runtime without that wiring.
+					ensure!(
+						EpochRandomness::<T>::exists(),
+						"collators are drawn without a cached relay chain epoch randomness"
+					);
+				},
+				None => ensure!(
+					drawn.collators.windows(2).all(|pair| pair[0] < pair[1]),
+					"without a cap the drawn collators are not in account order"
+				),
 			}
 			Ok(())
+		}
+
+		/// The stored set, or `None` without one. A stored set that does not decode is `None` too,
+		/// and is logged and reported with [`UnexpectedKind::StoredSetUndecodable`].
+		fn external_validator_set() -> Option<EraValidatorSet<T::AccountId, T::MaxValidators>> {
+			if let Some(external_set) = ExternalValidatorSet::<T>::get() {
+				return Some(external_set);
+			} else if ExternalValidatorSet::<T>::exists() {
+				log::error!(
+					target: crate::LOG_TARGET,
+					"the stored external validator set does not decode"
+				);
+				Self::deposit_event(Event::Unexpected(UnexpectedKind::StoredSetUndecodable));
+			}
+			None
 		}
 	}
 
 	impl<T: Config> SessionManager<T::AccountId> for Pallet<T> {
 		fn new_session(_: SessionIndex) -> Option<Vec<T::AccountId>> {
-			let pending = PendingRotation::<T>::get();
-			match pending {
+			// Advance the forced rotations. `AwaitingQueue` means a new external set or a new cap,
+			// so we draw again.
+			let new_external = match PendingRotation::<T>::get() {
 				RotationState::AwaitingQueue => {
-					PendingRotation::<T>::put(RotationState::AwaitingEnactment)
+					PendingRotation::<T>::put(RotationState::AwaitingEnactment);
+					true
 				},
-				RotationState::AwaitingEnactment => PendingRotation::<T>::kill(),
-				RotationState::Idle => {},
-			}
+				RotationState::AwaitingEnactment => {
+					PendingRotation::<T>::kill();
+					false
+				},
+				RotationState::Idle => false,
+			};
 
-			let Some(set) = ValidatorSet::<T>::get() else {
-				if ValidatorSet::<T>::exists() {
-					log::error!(
-						target: crate::LOG_TARGET,
-						"the stored validator set does not decode"
-					);
-					Self::deposit_event(Event::StoredSetUndecodable);
-				}
+			let Some(external_set) = Self::external_validator_set() else {
+				// Nothing is returned, so nothing is recorded. Without a stored set there is
+				// nothing to remove, but a set that no longer decodes leaves its collators behind.
+				DrawnCollators::<T>::kill();
+				Self::deposit_event(Event::NothingToDraw);
 				return None;
 			};
+			let (era, external_len) = (external_set.era, external_set.validators.len() as u32);
 
-			// Drawn at the rotation, which pallet-session weighs as the whole block, since the key
-			// reads may not fit the weight of the message or report that delivers the set.
-			let validators = match MaxCollators::<T>::get() {
-				Some(cap) if pending == RotationState::AwaitingQueue => {
-					// a cap is set, and we have a new set to draw from (`AwaitingQueue` set
-					// externally).
-					Self::draw_collators(set, cap).into_inner()
-				},
-				Some(_) => {
-					// a cap is set, but we don't have a new externally set validator set, use the
-					// old drawn set.
-					Collators::<T>::get()
-						.map(|drawn| drawn.validators.into_inner())
-						.unwrap_or_default()
-				},
-				None => {
-					// no cap exists, no drawing ever done, return the full set.
-					set.validators.into_iter().collect()
+			// Drawn and filtered at the rotation, which pallet-session weighs as the whole block,
+			// since the key reads may not fit the weight of the message or report that delivers
+			// the set.
+			let collators: Vec<_> = match (MaxCollators::<T>::get(), new_external) {
+				// no cap: every validator of the set with keys, in account order.
+				(None, _) => external_set
+					.validators
+					.into_iter()
+					.filter(T::ValidatorRegistration::is_registered)
+					.collect(),
+				// a cap, and a new set or cap: draw again, from the validators with keys.
+				(Some(cap), true) => Self::draw_collators(external_set, cap),
+				// a cap, nothing new: the last draw, without those that removed their keys since.
+				(Some(_), false) => match DrawnCollators::<T>::get() {
+					Some(prev) => prev
+						.collators
+						.into_iter()
+						.filter(T::ValidatorRegistration::is_registered)
+						.collect(),
+					None => {
+						Self::deposit_event(Event::Unexpected(UnexpectedKind::NoPreviousDrawSet));
+						return None;
+					},
 				},
 			};
+			// At most the length of the set, which is bounded by `MaxValidators`.
+			let collators = BoundedVec::truncate_from(collators);
 
-			// `draw_collators` filters `ValidatorRegistration`, but:
-			// 1. old drawn set may not have all validators registered,
-			// 2. new set may not have all validators registered.
-			// So we filter again here.
-			Some(validators.into_iter().filter(T::ValidatorRegistration::is_registered).collect())
+			Self::deposit_event(Event::CollatorsDrawn {
+				era,
+				external_len,
+				drawn_len: collators.len() as u32,
+				new_external,
+			});
+			DrawnCollators::<T>::put(EraCollators { era, collators: collators.clone() });
+			Some(collators.into_inner())
 		}
 
 		fn start_session(_: SessionIndex) {}

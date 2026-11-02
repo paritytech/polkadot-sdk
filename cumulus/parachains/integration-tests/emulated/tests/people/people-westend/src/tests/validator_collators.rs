@@ -120,7 +120,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 			)
 		)));
 		// AND both chains record the arrival of the set to time the report before the era end
-		assert!(pallet_validator_collators::SetReceivedAt::<Runtime>::get().is_some());
+		assert!(pallet_validator_collators::ExternalSetReceivedAt::<Runtime>::get().is_some());
 		pallet_session::Pallet::<Runtime>::current_index()
 	});
 	PeopleWestend::execute_with(|| {
@@ -134,7 +134,7 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 			]
 		);
 		type Runtime = <PeopleWestend as Chain>::Runtime;
-		assert!(pallet_validator_collators::SetReceivedAt::<Runtime>::get().is_some());
+		assert!(pallet_validator_collators::ExternalSetReceivedAt::<Runtime>::get().is_some());
 	});
 
 	// THEN after two forced rotations both chains collate with the invulnerables, Alice and Bob
@@ -196,8 +196,8 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 	// `OnSystemEvent`, which is a zero value in the emulator's relay state proof
 	let drawn = PeopleWestend::execute_with(|| {
 		assert_eq!(pallet_validator_collators::EpochRandomness::<Runtime>::get(), Some([0; 32]));
-		let drawn = pallet_validator_collators::Collators::<Runtime>::get()
-			.map(|drawn| drawn.validators.into_inner())
+		let drawn = pallet_validator_collators::DrawnCollators::<Runtime>::get()
+			.map(|drawn| drawn.collators.into_inner())
 			.unwrap_or_default();
 		assert_eq!(drawn.len(), 1);
 		assert!(drawn[0] == alice || drawn[0] == bob);
@@ -206,8 +206,13 @@ fn cap_on_people_draws_from_the_set_at_the_first_forced_rotation() {
 			PeopleWestend,
 			vec![
 				RuntimeEvent::ValidatorCollators(
-					pallet_validator_collators::Event::CollatorsDrawn { era: 1, validators }
-				) => { validators: *validators == drawn, },
+					pallet_validator_collators::Event::CollatorsDrawn {
+						era: 1,
+						external_len: 2,
+						drawn_len: 1,
+						new_external: true,
+					}
+				) => {},
 			]
 		);
 		drawn

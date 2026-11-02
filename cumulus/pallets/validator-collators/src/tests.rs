@@ -14,10 +14,10 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, weights::WeightInfo, AuthoredBlocks, Call, Collators,
-	Config, DrawnCollators, EpochRandomness, EraValidatorSet, Error, Event, ExpectedEraDuration,
-	MaxCollators, PendingRotation, ReportMargin, ReportPeriod, RotationState, SetReceivedAt,
-	ValidatorSet,
+	mock::*, relay_proof::relay_state_proof, weights::WeightInfo, AuthoredBlocks, Call, Config,
+	DrawnCollators, EpochRandomness, EraCollators, EraValidatorSet, Error, Event,
+	ExpectedEraDuration, ExternalSetReceivedAt, ExternalValidatorSet, MaxCollators,
+	PendingRotation, ReportMargin, ReportPeriod, RotationState, UnexpectedKind,
 };
 use codec::{Decode, Encode};
 use cumulus_pallet_parachain_system::{
@@ -74,14 +74,19 @@ fn set_cap(cap: Option<u32>) {
 	));
 }
 
-fn drawn() -> Vec<u64> {
-	Collators::<Test>::get()
-		.map(|drawn| drawn.validators.into_inner())
-		.unwrap_or_default()
+/// The collators the pallet returned at the last rotation, as recorded in [`DrawnCollators`].
+fn drawn() -> Option<Vec<u64>> {
+	DrawnCollators::<Test>::get().map(|drawn| drawn.collators.into_inner())
 }
 
-fn returned() -> Option<Vec<u64>> {
-	<ValidatorCollators as SessionManager<u64>>::new_session(Session::current_index())
+/// Plan the next session with the pallet alone, for the tests that break the invariants on
+/// purpose, which [`initialize_to_block`] checks after every block.
+fn plan_session() -> Option<Vec<u64>> {
+	<ValidatorCollators as SessionManager<u64>>::new_session(Session::current_index() + 1)
+}
+
+fn queued() -> Vec<u64> {
+	Session::queued_keys().into_iter().map(|(who, _)| who).collect()
 }
 
 /// The seed the pallet must use for a draw from the set of `era`.
@@ -152,7 +157,7 @@ fn set_is_checked_against_the_stored_era_and_max_validators() {
 		assert_noop!(receive(5, vec![12]), Error::<Test>::StaleEra);
 		assert_noop!(receive(4, vec![12]), Error::<Test>::StaleEra);
 		assert_eq!(
-			ValidatorSet::<Test>::get(),
+			ExternalValidatorSet::<Test>::get(),
 			Some(EraValidatorSet { era: 5, validators: bounded(vec![10, 11]) })
 		);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
@@ -189,12 +194,15 @@ fn call_listing_an_account_twice_stores_it_once() {
 	build_and_execute(|| {
 		// GIVEN a set_validators call encoded with validator 10 listed twice
 		let encoded = (0u8, 1 as EraIndex, vec![11u64, 10, 10]).encode();
+		assert_eq!(ExternalValidatorSet::<Test>::get(), None);
+
 		// WHEN it is decoded and dispatched
 		let call = Call::<Test>::decode(&mut &encoded[..]).unwrap();
 		assert_ok!(call.dispatch_bypass_filter(RuntimeOrigin::signed(SetAccount::get())));
+
 		// THEN the set holds each account once
 		assert_eq!(
-			ValidatorSet::<Test>::get().map(|set| set.validators),
+			ExternalValidatorSet::<Test>::get().map(|set| set.validators),
 			Some(bounded(vec![10, 11]))
 		);
 	});
@@ -205,7 +213,7 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 	// A cap draws the validators but must not add or delay rotations.
 	for cap in [None, Some(3)] {
 		build_and_execute(|| {
-			// GIVEN invulnerables 1 and 2, candidate 4 and validators with keys
+			// GIVEN invulnerables 1 and 2 in force, candidate 4, and validators 10 and 11 with keys
 			initialize_to_block(1);
 			register_candidate(4);
 			set_keys(10);
@@ -213,27 +221,71 @@ fn received_set_is_enacted_after_two_forced_rotations() {
 			set_cap(cap);
 			initialize_to_block(3);
 			assert_eq!(Session::current_index(), 0);
+			assert_eq!(Session::validators(), vec![1, 2]);
+			assert_eq!(drawn(), None, "cap {cap:?}");
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+			assert_eq!(events_since_last_call(), vec![Event::MaxCollatorsSet { max: cap }]);
+
 			// WHEN a set that repeats invulnerable 2 is received at block 3
 			assert_ok!(receive(1, vec![11, 2, 10]));
-			// THEN the session rotates at blocks 4 and 5 and then holds the deduplicated union,
-			// with the validators in account order without a cap
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
+			assert_eq!(
+				events_since_last_call(),
+				vec![Event::ValidatorSetReceived { era: 1, count: 3 }]
+			);
+			// THEN nothing is drawn before the first forced rotation
+			assert_eq!(drawn(), None, "cap {cap:?}");
+
+			// WHEN the first forced rotation happens at block 4
 			initialize_to_block(4);
+			// THEN it draws and queues the set, and the session validators are unchanged
 			assert_eq!(Session::current_index(), 1, "cap {cap:?}");
 			assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingEnactment);
+			assert_eq!(DrawnCollators::<Test>::get().map(|d| d.era), Some(1), "cap {cap:?}");
+			assert_eq!(Session::validators(), vec![1, 2], "cap {cap:?}");
+			assert_eq!(
+				events_since_last_call(),
+				vec![Event::CollatorsDrawn {
+					era: 1,
+					external_len: 3,
+					drawn_len: 3,
+					new_external: true
+				}],
+				"cap {cap:?}"
+			);
+
+			// WHEN the second forced rotation happens at block 5
 			initialize_to_block(5);
+			// THEN the session holds the deduplicated union, with the validators in account order
+			// without a cap
 			assert_eq!(Session::current_index(), 2, "cap {cap:?}");
 			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
-			let validators = match cap {
-				Some(_) => drawn(),
-				None => vec![10, 11],
+			assert_eq!(
+				events_since_last_call(),
+				vec![Event::CollatorsDrawn {
+					era: 1,
+					external_len: 3,
+					drawn_len: 3,
+					new_external: false
+				}],
+				"cap {cap:?}"
+			);
+			let drawn = drawn().unwrap();
+			let expected_drawn = match cap {
+				None => vec![2, 10, 11],
+				Some(cap) => reference_draw(expected_seed(1, [7; 32]), &[2, 10, 11], cap as usize),
 			};
+			assert_eq!(drawn, expected_drawn, "cap {cap:?}");
 			let expected = [1, 2, 4]
 				.into_iter()
-				.chain(validators.into_iter().filter(|v| *v != 2))
+				.chain(drawn.into_iter().filter(|v| *v != 2))
 				.collect::<Vec<_>>();
 			assert_eq!(Session::validators(), expected, "cap {cap:?}");
+
+			// AND no further rotation follows
 			initialize_to_block(6);
 			assert_eq!(Session::current_index(), 2);
+			assert_eq!(events_since_last_call(), vec![], "cap {cap:?}");
 		});
 	}
 }
@@ -247,12 +299,9 @@ fn received_validator_without_keys_is_not_a_collator() {
 		// WHEN a set with both is received and enacted
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(3);
-		// THEN only validator 10 is returned by the pallet and is a session validator
+		// THEN only validator 10 is drawn and becomes a session validator
+		assert_eq!(drawn(), Some(vec![10]));
 		assert_eq!(Session::validators(), vec![1, 2, 10]);
-		assert_eq!(
-			<ValidatorCollators as SessionManager<u64>>::new_session(Session::current_index()),
-			Some(vec![10])
-		);
 	});
 }
 
@@ -265,19 +314,59 @@ fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
 		set_keys(11);
 		assert_ok!(receive(1, vec![10, 11, 12]));
 		initialize_to_block(3);
+		assert_eq!(drawn(), Some(vec![10, 11]));
 		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+		assert_eq!(
+			events_since_last_call(),
+			vec![
+				Event::ValidatorSetReceived { era: 1, count: 3 },
+				Event::CollatorsDrawn { era: 1, external_len: 3, drawn_len: 2, new_external: true },
+				Event::CollatorsDrawn {
+					era: 1,
+					external_len: 3,
+					drawn_len: 2,
+					new_external: false
+				},
+			]
+		);
+
 		// WHEN the era 2 set drops 10 and is enacted
 		assert_ok!(receive(2, vec![11, 12]));
 		initialize_to_block(5);
-		// THEN 10 is no longer a session validator
+		// THEN 10 is no longer drawn nor a session validator, and 12 is still not drawn
+		assert_eq!(drawn(), Some(vec![11]));
 		assert_eq!(Session::validators(), vec![1, 2, 11]);
+		assert_eq!(
+			events_since_last_call(),
+			vec![
+				Event::ValidatorSetReceived { era: 2, count: 2 },
+				Event::CollatorsDrawn { era: 2, external_len: 2, drawn_len: 1, new_external: true },
+				Event::CollatorsDrawn {
+					era: 2,
+					external_len: 2,
+					drawn_len: 1,
+					new_external: false
+				},
+			]
+		);
+
 		// WHEN 12 registers keys and 11 purges its keys after the forced rotations
 		set_keys(12);
 		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(11)));
-		// THEN the next periodic rotation queues 12 without 11 and the one after enacts it
+		// THEN the next periodic rotation draws and queues 12 without 11, and the one after
+		// enacts it
 		initialize_to_block(10);
-		let queued = Session::queued_keys().into_iter().map(|(who, _)| who).collect::<Vec<_>>();
-		assert_eq!(queued, vec![1, 2, 12]);
+		assert_eq!(drawn(), Some(vec![12]));
+		assert_eq!(
+			events_since_last_call(),
+			vec![Event::CollatorsDrawn {
+				era: 2,
+				external_len: 2,
+				drawn_len: 1,
+				new_external: false
+			}]
+		);
+		assert_eq!(queued(), vec![1, 2, 12]);
 		assert_eq!(Session::validators(), vec![1, 2, 11]);
 		initialize_to_block(20);
 		assert_eq!(Session::validators(), vec![1, 2, 12]);
@@ -285,15 +374,62 @@ fn set_and_key_changes_reach_the_session_validators_at_the_next_rotations() {
 }
 
 #[test]
+fn drawn_validator_that_removes_its_keys_is_dropped_at_the_next_rotation() {
+	for cap in [None, Some(2)] {
+		build_and_execute(|| {
+			// GIVEN 10, 11 and 12 with keys, and a set of them drawn and in force
+			initialize_to_block(1);
+			[10, 11, 12].into_iter().for_each(set_keys);
+			set_cap(cap);
+			assert_ok!(receive(1, vec![10, 11, 12]));
+			initialize_to_block(3);
+			let before = drawn().unwrap();
+			assert_eq!(before.len(), cap.map_or(3, |cap| cap as usize), "cap {cap:?}");
+
+			// WHEN a drawn validator removes its keys at block 3
+			let leaver = before[0];
+			assert_ok!(Session::purge_keys(RuntimeOrigin::signed(leaver)));
+			// THEN it stays drawn until the next rotation
+			initialize_to_block(9);
+			assert_eq!(drawn(), Some(before.clone()), "cap {cap:?}");
+
+			// WHEN the periodic rotation of block 10 happens
+			initialize_to_block(10);
+			// THEN it is dropped from the drawn collators and not queued, and under a cap the
+			// validator that was not drawn does not take its place
+			let after = before.iter().copied().filter(|v| *v != leaver).collect::<Vec<_>>();
+			assert_eq!(drawn(), Some(after.clone()), "cap {cap:?}");
+			assert_eq!(queued(), [1, 2].into_iter().chain(after.clone()).collect::<Vec<_>>());
+			System::assert_has_event(
+				Event::CollatorsDrawn {
+					era: 1,
+					external_len: 3,
+					drawn_len: after.len() as u32,
+					new_external: false,
+				}
+				.into(),
+			);
+		});
+	}
+}
+
+#[test]
 fn without_pending_set_sessions_rotate_only_periodically() {
 	build_and_execute(|| {
 		// GIVEN no received validator set
-		assert_eq!(ValidatorSet::<Test>::get(), None);
+		assert_eq!(ExternalValidatorSet::<Test>::get(), None);
 		for block in 1..=35u64 {
 			// WHEN blocks are produced
 			initialize_to_block(block);
 			// THEN the session index grows only at multiples of the period
 			assert_eq!(Session::current_index() as u64, block / Period::get());
+			// AND each of those rotations returns and records nothing, and says so
+			let expected = match block % Period::get() {
+				0 => vec![Event::NothingToDraw],
+				_ => vec![],
+			};
+			assert_eq!(events_since_last_call(), expected, "block {block}");
+			assert_eq!(drawn(), None);
 		}
 	});
 }
@@ -316,9 +452,9 @@ fn periodic_rotation_continues_after_forced_rotations() {
 }
 
 #[test]
-fn cap_limits_only_the_validator_side_after_the_key_filter() {
+fn cap_counts_only_validators_with_keys_and_not_the_other_collators() {
 	let set = vec![10, 11, 12, 13];
-	// (cap, number of validators returned by the pallet)
+	// (cap, number of validators drawn)
 	let cases: [(Option<u32>, usize); 5] =
 		[(Some(0), 0), (Some(1), 1), (Some(2), 2), (Some(10), 3), (None, 3)];
 	for (cap, count) in cases {
@@ -329,27 +465,44 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 			[11, 12, 13].into_iter().for_each(set_keys);
 			// WHEN the cap is set and the set is received and enacted
 			set_cap(cap);
-			System::assert_last_event(Event::MaxCollatorsSet { max: cap }.into());
 			assert_ok!(receive(1, set.clone()));
-			assert_eq!(Collators::<Test>::get(), None);
+			assert_eq!(drawn(), None);
 			initialize_to_block(3);
-			// THEN the cap counts only validators with keys and leaves the other side untouched
-			let returned = returned().unwrap();
-			assert_eq!(returned.len(), count, "cap {cap:?}");
-			let expected = [1, 2, 4].into_iter().chain(returned.clone()).collect::<Vec<_>>();
-			assert_eq!(Session::validators(), expected, "cap {cap:?}");
-			// AND under a cap the drawn list is exactly the reference draw with the seed of
-			// era 1 and the cached randomness
-			if let Some(cap) = cap {
-				let reference = reference_draw(expected_seed(1, [7; 32]), &set, cap as usize);
-				assert_eq!(returned, reference, "cap {cap:?}");
-				assert_eq!(drawn(), reference);
-				System::assert_has_event(
-					Event::CollatorsDrawn { era: 1, validators: reference }.into(),
-				);
-			} else {
-				assert_eq!(returned, vec![11, 12, 13]);
-			}
+
+			// THEN the drawn validators are the reference draw with the seed of era 1 and the
+			// cached randomness under a cap, and every validator with keys without one
+			let expected = match cap {
+				Some(cap) => reference_draw(expected_seed(1, [7; 32]), &set, cap as usize),
+				None => vec![11, 12, 13],
+			};
+			assert_eq!(expected.len(), count, "cap {cap:?}");
+			assert_eq!(drawn(), Some(expected.clone()), "cap {cap:?}");
+			assert_eq!(
+				events_since_last_call(),
+				vec![
+					Event::MaxCollatorsSet { max: cap },
+					Event::ValidatorSetReceived { era: 1, count: 4 },
+					Event::CollatorsDrawn {
+						era: 1,
+						external_len: 4,
+						drawn_len: count as u32,
+						new_external: true
+					},
+					Event::CollatorsDrawn {
+						era: 1,
+						external_len: 4,
+						drawn_len: count as u32,
+						new_external: false
+					},
+				],
+				"cap {cap:?}"
+			);
+			// AND they collate next to the untouched collators of the other session manager
+			assert_eq!(
+				Session::validators(),
+				[1, 2, 4].into_iter().chain(expected).collect::<Vec<_>>(),
+				"cap {cap:?}"
+			);
 		});
 	}
 	build_and_execute(|| {
@@ -361,7 +514,7 @@ fn cap_limits_only_the_validator_side_after_the_key_filter() {
 		assert_ok!(receive(1, vec![4, 11, 12]));
 		initialize_to_block(3);
 		// THEN candidate 4 takes the only place under the cap and adds no collator
-		assert_eq!(returned(), Some(vec![4]));
+		assert_eq!(drawn(), Some(vec![4]));
 		assert_eq!(Session::validators(), vec![1, 2, 4]);
 	});
 }
@@ -379,10 +532,13 @@ fn each_new_set_is_drawn_with_the_seed_of_its_era() {
 			assert_ok!(receive(era, set.clone()));
 			// THEN try-state holds before the draw, while the drawn list belongs to the
 			// previous era or is missing
+			let previous = (era > 1).then(|| era - 1);
+			assert_eq!(DrawnCollators::<Test>::get().map(|d| d.era), previous, "era {era}");
 			assert_ok!(ValidatorCollators::do_try_state());
 			// AND the next rotation draws with the seed of that era
 			initialize_to_block(System::block_number() + 1);
-			assert_eq!(drawn(), reference_draw(expected_seed(era, [7; 32]), &set, 1), "era {era}");
+			let expected = reference_draw(expected_seed(era, [7; 32]), &set, 1);
+			assert_eq!(drawn(), Some(expected), "era {era}");
 		}
 	});
 }
@@ -400,10 +556,11 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		// WHEN the first forced rotation happens at block 4
 		initialize_to_block(4);
 		// THEN it draws with the seed of era 1 and the value cached before the rotation
-		let three = drawn();
-		assert_eq!(three, reference_draw(expected_seed(1, [7; 32]), &set, 3));
+		let three = reference_draw(expected_seed(1, [7; 32]), &set, 3);
+		assert_eq!(drawn(), Some(three.clone()));
+		// AND the second forced rotation at block 5 keeps the draw
 		initialize_to_block(5);
-		assert_eq!(returned(), Some(three.clone()));
+		assert_eq!(drawn(), Some(three.clone()));
 
 		// WHEN the relay randomness changes and the cap is raised to 5 at block 6
 		RelayEpochRandomness::set(Some([8; 32]));
@@ -411,19 +568,19 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		set_cap(Some(5));
 		// THEN nothing is drawn before the next rotation, and two rotations follow at blocks 7
 		// and 8
-		assert_eq!(drawn(), three);
+		assert_eq!(drawn(), Some(three));
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
 		let session = Session::current_index();
 		initialize_to_block(8);
 		assert_eq!(Session::current_index(), session + 2);
 		// AND the rotation at block 7 drew anew from the stored set with the current randomness
 		let five = reference_draw(expected_seed(1, [8; 32]), &set, 5);
-		assert_eq!(drawn(), five);
-		System::assert_has_event(Event::CollatorsDrawn { era: 1, validators: five.clone() }.into());
-		assert_eq!(
-			Session::validators(),
-			[1, 2].into_iter().chain(five.clone()).collect::<Vec<_>>()
+		assert_eq!(drawn(), Some(five.clone()));
+		System::assert_has_event(
+			Event::CollatorsDrawn { era: 1, external_len: 6, drawn_len: 5, new_external: true }
+				.into(),
 		);
+		assert_eq!(Session::validators(), [1, 2].into_iter().chain(five).collect::<Vec<_>>());
 
 		// WHEN the relay randomness changes again and the cap is lowered to 2 at block 9
 		RelayEpochRandomness::set(Some([9; 32]));
@@ -432,26 +589,19 @@ fn cap_change_redraws_with_the_current_randomness_and_forces_two_rotations() {
 		initialize_to_block(10);
 		// THEN the redraw at block 10 uses the randomness cached then
 		let two = reference_draw(expected_seed(1, [9; 32]), &set, 2);
-		assert_eq!(drawn(), two);
+		assert_eq!(drawn(), Some(two.clone()));
 
-		// WHEN a drawn validator purges its keys
-		assert_ok!(Session::purge_keys(RuntimeOrigin::signed(two[0])));
-		// THEN it is no longer returned and its place stays empty until the next draw
-		assert_eq!(returned(), Some(vec![two[1]]));
-
-		// WHEN the cap is removed
+		// WHEN the cap is removed at block 10
 		set_cap(None);
-		// THEN nothing is drawn, two rotations follow and every validator with keys is returned
-		assert_eq!(Collators::<Test>::get(), None);
+		// THEN nothing is drawn yet, and two rotations follow
+		assert_eq!(drawn(), Some(two));
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
-		let all_with_keys = set.iter().copied().filter(|v| *v != two[0]).collect::<Vec<_>>();
 		let session = Session::current_index();
 		initialize_to_block(12);
 		assert_eq!(Session::current_index(), session + 2);
-		assert_eq!(
-			Session::validators(),
-			[1, 2].into_iter().chain(all_with_keys).collect::<Vec<_>>()
-		);
+		// AND every validator of the set, all of which have keys, is drawn and collates
+		assert_eq!(drawn(), Some(set.clone()));
+		assert_eq!(Session::validators(), [1, 2].into_iter().chain(set).collect::<Vec<_>>());
 	});
 }
 
@@ -465,20 +615,20 @@ fn validator_registering_keys_after_the_draw_waits_for_the_next_draw() {
 		set_cap(Some(3));
 		assert_ok!(receive(1, vec![10, 11, 12]));
 		initialize_to_block(3);
-		let drawn_without_12 = drawn();
+		let drawn_without_12 = drawn().unwrap();
 		assert_eq!(drawn_without_12.len(), 2);
 		assert!(!drawn_without_12.contains(&12));
 		// WHEN 12 registers keys and the periodic rotations at blocks 10 and 20 happen
 		set_keys(12);
 		initialize_to_block(20);
 		// THEN 12 is not drawn and does not collate
-		assert_eq!(drawn(), drawn_without_12);
+		assert_eq!(drawn(), Some(drawn_without_12));
 		assert!(!Session::validators().contains(&12));
 		// WHEN the cap is set again, which forces two rotations and a redraw
 		set_cap(Some(3));
 		initialize_to_block(22);
 		// THEN 12 is drawn and collates
-		assert!(drawn().contains(&12));
+		assert!(drawn().unwrap().contains(&12));
 		assert!(Session::validators().contains(&12));
 	});
 }
@@ -490,11 +640,155 @@ fn cap_without_a_stored_set_draws_nothing_and_forces_no_rotation() {
 		initialize_to_block(1);
 		// WHEN a cap is set and then removed
 		set_cap(Some(1));
-		assert_eq!(Collators::<Test>::get(), None);
+		assert_eq!(drawn(), None);
 		set_cap(None);
 		// THEN nothing is drawn and no rotation is pending
-		assert_eq!(Collators::<Test>::get(), None);
+		assert_eq!(drawn(), None);
 		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+	});
+}
+
+#[test]
+fn drawn_collators_track_the_last_returned_set() {
+	build_and_execute(|| {
+		// GIVEN validators 10 to 12 with keys, 13 without, and no cap
+		initialize_to_block(1);
+		let set = vec![10, 11, 12, 13];
+		[10, 11, 12].into_iter().for_each(set_keys);
+		let recorded = || DrawnCollators::<Test>::get().map(|d| (d.era, d.collators.into_inner()));
+
+		let with_keys = vec![10, 11, 12];
+		let drawn_event = |era, drawn_len, new_external| Event::CollatorsDrawn {
+			era,
+			external_len: 4,
+			drawn_len,
+			new_external,
+		};
+
+		// WHEN a set arrives at block 1
+		assert_ok!(receive(1, set.clone()));
+		assert_eq!(recorded(), None);
+		// THEN both forced rotations record the validators with keys, which the pallet returns
+		initialize_to_block(2);
+		assert_eq!(recorded(), Some((1, with_keys.clone())));
+		initialize_to_block(3);
+		assert_eq!(recorded(), Some((1, with_keys.clone())));
+		assert_eq!(
+			events_since_last_call(),
+			vec![
+				Event::ValidatorSetReceived { era: 1, count: 4 },
+				drawn_event(1, 3, true),
+				drawn_event(1, 3, false),
+			]
+		);
+
+		// WHEN a cap of 2 is set at block 3
+		set_cap(Some(2));
+		// THEN the record is unchanged until the first forced rotation draws at block 4
+		assert_eq!(recorded(), Some((1, with_keys.clone())));
+		initialize_to_block(5);
+		let two = reference_draw(expected_seed(1, [7; 32]), &set, 2);
+		assert_eq!(recorded(), Some((1, two.clone())));
+		assert_eq!(
+			events_since_last_call(),
+			vec![
+				Event::MaxCollatorsSet { max: Some(2) },
+				drawn_event(1, 2, true),
+				drawn_event(1, 2, false),
+			]
+		);
+		// AND the draw is kept over the periodic rotations of blocks 10 and 20, while the
+		// randomness changes
+		RelayEpochRandomness::set(Some([8; 32]));
+		initialize_to_block(20);
+		assert_eq!(recorded(), Some((1, two.clone())));
+		assert_eq!(events_since_last_call(), vec![drawn_event(1, 2, false); 2]);
+
+		// WHEN the set of era 2 arrives at block 20
+		assert_ok!(receive(2, set.clone()));
+		// THEN the record belongs to era 1 until the rotation at block 21 draws from era 2
+		assert_eq!(recorded(), Some((1, two)));
+		initialize_to_block(21);
+		let two = reference_draw(expected_seed(2, [8; 32]), &set, 2);
+		assert_eq!(recorded(), Some((2, two.clone())));
+		assert_eq!(
+			events_since_last_call(),
+			vec![Event::ValidatorSetReceived { era: 2, count: 4 }, drawn_event(2, 2, true)]
+		);
+
+		// WHEN the cap is removed at block 21
+		set_cap(None);
+		// THEN the draw is kept until the next rotation, which records the validators with keys
+		// again
+		assert_eq!(recorded(), Some((2, two)));
+		initialize_to_block(23);
+		assert_eq!(recorded(), Some((2, with_keys)));
+		assert_eq!(
+			events_since_last_call(),
+			vec![
+				Event::MaxCollatorsSet { max: None },
+				drawn_event(2, 3, true),
+				drawn_event(2, 3, false),
+			]
+		);
+	});
+}
+
+#[test]
+fn capped_rotation_without_drawn_collators_returns_nothing() {
+	// The lost drawn collators break the invariants, so the test does not check them at its end.
+	new_test_ext().execute_with(|| {
+		// GIVEN a set of 10 and 11 drawn under a cap of 1 and brought into force
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		set_cap(Some(1));
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(3);
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+
+		// WHEN the drawn collators are lost and a rotation without a redraw happens
+		DrawnCollators::<Test>::kill();
+		let returned = plan_session();
+
+		// THEN the pallet returns nothing, records nothing and reports it
+		assert_eq!(returned, None);
+		System::assert_last_event(Event::Unexpected(UnexpectedKind::NoPreviousDrawSet).into());
+		assert_eq!(drawn(), None);
+	});
+}
+
+#[test]
+fn new_pallet_with_a_cap_returns_nothing_until_a_set_arrives() {
+	build_and_execute(|| {
+		// GIVEN a runtime that just added the pallet with a cap: invulnerables 1 and 2 collate,
+		// and no set is stored or drawn
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		set_cap(Some(1));
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+		assert_eq!(events_since_last_call(), vec![Event::MaxCollatorsSet { max: Some(1) }]);
+
+		for block in [10, 20, 30] {
+			// WHEN the periodic rotations of several sessions happen
+			initialize_to_block(block);
+			// THEN the pallet returns nothing, records nothing and says so
+			assert_eq!(events_since_last_call(), vec![Event::NothingToDraw], "block {block}");
+			assert_eq!(drawn(), None);
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+		}
+		// AND only the collators of the other session manager collate
+		assert_eq!(Session::validators(), vec![1, 2]);
+
+		// WHEN a set arrives at block 30
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(32);
+
+		// THEN the forced rotations draw under the cap and bring the draw into force
+		let one = reference_draw(expected_seed(1, [7; 32]), &[10, 11], 1);
+		assert_eq!(drawn(), Some(one.clone()));
+		assert_eq!(Session::validators(), [1, 2].into_iter().chain(one).collect::<Vec<_>>());
 	});
 }
 
@@ -512,7 +806,7 @@ fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 		assert_ok!(receive(1, vec![10, 11]));
 		initialize_to_block(2);
 		// THEN it is drawn with a zero randomness value instead of being skipped
-		assert_eq!(drawn(), reference_draw(expected_seed(1, [0; 32]), &[10, 11], 1));
+		assert_eq!(drawn(), Some(reference_draw(expected_seed(1, [0; 32]), &[10, 11], 1)));
 		// AND try-state flags drawn collators without a cached randomness
 		assert_eq!(
 			ValidatorCollators::do_try_state(),
@@ -528,7 +822,7 @@ fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 		assert_ok!(receive(2, vec![10, 11]));
 		initialize_to_block(4);
 		// THEN the draw uses the cached zero value and try-state holds
-		assert_eq!(drawn(), reference_draw(expected_seed(2, [0; 32]), &[10, 11], 1));
+		assert_eq!(drawn(), Some(reference_draw(expected_seed(2, [0; 32]), &[10, 11], 1)));
 	});
 }
 
@@ -625,12 +919,18 @@ fn set_received_while_planned_rearms_the_rotations() {
 			assert_ok!(receive(1, vec![10]));
 			initialize_to_block(4);
 			assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingEnactment);
+			assert_eq!(DrawnCollators::<Test>::get().map(|d| d.era), Some(1), "cap {cap:?}");
 			// WHEN a set for era 2 arrives at block 4
 			assert_ok!(receive(2, vec![11]));
 			// THEN the session rotates again at blocks 5 and 6 and the era 2 set is enacted
 			assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
 			initialize_to_block(5);
 			assert_eq!(Session::current_index(), 2, "cap {cap:?}");
+			assert_eq!(
+				DrawnCollators::<Test>::get().map(|d| (d.era, d.collators.into_inner())),
+				Some((2, vec![11])),
+				"cap {cap:?}"
+			);
 			initialize_to_block(6);
 			assert_eq!(Session::current_index(), 3, "cap {cap:?}");
 			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
@@ -642,73 +942,210 @@ fn set_received_while_planned_rearms_the_rotations() {
 }
 
 #[test]
-fn empty_set_is_accepted_and_contributes_no_collators() {
-	build_and_execute(|| {
-		// GIVEN no stored validator set
-		assert_eq!(ValidatorSet::<Test>::get(), None);
-		// WHEN an empty set is received
-		assert_ok!(receive(1, vec![]));
-		// THEN the pallet returns an empty list rather than None
-		assert_eq!(<ValidatorCollators as SessionManager<u64>>::new_session(1), Some(vec![]));
-	});
+fn set_without_validators_with_keys_contributes_no_collators() {
+	// An empty set, and a set whose validators have no keys.
+	for set in [vec![], vec![10, 11]] {
+		build_and_execute(|| {
+			// GIVEN no stored validator set
+			initialize_to_block(1);
+			assert_eq!(ExternalValidatorSet::<Test>::get(), None);
+			// WHEN the set is received and the next rotation happens
+			assert_ok!(receive(1, set.clone()));
+			initialize_to_block(2);
+			// THEN the pallet returns and records an empty list rather than nothing
+			assert_eq!(drawn(), Some(vec![]), "set {set:?}");
+			let count = set.len() as u32;
+			assert_eq!(
+				events_since_last_call(),
+				vec![
+					Event::ValidatorSetReceived { era: 1, count },
+					Event::CollatorsDrawn {
+						era: 1,
+						external_len: count,
+						drawn_len: 0,
+						new_external: true
+					},
+				],
+				"set {set:?}"
+			);
+		});
+	}
 }
 
 #[test]
-fn try_state_detects_a_stored_set_that_does_not_decode() {
+fn stored_set_that_does_not_decode_is_detected_and_returns_nothing() {
+	// The stored set breaks the invariants, so the test does not check them at its end.
 	new_test_ext().execute_with(|| {
-		// GIVEN a stored set with more validators than MaxValidators
+		// GIVEN a set of 10 drawn and in force
 		initialize_to_block(1);
+		set_keys(10);
+		assert_ok!(receive(1, vec![10]));
+		initialize_to_block(3);
+		assert_eq!(drawn(), Some(vec![10]));
+
+		// WHEN the stored set is replaced by one with more validators than MaxValidators
 		frame_support::storage::unhashed::put_raw(
-			&ValidatorSet::<Test>::hashed_key(),
+			&ExternalValidatorSet::<Test>::hashed_key(),
 			&(1u32, (0..51u64).collect::<Vec<_>>()).encode(),
 		);
-		// WHEN the invariants are checked and a session is planned
-		// THEN try_state fails, and the pallet returns no validators and emits an event
-		assert!(ValidatorCollators::do_try_state().is_err());
-		assert_eq!(<ValidatorCollators as SessionManager<u64>>::new_session(1), None);
-		System::assert_last_event(Event::StoredSetUndecodable.into());
+		// THEN try_state fails
+		assert_eq!(
+			ValidatorCollators::do_try_state(),
+			Err("the stored validator set does not decode, it may exceed `MaxValidators`".into())
+		);
+
+		// WHEN the next session is planned
+		let returned = plan_session();
+		// THEN the pallet returns nothing, removes the drawn collators and says so
+		assert_eq!(returned, None);
+		assert_eq!(drawn(), None);
+		let events = System::read_events_for_pallet::<Event<Test>>();
+		assert_eq!(
+			events[events.len() - 2..],
+			[Event::Unexpected(UnexpectedKind::StoredSetUndecodable), Event::NothingToDraw]
+		);
 	});
 }
 
 #[test]
 fn try_state_detects_drawn_collators_that_break_the_invariants() {
-	let drawn = |era: EraIndex, validators: Vec<u64>| DrawnCollators {
+	let collators_of = |era: EraIndex, collators: Vec<u64>| EraCollators {
 		era,
-		validators: validators.try_into().unwrap(),
+		collators: collators.try_into().unwrap(),
 	};
-	// (cap, drawn collators, randomness cached), checked after the forced rotations
+	// (cap, drawn collators, randomness cached, the error), checked after the forced rotations
 	let cases = [
-		// drawn collators without a cap
-		(None, Some(drawn(1, vec![10])), true),
-		// a cap and a set without drawn collators
-		(Some(2), None, true),
+		// a validator of the set that lost its keys at the last rotation
+		(None, Some(collators_of(1, vec![10])), true, None),
+		// a draw in drawn order under a cap
+		(Some(2), Some(collators_of(1, vec![11, 10])), true, None),
+		// no drawn collators for a set brought into force
+		(None, None, true, Some("no collators are drawn for the set")),
+		(Some(2), None, true, Some("no collators are drawn for the set")),
 		// drawn collators of another era
-		(Some(2), Some(drawn(0, vec![10])), true),
-		// a drawn collator outside the set
-		(Some(2), Some(drawn(1, vec![12])), true),
+		(
+			Some(2),
+			Some(collators_of(0, vec![10])),
+			true,
+			Some("the drawn collators belong to another era"),
+		),
 		// a duplicate
-		(Some(2), Some(drawn(1, vec![10, 10])), true),
+		(
+			Some(2),
+			Some(collators_of(1, vec![10, 10])),
+			true,
+			Some("the drawn collators contain duplicates"),
+		),
+		// a drawn collator outside the set
+		(
+			None,
+			Some(collators_of(1, vec![12])),
+			true,
+			Some("a drawn collator is not in the stored validator set"),
+		),
+		(
+			Some(2),
+			Some(collators_of(1, vec![12])),
+			true,
+			Some("a drawn collator is not in the stored validator set"),
+		),
+		// without a cap, collators out of account order
+		(
+			None,
+			Some(collators_of(1, vec![11, 10])),
+			true,
+			Some("without a cap the drawn collators are not in account order"),
+		),
 		// more than the cap
-		(Some(1), Some(drawn(1, vec![10, 11])), true),
+		(
+			Some(1),
+			Some(collators_of(1, vec![10, 11])),
+			true,
+			Some("more collators are drawn than the cap allows"),
+		),
 		// drawn collators without a cached randomness
-		(Some(2), Some(drawn(1, vec![10])), false),
+		(
+			Some(2),
+			Some(collators_of(1, vec![10])),
+			false,
+			Some("collators are drawn without a cached relay chain epoch randomness"),
+		),
 	];
-	for (cap, collators, cached) in cases {
+	for (cap, collators, cached, error) in cases {
 		new_test_ext().execute_with(|| {
-			// GIVEN a stored set of 10 and 11 brought into force, and a consistent state
+			// GIVEN a stored set of 10 and 11 with keys, drawn and in force
+			set_keys(10);
+			set_keys(11);
 			assert_ok!(receive(1, vec![10, 11]));
 			initialize_to_block(2);
+			assert_eq!(drawn(), Some(vec![10, 11]));
 			assert_ok!(ValidatorCollators::do_try_state());
-			// WHEN the cap, the drawn collators and the cache break an invariant
+			// WHEN the cap, the drawn collators and the cache change
 			MaxCollators::<Test>::set(cap);
-			Collators::<Test>::set(collators.clone());
+			DrawnCollators::<Test>::set(collators.clone());
 			if !cached {
 				EpochRandomness::<Test>::kill();
 			}
-			// THEN try_state fails
-			assert!(ValidatorCollators::do_try_state().is_err(), "{cap:?} {collators:?} {cached}");
+			// THEN try_state reports the broken invariant, if any
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				error.map_or(Ok(()), |error| Err(error.into())),
+				"{cap:?} {collators:?} {cached}"
+			);
 		});
 	}
+
+	new_test_ext().execute_with(|| {
+		// GIVEN a stored set of era 1 of 10 and 11 brought into force
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(2);
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// WHEN drawn collators are stored without a set THEN try_state fails
+		frame_support::hypothetically!({
+			ExternalValidatorSet::<Test>::kill();
+			PendingRotation::<Test>::kill();
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("drawn collators are stored without a validator set".into())
+			);
+		});
+
+		// WHEN a rotation is pending without a set THEN try_state fails
+		frame_support::hypothetically!({
+			ExternalValidatorSet::<Test>::kill();
+			DrawnCollators::<Test>::kill();
+			PendingRotation::<Test>::put(RotationState::AwaitingQueue);
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("a rotation is pending without a stored validator set".into())
+			);
+		});
+
+		// WHEN the drawn collators do not decode THEN try_state fails
+		frame_support::hypothetically!({
+			frame_support::storage::unhashed::put_raw(
+				&DrawnCollators::<Test>::hashed_key(),
+				&(1u32, (0..51u64).collect::<Vec<_>>()).encode(),
+			);
+			assert_eq!(
+				ValidatorCollators::do_try_state(),
+				Err("the drawn collators do not decode".into())
+			);
+		});
+
+		// WHEN a rotation is pending with drawn collators of an older era THEN try_state holds
+		PendingRotation::<Test>::put(RotationState::AwaitingQueue);
+		DrawnCollators::<Test>::put(collators_of(0, vec![10]));
+		assert_ok!(ValidatorCollators::do_try_state());
+
+		// WHEN a rotation is pending with drawn collators of a newer era THEN try_state fails
+		DrawnCollators::<Test>::put(collators_of(2, vec![10, 11]));
+		assert_eq!(
+			ValidatorCollators::do_try_state(),
+			Err("the drawn collators belong to a newer era than the stored set".into())
+		);
+	});
 }
 
 fn note_blocks(author: u64, blocks: u32) {
@@ -752,8 +1189,9 @@ fn report_sends_counts_of_stored_validators_only() {
 		// WHEN the report block comes without a stored set
 		// THEN nothing reaches the reporter and every count is dropped
 		frame_support::hypothetically!({
-			ValidatorSet::<Test>::kill();
+			ExternalValidatorSet::<Test>::kill();
 			PendingRotation::<Test>::kill();
+			DrawnCollators::<Test>::kill();
 			initialize_to_block(5);
 			assert_eq!(reported(), Vec::<Vec<(u64, u32)>>::new());
 			assert_eq!(counts(), vec![]);
@@ -886,7 +1324,7 @@ fn report_with_an_undecodable_stored_set_drops_every_count() {
 		assert_ok!(receive(1, vec![10]));
 		note_blocks(10, 2);
 		frame_support::storage::unhashed::put_raw(
-			&ValidatorSet::<Test>::hashed_key(),
+			&ExternalValidatorSet::<Test>::hashed_key(),
 			&(1u32, (0..51u64).collect::<Vec<_>>()).encode(),
 		);
 
@@ -930,21 +1368,21 @@ fn reports_once_before_the_expected_era_end() {
 		assert_ok!(ValidatorCollators::set_report_period(root(), 1000));
 		assert_eq!((ExpectedEraDuration::<Test>::get(), ReportMargin::<Test>::get()), (1000, 100));
 		assert_ok!(receive(1, vec![10]));
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), Some(0));
 
 		// WHEN blocks run up to time 899
 		block_at(500);
 		block_at(899);
 		// THEN nothing is reported and the arrival is kept
 		assert_eq!(reports(), 0);
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), Some(0));
 
 		// WHEN a block runs at time 900
 		block_at(900);
 		// THEN the counts are reported once and the arrival is removed
 		assert_eq!(reports(), 1);
 		assert_eq!(reported_entries(), vec![(10, 3)]);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), None);
 		assert_ok!(ValidatorCollators::do_try_state());
 
 		// WHEN later blocks run past the expected era end
@@ -957,12 +1395,12 @@ fn reports_once_before_the_expected_era_end() {
 		Now::set(1600);
 		assert_ok!(receive(2, vec![10]));
 		// THEN its arrival is recorded and times the next early report
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(1600));
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), Some(1600));
 		block_at(2499);
 		assert_eq!(reports(), 1);
 		block_at(2500);
 		assert_eq!(reports(), 2);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), None);
 	});
 }
 
@@ -996,7 +1434,7 @@ fn report_timing_edge_cases() {
 		assert_eq!(both, early_only);
 		assert_eq!(reports(), 1);
 		assert_eq!(reported().len(), 1);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), None);
 	});
 
 	// A rejected early report is not retried, and the next `ReportPeriod` block carries its counts.
@@ -1010,7 +1448,7 @@ fn report_timing_edge_cases() {
 		block_at(900);
 		// THEN the report fails, the arrival is removed and the counts are kept
 		System::assert_has_event(Event::BlocksReportFailed { kept: 1, dropped: 0 }.into());
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), None);
 		assert_eq!(counts(), vec![(10, 1)]);
 		// WHEN blocks 3 and 4 run
 		block_at(1000);
@@ -1063,7 +1501,7 @@ fn report_timing_edge_cases() {
 		// GIVEN a stored set without an arrival, as after the upgrade that adds the timing
 		initialize_to_block(1);
 		assert_ok!(receive(1, vec![10]));
-		SetReceivedAt::<Test>::kill();
+		ExternalSetReceivedAt::<Test>::kill();
 		// WHEN blocks 2 to 4 run long past any due time
 		block_at(10_000);
 		block_at(10_000);
@@ -1130,7 +1568,7 @@ fn report_that_does_not_fit_the_meter_is_postponed() {
 		// THEN the reporter is not called, nothing is charged and the early report stays due
 		assert_eq!(ReportCalls::get(), 0);
 		assert_eq!(meter.consumed(), Weight::zero());
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), Some(0));
 
 		// WHEN block 3 has room for the checks only
 		System::set_block_number(3);
@@ -1141,7 +1579,7 @@ fn report_that_does_not_fit_the_meter_is_postponed() {
 		assert_eq!(ReportCalls::get(), 0);
 		assert_eq!(meter.consumed(), checks);
 		assert_eq!(counts(), vec![(10, 1)]);
-		assert_eq!(SetReceivedAt::<Test>::get(), Some(0));
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), Some(0));
 
 		// WHEN block 4 has room for the report
 		System::set_block_number(4);
@@ -1152,7 +1590,7 @@ fn report_that_does_not_fit_the_meter_is_postponed() {
 		assert_eq!(ReportCalls::get(), 1);
 		assert_eq!(reported_entries(), vec![(10, 1)]);
 		assert_eq!(meter.consumed(), full);
-		assert_eq!(SetReceivedAt::<Test>::get(), None);
+		assert_eq!(ExternalSetReceivedAt::<Test>::get(), None);
 	});
 }
 
