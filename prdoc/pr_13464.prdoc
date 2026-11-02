@@ -61,7 +61,7 @@ crates:
 - name: pallet-ahm-test
   bump: none
 - name: pallet-validator-set-announcer
-  bump: patch
+  bump: minor
 - name: people-westend-integration-tests
   bump: none
 - name: cumulus-zombienet-sdk-tests
