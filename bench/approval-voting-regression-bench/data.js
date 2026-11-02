@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793655096485,
+  "lastUpdate": 1793661739101,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5b25a4922a6a95b570d41e2340f17c39551a42dd",
-          "message": "Bump collation `in_peers` to 300 for the experimental collator protocol (#11762)\n\nSync the values of `CONNECTED_PEERS_PARA_LIMIT` in experimental collator\nprotocol and `MAX_AUTHORITY_INCOMING_STREAMS` in peer_set.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:00:24Z",
-          "tree_id": "4eb2d5627e972cc4e2d29cbeb43b9f38a3cced4d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b25a4922a6a95b570d41e2340f17c39551a42dd"
-        },
-        "date": 1776418060689,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63620.98999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52939.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8239311394600004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000030158769999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.705440180949944,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023183740000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005696210510000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023183740000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8924346277499993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000030158769999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8115137825400005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4632504882899973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7943410216899454,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.5111608774529115,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9142729107100003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting/test-environment",
             "value": 0.00002065392,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f99b5b7d5796732921b21a8eea1711cafd4cc3da",
+          "message": "Era points for blocks validators author on system chains (#13464)\n\n## Why\n\nValidators of the active era collate on Asset Hub and People (#13332,\n#13420), but their blocks there earn nothing: staking accepts era points\nonly from the relay chain session report. This PR credits era points for\nblocks authored on system chains, weighted per chain and service by\ngovernance, and records era points per service.\n\nRelated issue:  https://github.com/paritytech/metanode/issues/28.\n\n## Flow\n\n```mermaid\nsequenceDiagram\n    participant R as Relay chain\n    participant S as Asset Hub: staking\n    participant N as Asset Hub: announcer\n    participant A as Asset Hub: validator-collators\n    participant C as Asset Hub: points-converter\n    participant P as People: validator-collators\n\n    R->>S: session report with activation (relay points)\n    S->>S: credit RelayConsensus points to ending era, then rotate to era N\n    S->>N: OnEraStart(N, validators)\n    N->>A: set of era N (local)\n    N->>P: set of era N (XCM)\n    A->>A: store set, SetReceivedAt = now\n    P->>P: store set, SetReceivedAt = now\n\n    loop every block\n        A->>A: note_author: AuthoredBlocks[author] += 1\n        P->>P: note_author: AuthoredBlocks[author] += 1\n    end\n\n    Note over A,P: report when now >= SetReceivedAt + ExpectedEraDuration - margin (once per set),<br/>and every ReportPeriod blocks. margin = min(ReportMargin, MaxReportMargin, ExpectedEraDuration / 2)\n    A->>C: counts of authors in the set (credit_authored_blocks, local)\n    P->>C: counts of authors in the set, one message of maximum MaxEntriesPerReport items (report_authored_blocks, XCM)\n    C->>C: points = min(count, MaxBlocksPerEntry) x min(PointsPerService[(chain, Collation)], MaxPointsPerService)\n    C->>S: reward_service_points(Collation, points)\n    S->>S: drop accounts not exposed in era N\n    S->>S: ErasRewardPoints[N] += points, ErasRewardPointsByService[(N, Collation)] += points\n\n    R->>S: next session report with activation\n    S->>S: credit RelayConsensus points to era N, then rotate to era N+1\n```\n\n## Design\n\n- **Chains report counts, Asset Hub weighs them.**\n`PointsPerService[(chain, service)]` on Asset Hub, set by governance and\ncapped by `MaxPointsPerService`. One place to set, bound and observe\nevery chain and service. A unit is service specific: one block authored\nfor `Collation`. Points are the same unit as the relay's ones.\n- **Points per service.** `sp_staking::ServiceKind { RelayConsensus,\nCollation }`. `ErasRewardPoints` stays the **combined tally that\npayouts**, the incentive, `chill_inactive` and indexers read.\n`ErasRewardPointsByService` records the same points per service next to\nit, for a later per-service budget or `chill_inactive` rule. No\nmigration. A new service adds a variant and its own report call.\n- https://github.com/paritytech/polkadot-sdk/pull/13536 exposes the\npoints in a per-service manner for use in `chill_inactive`.\n- **Report timing without relay data.** Each chain records when the\nvalidator set arrives (`SetReceivedAt`, milliseconds from the timestamp)\nand reports once at `SetReceivedAt + ExpectedEraDuration -\nReportMargin`, so the counts reach Asset Hub before the era rotates.\n`ReportPeriod` stays as the regular timer for eras that run long or\nshort, lost announcements and failed sends. Relay sessions go away with\nJAM, so the timing does not depend on them. Durations are in all in\nmilliseconds, same as staking which measures eras in milliseconds. My\nreasoning here is the following, please correct me if it's flawed:\n- every system chain's timestamp is tied to the relay chain slot, so all\nchains and staking read the same clock. Block counts would drift with\nmissed slots and differ between chains.\n- **Era Attribution.** Points **solely go to the era active on Asset\nHub** when the report arrives, and accounts not exposed in it are\ndropped. A closed era is never written again, so payouts open as soon as\nthe era ends. Blocks authored in the margin go to the next era, if the\nauthor was an active validator in the next era as well. In an irregular\nera, up to one `ReportPeriod` of blocks does.\n- Collation points also count for the self-stake incentive share and for\n`chill_inactive`.\n\n### Example\n\nEra 7, `PointsPerService[(chain, Collation)] = 13` on Asset Hub and\nPeople. Alice authors 40 Asset Hub blocks, Bob 30 People blocks, Charlie\nis not drawn. Relay points arrive as points, **block counts are\nconverted before they reach staking**:\n\n```\nErasRewardPointsByService[(7, RelayConsensus)] = { total: 3_000, individual: { Alice: 1_000, Bob: 900, Charlie: 1_100 } }\nErasRewardPointsByService[(7, Collation)]      = { total: 910,   individual: { Alice: 520 /* 40 x 13 */, Bob: 390 /* 30 x 13 */ } }\nErasRewardPoints[7]                            = { total: 3_910, individual: { Alice: 1_520, Bob: 1_290, Charlie: 1_100 } }\n```\n\nValues are points, not blocks. Chains are merged under one service key.\nPayouts read only `ErasRewardPoints`, so Alice gets 1,520 / 3,910 of the\nera payout.\n\n## Implementation notes\n\n- `pallet-validator-collators`: records `SetReceivedAt`.\n`ExpectedEraDuration` and `ReportMargin` are set by `UpdateOrigin`, like\n`ReportPeriod`. The margin used is at most `MaxReportMargin` and half of\n`ExpectedEraDuration`. A failed early report is not retried. Its counts\ngo out with the next periodic report. A report is sent in one chunk, and\nits iteration is always capped at `MaxEntriesPerReport` entries: If\nsending fails, the block-authored will be retried in the next iteration.\n- `pallet-staking-async-points-converter` (new, Asset Hub only):\n`report_authored_blocks` takes a plain `Vec` from `ReportOrigin`, which\nnames the chain. Asset Hub credits its own blocks locally. Each count is\ncredited up to `MaxBlocksPerEntry`.\n- `pallet-staking-async`: `reward_service_points(service, points)`\nrefuses `RelayConsensus`, which only the relay session report writes.\n`reward_active_era` is the only writer of both point items. Try-state\nchecks the per-service values never exceed the tally.\n- `sp-staking` holds `RewardPoints`, which the converter calls and\nstaking implements, and `RewardsReporter`, which `frame-support`\nre-exports at its old path.\n\n### Message Size Analysis \n\n\nhttps://github.com/paritytech/polkadot-sdk/pull/13464#discussion_r4362289026\n\n## Benchmarks\n\n- [x] Run benchmarks\n\n```\n/cmd bench --runtime asset-hub-westend --pallet pallet_staking_async pallet_validator_collators pallet_staking_async_points_converter pallet_validator_set_announcer\n/cmd bench --runtime people-westend --pallet pallet_validator_collators\n```\n\n## Polkadot integration\n\nIn a later fellowship runtimes PR, we will set the following values\n(tentative, to be rechecked):\n* `ExpectedEraDuration` 24 hours \n* `ReportMargin` 5 minutes\n* `ReportPeriod` 1 hour\n* `MaxPointsPerService` ???\n* `MaxBlocksPerEntry` TBD e.g. twice the blocks a chain authors in an\nera\n* `PointsPerService[(chain, Collation)] = ???` for Asset Hub and People,\nso that it corresponds to a given (TBD) % of a drawn validator's era\npoints per chain.\n* Ensure: `pallet-validator-collators` is integrated into\n`pallet_authorship::EventHandler` + `OnSystemEvent`\n\n## Follow-ups\n\n- Pay collation outside the staker payout, so staker payouts follow\nrelay chain points only:\nhttps://github.com/paritytech/metanode/issues/37.\n- Expose information about whether a validator was drawn or not in a\nsystem chain back to AH, so it can be used in `IsValidatorInactive`\ninterface.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2026-11-02T20:57:02Z",
+          "tree_id": "11db9dc14c84179e37da227daf786c5a591bc607",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f99b5b7d5796732921b21a8eea1711cafd4cc3da"
+        },
+        "date": 1793661711669,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63567.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8440540070699998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7091443221599993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.760271503240001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000018928910000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0052474282600000035,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.094851903889998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001882393,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.761243411930001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001882393,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.3458588000127305,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000018928910000000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7389012929899996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.275989938239998,
             "unit": "seconds"
           }
         ]
