@@ -123,9 +123,7 @@ pub use self::{
 		StorageMap, StorageNMap, StoragePrefixedMap, StorageValue,
 	},
 };
-pub use sp_runtime::{
-	self, print, traits::Printable, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE,
-};
+pub use sp_runtime::{self, ConsensusEngineId, MAX_MODULE_ERROR_ENCODED_SIZE};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;

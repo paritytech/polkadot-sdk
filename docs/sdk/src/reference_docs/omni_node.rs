@@ -167,9 +167,8 @@
 //! consensus system used in the runtime, and be aware if it is matching that of the OmniNode or
 //! not. For the time being, [`polkadot-omni-node`] only supports:
 //!
-//! * Parachain-based Aura consensus, with 6s async-backing block-time, and before full elastic
-//!   scaling). [`polkadot_omni_node_lib::cli::Cli::experimental_use_slot_based`] for fixed factor
-//!   scaling (a step
+//! * Parachain-based Aura consensus, with 6s async-backing block-time, and the slot-based collator
+//!   (enabled with [`--authoring slot-based`]) for elastic scaling.
 //! * Ability to run any runtime with [`--dev-block-time`] flag. This uses
 //!   [`sc_consensus_manual_seal`] under the hood, and has no restrictions on the runtime's
 //!   consensus.
@@ -194,6 +193,7 @@
 //! [`templates`]: crate::polkadot_sdk::templates
 //! [`parachain-template`]: https://github.com/paritytech/polkadot-sdk-parachain-template
 //! [`--dev-block-time`]: polkadot_omni_node_lib::cli::Cli::dev_block_time
+//! [`--authoring slot-based`]: polkadot_omni_node_lib::cli::AuthoringPolicy::SlotBased
 //! [`polkadot-omni-node`]: https://crates.io/crates/polkadot-omni-node
 //! [`chain-spec-builder`]: https://crates.io/crates/staging-chain-spec-builder
 //! [`cumulus-pallet-parachain-system`]: https://docs.rs/cumulus-pallet-parachain-system/latest/cumulus_pallet_parachain_system/
