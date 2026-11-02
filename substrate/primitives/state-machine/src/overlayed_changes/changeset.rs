@@ -28,10 +28,7 @@ use std::collections::HashSet as Set;
 use crate::{
 	backend::EstimationTrie,
 	ext::StorageAppend,
-	overlayed_changes::{
-		proof_size_tracker,
-		proof_size_tracker::ProofSizeTracker,
-	},
+	overlayed_changes::{proof_size_tracker, proof_size_tracker::ProofSizeTracker},
 	warn,
 };
 use alloc::{
@@ -1007,11 +1004,7 @@ mod test {
 
 	macro_rules! assert_delta_contains {
 		($delta:expr, $key:expr) => {
-			assert!(
-				$delta.iter().any(|(k, _)| k == $key),
-				"delta does not contain key {:?}",
-				$key,
-			);
+			assert!($delta.iter().any(|(k, _)| k == $key), "delta does not contain key {:?}", $key,);
 		};
 	}
 

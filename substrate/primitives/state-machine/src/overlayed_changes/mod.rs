@@ -535,8 +535,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 	/// Get an iterator over all child changes as seen by the current transaction.
 	pub fn children(
 		&self,
-	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)>
-	{
+	) -> impl Iterator<Item = (impl Iterator<Item = (&StorageKey, &OverlayedValue)>, &ChildInfo)> {
 		self.children.values().map(|v| (v.0.changes(), &v.1))
 	}
 
