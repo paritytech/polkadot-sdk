@@ -591,9 +591,9 @@ impl<T: Config> Ext<T> for ReservingExt {
 				// info. Bound it by what the contract holds above its base deposit, so that the
 				// base deposit is only released when the contract is terminated. A contract
 				// instantiated by `Origin::Root` records a base deposit of zero, since none was
-				// placed on hold. One instantiated by `Origin::Root` before that was the case
-				// records a base deposit that is not held, and its refunds stay bounded by the
-				// deposit held above it.
+				// placed on hold. A contract instantiated by `Origin::Root` on an older runtime can
+				// record a base deposit that is not held. Its refunds stay bounded by the deposit
+				// held above it.
 				//
 				// A refund is only recorded for a contract whose info was loaded during the call
 				// stack. That info is only removed by termination, and the charges of a
