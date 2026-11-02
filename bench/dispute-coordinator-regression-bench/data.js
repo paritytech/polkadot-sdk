@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793616670293,
+  "lastUpdate": 1793627828339,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "bruno.devic@parity.io",
-            "name": "BDevParity",
-            "username": "BDevParity"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "9f6182fe1ef2a4bd2013571396999ddd4044a8ef",
-          "message": "[CI] Fix random job cancellations in combined publish workflows (#11703)\n\n## Summary\n\n- The combined publish workflows (`release-70`, `release-22`) call\nmultiple sub-workflows that each invoke `check-synchronization.yml`.\nThat reusable workflow has a concurrency group (`${{ github.repository\n}}-${{ github.workflow }}-${{ github.ref }}`) that evaluates to the\n**same value** for all callers within a single run, causing GitHub to\nrandomly cancel competing jobs.\n- PR #11631 attempted to fix this with `github.event_name ==\n'workflow_dispatch'` guards, but `github.event_name` propagates the\noriginal trigger through `workflow_call` chains, so the guard doesn't\nreliably skip the check.\n- This PR replaces that guard with an explicit `skip_sync_check` boolean\ninput. Combined workflows pass `skip_sync_check: true` since they\nalready run the check at the top level. Standalone dispatches default to\n`false`, preserving existing behavior.\n- Also removes the redundant `check-synchronization` job from\n`release-reusable-publish-packages.yml` (only ever called from workflows\nthat already perform the check).\n\nEvidence: [4 consecutive failed\nattempts](https://github.com/paritytech-release/polkadot-sdk/actions/runs/23787944175)\nwith different random jobs cancelled each time.\n\n## Issue\n\n- https://github.com/paritytech/release-engineering/issues/291\n\n---------\n\nCo-authored-by: Egor_P <egor@parity.io>",
-          "timestamp": "2026-04-15T18:02:46Z",
-          "tree_id": "476d14e5d739f6a66e36af53f32b47a9ad9a9c25",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/9f6182fe1ef2a4bd2013571396999ddd4044a8ef"
-        },
-        "date": 1776282514847,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009264422439999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026972762300000006,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009361121529999976,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009402328649999982,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cc5d217cc61241ce97d5921c04eab97bb27be916",
+          "message": "sc-tracing: keep events without the filtered field when the filter is empty (#13666)\n\nFixes #13595.\n\nSupersedes #13597, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nThe RPC docs say that an empty filter does not remove events. But\n`state_traceBlock` removes each event that does not have the filtered\nfield, also when the filter is empty. Because of this, a trace does not\nshow prefix deletions (`ClearPrefix`) or storage root calculations\n(`StorageRoot`).\n\nThis PR keeps all events when the filter is empty. Filters that are not\nempty work as before.\n\nResults on the first block of a parachain template dev chain:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace with empty filters | 236 events, no `ClearPrefix` or\n`StorageRoot` | 239 events, with `ClearPrefix`, `StorageRoot` and `Call`\n|\n| Trace with method filter `ClearPrefix` | 0 events | 1 event |\n| Trace with method filter `Put` | 103 events | 103 events |\n\n## Integration\n\nThere are no API changes. Calls with an empty filter now also return the\nevents that were missing.\n\nOne of these events is the `Call` event for `Core_execute_block`. This\nevent contains the full encoded block. Because of this, a response with\nan empty key filter is larger by approximately the size of the block.\n\n## How to test\n\nRun the unit tests:\n\n```bash\ncargo test -p sc-tracing\n```\n\nI moved the filter checks into a small helper function, so that I can\ntest them. Four of the new tests fail without the fix.\n\nTo test on a node, use the steps in #13595 with a node built from this\nbranch.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T12:14:20Z",
+          "tree_id": "a8a40ad4fe460a25582e8e9182227f4cd1695dd2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc5d217cc61241ce97d5921c04eab97bb27be916"
+        },
+        "date": 1793627795185,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009368269249999993,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002558383090000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010282331780000003,
             "unit": "seconds"
           }
         ]
