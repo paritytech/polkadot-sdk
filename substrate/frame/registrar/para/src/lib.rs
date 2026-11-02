@@ -746,7 +746,9 @@ pub mod pallet {
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
 			);
-			ensure!(head.len() as u32 <= T::MaxHeadDataSize::get(), Error::<T>::HeadDataTooLarge);
+
+			let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
+			ensure!(head.len() as u32 <= config.max_head_data_size, Error::<T>::HeadDataTooLarge);
 
 			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
