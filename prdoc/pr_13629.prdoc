@@ -23,21 +23,23 @@ crates:
   - name: xcm-procedural
     bump: major
   - name: pallet-xcm
-    bump: major
+    bump: minor
   - name: polkadot-runtime-common
     bump: major
   - name: parachains-common
-    bump: major
+    bump: patch
   - name: staging-xcm-builder
-    bump: none
+    bump: minor
   - name: pallet-xcm-precompiles
     bump: none
   - name: xcm-runtime-apis
     bump: none
   - name: asset-hub-rococo-runtime
+    bump: major
+  - name: asset-test-utils
     bump: patch
   - name: snowbridge-pallet-inbound-queue
-    bump: none
+    bump: minor
   - name: cumulus-pallet-xcmp-queue
     bump: none
   - name: pallet-contracts-uapi
