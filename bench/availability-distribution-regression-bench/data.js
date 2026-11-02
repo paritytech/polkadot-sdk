@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793627680097,
+  "lastUpdate": 1793635923997,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "9842640+manuelmauro@users.noreply.github.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ba71927ba129107dda65a15563f19632f884fe2",
-          "message": "[xcm-emulator] Make block producer overridable for non-Aura chains (#11791)\n\n# Description\n\nMakes the slot/digest producer used by `xcm-emulator`'s\n`decl_test_parachains!` macro overridable so parachains that don't run\nAura (e.g. Nimbus-based chains like Moonbeam) can be wired into\nxcm-emulator-based integration tests.\n\nPreviously, `new_block()` was hard-coded to call\n`pallet_aura::Pallet::<Runtime>::slot_duration()` and to build an Aura\n`PreRuntime` digest. This forced every emulated parachain to implement\n`pallet_aura::Config`, which is not viable for Nimbus-based runtimes.\n\n  ## Integration\n\nFully backwards-compatible — existing `decl_test_parachains!`\ninvocations need no changes. Aura-based parachains keep the same\nbehaviour through a default `AuraBlockProducer<T>` impl.\n\nNon-Aura parachains can now plug in a custom producer via a new optional\n`BlockProducer:` field:\n\n  ```diff\n   decl_test_parachains! {\n       pub struct MyPara {\n           genesis = genesis(),\n           on_init = (),\n           runtime = my_runtime,\n           core = {\n               XcmpMessageHandler: my_runtime::XcmpQueue,\n               LocationToAccountId: my_runtime::LocationToAccountId,\n               ParachainInfo: my_runtime::ParachainInfo,\nMessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,\n  +            BlockProducer: MyNimbusBlockProducer,\n           },\n           pallets = { /* ... */ }\n       }\n   }\n  ```\n\n  Where `MyNimbusBlockProducer` implements the new trait:\n\n  ```rust\n  pub trait BlockProducer {\n      fn slot_duration() -> u64;\n      fn pre_runtime_digest(relay_block_number: u32) -> Digest;\n  }\n  ```\n\nIf the field is omitted, `AuraBlockProducer<Runtime>` is used,\nreproducing the previous behaviour exactly.\n\n## Review Notes\n\n- Adds a public `BlockProducer` trait in\n`cumulus/xcm/xcm-emulator/src/lib.rs` with two methods (`slot_duration`,\n`pre_runtime_digest`) — the two call sites in `new_block()` that\npreviously depended on\n  `pallet_aura`.\n- Provides `AuraBlockProducer<T>` as the default impl, gated on `T:\npallet_aura::Config` with `u64: From<T::Moment>`. Its\n`pre_runtime_digest` reproduces the previous inline digest construction\nverbatim (same\n  slot derivation, same `AURA_ENGINE_ID`).\n- Adds `type BlockProducer: BlockProducer` to the `Parachain` trait.\n- Extends `decl_test_parachains!` with an optional `BlockProducer:`\nfield and an `@inner_block_producer` helper arm that falls back to\n`$crate::AuraBlockProducer<$runtime::Runtime>` when unspecified.\n- In `new_block()`, `slot_duration` and the pre-runtime digest are now\nobtained through `<Self as Parachain>::BlockProducer`; all other\ninherent/timestamp logic is unchanged.\n\nNo new tests. Behaviour for Aura-based parachains is unchanged and\nalready covered by existing emulator tests; the new extension point is\nexercised by downstream (Moonbeam) integration tests.",
-          "timestamp": "2026-04-17T07:10:17Z",
-          "tree_id": "3bb942d884110e607c76c7788c20044b3ff6b95d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ba71927ba129107dda65a15563f19632f884fe2"
-        },
-        "date": 1776414635744,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00937473979333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14307747740666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02552081957333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007247945106666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.025153765559999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "abd3ba33f9d2de9958e9a393715302833a391201",
+          "message": "omni-node: use the parachain tracing executor in `--dev` mode (#13665)\n\nFixes #13594.\n\nSupersedes #13596, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nIn `--dev` mode, the omni-node does not set an executor for block\ntracing. Because of this, the node replays blocks without the proof size\nextension.\n\nOn runtimes that use `StorageWeightReclaim`, the replay then gives a\ndifferent storage root. The result is that `state_traceBlock` fails for\neach block that has a signed extrinsic, and `state_callRecorded` is not\navailable.\n\nThis PR makes the dev node use the same tracing executor as the normal\nparachain node.\n\nResults with the parachain template runtime:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace a block with a signed transfer | Error 4001 | 328 events |\n| `state_callRecorded` on that block | Error 4004 | Works |\n| Trace a block with only inherents | 217 events | 217 events |\n\n`state_call` with `Core_execute_block` still fails, because it does not\nuse this executor.\n\n## Integration\n\nNothing to do for downstream projects. The change only affects\n`polkadot-omni-node --dev`.\n\nTracing on a dev node now records a proof. This uses more CPU and memory\nduring tracing.\n\nBlock authoring and import are unchanged.\n\n## How to test\n\nI tested it manually with the steps in #13594, using a node built from\nthis branch with `--features runtime-benchmarks` (the official template\nruntime needs it).\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T13:43:48Z",
+          "tree_id": "77c0a0d253ce1bc80bd9ac04255ea1f3995fa31a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/abd3ba33f9d2de9958e9a393715302833a391201"
+        },
+        "date": 1793635889036,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007608653233333335,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024964409246666666,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14426116888,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009691516966666635,
             "unit": "seconds"
           }
         ]
