@@ -112,7 +112,7 @@ fn nested_zero_limit_requested() {
 
 	let meter = TestMeter::new(Some(1_000));
 	assert_eq!(meter.available(), 1_000);
-	let nested0 = meter.nested(Some(BalanceOf::<Test>::zero()), Rule::Skip);
+	let nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 	assert_eq!(nested0.available(), 0);
 }
 
@@ -122,7 +122,7 @@ fn nested_some_limit_requested() {
 
 	let meter = TestMeter::new(Some(1_000));
 	assert_eq!(meter.available(), 1_000);
-	let nested0 = meter.nested(Some(500), Rule::Skip);
+	let nested0 = meter.nested(Some(500));
 	assert_eq!(nested0.available(), 500);
 }
 
@@ -132,7 +132,7 @@ fn nested_all_limit_requested() {
 
 	let meter = TestMeter::new(Some(1_000));
 	assert_eq!(meter.available(), 1_000);
-	let nested0 = meter.nested(Some(1_000), Rule::Skip);
+	let nested0 = meter.nested(Some(1_000));
 	assert_eq!(nested0.available(), 1_000);
 }
 
@@ -142,7 +142,7 @@ fn nested_over_limit_requested() {
 
 	let meter = TestMeter::new(Some(1_000));
 	assert_eq!(meter.available(), 1_000);
-	let nested0 = meter.nested(Some(2_000), Rule::Skip);
+	let nested0 = meter.nested(Some(2_000));
 	assert_eq!(nested0.available(), 1_000);
 }
 
@@ -154,7 +154,7 @@ fn empty_charge_works() {
 	assert_eq!(meter.available(), 1_000);
 
 	// an empty charge does not create a `Charge` entry
-	let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()), Rule::Skip);
+	let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 	nested0.charge(&Default::default());
 	meter.absorb(nested0, &BOB, None);
 	assert_eq!(
@@ -203,7 +203,7 @@ fn charging_works() {
 			items_deposit: 10,
 			immutable_data_len: 0,
 		});
-		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()), Rule::Skip);
+		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
 		nested0.charge(&Diff {
 			bytes_added: 108,
 			bytes_removed: 5,
@@ -223,7 +223,7 @@ fn charging_works() {
 			items_deposit: 20,
 			immutable_data_len: 0,
 		});
-		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::zero()), Rule::Skip);
+		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::zero()));
 		nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 		assert_eq!(nested1.consumed(), Default::default());
 		assert_eq!(nested1.available(), 0);
@@ -242,7 +242,7 @@ fn charging_works() {
 			items_deposit: 20,
 			immutable_data_len: 0,
 		});
-		let mut nested2 = nested0.nested(Some(BalanceOf::<Test>::zero()), Rule::Skip);
+		let mut nested2 = nested0.nested(Some(BalanceOf::<Test>::zero()));
 		nested2.charge(&Diff { items_removed: 7, ..Default::default() });
 		assert_eq!(nested2.consumed(), Default::default());
 		assert_eq!(nested2.available(), 0);
@@ -300,7 +300,7 @@ fn termination_works() {
 		let mut meter = TestMeter::new(Some(1_000));
 		assert_eq!(meter.available(), 1_000);
 
-		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::MAX), Rule::Skip);
+		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::MAX));
 		assert_eq!(nested0.available(), 1_000);
 
 		nested0.charge(&Diff {
@@ -321,7 +321,7 @@ fn termination_works() {
 			items_deposit: 20,
 			immutable_data_len: 0,
 		});
-		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::MAX), Rule::Skip);
+		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::MAX));
 		assert_eq!(nested1.consumed(), Default::default());
 		let total_deposit = nested1_info.total_deposit();
 		nested1.charge(&Diff { items_removed: 5, ..Default::default() });
@@ -352,7 +352,7 @@ fn termination_works() {
 fn max_deposits_work_with_charges() {
 	clear_ext();
 	let meter = TestMeter::new(None);
-	let mut nested = meter.nested(None, Rule::Skip);
+	let mut nested = meter.nested(None);
 
 	assert_eq!(nested.consumed(), Default::default());
 	assert_eq!(nested.max_charged(), Default::default());
@@ -374,7 +374,7 @@ fn max_deposits_work_with_charges() {
 	assert_eq!(nested.max_charged(), Deposit::Charge(130));
 
 	let meter = TestMeter::new(None);
-	let mut nested = meter.nested(None, Rule::Skip);
+	let mut nested = meter.nested(None);
 	nested.record_charge(&Deposit::Refund(100));
 	assert_eq!(nested.consumed(), Deposit::Refund(100));
 	assert_eq!(nested.max_charged(), Default::default());
@@ -396,7 +396,7 @@ fn max_deposits_work_with_charges() {
 fn max_deposits_work_with_diffs() {
 	clear_ext();
 	let meter = TestMeter::new(None);
-	let mut nested = meter.nested(None, Rule::Skip);
+	let mut nested = meter.nested(None);
 
 	nested.charge(&Diff { bytes_added: 2, ..Default::default() });
 
@@ -424,7 +424,7 @@ fn max_deposits_work_with_diffs() {
 	assert_eq!(nested.max_charged(), Deposit::Charge(35));
 
 	let meter = TestMeter::new(None);
-	let mut nested = meter.nested(None, Rule::Skip);
+	let mut nested = meter.nested(None);
 	nested.charge(&Diff { bytes_removed: 10, items_added: 2, ..Default::default() });
 	assert_eq!(nested.consumed(), Deposit::Charge(4));
 	assert_eq!(nested.max_charged(), Deposit::Charge(4));
@@ -458,10 +458,10 @@ fn max_deposits_work_with_diffs() {
 fn max_deposits_work_nested() {
 	clear_ext();
 	let mut meter = TestMeter::new(None);
-	let mut nested1 = meter.nested(None, Rule::Skip);
+	let mut nested1 = meter.nested(None);
 	nested1.record_charge(&Deposit::Charge(10));
 
-	let mut nested2a = nested1.nested(None, Rule::Skip);
+	let mut nested2a = nested1.nested(None);
 	nested2a.record_charge(&Deposit::Charge(20));
 	nested2a.record_charge(&Deposit::Refund(10));
 	assert_eq!(nested2a.consumed(), Deposit::Charge(10));
@@ -494,7 +494,7 @@ fn max_deposits_work_nested() {
 	assert_eq!(nested1.consumed(), Deposit::Charge(27));
 	assert_eq!(nested1.max_charged(), Deposit::Charge(37));
 
-	let mut nested2b = nested1.nested(None, Rule::Skip);
+	let mut nested2b = nested1.nested(None);
 	nested2b.record_charge(&Deposit::Refund(10));
 	assert_eq!(nested2b.consumed(), Deposit::Refund(10));
 	assert_eq!(nested2b.max_charged(), Default::default());
@@ -527,7 +527,7 @@ fn max_deposits_work_nested() {
 fn max_deposits_work_for_reverts() {
 	clear_ext();
 	let mut meter = TestMeter::new(None);
-	let mut nested1 = meter.nested(None, Rule::Skip);
+	let mut nested1 = meter.nested(None);
 	nested1.record_charge(&Deposit::Charge(10));
 
 	meter.absorb_only_max_charged(nested1);
@@ -558,30 +558,30 @@ fn eip_150_deposit_overhead_top_call_no_children() {
 	assert_eq!(meter.max_charged(), Deposit::Charge(6300));
 	assert_eq!(meter.eip_150_peak(), 0);
 	assert_eq!(meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(meter.eip_150_total_overhead(), 0);
+	assert_eq!(meter.eip_150_total_overhead(Rule::Skip), 0);
 }
 
 #[test]
 fn eip_150_deposit_overhead_leaf_subcall() {
 	clear_ext();
-	let meter = TestMeter::new(Some(100_000));
-	let mut child = meter.nested(Some(50_000), Rule::Apply);
+	let parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
+	let mut child = parent.nested(Some(50_000));
 	child.record_charge(&Deposit::Charge(6300));
 
 	// Leaf subcall: no children (no subcall boundaries), overhead = ceil(6300/63) = 100
 	assert_eq!(child.max_charged(), Deposit::Charge(6300));
 	assert_eq!(child.eip_150_peak(), 0);
 	assert_eq!(child.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(child.eip_150_total_overhead(), 100);
+	assert_eq!(child.eip_150_total_overhead(Rule::Apply), 100);
 }
 
 #[test]
 fn eip_150_deposit_overhead_single_subcall() {
 	clear_ext();
-	let mut parent = TestMeter::new(Some(100_000));
+	let mut parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
 	parent.record_charge(&Deposit::Charge(1000));
 
-	let mut child = parent.nested(Some(50_000), Rule::Apply);
+	let mut child = parent.nested(Some(50_000));
 	child.record_charge(&Deposit::Charge(6300));
 
 	parent.absorb_only_max_charged(child);
@@ -590,26 +590,26 @@ fn eip_150_deposit_overhead_single_subcall() {
 	assert_eq!(parent.max_charged(), Deposit::Charge(7300));
 	assert_eq!(parent.eip_150_peak(), 7400);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(7400));
-	assert_eq!(parent.eip_150_total_overhead(), 100);
+	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 100);
 }
 
 #[test]
 fn eip_150_deposit_overhead_two_levels() {
 	clear_ext();
-	let mut top = TestMeter::new(Some(1_000_000));
+	let mut top = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
 	top.record_charge(&Deposit::Charge(1000));
 
-	let mut level1 = top.nested(Some(500_000), Rule::Apply);
+	let mut level1 = top.nested(Some(500_000));
 	level1.record_charge(&Deposit::Charge(2000));
 
-	let mut level2 = level1.nested(Some(250_000), Rule::Apply);
+	let mut level2 = level1.nested(Some(250_000));
 	level2.record_charge(&Deposit::Charge(6300));
 
 	// level2 leaf: no subcall boundaries so peak is zero, overhead = ceil(6300/63) = 100
 	assert_eq!(level2.max_charged(), Deposit::Charge(6300));
 	assert_eq!(level2.eip_150_peak(), 0);
 	assert_eq!(level2.deposit_required_with_eip_150(), Deposit::Charge(6300));
-	assert_eq!(level2.eip_150_total_overhead(), 100);
+	assert_eq!(level2.eip_150_total_overhead(Rule::Apply), 100);
 
 	level1.absorb_only_max_charged(level2);
 
@@ -618,7 +618,7 @@ fn eip_150_deposit_overhead_two_levels() {
 	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
 	assert_eq!(level1.eip_150_peak(), 8400);
 	assert_eq!(level1.deposit_required_with_eip_150(), Deposit::Charge(8400));
-	assert_eq!(level1.eip_150_total_overhead(), 234);
+	assert_eq!(level1.eip_150_total_overhead(Rule::Apply), 234);
 
 	top.absorb_only_max_charged(level1);
 
@@ -626,17 +626,17 @@ fn eip_150_deposit_overhead_two_levels() {
 	assert_eq!(top.max_charged(), Deposit::Charge(9300));
 	assert_eq!(top.eip_150_peak(), 9534);
 	assert_eq!(top.deposit_required_with_eip_150(), Deposit::Charge(9534));
-	assert_eq!(top.eip_150_total_overhead(), 234);
+	assert_eq!(top.eip_150_total_overhead(Rule::Skip), 234);
 }
 
 #[test]
 fn eip_150_deposit_overhead_two_sequential_children() {
 	clear_ext();
-	let mut parent = TestMeter::new(Some(1_000_000));
+	let mut parent = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
 	parent.record_charge(&Deposit::Charge(500));
 
 	// First child (succeeds): 3000 deposit, overhead = ceil(3000/63) = 48
-	let mut child_a = parent.nested(Some(500_000), Rule::Apply);
+	let mut child_a = parent.nested(Some(500_000));
 	child_a.record_charge(&Deposit::Charge(3000));
 	parent.absorb(child_a, &ALICE, None);
 	// peak = max(0, 500 + 3000 + 48) = 3548, consumed now = 3500
@@ -645,7 +645,7 @@ fn eip_150_deposit_overhead_two_sequential_children() {
 	// consumed = 3500 + 700 = 4200, max_charged = 4200
 
 	// Second child (succeeds): 1000 deposit, overhead = ceil(1000/63) = 16
-	let mut child_b = parent.nested(Some(500_000), Rule::Apply);
+	let mut child_b = parent.nested(Some(500_000));
 	child_b.record_charge(&Deposit::Charge(1000));
 	parent.absorb(child_b, &ALICE, None);
 	// peak = max(3548, 4200 + 1000 + 16) = 5216
@@ -655,22 +655,22 @@ fn eip_150_deposit_overhead_two_sequential_children() {
 	assert_eq!(parent.max_charged(), Deposit::Charge(5200));
 	assert_eq!(parent.eip_150_peak(), 5216);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(5216));
-	assert_eq!(parent.eip_150_total_overhead(), 16);
+	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 16);
 }
 
 #[test]
 fn eip_150_deposit_required_includes_overhead() {
 	clear_ext();
-	let mut parent = TestMeter::new(Some(100_000));
+	let mut parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
 	parent.record_charge(&Deposit::Charge(1000));
 
-	let mut child = parent.nested(Some(50_000), Rule::Apply);
+	let mut child = parent.nested(Some(50_000));
 	child.record_charge(&Deposit::Charge(6300));
 
 	parent.absorb_only_max_charged(child);
 
 	let max_charged = parent.max_charged().charge_or_zero();
-	let overhead = parent.eip_150_total_overhead();
+	let overhead = parent.eip_150_total_overhead(Rule::Skip);
 	let deposit_required = parent.deposit_required_with_eip_150().charge_or_zero();
 
 	assert!(overhead > 0, "there should be EIP-150 overhead from the subcall");
@@ -685,14 +685,14 @@ fn eip_150_deposit_required_includes_overhead() {
 #[test]
 fn eip_150_deposit_overhead_child_with_children_reverts() {
 	clear_ext();
-	let mut top = TestMeter::new(Some(1_000_000));
+	let mut top = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
 	top.record_charge(&Deposit::Charge(500));
 
 	// level1 succeeds and has its own child (level2)
-	let mut level1 = top.nested(Some(500_000), Rule::Apply);
+	let mut level1 = top.nested(Some(500_000));
 	level1.record_charge(&Deposit::Charge(2000));
 
-	let mut level2 = level1.nested(Some(250_000), Rule::Apply);
+	let mut level2 = level1.nested(Some(250_000));
 	level2.record_charge(&Deposit::Charge(6300));
 
 	// Absorb level2 into level1 (success path)
@@ -701,7 +701,7 @@ fn eip_150_deposit_overhead_child_with_children_reverts() {
 	// overhead = children(100) + own(ceil(8400/63)=134) = 234
 	assert_eq!(level1.eip_150_peak(), 8400);
 	assert_eq!(level1.max_charged(), Deposit::Charge(8300));
-	assert_eq!(level1.eip_150_total_overhead(), 234);
+	assert_eq!(level1.eip_150_total_overhead(Rule::Apply), 234);
 
 	// Absorb level1 into top (only max_charged, simulating a revert)
 	top.absorb_only_max_charged(level1);
@@ -710,24 +710,24 @@ fn eip_150_deposit_overhead_child_with_children_reverts() {
 	assert_eq!(top.max_charged(), Deposit::Charge(8800));
 	assert_eq!(top.eip_150_peak(), 9034);
 	assert_eq!(top.deposit_required_with_eip_150(), Deposit::Charge(9034));
-	assert_eq!(top.eip_150_total_overhead(), 234);
+	assert_eq!(top.eip_150_total_overhead(Rule::Skip), 234);
 }
 
 #[test]
 fn eip_150_deposit_overhead_zero_consumption_child() {
 	clear_ext();
-	let mut parent = TestMeter::new(Some(100_000));
+	let mut parent = TestMeter::new(Some(100_000)).nested(Some(100_000));
 	parent.record_charge(&Deposit::Charge(5000));
 
 	// Child consumes zero deposit
-	let child = parent.nested(Some(50_000), Rule::Apply);
+	let child = parent.nested(Some(50_000));
 	parent.absorb_only_max_charged(child);
 
 	// Zero-consumption child: overhead = ceil(0/63) = 0
 	// peak = max(0, 5000 + 0 + 0) = 5000
 	assert_eq!(parent.max_charged(), Deposit::Charge(5000));
 	assert_eq!(parent.eip_150_peak(), 5000);
-	assert_eq!(parent.eip_150_total_overhead(), 0);
+	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 0);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(5000));
 }
 
@@ -735,10 +735,10 @@ fn eip_150_deposit_overhead_zero_consumption_child() {
 fn eip_150_deposit_overhead_child_heavier_than_parent() {
 	clear_ext();
 	// Parent consumes very little (1), child consumes a lot (63_000)
-	let mut parent = TestMeter::new(Some(1_000_000));
+	let mut parent = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
 	parent.record_charge(&Deposit::Charge(1));
 
-	let mut child = parent.nested(Some(500_000), Rule::Apply);
+	let mut child = parent.nested(Some(500_000));
 	child.record_charge(&Deposit::Charge(63_000));
 
 	parent.absorb_only_max_charged(child);
@@ -748,5 +748,5 @@ fn eip_150_deposit_overhead_child_heavier_than_parent() {
 	assert_eq!(parent.max_charged(), Deposit::Charge(63_001));
 	assert_eq!(parent.eip_150_peak(), 64_001);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(64_001));
-	assert_eq!(parent.eip_150_total_overhead(), 1000);
+	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 1000);
 }

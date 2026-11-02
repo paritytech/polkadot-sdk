@@ -154,30 +154,13 @@ pub struct WeightMeter<T: Config> {
 
 impl<T: Config> WeightMeter<T> {
 	pub fn new(weight_limit: Weight, stipend: Option<Weight>) -> Self {
-		Self::new_inner(weight_limit, stipend, Default::default())
-	}
-
-	/// Like [`Self::new`] but initializes EIP-150 peak tracking from the given rule.
-	pub fn new_with_eip_150(
-		weight_limit: Weight,
-		stipend: Option<Weight>,
-		eip_150_rule: eip_150::Rule,
-	) -> Self {
-		Self::new_inner(weight_limit, stipend, Eip150Peak::new(eip_150_rule))
-	}
-
-	fn new_inner(
-		weight_limit: Weight,
-		stipend: Option<Weight>,
-		eip_150_peak: Eip150Peak<WeightEip150>,
-	) -> Self {
 		WeightMeter {
 			weight_limit,
 			effective_weight_limit: weight_limit,
 			weight_consumed: Default::default(),
 			weight_consumed_highest: stipend.unwrap_or_default(),
 			engine_meter: EngineMeter::new(),
-			eip_150_peak,
+			eip_150_peak: Default::default(),
 			_phantom: PhantomData,
 			#[cfg(test)]
 			tokens: Vec::new(),
@@ -189,13 +172,15 @@ impl<T: Config> WeightMeter<T> {
 	}
 
 	/// Absorb the remaining weight of a nested meter after we are done using it.
-	pub fn absorb_nested(&mut self, nested: Self) {
+	///
+	/// `eip_150_rule` is the rule `nested` was created under.
+	pub fn absorb_nested(&mut self, nested: Self, eip_150_rule: eip_150::Rule) {
 		let current_weight_consumed_highest =
 			self.weight_consumed.saturating_add(nested.weight_required());
 
 		// Include the nested call's cumulative EIP-150 63/64 overhead.
-		let current_eip_150_peak =
-			current_weight_consumed_highest.saturating_add(nested.eip_150_total_overhead());
+		let current_eip_150_peak = current_weight_consumed_highest
+			.saturating_add(nested.eip_150_total_overhead(eip_150_rule));
 		self.eip_150_peak.update(current_eip_150_peak);
 
 		self.weight_consumed_highest =
@@ -206,9 +191,10 @@ impl<T: Config> WeightMeter<T> {
 	/// Compute the total EIP-150 overhead for this meter.
 	///
 	/// Returns the extra weight the parent needs beyond `weight_required()` to cover the part
-	/// each caller keeps at and below this level.
-	fn eip_150_total_overhead(&self) -> Weight {
-		self.eip_150_peak.total_overhead(self.weight_required())
+	/// each caller keeps at and below this level. `eip_150_rule` is the rule this meter was
+	/// created under.
+	fn eip_150_total_overhead(&self, eip_150_rule: eip_150::Rule) -> Weight {
+		self.eip_150_peak.total_overhead(self.weight_required(), eip_150_rule)
 	}
 
 	/// Account for used weight.

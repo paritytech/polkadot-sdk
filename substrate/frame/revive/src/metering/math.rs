@@ -35,7 +35,7 @@ use sp_runtime::Saturating;
 pub mod eip_150 {
 	use super::*;
 	use core::fmt::Debug;
-	use frame_support::DebugNoBound;
+	use frame_support::{DebugNoBound, DefaultNoBound};
 
 	/// Denominator of the 63/64 rule.
 	pub const DENOMINATOR: NonZero<u64> = NonZero::new(64).expect("64 is not zero; qed");
@@ -45,10 +45,8 @@ pub mod eip_150 {
 
 	/// The minimum starting amount a call needs so that each of its subcalls still receives
 	/// enough after the 63/64 split.
-	#[derive(DebugNoBound)]
+	#[derive(DebugNoBound, DefaultNoBound)]
 	pub struct Peak<R: Resource> {
-		/// Whether the 63/64 rule applies to this call.
-		rule: Rule,
 		/// The peak tracked from the children absorbed so far.
 		value: R::Amount,
 	}
@@ -71,11 +69,6 @@ pub mod eip_150 {
 	}
 
 	impl<R: Resource> Peak<R> {
-		/// Creates a peak for the given rule, starting at the default amount.
-		pub fn new(rule: Rule) -> Self {
-			Self { rule, value: Default::default() }
-		}
-
 		/// Returns the tracked peak value.
 		pub fn get(&self) -> R::Amount {
 			self.value
@@ -88,22 +81,17 @@ pub mod eip_150 {
 
 		/// Returns the total EIP-150 63/64 overhead stored in this peak.
 		///
-		/// `required` is the call's own resource consumption.
-		pub fn total_overhead(&self, required: R::Amount) -> R::Amount {
+		/// `required` is the call's own resource consumption, and `rule` is the rule the call was
+		/// created under.
+		pub fn total_overhead(&self, required: R::Amount, rule: Rule) -> R::Amount {
 			let needed_at_boundary = R::max(self.value, required);
 			let children_overhead = R::saturating_sub(needed_at_boundary, required);
-			match self.rule {
+			match rule {
 				Rule::Skip => children_overhead,
 				Rule::Apply => {
 					R::saturating_add(children_overhead, R::overhead(needed_at_boundary))
 				},
 			}
-		}
-	}
-
-	impl<R: Resource> Default for Peak<R> {
-		fn default() -> Self {
-			Self::new(Rule::Skip)
 		}
 	}
 
@@ -361,8 +349,8 @@ pub mod substrate_execution {
 		};
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
-			deposit: meter.deposit.nested(Some(nested_deposit_limit), eip_150_rule),
+			weight: WeightMeter::new(nested_weight_limit, stipend),
+			deposit: meter.deposit.nested(Some(nested_deposit_limit)),
 			max_total_gas: Default::default(),
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,
@@ -612,8 +600,8 @@ pub mod ethereum_execution {
 		let nested_max_total_gas = total_gas_consumption.saturating_add(&nested_gas_limit);
 
 		Ok(FrameMeter::<T> {
-			weight: WeightMeter::new_with_eip_150(nested_weight_limit, stipend, eip_150_rule),
-			deposit: meter.deposit.nested(nested_deposit_limit, eip_150_rule),
+			weight: WeightMeter::new(nested_weight_limit, stipend),
+			deposit: meter.deposit.nested(nested_deposit_limit),
 			max_total_gas: nested_max_total_gas,
 			total_consumed_weight_before: total_consumed_weight,
 			total_consumed_deposit_before: total_consumed_deposit,

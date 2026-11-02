@@ -249,7 +249,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			other.deposit_consumed(),
 		);
 
-		self.weight.absorb_nested(other.weight);
+		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
 		self.deposit.absorb_only_max_charged(other.deposit);
 
 		log::trace!(
@@ -298,7 +298,7 @@ impl<T: Config, S: State> ResourceMeter<T, S> {
 			other.deposit_consumed(),
 		);
 
-		self.weight.absorb_nested(other.weight);
+		self.weight.absorb_nested(other.weight, S::EIP_150_RULE);
 		self.deposit.absorb(other.deposit, contract, info);
 
 		let result = self.adjust_effective_weight_limit();

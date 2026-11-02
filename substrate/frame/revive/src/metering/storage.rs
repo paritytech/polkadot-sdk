@@ -248,18 +248,12 @@ where
 	/// This is called whenever a new subcall is initiated in order to track the storage
 	/// usage for this sub call separately. This is necessary because we want to exchange balance
 	/// with the current contract we are interacting with.
-	///
-	/// The child's EIP-150 peak tracking is initialized from `eip_150_rule`.
-	pub fn nested(
-		&self,
-		mut limit: Option<BalanceOf<T>>,
-		eip_150_rule: eip_150::Rule,
-	) -> RawMeter<T, E, Nested> {
+	pub fn nested(&self, mut limit: Option<BalanceOf<T>>) -> RawMeter<T, E, Nested> {
 		if let (Some(new_limit), Some(old_limit)) = (limit, self.limit) {
 			limit = Some(new_limit.min(old_limit));
 		}
 
-		RawMeter { limit, eip_150_peak: Eip150Peak::new(eip_150_rule), ..Default::default() }
+		RawMeter { limit, ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -366,7 +360,7 @@ where
 	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
 		let consumed_deposit = self.consumed().charge_or_zero();
 		let child_deposit_required = child.max_charged().charge_or_zero();
-		let child_deposit_overhead = child.eip_150_total_overhead();
+		let child_deposit_overhead = child.eip_150_total_overhead(S::EIP_150_RULE);
 		let current_deposit_peak = consumed_deposit
 			.saturating_add(child_deposit_required)
 			.saturating_add(child_deposit_overhead);
@@ -380,8 +374,11 @@ where
 	}
 
 	/// Compute the total EIP-150 deposit overhead for this meter.
-	fn eip_150_total_overhead(&self) -> BalanceOf<T> {
-		self.eip_150_peak.total_overhead(self.max_charged().charge_or_zero())
+	///
+	/// `eip_150_rule` is the rule this meter was created under.
+	fn eip_150_total_overhead(&self, eip_150_rule: eip_150::Rule) -> BalanceOf<T> {
+		self.eip_150_peak
+			.total_overhead(self.max_charged().charge_or_zero(), eip_150_rule)
 	}
 
 	/// The amount of balance still available from the current meter.
