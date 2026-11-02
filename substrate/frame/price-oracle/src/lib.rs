@@ -308,6 +308,8 @@ pub mod pallet {
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
+		/// More reports than signers in one block.
+		TooManyReports,
 	}
 
 	#[pallet::hooks]
@@ -340,6 +342,8 @@ pub mod pallet {
 				"Price reports must be processed only once in the block"
 			);
 			DidProcess::<T>::put(true);
+			// The block author's pool holds at most one report per signer.
+			ensure!(reports.len() <= T::MaxSigners::get() as usize, Error::<T>::TooManyReports);
 
 			let Some(params) = Params::<T>::get() else {
 				log::debug!(target: LOG_TARGET, "Parameters unset, ignoring {} reports", reports.len());
