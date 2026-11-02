@@ -980,9 +980,8 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 	});
 }
 
-
 #[test]
-fn spam_slot_cap_is_bypassed_via_multi_validator_batch() {
+fn spam_slot_cap_enforced_per_validator_in_batch() {
 	test_harness(|mut test_state, mut virtual_overseer| {
 		Box::pin(async move {
 			let session = 1;
@@ -1041,7 +1040,12 @@ fn spam_slot_cap_is_bypassed_via_multi_validator_batch() {
 			)
 			.await;
 			let invalid_vote2_from_fresh_validator = test_state
-				.issue_explicit_statement_with_index(ValidatorIndex(2), candidate_hash2, session, false);
+				.issue_explicit_statement_with_index(
+					ValidatorIndex(2),
+					candidate_hash2,
+					session,
+					false,
+				);
 
 			let (pending_confirmation, confirmation_rx) = oneshot::channel();
 			virtual_overseer
