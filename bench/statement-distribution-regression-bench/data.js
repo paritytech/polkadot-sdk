@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793627779029,
+  "lastUpdate": 1793636027908,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "3768df0fc7a42419e1774bda79031cceec130020",
-          "message": "pallet-revive: expose pre-dispatch weight runtime API (#11710)\n\n# Description\n\nThis PR adds a new `pallet-revive` runtime API for computing the booked\npre-dispatch weight of an\nEthereum transaction from its signed payload bytes.\n\nThe new API decodes the signed Ethereum transaction payload, converts it\ninto the inner revive\ncall, and returns the same per-extrinsic weight contribution that\n`frame_system::CheckWeight`\nbooks:\n\n- `dispatch_info.total_weight()` including extension weight\n- the dispatch class `base_extrinsic`\n- the length-based proof-size charge\n\nThis is intended to expose the actual booked pre-dispatch weight for\nbenchmarking and analysis,\nwithout reconstructing the outer transaction from a\n`GenericTransaction`.\n\n## Integration\n\nThis changes the `ReviveApi` runtime API surface by adding:\n\n```rust\nfn eth_pre_dispatch_weight(tx: Vec<u8>) -> Result<Weight, EthTransactError>;\n```\n\nDownstream consumers of `ReviveApi` will need regenerated metadata or\nupdated runtime API bindings\nto call the new method.\n\nThe method expects the signed Ethereum transaction payload bytes, not a\n`GenericTransaction`. This\nis important because the outer transaction length contributes to\nproof-size booking and should come\nfrom the real signed payload.\n\nThere is no storage migration and no change to dispatch behavior.\n\n## Review Notes\n\nImplementation details:\n\n- the new pallet helper decodes `TransactionSigned` from the provided\npayload\n- it recovers the signer address and builds the `GenericTransaction`\nfrom the signed tx\n- it computes the actual outer `eth_transact` encoded length from the\nprovided payload\n- it reuses `into_call(CreateCallMode::ExtrinsicExecution(...))` to\nconstruct the inner revive call\n- it returns:\n\n```rust\ndispatch_info.total_weight()\n+ base_extrinsic\n+ Weight::from_parts(0, encoded_len)\n```\n\nThe PR also adds a regression test,\n`eth_pre_dispatch_weight_matches_check_weight_booking`, which\nchecks that the new API returns the same booked weight that\n`CheckWeight` would account for.\n\nExample usage:\n\n```rust\nlet weight = runtime_api.eth_pre_dispatch_weight(signed_tx_bytes)?;\n```\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T20:15:07Z",
-          "tree_id": "08406ec206a8a98516dba720f867ada870fe9abd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/3768df0fc7a42419e1774bda79031cceec130020"
-        },
-        "date": 1776289124315,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.062,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03894106030399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.09046799609199992,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08712099714199996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "abd3ba33f9d2de9958e9a393715302833a391201",
+          "message": "omni-node: use the parachain tracing executor in `--dev` mode (#13665)\n\nFixes #13594.\n\nSupersedes #13596, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nIn `--dev` mode, the omni-node does not set an executor for block\ntracing. Because of this, the node replays blocks without the proof size\nextension.\n\nOn runtimes that use `StorageWeightReclaim`, the replay then gives a\ndifferent storage root. The result is that `state_traceBlock` fails for\neach block that has a signed extrinsic, and `state_callRecorded` is not\navailable.\n\nThis PR makes the dev node use the same tracing executor as the normal\nparachain node.\n\nResults with the parachain template runtime:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace a block with a signed transfer | Error 4001 | 328 events |\n| `state_callRecorded` on that block | Error 4004 | Works |\n| Trace a block with only inherents | 217 events | 217 events |\n\n`state_call` with `Core_execute_block` still fails, because it does not\nuse this executor.\n\n## Integration\n\nNothing to do for downstream projects. The change only affects\n`polkadot-omni-node --dev`.\n\nTracing on a dev node now records a proof. This uses more CPU and memory\nduring tracing.\n\nBlock authoring and import are unchanged.\n\n## How to test\n\nI tested it manually with the steps in #13594, using a node built from\nthis branch with `--features runtime-benchmarks` (the official template\nruntime needs it).\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T13:43:48Z",
+          "tree_id": "77c0a0d253ce1bc80bd9ac04255ea1f3995fa31a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/abd3ba33f9d2de9958e9a393715302833a391201"
+        },
+        "date": 1793635993427,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.14000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038805942594000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08599928817799991,
             "unit": "seconds"
           }
         ]
