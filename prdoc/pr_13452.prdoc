@@ -1,0 +1,24 @@
+title: 'sp-state-machine: Make the state version a property of the externalities'
+doc:
+- audience: Node Dev
+  description: |-
+    The state version is now passed to the externalities when they are created (`Ext::new`, `StateMachine::new`, `prove_execution*`, `execution_proof_check*`) and the node takes it from the `RuntimeVersion` of the executed code. `Externalities::storage_root` and `Externalities::child_storage_root` use this configured state version. The existing storage root host functions keep their behavior and still honor the `state_version` they pass, using the new `Externalities::storage_root_with_version` and `Externalities::child_storage_root_with_version`.
+
+    This is a preparation for [parachain service](https://github.com/paritytech/parachain-service/issues/52). Parachains on JAM will require new host functions, and with this change these new host functions don't need to pass the `state_version`. A later pull request will then introduce the new host functions for JAM.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: major
+- name: polkadot-node-core-pvf-common
+  bump: major
+- name: sc-service
+  bump: major
+- name: frame-benchmarking
+  bump: major
+- name: sp-externalities
+  bump: major
+- name: sp-io
+  bump: major
+- name: sp-state-machine
+  bump: major
+- name: frame-benchmarking-cli
+  bump: major

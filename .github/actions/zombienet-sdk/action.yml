@@ -81,6 +81,7 @@ runs:
         ref-slug: ${{ inputs.ref-slug }}
         build-id: ${{ inputs.build-id }}
         destination-path: ./bin
+        prefix: ${{ inputs.prefix }}
 
     - uses: ./.github/actions/download-artifact-extract
       with:

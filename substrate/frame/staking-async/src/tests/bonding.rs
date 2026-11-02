@@ -207,7 +207,7 @@ fn bond_extra_works() {
 		);
 
 		// when
-		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), Balance::max_value()));
+		assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), Balance::MAX));
 
 		// then
 		assert_eq!(

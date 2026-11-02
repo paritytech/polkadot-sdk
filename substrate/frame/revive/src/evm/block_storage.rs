@@ -17,9 +17,13 @@
 use crate::{
 	AccountIdOf, BalanceOf, BalanceWithDust, BlockHash, BlockNumberFor, Config, ContractResult,
 	Error, EthBlockBuilderIR, EthereumBlock, Event, ExecReturnValue, H160, H256, LOG_TARGET,
-	Pallet, ReceiptGasInfo, ReceiptInfoData, StorageDeposit, Weight, dispatch_result,
+	Pallet, ReceiptGasInfo, ReceiptInfoData, ReceiptLogsCommitted, StorageDeposit, Weight,
+	dispatch_result,
 	evm::{
-		block_hash::{AccumulateReceipt, EthereumBlockBuilder, LogsBloom},
+		block_hash::{
+			AccumulateReceipt, EthereumBlockBuilder, LogsBloom, OutsideFrameLog,
+			SyntheticTransactionInfo,
+		},
 		burn_with_dust,
 		fees::InfoT,
 	},
@@ -33,6 +37,7 @@ use frame_support::{
 	dispatch::DispatchInfo,
 	pallet_prelude::{DispatchError, DispatchResultWithPostInfo},
 	storage::with_transaction,
+	traits::Get,
 };
 use sp_core::U256;
 use sp_runtime::{Saturating, TransactionOutcome};
@@ -118,21 +123,49 @@ impl EthereumCallResult {
 	}
 }
 
-/// Capture the Ethereum log for the current transaction.
+/// Add the log to the open ethereum transaction's receipt, if there is one, and report whether
+/// there was. Outside an ethereum transaction the caller decides what becomes of the log.
 ///
-/// This method does nothing if called from outside of the ethereum context.
-pub fn capture_ethereum_log(contract: &H160, data: &[u8], topics: &[H256]) {
+/// A log only exists if the storage change that produced it took effect, so the receipt follows
+/// storage rollback: what the transaction has committed of its receipt is kept in
+/// [`ReceiptLogsCommitted`], and rolls back with any layer that rolls back, a contract frame or a
+/// `batch_all` around a plain call. The accumulator itself lives outside storage and is cut back
+/// to the committed state before every log, and once more in [`get_receipt_details`].
+pub fn capture_into_receipt<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) -> bool {
 	receipt::with(|receipt| {
+		receipt.reset_to(&ReceiptLogsCommitted::<T>::get());
 		receipt.add_log(contract, data, topics);
-	});
+		ReceiptLogsCommitted::<T>::put(receipt.committed());
+	})
+	.is_some()
 }
 
-/// Get the receipt details of the current transaction.
+/// Capture a log emitted by a contract frame: into the open ethereum transaction's receipt, or
+/// nowhere.
+///
+/// A frame outside an ethereum transaction does not use the block's outside-of-frame buffer. The
+/// drain of a buffered log is charged to the block, not to the frame, so one frame could fill the
+/// buffer for a few milliseconds of weight and drop every mirrored balance change behind it. Such
+/// a log stays a substrate-only event, as before the buffer existed. This keeps the `LOG` opcode's
+/// guarantee intact: a log takes effect or its frame reverts, and here it does take effect as a
+/// `ContractEmitted` event; there is no ethereum observer outside an ethereum transaction for it
+/// to be missing from.
+///
+/// So where a contract's log ends up depends on the entry point: `eth_transact` and
+/// `eth_substrate_call`, whose inner dispatch runs inside `with_ethereum_context`, put it on the
+/// receipt; `Revive::call` and an XCM `Transact` leave it substrate-only.
+pub fn capture_frame_log<T: Config>(contract: &H160, data: &[u8], topics: &[H256]) {
+	capture_into_receipt::<T>(contract, data, topics);
+}
+
+/// Take the receipt details of the current transaction: the logs it committed, see
+/// [`capture_into_receipt`], and their bloom.
 ///
 /// This method returns `None` if and only if the function is called
 /// from outside of the ethereum context.
-pub fn get_receipt_details() -> Option<(Vec<u8>, LogsBloom)> {
+pub fn get_receipt_details<T: Config>() -> Option<(Vec<u8>, LogsBloom)> {
 	receipt::with(|receipt| {
+		receipt.reset_to(&ReceiptLogsCommitted::<T>::take());
 		let encoding = core::mem::take(&mut receipt.encoding);
 		let bloom = core::mem::take(&mut receipt.bloom);
 		(encoding, bloom)
@@ -171,6 +204,9 @@ pub fn with_ethereum_context<T: Config>(
 			})?;
 
 		if let Some(dispatch_error) = err {
+			// A failed transaction's receipt carries no logs: the dispatch rolled back, and with
+			// it what the transaction had committed to its receipt, whether its frames reverted
+			// or it failed after them, at the fee settlement.
 			deposit_eth_extrinsic_revert_event::<T>(dispatch_error);
 			crate::block_storage::process_transaction::<T>(
 				transaction_encoded,
@@ -203,13 +239,69 @@ pub fn on_initialize<T: Config>() {
 	EthereumBlock::<T>::kill();
 }
 
+/// Conservative upper bound on the encoded length of [`synthetic_transaction`], for charging its
+/// per-transaction weight before the payload exists.
+pub const SYNTHETIC_LOG_TX_MAX_LEN: u32 = 128;
+
+/// The synthetic transaction that carries the block's outside-of-frame logs.
+///
+/// An unsigned legacy transaction whose only distinguishing field is the block number as `nonce`,
+/// so its hash is unique per block and deterministically reproducible offchain (the eth-rpc
+/// serving layer rebuilds the identical bytes from the block number and chain id). It is not a
+/// real, executable transaction — it exists only to give the aggregated logs a receipt so they
+/// enter the block's bloom, `receipts_root` and transaction trie.
+fn synthetic_transaction<T: Config>(block_number: BlockNumberFor<T>) -> Vec<u8> {
+	crate::evm::synthetic_log_transaction(block_number.into(), T::ChainId::get().into())
+}
+
 /// Build the ethereum block and store it into the pallet storage.
-pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
+///
+/// `outside_frame_logs` are the block's logs emitted outside any ethereum transaction, in emission
+/// order. They are flushed as one synthetic transaction after every real one, and what the block
+/// committed to it is returned for the caller to store.
+///
+/// The block hash this stores is also what tells a later emitter that the drain has run, so a log
+/// from an `on_finalize` that `construct_runtime!` orders after this pallet's is not buffered; see
+/// [`Pallet::emit_contract_log_outside_frame`].
+pub fn on_finalize_build_eth_block<T: Config>(
+	block_number: BlockNumberFor<T>,
+	outside_frame_logs: Vec<OutsideFrameLog>,
+) -> Option<SyntheticTransactionInfo> {
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	EthBlockBuilderIR::<T>::kill();
 
-	let (block, receipt_data) =
-		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(block_number);
+	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+	// The synthetic transaction is how the outside-of-frame logs enter the block bloom /
+	// receipts_root / transaction trie. It goes in after all real transactions, since the trie
+	// builders are order-sensitive.
+	let log_event_indices: Vec<u32> =
+		outside_frame_logs.iter().map(|log| log.event_index).collect();
+	if !outside_frame_logs.is_empty() {
+		let mut receipt = AccumulateReceipt::new();
+		for OutsideFrameLog { contract, topics, data, .. } in &outside_frame_logs {
+			receipt.add_log(contract, data, topics);
+		}
+		block_builder.process_transaction(
+			synthetic_transaction::<T>(block_number),
+			true,
+			ReceiptGasInfo { gas_used: U256::zero(), effective_gas_price: U256::zero() },
+			receipt.encoding,
+			receipt.bloom,
+		);
+	}
+
+	let (block, mut receipt_data) = block_builder.build_block(block_number);
+
+	// The synthetic transaction is processed after every real one, so its entry is the trailing
+	// one.
+	let synthetic = if !log_event_indices.is_empty() {
+		receipt_data
+			.pop()
+			.map(|gas_info| SyntheticTransactionInfo { gas_info, log_event_indices })
+	} else {
+		None
+	};
 
 	// Put the block hash into storage.
 	BlockHash::<T>::insert(block_number, block.hash);
@@ -224,6 +316,8 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 	EthereumBlock::<T>::put(block);
 	// Store the receipt info data for offchain reconstruction.
 	ReceiptInfoData::<T>::put(receipt_data);
+
+	synthetic
 }
 
 /// Process a transaction payload with extra details.
@@ -238,7 +332,7 @@ pub fn process_transaction<T: Config>(
 	// Method returns `None` only when called from outside of the ethereum context.
 	// This is not the case here, since this is called from within the
 	// ethereum context.
-	let (encoded_logs, bloom) = get_receipt_details().unwrap_or_default();
+	let (encoded_logs, bloom) = get_receipt_details::<T>().unwrap_or_default();
 
 	let block_builder_ir = EthBlockBuilderIR::<T>::get();
 	let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
