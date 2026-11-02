@@ -384,6 +384,7 @@ where
 	let parse = async {
 		let mut prices = Vec::new();
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
+			metrics.on_market_fetched(market, started.elapsed());
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
 				Ok(Ok(price)) => prices.push((market, price)),
 				Ok(Err(e)) => {

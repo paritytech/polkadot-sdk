@@ -20,9 +20,10 @@
 use crate::LOG_TARGET;
 use prometheus_endpoint::{
 	exponential_buckets, prometheus::HistogramTimer, register, CounterVec, Gauge, Histogram,
-	HistogramOpts, Opts, PrometheusError, Registry, U64,
+	HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
 };
 use sp_price_oracle::market::MarketId;
+use std::time::Duration;
 
 /// Metrics of the price oracle service. Recording is a no-op when metrics are disabled.
 #[derive(Clone)]
@@ -35,6 +36,7 @@ struct Inner {
 	markets: Gauge<U64>,
 	markets_priced: Gauge<U64>,
 	market_failures: CounterVec<U64>,
+	market_fetch_duration: HistogramVec,
 }
 
 impl Metrics {
@@ -84,6 +86,16 @@ impl Metrics {
 				.inc();
 		}
 	}
+
+	/// Record `market` being fetched `elapsed` after the start of a tick.
+	pub(crate) fn on_market_fetched(&self, market: MarketId, elapsed: Duration) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.market_fetch_duration
+				.with_label_values(&[&market.0.to_string()])
+				.observe(elapsed.as_secs_f64());
+		}
+	}
 }
 
 impl Inner {
@@ -127,6 +139,18 @@ impl Inner {
 						"Number of times a market was not priced in a tick, by market and reason",
 					),
 					&["market", "reason"],
+				)?,
+				registry,
+			)?,
+			market_fetch_duration: register(
+				HistogramVec::new(
+					HistogramOpts::new(
+						"substrate_price_oracle_market_fetch_duration_seconds",
+						"Time from the start of a tick until all queries of a market answered, \
+						by market",
+					)
+					.buckets(exponential_buckets(0.05, 2.0, 10)?),
+					&["market"],
 				)?,
 				registry,
 			)?,
