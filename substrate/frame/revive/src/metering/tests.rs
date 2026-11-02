@@ -935,7 +935,7 @@ mod nesting {
 					total_consumed_gas: 4291382340,
 				},
 			},
-			// 3: NoLimits, very large deposit refund.
+			// 3: NoLimits, a deposit refund larger than all charges.
 			CallCase {
 				caller: CallerMeter {
 					gas_limit: 5_000_000_000,

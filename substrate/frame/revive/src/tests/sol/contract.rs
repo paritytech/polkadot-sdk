@@ -1075,13 +1075,14 @@ mod eip_150 {
 		ContractResult, EthTxInfo, Pallet,
 		evm::GenericTransaction,
 		metering::{DENOMINATOR, NUMERATOR},
-		test_utils::ETH_GAS_LIMIT,
+		test_utils::{ETH_GAS_LIMIT, with_parameter},
+		tests::DepositPerByte,
 	};
 	use frame_support::{
 		assert_ok,
 		storage::{TransactionOutcome, with_transaction},
 	};
-	use pallet_revive_fixtures::{CatchInvalid, Forwarder, Multicall3};
+	use pallet_revive_fixtures::{CatchInvalid, Forwarder, Multicall3, ReentryStorage};
 	use pretty_assertions::assert_eq;
 	use test_case::test_matrix;
 
@@ -1149,7 +1150,7 @@ mod eip_150 {
 	}
 
 	/// Runs `input` on `contract` with exactly the limits a dry run returned, in the mode of
-	/// `limits`, and returns the output.
+	/// `limits`, and returns the output. Panics if the call fails or reverts.
 	fn call_with_estimated_limits(
 		contract: H160,
 		input: Vec<u8>,
@@ -1166,14 +1167,15 @@ mod eip_150 {
 						.exec_config(ExecConfig::new_substrate_tx().with_dry_run(None))
 						.build()
 				});
-				builder::bare_call(contract)
+				let output = builder::bare_call(contract)
 					.data(input)
 					.transaction_limits(TransactionLimits::WeightAndDeposit {
 						weight_limit: dry_run.weight_required,
 						deposit_limit: dry_run.max_storage_deposit.charge_or_zero(),
 					})
-					.build_and_unwrap_result()
-					.data
+					.build_and_unwrap_result();
+				assert!(!output.did_revert(), "the call reverted with {:?}", output.data);
+				output.data
 			},
 		}
 	}
@@ -1415,6 +1417,45 @@ mod eip_150 {
 				&limits,
 			);
 			assert_aggregate3_calls_succeeded(&output);
+		});
+	}
+
+	/// A callee's limit is fixed when it is called, so a refund recorded for its caller while it
+	/// runs must not lower the estimates a dry run returns.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	#[ignore = "a refund recorded during the call still pays for that call"]
+	fn dry_run_estimates_suffice_for_transaction_with_reentrant_refund(
+		storage_type: FixtureType,
+		proxy_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (storage_code, _) = compile_module_with_type("ReentryStorage", storage_type).unwrap();
+		let (proxy_code, _) = compile_module_with_type("ReentryProxy", proxy_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [storage_addr, proxy_addr] = deploy([storage_code, proxy_code]);
+			// In Ethereum mode, a transaction's gas pays for both its weight and its storage
+			// deposits. With the default `DepositPerByte`, the missing deposit is too small to run
+			// the transaction out of gas. The value set here is still below that of Asset Hub on
+			// Polkadot and Kusama, and far below it relative to weight fees.
+			with_parameter(DepositPerByte::get, DepositPerByte::set, 70_000, || {
+				builder::bare_call(storage_addr)
+					.data(ReentryStorage::writeOnceCall {}.abi_encode())
+					.build_and_unwrap_result();
+
+				// Writing `s1` first leaves the storage contract with a charge of its own, so that
+				// without the fix the refund lowers the Substrate estimate too.
+				call_with_estimated_limits(
+					storage_addr,
+					ReentryStorage::writeFreeAndRewriteViaCall { proxy: proxy_addr.0.into() }
+						.abi_encode(),
+					&limits,
+				);
+			});
 		});
 	}
 

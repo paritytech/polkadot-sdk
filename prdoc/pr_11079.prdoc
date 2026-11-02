@@ -20,10 +20,9 @@ doc:
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and
-    `EthTransactInfo::eth_gas`, rise by a factor of up to 64/63 for each level of nested calls.
-    Hence, the result of `eth_estimateGas` rises the same way. A transaction that uses these
-    estimates as its limits has the resources required to complete the execution that the dry run
-    simulated.
+    `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs. Hence, the result of
+    `eth_estimateGas` does too. A transaction that uses these estimates as its limits has the
+    resources required to complete the execution that the dry run simulated.
 
     A transaction can now fail in a nested call if its limits do not include the part each caller
     keeps. This applies to limits from a dry run on a runtime without this change, which must be
@@ -43,6 +42,6 @@ crates:
 - name: pallet-revive
   bump: minor
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: major
 - name: pallet-revive-uapi
   bump: none
