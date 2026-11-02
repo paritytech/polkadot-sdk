@@ -668,6 +668,7 @@ impl<T: Config> Pallet<T> {
 	fn apply_votes(reports: Vec<SignedPriceReportOf<T>>, current: Anchor, params: &Parameters) {
 		let mut votes: BTreeMap<PairId, BoundedVec<Vote<T::SignerId>, T::MaxSigners>> =
 			Votes::<T>::iter().collect();
+		let stored = votes.clone();
 
 		// Prune first, so expired votes never take the room of new ones.
 		for pair_votes in votes.values_mut() {
@@ -716,6 +717,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		for (pair, pair_votes) in votes {
+			if stored.get(&pair) == Some(&pair_votes) {
+				continue;
+			}
 			if pair_votes.is_empty() {
 				Votes::<T>::remove(pair);
 			} else {
