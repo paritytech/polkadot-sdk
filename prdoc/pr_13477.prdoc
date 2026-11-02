@@ -1,0 +1,10 @@
+title: 'eth-rpc: send only new latest blocks to newHeads subscribers'
+doc:
+- audience: Node Dev
+  description: |-
+    newHeads subscribers now receive a block only when it becomes the new latest block. Previously every block from the best block stream was sent, so a subscriber could receive the same block twice, or a block lower than the head (now only when the latest block moves back, after a reorg or a reconnect to a node that is behind). A finalized block that moves the latest block forward is now sent as well. RPC users need no changes.
+
+    `BlockInfoProvider::update_latest` now returns the new latest block, or `None` when the latest block did not change. Implementations must return the block they moved the latest block to; callers that do not need it can ignore the result.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
