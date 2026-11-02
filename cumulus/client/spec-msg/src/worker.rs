@@ -20,13 +20,23 @@
 //! - **New best block:** rewind past retracted blocks, then archive each enacted block's sends.
 //! - **First start:** replay from the first block whose runtime has `SpecMsgApi`. This needs that
 //!   history's state; without it the node logs and stays idle.
-//! - **Finality:** apply retention with watermarks read at the finalized block.
+//! - **Finality:** apply retention with the watermarks [`run_watermark_reader`] has confirmed.
 
-use crate::{archive::Archive, store::ArchiveStore, LOG_TARGET};
-use cumulus_primitives_core::SpecMsgApi;
-use cumulus_primitives_spec_messaging::{streams_root::read_streams_root, StreamId};
-use futures::{select, StreamExt};
-use parking_lot::RwLock;
+use crate::{
+	archive::Archive,
+	fetch::{fetch, Transport},
+	relay::FinalizedRoots,
+	store::ArchiveStore,
+	LOG_TARGET,
+};
+use codec::{Decode, DecodeAll, Encode};
+use cumulus_primitives_core::{ParaId, SpecMsgApi};
+use cumulus_primitives_spec_messaging::{
+	streams_root::read_streams_root, MessagesRequest, Register, StreamId,
+	MAX_SPECULATIVE_MESSAGE_LEN,
+};
+use futures::{select, FutureExt, StreamExt};
+use parking_lot::{Mutex, RwLock};
 use sc_client_api::BlockchainEvents;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
@@ -53,6 +63,7 @@ fn now() -> u64 {
 pub async fn run_archiver<Block, C, S>(
 	client: Arc<C>,
 	archive: Arc<RwLock<Archive<Block::Hash, S>>>,
+	watermarks: Arc<Mutex<BTreeMap<StreamId, u64>>>,
 ) where
 	Block: BlockT,
 	C: ProvideRuntimeApi<Block>
@@ -67,7 +78,7 @@ pub async fn run_archiver<Block, C, S>(
 {
 	let mut imports = client.import_notification_stream().fuse();
 	let mut finality = client.finality_notification_stream().fuse();
-	let archiver = Archiver { client, archive };
+	let archiver = Archiver { client, archive, watermarks };
 	archiver.follow(archiver.client.info().best_hash);
 	loop {
 		select! {
@@ -87,6 +98,7 @@ pub async fn run_archiver<Block, C, S>(
 struct Archiver<Block: BlockT, C, S> {
 	client: Arc<C>,
 	archive: Arc<RwLock<Archive<Block::Hash, S>>>,
+	watermarks: Arc<Mutex<BTreeMap<StreamId, u64>>>,
 }
 
 impl<Block, C, S> Archiver<Block, C, S>
@@ -240,30 +252,82 @@ where
 		if !self.archive.read().contains(&finalized) {
 			return;
 		}
-		let mut watermarks = BTreeMap::new();
-		if self.has_api(finalized).unwrap_or(false) {
-			match self.client.runtime_api().out_channels(finalized) {
-				Ok(channels) => {
-					for (channel, state) in channels {
-						if let Some(read) = state.register {
-							let stream = StreamId::Channel {
-								recipient: channel.peer,
-								domain: channel.domain,
-								num: channel.num,
-							};
-							watermarks.insert(stream, read.register.up_to.0);
-						}
-					}
-				},
-				Err(e) => {
-					log::warn!(target: LOG_TARGET, "out_channels at {finalized:?} failed: {e}");
-					return;
-				},
-			}
-		}
+		let watermarks = self.watermarks.lock().clone();
 		let cutoff = now().saturating_sub(SERVING_HORIZON.as_secs());
 		if let Err(e) = self.archive.write().retain(finalized, &watermarks, cutoff) {
 			log::warn!(target: LOG_TARGET, "Archive retention failed: {e:?}");
 		}
+	}
+}
+
+/// Read the recipients' registers after each parachain finality notification, so the archiver can
+/// prune channels. Only the newest notification is processed after a round.
+pub async fn run_watermark_reader<Block, C, S, T, R>(
+	client: Arc<C>,
+	archive: Arc<RwLock<Archive<Block::Hash, S>>>,
+	watermarks: Arc<Mutex<BTreeMap<StreamId, u64>>>,
+	us: ParaId,
+	transport: Arc<T>,
+	roots: Arc<R>,
+) where
+	Block: BlockT,
+	C: BlockchainEvents<Block>,
+	S: ArchiveStore,
+	T: Transport + ?Sized,
+	R: FinalizedRoots + ?Sized,
+{
+	let mut finality = client.finality_notification_stream().fuse();
+	while let Some(mut finalized) = finality.next().await {
+		while let Some(Some(newer)) = finality.next().now_or_never() {
+			finalized = newer;
+		}
+		read_watermarks(&archive, &finalized.hash, &watermarks, us, &*transport, &*roots).await;
+	}
+}
+
+/// One round: for each channel of `us` that still holds payloads at `finalized`, read the
+/// recipient's register under its finalized included root and raise the channel's watermark to the
+/// register's `up_to`. A channel that fails is skipped until the next round.
+pub(crate) async fn read_watermarks<H, S, T, R>(
+	archive: &RwLock<Archive<H, S>>,
+	finalized: &H,
+	watermarks: &Mutex<BTreeMap<StreamId, u64>>,
+	us: ParaId,
+	transport: &T,
+	roots: &R,
+) where
+	H: Encode + Decode + Copy + Eq + std::fmt::Debug,
+	S: ArchiveStore,
+	T: Transport + ?Sized,
+	R: FinalizedRoots + ?Sized,
+{
+	let channels = archive.read().unconfirmed_channels(finalized);
+	for stream in channels {
+		let StreamId::Channel { recipient, domain, num } = stream else { continue };
+		let Some(under) = roots.finalized_included_root(recipient).await else {
+			log::debug!(target: LOG_TARGET, "No finalized root for {recipient:?}");
+			continue;
+		};
+		let request = MessagesRequest {
+			stream: StreamId::Ack { recipient: us, domain, num },
+			under,
+			start: None,
+			max_bytes: MAX_SPECULATIVE_MESSAGE_LEN,
+		};
+		let Ok(response) = fetch(transport, recipient, &request, None).await else {
+			log::debug!(target: LOG_TARGET, "No register of {recipient:?} for {stream:?}");
+			continue;
+		};
+		let register = match response.payloads.as_slice() {
+			[payload] => Register::decode_all(&mut &payload[..]).ok(),
+			_ => None,
+		};
+		let Some(register) = register else {
+			log::debug!(target: LOG_TARGET, "Unusable register of {recipient:?} for {stream:?}");
+			continue;
+		};
+		let mut watermarks = watermarks.lock();
+		let mark = watermarks.entry(stream).or_default();
+		*mark = (*mark).max(register.up_to.0);
 	}
 }

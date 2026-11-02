@@ -19,7 +19,10 @@
 //!
 //! - [`Archive`]: the own chain's sends, served under the root a requester names.
 //! - [`run_archiver`]: keeps the archive current through reorgs and retention.
-//! - [`exchange_protocol_config`] and [`run_request_handler`]: the `/spec-msg/exchange/1` protocol.
+//! - [`fetch_protocol_config`] and [`run_request_handler`]: the `/spec-msg/fetch/1` protocol.
+//! - [`fetch()`]: the requester, which verifies each response before accepting it.
+//! - [`run_watermark_reader`]: reads recipients' registers under finalized roots, so the archive
+//!   prunes a channel only below what the recipient confirmed.
 //!
 //! Design: paritytech/polkadot-sdk#12659.
 
@@ -28,14 +31,19 @@
 pub mod archive;
 pub mod fetch;
 pub mod protocol;
+pub mod relay;
 pub mod store;
 pub mod worker;
 
 pub use archive::{Archive, ArchiveError, Tip};
-pub use fetch::{NetworkTransport, Transport};
-pub use protocol::{exchange_protocol_config, run_request_handler, PROTOCOL_NAME};
+pub use fetch::{fetch, NetworkTransport, RequestError, Transport};
+pub use protocol::{fetch_protocol_config, run_request_handler, PROTOCOL_NAME};
+pub use relay::{
+	newest_included_provides, relay_has_api, FinalizedRoots, RelayFinalizedRoots,
+	NEWEST_INCLUDED_PROVIDES, NEWEST_INCLUDED_PROVIDES_VERSION,
+};
 pub use store::{ArchiveStore, AuxArchiveStore, Batch, MemoryStore};
-pub use worker::{run_archiver, SERVING_HORIZON};
+pub use worker::{run_archiver, run_watermark_reader, SERVING_HORIZON};
 
 /// Log target of this crate.
 pub const LOG_TARGET: &str = "spec-msg";

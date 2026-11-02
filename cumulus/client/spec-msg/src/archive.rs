@@ -36,11 +36,11 @@ use cumulus_primitives_spec_messaging::{
 	leaf_hash,
 	mmr::SpecMerge,
 	streams_root::{gen_stream_proof, streams_root},
-	EventRequest, EventResponse, MMRExtensionProof, MessagesRequest, MessagesResponse,
-	MmrInclusionProof, MmrRoot, StreamId, StreamsRoot, LEAF_VERSION, MAX_MESSAGES_PER_RESPONSE,
+	FetchError, FetchResponse, MMRExtensionProof, MessagePosition, MessagesRequest,
+	MessagesResponse, MmrFrontier, MmrRoot, StreamId, StreamsRoot, MAX_MESSAGES_PER_RESPONSE,
 };
 use mmr_lib::{
-	helper::{get_peaks, leaf_index_to_mmr_size, leaf_index_to_pos},
+	helper::{get_peaks, leaf_index_to_mmr_size},
 	MMRStoreReadOps, MMRStoreWriteOps, MMR,
 };
 use polkadot_core_primitives::Hash;
@@ -53,7 +53,7 @@ const PREFIX: &[u8] = b"spec-msg/archive/v1/";
 /// decode bound, so a requester never refuses a full response.
 pub const MAX_LEAVES_PER_RESPONSE: u64 = MAX_MESSAGES_PER_RESPONSE as u64;
 
-/// Errors of the archive's write paths. Serving never errors: it refuses with `None`.
+/// Errors of the archive's write paths. Serving refuses with a [`FetchError`] instead.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ArchiveError {
 	/// The block is not a child of the archive's tip.
@@ -323,8 +323,7 @@ where
 			let nodes = Nodes::new(&self.store, stream);
 			let mut mmr = nodes.mmr(first);
 			for (i, payload) in payloads.iter().enumerate() {
-				mmr.push(leaf_hash(LEAF_VERSION, payload))
-					.map_err(|_| ArchiveError::MissingNode)?;
+				mmr.push(leaf_hash(payload)).map_err(|_| ArchiveError::MissingNode)?;
 				batch.insert.push((payload_key(&stream, first + i as u64), payload.clone()));
 			}
 			let leaf_count = first + payloads.len() as u64;
@@ -439,30 +438,38 @@ where
 		(state.root == Some(*under)).then_some(state)
 	}
 
-	/// Serve a [`MessagesRequest`] with at most `payload_cap` payload bytes. `None` refuses: the
-	/// root is unknown, the stream absent under it, the start past its leaf count, or the range
-	/// pruned.
-	pub fn serve_messages(
-		&self,
-		req: &MessagesRequest,
-		payload_cap: u32,
-	) -> Option<MessagesResponse> {
-		let state = self.resolve(&req.under)?;
-		let leaf_count = state.stream(&req.stream)?.leaf_count;
-		let start = req.start.0;
-		if start > leaf_count {
-			return None;
+	/// Serve a [`MessagesRequest`] with at most `payload_cap` payload bytes.
+	///
+	/// `start: None` serves the last leaf under `under`: its payload if it fits the budget, else
+	/// only its position, with the extension covering the leaf.
+	pub fn serve_messages(&self, req: &MessagesRequest, payload_cap: u32) -> FetchResponse {
+		let state = self.resolve(&req.under).ok_or(FetchError::UnknownRoot)?;
+		let leaf_count = state.stream(&req.stream).ok_or(FetchError::UnknownStream)?.leaf_count;
+		let start = match req.start {
+			Some(start) if start.0 > leaf_count => return Err(FetchError::BeyondHead),
+			Some(start) => start.0,
+			None => leaf_count.checked_sub(1).ok_or(FetchError::UnknownStream)?,
+		};
+
+		let floors = self.floors(&req.stream);
+		let budget = u64::from(req.max_bytes.min(payload_cap));
+		let wants_payloads = budget > 0 && start < leaf_count;
+		if wants_payloads && start < floors.payload {
+			return Err(FetchError::OutsideHorizon { lowest: MessagePosition(floors.payload) });
+		}
+		// The frontier and the extension need the nodes kept above the node floor.
+		if start < floors.node {
+			return Err(FetchError::OutsideHorizon { lowest: MessagePosition(floors.node) });
 		}
 
-		let budget = u64::from(req.max_bytes.min(payload_cap));
 		let mut payloads = Vec::new();
-		if budget > 0 && start < leaf_count {
-			if start < self.floors(&req.stream).payload {
-				return None;
-			}
+		if wants_payloads {
 			let mut used = 0u64;
 			for index in start..leaf_count.min(start.saturating_add(MAX_LEAVES_PER_RESPONSE)) {
-				let payload = self.store.get(&payload_key(&req.stream, index))?;
+				let payload = self
+					.store
+					.get(&payload_key(&req.stream, index))
+					.ok_or_else(|| self.fault(req, "payload"))?;
 				used += payload.len() as u64;
 				if used > budget {
 					break;
@@ -471,20 +478,30 @@ where
 			}
 		}
 		let end = start + payloads.len() as u64;
-		let payloads = payloads.try_into().ok()?;
+		let payloads = payloads.try_into().map_err(|_| self.fault(req, "payload count"))?;
 
 		let nodes = Nodes::new(&self.store, req.stream);
-		let start_peaks = nodes.peaks(start)?.try_into().ok()?;
-		let extension = Self::extension(&nodes, end, leaf_count)?;
-		let (_, tree_proof) = gen_stream_proof(&state.entries(), req.stream)?;
-		Some(MessagesResponse {
-			base: req.start,
-			leaf_version: LEAF_VERSION,
-			payloads,
-			start_peaks,
-			extension,
-			tree_proof,
-		})
+		let frontier = nodes
+			.peaks(start)
+			.and_then(|peaks| MmrFrontier::from_parts(peaks, start))
+			.ok_or_else(|| self.fault(req, "peaks"))?;
+		let extension = Self::extension(&nodes, end, leaf_count)
+			.ok_or_else(|| self.fault(req, "extension nodes"))?;
+		let (_, tree_proof) = gen_stream_proof(&state.entries(), req.stream)
+			.ok_or_else(|| self.fault(req, "stream proof"))?;
+		Ok(MessagesResponse { frontier, payloads, extension, tree_proof })
+	}
+
+	/// A root the archive resolved but cannot fully serve: report it as unknown.
+	fn fault(&self, req: &MessagesRequest, what: &str) -> FetchError {
+		log::warn!(
+			target: LOG_TARGET,
+			"Archive fault: missing {what} for {:?} from {:?} under {:?}",
+			req.stream,
+			req.start,
+			req.under,
+		);
+		FetchError::UnknownRoot
 	}
 
 	/// The extension proof from `from` to `to` leaves.
@@ -513,26 +530,17 @@ where
 		})
 	}
 
-	/// Serve an [`EventRequest`]: the head under `under`, or the leaf at `at`. `None` refuses.
-	pub fn serve_event(&self, req: &EventRequest) -> Option<EventResponse> {
-		let state = self.resolve(&req.under)?;
-		let leaf_count = state.stream(&req.stream)?.leaf_count;
-		let index = match req.at {
-			Some(at) => at.0,
-			None => leaf_count.checked_sub(1)?,
-		};
-		if index >= leaf_count {
-			return None;
-		}
-		let payload = self.store.get(&payload_key(&req.stream, index))?;
-		let nodes = Nodes::new(&self.store, req.stream);
-		let proof = nodes.mmr(leaf_count).gen_proof(vec![leaf_index_to_pos(index)]).ok()?;
-		let inclusion = MmrInclusionProof {
-			mmr_size: mmr_size(leaf_count),
-			items: proof.proof_items().to_vec().try_into().ok()?,
-		};
-		let (_, tree_proof) = gen_stream_proof(&state.entries(), req.stream)?;
-		Some(EventResponse { payload, leaf_version: LEAF_VERSION, inclusion, tree_proof })
+	/// The channels at `finalized` that still hold payloads above their floor.
+	pub fn unconfirmed_channels(&self, finalized: &H) -> Vec<StreamId> {
+		self.state_at(finalized)
+			.unwrap_or_default()
+			.into_iter()
+			.filter(|(stream, state)| {
+				matches!(stream, StreamId::Channel { .. }) &&
+					state.leaf_count > self.floors(stream).payload
+			})
+			.map(|(stream, _)| stream)
+			.collect()
 	}
 
 	/// Apply retention at `finalized`: drop boundaries imported before `horizon_cutoff` (never

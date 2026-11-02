@@ -29,10 +29,12 @@ sp-runtime = { workspace = true, default-features = true }
 
 # Polkadot
 polkadot-core-primitives = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-spec-messaging = { workspace = true, default-features = true }
+cumulus-relay-chain-interface = { workspace = true, default-features = true }
 
 [dev-dependencies]
 sp-core = { workspace = true, default-features = true }

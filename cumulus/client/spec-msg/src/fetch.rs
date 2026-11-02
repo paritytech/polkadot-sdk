@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! The requester side of `/spec-msg/exchange/1`: try the source's peers in turn and accept the
+//! The requester side of `/spec-msg/fetch/1`: try the source's peers in turn and accept the
 //! first response that verifies under the named root. Some refusals are expected, so no peer is
 //! penalized.
 
@@ -23,7 +23,8 @@ use crate::{protocol::PROTOCOL_NAME, LOG_TARGET};
 use codec::{DecodeLimit, Encode};
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
-	verify_exchange, ExchangeRequest, ExchangeResponse, ExchangeVerified,
+	verify_channel_messages, verify_messages, FetchError, FetchResponse, MessagesRequest,
+	MessagesResponse, MmrFrontier,
 };
 use sc_network::{IfDisconnected, NetworkRequest, PeerId, ProtocolName};
 use std::{collections::BTreeMap, sync::Arc};
@@ -79,34 +80,33 @@ impl Transport for NetworkTransport {
 	}
 }
 
-/// A response that verified under its request's root, with what it proved.
-pub struct Verified {
-	/// The response, for its proofs and its payloads; built only after it verified.
-	pub response: ExchangeResponse,
-	/// What the response proved.
-	pub outcome: ExchangeVerified,
-}
-
 /// Why no response was accepted.
 #[derive(Debug, PartialEq, Eq)]
-pub enum FetchError {
+pub enum RequestError {
 	/// No peer is known for the source.
 	NoPeers,
-	/// Every peer refused, failed or sent a response that did not verify.
-	Unserved,
+	/// Every peer failed, sent a response that did not verify, or refused. `refusals` holds the
+	/// typed refusals, so the caller can tell a pruned range from an unknown root.
+	Unserved {
+		/// The peers that answered with a [`FetchError`].
+		refusals: Vec<(PeerId, FetchError)>,
+	},
 }
 
-/// Send `request` to `source`'s peers until one response verifies.
+/// Send `request` to `source`'s peers until one response verifies. With `stored` (an inbound
+/// channel's local frontier) the response must also start from it.
 pub async fn fetch<T: Transport + ?Sized>(
 	transport: &T,
 	source: ParaId,
-	request: &ExchangeRequest,
-) -> Result<Verified, FetchError> {
+	request: &MessagesRequest,
+	stored: Option<&MmrFrontier>,
+) -> Result<MessagesResponse, RequestError> {
 	let peers = transport.peers(source);
 	if peers.is_empty() {
-		return Err(FetchError::NoPeers);
+		return Err(RequestError::NoPeers);
 	}
 	let encoded = request.encode();
+	let mut refusals = Vec::new();
 	for peer in peers {
 		let bytes = match transport.request(peer, encoded.clone()).await {
 			Ok(bytes) => bytes,
@@ -116,16 +116,27 @@ pub async fn fetch<T: Transport + ?Sized>(
 			},
 		};
 		let mut input = &bytes[..];
-		let response = match ExchangeResponse::decode_with_depth_limit(MAX_DECODE_DEPTH, &mut input)
-		{
+		let response = match FetchResponse::decode_with_depth_limit(MAX_DECODE_DEPTH, &mut input) {
 			Ok(response) if input.is_empty() => response,
 			_ => {
 				log::debug!(target: LOG_TARGET, "Peer {peer} of {source:?} sent junk");
 				continue;
 			},
 		};
-		match verify_exchange(request, &response) {
-			Ok(outcome) => return Ok(Verified { response, outcome }),
+		let response = match response {
+			Ok(response) => response,
+			Err(e) => {
+				log::debug!(target: LOG_TARGET, "Peer {peer} of {source:?} refused: {e:?}");
+				refusals.push((peer, e));
+				continue;
+			},
+		};
+		let verified = match stored {
+			Some(stored) => verify_channel_messages(request, &response, stored),
+			None => verify_messages(request, &response),
+		};
+		match verified {
+			Ok(()) => return Ok(response),
 			Err(e) => {
 				log::debug!(
 					target: LOG_TARGET,
@@ -134,5 +145,5 @@ pub async fn fetch<T: Transport + ?Sized>(
 			},
 		}
 	}
-	Err(FetchError::Unserved)
+	Err(RequestError::Unserved { refusals })
 }
