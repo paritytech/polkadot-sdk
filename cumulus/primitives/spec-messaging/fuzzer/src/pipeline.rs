@@ -398,7 +398,7 @@ impl Oracle {
 							.zip(per_stream)
 							.filter_map(|(c, ivs)| ivs.get(b).map(|i| (c.stream, i.clone())))
 							.collect::<BTreeMap<_, _>>();
-						(s.para, streams)
+						(s.para, streams.into_iter().collect::<Vec<_>>())
 					})
 					.filter(|(_, streams)| !streams.is_empty())
 					.collect(),

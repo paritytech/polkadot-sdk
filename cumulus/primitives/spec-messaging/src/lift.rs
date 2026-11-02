@@ -71,13 +71,12 @@ pub struct Interval {
 }
 
 /// Written per block: the streams this block touched and the interval consumed on each, grouped by
-/// source. One interval per stream, keyed so the type enforces it; per-source order is the
-/// canonical `StreamId` order the lifts match against. The API view of a flat, host-append-only
-/// outbox vec. Encodes as the sorted vec of pairs would.
+/// source. The API view of a flat, host-append-only outbox vec.
 #[derive(Clone, Encode, Decode, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct ConsumptionRecord {
-	/// `source -> stream -> interval`.
-	pub entries: BTreeMap<ParaId, BTreeMap<StreamId, Interval>>,
+	/// Per source, one interval per stream in `StreamId` order, the order the lifts match against.
+	/// A list rather than a map, so a duplicate stays visible and [`build_requires`] rejects it.
+	pub entries: BTreeMap<ParaId, Vec<(StreamId, Interval)>>,
 }
 
 /// One source's streams with their intervals across a bundle, in block order. [`build_requires`]
@@ -159,6 +158,8 @@ impl DecodeWithMemTracking for LiftsBySource {}
 pub enum LiftError {
 	/// A stream's interval list was empty.
 	EmptyRecord,
+	/// A block's record listed a source's streams out of order or more than once.
+	UnsortedRecord,
 	/// A gap needed a forward-extension proof but `advances` was exhausted.
 	MissingAdvance,
 	/// `advances` carried more proofs than there were gaps.
@@ -256,6 +257,9 @@ pub fn build_requires(
 	let mut merged: BTreeMap<ParaId, SourceStreams> = BTreeMap::new();
 	for record in records {
 		for (source, streams) in &record.entries {
+			if streams.windows(2).any(|w| w[0].0 >= w[1].0) {
+				return Err(LiftError::UnsortedRecord);
+			}
 			let by_stream = merged.entry(*source).or_default();
 			for (stream, interval) in streams {
 				by_stream.entry(*stream).or_default().push(interval.clone());
@@ -363,30 +367,27 @@ mod tests {
 		// The pallet records a source only with a stream. An entry with none has nothing to lift,
 		// so the candidate is invalid rather than silently requiring nothing from that source.
 		let source = ParaId::from(1000);
-		let record = ConsumptionRecord { entries: BTreeMap::from([(source, BTreeMap::new())]) };
+		let record = ConsumptionRecord { entries: BTreeMap::from([(source, Vec::new())]) };
 		let lifts = LiftsBySource::try_from(BTreeMap::from([(source, Vec::new())])).unwrap();
 		assert_eq!(build_requires(&[record], &lifts), Err(LiftError::EmptyRecord));
 	}
 
 	#[test]
-	fn consumption_record_encodes_as_the_sorted_vec_of_pairs() {
-		// The record crosses the runtime-API boundary; keying it must not move a byte relative to
-		// the design's `Vec<(StreamId, Interval)>` view of the same sorted, unique entries.
+	fn a_duplicate_or_unsorted_record_fails_closed() {
 		let all = leaves(3);
+		let source = ParaId::from(7);
 		let (a, b) = (ch(1), ch(2));
 		let (ia, ib) = (
 			Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 1) },
 			Interval { start: root_at(&all, 1), end: frontier_at(&all, 3) },
 		);
-		let keyed = ConsumptionRecord {
-			entries: BTreeMap::from([(
-				ParaId::from(7),
-				BTreeMap::from([(b, ib.clone()), (a, ia.clone())]),
-			)]),
-		};
-		let as_vec: BTreeMap<ParaId, Vec<(StreamId, Interval)>> =
-			BTreeMap::from([(ParaId::from(7), vec![(a, ia), (b, ib)])]);
-		assert_eq!(keyed.encode(), as_vec.encode());
+		let lifts = LiftsBySource::try_from(BTreeMap::from([(source, Vec::new())])).unwrap();
+		for streams in [vec![(a, ia.clone()), (a, ib.clone())], vec![(b, ib), (a, ia)]] {
+			let record = ConsumptionRecord { entries: BTreeMap::from([(source, streams)]) };
+			// The decode keeps the bad entries for the check to see.
+			let decoded = ConsumptionRecord::decode(&mut &record.encode()[..]).unwrap();
+			assert_eq!(build_requires(&[decoded], &lifts), Err(LiftError::UnsortedRecord));
+		}
 	}
 
 	#[test]
@@ -424,10 +425,10 @@ mod tests {
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
 				source,
-				BTreeMap::from([(
+				vec![(
 					stream,
 					Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) },
-				)]),
+				)],
 			)]),
 		};
 		let mut lifts = BTreeMap::new();
@@ -537,10 +538,10 @@ mod tests {
 			let record = ConsumptionRecord {
 				entries: BTreeMap::from([(
 					source,
-					BTreeMap::from([(
+					vec![(
 						stream,
 						Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) },
-					)]),
+					)],
 				)]),
 			};
 			let lift = RequiresLift {
