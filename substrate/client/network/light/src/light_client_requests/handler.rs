@@ -250,12 +250,7 @@ fn send_response(
 		},
 	};
 	if pending_response.send(response).is_err() {
-		debug!(
-			target: LOG_TARGET,
-			"Failed to handle light client request from {}: {}",
-			peer,
-			HandleRequestError::SendResponse,
-		);
+		debug!(target: LOG_TARGET, "Failed to send light client response to {}.", peer);
 	}
 }
 
@@ -292,48 +287,30 @@ struct Metrics {
 
 impl Metrics {
 	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		let histogram = |name: &str, help: &str| {
+			let opts = HistogramOpts::new(name, help).buckets(exponential_buckets(0.001, 2.0, 15)?);
+			register(HistogramVec::new(opts, &["kind"])?, registry)
+		};
+		let counter = |name: &str, help: &str| {
+			register(CounterVec::<U64>::new(Opts::new(name, help), &["kind"])?, registry)
+		};
+
 		Ok(Self {
-			queue_wait: register(
-				HistogramVec::new(
-					HistogramOpts::new(
-						"substrate_light_request_queue_wait_seconds",
-						"Time light client requests spend queued before a worker picks them up",
-					)
-					.buckets(exponential_buckets(0.001, 2.0, 15)?),
-					&["kind"],
-				)?,
-				registry,
+			queue_wait: histogram(
+				"substrate_light_request_queue_wait_seconds",
+				"Time light client requests spend queued before a worker picks them up",
 			)?,
-			execution: register(
-				HistogramVec::new(
-					HistogramOpts::new(
-						"substrate_light_request_execution_seconds",
-						"Time spent serving light client requests",
-					)
-					.buckets(exponential_buckets(0.001, 2.0, 15)?),
-					&["kind"],
-				)?,
-				registry,
+			execution: histogram(
+				"substrate_light_request_execution_seconds",
+				"Time spent serving light client requests",
 			)?,
-			rejected: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_light_request_rejected_total",
-						"Light client requests rejected because their queue was full",
-					),
-					&["kind"],
-				)?,
-				registry,
+			rejected: counter(
+				"substrate_light_request_rejected_total",
+				"Light client requests rejected because their queue was full",
 			)?,
-			abandoned: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_light_request_abandoned_total",
-						"Queued light client requests skipped because the peer stopped waiting",
-					),
-					&["kind"],
-				)?,
-				registry,
+			abandoned: counter(
+				"substrate_light_request_abandoned_total",
+				"Queued light client requests skipped because the peer stopped waiting",
 			)?,
 		})
 	}
@@ -530,8 +507,6 @@ enum HandleRequestError {
 	DecodeProto(#[from] prost::DecodeError),
 	#[error("Failed to encode response: {0}.")]
 	EncodeProto(#[from] prost::EncodeError),
-	#[error("Failed to send response.")]
-	SendResponse,
 	/// The queue of requests of this kind is full.
 	#[error("{} request queue is full.", .0.label())]
 	Overloaded(RequestKind),
@@ -562,20 +537,7 @@ fn fmt_keys(first: Option<&Vec<u8>>, last: Option<&Vec<u8>>) -> String {
 mod tests {
 	use super::*;
 	use sp_core::testing::TaskExecutor;
-	use substrate_test_runtime_client::{runtime::Block, TestClient};
-
-	fn new_processor(execution_timeout: Option<Duration>) -> RequestProcessor<Block, TestClient> {
-		RequestProcessor {
-			client: Arc::new(substrate_test_runtime_client::new()),
-			execution_timeout,
-			metrics: None,
-			_block: PhantomData,
-		}
-	}
-
-	fn genesis_hash(processor: &RequestProcessor<Block, TestClient>) -> Vec<u8> {
-		processor.client.block_hash(0u32.into()).unwrap().unwrap().encode()
-	}
+	use substrate_test_runtime_client::runtime::Block;
 
 	fn call_request(block: Vec<u8>, method: &str) -> Request {
 		Request::RemoteCallRequest(schema::v1::light::RemoteCallRequest {
@@ -596,19 +558,6 @@ mod tests {
 		schema::v1::light::Response::decode(response).unwrap().response.unwrap()
 	}
 
-	/// Handle a `RemoteCallRequest` for `method` at the genesis block.
-	fn remote_call(
-		processor: &RequestProcessor<Block, TestClient>,
-		method: &str,
-	) -> schema::v1::light::RemoteCallResponse {
-		let request = call_request(genesis_hash(processor), method);
-		let response = processor.handle_request(&PeerId::random(), &request).unwrap();
-		match decode_response(&response) {
-			schema::v1::light::response::Response::RemoteCallResponse(response) => response,
-			response => panic!("unexpected response: {response:?}"),
-		}
-	}
-
 	/// A running handler.
 	struct TestHandler {
 		requests: async_channel::Sender<IncomingRequest>,
@@ -617,12 +566,17 @@ mod tests {
 
 	impl TestHandler {
 		fn start(execution_timeout: Duration, call_workers: usize) -> Self {
-			let processor = new_processor(Some(execution_timeout));
-			let genesis_hash = genesis_hash(&processor);
+			let client = Arc::new(substrate_test_runtime_client::new());
+			let genesis_hash = client.block_hash(0u32.into()).unwrap().unwrap().encode();
 			let (requests, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
-			let handler = LightClientRequestHandler {
+			let handler = LightClientRequestHandler::<Block, _> {
 				request_receiver,
-				processor: Arc::new(processor),
+				processor: Arc::new(RequestProcessor {
+					client,
+					execution_timeout: Some(execution_timeout),
+					metrics: None,
+					_block: PhantomData,
+				}),
 				call_workers: NonZeroUsize::new(call_workers).unwrap(),
 			};
 
@@ -658,27 +612,34 @@ mod tests {
 		decode_response(&response.result.unwrap())
 	}
 
+	fn call_proof(response: schema::v1::light::response::Response) -> Option<Vec<u8>> {
+		match response {
+			schema::v1::light::response::Response::RemoteCallResponse(response) => response.proof,
+			response => panic!("unexpected response: {response:?}"),
+		}
+	}
+
 	#[test]
 	fn remote_call_with_generous_timeout_succeeds() {
 		// A generous timeout must not interfere: the call is routed through the interruptible
 		// runtime (including waiting for its background compilation) and succeeds.
-		let processor = new_processor(Some(Duration::from_secs(60)));
+		let handler = TestHandler::start(Duration::from_secs(60), 1);
 
-		let response = remote_call(&processor, "TestAPI_get_block_number");
+		let proof = call_proof(wait(handler.call("TestAPI_get_block_number")));
 
-		assert!(response.proof.is_some());
+		assert!(proof.is_some());
 	}
 
 	#[test]
 	fn execution_timeout_interrupts_remote_call() {
 		let timeout = Duration::from_millis(300);
-		let processor = new_processor(Some(timeout));
+		let handler = TestHandler::start(timeout, 1);
 
 		let started = Instant::now();
-		let response = remote_call(&processor, "TestAPI_spin");
+		let proof = call_proof(wait(handler.call("TestAPI_spin")));
 
 		assert!(started.elapsed() >= timeout);
-		assert_eq!(response.proof, None);
+		assert_eq!(proof, None);
 	}
 
 	#[test]
@@ -697,7 +658,7 @@ mod tests {
 				schema::v1::light::RemoteReadResponse { proof: Some(_) }
 			)
 		));
-		assert!(matches!(wait(call), schema::v1::light::response::Response::RemoteCallResponse(_)));
+		assert_eq!(call_proof(wait(call)), None);
 	}
 
 	#[test]
