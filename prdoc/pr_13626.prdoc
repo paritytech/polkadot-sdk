@@ -16,3 +16,5 @@ doc:
 crates:
   - name: pallet-psm
     bump: major
+  - name: pallet-assets
+    bump: none

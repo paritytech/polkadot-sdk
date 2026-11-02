@@ -146,6 +146,8 @@ pub trait BenchmarkHelper<AssetId, AccountId> {
 	/// Get the asset ID for a given asset index.
 	fn get_asset_id(asset_index: u32) -> AssetId;
 	/// Create an asset with metadata matching the internal asset's decimals.
+	///
+	/// The asset must be sufficient, so a fresh PSM reserve account can receive it.
 	fn create_asset(asset_id: AssetId, owner: &AccountId, decimals: u8);
 }
 

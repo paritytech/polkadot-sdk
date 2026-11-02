@@ -926,6 +926,57 @@ mod redeem {
 		});
 	}
 
+	/// If the fee destination cannot receive the dust, it is burned and the debt drops by it too.
+	#[test]
+	fn redeem_burns_dust_when_fee_destination_cannot_receive_it() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT,
+				Permill::from_percent(1),
+			));
+			let fee_destination = set_unreachable_fee_destination();
+			let min_balance = 10_000;
+			pallet_assets::Asset::<Test>::mutate(INTERNAL_ASSET_ID, |details| {
+				details.as_mut().expect("internal asset exists in the mock; qed").min_balance =
+					min_balance
+			});
+			let dust = min_balance / 2;
+			let redeem = get_asset_balance(INTERNAL_ASSET_ID, ALICE) - dust;
+
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				INTERNAL_ASSET_ID,
+				USDC_ASSET_ID,
+				redeem,
+				Permill::from_percent(1),
+			));
+
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), 0);
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, fee_destination), 0);
+			assert_eq!(
+				<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::total_issuance(
+					INTERNAL_ASSET_ID
+				),
+				crate::Pallet::<Test>::total_psm_debt(&INTERNAL_ASSET_ID)
+			);
+			System::assert_has_event(
+				Event::<Test>::Redeemed {
+					who: ALICE,
+					internal_asset: INTERNAL_ASSET_ID,
+					external_asset: USDC_ASSET_ID,
+					internal_consumed: redeem + dust,
+					external_received: redeem,
+					internal_fee: 0,
+				}
+				.into(),
+			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
 	/// Dust minted against another external asset is sent to the fee destination instead of being
 	/// burned, since the redeemed pair's debt cannot absorb it.
 	#[test]
