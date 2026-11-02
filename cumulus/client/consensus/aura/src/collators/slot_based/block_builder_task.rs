@@ -48,10 +48,13 @@ use cumulus_primitives_core::{
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
+use polkadot_primitives::{
+	Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId,
+	RELAY_CHAIN_SLOT_DURATION_MILLIS,
+};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sc_consensus_aura::SlotDuration;
+use sc_consensus_aura::{standalone as aura_internal, SlotDuration};
 use sc_network_types::PeerId;
 use sp_api::{ApiExt, ApiRef, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
@@ -291,7 +294,7 @@ struct SlotContext<Block: BlockT, Pub> {
 	max_pov_size: u32,
 	allowed_pov_size: usize,
 	relay_slot: Slot,
-	slot_claim: SlotClaim<Pub>,
+	role: SlotRole<Pub>,
 }
 
 impl<Block: BlockT, Pub> SlotContext<Block, Pub> {
@@ -299,6 +302,118 @@ impl<Block: BlockT, Pub> SlotContext<Block, Pub> {
 	fn relay_parent(&self) -> &RelayHeader {
 		self.relay_parent_data.relay_parent()
 	}
+}
+
+/// How this collator participates in the slot.
+enum SlotRole<Pub> {
+	/// Author fresh blocks and resubmit the blocks whose scheduling signature our claim covers.
+	Build(SlotClaim<Pub>),
+	/// Authority handover: a prior authority set still owns a prefix of the unincluded segment,
+	/// and we hold the key it selects for this slot. Resubmit that prefix and build nothing, since
+	/// a fresh block would sit above blocks only this signature can make backable.
+	Handover { author_pub: Pub },
+}
+
+impl<Pub> SlotRole<Pub> {
+	/// The public key signing this slot's scheduling info.
+	fn author_pub(&self) -> &Pub {
+		match self {
+			Self::Build(slot_claim) => slot_claim.author_pub(),
+			Self::Handover { author_pub } => author_pub,
+		}
+	}
+}
+
+/// How this collator acts this slot and the headers it resubmits while doing so.
+struct SlotParticipation<Block: BlockT, Pub> {
+	role: SlotRole<Pub>,
+	resubmittable_headers: Vec<Block::Header>,
+}
+
+/// A prior authority era's resubmission duty, carved off the unincluded segment.
+struct HandoverDuty<Block: BlockT, Pub> {
+	/// The leading run of candidates the prior era owns.
+	headers: Vec<Block::Header>,
+	/// The era to claim the slot with and sign the resubmissions under.
+	era: EraAuthorship<Pub>,
+}
+
+/// This slot's resubmission candidates, split at the authority-era boundary.
+struct ResubmissionSplit<Block: BlockT, Pub> {
+	/// Candidates this slot's own claim covers.
+	ours: Vec<Block::Header>,
+	/// The prior era's duty, present only when an authority change splits the segment.
+	handover: Option<HandoverDuty<Block, Pub>>,
+}
+
+/// The authorship facts of one authority-set era, read from a single parachain state.
+struct EraAuthorship<Pub> {
+	/// The author the PVF expects for the current relay slot under this era.
+	expected_author: Pub,
+	/// The parachain slot derived with this era's slot duration.
+	para_slot: Slot,
+	/// The era's full authority set, as needed by the keystore claim check.
+	authorities: Vec<Pub>,
+}
+
+/// The authorship facts at the state of `at` for `relay_slot`.
+///
+/// Mirrors `AuraSchedulingVerifier::verify`: the PVF checks a resubmitted block's scheduling
+/// signature against its parent state, deriving the parachain slot from the relay slot with that
+/// state's slot duration and indexing the authorities with it. `None` on any failed read.
+fn era_authorship_at<Block, Client, P>(
+	para_client: &Client,
+	at: Block::Hash,
+	relay_slot: Slot,
+) -> Option<EraAuthorship<P::Public>>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraApi<Block, P::Public> + ApiExt<Block>,
+	P: Pair,
+	P::Public: Codec,
+{
+	let authorities = onchain_runtime_api(para_client).authorities(at).ok()?;
+	let para_slot_duration = crate::slot_duration_at(para_client, at).ok()?;
+	if para_slot_duration.as_millis() == 0 {
+		return None;
+	}
+
+	let para_slot = u64::from(relay_slot).checked_mul(RELAY_CHAIN_SLOT_DURATION_MILLIS)? /
+		para_slot_duration.as_millis();
+	let expected_author = aura_internal::slot_author::<P>(para_slot.into(), &authorities)?.clone();
+
+	Some(EraAuthorship { expected_author, para_slot: para_slot.into(), authorities })
+}
+
+/// Resubmission candidates split at a prior authority era's trailing boundary.
+struct EraPrefixSplit<Header> {
+	/// Candidates from the first header the prior era does not own onward: the tip era, plus any
+	/// header whose era could not be resolved, left for the PVF to reject.
+	ours: Vec<Header>,
+	/// The prior era's leading run of candidates.
+	prefix: Vec<Header>,
+}
+
+/// Carve off the leading run of resubmission candidates that a prior authority era owns.
+///
+/// The candidates are oldest-first and authority eras are contiguous runs of them, and an
+/// unincluded segment is far shorter than a session, so at most one authority change falls inside
+/// it: the candidates are `[prior-era prefix | tip-era suffix]` split at one boundary. `author_at`
+/// resolves a header's expected author at its parent state. The prefix is the leading run matching
+/// `prior_author`; everything from the first header that does not match (the tip era, or an
+/// unresolved read left for the PVF to reject) is ours.
+fn split_prior_era_prefix<Header, Pub: PartialEq>(
+	mut headers: Vec<Header>,
+	prior_author: &Pub,
+	author_at: impl Fn(&Header) -> Option<Pub>,
+) -> EraPrefixSplit<Header> {
+	let split = headers
+		.iter()
+		.position(|header| author_at(header).as_ref() != Some(prior_author))
+		.unwrap_or(headers.len());
+	let ours = headers.split_off(split);
+	EraPrefixSplit { ours, prefix: headers }
 }
 
 // Alias that explains what is stored in the hashmap.
@@ -535,6 +650,42 @@ where
 		})
 	}
 
+	/// Split this slot's resubmission candidates into ours and a prior authority era's (the
+	/// handover duty).
+	///
+	/// The build tip sits in the current era, so its expected author identifies it. When the oldest
+	/// candidate shares that author there is no change in the segment and the whole thing is ours;
+	/// otherwise the oldest candidate's era is the single prior era, and its leading run is handed
+	/// over. That era's authorities and parachain slot are constant across its blocks, so the read
+	/// at the oldest candidate's parent already carries everything the handover claim needs.
+	fn partition_resubmittables(
+		&self,
+		headers: Vec<Block::Header>,
+		tip_hash: Block::Hash,
+		relay_slot: Slot,
+	) -> ResubmissionSplit<Block, P::Public> {
+		let era_at = |at| era_authorship_at::<Block, _, P>(&*self.para_client, at, relay_slot);
+
+		let Some(oldest_parent) = headers.first().map(|header| *header.parent_hash()) else {
+			return ResubmissionSplit { ours: headers, handover: None };
+		};
+		let (Some(tip_era), Some(prior_era)) = (era_at(tip_hash), era_at(oldest_parent)) else {
+			return ResubmissionSplit { ours: headers, handover: None };
+		};
+		if prior_era.expected_author == tip_era.expected_author {
+			return ResubmissionSplit { ours: headers, handover: None };
+		}
+
+		let EraPrefixSplit { ours, prefix } =
+			split_prior_era_prefix(headers, &prior_era.expected_author, |header| {
+				era_at(*header.parent_hash()).map(|era| era.expected_author)
+			});
+		if prefix.is_empty() {
+			return ResubmissionSplit { ours, handover: None };
+		}
+		ResubmissionSplit { ours, handover: Some(HandoverDuty { headers: prefix, era: prior_era }) }
+	}
+
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
 	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
@@ -564,6 +715,8 @@ where
 			.number()
 			.saturating_sub(*included_header_at_execution.number());
 
+		// TODO: track slot-duration changes across the unincluded segment like authority-set
+		// changes: a change shifts the slot computation and with it the author picking.
 		let Ok(para_slot_duration) =
 			crate::slot_duration_at(&*self.para_client, initial_parent_hash)
 		else {
@@ -593,41 +746,98 @@ where
 
 		self.update_backing_connections(para_slot.slot, initial_parent_hash).await;
 
-		let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
-			para_slot.slot,
-			para_slot.timestamp,
-			initial_parent_hash,
-			&*self.para_client,
-			&self.keystore,
-		)
-		.await
-		else {
-			tracing::debug!(
-				target: LOG_TARGET,
-				?unincluded_segment_len_at_execution,
-				relay_parent = ?relay_parent_hash,
-				relay_parent_num = %relay_parent_header.number(),
-				?included_hash_at_execution,
-				included_num_at_execution = %included_header_at_execution.number(),
-				initial_parent = ?initial_parent_hash,
-				slot = ?para_slot.slot,
-				"Not eligible to claim slot."
-			);
-			return None;
+		// Scheduling signatures verify against each resubmitted block's parent state, so blocks
+		// preceding an authority-set change need the prior era's selected author to resubmit them.
+		let ResubmissionSplit { ours: resubmittable_headers, handover: handover_duty } =
+			if v3_enabled {
+				self.partition_resubmittables(
+					resubmittable_headers,
+					initial_parent_hash,
+					relay_slot,
+				)
+			} else {
+				ResubmissionSplit { ours: resubmittable_headers, handover: None }
+			};
+
+		// A handover duty we hold the key for takes the slot: resubmit the prior era's prefix and
+		// build nothing. Otherwise we claim the slot to build, dropping any prefix whose key is not
+		// ours since its blocks stay unbackable until a surviving old-set collator resubmits them.
+		let handover: Option<SlotParticipation<Block, P::Public>> = if let Some(HandoverDuty {
+			headers: handover_headers,
+			era,
+		}) = handover_duty
+		{
+			match aura_internal::claim_slot::<P>(era.para_slot, &era.authorities, &self.keystore)
+				.await
+			{
+				Some(author_pub) => {
+					tracing::info!(
+						target: LOG_TARGET,
+						blocks = handover_headers.len(),
+						first = ?handover_headers.first().map(|header| header.hash()),
+						era_slot = ?era.para_slot,
+						"Authority handover: resubmitting the prior era's blocks, building nothing.",
+					);
+					Some(SlotParticipation {
+						role: SlotRole::Handover { author_pub },
+						resubmittable_headers: handover_headers,
+					})
+				},
+				None => {
+					tracing::debug!(
+						target: LOG_TARGET,
+						dropped = handover_headers.len(),
+						"Dropping resubmittable blocks of a prior authority era; its selected key is not ours.",
+					);
+					None
+				},
+			}
+		} else {
+			None
 		};
 
-		tracing::debug!(
-			target: LOG_TARGET,
-			?unincluded_segment_len_at_execution,
-			relay_parent = ?relay_parent_hash,
-			relay_parent_num = %relay_parent_header.number(),
-			relay_parent_offset,
-			?included_hash_at_execution,
-			included_num_at_execution = %included_header_at_execution.number(),
-			initial_parent = ?initial_parent_hash,
-			slot = ?para_slot.slot,
-			"Claiming slot."
-		);
+		let SlotParticipation { role, resubmittable_headers } = match handover {
+			Some(handover) => handover,
+			None => {
+				let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
+					para_slot.slot,
+					para_slot.timestamp,
+					initial_parent_hash,
+					&*self.para_client,
+					&self.keystore,
+				)
+				.await
+				else {
+					tracing::debug!(
+						target: LOG_TARGET,
+						?unincluded_segment_len_at_execution,
+						relay_parent = ?relay_parent_hash,
+						relay_parent_num = %relay_parent_header.number(),
+						?included_hash_at_execution,
+						included_num_at_execution = %included_header_at_execution.number(),
+						initial_parent = ?initial_parent_hash,
+						slot = ?para_slot.slot,
+						"Not eligible to claim slot."
+					);
+					return None;
+				};
+
+				tracing::debug!(
+					target: LOG_TARGET,
+					?unincluded_segment_len_at_execution,
+					relay_parent = ?relay_parent_hash,
+					relay_parent_num = %relay_parent_header.number(),
+					relay_parent_offset,
+					?included_hash_at_execution,
+					included_num_at_execution = %included_header_at_execution.number(),
+					initial_parent = ?initial_parent_hash,
+					slot = ?para_slot.slot,
+					"Claiming slot."
+				);
+
+				SlotParticipation { role: SlotRole::Build(slot_claim), resubmittable_headers }
+			},
+		};
 
 		Some(SlotContext {
 			v3_enabled,
@@ -642,7 +852,7 @@ where
 			max_pov_size,
 			allowed_pov_size,
 			relay_slot,
-			slot_claim,
+			role,
 		})
 	}
 
@@ -897,35 +1107,44 @@ where
 
 				// Time the core build so we can pace after submitting (send early, then sleep).
 				let core_start = Instant::now();
-				let maybe_parts = match build_collation_parts_for_core(BuildCollationParams {
-					pov_parent_header: pov_parent_header.clone(),
-					relay_parent_header: cx.relay_parent(),
-					max_pov_size: cx.max_pov_size,
-					para_id,
-					relay_client: &env.relay_client,
-					code_hash_provider: &code_hash_provider,
-					slot_claim: &cx.slot_claim,
-					collator: &mut collator,
-					allowed_pov_size: cx.allowed_pov_size,
-					core_info: core_info.clone(),
-					core_index: this_core_index,
-					block_time,
-					blocks_per_core,
-					time_for_core,
-					is_last_core_in_parachain_slot: cores.is_last_core() &&
-						slot_time.is_parachain_slot_ending(cx.para_slot_duration.as_duration()),
-					collator_peer_id,
-					relay_parent_data: rp_data,
-					total_number_of_blocks: number_of_blocks,
-					included_hash_at_execution: cx.included_header_at_execution.hash(),
-					relay_slot: cx.relay_slot,
-					para_slot: cx.para_slot.slot,
-					para_client: &*env.para_client,
-				})
-				.await
-				{
-					Ok(maybe_parts) => maybe_parts,
-					Err(()) => return,
+				let maybe_parts = match &cx.role {
+					SlotRole::Build(slot_claim) => {
+						match build_collation_parts_for_core(BuildCollationParams {
+							pov_parent_header: pov_parent_header.clone(),
+							relay_parent_header: cx.relay_parent(),
+							max_pov_size: cx.max_pov_size,
+							para_id,
+							relay_client: &env.relay_client,
+							code_hash_provider: &code_hash_provider,
+							slot_claim,
+							collator: &mut collator,
+							allowed_pov_size: cx.allowed_pov_size,
+							core_info: core_info.clone(),
+							core_index: this_core_index,
+							block_time,
+							blocks_per_core,
+							time_for_core,
+							is_last_core_in_parachain_slot: cores.is_last_core() &&
+								slot_time.is_parachain_slot_ending(
+									cx.para_slot_duration.as_duration(),
+								),
+							collator_peer_id,
+							relay_parent_data: rp_data,
+							total_number_of_blocks: number_of_blocks,
+							included_hash_at_execution: cx.included_header_at_execution.hash(),
+							relay_slot: cx.relay_slot,
+							para_slot: cx.para_slot.slot,
+							para_client: &*env.para_client,
+						})
+						.await
+						{
+							Ok(maybe_parts) => maybe_parts,
+							Err(()) => return,
+						}
+					},
+					// A handover slot only resubmits the prior era's blocks; a fresh block would
+					// sit above a prefix that is not backable until those land.
+					SlotRole::Handover { .. } => None,
 				};
 
 				let has_fresh = maybe_parts.is_some();
@@ -975,7 +1194,7 @@ where
 					cx.relay_parent(),
 					&core_info,
 					collator_peer_id,
-					cx.slot_claim.author_pub(),
+					cx.role.author_pub(),
 					&env.keystore,
 					this_core_index,
 				);
@@ -1762,6 +1981,68 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 			core_indices,
 		})
 	})
+}
+
+#[cfg(test)]
+mod era_partition_tests {
+	use super::*;
+
+	const TIP_AUTHOR: u8 = 2;
+
+	/// Mirror `partition_resubmittables` over plain authors: the oldest candidate's author is the
+	/// prior era, equal to the tip means no handover, otherwise its leading run is the duty.
+	///
+	/// Headers are (id, expected author at the parent state); `None` is an unresolvable era.
+	fn partition(headers: Vec<(u32, Option<u8>)>) -> (Vec<u32>, Option<(Vec<u32>, u8)>) {
+		let prior_author = headers.first().and_then(|(_, author)| *author);
+		let EraPrefixSplit { ours, prefix } = match prior_author {
+			Some(prior) if prior != TIP_AUTHOR => {
+				split_prior_era_prefix(headers, &prior, |(_, author)| *author)
+			},
+			_ => EraPrefixSplit { ours: headers, prefix: vec![] },
+		};
+		let ids = |hs: Vec<(u32, Option<u8>)>| hs.into_iter().map(|(id, _)| id).collect::<Vec<_>>();
+		(ids(ours), (!prefix.is_empty()).then(|| (ids(prefix), prior_author.unwrap_or_default())))
+	}
+
+	#[test]
+	fn uniform_era_is_all_ours() {
+		let (ours, handover) =
+			partition(vec![(1, Some(TIP_AUTHOR)), (2, Some(TIP_AUTHOR)), (3, Some(TIP_AUTHOR))]);
+		assert_eq!(ours, vec![1, 2, 3]);
+		assert!(handover.is_none());
+	}
+
+	#[test]
+	fn prior_era_prefix_becomes_handover_duty() {
+		let (ours, handover) = partition(vec![(1, Some(9)), (2, Some(9)), (3, Some(TIP_AUTHOR))]);
+		assert_eq!(ours, vec![3]);
+		assert_eq!(handover, Some((vec![1, 2], 9)));
+	}
+
+	#[test]
+	fn whole_segment_of_a_prior_era_is_handover_duty() {
+		let (ours, handover) = partition(vec![(1, Some(9)), (2, Some(9))]);
+		assert!(ours.is_empty());
+		assert_eq!(handover, Some((vec![1, 2], 9)));
+	}
+
+	#[test]
+	fn unresolvable_era_stays_ours() {
+		let (ours, handover) = partition(vec![(1, None), (2, Some(TIP_AUTHOR))]);
+		assert_eq!(ours, vec![1, 2]);
+		assert!(handover.is_none());
+	}
+
+	#[test]
+	fn a_second_prior_era_ends_the_prefix() {
+		// At most one authority change fits in a segment, so this never arises in production. If it
+		// did, only the oldest era's leading run is handed over; the rest falls to ours, where the
+		// PVF rejects what this claim cannot back until inclusion advances and re-partitions it.
+		let (ours, handover) = partition(vec![(1, Some(9)), (2, Some(8)), (3, Some(TIP_AUTHOR))]);
+		assert_eq!(ours, vec![2, 3]);
+		assert_eq!(handover, Some((vec![1], 9)));
+	}
 }
 
 #[cfg(test)]
