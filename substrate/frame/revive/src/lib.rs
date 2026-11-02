@@ -772,8 +772,12 @@ pub mod pallet {
 	pub(crate) type DeletionQueue<T: Config> =
 		StorageMap<_, Twox64Concat, u32, crate::storage::DeletionQueueItem<T>>;
 
-	/// A pair of monotonic counters used to track the latest contract marked for deletion
+	/// A pair of counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
+	///
+	/// Both counters only ever increment, wrapping on overflow. `ContractInfo::new` mixes the
+	/// insert counter into the child trie id of every new contract, so it must never decrease or
+	/// be reset, apart from wrapping.
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> =
 		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
