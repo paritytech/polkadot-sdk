@@ -38,15 +38,21 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
 	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode:
+	/// `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::SetReceivedAt` (r:0 w:1)
+	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8),
+	/// added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
 	/// added: 496, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn announce(n: u32) -> Weight {
-		Weight::from_parts(27_026_338, 33_491)
+		Weight::from_parts(27_026_338, 33_994)
 			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
-			.saturating_add(T::DbWeight::get().reads(1_u64))
-			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
 	}
 	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added:
@@ -77,15 +83,21 @@ impl WeightInfo for () {
 	/// Storage: `ValidatorCollators::ValidatorSet` (r:1 w:1)
 	/// Proof: `ValidatorCollators::ValidatorSet` (`max_values`: Some(1), `max_size`: Some(32006),
 	/// added: 32501, mode: `MaxEncodedLen`)
+	/// Storage: `Timestamp::Now` (r:1 w:0)
+	/// Proof: `Timestamp::Now` (`max_values`: Some(1), `max_size`: Some(8), added: 503, mode:
+	/// `MaxEncodedLen`)
+	/// Storage: `ValidatorCollators::SetReceivedAt` (r:0 w:1)
+	/// Proof: `ValidatorCollators::SetReceivedAt` (`max_values`: Some(1), `max_size`: Some(8),
+	/// added: 503, mode: `MaxEncodedLen`)
 	/// Storage: `ValidatorCollators::PendingRotation` (r:0 w:1)
 	/// Proof: `ValidatorCollators::PendingRotation` (`max_values`: Some(1), `max_size`: Some(1),
 	/// added: 496, mode: `MaxEncodedLen`)
 	/// The range of component `n` is `[1, 1000]`.
 	fn announce(n: u32) -> Weight {
-		Weight::from_parts(27_026_338, 33_491)
+		Weight::from_parts(27_026_338, 33_994)
 			.saturating_add(Weight::from_parts(130_496, 0).saturating_mul(n.into()))
-			.saturating_add(RocksDbWeight::get().reads(1_u64))
-			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
 	}
 	/// Storage: `XcmpQueue::DeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `XcmpQueue::DeliveryFeeFactor` (`max_values`: None, `max_size`: Some(28), added:

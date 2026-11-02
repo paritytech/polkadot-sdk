@@ -1,0 +1,78 @@
+title: 'Era points for blocks validators author on system chains'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Validators earn era points for the blocks they author on system chains, weighted per chain and
+    service by governance.
+
+    `sp-staking` gains `ServiceKind` (`RelayConsensus`, `Collation`) and `RewardPoints`,
+    and now holds `RewardsReporter`, which `frame-support` re-exports at the same path.
+
+    `pallet-staking-async` gains `reward_service_points`, which credits points for a service other
+    than relay chain consensus to the active era, dropping accounts not exposed in it. Points also
+    go to the new `ErasRewardPointsByService`, next to the unchanged combined tally. No migration.
+    External `WeightInfo` implementors must add `reward_service_points`.
+
+    `pallet-validator-collators` counts the blocks each author produces and reports the counts of
+    the validators in the stored set every `ReportPeriod` blocks, and once per set shortly before
+    the expected era end. A report reads at most `MaxEntriesPerReport` counted authors and hands
+    the counts of the stored validators to `BlockReporter` in one message, which is never split:
+    the pallet's `integrity_test` checks that a report of `MaxValidators` entries fits the
+    reporter's message size, and that a report of `MaxEntriesPerReport` entries fits a block. The
+    counts of other authors are dropped. If the reporter rejects a report, the counts of the
+    stored validators are kept for the next one and `BlocksReportFailed { kept, dropped }` is
+    emitted. `MaxEntriesPerReport` should be `MaxValidators`, plus the most other collators the
+    chain may have, plus a small buffer. New config items: `BlockReporter`, `DefaultReportPeriod`,
+    `MaxEntriesPerReport`, `UnixTime`, `DefaultExpectedEraDuration`, `DefaultReportMargin` and
+    `MaxReportMargin`. The runtime adds the pallet to the `EventHandler` of `pallet-authorship`.
+
+    `pallet-validator-collators` storage is renamed: `ValidatorSet` to `ExternalValidatorSet`,
+    `Collators` to `DrawnCollators` and the stored struct `DrawnCollators` to `EraCollators`, whose
+    `validators` field is now `collators`. `DrawnCollators` now always holds the list last returned
+    to pallet-session, with or without a cap, of validators with registered keys at that rotation.
+    Under a cap, a drawn validator that removes its keys is dropped from it at the next rotation
+    and is not drawn again until the next set or cap change. `set_max_collators(None)` no longer
+    clears it. Under a cap with no drawn collators outside a redraw it returns `None` instead of an
+    empty list. `CollatorsDrawn` now carries
+    `external_len`, `drawn_len` and `new_external`, and is emitted at every rotation with a stored
+    set. `StoredSetUndecodable` becomes `Unexpected(StoredSetUndecodable)`, next to
+    `Unexpected(NoPreviousDrawSet)` and the new `NothingToDraw`.
+
+    New `pallet-staking-async-points-converter`, for Asset Hub, converts the reported counts into
+    era points using `PointsPerService`, set by governance. A count is credited up to
+    `MaxBlocksPerEntry`.
+crates:
+- name: sp-staking
+  bump: minor
+- name: frame-support
+  # `RewardsReporter` moved to `sp-staking`, re-exported at the same path.
+  bump: major
+  validate: false
+- name: pallet-staking-async
+  # `WeightInfo` has the new required `reward_service_points`.
+  bump: major
+  validate: false
+- name: pallet-validator-collators
+  # New required config items such as `BlockReporter` and `UnixTime`, and renamed storage items.
+  bump: major
+  validate: false
+- name: pallet-staking-async-points-converter
+  bump: patch
+- name: asset-hub-westend-runtime
+  # New `StakingPointsConverter` pallet changes the public runtime types.
+  bump: major
+  validate: false
+- name: people-westend-runtime
+  bump: minor
+- name: testnet-parachains-constants
+  bump: patch
+- name: pallet-ahm-test
+  bump: none
+- name: pallet-validator-set-announcer
+  bump: minor
+- name: people-westend-integration-tests
+  bump: none
+- name: cumulus-zombienet-sdk-tests
+  bump: none
+- name: polkadot-sdk
+  bump: minor

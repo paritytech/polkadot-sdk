@@ -243,6 +243,10 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 	ExtBuilder::default().build_and_execute(|| {
 		// Test that era pruning does not happen automatically
 		assert_eq!(active_era(), 1);
+		// Era 1 holds points of both services, which the `ErasRewardPoints` step removes.
+		Staking::reward_by_ids(vec![(11, 1)]);
+		Staking::reward_service_points(ServiceKind::Collation, vec![(11, 1)]);
+		assert_eq!(crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(), 2);
 
 		Session::roll_until_active_era(HistoryDepth::get() - 1);
 		assert!(matches!(
@@ -431,6 +435,11 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						!crate::ErasRewardPoints::<T>::contains_key(1),
 						"{expected_step:?} should be empty after completing step"
 					);
+					assert_eq!(
+						crate::ErasRewardPointsByService::<T>::iter_prefix_values(1).count(),
+						0,
+						"ErasRewardPointsByService should be empty after completing {expected_step:?}"
+					);
 				},
 				SingleEntryCleanups => {
 					assert!(
@@ -546,7 +555,7 @@ fn locked_era_pot_pays_out_in_full_after_slot_reuse() {
 
 		// WHEN: the era is drained, its slot is reused and all stakers claim.
 		Session::roll_until_active_era(reused_era);
-		Eras::<T>::reward_active_era(vec![(11, 50), (21, 50)]);
+		Eras::<T>::reward_active_era(ServiceKind::RelayConsensus, vec![(11, 50), (21, 50)]);
 		Session::roll_until_active_era(reused_era + 1);
 		let _ = staking_events_since_last_call();
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, reused_era));
