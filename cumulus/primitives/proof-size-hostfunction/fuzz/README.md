@@ -21,11 +21,13 @@ resolves to the old version until `register_only` is dropped, and the runtime in
 keeps the per-version functions private, so each version's body is a function of its own and the
 runners call those bodies directly, through `sp_externalities::with_externalities`:
 
+<!-- markdownlint-disable MD013 -->
 | Host function | Old body (trace runner) | New body (estimation runner) |
 |---|---|---|
 | `storage::append` | `Externalities::storage_append` (v1) | `Externalities::storage_append_v2` |
 | `default_child_storage::root` | `Externalities::child_storage_root_with_version` (v2) | `Externalities::child_storage_root_v3` |
 | `storage_proof_size` | read of `ProofSizeExt`, same as `storage_proof_size_v1` | `storage_proof_size_v2` |
+<!-- markdownlint-enable MD013 -->
 
 The trace runner reads `ProofSizeExt` itself because it also builds on master, which has no
 `storage_proof_size_v1`. Calling the bodies explicitly keeps both suites valid after the markers
@@ -158,14 +160,16 @@ cargo test --release -p cumulus-proof-size-hostfunction-fuzz -- --nocapture
 POV_FUZZ_ITERS=1000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
 # with medium and large tries
-POV_FUZZ_SCALE=large POV_FUZZ_ITERS=200 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
+POV_FUZZ_SCALE=large POV_FUZZ_ITERS=200 POV_FUZZ_KEEP_GOING=1 \
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
 # replay one seed
 POV_FUZZ_SEED=0x5eed0f1022d POV_FUZZ_ITERS=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke random_smoke -- --nocapture
 
 # one pinned script with logs; POV_FUZZ_LOG takes RUST_LOG syntax and also prints pass, runtime
 # call and estimation markers
-POV_FUZZ_PINNED=review_parent_update_hides_nested_delete POV_FUZZ_LOG=proof_size_tracker=trace,state=trace cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke pinned_reproductions -- --nocapture
+POV_FUZZ_PINNED=review_parent_update_hides_nested_delete POV_FUZZ_LOG=proof_size_tracker=trace,state=trace \
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test smoke pinned_reproductions -- --nocapture
 
 # coverage-guided, needs cargo-fuzz and nightly
 cd cumulus/primitives/proof-size-hostfunction/fuzz && cargo +nightly fuzz run pov_estimation -- -max_len=16384
@@ -204,7 +208,8 @@ From this tree, with `POV_FUZZ_MASTER_BIN` pointing at that binary:
 POV_FUZZ_MASTER_BIN=<master>/target/release/trace cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat -- --nocapture
 
 # a long run; all differing seeds grouped by the operation at the first differing line
-POV_FUZZ_MASTER_BIN=<master>/target/release/trace POV_FUZZ_SCALE=large POV_FUZZ_ITERS=10000 POV_FUZZ_KEEP_GOING=1 cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat v1_compat_random -- --nocapture
+POV_FUZZ_MASTER_BIN=<master>/target/release/trace POV_FUZZ_SCALE=large POV_FUZZ_ITERS=10000 POV_FUZZ_KEEP_GOING=1 \
+  cargo test --release -p cumulus-proof-size-hostfunction-fuzz --test v1_compat v1_compat_random -- --nocapture
 ```
 
 `v1_compat_random` fails without `POV_FUZZ_MASTER_BIN`; `v1_compat_pinned` compares with master
@@ -219,11 +224,13 @@ POV_FUZZ_SCALE=large`). `tests/v1_compat.rs` reports no difference to master ove
 scripts. With the old child root body (version 2) in the estimation runner, three pinned scripts
 fail; they are what version 3 fixes:
 
+<!-- markdownlint-disable MD013 -->
 | Name | Result with version 2 | Cause |
 |---|---|---|
 | `fuzz_child_emptied_root_computed_then_refilled` | Overshoot, 219 to 306 | a child root computed while the child is empty writes the removal of the child root key into the main overlay; after the refill, `storage_root` reads a collapse sibling the estimation never saw |
 | `fuzz_dropped_extrinsic_discards_empty_child_changes` | ValidatorEstimateMismatch at `Final(0)`, 127 vs 125 | the collator's rollback of a dropped extrinsic discards an empty child change set; whether the later child root writes the child root key depends on it |
 | `fuzz_dropped_extrinsic_clears_root_cache` | ValidatorMissingNode | the collator's rollback drops the cached storage root, so the later child root writes the child root key on the collator and only reads it on the validator |
+<!-- markdownlint-enable MD013 -->
 
 With the old append body (version 1), `random_smoke` over the 10000 large scripts reports two
 `ValidatorRootMismatch` (seeds `0x5f5e1a3`, `0x5f5e837`): an append after a mid-block storage
@@ -234,6 +241,7 @@ it.
 
 All scripts below pass now. Both tests failed. Pinned scripts:
 
+<!-- markdownlint-disable MD013 -->
 | Name | Result | Cause |
 |---|---|---|
 | `review_incremental_main_deletions` | Overshoot, 174 to 209 | deletions spread over several estimations never collapse the branch; each estimation starts from the original root and removes only its own keys (`record_proof_for_dirty_keys`) |
@@ -247,6 +255,7 @@ All scripts below pass now. Both tests failed. Pinned scripts:
 | `validator_nested_estimate_after_delete` | ValidatorEstimateMismatch at `Free(0, 0)`, 106 vs 141 | delete in `pre`, estimation inside a nested runtime transaction |
 | `fuzz_child_root_cache_survives_client_rollback` | pass | failed while the harness kept one trie backend per block; production and the harness now use one per runtime call, so the child root cache dies with the rolled-back call |
 | `pr_*`, `executive_inserts_and_updates` | pass | happy paths from the PR's own tests |
+<!-- markdownlint-enable MD013 -->
 
 1000 random scripts at small scale: 103 fail. `Overshoot` 78, `Panic` 1,
 `PanicAlsoWithoutEstimation` 8, `ValidatorEstimateMismatch` 9, `ValidatorMissingNode` 7. Every
