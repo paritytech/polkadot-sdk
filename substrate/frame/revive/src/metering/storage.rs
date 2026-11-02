@@ -387,20 +387,21 @@ where
 	/// [`Self::execute_postponed_charges`]. Refunds are paid first so that the origin can pay
 	/// for the charges using the refunds.
 	///
-	/// A refund can be released from the contract's hold only in part. It is bounded by the
-	/// deposit the contract holds above its base deposit, and the deposit backend may release
-	/// less than requested, for example when the origin is not entitled to the part held in a
-	/// particular currency. The part that was not released is added to the deposit consumed by
-	/// this meter and returned, so that the caller can enforce its limit before any charge is
-	/// paid.
+	/// The deposit consumed by this meter can rise here, so the caller must enforce its limit
+	/// again before any charge is paid. Coalescing drops the refunds recorded for a contract that
+	/// was terminated, since its termination already refunded its whole hold. A refund can also
+	/// be released from the contract's hold only in part: it is bounded by the deposit the
+	/// contract holds above its base deposit, and the deposit backend may release less than
+	/// requested, for example when the origin is not entitled to the part held in a particular
+	/// currency. The part that was not released is added to the deposit consumed.
 	pub fn execute_postponed_refunds(
 		&mut self,
 		origin: &Origin<T>,
 		exec_config: &ExecConfig<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> Result<(), DispatchError> {
 		// Only refund or charge deposit if the origin is not root.
 		let origin = match origin {
-			Origin::Root => return Ok(Zero::zero()),
+			Origin::Root => return Ok(()),
 			Origin::Signed(o) => o,
 		};
 
@@ -450,9 +451,9 @@ where
 		// Account for the refunds that were released, not the ones that were requested.
 		if !unreleased.is_zero() {
 			self.total_deposit = self.total_deposit.saturating_add(&Deposit::Charge(unreleased));
-			self.recalulculate_max_charged();
 		}
-		Ok(unreleased)
+		self.recalulculate_max_charged();
+		Ok(())
 	}
 
 	/// Pay the charges accumulated in the whole contract stack.
@@ -589,9 +590,10 @@ impl<T: Config> Ext<T> for ReservingExt {
 				// The refund is derived from the item and byte deposits recorded in the contract
 				// info. Bound it by what the contract holds above its base deposit, so that the
 				// base deposit is only released when the contract is terminated. A contract
-				// instantiated by `Origin::Root` records a base deposit that was not placed on
-				// hold. Its refunds are bounded the same way, by the deposit held above the
-				// recorded base deposit.
+				// instantiated by `Origin::Root` records a base deposit of zero, since none was
+				// placed on hold. One instantiated by `Origin::Root` before that was the case
+				// records a base deposit that is not held, and its refunds stay bounded by the
+				// deposit held above it.
 				//
 				// A refund is only recorded for a contract whose info was loaded during the call
 				// stack. That info is only removed by termination, and the charges of a

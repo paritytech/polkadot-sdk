@@ -366,8 +366,8 @@ fn termination_works() {
 /// The part of a refund that is not released is added to the deposit consumed by the meter.
 ///
 /// CHARLIE's refund of 30 is released only up to [`PARTIAL_REFUND_CAP`] and DJANGO's refund of 8
-/// in full. The 20 that are not released are returned by `execute_postponed_refunds`, added to the
-/// consumed deposit and raise the maximum charged deposit. The charge is then paid in full.
+/// in full. The 20 that are not released are added to the consumed deposit and raise the maximum
+/// charged deposit. The charge is then paid in full.
 #[test]
 fn partially_released_refunds_are_added_to_the_consumed_deposit() {
 	clear_ext();
@@ -383,7 +383,7 @@ fn partially_released_refunds_are_added_to_the_consumed_deposit() {
 	assert_eq!(meter.consumed(), Deposit::Refund(13));
 	assert_eq!(meter.max_charged(), Deposit::Charge(0));
 
-	assert_eq!(meter.execute_postponed_refunds(&origin, &exec_config), Ok(20));
+	assert_eq!(meter.execute_postponed_refunds(&origin, &exec_config), Ok(()));
 	assert_eq!(meter.consumed(), Deposit::Charge(7));
 	assert_eq!(meter.max_charged(), Deposit::Charge(7));
 
@@ -411,9 +411,44 @@ fn partially_released_refunds_are_ignored_for_root() {
 	nested.charge_deposit(CHARLIE, Deposit::Refund(30));
 	meter.absorb(nested, &EVE, None);
 
-	assert_eq!(meter.execute_postponed_refunds(&Origin::Root, &exec_config), Ok(0));
+	assert_eq!(meter.execute_postponed_refunds(&Origin::Root, &exec_config), Ok(()));
 	assert_eq!(meter.consumed(), Deposit::Refund(30));
 	assert_eq!(TestExtTestValue::get(), TestExt::default());
+}
+
+/// The refunds recorded for a terminated contract are dropped from the consumed deposit.
+///
+/// CHARLIE's storage is cleared, recording a refund of 30, and BOB is charged 60. CHARLIE is then
+/// terminated, which refunded the 20 it held. Its recorded refund exceeds that hold, as it does
+/// when storage that was recorded but not held is cleared. Dropping the recorded refund raises the
+/// consumed deposit from 10 to 40, and the maximum charged deposit follows it. Only BOB's charge is
+/// paid.
+#[test]
+fn terminated_contract_refunds_are_dropped_from_the_consumed_deposit() {
+	clear_ext();
+	let origin = Origin::<Test>::from_account_id(ALICE);
+	let exec_config = ExecConfig::new_substrate_tx();
+
+	let mut meter = TestMeter::new(Some(100));
+	let mut nested = meter.nested(None);
+	nested.charge_deposit(CHARLIE, Deposit::Refund(30));
+	nested.charge_deposit(BOB, Deposit::Charge(60));
+	meter.absorb(nested, &EVE, None);
+	meter.terminate(CHARLIE, 20);
+	assert_eq!(meter.consumed(), Deposit::Charge(10));
+	assert_eq!(meter.max_charged(), Deposit::Charge(30));
+
+	assert_eq!(meter.execute_postponed_refunds(&origin, &exec_config), Ok(()));
+	assert_eq!(meter.consumed(), Deposit::Charge(40));
+	assert_eq!(meter.max_charged(), Deposit::Charge(40));
+
+	assert_eq!(meter.execute_postponed_charges(&origin, &exec_config), Ok(Deposit::Charge(40)));
+	assert_eq!(
+		TestExtTestValue::get(),
+		TestExt {
+			charges: vec![Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(60) }]
+		}
+	);
 }
 
 #[test]
