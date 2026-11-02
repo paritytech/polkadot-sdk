@@ -240,7 +240,7 @@ impl crate::Config for Runtime {
 	type ConsensusHook = crate::ExpectParentIncluded;
 	type RelayParentOffset = ();
 	type SchedulingSignatureVerifier = ();
-	type UmpSignalSource = ();
+	type ConsumptionRecordSource = ();
 }
 
 impl test_pallet::Config for Runtime {}
@@ -304,7 +304,7 @@ pub mod only_operational_runtime {
 		type ConsensusHook = crate::ExpectParentIncluded;
 		type RelayParentOffset = ();
 		type SchedulingSignatureVerifier = ();
-		type UmpSignalSource = ();
+		type ConsumptionRecordSource = ();
 	}
 
 	impl super::test_pallet::Config for RuntimeOnlyOperational {}

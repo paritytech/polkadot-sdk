@@ -101,7 +101,7 @@ impl SchedulingSignals {
 						panic!("Parachain emitted more than one `ApprovedPeer` UMP signal");
 					}
 				},
-				// Parsed by `SpecMessagingSignals` instead.
+				// Blocks don't emit these; `SpecMessagingSignals::build` rejects them.
 				UMPSignal::Provides(_) | UMPSignal::Requires(_) => {},
 			}
 		}
@@ -376,20 +376,19 @@ mod tests {
 	}
 
 	#[test]
-	fn an_override_keeps_the_blocks_provides() {
-		// A resubmission replaces only the scheduling signals; `Provides` comes from its own pass.
+	fn an_override_keeps_the_bundles_provides() {
+		// A resubmission replaces only the scheduling signals; `Provides` comes from the digests.
 		use crate::spec_messaging::{ump_signal_tail, SpecMessagingSignals};
-		let provides = UMPSignal::Provides(StreamsRoot(Hash::repeat_byte(4))).encode();
-		let raw =
-			vec![UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode(), provides];
+		let root = StreamsRoot(Hash::repeat_byte(4));
+		let raw = vec![UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0)).encode()];
 		let signed = signed_with(CoreSelector(1), 1, peer(0xCC));
 
 		let tail = ump_signal_tail(
 			SchedulingSignals::from_scheduling_info(&signed),
-			SpecMessagingSignals::build(&raw, &[], None).unwrap(),
+			SpecMessagingSignals::build(Some(root), &raw, &[], None).unwrap(),
 		);
 		let mut expected = SchedulingSignals::from_scheduling_info(&signed).into_ump_messages();
-		expected.push(raw[1].clone());
+		expected.push(UMPSignal::Provides(root).encode());
 		assert_eq!(tail, expected);
 	}
 

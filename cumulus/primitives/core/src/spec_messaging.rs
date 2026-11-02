@@ -16,8 +16,9 @@
 
 //! The speculative-messaging part of a candidate's UMP signal tail.
 //!
-//! Blocks emit at most one `Provides` per PoV and never `Requires`. [`SpecMessagingSignals::build`]
-//! passes `Provides` through and synthesizes `Requires` from the consumption records and the PoV
+//! Blocks emit neither signal. Each block that touched a stream deposits its `StreamsRoot` as an
+//! SPMS header digest, and the bundle's last one is its `Provides` ([`bundle_provides`]).
+//! [`SpecMessagingSignals::build`] synthesizes `Requires` from the consumption records and the PoV
 //! lifts. The collator and the PVF both assemble the tail with [`ump_signal_tail`], so they cannot
 //! drift; the PVF panics on a [`SpecMessagingError`], the collator skips the collation.
 
@@ -25,9 +26,11 @@ use crate::scheduling::SchedulingSignals;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
-	build_requires, ConsumptionRecord, LiftError, LiftsBySource, StreamsRoot,
+	build_requires, streams_root::read_streams_root, ConsumptionRecord, LiftError, LiftsBySource,
+	StreamsRoot,
 };
 use polkadot_primitives::{RequiresSet, UMPSignal, UMP_SEPARATOR};
+use sp_runtime::Digest;
 
 /// Why the speculative-messaging part of a candidate's tail cannot be built. Each is deterministic
 /// in the blocks' signals, the records and the PoV, so every validator reaches the same verdict.
@@ -35,10 +38,8 @@ use polkadot_primitives::{RequiresSet, UMPSignal, UMP_SEPARATOR};
 pub enum SpecMessagingError {
 	/// A block emitted bytes that do not decode as a `UMPSignal`.
 	UndecodableSignal,
-	/// The PoV's blocks emitted more than one `Provides`.
-	DuplicateProvides,
-	/// A block emitted `Requires`, which only the tail assembly may produce.
-	BlockEmittedRequires,
+	/// A block emitted `Provides` or `Requires`, which only the tail assembly may produce.
+	BlockEmittedSpecMsgSignal,
 	/// The consumption records and the lifts do not synthesize a `Requires`.
 	RequiresSynthesis(LiftError),
 }
@@ -47,11 +48,8 @@ impl core::fmt::Display for SpecMessagingError {
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
 			Self::UndecodableSignal => write!(f, "Failed to decode `UMPSignal`"),
-			Self::DuplicateProvides => {
-				write!(f, "Parachain emitted more than one `Provides` UMP signal")
-			},
-			Self::BlockEmittedRequires => {
-				write!(f, "Parachain block emitted a `Requires` UMP signal")
+			Self::BlockEmittedSpecMsgSignal => {
+				write!(f, "Parachain block emitted a speculative-messaging UMP signal")
 			},
 			Self::RequiresSynthesis(error) => {
 				write!(f, "Speculative Messaging `Requires` synthesis failed: {:?}", error)
@@ -70,14 +68,16 @@ pub struct SpecMessagingSignals {
 }
 
 impl SpecMessagingSignals {
-	/// Take the bundle's `Provides` from the blocks' encoded `UMPSignal`s, and synthesize
-	/// `Requires` from the bundle-ordered consumption records and the PoV-carried lifts.
+	/// Pair the bundle's `provides` ([`bundle_provides`]) with `Requires` synthesized from the
+	/// bundle-ordered consumption records and the PoV-carried lifts. `raw` are the blocks' encoded
+	/// `UMPSignal`s, which must hold neither signal.
 	pub fn build(
+		provides: Option<StreamsRoot>,
 		raw: &[Vec<u8>],
 		records: &[ConsumptionRecord],
 		lifts: Option<&LiftsBySource>,
 	) -> Result<Self, SpecMessagingError> {
-		let provides = parse_provides(raw)?;
+		reject_block_signals(raw)?;
 
 		let no_lifts = LiftsBySource::default();
 		let requires = build_requires(records, lifts.unwrap_or(&no_lifts))
@@ -92,7 +92,7 @@ impl SpecMessagingSignals {
 	}
 
 	/// The encoded signals, `Provides` then `Requires`, without a `UMP_SEPARATOR`.
-	fn into_ump_messages(self) -> Vec<Vec<u8>> {
+	pub fn into_ump_messages(self) -> Vec<Vec<u8>> {
 		let mut messages = Vec::with_capacity(2);
 		if let Some(root) = self.provides {
 			messages.push(UMPSignal::Provides(root).encode());
@@ -120,26 +120,27 @@ pub fn ump_signal_tail(
 	tail
 }
 
-/// The candidate's `Provides` from the blocks' signals; a second one, or any `Requires`, is an
-/// error. Runs on every candidate, unlike the scheduling parse an override skips.
-fn parse_provides(raw: &[Vec<u8>]) -> Result<Option<StreamsRoot>, SpecMessagingError> {
-	let mut provides = None;
+/// The bundle's `Provides`: the last `StreamsRoot` digest among its blocks' headers, in bundle
+/// order. `None` if no block touched a stream.
+pub fn bundle_provides<'a>(digests: impl IntoIterator<Item = &'a Digest>) -> Option<StreamsRoot> {
+	digests.into_iter().filter_map(read_streams_root).last()
+}
+
+/// Blocks emit only scheduling signals. Runs on every candidate, unlike the scheduling parse an
+/// override skips.
+fn reject_block_signals(raw: &[Vec<u8>]) -> Result<(), SpecMessagingError> {
 	for bytes in raw {
 		match UMPSignal::decode(&mut &bytes[..])
 			.map_err(|_| SpecMessagingError::UndecodableSignal)?
 		{
-			UMPSignal::Provides(root) => {
-				if provides.replace(root).is_some() {
-					return Err(SpecMessagingError::DuplicateProvides);
-				}
+			UMPSignal::Provides(_) | UMPSignal::Requires(_) => {
+				return Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
 			},
-			// `Requires` is synthesized here and must never be block-emitted.
-			UMPSignal::Requires(_) => return Err(SpecMessagingError::BlockEmittedRequires),
 			// Scheduling signals belong to `SchedulingSignals`.
 			UMPSignal::SelectCore(..) | UMPSignal::ApprovedPeer(..) => {},
 		}
 	}
-	Ok(provides)
+	Ok(())
 }
 
 #[cfg(test)]
@@ -148,9 +149,10 @@ mod tests {
 	use alloc::{collections::BTreeMap, vec};
 	use cumulus_primitives_spec_messaging::{
 		streams_root::{gen_stream_proof, streams_root},
-		Interval, MMRExtensionProof, MmrFrontier, MmrRoot, RequiresLift, StreamId,
+		Interval, MMRExtensionProof, MmrFrontier, MmrRoot, RequiresLift, StreamId, SPMS_ENGINE_ID,
 	};
 	use polkadot_primitives::{ClaimQueueOffset, CoreSelector, Hash as RHash, Id as ParaId};
+	use sp_runtime::DigestItem;
 
 	fn root(byte: u8) -> StreamsRoot {
 		StreamsRoot(RHash::repeat_byte(byte))
@@ -192,28 +194,34 @@ mod tests {
 		UMPSignal::SelectCore(CoreSelector(0), ClaimQueueOffset(0))
 	}
 
-	#[test]
-	fn provides_is_taken_through_and_scheduling_signals_are_ignored() {
-		let raw = vec![select_core().encode(), UMPSignal::Provides(root(2)).encode()];
-		let signals = SpecMessagingSignals::build(&raw, &[], None).unwrap();
-		assert_eq!(signals.provides, Some(root(2)));
-		assert_eq!(signals.requires, None);
+	fn digest(roots: &[StreamsRoot]) -> Digest {
+		let spms = |r: &StreamsRoot| DigestItem::Consensus(SPMS_ENGINE_ID, r.encode());
+		Digest { logs: roots.iter().map(spms).collect() }
 	}
 
 	#[test]
-	fn second_provides_is_rejected() {
-		// The pallet emits one `Provides` per PoV; two means a runtime bug, not a fold.
-		let raw =
-			vec![UMPSignal::Provides(root(1)).encode(), UMPSignal::Provides(root(2)).encode()];
+	fn provides_is_the_bundles_last_streams_root_digest() {
+		let (sent, idle, resent) = (digest(&[root(1)]), digest(&[]), digest(&[root(3)]));
+		assert_eq!(bundle_provides([&sent, &idle, &resent]), Some(root(3)));
+		// An idle last block still reports the root an earlier block produced.
+		assert_eq!(bundle_provides([&sent, &idle]), Some(root(1)));
+		assert_eq!(bundle_provides([&idle, &idle]), None);
+		// A header with two SPMS items carries no root.
+		assert_eq!(bundle_provides([&sent, &digest(&[root(4), root(5)])]), Some(root(1)));
+	}
+
+	#[test]
+	fn block_emitted_provides_is_rejected() {
+		let raw = vec![select_core().encode(), UMPSignal::Provides(root(2)).encode()];
 		assert_eq!(
-			SpecMessagingSignals::build(&raw, &[], None),
-			Err(SpecMessagingError::DuplicateProvides)
+			SpecMessagingSignals::build(None, &raw, &[], None),
+			Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
 		);
 	}
 
 	#[test]
 	fn all_idle_bundle_emits_nothing() {
-		let signals = SpecMessagingSignals::build(&[], &[], None).unwrap();
+		let signals = SpecMessagingSignals::build(None, &[], &[], None).unwrap();
 		assert!(signals.is_empty());
 		assert!(ump_signal_tail(SchedulingSignals::default(), signals).is_empty());
 	}
@@ -223,15 +231,15 @@ mod tests {
 		let requires = RequiresSet::try_from_iter([(ParaId::from(1), root(1))]).unwrap();
 		let raw = vec![UMPSignal::Requires(requires).encode()];
 		assert_eq!(
-			SpecMessagingSignals::build(&raw, &[], None),
-			Err(SpecMessagingError::BlockEmittedRequires)
+			SpecMessagingSignals::build(None, &raw, &[], None),
+			Err(SpecMessagingError::BlockEmittedSpecMsgSignal)
 		);
 	}
 
 	#[test]
 	fn undecodable_signal_is_rejected() {
 		assert_eq!(
-			SpecMessagingSignals::build(&[vec![0xff]], &[], None),
+			SpecMessagingSignals::build(None, &[vec![0xff]], &[], None),
 			Err(SpecMessagingError::UndecodableSignal)
 		);
 	}
@@ -242,7 +250,7 @@ mod tests {
 		let stream = StreamId::Channel { recipient: 2001.into(), domain: 0, num: 0 };
 		let (record, _, _) = source_fixture(2000.into(), stream, 5);
 		assert!(matches!(
-			SpecMessagingSignals::build(&[], &[record], None),
+			SpecMessagingSignals::build(None, &[], &[record], None),
 			Err(SpecMessagingError::RequiresSynthesis(_))
 		));
 	}
@@ -255,8 +263,8 @@ mod tests {
 		let source = ParaId::from(2000);
 		let (record, lifts, committed) = source_fixture(source, stream, 5);
 
-		let raw = vec![UMPSignal::Provides(root(9)).encode()];
-		let signals = SpecMessagingSignals::build(&raw, &[record], Some(&lifts)).unwrap();
+		let signals =
+			SpecMessagingSignals::build(Some(root(9)), &[], &[record], Some(&lifts)).unwrap();
 
 		let expected = RequiresSet::try_from_iter([(source, committed)]).unwrap();
 		assert_eq!(signals.requires, Some(expected.clone()));
@@ -274,10 +282,10 @@ mod tests {
 	fn tail_has_one_separator_and_canonical_order() {
 		// Scheduling and spec-messaging parts together: one separator, then `SelectCore`,
 		// `Provides`.
-		let raw = vec![UMPSignal::Provides(root(4)).encode(), select_core().encode()];
+		let raw = vec![select_core().encode()];
 		let tail = ump_signal_tail(
 			SchedulingSignals::from_block_signals(&raw),
-			SpecMessagingSignals::build(&raw, &[], None).unwrap(),
+			SpecMessagingSignals::build(Some(root(4)), &raw, &[], None).unwrap(),
 		);
 		assert_eq!(
 			tail,
@@ -289,12 +297,8 @@ mod tests {
 	fn error_messages_are_stable() {
 		// `validate_block` panics with these; tests and operators match on them.
 		assert_eq!(
-			SpecMessagingError::DuplicateProvides.to_string(),
-			"Parachain emitted more than one `Provides` UMP signal"
-		);
-		assert_eq!(
-			SpecMessagingError::BlockEmittedRequires.to_string(),
-			"Parachain block emitted a `Requires` UMP signal"
+			SpecMessagingError::BlockEmittedSpecMsgSignal.to_string(),
+			"Parachain block emitted a speculative-messaging UMP signal"
 		);
 		assert!(SpecMessagingError::RequiresSynthesis(LiftError::LiftCountMismatch)
 			.to_string()
