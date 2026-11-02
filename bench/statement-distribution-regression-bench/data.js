@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793616618679,
+  "lastUpdate": 1793627779029,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "OmarAbdulla7@hotmail.com",
-            "name": "Omar",
-            "username": "0xOmarA"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "ae622e0fec600867debead185c5017fffd53c4c2",
-          "message": "Support State Overrides in Tracing (#11581)\n\n# Description\n\nAdds support for [Geth-compatible state\noverrides](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set)\nin `debug_traceCall`, extending the state override support introduced in\n#11545 (which added them to `eth_call`).\n\nPer the [Geth\nspecification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall),\n`debug_traceCall` accepts a config object that is a superset of the base\ntracer config, adding `stateOverrides` for ephemerally modifying account\nstate during traced execution.\n\n## Changes\n\n### Pallet (`pallet-revive`)\n\n- **`TracingConfig` type** — New backwards-compatible config type\nfollowing the same pattern as `DryRunConfig` from #11545 (custom\n`Decode` impl, append-only fields, must be the last runtime API\nargument).\n- **`trace_call_with_config` runtime API** — New method that applies\nstate overrides then delegates to the existing `trace_call`. Implemented\nin the macro so it can call `Self::trace_call` directly.\n- **`state_overrides` module** made `#[doc(hidden)] pub` so the\nmacro-generated code can access it from downstream runtime crates.\n\n### ETH-RPC (`pallet-revive-eth-rpc`)\n\n- **`TraceCallConfig` type** — Extends `TracerConfig` (flattened) with\nan optional `stateOverrides` field, matching Geth's `TraceCallConfig`\nschema.\n- **`debug_traceCall`** signature updated to accept\n`Option<TraceCallConfig>`. When state overrides are present, the RPC\nuses `trace_call_with_config`; otherwise it falls back to `trace_call`\nfor backwards compatibility with older runtimes.\n\n## Integration\n\nExisting `debug_traceCall` callers are unaffected — the config parameter\nremains optional, and omitting `stateOverrides` uses the original code\npath. Callers wanting state overrides pass them in the config object\nalongside the tracer settings:\n\n```json\n{\n  \"tracer\": \"callTracer\",\n  \"stateOverrides\": {\n    \"0x1234...\": {\n      \"balance\": \"0xDE0B6B3A7640000\",\n      \"code\": \"0x6080...\"\n    }\n  }\n}\n```\n\n## Review Notes\n\n- `TracingConfig` mirrors `DryRunConfig`'s backwards compatibility\nstrategy documented in #11545. The custom `Decode` impl defaults missing\nfields, and `sp_api`'s `Decode::decode` (not `decode_all`) discards\ntrailing bytes from newer encodings.\n- The macro impl applies overrides before delegating to\n`Self::trace_call`, keeping the tracing logic in one place.\n- A single integration test (`test_state_override_trace_call`) verifies\nend-to-end functionality using alloy's\n`DebugApi::debug_trace_call_callframe` with state overrides.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T18:22:26Z",
-          "tree_id": "0b4889ad70b67f6483e02d84dd42c10315d8e2bd",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/ae622e0fec600867debead185c5017fffd53c4c2"
-        },
-        "date": 1776284992141,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.07399999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07833954016199991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038382583241999994,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038450192126,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cc5d217cc61241ce97d5921c04eab97bb27be916",
+          "message": "sc-tracing: keep events without the filtered field when the filter is empty (#13666)\n\nFixes #13595.\n\nSupersedes #13597, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nThe RPC docs say that an empty filter does not remove events. But\n`state_traceBlock` removes each event that does not have the filtered\nfield, also when the filter is empty. Because of this, a trace does not\nshow prefix deletions (`ClearPrefix`) or storage root calculations\n(`StorageRoot`).\n\nThis PR keeps all events when the filter is empty. Filters that are not\nempty work as before.\n\nResults on the first block of a parachain template dev chain:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace with empty filters | 236 events, no `ClearPrefix` or\n`StorageRoot` | 239 events, with `ClearPrefix`, `StorageRoot` and `Call`\n|\n| Trace with method filter `ClearPrefix` | 0 events | 1 event |\n| Trace with method filter `Put` | 103 events | 103 events |\n\n## Integration\n\nThere are no API changes. Calls with an empty filter now also return the\nevents that were missing.\n\nOne of these events is the `Call` event for `Core_execute_block`. This\nevent contains the full encoded block. Because of this, a response with\nan empty key filter is larger by approximately the size of the block.\n\n## How to test\n\nRun the unit tests:\n\n```bash\ncargo test -p sc-tracing\n```\n\nI moved the filter checks into a small helper function, so that I can\ntest them. Four of the new tests fail without the fix.\n\nTo test on a node, use the steps in #13595 with a node built from this\nbranch.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T12:14:20Z",
+          "tree_id": "a8a40ad4fe460a25582e8e9182227f4cd1695dd2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc5d217cc61241ce97d5921c04eab97bb27be916"
+        },
+        "date": 1793627745740,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.14400000000003,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03871105322599999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08712099714199996,
             "unit": "seconds"
           }
         ]
