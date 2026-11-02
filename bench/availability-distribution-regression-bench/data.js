@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793623326745,
+  "lastUpdate": 1793627680097,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4fba586ff870438250674e5787c1a58204117bd3",
-          "message": "frame-omni-bencher: better diagnostic on insufficient data points (#11510)\n\nWhen a benchmark is run with not enough steps and too many points are\nskipped then it can make the analysis panic. This PR improves the panic\nmessage and gives precise information about which benchmark is at fault.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-16T20:43:45Z",
-          "tree_id": "0cf7271908e8f3aa3deeeb5c8643ef2938363fcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fba586ff870438250674e5787c1a58204117bd3"
-        },
-        "date": 1776377481345,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025515572653333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1404521538066667,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007337788033333332,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00983833323999998,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010335105946666645,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cc5d217cc61241ce97d5921c04eab97bb27be916",
+          "message": "sc-tracing: keep events without the filtered field when the filter is empty (#13666)\n\nFixes #13595.\n\nSupersedes #13597, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nThe RPC docs say that an empty filter does not remove events. But\n`state_traceBlock` removes each event that does not have the filtered\nfield, also when the filter is empty. Because of this, a trace does not\nshow prefix deletions (`ClearPrefix`) or storage root calculations\n(`StorageRoot`).\n\nThis PR keeps all events when the filter is empty. Filters that are not\nempty work as before.\n\nResults on the first block of a parachain template dev chain:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace with empty filters | 236 events, no `ClearPrefix` or\n`StorageRoot` | 239 events, with `ClearPrefix`, `StorageRoot` and `Call`\n|\n| Trace with method filter `ClearPrefix` | 0 events | 1 event |\n| Trace with method filter `Put` | 103 events | 103 events |\n\n## Integration\n\nThere are no API changes. Calls with an empty filter now also return the\nevents that were missing.\n\nOne of these events is the `Call` event for `Core_execute_block`. This\nevent contains the full encoded block. Because of this, a response with\nan empty key filter is larger by approximately the size of the block.\n\n## How to test\n\nRun the unit tests:\n\n```bash\ncargo test -p sc-tracing\n```\n\nI moved the filter checks into a small helper function, so that I can\ntest them. Four of the new tests fail without the fix.\n\nTo test on a node, use the steps in #13595 with a node built from this\nbranch.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T12:14:20Z",
+          "tree_id": "a8a40ad4fe460a25582e8e9182227f4cd1695dd2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc5d217cc61241ce97d5921c04eab97bb27be916"
+        },
+        "date": 1793627646551,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.01019727975333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007594658940000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1460174804466667,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025153765559999996,
             "unit": "seconds"
           }
         ]
