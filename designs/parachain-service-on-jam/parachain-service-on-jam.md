@@ -797,7 +797,7 @@ Accumulate:
 | 202 | `send_upward_message(msg: UpwardMessage)` | `()` | Append one upward message to `ParachainWorkDigest.upward_messages`. Aborts Refine with `Err(RefineLog::UpwardMessagesTooLarge)` if the message would carry the encoded upward messages past the parachain's fixed **40 KiB** budget. Individual variants carry further requirements, documented on the variant. Panics if `msg` fails to decode. |
 | 203 | `report_error(data: BoundedVec<u8, 1024>)` | `!` | Abort the validation code, failing Refine with `RefineLog::Opaque(data)`. Any bytes beyond 1024 are truncated. Never returns. This is the only way validation code records a reason for its failure. See §4.2. |
 | 204 | `set_messages_streams_root(root: StreamsRoot)` | `()` | Declare the `StreamsRoot` this parachain block publishes. Forwarded to Accumulate as `ParachainWorkDigest.messages_streams_root` and pushed into the parachain's settlement ring on enactment (§5.1 step 6). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. |
-| 205 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from (§8). The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders settlement rings before enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. |
+| 205 | `set_messages_requires_roots(entries: Vec<(ParaId, StreamsRoot)>)` | `()` | Declare the senders this parachain block consumed messages from (§8). The entries are forwarded as `ParachainWorkDigest.messages_requires_roots` and checked against the senders' settlement rings before enactment (§5.1 step 5). A second call aborts Refine with `Err(RefineLog::MessagesCallRepeated)`. More than `MAX_REQUIRES_SOURCES` entries, a repeated `ParaId`, or the candidate's own `para_id` aborts with `Err(RefineLog::MessagesInvalidRequires)`. |
 
 `UpwardMessage` is part of the parachain-visible ABI. Its SCALE encoding is
 stable, so a message's `encoded_size()` is computable inside the validation code. The 40 KiB
@@ -1761,7 +1761,7 @@ via a `set_messages_streams_root` host call. The receiver parachain declares one
 
 The parachain service is responsible only for settling these roots. To achieve this, it maintains
 a settlement ring for every parachain which holds its 64 (`MAX_SETTLEMENT_RING_CAPACITY`) most
-recently inserted distinct `StreamsRoot`. Reinserting a root in the ring doesn't change its
+recently inserted distinct `StreamsRoot`s. Reinserting a root in the ring doesn't change its
 eviction order. The receiver block enacts only if every declared consumed root is in the
 sender's ring.
 
