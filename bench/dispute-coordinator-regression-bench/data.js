@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793476661409,
+  "lastUpdate": 1793616670293,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "baaaa925927eaf4a488f33ac1f1ecd6bacd24db3",
-          "message": "asset-conversion-precompiles expose pool management (#11690)\n\nAdd createPool, addLiquidity, and removeLiquidity functions to the\nasset-conversion precompile, enabling EVM contracts to manage liquidity\npools directly. Also refactors common helpers (caller lookup, path\nvalidation) for reuse across swap and liquidity operations.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-15T14:06:01Z",
-          "tree_id": "1f147cb91b909822a1d2d6bd229ba65fcdc42d62",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/baaaa925927eaf4a488f33ac1f1ecd6bacd24db3"
-        },
-        "date": 1776267012602,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.01054268376999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002702892820000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009477859649999993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025061607099999992,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "0@mcornholio.ru",
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ed48cc3b2117b4256711a4ba0ddaaa98794541f",
+          "message": "License scanner node.js upgrade (#7713)\n\nFollowing https://github.com/paritytech/license-scanner/issues/61, this\nupdates node.js for license-scanner. The scanner itself is not pinned,\nso it should already be using the newly published version.\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2026-11-02T09:16:15Z",
+          "tree_id": "95af26a77945a83f954940903f5801a0ead0bd51",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ed48cc3b2117b4256711a4ba0ddaaa98794541f"
+        },
+        "date": 1793616637521,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010627368109999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025042269800000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009402328649999982,
             "unit": "seconds"
           }
         ]
