@@ -846,7 +846,7 @@ impl<T: Config> Pallet<T> {
 	/// event is emitted. An account listed more than once is credited for every entry.
 	/// [`ServiceKind::RelayConsensus`] is refused: those points arrive with the relay
 	/// chain session report.
-	pub fn reward_service_points(
+	pub(crate) fn reward_service_points(
 		service: ServiceKind,
 		points: impl IntoIterator<Item = (T::AccountId, RewardPoint)>,
 	) {
