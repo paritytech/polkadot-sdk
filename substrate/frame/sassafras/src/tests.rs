@@ -893,7 +893,7 @@ fn authorize_submit_tickets_works() {
 			.expect("submit_tickets declares an authorize callback; qed")
 			.expect("slot 2 is in the first epoch half; qed");
 
-		assert_eq!(validity.priority, TransactionPriority::max_value());
+		assert_eq!(validity.priority, TransactionPriority::MAX);
 		// Discarded once the first epoch half is over: `EPOCH_LENGTH / 2 - slot_index`.
 		assert_eq!(validity.longevity, 3);
 		assert_eq!(validity.provides, vec![expected_tag]);
