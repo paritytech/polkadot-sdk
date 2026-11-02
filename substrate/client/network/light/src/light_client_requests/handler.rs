@@ -28,7 +28,7 @@
 use crate::schema;
 use codec::{self, Decode, Encode};
 use futures::{channel::oneshot, prelude::*};
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use prometheus_endpoint::{
 	exponential_buckets, register, CounterVec, HistogramOpts, HistogramVec, Opts, PrometheusError,
 	Registry, U64,
@@ -170,14 +170,21 @@ where
 			};
 
 			let job = Job { peer, request, pending_response, queued_at: Instant::now() };
-			if let Err(e) = queue.try_send(job) {
-				// Reject right away instead of letting the peer wait for its request timeout.
-				if let Some(metrics) = &self.processor.metrics {
-					metrics.rejected.with_label_values(&[kind.label()]).inc();
-				}
-				let Job { peer, pending_response, .. } = e.into_inner();
-				send_response(peer, pending_response, Err(HandleRequestError::Overloaded(kind)));
-			}
+			// Reject right away instead of letting the peer wait for its request timeout.
+			let (Job { peer, pending_response, .. }, error) = match queue.try_send(job) {
+				Ok(()) => continue,
+				Err(async_channel::TrySendError::Full(job)) => {
+					if let Some(metrics) = &self.processor.metrics {
+						metrics.rejected.with_label_values(&[kind.label()]).inc();
+					}
+					(job, HandleRequestError::Overloaded(kind))
+				},
+				Err(async_channel::TrySendError::Closed(job)) => {
+					error!(target: LOG_TARGET, "All {} request workers have exited.", kind.label());
+					(job, HandleRequestError::NoWorkers(kind))
+				},
+			};
+			send_response(peer, pending_response, Err(error));
 		}
 	}
 }
@@ -272,6 +279,7 @@ struct Metrics {
 	queue_wait: HistogramVec,
 	execution: HistogramVec,
 	rejected: CounterVec<U64>,
+	abandoned: CounterVec<U64>,
 }
 
 impl Metrics {
@@ -304,6 +312,16 @@ impl Metrics {
 					Opts::new(
 						"substrate_light_request_rejected_total",
 						"Light client requests rejected because their queue was full",
+					),
+					&["kind"],
+				)?,
+				registry,
+			)?,
+			abandoned: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_light_request_abandoned_total",
+						"Queued light client requests skipped because the peer stopped waiting",
 					),
 					&["kind"],
 				)?,
@@ -342,6 +360,14 @@ where
 	/// Worker loop. Handling a request blocks, so this must run as a blocking task.
 	async fn serve(self, kind: RequestKind, jobs: async_channel::Receiver<Job>) {
 		while let Ok(Job { peer, request, pending_response, queued_at }) = jobs.recv().await {
+			if pending_response.is_canceled() {
+				trace!(target: LOG_TARGET, "Skipping light client request abandoned by {}.", peer);
+				if let Some(metrics) = &self.metrics {
+					metrics.abandoned.with_label_values(&[kind.label()]).inc();
+				}
+				continue;
+			}
+
 			let started = Instant::now();
 			let result = self.handle_request(&peer, &request);
 
@@ -518,6 +544,9 @@ enum HandleRequestError {
 	/// The queue of requests of this kind is full.
 	#[error("{} request queue is full.", .0.label())]
 	Overloaded(RequestKind),
+	/// All workers serving requests of this kind have exited.
+	#[error("no {} request workers.", .0.label())]
+	NoWorkers(RequestKind),
 	/// A bad request has been received.
 	#[error("bad request: {0}")]
 	BadRequest(&'static str),
@@ -565,7 +594,8 @@ mod tests {
 
 	fn read_request(block: Vec<u8>) -> schema::v1::light::request::Request {
 		schema::v1::light::request::Request::RemoteReadRequest(
-			schema::v1::light::RemoteReadRequest { block, keys: vec![b":code".to_vec()] },
+			// An absent key keeps the proof small.
+			schema::v1::light::RemoteReadRequest { block, keys: vec![b"absent".to_vec()] },
 		)
 	}
 
@@ -663,7 +693,7 @@ mod tests {
 
 	#[test]
 	fn read_is_not_queued_behind_call() {
-		let timeout = Duration::from_secs(2);
+		let timeout = Duration::from_secs(5);
 		let handler = TestHandler::start(timeout, 1);
 
 		let call = handler.call("TestAPI_spin");
@@ -682,7 +712,7 @@ mod tests {
 
 	#[test]
 	fn calls_are_executed_in_parallel() {
-		let timeout = Duration::from_secs(1);
+		let timeout = Duration::from_secs(2);
 		let handler = TestHandler::start(timeout, 2);
 		// Wait for the background runtime compilation, so it isn't counted below.
 		wait(handler.call("TestAPI_get_block_number"));
@@ -695,6 +725,24 @@ mod tests {
 
 		// Executed serially, the calls would take at least `2 * timeout`.
 		assert!(started.elapsed() < 2 * timeout);
+	}
+
+	#[test]
+	fn abandoned_call_is_skipped() {
+		let timeout = Duration::from_secs(2);
+		let handler = TestHandler::start(timeout, 1);
+		// Wait for the background runtime compilation, so it isn't counted below.
+		wait(handler.call("TestAPI_get_block_number"));
+
+		let started = Instant::now();
+		let busy = handler.call("TestAPI_spin");
+		// Queued behind `busy`, and abandoned before the worker gets to it.
+		drop(handler.call("TestAPI_spin"));
+		wait(handler.call("TestAPI_get_block_number"));
+
+		// Executing the abandoned call would take at least `2 * timeout`.
+		assert!(started.elapsed() < 2 * timeout);
+		wait(busy);
 	}
 
 	#[test]

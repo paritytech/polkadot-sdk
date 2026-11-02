@@ -147,12 +147,13 @@ impl TestNetworkBuilder {
 			}
 		}
 
+		let executor = sp_core::testing::TaskExecutor::new();
 		let mut import_queue =
 			self.import_queue.unwrap_or(Box::new(sc_consensus::BasicQueue::new(
 				PassThroughVerifier(false),
 				Box::new(client.clone()),
 				None,
-				&sp_core::testing::TaskExecutor::new(),
+				&executor,
 				None,
 			)));
 
@@ -193,7 +194,7 @@ impl TestNetworkBuilder {
 						substrate_test_runtime_client::runtime::Hash,
 					>,
 				>(&protocol_id, None, client.clone(), None, NonZeroUsize::MIN, None);
-			tokio::spawn(handler.run(crate::TokioSpawner).boxed());
+			tokio::spawn(handler.run(executor).boxed());
 			protocol_config
 		};
 

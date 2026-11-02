@@ -25,7 +25,7 @@ use sc_network::{
 	config::{
 		default_light_request_call_workers, NetworkConfiguration, NodeKeyConfig,
 		NonReservedPeerMode, SetConfig, TransportConfig, DEFAULT_IDLE_CONNECTION_TIMEOUT,
-		DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT,
+		DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT, MAX_LIGHT_REQUEST_CALL_WORKERS,
 	},
 	multiaddr::Protocol,
 };
@@ -200,8 +200,8 @@ pub struct NetworkParams {
 
 	/// Number of light-client call requests executed in parallel.
 	///
-	/// Defaults to half the available CPU cores, at most 4.
-	#[arg(long, value_name = "COUNT")]
+	/// Defaults to half the available CPU cores, at most 4. Can be set to at most 64.
+	#[arg(long, value_name = "COUNT", value_parser = parse_light_request_call_workers)]
 	pub light_request_call_workers: Option<NonZeroUsize>,
 
 	/// Blockchain syncing mode.
@@ -374,6 +374,14 @@ impl NetworkParams {
 	}
 }
 
+fn parse_light_request_call_workers(s: &str) -> Result<NonZeroUsize, String> {
+	let workers: NonZeroUsize = s.parse().map_err(|e| format!("{e}"))?;
+	if workers.get() > MAX_LIGHT_REQUEST_CALL_WORKERS {
+		return Err(format!("must be at most {MAX_LIGHT_REQUEST_CALL_WORKERS}"));
+	}
+	Ok(workers)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -423,5 +431,17 @@ mod tests {
 		let params = Cli::try_parse_from(["", "--sync", "wArP"]).expect("Parses network params");
 
 		assert_eq!(SyncMode::Warp, params.network_params.sync);
+	}
+
+	#[test]
+	fn light_request_call_workers_is_bounded() {
+		let parse = |workers: &str| {
+			Cli::try_parse_from(["", "--light-request-call-workers", workers])
+				.map(|cli| cli.network_params.light_request_call_workers)
+		};
+
+		assert_eq!(parse("64").unwrap(), NonZeroUsize::new(64));
+		assert!(parse("65").is_err());
+		assert!(parse("0").is_err());
 	}
 }

@@ -91,7 +91,7 @@ use sp_consensus::{
 	block_validation::{BlockAnnounceValidator, DefaultBlockAnnounceValidator},
 	BlockOrigin, Error as ConsensusError, SyncOracle,
 };
-use sp_core::{traits::SpawnNamed, H256};
+use sp_core::{testing::TaskExecutor, H256};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	generic::BlockId,
@@ -104,30 +104,6 @@ pub use substrate_test_runtime_client::{
 	TestClient, TestClientBuilder, TestClientBuilderExt,
 };
 use tokio::time::timeout;
-
-/// Spawns tasks on the current tokio runtime.
-#[derive(Clone)]
-pub(crate) struct TokioSpawner;
-
-impl SpawnNamed for TokioSpawner {
-	fn spawn_blocking(
-		&self,
-		_name: &'static str,
-		_group: Option<&'static str>,
-		future: BoxFuture<'static, ()>,
-	) {
-		tokio::task::spawn_blocking(move || futures::executor::block_on(future));
-	}
-
-	fn spawn(
-		&self,
-		_name: &'static str,
-		_group: Option<&'static str>,
-		future: BoxFuture<'static, ()>,
-	) {
-		tokio::spawn(future);
-	}
-}
 
 /// A Verifier that accepts all blocks and passes them on with the configured
 /// finality to be imported.
@@ -883,11 +859,12 @@ pub trait TestNetFactory: Default + Sized + Send {
 
 		let justification_import =
 			if config.disable_justification_import { None } else { justification_import };
+		let executor = TaskExecutor::new();
 		let import_queue = Box::new(BasicQueue::new(
 			verifier.clone(),
 			Box::new(block_import.clone()),
 			justification_import,
-			&sp_core::testing::TaskExecutor::new(),
+			&executor,
 			None,
 		));
 
@@ -967,7 +944,7 @@ pub trait TestNetFactory: Default + Sized + Send {
 				NonZeroUsize::MIN,
 				None,
 			);
-			self.spawn_task(handler.run(TokioSpawner).boxed());
+			self.spawn_task(handler.run(executor).boxed());
 			protocol_config
 		};
 

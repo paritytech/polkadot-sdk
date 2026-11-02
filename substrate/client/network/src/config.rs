@@ -101,8 +101,11 @@ pub const DEFAULT_LIGHT_REQUEST_EXECUTION_TIMEOUT: Duration = Duration::from_sec
 /// at most 4.
 pub fn default_light_request_call_workers() -> NonZeroUsize {
 	let cpus = std::thread::available_parallelism().map_or(1, NonZeroUsize::get);
-	NonZeroUsize::new((cpus / 2).clamp(1, 4)).unwrap_or(NonZeroUsize::MIN)
+	NonZeroUsize::new((cpus / 2).clamp(1, 4)).expect("clamped to at least 1; qed")
 }
+
+/// Upper bound of the `--light-request-call-workers` parameter.
+pub const MAX_LIGHT_REQUEST_CALL_WORKERS: usize = 64;
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
