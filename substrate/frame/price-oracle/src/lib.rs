@@ -83,7 +83,8 @@ pub struct Vote<Id> {
 pub struct Parameters {
 	/// Reports anchored more than this many blocks ago are ignored.
 	pub report_window: u32,
-	/// Minimum number of signers voting on a pair for it to have a price.
+	/// Minimum number of live votes, one per signer, for a pair to have a price. A vote is live
+	/// for `report_window` blocks.
 	pub quorum: u32,
 	/// Time between two ticks of an oracle node, in milliseconds.
 	pub tick_interval_ms: u32,
