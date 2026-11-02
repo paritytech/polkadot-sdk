@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793627630557,
+  "lastUpdate": 1793635871777,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a9ffa03ac6738da49622d81a64a1bb4809911464",
-          "message": "Add token transfers via XCM to DAP from the satellites (#11434)\n\nPR https://github.com/paritytech/polkadot-sdk/pull/10597 introduces the\nDAP satellite for gathering funds on every system parachain. This PR\nadds the periodic transfer of the gathered funds to the central DAP on\nAH. A minimum balance is expected for a transfer to take place. Both the\nperiod (in blocks) and the minimum balance are configurable.\n\nClose #10596.\n\nChanges:\n- Inside `pallet-dap-satellite`, on every `on_idle`, a transfer is\nattempted if (1) sufficient funds have been gathered in the satellite's\naccount and (2) a number of blocks have elapsed since the last transfer\nattempt\n- The transfer is an XCM teleport, which handles the burning of funds at\nthe source and the minting at the destination; if a transfer fails, the\nburnt funds are re-minted at the source to maintain consistency\n- The interval of the transfers is not affected by a single transfer's\nsuccess or failure\n- The DAP pallet gets a dedicated *staging* account, where all funds get\ndeposited (including those previously deposited into the main DAP\naccount); on every `on_idle`, all funds are taken from the staging\naccount, deposited into the main DAP account and deactivated. The\nstaging account is pre-funded (with the ED) in the same way as the main\nDAP account.\n\nThis is a continuation of PR\nhttps://github.com/paritytech/polkadot-sdk/pull/11294.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:51:43Z",
-          "tree_id": "e1f94e9ac49161cc4e1577dbea7e5255bafe0413",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9ffa03ac6738da49622d81a64a1bb4809911464"
-        },
-        "date": 1776420769192,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.811041603933333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12122981340000001,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.9683724684,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "abd3ba33f9d2de9958e9a393715302833a391201",
+          "message": "omni-node: use the parachain tracing executor in `--dev` mode (#13665)\n\nFixes #13594.\n\nSupersedes #13596, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nIn `--dev` mode, the omni-node does not set an executor for block\ntracing. Because of this, the node replays blocks without the proof size\nextension.\n\nOn runtimes that use `StorageWeightReclaim`, the replay then gives a\ndifferent storage root. The result is that `state_traceBlock` fails for\neach block that has a signed extrinsic, and `state_callRecorded` is not\navailable.\n\nThis PR makes the dev node use the same tracing executor as the normal\nparachain node.\n\nResults with the parachain template runtime:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace a block with a signed transfer | Error 4001 | 328 events |\n| `state_callRecorded` on that block | Error 4004 | Works |\n| Trace a block with only inherents | 217 events | 217 events |\n\n`state_call` with `Core_execute_block` still fails, because it does not\nuse this executor.\n\n## Integration\n\nNothing to do for downstream projects. The change only affects\n`polkadot-omni-node --dev`.\n\nTracing on a dev node now records a proof. This uses more CPU and memory\nduring tracing.\n\nBlock authoring and import are unchanged.\n\n## How to test\n\nI tested it manually with the steps in #13594, using a node built from\nthis branch with `--features runtime-benchmarks` (the official template\nruntime needs it).\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T13:43:48Z",
+          "tree_id": "77c0a0d253ce1bc80bd9ac04255ea1f3995fa31a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/abd3ba33f9d2de9958e9a393715302833a391201"
+        },
+        "date": 1793635836949,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13242742139999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.730895498366667,
             "unit": "seconds"
           }
         ]
