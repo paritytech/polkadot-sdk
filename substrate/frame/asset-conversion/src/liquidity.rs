@@ -18,7 +18,7 @@
 //! Trait for providing methods to mutate liquidity pools.
 
 use frame_support::{traits::tokens::Balance, transactional};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, Permill};
 
 use crate::{Config, Pallet};
 
@@ -49,6 +49,14 @@ pub trait MutateLiquidity<AccountId> {
 		creator: &AccountId,
 		asset1: Self::AssetKind,
 		asset2: Self::AssetKind,
+	) -> Result<Self::PoolId, DispatchError>;
+
+	/// Like [`MutateLiquidity::create_pool`], but with `fee` as the pool's swap fee.
+	fn create_pool_with_fee(
+		creator: &AccountId,
+		asset1: Self::AssetKind,
+		asset2: Self::AssetKind,
+		fee: Permill,
 	) -> Result<Self::PoolId, DispatchError>;
 
 	/// Adds liquidity to an existing pool.
@@ -92,6 +100,18 @@ impl<T: Config> MutateLiquidity<T::AccountId> for Pallet<T> {
 		asset2: T::AssetKind,
 	) -> Result<T::PoolId, DispatchError> {
 		Self::do_create_pool(creator, asset1, asset2, None)
+	}
+
+	/// Unlike the [`Pallet::create_pool_with_fee`] extrinsic, this does not check
+	/// [`Config::AdminOrigin`]. `fee` is still bounded by [`Config::MaxSwapFee`].
+	#[transactional]
+	fn create_pool_with_fee(
+		creator: &T::AccountId,
+		asset1: T::AssetKind,
+		asset2: T::AssetKind,
+		fee: Permill,
+	) -> Result<T::PoolId, DispatchError> {
+		Self::do_create_pool(creator, asset1, asset2, Some(fee))
 	}
 
 	#[transactional]
