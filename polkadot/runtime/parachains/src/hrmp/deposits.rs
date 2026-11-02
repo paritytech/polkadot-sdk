@@ -27,18 +27,27 @@
 //! [`Config::Currency`], which keeps the behaviour from before the provider existed.
 
 use super::*;
+use frame_support::transactional;
 
 /// Holds HRMP channel deposits.
 ///
 /// A provider either applies a request within the call or accepts it and reports the outcome
 /// later through [`Self::OnDepositSet`]. While a request for one side of a channel is pending, it
 /// refuses another request for that side.
+///
+/// A request whose action is [`DepositAction::Release`] must not fail: the provider always
+/// applies it. It gives back everything the provider holds for each side the request names,
+/// whatever the request says the side holds.
+///
+/// A provider that answers later keeps its own records of what each side holds, and applies the
+/// requests for a side in the order they were made, releases included.
 pub trait ChannelDepositProvider {
 	/// Receives the report of a pending request once it is done.
 	type OnDepositSet: OnDepositSet;
 
 	/// Applies `request`, or accepts it to apply it later. Refuses it with an error, e.g. when
-	/// the funds are short or a request for the same side is still pending.
+	/// the funds are short or a request for the same side is still pending. A refused request
+	/// changes nothing. A [`DepositAction::Release`] is always successfully applied, never pending.
 	fn try_set_deposit(
 		request: DepositChangeRequest,
 	) -> Result<DepositChangeResponse, DispatchError>;
@@ -51,11 +60,27 @@ pub trait ChannelDepositProvider {
 /// Receives the outcome of a pending [`DepositChangeRequest`].
 pub trait OnDepositSet {
 	/// Called once `request` is applied, or refused with `Err`.
+	///
+	/// The worst-case weight of this call is [`Self::weight_of_on_deposit_set`].
 	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>);
+
+	/// Worst-case weight of [`Self::on_deposit_set`] for an `action`.
+	fn weight_of_on_deposit_set(action: &DepositAction) -> Weight;
 }
 
 /// Why a provider refused a pending [`DepositChangeRequest`].
-#[derive(Encode, Decode, Clone, Copy, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Clone,
+	Copy,
+	Eq,
+	PartialEq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
+)]
 pub enum DepositError {
 	/// A side cannot cover its deposit.
 	InsufficientFunds,
@@ -106,8 +131,13 @@ pub enum DepositAction {
 	/// Record the open channel request of [`Pallet::init_open_channel`]. The request is only
 	/// recorded once the sender's deposit is taken, so the limits it was asked with travel here.
 	InitOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
-	/// Confirm the open channel request of [`Pallet::accept_open_channel`].
-	AcceptOpenChannel,
+	/// Record and accept the open channel request of [`Pallet::init_and_accept_open_channel`] once
+	/// both deposits are taken, so that it is opened whole or not at all.
+	InitAndAcceptOpenChannel { max_capacity: u32, max_message_size: u32, max_total_size: u32 },
+	/// Confirm the open channel request of [`Pallet::accept_open_channel`]. The request may be
+	/// canceled and made anew before the recipient's deposit is taken, so the limits it was
+	/// accepted with travel here: only a request with the same ones is confirmed.
+	AcceptOpenChannel { max_capacity: u32, max_message_size: u32 },
 	/// Record the deposits of [`Pallet::poke_channel_deposits`].
 	PokeChannelDeposits,
 	/// Deposits given back after their request or channel is already removed. Nothing to resume.
@@ -119,6 +149,8 @@ pub enum DepositAction {
 impl<T: Config> ChannelDepositProvider for Pallet<T> {
 	type OnDepositSet = Self;
 
+	// The recipient's side may fail after the sender's is changed.
+	#[transactional]
 	fn try_set_deposit(
 		request: DepositChangeRequest,
 	) -> Result<DepositChangeResponse, DispatchError> {
@@ -143,21 +175,52 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 
 impl<T: Config> OnDepositSet for Pallet<T> {
 	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) {
-		match result {
-			Ok(()) => Self::resume(&request),
-			// TODO(ahm-v2): emit an event (later on hrmp_relay) so the para learns its deposit was
-			// refused.
-			Err(e) => {
-				log::warn!(target: LOG_TARGET, "deposit refused: {e:?}, request: {request:?}")
-			},
+		let channel_id = request.channel_id.clone();
+		if let Err(error) = result {
+			Self::deposit_event(Event::DepositRefused { channel_id, error });
+			return;
 		}
-		// TODO(ahm-v2): the report arrives through xcm message so the weight of resuming is
-		// registered here: per action, the weight of the call it belongs to. Zero for now as no
-		// async provider.
-		frame_system::Pallet::<T>::register_extra_weight_unchecked(
-			Weight::zero(),
-			DispatchClass::Normal,
-		);
+
+		// The state may have changed since the request was made. A failed check leaves nothing
+		// behind, so only what was just taken needs giving back.
+		if let Err(error) = Self::resume(&request) {
+			let (sender, recipient) = Self::recorded_deposits(&channel_id);
+			// Defensively check that the recorded deposits are 0, before giving back.
+			let give_back = |change: Option<DepositChange>, recorded: Balance, side: &str| {
+				let change = change?;
+				if recorded != 0 {
+					frame_support::defensive!("a failed resume left a deposit recorded", side);
+					return None;
+				}
+				Some(change.target)
+			};
+			Self::release_deposits(
+				&channel_id,
+				give_back(request.sender, sender, "sender"),
+				give_back(request.recipient, recipient, "recipient"),
+			);
+			Self::deposit_event(Event::DepositReturned { channel_id, error });
+		}
+	}
+
+	/// The action's call, then giving back what was taken if its checks no longer pass.
+	fn weight_of_on_deposit_set(action: &DepositAction) -> Weight {
+		let resume = match action {
+			DepositAction::InitOpenChannel { .. } => {
+				<T as Config>::WeightInfo::hrmp_init_open_channel()
+			},
+			DepositAction::InitAndAcceptOpenChannel { .. } => {
+				<T as Config>::WeightInfo::force_open_hrmp_channel(0)
+			},
+			DepositAction::AcceptOpenChannel { .. } => {
+				<T as Config>::WeightInfo::hrmp_accept_open_channel()
+			},
+			DepositAction::PokeChannelDeposits => {
+				<T as Config>::WeightInfo::poke_channel_deposits()
+			},
+			DepositAction::Release => Weight::zero(),
+		};
+		resume.saturating_add(T::DepositProvider::weight_of_try_set_deposit())
 	}
 }
 
@@ -174,22 +237,43 @@ impl<T: Config> Pallet<T> {
 		(config.hrmp_sender_deposit, config.hrmp_recipient_deposit)
 	}
 
+	/// What this pallet records as deposited by the sender and the recipient of `channel_id`: the
+	/// deposits of its channel or of its open request, or none. A confirmed request's recipient
+	/// deposit is the price of the current session, the one it was confirmed in.
+	fn recorded_deposits(channel_id: &HrmpChannelId) -> (Balance, Balance) {
+		if let Some(channel) = HrmpChannels::<T>::get(channel_id) {
+			return (channel.sender_deposit, channel.recipient_deposit);
+		}
+		match HrmpOpenChannelRequests::<T>::get(channel_id) {
+			Some(req) if req.confirmed => {
+				let config = configuration::ActiveConfig::<T>::get();
+				(req.sender_deposit, Self::required_deposits(channel_id, &config).1)
+			},
+			Some(req) => (req.sender_deposit, 0),
+			None => (0, 0),
+		}
+	}
+
 	/// Sends `request` to [`Config::DepositProvider`] and resumes its action if the provider
 	/// applied it right away. A pending request resumes in [`OnDepositSet::on_deposit_set`]
-	/// instead. Fails only if the provider refuses the request right away.
+	/// instead.
+	///
+	/// Fails if the provider refuses the request right away, or if the action fails when it
+	/// resumes right away.
+	///
+	/// A release request is always successful.
+	#[transactional]
 	pub(super) fn set_deposit(request: DepositChangeRequest) -> DispatchResult {
 		// Nothing to change, e.g. on a channel with the system, needs no provider.
 		let unchanged =
 			|change: Option<DepositChange>| change.is_none_or(|c| c.current == c.target);
 		if unchanged(request.sender) && unchanged(request.recipient) {
-			Self::resume(&request);
-			return Ok(());
+			return Self::resume(&request);
 		}
 		match T::DepositProvider::try_set_deposit(request.clone())? {
 			DepositChangeResponse::Applied => Self::resume(&request),
-			DepositChangeResponse::Pending => {},
+			DepositChangeResponse::Pending => Ok(()),
 		}
-		Ok(())
 	}
 
 	/// Gives back the deposits of `channel_id`: `sender` and `recipient` are what each side holds
@@ -207,16 +291,32 @@ impl<T: Config> Pallet<T> {
 			action: DepositAction::Release,
 		};
 		if let Err(e) = Self::set_deposit(request.clone()) {
-			// TODO(ahm-v2): emit an event (later on hrmp_relay) if release fails.
-			log::error!(target: LOG_TARGET, "giving back deposits failed: {e:?}, request: {request:?}");
+			// A release request is always successful, per `set_deposit` doc.
+			frame_support::defensive!("giving back deposits failed", (e, &request));
 		}
 	}
 
-	/// Resumes the action of `request` now that its deposits are updated.
-	fn resume(request: &DepositChangeRequest) {
+	/// Resumes the action of `request` now that its deposits are updated. Its checks run again,
+	/// since a pending request may come back after the state has changed.
+	///
+	/// Writes nothing if it fails: every check runs before the first write.
+	///
+	/// A release request always succeeds.
+	#[transactional] // checks are run first but kept as a safeguard.
+	fn resume(request: &DepositChangeRequest) -> DispatchResult {
 		let channel_id = &request.channel_id;
 		match request.action {
+			// Meanwhile a request may have been made, and a channel opened, with a 0 deposit, e.g.
+			// if the price dropped to 0. (With a non-zero deposit, the deposit provider blocks it:
+			// only one request per side can be pending at a time.) The paras may also have been
+			// offboarded, and the conditions to open a channel may have changed.
+			// So we check the conditions to open a channel again.
+			//
+			// On failure, this pallet storage has no or 0-deposit for the sender so caller gives
+			// back the taken deposit.
 			DepositAction::InitOpenChannel { max_capacity, max_message_size, max_total_size } => {
+				let config = configuration::ActiveConfig::<T>::get();
+				Self::check_init_open_channel(channel_id, max_capacity, max_message_size, &config)?;
 				// Always set by `init_open_channel`.
 				let sender_deposit = request.sender.map(|c| c.target).unwrap_or_default();
 				Self::finish_init_open_channel(
@@ -226,12 +326,89 @@ impl<T: Config> Pallet<T> {
 					max_message_size,
 					max_total_size,
 				);
+				Ok(())
 			},
-			DepositAction::AcceptOpenChannel => Self::finish_accept_open_channel(channel_id),
+			// Same as `InitOpenChannel`, for both sides. But we also check the recipient's deposit
+			// has not changed, as the request does not record it and the channel is opened at the
+			// current price.
+			DepositAction::InitAndAcceptOpenChannel {
+				max_capacity,
+				max_message_size,
+				max_total_size,
+			} => {
+				let config = configuration::ActiveConfig::<T>::get();
+				Self::check_init_open_channel(channel_id, max_capacity, max_message_size, &config)?;
+				Self::check_accept_limit(channel_id.recipient, &config)?;
+				Self::check_recipient_deposit(request, &config)?;
+				// Always set by `init_and_accept_open_channel`.
+				let sender_deposit = request.sender.map(|c| c.target).unwrap_or_default();
+				Self::finish_init_open_channel(
+					channel_id,
+					sender_deposit,
+					max_capacity,
+					max_message_size,
+					max_total_size,
+				);
+				Self::finish_accept_open_channel(channel_id);
+				let HrmpChannelId { sender, recipient } = *channel_id;
+				Self::deposit_event(Event::HrmpChannelForceOpened {
+					sender,
+					recipient,
+					proposed_max_capacity: max_capacity,
+					proposed_max_message_size: max_message_size,
+				});
+				Ok(())
+			},
+			// Meanwhile the request may have been canceled, removed with an offboarded para, or
+			// made anew with other limits: these only touch the sender's side. It may also have
+			// been confirmed with a 0 deposit, e.g. if the price dropped to 0, and opened. (With a
+			// non-zero deposit, the deposit provider blocks it.) And the price may have changed.
+			// So we check the conditions to accept the request again, that it is the same request,
+			// and that the deposit taken is still the price.
+			//
+			// On failure, this pallet storage has no or 0-deposit for the recipient so caller gives
+			// back the taken deposit.
+			DepositAction::AcceptOpenChannel { max_capacity, max_message_size } => {
+				let config = configuration::ActiveConfig::<T>::get();
+				let channel_req = Self::check_accept_open_channel(channel_id, &config)?;
+				// The request may have been canceled and made anew with other limits meanwhile.
+				ensure!(
+					(channel_req.max_capacity, channel_req.max_message_size) ==
+						(max_capacity, max_message_size),
+					Error::<T>::AcceptHrmpChannelRequestChanged
+				);
+				Self::check_recipient_deposit(request, &config)?;
+				Self::finish_accept_open_channel(channel_id);
+				Ok(())
+			},
+			// Meanwhile the channel may have been closed, which gave back what it recorded (applied
+			// by the deposit provider after this poke), and re-opened with 0 deposits. (With
+			// non-zero deposits, the deposit provider blocks it.)
+			// So we check that the channel still records the deposits the poke set out from.
+			//
+			// On failure, this pallet storage has no or 0-deposits, given it can only happen after
+			// deposit price changed. The caller gives back the taken deposits.
 			DepositAction::PokeChannelDeposits => {
 				Self::finish_poke_channel_deposits(channel_id, request.sender, request.recipient)
 			},
-			DepositAction::Release => {},
+			// Never pending, nothing to resume.
+			DepositAction::Release => Ok(()),
 		}
+	}
+
+	/// Whether the recipient's deposit taken by `request` is still the price in `config`.
+	///
+	/// The channel does not record the deposit its recipient paid: it is opened at the session
+	/// change with the price of `config`, which cannot change before then. But a pending request
+	/// may come back after a session change, with a deposit taken at an older price. This is not
+	/// expected often, as the price rarely changes.
+	fn check_recipient_deposit(
+		request: &DepositChangeRequest,
+		config: &HostConfiguration<BlockNumberFor<T>>,
+	) -> DispatchResult {
+		let taken = request.recipient.map(|c| c.target).unwrap_or_default();
+		let (_, price) = Self::required_deposits(&request.channel_id, config);
+		ensure!(taken == price, Error::<T>::AcceptHrmpChannelDepositChanged);
+		Ok(())
 	}
 }

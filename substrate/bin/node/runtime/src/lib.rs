@@ -2687,6 +2687,30 @@ parameter_types! {
 		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::ParaIdReservation);
 	pub const RegistrationHoldReason: RuntimeHoldReason =
 		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::Registration);
+	// No parachain-system here, so a fixed stand-in for the relay chain's host configuration.
+	pub storage RegistrarHostConfig: Option<polkadot_primitives::AbridgedHostConfiguration> =
+		Some(polkadot_primitives::AbridgedHostConfiguration {
+			max_code_size: 3 * 1024 * 1024,
+			max_head_data_size: 1024 * 1024,
+			max_upward_queue_count: 0,
+			max_upward_queue_size: 0,
+			max_upward_message_size: 0,
+			max_upward_message_num_per_candidate: 0,
+			hrmp_max_message_num_per_candidate: 0,
+			validation_upgrade_cooldown: 0,
+			validation_upgrade_delay: 0,
+			async_backing_params: polkadot_primitives::AsyncBackingParams {
+				allowed_ancestry_len: 0,
+				max_candidate_depth: 0,
+			},
+		});
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_registrar_para::BenchmarkHelper for RegistrarHostConfig {
+	fn set_host_configuration(config: polkadot_primitives::AbridgedHostConfiguration) {
+		RegistrarHostConfig::set(&Some(config));
+	}
 }
 
 impl pallet_registrar_para::Config for Runtime {
@@ -2705,13 +2729,15 @@ impl pallet_registrar_para::Config for Runtime {
 	type SendToRelay = DiscardRegistrarMessages;
 	type RelayOrigin = EnsureRoot<AccountId>;
 	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<2000>;
 	type MinCodeSize = ConstU32<9>;
-	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
-	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type HostConfiguration = RegistrarHostConfig;
 	type PendingDeadline = ConstU32<600>;
 	type BlockNumberProvider = System;
 	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = RegistrarHostConfig;
 }
 
 /// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
