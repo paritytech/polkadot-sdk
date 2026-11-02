@@ -108,25 +108,40 @@ impl<P: BlockNumberProvider> AnchorProvider for P {
 	}
 }
 
-/// Which parts of the pallet are paused.
+/// What is paused.
 #[derive(
 	Clone,
 	Copy,
 	PartialEq,
 	Eq,
 	Debug,
-	Default,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 )]
-pub struct Pause {
-	/// Reports are ignored. Votes and prices do not change.
-	pub processing: bool,
-	/// Prices are neither exposed to consumers nor announced through [`OnPriceUpdate`].
-	pub publishing: bool,
+pub enum Pause {
+	/// Nothing is processed or published.
+	Full,
+	/// Prices are computed, but neither exposed to consumers nor announced through
+	/// [`OnPriceUpdate`].
+	Publishing,
+	/// Reports are ignored, so votes and prices do not change. Consumers keep reading the last
+	/// prices.
+	Processing,
+}
+
+impl Pause {
+	/// Whether reports are ignored.
+	pub fn stops_processing(&self) -> bool {
+		matches!(self, Pause::Full | Pause::Processing)
+	}
+
+	/// Whether prices are withheld from consumers.
+	pub fn stops_publishing(&self) -> bool {
+		matches!(self, Pause::Full | Pause::Publishing)
+	}
 }
 
 /// Called when the on-chain price of a pair changes.
@@ -209,9 +224,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Params<T: Config> = StorageValue<_, Parameters, OptionQuery>;
 
-	/// Which parts of the pallet are paused, set by [`Config::AdminOrigin`].
+	/// What is paused, set by [`Config::AdminOrigin`]. Nothing is paused while unset.
 	#[pallet::storage]
-	pub type Paused<T: Config> = StorageValue<_, Pause, ValueQuery>;
+	pub type Paused<T: Config> = StorageValue<_, Pause, OptionQuery>;
 
 	/// Registered pairs, with the number of market votes each needs to be priced.
 	#[pallet::storage]
@@ -251,8 +266,8 @@ pub mod pallet {
 		ReportsProcessed { accepted: u32, rejected: u32 },
 		/// The parameters were set.
 		ParametersSet { params: Parameters },
-		/// The pause flags were set.
-		PauseSet { pause: Pause },
+		/// The pause was set, or lifted if `None`.
+		PauseSet { pause: Option<Pause> },
 		/// A venue was added or updated.
 		VenueSet { id: VenueId },
 		/// A venue was removed.
@@ -318,7 +333,7 @@ pub mod pallet {
 				log::debug!(target: LOG_TARGET, "Parameters unset, ignoring {} reports", reports.len());
 				return Ok(());
 			};
-			if Paused::<T>::get().processing {
+			if Paused::<T>::get().is_some_and(|p| p.stops_processing()) {
 				log::debug!(target: LOG_TARGET, "Processing paused, ignoring {} reports", reports.len());
 				return Ok(());
 			}
@@ -348,12 +363,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set which parts of the pallet are paused.
+		/// Set what is paused. `None` lifts the pause.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_pause())]
-		pub fn set_pause(origin: OriginFor<T>, pause: Pause) -> DispatchResult {
+		pub fn set_pause(origin: OriginFor<T>, pause: Option<Pause>) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Paused::<T>::put(pause);
+			Paused::<T>::set(pause);
 			Self::deposit_event(Event::PauseSet { pause });
 			Ok(())
 		}
@@ -589,7 +604,7 @@ impl<T: Config> PriceProvider for Pallet<T> {
 
 	/// `None` while publishing is paused.
 	fn price(pair: PairId) -> Option<PricePoint<Self::BlockNumber>> {
-		if Paused::<T>::get().publishing {
+		if Paused::<T>::get().is_some_and(|p| p.stops_publishing()) {
 			return None;
 		}
 		Prices::<T>::get(pair)
@@ -667,7 +682,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		let publishing_paused = Paused::<T>::get().publishing;
+		let publishing_paused = Paused::<T>::get().is_some_and(|p| p.stops_publishing());
 		let updated_at = T::BlockNumberProvider::current_block_number();
 
 		for (pair, pair_votes) in votes.iter() {
