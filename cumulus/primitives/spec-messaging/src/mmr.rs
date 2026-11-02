@@ -16,7 +16,7 @@
 
 //! MMR primitives for the Speculative Messaging protocol.
 //!
-//! Hashing is [`SpecHasher`] with domain tags: leaves by [`crate::message::leaf_hash`]
+//! Hashing is [`SpecHasher`] with domain tags: leaves by [`leaf_hash`]
 //! (`LEAF_TAG`), inner nodes by [`SpecMerge::merge`] (`INNER_TAG`), peak bagging by
 //! [`SpecMerge::merge_peaks`] (`PEAK_TAG`). `mmr_lib` calls `merge` for tree nodes and
 //! `merge_peaks` when bagging, so no two roles collide. The stream root binds the leaf count over
@@ -37,7 +37,7 @@ use scale_info::TypeInfo;
 use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
-use crate::{SpecHasher, INNER_TAG, PEAK_TAG, ROOT_TAG};
+use crate::{SpecHasher, INNER_TAG, LEAF_TAG, LEAF_VERSION, PEAK_TAG, ROOT_TAG};
 
 /// Upper bound on any leaf count node positions are derived from; `mmr_lib`'s node count overflows
 /// `u64` above 2^63. Peer-supplied counts are checked against this first.
@@ -85,6 +85,24 @@ fn tagged_node(tag: u8, left: &Hash, right: &Hash) -> Hash {
 	preimage[0] = tag;
 	preimage[1..33].copy_from_slice(left.as_bytes());
 	preimage[33..65].copy_from_slice(right.as_bytes());
+	<SpecHasher as HashT>::hash(&preimage)
+}
+
+/// Hash a payload into a stream MMR leaf at [`LEAF_VERSION`]. Source, stream
+/// and position are structural and not in the preimage.
+pub fn leaf_hash(payload: &[u8]) -> Hash {
+	leaf_hash_with_version(LEAF_VERSION, payload)
+}
+
+/// Hash a payload into a stream MMR leaf at an explicit leaf version.
+///
+/// Versions are hash-disjoint, so only the correct one reproduces a committed root. Used to test
+/// format disjointness across format revisions.
+pub fn leaf_hash_with_version(leaf_version: u8, payload: &[u8]) -> Hash {
+	let mut preimage = Vec::with_capacity(2 + payload.len());
+	preimage.push(LEAF_TAG);
+	preimage.push(leaf_version);
+	preimage.extend_from_slice(payload);
 	<SpecHasher as HashT>::hash(&preimage)
 }
 
@@ -692,5 +710,31 @@ mod tests {
 		assert!(MMRExtensionProof::decode(&mut &at_bound[..]).is_ok());
 		let over = (codec::Compact(5u64), vec![H256::zero(); max + 1]).encode();
 		assert!(MMRExtensionProof::decode(&mut &over[..]).is_err());
+	}
+
+	#[test]
+	fn leaf_hash_is_payload_only_and_version_disjoint() {
+		let payload = b"hello";
+		// Matches the explicit preimage `H(LEAF_TAG ++ version ++ payload)`.
+		let mut pre = Vec::new();
+		pre.push(LEAF_TAG);
+		pre.push(0u8);
+		pre.extend_from_slice(payload);
+		assert_eq!(leaf_hash(payload), <SpecHasher as HashT>::hash(&pre));
+		assert_eq!(leaf_hash(payload), leaf_hash_with_version(0, payload));
+		// Different version → different leaf (hash-disjoint domains).
+		assert_ne!(leaf_hash(payload), leaf_hash_with_version(1, payload));
+	}
+
+	#[test]
+	fn leaf_hash_frozen_vector() {
+		// FROZEN consensus vector: `H(0x01 ‖ 0x00 ‖ "hello")`. Any change to `LEAF_TAG`,
+		// `LEAF_VERSION`, the preimage layout or the hasher breaks this.
+		assert_eq!(
+			leaf_hash(b"hello"),
+			Hash::from(hex_literal::hex!(
+				"cd31917fb8992dae762dbaaf276d8eb65aa89cdfb87daf69e05f8c08b490e78b"
+			))
+		);
 	}
 }

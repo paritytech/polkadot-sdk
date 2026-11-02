@@ -14,13 +14,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Off-chain wire types and their verifier.
+//! The fetch protocol: off-chain wire types and their verifier.
 //!
 //! The relay chain decodes none of this; it only matches the `StreamsRoot` commitments in the UMP
 //! signals. The two ends of the fetch protocol are different chains' collators, so the encodings
 //! and error variant indices are normative for interoperability.
 //!
-//! - [`leaf_hash`] turns a payload into an MMR leaf.
 //! - [`MessagesRequest`] / [`MessagesResponse`] and [`FetchError`] are the single request/response
 //! pair for all off-chain reads: ordered channel consumption, lossy head reads (`start: None`),
 //! range reads, gap leaves and proofs-only lift material (`max_bytes: 0`).
@@ -28,18 +27,17 @@
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use polkadot_core_primitives::Hash;
 use scale_info::TypeInfo;
 use sp_core::ConstU32;
-use sp_runtime::{traits::Hash as HashT, BoundedVec};
+use sp_runtime::BoundedVec;
 
 use crate::{
 	mmr::{
-		MMRExtensionProof, MessagePosition, MmrFrontier, MmrRoot, ProofError, MAX_MMR_LEAF_COUNT,
+		leaf_hash, MMRExtensionProof, MessagePosition, MmrFrontier, MmrRoot, ProofError,
+		MAX_MMR_LEAF_COUNT,
 	},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
-	SpecHasher, LEAF_TAG, LEAF_VERSION,
 };
 
 /// Why verifying a [`MessagesResponse`] failed. [`RootMismatch`](VerifyError::RootMismatch) is
@@ -85,24 +83,6 @@ pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
 /// without this bound one response could carry millions. A consumer fetches the rest under a later
 /// request.
 pub const MAX_MESSAGES_PER_RESPONSE: u32 = 1024;
-
-/// Hash a payload into a stream MMR leaf at [`LEAF_VERSION`]. Source, stream
-/// and position are structural and not in the preimage.
-pub fn leaf_hash(payload: &[u8]) -> Hash {
-	leaf_hash_with_version(LEAF_VERSION, payload)
-}
-
-/// Hash a payload into a stream MMR leaf at an explicit leaf version.
-///
-/// Versions are hash-disjoint, so only the correct one reproduces a committed root. Used to test
-/// format disjointness across format revisions.
-pub fn leaf_hash_with_version(leaf_version: u8, payload: &[u8]) -> Hash {
-	let mut preimage = Vec::with_capacity(2 + payload.len());
-	preimage.push(LEAF_TAG);
-	preimage.push(leaf_version);
-	preimage.extend_from_slice(payload);
-	<SpecHasher as HashT>::hash(&preimage)
-}
 
 /// The fetch protocol's request. Every off-chain read (channel consumption, register and event
 /// head reads, range reads, gap leaves, lift material) uses this request with different parameters.
@@ -289,6 +269,7 @@ mod tests {
 		helper::get_peak_map,
 		util::{MemMMR, MemStore},
 	};
+	use polkadot_core_primitives::Hash;
 	use polkadot_parachain_primitives::primitives::Id as ParaId;
 	use sp_core::H256;
 
@@ -376,32 +357,6 @@ mod tests {
 		let requires = build_requires(&[record], &lifts).unwrap().expect("consumed, so a set");
 		// The fetch and the requires resolve to the SAME committed StreamsRoot.
 		assert_eq!(requires.get(source), Some(&under));
-	}
-
-	#[test]
-	fn leaf_hash_is_payload_only_and_version_disjoint() {
-		let payload = b"hello";
-		// Matches the explicit preimage `H(LEAF_TAG ++ version ++ payload)`.
-		let mut pre = Vec::new();
-		pre.push(LEAF_TAG);
-		pre.push(0u8);
-		pre.extend_from_slice(payload);
-		assert_eq!(leaf_hash(payload), <SpecHasher as HashT>::hash(&pre));
-		assert_eq!(leaf_hash(payload), leaf_hash_with_version(0, payload));
-		// Different version → different leaf (hash-disjoint domains).
-		assert_ne!(leaf_hash(payload), leaf_hash_with_version(1, payload));
-	}
-
-	#[test]
-	fn leaf_hash_frozen_vector() {
-		// FROZEN consensus vector: `H(0x01 ‖ 0x00 ‖ "hello")`. Any change to `LEAF_TAG`,
-		// `LEAF_VERSION`, the preimage layout or the hasher breaks this.
-		assert_eq!(
-			leaf_hash(b"hello"),
-			Hash::from(hex_literal::hex!(
-				"cd31917fb8992dae762dbaaf276d8eb65aa89cdfb87daf69e05f8c08b490e78b"
-			))
-		);
 	}
 
 	/// A response for the whole stream from `frontier = empty` verifies under the committed root.

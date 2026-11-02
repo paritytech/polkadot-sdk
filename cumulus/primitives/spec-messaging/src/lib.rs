@@ -28,9 +28,9 @@
 extern crate alloc;
 
 pub mod channel;
+pub mod fetch;
 pub mod inherent;
 pub mod lift;
-pub mod message;
 pub mod mmr;
 pub mod stream;
 pub mod streams_root;
@@ -44,6 +44,10 @@ pub use channel::{
 	AppliedRegister, BroadcastId, ChannelMessage, InChannelId, InChannelState, OpenSession,
 	OutChannelId, OutChannelState, Register, RegisterStatus, SessionParams,
 };
+pub use fetch::{
+	verify_channel_messages, verify_messages, FetchError, FetchResponse, MessagesRequest,
+	MessagesResponse, VerifyError, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
+};
 pub use inherent::{
 	ConsumedStreams, LossyRead, MessagingInherentData, Payload, INHERENT_IDENTIFIER,
 };
@@ -51,12 +55,10 @@ pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
 	LiftsBySource, RequiresLift, SourceStreams,
 };
-pub use message::{
-	leaf_hash, leaf_hash_with_version, verify_channel_messages, verify_messages, FetchError,
-	FetchResponse, MessagesRequest, MessagesResponse, VerifyError, MAX_MESSAGES_PER_RESPONSE,
-	MAX_SPECULATIVE_MESSAGE_LEN,
+pub use mmr::{
+	leaf_hash, leaf_hash_with_version, FrontierFull, MMRExtensionProof, MessagePosition,
+	MmrFrontier, MmrRoot, ProofError,
 };
-pub use mmr::{FrontierFull, MMRExtensionProof, MessagePosition, MmrFrontier, MmrRoot, ProofError};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
 pub use streams_root::{
 	InnerNode, NodeKey, NodeLookup, NodeStore, StreamProof, StreamsRoot, StreamsTree, TreeChild,
