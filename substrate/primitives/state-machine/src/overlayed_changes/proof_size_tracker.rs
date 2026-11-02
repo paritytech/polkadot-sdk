@@ -295,7 +295,7 @@ impl<K: Debug + Eq + Hash, H: Hasher> ProofSizeTracker<K, H> {
 
 #[cfg(test)]
 mod tests {
-	use super::{DeltaKeyOp, KeyHashBuilder, LOG_TARGET};
+	use super::{DeltaKeyOp, LOG_TARGET};
 	use sp_core::Blake2Hasher;
 	use tracing::debug;
 

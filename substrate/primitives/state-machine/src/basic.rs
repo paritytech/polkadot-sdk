@@ -338,8 +338,8 @@ impl Externalities for BasicExternalities {
 		child_info: &ChildInfo,
 		state_version: StateVersion,
 	) -> Vec<u8> {
-		/// Same as `child_storage_root_with_version`: `BasicExternalities` computes child roots
-		/// from its overlay without writing them back and never caches a root.
+		// Same as `child_storage_root_with_version`: `BasicExternalities` computes child roots
+		// from its overlay without writing them back and never caches a root.
 		self.child_storage_root_with_version(child_info, state_version)
 	}
 
