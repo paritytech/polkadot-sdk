@@ -17,7 +17,7 @@
 //! Helpers to deal with configuring the message queue in the runtime.
 
 use core::marker::PhantomData;
-use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{AggregateMessageOrigin, InChannelId, ParaId};
 use frame_support::traits::{QueueFootprint, QueuePausedQuery};
 use pallet_message_queue::OnQueueChanged;
 
@@ -51,5 +51,16 @@ pub struct ParaIdToSibling;
 impl sp_runtime::traits::Convert<ParaId, AggregateMessageOrigin> for ParaIdToSibling {
 	fn convert(para_id: ParaId) -> AggregateMessageOrigin {
 		AggregateMessageOrigin::Sibling(para_id)
+	}
+}
+
+/// Convert an inbound spec-msg channel to the `AggregateMessageOrigin` of its queue.
+///
+/// Spec-msg gets its own queue per channel, separate from the HRMP one: HRMP backpressure
+/// ([`NarrowOriginToSibling`]) never pauses it.
+pub struct ChannelToSpecMsg;
+impl sp_runtime::traits::Convert<InChannelId, AggregateMessageOrigin> for ChannelToSpecMsg {
+	fn convert(channel: InChannelId) -> AggregateMessageOrigin {
+		AggregateMessageOrigin::SpecMsg(channel)
 	}
 }

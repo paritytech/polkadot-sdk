@@ -15,7 +15,9 @@
 //! Runtime configuration for MessageQueue pallet
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
-use cumulus_primitives_core::{AggregateMessageOrigin as CumulusAggregateMessageOrigin, ParaId};
+use cumulus_primitives_core::{
+	AggregateMessageOrigin as CumulusAggregateMessageOrigin, InChannelId, ParaId,
+};
 use frame_support::{
 	traits::{ProcessMessage, ProcessMessageError, QueueFootprint, QueuePausedQuery},
 	weights::WeightMeter,
@@ -57,6 +59,11 @@ pub enum AggregateMessageOrigin {
 	/// This is used by Snowbridge inbound queue.
 	Snowbridge(ChannelId),
 	SnowbridgeV2(H256),
+	/// The message came from a sibling para-chain over Speculative Messaging.
+	///
+	/// Appended last, so the codec indices of the variants above (and the queue books keyed by
+	/// them) do not change.
+	SpecMsg(InChannelId),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -66,6 +73,7 @@ impl From<AggregateMessageOrigin> for Location {
 			Here => Location::here(),
 			Parent => Location::parent(),
 			Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
+			SpecMsg(channel) => Location::new(1, Junction::Parachain(channel.sender.into())),
 			// NOTE: We don't need this conversion for Snowbridge. However, we have to
 			// implement it anyway as xcm_builder::ProcessXcmMessage requires it.
 			_ => Location::default(),
@@ -79,6 +87,7 @@ impl From<CumulusAggregateMessageOrigin> for AggregateMessageOrigin {
 			CumulusAggregateMessageOrigin::Here => Self::Here,
 			CumulusAggregateMessageOrigin::Parent => Self::Parent,
 			CumulusAggregateMessageOrigin::Sibling(id) => Self::Sibling(id),
+			CumulusAggregateMessageOrigin::SpecMsg(channel) => Self::SpecMsg(channel),
 		}
 	}
 }
@@ -122,7 +131,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) => {
+			Here | Parent | Sibling(_) | SpecMsg(_) => {
 				XcmpProcessor::process_message(message, origin, meter, id)
 			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),
@@ -156,7 +165,7 @@ where
 	) -> Result<bool, ProcessMessageError> {
 		use AggregateMessageOrigin::*;
 		match origin {
-			Here | Parent | Sibling(_) => {
+			Here | Parent | Sibling(_) | SpecMsg(_) => {
 				XcmpProcessor::process_message(message, origin, meter, id)
 			},
 			Snowbridge(_) => SnowbridgeProcessor::process_message(message, origin, meter, id),

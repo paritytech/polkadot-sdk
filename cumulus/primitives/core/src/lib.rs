@@ -35,6 +35,7 @@ pub mod parachain_block_data;
 pub mod scheduling;
 pub mod spec_messaging;
 
+pub use cumulus_primitives_spec_messaging::InChannelId;
 use cumulus_primitives_spec_messaging::{ConsumedStreams, ConsumptionRecord, StreamId};
 pub use parachain_block_data::ParachainBlockData;
 pub use polkadot_core_primitives::InboundDownwardMessage;
@@ -115,6 +116,11 @@ pub enum AggregateMessageOrigin {
 	///
 	/// This is used by the HRMP queue.
 	Sibling(ParaId),
+	/// The message came from a sibling para-chain over a Speculative Messaging channel.
+	///
+	/// One queue per inbound channel. It converts to the same `Location` as [`Self::Sibling`], so
+	/// no XCM program can tell the two transports apart.
+	SpecMsg(InChannelId),
 }
 
 impl From<AggregateMessageOrigin> for Location {
@@ -123,6 +129,9 @@ impl From<AggregateMessageOrigin> for Location {
 			AggregateMessageOrigin::Here => Location::here(),
 			AggregateMessageOrigin::Parent => Location::parent(),
 			AggregateMessageOrigin::Sibling(id) => Location::new(1, Junction::Parachain(id.into())),
+			AggregateMessageOrigin::SpecMsg(channel) => {
+				Location::new(1, Junction::Parachain(channel.sender.into()))
+			},
 		}
 	}
 }
@@ -769,5 +778,21 @@ sp_api::decl_runtime_apis! {
 		/// assembly; the `validate_block` wrapper calls the same implementation in-wasm after
 		/// each block of a bundle.
 		fn consumption_record() -> ConsumptionRecord;
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn spec_msg_origin_is_the_sibling_location() {
+		// The XCM executor must not be able to tell spec-msg from HRMP.
+		let sender = ParaId::from(2000u32);
+		let channel = InChannelId { sender, domain: 0, num: 0 };
+		assert_eq!(
+			Location::from(AggregateMessageOrigin::SpecMsg(channel)),
+			Location::from(AggregateMessageOrigin::Sibling(sender))
+		);
 	}
 }
