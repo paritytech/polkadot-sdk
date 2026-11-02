@@ -25,7 +25,7 @@
 //! Call requests execute runtime code and are served by a pool of workers, separately from read
 //! requests, so that reads are never queued behind long calls.
 
-use crate::schema;
+use crate::schema::{self, v1::light::request::Request};
 use codec::{self, Decode, Encode};
 use futures::{channel::oneshot, prelude::*};
 use log::{debug, error, trace, warn};
@@ -66,10 +66,17 @@ const MAX_READ_QUEUE: usize = 20;
 /// Maximum overrun of the execution timeout, see `--light-request-execution-timeout-ms`.
 const EXECUTION_TIMEOUT_OVERRUN: Duration = Duration::from_millis(200);
 
+/// Number of call workers above which their memory use is worth a warning.
+const CALL_WORKERS_WARNING_THRESHOLD: usize = 16;
+
+/// Approximate memory a call worker may use: every call gets a fresh runtime instance with the
+/// default heap of 128 MiB.
+const CALL_WORKER_MEMORY_MIB: usize = 128;
+
 /// Handler for incoming light client requests from a remote peer.
 pub struct LightClientRequestHandler<B, Client> {
 	request_receiver: async_channel::Receiver<IncomingRequest>,
-	processor: RequestProcessor<B, Client>,
+	processor: Arc<RequestProcessor<B, Client>>,
 	/// Number of workers serving call requests in parallel.
 	call_workers: NonZeroUsize,
 }
@@ -91,6 +98,14 @@ where
 		call_workers: NonZeroUsize,
 		metrics_registry: Option<&Registry>,
 	) -> (Self, N::RequestResponseProtocolConfig) {
+		if call_workers.get() > CALL_WORKERS_WARNING_THRESHOLD {
+			warn!(
+				target: LOG_TARGET,
+				"{call_workers} light client call workers may use up to ~{} MiB of memory.",
+				call_workers.get() * CALL_WORKER_MEMORY_MIB,
+			);
+		}
+
 		let (tx, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 
 		let protocol_config = super::generate_protocol_config::<_, B, N>(
@@ -113,12 +128,12 @@ where
 		(
 			Self {
 				request_receiver,
-				processor: RequestProcessor {
+				processor: Arc::new(RequestProcessor {
 					client,
 					execution_timeout,
 					metrics,
 					_block: PhantomData,
-				},
+				}),
 				call_workers,
 			},
 			protocol_config,
@@ -161,7 +176,6 @@ where
 				},
 			};
 
-			use schema::v1::light::request::Request;
 			let (kind, queue) = match request {
 				Request::RemoteCallRequest(_) => (RequestKind::Call, &call_tx),
 				Request::RemoteReadRequest(_) | Request::RemoteReadChildRequest(_) => {
@@ -202,9 +216,7 @@ fn call_queue_len(workers: NonZeroUsize, execution_timeout: Option<Duration>) ->
 	calls_per_worker.saturating_sub(1).max(1) * workers.get()
 }
 
-fn decode_request(
-	payload: &[u8],
-) -> Result<schema::v1::light::request::Request, HandleRequestError> {
+fn decode_request(payload: &[u8]) -> Result<Request, HandleRequestError> {
 	schema::v1::light::Request::decode(payload)?
 		.request
 		.ok_or(HandleRequestError::BadRequest("Remote request without request data."))
@@ -216,10 +228,13 @@ fn send_response(
 	result: Result<Vec<u8>, HandleRequestError>,
 ) {
 	let response = match result {
-		Ok(response_data) => OutgoingResponse {
-			result: Ok(response_data),
-			reputation_changes: Vec::new(),
-			sent_feedback: None,
+		Ok(response_data) => {
+			trace!(target: LOG_TARGET, "Handled light client request from {}.", peer);
+			OutgoingResponse {
+				result: Ok(response_data),
+				reputation_changes: Vec::new(),
+				sent_feedback: None,
+			}
 		},
 		Err(e) => {
 			debug!(target: LOG_TARGET, "Failed to handle light client request from {}: {}", peer, e);
@@ -234,19 +249,13 @@ fn send_response(
 			OutgoingResponse { result: Err(()), reputation_changes, sent_feedback: None }
 		},
 	};
-	let handled = response.result.is_ok();
-
-	match pending_response.send(response) {
-		Ok(()) if handled => {
-			trace!(target: LOG_TARGET, "Handled light client request from {}.", peer)
-		},
-		Ok(()) => {},
-		Err(_) => debug!(
+	if pending_response.send(response).is_err() {
+		debug!(
 			target: LOG_TARGET,
 			"Failed to handle light client request from {}: {}",
 			peer,
 			HandleRequestError::SendResponse,
-		),
+		);
 	}
 }
 
@@ -269,12 +278,11 @@ impl RequestKind {
 /// A decoded request waiting for a worker.
 struct Job {
 	peer: PeerId,
-	request: schema::v1::light::request::Request,
+	request: Request,
 	pending_response: oneshot::Sender<OutgoingResponse>,
 	queued_at: Instant,
 }
 
-#[derive(Clone)]
 struct Metrics {
 	queue_wait: HistogramVec,
 	execution: HistogramVec,
@@ -331,7 +339,7 @@ impl Metrics {
 	}
 }
 
-/// Serves decoded light client requests; cloned into every worker.
+/// Serves decoded light client requests; shared by all workers.
 struct RequestProcessor<B, Client> {
 	/// Blockchain client.
 	client: Arc<Client>,
@@ -341,24 +349,13 @@ struct RequestProcessor<B, Client> {
 	_block: PhantomData<B>,
 }
 
-impl<B, Client> Clone for RequestProcessor<B, Client> {
-	fn clone(&self) -> Self {
-		Self {
-			client: self.client.clone(),
-			execution_timeout: self.execution_timeout,
-			metrics: self.metrics.clone(),
-			_block: PhantomData,
-		}
-	}
-}
-
 impl<B, Client> RequestProcessor<B, Client>
 where
 	B: Block,
 	Client: BlockBackend<B> + ProofProvider<B> + Send + Sync + 'static,
 {
 	/// Worker loop. Handling a request blocks, so this must run as a blocking task.
-	async fn serve(self, kind: RequestKind, jobs: async_channel::Receiver<Job>) {
+	async fn serve(self: Arc<Self>, kind: RequestKind, jobs: async_channel::Receiver<Job>) {
 		while let Ok(Job { peer, request, pending_response, queued_at }) = jobs.recv().await {
 			if pending_response.is_canceled() {
 				trace!(target: LOG_TARGET, "Skipping light client request abandoned by {}.", peer);
@@ -389,18 +386,12 @@ where
 	fn handle_request(
 		&self,
 		peer: &PeerId,
-		request: &schema::v1::light::request::Request,
+		request: &Request,
 	) -> Result<Vec<u8>, HandleRequestError> {
 		let response = match request {
-			schema::v1::light::request::Request::RemoteCallRequest(r) => {
-				self.on_remote_call_request(peer, r)?
-			},
-			schema::v1::light::request::Request::RemoteReadRequest(r) => {
-				self.on_remote_read_request(peer, r)?
-			},
-			schema::v1::light::request::Request::RemoteReadChildRequest(r) => {
-				self.on_remote_read_child_request(peer, r)?
-			},
+			Request::RemoteCallRequest(r) => self.on_remote_call_request(peer, r)?,
+			Request::RemoteReadRequest(r) => self.on_remote_read_request(peer, r)?,
+			Request::RemoteReadChildRequest(r) => self.on_remote_read_child_request(peer, r)?,
 		};
 
 		let mut data = Vec::new();
@@ -586,14 +577,16 @@ mod tests {
 		processor.client.block_hash(0u32.into()).unwrap().unwrap().encode()
 	}
 
-	fn call_request(block: Vec<u8>, method: &str) -> schema::v1::light::request::Request {
-		schema::v1::light::request::Request::RemoteCallRequest(
-			schema::v1::light::RemoteCallRequest { block, method: method.into(), data: Vec::new() },
-		)
+	fn call_request(block: Vec<u8>, method: &str) -> Request {
+		Request::RemoteCallRequest(schema::v1::light::RemoteCallRequest {
+			block,
+			method: method.into(),
+			data: Vec::new(),
+		})
 	}
 
-	fn read_request(block: Vec<u8>) -> schema::v1::light::request::Request {
-		schema::v1::light::request::Request::RemoteReadRequest(
+	fn read_request(block: Vec<u8>) -> Request {
+		Request::RemoteReadRequest(
 			// An absent key keeps the proof small.
 			schema::v1::light::RemoteReadRequest { block, keys: vec![b"absent".to_vec()] },
 		)
@@ -620,7 +613,6 @@ mod tests {
 	struct TestHandler {
 		requests: async_channel::Sender<IncomingRequest>,
 		genesis_hash: Vec<u8>,
-		_executor: TaskExecutor,
 	}
 
 	impl TestHandler {
@@ -630,10 +622,11 @@ mod tests {
 			let (requests, request_receiver) = async_channel::bounded(MAX_LIGHT_REQUEST_QUEUE);
 			let handler = LightClientRequestHandler {
 				request_receiver,
-				processor,
+				processor: Arc::new(processor),
 				call_workers: NonZeroUsize::new(call_workers).unwrap(),
 			};
 
+			// The handler keeps the executor alive until `requests` is dropped.
 			let executor = TaskExecutor::new();
 			executor.spawn(
 				"light-client-request-handler",
@@ -641,13 +634,10 @@ mod tests {
 				handler.run(executor.clone()).boxed(),
 			);
 
-			Self { requests, genesis_hash, _executor: executor }
+			Self { requests, genesis_hash }
 		}
 
-		fn send(
-			&self,
-			request: schema::v1::light::request::Request,
-		) -> oneshot::Receiver<OutgoingResponse> {
+		fn send(&self, request: Request) -> oneshot::Receiver<OutgoingResponse> {
 			let (pending_response, response) = oneshot::channel();
 			let payload = schema::v1::light::Request { request: Some(request) }.encode_to_vec();
 			self.requests
