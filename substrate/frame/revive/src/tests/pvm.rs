@@ -378,6 +378,83 @@ fn deposit_event_max_value_limit() {
 	});
 }
 
+/// `deposit_event` with more than `NUM_EVENT_TOPICS` topics traps with `TooManyTopics` and stores
+/// no event, after a charge that counts the topic bytes of `NUM_EVENT_TOPICS` topics.
+///
+/// Solidity cannot emit more than four topics, so the contract is assembled here: it calls
+/// `deposit_event` with `NUM_EVENT_TOPICS + 1` topics and an empty data field.
+#[test]
+fn deposit_event_too_many_topics() {
+	use crate::{
+		evm::{ExecutionTracer, ExecutionTracerConfig},
+		weightinfo_extension::OnFinalizeBlockParts,
+	};
+	use polkavm_common::{
+		program::{Instruction, InstructionSetKind, Reg},
+		writer::ProgramBlobBuilder,
+	};
+
+	let num_topic = limits::NUM_EVENT_TOPICS + 1;
+	let mut blob = ProgramBlobBuilder::new(InstructionSetKind::ReviveV1);
+	blob.add_import(b"deposit_event");
+	blob.add_export_by_basic_block(0, b"deploy");
+	blob.add_export_by_basic_block(1, b"call");
+	blob.set_code(
+		&[
+			// deploy: return
+			Instruction::jump_indirect(Reg::RA.into(), 0),
+			// call: deposit_event(topics_ptr, num_topic, data_ptr, data_len), then return
+			Instruction::load_imm(Reg::A0.into(), 0),
+			Instruction::load_imm(Reg::A1.into(), num_topic as i32),
+			Instruction::load_imm(Reg::A2.into(), 0),
+			Instruction::load_imm(Reg::A3.into(), 0),
+			Instruction::ecalli(0),
+			Instruction::jump_indirect(Reg::RA.into(), 0),
+		],
+		&[],
+	);
+	let code = blob.to_vec().unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let Contract { addr, .. } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+		let result = trace(&mut tracer, || builder::bare_call(addr).build().result);
+		assert_err!(result, Error::<Test>::TooManyTopics);
+		assert!(
+			!System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::Contracts(crate::Event::ContractEmitted { .. })
+			)),
+			"no event is emitted when deposit_event traps",
+		);
+
+		let trace: ExecutionTraceV1 = tracer.collect_trace().into();
+		let charged = trace
+			.struct_logs
+			.iter()
+			.find_map(|step| match &step.kind {
+				ExecutionStepKindV1::PVMSyscall { op: PolkavmSyscallV1::DepositEvent, .. } => {
+					Some(step.weight_cost)
+				},
+				_ => None,
+			})
+			.expect("the contract calls deposit_event; qed");
+		let max_topic_bytes = limits::NUM_EVENT_TOPICS * H256::len_bytes() as u32;
+		let expected = <Test as Config>::WeightInfo::seal_deposit_event(num_topic, 0)
+			.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_event(
+				max_topic_bytes,
+			))
+			.saturating_add(Weight::from_parts(
+				limits::EXTRA_EVENT_CHARGE_PER_BYTE.saturating_mul(max_topic_bytes.into()),
+				0,
+			));
+		assert_eq!(charged, expected);
+	});
+}
+
 // Fail out of fuel (ref_time weight) in the engine.
 #[test]
 fn run_out_of_fuel_engine() {

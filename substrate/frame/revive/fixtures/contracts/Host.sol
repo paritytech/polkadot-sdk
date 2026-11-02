@@ -54,6 +54,16 @@ contract Host {
         }
     }
 
+    function logOpsWithoutData() public {
+        assembly {
+            log0(0, 0)
+            log1(0, 0, 0x11)
+            log2(0, 0, 0x22, 0x33)
+            log3(0, 0, 0x44, 0x55, 0x66)
+            log4(0, 0, 0x77, 0x88, 0x99, 0xaa)
+        }
+    }
+
     function selfbalance() public view returns (uint64) {
         return uint64(address(this).balance);
     }

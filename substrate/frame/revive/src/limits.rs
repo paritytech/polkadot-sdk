@@ -59,7 +59,7 @@ pub const STORAGE_BYTES: u32 = 416;
 /// Maximum payload size of events.
 pub const EVENT_BYTES: u32 = 64 * 1024;
 
-/// The extra ref time charge of deposit event per byte.
+/// The extra ref time charge of deposit event per byte, counting topic and data bytes.
 ///
 /// This ensure the block builder has enough memory and pallet storage
 /// to operate under worst case scenarios.
