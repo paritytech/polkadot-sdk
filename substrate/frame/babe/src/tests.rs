@@ -761,7 +761,7 @@ fn report_equivocation_authorize_prevents_duplicates() {
 			inner.authorize(TransactionSource::Local),
 			Some(Ok((
 				ValidTransaction {
-					priority: TransactionPriority::max_value(),
+					priority: TransactionPriority::MAX,
 					requires: vec![],
 					provides: vec![("BabeEquivocation", tx_tag.clone()).encode()],
 					longevity: ReportLongevity::get(),

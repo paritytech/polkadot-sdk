@@ -28,7 +28,6 @@
 /.cargo/config
 /.envrc
 artifacts
-bin/node-template/Cargo.lock
 nohup.out
 polkadot_argument_parsing
 !docs/sdk/src/polkadot_sdk/polkadot.rs
