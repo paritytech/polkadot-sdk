@@ -66,7 +66,7 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 3. The node signs the pair prices as a report anchored to the current block height and gossips it
    to the other oracle nodes.
 4. A block author includes the reports it collected as an inherent. The inherent never rejects a
-   block.
+   block: if it fails, the block keeps no oracle update.
 5. The pallet drops reports that are stale, from an unknown signer or wrongly signed, replaces
    each signer's vote with its newer one, and publishes the median of every pair with enough
    votes.
@@ -159,7 +159,8 @@ equally anchored vote. Votes anchored outside the report window are dropped. A p
 the signer `quorum` of `Params` gets the median as its price, stamped with the current block
 number of `BlockNumberProvider` and the number of votes. When the price differs from the stored
 one, `PriceUpdated` is emitted and `OnPriceUpdate` is called, unless publishing is paused. The
-inherent never fails, and rejected reports are counted in `ReportsProcessed`.
+inherent fails only if it carries more reports than `MaxSigners` or comes twice in a block; the
+block stays valid either way. Rejected reports are counted in `ReportsProcessed`.
 
 ## Open points
 

@@ -310,6 +310,8 @@ pub mod pallet {
 		VenueInUse,
 		/// More reports than signers in one block.
 		TooManyReports,
+		/// Reports were already processed in this block.
+		AlreadyProcessed,
 	}
 
 	#[pallet::hooks]
@@ -330,17 +332,14 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight((
 			T::WeightInfo::process_reports(reports.len() as u32),
-			DispatchClass::Mandatory
+			DispatchClass::Operational
 		))]
 		pub fn process_reports(
 			origin: OriginFor<T>,
 			reports: Vec<SignedPriceReportOf<T>>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
-			assert!(
-				!DidProcess::<T>::exists(),
-				"Price reports must be processed only once in the block"
-			);
+			ensure!(!DidProcess::<T>::exists(), Error::<T>::AlreadyProcessed);
 			DidProcess::<T>::put(true);
 			// The block author's pool holds at most one report per signer.
 			ensure!(reports.len() <= T::MaxSigners::get() as usize, Error::<T>::TooManyReports);
