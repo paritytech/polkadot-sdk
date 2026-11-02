@@ -60,7 +60,7 @@ The test prints six checkpoints. Each one is read from chain state:
 
 | # | Checkpoint | What it shows |
 |---|---|---|
-| 1 | channel | 2001 consumed 2000's stream, which carries the open signal. 2000 read 2001's `Ack` register: the channel is `Open`. |
+| 1 | channel | 2001 consumed 2000's stream, which carries the open signal. 2000 read 2001's `Ack` register: the channel is open. The log shows both watermarks, the register's position and the session. |
 | 2 | send | A 2000 block holds `PolkadotXcm::Sent` with a message id. Its digest commits a `StreamsRoot`. |
 | 3 | relay | `newest_included_provides(2000)` is that root. The relay recorded it. |
 | 4 | consume | A 2001 block consumed up to the stream root the sent `StreamsRoot` commits: its `Requires`. |
@@ -94,7 +94,7 @@ open and accept (checkpoint 1). Part B is the message of checkpoints 2 to 6.
 | 18:24:42.034 | dave | `spec-msg: New root 0xed86… of 2000: fetching` | 2001 sees the open signal and fetches it. |
 | 18:24:42.036 | charlie | `spec-msg: New root 0xb892… of 2001: fetching` | 2000 fetches the register. |
 | 18:24:42.047 | dave | `runtime::spec-msg: Block 12: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | 2001 consumes the open signal. |
-| 18:24:42.052 | charlie | `cumulus-collator: Collation carries a Requires over the consumption of 1 blocks. consuming=1 signals=3` | 2000 consumed the register (no `consumed` line, see below). The channel is `Open` (checkpoint 1). |
+| 18:24:42.052 | charlie | `cumulus-collator: Collation carries a Requires over the consumption of 1 blocks. consuming=1 signals=3` | 2000 consumed the register (no `consumed` line, see below). The channel is open (checkpoint 1). |
 | 18:24:48.018 | alice | `runtime::inclusion-inherent: Candidate 0xbdba… for para 2001: requires found in the provides windows` | The relay matches both candidates (para 2000 too). |
 
 **B. One message**
@@ -106,7 +106,7 @@ open and accept (checkpoint 1). Part B is the message of checkpoints 2 to 6.
 | 18:24:48.044 | charlie | `spec-msg: Archived block #13 …: 1 sends, committing …` | The archive can serve the message. |
 | 18:25:00.018 | alice | `runtime::inclusion: Recording provides root 0x45a3… of para 2000` | Inclusion (checkpoint 3). 12 s after the send. |
 | 18:25:00.030 | dave | `spec-msg: New root 0x45a3… of 2000: fetching` | The receiver sees the root. |
-| 18:25:00.031 | charlie | `spec-msg: Served a spec-msg exchange request from <peer>: 86 bytes` | The server side of the fetch. |
+| 18:25:00.031 | charlie | `spec-msg: Served a spec-msg fetch request from <peer>: 86 bytes` | The server side of the fetch, over `/spec-msg/fetch/1`. |
 | 18:25:00.032 | dave | `spec-msg: Root 0x45a3… of 2000: fetch settled in 2.1ms` | Pull fetch from charlie's archive. |
 | 18:25:00.036 | dave | `spec-msg: Messaging inherent: 1 items` | The collator plans the inherent. |
 | 18:25:00.041 | dave | `runtime::spec-msg: Block 15: consumed 1 payloads from 2000 on Channel { recipient: 2001, … }` | Consume (checkpoint 4). |

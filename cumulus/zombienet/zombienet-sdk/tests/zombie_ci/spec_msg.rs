@@ -17,8 +17,8 @@ use anyhow::anyhow;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
-	streams_root::streams_root, ChannelId, ChannelPhase, ConsumptionRecord, InChannelState,
-	MmrFrontier, MmrRoot, OutChannelState, StreamId, SPMS_ENGINE_ID,
+	streams_root::streams_root, ConsumptionRecord, InChannelId, InChannelState, MmrFrontier,
+	MmrRoot, OutChannelId, OutChannelState, StreamId, SPMS_ENGINE_ID,
 };
 use cumulus_zombienet_sdk_helpers::{assert_para_throughput, open_hrmp_channel};
 use std::{collections::BTreeMap, future::Future, time::Duration};
@@ -48,9 +48,14 @@ const RELAY_RPC_PORT: u16 = 30_510;
 const SENDER_RPC_PORT: u16 = 30_511;
 const RECEIVER_RPC_PORT: u16 = 30_512;
 
-/// The XCM channel with `peer`.
-fn channel(peer: u32) -> ChannelId {
-	ChannelId { peer: peer.into(), domain: 0, num: 0 }
+/// The XCM channel `SENDER -> RECEIVER`, as the receiver names it.
+fn in_channel() -> InChannelId {
+	InChannelId { sender: SENDER.into(), domain: 0, num: 0 }
+}
+
+/// The XCM channel `SENDER -> RECEIVER`, as the sender names it.
+fn out_channel() -> OutChannelId {
+	OutChannelId { recipient: RECEIVER.into(), domain: 0, num: 0 }
 }
 
 fn flag(name: &str) -> bool {
@@ -454,8 +459,8 @@ async fn open_spec_msg_channel(
 	// A rerun against the same network finds the channel open: skip the open and send again.
 	let (_, out_channels) = channel_states(sender, receiver).await?;
 	if out_channels
-		.get(&channel(RECEIVER))
-		.is_some_and(|state| state.phase() == ChannelPhase::Open)
+		.get(&out_channel())
+		.is_some_and(|state| state.open.is_some_and(|session| session.opened))
 	{
 		log::info!("Channel {SENDER} -> {RECEIVER} is already open: skipping the open");
 	} else {
@@ -492,20 +497,19 @@ async fn open_spec_msg_channel(
 		tokio::try_join!(open, accept)?;
 
 		// Two legs run at once, so one wait covers both. The receiver consumes the `OpenChannel`
-		// signal from the sender's data stream: a channel payload fetched from the sender's
-		// collator, lifted to an included root. The sender reads the receiver's register from its
-		// `Ack` stream: an `Events` item fetched from the receiver's collator. Its grant opens
-		// the channel for sends. Best blocks, not finalized: finality adds about 30 s, and
-		// checkpoints 3 to 6 still prove inclusion, backing and finality of the send.
+		// signal from the sender's data stream, fetched from the sender's collator. The sender
+		// reads the receiver's register, a lossy read of its `Ack` stream. Best blocks, not
+		// finalized: finality adds about 30 s, and checkpoints 3 to 6 still prove inclusion,
+		// backing and finality of the send.
 		wait_for(
 			"the receiver to consume the open signal and the sender to read its register",
 			|| async {
 				let (in_channels, out_channels) = channel_states(sender, receiver).await?;
 				Ok(in_channels
-					.get(&channel(SENDER))
-					.is_some_and(|state| state.published.up_to.0 > 0) &&
+					.get(&in_channel())
+					.is_some_and(|state| state.published.is_some_and(|r| r.up_to.0 > 0)) &&
 					out_channels
-						.get(&channel(RECEIVER))
+						.get(&out_channel())
 						.is_some_and(|state| state.register.is_some()))
 			},
 		)
@@ -514,18 +518,17 @@ async fn open_spec_msg_channel(
 
 	let (in_channels, out_channels) = channel_states(sender, receiver).await?;
 	if let (Some(in_state), Some(out_state)) =
-		(in_channels.get(&channel(SENDER)), out_channels.get(&channel(RECEIVER)))
+		(in_channels.get(&in_channel()), out_channels.get(&out_channel()))
 	{
-		if let Some(read) = out_state.register {
+		if let (Some(published), Some(read)) = (in_state.published, out_state.register) {
 			log::info!(
-				"Checkpoint 1/6, channel: {SENDER} -> {RECEIVER} is {:?} ({RECEIVER} consumed \
-				 {SENDER}'s stream up to leaf {}, {SENDER} read `Ack` register at leaf {} with \
-				 grant {} msgs / {} bytes)",
-				out_state.phase(),
-				in_state.published.up_to.0,
-				read.at.0,
-				read.register.grant.max_messages,
-				read.register.grant.max_bytes,
+				"Checkpoint 1/6, channel: {SENDER} -> {RECEIVER} is open ({RECEIVER} consumed \
+				 {SENDER}'s stream up to leaf {}, {SENDER} read the `Ack` register at leaf {}: \
+				 up to {}, session {})",
+				published.up_to.0,
+				read.position.0,
+				read.register.up_to.0,
+				out_state.session,
 			);
 		}
 	}
@@ -626,14 +629,31 @@ async fn channel_states(
 	sender: &OnlineClient<PolkadotConfig>,
 	receiver: &OnlineClient<PolkadotConfig>,
 ) -> Result<
-	(BTreeMap<ChannelId, InChannelState>, BTreeMap<ChannelId, OutChannelState>),
+	(BTreeMap<InChannelId, InChannelState>, BTreeMap<OutChannelId, OutChannelState>),
 	anyhow::Error,
 > {
-	let in_channels =
-		call_at(receiver, Some(best_hash(receiver).await?), "SpecMsgApi_in_channels", &[]).await?;
-	let out_channels =
-		call_at(sender, Some(best_hash(sender).await?), "SpecMsgApi_out_channels", &[]).await?;
+	let in_channels = channel_map(receiver, "InChannels").await?;
+	let out_channels = channel_map(sender, "OutChannels").await?;
 	Ok((in_channels, out_channels))
+}
+
+/// Every entry of a `SpecMessaging` channel map at the best block.
+async fn channel_map<K: Decode + Ord, V: Decode>(
+	client: &OnlineClient<PolkadotConfig>,
+	map: &str,
+) -> Result<BTreeMap<K, V>, anyhow::Error> {
+	// The 32-byte prefix and the 8-byte `Twox64Concat` hash come before the encoded key.
+	const KEY_OFFSET: usize = 40;
+	let query = subxt::dynamic::storage("SpecMessaging", map, Vec::<Value>::new());
+	let storage = client.storage().at(best_hash(client).await?);
+	let mut entries = storage.iter(query).await?;
+	let mut out = BTreeMap::new();
+	while let Some(entry) = entries.next().await {
+		let entry = entry?;
+		let key = entry.key_bytes.get(KEY_OFFSET..).ok_or_else(|| anyhow!("short storage key"))?;
+		out.insert(K::decode(&mut &key[..])?, V::decode(&mut &entry.value.into_encoded()[..])?);
+	}
+	Ok(out)
 }
 
 /// The hash of a chain's latest best block.
