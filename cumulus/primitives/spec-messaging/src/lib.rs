@@ -60,7 +60,7 @@ pub use message::{
 };
 pub use mmr::{FrontierFull, MessagePosition, MmrFrontier, MmrRoot};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
-pub use streams_root::{StreamProof, StreamsRoot};
+pub use streams_root::{StreamProof, StreamsRoot, StreamsTree, TreeError};
 
 /// The hash function for all of speculative messaging: leaves, MMR merges, stream and
 /// commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here

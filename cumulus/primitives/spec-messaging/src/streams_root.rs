@@ -97,7 +97,7 @@ fn bit(key: &[u8; STREAM_ID_LEN], i: usize) -> bool {
 	(key[i >> 3] >> (7 - (i & 7))) & 1 == 1
 }
 
-/// First bit index (from the MSB) at which two distinct keys differ. Callers guarantee `a != b`.
+/// First bit index (from the MSB, 0..64) at which two keys differ; returns 64 if identical.
 fn first_diverging_bit(a: &[u8; STREAM_ID_LEN], b: &[u8; STREAM_ID_LEN]) -> usize {
 	(u64::from_be_bytes(*a) ^ u64::from_be_bytes(*b)).leading_zeros() as usize
 }
@@ -155,8 +155,8 @@ fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)>
 /// side. Takes a `BTreeMap` so keys are unique; duplicates would reach `first_diverging_bit` with
 /// identical keys.
 ///
-/// TODO(spec-msg): update one changed stream in O(log S) instead of rebuilding in O(S); the sender
-/// pallet rebuilds this every touched block over all its streams.
+/// For incremental updates in `O(log S)` without rebuilding from scratch in `O(S)`, see
+/// [`update_tree_leaf`] and [`StreamsTree`].
 pub fn streams_root(entries: &BTreeMap<StreamId, Hash>) -> Option<StreamsRoot> {
 	let entries = keyed(entries);
 	if entries.is_empty() {
@@ -256,6 +256,416 @@ pub fn streams_root_from_proof(
 		};
 	}
 	Some(StreamsRoot(node))
+}
+
+// Commitment-tree storage types below (`NodeKey`, `InnerNode`, `TreeChild`, `TreeRootEntry`)
+// provide an incremental node cache for the sender pallet. This storage layout is not
+// normative: foreign chains and protocol verifiers depend only on `StreamsRoot`, `StreamProof`,
+// and the canonical `hash_leaf`/`hash_inner` hashing rules.
+
+/// Key identifying an inner node in the commitment trie storage.
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Debug,
+	scale_info::TypeInfo,
+)]
+pub struct NodeKey {
+	/// Prefix bytes with bits at index >= prefix_len cleared to zero.
+	pub prefix: [u8; STREAM_ID_LEN],
+	/// Number of prefix bits shared by all keys under this node (0..64).
+	pub prefix_len: u8,
+}
+
+impl NodeKey {
+	/// Create a new `NodeKey` with prefix bits `0..prefix_len` from `key`.
+	pub fn new(key: &[u8; STREAM_ID_LEN], prefix_len: u8) -> Self {
+		let mut prefix = *key;
+		for i in (prefix_len as usize)..KEY_BITS {
+			prefix[i >> 3] &= !(1 << (7 - (i & 7)));
+		}
+		Self { prefix, prefix_len }
+	}
+}
+
+/// A child pointer in an inner node or root entry.
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
+)]
+pub enum TreeChild {
+	/// Child is a leaf storing `(stream_id_key, stream_root)`.
+	Leaf { key: [u8; STREAM_ID_LEN], value: Hash },
+	/// Child is an inner node stored under `key`.
+	Node { key: NodeKey },
+}
+
+/// An inner node in the commitment trie.
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
+)]
+pub struct InnerNode {
+	/// The bit index this node branches on (0..64).
+	pub split_bit: u8,
+	pub left_child: TreeChild,
+	pub left_hash: Hash,
+	pub right_child: TreeChild,
+	pub right_hash: Hash,
+}
+
+impl InnerNode {
+	pub fn hash(&self) -> Hash {
+		hash_inner(self.split_bit, &self.left_hash, &self.right_hash)
+	}
+}
+
+/// The root entry of the commitment trie.
+#[derive(
+	Clone,
+	Copy,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	PartialEq,
+	Eq,
+	Debug,
+	scale_info::TypeInfo,
+)]
+pub enum TreeRootEntry {
+	/// Tree has a single stream.
+	Leaf { key: [u8; STREAM_ID_LEN], value: Hash },
+	/// Tree has >= 2 streams, rooted at the inner node with `key`.
+	Node { key: NodeKey, root_hash: Hash },
+}
+
+impl TreeRootEntry {
+	/// The `StreamsRoot` committed by this root entry.
+	pub fn streams_root(&self) -> StreamsRoot {
+		match self {
+			Self::Leaf { key, value } => StreamsRoot(hash_leaf(key, value)),
+			Self::Node { root_hash, .. } => StreamsRoot(*root_hash),
+		}
+	}
+}
+
+/// Read-only accessor for inner nodes in the commitment trie.
+pub trait NodeLookup {
+	fn get_node(&self, key: &NodeKey) -> Option<InnerNode>;
+}
+
+/// Storage accessor for inner nodes in the commitment trie.
+pub trait NodeStore: NodeLookup {
+	fn set_node(&mut self, key: NodeKey, node: InnerNode);
+}
+
+impl NodeLookup for BTreeMap<NodeKey, InnerNode> {
+	fn get_node(&self, key: &NodeKey) -> Option<InnerNode> {
+		self.get(key).copied()
+	}
+}
+
+impl NodeStore for BTreeMap<NodeKey, InnerNode> {
+	fn set_node(&mut self, key: NodeKey, node: InnerNode) {
+		self.insert(key, node);
+	}
+}
+
+/// A node store backed by getter and setter closures.
+pub struct FnNodeStore<G, S> {
+	pub get: G,
+	pub set: S,
+}
+
+impl<G, S> NodeLookup for FnNodeStore<G, S>
+where
+	G: Fn(&NodeKey) -> Option<InnerNode>,
+{
+	fn get_node(&self, key: &NodeKey) -> Option<InnerNode> {
+		(self.get)(key)
+	}
+}
+
+impl<G, S> NodeStore for FnNodeStore<G, S>
+where
+	G: Fn(&NodeKey) -> Option<InnerNode>,
+	S: FnMut(NodeKey, InnerNode),
+{
+	fn set_node(&mut self, key: NodeKey, node: InnerNode) {
+		(self.set)(key, node);
+	}
+}
+
+/// Error encountered during commitment trie updates.
+#[derive(Clone, Copy, Encode, Decode, PartialEq, Eq, Debug, scale_info::TypeInfo)]
+pub enum TreeError {
+	/// An expected inner node was missing from the node store.
+	MissingNode(NodeKey),
+}
+
+/// Split an existing leaf `(old_key, old_val)` with a new leaf `(new_key, new_val)`.
+/// Returns the new `(NodeKey, InnerNode)`. Callers guarantee `old_key != new_key`.
+fn split_leaf(
+	old_key: &[u8; STREAM_ID_LEN],
+	old_val: Hash,
+	new_key: &[u8; STREAM_ID_LEN],
+	new_val: Hash,
+) -> (NodeKey, InnerNode) {
+	let split = first_diverging_bit(new_key, old_key) as u8;
+	let node_key = NodeKey::new(new_key, split);
+	let new_leaf_hash = hash_leaf(new_key, &new_val);
+	let old_leaf_hash = hash_leaf(old_key, &old_val);
+	let (left_child, left_hash, right_child, right_hash) = if bit(new_key, split as usize) {
+		(
+			TreeChild::Leaf { key: *old_key, value: old_val },
+			old_leaf_hash,
+			TreeChild::Leaf { key: *new_key, value: new_val },
+			new_leaf_hash,
+		)
+	} else {
+		(
+			TreeChild::Leaf { key: *new_key, value: new_val },
+			new_leaf_hash,
+			TreeChild::Leaf { key: *old_key, value: old_val },
+			old_leaf_hash,
+		)
+	};
+	let node = InnerNode { split_bit: split, left_child, left_hash, right_child, right_hash };
+	(node_key, node)
+}
+
+/// Recursively insert or update `(key, stream_root)` into an inner node subtree.
+fn insert_inner_node(
+	curr_key: NodeKey,
+	key: &[u8; STREAM_ID_LEN],
+	stream_root: Hash,
+	store: &mut impl NodeStore,
+) -> Result<(NodeKey, Hash), TreeError> {
+	let mut inner = store.get_node(&curr_key).ok_or(TreeError::MissingNode(curr_key))?;
+	let d = first_diverging_bit(key, &curr_key.prefix);
+
+	// Case 1: `key` diverges before this inner node's split bit.
+	// A new inner node must be inserted above this one.
+	if d < inner.split_bit as usize {
+		let new_split = d as u8;
+		let new_node_key = NodeKey::new(key, new_split);
+		let leaf_hash = hash_leaf(key, &stream_root);
+		let old_inner_hash = inner.hash();
+		let (left_child, left_hash, right_child, right_hash) = if bit(key, d) {
+			(
+				TreeChild::Node { key: curr_key },
+				old_inner_hash,
+				TreeChild::Leaf { key: *key, value: stream_root },
+				leaf_hash,
+			)
+		} else {
+			(
+				TreeChild::Leaf { key: *key, value: stream_root },
+				leaf_hash,
+				TreeChild::Node { key: curr_key },
+				old_inner_hash,
+			)
+		};
+		let new_node =
+			InnerNode { split_bit: new_split, left_child, left_hash, right_child, right_hash };
+		let hash = new_node.hash();
+		store.set_node(new_node_key, new_node);
+		return Ok((new_node_key, hash));
+	}
+
+	// Case 2: `key` matches the prefix up to `split_bit`. Descend left or right.
+	let branch_right = bit(key, inner.split_bit as usize);
+	let child = if branch_right { inner.right_child } else { inner.left_child };
+
+	let (updated_child, updated_hash) = match child {
+		TreeChild::Leaf { key: leaf_key, value: leaf_val } => {
+			if &leaf_key == key {
+				let leaf_hash = hash_leaf(key, &stream_root);
+				(TreeChild::Leaf { key: *key, value: stream_root }, leaf_hash)
+			} else {
+				let (child_node_key, child_node) =
+					split_leaf(&leaf_key, leaf_val, key, stream_root);
+				let hash = child_node.hash();
+				store.set_node(child_node_key, child_node);
+				(TreeChild::Node { key: child_node_key }, hash)
+			}
+		},
+		TreeChild::Node { key: child_key } => {
+			let (updated_key, hash) = insert_inner_node(child_key, key, stream_root, store)?;
+			(TreeChild::Node { key: updated_key }, hash)
+		},
+	};
+
+	if branch_right {
+		inner.right_child = updated_child;
+		inner.right_hash = updated_hash;
+	} else {
+		inner.left_child = updated_child;
+		inner.left_hash = updated_hash;
+	}
+
+	let hash = inner.hash();
+	store.set_node(curr_key, inner);
+	Ok((curr_key, hash))
+}
+
+/// Incrementally update or insert a stream into the commitment trie storage.
+///
+/// Updates the path in `O(log S)` time, reading only nodes along the path from root to leaf and
+/// updating inner node sibling caches. Untouched subtrees are neither read nor recomputed.
+///
+/// Returns the new `StreamsRoot`, or `TreeError` if an expected inner node is missing from `store`.
+pub fn update_tree_leaf(
+	root_entry: &mut Option<TreeRootEntry>,
+	stream: StreamId,
+	stream_root: Hash,
+	store: &mut impl NodeStore,
+) -> Result<StreamsRoot, TreeError> {
+	let key = stream.to_bytes();
+	match root_entry {
+		None => {
+			*root_entry = Some(TreeRootEntry::Leaf { key, value: stream_root });
+			Ok(StreamsRoot(hash_leaf(&key, &stream_root)))
+		},
+		Some(TreeRootEntry::Leaf { key: leaf_key, value: leaf_val }) => {
+			if leaf_key == &key {
+				*root_entry = Some(TreeRootEntry::Leaf { key, value: stream_root });
+				Ok(StreamsRoot(hash_leaf(&key, &stream_root)))
+			} else {
+				let (node_key, node) = split_leaf(leaf_key, *leaf_val, &key, stream_root);
+				let root_hash = node.hash();
+				store.set_node(node_key, node);
+				*root_entry = Some(TreeRootEntry::Node { key: node_key, root_hash });
+				Ok(StreamsRoot(root_hash))
+			}
+		},
+		Some(TreeRootEntry::Node { key: root_key, .. }) => {
+			let root_key = *root_key;
+			let (new_root_key, new_root_hash) =
+				insert_inner_node(root_key, &key, stream_root, store)?;
+			*root_entry = Some(TreeRootEntry::Node { key: new_root_key, root_hash: new_root_hash });
+			Ok(StreamsRoot(new_root_hash))
+		},
+	}
+}
+
+/// Generate a `StreamProof` for `stream` using the node storage cache.
+///
+/// Walks down the tree in `O(log S)` time, retrieving sibling hashes cached in `InnerNode`
+/// without reading untouched subtrees from storage.
+pub fn gen_stream_proof_from_nodes(
+	root_entry: &Option<TreeRootEntry>,
+	stream: StreamId,
+	lookup: &impl NodeLookup,
+) -> Option<(StreamsRoot, StreamProof)> {
+	let key = stream.to_bytes();
+	match root_entry.as_ref()? {
+		TreeRootEntry::Leaf { key: leaf_key, value: leaf_val } => {
+			if leaf_key == &key {
+				Some((
+					StreamsRoot(hash_leaf(&key, leaf_val)),
+					StreamProof { steps: BoundedVec::new() },
+				))
+			} else {
+				None
+			}
+		},
+		TreeRootEntry::Node { key: root_key, root_hash } => {
+			let mut curr_key = *root_key;
+			let mut steps = Vec::new();
+			loop {
+				let inner = lookup.get_node(&curr_key)?;
+				let d = first_diverging_bit(&key, &curr_key.prefix);
+				if d < inner.split_bit as usize {
+					return None;
+				}
+				let (sibling, child) = if bit(&key, inner.split_bit as usize) {
+					(inner.left_hash, inner.right_child)
+				} else {
+					(inner.right_hash, inner.left_child)
+				};
+				steps.push(TreeStep { split_bit: inner.split_bit, sibling });
+				match child {
+					TreeChild::Leaf { key: leaf_key, .. } if leaf_key == key => break,
+					TreeChild::Leaf { .. } => return None,
+					TreeChild::Node { key: next_key } => curr_key = next_key,
+				}
+			}
+			steps.reverse();
+			let steps = BoundedVec::try_from(steps).ok()?;
+			Some((StreamsRoot(*root_hash), StreamProof { steps }))
+		},
+	}
+}
+
+/// An in-memory commitment tree caching inner nodes for `O(log S)` updates and proofs.
+#[derive(Clone, Default, PartialEq, Eq, Debug)]
+pub struct StreamsTree {
+	root: Option<TreeRootEntry>,
+	nodes: BTreeMap<NodeKey, InnerNode>,
+}
+
+impl StreamsTree {
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.root.is_none()
+	}
+
+	/// The current `StreamsRoot`, or `None` if empty.
+	pub fn root(&self) -> Option<StreamsRoot> {
+		self.root.as_ref().map(|r| r.streams_root())
+	}
+
+	/// Update or insert a stream root in `O(log S)` time.
+	pub fn insert(
+		&mut self,
+		stream: StreamId,
+		stream_root: Hash,
+	) -> Result<StreamsRoot, TreeError> {
+		update_tree_leaf(&mut self.root, stream, stream_root, &mut self.nodes)
+	}
+
+	/// Build a proof for `stream` in `O(log S)` time.
+	pub fn gen_stream_proof(&self, stream: StreamId) -> Option<(StreamsRoot, StreamProof)> {
+		gen_stream_proof_from_nodes(&self.root, stream, &self.nodes)
+	}
+
+	/// Construct a tree from an existing map of entries.
+	pub fn from_entries(entries: &BTreeMap<StreamId, Hash>) -> Self {
+		let mut tree = Self::new();
+		for (stream, root) in entries {
+			tree.insert(*stream, *root).expect("in-memory node store never fails; qed");
+		}
+		tree
+	}
 }
 
 #[cfg(test)]
@@ -425,5 +835,140 @@ mod tests {
 		// Other engines' items are not counted against it.
 		let foreign = DigestItem::Consensus(*b"AURA", vec![0; 32]);
 		assert_eq!(read_streams_root(&digest(vec![foreign, spms(r.encode())])), Some(r));
+	}
+
+	#[test]
+	fn streams_tree_matches_from_scratch_streams_root() {
+		let map = entries();
+		let tree = StreamsTree::from_entries(&map);
+		assert_eq!(tree.root(), streams_root(&map));
+
+		// Check proof generation from tree
+		for (stream, sr) in &map {
+			let (r_tree, proof_tree) = tree.gen_stream_proof(*stream).unwrap();
+			let (r_scratch, proof_scratch) = gen_stream_proof(&map, *stream).unwrap();
+			assert_eq!(r_tree, r_scratch);
+			assert_eq!(proof_tree, proof_scratch);
+			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
+		}
+	}
+
+	#[test]
+	fn streams_tree_incremental_updates() {
+		let mut map = BTreeMap::new();
+		let mut tree = StreamsTree::new();
+		assert!(tree.is_empty());
+		assert_eq!(tree.root(), None);
+
+		// Insert 100 streams incrementally
+		for i in 0..100u32 {
+			let stream = ch(1000 + i);
+			let r = root(i as u8);
+			map.insert(stream, r);
+			let tree_root = tree.insert(stream, r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+			assert_eq!(tree.root(), Some(tree_root));
+		}
+
+		// Update 50 existing streams with new roots
+		for i in (0..100u32).step_by(2) {
+			let stream = ch(1000 + i);
+			let new_r = root((i + 17) as u8);
+			map.insert(stream, new_r);
+			let tree_root = tree.insert(stream, new_r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+			assert_eq!(tree.root(), Some(tree_root));
+		}
+
+		// Verify proofs for all 100 streams
+		for (stream, sr) in &map {
+			let (r_tree, proof_tree) = tree.gen_stream_proof(*stream).unwrap();
+			let (r_scratch, proof_scratch) = gen_stream_proof(&map, *stream).unwrap();
+			assert_eq!(r_tree, r_scratch);
+			assert_eq!(proof_tree, proof_scratch);
+			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
+		}
+	}
+
+	#[test]
+	fn missing_node_returns_error() {
+		// Tree with an entry pointing to a missing inner node
+		let node_key = NodeKey::new(&ch(1000).to_bytes(), 10);
+		let mut root_entry = Some(TreeRootEntry::Node { key: node_key, root_hash: root(0x1) });
+		let mut empty_store = BTreeMap::new();
+		let before = root_entry;
+		let res = update_tree_leaf(&mut root_entry, ch(1001), root(0x2), &mut empty_store);
+		assert_eq!(res, Err(TreeError::MissingNode(node_key)));
+		assert_eq!(root_entry, before);
+		assert!(empty_store.is_empty());
+	}
+
+	#[test]
+	fn differential_fuzz_random_tree_insertions_and_updates() {
+		let mut seed = 0x85EB_CA6B_472C_1A55u64;
+		let mut rng = || {
+			seed ^= seed << 13;
+			seed ^= seed >> 7;
+			seed ^= seed << 17;
+			seed
+		};
+
+		let mut map = BTreeMap::new();
+		let mut tree = StreamsTree::new();
+
+		// Narrow field ranges give keys that split inside the kind, recipient and domain bytes.
+		let random_stream = |x: u64| match x % 3 {
+			0 => StreamId::Channel {
+				recipient: (((x >> 8) % 64) as u32).into(),
+				domain: (x >> 16) as u8 % 2,
+				num: (x >> 24) as u16 % 4,
+			},
+			1 => StreamId::Ack {
+				recipient: (((x >> 8) % 64) as u32).into(),
+				domain: (x >> 16) as u8 % 2,
+				num: (x >> 24) as u16 % 4,
+			},
+			_ => StreamId::Broadcast {
+				domain: (x >> 8) as u16 % 4,
+				subdomain: (x >> 16) as u8 % 2,
+				num: (x >> 24) as u32 % 64,
+			},
+		};
+
+		// Insert 200 streams with pseudo-random keys and values
+		for _ in 0..200 {
+			let stream = random_stream(rng());
+			let r = Hash::from_low_u64_be(rng());
+			map.insert(stream, r);
+			let tree_root = tree.insert(stream, r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+		}
+
+		// Mutate 100 random streams
+		let keys: Vec<_> = map.keys().copied().collect();
+		for _ in 0..100 {
+			let idx = (rng() as usize) % keys.len();
+			let stream = keys[idx];
+			let new_r = Hash::from_low_u64_be(rng());
+			map.insert(stream, new_r);
+			let tree_root = tree.insert(stream, new_r).unwrap();
+			assert_eq!(Some(tree_root), streams_root(&map));
+		}
+
+		// Verify every proof
+		for (stream, sr) in &map {
+			let (r_tree, proof_tree) = tree.gen_stream_proof(*stream).unwrap();
+			let (r_scratch, proof_scratch) = gen_stream_proof(&map, *stream).unwrap();
+			assert_eq!(r_tree, r_scratch);
+			assert_eq!(proof_tree, proof_scratch);
+			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
+		}
+
+		// The cached layout does not depend on insertion order.
+		let mut reversed = StreamsTree::new();
+		for (stream, sr) in map.iter().rev() {
+			reversed.insert(*stream, *sr).unwrap();
+		}
+		assert_eq!(reversed, tree);
 	}
 }
