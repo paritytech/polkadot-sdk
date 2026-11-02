@@ -22,8 +22,8 @@ use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, read_streams_root, streams_root},
 	AppliedRegister, BroadcastId, ChannelMessage, InChannelId, Interval, LossyRead,
 	MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot, OpenSession,
-	OutChannelId, ProvideConsumptionRecord, Register, RegisterStatus, SessionParams, StreamId,
-	StreamProof, StreamsRoot, TreeRootEntry, LEAF_VERSION,
+	OutChannelId, Register, RegisterStatus, SessionParams, StreamId, StreamProof, StreamsRoot,
+	TreeRootEntry, LEAF_VERSION,
 };
 use frame_support::{
 	assert_err, assert_ok,
@@ -262,13 +262,12 @@ fn idle_block_emits_no_root_and_rejects_a_later_send() {
 }
 
 #[test]
-fn provides_root_equals_commit_and_deposits_digest() {
+fn commit_deposits_the_streams_root_digest() {
 	new_test_ext().execute_with(|| {
-		let s = stream(0);
-		SpecMessaging::append_to_stream(s, b"x".to_vec()).unwrap();
-		let root = <SpecMessaging as ProvideConsumptionRecord>::provides_root();
+		SpecMessaging::append_to_stream(stream(0), b"x".to_vec()).unwrap();
+		let root = SpecMessaging::commit_streams_root();
 		assert!(root.is_some());
-		assert_eq!(SpecMessaging::current_streams_root(), root);
+		assert_eq!(read_streams_root(&System::digest()), root);
 	});
 }
 
@@ -302,28 +301,6 @@ fn accept_transitions_to_accepting_and_publishes_at_block_end() {
 		let st = InChannels::<Test>::get(ch).unwrap();
 		assert!(st.published.is_some());
 		assert_eq!(st.published.unwrap().up_to, MessagePosition(0));
-	});
-}
-
-#[test]
-fn registers_published_when_provides_root_runs_before_on_finalize() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(SpecMessaging::accept_open_channel(RuntimeOrigin::root(), src(), 0, 0));
-		let ch = in_channel();
-		assert_eq!(InChannels::<Test>::get(ch).unwrap().published, None);
-
-		// ParachainSystem::on_finalize calls ProvideConsumptionRecord::provides_root() before
-		// SpecMessaging::on_finalize:
-		let root = <SpecMessaging as ProvideConsumptionRecord>::provides_root();
-		assert!(root.is_some(), "register publish must produce a committed root");
-
-		let st = InChannels::<Test>::get(ch).unwrap();
-		assert!(st.published.is_some(), "register must be published inside provides_root");
-		assert_eq!(st.published.unwrap().up_to, MessagePosition(0));
-
-		// SpecMessaging::on_finalize runs second and does not duplicate or fail:
-		SpecMessaging::on_finalize(1);
-		assert_eq!(InChannels::<Test>::get(ch).unwrap().published, st.published);
 	});
 }
 
