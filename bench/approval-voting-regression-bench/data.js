@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793635976054,
+  "lastUpdate": 1793655096485,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "9842640+manuelmauro@users.noreply.github.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ba71927ba129107dda65a15563f19632f884fe2",
-          "message": "[xcm-emulator] Make block producer overridable for non-Aura chains (#11791)\n\n# Description\n\nMakes the slot/digest producer used by `xcm-emulator`'s\n`decl_test_parachains!` macro overridable so parachains that don't run\nAura (e.g. Nimbus-based chains like Moonbeam) can be wired into\nxcm-emulator-based integration tests.\n\nPreviously, `new_block()` was hard-coded to call\n`pallet_aura::Pallet::<Runtime>::slot_duration()` and to build an Aura\n`PreRuntime` digest. This forced every emulated parachain to implement\n`pallet_aura::Config`, which is not viable for Nimbus-based runtimes.\n\n  ## Integration\n\nFully backwards-compatible — existing `decl_test_parachains!`\ninvocations need no changes. Aura-based parachains keep the same\nbehaviour through a default `AuraBlockProducer<T>` impl.\n\nNon-Aura parachains can now plug in a custom producer via a new optional\n`BlockProducer:` field:\n\n  ```diff\n   decl_test_parachains! {\n       pub struct MyPara {\n           genesis = genesis(),\n           on_init = (),\n           runtime = my_runtime,\n           core = {\n               XcmpMessageHandler: my_runtime::XcmpQueue,\n               LocationToAccountId: my_runtime::LocationToAccountId,\n               ParachainInfo: my_runtime::ParachainInfo,\nMessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,\n  +            BlockProducer: MyNimbusBlockProducer,\n           },\n           pallets = { /* ... */ }\n       }\n   }\n  ```\n\n  Where `MyNimbusBlockProducer` implements the new trait:\n\n  ```rust\n  pub trait BlockProducer {\n      fn slot_duration() -> u64;\n      fn pre_runtime_digest(relay_block_number: u32) -> Digest;\n  }\n  ```\n\nIf the field is omitted, `AuraBlockProducer<Runtime>` is used,\nreproducing the previous behaviour exactly.\n\n## Review Notes\n\n- Adds a public `BlockProducer` trait in\n`cumulus/xcm/xcm-emulator/src/lib.rs` with two methods (`slot_duration`,\n`pre_runtime_digest`) — the two call sites in `new_block()` that\npreviously depended on\n  `pallet_aura`.\n- Provides `AuraBlockProducer<T>` as the default impl, gated on `T:\npallet_aura::Config` with `u64: From<T::Moment>`. Its\n`pre_runtime_digest` reproduces the previous inline digest construction\nverbatim (same\n  slot derivation, same `AURA_ENGINE_ID`).\n- Adds `type BlockProducer: BlockProducer` to the `Parachain` trait.\n- Extends `decl_test_parachains!` with an optional `BlockProducer:`\nfield and an `@inner_block_producer` helper arm that falls back to\n`$crate::AuraBlockProducer<$runtime::Runtime>` when unspecified.\n- In `new_block()`, `slot_duration` and the pre-runtime digest are now\nobtained through `<Self as Parachain>::BlockProducer`; all other\ninherent/timestamp logic is unchanged.\n\nNo new tests. Behaviour for Aura-based parachains is unchanged and\nalready covered by existing emulator tests; the new extension point is\nexercised by downstream (Moonbeam) integration tests.",
-          "timestamp": "2026-04-17T07:10:17Z",
-          "tree_id": "3bb942d884110e607c76c7788c20044b3ff6b95d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ba71927ba129107dda65a15563f19632f884fe2"
-        },
-        "date": 1776414662103,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52941.7,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63623.21,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7737358279199439,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.0000251311,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.0000251311,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002503908,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.673565953659951,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8555072767999983,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.0056689715699999995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.868509498890001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.220550696112612,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002503908,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.81935361902,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.88128495801,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4695058014500084,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-0",
             "value": 2.746979048729998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "52418509+georgepisaltu@users.noreply.github.com",
+            "name": "georgepisaltu",
+            "username": "georgepisaltu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3ae62cd730bec09fc905229c554373bb76bc5e8b",
+          "message": "Derive `MaxEncodedLen` for `StatementAllowance` (#13676)\n\n# Description\n\nFixes #13675\n\n`sp_statement_store::StatementAllowance` now implements `MaxEncodedLen`.\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>",
+          "timestamp": "2026-11-02T19:59:57Z",
+          "tree_id": "598c75495af7b2b88eba558f933f7e5a4124fd13",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3ae62cd730bec09fc905229c554373bb76bc5e8b"
+        },
+        "date": 1793655068305,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52944.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63566.62000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005473771340000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000020056670000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.32187421159001,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.803688958449999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.764186207199999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7715539161000016,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7967827800900005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000020056670000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.350938163579988,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.829250414830023,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.792885910962758,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002065392,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002065392,
             "unit": "seconds"
           }
         ]
