@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793392117031,
+  "lastUpdate": 1793615602966,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -140183,6 +140183,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2692536098,
             "range": "± 21222831",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "0@mcornholio.ru",
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ed48cc3b2117b4256711a4ba0ddaaa98794541f",
+          "message": "License scanner node.js upgrade (#7713)\n\nFollowing https://github.com/paritytech/license-scanner/issues/61, this\nupdates node.js for license-scanner. The scanner itself is not pinned,\nso it should already be using the newly published version.\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2026-11-02T09:16:15Z",
+          "tree_id": "95af26a77945a83f954940903f5801a0ead0bd51",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ed48cc3b2117b4256711a4ba0ddaaa98794541f"
+        },
+        "date": 1793615573558,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19981737,
+            "range": "± 156125",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20474637,
+            "range": "± 150159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21631950,
+            "range": "± 378759",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25642655,
+            "range": "± 139258",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 57285457,
+            "range": "± 1241230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 325224254,
+            "range": "± 1890956",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2432257665,
+            "range": "± 73433033",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17098305,
+            "range": "± 83465",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17159550,
+            "range": "± 119906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17802663,
+            "range": "± 91387",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22341867,
+            "range": "± 105828",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 59578891,
+            "range": "± 721237",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 350568951,
+            "range": "± 3507700",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2748285251,
+            "range": "± 25065935",
             "unit": "ns/iter"
           }
         ]
