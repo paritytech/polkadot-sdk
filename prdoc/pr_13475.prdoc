@@ -1,0 +1,24 @@
+title: 'Abstracts away HRMP deposits into a Deposit Provider impl. Paves way for remote deposits later (on CT)'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The relay chain HRMP pallet no longer reserves channel deposits directly. Every call that takes
+    or gives back one sends a `DepositChangeRequest` to `hrmp::Config::DepositProvider`, a
+    `hrmp::deposits::ChannelDepositProvider`. A provider that applies the request within the call
+    answers `Applied` and the call completes right away; one that holds the funds on another chain
+    answers `Pending` and the call completes later through `OnDepositSet`. The pallet
+    implements `ChannelDepositProvider` itself for deposits held in `Config::Currency`, so
+    `type DepositProvider = Hrmp;` keeps the behaviour of today. Every runtime must now set it.
+
+    `OpenChannelRequested`, `OpenChannelAccepted` and `OpenChannelDepositsUpdated` are now emitted
+    once the call completes. As a result `force_open_hrmp_channel`, `establish_system_channel` and
+    `establish_channel_with_system` now also emit `OpenChannelRequested` and `OpenChannelAccepted`.
+
+    Prepares for taking deposits in `pallet-hrmp-para` on the Coretime chain.
+crates:
+- name: polkadot-runtime-parachains
+  bump: major
+- name: westend-runtime
+  bump: minor
+- name: rococo-runtime
+  bump: minor

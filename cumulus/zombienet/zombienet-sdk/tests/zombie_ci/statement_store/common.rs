@@ -20,6 +20,7 @@ use std::{
 	time::Duration,
 };
 use zombienet_configuration::shared::node::{Initial, NodeConfigBuilder};
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{
 		backend::rpc::RpcClient,
@@ -392,27 +393,23 @@ async fn launch_network(
 	collators: &[&str],
 	chain_spec_path: &Path,
 	collator_args: Vec<zombienet_sdk::Arg>,
-	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let collators: Vec<(&str, Option<&str>)> = collators.iter().map(|&name| (name, None)).collect();
-	launch_network_with_commands(&collators, &[], chain_spec_path, collator_args, collator_env)
-		.await
+	launch_network_with_commands(&collators, &[], chain_spec_path, collator_args).await
 }
 
 /// [`launch_network`] with an optional per-collator command in place of `polkadot-parachain`,
-/// plus one full node per `full_nodes` entry, running with the same args and env as the
-/// collators
+/// plus one full node per `full_nodes` entry, running with the same args as the collators
 pub(super) async fn launch_network_with_commands(
 	collators: &[(&str, Option<&str>)],
 	full_nodes: &[&str],
 	chain_spec_path: &Path,
 	collator_args: Vec<zombienet_sdk::Arg>,
-	collator_env: &[(&str, &str)],
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
 	let collator = |n: NodeConfigBuilder<Initial>, &(name, command): &(&str, Option<&str>)| {
-		let n = n.with_name(name).with_env(collator_env.to_vec());
+		let n = n.with_name(name);
 		match command {
 			Some(command) => n.with_command(command),
 			None => n,
@@ -437,9 +434,7 @@ pub(super) async fn launch_network_with_commands(
 				.with_default_args(collator_args)
 				.with_collator(|n| collator(n, &collators[0]));
 			let p = collators[1..].iter().fold(p, |acc, c| acc.with_collator(|n| collator(n, c)));
-			full_nodes.iter().fold(p, |acc, &name| {
-				acc.with_fullnode(|n| n.with_name(name).with_env(collator_env.to_vec()))
-			})
+			full_nodes.iter().fold(p, |acc, &name| acc.with_fullnode(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| {
 			global_settings
@@ -477,7 +472,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
-	launch_network(collators, &chain_spec_path, args, &[]).await
+	launch_network(collators, &chain_spec_path, args).await
 }
 
 /// Spawns a network using `people-westend-local-spec.json`, waits for block production
@@ -495,7 +490,7 @@ async fn spawn_network_inner(
 	let participant_count_u32 = u32::try_from(participant_count)
 		.expect("participant_count must fit in u32 for collator args");
 	let args = collator_args(participant_count_u32, log_filter);
-	let network = launch_network(collators, &chain_spec_path, args, &[]).await?;
+	let network = launch_network(collators, &chain_spec_path, args).await?;
 
 	info!("Waiting for parachain to produce blocks...");
 	let node = network.get_node(collators[0])?;
@@ -541,9 +536,8 @@ pub(super) async fn wait_for_first_block(
 	Ok(())
 }
 
-/// Builds collator CLI args that pin the v2 DHT replication factor `K` and gossip target, on top of
-/// [`collator_args`]. The v2 path itself is switched on by the `STATEMENT_STORE_V2_DHT_ENABLED`
-/// environment variable, not a CLI flag (see [`spawn_network_with_injected_allowances_v2`]).
+/// Builds collator CLI args that turn the v2 DHT path on and pin its replication factor `K` and
+/// gossip target, on top of [`collator_args`].
 pub(super) fn collator_args_v2(
 	participant_count: u32,
 	log_filter: &str,
@@ -551,6 +545,7 @@ pub(super) fn collator_args_v2(
 	gossip_target: u32,
 ) -> Vec<zombienet_sdk::Arg> {
 	let mut args = collator_args(participant_count, log_filter);
+	args.push("--statement-v2-dht".into());
 	let replication = format!("--statement-replication-factor={replication_factor}");
 	args.push(replication.as_str().into());
 	let gossip = format!("--statement-gossip-target={gossip_target}");
@@ -559,9 +554,6 @@ pub(super) fn collator_args_v2(
 }
 
 /// Spawns a network on the v2 DHT path with injected allowances, pinning `K` and the gossip target.
-///
-/// The v2 DHT path is gated by `v2dht_enabled()`, which reads `STATEMENT_STORE_V2_DHT_ENABLED`, so
-/// we set that on every collator rather than passing a CLI flag.
 pub(super) async fn spawn_network_with_injected_allowances_v2(
 	collators: &[&str],
 	participant_count: u32,
@@ -577,8 +569,7 @@ pub(super) async fn spawn_network_with_injected_allowances_v2(
 		replication_factor,
 		gossip_target,
 	);
-	launch_network(collators, &chain_spec_path, args, &[("STATEMENT_STORE_V2_DHT_ENABLED", "1")])
-		.await
+	launch_network(collators, &chain_spec_path, args).await
 }
 
 /// Statements the late-joiner scenario submits with keypair 0: three before the joiner starts,
@@ -587,10 +578,12 @@ pub(super) const LATE_JOINER_TOTAL: usize = 5;
 
 /// Adds `dave` with `joiner_options` once charlie is past block 10, so it joins in major sync, and
 /// checks its subscription receives every statement submitted on charlie before and during the
-/// sync. Its log must also show the deferred-peer drain: charlie and alice dial dave either way.
+/// sync. Its log must also show `recovery_log`, the step that delivers the statements dropped
+/// during the sync: the deferred-peer drain on v1, the filter advertisement on v2.
 pub(super) async fn assert_late_joiner_receives_backlog(
 	network: &mut Network<LocalFileSystem>,
 	joiner_options: AddCollatorOptions,
+	recovery_log: &str,
 ) -> Result<(), anyhow::Error> {
 	const PRE_JOIN_COUNT: usize = 3;
 
@@ -651,8 +644,10 @@ pub(super) async fn assert_late_joiner_receives_backlog(
 		.collect();
 	assert_statements_match(&mut subscription, &expected, 120, "dave").await?;
 
-	let dave_logs = dave.logs().await?;
-	assert!(dave_logs.lines().any(|line| line.contains("Major sync complete, adding")));
+	// The recovery step runs after the sync settles, so it can land after the statements.
+	let options = LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(30), false);
+	let result = dave.wait_log_line_count_with_timeout(recovery_log, false, options).await?;
+	assert!(result.success(), "dave never logged: {recovery_log}");
 	Ok(())
 }
 
