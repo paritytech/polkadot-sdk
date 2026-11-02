@@ -21,6 +21,7 @@
 pub mod fetcher;
 pub mod gossip;
 pub mod inherent;
+mod metrics;
 pub mod pool;
 pub mod signer;
 
@@ -32,6 +33,7 @@ use codec::{Decode, Encode};
 use fetcher::{Fetcher, MarketResponses};
 use futures::{channel::mpsc, future::FusedFuture, FutureExt, StreamExt};
 use gossip::{Acceptance, ReportValidator};
+use metrics::Metrics;
 use prometheus_endpoint::Registry;
 use sc_network::{service::traits::NotificationService, ProtocolName};
 use sc_network_gossip::{GossipEngine, Network, Syncing};
@@ -79,9 +81,9 @@ pub struct Params<Client, Net, SyncService, Id, Signature> {
 	/// Pool the service inserts reports into. The same pool is given to the inherent data
 	/// provider.
 	pub pool: ReportPool<Id, Signature>,
-	/// Registry to register the metrics of the service with, if metrics are enabled.
-	// TODO: register metrics of the service itself (tick duration, markets priced and failed,
-	// reports signed and received, pool size). Only the gossip engine's metrics are registered.
+	/// Registry to register the metrics of the service and its gossip engine with, if metrics
+	/// are enabled.
+	// TODO: register the remaining metrics.
 	pub prometheus_registry: Option<Registry>,
 }
 
@@ -125,6 +127,17 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 		prometheus_registry,
 	} = params;
 
+	let metrics = prometheus_registry.as_ref().and_then(|registry| {
+		Metrics::register(registry)
+			.map_err(|e| log::warn!(target: LOG_TARGET, "Failed to register metrics: {e}"))
+			.ok()
+	});
+	let on_tick = |outcome: TickOutcome| {
+		if let Some(metrics) = &metrics {
+			metrics.on_tick(outcome.label());
+		}
+	};
+
 	let fetcher = match Fetcher::new() {
 		Ok(fetcher) => fetcher,
 		Err(e) => {
@@ -164,10 +177,12 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				// Start a tick, unless the previous one is still running or the node is syncing.
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
+					on_tick(TickOutcome::Overrun);
 					continue;
 				}
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
+					on_tick(TickOutcome::Syncing);
 					// The rules of the last tick are stale; do not judge peers by them.
 					validator.clear_acceptance();
 					continue;
@@ -176,6 +191,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
 					validator.clear_acceptance();
+					on_tick(TickOutcome::ApiUnavailable);
 					continue;
 				};
 				// Warn only once until a signer key is found.
@@ -198,14 +214,25 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 				}
 				// Fetch, price, sign and pool in the background; the result arrives in the arm below.
-				tick = run_tick(client.clone(), fetcher.clone(), keystore.clone(), pool.clone(), setup)
-					.boxed()
-					.fuse();
+				tick = run_tick(
+					client.clone(),
+					fetcher.clone(),
+					keystore.clone(),
+					pool.clone(),
+					metrics.clone(),
+					setup,
+				)
+				.boxed()
+				.fuse();
 			},
-			encoded = &mut tick, if !tick.is_terminated() => {
+			result = &mut tick, if !tick.is_terminated() => {
 				// The tick finished: gossip the signed report, if it produced one.
-				if let Some(encoded) = encoded {
-					gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);
+				match result {
+					Ok(encoded) => {
+						gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);
+						on_tick(TickOutcome::Reported);
+					},
+					Err(outcome) => on_tick(outcome),
 				}
 			},
 			notification = incoming.next() => {
@@ -288,19 +315,58 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 	}
 }
 
+/// How a tick ended. Labels the tick metric.
+enum TickOutcome {
+	/// A report was signed and gossiped.
+	Reported,
+	/// The previous tick was still running.
+	Overrun,
+	/// The node was major syncing.
+	Syncing,
+	/// The settings or the markets could not be read from the runtime.
+	ApiUnavailable,
+	/// The keystore holds none of the signer keys.
+	NoSigner,
+	/// No markets are registered.
+	NoMarkets,
+	/// The `aggregate` runtime call failed.
+	RuntimeError,
+	/// No pair reached its quorum.
+	NothingAggregated,
+	/// The keystore did not sign the report.
+	SigningFailed,
+}
+
+impl TickOutcome {
+	/// The outcome label of the tick metric.
+	fn label(&self) -> &'static str {
+		match self {
+			Self::Reported => "reported",
+			Self::Overrun => "overrun",
+			Self::Syncing => "syncing",
+			Self::ApiUnavailable => "api_unavailable",
+			Self::NoSigner => "no_signer",
+			Self::NoMarkets => "no_markets",
+			Self::RuntimeError => "runtime_error",
+			Self::NothingAggregated => "nothing_aggregated",
+			Self::SigningFailed => "signing_failed",
+		}
+	}
+}
+
 /// Fetch and price the markets, aggregate the prices, and sign the result as a report anchored
 /// at `setup.anchor`.
 ///
-/// Returns the encoded signed report after inserting it into `pool`. Returns `None` if the node
-/// has no signer key, no markets are registered, no market could be priced, the aggregation
-/// yields no quotes, or signing fails.
+/// Returns the encoded signed report after inserting it into `pool`, or the outcome that
+/// stopped the tick.
 async fn run_tick<Block, Client, Id, Signature>(
 	client: Arc<Client>,
 	fetcher: Fetcher,
 	keystore: KeystorePtr,
 	pool: ReportPool<Id, Signature>,
+	metrics: Option<Metrics>,
 	setup: TickSetup<Block::Hash, Id>,
-) -> Option<Vec<u8>>
+) -> Result<Vec<u8>, TickOutcome>
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>,
@@ -311,12 +377,14 @@ where
 	let interval = setup.interval();
 	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
 	// The missing signer is warned about in `run`.
-	let signer = signer?;
+	let signer = signer.ok_or(TickOutcome::NoSigner)?;
 	if markets.is_empty() {
 		log::debug!(target: LOG_TARGET, "No markets registered, not reporting");
-		return None;
+		return Err(TickOutcome::NoMarkets);
 	}
 
+	// Times the rest of the tick, whichever way it ends.
+	let _timer = metrics.as_ref().map(Metrics::tick_timer);
 	let started = Instant::now();
 	let deadline = started + interval.saturating_sub(TICK_MARGIN);
 	let (tx, mut rx) = mpsc::unbounded();
@@ -346,7 +414,7 @@ where
 		Ok(aggregates) => aggregates,
 		Err(e) => {
 			log::error!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
-			return None;
+			return Err(TickOutcome::RuntimeError);
 		},
 	};
 	let quotes: Vec<Quote> = aggregates
@@ -364,12 +432,13 @@ where
 		.collect();
 	if quotes.is_empty() {
 		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
-		return None;
+		return Err(TickOutcome::NothingAggregated);
 	}
 	log::debug!(target: LOG_TARGET, "Aggregated quotes: {quotes:?}");
 
 	let report = PriceReport { anchor, quotes };
-	let signed = signer::sign_report(&keystore, signer, report)?;
+	let signed =
+		signer::sign_report(&keystore, signer, report).ok_or(TickOutcome::SigningFailed)?;
 	log::info!(
 		target: LOG_TARGET,
 		"Reporting {} pair prices from {priced} of {} markets at anchor {anchor:?}, tick took {:?}",
@@ -379,7 +448,7 @@ where
 	);
 	let encoded = signed.encode();
 	pool.insert(signed);
-	Some(encoded)
+	Ok(encoded)
 }
 
 /// Current Unix time in milliseconds.
