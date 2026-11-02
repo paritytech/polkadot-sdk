@@ -21,8 +21,8 @@ use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
 	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
 	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	PositiveImbalanceOf, PotAccountProvider, RewardDestination, RewardKind, RewardPot,
+	StakingLedger, UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -33,7 +33,7 @@ use frame_support::{
 	traits::{
 		fungible::{
 			hold::{Balanced as FunHoldBalanced, Mutate as FunHoldMutate},
-			Mutate, Mutate as FunMutate,
+			Balanced as FunBalanced, Inspect as FunInspect, Mutate, Mutate as FunMutate,
 		},
 		Contains, Defensive, DefensiveSaturating, EnsureOrigin, Get, InspectLockableCurrency,
 		Nothing, OnUnbalanced,
@@ -68,7 +68,8 @@ pub mod pallet {
 	use super::*;
 	use crate::{
 		session_rotation::{self, Eras, Rotator},
-		IsValidatorInactive, OnEraStart, PagedExposureMetadata, SnapshotStatus,
+		IsValidatorInactive, NegativeImbalanceOfOperationalExpensesCurrency, OnEraStart,
+		PagedExposureMetadata, SnapshotStatus,
 	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -120,6 +121,13 @@ pub mod pallet {
 		Remove,
 	}
 
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelper<AccountId, Balance> {
+		fn mint_operational_expenses_token(to: &AccountId, amount: Balance) -> DispatchResult;
+
+		fn operational_expenses_token_min_balance() -> Balance;
+	}
+
 	#[pallet::config(with_default)]
 	pub trait Config: frame_system::Config {
 		/// The old trait for staking balance. Deprecated and only used for migrating old ledgers.
@@ -158,6 +166,17 @@ pub mod pallet {
 			+ Send
 			+ Sync
 			+ MaxEncodedLen;
+
+		/// Operational expenses may be paid in a non-native currency, so it's configured
+		/// separately.
+		#[pallet::no_default]
+		type OperationalExpencesCurrency: FunInspect<Self::AccountId>
+			+ FunMutate<Self::AccountId, Balance = Self::CurrencyBalance>
+			+ FunBalanced<Self::AccountId, Balance = Self::CurrencyBalance>;
+
+		#[cfg(feature = "runtime-benchmarks")]
+		#[pallet::no_default]
+		type BenchmarkHelper: BenchmarkHelper<Self::AccountId, Self::CurrencyBalance>;
 
 		/// Convert a balance into a number used for election calculation. This must fit into a
 		/// `u64` but is allowed to be sensibly lossy. The `u64` is used to communicate with the
@@ -295,6 +314,15 @@ pub mod pallet {
 		/// withdrawn and passed to this handler.
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
+
+		/// Handler for unclaimed validators' operational expenses.
+		///
+		/// When era pots are cleaned up past `HistoryDepth`, remaining funds are
+		/// withdrawn and passed to this handler.
+		#[pallet::no_default_bounds]
+		type UnclaimedOperationalExpensesHandler: OnUnbalanced<
+			NegativeImbalanceOfOperationalExpensesCurrency<Self>,
+		>;
 
 		/// Provider for generating reward pot account IDs (non-minting mode only).
 		///
@@ -475,6 +503,7 @@ pub mod pallet {
 			type Slash = ();
 			type Reward = ();
 			type UnclaimedRewardHandler = ();
+			type UnclaimedOperationalExpensesHandler = ();
 			type StakerRewardCalculator = ();
 			type DisableMinting = ConstBool<false>;
 			type SessionsPerEra = SessionsPerEra;
@@ -925,6 +954,13 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
+	/// The total operational expenses budget for each era within [`Config::HistoryDepth`].
+	///
+	/// Set at era finalization and equals to the amount available in the general pot.
+	#[pallet::storage]
+	pub type ErasOperationalExpensesReward<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
+
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
 	#[pallet::storage]
@@ -1311,6 +1347,13 @@ pub mod pallet {
 				)
 				.expect("bound for BondedEras is BondingDuration + 1; can contain at least one element; qed")
 			);
+
+			// Create operational expenses general pot account.
+			let operational_expenses_pot_account =
+				T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
+			if frame_system::Pallet::<T>::providers(&operational_expenses_pot_account) == 0 {
+				frame_system::Pallet::<T>::inc_providers(&operational_expenses_pot_account);
+			}
 		}
 	}
 
@@ -1326,6 +1369,7 @@ pub mod pallet {
 			era_index: EraIndex,
 			validator_payout: BalanceOf<T>,
 			remainder: BalanceOf<T>,
+			operational_expenses: BalanceOf<T>,
 		},
 		/// The nominator has been rewarded by this amount to this destination.
 		Rewarded {
@@ -1478,6 +1522,13 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// The validator has been paid their operational expenses.
+		ValidatorOperationalExpensesPaid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1501,6 +1552,8 @@ pub mod pallet {
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Validator operational expenses reward from era pot failed.
+		ValidatorOperationalExpensesTransferFailed { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1710,6 +1763,7 @@ pub mod pallet {
 					ErasTotalStake::<T>::remove(era);
 					ErasNominatorsSlashable::<T>::remove(era);
 					ErasValidatorIncentiveBudget::<T>::remove(era);
+					ErasOperationalExpensesReward::<T>::remove(era);
 					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					ErasSumWeightedPoints::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
@@ -3311,6 +3365,8 @@ pub mod pallet {
 			crate::reward::EraRewardAllocation {
 				staker_rewards: ErasValidatorReward::<T>::get(era).unwrap_or_else(Zero::zero),
 				validator_incentive: ErasValidatorIncentiveBudget::<T>::get(era),
+				operational_expenses: ErasOperationalExpensesReward::<T>::get(era)
+					.unwrap_or_else(Zero::zero),
 			}
 		}
 	}

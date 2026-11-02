@@ -15099,6 +15099,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-assets",
  "pallet-bags-list",
  "pallet-balances",
  "pallet-dap",

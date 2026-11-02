@@ -474,6 +474,7 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = PlanningEraOffset;
 
 	type Currency = Balances;
+	type OperationalExpencesCurrency = Balances;
 	type OldCurrency = Balances;
 	type CurrencyBalance = Balance;
 	type CurrencyToVote = ();
@@ -485,6 +486,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxEraDuration = ();
 	type DisableMinting = DisableMintingMode;
 	type UnclaimedRewardHandler = ();
+	type UnclaimedOperationalExpensesHandler = ();
 	type RewardPots = pallet_staking_async::SequentialTest;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;

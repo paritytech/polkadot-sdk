@@ -79,7 +79,12 @@ fn forcing_no_forcing_default() {
 				Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 				Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 				Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-				Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 1,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 			]
 		);
@@ -102,7 +107,12 @@ fn forcing_force_always() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 0 },
+					Event::EraPaid {
+						era_index: 0,
+						validator_payout: 15000,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -121,7 +131,12 @@ fn forcing_force_always() {
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
 					// and by now it is activated. Note how the validator payout is less, since the
 					// era duration is less. Note that we immediately plan the next era as well.
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+					Event::EraPaid {
+						era_index: 1,
+						validator_payout: 7500,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 3 }
 				]
 			);
@@ -144,7 +159,12 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
-					Event::EraPaid { era_index: 0, validator_payout: 15000, remainder: 0 },
+					Event::EraPaid {
+						era_index: 0,
+						validator_payout: 15000,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 6, active_era: 1, planned_era: 1 }
 				]
 			);
@@ -164,7 +184,12 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
 					// and by now it is activated. Note how the validator payout is less, since the
 					// era duration is less.
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+					Event::EraPaid {
+						era_index: 1,
+						validator_payout: 7500,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 9, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -180,7 +205,12 @@ fn forcing_force_new() {
 					Event::SessionRotated { starting_session: 13, active_era: 2, planned_era: 3 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 14, active_era: 2, planned_era: 3 },
-					Event::EraPaid { era_index: 2, validator_payout: 15000, remainder: 0 },
+					Event::EraPaid {
+						era_index: 2,
+						validator_payout: 15000,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 15, active_era: 3, planned_era: 3 }
 				]
 			);
@@ -246,7 +276,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&[
 				..,
 				Event::SessionRotated { starting_session: 236, active_era: 78, planned_era: 79 },
-				Event::EraPaid { era_index: 78, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 78,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 237, active_era: 79, planned_era: 79 }
 			]
 		));
@@ -280,7 +315,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&[
 				..,
 				// NO EraPruned event - pruning is now manual
-				Event::EraPaid { era_index: 80, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 80,
+					validator_payout: 7500,
+					operational_expenses: 0,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 243, active_era: 81, planned_era: 81 }
 			]
 		));
@@ -297,7 +337,12 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			&[
 				..,
 				// NO EraPruned event - pruning is now manual
-				Event::EraPaid { era_index: 81, validator_payout: 7500, remainder: 0 },
+				Event::EraPaid {
+					era_index: 81,
+					validator_payout: 7500,
+					operational_expenses: _,
+					remainder: 0
+				},
 				Event::SessionRotated { starting_session: 246, active_era: 82, planned_era: 82 }
 			]
 		));
@@ -442,6 +487,10 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						"ErasValidatorIncentiveBudget should be empty after completing SingleEntryCleanups step"
 					);
 					assert!(
+						!crate::ErasOperationalExpensesReward::<T>::contains_key(1),
+						"ErasValidatorExpensesReward should be empty after completing SingleEntryCleanups step"
+					);
+					assert!(
 						!crate::ErasSumValidatorIncentiveWeight::<T>::contains_key(1),
 						"ErasSumValidatorIncentiveWeight should be empty after completing SingleEntryCleanups step"
 					);
@@ -515,7 +564,12 @@ mod inflation {
 					Event::SessionRotated { starting_session: 4, active_era: 1, planned_era: 2 },
 					Event::PagedElectionProceeded { page: 0, result: Ok(2) },
 					Event::SessionRotated { starting_session: 5, active_era: 1, planned_era: 2 },
-					Event::EraPaid { era_index: 1, validator_payout: 7500, remainder: 0 },
+					Event::EraPaid {
+						era_index: 1,
+						validator_payout: 7500,
+						operational_expenses: 0,
+						remainder: 0
+					},
 					Event::SessionRotated { starting_session: 6, active_era: 2, planned_era: 2 }
 				]
 			);
@@ -527,7 +581,17 @@ mod inflation {
 
 #[test]
 fn era_pot_drained_after_history_depth() {
+	use super::helpers::{mint_operational_expenses_asset, operational_expenses_asset_balance};
+
 	ExtBuilder::default().build_and_execute(|| {
+		let operational_expenses_general_pot = <Test as Config>::RewardPots::pot_account(
+			RewardPot::General(RewardKind::OperationalExpenses),
+		);
+		mint_operational_expenses_asset(operational_expenses_general_pot, 100);
+
+		let unclaimed_rewards_account = UnclaimedOperationalExpensesAccount::get();
+		Balances::set_balance(&unclaimed_rewards_account, 1_000);
+
 		// GIVEN: Start at era 2
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
@@ -535,8 +599,20 @@ fn era_pot_drained_after_history_depth() {
 		// Verify era-1 staker pot was funded with expected amount.
 		let staker_pot_1 =
 			<Test as Config>::RewardPots::pot_account(RewardPot::Era(1, RewardKind::StakerRewards));
+		let operational_expenses_pot_1 = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			1,
+			RewardKind::OperationalExpenses,
+		));
 		let expected_per_era = validator_payout_for(time_per_era());
 		assert_eq!(Balances::balance(&staker_pot_1), expected_per_era);
+		assert_eq!(
+			operational_expenses_asset_balance(operational_expenses_general_pot),
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(
+			operational_expenses_asset_balance(operational_expenses_pot_1),
+			100 - MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
 
 		// era we expect to be drained
 		let drained_era = 1;
@@ -559,6 +635,16 @@ fn era_pot_drained_after_history_depth() {
 			1,
 			"Staker pot is kept alive for slot reuse; provider must be retained"
 		);
+
+		assert_eq!(
+			operational_expenses_asset_balance(unclaimed_rewards_account),
+			100 - MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(
+			operational_expenses_asset_balance(operational_expenses_general_pot),
+			MIN_OPERATIONAL_EXPENSES_CURRENCY_BALANCE
+		);
+		assert_eq!(operational_expenses_asset_balance(operational_expenses_pot_1), 0);
 	});
 }
 

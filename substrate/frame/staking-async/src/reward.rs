@@ -58,6 +58,7 @@ use sp_staking::EraIndex;
 pub struct EraRewardAllocation<Balance> {
 	pub staker_rewards: Balance,
 	pub validator_incentive: Balance,
+	pub operational_expenses: Balance,
 }
 
 /// Manager for era reward pot lifecycle.
@@ -88,11 +89,14 @@ impl<T: Config> EraRewardManager<T> {
 	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> EraRewardAllocation<BalanceOf<T>> {
 		let staker_era_pot = Self::create(era, RewardKind::StakerRewards);
 		let incentive_era_pot = Self::create(era, RewardKind::ValidatorSelfStake);
+		let operational_expenses_pot = Self::create(era, RewardKind::OperationalExpenses);
 
 		let general_staker_pot =
 			T::RewardPots::pot_account(RewardPot::General(RewardKind::StakerRewards));
 		let general_incentive_pot =
 			T::RewardPots::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake));
+		let general_operational_expenses_pot =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::OperationalExpenses));
 
 		// Leave ED in the general pots to keep them alive.
 		let staker_balance = T::Currency::reducible_balance(
@@ -102,6 +106,11 @@ impl<T: Config> EraRewardManager<T> {
 		);
 		let incentive_balance = T::Currency::reducible_balance(
 			&general_incentive_pot,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
+		let operational_expenses_balance = T::OperationalExpencesCurrency::reducible_balance(
+			&general_operational_expenses_pot,
 			Preservation::Preserve,
 			Fortitude::Polite,
 		);
@@ -142,15 +151,42 @@ impl<T: Config> EraRewardManager<T> {
 			Zero::zero()
 		};
 
+		let actual_operational_expenses = if !operational_expenses_balance.is_zero() {
+			match T::OperationalExpencesCurrency::transfer(
+				&general_operational_expenses_pot,
+				&operational_expenses_pot,
+				operational_expenses_balance,
+				Preservation::Preserve,
+			) {
+				Ok(_) => operational_expenses_balance,
+				Err(e) => {
+					log!(
+						error,
+						"Era {:?}: validator operational expenses transfer failed: {:?}",
+						era,
+						e
+					);
+					defensive!("Failed to transfer validator operational expenses to era pot");
+					Zero::zero()
+				},
+			}
+		} else {
+			Zero::zero()
+		};
+
 		log!(
 			info,
-			"Era {:?}: snapshotted staker_rewards={:?}, validator_incentive={:?}",
+			"Era {:?}: snapshotted staker_rewards={:?}, validator_incentive={:?}, operational_expenses={:?}",
 			era,
 			actual_staker,
-			actual_incentive
+			actual_incentive, actual_operational_expenses
 		);
 
-		EraRewardAllocation { staker_rewards: actual_staker, validator_incentive: actual_incentive }
+		EraRewardAllocation {
+			staker_rewards: actual_staker,
+			validator_incentive: actual_incentive,
+			operational_expenses: actual_operational_expenses,
+		}
 	}
 
 	/// Drains an era pot's remaining balance to the unclaimed reward handler.
@@ -202,6 +238,47 @@ impl<T: Config> EraRewardManager<T> {
 		}
 	}
 
+	/// Drains an era operational expenses pot's remaining balance to the unclaimed reward handler.
+	///
+	/// The same as [`Self::drain`] but only for the operational expenses pot.
+	pub(crate) fn drain_operational_expenses(era: EraIndex) {
+		let pot_account =
+			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::OperationalExpenses));
+
+		let remaining = T::OperationalExpencesCurrency::balance(&pot_account);
+
+		if remaining.is_zero() {
+			return;
+		}
+
+		match T::OperationalExpencesCurrency::withdraw(
+			&pot_account,
+			remaining,
+			Precision::BestEffort,
+			Preservation::Expendable,
+			Fortitude::Force,
+		) {
+			Ok(credit) => {
+				T::UnclaimedOperationalExpensesHandler::on_unbalanced(credit);
+				log!(
+					debug,
+					"Drained {:?} unclaimed operational expenses from era {:?} pot",
+					remaining,
+					era,
+				);
+			},
+			Err(e) => {
+				defensive!("Failed to withdraw unclaimed operational expenses from era pot");
+				log!(
+					error,
+					"Era {:?}: unclaimed operational expenses withdrawal failed: {:?}",
+					era,
+					e
+				);
+			},
+		}
+	}
+
 	/// Whether the slot backing this era's staker reward pot exists.
 	///
 	/// Because slots are reused across eras (rotating pool), this returns
@@ -219,6 +296,7 @@ impl<T: Config> EraRewardManager<T> {
 	pub(crate) fn cleanup_era(era: EraIndex) {
 		Self::drain(era, RewardKind::StakerRewards);
 		Self::drain(era, RewardKind::ValidatorSelfStake);
+		Self::drain_operational_expenses(era);
 	}
 }
 

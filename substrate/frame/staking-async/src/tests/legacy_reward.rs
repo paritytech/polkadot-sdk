@@ -41,6 +41,7 @@ fn legacy_era_payout_and_mint_works() {
 		assert!(staking_events_since_last_call().contains(&Event::EraPaid {
 			era_index: 1,
 			validator_payout: expected_stakers,
+			operational_expenses: 0,
 			remainder: expected_remainder,
 		}));
 
@@ -80,6 +81,7 @@ fn legacy_max_staked_rewards_caps_staker_payout() {
 		assert!(staking_events_since_last_call().contains(&Event::EraPaid {
 			era_index: 1,
 			validator_payout: expected_stakers,
+			operational_expenses: 0,
 			remainder: expected_remainder,
 		}));
 
@@ -104,6 +106,7 @@ fn legacy_max_era_duration_caps_payout() {
 		assert!(events.contains(&Event::EraPaid {
 			era_index: 1,
 			validator_payout: expected_stakers,
+			operational_expenses: 0,
 			remainder: expected_remainder,
 		}));
 	});
