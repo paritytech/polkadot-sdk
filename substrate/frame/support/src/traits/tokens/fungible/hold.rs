@@ -238,8 +238,7 @@ pub trait Mutate<AccountId>:
 			BestEffort => amount.min(Self::balance_on_hold(reason, who)),
 			Exact => amount,
 		};
-		// We want to make sure we can deposit the amount in advance. If we can't then something is
-		// very wrong.
+		// Check the free balance can take the amount before touching the hold; fail otherwise.
 		ensure!(Self::can_deposit(who, amount, Extant) == Success, TokenError::CannotCreate);
 		let amount = Self::decrease_balance_on_hold(reason, who, amount, Exact)?;
 		// Increase the main balance by what we took. We always do a best-effort here because we
