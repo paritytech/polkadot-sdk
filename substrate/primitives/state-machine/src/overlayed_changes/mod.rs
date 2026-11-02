@@ -806,6 +806,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		if let Some(root) = self
 			.storage_transaction_cache
 			.as_ref()
+			.filter(|cache| cache.state_version == state_version)
 			.and_then(|cache| cache.child_roots.get(storage_key))
 		{
 			return Ok((*root, true));
@@ -1236,6 +1237,40 @@ mod tests {
 				.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
 				.unwrap(),
 			(expected_root, true),
+		);
+	}
+
+	/// A child root cached by a storage root in one state version must not answer a request for
+	/// the other version: the layouts hash values of 33 bytes or more differently.
+	#[test]
+	fn cached_child_storage_root_is_used_only_for_the_same_state_version() {
+		let child_info = ChildInfo::new_default(b"Child1");
+		let backend = new_in_mem::<Blake2Hasher>();
+		let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+		overlay.set_child_storage(&child_info, vec![10], Some(vec![10; 40]));
+		overlay.storage_root(&backend, StateVersion::V1);
+
+		let mut fresh = OverlayedChanges::<Blake2Hasher>::default();
+		fresh.set_child_storage(&child_info, vec![10], Some(vec![10; 40]));
+		let (root_v0, _) = fresh
+			.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V0)
+			.unwrap();
+		let (root_v1, _) = fresh
+			.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
+			.unwrap();
+		assert_ne!(root_v0, root_v1);
+
+		assert_eq!(
+			overlay
+				.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V0)
+				.unwrap(),
+			(root_v0, false),
+		);
+		assert_eq!(
+			overlay
+				.child_storage_root_without_overlay_write(&child_info, &backend, StateVersion::V1)
+				.unwrap(),
+			(root_v1, true),
 		);
 	}
 
