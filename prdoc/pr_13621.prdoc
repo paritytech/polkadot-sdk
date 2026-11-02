@@ -9,14 +9,24 @@ doc:
     base deposit stays on hold until the contract is terminated. The bound uses
     `Deposit::total_on_hold`, which for `PGasDeposit` is the sum of the native and PGAS holds.
 
-    A contract instantiated by `Origin::Root` records a base deposit that was not placed on hold.
-    Its refunds are bounded the same way, by the deposit held above the recorded base deposit.
+    `Origin::Root` pays no storage deposit, so a contract it instantiates now records a base
+    deposit of zero, and all of the slot deposits signed callers pay for it can be refunded.
+    Contracts instantiated by `Origin::Root` before this change keep the base deposit recorded in
+    their `ContractInfo`, although it was never held. For them, up to that amount of the slot
+    deposits paid by signed callers stays on hold until the contract is terminated. There is no
+    migration: `ContractInfo` does not record who instantiated a contract, so these contracts
+    cannot be identified.
 
     The storage deposit reported by `bare_call`, `bare_instantiate`, dry runs and Ethereum
-    receipts is now the amount released from the contracts' holds. When a refund is not
-    released in full, the deposit limit, or the Ethereum gas limit, is checked again against the
-    released amount before any charge is paid, and the call fails with
-    `StorageDepositNotEnoughFunds` if it is exceeded.
+    receipts is now the amount released from the contracts' holds. After the refunds are paid,
+    the deposit limit, or the Ethereum gas limit, is checked again before any charge is paid, and
+    the call fails with `StorageDepositNotEnoughFunds` if it is exceeded. The deposit consumed
+    rises there when a refund is not released in full, and when a contract clears storage and
+    terminates in the same call stack: its termination refunds its whole hold, and the refund
+    recorded for the cleared storage is dropped. Previously the limit was checked again only in
+    the first case. A call where a contract clears storage and terminates can therefore now fail
+    with `StorageDepositNotEnoughFunds` where it passed before, and its `max_storage_deposit`
+    includes the dropped refund.
 
     With the native deposit backend (`()`), refunds within the deposit held above the base
     deposit are unchanged. With `PGasDeposit`, an origin that is not entitled to the native part
@@ -33,7 +43,10 @@ doc:
     unchanged. On runtimes using `PGasDeposit`, an origin that is not entitled to the native part
     of a refund can see a smaller reported refund, and its storage deposit limit is enforced
     against the amount released from the hold. A call whose limit is exceeded this way fails with
-    `StorageDepositNotEnoughFunds`.
+    `StorageDepositNotEnoughFunds`. The same holds for a call in which a contract clears storage
+    and then terminates: the refund for the cleared storage is not paid on top of the termination
+    refund and counts against the limit. Contracts instantiated by `Origin::Root` record a base
+    deposit of zero, so storage deposits paid for them are refunded in full.
 crates:
 - name: pallet-revive
   bump: patch
