@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793476571615,
+  "lastUpdate": 1793616567710,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mertwole@gmail.com",
-            "name": "mertwole",
-            "username": "mertwole"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a0d4b392e1cc2dc0fe95ca95b461ed6fc580aa20",
-          "message": "[pallet-broker] introduce `Market` trait for a generic coretime market (#11563)\n\nThis PR is a part of #10916 containing only the `Market` trait\n\nPart of #10900",
-          "timestamp": "2026-04-16T14:44:09Z",
-          "tree_id": "335e81cb05948d157e190a8758a0d172fd136c7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0d4b392e1cc2dc0fe95ca95b461ed6fc580aa20"
-        },
-        "date": 1776356107245,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52937.90000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63623.270000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8976807595299987,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8196763061800003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8470585312099996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.004900663420000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000026223760000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000026223760000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000025457930000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000025457930000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4572997869800037,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.237771130102896,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.587036361949945,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7297898710699435,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.830630443559999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel",
             "value": 14.168781214390027,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "0@mcornholio.ru",
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ed48cc3b2117b4256711a4ba0ddaaa98794541f",
+          "message": "License scanner node.js upgrade (#7713)\n\nFollowing https://github.com/paritytech/license-scanner/issues/61, this\nupdates node.js for license-scanner. The scanner itself is not pinned,\nso it should already be using the newly published version.\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2026-11-02T09:16:15Z",
+          "tree_id": "95af26a77945a83f954940903f5801a0ead0bd51",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ed48cc3b2117b4256711a4ba0ddaaa98794541f"
+        },
+        "date": 1793616534713,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63560.240000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019982500000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001975891,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7185252422200015,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.331149072040011,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.4710188435430265,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.74968995454,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019982500000000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0053905124700000025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001975891,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.811509424739999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.104457761080013,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.72158204005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.76661151502,
             "unit": "seconds"
           }
         ]
