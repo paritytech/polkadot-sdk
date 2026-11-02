@@ -27,7 +27,7 @@ use log::{debug, info, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use rand::Rng;
-use sc_chain_spec::{resolve_state_version_from_wasm, BuildGenesisBlock};
+use sc_chain_spec::BuildGenesisBlock;
 use sc_client_api::{
 	backend::{
 		self, apply_aux, BlockImportOperation, ClientImportOperation, FinalizeSummary, Finalizer,
@@ -40,12 +40,14 @@ use sc_client_api::{
 	},
 	execution_extensions::ExecutionExtensions,
 	notifications::{StorageEventStream, StorageNotifications},
-	CallExecutor, ExecutorProvider, KeysIter, OnFinalityAction, OnImportAction, PairsIter,
+	CallExecutor, DecodedCompactProof, ExecutorProvider, KeysIter, OnFinalityAction,
+	OnImportAction, PairsIter, PartialStateImport, PartialStateStore,
 	PrefetchedIndexedTransactions, ProofProvider, StaleBlock, TrieCacheContext, UnpinWorkerMessage,
 	UsageProvider,
 };
 use sc_consensus::{
-	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction,
+	BlockCheckParams, BlockImportParams, ForkChoiceStrategy, ImportResult, ImportedState,
+	StateAction,
 };
 use sc_executor::RuntimeVersion;
 use sc_telemetry::{telemetry, TelemetryHandle, SUBSTRATE_INFO};
@@ -61,14 +63,14 @@ use sp_consensus::{BlockOrigin, BlockStatus, Error as ConsensusError};
 
 use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_core::{
-	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageChild, StorageData, StorageKey},
+	storage::{ChildInfo, ChildType, PrefixedStorageKey, StorageData, StorageKey},
 	traits::{CallContext, SpawnNamed},
 	H256,
 };
 use sp_runtime::{
 	generic::{BlockId, SignedBlock},
 	traits::{
-		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One,
+		Block as BlockT, BlockIdTo, HashingFor, Header as HeaderT, NumberFor, One, PartialStateFor,
 		SaturatedConversion, Zero,
 	},
 	Justification, Justifications, StateVersion,
@@ -624,51 +626,10 @@ where
 
 				Some((main_sc, child_sc))
 			},
-			Some(sc_consensus::StorageChanges::Import(changes)) => {
-				let mut storage = sp_storage::Storage::default();
-				for state in changes.state.0.into_iter() {
-					if state.parent_storage_keys.is_empty() && state.state_root.is_empty() {
-						for (key, value) in state.key_values.into_iter() {
-							storage.top.insert(key, value);
-						}
-					} else {
-						for parent_storage in state.parent_storage_keys {
-							let storage_key = PrefixedStorageKey::new_ref(&parent_storage);
-							let storage_key = match ChildType::from_prefixed_key(storage_key) {
-								Some((ChildType::ParentKeyId, storage_key)) => storage_key,
-								None => {
-									return Err(Error::Backend(
-										"Invalid child storage key.".to_string(),
-									))
-								},
-							};
-							let entry = storage
-								.children_default
-								.entry(storage_key.to_vec())
-								.or_insert_with(|| StorageChild {
-									data: Default::default(),
-									child_info: ChildInfo::new_default(storage_key),
-								});
-							for (key, value) in state.key_values.iter() {
-								entry.data.insert(key.clone(), value.clone());
-							}
-						}
-					}
-				}
-
-				// This is use by fast sync for runtime version to be resolvable from
-				// changes.
-				let state_version = resolve_state_version_from_wasm::<_, HashingFor<Block>>(
-					&storage,
-					&self.executor,
-				)?;
-				let state_root = operation.op.reset_storage(storage, state_version)?;
-				if state_root != *import_headers.post().state_root() {
-					// State root mismatch when importing state. This should not happen in
-					// safe fast sync mode, but may happen in unsafe mode.
-					warn!("Error importing state: State root mismatch.");
-					return Err(Error::InvalidStateRoot);
-				}
+			Some(sc_consensus::StorageChanges::Import(ImportedState)) => {
+				let state_root = *import_headers.post().state_root();
+				partial_state_store(&*self.backend)?.check_complete(state_root)?;
+				operation.op.mark_state_synced()?;
 				None
 			},
 			None => None,
@@ -1382,7 +1343,7 @@ where
 		root: Block::Hash,
 		proof: CompactProof,
 		start_key: &[Vec<u8>],
-	) -> sp_blockchain::Result<(KeyValueStates, usize)> {
+	) -> sp_blockchain::Result<(KeyValueStates, usize, DecodedCompactProof<HashingFor<Block>>)> {
 		let mut db = sp_state_machine::MemoryDB::<HashingFor<Block>>::new(&[]);
 		// Compact encoding
 		sp_trie::decode_compact::<sp_state_machine::LayoutV0<HashingFor<Block>>, _, _>(
@@ -1392,12 +1353,59 @@ where
 		)
 		.map_err(|e| sp_blockchain::Error::from_state(Box::new(e)))?;
 		let proving_backend = sp_state_machine::TrieBackendBuilder::new(db, root).build();
-		let state = read_range_proof_check_with_child_on_proving_backend::<HashingFor<Block>>(
-			&proving_backend,
-			start_key,
-		)?;
+		let (key_values, completed) = read_range_proof_check_with_child_on_proving_backend::<
+			HashingFor<Block>,
+		>(&proving_backend, start_key)?;
+		let db = proving_backend.into_storage();
+		Ok((key_values, completed, db))
+	}
+}
 
-		Ok(state)
+/// The backend's partial-state store, or the error every state sync operation fails with on a
+/// backend that has none.
+fn partial_state_store<B, Block>(
+	backend: &B,
+) -> sp_blockchain::Result<&dyn PartialStateStore<Block>>
+where
+	B: backend::Backend<Block>,
+	Block: BlockT,
+{
+	backend.partial_state().ok_or_else(|| {
+		sp_blockchain::Error::Backend("state sync is not supported by this backend".into())
+	})
+}
+
+impl<B, E, Block, RA> PartialStateImport<Block> for Client<B, E, Block, RA>
+where
+	B: backend::Backend<Block>,
+	E: CallExecutor<Block>,
+	Block: BlockT,
+{
+	fn begin_partial_state(
+		&self,
+		target: sc_client_api::partial_state::PartialStateTarget<Block>,
+	) -> sp_blockchain::Result<()> {
+		let store = partial_state_store(&*self.backend)?;
+		// Beginning over an earlier sync empties the state column, so no block import may run
+		// meanwhile.
+		let _import_lock = self.backend.get_import_lock().write();
+		store.begin(target)
+	}
+
+	fn import_partial_state(
+		&self,
+		partial_state: &PartialStateFor<Block>,
+	) -> sp_blockchain::Result<()> {
+		let store = partial_state_store(&*self.backend)?;
+		let _import_lock = self.backend.get_import_lock().write();
+		store.import(partial_state)
+	}
+
+	fn resumable_partial_state(
+		&self,
+	) -> sp_blockchain::Result<Option<sc_client_api::partial_state::ResumablePartialState<Block>>>
+	{
+		partial_state_store(&*self.backend)?.resumable()
 	}
 }
 

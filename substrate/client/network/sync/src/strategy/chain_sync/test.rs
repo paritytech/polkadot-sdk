@@ -26,9 +26,14 @@ use crate::{
 use futures::{channel::oneshot::Canceled, executor::block_on};
 use rstest::rstest;
 use sc_block_builder::BlockBuilderBuilder;
+use sc_client_api::partial_state::PartialStateTarget;
+use sc_consensus::{
+	BlockImport, BlockImportParams, ForkChoiceStrategy, ImportedState, StateAction, StorageChanges,
+};
 use sc_network::RequestFailure;
 use sc_network_common::sync::message::{BlockAnnounce, BlockData, BlockState, FromBlock};
 use sp_blockchain::HeaderBackend;
+use sp_runtime::traits::PartialStateFor;
 use std::sync::Mutex;
 use substrate_test_runtime_client::{
 	runtime::{Block, Hash, Header},
@@ -1695,10 +1700,13 @@ fn gap_sync_empty_body_response_drops_peer_and_frees_range() {
 	assert!(request.fields.contains(BlockAttributes::BODY));
 }
 
-/// Full sync with one download per range and two blocks per request.
-fn new_test_sync(client: Arc<TestClient>) -> ChainSync<Block, TestClient> {
+/// A sync in `mode` with one download per range and two blocks per request.
+fn new_test_sync_with_mode(
+	client: Arc<TestClient>,
+	mode: ChainSyncMode,
+) -> ChainSync<Block, TestClient> {
 	ChainSync::new(
-		ChainSyncMode::Full,
+		mode,
 		client,
 		1,
 		2,
@@ -1709,6 +1717,167 @@ fn new_test_sync(client: Arc<TestClient>) -> ChainSync<Block, TestClient> {
 		std::iter::empty(),
 	)
 	.unwrap()
+}
+
+/// Full sync with one download per range and two blocks per request.
+fn new_test_sync(client: Arc<TestClient>) -> ChainSync<Block, TestClient> {
+	new_test_sync_with_mode(client, ChainSyncMode::Full)
+}
+
+/// A client without genesis state that knows `header` but holds no state for it, as a node that
+/// fast-syncs does: the header is imported without execution.
+fn client_knowing_header_only(header: &Header) -> Arc<TestClient> {
+	let client = Arc::new(TestClientBuilder::new().set_no_genesis().build());
+	let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header.clone());
+	params.state_action = StateAction::Skip;
+	params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	block_on((&*client).import_block(params)).expect("a header-only import needs no state");
+	client
+}
+
+/// Records on `client` a completed download of `header`'s state, taken from `remote`: what a
+/// restart finds after the final chunk and before the target import.
+fn record_complete_state(
+	remote: &TestClient,
+	client: &TestClient,
+	header: &Header,
+) -> sp_blockchain::Result<()> {
+	client.begin_partial_state(PartialStateTarget {
+		header: header.clone(),
+		body: None,
+		justifications: None,
+	})?;
+	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX)?;
+	let (values, completed, nodes) = client.verify_range_proof(*header.state_root(), proof, &[])?;
+	if completed != 0 {
+		return Err(sp_blockchain::Error::Backend(format!(
+			"the state did not fit in one chunk, the range read stopped at depth {completed}"
+		)));
+	}
+	client.import_partial_state(&PartialStateFor::<Block> {
+		block_hash: header.hash(),
+		state_root: *header.state_root(),
+		nodes,
+		start: vec![],
+		end: None,
+		child_trie_copies: values.child_trie_copies(),
+	})
+}
+
+/// A node whose database already holds a finalized state never begins a state sync: the attempt
+/// restarts the block sync, which switches to full sync.
+#[test]
+fn state_sync_is_not_attempted_over_an_existing_state() {
+	let remote = TestClientBuilder::new().build();
+	let block = build_block(&remote, None, true);
+	let header = block.header().clone();
+	let client = client_knowing_header_only(&header);
+	// Built before the state exists, so `ChainSync::new` keeps fast sync.
+	let mut sync = new_test_sync_with_mode(client.clone(), ChainSyncMode::LightState);
+	sync.add_peer(PeerId::random(), block.hash(), 1);
+	assert!(matches!(sync.mode, ChainSyncMode::LightState));
+
+	// The state lands as the import of a state sync target lands it.
+	record_complete_state(&remote, &client, &header).unwrap();
+	let mut params = BlockImportParams::new(BlockOrigin::NetworkInitialSync, header);
+	params.state_action = StateAction::ApplyChanges(StorageChanges::Import(ImportedState));
+	params.import_existing = true;
+	params.finalized = true;
+	params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	block_on((&*client).import_block(params)).unwrap();
+	assert!(client.info().finalized_state.is_some());
+
+	sync.attempt_state_sync(block.hash(), 1);
+	assert!(sync.state_sync.is_none());
+	assert!(matches!(sync.mode, ChainSyncMode::Full));
+}
+
+/// A download completed before a restart: fast sync queues the import at once, requests nothing,
+/// and switches to full sync when the import lands.
+#[test]
+fn complete_recorded_state_sync_imports_the_target_and_restarts_in_full_mode() {
+	let remote = TestClientBuilder::new().build();
+	let block = build_block(&remote, None, true);
+	let header = block.header().clone();
+	let client = client_knowing_header_only(&header);
+	record_complete_state(&remote, &client, &header).unwrap();
+
+	let mut sync = new_test_sync_with_mode(client, ChainSyncMode::LightState);
+	for _ in 0..2 {
+		sync.add_peer(PeerId::random(), block.hash(), 1);
+	}
+	sync.attempt_state_sync(block.hash(), 1);
+
+	let actions = sync.take_actions().collect::<Vec<_>>();
+	assert!(matches!(
+		actions.as_slice(),
+		[SyncingAction::ImportBlocks { blocks, .. }]
+			if blocks.len() == 1 && blocks[0].hash == block.hash() && blocks[0].state.is_some()
+	));
+	assert!(sync.state_sync.is_some(), "the strategy waits for the import");
+	assert!(sync.state_request().is_none(), "nothing is left to download");
+	assert!(sync.block_requests().is_empty(), "block sync waits for the state");
+	sync.on_block_finalized(&block.hash(), 1);
+	assert_eq!(sync.take_actions().count(), 0, "no second attempt while the import is pending");
+
+	sync.on_blocks_processed(
+		1,
+		1,
+		vec![(Ok(BlockImportStatus::ImportedUnknown(1, Default::default(), None)), block.hash())],
+	);
+	assert!(sync.state_sync.is_none());
+	assert!(matches!(sync.mode, ChainSyncMode::Full));
+}
+
+/// A chunk the database refused is kept and written again a second later, with no new request:
+/// the retry completes the download and the target import lands. The refusal comes from another
+/// target recorded under the sync's feet, right before the response arrives.
+#[test]
+fn no_requests_while_a_chunk_waits_and_the_retry_switches_to_full_mode() {
+	let remote = TestClientBuilder::new().build();
+	let header = build_block(&remote, None, true).header().clone();
+	let target = |header: &Header| PartialStateTarget {
+		header: header.clone(),
+		body: None,
+		justifications: None,
+	};
+	let client = client_knowing_header_only(&header);
+	let mut sync = new_test_sync_with_mode(client.clone(), ChainSyncMode::LightState);
+	for _ in 0..2 {
+		sync.add_peer(PeerId::random(), header.hash(), 1);
+	}
+	sync.attempt_state_sync(header.hash(), 1);
+	let (peer, request) = sync.state_request().expect("the download starts");
+	assert!(request.start.is_empty());
+
+	let other = build_block(&remote, Some(header.hash()), false).header().clone();
+	client.begin_partial_state(target(&other)).unwrap();
+	let (proof, _) = remote.read_proof_collection(header.hash(), &[], usize::MAX).unwrap();
+	let response = StateResponse { entries: vec![], proof: proof.encode() }.encode_to_vec();
+	assert!(sync.on_state_data(&peer, &response).is_ok());
+
+	let network_provider = NetworkServiceProvider::new();
+	let network_handle = network_provider.handle();
+	assert_eq!(sync.take_actions().count(), 0, "nothing imported yet");
+	assert!(sync.state_request().is_none(), "no request while the chunk waits");
+	assert!(sync.block_requests().is_empty(), "block sync waits for the state");
+	assert!(sync.actions(&network_handle).unwrap().is_empty(), "the retry waits for its delay");
+
+	client.begin_partial_state(target(&header)).unwrap();
+	sync.state_sync.as_mut().expect("the state sync goes on").expire_write_delay();
+	let actions = sync.actions(&network_handle).unwrap();
+	assert!(matches!(
+		actions.as_slice(),
+		[SyncingAction::ImportBlocks { blocks, .. }]
+			if blocks.len() == 1 && blocks[0].hash == header.hash() && blocks[0].state.is_some()
+	));
+	sync.on_blocks_processed(
+		1,
+		1,
+		vec![(Ok(BlockImportStatus::ImportedUnknown(1, Default::default(), None)), header.hash())],
+	);
+	assert!(sync.state_sync.is_none());
+	assert!(matches!(sync.mode, ChainSyncMode::Full));
 }
 
 /// Replacing a block download must let another peer retry it before ancestry search finishes.
@@ -1802,14 +1971,17 @@ fn ancestry_search_requeues_justification_download() {
 
 #[test]
 fn ancestry_search_allows_state_request_to_move_to_another_peer() {
-	let client = Arc::new(TestClientBuilder::new().build());
-	let block = build_block(&client, None, false);
-	let mut sync = new_test_sync(client);
+	// A state sync only begins on a client that holds no state: the block comes from another
+	// client, and this one knows its header alone, as a fast-syncing node does.
+	let remote = TestClientBuilder::new().build();
+	let block = build_block(&remote, None, false);
+	let client = client_knowing_header_only(block.header());
+	let mut sync = new_test_sync_with_mode(client, ChainSyncMode::LightState);
 	let peers = [PeerId::random(), PeerId::random()];
 	for peer in peers {
 		sync.add_peer(peer, block.hash(), 1);
 	}
-	sync.attempt_state_sync(block.hash(), 1, false);
+	sync.attempt_state_sync(block.hash(), 1);
 	let (busy, original) = sync.state_request().unwrap();
 	assert!(sync.allowed_requests.is_empty());
 

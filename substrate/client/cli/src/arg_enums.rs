@@ -291,7 +291,7 @@ pub enum SyncMode {
 	Full,
 	/// Download blocks without executing them. Download latest state with proofs.
 	Fast,
-	/// Download blocks without executing them. Download latest state without proofs.
+	/// Deprecated alias of `fast`. The latest state is always downloaded with proofs now.
 	FastUnsafe,
 	/// Prove finality and download the latest state.
 	/// After warp sync completes, the node will have block headers but not bodies for historical
@@ -304,8 +304,17 @@ impl Into<sc_network::config::SyncMode> for SyncMode {
 	fn into(self) -> sc_network::config::SyncMode {
 		match self {
 			SyncMode::Full => sc_network::config::SyncMode::Full,
-			SyncMode::Fast => sc_network::config::SyncMode::LightState { skip_proofs: false },
-			SyncMode::FastUnsafe => sc_network::config::SyncMode::LightState { skip_proofs: true },
+			SyncMode::Fast => sc_network::config::SyncMode::LightState,
+			SyncMode::FastUnsafe => {
+				// This runs while the configuration is built, before the logger exists, so a
+				// `log::warn!` would be lost. Print to stderr like the `paritydb-experimental`
+				// deprecation does.
+				eprintln!(
+					"WARNING: `--sync fast-unsafe` is deprecated and behaves like `--sync fast`: the \
+					latest state is always downloaded with proofs. Use `--sync fast`."
+				);
+				sc_network::config::SyncMode::LightState
+			},
 			SyncMode::Warp => sc_network::config::SyncMode::Warp,
 		}
 	}

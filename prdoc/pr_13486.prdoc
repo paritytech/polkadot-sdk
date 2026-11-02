@@ -1,0 +1,45 @@
+title: 'State sync: streams chunks directly to database'
+doc:
+- audience: Node Operator
+  description: |-
+    State sync writes each verified chunk to the database as it arrives instead of holding the
+    whole state in memory (#5053). A restart resumes the download from the recorded cursor.
+    `--sync fast-unsafe` is a deprecated alias of `--sync fast`: the state is always downloaded
+    with proofs.
+- audience: Node Dev
+  description: |-
+    The sync strategies write each verified chunk through the new
+    `sc_client_api::PartialStateImport` trait, implemented by `Client`, which forwards to the
+    backend's `PartialStateStore` from the new `Backend::partial_state()` (`None` by default: such
+    a backend cannot state-sync). The database records the target and the cursor, so a restart
+    resumes the download, and the backend discards an abandoned one. Each node position is written
+    exactly once, as parity-db's reference counting needs. The target block imports with the
+    `ImportedState` marker, now a unit struct, and `BlockImportOperation::mark_state_synced`.
+    `SyncMode::LightState` loses `skip_proofs`, `ProofProvider::verify_range_proof` also returns
+    the decoded trie nodes, and the syncing strategies require `PartialStateImport` of the client.
+    Supersedes #9247.
+crates:
+- name: sp-trie
+  bump: minor
+- name: sp-runtime
+  bump: minor
+- name: sp-state-machine
+  bump: minor
+- name: sc-state-db
+  bump: minor
+- name: sc-cli
+  bump: patch
+- name: sc-network-common
+  bump: major
+- name: sc-client-api
+  bump: major
+- name: sc-client-db
+  bump: minor
+- name: sc-consensus
+  bump: major
+- name: sc-network-sync
+  bump: major
+- name: sc-service
+  bump: major
+- name: cumulus-client-service
+  bump: major
