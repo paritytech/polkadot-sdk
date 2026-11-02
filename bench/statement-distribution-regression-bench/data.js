@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793636027908,
+  "lastUpdate": 1793655148845,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "egor@parity.io",
-            "name": "Egor_P",
-            "username": "EgorPopelyaev"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d7bc514f0cc9029f614c9a28ce01f8944dd62693",
-          "message": "Bump spec_version WAH (#11792)\n\nBumps WAH spec_version after latest upgrade",
-          "timestamp": "2026-04-16T10:31:35Z",
-          "tree_id": "e07ebe9b0f15a155ef6f4e1e10170bc0e74608ae",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/d7bc514f0cc9029f614c9a28ce01f8944dd62693"
-        },
-        "date": 1776340276804,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.06599999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.0381348483,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07999853858399993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08599928817799991,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "52418509+georgepisaltu@users.noreply.github.com",
+            "name": "georgepisaltu",
+            "username": "georgepisaltu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3ae62cd730bec09fc905229c554373bb76bc5e8b",
+          "message": "Derive `MaxEncodedLen` for `StatementAllowance` (#13676)\n\n# Description\n\nFixes #13675\n\n`sp_statement_store::StatementAllowance` now implements `MaxEncodedLen`.\n\n---------\n\nSigned-off-by: georgepisaltu <george.pisaltu@parity.io>",
+          "timestamp": "2026-11-02T19:59:57Z",
+          "tree_id": "598c75495af7b2b88eba558f933f7e5a4124fd13",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/3ae62cd730bec09fc905229c554373bb76bc5e8b"
+        },
+        "date": 1793655121059,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11999999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03862496853800001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0857604472359999,
             "unit": "seconds"
           }
         ]
