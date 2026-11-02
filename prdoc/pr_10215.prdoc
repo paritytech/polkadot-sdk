@@ -45,6 +45,8 @@ crates:
   bump: major
 - name: sc-client-db
   bump: minor
+- name: sc-executor
+  bump: none
 - name: sp-trie
   bump: minor
 - name: polkadot-node-core-pvf-common
@@ -56,7 +58,7 @@ crates:
 - name: cumulus-pallet-weight-reclaim
   bump: patch
 - name: cumulus-primitives-proof-size-hostfunction
-  bump: major
+  bump: minor
 - name: cumulus-primitives-storage-weight-reclaim
   bump: major
 - name: frame-benchmarking
