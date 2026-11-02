@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793627729512,
+  "lastUpdate": 1793635976054,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4fba586ff870438250674e5787c1a58204117bd3",
-          "message": "frame-omni-bencher: better diagnostic on insufficient data points (#11510)\n\nWhen a benchmark is run with not enough steps and too many points are\nskipped then it can make the analysis panic. This PR improves the panic\nmessage and gives precise information about which benchmark is at fault.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-16T20:43:45Z",
-          "tree_id": "0cf7271908e8f3aa3deeeb5c8643ef2938363fcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fba586ff870438250674e5787c1a58204117bd3"
-        },
-        "date": 1776377506758,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63632.369999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000024599560000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.87245313784,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.839969313190001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.8898999725299994,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00003627258,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00003627258,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000024599560000000005,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.677445652309945,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.460690823219993,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.850307226360001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005203077979999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.758922101189951,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.282415426812971,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.7744801947300024,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "abd3ba33f9d2de9958e9a393715302833a391201",
+          "message": "omni-node: use the parachain tracing executor in `--dev` mode (#13665)\n\nFixes #13594.\n\nSupersedes #13596, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nIn `--dev` mode, the omni-node does not set an executor for block\ntracing. Because of this, the node replays blocks without the proof size\nextension.\n\nOn runtimes that use `StorageWeightReclaim`, the replay then gives a\ndifferent storage root. The result is that `state_traceBlock` fails for\neach block that has a signed extrinsic, and `state_callRecorded` is not\navailable.\n\nThis PR makes the dev node use the same tracing executor as the normal\nparachain node.\n\nResults with the parachain template runtime:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace a block with a signed transfer | Error 4001 | 328 events |\n| `state_callRecorded` on that block | Error 4004 | Works |\n| Trace a block with only inherents | 217 events | 217 events |\n\n`state_call` with `Core_execute_block` still fails, because it does not\nuse this executor.\n\n## Integration\n\nNothing to do for downstream projects. The change only affects\n`polkadot-omni-node --dev`.\n\nTracing on a dev node now records a proof. This uses more CPU and memory\nduring tracing.\n\nBlock authoring and import are unchanged.\n\n## How to test\n\nI tested it manually with the steps in #13594, using a node built from\nthis branch with `--features runtime-benchmarks` (the official template\nruntime needs it).\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [ ] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T13:43:48Z",
+          "tree_id": "77c0a0d253ce1bc80bd9ac04255ea1f3995fa31a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/abd3ba33f9d2de9958e9a393715302833a391201"
+        },
+        "date": 1793635941150,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52939.5,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63572.34999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.793870244829999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.099077042339996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7240629085500006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.7796129616700006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.323596002359996,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020046660000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7257884062900004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0051674699100000025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000021643449999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000021643449999999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020046660000000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.462840318552897,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.746979048729998,
             "unit": "seconds"
           }
         ]
