@@ -1938,7 +1938,7 @@ mod schedule_code_upgrade {
 				}]
 			);
 			// Nothing is recorded and no deposit is taken beyond the registration's.
-			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * 320);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
 		});
 	}
 

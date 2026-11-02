@@ -738,8 +738,9 @@ pub mod pallet {
 				matches!(info.state, RegistrationState::Registered { .. }),
 				Error::<T>::NotRegistered
 			);
+			let config = T::HostConfiguration::get().ok_or(Error::<T>::NoHostConfiguration)?;
 			ensure!(code_len >= T::MinCodeSize::get(), Error::<T>::CodeTooSmall);
-			ensure!(code_len <= T::MaxCodeSize::get(), Error::<T>::CodeTooLarge);
+			ensure!(code_len <= config.max_code_size, Error::<T>::CodeTooLarge);
 
 			let message_id = Self::next_message_id();
 			T::SendToRelay::send(MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {

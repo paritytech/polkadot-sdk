@@ -299,7 +299,7 @@ mod benchmarks {
 		let para_id = make_registered::<T>(&who)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(who), para_id, sp_core::H256::repeat_byte(2), T::MaxCodeSize::get());
+		_(RawOrigin::Signed(who), para_id, sp_core::H256::repeat_byte(2), host_configuration().max_code_size);
 
 		Ok(())
 	}
