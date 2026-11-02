@@ -23,8 +23,7 @@ use sp_core::H256;
 use sp_runtime::BoundedVec;
 
 use crate::{
-	lift::MMRExtensionProof,
-	mmr::{self, MmrFrontier, SpecMerge},
+	mmr::{self, MMRExtensionProof, MmrFrontier, SpecMerge},
 	stream::StreamId,
 };
 
