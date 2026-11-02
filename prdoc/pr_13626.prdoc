@@ -18,3 +18,5 @@ crates:
     bump: major
   - name: pallet-assets
     bump: none
+  - name: asset-hub-westend-runtime
+    bump: patch
