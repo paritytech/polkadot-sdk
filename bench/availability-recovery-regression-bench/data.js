@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793476481504,
+  "lastUpdate": 1793616465998,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4fba586ff870438250674e5787c1a58204117bd3",
-          "message": "frame-omni-bencher: better diagnostic on insufficient data points (#11510)\n\nWhen a benchmark is run with not enough steps and too many points are\nskipped then it can make the analysis panic. This PR improves the panic\nmessage and gives precise information about which benchmark is at fault.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-16T20:43:45Z",
-          "tree_id": "0cf7271908e8f3aa3deeeb5c8643ef2938363fcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fba586ff870438250674e5787c1a58204117bd3"
-        },
-        "date": 1776377455426,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.665238708033339,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12440300556666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.12361926013333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "0@mcornholio.ru",
+            "name": "Yuri Volkov",
+            "username": "mutantcornholio"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4ed48cc3b2117b4256711a4ba0ddaaa98794541f",
+          "message": "License scanner node.js upgrade (#7713)\n\nFollowing https://github.com/paritytech/license-scanner/issues/61, this\nupdates node.js for license-scanner. The scanner itself is not pinned,\nso it should already be using the newly published version.\n\nCo-authored-by: Alexander Samusev <41779041+alvicsam@users.noreply.github.com>",
+          "timestamp": "2026-11-02T09:16:15Z",
+          "tree_id": "95af26a77945a83f954940903f5801a0ead0bd51",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4ed48cc3b2117b4256711a4ba0ddaaa98794541f"
+        },
+        "date": 1793616433605,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12570820083333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.841477098999999,
             "unit": "seconds"
           }
         ]
