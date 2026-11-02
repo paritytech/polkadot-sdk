@@ -208,6 +208,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	pub fn already_paid_fees(&self) -> bool {
 		self.already_paid_fees
 	}
+	pub fn asset_used_in_buy_execution(&self) -> &Option<AssetId> {
+		&self.asset_used_in_buy_execution
+	}
 }
 
 pub struct WeighedMessage<Call>(Weight, Xcm<Call>);
@@ -1175,13 +1178,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			ReportError(response_info) => {
 				// Report the given result by sending a QueryResponse XCM to a previously given
 				// outcome destination if one was registered.
-				self.respond(
-					self.cloned_origin(),
-					Response::ExecutionResult(self.error),
-					response_info,
-					FeeReason::Report,
-				)?;
-				Ok(())
+				self.transactional_process(|self_ref| {
+					self_ref.respond(
+						self_ref.cloned_origin(),
+						Response::ExecutionResult(self_ref.error),
+						response_info,
+						FeeReason::Report,
+					)?;
+					Ok(())
+				})
 			},
 			DepositAsset { assets, beneficiary } => {
 				self.transactional_process(|self_ref| {
@@ -1428,13 +1433,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.filter_map(|a| a.reanchored(&response_info.destination, &context).ok())
 					.collect::<Vec<Asset>>()
 					.into();
-				self.respond(
-					self.cloned_origin(),
-					Response::Assets(assets),
-					response_info,
-					FeeReason::Report,
-				)?;
-				Ok(())
+				self.transactional_process(|self_ref| {
+					self_ref.respond(
+						self_ref.cloned_origin(),
+						Response::Assets(assets),
+						response_info,
+						FeeReason::Report,
+					)?;
+					Ok(())
+				})
 			},
 			BuyExecution { fees, weight_limit } => {
 				// There is no need to buy any weight if `weight_limit` is `Unlimited` since it
@@ -1442,13 +1449,6 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// and thus there is some other reason why it has been determined that this XCM
 				// should be executed.
 				let Some(weight) = Option::<Weight>::from(weight_limit) else { return Ok(()) };
-				// Save the asset being used for execution fees, so we later know what should be
-				// used for delivery fees.
-				self.asset_used_in_buy_execution = Some(fees.id.clone());
-				tracing::trace!(
-					target: "xcm::executor::BuyExecution",
-					asset_used_in_buy_execution = ?self.asset_used_in_buy_execution
-				);
 				self.transactional_process(|self_ref| {
 					// pay for `weight` using up to `fees` of the holding register.
 					let max_fee =
@@ -1462,6 +1462,13 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						e
 					})?;
 					self_ref.holding.subsume_assets(unspent);
+					// Save the asset being used for execution fees, so we later know what should
+					// be used for delivery fees. Only recorded once the purchase went through.
+					self_ref.asset_used_in_buy_execution = Some(fees.id);
+					tracing::trace!(
+						target: "xcm::executor::BuyExecution",
+						asset_used_in_buy_execution = ?self_ref.asset_used_in_buy_execution
+					);
 					Ok(())
 				})
 			},
@@ -1623,8 +1630,10 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				let querier = Self::to_querier(self.cloned_origin(), &destination)?;
 				let instruction = QueryResponse { query_id, response, max_weight, querier };
 				let message = Xcm(vec![instruction]);
-				self.send(destination, message, FeeReason::QueryPallet)?;
-				Ok(())
+				self.transactional_process(|self_ref| {
+					self_ref.send(destination, message, FeeReason::QueryPallet)?;
+					Ok(())
+				})
 			},
 			ExpectPallet { index, name, module_name, crate_major, min_crate_minor } => {
 				let pallet = Config::PalletInstancesInfo::infos()
@@ -1640,13 +1649,15 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ReportTransactStatus(response_info) => {
-				self.respond(
-					self.cloned_origin(),
-					Response::DispatchResult(self.transact_status.clone()),
-					response_info,
-					FeeReason::Report,
-				)?;
-				Ok(())
+				self.transactional_process(|self_ref| {
+					self_ref.respond(
+						self_ref.cloned_origin(),
+						Response::DispatchResult(self_ref.transact_status.clone()),
+						response_info,
+						FeeReason::Report,
+					)?;
+					Ok(())
+				})
 			},
 			ClearTransactStatus => {
 				self.transact_status = Default::default();

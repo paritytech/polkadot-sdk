@@ -19,6 +19,7 @@
 use xcm::prelude::*;
 
 use super::mock::*;
+use crate::{ExecutorError, XcmExecutor};
 
 const SENDER: [u8; 32] = [0; 32];
 const RECIPIENT: [u8; 32] = [1; 32];
@@ -133,4 +134,118 @@ fn transfer_reserve_asset_error_rolls_back_holding_and_fees() {
 
 	assert_eq!(get_first_fungible(vm.holding()), holding_before);
 	assert_eq!(get_first_fungible(vm.fees()), fees_before);
+}
+
+/// A sender with `20` native in holding and the unspent part of a `PayFees { 10 }` in the fees
+/// register.
+fn vm_with_holding_and_fees() -> XcmExecutor<XcmConfig> {
+	add_asset(SENDER, (Here, 100u128));
+	let setup = Xcm::<TestCall>(vec![
+		WithdrawAsset((Here, 20u128).into()),
+		PayFees { asset: (Here, 10u128).into() },
+	]);
+	let (mut vm, _weight) = instantiate_executor(SENDER, setup.clone());
+	assert!(vm.bench_process(setup).is_ok());
+	vm
+}
+
+fn response_info(destination: Location) -> xcm::latest::QueryResponseInfo {
+	xcm::latest::QueryResponseInfo { destination, query_id: 0, max_weight: Weight::zero() }
+}
+
+/// List of instructions that send a message through `send`.
+fn sending_instructions(destination: Location) -> Vec<(&'static str, Instruction<TestCall>)> {
+	vec![
+		("ReportError", ReportError(response_info(destination.clone()))),
+		(
+			"ReportHolding",
+			ReportHolding { response_info: response_info(destination.clone()), assets: All.into() },
+		),
+		("ReportTransactStatus", ReportTransactStatus(response_info(destination.clone()))),
+		(
+			"QueryPallet",
+			QueryPallet {
+				module_name: b"pallet".to_vec(),
+				response_info: response_info(destination),
+			},
+		),
+	]
+}
+
+/// Assumption behind the rollback tests below: each sending instruction charges the delivery
+/// fee from the fees register and delivers when the destination is reachable.
+#[test]
+fn sending_instructions_charge_delivery_fee_from_fees_register() {
+	for (name, instruction) in sending_instructions(Parent.into()) {
+		let mut vm = vm_with_holding_and_fees();
+		let holding_before = get_first_fungible(vm.holding());
+		let fees_before = get_first_fungible(vm.fees()).unwrap();
+		let sent_before = sent_xcm().len();
+
+		assert!(vm.bench_process(Xcm(vec![instruction])).is_ok(), "{name}");
+
+		assert_eq!(get_first_fungible(vm.holding()), holding_before, "{name}");
+		// `PayFees { 10 }` bought the message weight for `4`; the test sender then charges `1`.
+		assert_eq!(fees_before, (Here, 6u128).into(), "{name}");
+		assert_eq!(get_first_fungible(vm.fees()), Some((Here, 5u128).into()), "{name}");
+		assert_eq!(sent_xcm().len(), sent_before + 1, "{name}");
+	}
+}
+
+/// When delivery fails, the delivery fee already taken from the fees register must be restored,
+/// exactly as for the asset-transfer instructions.
+#[test]
+fn sending_instructions_delivery_failure_rolls_back_holding_and_fees() {
+	for (name, instruction) in sending_instructions(undeliverable_destination()) {
+		let mut vm = vm_with_holding_and_fees();
+		let holding_before = get_first_fungible(vm.holding());
+		let fees_before = get_first_fungible(vm.fees());
+		let sent_before = sent_xcm().len();
+
+		let result = vm.bench_process(Xcm(vec![instruction]));
+		assert!(
+			matches!(result, Err(ExecutorError { xcm_error: XcmError::Transport(_), .. })),
+			"{name}: {result:?}"
+		);
+
+		assert_eq!(get_first_fungible(vm.holding()), holding_before, "{name}");
+		assert_eq!(get_first_fungible(vm.fees()), fees_before, "{name}");
+		assert_eq!(sent_xcm().len(), sent_before, "{name}");
+	}
+}
+
+/// Failed `BuyExecution` should not inform which asset to use for delivery fee payments.
+#[test]
+fn failed_buy_execution_does_not_record_fee_asset() {
+	add_asset(SENDER, (Here, 100u128));
+	let weight_limit = Limited(Weight::from_parts(2, 2));
+
+	let fails = Xcm::<TestCall>(vec![
+		WithdrawAsset((Here, 100u128).into()),
+		// Not in holding.
+		BuyExecution { fees: (Parent, 10u128).into(), weight_limit: weight_limit.clone() },
+	]);
+	let (mut vm, _weight) = instantiate_executor(SENDER, fails.clone());
+	assert!(matches!(
+		vm.bench_process(fails),
+		Err(ExecutorError { xcm_error: XcmError::NotHoldingFees, .. })
+	));
+	assert_eq!(vm.asset_used_in_buy_execution(), &None);
+	assert_eq!(get_first_fungible(vm.holding()), Some((Here, 100u128).into()));
+
+	// A successful purchase records the asset ...
+	let succeeds = Xcm::<TestCall>(vec![BuyExecution {
+		fees: (Here, 10u128).into(),
+		weight_limit: weight_limit.clone(),
+	}]);
+	assert!(vm.bench_process(succeeds).is_ok());
+	assert_eq!(vm.asset_used_in_buy_execution(), &Some(Here.into()));
+
+	// ... and a later failed one keeps the recorded asset of the successful one.
+	let fails_again = Xcm::<TestCall>(vec![BuyExecution {
+		fees: (Parent, 10u128).into(),
+		weight_limit: weight_limit.clone(),
+	}]);
+	assert!(vm.bench_process(fails_again).is_err());
+	assert_eq!(vm.asset_used_in_buy_execution(), &Some(Here.into()));
 }
