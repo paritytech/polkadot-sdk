@@ -72,6 +72,14 @@ fn expected_root(entries: &[(StreamId, &[&[u8]])]) -> StreamsRoot {
 	streams_root(&map).unwrap()
 }
 
+fn interval_of(source: ParaId, stream: StreamId) -> Interval {
+	SpecMessaging::consumption_record().entries[&source]
+		.iter()
+		.find(|(s, _)| *s == stream)
+		.map(|(_, interval)| interval.clone())
+		.expect("the block recorded the stream")
+}
+
 fn sent_on(stream: StreamId) -> Vec<Vec<u8>> {
 	SpecMessaging::outbound_messages()
 		.into_iter()
@@ -802,6 +810,23 @@ fn an_undecodable_consumption_record_never_reads_as_empty() {
 }
 
 #[test]
+fn the_consumption_record_sorts_each_source_and_keeps_duplicates() {
+	new_test_ext().execute_with(|| {
+		let interval = Interval {
+			start: MmrRoot(polkadot_core_primitives::Hash::default()),
+			end: MmrFrontier::new(),
+		};
+		let entry = |num| (src(), stream(num), interval.clone());
+		ConsumptionOutbox::<Test>::put(vec![entry(2), entry(1), entry(2)]);
+		let streams: Vec<_> = SpecMessaging::consumption_record().entries[&src()]
+			.iter()
+			.map(|(stream, _)| *stream)
+			.collect();
+		assert_eq!(streams, vec![stream(1), stream(2), stream(2)]);
+	});
+}
+
+#[test]
 fn stale_signals_are_consumed_and_ignored() {
 	new_test_ext().execute_with(|| {
 		let ch = in_channel();
@@ -1182,9 +1207,7 @@ fn channel_consumption_records_its_interval_and_resumes_next_block() {
 			RuntimeOrigin::none(),
 			channel_item(ch, vec![hello(1)])
 		));
-		let first = SpecMessaging::consumption_record().entries[&ch.sender]
-			[&ch.sender_data_stream(SELF_PARA.into()).1]
-			.clone();
+		let first = interval_of(ch.sender, ch.sender_data_stream(SELF_PARA.into()).1);
 		assert_eq!(first.start, MmrFrontier::new().root());
 		assert_eq!(first.end.leaf_count(), 1);
 
@@ -1193,9 +1216,7 @@ fn channel_consumption_records_its_interval_and_resumes_next_block() {
 			RuntimeOrigin::none(),
 			channel_item(ch, vec![data(b"a"), data(b"b")])
 		));
-		let second = SpecMessaging::consumption_record().entries[&ch.sender]
-			[&ch.sender_data_stream(SELF_PARA.into()).1]
-			.clone();
+		let second = interval_of(ch.sender, ch.sender_data_stream(SELF_PARA.into()).1);
 		assert_eq!(second.start, first.end.root());
 		assert_eq!(second.end.leaf_count(), 3);
 		assert_eq!(InChannels::<Test>::get(ch).unwrap().frontier, second.end);

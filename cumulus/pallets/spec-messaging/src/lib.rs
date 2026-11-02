@@ -1293,7 +1293,11 @@ impl<T: Config> Pallet<T> {
 		let outbox = ConsumptionOutbox::<T>::get();
 		let mut record = ConsumptionRecord::default();
 		for (source, stream, interval) in outbox {
-			record.entries.entry(source).or_default().insert(stream, interval);
+			record.entries.entry(source).or_default().push((stream, interval));
+		}
+		// No dedup: a duplicate must reach requires synthesis and fail there.
+		for streams in record.entries.values_mut() {
+			streams.sort_by_key(|(stream, _)| *stream);
 		}
 		record
 	}
