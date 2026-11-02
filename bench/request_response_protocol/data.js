@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793622359960,
+  "lastUpdate": 1793626665602,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -140507,6 +140507,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2819171822,
             "range": "± 33773445",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "37565691+agustinustheo@users.noreply.github.com",
+            "name": "theo",
+            "username": "agustinustheo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cc5d217cc61241ce97d5921c04eab97bb27be916",
+          "message": "sc-tracing: keep events without the filtered field when the filter is empty (#13666)\n\nFixes #13595.\n\nSupersedes #13597, which I opened from a fork. Opening it from this repo\nso all CI jobs run.\n\nThe RPC docs say that an empty filter does not remove events. But\n`state_traceBlock` removes each event that does not have the filtered\nfield, also when the filter is empty. Because of this, a trace does not\nshow prefix deletions (`ClearPrefix`) or storage root calculations\n(`StorageRoot`).\n\nThis PR keeps all events when the filter is empty. Filters that are not\nempty work as before.\n\nResults on the first block of a parachain template dev chain:\n\n| Call | Before | After |\n| --- | --- | --- |\n| Trace with empty filters | 236 events, no `ClearPrefix` or\n`StorageRoot` | 239 events, with `ClearPrefix`, `StorageRoot` and `Call`\n|\n| Trace with method filter `ClearPrefix` | 0 events | 1 event |\n| Trace with method filter `Put` | 103 events | 103 events |\n\n## Integration\n\nThere are no API changes. Calls with an empty filter now also return the\nevents that were missing.\n\nOne of these events is the `Call` event for `Core_execute_block`. This\nevent contains the full encoded block. Because of this, a response with\nan empty key filter is larger by approximately the size of the block.\n\n## How to test\n\nRun the unit tests:\n\n```bash\ncargo test -p sc-tracing\n```\n\nI moved the filter checks into a small helper function, so that I can\ntest them. Four of the new tests fail without the fix.\n\nTo test on a node, use the steps in #13595 with a node built from this\nbranch.\n\n# Checklist\n\n* [x] My PR includes a detailed description as outlined in the\n\"Description\" and its two subsections above.\n* [x] My PR follows the labeling requirements of this project (at\nminimum one label for `T` required)\n* [ ] I have made corresponding changes to the documentation (if\napplicable)\n* [x] I have added tests that prove my fix is effective or that my\nfeature works (if applicable)",
+          "timestamp": "2026-11-02T12:14:20Z",
+          "tree_id": "a8a40ad4fe460a25582e8e9182227f4cd1695dd2",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/cc5d217cc61241ce97d5921c04eab97bb27be916"
+        },
+        "date": 1793626637904,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19713966,
+            "range": "± 207216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20486834,
+            "range": "± 203340",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21890779,
+            "range": "± 208926",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26391291,
+            "range": "± 218668",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 61916137,
+            "range": "± 1220074",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 385964948,
+            "range": "± 7234087",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2733890369,
+            "range": "± 188787069",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17332920,
+            "range": "± 191672",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17511473,
+            "range": "± 222783",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18109497,
+            "range": "± 127127",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23368497,
+            "range": "± 241428",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 63710357,
+            "range": "± 874367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 382837601,
+            "range": "± 4498459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2827335160,
+            "range": "± 21726732",
             "unit": "ns/iter"
           }
         ]
