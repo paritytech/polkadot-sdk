@@ -20,6 +20,7 @@ use crate::{
 	common::{
 		command::NodeCommandRunner,
 		rpc::BuildRpcExtensions,
+		spec_msg::{self, SpecMsgReceiver},
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
@@ -113,6 +114,7 @@ where
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		block_import_extra_return_value: BIAuxiliaryData,
+		spec_msg: Option<SpecMsgReceiver>,
 	) -> Result<(), sc_service::Error>;
 }
 
@@ -441,6 +443,11 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					(proto, config)
 				});
 
+			let spec_msg_requests = node_extra_args
+				.spec_msg
+				.as_ref()
+				.map(|_| spec_msg::register_protocol::<_, Net>(&mut net_config));
+
 			let (network, system_rpc_tx, tx_handler_controller, sync_service, bitswap_handle) =
 				build_network(BuildNetworkParams {
 					parachain_config: &parachain_config,
@@ -487,6 +494,22 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				)
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 			}
+
+			let spec_msg_receiver =
+				node_extra_args.spec_msg.as_ref().zip(spec_msg_requests).and_then(
+					|(config, requests)| {
+						spec_msg::start(
+							config,
+							client.clone(),
+							network.clone(),
+							relay_chain_interface.clone(),
+							&task_manager,
+							requests,
+							para_id,
+							validator,
+						)
+					},
+				);
 
 			let statement_store = statement_handler_proto
 				.map(|(statement_handler_proto, config)| {
@@ -692,6 +715,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					backend.clone(),
 					node_extra_args,
 					block_import_auxiliary_data,
+					spec_msg_receiver,
 				)?;
 			}
 

@@ -24,6 +24,7 @@ pub mod command;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;
+pub mod spec_msg;
 pub(crate) mod statement_store;
 pub mod types;
 
@@ -31,6 +32,7 @@ use crate::cli::AuthoringPolicy;
 
 use cumulus_primitives_core::{
 	CollectCollationInfo, GetParachainInfo, RelayParentOffsetApi, SchedulingV3EnabledApi,
+	SpecMsgApi,
 };
 use sc_client_db::DbHash;
 use sc_network_sync::strategy::chain_sync::{GapSyncBodyPolicy, GapSyncBodyPolicyProvider};
@@ -83,6 +85,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ RelayParentOffsetApi<Block>
 	+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
 	+ SchedulingV3EnabledApi<Block>
+	+ SpecMsgApi<Block>
 	+ Sized
 {
 }
@@ -100,6 +103,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ TransactionStorageApi<Block>
 		+ sp_authority_discovery::AuthorityDiscoveryApi<Block>
 		+ SchedulingV3EnabledApi<Block>
+		+ SpecMsgApi<Block>
 {
 }
 
@@ -147,6 +151,9 @@ pub struct NodeExtraArgs {
 	/// HOP (Hand-Off Protocol) configuration parameters.
 	/// `None` disables HOP.
 	pub hop: Option<sc_hop::HopParams>,
+
+	/// Speculative messaging configuration. `None` disables it.
+	pub spec_msg: Option<spec_msg::SpecMsgConfig>,
 }
 
 /// Maximum safety margin, in blocks, subtracted from the runtime's transaction-storage

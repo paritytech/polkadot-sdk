@@ -71,7 +71,7 @@ impl Model {
 		self.root()
 	}
 
-	fn root(&self) -> StreamsRoot {
+	pub(crate) fn root(&self) -> StreamsRoot {
 		let entries = self
 			.0
 			.iter()

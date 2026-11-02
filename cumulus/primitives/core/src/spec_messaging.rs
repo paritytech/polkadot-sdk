@@ -86,6 +86,11 @@ impl SpecMessagingSignals {
 		Ok(Self { provides, requires })
 	}
 
+	/// The synthesized `Requires`, if the candidate consumed anything.
+	pub fn requires(&self) -> Option<&RequiresSet> {
+		self.requires.as_ref()
+	}
+
 	/// Whether there is nothing to emit.
 	pub fn is_empty(&self) -> bool {
 		self.provides.is_none() && self.requires.is_none()

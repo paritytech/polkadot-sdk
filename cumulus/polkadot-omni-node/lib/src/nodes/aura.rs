@@ -23,6 +23,7 @@ use crate::{
 			BaseNodeSpec, BuildImportQueue, ClientBlockImport, DynNodeSpec, InitBlockImport,
 			NodeSpec, StartConsensus,
 		},
+		spec_msg::SpecMsgReceiver,
 		types::{
 			AccountId, Balance, Hash, Nonce, ParachainBackend, ParachainBlockImport,
 			ParachainClient,
@@ -47,10 +48,12 @@ use cumulus_client_consensus_aura::{
 };
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
+use cumulus_client_spec_msg::assembler as spec_msg_assembler;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
 	RelayParentOffsetApi, TargetBlockRate,
 };
+use cumulus_primitives_spec_messaging::MessagingInherentData;
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
@@ -226,6 +229,7 @@ where
 			ref storage_monitor,
 			ref hop,
 			collator_reserved_slots: _,
+			ref spec_msg,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -240,6 +244,9 @@ where
 		}
 		if max_pov_percentage.is_some() {
 			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
+		}
+		if spec_msg.is_some() {
+			log::warn!("`--enable-spec-msg` has no effect in dev mode (no relay chain).");
 		}
 
 		let PartialComponents {
@@ -721,6 +728,7 @@ where
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		block_import_handle: SlotBasedBlockImportHandle<Block>,
+		spec_msg: Option<SpecMsgReceiver>,
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -730,29 +738,23 @@ where
 			telemetry.clone(),
 		);
 
-		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
+		let mut collator_service =
+			CollatorService::new(client.clone(), announce_block, client.clone());
+		if let Some(receiver) = &spec_msg {
+			collator_service = collator_service
+				.with_spec_msg_assembler(spec_msg_assembler(client.clone(), receiver.clone()));
+		}
 
 		let client_for_aura = client.clone();
 		let client_clone = client.clone();
 		let params = SlotBasedParams {
 			create_inherent_data_providers: move |parent, ()| {
 				let client_clone = client_clone.clone();
+				let spec_msg = spec_msg.clone();
 				async move {
-					let has_tx_storage_api = client_clone
-						.runtime_api()
-						.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
-						.unwrap_or(false);
-					if has_tx_storage_api {
-						let storage_proof =
-							sp_transaction_storage_proof::registration::new_data_provider(
-								&*client_clone,
-								&parent,
-								client_clone.runtime_api().retention_period(parent)?,
-							)?;
-						Ok(vec![storage_proof])
-					} else {
-						Ok(vec![])
-					}
+					let storage_proof = transaction_storage_proof(&client_clone, parent)?;
+					let spec_msg = spec_msg_inherent_data(&client_clone, spec_msg, parent).await;
+					Ok((storage_proof, spec_msg))
 				}
 			},
 			block_import,
@@ -817,6 +819,47 @@ where
 		>,
 	) -> sc_service::error::Result<(Self::BlockImport, Self::BlockImportAuxiliaryData)> {
 		Ok(SlotBasedBlockImport::new(storage_chain_block_import, client))
+	}
+}
+
+/// The transaction-storage proof inherent for a block on `parent`, if its runtime has the API.
+fn transaction_storage_proof<Block: BlockT<Hash = DbHash>, RuntimeApi>(
+	client: &ParachainClient<Block, RuntimeApi>,
+	parent: Hash,
+) -> Result<
+	Vec<sp_transaction_storage_proof::InherentDataProvider>,
+	Box<dyn std::error::Error + Send + Sync>,
+>
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+{
+	let has_tx_storage_api = client
+		.runtime_api()
+		.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
+		.unwrap_or(false);
+	if !has_tx_storage_api {
+		return Ok(vec![]);
+	}
+	let storage_proof = sp_transaction_storage_proof::registration::new_data_provider(
+		client,
+		&parent,
+		client.runtime_api().retention_period(parent)?,
+	)?;
+	Ok(vec![storage_proof])
+}
+
+/// The messaging inherent for a block on `parent`; empty without a receiver.
+async fn spec_msg_inherent_data<Block: BlockT<Hash = DbHash>, RuntimeApi>(
+	client: &ParachainClient<Block, RuntimeApi>,
+	receiver: Option<SpecMsgReceiver>,
+	parent: Hash,
+) -> MessagingInherentData
+where
+	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
+{
+	match receiver {
+		Some(receiver) => cumulus_client_spec_msg::inherent_data(client, &receiver, parent).await,
+		None => MessagingInherentData::default(),
 	}
 }
 
@@ -890,6 +933,7 @@ where
 		backend: Arc<ParachainBackend<Block>>,
 		node_extra_args: NodeExtraArgs,
 		_: (),
+		spec_msg: Option<SpecMsgReceiver>,
 	) -> Result<(), Error> {
 		let proposer = sc_basic_authorship::ProposerFactory::new(
 			task_manager.spawn_handle(),
@@ -898,7 +942,12 @@ where
 			prometheus_registry,
 			telemetry.clone(),
 		);
-		let collator_service = CollatorService::new(client.clone(), announce_block, client.clone());
+		let mut collator_service =
+			CollatorService::new(client.clone(), announce_block, client.clone());
+		if let Some(receiver) = &spec_msg {
+			collator_service = collator_service
+				.with_spec_msg_assembler(spec_msg_assembler(client.clone(), receiver.clone()));
+		}
 
 		let client_clone = client.clone();
 		let params = aura::ParamsWithExport {
@@ -906,22 +955,12 @@ where
 			params: AuraParams {
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
+					let spec_msg = spec_msg.clone();
 					async move {
-						let has_tx_storage_api = client_clone
-							.runtime_api()
-							.has_api_with::<dyn TransactionStorageApi<Block>, _>(parent, |v| v >= 1)
-							.unwrap_or(false);
-						if has_tx_storage_api {
-							let storage_proof =
-								sp_transaction_storage_proof::registration::new_data_provider(
-									&*client_clone,
-									&parent,
-									client_clone.runtime_api().retention_period(parent)?,
-								)?;
-							Ok(vec![storage_proof])
-						} else {
-							Ok(vec![])
-						}
+						let storage_proof = transaction_storage_proof(&client_clone, parent)?;
+						let spec_msg =
+							spec_msg_inherent_data(&client_clone, spec_msg, parent).await;
+						Ok((storage_proof, spec_msg))
 					}
 				},
 				block_import,

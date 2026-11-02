@@ -23,6 +23,7 @@ use crate::{
 	chain_spec::DiskChainSpecLoader,
 	common::{
 		chain_spec::{Extensions, LoadSpec},
+		spec_msg::SpecMsgConfig,
 		NodeExtraArgs,
 	},
 };
@@ -341,8 +342,37 @@ pub struct Cli<Config: CliConfig> {
 	#[command(flatten)]
 	pub hop: sc_hop::HopParams,
 
+	/// Enable speculative messaging: archive and serve this chain's sends and, on a collator,
+	/// fetch and consume other chains' messages. Idle while the runtime has no `SpecMsgApi`.
+	///
+	/// Peer chains must have distinct chain-spec `protocolId`s: chains sharing one fail each
+	/// other's block-announce handshake and ban the peer, refusing fetches for about a minute.
+	///
+	/// The archive reads each block's state, so run with `--state-pruning archive-canonical`: with
+	/// pruned state, a node that falls behind by more than the pruning window stops serving.
+	#[arg(long)]
+	pub enable_spec_msg: bool,
+
+	/// A collator of a source chain to fetch speculative messages from, as
+	/// `<PARA_ID>=<MULTIADDR>`. The address must end in `/p2p/<PEER_ID>`. Repeat it for more
+	/// peers; peers of one source are tried in the given order.
+	///
+	/// Only relevant when `--enable-spec-msg` is used.
+	#[arg(long, value_name = "PARA_ID=MULTIADDR", value_parser = parse_spec_msg_peer)]
+	pub spec_msg_peer: Vec<(u32, sc_network::config::MultiaddrWithPeerId)>,
+
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
+}
+
+/// Parse a `--spec-msg-peer` value: `<PARA_ID>=<MULTIADDR>`.
+fn parse_spec_msg_peer(
+	value: &str,
+) -> Result<(u32, sc_network::config::MultiaddrWithPeerId), String> {
+	let (para_id, address) = value.split_once('=').ok_or("expected `<PARA_ID>=<MULTIADDR>`")?;
+	let para_id = para_id.parse().map_err(|e| format!("invalid para id `{para_id}`: {e}"))?;
+	let address = address.parse().map_err(|e| format!("invalid address `{address}`: {e}"))?;
+	Ok((para_id, address))
 }
 
 /// Development sealing mode.
@@ -409,6 +439,13 @@ impl<Config: CliConfig> Cli<Config> {
 			storage_monitor: self.storage_monitor.clone(),
 			collator_reserved_slots: self.collator_reserved_slots,
 			hop: self.hop.enabled.then(|| self.hop.clone()),
+			spec_msg: self.enable_spec_msg.then(|| {
+				let mut config = SpecMsgConfig::default();
+				for (para_id, address) in &self.spec_msg_peer {
+					config.peers.entry((*para_id).into()).or_default().push(address.clone());
+				}
+				config
+			}),
 		}
 	}
 
@@ -666,6 +703,7 @@ impl<Config: CliConfig> CliConfiguration<Self> for RelayChainCli<Config> {
 mod tests {
 	use super::*;
 	use clap::{CommandFactory, FromArgMatches};
+	use cumulus_primitives_core::ParaId;
 
 	struct TestCliConfig;
 	impl CliConfig for TestCliConfig {
@@ -701,6 +739,44 @@ mod tests {
 			cli.statement_affinity_topics,
 			vec![sc_statement_store::Topic([0x11; 32]), sc_statement_store::Topic([0x22; 32])]
 		);
+	}
+
+	#[test]
+	fn spec_msg_peers_group_by_source_in_order() {
+		let a = "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWQYV9dGMFoRzNStwpXztXaBUjtPqi6aU76ZgUriHhKust";
+		let b = "/ip4/127.0.0.1/tcp/30334/p2p/12D3KooWRpzRTivvJ5ySvgbFnPeEE6rDhitQKL1fFJvvBGhnenSk";
+		let c = "/ip4/127.0.0.1/tcp/30335/p2p/12D3KooWQYV9dGMFoRzNStwpXztXaBUjtPqi6aU76ZgUriHhKust";
+		let matches = Cli::<TestCliConfig>::command().version("0.0.0").get_matches_from([
+			"polkadot-omni-node",
+			"--enable-spec-msg",
+			"--spec-msg-peer",
+			&format!("2000={a}"),
+			"--spec-msg-peer",
+			&format!("2001={b}"),
+			"--spec-msg-peer",
+			&format!("2000={c}"),
+		]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		let peers = cli.node_extra_args().spec_msg.expect("enabled").peers;
+		let addresses = |id: u32| -> Vec<String> {
+			peers[&ParaId::from(id)].iter().map(ToString::to_string).collect()
+		};
+		assert_eq!(peers.len(), 2);
+		assert_eq!(addresses(2000), vec![a.to_string(), c.to_string()]);
+		assert_eq!(addresses(2001), vec![b.to_string()]);
+	}
+
+	#[test]
+	fn spec_msg_is_off_by_default_and_peers_need_a_peer_id() {
+		let matches = Cli::<TestCliConfig>::command()
+			.version("0.0.0")
+			.get_matches_from(["polkadot-omni-node"]);
+		let cli = Cli::<TestCliConfig>::from_arg_matches(&matches).expect("args parse");
+		assert!(cli.node_extra_args().spec_msg.is_none());
+
+		assert!(parse_spec_msg_peer("2000=/ip4/127.0.0.1/tcp/30333").is_err());
+		assert!(parse_spec_msg_peer("/ip4/127.0.0.1/tcp/30333").is_err());
+		assert!(parse_spec_msg_peer("x=/ip4/127.0.0.1/tcp/30333").is_err());
 	}
 
 	#[test]
