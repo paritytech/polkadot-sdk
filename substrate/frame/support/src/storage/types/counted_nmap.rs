@@ -858,7 +858,7 @@ mod test {
 			A::insert((3,), 10);
 			A::insert((4,), 10);
 			assert_eq!(A::count(), 3);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			assert!(!A::contains_key((2,)) && !A::contains_key((3,)) && !A::contains_key((4,)));
 			assert_eq!(A::count(), 0);
 
@@ -951,7 +951,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3,)), None);
 			WithLen::append((0,), 10);
 			assert_eq!(WithLen::decode_len((0,)), Some(1));
@@ -1114,7 +1114,7 @@ mod test {
 			A::insert((3, 30), 10);
 			A::insert((4, 40), 10);
 			assert_eq!(A::count(), 3);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			// one of the item has been removed
 			assert!(
 				!A::contains_key((2, 20)) && !A::contains_key((3, 30)) && !A::contains_key((4, 40))
@@ -1218,7 +1218,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30)), None);
 			WithLen::append((0, 100), 10);
 			assert_eq!(WithLen::decode_len((0, 100)), Some(1));
@@ -1407,7 +1407,7 @@ mod test {
 			A::insert((3, 30, 300), 10);
 			A::insert((4, 40, 400), 10);
 			assert_eq!(A::count(), 3);
-			let _ = A::clear(u32::max_value(), None);
+			let _ = A::clear(u32::MAX, None);
 			// one of the item has been removed
 			assert!(
 				!A::contains_key((2, 20, 200)) &&
@@ -1518,7 +1518,7 @@ mod test {
 				]
 			);
 
-			let _ = WithLen::clear(u32::max_value(), None);
+			let _ = WithLen::clear(u32::MAX, None);
 			assert_eq!(WithLen::decode_len((3, 30, 300)), None);
 			WithLen::append((0, 100, 1000), 10);
 			assert_eq!(WithLen::decode_len((0, 100, 1000)), Some(1));

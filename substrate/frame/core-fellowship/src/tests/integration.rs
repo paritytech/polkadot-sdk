@@ -51,7 +51,7 @@ frame_support::construct_runtime!(
 
 parameter_types! {
 	pub BlockWeights: frame_system::limits::BlockWeights =
-		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::max_value()));
+		frame_system::limits::BlockWeights::simple_max(Weight::from_parts(1_000_000, u64::MAX));
 }
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]

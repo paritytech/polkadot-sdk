@@ -44,6 +44,8 @@ pub struct PeersTopologyConfig {
 #[derive(Debug, Clone)]
 struct PeerInfo {
 	supports_protocol: bool,
+	/// The peer speaks the protocol without the DHT path, so identify must not index it.
+	without_dht: bool,
 	/// The statement notification substream to the peer is open.
 	connected: bool,
 	/// Cached `peer_key`; the peer id never changes and hashing is costly.
@@ -113,8 +115,8 @@ impl PeersTopology {
 	pub fn on_peer_identified(&mut self, peer: PeerId, supports_statement_protocol: bool) {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
-		info.supports_protocol = supports_statement_protocol;
-		if supports_statement_protocol {
+		info.supports_protocol = supports_statement_protocol && !info.without_dht;
+		if info.supports_protocol {
 			self.discovered_index.insert(key, peer);
 		} else {
 			self.discovered_index.remove(key, &peer);
@@ -128,18 +130,45 @@ impl PeersTopology {
 		let info = self.get_or_insert_peer(peer);
 		let key = info.key;
 		info.supports_protocol = true;
+		info.without_dht = false;
 		info.connected = true;
 		self.discovered_index.insert(key, peer);
 		self.connected.insert(key, peer);
 	}
 
-	/// Record that the statement notification substream closed.
-	pub fn on_substream_closed(&mut self, peer: PeerId) {
+	/// Drop `peer` from the DHT index and the connected set: it speaks the protocol without the
+	/// DHT path. Identify keeps it out until the substream closes.
+	pub fn on_peer_without_dht(&mut self, peer: PeerId) {
 		let Some(info) = self.discovered.get_mut(&peer) else { return };
+		let key = info.key;
+		info.supports_protocol = false;
+		info.without_dht = true;
+		self.discovered_index.remove(key, &peer);
+		self.connected.remove(key, &peer);
+	}
+
+	/// Record that the statement notification substream closed. A peer without the DHT path
+	/// returns to the DHT index, as it may restart with the path on. Returns whether the DHT
+	/// index changed.
+	pub fn on_substream_closed(&mut self, peer: PeerId) -> bool {
+		let Some(info) = self.discovered.get_mut(&peer) else { return false };
 		let key = info.key;
 		info.connected = false;
 		info.last_seen = Instant::now();
 		self.connected.remove(key, &peer);
+		if !info.without_dht {
+			return false;
+		}
+		info.without_dht = false;
+		info.supports_protocol = true;
+		self.discovered_index.insert(key, peer);
+		true
+	}
+
+	/// Whether `peer` speaks the protocol without the DHT path. The mark lasts while its substream
+	/// is open.
+	pub fn is_without_dht(&self, peer: &PeerId) -> bool {
+		self.discovered.get(peer).is_some_and(|info| info.without_dht)
 	}
 
 	#[cfg(test)]
@@ -277,6 +306,7 @@ impl PeersTopology {
 		let now = Instant::now();
 		let info = self.discovered.entry(peer).or_insert_with(|| PeerInfo {
 			supports_protocol: false,
+			without_dht: false,
 			connected: false,
 			key: peer_key(&peer),
 			last_seen: now,
@@ -493,6 +523,26 @@ mod tests {
 		topology.on_substream_closed(supported);
 		assert!(!topology.is_connected(&supported));
 		assert_eq!(topology.known_peers_count(), 2);
+	}
+
+	#[test]
+	fn a_peer_without_dht_stays_out_of_the_index_while_its_substream_is_open() {
+		let mut topology = topology(1);
+		let peer = peer(2);
+		topology.on_substream_opened(peer);
+
+		topology.on_peer_without_dht(peer);
+		assert!(topology.is_connected(&peer));
+		assert_eq!(topology.connected_peers().count(), 0);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		topology.on_peer_identified(peer, true);
+		assert_eq!(topology.dht_eligible_peers_count(), 0);
+
+		assert!(topology.on_substream_closed(peer));
+		assert!(!topology.is_connected(&peer));
+		assert_eq!(topology.dht_eligible_peers_count(), 1);
+		assert!(topology.evict(Instant::now() + PEER_STALENESS_TTL));
 	}
 
 	#[test]

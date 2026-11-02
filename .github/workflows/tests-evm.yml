@@ -105,6 +105,7 @@ jobs:
     name: All evm tests passed
     # If any new job gets added, be sure to add it to this array
     needs:
+      - preflight
       - evm-test-suite
     if: always() && !cancelled()
     steps:

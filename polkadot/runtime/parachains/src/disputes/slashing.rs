@@ -624,7 +624,7 @@ impl<T: Config> Pallet<T> {
 
 			ValidTransaction::with_tag_prefix(tag_prefix)
 				// We assign the maximum priority for any report.
-				.priority(TransactionPriority::max_value())
+				.priority(TransactionPriority::MAX)
 				// Only one report for the same offender at the same slot.
 				.and_provides((dispute_proof.time_slot.clone(), dispute_proof.validator_id.clone()))
 				.longevity(longevity)
