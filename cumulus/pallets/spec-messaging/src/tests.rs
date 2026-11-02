@@ -353,6 +353,44 @@ fn open_channel_sets_want_open_and_evaluates_hello() {
 }
 
 #[test]
+fn open_channel_fails_when_its_due_hello_cannot_be_sent() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		let applied =
+			Some(AppliedRegister { position: MessagePosition(0), register: accepting(1) });
+		OutChannels::<Test>::insert(
+			ch,
+			OutChannelState { session: 1, register: applied, ..Default::default() },
+		);
+		let per_stream = MaxMessagesPerBlock::get();
+		for i in 0..SpecMessaging::send_limit() {
+			assert_ok!(SpecMessaging::append_to_stream(
+				stream((i / per_stream) as u16),
+				b"x".to_vec()
+			));
+		}
+		assert_err!(
+			SpecMessaging::open_channel(RuntimeOrigin::root(), ch.recipient, ch.domain, ch.num),
+			Error::<Test>::TooManySends
+		);
+		assert!(!OutChannels::<Test>::get(ch).unwrap().want_open);
+
+		roll_one_block();
+		assert_ok!(SpecMessaging::open_channel(
+			RuntimeOrigin::root(),
+			ch.recipient,
+			ch.domain,
+			ch.num
+		));
+		assert!(OutChannels::<Test>::get(ch).unwrap().took_part_in(1));
+		assert_eq!(
+			sent_on(ch.data_stream()),
+			vec![ChannelMessage::Hello { session: 1, version: 1 }.encode()]
+		);
+	});
+}
+
+#[test]
 fn hello_emitted_when_accepting_register_applied() {
 	new_test_ext().execute_with(|| {
 		let ch = out_channel();

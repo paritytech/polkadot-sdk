@@ -421,7 +421,8 @@ pub mod pallet {
 			ensure!(!state.want_open, Error::<T>::AlreadyOpen);
 			state.want_open = true;
 
-			let _ = Self::evaluate_hello_rule(&channel, &mut state, Self::send_limit());
+			// A Hello that cannot be sent now fails the call: no later event would re-check it.
+			Self::evaluate_hello_rule(&channel, &mut state, Self::send_limit())?;
 			OutChannels::<T>::insert(channel, state);
 			Self::deposit_event(Event::ChannelOpened { channel });
 			Ok(())
