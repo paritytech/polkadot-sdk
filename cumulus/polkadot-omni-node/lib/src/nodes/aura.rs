@@ -463,12 +463,9 @@ where
 
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
-		// Keep a client for the tracing executor before spawn_tasks takes ownership of client.
-		let tracing_client = client.clone();
-
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
-			client,
+			client: client.clone(),
 			keystore: keystore_container.keystore(),
 			task_manager: &mut task_manager,
 			transaction_pool,
@@ -479,9 +476,7 @@ where
 			sync_service,
 			config,
 			telemetry: telemetry.as_mut(),
-			tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(
-				tracing_client,
-			))),
+			tracing_execute_block: Some(Arc::new(ParachainTracingExecuteBlock::new(client))),
 		})?;
 
 		// Spawn the storage monitor.
