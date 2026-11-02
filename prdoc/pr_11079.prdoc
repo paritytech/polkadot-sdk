@@ -6,7 +6,11 @@ doc:
     now gets at most 63/64 of the gas, weight and storage deposit the caller has left, plus the
     call stipend if it gets one. Nested calls with higher limits, or none, get less than
     before, for example a Solidity `call` without a gas argument. The rule does not apply to the
-    transaction's first call.
+    transaction's first call. It also applies to contracts that are already deployed: a nested
+    call that needs more than 63/64 of what its caller has left now fails.
+
+    The 63/64 rule also applies to calls to the System precompile, so `ISystem.weightLeft()` now
+    returns at most 63/64 of the weight the calling contract has left.
 
     Even when the callee uses up its whole gas limit, the caller now keeps 1/64 of its remaining
     gas, or less if the call gets a stipend. As on Ethereum, this lets Solidity contracts handle
@@ -21,8 +25,7 @@ doc:
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and
     `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs. Hence, the result of
-    `eth_estimateGas` does too. A transaction that uses these estimates as its limits has the
-    resources required to complete the execution that the dry run simulated.
+    `eth_estimateGas` does too.
 
     A transaction can now fail in a nested call if its limits do not include the part each caller
     keeps. This applies to limits from a dry run on a runtime without this change, which must be

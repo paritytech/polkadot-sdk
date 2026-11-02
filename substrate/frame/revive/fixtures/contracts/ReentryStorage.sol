@@ -59,12 +59,6 @@ contract ReentryStorage {
 	function writeS0() external {
 		s0 = 1;
 	}
-
-	/// Free `s0`, then reenter self transitively through `proxy` to write `s0` again.
-	function freeAndRewriteViaReentryProxy(address proxy) external {
-		s0 = 0;
-		IReentryProxy(proxy).bounceWriteS0(address(this));
-	}
 }
 
 /// Intermediary used to reach `ReentryStorage` transitively (X -> Y -> X).

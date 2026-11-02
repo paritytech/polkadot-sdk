@@ -81,8 +81,8 @@ pub mod eip_150 {
 
 		/// Returns the total EIP-150 63/64 overhead stored in this peak.
 		///
-		/// `required` is the call's own resource consumption, and `rule` is the rule the call was
-		/// created under.
+		/// `required` is what the call and its subcalls needed, without the resources retained
+		/// under the 63/64 rule, and `rule` is the rule the call was created under.
 		pub fn total_overhead(&self, required: R::Amount, rule: Rule) -> R::Amount {
 			let needed_at_boundary = R::max(self.value, required);
 			let children_overhead = R::saturating_sub(needed_at_boundary, required);

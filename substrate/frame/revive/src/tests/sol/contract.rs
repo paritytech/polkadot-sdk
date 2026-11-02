@@ -1072,7 +1072,7 @@ mod eip_150 {
 		ContractResult, EthTxInfo, Pallet,
 		evm::GenericTransaction,
 		metering::{DENOMINATOR, NUMERATOR},
-		test_utils::{ETH_GAS_LIMIT, with_parameter},
+		test_utils::ETH_GAS_LIMIT,
 		tests::DepositPerByte,
 	};
 	use frame_support::{
@@ -1111,6 +1111,31 @@ mod eip_150 {
 	fn without_commit<R>(operation: impl FnOnce() -> R) -> R {
 		with_transaction(|| TransactionOutcome::Rollback(Ok::<_, DispatchError>(operation())))
 			.unwrap()
+	}
+
+	/// Runs `test` with a `parameter_types!` static set to `value`, and restores the previous
+	/// value when `test` ends, whether it returns or panics.
+	///
+	/// `get` and `set` are the accessors `parameter_types!` generates for the static, for example
+	/// `DepositPerByte::get` and `DepositPerByte::set`.
+	fn with_parameter<T: Clone, R>(
+		get: fn() -> T,
+		set: fn(T),
+		value: T,
+		test: impl FnOnce() -> R,
+	) -> R {
+		struct RestoreParameter<T: Clone> {
+			set: fn(T),
+			previous: T,
+		}
+		impl<T: Clone> Drop for RestoreParameter<T> {
+			fn drop(&mut self) {
+				(self.set)(self.previous.clone());
+			}
+		}
+		let _restore = RestoreParameter { set, previous: get() };
+		set(value);
+		test()
 	}
 
 	/// Runs `input` on `contract` in an Ethereum transaction with the gas that a dry run without a

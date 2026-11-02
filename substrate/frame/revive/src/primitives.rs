@@ -74,10 +74,12 @@ pub struct ContractResult<R, Balance> {
 	pub storage_deposit: StorageDeposit<Balance>,
 	/// The maximal storage deposit amount required at any time during the execution.
 	///
-	/// This can be higher than [`Self::storage_deposit`] in the following two cases:
+	/// This can be higher than [`Self::storage_deposit`] in the following cases:
 	/// - Nested calls: under the EIP-150 63/64 rule, each caller keeps part of its remaining
 	///   deposit, so the retained deposit is added on top of what each nested call needs.
 	/// - Refunds: deposit charged and then refunded during the execution.
+	/// - Reverted calls: deposit charged by a nested call that reverted, which discards its
+	///   storage changes.
 	///
 	/// This is always a `StorageDeposit::Charge(..)`.
 	pub max_storage_deposit: StorageDeposit<Balance>,
