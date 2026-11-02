@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793655043501,
+  "lastUpdate": 1793661686937,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a9ffa03ac6738da49622d81a64a1bb4809911464",
-          "message": "Add token transfers via XCM to DAP from the satellites (#11434)\n\nPR https://github.com/paritytech/polkadot-sdk/pull/10597 introduces the\nDAP satellite for gathering funds on every system parachain. This PR\nadds the periodic transfer of the gathered funds to the central DAP on\nAH. A minimum balance is expected for a transfer to take place. Both the\nperiod (in blocks) and the minimum balance are configurable.\n\nClose #10596.\n\nChanges:\n- Inside `pallet-dap-satellite`, on every `on_idle`, a transfer is\nattempted if (1) sufficient funds have been gathered in the satellite's\naccount and (2) a number of blocks have elapsed since the last transfer\nattempt\n- The transfer is an XCM teleport, which handles the burning of funds at\nthe source and the minting at the destination; if a transfer fails, the\nburnt funds are re-minted at the source to maintain consistency\n- The interval of the transfers is not affected by a single transfer's\nsuccess or failure\n- The DAP pallet gets a dedicated *staging* account, where all funds get\ndeposited (including those previously deposited into the main DAP\naccount); on every `on_idle`, all funds are taken from the staging\naccount, deposited into the main DAP account and deactivated. The\nstaging account is pre-funded (with the ED) in the same way as the main\nDAP account.\n\nThis is a continuation of PR\nhttps://github.com/paritytech/polkadot-sdk/pull/11294.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:51:43Z",
-          "tree_id": "e1f94e9ac49161cc4e1577dbea7e5255bafe0413",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9ffa03ac6738da49622d81a64a1bb4809911464"
-        },
-        "date": 1776420799987,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025690345926666663,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1439539543000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007210139386666664,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009748871733333315,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010093085006666645,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f99b5b7d5796732921b21a8eea1711cafd4cc3da",
+          "message": "Era points for blocks validators author on system chains (#13464)\n\n## Why\n\nValidators of the active era collate on Asset Hub and People (#13332,\n#13420), but their blocks there earn nothing: staking accepts era points\nonly from the relay chain session report. This PR credits era points for\nblocks authored on system chains, weighted per chain and service by\ngovernance, and records era points per service.\n\nRelated issue:  https://github.com/paritytech/metanode/issues/28.\n\n## Flow\n\n```mermaid\nsequenceDiagram\n    participant R as Relay chain\n    participant S as Asset Hub: staking\n    participant N as Asset Hub: announcer\n    participant A as Asset Hub: validator-collators\n    participant C as Asset Hub: points-converter\n    participant P as People: validator-collators\n\n    R->>S: session report with activation (relay points)\n    S->>S: credit RelayConsensus points to ending era, then rotate to era N\n    S->>N: OnEraStart(N, validators)\n    N->>A: set of era N (local)\n    N->>P: set of era N (XCM)\n    A->>A: store set, SetReceivedAt = now\n    P->>P: store set, SetReceivedAt = now\n\n    loop every block\n        A->>A: note_author: AuthoredBlocks[author] += 1\n        P->>P: note_author: AuthoredBlocks[author] += 1\n    end\n\n    Note over A,P: report when now >= SetReceivedAt + ExpectedEraDuration - margin (once per set),<br/>and every ReportPeriod blocks. margin = min(ReportMargin, MaxReportMargin, ExpectedEraDuration / 2)\n    A->>C: counts of authors in the set (credit_authored_blocks, local)\n    P->>C: counts of authors in the set, one message of maximum MaxEntriesPerReport items (report_authored_blocks, XCM)\n    C->>C: points = min(count, MaxBlocksPerEntry) x min(PointsPerService[(chain, Collation)], MaxPointsPerService)\n    C->>S: reward_service_points(Collation, points)\n    S->>S: drop accounts not exposed in era N\n    S->>S: ErasRewardPoints[N] += points, ErasRewardPointsByService[(N, Collation)] += points\n\n    R->>S: next session report with activation\n    S->>S: credit RelayConsensus points to era N, then rotate to era N+1\n```\n\n## Design\n\n- **Chains report counts, Asset Hub weighs them.**\n`PointsPerService[(chain, service)]` on Asset Hub, set by governance and\ncapped by `MaxPointsPerService`. One place to set, bound and observe\nevery chain and service. A unit is service specific: one block authored\nfor `Collation`. Points are the same unit as the relay's ones.\n- **Points per service.** `sp_staking::ServiceKind { RelayConsensus,\nCollation }`. `ErasRewardPoints` stays the **combined tally that\npayouts**, the incentive, `chill_inactive` and indexers read.\n`ErasRewardPointsByService` records the same points per service next to\nit, for a later per-service budget or `chill_inactive` rule. No\nmigration. A new service adds a variant and its own report call.\n- https://github.com/paritytech/polkadot-sdk/pull/13536 exposes the\npoints in a per-service manner for use in `chill_inactive`.\n- **Report timing without relay data.** Each chain records when the\nvalidator set arrives (`SetReceivedAt`, milliseconds from the timestamp)\nand reports once at `SetReceivedAt + ExpectedEraDuration -\nReportMargin`, so the counts reach Asset Hub before the era rotates.\n`ReportPeriod` stays as the regular timer for eras that run long or\nshort, lost announcements and failed sends. Relay sessions go away with\nJAM, so the timing does not depend on them. Durations are in all in\nmilliseconds, same as staking which measures eras in milliseconds. My\nreasoning here is the following, please correct me if it's flawed:\n- every system chain's timestamp is tied to the relay chain slot, so all\nchains and staking read the same clock. Block counts would drift with\nmissed slots and differ between chains.\n- **Era Attribution.** Points **solely go to the era active on Asset\nHub** when the report arrives, and accounts not exposed in it are\ndropped. A closed era is never written again, so payouts open as soon as\nthe era ends. Blocks authored in the margin go to the next era, if the\nauthor was an active validator in the next era as well. In an irregular\nera, up to one `ReportPeriod` of blocks does.\n- Collation points also count for the self-stake incentive share and for\n`chill_inactive`.\n\n### Example\n\nEra 7, `PointsPerService[(chain, Collation)] = 13` on Asset Hub and\nPeople. Alice authors 40 Asset Hub blocks, Bob 30 People blocks, Charlie\nis not drawn. Relay points arrive as points, **block counts are\nconverted before they reach staking**:\n\n```\nErasRewardPointsByService[(7, RelayConsensus)] = { total: 3_000, individual: { Alice: 1_000, Bob: 900, Charlie: 1_100 } }\nErasRewardPointsByService[(7, Collation)]      = { total: 910,   individual: { Alice: 520 /* 40 x 13 */, Bob: 390 /* 30 x 13 */ } }\nErasRewardPoints[7]                            = { total: 3_910, individual: { Alice: 1_520, Bob: 1_290, Charlie: 1_100 } }\n```\n\nValues are points, not blocks. Chains are merged under one service key.\nPayouts read only `ErasRewardPoints`, so Alice gets 1,520 / 3,910 of the\nera payout.\n\n## Implementation notes\n\n- `pallet-validator-collators`: records `SetReceivedAt`.\n`ExpectedEraDuration` and `ReportMargin` are set by `UpdateOrigin`, like\n`ReportPeriod`. The margin used is at most `MaxReportMargin` and half of\n`ExpectedEraDuration`. A failed early report is not retried. Its counts\ngo out with the next periodic report. A report is sent in one chunk, and\nits iteration is always capped at `MaxEntriesPerReport` entries: If\nsending fails, the block-authored will be retried in the next iteration.\n- `pallet-staking-async-points-converter` (new, Asset Hub only):\n`report_authored_blocks` takes a plain `Vec` from `ReportOrigin`, which\nnames the chain. Asset Hub credits its own blocks locally. Each count is\ncredited up to `MaxBlocksPerEntry`.\n- `pallet-staking-async`: `reward_service_points(service, points)`\nrefuses `RelayConsensus`, which only the relay session report writes.\n`reward_active_era` is the only writer of both point items. Try-state\nchecks the per-service values never exceed the tally.\n- `sp-staking` holds `RewardPoints`, which the converter calls and\nstaking implements, and `RewardsReporter`, which `frame-support`\nre-exports at its old path.\n\n### Message Size Analysis \n\n\nhttps://github.com/paritytech/polkadot-sdk/pull/13464#discussion_r4362289026\n\n## Benchmarks\n\n- [x] Run benchmarks\n\n```\n/cmd bench --runtime asset-hub-westend --pallet pallet_staking_async pallet_validator_collators pallet_staking_async_points_converter pallet_validator_set_announcer\n/cmd bench --runtime people-westend --pallet pallet_validator_collators\n```\n\n## Polkadot integration\n\nIn a later fellowship runtimes PR, we will set the following values\n(tentative, to be rechecked):\n* `ExpectedEraDuration` 24 hours \n* `ReportMargin` 5 minutes\n* `ReportPeriod` 1 hour\n* `MaxPointsPerService` ???\n* `MaxBlocksPerEntry` TBD e.g. twice the blocks a chain authors in an\nera\n* `PointsPerService[(chain, Collation)] = ???` for Asset Hub and People,\nso that it corresponds to a given (TBD) % of a drawn validator's era\npoints per chain.\n* Ensure: `pallet-validator-collators` is integrated into\n`pallet_authorship::EventHandler` + `OnSystemEvent`\n\n## Follow-ups\n\n- Pay collation outside the staker payout, so staker payouts follow\nrelay chain points only:\nhttps://github.com/paritytech/metanode/issues/37.\n- Expose information about whether a validator was drawn or not in a\nsystem chain back to AH, so it can be used in `IsValidatorInactive`\ninterface.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: kianenigma <kian@parity.io>\nCo-authored-by: Kian Paimani <5588131+kianenigma@users.noreply.github.com>",
+          "timestamp": "2026-11-02T20:57:02Z",
+          "tree_id": "11db9dc14c84179e37da227daf786c5a591bc607",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f99b5b7d5796732921b21a8eea1711cafd4cc3da"
+        },
+        "date": 1793661659055,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009950412186666638,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025032443779999997,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1452382066600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007567426386666664,
             "unit": "seconds"
           }
         ]
