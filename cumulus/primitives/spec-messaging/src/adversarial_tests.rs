@@ -20,12 +20,12 @@
 //! verifier; this module covers well-formed lies, grouped by what the attacker controls.
 
 use crate::{
-	lift::{stitch, Interval, LiftError, MMRExtensionProof},
+	lift::{stitch, Interval, LiftError},
 	message::{
 		leaf_hash, leaf_hash_with_version, verify_messages, MessagesRequest, MessagesResponse,
 		VerifyError,
 	},
-	mmr::{bag_peaks, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
+	mmr::{bag_peaks, MMRExtensionProof, MmrFrontier, MmrRoot, SpecMerge, MAX_MMR_LEAF_COUNT},
 	streams_root::{gen_stream_proof, streams_root, streams_root_from_proof},
 	test_utils::{extension, frontier_at, leaves},
 	StreamId, INNER_TAG, PEAK_TAG, ROOT_TAG,

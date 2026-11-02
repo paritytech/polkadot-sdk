@@ -20,7 +20,7 @@
 //! signals. The two ends of the fetch protocol are different chains' collators, so the encodings
 //! and error variant indices are normative for interoperability.
 //!
-//! - [`leaf_hash`] turns a payload into an MMR leaf (`H(LEAF_TAG ++ LEAF_VERSION ++ payload)`).
+//! - [`leaf_hash`] turns a payload into an MMR leaf.
 //! - [`MessagesRequest`] / [`MessagesResponse`] and [`FetchError`] are the single request/response
 //! pair for all off-chain reads: ordered channel consumption, lossy head reads (`start: None`),
 //! range reads, gap leaves and proofs-only lift material (`max_bytes: 0`).
@@ -34,8 +34,9 @@ use sp_core::ConstU32;
 use sp_runtime::{traits::Hash as HashT, BoundedVec};
 
 use crate::{
-	lift::{MMRExtensionProof, ProofError},
-	mmr::{MessagePosition, MmrFrontier, MmrRoot, MAX_MMR_LEAF_COUNT},
+	mmr::{
+		MMRExtensionProof, MessagePosition, MmrFrontier, MmrRoot, ProofError, MAX_MMR_LEAF_COUNT,
+	},
 	stream::StreamId,
 	streams_root::{streams_root_from_proof, StreamProof, StreamsRoot},
 	SpecHasher, LEAF_TAG, LEAF_VERSION,
@@ -85,13 +86,13 @@ pub const MAX_SPECULATIVE_MESSAGE_LEN: u32 = 102_400;
 /// request.
 pub const MAX_MESSAGES_PER_RESPONSE: u32 = 1024;
 
-/// Hash a payload into a stream MMR leaf: `H(LEAF_TAG ++ LEAF_VERSION ++ payload)`. Source, stream
+/// Hash a payload into a stream MMR leaf at [`LEAF_VERSION`]. Source, stream
 /// and position are structural and not in the preimage.
 pub fn leaf_hash(payload: &[u8]) -> Hash {
 	leaf_hash_with_version(LEAF_VERSION, payload)
 }
 
-/// Hash a payload with an explicit leaf version: `H(LEAF_TAG ++ leaf_version ++ payload)`.
+/// Hash a payload into a stream MMR leaf at an explicit leaf version.
 ///
 /// Versions are hash-disjoint, so only the correct one reproduces a committed root. Used to test
 /// format disjointness across format revisions.

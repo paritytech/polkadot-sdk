@@ -51,16 +51,19 @@ pub use inherent::{
 };
 pub use lift::{
 	build_requires, build_requires_entry, stitch, ConsumptionRecord, Interval, LiftError,
-	LiftsBySource, MMRExtensionProof, ProofError, RequiresLift, SourceStreams, TreeInclusionProof,
+	LiftsBySource, RequiresLift, SourceStreams,
 };
 pub use message::{
 	leaf_hash, leaf_hash_with_version, verify_channel_messages, verify_messages, FetchError,
 	FetchResponse, MessagesRequest, MessagesResponse, VerifyError, MAX_MESSAGES_PER_RESPONSE,
 	MAX_SPECULATIVE_MESSAGE_LEN,
 };
-pub use mmr::{FrontierFull, MessagePosition, MmrFrontier, MmrRoot};
+pub use mmr::{FrontierFull, MMRExtensionProof, MessagePosition, MmrFrontier, MmrRoot, ProofError};
 pub use stream::{PrivateKind, StreamId, STREAM_ID_LEN};
-pub use streams_root::{StreamProof, StreamsRoot, StreamsTree, TreeError};
+pub use streams_root::{
+	InnerNode, NodeKey, NodeLookup, NodeStore, StreamProof, StreamsRoot, StreamsTree, TreeChild,
+	TreeError, TreeRootEntry,
+};
 
 /// The hash function for all of speculative messaging: leaves, MMR merges, stream and
 /// commitment-tree roots. A protocol constant. Changing it is a consensus break, so nothing here
@@ -79,15 +82,14 @@ pub const INNER_TAG: u8 = 0x2;
 /// MMR peak bagging.
 pub const PEAK_TAG: u8 = 0x3;
 
-/// Stream root: `H(ROOT_TAG ++ leaf_count[8, LE] ++ bag(peaks)[32])` ([`mmr::MmrRoot::from_bag`]).
-/// Binding the count stops a peer from presenting the same peaks at a forged position. The empty
-/// MMR has no peaks to bag; its root is the count-0 case, with a zero bag ([`mmr::empty_root`]).
+/// Stream root ([`mmr::MmrRoot::from_bag`]). It binds the leaf count, so the same peaks at a forged
+/// position give another root.
 pub const ROOT_TAG: u8 = 0x4;
 
-/// Commitment-tree leaf: `H(TREE_LEAF_TAG ++ key[8] ++ stream_root[32])`.
+/// Commitment-tree leaf. It binds the full `StreamId` key.
 pub const TREE_LEAF_TAG: u8 = 0x5;
 
-/// Commitment-tree inner node: `H(TREE_INNER_TAG ++ split_bit ++ left[32] ++ right[32])`.
+/// Commitment-tree inner node. It binds its split bit.
 pub const TREE_INNER_TAG: u8 = 0x6;
 
 /// Leaf preimage version. Versions are hash-disjoint, so the layout can change without old leaves

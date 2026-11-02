@@ -21,7 +21,7 @@
 //! # Consensus surface
 //!
 //! - [`ChannelMessage`] is the SCALE payload of every channel-stream MMR leaf, inside
-//! [`crate::message::leaf_hash`]'s `LEAF_TAG ++ LEAF_VERSION ++ payload` framing.
+//! [`crate::message::leaf_hash`]'s framing.
 //! - [`Register`] is the SCALE payload of every ack-stream leaf: the receiver's complete voice in
 //! the channel, lossy and latest-wins, read out-of-band by the sender.
 //!
