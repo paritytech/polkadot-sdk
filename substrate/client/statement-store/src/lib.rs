@@ -578,6 +578,9 @@ pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_R
 /// Default replication factor (K) for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_REPLICATION_FACTOR;
 
+/// Default inbound slots for full peers on the v2 DHT statement path.
+pub use sc_network_statement::config::DEFAULT_IN_PEERS;
+
 /// Default gossip target for v2 DHT-affinity statement routing.
 pub use sc_network_statement::config::DEFAULT_GOSSIP_TARGET;
 

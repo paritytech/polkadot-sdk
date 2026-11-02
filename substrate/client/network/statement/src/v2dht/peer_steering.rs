@@ -138,6 +138,16 @@ impl PeerSteering {
 		self.desired = peers.into_iter().collect();
 	}
 
+	/// Whether `peer` is held in the statement protocol's reserved set.
+	pub(crate) fn is_reserved(&self, peer: &PeerId) -> bool {
+		self.reserved.contains(peer)
+	}
+
+	/// The peers held in the statement protocol's reserved set.
+	pub(crate) fn reserved_peers(&self) -> impl Iterator<Item = PeerId> + '_ {
+		self.reserved.iter().copied()
+	}
+
 	#[cfg(test)]
 	pub(crate) fn reserve(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		self.reserved.extend(peers);
@@ -203,14 +213,7 @@ impl PeerSteering {
 		// outbound slots, otherwise the controller moves it to a free slot and an explicit
 		// disconnect is needed.
 		for peer in release {
-			match network.remove_peers_from_reserved_set(self.protocol.clone(), vec![peer]) {
-				Ok(()) => {
-					self.reserved.remove(&peer);
-				},
-				Err(err) => {
-					log::warn!(target: LOG_TARGET, "peer_steering: release {peer} failed: {err}");
-				},
-			}
+			self.release_peer(network, peer);
 		}
 		for peer in reserve {
 			let addr =
@@ -225,6 +228,18 @@ impl PeerSteering {
 					log::warn!(target: LOG_TARGET, "peer_steering: reserve {peer} failed: {err}");
 				},
 			}
+		}
+	}
+
+	/// Take `peer` out of the statement protocol's reserved set on `network`.
+	pub(crate) fn release_peer<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
+		match network.remove_peers_from_reserved_set(self.protocol.clone(), vec![peer]) {
+			Ok(()) => {
+				self.reserved.remove(&peer);
+			},
+			Err(err) => {
+				log::warn!(target: LOG_TARGET, "peer_steering: release {peer} failed: {err}");
+			},
 		}
 	}
 }
