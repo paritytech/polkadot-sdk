@@ -62,10 +62,15 @@ pub use pallet::*;
 
 const LOG_TARGET: &str = "runtime::spec-msg";
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
+
+pub use weights::WeightInfo;
 
 /// Query the memory footprint of a channel's delivery queue.
 pub trait QueueFootprintQuery<Id> {
@@ -83,10 +88,17 @@ impl<Id> QueueFootprintQuery<Id> for () {
 pub trait OnSpecMsgData {
 	/// One `Data` payload, consumed in order at `position` of `(source, stream)`.
 	fn on_data(source: ParaId, stream: StreamId, position: MessagePosition, data: Vec<u8>);
+
+	/// Upper bound of [`Self::on_data`] for a payload of `len` bytes.
+	fn on_data_weight(len: u32) -> Weight;
 }
 
 impl OnSpecMsgData for () {
 	fn on_data(_: ParaId, _: StreamId, _: MessagePosition, _: Vec<u8>) {}
+
+	fn on_data_weight(_: u32) -> Weight {
+		Weight::zero()
+	}
 }
 
 #[frame_support::pallet]
@@ -151,6 +163,9 @@ pub mod pallet {
 
 		/// Sink for consumed `Data` payloads.
 		type DataHandler: OnSpecMsgData;
+
+		/// Weight information for the calls and hooks.
+		type WeightInfo: WeightInfo;
 
 		/// Origin allowed to open an outbound channel.
 		type OpenChannelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -318,9 +333,8 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			let drained = Self::roll_over();
-			T::DbWeight::get().reads_writes(3, 3).saturating_add(
-				T::DbWeight::get().reads_writes(2, 2).saturating_mul(drained.into()),
-			)
+			// The calls and the inherent charge the end-of-block commit; this charges the idle one.
+			T::WeightInfo::on_initialize(drained).saturating_add(T::WeightInfo::idle_commit())
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -407,7 +421,9 @@ pub mod pallet {
 
 		/// Open or reopen an outbound channel to `recipient`.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(
+			T::WeightInfo::open_channel().saturating_add(commit_weight::<T>(1, 0))
+		)]
 		pub fn open_channel(
 			origin: OriginFor<T>,
 			recipient: ParaId,
@@ -430,7 +446,10 @@ pub mod pallet {
 
 		/// Accept an inbound channel from `sender`, allocating or stepping its session.
 		#[pallet::call_index(2)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(
+			T::WeightInfo::accept_open_channel()
+				.saturating_add(commit_weight::<T>(0, 1))
+		)]
 		pub fn accept_open_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
@@ -474,7 +493,9 @@ pub mod pallet {
 
 		/// Close an outbound channel from our side.
 		#[pallet::call_index(3)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(
+			T::WeightInfo::close_channel().saturating_add(commit_weight::<T>(1, 0))
+		)]
 		pub fn close_channel(
 			origin: OriginFor<T>,
 			recipient: ParaId,
@@ -500,7 +521,10 @@ pub mod pallet {
 
 		/// Close an inbound channel from our side.
 		#[pallet::call_index(4)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(3, 3))]
+		#[pallet::weight(
+			T::WeightInfo::close_inbound_channel()
+				.saturating_add(commit_weight::<T>(0, 1))
+		)]
 		pub fn close_inbound_channel(
 			origin: OriginFor<T>,
 			sender: ParaId,
@@ -619,10 +643,31 @@ pub mod pallet {
 	}
 }
 
-/// Weight of one `enact_messages`.
+/// The end-of-block work for `sends` sends and `publishes` register publishes.
+fn commit_weight<T: Config>(sends: u32, publishes: u32) -> Weight {
+	T::WeightInfo::commit_sends(sends).saturating_add(T::WeightInfo::commit_publishes(publishes))
+}
+
+/// Weight of one `enact_messages`, with the end-of-block work it causes: one register publish per
+/// channel item and at most one send per register read.
 fn enact_weight<T: Config>(data: &MessagingInherentData) -> Weight {
-	let items_count = (data.channels.len() + data.registers.len() + data.events.len()) as u64;
-	T::DbWeight::get().reads_writes(2, 2).saturating_mul(1 + items_count)
+	let channels = data.channels.len() as u32;
+	let registers = data.registers.len() as u32;
+	let mut payloads = 0u32;
+	let mut bytes = 0u32;
+	let mut handler = Weight::zero();
+	for payload in data.channels.values().flatten() {
+		payloads = payloads.saturating_add(1);
+		bytes = bytes.saturating_add(payload.len() as u32);
+		handler = handler.saturating_add(T::DataHandler::on_data_weight(payload.len() as u32));
+	}
+	// The payload benchmark counts the messages beyond the first of each channel.
+	T::WeightInfo::enact_channels(channels)
+		.saturating_add(T::WeightInfo::enact_payloads(payloads.saturating_sub(channels)))
+		.saturating_add(T::WeightInfo::enact_bytes(bytes))
+		.saturating_add(T::WeightInfo::enact_registers(registers))
+		.saturating_add(handler)
+		.saturating_add(commit_weight::<T>(registers, channels))
 }
 
 /// The candidate bundle's touched sources and streams, plus this inherent's touches and the proof
@@ -877,6 +922,12 @@ impl<T: Config> Pallet<T> {
 				}
 			}
 		}
+	}
+
+	/// Weight of [`Self::send`] for `data_len` bytes, with the end-of-block work it causes. Callers
+	/// charge it: `send` is not a call.
+	pub fn send_weight(data_len: u32) -> Weight {
+		T::WeightInfo::send(data_len).saturating_add(commit_weight::<T>(1, 0))
 	}
 
 	/// Send `data` on an outbound channel.

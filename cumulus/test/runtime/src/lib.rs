@@ -330,6 +330,9 @@ impl VerifySchedulingSignature for NoVerification {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+frame_benchmarking::define_benchmarks!([cumulus_pallet_spec_messaging, SpecMessaging]);
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -372,6 +375,7 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type MaxQueueFootprint = ConstU32<48>;
 	type QueueFootprint = ();
 	type DataHandler = ();
+	type WeightInfo = ();
 	// Channel lifecycle is governance-driven on the test chain.
 	type OpenChannelOrigin = EnsureRoot<AccountId>;
 	type AcceptChannelOrigin = EnsureRoot<AccountId>;
@@ -906,6 +910,31 @@ impl_runtime_apis! {
 					RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
 				],
 			}
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl frame_benchmarking::Benchmark<Block> for Runtime {
+		fn benchmark_metadata(extra: bool) -> (
+			Vec<frame_benchmarking::BenchmarkList>,
+			Vec<frame_support::traits::StorageInfo>,
+		) {
+			use frame_benchmarking::BenchmarkList;
+			use frame_support::traits::StorageInfoTrait;
+			let mut list = Vec::<BenchmarkList>::new();
+			list_benchmarks!(list, extra);
+			(list, AllPalletsWithSystem::storage_info())
+		}
+
+		fn dispatch_benchmark(
+			config: frame_benchmarking::BenchmarkConfig,
+		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, alloc::string::String> {
+			use frame_benchmarking::BenchmarkBatch;
+			let whitelist = Vec::new();
+			let mut batches = Vec::<BenchmarkBatch>::new();
+			let params = (&config, &whitelist);
+			add_benchmarks!(params, batches);
+			Ok(batches)
 		}
 	}
 

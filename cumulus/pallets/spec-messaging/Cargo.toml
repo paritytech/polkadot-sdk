@@ -17,6 +17,7 @@ log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 # Substrate
+frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 sp-runtime = { workspace = true }
@@ -41,6 +42,7 @@ std = [
 	"codec/std",
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-spec-messaging/std",
+	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
@@ -51,6 +53,8 @@ std = [
 	"sp-runtime/std",
 ]
 runtime-benchmarks = [
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",

@@ -15,6 +15,7 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 
 # Substrate
+frame-benchmarking = { optional = true, workspace = true }
 frame-executive = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
@@ -57,12 +58,35 @@ cumulus-primitives-aura = { workspace = true }
 cumulus-primitives-core = { workspace = true }
 cumulus-primitives-spec-messaging = { workspace = true }
 cumulus-primitives-storage-weight-reclaim = { workspace = true }
+pallet-staking = { optional = true, workspace = true }
 parachain-info = { workspace = true }
+xcm-builder = { optional = true, workspace = true }
 
 [build-dependencies]
 substrate-wasm-builder = { optional = true, workspace = true, default-features = true }
 
 [features]
+runtime-benchmarks = [
+	"cumulus-pallet-parachain-system/runtime-benchmarks",
+	"cumulus-pallet-spec-messaging/runtime-benchmarks",
+	"cumulus-pallet-weight-reclaim/runtime-benchmarks",
+	"cumulus-primitives-core/runtime-benchmarks",
+	"frame-benchmarking/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+	"pallet-balances/runtime-benchmarks",
+	"pallet-glutton/runtime-benchmarks",
+	"pallet-message-queue/runtime-benchmarks",
+	"pallet-session/runtime-benchmarks",
+	"pallet-staking/runtime-benchmarks",
+	"pallet-sudo/runtime-benchmarks",
+	"pallet-timestamp/runtime-benchmarks",
+	"pallet-transaction-payment/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
+	"polkadot-primitives/runtime-benchmarks",
+	"sp-runtime/runtime-benchmarks",
+	"xcm-builder/runtime-benchmarks",
+]
 default = ["std"]
 std = [
 	"codec/std",
@@ -74,6 +98,7 @@ std = [
 	"cumulus-primitives-core/std",
 	"cumulus-primitives-spec-messaging/std",
 	"cumulus-primitives-storage-weight-reclaim/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-support/std",
 	"frame-system-rpc-runtime-api/std",
@@ -85,6 +110,7 @@ std = [
 	"pallet-glutton/std",
 	"pallet-message-queue/std",
 	"pallet-session/std",
+	"pallet-staking?/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
@@ -109,6 +135,7 @@ std = [
 	"sp-version/std",
 	"substrate-wasm-builder",
 	"tracing/std",
+	"xcm-builder?/std",
 ]
 
 # The default spec version is 2. The following features can be used to change this value:
