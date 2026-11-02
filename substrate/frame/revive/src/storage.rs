@@ -444,13 +444,14 @@ impl<T: Config> AccountInfo<T> {
 impl<T: Config> ContractInfo<T> {
 	/// Constructs a new contract info **without** writing it to storage.
 	///
-	/// This returns an `Err` if a contract with the supplied `address` already exists
-	/// in storage, or if the deposit rows of a previous contract at `address` are still queued
-	/// for cleanup ([`Error::PendingDepositCleanup`]).
+	/// This returns an `Err` if a contract with the supplied `address` already exists in storage
+	/// ([`Error::DuplicateContract`]), or if [`NativeDepositOf`] still holds rows under the
+	/// fallback account of `address` ([`Error::PendingDepositCleanup`]).
 	///
 	/// The child trie id is a hash of `address`, `nonce` and the deletion queue insert counter.
 	/// `nonce` is hashed into the id, but the id is unique because of `address` and the insert
-	/// counter alone.
+	/// counter alone. Only the child trie is separate per contract: `NativeDepositOf` rows are
+	/// keyed by the fallback account of `address`, which every contract at `address` shares.
 	pub fn new(
 		address: &H160,
 		nonce: T::Nonce,
