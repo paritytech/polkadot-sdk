@@ -110,7 +110,8 @@ module main {
   /// head: it declares the `StaleParentHead` sentinel as its parent (and new
   /// head) while still carrying its normal messages, so the candidate is
   /// well-formed but rejected by Accumulate's parent-head check (§5.1 step 4),
-  /// exercising that check.
+  /// exercising that check. `messaging` are the optional messaging host calls
+  /// (§8), made just before the code exits.
   pure def buildPackage(
     curHead: HeadData,
     paraId: ParaId,
@@ -123,7 +124,8 @@ module main {
     headCall: List[CodeCall],
     headFirst: bool,
     codeEnd: List[CodeCall],
-    staleParent: bool
+    staleParent: bool,
+    messaging: List[CodeCall]
   ): { pkg: WorkPackage, calls: List[CodeCall] } = {
     val msgs =
       if (numMsgs == 0) List()
@@ -145,7 +147,7 @@ module main {
       }))
     val body =
       if (headFirst) headCalls.concat(sends(msgs)) else sends(msgs).concat(headCalls)
-    { pkg: pkg, calls: parentCalls.concat(body).concat(codeEnd) }
+    { pkg: pkg, calls: parentCalls.concat(body).concat(messaging).concat(codeEnd) }
   }
 
   action stepRefineAccumulate = {
@@ -200,6 +202,9 @@ module main {
     // parent-head check's rejection (§5.1 step 4). Forced to active code so it
     // is rejected on the parent rather than on the code.
     nondet wp1StaleParent = oneOf(Set(false, true))
+    // §8: what the validation code's optional messaging host calls amounted to.
+    nondet wp1StreamsRoot = oneOf(streamsRootMenu)
+    nondet wp1RequiresRoots = oneOf(requiresRootsMenu(wp1Para))
     // Latest head for wp1's para this block. A non-live para (e.g. not yet
     // registered) has no head; we use 0, so such a candidate is dropped at
     // Accumulate (§5.1 step 1) regardless.
@@ -207,7 +212,7 @@ module main {
     val wp1 = buildPackage(
       wp1Head, wp1Para, wp1Candidate, wp1M1, wp1M2,
       wp1NumMsgs, wp1ItemCount, wp1DeclParent, wp1HeadCall, wp1HeadFirst, wp1CodeEnd,
-      wp1StaleParent
+      wp1StaleParent, messagingCalls(wp1StreamsRoot, wp1RequiresRoots)
     )
     val wp1Wr: WorkResult = {
       result:
@@ -236,6 +241,8 @@ module main {
     nondet wp2HeadCall = oneOf(Set(List(SetHead(0)), List(), List(SetHeadOversized)))
     nondet wp2HeadFirst = oneOf(Set(false, true))
     nondet wp2StaleParent = oneOf(Set(false, true))
+    nondet wp2StreamsRoot = oneOf(streamsRootMenu)
+    nondet wp2RequiresRoots = oneOf(requiresRootsMenu(wp2Para))
     // Chain off wp1's new head when same para; else wp2's own pre-block head.
     val wp2Head =
       if (wp2Para == wp1Para) wp1Head + 1
@@ -243,7 +250,7 @@ module main {
     val wp2 = buildPackage(
       wp2Head, wp2Para, wp2Candidate, wp2M1, wp2M2,
       wp2NumMsgs, wp2ItemCount, wp2DeclParent, wp2HeadCall, wp2HeadFirst, wp2CodeEnd,
-      wp2StaleParent
+      wp2StaleParent, messagingCalls(wp2StreamsRoot, wp2RequiresRoots)
     )
     val wp2Wr: WorkResult = {
       result:
@@ -385,7 +392,36 @@ module main {
     }
   }
 
-  /// Menu of individual upward messages validation code might emit during Refine.
+  /// §8: the two roots the nondet messaging menus draw from. Two distinct
+  /// values are enough to reach settlement hits and misses, repeated-root
+  /// pushes, and clean-up interactions, keeping the state space bounded.
+  pure val StreamsRootA: StreamsRoot = { streamsRootBytes: 1 }
+  pure val StreamsRootB: StreamsRoot = { streamsRootBytes: 2 }
+
+  /// Menu of `set_messages_streams_root` outcomes validation code might declare (§8):
+  /// no root, either root, or an aborting repeated call.
+  pure val streamsRootMenu: Set[StreamsRootDeclaration] = Set(
+    StreamsRootUndeclared,
+    StreamsRootDeclared(StreamsRootA),
+    StreamsRootDeclared(StreamsRootB),
+    StreamsRootRepeated
+  )
+
+  /// Menu of `set_messages_requires_roots` outcomes (§8): nothing consumed,
+  /// entries that settle once their source has enacted the named root (and
+  /// are silently rejected until then, §5.1 step 5), an ill-formed set naming
+  /// the candidate itself, and an aborting repeated call.
+  pure def requiresRootsMenu(para_id: ParaId): Set[RequiresRootsDeclaration] = Set(
+    RequiresRootsUndeclared,
+    RequiresRootsDeclared(List((CoretimeParaId, StreamsRootA))),
+    RequiresRootsDeclared(List((AssetHubParaId, StreamsRootB))),
+    RequiresRootsDeclared(List(
+      (CoretimeParaId, StreamsRootA), (AssetHubParaId, StreamsRootB))),
+    RequiresRootsDeclared(List((para_id, StreamsRootA))),
+    RequiresRootsRepeated
+  )
+
+    /// Menu of individual upward messages validation code might emit during Refine.
   /// Every parachain draws from the SAME menu: restricted host calls
   /// (AH-only, Coretime-only) are included for all paras so the Refine
   /// wrapper's `RestrictedHostFunction` rejection (§4.3) is exercised

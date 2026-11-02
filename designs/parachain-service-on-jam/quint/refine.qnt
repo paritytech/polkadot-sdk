@@ -11,6 +11,8 @@
 // candidate's `validation_code` returns None.
 // - The first host call that breaks a §4.3 rule aborts Refine with that rule's
 //   `RefineLog`.
+// - `set_messages_streams_root` / `set_messages_requires_roots` are optional,
+//   at most once each (§4.3, §8).
 //
 // The `parent_head_hash` field is mandatory but is *not* validated against
 // service state here; that check lives in Accumulate (§5.1, step 4).
@@ -132,7 +134,9 @@ module refine {
     parentHead: HeadHash,
     newHead: HeadData,
     msgs: List[UpwardMessage],
-    lookupAnchor: Timeslot
+    lookupAnchor: Timeslot,
+    provides: Option[StreamsRoot],
+    requires: List[(ParaId, StreamsRoot)]
   ): ParachainWorkDigest =
     Ok({
       paraId: paraId,
@@ -140,7 +144,9 @@ module refine {
       parentHeadHash: parentHead,
       headData: newHead,
       upwardMessages: msgs,
-      lookupAnchor: lookupAnchor
+      lookupAnchor: lookupAnchor,
+      messagesStreamsRoot: provides,
+      messagesRequiresRoots: requires
     })
 
   /// `true` iff the code identified by `ref` has a non-empty referencer set
@@ -162,17 +168,88 @@ module refine {
   ///   - `Panic`: any other abnormal exit. Deliberately NOT caught, so the
   ///     service's whole `refine` fails with it and there is no
   ///     `ParachainWorkDigest` at all (§3.3).
+  ///   - `SetMessagesStreamsRoot(root)` / `SetMessagesRequiresRoots(entries)`:
+  ///     the optional messaging declarations (§8). The service treats the roots
+  ///     as opaque and never derives them from head data.
   type CodeCall =
     | SetParentHeadHash(HeadHash)
     | SetHead(HeadData)
     | SetHeadOversized
     | Send(UpwardMessage)
+    | SetMessagesStreamsRoot(StreamsRoot)
+    | SetMessagesRequiresRoots(List[(ParaId, StreamsRoot)])
     | ReportError(int)
     | Panic
 
   /// `Send` for each of `msgs`, in order.
   pure def sends(msgs: List[UpwardMessage]): List[CodeCall] =
     msgs.foldl(List(), (acc, m) => acc.append(Send(m)))
+
+  // --- Messaging declarations (§4.3, §8) --------------------------------
+  //
+  // Both host calls are OPTIONAL and may each be called at most once per
+  // Refine invocation; a repeat aborts with `MessagesCallRepeated`. The
+  // declaration types below summarise what a validation code's calls to one
+  // of them amounted to, for the nondet menus and the tests.
+
+  /// What the validation code's `set_messages_streams_root` calls amounted to:
+  ///   - `StreamsRootUndeclared`: never called; this candidate declares no
+  ///     root (§8).
+  ///   - `StreamsRootDeclared(root)`: called exactly once.
+  ///   - `StreamsRootRepeated`: called more than once, rejected with
+  ///     `MessagesCallRepeated`.
+  type StreamsRootDeclaration =
+    | StreamsRootUndeclared
+    | StreamsRootDeclared(StreamsRoot)
+    | StreamsRootRepeated
+
+  /// What the validation code's `set_messages_requires_roots` calls amounted
+  /// to; one call carries the whole set (`RequiresRootsDeclared`), a second
+  /// call is `RequiresRootsRepeated`.
+  type RequiresRootsDeclaration =
+    | RequiresRootsUndeclared
+    | RequiresRootsDeclared(List[(ParaId, StreamsRoot)])
+    | RequiresRootsRepeated
+
+  /// §4.3 / §8: a `messages_requires_roots` set is well-formed iff it holds
+  /// at most `MaxRequiresSources` entries, repeats no source `ParaId`, and
+  /// never names the candidate's own `para_id`. Refine checks nothing about
+  /// the roots themselves: whether they are settleable is decided on-chain
+  /// (§5.1 step 5).
+  pure def wellFormedRequiresRoots(
+    entries: List[(ParaId, StreamsRoot)], para_id: ParaId
+  ): bool = and {
+    entries.length() <= MaxRequiresSources,
+    // Distinct source count equals entry count iff no `ParaId` repeats.
+    entries.foldl(Set(), (acc, e) => acc.union(Set(e._1))).size()
+      == entries.length(),
+    entries.foldl(true, (acc, e) => acc and e._1 != para_id)
+  }
+
+  /// The host calls a pair of messaging declarations stands for: the
+  /// `set_messages_streams_root` calls, then the `set_messages_requires_roots`
+  /// calls. A repeat is modelled as two calls with the same argument, so a
+  /// repeat is settled before the set's own validity.
+  pure def messagingCalls(
+    provides: StreamsRootDeclaration, requires: RequiresRootsDeclaration
+  ): List[CodeCall] = {
+    val providesCalls = match provides {
+      | StreamsRootUndeclared => List()
+      | StreamsRootDeclared(root) => List(SetMessagesStreamsRoot(root))
+      | StreamsRootRepeated =>
+        List(
+          SetMessagesStreamsRoot({ streamsRootBytes: 0 }),
+          SetMessagesStreamsRoot({ streamsRootBytes: 0 })
+        )
+    }
+    val requiresCalls = match requires {
+      | RequiresRootsUndeclared => List()
+      | RequiresRootsDeclared(l) => List(SetMessagesRequiresRoots(l))
+      | RequiresRootsRepeated =>
+        List(SetMessagesRequiresRoots(List()), SetMessagesRequiresRoots(List()))
+    }
+    providesCalls.concat(requiresCalls)
+  }
 
   type RunStop =
     | Running
@@ -186,6 +263,8 @@ module refine {
     msgs: List[UpwardMessage],
     msgsSize: int,
     keysSent: bool,
+    streamsRoot: Option[StreamsRoot],
+    requiresRoots: Option[List[(ParaId, StreamsRoot)]],
     stop: RunStop
   }
 
@@ -195,6 +274,8 @@ module refine {
     msgs: List(),
     msgsSize: 0,
     keysSent: false,
+    streamsRoot: None,
+    requiresRoots: None,
     stop: Running
   }
 
@@ -249,6 +330,14 @@ module refine {
             keysSent: r.keysSent or (match m { | SetValidatorKeys(_) => true | _ => false })
           }
         }
+      | SetMessagesStreamsRoot(root) =>
+        if (r.streamsRoot != None) { ...r, stop: Aborted(MessagesCallRepeated) }
+        else { ...r, streamsRoot: Some(root) }
+      | SetMessagesRequiresRoots(entries) =>
+        if (r.requiresRoots != None) { ...r, stop: Aborted(MessagesCallRepeated) }
+        else if (not(wellFormedRequiresRoots(entries, para_id)))
+          { ...r, stop: Aborted(MessagesInvalidRequires) }
+        else { ...r, requiresRoots: Some(entries) }
       | ReportError(payload) => { ...r, stop: Aborted(Opaque(payload)) }
       | Panic => { ...r, stop: Panicked }
     }
@@ -290,7 +379,10 @@ module refine {
                   if (refineOutputExceedsBudget(r.msgs))
                     Some(refineErr(para_id, codeHash, RefineOutputTooLarge))
                   else
-                    Some(refineOk(para_id, codeHash, ph, nh, r.msgs, lookupAnchor))
+                    Some(refineOk(
+                      para_id, codeHash, ph, nh, r.msgs, lookupAnchor, r.streamsRoot,
+                      match r.requiresRoots { | Some(l) => l | None => List() }
+                    ))
               }
           }
       }
