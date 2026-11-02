@@ -72,4 +72,40 @@ contract Memory {
         }
         return uint64(result);
     }
+
+    // The functions below expand memory to a fixed size before the op-code under test. Calls that
+    // differ only in the argument run the same op-codes, so they differ only in the charge that
+    // the argument changes.
+
+    /// Copies `len` bytes within the first KiB of memory, which is already expanded.
+    function mcopyWithoutGrowth(uint256 len) public pure {
+        assembly {
+            mstore(0x3e0, 0)
+            mcopy(0x100, 0x200, len)
+        }
+    }
+
+    /// Stores a word at `offset` after expanding memory to 1 KiB.
+    function mstoreAt(uint256 offset) public pure {
+        assembly {
+            mstore(0x3e0, 0)
+            mstore(offset, 1)
+        }
+    }
+
+    /// Returns the first `len` bytes of 64 KiB of expanded memory.
+    function returnPrefix(uint256 len) public pure {
+        assembly {
+            mstore(0xffe0, 0)
+            return(0, len)
+        }
+    }
+
+    /// Copies `len` bytes of call data into the first KiB of memory, which is already expanded.
+    function calldatacopyWithoutGrowth(uint256 len) public pure {
+        assembly {
+            mstore(0x3e0, 0)
+            calldatacopy(0, 0, len)
+        }
+    }
 }

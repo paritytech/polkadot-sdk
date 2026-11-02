@@ -67,7 +67,7 @@ use crate::{
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, pvm::extract_code_and_data},
+	vm::{CodeInfo, RuntimeCosts, StorageAccessKind, evm::EvmDispatch, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
@@ -1206,6 +1206,8 @@ pub mod pallet {
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
 			T::FeeInfo::integrity_test();
+
+			EvmDispatch::integrity_test::<T>();
 
 			// The memory available in the block building runtime
 			let max_runtime_mem: u64 = T::RuntimeMemory::get().into();
