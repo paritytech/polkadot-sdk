@@ -127,16 +127,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 		prometheus_registry,
 	} = params;
 
-	let metrics = prometheus_registry.as_ref().and_then(|registry| {
-		Metrics::register(registry)
-			.map_err(|e| log::warn!(target: LOG_TARGET, "Failed to register metrics: {e}"))
-			.ok()
-	});
-	let on_tick = |outcome: TickOutcome| {
-		if let Some(metrics) = &metrics {
-			metrics.on_tick(outcome.label());
-		}
-	};
+	let metrics = Metrics::register(prometheus_registry.as_ref());
 
 	let fetcher = match Fetcher::new() {
 		Ok(fetcher) => fetcher,
@@ -177,12 +168,12 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				// Start a tick, unless the previous one is still running or the node is syncing.
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
-					on_tick(TickOutcome::Overrun);
+					metrics.on_tick(TickOutcome::Overrun.label());
 					continue;
 				}
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
-					on_tick(TickOutcome::Syncing);
+					metrics.on_tick(TickOutcome::Syncing.label());
 					// The rules of the last tick are stale; do not judge peers by them.
 					validator.clear_acceptance();
 					continue;
@@ -191,9 +182,10 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
 					validator.clear_acceptance();
-					on_tick(TickOutcome::ApiUnavailable);
+					metrics.on_tick(TickOutcome::ApiUnavailable.label());
 					continue;
 				};
+				metrics.on_markets(setup.markets.len());
 				// Warn only once until a signer key is found.
 				if setup.signer.is_some() {
 					no_signer_logged = false;
@@ -230,9 +222,9 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				match result {
 					Ok(encoded) => {
 						gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);
-						on_tick(TickOutcome::Reported);
+						metrics.on_tick(TickOutcome::Reported.label());
 					},
-					Err(outcome) => on_tick(outcome),
+					Err(outcome) => metrics.on_tick(outcome.label()),
 				}
 			},
 			notification = incoming.next() => {
@@ -315,7 +307,7 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 	}
 }
 
-/// How a tick ended. Labels the tick metric.
+/// How a tick ended.
 enum TickOutcome {
 	/// A report was signed and gossiped.
 	Reported,
@@ -364,7 +356,7 @@ async fn run_tick<Block, Client, Id, Signature>(
 	fetcher: Fetcher,
 	keystore: KeystorePtr,
 	pool: ReportPool<Id, Signature>,
-	metrics: Option<Metrics>,
+	metrics: Metrics,
 	setup: TickSetup<Block::Hash, Id>,
 ) -> Result<Vec<u8>, TickOutcome>
 where
@@ -384,7 +376,7 @@ where
 	}
 
 	// Times the rest of the tick, whichever way it ends.
-	let _timer = metrics.as_ref().map(Metrics::tick_timer);
+	let _timer = metrics.tick_timer();
 	let started = Instant::now();
 	let deadline = started + interval.saturating_sub(TICK_MARGIN);
 	let (tx, mut rx) = mpsc::unbounded();
@@ -394,12 +386,18 @@ where
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
 				Ok(Ok(price)) => prices.push((market, price)),
-				Ok(Err(e)) => log::warn!(
-					target: LOG_TARGET,
-					"Market {market:?} not priced: {}",
-					String::from_utf8_lossy(&e.0),
-				),
-				Err(e) => log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
+				Ok(Err(e)) => {
+					log::warn!(
+						target: LOG_TARGET,
+						"Market {market:?} not priced: {}",
+						String::from_utf8_lossy(&e.0),
+					);
+					metrics.on_market_failure(market, "parse");
+				},
+				Err(e) => {
+					log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}");
+					metrics.on_market_failure(market, "parse");
+				},
 			}
 		}
 		prices
@@ -407,9 +405,11 @@ where
 	let (failures, prices) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
 		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
+		metrics.on_market_failure(market, failure.label());
 	}
 
 	let priced = prices.len();
+	metrics.on_markets_priced(priced);
 	let aggregates = match client.runtime_api().aggregate(best_hash, prices) {
 		Ok(aggregates) => aggregates,
 		Err(e) => {
