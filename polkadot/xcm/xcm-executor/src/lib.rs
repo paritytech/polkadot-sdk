@@ -1162,15 +1162,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			QueryResponse { query_id, response, max_weight, querier } => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
-				Config::ResponseHandler::on_response(
-					origin,
-					query_id,
-					querier.as_ref(),
-					response,
-					max_weight,
-					&self.context,
-				);
-				Ok(())
+				Config::TransactionalProcessor::process(|| {
+					Config::ResponseHandler::on_response(
+						origin,
+						query_id,
+						querier.as_ref(),
+						response,
+						max_weight,
+						&self.context,
+					);
+					Ok(())
+				})
 			},
 			DescendOrigin(who) => self.do_descend_origin(who),
 			ClearOrigin => self.do_clear_origin(),
@@ -1558,11 +1560,19 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				Ok(())
 			},
 			ClaimAsset { assets, ticket } => {
-				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				self.ensure_can_subsume_assets(assets.len())?;
-				let claimed = Config::AssetTrap::claim_assets(origin, &ticket, &assets, &self.context);
-				self.holding.subsume_assets(claimed.ok_or(XcmError::UnknownClaim)?);
-				Ok(())
+				self.transactional_process(|self_ref| {
+					let origin = self_ref.origin_ref().ok_or(XcmError::BadOrigin)?;
+					let claimed = Config::AssetTrap::claim_assets(
+						origin,
+						&ticket,
+						&assets,
+						&self_ref.context,
+					)
+					.ok_or(XcmError::UnknownClaim)?;
+					self_ref.holding.subsume_assets(claimed);
+					Ok(())
+				})
 			},
 			Trap(code) => Err(XcmError::Trap(code)),
 			SubscribeVersion { query_id, max_response_weight } => {
@@ -1570,17 +1580,21 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				// We don't allow derivative origins to subscribe since it would otherwise pose a
 				// DoS risk.
 				ensure!(&self.original_origin == origin, XcmError::BadOrigin);
-				Config::SubscriptionService::start(
-					origin,
-					query_id,
-					max_response_weight,
-					&self.context,
-				)
+				Config::TransactionalProcessor::process(|| {
+					Config::SubscriptionService::start(
+						origin,
+						query_id,
+						max_response_weight,
+						&self.context,
+					)
+				})
 			},
 			UnsubscribeVersion => {
 				let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
 				ensure!(&self.original_origin == origin, XcmError::BadOrigin);
-				Config::SubscriptionService::stop(origin, &self.context)
+				Config::TransactionalProcessor::process(|| {
+					Config::SubscriptionService::stop(origin, &self.context)
+				})
 			},
 			BurnAsset(assets) => {
 				self.holding.saturating_take(assets.into());
@@ -1737,13 +1751,17 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			UnlockAsset { asset, target } => {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
-				Config::AssetLocker::prepare_unlock(origin, asset, target)?.enact()?;
-				Ok(())
+				Config::TransactionalProcessor::process(|| {
+					Config::AssetLocker::prepare_unlock(origin, asset, target)?.enact()?;
+					Ok(())
+				})
 			},
 			NoteUnlockable { asset, owner } => {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;
-				Config::AssetLocker::note_unlockable(origin, asset, owner)?;
-				Ok(())
+				Config::TransactionalProcessor::process(|| {
+					Config::AssetLocker::note_unlockable(origin, asset, owner)?;
+					Ok(())
+				})
 			},
 			RequestUnlock { asset, locker } => {
 				let origin = self.cloned_origin().ok_or(XcmError::BadOrigin)?;

@@ -291,3 +291,22 @@ fn export_message_delivery_failure_rolls_back_fee() {
 	assert_eq!(get_first_fungible(vm.fees()), fees_before);
 	assert_eq!(exported_xcm().len(), exported_before);
 }
+
+/// A rejected claim leaves holding and fees untouched.
+#[test]
+fn rejected_claim_leaves_registers_untouched() {
+	let mut vm = vm_with_holding_and_fees();
+	let holding_before = get_first_fungible(vm.holding());
+	let fees_before = get_first_fungible(vm.fees());
+
+	// Nothing was trapped, so there is nothing to claim.
+	let claim =
+		Xcm::<TestCall>(vec![ClaimAsset { assets: (Here, 5u128).into(), ticket: Here.into() }]);
+	assert!(matches!(
+		vm.bench_process(claim),
+		Err(ExecutorError { xcm_error: XcmError::UnknownClaim, .. })
+	));
+
+	assert_eq!(get_first_fungible(vm.holding()), holding_before);
+	assert_eq!(get_first_fungible(vm.fees()), fees_before);
+}
