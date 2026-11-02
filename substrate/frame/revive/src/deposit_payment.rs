@@ -53,15 +53,6 @@ mod sealed {
 	}
 }
 
-/// Outcome of settling a refund from a PGAS hold.
-#[derive(Default)]
-struct PGasSettlement<Balance> {
-	/// Taken from the hold: the part credited to the recipient plus the part burned.
-	released: Balance,
-	/// Credited to the recipient.
-	credited: Balance,
-}
-
 /// Identifies where the native side of a storage deposit lives.
 ///
 /// Charges treat it as the source; refunds treat it as the destination.
@@ -425,8 +416,8 @@ where
 		};
 
 		let pgas_needed = amount.saturating_sub(native_refunded);
-		let pgas = Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
-		Ok(native_refunded.saturating_add(pgas.released))
+		let pgas_released = Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
+		Ok(native_refunded.saturating_add(pgas_released))
 	}
 
 	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
@@ -440,7 +431,8 @@ where
 	/// per-contributor cap, then settles the PGAS hold via [`Self::settle_pgas_refund`]
 	/// (refunding `RefundPercent` to `dst` and burning the rest). The native cap only makes
 	/// sense for partial refunds on a live contract; at termination there is one recipient and
-	/// the contract is gone.
+	/// the contract is gone. Returns the amount released from both holds, including the burned
+	/// part of the PGAS hold.
 	///
 	/// Note: callers must run inside a storage layer so partial state rolls back on error.
 	fn refund_all(
@@ -454,8 +446,8 @@ where
 		let reason = HoldReason::StorageDepositReserve;
 
 		let pgas = Self::pgas_on_hold(reason, from);
-		let pgas = Self::settle_pgas_refund(reason, from, to, pgas)?;
-		Ok(native.saturating_add(pgas.credited))
+		let pgas_released = Self::settle_pgas_refund(reason, from, to, pgas)?;
+		Ok(native.saturating_add(pgas_released))
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
@@ -581,7 +573,8 @@ where
 	}
 
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
-	/// burn the rest.
+	/// burn the rest. Returns the amount released from the hold: the part transferred to `to`
+	/// and the part burned.
 	///
 	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
 	/// account and the refund would create one below ED), the refund portion is folded into
@@ -595,9 +588,9 @@ where
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Result<PGasSettlement<BalanceOf<T>>, DispatchError> {
+	) -> Result<BalanceOf<T>, DispatchError> {
 		if amount.is_zero() {
-			return Ok(PGasSettlement::default());
+			return Ok(Zero::zero());
 		}
 		// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
 		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
@@ -605,7 +598,7 @@ where
 		let pgas_held = Self::pgas_on_hold(reason, from);
 		let amount = amount.min(pgas_held);
 		if amount.is_zero() {
-			return Ok(PGasSettlement::default());
+			return Ok(Zero::zero());
 		}
 		let refund = RefundPercent::get().mul_floor(amount);
 		let mut burn = amount.saturating_sub(refund);
@@ -647,6 +640,6 @@ where
 				Fortitude::Polite,
 			)?;
 		}
-		Ok(PGasSettlement { released: refunded.saturating_add(burn), credited: refunded })
+		Ok(refunded.saturating_add(burn))
 	}
 }
