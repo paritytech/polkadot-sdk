@@ -318,19 +318,18 @@ where
 	verify_proof::<L, _, _, _>(root, proof, items)
 }
 
-/// Removes keys from a trie based on the provided delta, recording the nodes for proof size
-/// calculation.
+/// Removes keys from an in-memory trie and records the nodes it touches.
 ///
-/// The removals are applied to `trie`, which the caller keeps between calls, so that removals
-/// spread over several calls collapse the same nodes as a single removal of all of them would.
-/// The trie storage is never altered.
+/// The caller keeps `trie` between calls. So removals spread over several calls collapse the same
+/// nodes as one removal of all keys would. After an error or a panic `trie` still holds the
+/// removals made before it. `db` is only read.
 pub fn remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 	db: &DB,
 	delta: I,
-	trie: DetachedTrieDBMut<L>,
+	trie: &mut DetachedTrieDBMut<L>,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
-) -> Result<DetachedTrieDBMut<L>, Box<TrieError<L>>>
+) -> Result<(), Box<TrieError<L>>>
 where
 	I: IntoIterator<Item = A>,
 	A: Borrow<[u8]>,
@@ -349,7 +348,7 @@ where
 		trie.get(&[])?;
 	}
 
-	Ok(trie.detach())
+	Ok(())
 }
 
 /// Executes a trie node accesses based on the provided delta, recording the nodes for proof size
@@ -522,10 +521,10 @@ pub fn child_remove_trie_keys_from_delta<L: TrieConfiguration, I, A, DB>(
 	keyspace: &[u8],
 	db: &DB,
 	delta: I,
-	trie: DetachedTrieDBMut<L>,
+	trie: &mut DetachedTrieDBMut<L>,
 	recorder: Option<&mut dyn trie_db::TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
-) -> Result<DetachedTrieDBMut<L>, Box<TrieError<L>>>
+) -> Result<(), Box<TrieError<L>>>
 where
 	I: IntoIterator<Item = A>,
 	A: Borrow<[u8]>,

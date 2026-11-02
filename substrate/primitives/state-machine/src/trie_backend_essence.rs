@@ -732,39 +732,28 @@ where
 		if keys_to_be_removed.is_empty() {
 			return;
 		}
-		let trie = estimation_trie
-			.take()
-			.unwrap_or_else(|| EstimationTrie::new(state_version, self.root));
-		*estimation_trie = Some(self.with_recorder_and_cache(None, |recorder, cache| match trie {
+		let trie =
+			estimation_trie.get_or_insert_with(|| EstimationTrie::new(state_version, self.root));
+		self.with_recorder_and_cache(None, |recorder, cache| match trie {
 			EstimationTrie::V0(trie) => {
-				EstimationTrie::V0(expect_existing_nodes(remove_trie_keys_from_delta::<
-					sp_trie::LayoutV0<H>,
-					_,
-					_,
-					_,
-				>(
+				expect_existing_nodes(remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
 					&eph,
 					keys_to_be_removed,
 					trie,
 					recorder,
 					cache,
-				)))
+				))
 			},
 			EstimationTrie::V1(trie) => {
-				EstimationTrie::V1(expect_existing_nodes(remove_trie_keys_from_delta::<
-					sp_trie::LayoutV1<H>,
-					_,
-					_,
-					_,
-				>(
+				expect_existing_nodes(remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
 					&eph,
 					keys_to_be_removed,
 					trie,
 					recorder,
 					cache,
-				)))
+				))
 			},
-		}));
+		});
 	}
 
 	/// Returns the child storage root for the child trie `child_info` after applying the given
@@ -886,42 +875,30 @@ where
 		if keys_to_be_removed.is_empty() {
 			return;
 		}
-		let trie = estimation_trie
-			.take()
-			.unwrap_or_else(|| EstimationTrie::new(state_version, child_root));
-		*estimation_trie =
-			Some(self.with_recorder_and_cache(Some(child_root), |recorder, cache| match trie {
-				EstimationTrie::V0(trie) => {
-					EstimationTrie::V0(expect_existing_nodes(child_remove_trie_keys_from_delta::<
-						sp_trie::LayoutV0<H>,
-						_,
-						_,
-						_,
-					>(
-						keyspace,
-						&eph,
-						keys_to_be_removed,
-						trie,
-						recorder,
-						cache,
-					)))
-				},
-				EstimationTrie::V1(trie) => {
-					EstimationTrie::V1(expect_existing_nodes(child_remove_trie_keys_from_delta::<
-						sp_trie::LayoutV1<H>,
-						_,
-						_,
-						_,
-					>(
-						keyspace,
-						&eph,
-						keys_to_be_removed,
-						trie,
-						recorder,
-						cache,
-					)))
-				},
-			}));
+		let trie =
+			estimation_trie.get_or_insert_with(|| EstimationTrie::new(state_version, child_root));
+		self.with_recorder_and_cache(Some(child_root), |recorder, cache| match trie {
+			EstimationTrie::V0(trie) => {
+				expect_existing_nodes(child_remove_trie_keys_from_delta::<
+					sp_trie::LayoutV0<H>,
+					_,
+					_,
+					_,
+				>(
+					keyspace, &eph, keys_to_be_removed, trie, recorder, cache
+				))
+			},
+			EstimationTrie::V1(trie) => {
+				expect_existing_nodes(child_remove_trie_keys_from_delta::<
+					sp_trie::LayoutV1<H>,
+					_,
+					_,
+					_,
+				>(
+					keyspace, &eph, keys_to_be_removed, trie, recorder, cache
+				))
+			},
+		});
 	}
 }
 

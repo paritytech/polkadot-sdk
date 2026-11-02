@@ -1125,34 +1125,28 @@ mod tests {
 			}
 
 			fn remove_all(&mut self, keys: &[&[u8]]) {
-				let trie = self.take_trie();
-				let trie = sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
-					&self.db,
+				let (db, trie) = self.db_and_trie();
+				sp_trie::remove_trie_keys_from_delta::<Layout, _, _, _>(
+					db,
 					keys.iter().copied(),
 					trie,
 					None,
 					None,
 				)
 				.unwrap();
-				*self.tracker.estimation_trie_mut() = Some(EstimationTrie::V1(trie));
 			}
 
 			fn contains(&mut self, key: &[u8]) -> bool {
-				let trie = self.take_trie();
-				let trie =
-					AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(&self.db, trie).build();
-				let contains = trie.get(key).unwrap().is_some();
-				*self.tracker.estimation_trie_mut() = Some(EstimationTrie::V1(trie.detach()));
-				contains
+				let (db, trie) = self.db_and_trie();
+				let trie = AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(db, trie).build();
+				trie.get(key).unwrap().is_some()
 			}
 
-			fn take_trie(&mut self) -> DetachedTrieDBMut<Layout> {
+			fn db_and_trie(&mut self) -> (&MemoryDB<Blake2Hasher>, &mut DetachedTrieDBMut<Layout>) {
+				let root = self.root;
 				let slot = self.tracker.estimation_trie_mut();
-				match slot
-					.take()
-					.unwrap_or_else(|| EstimationTrie::new(StateVersion::V1, self.root))
-				{
-					EstimationTrie::V1(trie) => trie,
+				match slot.get_or_insert_with(|| EstimationTrie::new(StateVersion::V1, root)) {
+					EstimationTrie::V1(trie) => (&self.db, trie),
 					EstimationTrie::V0(_) => unreachable!("the fixture only creates V1 tries"),
 				}
 			}

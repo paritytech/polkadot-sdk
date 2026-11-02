@@ -1873,4 +1873,164 @@ mod tests {
 		.to_vec();
 		assert_eq!(root_v0, expected_v0);
 	}
+
+	mod estimation_panic {
+		use super::*;
+		use sp_core::H256;
+		use sp_trie::{LayoutV1, MemoryDB, TrieDBMutBuilder, TrieMut};
+		use std::panic::{catch_unwind, AssertUnwindSafe};
+
+		/// Removed before `FAILING` in the failing estimation, which changes the trie before the
+		/// panic.
+		const REMOVED_FIRST: u32 = 0;
+		/// Its estimated removal fails on the corrupt backend.
+		const FAILING: u32 = 1;
+		/// Shares the upper nodes of its path with `FAILING`.
+		const LATER: u32 = 2;
+		/// Estimated before the transaction, on a path of its own.
+		const EARLIER: u32 = 999;
+
+		/// Returns the storage and its root, the keys being in the child trie `child` if given.
+		fn healthy_storage(child: Option<&ChildInfo>) -> (MemoryDB<Blake2Hasher>, H256) {
+			let mut db = MemoryDB::default();
+			let mut keys_root = H256::default();
+			{
+				let mut trie =
+					TrieDBMutBuilder::<LayoutV1<Blake2Hasher>>::new(&mut db, &mut keys_root)
+						.build();
+				for key in 0..1000u32 {
+					trie.insert(&key.encode(), &key.encode().repeat(10)).unwrap();
+				}
+			}
+			let Some(child) = child else { return (db, keys_root) };
+			let mut root = H256::default();
+			TrieDBMutBuilder::<LayoutV1<Blake2Hasher>>::new(&mut db, &mut root)
+				.build()
+				.insert(child.prefixed_storage_key().as_slice(), keys_root.as_ref())
+				.unwrap();
+			(db, root)
+		}
+
+		fn nodes_read(
+			db: &MemoryDB<Blake2Hasher>,
+			root: H256,
+			child: Option<&ChildInfo>,
+			key: u32,
+		) -> Vec<H256> {
+			let recorder = Recorder::<Blake2Hasher>::default();
+			let backend = TrieBackendBuilder::new(db, root).with_recorder(recorder.clone()).build();
+			match child {
+				Some(child) => backend.child_storage(child, &key.encode()),
+				None => backend.storage(&key.encode()),
+			}
+			.unwrap();
+			recorder
+				.drain_storage_proof()
+				.into_iter_nodes()
+				.map(|node| Blake2Hasher::hash(&node))
+				.collect()
+		}
+
+		/// The healthy storage without the nodes on the path to `FAILING` that the path to
+		/// `LATER` does not share, so the removal of `FAILING` fails after loading the shared
+		/// ones.
+		fn corrupt_storage(
+			healthy: &MemoryDB<Blake2Hasher>,
+			root: H256,
+			child: Option<&ChildInfo>,
+		) -> MemoryDB<Blake2Hasher> {
+			let shared = nodes_read(healthy, root, child, LATER);
+			let mut corrupt = healthy.clone();
+			for node in nodes_read(healthy, root, child, FAILING) {
+				if !shared.contains(&node) {
+					corrupt
+						.remove_and_purge(&node, hash_db::EMPTY_PREFIX)
+						.expect("values are unique");
+				}
+			}
+			corrupt
+		}
+
+		fn delete(
+			overlay: &mut OverlayedChanges<Blake2Hasher>,
+			child: Option<&ChildInfo>,
+			key: u32,
+		) {
+			match child {
+				Some(child) => overlay.set_child_storage(child, key.encode(), None),
+				None => overlay.set_storage(key.encode(), None),
+			}
+		}
+
+		/// Estimates the pending deletes and returns the size of the nodes recorded.
+		fn estimate(
+			overlay: &mut OverlayedChanges<Blake2Hasher>,
+			db: &MemoryDB<Blake2Hasher>,
+			root: H256,
+		) -> usize {
+			let recorder = Recorder::<Blake2Hasher>::default();
+			let backend = TrieBackendBuilder::new(db, root).with_recorder(recorder.clone()).build();
+			overlay.record_proof_for_dirty_keys(&backend, StateVersion::V1);
+			recorder.estimate_encoded_size()
+		}
+
+		/// On the collator a panicking estimation only fails its extrinsic: the host rolls back
+		/// the extrinsic's transaction and carries on with the block. That rollback must not
+		/// panic, which would abort the node, and must leave the estimation trie as it was
+		/// before the transaction, so that later estimations record what they would have
+		/// without the failed one.
+		fn assert_rollback_after_estimation_panic_restores_trie(
+			child: Option<&ChildInfo>,
+			trie_exists_before: bool,
+		) {
+			let (healthy, root) = healthy_storage(child);
+			let corrupt = corrupt_storage(&healthy, root, child);
+
+			let later_estimation = |with_failed_estimation: bool| {
+				let mut overlay = OverlayedChanges::<Blake2Hasher>::default();
+				if trie_exists_before {
+					delete(&mut overlay, child, EARLIER);
+					estimate(&mut overlay, &healthy, root);
+				}
+				if with_failed_estimation {
+					overlay.start_transaction();
+					delete(&mut overlay, child, REMOVED_FIRST);
+					delete(&mut overlay, child, FAILING);
+					let estimation =
+						catch_unwind(AssertUnwindSafe(|| estimate(&mut overlay, &corrupt, root)));
+					assert!(estimation.is_err(), "the corrupt backend lacks nodes on the path");
+					overlay.rollback_transaction().unwrap();
+					if child.is_none() {
+						assert_eq!(overlay.has_estimation_trie(), trie_exists_before);
+					}
+				}
+				delete(&mut overlay, child, LATER);
+				estimate(&mut overlay, &healthy, root)
+			};
+
+			assert_eq!(later_estimation(true), later_estimation(false));
+		}
+
+		#[test]
+		fn rollback_after_panic_drops_trie_created_in_transaction() {
+			assert_rollback_after_estimation_panic_restores_trie(None, false);
+		}
+
+		#[test]
+		fn rollback_after_panic_restores_existing_trie() {
+			assert_rollback_after_estimation_panic_restores_trie(None, true);
+		}
+
+		#[test]
+		fn rollback_after_child_panic_drops_trie_created_in_transaction() {
+			let child = ChildInfo::new_default(b"child");
+			assert_rollback_after_estimation_panic_restores_trie(Some(&child), false);
+		}
+
+		#[test]
+		fn rollback_after_child_panic_restores_existing_trie() {
+			let child = ChildInfo::new_default(b"child");
+			assert_rollback_after_estimation_panic_restores_trie(Some(&child), true);
+		}
+	}
 }
