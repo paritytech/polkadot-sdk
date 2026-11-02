@@ -41,6 +41,7 @@ parameter_types! {
 	pub const MaxMsgLen: u32 = 1024;
 	pub const MaxMessagesPerBlock: u32 = 16;
 	pub const MaxInFlight: u32 = 4;
+	pub const MaxSendsPerBlock: u32 = 32;
 	pub const MaxTouchedStreams: u32 = 8;
 	pub const MaxInboundMessagesPerItem: u32 = 16;
 	pub const SupportedVersions: RangeInclusive<u8> = 1..=1;
@@ -54,6 +55,7 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type MaxMsgLen = MaxMsgLen;
 	type MaxMessagesPerBlock = MaxMessagesPerBlock;
 	type MaxInFlight = MaxInFlight;
+	type MaxSendsPerBlock = MaxSendsPerBlock;
 	type MaxTouchedStreams = MaxTouchedStreams;
 	type MaxInboundMessagesPerItem = MaxInboundMessagesPerItem;
 	type SupportedVersions = SupportedVersions;

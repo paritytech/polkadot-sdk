@@ -120,6 +120,12 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxInFlight: Get<u32>;
 
+		/// Per-block cap on sends across all streams, so the end-of-block fold and the next
+		/// block's drain are bounded. [`Config::MaxTouchedStreams`] of it is kept for the sends the
+		/// inherent causes, so earlier sends in the block cannot make the inherent fail.
+		#[pallet::constant]
+		type MaxSendsPerBlock: Get<u32>;
+
 		/// Per-block cap on streams the inherent may touch; `<= MAX_COMMITMENT_ENTRIES`.
 		#[pallet::constant]
 		type MaxTouchedStreams: Get<u32>;
@@ -170,6 +176,16 @@ pub mod pallet {
 		BoundedVec<BoundedVec<u8, T::MaxMsgLen>, T::MaxMessagesPerBlock>,
 		ValueQuery,
 	>;
+
+	/// Leaf hashes of [`OutboundMessages`], in the same order. A payload is hashed once, at send,
+	/// so the commit and the next block's drain read only hashes.
+	#[pallet::storage]
+	pub type OutboundLeafHashes<T: Config> =
+		StorageMap<_, Twox64Concat, StreamId, BoundedVec<Hash, T::MaxMessagesPerBlock>, ValueQuery>;
+
+	/// Sends this block, across all streams.
+	#[pallet::storage]
+	pub type SendsThisBlock<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// This block's committed [`StreamsRoot`] (the `Provides` source); transient. `Some(None)` once
 	/// an idle block has committed, so a later send is rejected there too.
@@ -254,6 +270,8 @@ pub mod pallet {
 		MessageTooBig,
 		/// Stream over [`Config::MaxMessagesPerBlock`] this block.
 		TooManyMessages,
+		/// The block's sends reached [`Pallet::send_limit`], or [`Config::MaxSendsPerBlock`].
+		TooManySends,
 		/// Wrong stream kind for the item, or addressed to another chain.
 		UnknownStream,
 		/// A second item for the same stream.
@@ -317,6 +335,10 @@ pub mod pallet {
 			assert!(
 				T::MaxTouchedStreams::get() <= MAX_COMMITMENT_ENTRIES,
 				"`MaxTouchedStreams` must not exceed `MAX_COMMITMENT_ENTRIES`",
+			);
+			assert!(
+				T::MaxTouchedStreams::get() < T::MaxSendsPerBlock::get(),
+				"`MaxTouchedStreams` must be below `MaxSendsPerBlock`",
 			);
 			assert!(
 				T::MaxMessageSize::get() <= T::MaxMsgLen::get(),
@@ -399,7 +421,7 @@ pub mod pallet {
 			ensure!(!state.want_open, Error::<T>::AlreadyOpen);
 			state.want_open = true;
 
-			let _ = Self::evaluate_hello_rule(&channel, &mut state);
+			let _ = Self::evaluate_hello_rule(&channel, &mut state, Self::send_limit());
 			OutChannels::<T>::insert(channel, state);
 			Self::deposit_event(Event::ChannelOpened { channel });
 			Ok(())
@@ -694,6 +716,7 @@ impl<T: Config> Pallet<T> {
 		BlockStreamsRoot::<T>::kill();
 		ConsumptionOutbox::<T>::kill();
 		Enacted::<T>::kill();
+		SendsThisBlock::<T>::kill();
 
 		let is_first =
 			CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
@@ -703,11 +726,12 @@ impl<T: Config> Pallet<T> {
 			BundleStreams::<T>::kill();
 		}
 
+		let _ = OutboundMessages::<T>::clear(u32::MAX, None);
 		let mut drained = 0u32;
-		for (stream, messages) in OutboundMessages::<T>::drain() {
+		for (stream, hashes) in OutboundLeafHashes::<T>::drain() {
 			let mut frontier = OutboundFrontier::<T>::get(stream);
-			for payload in &messages {
-				frontier.append(leaf_hash_with_version(LEAF_VERSION, payload));
+			for hash in hashes {
+				frontier.append(hash);
 				drained = drained.saturating_add(1);
 			}
 			OutboundFrontier::<T>::insert(stream, frontier);
@@ -716,19 +740,40 @@ impl<T: Config> Pallet<T> {
 		drained
 	}
 
-	/// Append `payload` to `stream`'s outbound MMR, returning its position.
+	/// The block's send cap for everything but the sends the inherent causes.
+	pub fn send_limit() -> u32 {
+		T::MaxSendsPerBlock::get().saturating_sub(T::MaxTouchedStreams::get())
+	}
+
+	/// Append `payload` to `stream`'s outbound MMR within [`Self::send_limit`], returning its
+	/// position.
 	pub(crate) fn append_to_stream(
 		stream: StreamId,
 		payload: Vec<u8>,
+	) -> Result<MessagePosition, Error<T>> {
+		Self::append_within(stream, payload, Self::send_limit())
+	}
+
+	/// [`Self::append_to_stream`] with the block's sends capped at `limit`.
+	fn append_within(
+		stream: StreamId,
+		payload: Vec<u8>,
+		limit: u32,
 	) -> Result<MessagePosition, Error<T>> {
 		let payload: BoundedVec<u8, T::MaxMsgLen> =
 			payload.try_into().map_err(|_| Error::<T>::MessageTooBig)?;
 
 		Self::roll_over();
 		ensure!(!BlockStreamsRoot::<T>::exists(), Error::<T>::RootCommitted);
+		let sends = SendsThisBlock::<T>::get();
+		ensure!(sends < limit, Error::<T>::TooManySends);
+		let hash = leaf_hash_with_version(LEAF_VERSION, &payload);
 		let index = OutboundMessages::<T>::decode_len(stream).unwrap_or(0) as u64;
 		OutboundMessages::<T>::try_append(stream, payload)
 			.map_err(|()| Error::<T>::TooManyMessages)?;
+		OutboundLeafHashes::<T>::try_append(stream, hash)
+			.map_err(|()| Error::<T>::TooManyMessages)?;
+		SendsThisBlock::<T>::put(sends + 1);
 
 		Ok(MessagePosition(OutboundFrontier::<T>::get(stream).leaf_count() + index))
 	}
@@ -743,10 +788,10 @@ impl<T: Config> Pallet<T> {
 		Self::publish_pending_registers();
 
 		let mut touched: BTreeMap<StreamId, Hash> = BTreeMap::new();
-		for (stream, messages) in OutboundMessages::<T>::iter() {
+		for (stream, hashes) in OutboundLeafHashes::<T>::iter() {
 			let mut frontier = OutboundFrontier::<T>::get(stream);
-			for payload in &messages {
-				frontier.append(leaf_hash_with_version(LEAF_VERSION, payload));
+			for hash in hashes {
+				frontier.append(hash);
 			}
 			touched.insert(stream, frontier.root().0);
 		}
@@ -813,7 +858,9 @@ impl<T: Config> Pallet<T> {
 				};
 				if state.published.as_ref() != Some(&current) {
 					let stream = channel.ack_stream();
-					if Self::append_to_stream(stream, current.encode()).is_ok() {
+					if Self::append_within(stream, current.encode(), T::MaxSendsPerBlock::get())
+						.is_ok()
+					{
 						state.published = Some(current);
 						InChannels::<T>::insert(channel, state);
 						Self::deposit_event(Event::RegisterPublished {
@@ -853,10 +900,11 @@ impl<T: Config> Pallet<T> {
 		Self::append_to_stream(stream, payload)
 	}
 
-	/// Evaluate the Hello rule for an outbound channel, emitting `Hello` if due.
+	/// Evaluate the Hello rule for an outbound channel, emitting `Hello` within `limit` if due.
 	fn evaluate_hello_rule(
 		channel: &OutChannelId,
 		state: &mut OutChannelState,
+		limit: u32,
 	) -> Result<bool, Error<T>> {
 		if !state.want_open {
 			return Ok(false);
@@ -886,7 +934,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let hello = ChannelMessage::Hello { session, version };
-		Self::append_to_stream(stream, hello.encode())?;
+		Self::append_within(stream, hello.encode(), limit)?;
 		state.open = Some(OpenSession {
 			session,
 			params: SessionParams { version, max_message_size },
@@ -1170,7 +1218,8 @@ impl<T: Config> Pallet<T> {
 		match register.status {
 			RegisterStatus::Accepting { session, .. } => {
 				state.session = session;
-				let _ = Self::evaluate_hello_rule(&channel_id, &mut state);
+				let _ =
+					Self::evaluate_hello_rule(&channel_id, &mut state, T::MaxSendsPerBlock::get());
 			},
 			RegisterStatus::Opened => {
 				if let Some(ref mut o) = state.open {
@@ -1183,9 +1232,14 @@ impl<T: Config> Pallet<T> {
 				state.session = session;
 				if state.took_part_in(session) && !state.closed(session) {
 					// Cannot fail: the gate keeps this block's sends below `MaxInFlight`, which
-					// `integrity_test` keeps below `MaxMessagesPerBlock`.
+					// `integrity_test` keeps below `MaxMessagesPerBlock`, and the inherent's
+					// sends have their own room in `MaxSendsPerBlock`.
 					let close = ChannelMessage::CloseChannel { session };
-					Self::append_to_stream(channel_id.data_stream(), close.encode())?;
+					Self::append_within(
+						channel_id.data_stream(),
+						close.encode(),
+						T::MaxSendsPerBlock::get(),
+					)?;
 					state.closed_session = Some(session);
 				}
 			},

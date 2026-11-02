@@ -134,6 +134,30 @@ fn caps_are_enforced() {
 }
 
 #[test]
+fn sends_stop_at_the_send_limit_but_register_publishes_keep_their_room() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		let per_stream = MaxMessagesPerBlock::get();
+		for i in 0..SpecMessaging::send_limit() {
+			assert_ok!(SpecMessaging::append_to_stream(
+				stream((i / per_stream) as u16),
+				b"x".to_vec()
+			));
+		}
+		assert_err!(
+			SpecMessaging::append_to_stream(stream(9), b"x".to_vec()),
+			Error::<Test>::TooManySends
+		);
+
+		SpecMessaging::commit_streams_root();
+		assert_eq!(sent_on(ch.ack_stream()).len(), 1);
+		roll_one_block();
+		assert_ok!(SpecMessaging::append_to_stream(stream(9), b"x".to_vec()));
+	});
+}
+
+#[test]
 fn commit_streams_root_matches_canonical_and_is_memoized() {
 	new_test_ext().execute_with(|| {
 		let s = stream(0);
