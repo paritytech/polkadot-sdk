@@ -358,12 +358,18 @@ where
 
 	/// Track the EIP-150 deposit peak when absorbing a child meter.
 	fn update_eip_150_peak_from_child(&mut self, child: &RawMeter<T, E, Nested>) {
-		let consumed_deposit = self.consumed().charge_or_zero();
+		// Without a deposit limit, the child can use a refund the caller received. With a limit,
+		// the child never gets more than that limit, so a net refund counts as zero.
+		let consumed_deposit = match self.limit {
+			Some(_) => Deposit::Charge(self.consumed().charge_or_zero()),
+			None => self.consumed(),
+		};
 		let child_deposit_required = child.max_charged().charge_or_zero();
 		let child_deposit_overhead = child.eip_150_total_overhead(S::EIP_150_RULE);
-		let current_deposit_peak = consumed_deposit
-			.saturating_add(child_deposit_required)
-			.saturating_add(child_deposit_overhead);
+		let child_deposit_peak =
+			Deposit::Charge(child_deposit_required.saturating_add(child_deposit_overhead));
+		let current_deposit_peak =
+			consumed_deposit.saturating_add(&child_deposit_peak).charge_or_zero();
 		self.eip_150_peak.update(current_deposit_peak);
 	}
 

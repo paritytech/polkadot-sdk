@@ -734,7 +734,7 @@ fn eip_150_deposit_overhead_zero_consumption_child() {
 #[test]
 fn eip_150_deposit_overhead_child_heavier_than_parent() {
 	clear_ext();
-	// Parent consumes very little (1), child consumes a lot (63_000)
+	// The parent consumes 1 and the child 63_000.
 	let mut parent = TestMeter::new(Some(1_000_000)).nested(Some(1_000_000));
 	parent.record_charge(&Deposit::Charge(1));
 
@@ -749,4 +749,102 @@ fn eip_150_deposit_overhead_child_heavier_than_parent() {
 	assert_eq!(parent.eip_150_peak(), 64_001);
 	assert_eq!(parent.deposit_required_with_eip_150(), Deposit::Charge(64_001));
 	assert_eq!(parent.eip_150_total_overhead(Rule::Skip), 1000);
+}
+
+#[test]
+fn eip_150_earlier_deposit_refund_pays_for_later_charges() {
+	enum DepositChange {
+		Caller(DepositOf<Test>),
+		Callee(&'static [DepositOf<Test>]),
+	}
+	use DepositChange::{Callee, Caller};
+
+	struct Case {
+		description: &'static str,
+		top_level: bool,
+		limit: Option<u128>,
+		changes: &'static [DepositChange],
+		expected: u128,
+	}
+
+	/// Applies each of `case.changes` to `caller` or to a callee it calls, then checks the
+	/// deposit `caller` reports as required.
+	fn run_and_assert_case<S: State>(mut caller: RawMeter<Test, TestExt, S>, case: &Case) {
+		for change in case.changes {
+			match change {
+				Caller(deposit) => caller.record_charge(deposit),
+				Callee(deposits) => {
+					let mut callee = caller.nested(caller.limit);
+					for deposit in *deposits {
+						callee.record_charge(deposit);
+					}
+					caller.absorb(callee, &ALICE, None);
+				},
+			}
+		}
+		let required = caller.deposit_required_with_eip_150();
+		assert_eq!(required, Deposit::Charge(case.expected), "{}", case.description);
+	}
+
+	let cases = [
+		Case {
+			description: "caller refund pays for a later call's charge",
+			top_level: false,
+			limit: None,
+			changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
+			expected: 100,
+		},
+		Case {
+			description: "refund from an earlier call pays for a later call's charge",
+			top_level: false,
+			limit: None,
+			changes: &[Callee(&[Deposit::Refund(6300)]), Callee(&[Deposit::Charge(6300)])],
+			expected: 100,
+		},
+		Case {
+			description: "refund does not pay for a later call when a deposit limit is set",
+			top_level: false,
+			limit: Some(100_000),
+			changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
+			expected: 6400,
+		},
+		Case {
+			description: "refund larger than a later call's charge plus the part the caller keeps",
+			top_level: false,
+			limit: None,
+			changes: &[Caller(Deposit::Refund(10_000)), Callee(&[Deposit::Charge(6300)])],
+			expected: 0,
+		},
+		Case {
+			description: "callee refund does not pay for its own earlier charge",
+			top_level: false,
+			limit: None,
+			changes: &[Callee(&[Deposit::Charge(6300), Deposit::Refund(6300)])],
+			expected: 6400,
+		},
+		Case {
+			description: "caller refund after a call does not pay for that call",
+			top_level: false,
+			limit: None,
+			changes: &[Callee(&[Deposit::Charge(6300)]), Caller(Deposit::Refund(6300))],
+			expected: 6400,
+		},
+		Case {
+			description: "top-level refund pays for all of the first call's charge",
+			top_level: true,
+			limit: None,
+			changes: &[Caller(Deposit::Refund(6300)), Callee(&[Deposit::Charge(6300)])],
+			expected: 0,
+		},
+	];
+
+	for case in &cases {
+		clear_ext();
+		let top_level_meter = TestMeter::new(case.limit);
+		if case.top_level {
+			run_and_assert_case(top_level_meter, case);
+		} else {
+			run_and_assert_case(top_level_meter.nested(case.limit), case);
+		}
+	}
 }

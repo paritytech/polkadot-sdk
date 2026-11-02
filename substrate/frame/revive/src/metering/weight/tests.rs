@@ -320,7 +320,7 @@ fn eip_150_overhead_zero_consumption_child() {
 
 #[test]
 fn eip_150_overhead_child_heavier_than_parent() {
-	// Parent consumes very little (1), child consumes a lot (63_000)
+	// The parent consumes 1 and the child 63_000.
 	let mut parent = WeightMeter::<Test>::new(Weight::from_parts(1_000_000, 500_000), None);
 	parent.charge(SimpleToken(1)).unwrap();
 

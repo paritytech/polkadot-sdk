@@ -1131,6 +1131,23 @@ mod eip_150 {
 		Pallet::<Test>::dry_run_eth_transact(tx, None, true, None).unwrap().data
 	}
 
+	/// Returns an `aggregate3` call that stores `data` in `callee`.
+	fn store_call3(callee: H160, data: u64) -> Multicall3::Call3 {
+		Multicall3::Call3 {
+			target: callee.0.into(),
+			allowFailure: true,
+			callData: Callee::storeCall { _data: data }.abi_encode().into(),
+		}
+	}
+
+	/// Asserts that every call of an `aggregate3` run succeeded, naming the first that did not.
+	fn assert_aggregate3_calls_succeeded(output: &[u8]) {
+		let results = Multicall3::aggregate3Call::abi_decode_returns(output).unwrap();
+		for (index, result) in results.iter().enumerate() {
+			assert!(result.success, "call {index} failed, returning {:?}", result.returnData);
+		}
+	}
+
 	/// Runs `input` on `contract` with exactly the limits a dry run returned, in the mode of
 	/// `limits`, and returns the output.
 	fn call_with_estimated_limits(
@@ -1367,6 +1384,83 @@ mod eip_150 {
 
 			let output = call_with_estimated_limits(caller_addr, input, &limits);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+		});
+	}
+
+	/// A call that writes storage after an earlier call freed the same amount succeeds when its
+	/// caller runs with exactly the limits a dry run returned.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	fn dry_run_estimates_suffice_for_transaction_writing_after_refund(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (multicall_code, _) = compile_module_with_type("Multicall3", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, multicall_addr] = deploy([callee_code, multicall_code]);
+			builder::bare_call(callee_addr)
+				.data(Callee::storeCall { _data: 7 }.abi_encode())
+				.build_and_unwrap_result();
+
+			let calls = vec![store_call3(callee_addr, 0), store_call3(callee_addr, 7)];
+			let output = call_with_estimated_limits(
+				multicall_addr,
+				Multicall3::aggregate3Call { calls }.abi_encode(),
+				&limits,
+			);
+			assert_aggregate3_calls_succeeded(&output);
+		});
+	}
+
+	/// A refund from an earlier call pays for a later call's storage, so the dry run only adds the
+	/// part the caller keeps for that call.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[FixtureType::Solc, FixtureType::Resolc]
+	)]
+	fn earlier_deposit_refund_pays_for_later_charges_in_dry_run(
+		caller_type: FixtureType,
+		callee_type: FixtureType,
+	) {
+		let (multicall_code, _) = compile_module_with_type("Multicall3", caller_type).unwrap();
+		let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [callee_addr, multicall_addr] = deploy([callee_code, multicall_code]);
+			let dry_run = |calls| {
+				let tx = GenericTransaction {
+					from: Some(ALICE_ADDR),
+					to: Some(multicall_addr),
+					input: Multicall3::aggregate3Call { calls }.abi_encode().into(),
+					..Default::default()
+				};
+				without_commit(|| Pallet::<Test>::dry_run_eth_transact(tx, None, true, None))
+					.unwrap()
+			};
+
+			let without_refund = dry_run(vec![store_call3(callee_addr, 7)]);
+			assert_aggregate3_calls_succeeded(&without_refund.data);
+
+			// Store a value in the slot, so the next dry run gets a refund for freeing it.
+			builder::bare_call(callee_addr)
+				.data(Callee::storeCall { _data: 7 }.abi_encode())
+				.build_and_unwrap_result();
+
+			let with_refund =
+				dry_run(vec![store_call3(callee_addr, 0), store_call3(callee_addr, 7)]);
+			assert_aggregate3_calls_succeeded(&with_refund.data);
+
+			assert_eq!(
+				with_refund.max_storage_deposit,
+				without_refund.max_storage_deposit - without_refund.storage_deposit,
+				"the refund from freeing the slot must pay for writing it again",
+			);
 		});
 	}
 
