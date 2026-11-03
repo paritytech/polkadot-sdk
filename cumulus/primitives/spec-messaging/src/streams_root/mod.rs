@@ -257,7 +257,7 @@ pub fn streams_root_from_proof(
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::test_utils::ch;
+	use crate::{test_utils::ch, PrivateKind};
 	use sp_core::H256;
 
 	fn root(b: u8) -> Hash {
@@ -353,6 +353,25 @@ mod tests {
 		let many: BTreeMap<_, _> = (0..64u32).map(|i| (ch(2000 + i), root(i as u8))).collect();
 		let (_r, proof) = gen_stream_proof(&many, ch(2000 + 33)).unwrap();
 		assert!(proof.steps.len() <= 7, "log2(64) = 6-ish, got {}", proof.steps.len());
+	}
+
+	#[test]
+	fn a_full_depth_proof_round_trips_and_verifies() {
+		// A neighbour at every bit gives `stream` the deepest possible path.
+		let stream = StreamId::Private { kind: PrivateKind::new(0x80).unwrap(), body: [0; 7] };
+		let mut map = BTreeMap::from([(stream, root(1))]);
+		for bit in 0..KEY_BITS {
+			let mut key = stream.to_bytes();
+			key[bit / 8] ^= 0x80 >> (bit % 8);
+			map.insert(StreamId::from_bytes(key).unwrap(), root(2));
+		}
+
+		let tree = StreamsTree::from_entries(&map);
+		let (r, proof) = tree.gen_stream_proof(stream).unwrap();
+		assert_eq!(proof.steps.len(), KEY_BITS);
+		let decoded = StreamProof::decode_all(&mut &proof.encode()[..]).unwrap();
+		assert!(verify_stream_membership(r, stream, root(1), &decoded));
+		assert_eq!(Some(r), streams_root(&map));
 	}
 
 	#[test]
