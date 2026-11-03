@@ -1,0 +1,9 @@
+# Python 3.11+; direct and transitive dependencies for CI script tests.
+coverage==7.17.0
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.7.0
+Pygments==2.21.0
+pytest==9.2.0
+PyYAML==6.0.3
+colorama==0.4.6; sys_platform == "win32"
