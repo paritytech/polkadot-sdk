@@ -4,12 +4,15 @@ doc:
   description: |-
     The surplus refund the executor runs at the end of every message was never charged. It is
     now charged the weigher's weight of a `RefundSurplus`, kept out of the refund and counted in
-    the weight used, but only when the trader refunds something; a surplus that does not cover
-    the charge is left as it was.
+    the weight used, but only when the trader refunds something. The charge is taken per weight
+    dimension: a dimension whose surplus does not cover it is not refunded, and a surplus that
+    covers it in no dimension is left as it was.
 
     A refund whose asset holding cannot take, because the asset is not in holding and holding is
     at capacity, is now trapped for the claimer together with any leftover `fees`, instead of
     being bought back from the trader. `RefundSurplus` still fails with `HoldingWouldOverflow`.
+    Before, the refund went to the trader's `OnUnbalanced` handler and the leftover `fees` were
+    dropped with the executor; both are now claimable.
 - audience: Runtime User
   description: |-
     A message that leaves surplus weight without an explicit `RefundSurplus` is charged the
