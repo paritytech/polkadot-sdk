@@ -71,6 +71,8 @@ where
 			BalanceOf::<T>::from(BENCH_MIN_SWAP),
 		)
 		.expect("benchmark PSM creation succeeds");
+		// So the reserve can receive any external asset, sufficient or not.
+		frame_system::Pallet::<T>::inc_providers(&Psm::<T>::psm_account(&internal_id));
 	}
 	(internal_id, internal_decimals)
 }
@@ -275,6 +277,9 @@ mod benchmarks {
 		let caller: T::AccountId = whitelisted_caller();
 		let new_asset_id: T::AssetId = T::BenchmarkHelper::get_asset_id(EXTERNAL_ASSET_OFFSET);
 
+		// Worst case: a non-sufficient asset without a reserve asset account, so `can_deposit`
+		// also reads the reserve's system account.
+		let _ = T::Fungibles::create(new_asset_id.clone(), caller.clone(), false, 1u32.into());
 		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
 
 		#[extrinsic_call]
