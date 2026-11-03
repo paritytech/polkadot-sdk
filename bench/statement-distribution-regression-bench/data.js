@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793661789929,
+  "lastUpdate": 1793672599627,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cd3eb6de88ebeec6483b10e368a2ec56b391523e",
-          "message": "[westend] Remove pallet_treasury from RC and clean up system parachains matchers (#11763)\n\n- Remove pallet_treasury entirely from Westend relay chain.\n- Drain residual balances from the legacy `py/trsry`-derived account\ninto the local DAP satellite buffer on the relay and on each Westend\nsystem parachain (bridge-hub, collectives, coretime, people).\n- Remove RelayTreasuryLocation matchers from all Westend system\nparachains.\n\nCloses #11705.\n\n**NOTE**: a followup PR will remove also all remaining OpenGov related\npallets from RC (issue #11775, stacked PR: #11796).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-16T16:01:49Z",
-          "tree_id": "467857ff3b0324ad909c032a610e22ec83e0ebb4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd3eb6de88ebeec6483b10e368a2ec56b391523e"
-        },
-        "date": 1776360343674,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.038,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.08390980342999989,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038409580142,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038249313052,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4b6793567c457371b0b8d00349dba1b5ba7e3b6f",
+          "message": "[pallet-revive] PVM performance: early return on mem read (#13678)\n\nSmall optimization: We can return early when the read would fail anyway.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T00:46:13Z",
+          "tree_id": "efe63a4025088ca7099d1c9fef4e89ca89001732",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b6793567c457371b0b8d00349dba1b5ba7e3b6f"
+        },
+        "date": 1793672572539,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.122,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03891727948999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08595525824999994,
             "unit": "seconds"
           }
         ]
