@@ -343,6 +343,8 @@ pub(crate) struct SubscriptionGapQueue {
 	tx: mpsc::Sender<GapFillRequest>,
 	/// Queued + in-flight gap fills. Channel length alone is insufficient
 	/// because it drops to zero as soon as the receiver dequeues the item.
+	/// Requests abandoned after the last attempt or dropped on a full queue stay
+	/// counted for the rest of the process lifetime; only a restart clears them.
 	pending: Arc<AtomicUsize>,
 }
 
@@ -371,8 +373,9 @@ impl SubscriptionGapQueue {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
 			},
-			// The range is never indexed, so it stays counted as pending: that keeps the sync
-			// head from advancing over it until a restart's backward sync fills it.
+			// The range is never indexed, so it stays counted as pending for the rest of the
+			// process lifetime: the sync head cannot advance over it until a restart's
+			// backward sync fills it.
 			Err(err) => {
 				log::error!(target: LOG_TARGET,
 					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}. \
@@ -381,7 +384,7 @@ impl SubscriptionGapQueue {
 		}
 	}
 
-	/// Mark one request as processed.
+	/// Mark one request as indexed. Abandoned and dropped requests are never marked done.
 	pub fn mark_done(&self) {
 		let res = self
 			.pending
@@ -393,7 +396,7 @@ impl SubscriptionGapQueue {
 		}
 	}
 
-	/// Returns `true` if there are pending gap-fill requests.
+	/// Returns `true` if any gap-fill request is queued, in flight, abandoned or dropped.
 	pub fn has_pending(&self) -> bool {
 		self.pending.load(Ordering::Acquire) > 0
 	}
@@ -528,7 +531,8 @@ impl Client {
 	}
 
 	/// Advance the sync_state head label if safe to do so.
-	/// Requires: archive mode, historic backfill complete, and no pending gap fills.
+	/// Requires: archive mode, historic backfill complete, and no pending gap fills. An
+	/// abandoned or dropped gap fill stays pending until a restart, so the head stays here.
 	async fn advance_sync_head(&self, block_number: SubstrateBlockNumber, hash: H256) {
 		if !self.is_archive ||
 			!self.backfill_complete.load(Ordering::Acquire) ||
