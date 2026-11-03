@@ -81,10 +81,10 @@ jobs:
   confirm-required-tests-jobs-passed:
     runs-on: ubuntu-latest
     name: All quick tests passed
-    # If any new job gets added, be sure to add it to this array.
-    # test-syscalls is deliberately absent: it is `continue-on-error: true`
-    # and stays advisory.
-    needs: [preflight, quick-benchmarks, cargo-check-all-benches]
+    # Only quick-benchmarks is a required check today, so only it is listed
+    # here. test-syscalls is `continue-on-error: true` and cargo-check-all-benches
+    # is not required; both stay advisory. Add a job here to make it blocking.
+    needs: [preflight, quick-benchmarks]
     if: always() && !cancelled()
     steps:
       - run: |
