@@ -98,6 +98,23 @@ fn refund_lands_in_holding_when_it_fits() {
 }
 
 #[test]
+fn implicit_refund_after_explicit_refund_is_a_noop() {
+	let mut vm = executor_with_leftover_fees();
+	vm.set_total_surplus(Weight::from_parts(4, 4));
+
+	assert!(vm.bench_process(Xcm(vec![RefundSurplus])).is_ok());
+	assert_eq!(vm.total_refunded(), &Weight::from_parts(4, 4));
+
+	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
+	assert!(matches!(outcome, Outcome::Complete { .. }));
+
+	// The explicit refund took the whole surplus, so the end of the message neither charges nor
+	// refunds again: only holding, the refund of `4` and the leftover fees of `6`, is trapped.
+	assert_eq!(outcome.weight_used(), Weight::from_parts(6, 6));
+	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 10u128).into()]);
+}
+
+#[test]
 fn refund_holding_cannot_take_is_trapped_and_fails() {
 	let mut vm = executor_with_leftover_fees();
 	vm.set_total_surplus(Weight::from_parts(2, 2));
