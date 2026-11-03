@@ -2125,6 +2125,115 @@ fn kill_username_should_work() {
 }
 
 #[test]
+fn username_deposit_is_returned_to_the_authority_that_paid_it() {
+	new_test_ext().execute_with(|| {
+		let suffix: Vec<u8> = b"test".to_vec();
+		let username_deposit: BalanceOf<Test> = <Test as Config>::UsernameDeposit::get();
+		let grace_period: BlockNumberFor<Test> = <Test as Config>::UsernameGracePeriod::get();
+
+		// Authority A grants a username, reserving a deposit.
+		let authority_a = account(100);
+		Balances::make_free_balance_be(&authority_a, 1000);
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority_a.clone(),
+			suffix.clone(),
+			0
+		));
+		let public = sr25519_generate(0.into(), None);
+		let who: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let username_a = test_username_of(b"42".to_vec(), suffix.clone());
+		let signature_a =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username_a[..]).unwrap());
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority_a.clone()),
+			who.clone(),
+			username_a.clone().into(),
+			Some(signature_a),
+			false
+		));
+		assert_eq!(Balances::reserved_balance(&authority_a), username_deposit);
+
+		// Governance hands the suffix to authority B, which grants a username of its own.
+		let authority_b = account(101);
+		Balances::make_free_balance_be(&authority_b, 1000);
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority_b.clone(),
+			suffix.clone(),
+			0
+		));
+		let username_b = test_username_of(b"43".to_vec(), suffix.clone());
+		let signature_b =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username_b[..]).unwrap());
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority_b.clone()),
+			who.clone(),
+			username_b.clone().into(),
+			Some(signature_b),
+			false
+		));
+		assert_eq!(Balances::reserved_balance(&authority_b), username_deposit);
+
+		// The username granted by A is removed.
+		assert_ok!(Identity::unbind_username(
+			RuntimeOrigin::signed(authority_b.clone()),
+			username_a.clone()
+		));
+		System::set_block_number(System::block_number() + grace_period);
+		assert_ok!(Identity::remove_username(RuntimeOrigin::signed(account(1)), username_a));
+
+		// A paid for the removed username, so A gets the deposit back. B's deposit still backs
+		// `username_b`, which is live.
+		assert!(UsernameInfoOf::<Test>::contains_key(&username_b));
+		assert_eq!(Balances::reserved_balance(&authority_a), 0);
+		assert_eq!(Balances::reserved_balance(&authority_b), username_deposit);
+	});
+}
+
+#[test]
+fn username_deposit_without_recorded_depositor_uses_current_authority() {
+	new_test_ext().execute_with(|| {
+		let suffix: Vec<u8> = b"test".to_vec();
+		let grace_period: BlockNumberFor<Test> = <Test as Config>::UsernameGracePeriod::get();
+
+		let authority = account(100);
+		Balances::make_free_balance_be(&authority, 1000);
+		assert_ok!(Identity::add_username_authority(
+			RuntimeOrigin::root(),
+			authority.clone(),
+			suffix.clone(),
+			0
+		));
+		let public = sr25519_generate(0.into(), None);
+		let who: AccountIdOf<Test> = MultiSigner::Sr25519(public).into_account().into();
+		let username = test_username_of(b"42".to_vec(), suffix.clone());
+		let signature =
+			MultiSignature::Sr25519(sr25519_sign(0.into(), &public, &username[..]).unwrap());
+		assert_ok!(Identity::set_username_for(
+			RuntimeOrigin::signed(authority.clone()),
+			who.clone(),
+			username.clone().into(),
+			Some(signature),
+			false
+		));
+		assert_eq!(UsernameDepositor::<Test>::get(&username), Some(authority.clone()));
+
+		// Usernames granted before depositors were recorded have no entry.
+		UsernameDepositor::<Test>::remove(&username);
+
+		assert_ok!(Identity::unbind_username(
+			RuntimeOrigin::signed(authority.clone()),
+			username.clone()
+		));
+		System::set_block_number(System::block_number() + grace_period);
+		assert_ok!(Identity::remove_username(RuntimeOrigin::signed(account(1)), username));
+		assert_eq!(Balances::reserved_balance(&authority), 0);
+		assert_eq!(Balances::free_balance(&authority), 1000);
+	});
+}
+
+#[test]
 fn unbind_and_remove_username_should_work() {
 	new_test_ext().execute_with(|| {
 		let initial_authority_balance = 10000;
