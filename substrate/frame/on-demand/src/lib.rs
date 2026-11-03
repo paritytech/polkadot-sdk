@@ -288,8 +288,8 @@ pub mod pallet {
 
 		fn integrity_test() {
 			assert!(
-				T::MaxUnclaimedTimeslices::get() > 0,
-				"`MaxUnclaimedTimeslices` must allow for the revenue of at least one timeslice"
+				T::MaxUnclaimedTimeslices::get() > 1,
+				"`MaxUnclaimedTimeslices` must allow for the revenue of at least two timeslices"
 			);
 			assert!(
 				T::TimeslicePeriod::get() > 0u32.into(),
@@ -416,7 +416,8 @@ pub mod pallet {
 			para_id: TaskId,
 			max_amount: BalanceOf<T>,
 		) -> DispatchResult {
-			// Fail early if the revenue of the order would never be distributed.
+			// Fail early if the parachain does not yet accept orders (so the migration is not yet
+			// complete).
 			ensure!(Enabled::<T>::get(), Error::<T>::Disabled);
 			// Fail early if the batch is already full.
 			ensure!(
