@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793741868758,
+  "lastUpdate": 1793748286033,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "71da30286be32e2368b4d948b5febd80c0b6a92d",
-          "message": "pallet-beefy: Allow unsigned execution of an unsigned method (#11816)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-20T19:01:03Z",
-          "tree_id": "369fddca6948db7257d0963f64fb1ad24c4d04e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/71da30286be32e2368b4d948b5febd80c0b6a92d"
-        },
-        "date": 1776722642296,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12573044803333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.721936653333334,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.14545585186666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce5174d79049c47b8a30cde19de2debaf6253d7d",
+          "message": "staking-async: check inactivity per service in chill_inactive (#13536)\n\nBuilds on #13464, which records era points per service\n(`ErasRewardPointsByService`).\n\n`IsValidatorInactive::is_inactive` now receives the era points of the\nvalidator per\n`ValidatorServiceKind`, as `&[(ValidatorServiceKind, RewardPoint)]`,\ninstead of a single total. A runtime can so decide inactivity per\nservice, for example that only relay consensus points keep a validator\nactive.\n\nPoints of the tally not recorded per service, which are those of eras\nbefore points were\nrecorded per service, count as `RelayConsensus`.\n\n`chill_inactive` is now disabled by default:\n- The `()` implementation of `IsValidatorInactive` never finds a\nvalidator inactive. The new `AllZero` implementation has the old\nbehaviour of `()`: a validator is inactive if it earned no points for\n**any** service. Runtimes that want the old behaviour must use\n`AllZero`. Custom implementations must take the points per service;\n\nMoreover:\n\n- `ChillInactiveThreshold` has no default anymore. While it is not set,\n`chill_inactive` fails with `ChillInactiveDisabled`. Removing it through\n`set_staking_configs` disables the call.\n- `set_staking_configs` rejects a `chill_inactive_threshold` for which\nthe weight of `chill_inactive` does not fit in one normal extrinsic.\n\n> **As it stands, on AssetHub Westend, we can check up to 67 previous\neras to reach `MAX_WEIGHT * NORMAL_EXTRINSIC_RATIO`.**\n\nWeight correction: \n\nThe weight of `chill_inactive` now includes reading\n`ErasRewardPointsByService` of every proof era. Its benchmark now writes\ndifferent reward points for every era and service. Before, equal values\nwere held only once in the proof, so the proof size did not grow with\nthe number of eras.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T21:51:06Z",
+          "tree_id": "45a063310816dc74d12eb4158020b0b96a8230cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce5174d79049c47b8a30cde19de2debaf6253d7d"
+        },
+        "date": 1793748250685,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12235917333333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.834219337966667,
             "unit": "seconds"
           }
         ]
