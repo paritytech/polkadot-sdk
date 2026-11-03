@@ -1,0 +1,17 @@
+title: More XCM rollback hardening
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Adding more hardening to the XCM executor. None of the fixes are vulnerabilities, but _could become_
+      so later if executor upstream or downstream assumptions change.
+      This PR reduces the number of assumptions by adding defense in depth directly on the executor,
+      and adds documentation and tests for remaining assumptions.
+      Changes:
+      1. roll back delivery fees of report instructions and failed BuyExecution state
+      2. Harden `BuyExecution` by recording the asset to be used for delivery fees only when BuyExecution succeeds.
+      3. fail ExportMessage when the exporter cannot deliver
+      4. run the remaining storage-mutating instructions transactionally
+      5. document the invariants behind register rollback
+crates:
+  - name: staging-xcm-executor
+    bump: patch
