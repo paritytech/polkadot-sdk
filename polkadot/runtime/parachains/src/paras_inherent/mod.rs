@@ -425,9 +425,6 @@ impl<T: Config> Pallet<T> {
 			all_weight_after
 		};
 
-		// To detect a fresh freeze below.
-		let was_frozen = T::DisputesHandler::is_frozen();
-
 		// Note that `process_checked_multi_dispute_data` will iterate and import each
 		// dispute; so the input here must be reasonably bounded,
 		// which is guaranteed by the checks and weight limitation above.
@@ -442,13 +439,6 @@ impl<T: Config> Pallet<T> {
 		METRICS.on_disputes_imported(checked_disputes_sets.len() as u64);
 
 		set_scrapable_on_chain_disputes::<T>(current_session, checked_disputes_sets.clone());
-
-		// A fresh freeze clears the provides windows (see `clear_provides`).
-		let mut checked_disputes_sets_consumed_weight = checked_disputes_sets_consumed_weight;
-		if !was_frozen && T::DisputesHandler::is_frozen() {
-			checked_disputes_sets_consumed_weight = checked_disputes_sets_consumed_weight
-				.saturating_add(inclusion::Pallet::<T>::clear_provides());
-		}
 
 		if T::DisputesHandler::is_frozen() {
 			// Relay chain freeze, at this point we will not include any parachain blocks.

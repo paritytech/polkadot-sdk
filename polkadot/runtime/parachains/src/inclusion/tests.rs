@@ -3289,10 +3289,6 @@ mod speculative_provides_window {
 			}
 			// Other sources are independent.
 			assert_eq!(newest_included_provides::<Test>(ParaId::from(1001)), None);
-
-			// A cleared window (freeze) reports nothing again.
-			ParaInclusion::clear_provides();
-			assert_eq!(newest_included_provides::<Test>(source), None);
 		});
 	}
 
@@ -3313,25 +3309,7 @@ mod speculative_provides_window {
 		});
 	}
 
-	#[test]
-	fn clear_provides_empties_every_window() {
-		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
-			// Seed several senders' windows.
-			for src in 1..=3u32 {
-				ParaInclusion::record_provides(ParaId::from(src), sr(src as u8));
-			}
-			assert!(
-				(1..=3u32).all(|src| !RecentProvides::<Test>::get(ParaId::from(src)).is_empty())
-			);
-
-			// A freeze transition clears the whole map (see `paras_inherent`).
-			ParaInclusion::clear_provides();
-
-			assert!((1..=3u32).all(|src| RecentProvides::<Test>::get(ParaId::from(src)).is_empty()));
-		});
-	}
-
-	/// Seeded random pushes, offboardings and freezes across a few senders, checked after every
+	/// Seeded random pushes and offboardings across a few senders, checked after every
 	/// step against a plain model: window length, newest root and membership of a random root.
 	#[test]
 	fn window_matches_a_model_under_random_operations() {
@@ -3355,11 +3333,7 @@ mod speculative_provides_window {
 			for _ in 0..20_000 {
 				let source = sources[next(sources.len() as u64) as usize];
 				match next(1000) {
-					0 => {
-						ParaInclusion::clear_provides();
-						model.clear();
-					},
-					1 | 2 => {
+					0 | 1 => {
 						let notification = crate::initializer::SessionChangeNotification::default();
 						ParaInclusion::initializer_on_new_session(&notification, &[source]);
 						model.remove(&source);
