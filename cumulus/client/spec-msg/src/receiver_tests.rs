@@ -322,7 +322,11 @@ fn skip_proofs_verify_from_the_peaks_and_the_leaves() {
 		for to in from + 1..=40 {
 			let start = frontier_at(&all, from);
 			let proof = skip_proof(&start, &leaves[from..to]).expect("a proof");
-			assert_eq!(proof.verify(&start), Ok(frontier_at(&all, to).root()), "{from} to {to}");
+			assert_eq!(
+				proof.calculate_root(&start),
+				Ok(frontier_at(&all, to).root()),
+				"{from} to {to}"
+			);
 		}
 	}
 }
