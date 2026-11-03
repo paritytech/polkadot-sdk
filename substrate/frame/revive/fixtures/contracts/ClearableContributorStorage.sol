@@ -9,7 +9,8 @@ import "@revive/ISystem.sol";
 /// grow distinct storage items rather than overwriting each other. On a `PGasDeposit` runtime
 /// where a caller has no PGAS, the charge falls back to native currency and is recorded
 /// per-payer in `NativeDepositOf[contract][caller]`. `clearStorage` deletes the caller's slot,
-/// which refunds the caller's share of the deposit.
+/// which refunds the caller's share of the deposit. `slotLength` returns the length of the slot
+/// of `who`.
 ///
 /// `terminate` invokes the `ISystem.terminate` precompile (not the EVM `SELFDESTRUCT` opcode,
 /// which EIP-6780 restricts to same-tx-created contracts), so the contract can be terminated
@@ -27,6 +28,10 @@ contract ClearableContributorStorage {
 
 	function clearStorage() external {
 		delete slots[msg.sender];
+	}
+
+	function slotLength(address who) external view returns (uint256) {
+		return slots[who].length;
 	}
 
 	function terminate(address beneficiary) external {

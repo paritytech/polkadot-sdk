@@ -23,7 +23,7 @@ use crate::{
 	deposit_payment::{Deposit, Funds},
 	storage::AccountType,
 	test_utils::{
-		ALICE, BOB, CHARLIE, DJANGO_ADDR,
+		ALICE, BOB, BOB_ADDR, CHARLIE, DJANGO_ADDR,
 		builder::{BareCallBuilder, Contract},
 	},
 	tests::{
@@ -33,7 +33,7 @@ use crate::{
 	},
 	weights::WeightInfo,
 };
-use alloy_core::sol_types::SolCall;
+use alloy_core::{primitives::U256, sol_types::SolCall};
 use frame_support::{
 	assert_err, assert_ok,
 	traits::{
@@ -794,14 +794,52 @@ fn assert_clear_storage_refunds_native(
 	assert_eq!(NativeDepositOf::<Test>::get(account_id, &who), 0);
 }
 
+/// Commits the overlay of `ext` and runs one deletion-queue batch with a bounded meter.
+///
+/// The meter covers the batch base, one queue entry, `native_keys` [`NativeDepositOf`] rows and
+/// `trie_keys` child-trie keys. The overlay is committed first because removal limits and counts
+/// apply to the backend only.
+fn commit_and_process_batch(ext: &mut sp_io::TestExternalities, native_keys: u64, trie_keys: u64) {
+	type Weights = <Test as Config>::WeightInfo;
+	ext.commit_all().unwrap();
+	ext.execute_with(|| {
+		let per_entry =
+			Weights::deletion_queue_per_entry().saturating_sub(Weights::deletion_queue_batch());
+		let per_native_key = Weights::deletion_queue_per_native_deposit_key(1)
+			.saturating_sub(Weights::deletion_queue_per_native_deposit_key(0));
+		let per_trie_key = Weights::deletion_queue_per_trie_key(1)
+			.saturating_sub(Weights::deletion_queue_per_trie_key(0));
+		let mut meter = WeightMeter::with_limit(
+			Weights::deletion_queue_batch() +
+				per_entry + per_native_key.saturating_mul(native_keys) +
+				per_trie_key.saturating_mul(trie_keys),
+		);
+		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
+	});
+}
+
+/// Counts the keys left in the default child trie `trie_id`.
+fn child_trie_key_count(trie_id: &[u8]) -> usize {
+	let mut count = 0;
+	let mut key = Vec::new();
+	while let Some(next) = sp_io::default_child_storage::next_key(trie_id, &key) {
+		count += 1;
+		key = next;
+	}
+	count
+}
+
 /// Leaves a terminated `ClearableContributorStorage` whose child trie is still queued.
 ///
 /// Deploys the contract from ALICE, lets CHARLIE grow its storage in native currency and
 /// terminates it. Then runs one deletion-queue batch with enough weight to clear the contract's
-/// [`NativeDepositOf`] rows and none for its child trie, so the entry stays queued with an empty
-/// prefix. Returns the externalities, the address and its account.
-fn terminated_with_pending_trie(code: &[u8]) -> (sp_io::TestExternalities, H160, AccountId32) {
-	type Weights = <Test as Config>::WeightInfo;
+/// [`NativeDepositOf`] rows and `first_batch_trie_keys` keys of its child trie. The trie must
+/// have more keys than that, so the entry stays queued with an empty prefix. Returns the
+/// externalities, the address and its account.
+fn terminated_with_pending_trie(
+	code: &[u8],
+	first_batch_trie_keys: u64,
+) -> (sp_io::TestExternalities, H160, AccountId32) {
 	let mut ext = ExtBuilder::default().build();
 	let (addr, account_id, rows) = ext.execute_with(|| {
 		Balances::set_balance(&ALICE, 100_000_000_000);
@@ -823,18 +861,8 @@ fn terminated_with_pending_trie(code: &[u8]) -> (sp_io::TestExternalities, H160,
 		(addr, account_id, rows)
 	});
 
-	// Removal limits and counts apply to the backend only, not to the overlay.
-	ext.commit_all().unwrap();
-
+	commit_and_process_batch(&mut ext, rows, first_batch_trie_keys);
 	ext.execute_with(|| {
-		let per_entry =
-			Weights::deletion_queue_per_entry().saturating_sub(Weights::deletion_queue_batch());
-		let per_native_key = Weights::deletion_queue_per_native_deposit_key(1)
-			.saturating_sub(Weights::deletion_queue_per_native_deposit_key(0));
-		let mut meter = WeightMeter::with_limit(
-			Weights::deletion_queue_batch() + per_entry + per_native_key.saturating_mul(rows),
-		);
-		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
 		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
 		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "child trie still queued");
 	});
@@ -862,7 +890,7 @@ fn terminate_clearable(addr: H160, beneficiary: H160) {
 #[test_case(FixtureType::Resolc)]
 fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
-	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code);
+	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 0);
 	ext.execute_with(|| {
 		let redeployed = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
 		assert_eq!(redeployed.addr, addr);
@@ -882,6 +910,65 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 	});
 }
 
+/// A contract re-created at the address of a terminated contract keeps its own
+/// [`NativeDepositOf`] rows while bounded batches remove the old child trie.
+///
+/// Whether a batch clears the native rows of a queue entry is decided per batch. The first batch
+/// runs before re-instantiation and clears the old rows and one trie key. Every later batch has
+/// weight for one trie key and runs while the new contract is live, so it must leave the rows of
+/// the new contract alone until the queue is empty.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn deletion_queue_keeps_native_deposits_of_recreated_contract_across_batches(
+	fixture_type: FixtureType,
+) {
+	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
+	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 1);
+	let (old_trie, old_keys, alice_row, bob_row, bob_before_growth) = ext.execute_with(|| {
+		let (_, entry) = DeletionQueue::<Test>::iter().next().expect("old contract is queued");
+		// CHARLIE's 64-byte slot spans several trie keys, so one key per batch takes several
+		// batches after the re-instantiation.
+		let old_keys = child_trie_key_count(&entry.trie_id);
+		assert!(old_keys >= 2, "old trie has {old_keys} keys left");
+
+		let redeployed = builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+		assert_eq!(redeployed.addr, addr);
+		let bob_before_growth = Balances::balance(&BOB);
+		call_contract(BOB, addr, ClearableContributorStorage::growStorageCall {}.abi_encode());
+		let alice_row = NativeDepositOf::<Test>::get(&account_id, &ALICE);
+		let bob_row = NativeDepositOf::<Test>::get(&account_id, &BOB);
+		assert!(alice_row > 0, "the deployer paid the base deposit in native currency");
+		assert!(bob_row > 0);
+		(entry.trie_id, old_keys, alice_row, bob_row, bob_before_growth)
+	});
+
+	// Each batch removes one old trie key, so the queue empties exactly with the last one.
+	for batch in 1..=old_keys {
+		commit_and_process_batch(&mut ext, 0, 1);
+		ext.execute_with(|| {
+			assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), alice_row);
+			assert_eq!(NativeDepositOf::<Test>::get(&account_id, &BOB), bob_row);
+			let queue_empty = DeletionQueue::<Test>::iter().next().is_none();
+			assert_eq!(queue_empty, batch == old_keys, "batch {batch} of {old_keys}");
+		});
+	}
+
+	ext.execute_with(|| {
+		assert_eq!(child_trie_key_count(&old_trie), 0, "old child trie removed");
+		let result = builder::bare_call(addr)
+			.data(
+				ClearableContributorStorage::slotLengthCall { who: BOB_ADDR.0.into() }.abi_encode(),
+			)
+			.build_and_unwrap_result();
+		assert_eq!(
+			ClearableContributorStorage::slotLengthCall::abi_decode_returns(&result.data).unwrap(),
+			U256::from(64),
+			"the new contract keeps BOB's slot",
+		);
+		assert_clear_storage_refunds_native(addr, &account_id, BOB, bob_before_growth);
+	});
+}
+
 /// The deletion queue clears the native rows of two contracts terminated at the same address.
 ///
 /// When the contract re-created at an address is terminated as well, the address has two queue
@@ -891,7 +978,7 @@ fn deletion_queue_keeps_native_deposits_of_recreated_contract(fixture_type: Fixt
 #[test_case(FixtureType::Resolc)]
 fn deletion_queue_clears_native_deposits_of_two_terminated_contracts(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("ClearableContributorStorage", fixture_type).unwrap();
-	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code);
+	let (mut ext, addr, account_id) = terminated_with_pending_trie(&code, 0);
 	ext.execute_with(|| {
 		let redeployed =
 			builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
