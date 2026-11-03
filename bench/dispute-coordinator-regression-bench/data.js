@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793672648215,
+  "lastUpdate": 1793690737744,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "paolo@parity.io",
-            "name": "Paolo La Camera",
-            "username": "sigurpol"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "cd3eb6de88ebeec6483b10e368a2ec56b391523e",
-          "message": "[westend] Remove pallet_treasury from RC and clean up system parachains matchers (#11763)\n\n- Remove pallet_treasury entirely from Westend relay chain.\n- Drain residual balances from the legacy `py/trsry`-derived account\ninto the local DAP satellite buffer on the relay and on each Westend\nsystem parachain (bridge-hub, collectives, coretime, people).\n- Remove RelayTreasuryLocation matchers from all Westend system\nparachains.\n\nCloses #11705.\n\n**NOTE**: a followup PR will remove also all remaining OpenGov related\npallets from RC (issue #11775, stacked PR: #11796).\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-16T16:01:49Z",
-          "tree_id": "467857ff3b0324ad909c032a610e22ec83e0ebb4",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/cd3eb6de88ebeec6483b10e368a2ec56b391523e"
-        },
-        "date": 1776360375180,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026598862100000007,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009456243249999979,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010267374169999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.002559478830000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4fac30fa6fe3328ab5ed4f971288682d53069cd2",
+          "message": "[pallet-revive] Exact pro rata storage deposit refunds (#13204)\n\nCloses #12692\n\nStorage refunds are now `deposit * removed / stored` in exact integer\narithmetic, rounded down. The old `FixedU128` ratio could refund one\nunit too little (3 bytes with deposit 3, one removed: 0 before, 1 now).\n\nNetting is unchanged and now documented on `Diff::update_contract`. No\nmigration is needed.",
+          "timestamp": "2026-11-03T05:47:59Z",
+          "tree_id": "872e4e923ebfa9c339099b522d2631dee1ed9bc7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fac30fa6fe3328ab5ed4f971288682d53069cd2"
+        },
+        "date": 1793690702679,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009639815020000008,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009317140009999982,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025256219400000006,
             "unit": "seconds"
           }
         ]
