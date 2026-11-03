@@ -663,7 +663,7 @@ mod benchmarks {
 			$assert_transferred:ident, $module:expr, $delegate:expr, $t:expr, $d:expr) => {
 			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
 			let code_hash = callee_contract.info()?.code_hash;
-			// Delegated callee, the same worst case the cold benches measure. See `seal_call`.
+			// Delegated callee, the same worst case the cold benches measure. See `call_setup!`.
 			let callee_addr = H160([0x42; 20]);
 			let callee = delegated_eoa::<T>(callee_addr, callee_contract.address)?;
 			// A fresh EOA would make the origin pay its ED, leaving nothing to burn into dust.
@@ -672,9 +672,12 @@ mod benchmarks {
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
 
-			// Same amounts as the cold `seal_call` bench, so both take the same transfer branches.
+			// Same transfer as `seal_call_transfer_to_existing`, so both take the same branches.
 			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
 			let dust = 100u32 * $d;
+			if dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, dust);
+			}
 			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
 			let evm_value = Pallet::<T>::convert_native_to_evm(value);
 			let value_bytes = evm_value.encode();
@@ -718,6 +721,7 @@ mod benchmarks {
 					Pallet::<T>::evm_balance(&callee_addr),
 					before + evm_value,
 				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
 			};
 		};
 	}
@@ -806,7 +810,9 @@ mod benchmarks {
 
 	// c: code size in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte_hot(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte_hot(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::evm_init_code_for_runtime_size(c));
 
 		let result;
@@ -3254,10 +3260,12 @@ mod benchmarks {
 	fn seal_call_hot() -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::dummy());
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3269,10 +3277,12 @@ mod benchmarks {
 	fn seal_call_transfer_hot(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, assert_transferred, VmBinaryModule::dummy(), 1, d);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3393,10 +3403,12 @@ mod benchmarks {
 	fn seal_delegate_call_hot() -> Result<(), BenchmarkError> {
 		hot_call_setup!(delegate do_call, VmBinaryModule::dummy());
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
