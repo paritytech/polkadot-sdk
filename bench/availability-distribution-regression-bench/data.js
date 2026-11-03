@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793720307949,
+  "lastUpdate": 1793741940346,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "878b1583b5031aa4ee936cb98ff45257778acafa",
-          "message": "PSM init: skip assets with mismatched decimals instead of panicking (#11807)\n\nAddresses issue @ggwpez raised in this comment:\nhttps://github.com/paritytech/polkadot-sdk/pull/11068#discussion_r3096189282\n\n## Summary\n\nReplaces the `assert!` in the PSM `InitializePsm` migration with a log +\nskip when an asset's decimals don't match the stable asset. Panicking in\na runtime upgrade bricks the chain. Migrations must be infallible.\n\n### Test\n\nAdds `initialize_psm_skips_assets_with_wrong_decimals` which verifies\nthat assets with mismatched decimals are skipped while\ncorrectly-configured assets in the same migration are still added.",
-          "timestamp": "2026-04-18T17:42:40Z",
-          "tree_id": "b4c9fffcc4588d1f361e7427b9439223e2d11602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/878b1583b5031aa4ee936cb98ff45257778acafa"
-        },
-        "date": 1776539152159,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023792789966666672,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.00688305729333333,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009374359659999977,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.1412634403466667,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007653572039999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d40d771c2117b597258dbf3a1012b7a7051fc836",
+          "message": "ci: follow-up to #13611 (#13700)\n\n- tests.yml had no aggregate job, so quick-benchmarks was a required\ncheck with the changes_rust guard on it. The new job \"All quick tests\npassed\" gives the workflow the same shape as the other twelve.\n- reusable-preflight.yml: the output changes_currentWorkflow goes away,\nbecause no workflow reads it. The filter group gets the name sharedCi,\nwhich matches what it holds after #13611. A dead line that set\ncurrentActionDir goes away. Two glob patterns get the **/* form that the\nfile uses elsewhere.",
+          "timestamp": "2026-11-03T19:20:53Z",
+          "tree_id": "ea5c0b84ae37420a20e7054438247ccb607c4127",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d40d771c2117b597258dbf3a1012b7a7051fc836"
+        },
+        "date": 1793741901270,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14608959778666672,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007652390386666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025234066533333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010102080666666645,
             "unit": "seconds"
           }
         ]
