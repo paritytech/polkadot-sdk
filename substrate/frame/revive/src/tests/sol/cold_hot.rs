@@ -674,7 +674,7 @@ fn a_call_to_a_created_contract_is_charged_hot(fixture_type: FixtureType) {
 	);
 	assert_eq!(hot_call_weight.proof_size(), 0);
 
-	let hot_bench_saving = <Test as Config>::WeightInfo::seal_call(0, 0, 0)
+	let hot_bench_saving = <Test as Config>::WeightInfo::seal_call(0)
 		.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot());
 	assert!(
 		cold_call_weight.ref_time() >= hot_call_weight.ref_time() + hot_bench_saving.ref_time(),

@@ -43,6 +43,9 @@ const GAS_PER_SECOND: u64 = 40_000_000;
 /// gas.
 const WEIGHT_PER_GAS: u64 = WEIGHT_REF_TIME_PER_SECOND / GAS_PER_SECOND;
 
+/// Smallest init code length the `evm_instantiate*` benchmarks run at.
+pub const BENCH_MIN_EVM_INIT_CODE_LEN: u32 = 1;
+
 #[cfg_attr(test, derive(Debug, PartialEq, Eq))]
 #[derive(Copy, Clone)]
 pub enum RuntimeCosts {
@@ -381,6 +384,15 @@ pub enum TransferAccessKind {
 	Untracked { dust: bool },
 }
 
+/// Computes what a cold value transfer adds to a call.
+fn cold_transfer_surcharge<T: Config>(dust: u32) -> Weight {
+	// `Weight::max` is per dimension, so ref time and proof size can each be taken from either of
+	// the two benches.
+	T::WeightInfo::seal_call_transfer(dust)
+		.max(T::WeightInfo::seal_call_transfer_to_existing(dust))
+		.saturating_sub(T::WeightInfo::seal_call(0))
+}
+
 impl<T: Config> Token<T> for RuntimeCosts {
 	fn influence_lowest_weight_limit(&self) -> bool {
 		true
@@ -467,7 +479,7 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallBase(warmth) => match warmth.entries() {
 				CallWarmth::Plain { .. } => weight_from_warmth_summary::<T>(
 					warmth.summary(),
-					|| T::WeightInfo::seal_call(0, 0, 0),
+					|| T::WeightInfo::seal_call(0),
 					T::WeightInfo::seal_call_hot,
 				),
 				CallWarmth::Delegate { .. } => weight_from_warmth_summary::<T>(
@@ -487,33 +499,37 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge(TransferAccessKind::Untracked { dust }) => {
-				cost_args!(seal_call, 1, dust.into(), 0)
+				cold_transfer_surcharge::<T>(dust.into())
 			},
 			CallTransferSurcharge(TransferAccessKind::Tracked(warmth)) => {
 				let dust = u32::from(warmth.entries().dust);
 				weight_from_warmth_summary::<T>(
 					warmth.summary(),
-					|| cost_args!(seal_call, 1, dust, 0),
+					|| cold_transfer_surcharge::<T>(dust),
 					|| {
 						T::WeightInfo::seal_call_transfer_hot(dust)
 							.saturating_sub(T::WeightInfo::seal_call_hot())
 					},
 				)
 			},
-			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
+			CallInputCloned(len) => cost_args!(seal_call, len),
 			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::seal_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					input_data_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::seal_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::seal_instantiate(0))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::seal_instantiate(input_data_len).saturating_add(transfer)
 			},
 			Create { init_code_len, balance_transfer, dust_transfer } => {
-				T::WeightInfo::evm_instantiate(
-					balance_transfer.into(),
-					dust_transfer.into(),
-					init_code_len,
-				)
+				let transfer = if balance_transfer || dust_transfer {
+					T::WeightInfo::evm_instantiate_transfer(dust_transfer.into())
+						.saturating_sub(T::WeightInfo::evm_instantiate(BENCH_MIN_EVM_INIT_CODE_LEN))
+				} else {
+					Weight::zero()
+				};
+				T::WeightInfo::evm_instantiate(init_code_len).saturating_add(transfer)
 			},
 			AccessListRegistration(summary) => access_list_overhead::<T>(summary),
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
@@ -940,6 +956,7 @@ mod tests {
 		let cold = Warmth::new_cold_non_revertible();
 		let read_paid = Warmth::new_read_paid();
 		let write_paid = Warmth::new_write_paid();
+		let cold_bench = <Test as Config>::WeightInfo::seal_call(0);
 		// The entries in the order the call visits them: `OriginalAccount`, then `AccountInfo`,
 		// which the call writes.
 		for (case, original_account, account_info) in [
@@ -954,8 +971,7 @@ mod tests {
 			);
 			assert_eq!(
 				weight(&RuntimeCosts::CallBase(call_warmth)),
-				<Test as Config>::WeightInfo::seal_call(0, 0, 0)
-					.saturating_add(access_list_overhead::<Test>(call_warmth.summary())),
+				cold_bench.saturating_add(access_list_overhead::<Test>(call_warmth.summary())),
 				"{case}",
 			);
 		}
@@ -1100,5 +1116,43 @@ mod tests {
 			weight_of(false, write_paid, write_paid),
 			"without dust the `AccountInfoOf` entries are only read, so nothing is owed"
 		);
+	}
+
+	#[test]
+	fn value_transfers_pay_a_surcharge() {
+		let weight = |cost: RuntimeCosts| <RuntimeCosts as Token<Test>>::weight(&cost);
+
+		let call = |dust| {
+			weight(RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Untracked { dust }))
+		};
+		assert!(call(false).ref_time() > 0, "a call with value must pay for its transfer");
+		assert!(call(true).ref_time() > call(false).ref_time(), "a call with dust must cost more");
+
+		let instantiate: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Instantiate { input_data_len: 0, balance_transfer, dust_transfer }
+		};
+		let create: fn(bool, bool) -> RuntimeCosts = |balance_transfer, dust_transfer| {
+			RuntimeCosts::Create { init_code_len: 0, balance_transfer, dust_transfer }
+		};
+
+		for (name, cost_of) in [("instantiate", instantiate), ("create", create)] {
+			let surcharge = |balance_transfer, dust_transfer| {
+				weight(cost_of(balance_transfer, dust_transfer))
+					.saturating_sub(weight(cost_of(false, false)))
+			};
+			assert!(
+				surcharge(true, false).ref_time() > 0,
+				"{name} with value must pay for its transfer",
+			);
+			assert!(
+				surcharge(true, true).ref_time() > surcharge(true, false).ref_time(),
+				"{name} with dust must cost more",
+			);
+			assert_eq!(
+				surcharge(false, true),
+				surcharge(true, true),
+				"{name} with only dust does the same work as with value and dust",
+			);
+		}
 	}
 }
