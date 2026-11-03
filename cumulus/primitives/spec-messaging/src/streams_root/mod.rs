@@ -423,19 +423,11 @@ mod tests {
 		assert_eq!(read_streams_root(&digest(vec![foreign, spms(r.encode())])), Some(r));
 	}
 
-	fn max_proof_steps(tree: &StreamsTree, map: &BTreeMap<StreamId, Hash>) -> usize {
-		map.keys()
-			.map(|s| tree.gen_stream_proof(*s).unwrap().1.steps.len())
-			.max()
-			.unwrap_or(0)
-	}
-
 	#[test]
 	fn streams_tree_matches_from_scratch_streams_root() {
 		let map = entries();
 		let tree = StreamsTree::from_entries(&map);
 		assert_eq!(tree.root(), streams_root(&map));
-		assert_eq!(tree.height() as usize, max_proof_steps(&tree, &map));
 
 		// Check proof generation from tree
 		for (stream, sr) in &map {
@@ -462,7 +454,6 @@ mod tests {
 			let tree_root = tree.insert(stream, r).unwrap();
 			assert_eq!(Some(tree_root), streams_root(&map));
 			assert_eq!(tree.root(), Some(tree_root));
-			assert_eq!(tree.height() as usize, max_proof_steps(&tree, &map));
 		}
 
 		// Update 50 existing streams with new roots
@@ -495,8 +486,7 @@ mod tests {
 
 		// The root's children point back at the root.
 		let mut node = store[&key];
-		(node.left_child, node.right_child) =
-			(TreeChild::Node { key, height: 1 }, TreeChild::Node { key, height: 1 });
+		(node.left_child, node.right_child) = (TreeChild::Node { key }, TreeChild::Node { key });
 		let mut cyclic = BTreeMap::from([(key, node)]);
 		let mut e = entry;
 		assert_eq!(
@@ -510,7 +500,7 @@ mod tests {
 		let mut node = store[&key];
 		node.split_bit = KEY_BITS as u8;
 		let mut out_of_range = BTreeMap::from([(wide, node)]);
-		let mut e = Some(TreeRootEntry::Node { key: wide, root_hash: root(0x1), height: 1 });
+		let mut e = Some(TreeRootEntry::Node { key: wide, root_hash: root(0x1) });
 		assert_eq!(
 			update_tree_leaf(&mut e, ch(1002), root(0x2), &mut out_of_range),
 			Err(TreeError::CorruptNode(wide))
@@ -521,8 +511,7 @@ mod tests {
 	fn missing_node_returns_error() {
 		// Tree with an entry pointing to a missing inner node
 		let node_key = NodeKey::new(&ch(1000).to_bytes(), 10);
-		let mut root_entry =
-			Some(TreeRootEntry::Node { key: node_key, root_hash: root(0x1), height: 1 });
+		let mut root_entry = Some(TreeRootEntry::Node { key: node_key, root_hash: root(0x1) });
 		let mut empty_store = BTreeMap::new();
 		let before = root_entry;
 		let res = update_tree_leaf(&mut root_entry, ch(1001), root(0x2), &mut empty_store);
@@ -591,7 +580,6 @@ mod tests {
 			assert_eq!(proof_tree, proof_scratch);
 			assert!(verify_stream_membership(r_tree, *stream, *sr, &proof_tree));
 		}
-		assert_eq!(tree.height() as usize, max_proof_steps(&tree, &map));
 
 		// The cached layout does not depend on insertion order.
 		let mut reversed = StreamsTree::new();
@@ -599,6 +587,5 @@ mod tests {
 			reversed.insert(*stream, *sr).unwrap();
 		}
 		assert_eq!(reversed, tree);
-		assert_eq!(reversed.height(), tree.height());
 	}
 }
