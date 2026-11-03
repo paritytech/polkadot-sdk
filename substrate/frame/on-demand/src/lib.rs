@@ -206,13 +206,16 @@ pub mod pallet {
 	>;
 
 	/// Revenue from on-demand sales which has not been claimed yet, by the timeslice the orders
-	/// were placed in, newest first.
+	/// were placed in.
 	///
 	/// The funds themselves sit in the pallet's pot until they are claimed through
 	/// [`OnDemandRevenue::claim_revenue`].
 	#[pallet::storage]
-	pub type Revenue<T: Config> =
-		StorageValue<_, BoundedVec<RevenueRecordOf<T>, T::MaxUnclaimedTimeslices>, ValueQuery>;
+	pub type Revenue<T: Config> = StorageValue<
+		_,
+		BoundedBTreeMap<Timeslice, BalanceOf<T>, T::MaxUnclaimedTimeslices>,
+		ValueQuery,
+	>;
 
 	/// Whether on-demand Coretime is sold here.
 	///
@@ -379,25 +382,19 @@ pub mod pallet {
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			let revenue = Revenue::<T>::get();
 
-			// The revenue is booked newest first, with one record per timeslice.
-			ensure!(
-				revenue.windows(2).all(|pair| pair[0].when > pair[1].when),
-				"The unclaimed revenue is not ordered newest first, one record per timeslice"
-			);
-
 			// No revenue is booked for the future.
 			let now = T::RelayBlockNumberProvider::current_block_number();
 			let current: Timeslice = (now / T::TimeslicePeriod::get()).saturated_into();
 			ensure!(
-				revenue.first().map_or(true, |record| record.when <= current),
+				revenue.last_key_value().map_or(true, |(&when, _)| when <= current),
 				"Revenue is booked against a timeslice which has not started yet"
 			);
 
 			// The pot holds the revenue booked. If it does not, the revenue is held back until the
 			// pot is topped up.
-			let booked = revenue.iter().fold(BalanceOf::<T>::zero(), |booked, record| {
-				booked.saturating_add(record.amount)
-			});
+			let booked = revenue
+				.values()
+				.fold(BalanceOf::<T>::zero(), |booked, &amount| booked.saturating_add(amount));
 			let reducible = T::Currency::reducible_balance(&Self::account_id(), Preserve, Polite);
 			ensure!(reducible >= booked, "The pot holds less than can be paid out as revenue");
 
@@ -480,47 +477,33 @@ pub mod pallet {
 
 		/// Book `amount` of revenue against timeslice `when`.
 		fn book_revenue(when: Timeslice, amount: BalanceOf<T>) {
-			Revenue::<T>::mutate(|revenue| {
-				// The records are newest first, so this is where the record for `when` either is,
-				// or belongs.
-				let index = revenue.iter().position(|record| record.when <= when);
-				if let Some(record) =
-					index.and_then(|index| revenue.get_mut(index)).filter(|r| r.when == when)
-				{
-					record.amount.saturating_accrue(amount);
+			let booked = Revenue::<T>::get().try_mutate(|revenue| {
+				revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
+				if revenue.len() <= T::MaxUnclaimedTimeslices::get() as usize {
 					return;
 				}
 
-				let index = index.unwrap_or(revenue.len());
-				let overdue = if revenue.is_full() && index == revenue.len() {
-					// `when` is older than every timeslice kept apart, so it is the one which is
-					// overdue.
-					RevenueRecord { when, amount }
-				} else {
-					match revenue.force_insert_keep_left(index, RevenueRecord { when, amount }) {
-						Ok(None) => return,
-						Ok(Some(overdue)) => overdue,
-						// Only possible with `MaxUnclaimedTimeslices` set to zero, which the
-						// integrity test rules out.
-						Err(_) => {
-							frame_support::defensive!("Revenue could not be booked");
-							return;
-						},
-					}
-				};
-
 				// The revenue of the oldest timeslice has not been claimed for too long; keep it
 				// with the next oldest one.
+				let Some((overdue, overdue_amount)) = revenue.pop_first() else { return };
 				log::warn!(
 					target: LOG_TARGET,
-					"Unclaimed revenue of timeslice {} merged into a later timeslice",
-					overdue.when,
+					"Unclaimed revenue of timeslice {overdue} merged into a later timeslice",
 				);
-				// We just ensured that we couldn't insert the overdue amount because the revenue
-				// vec was full, so it can't be empty, so there will always be a last entry. qed
-				let oldest = revenue.last_mut().unwrap();
-				oldest.amount.saturating_accrue(overdue.amount);
+				// This will never lose revenue: if we had to remove an entry above, the number of
+				// entries must have been over the limit, which is at least 2. So there are at least
+				// two entries left at this point, and first_entry will never return None.
+				if let Some(mut oldest) = revenue.first_entry() {
+					oldest.get_mut().saturating_accrue(overdue_amount);
+				}
 			});
+			match booked {
+				Some(revenue) => Revenue::<T>::put(revenue),
+				// At most one timeslice too many is booked, and then the oldest one is merged away.
+				None => {
+					frame_support::defensive!("Revenue could not be booked");
+				},
+			}
 		}
 	}
 
@@ -546,8 +529,7 @@ pub mod pallet {
 			beneficiary: &T::AccountId,
 		) -> (Vec<(Timeslice, BalanceOf<T>)>, u32) {
 			let mut revenue = Revenue::<T>::get();
-			// The records are newest first, so the claimable ones are at the end.
-			let claimable = revenue.iter().filter(|record| record.when <= up_to).count() as u32;
+			let claimable = revenue.range(..=up_to).count() as u32;
 			// Early return when nothing to be claimed: everything up to `up_to` is already paid
 			// out, so it is settled even without revenue.
 			if claimable == 0 {
@@ -562,17 +544,17 @@ pub mod pallet {
 			// Take the revenue of as many timeslices as can be paid out in full, oldest first.
 			let mut total = BalanceOf::<T>::zero();
 			let mut paid = Vec::new();
-			while let Some(oldest) = revenue.last().filter(|record| record.when <= up_to) {
-				let with_oldest = total.saturating_add(oldest.amount);
+			while let Some((&oldest, &amount)) = revenue.range(..=up_to).next() {
+				let with_oldest = total.saturating_add(amount);
 				if with_oldest > reducible {
 					break;
 				}
 				total = with_oldest;
-				paid.push((oldest.when, oldest.amount));
-				revenue.pop();
+				paid.push((oldest, amount));
+				revenue.remove(&oldest);
 			}
 
-			let complete = revenue.last().map_or(true, |record| record.when > up_to);
+			let complete = revenue.range(..=up_to).next().is_none();
 			if complete && paid.last().map_or(true, |&(when, _)| when != up_to) {
 				// Everything up to `up_to` was paid out, so it is settled even without revenue.
 				paid.push((up_to, Zero::zero()));
@@ -580,9 +562,8 @@ pub mod pallet {
 			if !complete {
 				// Some revenue can only be paid out once the pot has been topped up.
 				let booked = revenue
-					.iter()
-					.filter(|record| record.when <= up_to)
-					.fold(total, |booked, record| booked.saturating_add(record.amount));
+					.range(..=up_to)
+					.fold(total, |booked, (_, &amount)| booked.saturating_add(amount));
 				log::error!(
 					target: LOG_TARGET,
 					"The pot holds less than the {booked:?} of revenue booked up to timeslice \

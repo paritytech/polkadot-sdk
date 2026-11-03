@@ -20,6 +20,7 @@
 use super::*;
 
 use crate::{Pallet as OnDemand, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP};
+use alloc::collections::BTreeMap;
 use fp_coretime::revenue::OnDemandRevenue;
 use frame_benchmarking::v2::*;
 use frame_support::{
@@ -95,18 +96,15 @@ mod benches {
 
 		// The order is booked against timeslice `max_unclaimed`, while the revenue of every
 		// older timeslice is still unclaimed. The history is full, so booking the order takes
-		// the longest path: the new record is inserted in front of all the others, and the
-		// oldest one is pushed out and merged into the next oldest.
+		// the longest path: a record is added for the new timeslice, and the oldest one is pushed
+		// out and merged into the next oldest.
 		let max_unclaimed = T::MaxUnclaimedTimeslices::get();
 		T::RelayBlockNumberProvider::set_block_number(
 			T::TimeslicePeriod::get().saturating_mul(max_unclaimed.into()),
 		);
-		let revenue: Vec<RevenueRecordOf<T>> = (0..max_unclaimed)
-			.rev()
-			.map(|when| RevenueRecord { when, amount: base_fee })
-			.collect();
+		let revenue: BTreeMap<_, _> = (0..max_unclaimed).map(|when| (when, base_fee)).collect();
 		Revenue::<T>::put(
-			BoundedVec::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
+			BoundedBTreeMap::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
 		);
 
 		let _ = OnDemand::<T>::on_initialize(current_block);
@@ -123,10 +121,10 @@ mod benches {
 
 		let revenue = Revenue::<T>::get();
 		assert_eq!(revenue.len(), max_unclaimed as usize);
-		assert_eq!(revenue.first().map(|record| record.when), Some(max_unclaimed));
+		assert_eq!(revenue.last_key_value().map(|(&when, _)| when), Some(max_unclaimed));
 		// The oldest timeslice's revenue was merged into the next oldest one's.
 		assert_eq!(
-			revenue.last().map(|record| (record.when, record.amount)),
+			revenue.first_key_value().map(|(&when, &amount)| (when, amount)),
 			Some((1, base_fee.saturating_mul(2u32.into())))
 		);
 
@@ -232,13 +230,10 @@ mod benches {
 		let beneficiary: T::AccountId = account("beneficiary", 0, 0);
 		T::Currency::set_balance(&beneficiary, T::Currency::minimum_balance());
 
-		// Timeslices `1..=timeslices`, newest first, of which `1..=n` are claimed.
-		let revenue: Vec<RevenueRecordOf<T>> = (1..=timeslices)
-			.rev()
-			.map(|when| RevenueRecord { when, amount: per_timeslice })
-			.collect();
+		// Timeslices `1..=timeslices`, of which `1..=n` are claimed.
+		let revenue: BTreeMap<_, _> = (1..=timeslices).map(|when| (when, per_timeslice)).collect();
 		Revenue::<T>::put(
-			BoundedVec::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
+			BoundedBTreeMap::try_from(revenue).expect("bounded by MaxUnclaimedTimeslices; qed"),
 		);
 
 		#[block]

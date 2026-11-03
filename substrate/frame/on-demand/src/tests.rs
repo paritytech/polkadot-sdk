@@ -295,12 +295,9 @@ fn claim(up_to: u32) -> Vec<(u32, u64)> {
 	result.paid
 }
 
-/// The unclaimed revenue, as `(timeslice, amount)`, newest first.
+/// The unclaimed revenue, as `(timeslice, amount)`, oldest first.
 fn unclaimed() -> Vec<(u32, u64)> {
-	Revenue::<Test>::get()
-		.iter()
-		.map(|record| (record.when, record.amount))
-		.collect()
+	Revenue::<Test>::get().into_iter().collect()
 }
 
 #[test]
@@ -311,7 +308,7 @@ fn revenue_is_booked_against_the_timeslice_of_the_order() {
 		let second = place_order_at(TIMESLICE_PERIOD - 1);
 		let third = place_order_at(TIMESLICE_PERIOD);
 
-		assert_eq!(unclaimed(), vec![(1, third), (0, first + second)]);
+		assert_eq!(unclaimed(), vec![(0, first + second), (1, third)]);
 	});
 }
 
@@ -351,14 +348,10 @@ fn the_oldest_unclaimed_revenue_is_merged_into_the_next_oldest_once_the_history_
 
 		// One timeslice too many has unclaimed revenue, so that of timeslice 0 is kept with
 		// timeslice 1's. Nothing is lost.
-		let mut expected: Vec<_> = (2..=MAX_UNCLAIMED_TIMESLICES)
-			.rev()
-			.map(|when| (when, revenue[when as usize]))
-			.collect();
-		expected.push((1, revenue[0] + revenue[1]));
+		let mut expected = vec![(1, revenue[0] + revenue[1])];
+		expected.extend((2..=MAX_UNCLAIMED_TIMESLICES).map(|when| (when, revenue[when as usize])));
 		assert_eq!(unclaimed(), expected);
 
-		expected.reverse();
 		assert_eq!(claim(MAX_UNCLAIMED_TIMESLICES), expected);
 	});
 }
@@ -371,7 +364,7 @@ fn revenue_for_an_earlier_timeslice_is_booked_against_that_timeslice() {
 		let more_in_0 = place_order_at(0);
 		let in_1 = place_order_at(TIMESLICE_PERIOD);
 
-		assert_eq!(unclaimed(), vec![(2, in_2), (1, in_1), (0, in_0 + more_in_0)]);
+		assert_eq!(unclaimed(), vec![(0, in_0 + more_in_0), (1, in_1), (2, in_2)]);
 
 		// The Relay chain never moves back in time, so it is back in timeslice 2 at the end.
 		set_relay_block_number(2 * TIMESLICE_PERIOD);
@@ -382,20 +375,19 @@ fn revenue_for_an_earlier_timeslice_is_booked_against_that_timeslice() {
 fn revenue_for_an_earlier_timeslice_is_merged_correctly_into_a_full_history() {
 	build_and_execute(|| {
 		// Fill the history with timeslices 2, 4, 6.
-		let mut revenue: Vec<_> = (1..=MAX_UNCLAIMED_TIMESLICES)
+		let revenue: Vec<_> = (1..=MAX_UNCLAIMED_TIMESLICES)
 			.map(|i| place_order_at(2 * i * TIMESLICE_PERIOD))
 			.collect();
-		revenue.reverse();
 
 		// Timeslice 3 takes the place of timeslice 2, which is merged into it.
 		let in_3 = place_order_at(3 * TIMESLICE_PERIOD);
-		assert_eq!(unclaimed(), vec![(6, revenue[0]), (4, revenue[1]), (3, in_3 + revenue[2])]);
+		assert_eq!(unclaimed(), vec![(3, revenue[0] + in_3), (4, revenue[1]), (6, revenue[2])]);
 
 		// Timeslice 1 is older than any timeslice kept apart, so it is merged into the oldest.
 		let in_1 = place_order_at(TIMESLICE_PERIOD);
 		assert_eq!(
 			unclaimed(),
-			vec![(6, revenue[0]), (4, revenue[1]), (3, in_3 + revenue[2] + in_1)]
+			vec![(3, in_1 + revenue[0] + in_3), (4, revenue[1]), (6, revenue[2])]
 		);
 
 		// The Relay chain never moves back in time, so it is back in timeslice 6 at the end.
