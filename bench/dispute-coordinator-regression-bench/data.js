@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793742156153,
+  "lastUpdate": 1793748490918,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a9ffa03ac6738da49622d81a64a1bb4809911464",
-          "message": "Add token transfers via XCM to DAP from the satellites (#11434)\n\nPR https://github.com/paritytech/polkadot-sdk/pull/10597 introduces the\nDAP satellite for gathering funds on every system parachain. This PR\nadds the periodic transfer of the gathered funds to the central DAP on\nAH. A minimum balance is expected for a transfer to take place. Both the\nperiod (in blocks) and the minimum balance are configurable.\n\nClose #10596.\n\nChanges:\n- Inside `pallet-dap-satellite`, on every `on_idle`, a transfer is\nattempted if (1) sufficient funds have been gathered in the satellite's\naccount and (2) a number of blocks have elapsed since the last transfer\nattempt\n- The transfer is an XCM teleport, which handles the burning of funds at\nthe source and the minting at the destination; if a transfer fails, the\nburnt funds are re-minted at the source to maintain consistency\n- The interval of the transfers is not affected by a single transfer's\nsuccess or failure\n- The DAP pallet gets a dedicated *staging* account, where all funds get\ndeposited (including those previously deposited into the main DAP\naccount); on every `on_idle`, all funds are taken from the staging\naccount, deposited into the main DAP account and deactivated. The\nstaging account is pre-funded (with the ED) in the same way as the main\nDAP account.\n\nThis is a continuation of PR\nhttps://github.com/paritytech/polkadot-sdk/pull/11294.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:51:43Z",
-          "tree_id": "e1f94e9ac49161cc4e1577dbea7e5255bafe0413",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9ffa03ac6738da49622d81a64a1bb4809911464"
-        },
-        "date": 1776420891681,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00289262351,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.010458575969999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009733145989999966,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025631293099999996,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce5174d79049c47b8a30cde19de2debaf6253d7d",
+          "message": "staking-async: check inactivity per service in chill_inactive (#13536)\n\nBuilds on #13464, which records era points per service\n(`ErasRewardPointsByService`).\n\n`IsValidatorInactive::is_inactive` now receives the era points of the\nvalidator per\n`ValidatorServiceKind`, as `&[(ValidatorServiceKind, RewardPoint)]`,\ninstead of a single total. A runtime can so decide inactivity per\nservice, for example that only relay consensus points keep a validator\nactive.\n\nPoints of the tally not recorded per service, which are those of eras\nbefore points were\nrecorded per service, count as `RelayConsensus`.\n\n`chill_inactive` is now disabled by default:\n- The `()` implementation of `IsValidatorInactive` never finds a\nvalidator inactive. The new `AllZero` implementation has the old\nbehaviour of `()`: a validator is inactive if it earned no points for\n**any** service. Runtimes that want the old behaviour must use\n`AllZero`. Custom implementations must take the points per service;\n\nMoreover:\n\n- `ChillInactiveThreshold` has no default anymore. While it is not set,\n`chill_inactive` fails with `ChillInactiveDisabled`. Removing it through\n`set_staking_configs` disables the call.\n- `set_staking_configs` rejects a `chill_inactive_threshold` for which\nthe weight of `chill_inactive` does not fit in one normal extrinsic.\n\n> **As it stands, on AssetHub Westend, we can check up to 67 previous\neras to reach `MAX_WEIGHT * NORMAL_EXTRINSIC_RATIO`.**\n\nWeight correction: \n\nThe weight of `chill_inactive` now includes reading\n`ErasRewardPointsByService` of every proof era. Its benchmark now writes\ndifferent reward points for every era and service. Before, equal values\nwere held only once in the proof, so the proof size did not grow with\nthe number of eras.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T21:51:06Z",
+          "tree_id": "45a063310816dc74d12eb4158020b0b96a8230cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce5174d79049c47b8a30cde19de2debaf6253d7d"
+        },
+        "date": 1793748456195,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009313758119999987,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010165314160000011,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00250684838,
             "unit": "seconds"
           }
         ]
