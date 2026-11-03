@@ -16,21 +16,18 @@
 
 //! Disk-backed reputation database for collator protocol.
 
-use crate::{
-	validator_side_experimental::{
-		common::Score,
-		peer_manager::{
-			backend::Backend,
-			db::{Db, ScoreEntry},
-			persistence::{
-				metadata_key, para_list_key, para_reputation_key, PersistenceError, StoredMetadata,
-				StoredParaList, StoredParaReputations,
-			},
-			ReputationUpdate,
+use crate::validator_side_experimental::{
+	common::Score,
+	peer_manager::{
+		backend::Backend,
+		db::{Db, ScoreEntry},
+		persistence::{
+			metadata_key, para_list_key, para_reputation_key, PersistenceError, StoredMetadata,
+			StoredParaList, StoredParaReputations,
 		},
-		ReputationConfig,
+		ReputationUpdate,
 	},
-	LOG_TARGET,
+	ReputationConfig,
 };
 use async_trait::async_trait;
 use codec::{Decode, Encode};
@@ -44,6 +41,8 @@ use std::{
 	sync::Arc,
 };
 use tokio::sync::mpsc;
+
+const LOG_TARGET: &'static str = "parachain::collator-protocol::persistent-db";
 
 /// Describes the context of a persistence operation, used for logging
 /// by the background writer after a disk write completes.
@@ -147,7 +146,7 @@ impl PersistentDb {
 		// Create empty in-memory DB
 		let inner = Db::new(stored_limit_per_para).await;
 
-		let (tx, rx) = mpsc::channel(1);
+		let (tx, rx) = mpsc::channel(3);
 		// Load data from disk into the in-memory DB
 		let mut instance = Self {
 			inner,
@@ -180,6 +179,13 @@ impl PersistentDb {
 	) {
 		while let Some(req) = rx.recv().await {
 			let PersistenceRequest { updates, metadata, para_list, log_info, completion_tx } = req;
+
+			gum::trace!(
+				target: LOG_TARGET,
+				update_type = ?log_info,
+				update_count = updates.len(),
+				"Received PersistenceRequest"
+			);
 
 			let mut db_transaction = DBTransaction::new();
 
