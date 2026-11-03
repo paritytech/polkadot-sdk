@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793661634655,
+  "lastUpdate": 1793672448394,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "02bbf3dc1676deed290a7017dae69f3cd8321547",
-          "message": "statement-store: add subscription reconnection tests (#11618)\n\n# Description\nImplement unit tests for \"Subscription reconnection: verify reconnecting\nsubscribers receive current state\" #11534\n\n## Summary\n- `subscription_reconnect_receives_current_state` — verifies\nreconnecting subscribers receive full current state including\nadditions/removals made while disconnected\n- `subscription_reconnect_with_topic_filter` — verifies topic filtering\nworks correctly on reconnect and filter can change between connections\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T13:15:55Z",
-          "tree_id": "c702e4f576a177146ac082a76ed94adf6b16d365",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02bbf3dc1676deed290a7017dae69f3cd8321547"
-        },
-        "date": 1776437418738,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1297145397,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.758091947333336,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.968245897433338,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4b6793567c457371b0b8d00349dba1b5ba7e3b6f",
+          "message": "[pallet-revive] PVM performance: early return on mem read (#13678)\n\nSmall optimization: We can return early when the read would fail anyway.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T00:46:13Z",
+          "tree_id": "efe63a4025088ca7099d1c9fef4e89ca89001732",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b6793567c457371b0b8d00349dba1b5ba7e3b6f"
+        },
+        "date": 1793672420169,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13190660973333332,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.113507524166668,
             "unit": "seconds"
           }
         ]
