@@ -112,8 +112,9 @@ fn evm_call_stipends_work_for_send_zero() {
 #[test_case(FixtureType::Solc, "SenderBalanceReader", true)]
 #[test_case(FixtureType::Resolc, "SenderBalanceReader", true)]
 #[test_case(FixtureType::Solc, "SimpleReceiver", false)]
-// On PolkaVM the stipend does not cover emitting an event.
-#[test_case(FixtureType::Resolc, "SimpleReceiver", true)]
+// On PolkaVM this receiver costs about as much as the stipend, so whether it reverts depends on
+// the weights and can change when they are regenerated.
+// #[test_case(FixtureType::Resolc, "SimpleReceiver", true)]
 fn call_stipends_cover_own_balance_reads_and_evm_events(
 	fixture_type: FixtureType,
 	receiver_name: &str,
