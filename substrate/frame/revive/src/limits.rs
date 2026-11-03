@@ -18,8 +18,9 @@
 //! Limits that are observeable by contract code.
 //!
 //! It is important to never change this limits without supporting the old limits
-//! for already deployed contracts. This is what the [`crate::Contract::behaviour_version`]
-//! is meant for. This is true for either increasing or decreasing the limit.
+//! for already deployed contracts. This is what the behaviour version stored with a contract's
+//! code (`CodeInfo::behaviour_version`) is meant for. This is true for either increasing or
+//! decreasing the limit.
 //!
 //! Limits in this file are different from the limits configured on the [`Config`] trait which are
 //! generally only affect actions that cannot be performed by a contract: For example things related
@@ -31,6 +32,8 @@
 //! applied **once** at code upload time. Since this action cannot be performed by contracts we
 //! can change those limits without breaking existing contracts. Please keep in mind that we should
 //! only ever **increase** those values but never decrease.
+//!
+//! Exception: [`MAX_RECEIPT_LOGS_BYTES`], see its documentation.
 
 /// The amount of total memory we require to safely operate.
 ///
@@ -48,10 +51,12 @@ pub const CALL_STACK_DEPTH: u32 = 25;
 /// We set it to the same limit that ethereum has. It is unlikely to change.
 pub const NUM_EVENT_TOPICS: u32 = 4;
 
-/// Maximum size of of the transaction payload
+/// Maximum size of an ethereum transaction's RLP encoded payload.
 ///
-/// Maximum code size during instantiation taken into account plus some overhead.
-pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES;
+/// Room for the largest code blob and call data the pallet accepts, plus 64 KiB for the rest of
+/// the transaction: its other fields, signature, access list and authorization list. An
+/// `eth_transact` with a larger payload is rejected as an invalid transaction.
+pub const MAX_TRANSACTION_PAYLOAD_SIZE: u32 = code::BLOB_BYTES + CALLDATA_BYTES + 64 * 1024;
 
 /// Maximum size of storage items.
 pub const STORAGE_BYTES: u32 = 416;
@@ -59,10 +64,34 @@ pub const STORAGE_BYTES: u32 = 416;
 /// Maximum payload size of events.
 pub const EVENT_BYTES: u32 = 64 * 1024;
 
-/// The extra ref time charge of deposit event per byte.
+/// Maximum number of bytes the logs of one ethereum transaction's receipt may take up.
 ///
-/// This ensure the block builder has enough memory and pallet storage
-/// to operate under worst case scenarios.
+/// Counted over the RLP encoding of every log the transaction keeps: address, topics and data,
+/// each with its RLP headers. A log that would take the receipt past this limit fails the frame
+/// that emits it with [`crate::Error::ReceiptTooLarge`], and the frame's state changes roll back
+/// as for any other error. This includes a log the runtime mirrors on behalf of a contract inside
+/// a frame. A mirrored log emitted outside any frame, such as while storage deposits are paid,
+/// fails the whole transaction instead.
+///
+/// The block's synthetic transaction, which collects logs emitted outside any ethereum
+/// transaction, has the same limit. Nothing fails there: a log that does not fit stays a
+/// substrate-only `ContractEmitted` event.
+///
+/// An Ethereum transaction stays below this limit: at the EIP-7825 cap of 2^24 gas it can log at
+/// most about 2,092,700 bytes, by repeating `LOG0` over the same zeroed memory at 375 gas plus 8
+/// gas per byte. This chain enforces neither that cap nor that `LOG` price, so a transaction here
+/// can reach the limit.
+///
+/// The limit applies to all contracts, including those deployed before it, and is not selected by
+/// a behaviour version. It counts the logs of every contract a transaction calls, and the Ethereum
+/// block builder's memory and storage budget (`BLOCK_BUILDER_BYTES`) is derived from it.
+pub const MAX_RECEIPT_LOGS_BYTES: u32 = 2 * 1024 * 1024;
+
+/// The extra ref time charged per byte of event data.
+///
+/// It bounds the event data a block can deposit; `integrity_test` checks that this fits the
+/// storage available to the runtime. The Ethereum block builder is sized from
+/// [`MAX_TRANSACTION_PAYLOAD_SIZE`] and [`MAX_RECEIPT_LOGS_BYTES`] instead.
 pub const EXTRA_EVENT_CHARGE_PER_BYTE: u64 = 256 * 1024;
 
 /// The maximum size for calldata and return data.
