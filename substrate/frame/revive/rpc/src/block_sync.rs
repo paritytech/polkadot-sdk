@@ -436,8 +436,9 @@ impl Client {
 
 	/// Sync one gap-fill range, retrying failures with exponential backoff.
 	///
-	/// The request is marked done only once the whole range is indexed. A range that still
-	/// fails after `max_attempts` stays pending, which keeps [`Client::advance_sync_head`] from
+	/// The request is marked done once a backward sync of the range returns without error,
+	/// which includes stopping early at a block without an EVM hash. A range that still fails
+	/// after `max_attempts` stays pending, which keeps [`Client::advance_sync_head`] from
 	/// moving the `Head` label over the missing blocks. The next restart's backward sync
 	/// fills them.
 	pub(crate) async fn fill_subscription_gap(
