@@ -736,8 +736,11 @@ fn consuming_block(
 	payloads.iter().for_each(|p| frontier.append(leaf_hash(p)));
 	let entries = BTreeMap::from([(stream, frontier.root().0)]);
 	let (committed, tree_proof) = gen_stream_proof(&entries, stream).unwrap();
-	let lift =
-		RequiresLift { advances: Vec::new(), extension: MMRExtensionProof::identity(), tree_proof };
+	let lift = RequiresLift {
+		advances: Vec::new(),
+		extension: MMRExtensionProof::identity(&frontier),
+		tree_proof,
+	};
 	let lifts = LiftsBySource::try_from(BTreeMap::from([(source, vec![lift])])).unwrap();
 
 	let data = MessagingInherentData {

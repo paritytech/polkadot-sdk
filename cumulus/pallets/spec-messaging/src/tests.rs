@@ -1487,7 +1487,7 @@ fn a_forged_register_position_lifts_to_no_committed_root() {
 		let (committed, tree_proof) = gen_stream_proof(&entries, ack).unwrap();
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&head),
 			tree_proof,
 		};
 
