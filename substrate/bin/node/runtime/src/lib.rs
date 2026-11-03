@@ -2478,7 +2478,6 @@ impl pallet_broker::Config for Runtime {
 	type PalletId = BrokerPalletId;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type SovereignAccountOf = SovereignAccountOf;
-	type OnTaskAssigned = ();
 	type MaxAutoRenewals = ConstU32<10>;
 	type PriceAdapter = pallet_broker::CenterTargetPrice<Balance>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
@@ -2628,6 +2627,150 @@ impl pallet_meta_tx::Config for Runtime {
 	type Extension = MetaTxExtension;
 	#[cfg(feature = "runtime-benchmarks")]
 	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+/// Discards registrar messages; the counterpart chain is not modelled here.
+pub struct DiscardRegistrarMessages;
+
+impl pallet_registrar_para::SendToRelay for DiscardRegistrarMessages {
+	type AccountId = AccountId;
+
+	fn send(_message: registrar_primitives::MessageToRelay<AccountId>) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+impl pallet_registrar_relay::SendToPara for DiscardRegistrarMessages {
+	fn send(_message: registrar_primitives::MessageToPara) -> Result<(), ()> {
+		Ok(())
+	}
+}
+
+parameter_types! {
+	pub const ParaIdReservationDeposit: Balance = 100 * DOLLARS;
+	pub const RegistrationDepositPerByte: Balance = 10 * MILLICENTS;
+	pub const ParaIdReservationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::ParaIdReservation);
+	pub const RegistrationHoldReason: RuntimeHoldReason =
+		RuntimeHoldReason::RegistrarPara(pallet_registrar_para::HoldReason::Registration);
+	// No parachain-system here, so a fixed stand-in for the relay chain's host configuration.
+	pub storage RegistrarHostConfig: Option<polkadot_primitives::AbridgedHostConfiguration> =
+		Some(polkadot_primitives::AbridgedHostConfiguration {
+			max_code_size: 3 * 1024 * 1024,
+			max_head_data_size: 1024 * 1024,
+			max_upward_queue_count: 0,
+			max_upward_queue_size: 0,
+			max_upward_message_size: 0,
+			max_upward_message_num_per_candidate: 0,
+			hrmp_max_message_num_per_candidate: 0,
+			validation_upgrade_cooldown: 0,
+			validation_upgrade_delay: 0,
+			async_backing_params: polkadot_primitives::AsyncBackingParams {
+				allowed_ancestry_len: 0,
+				max_candidate_depth: 0,
+			},
+		});
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_registrar_para::BenchmarkHelper for RegistrarHostConfig {
+	fn set_host_configuration(config: polkadot_primitives::AbridgedHostConfiguration) {
+		RegistrarHostConfig::set(&Some(config));
+	}
+}
+
+impl pallet_registrar_para::Config for Runtime {
+	type ReservationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		ParaIdReservationHoldReason,
+		ConstantStoragePrice<ParaIdReservationDeposit, Balance>,
+	>;
+	type RegistrationConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RegistrationHoldReason,
+		LinearStoragePrice<ConstU128<0>, RegistrationDepositPerByte, Balance>,
+	>;
+	type SendToRelay = DiscardRegistrarMessages;
+	type RelayOrigin = EnsureRoot<AccountId>;
+	type ParachainOrigin = frame_system::EnsureNever<registrar_primitives::ParaId>;
+	type ForceOrigin = EnsureRoot<AccountId>;
+	type FirstPublicParaId = ConstU32<2000>;
+	type MinCodeSize = ConstU32<9>;
+	type HostConfiguration = RegistrarHostConfig;
+	type PendingDeadline = ConstU32<600>;
+	type BlockNumberProvider = System;
+	type WeightInfo = pallet_registrar_para::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = RegistrarHostConfig;
+}
+
+/// A registrar that accepts everything; the relay chain's paras stack is not modelled here.
+pub struct AcceptingRegistrar;
+
+impl registrar_primitives::ParachainRegistrar for AcceptingRegistrar {
+	type AccountId = AccountId;
+
+	fn check_onboarding(_head_len: u32, _code_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn is_registered(_para_id: registrar_primitives::ParaId) -> bool {
+		false
+	}
+
+	fn register(
+		_manager: AccountId,
+		_para_id: registrar_primitives::ParaId,
+		_genesis_head: Vec<u8>,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	fn deregister(_para_id: registrar_primitives::ParaId) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn setup_worst_case_deregister(
+		_para_id: registrar_primitives::ParaId,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: registrar_primitives::ParaId, _head: Vec<u8>) {}
+
+	fn check_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_code_len: u32,
+	) -> Result<(), ()> {
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: registrar_primitives::ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		Ok(())
+	}
+}
+
+impl pallet_registrar_relay::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ParaOrigin = EnsureRoot<AccountId>;
+	type SendToPara = DiscardRegistrarMessages;
+	type Registrar = AcceptingRegistrar;
+	type MaxHeadDataSize = ConstU32<{ 1024 * 1024 }>;
+	type MaxCodeSize = ConstU32<{ 3 * 1024 * 1024 }>;
+	type MaxPendingRegistrations = ConstU32<128>;
+	type UnsignedPriority = ConstU64<100>;
+	type WeightInfo = pallet_registrar_relay::weights::SubstrateWeight<Runtime>;
 }
 
 #[frame_support::runtime]
@@ -2928,6 +3071,12 @@ mod runtime {
 
 	#[runtime::pallet_index(94)]
 	pub type Dap = pallet_dap::Pallet<Runtime>;
+
+	#[runtime::pallet_index(95)]
+	pub type RegistrarPara = pallet_registrar_para::Pallet<Runtime>;
+
+	#[runtime::pallet_index(96)]
+	pub type RegistrarRelay = pallet_registrar_relay::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3274,6 +3423,8 @@ mod benches {
 		[pallet_ranked_collective, RankedCollective]
 		[pallet_referenda, Referenda]
 		[pallet_recovery, Recovery]
+		[pallet_registrar_para, RegistrarPara]
+		[pallet_registrar_relay, RegistrarRelay]
 		[pallet_remark, Remark]
 		[pallet_salary, Salary]
 		[pallet_scheduler, Scheduler]

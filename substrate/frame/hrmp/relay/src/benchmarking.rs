@@ -18,56 +18,87 @@
 //! Benchmarks for `pallet-hrmp-relay`.
 
 use super::*;
+use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
-use frame_system::RawOrigin;
-use hrmp_primitives::{ChannelId, DepositSide};
+use polkadot_runtime_parachains::hrmp::deposits::DepositChange;
 
-fn key(n: u32) -> DepositKey {
-	DepositKey {
-		channel: ChannelId { sender: 4_000 + n, recipient: 5_000 + n },
-		side: DepositSide::Sender,
+/// A request that changes both sides of a channel.
+fn both_sides_request() -> DepositChangeRequest {
+	let change = DepositChange { current: 0, target: 1_000 };
+	DepositChangeRequest {
+		channel_id: HrmpChannelId { sender: 1.into(), recipient: 2.into() },
+		sender: Some(change),
+		recipient: Some(change),
+		action: DepositAction::InitAndAcceptOpenChannel {
+			max_capacity: u32::MAX,
+			max_message_size: u32::MAX,
+			max_total_size: u32::MAX,
+		},
 	}
 }
 
-#[benchmarks]
+#[benchmarks(where <T as frame_system::Config>::RuntimeOrigin: From<ParachainOrigin>)]
 mod benchmarks {
 	use super::*;
 
+	/// The answer to a request for both sides. The answer is a refusal, so that
+	/// `OnDepositSet` does the least: its own weight is charged on top.
 	#[benchmark]
 	fn receive() {
-		let message = MessageToRelay::V1(MessageToRelayV1::HoldResult { key: key(0), held: true });
+		T::BenchmarkHelper::ensure_send_to_para();
+		let response = Pallet::<T>::try_set_deposit(both_sides_request());
+		assert_eq!(response, Ok(DepositChangeResponse::Pending));
+		let id = NextRequestId::<T>::get().wrapping_sub(1);
+		let origin = ParachainOrigin::Parachain(T::HolderParaId::get());
+		let message = MessageToRelay::V1(MessageToRelayV1::DepositsSet {
+			id,
+			result: Err(WireDepositError::Other),
+		});
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, message);
+		_(origin, message);
+
+		assert!(PendingRequests::<T>::get(id).is_none());
 	}
 
+	/// A request for both sides. A release reads and writes less.
 	#[benchmark]
-	fn relay_request() -> Result<(), BenchmarkError> {
-		let origin =
-			T::ParachainOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let request = ParaRequest::V1(ParaRequestV1::CloseChannel { channel: key(0).channel });
+	fn try_set_deposit() {
+		T::BenchmarkHelper::ensure_send_to_para();
+		let request = both_sides_request();
+		let response;
 
 		#[block]
 		{
-			let _ = Pallet::<T>::relay_request(origin, request);
+			response = Pallet::<T>::try_set_deposit(request);
 		}
 
-		Ok(())
+		assert_eq!(response, Ok(DepositChangeResponse::Pending));
 	}
 
+	/// `n` releases waiting in the outbox, all sent.
 	#[benchmark]
-	fn flush_releases(n: Linear<0, 100>) {
-		for i in 0..n {
-			Pallet::<T>::release(key(i), None);
-		}
+	fn flush_outbox(n: Linear<0, { T::MaxOutbox::get() }>) {
+		T::BenchmarkHelper::ensure_send_to_para();
+		let outbox: Vec<_> = (0..n)
+			.map(|i| {
+				let channel = ChannelId { sender: i, recipient: i + 1 };
+				MessageToPara::V1(MessageToParaV1::Release {
+					channel,
+					sender: true,
+					recipient: true,
+				})
+			})
+			.collect();
+		Outbox::<T>::put(BoundedVec::try_from(outbox).expect("at most `MaxOutbox`; qed"));
 
 		#[block]
 		{
-			Pallet::<T>::flush_releases();
+			Pallet::<T>::flush_outbox(&mut WeightMeter::new());
 		}
 
-		assert!(PendingReleases::<T>::get().is_empty());
+		assert!(Outbox::<T>::get().is_empty());
 	}
 
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);
 }

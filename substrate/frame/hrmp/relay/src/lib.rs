@@ -15,30 +15,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # HRMP pallet (relay-chain side)
+//! # Relay-chain HRMP deposit pallet
 //!
-//! Serves a parachain's own HRMP requests on the relay chain, and carries HRMP deposits to and from
-//! the parachain that holds them.
+//! Forward the HRMP channel deposit operations between the relay chain HRMP pallet and the
+//! parachain handling deposits.
+//! Implements [`ChannelDepositProvider`] and [`OnDepositSet`] for the relay chain HRMP pallet.
+//! Forward the deposit operations with [`SendToPara`] following the protocol defined in
+//! hrmp-primitives and get results back through [`Call::receive`].
 //!
-//! - [`Call::relay_request`] takes a [`ParaRequest`] from a parachain and dispatches it into the
-//!   relay chain's HRMP as that para, through [`Config::Hrmp`].
-//! - [`Pallet::hold`] asks the deposit-holding parachain to hold a deposit, and [`Call::receive`]
-//!   takes its answer to [`Config::OnDepositHeld`].
-//! - [`Call::receive`] also serves the calls users make on the deposit-holding parachain:
-//!   `poke_channel_deposits` and `establish_system_channel`.
-//! - [`Pallet::release`] queues a release. Queued releases are sent before the next hold and at the
-//!   start of every block, so the parachain receives holds and releases in the order they were
-//!   made.
+//! [`Call::force_answer`] is called by governance to fix potential inconsistent state.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
-use alloc::vec::Vec;
-use frame_support::traits::EnsureOrigin;
+use frame_support::{
+	pallet_prelude::*,
+	weights::{Weight, WeightMeter},
+};
 use hrmp_primitives::{
-	Balance, DepositKey, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	OnDepositHeld, ParaId, ParaRequest, ParaRequestV1, RelayHrmp,
+	ChannelId, DepositError as WireDepositError, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1,
+};
+use polkadot_primitives::{HrmpChannelId, Id as ParaId};
+use polkadot_runtime_parachains::{
+	ensure_parachain,
+	hrmp::deposits::{
+		ChannelDepositProvider, DepositAction, DepositChangeRequest, DepositChangeResponse,
+		DepositError, OnDepositSet,
+	},
+	Origin as ParachainOrigin,
 };
 
 pub use pallet::*;
@@ -53,11 +59,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Used to send an XCM `Transact` to the HRMP pallet on the deposit-holding parachain.
+/// The index of [`Call::receive`] that receives [`MessageToPara`].
+pub const RECEIVE_CALL_INDEX: u8 = 0;
+
+const LOG_TARGET: &str = "runtime::hrmp-relay";
+
+/// Used to send an XCM `Transact` to `pallet-hrmp-para` on the chain that holds the deposits.
 pub trait SendToPara {
 	/// Send `message` to the parachain.
-	///
-	/// `Err(())` means the message could not be handed to the transport.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
@@ -69,187 +78,314 @@ impl SendToPara for () {
 	}
 }
 
-/// Decides whether a parachain's request is served.
-pub trait AdmitRequest {
-	/// Whether to serve a request from `para` now. May record that it was served.
-	fn admit(para: ParaId) -> bool;
+/// Prepares the runtime for this pallet's benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	/// Makes [`Config::SendToPara`] take messages.
+	fn ensure_send_to_para();
 }
 
-impl AdmitRequest for () {
-	fn admit(_: ParaId) -> bool {
-		true
-	}
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper for () {
+	fn ensure_send_to_para() {}
 }
 
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+	pub trait Config:
+		frame_system::Config<
+		RuntimeOrigin: Into<Result<ParachainOrigin, <Self as frame_system::Config>::RuntimeOrigin>>,
+	>
+	{
+		/// Receives the outcome of each pending request: the `hrmp` pallet.
+		type OnDepositSet: OnDepositSet;
 
-		/// The parachain that holds the deposits.
-		type ParaOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-
-		/// Any parachain acting as itself.
-		type ParachainOrigin: EnsureOrigin<Self::RuntimeOrigin, Success: Into<ParaId>>;
+		/// The para that holds the deposits. Only it may answer requests.
+		#[pallet::constant]
+		type HolderParaId: Get<ParaId>;
 
 		/// Sends messages to the parachain that holds the deposits.
 		type SendToPara: SendToPara;
 
-		/// The relay chain's HRMP.
-		type Hrmp: RelayHrmp;
-
-		/// Receives the answer to a hold.
-		type OnDepositHeld: OnDepositHeld;
-
-		/// Decides whether a parachain's request is served.
-		type AdmitRequest: AdmitRequest;
+		/// How many releases may wait in [`Outbox`] for the transport.
+		#[pallet::constant]
+		type MaxOutbox: Get<u32>;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Prepares the runtime for the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
-	/// Releases not yet sent, oldest first: the deposit, and how much of it (`None` for all).
+	/// The id of the next [`MessageToParaV1::SetDeposits`].
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type PendingReleases<T: Config> =
-		StorageValue<_, Vec<(DepositKey, Option<Balance>)>, ValueQuery>;
+	pub type NextRequestId<T: Config> = StorageValue<_, u64, ValueQuery>;
+
+	/// The requests waiting for their answer, handed back unchanged once it comes.
+	#[pallet::storage]
+	pub type PendingRequests<T: Config> =
+		StorageMap<_, Twox64Concat, u64, DepositChangeRequest, OptionQuery>;
+
+	/// The pending request of each channel side, at most one.
+	#[pallet::storage]
+	pub type PendingSides<T: Config> =
+		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), u64, OptionQuery>;
+
+	/// Releases the transport did not take yet, oldest first.
+	#[pallet::storage]
+	pub type Outbox<T: Config> =
+		StorageValue<_, BoundedVec<MessageToPara, T::MaxOutbox>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A parachain's request was served.
-		RequestServed { para: ParaId },
-		/// The parachain was asked to hold a deposit.
-		HoldSent { key: DepositKey, amount: Balance },
-		/// The parachain answered a hold.
-		HoldAnswered { key: DepositKey, held: bool },
-		/// The parachain was asked to release a deposit, or `amount` of it.
-		ReleaseSent { key: DepositKey, amount: Option<Balance> },
-		/// A release could not be handed to the transport, and was dropped.
-		ReleaseFailed { key: DepositKey, amount: Option<Balance> },
+		/// The parachain was asked to set the deposits of a channel.
+		DepositRequested { id: u64, channel: ChannelId },
+		/// The parachain answered a request.
+		DepositAnswered { id: u64, result: Result<(), WireDepositError> },
+		/// An answer came for no pending request. It was ignored.
+		UnknownAnswer { id: u64 },
+		/// The parachain was asked to release deposits of a channel.
+		ReleaseSent { channel: ChannelId },
+		/// A release could not be sent nor kept, and was dropped.
+		ReleaseDropped { channel: ChannelId },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The request is not served, for now.
-		RequestRefused,
+		/// A request for one side of the channel is still pending.
+		DepositPending,
+		/// Earlier releases still wait for the transport.
+		TransportBusy,
+		/// The request could not be handed to the transport.
+		SendFailed,
+		/// No request is pending with this id.
+		UnknownRequest,
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_initialize(_: BlockNumberFor<T>) -> Weight {
-			let sent = Self::flush_releases();
-			T::WeightInfo::flush_releases(sent)
+		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
+			Self::flush_outbox(meter);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take a message from the parachain that holds the deposits.
+		/// Take a message from the parachain that holds the HRMP deposits.
+		///
+		/// The origin must be the parachain holding HRMP deposits.
+		// The index must equal `RECEIVE_CALL_INDEX`.
 		#[pallet::call_index(0)]
-		#[pallet::weight(T::WeightInfo::receive())]
+		#[pallet::weight(T::WeightInfo::receive().saturating_add(Pallet::<T>::max_answer_weight()))]
 		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
-			T::ParaOrigin::ensure_origin_or_root(origin)?;
-
+			let para = ensure_parachain(origin)?;
+			ensure!(para == T::HolderParaId::get(), DispatchError::BadOrigin);
 			match message {
-				MessageToRelay::V1(MessageToRelayV1::HoldResult { key, held }) => {
-					T::OnDepositHeld::on_deposit_held(key, held);
-					Self::deposit_event(Event::HoldAnswered { key, held });
-				},
-				MessageToRelay::V1(MessageToRelayV1::PokeChannelDeposits { channel }) => {
-					T::Hrmp::poke_channel_deposits(channel)?
-				},
-				MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { channel }) => {
-					T::Hrmp::establish_system_channel(channel)?
+				MessageToRelay::V1(MessageToRelayV1::DepositsSet { id, result }) => {
+					if Self::answer(id, result).is_err() {
+						Self::deposit_event(Event::UnknownAnswer { id });
+					}
 				},
 			}
 			Ok(())
 		}
 
-		/// Serve a parachain's own HRMP request, as that parachain.
-		///
-		/// The asking para is the one the origin resolves to.
+		/// Answer the pending request `id` on the parachain's behalf, for an answer that never
+		/// arrived.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::relay_request())]
-		pub fn relay_request(origin: OriginFor<T>, request: ParaRequest) -> DispatchResult {
-			let para: ParaId = T::ParachainOrigin::ensure_origin(origin)?.into();
-			ensure!(T::AdmitRequest::admit(para), Error::<T>::RequestRefused);
+		#[pallet::weight(T::WeightInfo::receive().saturating_add(Pallet::<T>::max_answer_weight()))]
+		pub fn force_answer(
+			origin: OriginFor<T>,
+			id: u64,
+			result: Result<(), WireDepositError>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::answer(id, result)
+		}
+	}
+}
 
-			let ParaRequest::V1(request) = request;
-			match request {
-				ParaRequestV1::InitOpenChannel {
-					recipient,
-					proposed_max_capacity,
-					proposed_max_message_size,
-				} => T::Hrmp::init_open_channel(
-					para,
-					recipient,
-					proposed_max_capacity,
-					proposed_max_message_size,
-				),
-				ParaRequestV1::AcceptOpenChannel { sender } => {
-					T::Hrmp::accept_open_channel(para, sender)
-				},
-				ParaRequestV1::CloseChannel { channel } => T::Hrmp::close_channel(para, channel),
-				ParaRequestV1::CancelOpenRequest { channel, open_requests } => {
-					T::Hrmp::cancel_open_request(para, channel, open_requests)
-				},
-				ParaRequestV1::EstablishChannelWithSystem { target_system_chain } => {
-					T::Hrmp::establish_channel_with_system(para, target_system_chain)
-				},
-			}?;
+impl<T: Config> Pallet<T> {
+	fn to_wire(channel_id: &HrmpChannelId) -> ChannelId {
+		ChannelId { sender: channel_id.sender.into(), recipient: channel_id.recipient.into() }
+	}
 
-			Self::deposit_event(Event::RequestServed { para });
-			Ok(())
+	/// The sides `request` changes.
+	fn sides(request: &DepositChangeRequest) -> impl Iterator<Item = DepositSide> {
+		[
+			request.sender.map(|_| DepositSide::Sender),
+			request.recipient.map(|_| DepositSide::Recipient),
+		]
+		.into_iter()
+		.flatten()
+	}
+
+	/// The most [`Config::OnDepositSet`] may spend on an answer.
+	fn max_answer_weight() -> Weight {
+		[
+			DepositAction::InitOpenChannel {
+				max_capacity: 1,
+				max_message_size: 1,
+				max_total_size: 1,
+			},
+			DepositAction::InitAndAcceptOpenChannel {
+				max_capacity: 1,
+				max_message_size: 1,
+				max_total_size: 1,
+			},
+			DepositAction::AcceptOpenChannel { max_capacity: 1, max_message_size: 1 },
+			DepositAction::PokeChannelDeposits,
+		]
+		.iter()
+		.map(T::OnDepositSet::weight_of_on_deposit_set)
+		.fold(Weight::zero(), |max, w| max.max(w))
+	}
+
+	/// Hands the answer to request `id` back to [`Config::OnDepositSet`].
+	fn answer(id: u64, result: Result<(), WireDepositError>) -> DispatchResult {
+		let request = PendingRequests::<T>::take(id).ok_or(Error::<T>::UnknownRequest)?;
+		let channel = Self::to_wire(&request.channel_id);
+		for side in Self::sides(&request) {
+			PendingSides::<T>::remove((channel, side));
+		}
+		Self::deposit_event(Event::DepositAnswered { id, result });
+		let result = result.map_err(|e| match e {
+			WireDepositError::InsufficientFunds => DepositError::InsufficientFunds,
+			WireDepositError::Other => DepositError::Other,
+		});
+		T::OnDepositSet::on_deposit_set(request, result);
+		Ok(())
+	}
+
+	/// Sends what waits in [`Outbox`], oldest first, until `meter` has no room for the next one or
+	/// the transport refuses it.
+	fn flush_outbox(meter: &mut WeightMeter) {
+		if meter.try_consume(T::WeightInfo::flush_outbox(0)).is_err() {
+			return;
+		}
+		let mut outbox = Outbox::<T>::get();
+		let mut sent = 0usize;
+		for (n, message) in (1..).zip(outbox.iter()) {
+			// What the `n`th message adds to the flush.
+			let weight =
+				T::WeightInfo::flush_outbox(n).saturating_sub(T::WeightInfo::flush_outbox(n - 1));
+			if meter.try_consume(weight).is_err() {
+				break;
+			}
+			if T::SendToPara::send(message.clone()).is_err() {
+				break;
+			}
+			// Only releases wait in the outbox.
+			if let MessageToPara::V1(MessageToParaV1::Release { channel, .. }) = message {
+				Self::deposit_event(Event::ReleaseSent { channel: *channel });
+			}
+			sent += 1;
+		}
+		if sent > 0 {
+			outbox.drain(..sent);
+			Outbox::<T>::put(outbox);
 		}
 	}
 
-	impl<T: Config> Pallet<T> {
-		/// Ask the parachain to hold `amount` for `key`. Queued releases are sent first.
-		///
-		/// `Err(())` means the hold could not be handed to the transport.
-		#[allow(clippy::result_unit_err)]
-		pub fn hold(key: DepositKey, amount: Balance) -> Result<(), ()> {
-			Self::flush_releases();
-			T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Hold { key, amount }))?;
-			Self::deposit_event(Event::HoldSent { key, amount });
-			Ok(())
-		}
+	/// Whether nothing waits in [`Outbox`].
+	fn outbox_is_empty() -> bool {
+		Outbox::<T>::decode_len().unwrap_or_default() == 0
+	}
 
-		/// Queue a release of `amount` of what is held for `key`, or all of it if `None`.
-		pub fn release(key: DepositKey, amount: Option<Balance>) {
-			PendingReleases::<T>::append((key, amount));
+	/// Sends a release, or keeps it in [`Outbox`] after anything already waiting there.
+	fn release(channel: ChannelId, sender: bool, recipient: bool) {
+		let message = MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient });
+		if Self::outbox_is_empty() && T::SendToPara::send(message.clone()).is_ok() {
+			Self::deposit_event(Event::ReleaseSent { channel });
+			return;
 		}
+		if Outbox::<T>::try_append(message).is_err() {
+			log::error!(target: LOG_TARGET, "outbox full, dropped the release of {channel:?}");
+			Self::deposit_event(Event::ReleaseDropped { channel });
+		}
+	}
 
-		/// Send every queued release, oldest first. Returns how many were queued.
-		pub(crate) fn flush_releases() -> u32 {
-			let pending = PendingReleases::<T>::take();
-			for (key, amount) in pending.iter().copied() {
-				let sent = T::SendToPara::send(MessageToPara::V1(MessageToParaV1::Release {
-					key,
-					amount,
-				}));
-				if sent.is_ok() {
-					Self::deposit_event(Event::ReleaseSent { key, amount });
-				} else {
-					log::error!(
-						target: "runtime::hrmp-relay",
-						"failed to send the release of {key:?}",
-					);
-					Self::deposit_event(Event::ReleaseFailed { key, amount });
-				}
+	/// Checks that the pending requests and the sides they lock agree.
+	#[cfg(any(feature = "try-runtime", test))]
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		for ((channel, side), id) in PendingSides::<T>::iter() {
+			let request = PendingRequests::<T>::get(id)
+				.ok_or("hrmp-relay: a side is locked by no pending request")?;
+			ensure!(
+				Self::to_wire(&request.channel_id) == channel &&
+					Self::sides(&request).any(|s| s == side),
+				"hrmp-relay: a side is locked by a request for another side"
+			);
+		}
+		for (id, request) in PendingRequests::<T>::iter() {
+			let channel = Self::to_wire(&request.channel_id);
+			for side in Self::sides(&request) {
+				ensure!(
+					PendingSides::<T>::get((channel, side)) == Some(id),
+					"hrmp-relay: a pending request does not lock its side"
+				);
 			}
-			pending.len() as u32
 		}
+		Ok(())
+	}
+}
+
+impl<T: Config> ChannelDepositProvider for Pallet<T> {
+	type OnDepositSet = T::OnDepositSet;
+
+	fn try_set_deposit(
+		request: DepositChangeRequest,
+	) -> Result<DepositChangeResponse, DispatchError> {
+		let channel = Self::to_wire(&request.channel_id);
+
+		// A release only gives back: it is sent in order and never refused. Everything held for
+		// the side is released.
+		if request.action == DepositAction::Release {
+			Self::release(channel, request.sender.is_some(), request.recipient.is_some());
+			return Ok(DepositChangeResponse::Applied);
+		}
+
+		ensure!(
+			Self::sides(&request).all(|side| !PendingSides::<T>::contains_key((channel, side))),
+			Error::<T>::DepositPending
+		);
+		// A request must not overtake a release made before it.
+		ensure!(Self::outbox_is_empty(), Error::<T>::TransportBusy);
+
+		let id = NextRequestId::<T>::get();
+		let message = MessageToPara::V1(MessageToParaV1::SetDeposits {
+			id,
+			channel,
+			sender: request.sender.map(|c| c.target),
+			recipient: request.recipient.map(|c| c.target),
+		});
+		T::SendToPara::send(message).map_err(|()| Error::<T>::SendFailed)?;
+
+		NextRequestId::<T>::put(id.wrapping_add(1));
+		for side in Self::sides(&request) {
+			PendingSides::<T>::insert((channel, side), id);
+		}
+		PendingRequests::<T>::insert(id, request);
+		Self::deposit_event(Event::DepositRequested { id, channel });
+		Ok(DepositChangeResponse::Pending)
+	}
+
+	fn weight_of_try_set_deposit() -> Weight {
+		T::WeightInfo::try_set_deposit()
 	}
 }

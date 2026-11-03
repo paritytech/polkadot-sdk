@@ -19,7 +19,7 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::{pallet_prelude::TransactionSource, traits::Get};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
 use registrar_primitives::{MessageToRelay, MessageToRelayV1};
 use sp_runtime::traits::{BlakeTwo256, Hash};
@@ -33,10 +33,9 @@ fn code_of(len: u32) -> Vec<u8> {
 
 /// Park a pending registration for `PARA_ID` expecting exactly `code`.
 ///
-/// Written straight to storage rather than pushed through [`Pallet::authorize_code`]: going
-/// through the call would put the whole range at the mercy of whatever minimum code size the
-/// configured [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring
-/// anything.
+/// Written straight to storage rather than pushed through [`Pallet::receive`]: going through the
+/// call would put the whole range at the mercy of whatever minimum code size the configured
+/// [`ParachainRegistrar`] enforces, and `c = 0` would fail setup instead of measuring anything.
 fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	let genesis_head = alloc::vec![2u8; T::MaxHeadDataSize::get() as usize];
 	let pending = PendingRegistration {
@@ -51,27 +50,13 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	Ok(())
 }
 
-/// Park a pending code upgrade for `PARA_ID` expecting exactly `code`.
-///
-/// Written straight to storage for the same reason [`park`] is.
-fn park_upgrade<T: Config>(code: &[u8]) {
-	PendingCodeUpgrades::<T>::insert(
-		PARA_ID,
-		PendingCodeUpgrade {
-			message_id: 0,
-			code_hash: BlakeTwo256::hash(code),
-			code_len: code.len() as u32,
-		},
-	);
-}
-
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
 	/// Accepting a registration request. Dominated by writing the head data.
 	#[benchmark]
-	fn authorize_code(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+	fn receive_register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
 		let manager: T::AccountId = account("manager", 0, 0);
 		let code = code_of(T::MaxCodeSize::get());
 		let message = MessageToRelay::V1(MessageToRelayV1::Register {
@@ -130,7 +115,7 @@ mod benchmarks {
 	/// Dropping an authorization. The worst case carries the largest head data, since that is what
 	/// the entry being removed holds.
 	#[benchmark]
-	fn cancel_authorization() -> Result<(), BenchmarkError> {
+	fn receive_cancel_registration() -> Result<(), BenchmarkError> {
 		park::<T>(&code_of(T::MaxCodeSize::get()))?;
 		let message = MessageToRelay::V1(MessageToRelayV1::CancelRegistration {
 			para_id: PARA_ID,
@@ -144,142 +129,40 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Deregistering a para the registry knows: the manager-match path, one registry removal and
-	/// a report.
+	/// Telling the parachain a para produced its first head.
 	#[benchmark]
-	fn deregister() -> Result<(), BenchmarkError> {
-		let manager: T::AccountId = account("manager", 0, 0);
-		T::Registrar::ensure_deregisterable(manager.clone(), PARA_ID);
-		let message = MessageToRelay::V1(MessageToRelayV1::Deregister {
-			para_id: PARA_ID,
-			message_id: 0,
-		});
-
-		#[extrinsic_call]
-		receive(RawOrigin::Root, message);
-
-		assert!(!T::Registrar::is_registered(PARA_ID));
-		Ok(())
-	}
-
-	/// Answering a chase-up for a para the registry still knows: one registry read and a report,
-	/// the same work as the already-gone branch.
-	#[benchmark]
-	fn cancel_deregistration() -> Result<(), BenchmarkError> {
-		let manager: T::AccountId = account("manager", 0, 0);
-		T::Registrar::ensure_deregisterable(manager, PARA_ID);
-		let message = MessageToRelay::V1(MessageToRelayV1::CancelDeregistration {
-			para_id: PARA_ID,
-			message_id: 0,
-		});
-
-		#[extrinsic_call]
-		receive(RawOrigin::Root, message);
-
-		assert!(T::Registrar::is_registered(PARA_ID));
-		Ok(())
-	}
-
-	/// Accepting an upgrade authorization: bounds checks plus one write, no head data.
-	#[benchmark]
-	fn authorize_code_upgrade() -> Result<(), BenchmarkError> {
-		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
-		let message = MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
-			para_id: PARA_ID,
-			message_id: 0,
-			code_hash: BlakeTwo256::hash(&code_of(T::MaxCodeSize::get())),
-			code_len: T::MaxCodeSize::get(),
-		});
-
-		#[extrinsic_call]
-		receive(RawOrigin::Root, message);
-
-		assert!(PendingCodeUpgrades::<T>::contains_key(PARA_ID));
-		Ok(())
-	}
-
-	/// Uploading an upgrade's code. Dominated by hashing the blob.
-	#[benchmark]
-	fn apply_authorized_code_upgrade(
-		c: Linear<0, { T::MaxCodeSize::get() }>,
-	) -> Result<(), BenchmarkError> {
-		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
-		let code = code_of(c);
-		park_upgrade::<T>(&code);
-
-		#[extrinsic_call]
-		_(RawOrigin::Authorized, PARA_ID, code);
-
-		assert!(!PendingCodeUpgrades::<T>::contains_key(PARA_ID));
-		Ok(())
-	}
-
-	/// The pool-side twin of the call above: it runs the same validation, hashing included.
-	#[benchmark]
-	fn authorize_apply_authorized_code_upgrade(
-		c: Linear<0, { T::MaxCodeSize::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let code = code_of(c);
-		park_upgrade::<T>(&code);
+	fn on_new_head() {
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
 
 		#[block]
 		{
-			Pallet::<T>::authorize_apply_authorized_code_upgrade(
-				TransactionSource::External,
-				&PARA_ID,
-				&code,
-			)
-			.map_err(|_| BenchmarkError::Stop("authorization refused"))?;
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
 		}
 
-		Ok(())
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
 	}
 
-	/// Setting head data. Dominated by the head arriving inline in the message.
+	/// A later head, where the first one has already been reported.
 	#[benchmark]
-	fn set_current_head(
-		h: Linear<0, { T::MaxHeadDataSize::get() }>,
-	) -> Result<(), BenchmarkError> {
-		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
-		let message = MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
-			para_id: PARA_ID,
-			message_id: 0,
-			head: alloc::vec![3u8; h as usize],
-		});
+	fn on_new_head_already_noted() {
+		#[block]
+		{
+			<Pallet<T> as OnNewHead>::on_new_head(PARA_ID.into(), &HeadData(alloc::vec![]));
+		}
+	}
+
+	/// Dropping a para from the registry, which is where the whole cost of this sits.
+	#[benchmark]
+	fn receive_deregister() -> Result<(), BenchmarkError> {
+		T::Registrar::setup_worst_case_deregister(PARA_ID)?;
+		AwaitingFirstHead::<T>::insert(PARA_ID, ());
+		let message =
+			MessageToRelay::V1(MessageToRelayV1::Deregister { para_id: PARA_ID, message_id: 0 });
 
 		#[extrinsic_call]
 		receive(RawOrigin::Root, message);
 
-		Ok(())
-	}
-
-	/// Governance dropping both pending entries. Two removals, worst case both present.
-	#[benchmark]
-	fn force_drop_pending() -> Result<(), BenchmarkError> {
-		let code = code_of(T::MaxCodeSize::get());
-		park::<T>(&code)?;
-		park_upgrade::<T>(&code);
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, PARA_ID);
-
-		assert!(!PendingRegistrations::<T>::contains_key(PARA_ID));
-		assert!(!PendingCodeUpgrades::<T>::contains_key(PARA_ID));
-		Ok(())
-	}
-
-	/// Dropping a cooldown at the parachain's request: one registry call, no report.
-	#[benchmark]
-	fn remove_upgrade_cooldown() -> Result<(), BenchmarkError> {
-		T::Registrar::ensure_deregisterable(account("manager", 0, 0), PARA_ID);
-		let message = MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
-			para_id: PARA_ID,
-			message_id: 0,
-		});
-
-		#[extrinsic_call]
-		receive(RawOrigin::Root, message);
-
+		assert!(!AwaitingFirstHead::<T>::contains_key(PARA_ID));
 		Ok(())
 	}
 

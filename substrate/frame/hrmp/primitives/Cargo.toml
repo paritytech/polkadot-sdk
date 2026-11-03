@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Shared Para<->Relay HRMP control-plane message types."
+description = "Shared Para<->Relay message types."
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true
@@ -25,7 +25,4 @@ std = [
 	"codec/std",
 	"scale-info/std",
 	"sp-runtime/std",
-]
-runtime-benchmarks = [
-	"sp-runtime/runtime-benchmarks",
 ]

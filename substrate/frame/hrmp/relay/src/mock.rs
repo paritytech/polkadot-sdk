@@ -15,233 +15,109 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Mock runtime for `pallet-hrmp-relay`.
+//! Test runtime for `pallet-hrmp-relay`.
 
-use crate::{self as pallet_hrmp_relay, AdmitRequest, SendToPara};
-use frame_support::{derive_impl, traits::EnsureOrigin};
-use hrmp_primitives::{
-	ChannelId, DepositKey, DepositSide, MessageToPara, OnDepositHeld, ParaId, RelayHrmp,
+use crate::{self as pallet_hrmp_relay, SendToPara};
+use core::cell::{Cell, RefCell};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32, weights::Weight};
+use hrmp_primitives::MessageToPara;
+use polkadot_primitives::Id as ParaId;
+use polkadot_runtime_parachains::{
+	hrmp::deposits::{DepositAction, DepositChangeRequest, DepositError, OnDepositSet},
+	origin as parachains_origin,
 };
-use sp_runtime::{BuildStorage, DispatchError, DispatchResult};
+use sp_runtime::BuildStorage;
 
-pub type AccountId = u64;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-pub const ALICE: AccountId = 1;
-
-pub const PARA_A: ParaId = 2000;
-pub const PARA_B: ParaId = 2001;
-
-/// Signed accounts that stand in for a para acting as itself.
-pub const PARA_A_ACCOUNT: AccountId = 1_000_000 + PARA_A as AccountId;
-pub const PARA_B_ACCOUNT: AccountId = 1_000_000 + PARA_B as AccountId;
-
-/// The channel from `PARA_A` to `PARA_B`.
-pub const CHANNEL: ChannelId = ChannelId { sender: PARA_A, recipient: PARA_B };
-
-pub fn sender_key() -> DepositKey {
-	DepositKey { channel: CHANNEL, side: DepositSide::Sender }
-}
-
-pub fn recipient_key() -> DepositKey {
-	DepositKey { channel: CHANNEL, side: DepositSide::Recipient }
-}
-
-#[frame_support::runtime]
-mod test_runtime {
-	#[runtime::runtime]
-	#[runtime::derive(
-		RuntimeCall,
-		RuntimeEvent,
-		RuntimeError,
-		RuntimeOrigin,
-		RuntimeFreezeReason,
-		RuntimeHoldReason,
-		RuntimeSlashReason,
-		RuntimeLockId,
-		RuntimeTask,
-		RuntimeViewFunction
-	)]
-	pub struct Test;
-
-	#[runtime::pallet_index(0)]
-	pub type System = frame_system::Pallet<Test>;
-
-	#[runtime::pallet_index(1)]
-	pub type HrmpRelay = pallet_hrmp_relay::Pallet<Test>;
-}
+frame_support::construct_runtime!(
+	pub enum Test {
+		System: frame_system,
+		ParachainsOrigin: parachains_origin,
+		HrmpRelay: pallet_hrmp_relay,
+	}
+);
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
-	type Block = frame_system::mocking::MockBlockU32<Test>;
-	type AccountId = AccountId;
-	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
+	type Block = Block;
 }
 
-/// A call into the relay chain's HRMP, as the mock records it.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum HrmpCall {
-	Init { para: ParaId, recipient: ParaId, capacity: u32, size: u32 },
-	Accept { para: ParaId, sender: ParaId },
-	Close { para: ParaId, channel: ChannelId },
-	Cancel { para: ParaId, channel: ChannelId, open_requests: u32 },
-	WithSystem { para: ParaId, target: ParaId },
-	Poke { channel: ChannelId },
-	SystemChannel { channel: ChannelId },
+impl parachains_origin::Config for Test {}
+
+thread_local! {
+	/// The messages the transport took, oldest first.
+	pub static SENT: RefCell<Vec<MessageToPara>> = const { RefCell::new(Vec::new()) };
+	/// How many more messages the transport takes, or `None` for all.
+	pub static ACCEPT: Cell<Option<u32>> = const { Cell::new(None) };
+	/// The answers handed to `OnDepositSet`, oldest first.
+	pub static ANSWERS: RefCell<Vec<(DepositChangeRequest, Result<(), DepositError>)>> =
+		const { RefCell::new(Vec::new()) };
 }
 
-frame_support::parameter_types! {
-	/// Calls dispatched into HRMP, oldest first.
-	pub static HrmpCalls: Vec<HrmpCall> = Vec::new();
-	/// When set, the next HRMP call fails with this error.
-	pub static HrmpFails: Option<DispatchError> = None;
-	/// Messages handed to the transport, oldest first.
-	pub static Sent: Vec<MessageToPara> = Vec::new();
-	/// When true, the transport refuses everything.
-	pub static SendFails: bool = false;
-	/// Hold answers passed on, oldest first.
-	pub static Answers: Vec<(DepositKey, bool)> = Vec::new();
-	/// Paras whose requests are refused.
-	pub static Rationed: Vec<ParaId> = Vec::new();
-}
-
-pub struct MockHrmp;
-
-impl MockHrmp {
-	fn record(call: HrmpCall) -> DispatchResult {
-		if let Some(error) = HrmpFails::take() {
-			return Err(error);
-		}
-		HrmpCalls::mutate(|calls| calls.push(call));
-		Ok(())
-	}
-}
-
-impl RelayHrmp for MockHrmp {
-	fn init_open_channel(
-		para: ParaId,
-		recipient: ParaId,
-		capacity: u32,
-		size: u32,
-	) -> DispatchResult {
-		Self::record(HrmpCall::Init { para, recipient, capacity, size })
-	}
-	fn accept_open_channel(para: ParaId, sender: ParaId) -> DispatchResult {
-		Self::record(HrmpCall::Accept { para, sender })
-	}
-	fn close_channel(para: ParaId, channel: ChannelId) -> DispatchResult {
-		Self::record(HrmpCall::Close { para, channel })
-	}
-	fn cancel_open_request(para: ParaId, channel: ChannelId, open_requests: u32) -> DispatchResult {
-		Self::record(HrmpCall::Cancel { para, channel, open_requests })
-	}
-	fn establish_channel_with_system(para: ParaId, target: ParaId) -> DispatchResult {
-		Self::record(HrmpCall::WithSystem { para, target })
-	}
-	fn poke_channel_deposits(channel: ChannelId) -> DispatchResult {
-		Self::record(HrmpCall::Poke { channel })
-	}
-	fn establish_system_channel(channel: ChannelId) -> DispatchResult {
-		Self::record(HrmpCall::SystemChannel { channel })
-	}
-}
-
-pub struct RecordingSender;
-
-impl SendToPara for RecordingSender {
+/// Records what it takes, while [`ACCEPT`] allows.
+pub struct RecordingTransport;
+impl SendToPara for RecordingTransport {
 	fn send(message: MessageToPara) -> Result<(), ()> {
-		if SendFails::get() {
-			return Err(());
+		match ACCEPT.get() {
+			Some(0) => return Err(()),
+			Some(n) => ACCEPT.set(Some(n - 1)),
+			None => (),
 		}
-		Sent::mutate(|sent| sent.push(message));
+		SENT.with_borrow_mut(|sent| sent.push(message));
 		Ok(())
 	}
 }
 
-pub struct RecordingAnswers;
-
-impl OnDepositHeld for RecordingAnswers {
-	fn on_deposit_held(key: DepositKey, held: bool) {
-		Answers::mutate(|answers| answers.push((key, held)));
+/// Records every answer. Each action costs a different weight.
+pub struct RecordingOnDepositSet;
+impl OnDepositSet for RecordingOnDepositSet {
+	fn on_deposit_set(request: DepositChangeRequest, result: Result<(), DepositError>) {
+		ANSWERS.with_borrow_mut(|answers| answers.push((request, result)));
 	}
-}
 
-pub struct MockRation;
-
-impl AdmitRequest for MockRation {
-	fn admit(para: ParaId) -> bool {
-		!Rationed::get().contains(&para)
-	}
-}
-
-/// A signed account in `1_000_000 + para` acts as that para.
-pub struct ParaAccounts;
-
-impl EnsureOrigin<RuntimeOrigin> for ParaAccounts {
-	type Success = ParaId;
-
-	fn try_origin(o: RuntimeOrigin) -> Result<ParaId, RuntimeOrigin> {
-		match frame_system::ensure_signed(o.clone()) {
-			Ok(who) if who >= 1_000_000 => Ok((who - 1_000_000) as ParaId),
-			_ => Err(o),
+	fn weight_of_on_deposit_set(action: &DepositAction) -> Weight {
+		match action {
+			DepositAction::InitOpenChannel { .. } => Weight::from_parts(1, 10),
+			DepositAction::InitAndAcceptOpenChannel { .. } => Weight::from_parts(2, 40),
+			DepositAction::AcceptOpenChannel { .. } => Weight::from_parts(3, 20),
+			DepositAction::PokeChannelDeposits => Weight::from_parts(4, 30),
+			DepositAction::Release => Weight::from_parts(100, 100),
 		}
 	}
+}
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
-		Ok(RuntimeOrigin::signed(PARA_A_ACCOUNT))
-	}
+parameter_types! {
+	pub const HolderParaId: ParaId = ParaId::new(1005);
 }
 
 impl pallet_hrmp_relay::Config for Test {
-	type RuntimeEvent = RuntimeEvent;
-	type ParaOrigin = frame_system::EnsureSignedBy<ParaOriginAccount, AccountId>;
-	type ParachainOrigin = ParaAccounts;
-	type SendToPara = RecordingSender;
-	type Hrmp = MockHrmp;
-	type OnDepositHeld = RecordingAnswers;
-	type AdmitRequest = MockRation;
+	type OnDepositSet = RecordingOnDepositSet;
+	type HolderParaId = HolderParaId;
+	type SendToPara = RecordingTransport;
+	type MaxOutbox = ConstU32<4>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 }
 
-frame_support::parameter_types! {
-	/// The signed account that stands in for the deposit-holding parachain.
-	pub static ParaOriginMembers: Vec<AccountId> = vec![CORETIME];
-}
-
-/// The deposit-holding parachain, as a signed account.
-pub const CORETIME: AccountId = 7;
-
-pub struct ParaOriginAccount;
-
-impl frame_support::traits::SortedMembers<AccountId> for ParaOriginAccount {
-	fn sorted_members() -> Vec<AccountId> {
-		ParaOriginMembers::get()
-	}
-}
-
-pub fn new_test_ext() -> sp_io::TestExternalities {
-	HrmpCalls::set(vec![]);
-	HrmpFails::set(None);
-	Sent::set(vec![]);
-	SendFails::set(false);
-	Answers::set(vec![]);
-	Rationed::set(vec![]);
-
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
-	ext.execute_with(|| System::set_block_number(1));
+/// Externalities at block 1, with the transport taking every message.
+pub fn build_ext() -> sp_io::TestExternalities {
+	let mut ext: sp_io::TestExternalities =
+		frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into();
+	ext.execute_with(|| {
+		System::set_block_number(1);
+		SENT.take();
+		ACCEPT.set(None);
+		ANSWERS.take();
+	});
 	ext
 }
 
-/// Every event this pallet emitted, oldest first, clearing the log.
-pub fn events() -> Vec<pallet_hrmp_relay::Event<Test>> {
-	let events = System::events()
-		.into_iter()
-		.filter_map(|e| match e.event {
-			RuntimeEvent::HrmpRelay(inner) => Some(inner),
-			_ => None,
-		})
-		.collect();
-	System::reset_events();
-	events
+/// Runs `test`, then checks the pallet's invariants.
+pub fn new_test_ext(test: impl FnOnce()) {
+	build_ext().execute_with(|| {
+		test();
+		HrmpRelay::do_try_state().unwrap();
+	});
 }

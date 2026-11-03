@@ -21,14 +21,14 @@
 //! and can be told to fail, which is all this side needs to be tested on its own. The two halves
 //! meeting for real is the job of the `pallet-registrar-test` crate.
 
-use crate::{self as pallet_registrar_para, AssignmentChecker, HoldReason, SendToRelay};
+use crate::{self as pallet_registrar_para, HoldReason, SendToRelay};
 use frame_support::{
 	derive_impl, parameter_types,
 	traits::{
-		fungible::HoldConsideration, ConstBool, ConstU128, ConstU32, ConstantStoragePrice,
-		LinearStoragePrice,
+		fungible::HoldConsideration, ConstU128, ConstU32, ConstantStoragePrice, LinearStoragePrice,
 	},
 };
+use polkadot_primitives::{AbridgedHostConfiguration, AsyncBackingParams};
 use registrar_primitives::MessageToRelay;
 use sp_runtime::BuildStorage;
 
@@ -48,7 +48,6 @@ pub const MIN_CODE_SIZE: u32 = 9;
 pub const MAX_CODE_SIZE: u32 = 1_000;
 pub const MAX_HEAD_SIZE: u32 = 100;
 pub const PENDING_DEADLINE: BlockNumber = 50;
-pub const COOLDOWN_COST: Balance = 250;
 
 #[frame_support::runtime]
 mod test_runtime {
@@ -120,11 +119,6 @@ pub fn take_sent() -> Vec<MessageToRelay<AccountId>> {
 }
 
 parameter_types! {
-	/// Para ids that still hold a coretime assignment.
-	pub static AssignedParas: Vec<u32> = Vec::new();
-}
-
-parameter_types! {
 	/// Signed accounts allowed to act as a para, as `(account, para id)`.
 	pub static ParaOriginAccounts: Vec<(AccountId, u32)> = Vec::new();
 }
@@ -166,12 +160,35 @@ pub fn para_origin(para_id: u32) -> RuntimeOrigin {
 	RuntimeOrigin::signed(account)
 }
 
-/// An [`AssignmentChecker`] backed by the [`AssignedParas`] list.
-pub struct MockAssignments;
+/// A host configuration with the given size limits and everything else zeroed.
+pub fn host_config(max_code_size: u32, max_head_data_size: u32) -> AbridgedHostConfiguration {
+	AbridgedHostConfiguration {
+		max_code_size,
+		max_head_data_size,
+		max_upward_queue_count: 0,
+		max_upward_queue_size: 0,
+		max_upward_message_size: 0,
+		max_upward_message_num_per_candidate: 0,
+		hrmp_max_message_num_per_candidate: 0,
+		validation_upgrade_cooldown: 0,
+		validation_upgrade_delay: 0,
+		async_backing_params: AsyncBackingParams {
+			allowed_ancestry_len: 0,
+			max_candidate_depth: 0,
+		},
+	}
+}
 
-impl AssignmentChecker for MockAssignments {
-	fn has_assignment(para_id: u32) -> bool {
-		AssignedParas::get().contains(&para_id)
+parameter_types! {
+	/// The relay chain's host configuration, as parachain-system would report it.
+	pub static HostConfig: Option<AbridgedHostConfiguration> =
+		Some(host_config(MAX_CODE_SIZE, MAX_HEAD_SIZE));
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl crate::BenchmarkHelper for HostConfig {
+	fn set_host_configuration(config: AbridgedHostConfiguration) {
+		HostConfig::set(Some(config));
 	}
 }
 
@@ -198,29 +215,25 @@ impl pallet_registrar_para::Config for Test {
 		LinearStoragePrice<ConstU128<0>, DataDepositPerByte, Balance>,
 	>;
 	type SendToRelay = RecordingSender;
-	type AssignmentChecker = MockAssignments;
-	// The mock stands in for the coretime host, so the startup check must be satisfied by a
-	// checker that can actually report an assignment.
-	type RequireAssignmentLock = ConstBool<true>;
 	type RelayOrigin = frame_system::EnsureRoot<AccountId>;
 	type ParachainOrigin = ParaAccounts;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
 	type FirstPublicParaId = ConstU32<FIRST_PARA_ID>;
 	type MinCodeSize = ConstU32<MIN_CODE_SIZE>;
-	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
-	type MaxHeadDataSize = ConstU32<MAX_HEAD_SIZE>;
+	type HostConfiguration = HostConfig;
 	type PendingDeadline = ConstU32<PENDING_DEADLINE>;
 	type BlockNumberProvider = System;
-	type Fungible = Balances;
-	type UpgradeCooldownCost = ConstU128<COOLDOWN_COST>;
 	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = HostConfig;
 }
 
 /// Externalities with Alice and Bob funded, and the message log cleared.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
-	AssignedParas::set(Vec::new());
 	ParaOriginAccounts::set(Vec::new());
+	HostConfig::set(Some(host_config(MAX_CODE_SIZE, MAX_HEAD_SIZE)));
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
@@ -235,14 +248,11 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	ext
 }
 
-/// Run `f` against fresh externalities, then assert the pallet's invariants still hold.
-///
-/// Every test goes through here, so no test can leave storage in a shape the pallet says is
-/// impossible. A test that deliberately corrupts storage must put it back before returning.
-pub fn build_and_execute(f: impl FnOnce()) {
+/// Run `test` in [`new_test_ext`], then check the pallet's invariants.
+pub fn build_and_execute(test: impl FnOnce()) {
 	new_test_ext().execute_with(|| {
-		f();
-		assert_try_state_ok();
+		test();
+		Registrar::do_try_state().expect("invariants must hold after a test");
 	});
 }
 
@@ -251,19 +261,6 @@ pub fn run_to_block(n: BlockNumber) {
 	while System::block_number() < n {
 		System::set_block_number(System::block_number() + 1);
 	}
-}
-
-/// Assert the pallet's storage invariants hold.
-pub fn assert_try_state_ok() {
-	frame_support::assert_ok!(crate::Pallet::<Test>::do_try_state());
-}
-
-/// Assert the pallet's storage invariants are violated.
-///
-/// Tests that deliberately corrupt storage must restore it afterwards, so the state they leave
-/// behind is one [`assert_try_state_ok`] would still accept.
-pub fn assert_try_state_invalid() {
-	assert!(crate::Pallet::<Test>::do_try_state().is_err());
 }
 
 /// Every event this pallet emitted, oldest first, clearing the log.

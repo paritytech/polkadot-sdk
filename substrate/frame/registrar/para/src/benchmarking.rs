@@ -19,17 +19,40 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
-use frame_support::traits::{fungible::Mutate, Get};
+use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use polkadot_primitives::AsyncBackingParams;
 use registrar_primitives::{MessageToPara, MessageToParaV1};
 
-/// An account able to pay every consideration this pallet can ask for.
+/// The host configuration every benchmark runs under.
+fn host_configuration() -> AbridgedHostConfiguration {
+	AbridgedHostConfiguration {
+		max_code_size: 3 * 1024 * 1024,
+		max_head_data_size: 32 * 1024,
+		max_upward_queue_count: 8,
+		max_upward_queue_size: 1024 * 1024,
+		max_upward_message_size: 4 * 1024,
+		max_upward_message_num_per_candidate: 2,
+		hrmp_max_message_num_per_candidate: 2,
+		validation_upgrade_cooldown: 2,
+		validation_upgrade_delay: 2,
+		async_backing_params: AsyncBackingParams {
+			allowed_ancestry_len: 0,
+			max_candidate_depth: 0,
+		},
+	}
+}
+
+/// Put [`host_configuration`] in place and return an account able to pay every consideration.
 fn funded_manager<T: Config>() -> T::AccountId {
+	let config = host_configuration();
+	T::BenchmarkHelper::set_host_configuration(config.clone());
+
 	let who: T::AccountId = account("manager", 0, 0);
-	T::ReservationConsideration::ensure_successful(&who, Footprint::from_parts(1, 0));
+	T::ReservationConsideration::ensure_successful(&who, Pallet::<T>::reservation_footprint());
 	T::RegistrationConsideration::ensure_successful(
 		&who,
-		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get()),
+		Pallet::<T>::registration_footprint(config.max_head_data_size, &config),
 	);
 	who
 }
@@ -43,11 +66,12 @@ fn reserve_for<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> 
 /// Reserve a para id and put it into `Pending`.
 fn make_pending<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
 	let para_id = reserve_for::<T>(who)?;
+	let config = host_configuration();
 	Pallet::<T>::register(
 		RawOrigin::Signed(who.clone()).into(),
 		para_id,
-		alloc::vec![2u8; T::MaxHeadDataSize::get() as usize],
-		T::MaxCodeSize::get(),
+		alloc::vec![2u8; config.max_head_data_size as usize],
+		config.max_code_size,
 		sp_core::H256::repeat_byte(1),
 	)?;
 	Ok(para_id)
@@ -67,10 +91,20 @@ fn make_registered<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkErr
 	Ok(para_id)
 }
 
-/// Reserve a para id and put it into `Deregistering`.
-fn make_deregistering<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+/// Reserve a para id, register it and ask to deregister it. Returns the id and the awaited message.
+fn make_deregistering<T: Config>(who: &T::AccountId) -> Result<(ParaId, u64), BenchmarkError> {
 	let para_id = make_registered::<T>(who)?;
 	Pallet::<T>::deregister(RawOrigin::Signed(who.clone()).into(), para_id)?;
+	match Paras::<T>::get(para_id).map(|i| i.state) {
+		Some(RegistrationState::Deregistering { message_id, .. }) => Ok((para_id, message_id)),
+		_ => Err(BenchmarkError::Stop("not deregistering")),
+	}
+}
+
+/// Reserve a para id, register it and lock it.
+fn make_locked<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
+	let para_id = make_registered::<T>(who)?;
+	Pallet::<T>::add_lock(RawOrigin::Signed(who.clone()).into(), para_id)?;
 	Ok(para_id)
 }
 
@@ -92,7 +126,9 @@ mod benchmarks {
 
 	/// Requesting a registration. Dominated by shipping the head data to the relay chain.
 	#[benchmark]
-	fn register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+	fn register(
+		h: Linear<0, { host_configuration().max_head_data_size }>,
+	) -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
 		let para_id = reserve_for::<T>(&who)?;
 
@@ -101,8 +137,37 @@ mod benchmarks {
 			RawOrigin::Signed(who),
 			para_id,
 			alloc::vec![2u8; h as usize],
-			T::MaxCodeSize::get(),
+			host_configuration().max_code_size,
 			sp_core::H256::repeat_byte(1),
+		);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Pending { .. })
+		));
+		Ok(())
+	}
+
+	/// Force-registering an id nobody reserved: the worst case, since both considerations are
+	/// taken rather than just the registration's.
+	#[benchmark]
+	fn force_register(
+		h: Linear<0, { host_configuration().max_head_data_size }>,
+	) -> Result<(), BenchmarkError> {
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let who = funded_manager::<T>();
+		let para_id = T::FirstPublicParaId::get();
+
+		#[extrinsic_call]
+		_(
+			origin as T::RuntimeOrigin,
+			para_id,
+			who,
+			alloc::vec![2u8; h as usize],
+			host_configuration().max_code_size,
+			sp_core::H256::repeat_byte(1),
+			false,
 		);
 
 		assert!(matches!(
@@ -134,15 +199,14 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// The worst case of the messages this call serves is a confirmed deregistration, which
-	/// releases both deposits and removes the entry.
+	/// Worst case: a confirmed deregistration releases both considerations and removes the entry.
 	#[benchmark]
 	fn receive() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_deregistering::<T>(&who)?;
+		let (para_id, message_id) = make_deregistering::<T>(&who)?;
 		let message = MessageToPara::V1(MessageToParaV1::DeregisterResponse {
 			para_id,
-			message_id: 0,
+			message_id,
 			outcome: Ok(()),
 		});
 
@@ -153,8 +217,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Deregistering a reserved id, the heavier local arm: releases the deposit and removes the
-	/// entry, no message.
+	/// Giving up an id the relay chain never knew: the reservation goes back here and now.
 	#[benchmark]
 	fn deregister_reserved() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
@@ -167,8 +230,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Deregistering a registered para: the deposits stay held, so this is the state write plus
-	/// the message.
+	/// Asking the relay chain to drop a registered para: the state write plus the message.
 	#[benchmark]
 	fn deregister_registered() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
@@ -184,29 +246,27 @@ mod benchmarks {
 		Ok(())
 	}
 
-	/// Chasing up a deregistration. Nothing is released, so this is the state write plus the
-	/// message.
+	/// Asking again after the answer never came: the same, plus reporting the lost answer.
 	#[benchmark]
-	fn cancel_deregistration() -> Result<(), BenchmarkError> {
+	fn deregister_retry() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_deregistering::<T>(&who)?;
+		let (para_id, awaited) = make_deregistering::<T>(&who)?;
 		T::BlockNumberProvider::set_block_number(
 			T::BlockNumberProvider::current_block_number()
-				.saturating_add(T::PendingDeadline::get())
-				.saturating_add(1u32.into()),
+				.saturating_add(T::PendingDeadline::get()),
 		);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(who), para_id);
+		deregister(RawOrigin::Signed(who), para_id);
 
 		assert!(matches!(
 			Paras::<T>::get(para_id).map(|i| i.state),
-			Some(RegistrationState::Deregistering { .. })
+			Some(RegistrationState::Deregistering { message_id, .. }) if message_id != awaited
 		));
 		Ok(())
 	}
 
-	/// Locking. One read, one write, no message.
+	/// Locking a registered para: one state read and write.
 	#[benchmark]
 	fn add_lock() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
@@ -215,95 +275,20 @@ mod benchmarks {
 		#[extrinsic_call]
 		_(RawOrigin::Signed(who), para_id);
 
-		assert!(Paras::<T>::get(para_id).is_some_and(|i| i.locked == Some(true)));
+		assert!(Paras::<T>::get(para_id).map(|i| i.is_locked()).unwrap_or(false));
 		Ok(())
 	}
 
-	/// Unlocking. Root only, so the origin check is cheaper than `add_lock`'s, but the storage
-	/// access is the same.
+	/// Unlocking, with root standing in for the para itself: both do the same read and write.
 	#[benchmark]
 	fn remove_lock() -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
-		let para_id = make_registered::<T>(&who)?;
-		Pallet::<T>::add_lock(RawOrigin::Signed(who).into(), para_id)?;
+		let para_id = make_locked::<T>(&who)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, para_id);
 
-		assert!(Paras::<T>::get(para_id).is_some_and(|i| i.locked == Some(false)));
-		Ok(())
-	}
-
-	/// Requesting a code upgrade: no deposit moves, so this is the read plus the message.
-	#[benchmark]
-	fn schedule_code_upgrade() -> Result<(), BenchmarkError> {
-		let who = funded_manager::<T>();
-		let para_id = make_registered::<T>(&who)?;
-
-		#[extrinsic_call]
-		_(
-			RawOrigin::Signed(who),
-			para_id,
-			T::MaxCodeSize::get(),
-			sp_core::H256::repeat_byte(2),
-		);
-
-		Ok(())
-	}
-
-	/// Sending head data. Dominated by the head travelling inline in the message.
-	#[benchmark]
-	fn set_current_head(
-		h: Linear<0, { T::MaxHeadDataSize::get() }>,
-	) -> Result<(), BenchmarkError> {
-		let who = funded_manager::<T>();
-		let para_id = make_registered::<T>(&who)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(who), para_id, alloc::vec![3u8; h as usize]);
-
-		Ok(())
-	}
-
-	/// Moving the id counter. A single write.
-	#[benchmark]
-	fn force_set_next_free_para_id() -> Result<(), BenchmarkError> {
-		let para_id = T::FirstPublicParaId::get().saturating_add(500);
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, para_id);
-
-		assert_eq!(NextFreeParaId::<T>::get(), para_id);
-		Ok(())
-	}
-
-	/// Governance dropping a para record. Worst case releases both deposits.
-	#[benchmark]
-	fn force_remove_para() -> Result<(), BenchmarkError> {
-		let who = funded_manager::<T>();
-		let para_id = make_registered::<T>(&who)?;
-
-		#[extrinsic_call]
-		_(RawOrigin::Root, para_id);
-
-		assert!(Paras::<T>::get(para_id).is_none());
-		Ok(())
-	}
-
-	/// Buying out a cooldown: a read, a burn, and the message.
-	#[benchmark]
-	fn remove_upgrade_cooldown() -> Result<(), BenchmarkError> {
-		let who = funded_manager::<T>();
-		let para_id = make_registered::<T>(&who)?;
-		// The burn is the whole point of the call, so the payer must be able to afford it.
-		T::Fungible::set_balance(
-			&who,
-			T::UpgradeCooldownCost::get().saturating_mul(2u32.into()),
-		);
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(who), para_id);
-
+		assert!(!Paras::<T>::get(para_id).map(|i| i.is_locked()).unwrap_or(true));
 		Ok(())
 	}
 

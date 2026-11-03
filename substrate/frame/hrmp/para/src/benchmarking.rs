@@ -19,86 +19,80 @@
 
 use super::*;
 use frame_benchmarking::v2::*;
+use frame_support::traits::fungible::{Inspect, Mutate};
 use frame_system::RawOrigin;
-use hrmp_primitives::{ChannelId, DepositSide};
 
-const AMOUNT: Balance = 1_000_000_000_000;
+const CHANNEL: ChannelId = ChannelId { sender: 1, recipient: 2 };
 
-fn key() -> DepositKey {
-	DepositKey { channel: ChannelId { sender: 4_242, recipient: 4_243 }, side: DepositSide::Sender }
+/// Endows both paras of [`CHANNEL`] and returns a deposit each can cover.
+fn endow<T: Config>() -> Balance
+where
+	T::Currency: Mutate<T::AccountId>,
+{
+	let ed = T::Currency::minimum_balance().max(1);
+	for side in [DepositSide::Sender, DepositSide::Recipient] {
+		T::Currency::set_balance(&Pallet::<T>::payer(&CHANNEL, side), ed.saturating_mul(100));
+	}
+	ed.saturating_mul(10)
 }
 
-fn fund<T: Config>() {
-	let who = T::SovereignAccountOf::convert(key().para());
-	let _ = T::Currency::set_balance(&who, AMOUNT * 10);
-}
-
-fn hold<T: Config>() -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::Hold { key: key(), amount: AMOUNT })
-}
-
-#[benchmarks]
+#[benchmarks(where T::Currency: Mutate<T::AccountId>)]
 mod benchmarks {
 	use super::*;
 
+	/// Both sides held from nothing, and the answer sent.
 	#[benchmark]
-	fn receive_hold() {
-		fund::<T>();
+	fn receive_set_deposits() {
+		T::BenchmarkHelper::ensure_send_to_relay();
+		let deposit = endow::<T>();
+		let message = MessageToPara::V1(MessageToParaV1::SetDeposits {
+			id: 0,
+			channel: CHANNEL,
+			sender: Some(deposit),
+			recipient: Some(deposit),
+		});
 
 		#[extrinsic_call]
-		receive(RawOrigin::Root, hold::<T>());
+		receive(RawOrigin::Root, message);
 
-		assert_eq!(Deposits::<T>::get(key()), Some(AMOUNT));
+		assert_eq!(Deposits::<T>::get((CHANNEL, DepositSide::Recipient)), Some(deposit));
 	}
 
+	/// Both sides released.
 	#[benchmark]
-	fn receive_release() -> Result<(), BenchmarkError> {
-		fund::<T>();
-		Pallet::<T>::receive(RawOrigin::Root.into(), hold::<T>())?;
+	fn receive_release() {
+		let deposit = endow::<T>();
+		for side in [DepositSide::Sender, DepositSide::Recipient] {
+			Pallet::<T>::set_side(CHANNEL, side, deposit).expect("endowed; qed");
+		}
+		let message = MessageToPara::V1(MessageToParaV1::Release {
+			channel: CHANNEL,
+			sender: true,
+			recipient: true,
+		});
 
 		#[extrinsic_call]
-		receive(
-			RawOrigin::Root,
-			MessageToPara::V1(MessageToParaV1::Release { key: key(), amount: None }),
-		);
+		receive(RawOrigin::Root, message);
 
-		assert!(Deposits::<T>::get(key()).is_none());
-		Ok(())
+		assert_eq!(Deposits::<T>::iter().count(), 0);
 	}
 
+	/// A deposit taken over, on top of one the side holds.
 	#[benchmark]
-	fn force_release() -> Result<(), BenchmarkError> {
-		fund::<T>();
-		Pallet::<T>::receive(RawOrigin::Root.into(), hold::<T>())?;
+	fn receive_deposit() {
+		let deposit = endow::<T>();
+		let side = DepositSide::Sender;
+		Pallet::<T>::set_side(CHANNEL, side, deposit).expect("endowed; qed");
+		let result;
 
-		#[extrinsic_call]
-		_(RawOrigin::Root, key());
+		#[block]
+		{
+			result = Pallet::<T>::receive_deposit(DepositKey { channel: CHANNEL, side }, deposit);
+		}
 
-		assert!(Deposits::<T>::get(key()).is_none());
-		Ok(())
+		assert!(result.is_ok());
+		assert_eq!(Deposits::<T>::get((CHANNEL, side)), Some(2 * deposit));
 	}
 
-	#[benchmark]
-	fn poke_channel_deposits() {
-		let caller: T::AccountId = whitelisted_caller();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), key().channel.sender, key().channel.recipient);
-	}
-
-	#[benchmark]
-	fn establish_system_channel() {
-		let caller: T::AccountId = whitelisted_caller();
-
-		#[extrinsic_call]
-		_(RawOrigin::Signed(caller), 1_000, 1_001);
-	}
-
-	#[benchmark]
-	fn force_answer() {
-		#[extrinsic_call]
-		_(RawOrigin::Root, key(), true);
-	}
-
-	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
+	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);
 }

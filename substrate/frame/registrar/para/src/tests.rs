@@ -17,7 +17,7 @@
 
 //! Tests for `pallet-registrar-para`.
 
-use crate::{mock::*, Error, Event, HoldReason, Paras, RegistrationState};
+use crate::{mock::*, Error, Event, HoldReason, Paras, RegistrationState, UnexpectedKind};
 use frame_support::{assert_noop, assert_ok, traits::fungible::InspectHold};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, Outcome,
@@ -39,34 +39,6 @@ fn hash_of(code: &[u8]) -> sp_core::H256 {
 	BlakeTwo256::hash(code)
 }
 
-/// The stored lock of `para_id`, three-valued: `None` never locked, `Some(false)` deliberately
-/// unlocked, `Some(true)` locked. Assert against this rather than a boolean — the difference
-/// between `None` and `Some(false)` is what decides whether the automatic lock can still fire.
-fn lock_of(para_id: u32) -> Option<bool> {
-	Paras::<Test>::get(para_id).unwrap().locked
-}
-
-/// Give `para_id` a coretime assignment in the mock.
-fn assign(para_id: u32) {
-	AssignedParas::mutate(|assigned| assigned.push(para_id));
-}
-
-/// Take `para_id`'s coretime assignment away again.
-fn unassign(para_id: u32) {
-	AssignedParas::mutate(|assigned| assigned.retain(|id| *id != para_id));
-}
-
-/// Deliver the relay chain's report that `para_id` has produced its first block.
-///
-/// The only chain that can see a first head is the relay chain, so the automatic lock arrives
-/// here as a message rather than being decided locally.
-fn note_first_head(para_id: u32) {
-	assert_ok!(Registrar::receive(
-		RuntimeOrigin::root(),
-		MessageToPara::V1(MessageToParaV1::NotedFirstHead { para_id }),
-	));
-}
-
 /// Total on hold for `who` across both of this pallet's reasons.
 fn held(who: AccountId) -> Balance {
 	Balances::balance_on_hold(&HoldReason::ParaIdReservation.into(), &who) +
@@ -74,6 +46,11 @@ fn held(who: AccountId) -> Balance {
 }
 
 /// Reserve a para id for `who` and return it.
+/// The id the most recent message to the relay chain went out with.
+fn last_message_id() -> u64 {
+	crate::NextMessageId::<Test>::get() - 1
+}
+
 fn reserve_for(who: AccountId) -> u32 {
 	assert_ok!(Registrar::reserve(RuntimeOrigin::signed(who)));
 	let para_id = crate::NextFreeParaId::<Test>::get() - 1;
@@ -94,10 +71,9 @@ fn request_registration(who: AccountId, para_id: u32, head_len: usize, code_len:
 	blob
 }
 
-/// Reserve, register and confirm a para for `who` (message id 0), leaving the logs clean.
+/// Reserve, register and confirm a para for `who`, leaving the logs clean.
 ///
-/// Head is 20 bytes; the code side is always priced at `MAX_CODE_SIZE`, so the registration
-/// deposit is `PER_BYTE * (20 + MAX_CODE_SIZE)` whatever code length is declared.
+/// The head data is 20 bytes, so the registration deposit is `PER_BYTE * (20 + MAX_CODE_SIZE)`.
 fn registered_para(who: AccountId) -> u32 {
 	let para_id = reserve_for(who);
 	request_registration(who, para_id, 20, 300);
@@ -105,7 +81,7 @@ fn registered_para(who: AccountId) -> u32 {
 		RuntimeOrigin::root(),
 		MessageToPara::V1(MessageToParaV1::RegisterResponse {
 			para_id,
-			message_id: 0,
+			message_id: last_message_id(),
 			outcome: Ok(()),
 		}),
 	));
@@ -114,7 +90,15 @@ fn registered_para(who: AccountId) -> u32 {
 	para_id
 }
 
-/// Put `who`'s para into `Deregistering` (message id 1), leaving the logs clean.
+/// Lock `who`'s registered para, leaving the logs clean.
+fn locked_para(who: AccountId) -> u32 {
+	let para_id = registered_para(who);
+	assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(who), para_id));
+	let _ = registrar_events();
+	para_id
+}
+
+/// Reserve, register and ask to deregister `who`'s para (message id 1), leaving the logs clean.
 fn deregistering_para(who: AccountId) -> u32 {
 	let para_id = registered_para(who);
 	assert_ok!(Registrar::deregister(RuntimeOrigin::signed(who), para_id));
@@ -122,6 +106,17 @@ fn deregistering_para(who: AccountId) -> u32 {
 	let _ = take_sent();
 	para_id
 }
+
+fn deregister_request(para_id: u32, message_id: u64) -> MessageToRelay<AccountId> {
+	MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id })
+}
+
+fn deregister_answer(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::DeregisterResponse { para_id, message_id, outcome })
+}
+
+/// A system para id, below `FIRST_PARA_ID` and so out of reach of `reserve`.
+const SYSTEM_PARA_ID: u32 = 100;
 
 mod reserve {
 	use super::*;
@@ -158,24 +153,6 @@ mod reserve {
 	}
 
 	#[test]
-	fn steps_over_an_id_the_counter_and_the_map_disagree_about() {
-		build_and_execute(|| {
-			// GIVEN the counter points at an id this pallet already knows. The two can drift:
-			// ids may arrive from elsewhere, or the counter may be restored from another chain.
-			let alice_id = reserve_for(ALICE); // manager of the id in the way
-			crate::NextFreeParaId::<Test>::put(alice_id);
-
-			// WHEN Bob reserves.
-			let bob_id = reserve_for(BOB); // next manager in line
-
-			// THEN he is handed the next id up, and the counter is past both. Failing instead
-			// would brick `reserve` for every account, permanently.
-			assert_eq!(bob_id, alice_id + 1);
-			assert_eq!(crate::NextFreeParaId::<Test>::get(), alice_id + 2);
-		});
-	}
-
-	#[test]
 	fn fails_without_the_deposit() {
 		build_and_execute(|| {
 			// Alice keeps only enough to stay alive, well short of the deposit.
@@ -205,8 +182,7 @@ mod register {
 
 			let blob = request_registration(ALICE, para_id, head_len, code_len);
 
-			// Deposit covers head data plus the largest code the relay chain would accept, not
-			// the code actually declared. That is what makes an upgrade need no top-up.
+			// Deposit covers head data plus a full-sized code, not the declared 300 bytes.
 			let expected = PER_BYTE * (head_len as Balance + MAX_CODE_SIZE as Balance);
 			assert_eq!(held(ALICE), PARA_DEPOSIT + expected);
 
@@ -231,41 +207,6 @@ mod register {
 				})]
 			);
 			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
-		});
-	}
-
-	#[test]
-	fn a_manager_who_cannot_pay_the_registration_keeps_only_the_reservation() {
-		build_and_execute(|| {
-			// GIVEN a manager who could afford the id but not the data deposit on top of it.
-			// A live registration must never be booked unpaid: the `Option` on the ticket exists
-			// only so that a *migrated* para can be preserved, never as a discount here.
-			let para_id = reserve_for(ALICE);
-			assert_ok!(Balances::force_set_balance(
-				RuntimeOrigin::root(),
-				ALICE,
-				1 // the mock ED, so the account survives but can fund nothing
-			));
-			let blob = code(300);
-
-			assert_noop!(
-				Registrar::register(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					head(20),
-					300,
-					hash_of(&blob),
-				),
-				DispatchError::Token(TokenError::FundsUnavailable)
-			);
-
-			// THEN the id stays reserved on the deposit already paid, nothing is half-taken, and
-			// the relay chain was never asked.
-			let info = Paras::<Test>::get(para_id).expect("the reservation survives");
-			assert!(info.reservation.is_some());
-			assert_eq!(info.state, RegistrationState::Reserved);
-			assert_eq!(held(ALICE), PARA_DEPOSIT);
-			assert_eq!(take_sent(), vec![]);
 		});
 	}
 
@@ -354,6 +295,38 @@ mod register {
 					hash_of(&code(10)),
 				),
 				Error::<Test>::CodeTooSmall
+			);
+		});
+	}
+
+	#[test]
+	fn follows_the_host_configuration() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			let max_code_size = MAX_CODE_SIZE * 2;
+			HostConfig::set(Some(host_config(max_code_size, MAX_HEAD_SIZE)));
+
+			// A code past the old limit now fits, and the deposit is sized by the new one.
+			request_registration(ALICE, para_id, 20, MAX_CODE_SIZE as usize + 1);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + max_code_size as Balance));
+		});
+	}
+
+	#[test]
+	fn needs_the_host_configuration() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			HostConfig::set(None);
+
+			assert_noop!(
+				Registrar::register(
+					RuntimeOrigin::signed(ALICE),
+					para_id,
+					head(10),
+					100,
+					hash_of(&code(100)),
+				),
+				Error::<Test>::NoHostConfiguration
 			);
 		});
 	}
@@ -463,21 +436,37 @@ mod receive {
 	}
 
 	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "register response for unknown para, dropping")]
-	fn a_report_for_an_unknown_para_is_defensive() {
+	fn a_report_for_an_unknown_para_is_reported() {
 		build_and_execute(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(4242, 0, Ok(())));
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), result_message(4242, 7, Ok(()))));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::RegisterResponseForUnknownPara {
+					para_id: 4242,
+					message_id: 7,
+				})]
+			);
 		});
 	}
 
 	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "register response for para which is not pending, dropping")]
-	fn a_report_for_a_non_pending_para_is_defensive() {
+	fn a_report_for_a_non_pending_para_is_reported() {
 		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
-			let _ = Registrar::receive(RuntimeOrigin::root(), result_message(para_id, 0, Ok(())));
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 7, Ok(()))
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::RegisterResponseNotPending {
+					para_id,
+					message_id: 7,
+				})]
+			);
 		});
 	}
 
@@ -489,7 +478,6 @@ mod receive {
 			run_to_block(System::block_number() + PENDING_DEADLINE);
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			let _ = registrar_events();
-			let _ = take_sent();
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			// The code landed on the relay chain after all and the success report was lost, so the
@@ -543,198 +531,169 @@ mod receive {
 	}
 
 	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "cancel response for unknown para, dropping")]
-	fn a_cancel_response_for_an_unknown_para_is_defensive() {
+	fn a_cancel_response_for_an_unknown_para_is_reported() {
 		build_and_execute(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 0, Ok(())));
-		});
-	}
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_message(4242, 7, Ok(()))));
 
-	fn deregister_answer(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::DeregisterResponse { para_id, message_id, outcome })
-	}
-
-	fn chase_up_answer(para_id: u32, message_id: u64, outcome: Outcome) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
-			para_id,
-			message_id,
-			outcome,
-		})
-	}
-
-	#[test]
-	fn a_confirmed_deregistration_releases_both_deposits_and_frees_the_id() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				deregister_answer(para_id, 1, Ok(())),
-			));
-
-			assert!(Paras::<Test>::get(para_id).is_none());
-			assert_eq!(held(ALICE), 0);
-			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::CancelResponseForUnknownPara {
+					para_id: 4242,
+					message_id: 7,
+				})]
+			);
 		});
 	}
 
 	#[test]
-	fn a_refused_deregistration_flips_back_to_registered_and_keeps_the_deposits() {
+	fn a_cancel_refusal_we_cannot_settle_is_reported_and_leaves_it_pending() {
 		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
 
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				deregister_answer(para_id, 1, Err(FailureReason::Locked)),
+				cancel_message(para_id, 1, Err(FailureReason::TooManyPending))
 			));
 
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { .. }
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::CancelRefused {
+					para_id,
+					message_id: 1,
+					reason: FailureReason::TooManyPending,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_register_response_for_another_request_leaves_it_pending() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 9, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 9,
+					expected: 0,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_cancellation_makes_the_registrations_verdict_stale() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 0, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 0,
+					expected: 1,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_cancel_response_for_another_request_leaves_it_pending() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, 0, Ok(())),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 0,
+					expected: 1,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn a_stale_verdict_cannot_settle_a_later_attempt() {
+		build_and_execute(|| {
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				cancel_message(para_id, 1, Ok(())),
+			));
+			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
+
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+
+			// The first attempt's verdict turns up late and must not drop the second's ticket.
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				result_message(para_id, 0, Err(FailureReason::TooManyPending)),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { .. }
 			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::DeregistrationFailed {
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
 					para_id,
-					message_id: 1,
-					manager: ALICE,
-					reason: FailureReason::Locked,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "deregister response for unknown para, dropping")]
-	fn a_deregister_response_for_an_unknown_para_is_defensive() {
-		build_and_execute(|| {
-			let _ = Registrar::receive(RuntimeOrigin::root(), deregister_answer(4242, 0, Ok(())));
-		});
-	}
-
-	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "deregister response for para which is not deregistering, dropping")]
-	fn a_deregister_response_for_a_para_that_is_not_deregistering_is_defensive() {
-		build_and_execute(|| {
-			let para_id = registered_para(ALICE);
-			let _ =
-				Registrar::receive(RuntimeOrigin::root(), deregister_answer(para_id, 1, Ok(())));
-		});
-	}
-
-	#[test]
-	fn a_refused_chase_up_completes_the_deregistration() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
-			let _ = registrar_events();
-			let _ = take_sent();
-
-			// The deregistration went through and its report was lost, so the chase-up comes
-			// back refused and the deposits are owed.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				chase_up_answer(para_id, 2, Err(FailureReason::NotRegistered)),
-			));
-
-			assert!(Paras::<Test>::get(para_id).is_none());
-			assert_eq!(held(ALICE), 0);
-			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
-		});
-	}
-
-	#[test]
-	fn a_chase_up_answer_that_lost_the_race_to_the_verdict_is_dropped_quietly() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-
-			// The verdict settles the deregistration first and removes the entry.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				deregister_answer(para_id, 1, Ok(())),
-			));
-			let _ = registrar_events();
-
-			// The chase-up's answer then finds no para at all. Unlike a stray deregister
-			// response this is expected, so it is not defensive.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				chase_up_answer(para_id, 2, Err(FailureReason::NotRegistered)),
-			));
-
-			assert!(Paras::<Test>::get(para_id).is_none());
-			assert_eq!(held(ALICE), 0);
-			assert!(registrar_events().is_empty());
-		});
-	}
-
-	#[test]
-	fn a_chase_up_answer_for_a_registered_para_is_dropped_quietly() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
-
-			// The verdict was a refusal, so the para is registered again by the time the
-			// chase-up's answer arrives.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				deregister_answer(para_id, 1, Err(FailureReason::Locked)),
-			));
-			let _ = registrar_events();
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				chase_up_answer(para_id, 2, Ok(())),
-			));
-
-			assert!(matches!(
-				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { .. }
-			));
-			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-			assert!(registrar_events().is_empty());
-		});
-	}
-
-	#[test]
-	#[cfg(debug_assertions)]
-	#[should_panic(expected = "unexpected cancel deregistration refusal, leaving deregistering")]
-	fn an_unexpected_chase_up_refusal_is_defensive_and_leaves_state() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
-			let _ = Registrar::receive(
-				RuntimeOrigin::root(),
-				chase_up_answer(para_id, 2, Err(FailureReason::AlreadyRegistered)),
-			);
-		});
-	}
-
-	#[test]
-	fn a_user_cannot_forge_a_deregister_report() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-
-			assert_noop!(
-				Registrar::receive(
-					RuntimeOrigin::signed(ALICE),
-					deregister_answer(para_id, 1, Ok(())),
-				),
-				DispatchError::BadOrigin
-			);
-			assert_noop!(
-				Registrar::receive(
-					RuntimeOrigin::signed(ALICE),
-					chase_up_answer(para_id, 2, Ok(())),
-				),
-				DispatchError::BadOrigin
+					message_id: 0,
+					expected: 2,
+				})]
 			);
 		});
 	}
@@ -749,63 +708,6 @@ mod cancel_registration {
 
 	fn cancel_confirmation(para_id: u32, message_id: u64) -> MessageToPara {
 		MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id, outcome: Ok(()) })
-	}
-
-	/// A stale verdict must not settle a *later* request: the id of the request in flight is
-	/// stored in `Pending`/`Deregistering`, and a response echoing anything else is dropped.
-	///
-	/// The scenario is the retry race B16 named: `cancel_registration` sends a fresh id while an
-	/// earlier answer may still be queued, so "at most one request per para id in flight" is
-	/// false. Before the id was matched, the stale answer below released the second
-	/// registration's deposit while the relay chain may have been holding an authorization — or
-	/// have onboarded the para outright.
-	#[test]
-	fn a_stale_cancel_verdict_cannot_settle_a_later_registration() {
-		build_and_execute(|| {
-			// GIVEN a registration (message 0) that was cancelled (message 1), and the
-			// cancellation confirmed.
-			let para_id = reserve_for(ALICE);
-			request_registration(ALICE, para_id, 20, 300);
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
-			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
-			let _ = registrar_events();
-			let _ = take_sent();
-
-			// WHEN the manager registers again (message 2), taking a **new** deposit.
-			request_registration(ALICE, para_id, 20, 300);
-			let _ = registrar_events();
-			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
-			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-
-			// WHEN the *first* cancellation's answer arrives again, late — same para id, same
-			// state, stale id.
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
-
-			// THEN it is dropped: the second registration stays pending on its deposit.
-			assert!(matches!(
-				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Pending { .. }
-			));
-			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-			assert!(registrar_events().is_empty());
-
-			// AND the genuine verdict still settles it.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				MessageToPara::V1(MessageToParaV1::RegisterResponse {
-					para_id,
-					message_id: 2,
-					outcome: Ok(()),
-				}),
-			));
-			assert!(matches!(
-				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { .. }
-			));
-			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-		});
 	}
 
 	#[test]
@@ -844,9 +746,17 @@ mod cancel_registration {
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			// The registration took message id 0, so the cancellation is message 1.
 			assert_eq!(take_sent(), vec![cancel_request(para_id, 1)]);
+			// Giving up means the verdict on message 0 never turned up, which is worth saying out
+			// loud.
 			assert_eq!(
 				registrar_events(),
-				vec![Event::CancelRequested { para_id, message_id: 1, manager: ALICE }]
+				vec![
+					Event::Unexpected(UnexpectedKind::ResponseNeverArrived {
+						para_id,
+						message_id: 0
+					}),
+					Event::CancelRequested { para_id, message_id: 1, manager: ALICE },
+				]
 			);
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), cancel_confirmation(para_id, 1)));
@@ -881,9 +791,21 @@ mod cancel_registration {
 			);
 
 			run_to_block(System::block_number() + 1);
+			let _ = registrar_events();
 			assert_ok!(Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), para_id));
 			// Register was 0, the first cancellation 1, so the retry carries 2.
 			assert_eq!(take_sent(), vec![cancel_request(para_id, 2)]);
+			// And the retry says that the answer to the first cancellation never came.
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::Unexpected(UnexpectedKind::ResponseNeverArrived {
+						para_id,
+						message_id: 1
+					}),
+					Event::CancelRequested { para_id, message_id: 2, manager: ALICE },
+				]
+			);
 		});
 	}
 
@@ -937,7 +859,7 @@ mod deregister {
 	use super::*;
 
 	#[test]
-	fn a_reserved_id_is_dropped_locally_and_the_deposit_comes_back() {
+	fn drops_a_reserved_id_on_the_spot_and_asks_nobody() {
 		build_and_execute(|| {
 			let para_id = reserve_for(ALICE);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
@@ -946,37 +868,41 @@ mod deregister {
 
 			assert!(Paras::<Test>::get(para_id).is_none());
 			assert_eq!(held(ALICE), 0);
-			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
-			// The relay chain never heard of this id, so there is no round trip.
 			assert!(take_sent().is_empty());
-			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::ReservationDropped { para_id, manager: ALICE }]
+			);
 		});
 	}
 
 	#[test]
-	fn a_registered_para_asks_the_relay_chain_and_releases_nothing() {
+	fn a_dropped_id_is_not_handed_out_again() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+
+			assert_eq!(reserve_for(BOB), para_id + 1);
+		});
+	}
+
+	#[test]
+	fn asks_the_relay_chain_and_holds_on_to_both_deposits() {
 		build_and_execute(|| {
 			let para_id = registered_para(ALICE);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
 
-			// The relay chain has been asked, and until it answers nothing is given back.
 			let expected_at = System::block_number() + PENDING_DEADLINE;
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Deregistering { cancellable_at, .. }
-					if cancellable_at == expected_at
+				RegistrationState::Deregistering { can_retry_after, message_id: 1, .. }
+					if can_retry_after == expected_at
 			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			// The registration took message id 0, so this is message 1.
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::Deregister {
-					para_id,
-					message_id: 1,
-				})]
-			);
+			assert_eq!(take_sent(), vec![deregister_request(para_id, 1)]);
 			assert_eq!(
 				registrar_events(),
 				vec![Event::DeregisterRequested { para_id, message_id: 1, manager: ALICE }]
@@ -985,1210 +911,991 @@ mod deregister {
 	}
 
 	#[test]
-	fn a_transport_failure_rolls_the_whole_call_back() {
+	fn a_confirmed_deregistration_releases_every_deposit_and_forgets_the_id() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE);
-			SendFails::set(true);
+			let para_id = deregistering_para(ALICE);
 
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::SendFailed
-			);
-
-			// The state change and the message id went with it.
-			assert!(matches!(
-				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Registered { .. }
-			));
-			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
-		});
-	}
-
-	#[test]
-	fn rejects_an_unknown_id_a_non_manager_and_in_flight_states() {
-		build_and_execute(|| {
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), 4242),
-				Error::<Test>::NotReserved
-			);
-
-			let para_id = reserve_for(ALICE);
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(BOB), para_id),
-				Error::<Test>::NotOwner
-			);
-
-			// A registration in flight has to be settled or cancelled first.
-			request_registration(ALICE, para_id, 20, 300);
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::RequestInFlight
-			);
-
-			// And so does a deregistration already in flight.
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				MessageToPara::V1(MessageToParaV1::RegisterResponse {
-					para_id,
-					message_id: 0,
-					outcome: Ok(()),
-				}),
+				deregister_answer(para_id, 1, Ok(()))
 			));
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::RequestInFlight
-			);
-		});
-	}
 
-	#[test]
-	fn the_para_itself_and_root_may_deregister() {
-		build_and_execute(|| {
-			// Another para cannot pose as this one.
-			let para_id = reserve_for(ALICE);
-			assert_noop!(
-				Registrar::deregister(para_origin(para_id + 1), para_id),
-				Error::<Test>::NotOwner
-			);
-
-			// The para itself drops its reserved id; the deposit goes back to the manager.
-			assert_ok!(Registrar::deregister(para_origin(para_id), para_id));
 			assert!(Paras::<Test>::get(para_id).is_none());
 			assert_eq!(held(ALICE), 0);
-			assert_eq!(registrar_events(), vec![Event::Deregistered { para_id, manager: ALICE }]);
-
-			// Root drives a registered para's deregistration; the request still names the
-			// manager, whose deposits stay held until the relay chain answers.
-			let para_id = registered_para(ALICE);
-			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
-			assert!(matches!(
-				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Deregistering { .. }
-			));
 			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::Deregister {
-					para_id,
-					message_id: 1,
-				})]
+				registrar_events(),
+				vec![Event::Deregistered { para_id, message_id: 1, manager: ALICE }]
 			);
 		});
 	}
 
 	#[test]
-	fn a_para_still_holding_an_assignment_is_refused() {
+	fn a_refused_deregistration_leaves_the_para_registered_and_paid_for() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE);
-			AssignedParas::set(vec![para_id]);
+			let para_id = deregistering_para(ALICE);
+			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
-			// Refused for every origin, and for the same reason each time: a para the relay
-			// chain can still schedule must not be removed out from under itself. This is not
-			// the manager lock — that one starts at the para's first block and gates who may
-			// ask, while this gates whether the answer can ever be yes.
-			for origin in [RuntimeOrigin::signed(ALICE), para_origin(para_id), RuntimeOrigin::root()]
-			{
-				assert_noop!(
-					Registrar::deregister(origin, para_id),
-					Error::<Test>::StillAssigned
-				);
-			}
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Err(FailureReason::NotDeregisterable)),
+			));
+
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
 				RegistrationState::Registered { .. }
 			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::DeregistrationFailed {
+					para_id,
+					message_id: 1,
+					manager: ALICE,
+					reason: FailureReason::NotDeregisterable,
+				}]
+			);
 
-			// A merely reserved id is never refused for an assignment and is always droppable by
-			// its manager. It cannot hold a core, so treating a stray entry as one would strand
-			// the reservation deposit behind a governance call for nothing.
-			let reserved = reserve_for(ALICE);
-			AssignedParas::mutate(|assigned| assigned.push(reserved));
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), reserved));
+			// And the manager can ask again.
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
 		});
-	}
-}
-
-mod cancel_deregistration {
-	use super::*;
-
-	fn chase_up_request(para_id: u32, message_id: u64) -> MessageToRelay<AccountId> {
-		MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { para_id, message_id })
-	}
-
-	fn chase_up_confirmation(para_id: u32, message_id: u64) -> MessageToPara {
-		MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
-			para_id,
-			message_id,
-			outcome: Ok(()),
-		})
 	}
 
 	#[test]
-	fn is_refused_before_the_deadline() {
+	fn a_retry_is_refused_before_the_deadline() {
 		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE - 1);
 			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::CannotCancelYet
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::CannotRetryYet
 			);
 		});
 	}
 
 	#[test]
-	fn asks_the_relay_chain_and_only_the_answer_settles_it() {
+	fn a_retry_reports_the_lost_answer_and_asks_again() {
 		build_and_execute(|| {
 			let para_id = deregistering_para(ALICE);
 			let deposit = PER_BYTE * (20 + MAX_CODE_SIZE as Balance);
 
 			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
 
-			// Only the relay chain knows whether the deregistration went through, so nothing is
-			// settled until it answers.
 			let expected_at = System::block_number() + PENDING_DEADLINE;
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Deregistering { cancellable_at, .. }
-					if cancellable_at == expected_at
+				RegistrationState::Deregistering { can_retry_after, message_id: 2, .. }
+					if can_retry_after == expected_at
 			));
 			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
-			// Register was 0 and the deregistration 1, so the chase-up carries 2.
-			assert_eq!(take_sent(), vec![chase_up_request(para_id, 2)]);
+			assert_eq!(take_sent(), vec![deregister_request(para_id, 2)]);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::CancelDeregistrationRequested {
-					para_id,
-					message_id: 2,
-					manager: ALICE,
-				}]
+				vec![
+					Event::Unexpected(UnexpectedKind::ResponseNeverArrived {
+						para_id,
+						message_id: 1
+					}),
+					Event::DeregisterRequested { para_id, message_id: 2, manager: ALICE },
+				]
 			);
 
-			// The deregistration never happened on the relay chain, so the para is registered
-			// again and the deposits stay held.
+			// Only the answer to the retry settles it.
 			assert_ok!(Registrar::receive(
 				RuntimeOrigin::root(),
-				chase_up_confirmation(para_id, 2),
+				deregister_answer(para_id, 2, Ok(()))
+			));
+			assert!(Paras::<Test>::get(para_id).is_none());
+			assert_eq!(held(ALICE), 0);
+		});
+	}
+
+	#[test]
+	fn the_answer_to_a_superseded_request_is_stale() {
+		build_and_execute(|| {
+			let para_id = deregistering_para(ALICE);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 1, Ok(()))
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Deregistering { message_id: 2, .. }
+			));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::StaleResponse {
+					para_id,
+					message_id: 1,
+					expected: 2,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn an_answer_for_an_unknown_para_is_reported() {
+		build_and_execute(|| {
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(4242, 0, Ok(()))
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Unexpected(UnexpectedKind::DeregisterResponseForUnknownPara {
+					para_id: 4242,
+					message_id: 0,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn an_answer_for_a_para_not_deregistering_is_reported() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(para_id, 0, Ok(()))
 			));
 
 			assert!(matches!(
 				Paras::<Test>::get(para_id).unwrap().state,
 				RegistrationState::Registered { .. }
 			));
-			assert_eq!(held(ALICE), PARA_DEPOSIT + deposit);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::DeregistrationCancelled { para_id, message_id: 2, manager: ALICE }]
-			);
-
-			// And the manager can simply try again.
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
-		});
-	}
-
-	#[test]
-	fn cannot_be_asked_again_until_another_deadline_passes() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
-			let _ = take_sent();
-
-			run_to_block(System::block_number() + PENDING_DEADLINE - 1);
-			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::CannotCancelYet
-			);
-
-			run_to_block(System::block_number() + 1);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
-			// Register was 0, the deregistration 1, the first chase-up 2, so the retry carries 3.
-			assert_eq!(take_sent(), vec![chase_up_request(para_id, 3)]);
-		});
-	}
-
-	#[test]
-	fn a_transport_failure_rolls_the_whole_call_back() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			let cancellable_at = System::block_number() + PENDING_DEADLINE;
-			run_to_block(cancellable_at);
-			SendFails::set(true);
-
-			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::SendFailed
-			);
-
-			// The pushed-out deadline went with it, so the manager can retry immediately.
-			assert!(matches!(
-				Paras::<Test>::get(para_id).unwrap().state,
-				RegistrationState::Deregistering { cancellable_at: at, .. }
-					if at == cancellable_at
-			));
-			SendFails::set(false);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id));
-		});
-	}
-
-	#[test]
-	fn the_para_itself_and_root_may_chase_up() {
-		build_and_execute(|| {
-			let para_id = deregistering_para(ALICE);
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-
-			// Another para cannot pose as this one.
-			assert_noop!(
-				Registrar::cancel_deregistration(para_origin(para_id + 1), para_id),
-				Error::<Test>::NotOwner
-			);
-
-			// Register was 0 and the deregistration 1, so the para's chase-up carries 2.
-			assert_ok!(Registrar::cancel_deregistration(para_origin(para_id), para_id));
-			assert_eq!(take_sent(), vec![chase_up_request(para_id, 2)]);
-
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::cancel_deregistration(RuntimeOrigin::root(), para_id));
-			assert_eq!(take_sent(), vec![chase_up_request(para_id, 3)]);
-
-			// Events name the manager, whoever asked.
-			assert_eq!(
-				registrar_events(),
-				vec![
-					Event::CancelDeregistrationRequested { para_id, message_id: 2, manager: ALICE },
-					Event::CancelDeregistrationRequested { para_id, message_id: 3, manager: ALICE },
-				]
-			);
-		});
-	}
-
-	#[test]
-	fn rejects_a_non_manager_and_a_para_that_is_not_deregistering() {
-		build_and_execute(|| {
-			let para_id = reserve_for(ALICE);
-
-			// Reserved, not deregistering.
-			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::NotDeregistering
-			);
-
-			// Pending, not deregistering.
-			request_registration(ALICE, para_id, 20, 300);
-			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::NotDeregistering
-			);
-
-			// Registered, not deregistering.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+				vec![Event::Unexpected(UnexpectedKind::DeregisterResponseNotDeregistering {
 					para_id,
 					message_id: 0,
-					outcome: Ok(()),
-				}),
-			));
-			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::NotDeregistering
-			);
-
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_noop!(
-				Registrar::cancel_deregistration(RuntimeOrigin::signed(BOB), para_id),
-				Error::<Test>::NotOwner
-			);
-		});
-	}
-}
-
-mod locking {
-	use super::*;
-
-	#[test]
-	fn the_manager_the_para_and_root_may_all_lock() {
-		build_and_execute(|| {
-			// GIVEN three registered paras under three managers.
-			let alice_para = registered_para(ALICE); // locked by its manager
-			let bob_para = registered_para(BOB); // locked by the para itself
-			let root_para = registered_para(ALICE); // second para of Alice's, locked by root
-
-			// WHEN each is locked through a different origin.
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), alice_para));
-			assert_ok!(Registrar::add_lock(para_origin(bob_para), bob_para));
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::root(), root_para));
-
-			// THEN all three are locked, and nothing was sent anywhere: the lock is local state.
-			assert_eq!(lock_of(alice_para), Some(true));
-			assert_eq!(lock_of(bob_para), Some(true));
-			assert_eq!(lock_of(root_para), Some(true));
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(
-				registrar_events(),
-				vec![
-					Event::Locked { para_id: alice_para },
-					Event::Locked { para_id: bob_para },
-					Event::Locked { para_id: root_para },
-				]
-			);
-		});
-	}
-
-	#[test]
-	fn locking_twice_is_not_an_error_and_says_nothing_the_second_time() {
-		build_and_execute(|| {
-			let para_id = registered_para(ALICE); // manager races its own lock
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-			let _ = registrar_events();
-
-			// A manager who is already locked out may still lock: the call is about the state it
-			// leaves behind, not about who is allowed to reach it.
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-
-			assert_eq!(lock_of(para_id), Some(true));
-			assert_eq!(registrar_events(), vec![]);
-		});
-	}
-
-	#[test]
-	fn only_the_para_and_root_may_unlock() {
-		build_and_execute(|| {
-			// GIVEN a locked para.
-			let para_id = registered_para(ALICE); // manager, locked out below
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-
-			// WHEN its manager tries to lift the lock. THEN they cannot: a lock exists to
-			// protect the para from whoever manages it.
-			assert_noop!(
-				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
-				DispatchError::BadOrigin
-			);
-			assert_eq!(lock_of(para_id), Some(true));
-
-			// WHEN the para itself asks. THEN it is unlocked, and recorded as a deliberate
-			// unlock rather than cleared back to "never locked".
-			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
-			assert_eq!(lock_of(para_id), Some(false));
-
-			// And root may do the same.
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
-			assert_eq!(lock_of(para_id), Some(false));
-		});
-	}
-
-	#[test]
-	fn a_lock_shuts_the_manager_out_of_every_call_it_gates() {
-		build_and_execute(|| {
-			// GIVEN a locked, registered para.
-			let para_id = registered_para(ALICE); // manager, locked out
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-			let _ = take_sent();
-
-			// THEN the manager reaches none of the three calls the lock gates, and no message is
-			// built for any of them.
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::ParaLocked
-			);
-			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					MIN_CODE_SIZE,
-					hash_of(&code(MIN_CODE_SIZE as usize)),
-				),
-				Error::<Test>::ParaLocked
-			);
-			assert_noop!(
-				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
-				Error::<Test>::ParaLocked
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	#[test]
-	fn a_lock_does_not_shut_out_the_para_or_root() {
-		build_and_execute(|| {
-			// GIVEN a locked para.
-			let para_id = registered_para(ALICE);
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-			let _ = take_sent();
-
-			// THEN the para itself still gets through: the lock is aimed at the manager alone.
-			assert_ok!(Registrar::set_current_head(para_origin(para_id), para_id, head(4)));
-			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
-
-			assert_eq!(take_sent().len(), 2);
-		});
-	}
-
-	#[test]
-	fn a_first_block_locks_the_para_against_its_manager() {
-		build_and_execute(|| {
-			// GIVEN a registered para that has produced its first block, which the relay chain
-			// reports because it is the only chain that can see it.
-			let para_id = registered_para(ALICE); // manager
-			let _ = take_sent();
-			assert_eq!(lock_of(para_id), None);
-
-			// WHEN the report arrives. THEN the flag is set once, and reported once.
-			note_first_head(para_id);
-			assert_eq!(lock_of(para_id), Some(true));
-			assert_eq!(registrar_events(), vec![Event::Locked { para_id }]);
-			note_first_head(para_id);
-			assert_eq!(registrar_events(), vec![], "already decided, nothing to report");
-
-			// THEN the manager is shut out of everything a lock gates.
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::ParaLocked
-			);
-			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					MIN_CODE_SIZE,
-					hash_of(&code(MIN_CODE_SIZE as usize)),
-				),
-				Error::<Test>::ParaLocked
-			);
-			assert_noop!(
-				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
-				Error::<Test>::ParaLocked
-			);
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(registrar_events(), vec![]);
-
-			// The para itself and root are unaffected: a lock protects the para from its manager.
-			assert_ok!(Registrar::set_current_head(para_origin(para_id), para_id, head(4)));
-		});
-	}
-
-	#[test]
-	fn holding_a_core_without_producing_a_block_leaves_the_manager_in_charge() {
-		build_and_execute(|| {
-			// GIVEN a registered para holding a core that has never produced a block — the
-			// deployment that went wrong. Its genesis code or head is bad, so no block will come
-			// until the manager fixes it, and fixing it means exactly the calls a lock takes
-			// away. This is why the lock waits for the first block rather than the first
-			// assignment: a lock here would be permanent, because only the para or root can lift
-			// one and a para that has never booted cannot ask.
-			let para_id = registered_para(ALICE); // manager
-			assign(para_id);
-			let _ = take_sent();
-			assert_eq!(lock_of(para_id), None);
-
-			// THEN the manager can still repair it, both ways.
-			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
-			assert_ok!(Registrar::schedule_code_upgrade(
-				RuntimeOrigin::signed(ALICE),
-				para_id,
-				MIN_CODE_SIZE,
-				hash_of(&code(MIN_CODE_SIZE as usize)),
-			));
-			assert_eq!(lock_of(para_id), None);
-
-			// AND giving up is refused only for as long as the relay chain could still schedule
-			// it — `StillAssigned`, not `ParaLocked`. The distinction matters: one is about
-			// leaving a lease pointing at nothing, and lapses on its own.
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::StillAssigned
-			);
-			unassign(para_id);
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
-		});
-	}
-
-	#[test]
-	fn a_lock_survives_the_para_going_idle() {
-		build_and_execute(|| {
-			// GIVEN a para that has produced a block and so is locked.
-			let para_id = registered_para(ALICE); // manager
-			assign(para_id);
-			note_first_head(para_id);
-			assert_eq!(lock_of(para_id), Some(true));
-			let _ = take_sent();
-
-			// WHEN its assignment lapses — an on-demand para between orders, or a lease that ran
-			// out. THEN the manager stays shut out. The lock is a recorded fact about a chain
-			// that exists, not a live question about whether it is scheduled right now.
-			unassign(para_id);
-			assert_eq!(lock_of(para_id), Some(true));
-			assert_noop!(
-				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
-				Error::<Test>::ParaLocked
-			);
-			assert_noop!(
-				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
-				Error::<Test>::ParaLocked
-			);
-
-			// Only an explicit unlock by the para or root lets the manager back in.
-			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
-			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
-		});
-	}
-
-	#[test]
-	fn a_deliberate_unlock_is_not_undone_by_a_first_block() {
-		build_and_execute(|| {
-			// GIVEN a para the para itself deliberately unlocked.
-			let para_id = registered_para(ALICE); // manager
-			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
-			assert_eq!(lock_of(para_id), Some(false));
-			let _ = take_sent();
-			let _ = registrar_events();
-
-			// WHEN it later produces a block. THEN nothing re-locks it: the para's own decision
-			// outranks the automatic lock, which is why `Some(false)` is stored rather than the
-			// entry being cleared.
-			note_first_head(para_id);
-			assert_eq!(lock_of(para_id), Some(false));
-			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
-			assert_eq!(
-				registrar_events(),
-				vec![Event::HeadUpdateRequested { para_id, message_id: 1 }],
-				"the head update happened and nothing re-locked the para"
-			);
-		});
-	}
-
-	#[test]
-	fn an_explicit_lock_before_the_first_block_is_left_alone() {
-		build_and_execute(|| {
-			// GIVEN a para its manager locked before it ever produced a block.
-			let para_id = registered_para(ALICE); // manager
-			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
-			assert_eq!(lock_of(para_id), Some(true));
-			let _ = registrar_events();
-
-			// WHEN the first block arrives. THEN the automatic lock is a no-op — already
-			// decided, so no second `Locked` event.
-			note_first_head(para_id);
-			assert_noop!(
-				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
-				Error::<Test>::ParaLocked
-			);
-			assert_eq!(lock_of(para_id), Some(true));
-			assert_eq!(registrar_events(), vec![]);
-		});
-	}
-
-	#[test]
-	fn a_report_for_a_reserved_or_unknown_id_is_ignored() {
-		build_and_execute(|| {
-			// GIVEN a merely reserved id. Nothing is registered against it, so it cannot have
-			// produced a block; locking it on a stray report would only strand the reservation
-			// deposit behind a governance call.
-			let para_id = reserve_for(ALICE); // manager
-			note_first_head(para_id);
-
-			assert_eq!(lock_of(para_id), None);
-			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
-			assert_eq!(held(ALICE), 0);
-			let _ = registrar_events();
-
-			// AND an id this chain knows nothing about is not an error either: the report answers
-			// no request, so nothing here is waiting on it to succeed.
-			note_first_head(4242);
-			assert_eq!(registrar_events(), vec![]);
-		});
-	}
-
-	#[test]
-	fn a_fresh_registration_starts_never_locked() {
-		build_and_execute(|| {
-			// `None`, not `Some(false)`: a manager who has just made a mistake can undo it, and
-			// the para is still eligible for the automatic lock once it produces a block.
-			let para_id = registered_para(ALICE);
-
-			assert_eq!(lock_of(para_id), None);
-			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)));
-		});
-	}
-}
-
-mod schedule_code_upgrade {
-	use super::*;
-
-	#[test]
-	fn asks_the_relay_chain_and_takes_no_deposit() {
-		build_and_execute(|| {
-			// GIVEN a registered para whose deposit already covers the largest allowed code.
-			let para_id = registered_para(ALICE); // manager
-			let held_before = held(ALICE);
-			let blob = code(MAX_CODE_SIZE as usize);
-
-			// WHEN the manager upgrades to the largest code the relay chain would accept.
-			assert_ok!(Registrar::schedule_code_upgrade(
-				RuntimeOrigin::signed(ALICE),
-				para_id,
-				MAX_CODE_SIZE,
-				hash_of(&blob),
-			));
-
-			// THEN nothing more is held: pricing at MaxCodeSize is what makes upgrades free.
-			assert_eq!(held(ALICE), held_before);
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
-					para_id,
-					message_id: 1,
-					code_hash: hash_of(&blob),
-					code_len: MAX_CODE_SIZE,
 				})]
 			);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgradeRequested {
-					para_id,
-					message_id: 1,
-					code_hash: hash_of(&blob)
-				}]
-			);
 		});
 	}
 
 	#[test]
-	fn refuses_code_outside_the_relay_chains_bounds() {
+	fn the_para_itself_may_ask_but_a_stranger_may_not() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE); // manager
+			let para_id = registered_para(ALICE);
 
 			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					MIN_CODE_SIZE - 1,
-					hash_of(&code(1)),
-				),
-				Error::<Test>::CodeTooSmall
-			);
-			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					MAX_CODE_SIZE + 1,
-					hash_of(&code(1)),
-				),
-				Error::<Test>::CodeTooLarge
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	#[test]
-	fn refuses_a_para_that_is_not_registered_yet() {
-		build_and_execute(|| {
-			// GIVEN an id that is only reserved: there is nothing on the relay chain to upgrade.
-			let para_id = reserve_for(ALICE); // manager
-
-			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					MIN_CODE_SIZE,
-					hash_of(&code(MIN_CODE_SIZE as usize)),
-				),
-				Error::<Test>::NotRegistered
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-
-	#[test]
-	fn refuses_anybody_but_the_manager_the_para_and_root() {
-		build_and_execute(|| {
-			let para_id = registered_para(ALICE); // manager
-
-			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(BOB), // not the manager
-					para_id,
-					MIN_CODE_SIZE,
-					hash_of(&code(MIN_CODE_SIZE as usize)),
-				),
+				Registrar::deregister(RuntimeOrigin::signed(BOB), para_id),
 				Error::<Test>::NotOwner
 			);
-			assert_eq!(take_sent(), vec![]);
+			assert_noop!(
+				Registrar::deregister(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+			assert_ok!(Registrar::deregister(para_origin(para_id), para_id));
+		});
+	}
+
+	#[test]
+	fn a_locked_para_is_out_of_the_managers_hands_but_not_roots() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), para_id));
+		});
+	}
+
+	#[test]
+	fn a_registration_in_flight_has_to_be_settled_first() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotRegistered
+			);
+		});
+	}
+
+	#[test]
+	fn an_id_nobody_reserved_is_refused() {
+		build_and_execute(|| {
+			assert_noop!(
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), 4242),
+				Error::<Test>::NotReserved
+			);
 		});
 	}
 
 	#[test]
 	fn a_transport_failure_rolls_the_whole_call_back() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE); // manager
+			let para_id = registered_para(ALICE);
 			SendFails::set(true);
 
 			assert_noop!(
-				Registrar::schedule_code_upgrade(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					MIN_CODE_SIZE,
-					hash_of(&code(MIN_CODE_SIZE as usize)),
-				),
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
 				Error::<Test>::SendFailed
 			);
-			// The message id was consumed inside the rolled-back call, so it is not spent.
+
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
 			assert_eq!(crate::NextMessageId::<Test>::get(), 1);
 		});
 	}
 }
 
-mod set_current_head {
+mod add_lock {
 	use super::*;
 
 	#[test]
-	fn sends_the_head_inline() {
+	fn the_manager_locks_a_registered_para() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE); // manager
-			let new_head = head(MAX_HEAD_SIZE as usize);
+			let para_id = registered_para(ALICE);
 
-			assert_ok!(Registrar::set_current_head(
-				RuntimeOrigin::signed(ALICE),
-				para_id,
-				new_head.clone()
-			));
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
 
-			// Head data is small enough to travel whole, so there is no upload step.
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
-					para_id,
-					message_id: 1,
-					head: new_head,
-				})]
-			);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::HeadUpdateRequested { para_id, message_id: 1 }]
-			);
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
 		});
 	}
 
 	#[test]
-	fn refuses_head_data_the_relay_chain_would_not_take() {
+	fn the_para_itself_and_root_may_lock() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE); // manager
-
+			// Another para cannot pose as this one.
+			let para_id = registered_para(ALICE);
 			assert_noop!(
-				Registrar::set_current_head(
-					RuntimeOrigin::signed(ALICE),
-					para_id,
-					head(MAX_HEAD_SIZE as usize + 1)
-				),
-				Error::<Test>::HeadDataTooLarge
+				Registrar::add_lock(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
 			);
-			assert_eq!(take_sent(), vec![]);
+
+			assert_ok!(Registrar::add_lock(para_origin(para_id), para_id));
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+
+			let other_id = registered_para(BOB);
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::root(), other_id));
+			assert!(Paras::<Test>::get(other_id).unwrap().is_locked());
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id: other_id }]);
 		});
 	}
 
 	#[test]
-	fn refuses_a_para_that_is_not_registered_yet() {
-		build_and_execute(|| {
-			let para_id = reserve_for(ALICE); // manager
-
-			assert_noop!(
-				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), para_id, head(4)),
-				Error::<Test>::NotRegistered
-			);
-			assert_eq!(take_sent(), vec![]);
-		});
-	}
-}
-
-mod force_set_next_free_para_id {
-	use super::*;
-
-	#[test]
-	fn root_moves_the_counter_and_nobody_else_can() {
-		build_and_execute(|| {
-			let target = FIRST_PARA_ID + 400;
-
-			assert_noop!(
-				Registrar::force_set_next_free_para_id(RuntimeOrigin::signed(ALICE), target),
-				DispatchError::BadOrigin
-			);
-
-			assert_ok!(Registrar::force_set_next_free_para_id(RuntimeOrigin::root(), target));
-
-			assert_eq!(crate::NextFreeParaId::<Test>::get(), target);
-			assert_eq!(registrar_events(), vec![Event::NextFreeParaIdSet { para_id: target }]);
-			// And the next reservation picks up from there.
-			assert_eq!(reserve_for(ALICE), target);
-		});
-	}
-}
-
-mod force_remove_para {
-	use super::*;
-
-	#[test]
-	fn root_repairs_a_record_the_two_chains_can_no_longer_agree_on() {
-		build_and_execute(|| {
-			// GIVEN a registered para. Suppose governance has since removed it on the relay chain
-			// directly — this chain would never hear, and the deposits would sit here forever
-			// against a para it can no longer act on.
-			let para_id = registered_para(ALICE); // manager
-			let before = Balances::free_balance(ALICE);
-			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
-
-			assert_noop!(
-				Registrar::force_remove_para(RuntimeOrigin::signed(ALICE), para_id),
-				DispatchError::BadOrigin
-			);
-
-			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
-
-			// Both deposits go back to the manager who paid them, and the record is gone.
-			assert_eq!(held(ALICE), 0);
-			assert_eq!(
-				Balances::free_balance(ALICE),
-				before + PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance)
-			);
-			assert!(Paras::<Test>::get(para_id).is_none());
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::ParaForceRemoved { para_id, manager: ALICE }]
-			);
-		});
-	}
-
-	#[test]
-	fn a_verdict_that_is_merely_slow_cannot_be_torn_down() {
-		build_and_execute(|| {
-			// GIVEN a registration still waiting on the relay chain.
-			let para_id = reserve_for(ALICE);
-			request_registration(ALICE, para_id, 20, 300);
-
-			// THEN governance must wait: tearing this down early would release a deposit for a
-			// para the relay chain may be about to confirm.
-			assert_noop!(
-				Registrar::force_remove_para(RuntimeOrigin::root(), para_id),
-				Error::<Test>::CannotCancelYet
-			);
-
-			run_to_block(System::block_number() + PENDING_DEADLINE);
-			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
-			assert_eq!(held(ALICE), 0);
-		});
-	}
-
-	#[test]
-	fn a_para_this_chain_never_knew_is_refused() {
+	fn rejects_an_unknown_id_a_non_manager_and_a_para_that_is_not_registered() {
 		build_and_execute(|| {
 			assert_noop!(
-				Registrar::force_remove_para(RuntimeOrigin::root(), FIRST_PARA_ID),
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), 4242),
 				Error::<Test>::NotReserved
 			);
-		});
-	}
-}
 
-mod state_machine {
-	use super::*;
-	use sp_runtime::DispatchResult;
-
-	/// The four states a para id can be in, each with a way to reach it from nothing.
-	fn reach(state: &str) -> u32 {
-		match state {
-			"Reserved" => reserve_for(ALICE),
-			"Pending" => {
-				let id = reserve_for(ALICE);
-				request_registration(ALICE, id, 20, 300);
-				id
-			},
-			"Registered" => registered_para(ALICE),
-			"Deregistering" => deregistering_para(ALICE),
-			other => panic!("unknown state {other}"),
-		}
-	}
-
-	/// Every call that cares about state, from every state, with the answer written down.
-	///
-	/// `None` means it should succeed. Kept as one table so a missing arm is visible rather than
-	/// scattered across six `ensure!`s.
-	#[allow(clippy::type_complexity)]
-	const MATRIX: &[(&str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>)] = &[
-		//  state            register             cancel_registration    deregister             upgrade                set_head
-		("Reserved", None, Some("NotPending"), None, Some("NotRegistered"), Some("NotRegistered")),
-		("Pending", Some("AlreadyRegistered"), Some("CannotCancelYet"), Some("RequestInFlight"), Some("NotRegistered"), Some("NotRegistered")),
-		("Registered", Some("AlreadyRegistered"), Some("NotPending"), None, None, None),
-		("Deregistering", Some("AlreadyRegistered"), Some("NotPending"), Some("RequestInFlight"), Some("NotRegistered"), Some("NotRegistered")),
-	];
-
-	fn err_name(e: DispatchError) -> String {
-		match e {
-			DispatchError::Module(m) => m.message.unwrap_or("?").to_string(),
-			other => format!("{other:?}"),
-		}
-	}
-
-	fn check(expected: Option<&str>, got: DispatchResult, what: &str, state: &str) {
-		match (expected, got) {
-			(None, Ok(())) => {},
-			(Some(want), Err(e)) => assert_eq!(err_name(e), want, "{what} from {state}"),
-			(None, Err(e)) => panic!("{what} from {state}: expected Ok, got {}", err_name(e)),
-			(Some(want), Ok(())) => panic!("{what} from {state}: expected {want}, got Ok"),
-		}
-	}
-
-	#[test]
-	fn every_call_from_every_state_does_what_the_table_says() {
-		for (state, register, cancel, deregister, upgrade, set_head) in MATRIX {
-			// A fresh chain per cell, so a call that succeeds cannot leak into the next one.
-			build_and_execute(|| {
-				let id = reach(state);
-				let blob = code(300);
-				check(
-					*register,
-					Registrar::register(
-						RuntimeOrigin::signed(ALICE),
-						id,
-						head(20),
-						300,
-						hash_of(&blob),
-					),
-					"register",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				let id = reach(state);
-				check(
-					*cancel,
-					Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), id),
-					"cancel_registration",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				let id = reach(state);
-				check(
-					*deregister,
-					Registrar::deregister(RuntimeOrigin::signed(ALICE), id),
-					"deregister",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				let id = reach(state);
-				check(
-					*upgrade,
-					Registrar::schedule_code_upgrade(
-						RuntimeOrigin::signed(ALICE),
-						id,
-						MIN_CODE_SIZE,
-						hash_of(&code(MIN_CODE_SIZE as usize)),
-					),
-					"schedule_code_upgrade",
-					state,
-				);
-			});
-			build_and_execute(|| {
-				let id = reach(state);
-				check(
-					*set_head,
-					Registrar::set_current_head(RuntimeOrigin::signed(ALICE), id, head(4)),
-					"set_current_head",
-					state,
-				);
-			});
-		}
-	}
-
-	#[test]
-	fn nothing_can_be_done_to_an_id_this_chain_has_never_heard_of() {
-		build_and_execute(|| {
-			let unknown = FIRST_PARA_ID + 900;
-			for (what, result) in [
-				("deregister", Registrar::deregister(RuntimeOrigin::signed(ALICE), unknown)),
-				(
-					"cancel_registration",
-					Registrar::cancel_registration(RuntimeOrigin::signed(ALICE), unknown),
-				),
-				("add_lock", Registrar::add_lock(RuntimeOrigin::signed(ALICE), unknown)),
-				("remove_lock", Registrar::remove_lock(RuntimeOrigin::root(), unknown)),
-				(
-					"set_current_head",
-					Registrar::set_current_head(RuntimeOrigin::signed(ALICE), unknown, head(4)),
-				),
-				(
-					"force_remove_para",
-					Registrar::force_remove_para(RuntimeOrigin::root(), unknown),
-				),
-			] {
-				assert_eq!(
-					result,
-					Err(Error::<Test>::NotReserved.into()),
-					"{what} on an unknown id"
-				);
-			}
-		});
-	}
-}
-
-mod invariants {
-	use super::*;
-
-	#[test]
-	fn a_system_chain_id_must_never_be_registered_here() {
-		build_and_execute(|| {
-			// GIVEN a normal registration.
-			let para_id = registered_para(ALICE);
-			let record = Paras::<Test>::get(para_id).unwrap();
-
-			// WHEN the same record turns up under an id below the public floor. `reserve` cannot
-			// produce one, so this is what a migration seeding the wrong range would look like —
-			// this pallet holding a deposit for a chain whose deposit is not its business.
-			let system_id = FIRST_PARA_ID - 1;
-			Paras::<Test>::insert(system_id, record);
-			assert_try_state_invalid();
-
-			// Put it back, so the harness's own check at the end still means something.
-			Paras::<Test>::remove(system_id);
-			assert_try_state_ok();
-		});
-	}
-}
-
-mod remove_upgrade_cooldown {
-	use super::*;
-
-	#[test]
-	fn anybody_may_pay_to_unblock_anybody_elses_para() {
-		build_and_execute(|| {
-			// GIVEN Alice's registered para, and Bob, who manages nothing.
-			let para_id = registered_para(ALICE);
-			let bob_before = Balances::free_balance(BOB);
-			let issuance_before = Balances::total_issuance();
-			let _ = take_sent();
-
-			// WHEN Bob pays. Permissionless, as on the relay chain: whoever wants the upgrade
-			// sooner can buy it, not just the manager.
-			assert_ok!(Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(BOB), para_id));
-
-			// THEN the cost is burned, not held: there is nothing to give back later.
-			assert_eq!(Balances::free_balance(BOB), bob_before - COOLDOWN_COST);
-			assert_eq!(Balances::total_issuance(), issuance_before - COOLDOWN_COST);
-			assert_eq!(held(BOB), 0);
-
-			assert_eq!(
-				take_sent(),
-				vec![MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
-					para_id,
-					message_id: 1,
-				})]
+			// Reserved, not registered.
+			let para_id = reserve_for(ALICE);
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(BOB), para_id),
+				Error::<Test>::NotOwner
 			);
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotRegistered
+			);
+
+			// And a registration in flight is not registered either.
+			request_registration(ALICE, para_id, 20, 300);
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::NotRegistered
+			);
+		});
+	}
+
+	#[test]
+	fn a_locked_para_cannot_be_locked_again() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			// The manager is turned away by the lock itself, before the state is looked at.
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+
+			// Root and the para are not, so they get the state error.
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::root(), para_id),
+				Error::<Test>::AlreadyLocked
+			);
+			assert_noop!(
+				Registrar::add_lock(para_origin(para_id), para_id),
+				Error::<Test>::AlreadyLocked
+			);
+		});
+	}
+}
+
+mod head_noted {
+	use super::*;
+
+	/// Tell the pallet, as the relay chain, that `para_id` produced a head.
+	fn note_head(para_id: u32) {
+		assert_ok!(Registrar::receive(
+			RuntimeOrigin::root(),
+			MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }),
+		));
+	}
+
+	#[test]
+	fn locks_a_registered_para() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+
+			note_head(para_id);
+
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+		});
+	}
+
+	#[test]
+	fn only_the_relay_chain_may_note_a_head() {
+		build_and_execute(|| {
+			let para_id = registered_para(ALICE);
+
+			assert_noop!(
+				Registrar::receive(
+					RuntimeOrigin::signed(ALICE),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }),
+				),
+				sp_runtime::DispatchError::BadOrigin,
+			);
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
+		});
+	}
+
+	#[test]
+	fn reports_an_unknown_para() {
+		build_and_execute(|| {
+			note_head(4242);
+
 			assert_eq!(
 				registrar_events(),
-				vec![Event::UpgradeCooldownRemovalRequested {
-					para_id,
+				vec![Event::Unexpected(UnexpectedKind::HeadNotedForUnknownPara { para_id: 4242 })]
+			);
+		});
+	}
+
+	#[test]
+	fn reports_a_para_whose_registration_is_still_pending() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			request_registration(ALICE, para_id, 20, 300);
+			let _ = registrar_events();
+
+			note_head(para_id);
+
+			let info = Paras::<Test>::get(para_id).unwrap();
+			assert!(info.is_locked());
+			assert!(matches!(info.state, RegistrationState::Pending { .. }));
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::Unexpected(UnexpectedKind::HeadNotedForUnregisteredPara { para_id }),
+					Event::ParaLocked { para_id }
+				]
+			);
+		});
+	}
+
+	#[test]
+	fn a_second_head_changes_nothing() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+			let _ = registrar_events();
+
+			note_head(para_id);
+
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_lifted_lock_is_not_reapplied() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+			let _ = registrar_events();
+
+			note_head(para_id);
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert!(registrar_events().is_empty());
+		});
+	}
+}
+
+mod remove_lock {
+	use super::*;
+
+	#[test]
+	fn root_unlocks() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+
+			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::ParaUnlocked { para_id }]);
+		});
+	}
+
+	#[test]
+	fn the_para_itself_unlocks() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			// Another para cannot pose as this one.
+			assert_noop!(
+				Registrar::remove_lock(para_origin(para_id + 1), para_id),
+				Error::<Test>::NotOwner
+			);
+
+			assert_ok!(Registrar::remove_lock(para_origin(para_id), para_id));
+			assert!(!Paras::<Test>::get(para_id).unwrap().is_locked());
+			assert_eq!(registrar_events(), vec![Event::ParaUnlocked { para_id }]);
+		});
+	}
+
+	#[test]
+	fn the_manager_may_not_unlock() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
+				DispatchError::BadOrigin
+			);
+			assert!(Paras::<Test>::get(para_id).unwrap().is_locked());
+		});
+	}
+
+	#[test]
+	fn rejects_an_unknown_id_and_a_para_that_is_not_locked() {
+		build_and_execute(|| {
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::root(), 4242),
+				Error::<Test>::NotReserved
+			);
+
+			let para_id = registered_para(ALICE);
+			assert_noop!(
+				Registrar::remove_lock(RuntimeOrigin::root(), para_id),
+				Error::<Test>::NotLocked
+			);
+		});
+	}
+
+	#[test]
+	fn a_lock_shuts_the_manager_out_until_it_is_lifted() {
+		build_and_execute(|| {
+			let para_id = locked_para(ALICE);
+
+			assert_noop!(
+				Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id),
+				Error::<Test>::ParaLocked
+			);
+
+			assert_ok!(Registrar::remove_lock(RuntimeOrigin::root(), para_id));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::add_lock(RuntimeOrigin::signed(ALICE), para_id));
+			assert_eq!(registrar_events(), vec![Event::ParaLocked { para_id }]);
+		});
+	}
+}
+
+mod force_register {
+	use super::*;
+
+	fn force(para_id: u32, manager: AccountId, head_len: usize, code_len: usize) -> Vec<u8> {
+		let blob = code(code_len);
+		assert_ok!(Registrar::force_register(
+			RuntimeOrigin::root(),
+			para_id,
+			manager,
+			head(head_len),
+			code_len as u32,
+			hash_of(&blob),
+			false,
+		));
+		blob
+	}
+
+	#[test]
+	fn only_root_may_force_register() {
+		build_and_execute(|| {
+			for origin in
+				[RuntimeOrigin::signed(ALICE), para_origin(SYSTEM_PARA_ID), RuntimeOrigin::none()]
+			{
+				assert_noop!(
+					Registrar::force_register(
+						origin,
+						SYSTEM_PARA_ID,
+						ALICE,
+						head(10),
+						100,
+						hash_of(&code(100)),
+						false,
+					),
+					DispatchError::BadOrigin
+				);
+			}
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+		});
+	}
+
+	#[test]
+	fn onboards_an_unreserved_id_and_charges_the_manager_for_both() {
+		build_and_execute(|| {
+			let head_len = 20;
+			let code_len = 300;
+			let blob = force(FIRST_PARA_ID, ALICE, head_len, code_len);
+
+			// The same bill as `reserve` followed by `register`.
+			let expected = PER_BYTE * (head_len as Balance + MAX_CODE_SIZE as Balance);
+			assert_eq!(held(ALICE), PARA_DEPOSIT + expected);
+
+			let info = Paras::<Test>::get(FIRST_PARA_ID).unwrap();
+			assert_eq!(info.manager, ALICE);
+			let expected_at = System::block_number() + PENDING_DEADLINE;
+			assert!(matches!(
+				info.state,
+				RegistrationState::Pending { cancellable_at, .. } if cancellable_at == expected_at
+			));
+
+			assert_eq!(
+				registrar_events(),
+				vec![Event::RegisterRequested {
+					para_id: FIRST_PARA_ID,
+					message_id: 0,
+					manager: ALICE
+				}]
+			);
+			assert_eq!(
+				take_sent(),
+				vec![MessageToRelay::V1(MessageToRelayV1::Register {
+					para_id: FIRST_PARA_ID,
+					message_id: 0,
+					manager: ALICE,
+					genesis_head: head(head_len),
+					code_hash: hash_of(&blob),
+					code_len: code_len as u32,
+				})]
+			);
+		});
+	}
+
+	#[test]
+	fn an_already_reserved_id_is_not_charged_twice() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+
+			force(para_id, ALICE, 20, 300);
+
+			// Only the registration is added; the reservation ticket is the one already held.
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
+		});
+	}
+
+	#[test]
+	fn skip_deposit_onboards_and_drops_a_para_without_holding_anything() {
+		build_and_execute(|| {
+			let broke = 3;
+
+			assert_ok!(Registrar::force_register(
+				RuntimeOrigin::root(),
+				FIRST_PARA_ID,
+				broke,
+				head(10),
+				100,
+				hash_of(&code(100)),
+				true,
+			));
+			let info = Paras::<Test>::get(FIRST_PARA_ID).unwrap();
+			assert!(info.reservation.is_none());
+			assert!(matches!(info.state, RegistrationState::Pending { ticket: None, .. }));
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: FIRST_PARA_ID,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::root(), FIRST_PARA_ID));
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				deregister_answer(FIRST_PARA_ID, 1, Ok(())),
+			));
+
+			assert!(Paras::<Test>::get(FIRST_PARA_ID).is_none());
+			assert_eq!(held(broke), 0);
+			assert!(!registrar_events().iter().any(|e| matches!(
+				e,
+				Event::Unexpected(UnexpectedKind::DepositNotReleased { .. })
+			)));
+		});
+	}
+
+	#[test]
+	fn skip_deposit_keeps_a_reservation_already_held() {
+		build_and_execute(|| {
+			let para_id = reserve_for(ALICE);
+
+			assert_ok!(Registrar::force_register(
+				RuntimeOrigin::root(),
+				para_id,
+				ALICE,
+				head(20),
+				300,
+				hash_of(&code(300)),
+				true,
+			));
+
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			assert!(matches!(
+				Paras::<Test>::get(para_id).unwrap().state,
+				RegistrationState::Pending { ticket: None, .. }
+			));
+		});
+	}
+
+	#[test]
+	fn a_system_id_never_takes_a_deposit() {
+		build_and_execute(|| {
+			force(SYSTEM_PARA_ID, ALICE, 20, 300);
+
+			assert_eq!(held(ALICE), 0);
+			let info = Paras::<Test>::get(SYSTEM_PARA_ID).unwrap();
+			assert!(info.reservation.is_none());
+			assert!(matches!(info.state, RegistrationState::Pending { ticket: None, .. }));
+		});
+	}
+
+	#[test]
+	fn a_turned_down_system_id_is_dropped() {
+		build_and_execute(|| {
+			force(SYSTEM_PARA_ID, ALICE, 10, 100);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					outcome: Err(FailureReason::AlreadyRegistered),
+				}),
+			));
+
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+			assert_eq!(
+				registrar_events(),
+				vec![Event::RegistrationFailed {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 0,
+					manager: ALICE,
+					reason: FailureReason::AlreadyRegistered,
+				}]
+			);
+			assert_noop!(
+				Registrar::register(
+					RuntimeOrigin::signed(ALICE),
+					SYSTEM_PARA_ID,
+					head(10),
+					100,
+					hash_of(&code(100)),
+				),
+				Error::<Test>::SystemParaId
+			);
+		});
+	}
+
+	#[test]
+	fn a_cancelled_system_id_is_dropped() {
+		build_and_execute(|| {
+			force(SYSTEM_PARA_ID, ALICE, 10, 100);
+			run_to_block(System::block_number() + PENDING_DEADLINE);
+			assert_ok!(Registrar::cancel_registration(
+				RuntimeOrigin::signed(ALICE),
+				SYSTEM_PARA_ID
+			));
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::CancelResponse {
+					para_id: SYSTEM_PARA_ID,
 					message_id: 1,
-					who: BOB
+					outcome: Ok(()),
+				}),
+			));
+
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+			assert_eq!(
+				registrar_events(),
+				vec![Event::RegistrationCancelled {
+					para_id: SYSTEM_PARA_ID,
+					message_id: 1,
+					manager: ALICE
 				}]
 			);
 		});
 	}
 
 	#[test]
-	fn a_para_that_is_not_registered_has_no_cooldown_to_buy_out() {
+	fn rejects_an_id_reserved_by_somebody_else() {
 		build_and_execute(|| {
-			let reserved = reserve_for(ALICE);
-			let before = Balances::free_balance(ALICE);
+			let para_id = reserve_for(ALICE);
 
 			assert_noop!(
-				Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(ALICE), reserved),
-				Error::<Test>::NotRegistered
-			);
-			assert_noop!(
-				Registrar::remove_upgrade_cooldown(
-					RuntimeOrigin::signed(ALICE),
-					FIRST_PARA_ID + 900
+				Registrar::force_register(
+					RuntimeOrigin::root(),
+					para_id,
+					BOB,
+					head(10),
+					100,
+					hash_of(&code(100)),
+					false,
 				),
-				Error::<Test>::NotReserved
+				Error::<Test>::NotOwner
 			);
-			// Nothing burned for a call that never went anywhere.
-			assert_eq!(Balances::free_balance(ALICE), before);
-			assert_eq!(take_sent(), vec![]);
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
 		});
 	}
 
 	#[test]
-	fn a_caller_who_cannot_pay_is_refused_and_nothing_is_sent() {
+	fn rejects_a_para_that_is_pending_or_registered() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE);
-			assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), BOB, 10));
-			let issuance_before = Balances::total_issuance();
-			let _ = take_sent();
+			let pending = reserve_for(ALICE);
+			request_registration(ALICE, pending, 10, 100);
+			let registered = registered_para(ALICE);
+
+			for para_id in [pending, registered] {
+				assert_noop!(
+					Registrar::force_register(
+						RuntimeOrigin::root(),
+						para_id,
+						ALICE,
+						head(10),
+						100,
+						hash_of(&code(100)),
+						false,
+					),
+					Error::<Test>::AlreadyRegistered
+				);
+			}
+		});
+	}
+
+	#[test]
+	fn a_system_para_id_stays_out_of_reserves_way() {
+		build_and_execute(|| {
+			force(SYSTEM_PARA_ID, ALICE, 10, 100);
+
+			assert_eq!(reserve_for(BOB), FIRST_PARA_ID);
+		});
+	}
+
+	#[test]
+	fn keeps_reserve_from_colliding_with_a_forced_public_id() {
+		build_and_execute(|| {
+			force(FIRST_PARA_ID, ALICE, 10, 100);
+
+			assert_eq!(reserve_for(BOB), FIRST_PARA_ID + 1);
+		});
+	}
+
+	#[test]
+	fn enforces_the_relay_chains_size_bounds() {
+		build_and_execute(|| {
+			let cases = [
+				(head(MAX_HEAD_SIZE as usize + 1), MIN_CODE_SIZE, Error::<Test>::HeadDataTooLarge),
+				(head(10), MIN_CODE_SIZE - 1, Error::<Test>::CodeTooSmall),
+				(head(10), MAX_CODE_SIZE + 1, Error::<Test>::CodeTooLarge),
+			];
+
+			for (genesis_head, code_len, expected) in cases {
+				assert_noop!(
+					Registrar::force_register(
+						RuntimeOrigin::root(),
+						SYSTEM_PARA_ID,
+						ALICE,
+						genesis_head,
+						code_len,
+						hash_of(&code(100)),
+						false,
+					),
+					expected
+				);
+			}
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
+		});
+	}
+
+	#[test]
+	fn fails_when_the_manager_cannot_pay() {
+		build_and_execute(|| {
+			let broke = 3;
 
 			assert_noop!(
-				Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(BOB), para_id),
-				sp_runtime::DispatchError::Token(sp_runtime::TokenError::FundsUnavailable)
+				Registrar::force_register(
+					RuntimeOrigin::root(),
+					FIRST_PARA_ID,
+					broke,
+					head(10),
+					100,
+					hash_of(&code(100)),
+					false,
+				),
+				TokenError::FundsUnavailable
 			);
-			assert_eq!(Balances::total_issuance(), issuance_before);
-			assert_eq!(take_sent(), vec![]);
 		});
 	}
 
 	#[test]
-	fn a_transport_failure_puts_the_burned_money_back() {
+	fn a_transport_failure_rolls_the_whole_call_back() {
 		build_and_execute(|| {
-			let para_id = registered_para(ALICE);
-			let before = Balances::free_balance(ALICE);
-			let issuance_before = Balances::total_issuance();
 			SendFails::set(true);
 
 			assert_noop!(
-				Registrar::remove_upgrade_cooldown(RuntimeOrigin::signed(ALICE), para_id),
+				Registrar::force_register(
+					RuntimeOrigin::root(),
+					FIRST_PARA_ID,
+					ALICE,
+					head(10),
+					100,
+					hash_of(&code(100)),
+					false,
+				),
 				Error::<Test>::SendFailed
 			);
 
-			// The burn is unwound with the rest of the call, so a request that never left does
-			// not cost anything.
-			assert_eq!(Balances::free_balance(ALICE), before);
-			assert_eq!(Balances::total_issuance(), issuance_before);
+			assert_eq!(held(ALICE), 0);
+			assert!(Paras::<Test>::get(FIRST_PARA_ID).is_none());
+			assert_eq!(crate::NextFreeParaId::<Test>::get(), 0);
+			assert_eq!(crate::NextMessageId::<Test>::get(), 0);
+		});
+	}
+
+	#[test]
+	fn the_relay_chain_confirms_the_registration() {
+		build_and_execute(|| {
+			force(FIRST_PARA_ID, ALICE, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: FIRST_PARA_ID,
+					message_id: 0,
+					outcome: Ok(()),
+				}),
+			));
+
+			assert!(matches!(
+				Paras::<Test>::get(FIRST_PARA_ID).unwrap().state,
+				RegistrationState::Registered { .. }
+			));
+			assert_eq!(held(ALICE), PARA_DEPOSIT + PER_BYTE * (20 + MAX_CODE_SIZE as Balance));
+			assert_eq!(
+				registrar_events(),
+				vec![Event::Registered { para_id: FIRST_PARA_ID, message_id: 0, manager: ALICE }]
+			);
+		});
+	}
+
+	#[test]
+	fn a_rejection_releases_the_registration_and_leaves_the_id_reserved() {
+		build_and_execute(|| {
+			force(FIRST_PARA_ID, ALICE, 20, 300);
+			let _ = registrar_events();
+
+			assert_ok!(Registrar::receive(
+				RuntimeOrigin::root(),
+				MessageToPara::V1(MessageToParaV1::RegisterResponse {
+					para_id: FIRST_PARA_ID,
+					message_id: 0,
+					outcome: Err(FailureReason::AlreadyRegistered),
+				}),
+			));
+
+			let info = Paras::<Test>::get(FIRST_PARA_ID).unwrap();
+			assert_eq!(info.state, RegistrationState::Reserved);
+			assert_eq!(info.manager, ALICE);
+			// The reservation stays, so the id can be retried.
+			assert_eq!(held(ALICE), PARA_DEPOSIT);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::RegistrationFailed {
+					para_id: FIRST_PARA_ID,
+					message_id: 0,
+					manager: ALICE,
+					reason: FailureReason::AlreadyRegistered,
+				}]
+			);
 		});
 	}
 }
 
-mod integrity {
+mod try_state {
 	use super::*;
-	use crate::AssignmentChecker;
-	use frame_support::traits::Get;
+	use crate::{Config, ParaInfo};
+	use frame_support::traits::Consideration;
 
-	#[test]
-	fn the_stub_and_a_real_checker_declare_themselves_correctly() {
-		// The startup check is only as good as this signal. If `NoAssignments` ever stopped
-		// declaring itself, a coretime-hosting runtime could ship it and the check would wave it
-		// through — and a para holding a core could be deregistered out from under it.
-		assert!(
-			crate::NoAssignments::NEVER_ASSIGNS,
-			"the stub must declare that it never reports an assignment"
+	fn insert_system_para(
+		state: RegistrationState<<Test as Config>::RegistrationConsideration, BlockNumber>,
+	) {
+		Paras::<Test>::insert(
+			SYSTEM_PARA_ID,
+			ParaInfo { manager: ALICE, reservation: None, state, locked: None },
 		);
-		assert!(
-			!MockAssignments::NEVER_ASSIGNS,
-			"a real checker must not declare itself as the stub"
-		);
-
-		// And the two must disagree, or the check cannot tell them apart.
-		assert_ne!(crate::NoAssignments::NEVER_ASSIGNS, MockAssignments::NEVER_ASSIGNS);
 	}
 
 	#[test]
-	fn this_runtime_declares_that_it_manages_coretime_and_backs_it_up() {
-		// The mock stands in for the chain that hosts coretime. `runtime_integrity_tests` runs
-		// the assertion itself; this pins the combination it is asserting about, so a later
-		// config change cannot quietly turn the check into a no-op by flipping the flag.
-		let requires: bool = <Test as crate::Config>::RequireAssignmentLock::get();
-		assert!(requires);
-		assert!(!<<Test as crate::Config>::AssignmentChecker as AssignmentChecker>::NEVER_ASSIGNS);
+	fn flags_a_reserved_system_id() {
+		new_test_ext().execute_with(|| {
+			insert_system_para(RegistrationState::Reserved);
+
+			assert_eq!(Registrar::do_try_state(), Err("a system para id is left reserved".into()));
+		});
+	}
+
+	#[test]
+	fn flags_a_system_para_holding_a_deposit() {
+		new_test_ext().execute_with(|| {
+			let ticket = <Test as Config>::RegistrationConsideration::new(
+				&ALICE,
+				Registrar::registration_footprint(10, &host_config(MAX_CODE_SIZE, MAX_HEAD_SIZE)),
+			)
+			.unwrap();
+			insert_system_para(RegistrationState::Registered { ticket: Some(ticket) });
+
+			assert_eq!(Registrar::do_try_state(), Err("a system para holds a deposit".into()));
+		});
 	}
 }
 
@@ -2204,43 +1911,17 @@ mod receiving_a_migration {
 		MigratedPara { para_id, manager: ALICE, state, locked }
 	}
 
-	/// What actually stops an unprivileged takeover of a live parachain, and what does not.
-	///
-	/// The relay chain's `on_code_upgrade_request` and `on_set_head_request` authorize on
-	/// `is_registered` **alone** — no manager, no lock — and trust this chain's registry. So the
-	/// whole guarantee is that this chain cannot hand out an id some live para already holds.
-	/// Three things could do that, and only two of them are enforced here:
-	///
-	/// - ids **below the public floor** (system chains, which the migration skips) — enforced;
-	/// - ids **this chain knows about** — enforced, `reserve` steps over them;
-	/// - ids live on the relay chain but **absent from this chain's map** (anything the migration
-	///   parked in `FailedParas`) — enforced *only* by the counter being above them.
-	///
-	/// That third one is a consequence of the counter being monotonic, not a rule anybody wrote.
-	/// This test pins it, and pins that `force_set_next_free_para_id` is the one call that can
-	/// break it — which is why it is root-only. See `open.md` B21.
-	#[test]
-	fn reserve_cannot_hand_out_an_id_below_the_floor_or_one_already_known() {
-		build_and_execute(|| {
-			// GIVEN the id counter adopted from the chain the registry came from, above every id
-			// that chain ever allocated.
-			<Registrar as ReceiveMigratedParas<AccountId>>::receive_next_free_para_id(5_000);
+	fn lock_of(para_id: u32) -> Option<bool> {
+		Paras::<Test>::get(para_id).expect("the para is known").locked
+	}
 
-			// WHEN ids are handed out. THEN never below the migrated counter, so an id that is
-			// live over there but never arrived here is unreachable.
-			for _ in 0..3 {
-				assert!(reserve_for(ALICE) >= 5_000);
-			}
-
-			// A counter that arrives below the floor cannot reach a system chain's id either.
-			<Registrar as ReceiveMigratedParas<AccountId>>::receive_next_free_para_id(0);
-			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID);
-
-			// And an id this chain already holds is stepped over rather than reissued.
-			let taken = reserve_for(BOB);
-			<Registrar as ReceiveMigratedParas<AccountId>>::receive_next_free_para_id(taken);
-			assert!(reserve_for(ALICE) > taken);
-		});
+	/// The relay chain reports `para_id`'s first head, leaving the logs clean.
+	fn note_head(para_id: u32) {
+		assert_ok!(Registrar::receive(
+			RuntimeOrigin::root(),
+			MessageToPara::V1(MessageToParaV1::HeadNoted { para_id }),
+		));
+		let _ = registrar_events();
 	}
 
 	#[test]
@@ -2251,7 +1932,7 @@ mod receiving_a_migration {
 			let native_info = Paras::<Test>::get(native).unwrap();
 			let held_for_one = held(ALICE);
 
-			// WHEN an equivalent para arrives from a migration, with the same head length the
+			// WHEN an equivalent para arrives from a migration, with the head length the
 			// ordinary path used.
 			assert_ok!(Registrar::receive_para(migrated(
 				FIRST_PARA_ID + 500,
@@ -2259,20 +1940,19 @@ mod receiving_a_migration {
 				None,
 			)));
 
-			// THEN it holds exactly the same deposits and sits in the same state. Nothing about
-			// it says "migrated", which is the point: no code downstream has to care.
+			// THEN it holds the same deposits and sits in the same state.
 			let arrived = Paras::<Test>::get(FIRST_PARA_ID + 500).unwrap();
 			assert_eq!(arrived.manager, native_info.manager);
 			assert_eq!(arrived.locked, native_info.locked);
-			assert!(matches!(arrived.state, RegistrationState::Registered { .. }));
+			assert!(matches!(arrived.state, RegistrationState::Registered { ticket: Some(_) }));
 			assert_eq!(held(ALICE), 2 * held_for_one);
+			assert_eq!(registrar_events(), vec![]);
 		});
 	}
 
 	#[test]
 	fn a_live_para_arrives_locked_and_its_manager_stays_out() {
 		build_and_execute(|| {
-			// Most live paras are locked already, so this is the normal case, not an edge.
 			let para_id = FIRST_PARA_ID + 501;
 			assert_ok!(Registrar::receive_para(migrated(
 				para_id,
@@ -2285,7 +1965,7 @@ mod receiving_a_migration {
 				Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id),
 				Error::<Test>::ParaLocked
 			);
-			// And only somebody who is not the manager can lift it, exactly as for a native para.
+			// Only somebody who is not the manager can lift it, as for a native para.
 			assert_noop!(
 				Registrar::remove_lock(RuntimeOrigin::signed(ALICE), para_id),
 				DispatchError::BadOrigin
@@ -2299,14 +1979,10 @@ mod receiving_a_migration {
 	fn all_three_lock_states_survive_the_migration_distinctly() {
 		build_and_execute(|| {
 			// GIVEN three paras arriving in each of the states the sending chain can record.
-			// Collapsing `None` into `Some(false)` on the wire would opt every never-locked para
-			// out of ever locking again, which is why the wire type carries the option.
 			let never = FIRST_PARA_ID + 510; // never locked on the old chain
 			let locked = FIRST_PARA_ID + 511; // locked at its first head
 			let unlocked = FIRST_PARA_ID + 512; // deliberately unlocked before the move
-			for (para_id, state) in
-				[(never, None), (locked, Some(true)), (unlocked, Some(false))]
-			{
+			for (para_id, state) in [(never, None), (locked, Some(true)), (unlocked, Some(false))] {
 				assert_ok!(Registrar::receive_para(migrated(
 					para_id,
 					MigratedParaState::Registered { head_len: 20 },
@@ -2319,18 +1995,17 @@ mod receiving_a_migration {
 			assert_eq!(lock_of(locked), Some(true));
 			assert_eq!(lock_of(unlocked), Some(false));
 
-			// AND the difference is live: a first block locks the never-locked one and leaves
-			// the deliberately unlocked one alone.
-			note_first_head(never);
-			note_first_head(unlocked);
+			// AND a first head locks the never-locked one and leaves the unlocked one alone.
+			note_head(never);
+			note_head(unlocked);
 			assert_eq!(lock_of(never), Some(true));
 			assert_eq!(lock_of(unlocked), Some(false));
 
 			assert_noop!(
-				Registrar::set_current_head(RuntimeOrigin::signed(ALICE), never, head(4)),
+				Registrar::deregister(RuntimeOrigin::signed(ALICE), never),
 				Error::<Test>::ParaLocked
 			);
-			assert_ok!(Registrar::set_current_head(RuntimeOrigin::signed(ALICE), unlocked, head(4)));
+			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), unlocked));
 		});
 	}
 
@@ -2347,7 +2022,7 @@ mod receiving_a_migration {
 			assert_eq!(Paras::<Test>::get(para_id).unwrap().state, RegistrationState::Reserved);
 			assert_eq!(held(ALICE), PARA_DEPOSIT);
 
-			// And it behaves like any other reserved id: registrable, and droppable for a refund.
+			// It behaves like any other reserved id: droppable for a refund.
 			assert_ok!(Registrar::deregister(RuntimeOrigin::signed(ALICE), para_id));
 			assert_eq!(held(ALICE), 0);
 		});
@@ -2367,7 +2042,7 @@ mod receiving_a_migration {
 				)),
 				Error::<Test>::AlreadyRegistered
 			);
-			// Overwriting would drop the existing tickets on the floor and strand the deposits.
+			// Overwriting would drop the existing tickets and strand the deposits.
 			assert_eq!(held(ALICE), before);
 		});
 	}
@@ -2375,8 +2050,7 @@ mod receiving_a_migration {
 	#[test]
 	fn a_manager_who_can_pay_only_the_reservation_still_gets_the_para() {
 		build_and_execute(|| {
-			// GIVEN a manager whose migrated balance covers the reservation but not the
-			// registration on top of it.
+			// GIVEN a manager whose balance covers the reservation but not the registration.
 			let para_id = FIRST_PARA_ID + 503;
 			assert_ok!(Balances::force_set_balance(
 				RuntimeOrigin::root(),
@@ -2392,14 +2066,12 @@ mod receiving_a_migration {
 				locked: Some(true),
 			}));
 
-			// THEN the para lands regardless, with the half that could be paid taken and the
-			// half that could not left unpaid. A live parachain is never dropped for a deposit.
+			// THEN the para lands with the half that could be paid taken.
 			let info = Paras::<Test>::get(para_id).expect("the para is preserved");
-			assert!(info.reservation.is_some(), "the affordable half was taken");
+			assert!(info.reservation.is_some());
 			assert_eq!(info.state, RegistrationState::Registered { ticket: None });
 			assert_eq!(info.locked, Some(true));
 			assert_eq!(held(BOB), PARA_DEPOSIT);
-
 			assert_eq!(
 				registrar_events(),
 				vec![Event::MigratedWithUnpaidDeposit { para_id, manager: BOB }]
@@ -2410,8 +2082,8 @@ mod receiving_a_migration {
 	#[test]
 	fn a_manager_who_can_pay_nothing_still_gets_the_para() {
 		build_and_execute(|| {
-			// GIVEN a manager with nothing at all — the shape real Polkadot state produced, where
-			// a registrar deposit was recorded but never reserved, so nothing migrated with it.
+			// GIVEN a manager with nothing at all: a registrar deposit recorded on the old chain
+			// but never reserved, so nothing migrated with it.
 			let para_id = FIRST_PARA_ID + 504;
 			let broke = 99; // a manager whose deposit never migrated
 			assert_eq!(Balances::free_balance(broke), 0);
@@ -2433,48 +2105,50 @@ mod receiving_a_migration {
 				vec![Event::MigratedWithUnpaidDeposit { para_id, manager: broke }]
 			);
 
-			// AND it behaves like any other para: the manager is locked out, and governance can
-			// still remove it without a ticket to release.
+			// AND the manager is locked out like any other.
 			assert_noop!(
 				Registrar::deregister(RuntimeOrigin::signed(broke), para_id),
 				Error::<Test>::ParaLocked
 			);
-			assert_ok!(Registrar::force_remove_para(RuntimeOrigin::root(), para_id));
-			assert!(Paras::<Test>::get(para_id).is_none());
 		});
 	}
 
 	#[test]
 	fn a_system_para_is_skipped_rather_than_registered() {
 		build_and_execute(|| {
-			// GIVEN a migrated id below the public floor. System chains are not registered
-			// through this pallet, and `do_try_state` rejects any id below the floor — so
-			// accepting one would corrupt storage rather than preserve anything.
-			let system_para = FIRST_PARA_ID - 1;
-
 			assert_ok!(Registrar::receive_para(MigratedPara {
-				para_id: system_para,
+				para_id: SYSTEM_PARA_ID,
 				manager: ALICE,
 				state: MigratedParaState::Registered { head_len: 20 },
 				locked: Some(true),
 			}));
 
-			assert!(Paras::<Test>::get(system_para).is_none());
+			assert!(Paras::<Test>::get(SYSTEM_PARA_ID).is_none());
 			assert_eq!(held(ALICE), 0);
-			assert_eq!(registrar_events(), vec![Event::SystemParaSkipped { para_id: system_para }]);
+			assert_eq!(
+				registrar_events(),
+				vec![Event::SystemParaSkipped { para_id: SYSTEM_PARA_ID }]
+			);
 		});
 	}
 
+	/// An id live on the relay chain but absent from this chain's map is unreachable only because
+	/// the counter is monotonic, so the counter never moves below what arrived.
 	#[test]
 	fn the_id_counter_comes_across_and_allocation_continues_from_it() {
 		build_and_execute(|| {
+			// A counter below the floor cannot reach a system chain's id.
+			Registrar::receive_next_free_para_id(0);
+			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID);
+
 			Registrar::receive_next_free_para_id(FIRST_PARA_ID + 700);
 			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID + 700);
+			assert_eq!(reserve_for(ALICE), FIRST_PARA_ID + 701);
 
-			// A counter that arrives pointing at an id already taken is survivable: `reserve`
-			// steps over rather than failing, which is what stops a bad migration bricking it.
+			// A counter that arrives behind the one here leaves it alone: `reserve` errors on a
+			// taken id, so moving back would brick it.
 			Registrar::receive_next_free_para_id(FIRST_PARA_ID + 700);
-			assert_eq!(reserve_for(BOB), FIRST_PARA_ID + 701);
+			assert_eq!(reserve_for(BOB), FIRST_PARA_ID + 702);
 		});
 	}
 }

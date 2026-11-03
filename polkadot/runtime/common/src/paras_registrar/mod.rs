@@ -24,13 +24,12 @@
 pub mod migration;
 
 use alloc::vec::Vec;
-use core::result;
-use frame_support::traits::EnsureOrigin;
-use registrar_primitives::ParaRequestRouter;
+use core::{matches, result};
 use frame_support::{
 	dispatch::DispatchResult,
 	ensure,
 	pallet_prelude::Weight,
+	storage::with_storage_layer,
 	traits::{Currency, Get, ReservableCurrency},
 };
 use frame_system::{self, ensure_root, ensure_signed, pallet_prelude::BlockNumberFor};
@@ -163,28 +162,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type DataDepositPerByte: Get<BalanceOf<Self>>;
 
-		/// Which para origin the calls a parachain dispatches **for itself** accept.
-		///
-		/// `EnsureParachain` — the default, and today's behaviour — accepts
-		/// `parachains_origin::Origin::Parachain`. A relay chain whose control plane has moved sets
-		/// this to also accept the narrower origin it hands non-system paras. Only the four
-		/// forwardable calls consult it, through `ensure_root_or_self_para`; `swap` and
-		/// `schedule_code_upgrade` keep `ensure_root_or_para` and so stay closed by origin as well
-		/// as by filter.
-		type ParaSelfOrigin: EnsureOrigin<
-			<Self as Config>::RuntimeOrigin,
-			Success = ParaId,
-		>;
-
-		/// Where a parachain's own registrar requests go once the control plane has moved off this
-		/// chain.
-		///
-		/// `()` — the default everywhere except a chain whose control plane has moved — never goes
-		/// remote, so every request is applied here exactly as before. See
-		/// [`registrar_primitives::ParaRequestRouter`] for which calls are forwardable and why
-		/// `schedule_code_upgrade` is not.
-		type ParaRequests: registrar_primitives::ParaRequestRouter;
-
 		/// Weight Information for the Extrinsics in the Pallet
 		type WeightInfo: WeightInfo;
 	}
@@ -230,11 +207,8 @@ pub mod pallet {
 		/// Cannot perform a parachain slot / lifecycle swap. Check that the state of both paras
 		/// are correct for the swap to work.
 		CannotSwap,
-		/// The request could not be handed to the chain that owns the registry.
-		///
-		/// Only reachable once the control plane has moved off this chain. Nothing was written
-		/// here, so the parachain may simply ask again.
-		RequestNotForwarded,
+		/// The operation is scaffolded but not implemented yet.
+		NotImplemented,
 	}
 
 	/// Pending swap operations.
@@ -307,7 +281,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			Self::do_register(who, None, id, genesis_head, validation_code, true, false)?;
+			Self::do_register(who, None, id, genesis_head, validation_code, true)?;
 			Ok(())
 		}
 
@@ -317,6 +291,9 @@ pub mod pallet {
 		///
 		/// The deposit taken can be specified for this registration. Any `ParaId`
 		/// can be registered, including sub-1000 IDs which are System Parachains.
+		///
+		/// Deprecated where registration runs through `pallet-registrar-para`: use its
+		/// `force_register` there, since a para registered here is unknown to that pallet.
 		#[pallet::call_index(1)]
 		#[pallet::weight(<T as Config>::WeightInfo::force_register())]
 		pub fn force_register(
@@ -328,7 +305,7 @@ pub mod pallet {
 			validation_code: ValidationCode,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false, false)
+			Self::do_register(who, Some(deposit), id, genesis_head, validation_code, false)
 		}
 
 		/// Deregister a Para Id, freeing all data and returning any deposit.
@@ -338,15 +315,7 @@ pub mod pallet {
 		#[pallet::call_index(2)]
 		#[pallet::weight(<T as Config>::WeightInfo::deregister())]
 		pub fn deregister(origin: OriginFor<T>, id: ParaId) -> DispatchResult {
-			if T::ParaRequests::is_remote() {
-				// Managers are never forwarded: a forwarded request carries no caller identity,
-				// so the control plane would read it as "the para asked". Once the control plane
-				// has moved, managers act on it directly and only the para itself (or Root) may
-				// ask here.
-				Self::ensure_root_or_self_para(origin, id)?;
-				return Self::forward(T::ParaRequests::deregister(id.into()));
-			}
-			Self::ensure_root_self_para_or_owner(origin, id)?;
+			Self::ensure_root_para_or_owner(origin, id)?;
 			Self::do_deregister(id)
 		}
 
@@ -417,14 +386,7 @@ pub mod pallet {
 		#[pallet::call_index(4)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn remove_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			// Deliberately not `ensure_root_para_or_owner`: a lock exists to protect the para from
-			// its manager, so the manager may not lift it. The control plane enforces the same
-			// rule on its own copy — a forwarded request arrives there as the para's own origin,
-			// so the distinction survives the trip.
-			Self::ensure_root_or_self_para(origin, para)?;
-			if T::ParaRequests::is_remote() {
-				return Self::forward(T::ParaRequests::remove_lock(para.into()));
-			}
+			Self::ensure_root_or_para(origin, para)?;
 			<Self as Registrar>::remove_lock(para);
 			Ok(())
 		}
@@ -464,12 +426,7 @@ pub mod pallet {
 		#[pallet::call_index(6)]
 		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
 		pub fn add_lock(origin: OriginFor<T>, para: ParaId) -> DispatchResult {
-			if T::ParaRequests::is_remote() {
-				// See `deregister` for why the manager may not reach the forward.
-				Self::ensure_root_or_self_para(origin, para)?;
-				return Self::forward(T::ParaRequests::add_lock(para.into()));
-			}
-			Self::ensure_root_self_para_or_owner(origin, para)?;
+			Self::ensure_root_para_or_owner(origin, para)?;
 			<Self as Registrar>::apply_lock(para);
 			Ok(())
 		}
@@ -493,12 +450,6 @@ pub mod pallet {
 			new_code: ValidationCode,
 		) -> DispatchResult {
 			Self::ensure_root_para_or_owner(origin, para)?;
-			// Not forwarded, and it cannot be: this call carries the whole validation code, while
-			// the control plane's protocol carries a hash and a length and has the blob uploaded
-			// separately — pushing megabytes through the messaging layer is what that design exists
-			// to avoid. A chain that has moved its control plane filters this call instead. Little
-			// is lost: a parachain's ordinary upgrade path is `parachain_system`'s
-			// `authorize_upgrade`/`enact_authorized_upgrade`, which never touches this pallet.
 			polkadot_runtime_parachains::schedule_code_upgrade::<T>(
 				para,
 				new_code,
@@ -518,13 +469,7 @@ pub mod pallet {
 			para: ParaId,
 			new_head: HeadData,
 		) -> DispatchResult {
-			if T::ParaRequests::is_remote() {
-				// See `deregister` for why the manager may not reach the forward. Head data
-				// travels inline on both sides, so unlike a code upgrade this forwards as-is.
-				Self::ensure_root_or_self_para(origin, para)?;
-				return Self::forward(T::ParaRequests::set_current_head(para.into(), new_head.0));
-			}
-			Self::ensure_root_self_para_or_owner(origin, para)?;
+			Self::ensure_root_para_or_owner(origin, para)?;
 			polkadot_runtime_parachains::set_current_head::<T>(para, new_head);
 			Ok(())
 		}
@@ -575,7 +520,7 @@ impl<T: Config> Registrar for Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 	) -> DispatchResult {
-		Self::do_register(manager, None, id, genesis_head, validation_code, false, false)
+		Self::do_register(manager, None, id, genesis_head, validation_code, false)
 	}
 
 	// Deregister a Para ID, free any data, and return any deposits.
@@ -668,103 +613,94 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 			HeadData(genesis_head),
 			ValidationCode(validation_code),
 			false,
-			// The chain that took the deposit is the control plane. Locking here closes this
-			// chain's manager-facing calls for good, rather than leaving them open until the
-			// para's first head.
-			true,
 		)
 	}
 
-	/// Deregister a Para Id, freeing all data.
+	// No origin, manager or lock check: the parachain registrar does those before asking.
 	fn deregister(para_id: u32) -> DispatchResult {
 		let id = ParaId::from(para_id);
-		match paras::Pallet::<T>::lifecycle(id) {
-			// Para must be a parathread (on-demand parachain), or not exist at all.
-			Some(ParaLifecycle::Parathread) | None => {},
-			_ => return Err(Error::<T>::NotParathread.into()),
-		}
-		polkadot_runtime_parachains::schedule_para_cleanup::<T>(id)
-			.map_err(|_| Error::<T>::CannotDeregister)?;
-
-		Paras::<T>::remove(id);
-
-		PendingSwap::<T>::remove(id);
-		Self::deposit_event(Event::<T>::Deregistered { para_id: id });
-		Ok(())
-	}
-
-	fn schedule_code_upgrade(para_id: u32, new_code: Vec<u8>) -> DispatchResult {
-		polkadot_runtime_parachains::schedule_code_upgrade::<T>(
-			ParaId::from(para_id),
-			ValidationCode(new_code),
-			UpgradeStrategy::ApplyAtExpectedBlock,
-		)
-	}
-
-	fn remove_upgrade_cooldown(para_id: u32) -> bool {
-		paras::Pallet::<T>::remove_upgrade_cooldown_without_charge(ParaId::from(para_id))
-	}
-
-	fn set_current_head(para_id: u32, head: Vec<u8>) -> DispatchResult {
-		polkadot_runtime_parachains::set_current_head::<T>(ParaId::from(para_id), HeadData(head));
-		Ok(())
+		// Rolls back if `schedule_para_cleanup` fails after earlier writes.
+		with_storage_layer(|| {
+			// A retry after a lost answer: cleanup is already scheduled.
+			if matches!(
+				paras::Pallet::<T>::lifecycle(id),
+				Some(ParaLifecycle::OffboardingParathread) |
+					Some(ParaLifecycle::OffboardingParachain)
+			) {
+				return Ok(());
+			}
+			Self::do_deregister(id)
+		})
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_deregisterable(manager: T::AccountId, para_id: u32) {
-		// A registry entry with no paras lifecycle: it is unlocked, and `do_deregister` succeeds
-		// because `schedule_para_cleanup` ignores an unknown para.
-		Paras::<T>::insert(
+	fn setup_worst_case_deregister(para_id: u32) -> DispatchResult {
+		use frame_system::RawOrigin;
+		use polkadot_runtime_parachains::shared;
+
+		// The sample size the paras pallet's own benchmarks assume for per-para lists.
+		const OTHER_PARAS: u32 = 1024;
+
+		let code = Self::worst_validation_code();
+		<Self as registrar_primitives::ParachainRegistrar>::register(
+			frame_benchmarking::account("manager", 0, 0),
+			para_id,
+			Self::worst_head_data().0,
+			code.0.clone(),
+		)?;
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), code)?;
+		Self::execute_pending_transitions();
+
+		// A pending upgrade makes offboarding scan the active PVF votes. Its code is trusted so it
+		// gets no vote of its own, which would make offboarding fail.
+		let now = frame_system::Pallet::<T>::block_number();
+		let upgrade = ValidationCode(alloc::vec![1u8; MIN_CODE_SIZE as usize]);
+		paras::Pallet::<T>::add_trusted_validation_code(RawOrigin::Root.into(), upgrade.clone())?;
+		paras::Pallet::<T>::force_schedule_code_upgrade(
+			RawOrigin::Root.into(),
 			ParaId::from(para_id),
-			ParaInfo { manager, deposit: BalanceOf::<T>::zero(), locked: None },
-		);
+			upgrade,
+			now,
+		)?;
+
+		let others: Vec<ParaId> =
+			(1..=OTHER_PARAS).map(|i| ParaId::from(para_id.saturating_add(i))).collect();
+		for other in &others {
+			// Unknown code, so each upgrade opens a vote of its own.
+			let mut code = alloc::vec![0u8; MIN_CODE_SIZE as usize];
+			code[..4].copy_from_slice(&u32::from(*other).to_le_bytes());
+			paras::Pallet::<T>::force_schedule_code_upgrade(
+				RawOrigin::Root.into(),
+				*other,
+				ValidationCode(code),
+				now,
+			)?;
+		}
+		paras::ActionsQueue::<T>::insert(shared::Pallet::<T>::scheduled_session(), others);
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the head data length against the active configuration.
+		Err(())
+	}
+
+	fn set_current_head(_para_id: u32, _head: Vec<u8>) {
+		// TODO(ahm-v2): set the para's current head.
+	}
+
+	fn check_code_upgrade(_para_id: u32, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): validate the code length and that an upgrade may be scheduled now.
+		Err(())
+	}
+
+	fn schedule_code_upgrade(_para_id: u32, _validation_code: Vec<u8>) -> DispatchResult {
+		// TODO(ahm-v2): schedule the validation code upgrade.
+		Err(Error::<T>::NotImplemented.into())
 	}
 }
 
 impl<T: Config> Pallet<T> {
-	/// Like [`Self::ensure_root_or_para`], but also accepting the narrower origin a relay chain
-	/// hands a non-system parachain once its control plane has moved.
-	///
-	/// Deliberately separate rather than folded into `ensure_root_or_para`: that one is also used by
-	/// `swap` and `schedule_code_upgrade`, which are not forwardable and must stay unreachable by
-	/// origin as well as by filter. Widening it would quietly reopen both.
-	fn ensure_root_or_self_para(
-		origin: <T as frame_system::Config>::RuntimeOrigin,
-		id: ParaId,
-	) -> DispatchResult {
-		if let Ok(caller) =
-			T::ParaSelfOrigin::ensure_origin(<T as Config>::RuntimeOrigin::from(origin.clone()))
-		{
-			ensure!(caller == id, Error::<T>::NotOwner);
-			return Ok(());
-		}
-		Self::ensure_root_or_para(origin, id)
-	}
-
-	/// As [`Self::ensure_root_para_or_owner`], for the forwardable calls. See
-	/// [`Self::ensure_root_or_self_para`] for why this is a separate path.
-	fn ensure_root_self_para_or_owner(
-		origin: <T as frame_system::Config>::RuntimeOrigin,
-		id: ParaId,
-	) -> DispatchResult {
-		if let Ok(who) = ensure_signed(origin.clone()) {
-			let para_info = Paras::<T>::get(id).ok_or(Error::<T>::NotRegistered)?;
-			if para_info.manager == who {
-				ensure!(!para_info.is_locked(), Error::<T>::ParaLocked);
-				return Ok(());
-			}
-		}
-		Self::ensure_root_or_self_para(origin, id)
-	}
-
-	/// Turn a router verdict into a dispatch result.
-	///
-	/// A refusal means the transport would not take the request, so this chain has written nothing
-	/// and the parachain can ask again.
-	fn forward(sent: Result<(), ()>) -> DispatchResult {
-		sent.map_err(|()| Error::<T>::RequestNotForwarded.into())
-	}
-
 	/// Ensure the origin is one of Root, the `para` owner, or the `para` itself.
 	/// If the origin is the `para` owner, the `para` must be unlocked.
 	fn ensure_root_para_or_owner(
@@ -818,12 +754,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Attempt to register a new Para Id under management of `who` in the
 	/// system with the given information.
-	///
-	/// `lock` decides whether the new registration is closed to its manager immediately. A
-	/// registration driven from another chain sets it: that chain is the control plane, so the
-	/// relay chain's own manager-facing calls must not offer a second way in. A locally driven
-	/// registration leaves it open and is locked later, at the para's first head, by
-	/// [`OnNewHead`].
 	fn do_register(
 		who: T::AccountId,
 		deposit_override: Option<BalanceOf<T>>,
@@ -831,7 +761,6 @@ impl<T: Config> Pallet<T> {
 		genesis_head: HeadData,
 		validation_code: ValidationCode,
 		ensure_reserved: bool,
-		lock: bool,
 	) -> DispatchResult {
 		let deposited = if let Some(para_data) = Paras::<T>::get(id) {
 			ensure!(para_data.manager == who, Error::<T>::NotOwner);
@@ -851,7 +780,7 @@ impl<T: Config> Pallet<T> {
 		} else if let Some(rebate) = deposited.checked_sub(&deposit) {
 			<T as Config>::Currency::unreserve(&who, rebate);
 		};
-		let info = ParaInfo { manager: who.clone(), deposit, locked: lock.then_some(true) };
+		let info = ParaInfo { manager: who.clone(), deposit, locked: None };
 
 		Paras::<T>::insert(id, info);
 		// We check above that para has no lifecycle, so this should not fail.

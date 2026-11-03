@@ -91,74 +91,47 @@ pub enum MessageToRelayV1<AccountId> {
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 	},
-	/// Ask the relay chain to deregister `para_id`.
+	/// Ask the relay chain to drop `para_id` from the registry.
 	///
-	/// Carries no manager: the parachain holds the deposits and is the authority on who may ask,
-	/// and it has already checked. The relay chain removes the para or reports why it cannot.
-	/// Answered with [`MessageToParaV1::DeregisterResponse`].
+	/// The parachain has already checked that it holds neither a lease nor a region, but only the
+	/// relay chain knows whether the para is still live, locked, or has messages left in flight,
+	/// so the deposits stay held until it answers with [`MessageToParaV1::DeregisterResponse`].
+	///
+	/// Idempotent, so this is also the retry when an answer never arrives: a para already gone or
+	/// on its way out is answered `Ok(())` rather than refused, which is what lets the parachain
+	/// tell a lost verdict from a refusal without a second kind of message.
 	#[codec(index = 2)]
 	Deregister {
-		/// The para id to deregister.
+		/// The para id to drop.
 		para_id: ParaId,
 		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 	},
-	/// Ask the relay chain whether a deregistration whose verdict never arrived went through.
+	/// Ask the relay chain to authorize a validation code upgrade for `para_id`.
 	///
-	/// Sent when the manager gives up waiting on a [`MessageToRelayV1::Deregister`] answer. The
-	/// relay chain answers with what actually happened, and only that answer settles the
-	/// parachain's state. Answered with [`MessageToParaV1::CancelDeregistrationResponse`].
+	/// As with a registration, the blob itself is not sent: the relay chain is told which bytes to
+	/// accept and they are uploaded to it separately. Answered with
+	/// [`MessageToParaV1::CodeUpgradeResponse`].
 	#[codec(index = 3)]
-	CancelDeregistration {
-		/// The para id whose deregistration is being chased up.
-		para_id: ParaId,
-		/// The parachain's id for this message, echoed back in the response.
-		message_id: u64,
-	},
-	/// Ask the relay chain to accept a validation code upgrade for `para_id`.
-	///
-	/// Carries only the hash and length, for the same reason
-	/// [`MessageToRelayV1::Register`] does; the blob is uploaded to the relay chain separately.
-	/// No deposit changes hands: a registration is priced at the largest code the relay chain
-	/// will accept, so an upgrade is always already paid for.
-	///
-	/// Unanswered. Nothing on the parachain is staked on the outcome, so a refusal is reported
-	/// as a relay-chain event rather than costing a round trip.
-	#[codec(index = 4)]
 	AuthorizeCodeUpgrade {
 		/// The para id being upgraded.
 		para_id: ParaId,
-		/// The parachain's id for this message, for tying the two chains' events together.
+		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 		/// Blake2-256 hash of the validation code that will be uploaded.
 		code_hash: H256,
 		/// Length of the validation code that will be uploaded, in bytes.
 		code_len: u32,
 	},
-	/// Ask the relay chain to drop `para_id`'s upgrade cooldown.
+	/// Ask the relay chain to set the current head data of `para_id`.
 	///
-	/// The cost was already burned on the parachain, so the relay chain charges nothing. It is a
-	/// flat price there rather than the relay chain's "time left times a multiplier", because the
-	/// parachain cannot see how much of the cooldown is left without another round trip.
-	///
-	/// Unanswered. Nothing on the parachain is staked on the outcome — the cost is burned, not
-	/// held — so a refusal is reported as a relay-chain event.
-	#[codec(index = 6)]
-	RemoveUpgradeCooldown {
-		/// The para whose cooldown should be dropped.
-		para_id: ParaId,
-		/// The parachain's id for this message, for tying the two chains' events together.
-		message_id: u64,
-	},
-	/// Ask the relay chain to set `para_id`'s head data.
-	///
-	/// Head data is small enough in practice to travel inline, so this needs no upload step.
-	/// Unanswered, for the same reason as [`MessageToRelayV1::AuthorizeCodeUpgrade`].
-	#[codec(index = 5)]
+	/// The head data is small enough to travel with the request, so unlike a code upgrade this is
+	/// a single round trip. Answered with [`MessageToParaV1::SetHeadResponse`].
+	#[codec(index = 4)]
 	SetCurrentHead {
 		/// The para id whose head is being set.
 		para_id: ParaId,
-		/// The parachain's id for this message, for tying the two chains' events together.
+		/// The parachain's id for this message, echoed back in the response.
 		message_id: u64,
 		/// The new head data.
 		head: Vec<u8>,
@@ -212,48 +185,64 @@ pub enum MessageToParaV1 {
 		/// Whether the authorization was dropped.
 		outcome: Outcome,
 	},
-	/// Report how a deregistration requested with [`MessageToRelayV1::Deregister`] ended.
+	/// Answer a [`MessageToRelayV1::Deregister`].
 	///
-	/// `Ok(())` means the para is gone from the relay chain (or was never there), so the deposits
-	/// can be released.
+	/// `Ok(())` means the para is gone from the relay chain's registry, so every deposit the
+	/// parachain is holding for it can be released.
 	#[codec(index = 2)]
 	DeregisterResponse {
-		/// The para id the report is about.
+		/// The para id the answer is about.
 		para_id: ParaId,
 		/// The id of the [`MessageToRelayV1::Deregister`] this answers, echoed back.
 		message_id: u64,
-		/// Whether the deregistration was applied on the relay chain.
+		/// Whether the para was dropped.
 		outcome: Outcome,
 	},
-	/// Answer a [`MessageToRelayV1::CancelDeregistration`].
+	/// Answer a [`MessageToRelayV1::AuthorizeCodeUpgrade`].
 	///
-	/// `Ok(())` means the para is still registered on the relay chain, so the deregistration
-	/// never happened and the parachain can go back to normal. The only refusal is
-	/// [`FailureReason::NotRegistered`]: the deregistration did go through and its report was
-	/// lost, so the deposits go back after all.
+	/// `Ok(expire_at)` means the relay chain is holding the authorization and will accept the blob
+	/// until that relay-chain block. The upgrade is not scheduled yet: that is reported separately
+	/// with [`MessageToParaV1::CodeUpgradeScheduled`] once the code lands.
 	#[codec(index = 3)]
-	CancelDeregistrationResponse {
+	CodeUpgradeResponse {
 		/// The para id the answer is about.
 		para_id: ParaId,
-		/// The id of the [`MessageToRelayV1::CancelDeregistration`] this answers, echoed back.
+		/// The id of the [`MessageToRelayV1::AuthorizeCodeUpgrade`] this answers, echoed back.
 		message_id: u64,
-		/// Whether the deregistration was called off.
+		/// The relay-chain block the authorization lapses at, or why it was refused.
+		outcome: Result<u32, FailureReason>,
+	},
+	/// Report that an authorized code upgrade has been scheduled on the relay chain.
+	///
+	/// Sent when the blob is uploaded, which may be many blocks after the authorization and is not
+	/// something the parachain asked for, so this carries no outcome: a failure to upload simply
+	/// leaves the authorization to lapse.
+	#[codec(index = 4)]
+	CodeUpgradeScheduled {
+		/// The para id the report is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::AuthorizeCodeUpgrade`] this concludes, echoed back.
+		message_id: u64,
+	},
+	/// Answer a [`MessageToRelayV1::SetCurrentHead`].
+	///
+	/// The parachain checks the head against its own mirror of the relay chain's limits first, so
+	/// a refusal here means the two have drifted apart.
+	#[codec(index = 5)]
+	SetHeadResponse {
+		/// The para id the answer is about.
+		para_id: ParaId,
+		/// The id of the [`MessageToRelayV1::SetCurrentHead`] this answers, echoed back.
+		message_id: u64,
+		/// Whether the head was set.
 		outcome: Outcome,
 	},
-	/// `para_id` has produced its first block, so the automatic lock is due.
+	/// Note that `para_id` has produced a head on the relay chain.
 	///
-	/// The one message here that answers no request, which is why it carries no `message_id`: the
-	/// relay chain is reporting a fact it alone can observe, not a verdict on something the
-	/// control plane asked for.
-	///
-	/// Producing a block is the signal that a para has become something other people depend on,
-	/// and it is deliberately *not* the same as holding a core. A para whose genesis code or head
-	/// is wrong holds a core and never produces anything, and its manager needs exactly the calls
-	/// a lock takes away in order to fix it — so locking on assignment would strand it behind
-	/// governance. Sent once per registration; the relay chain does not repeat it.
-	#[codec(index = 4)]
-	NotedFirstHead {
-		/// The para that produced a block.
+	/// Correlates with no request, so it carries no `message_id` and is not answered.
+	#[codec(index = 6)]
+	HeadNoted {
+		/// The para id that produced a head.
 		para_id: ParaId,
 	},
 }
@@ -280,27 +269,14 @@ pub enum FailureReason {
 	/// The head data or the declared code length is not acceptable to the relay chain.
 	#[codec(index = 1)]
 	InvalidOnboardingData,
+	// Index 2 is reserved for `NotRegistered`, which lands with the deregister flow.
 	/// The relay chain is already holding as many pending registrations as it will accept.
 	#[codec(index = 3)]
 	TooManyPending,
-	/// The request's manager does not match the one in the relay chain's registry.
+	/// The relay chain will not drop this para: it is not an on-demand parathread, or its
+	/// offboarding could not be scheduled (e.g. a PVF pre-check is still in progress).
 	#[codec(index = 4)]
-	NotManager,
-	/// The para is locked from manager control on the relay chain.
-	#[codec(index = 5)]
-	Locked,
-	/// The registry refused to deregister the para: it is a live parachain, known to the relay
-	/// chain outside the registry, mid-upgrade, or its upward message queue is not drained.
-	#[codec(index = 6)]
-	CannotDeregister,
-	/// The answer to a [`MessageToRelayV1::CancelDeregistration`] that came too late: the para is
-	/// no longer registered, so the deregistration went through.
-	#[codec(index = 7)]
-	NotRegistered,
-	/// The registry refused the code upgrade: the para is mid-upgrade, or the code is not
-	/// acceptable to the relay chain's live configuration.
-	#[codec(index = 8)]
-	CannotUpgrade,
+	NotDeregisterable,
 }
 
 /// The parachain registry, as `pallet-registrar-relay` needs to see it.
@@ -321,11 +297,6 @@ pub trait ParachainRegistrar {
 	/// Whether the relay chain already knows this para id.
 	fn is_registered(para_id: ParaId) -> bool;
 
-	// Deliberately no `manager_of` and no `is_locked`: the control plane validates manager and
-	// lock before sending, and this registry's map is drained by the migration — so on a migrated
-	// chain either method is always the wrong answer, and both have caused real bugs. The relay
-	// chain acts on what it is told.
-
 	/// Onboard `para_id` under `manager`.
 	///
 	/// No deposit is taken: the manager's funds are held on the chain running
@@ -337,36 +308,38 @@ pub trait ParachainRegistrar {
 		validation_code: Vec<u8>,
 	) -> sp_runtime::DispatchResult;
 
-	/// Remove `para_id` from the registry and free its relay-chain state.
+	/// Drop `para_id` from the registry.
 	///
-	/// No deposit is released here for the same reason [`Self::register`] takes none. Not
-	/// required to be atomic on failure: the caller runs it under a storage layer.
+	/// Idempotent: a para already gone, or still being cleaned up, answers `Ok(())` rather than
+	/// refusing, so a second [`MessageToRelayV1::Deregister`] settles instead of telling the
+	/// parachain the para is still there. Nothing here retries on its own: the parachain waits,
+	/// and if no answer turns up the manager sends the request again. That second request is how
+	/// the parachain learns the first answer never came, and it reports it as an unexpected event.
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
 
-	/// Schedule `new_code` as `para_id`'s validation code.
-	///
-	/// No deposit is taken or topped up: a registration already paid for the largest code the
-	/// relay chain accepts. Not required to be atomic on failure; the caller runs it under a
-	/// storage layer.
-	fn schedule_code_upgrade(para_id: ParaId, new_code: Vec<u8>) -> sp_runtime::DispatchResult;
-
-	/// Set `para_id`'s current head data.
-	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult;
-
-	/// Drop `para_id`'s upgrade cooldown, charging nothing.
-	///
-	/// The caller has already been charged on the chain that holds the money. Returns whether
-	/// there was a cooldown to remove, so a request for a para that was not in one can be
-	/// reported as such rather than looking like a success.
-	fn remove_upgrade_cooldown(para_id: ParaId) -> bool;
-
-	/// Arrange for `para_id` to be registered under `manager`, unlocked and deregisterable, so
-	/// the deregistration path can be benchmarked.
+	/// Leave `para_id` where [`Self::deregister`] does the most work and still succeeds.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId);
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult;
+
+	/// Whether head data of this size is acceptable right now.
+	#[allow(clippy::result_unit_err)]
+	fn check_head_data(head_len: u32) -> Result<(), ()>;
+
+	/// Set the current head of `para_id`.
+	fn set_current_head(para_id: ParaId, head: Vec<u8>);
+
+	/// Whether `para_id` could take a code upgrade of this size right now.
+	#[allow(clippy::result_unit_err)]
+	fn check_code_upgrade(para_id: ParaId, code_len: u32) -> Result<(), ()>;
+
+	/// Schedule a validation code upgrade for `para_id`.
+	fn schedule_code_upgrade(
+		para_id: ParaId,
+		validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult;
 }
 
-/// Where a migrated para id sits in the registration flow, as the source chain recorded it.
+/// State of migrated para at the source chain.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub enum MigratedParaState {
 	/// The para id is held by its manager, but nothing is registered on the relay chain.
@@ -379,11 +352,14 @@ pub enum MigratedParaState {
 	},
 }
 
-/// One para id, as it arrives at the destination from the chain that used to own the registry.
+/// One para, as it arrives from source chain that used to own the registry.
 ///
 /// Carries no deposit. [`ReceiveMigratedParas::receive_para`] takes the reservation deposit,
 /// and for a registered para the registration deposit, from `manager` at the destination's own
 /// prices.
+///
+/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+/// is dropped.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo)]
 pub struct MigratedPara<AccountId> {
 	/// The para id.
@@ -398,13 +374,11 @@ pub struct MigratedPara<AccountId> {
 }
 
 /// Takes migrated para ids into the pallet that owns registration on the destination.
-///
-/// `()` refuses every para, so a migrator running ahead of the pallet parks each record instead
-/// of losing it.
 pub trait ReceiveMigratedParas<AccountId> {
 	/// Take one para, charging its deposits at this chain's prices.
 	///
-	/// Fails if the para id is already known here, or if the manager cannot pay.
+	/// Note: We recreate even if there is not enough fund to pay for the deposit so no RC para
+	/// gets dropped.
 	fn receive_para(para: MigratedPara<AccountId>) -> sp_runtime::DispatchResult;
 
 	/// Adopt the next free para id from the source chain.
@@ -417,82 +391,4 @@ impl<AccountId> ReceiveMigratedParas<AccountId> for () {
 	}
 
 	fn receive_next_free_para_id(_: ParaId) {}
-}
-
-/// Where a relay chain sends a parachain's *own* registrar requests once the control plane has
-/// moved off it.
-///
-/// The counterpart of `hrmp-primitives`' router, and the mirror image of [`ParachainRegistrar`]:
-/// that one lets the control plane drive the relay chain's registry, this one lets the relay chain
-/// hand a parachain's request to the control plane.
-///
-/// ## Why the relay chain keeps the calls
-///
-/// A parachain can deregister itself, lock and unlock itself, and set its own head by `Transact`ing
-/// on the relay chain's registrar. Filtering those off would make every parachain change the call
-/// it encodes *and* acquire a channel with the control plane first in order to reach it at all. So
-/// the relay chain keeps them and forwards instead: the parachain's encoded call is byte-identical
-/// to today.
-///
-/// Only the **para-origin** paths are forwardable. The manager paths are signed, and a relay chain
-/// whose control plane has moved accepts no signed origins, so a manager cannot get in to be
-/// forwarded — managers move to the control plane outright.
-///
-/// ## What is deliberately absent
-///
-/// No `schedule_code_upgrade`. The relay chain's call carries the whole `ValidationCode`, while the
-/// control plane's protocol carries only a hash and a length and has the blob uploaded separately —
-/// the two shapes cannot be reconciled by forwarding, and pushing megabytes through the messaging
-/// layer is the thing that protocol exists to avoid. That call is filtered instead, which costs
-/// little: a parachain's ordinary upgrade path is `parachain_system`'s
-/// `authorize_upgrade`/`enact_authorized_upgrade`, which never touches the registrar. The
-/// registrar's version is the manager and recovery path, and managers are moving regardless.
-///
-/// `swap` is absent for a different reason: it is being retired, not ported.
-///
-/// ## The mode is a runtime condition
-///
-/// Not a compile-time one — the same runtime owns its own registry before the control plane moves
-/// and forwards afterwards. `()` never goes remote, so a chain that owns its registry is
-/// unaffected.
-pub trait ParaRequestRouter {
-	/// Whether a parachain's requests are forwarded rather than applied on this chain.
-	fn is_remote() -> bool {
-		false
-	}
-
-	/// `para_id` asks to be deregistered.
-	#[allow(clippy::result_unit_err)]
-	fn deregister(para_id: ParaId) -> Result<(), ()>;
-
-	/// `para_id` asks to be locked against its manager.
-	#[allow(clippy::result_unit_err)]
-	fn add_lock(para_id: ParaId) -> Result<(), ()>;
-
-	/// `para_id` asks to be unlocked.
-	#[allow(clippy::result_unit_err)]
-	fn remove_lock(para_id: ParaId) -> Result<(), ()>;
-
-	/// `para_id` asks for its head data to be set.
-	#[allow(clippy::result_unit_err)]
-	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> Result<(), ()>;
-}
-
-/// Never goes remote: this chain owns its own registry and applies every request locally.
-impl ParaRequestRouter for () {
-	fn deregister(_: ParaId) -> Result<(), ()> {
-		Err(())
-	}
-
-	fn add_lock(_: ParaId) -> Result<(), ()> {
-		Err(())
-	}
-
-	fn remove_lock(_: ParaId) -> Result<(), ()> {
-		Err(())
-	}
-
-	fn set_current_head(_: ParaId, _: Vec<u8>) -> Result<(), ()> {
-		Err(())
-	}
 }

@@ -24,10 +24,7 @@
 //! the job of the `pallet-registrar-test` crate.
 
 use crate::{self as pallet_registrar_relay, SendToPara};
-use frame_support::{
-	derive_impl, parameter_types,
-	traits::{ConstU32, ConstU64},
-};
+use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 use registrar_primitives::{MessageToPara, ParaId, ParachainRegistrar};
 use sp_runtime::BuildStorage;
 
@@ -79,35 +76,13 @@ parameter_types! {
 	pub static AlreadyKnown: Vec<ParaId> = Vec::new();
 	/// When true, `MockRegistrar::register` fails.
 	pub static RegisterFails: bool = false;
-	/// The registry's manager entries, as `(para, manager)`.
-	pub static Managers: Vec<(ParaId, AccountId)> = Vec::new();
-	/// Paras `MockRegistrar` claims are locked.
-	pub static LockedParas: Vec<ParaId> = Vec::new();
-	/// When true, `MockRegistrar::deregister` fails, leaving its partial write behind.
+	/// When true, `MockRegistrar::deregister` fails.
 	pub static DeregisterFails: bool = false;
-	/// Paras `MockRegistrar` has deregistered, in order.
-	pub static DeregisteredParas: Vec<ParaId> = Vec::new();
 	/// Reports handed to the transport, oldest first.
 	pub static SentMessages: Vec<MessageToPara> = Vec::new();
 	/// When true, the transport refuses everything.
 	pub static SendFails: bool = false;
-	/// Code upgrades `MockRegistrar` has applied, in order.
-	pub static Upgraded: Vec<(ParaId, Vec<u8>)> = Vec::new();
-	/// When true, `MockRegistrar::schedule_code_upgrade` fails.
-	pub static UpgradeFails: bool = false;
-	/// Head data `MockRegistrar` has set, in order.
-	pub static HeadsSet: Vec<(ParaId, Vec<u8>)> = Vec::new();
-	/// When true, `MockRegistrar::set_current_head` fails.
-	pub static SetHeadFails: bool = false;
-	/// Paras the registry says are in an upgrade cooldown.
-	pub static InCooldown: Vec<ParaId> = Vec::new();
 }
-
-/// A raw storage key `MockRegistrar::deregister` writes before it can fail.
-///
-/// The recorders above are thread locals, which a storage layer cannot unwind. This is a real
-/// storage write, so a test can prove that the pallet rolled a failed deregistration back.
-pub const PARTIAL_WRITE_KEY: &[u8] = b":mock_partial_deregister:";
 
 /// Stands in for the relay chain's `paras_registrar`.
 pub struct MockRegistrar;
@@ -124,8 +99,7 @@ impl ParachainRegistrar for MockRegistrar {
 
 	fn is_registered(para_id: ParaId) -> bool {
 		AlreadyKnown::get().contains(&para_id) ||
-			Onboarded::get().iter().any(|(id, ..)| *id == para_id) ||
-			Managers::get().iter().any(|(id, _)| *id == para_id)
+			Onboarded::get().iter().any(|(id, ..)| *id == para_id)
 	}
 
 	fn register(
@@ -141,49 +115,41 @@ impl ParachainRegistrar for MockRegistrar {
 		Ok(())
 	}
 
-	fn schedule_code_upgrade(para_id: ParaId, new_code: Vec<u8>) -> sp_runtime::DispatchResult {
-		if UpgradeFails::get() {
-			return Err(sp_runtime::DispatchError::Other("registrar refused the upgrade"));
-		}
-		Upgraded::mutate(|v| v.push((para_id, new_code)));
-		Ok(())
-	}
-
-	fn remove_upgrade_cooldown(para_id: ParaId) -> bool {
-		let was = InCooldown::get().contains(&para_id);
-		InCooldown::mutate(|c| c.retain(|p| *p != para_id));
-		was
-	}
-
-	fn set_current_head(para_id: ParaId, head: Vec<u8>) -> sp_runtime::DispatchResult {
-		if SetHeadFails::get() {
-			return Err(sp_runtime::DispatchError::Other("registrar refused the head"));
-		}
-		HeadsSet::mutate(|v| v.push((para_id, head)));
-		Ok(())
-	}
-
 	fn deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
-		// The real registry refuses anything that is not an idle parathread, which is what stops
-		// a system chain or a live parachain being removed. Modelled here so the relay pallet is
-		// tested against a registry that has its own opinions, not a rubber stamp.
-		if AlreadyKnown::get().contains(&para_id) {
-			return Err(sp_runtime::DispatchError::Other("not the registry's to remove"));
-		}
-		frame_support::storage::unhashed::put(PARTIAL_WRITE_KEY, &para_id);
 		if DeregisterFails::get() {
-			// Left set on purpose: the real registry also fails only after having written.
 			return Err(sp_runtime::DispatchError::Other("registrar refused"));
 		}
-		frame_support::storage::unhashed::kill(PARTIAL_WRITE_KEY);
-		Managers::mutate(|managers| managers.retain(|(id, _)| *id != para_id));
-		DeregisteredParas::mutate(|deregistered| deregistered.push(para_id));
+		AlreadyKnown::mutate(|v| v.retain(|id| *id != para_id));
+		Onboarded::mutate(|v| v.retain(|(id, ..)| *id != para_id));
 		Ok(())
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
-	fn ensure_deregisterable(manager: Self::AccountId, para_id: ParaId) {
-		Managers::mutate(|managers| managers.push((para_id, manager)));
+	fn setup_worst_case_deregister(para_id: ParaId) -> sp_runtime::DispatchResult {
+		AlreadyKnown::mutate(|v| v.push(para_id));
+		Ok(())
+	}
+
+	fn check_head_data(_head_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the head data length in the mock.
+		Ok(())
+	}
+
+	fn set_current_head(_para_id: ParaId, _head: Vec<u8>) {
+		// TODO(ahm-v2): record the head update in the mock.
+	}
+
+	fn check_code_upgrade(_para_id: ParaId, _code_len: u32) -> Result<(), ()> {
+		// TODO(ahm-v2): check the code upgrade in the mock.
+		Ok(())
+	}
+
+	fn schedule_code_upgrade(
+		_para_id: ParaId,
+		_validation_code: Vec<u8>,
+	) -> sp_runtime::DispatchResult {
+		// TODO(ahm-v2): record the scheduled code upgrade in the mock.
+		Ok(())
 	}
 }
 
@@ -217,20 +183,21 @@ impl pallet_registrar_relay::Config for Test {
 	type MaxCodeSize = ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = ConstU32<MAX_PENDING>;
 	type UnsignedPriority = ConstU64<100>;
-	type MaxForwardsPerBlock = ConstU32<1>;
 	type WeightInfo = ();
 }
 
+parameter_types! {
+	pub const Unused: u32 = 0;
+}
+
+use frame_support::traits::ConstU64;
 
 /// Fresh externalities with every recorder cleared.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	Onboarded::set(Vec::new());
 	AlreadyKnown::set(Vec::new());
 	RegisterFails::set(false);
-	Managers::set(Vec::new());
-	LockedParas::set(Vec::new());
 	DeregisterFails::set(false);
-	DeregisteredParas::set(Vec::new());
 	SentMessages::set(Vec::new());
 	SendFails::set(false);
 

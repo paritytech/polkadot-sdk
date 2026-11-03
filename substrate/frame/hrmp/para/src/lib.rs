@@ -15,39 +15,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # HRMP deposit pallet (parachain side)
+//! # Parachain HRMP deposit pallet
 //!
-//! Holds HRMP channel deposits for the relay chain. The relay chain owns every channel and
-//! decides every deposit; this pallet holds and releases what it is told, against a
-//! [`DepositKey`], from the paying para's sovereign account on this chain.
+//! Holds and release the deposits of parachain for the relay chain HRMP channel.
 //!
-//! - A [`MessageToParaV1::Hold`] holds the amount and answers the relay chain with
-//!   [`MessageToRelayV1::HoldResult`].
-//! - A [`MessageToParaV1::Release`] releases what it names of what is held for the key, or all of
-//!   it. Releasing a key with nothing held does nothing.
-//! - [`Call::poke_channel_deposits`] and [`Call::establish_system_channel`] are the relay chain's
-//!   signed HRMP calls, asked of it from here.
-//! - [`Call::force_release`] and [`Call::force_answer`] are root's way out when a release or an
-//!   answer never arrived.
+//! [`Pallet::receive`] is called with [`MessageToPara`] from the relay chain and follows the
+//! protocol defined in hrmp-primitives.
+//! [`Call::force_set_deposit`] is called by governance to fix potential inconsistent state.
+//!
+//! [`ReceiveMigratedDeposits`] is for a migration that moved a para's funds to this chain and
+//! wants them held for a channel side.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use frame_support::{
-	ensure,
+	pallet_prelude::*,
+	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
 	traits::{
-		fungible::{Inspect, InspectHold, Mutate, MutateHold},
+		fungible::{Inspect, MutateHold},
 		tokens::{Fortitude, Precision, Preservation},
-		EnsureOrigin,
 	},
 };
 use hrmp_primitives::{
-	Balance, ChannelId, DepositKey, MessageToPara, MessageToParaV1, MessageToRelay,
-	MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
+	Balance, ChannelId, DepositError, DepositKey, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
 };
-use sp_runtime::{
-	traits::{Convert, Zero},
-	DispatchResult,
-};
+use sp_runtime::{traits::Convert, DispatchError, DispatchResult, TokenError};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -61,11 +56,12 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// Used to send an XCM `Transact` to the HRMP pallet on the relay chain.
+/// The index of [`Call::receive`] that receives [`MessageToPara`].
+pub const RECEIVE_CALL_INDEX: u8 = 0;
+
+/// Used to send an XCM `Transact` to `pallet-hrmp-relay` on the relay chain.
 pub trait SendToRelay {
 	/// Send `message` to the relay chain.
-	///
-	/// `Err(())` means the message could not be handed to the transport.
 	#[allow(clippy::result_unit_err)]
 	fn send(message: MessageToRelay) -> Result<(), ()>;
 }
@@ -77,27 +73,27 @@ impl SendToRelay for () {
 	}
 }
 
+/// Prepares the runtime for this pallet's benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelper {
+	/// Makes [`Config::SendToRelay`] take messages.
+	fn ensure_send_to_relay();
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl BenchmarkHelper for () {
+	fn ensure_send_to_relay() {}
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::{DispatchResult, *};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
-		/// The overarching event type.
-		#[allow(deprecated)]
-		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-
-		/// The overarching hold reason.
-		type RuntimeHoldReason: From<HoldReason>;
-
-		/// The currency deposits are held in.
-		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason, Balance = Balance>
-			+ Mutate<Self::AccountId>;
-
-		/// The relay chain.
-		type RelayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// The currency the deposits are held in.
+		type Currency: MutateHold<Self::AccountId, Reason: From<HoldReason>, Balance = Balance>;
 
 		/// Sends messages to the relay chain.
 		type SendToRelay: SendToRelay;
@@ -105,8 +101,12 @@ pub mod pallet {
 		/// A para's sovereign account on this chain, which pays its deposits.
 		type SovereignAccountOf: Convert<ParaId, Self::AccountId>;
 
-		/// Weight information for the extrinsics in this pallet.
+		/// Weight information for the operations in this pallet.
 		type WeightInfo: WeightInfo;
+
+		/// Prepares the runtime for the benchmarks.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelper;
 	}
 
 	#[pallet::pallet]
@@ -120,38 +120,33 @@ pub mod pallet {
 		ChannelDeposit,
 	}
 
-	/// What is held for each deposit.
+	/// What is held for each side of each channel. A side holding nothing has no entry.
 	#[pallet::storage]
-	pub type Deposits<T: Config> = StorageMap<_, Blake2_128Concat, DepositKey, Balance>;
+	pub type Deposits<T: Config> =
+		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), Balance, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// A deposit was held.
-		DepositHeld { key: DepositKey, amount: Balance },
-		/// A deposit could not be held.
-		DepositRefused { key: DepositKey, amount: Balance },
-		/// A deposit was released.
-		DepositReleased { key: DepositKey, amount: Balance },
-		/// Root released a deposit.
-		DepositForceReleased { key: DepositKey, amount: Balance },
-		/// A deposit migrated from the relay chain was held. `missing` is what the paying para
-		/// could not cover.
-		DepositMigrated { key: DepositKey, held: Balance, missing: Balance },
-		/// The relay chain was asked to reprice a channel's deposits.
-		PokeRequested { channel: ChannelId },
-		/// The relay chain was asked to open a channel between two system chains.
-		SystemChannelRequested { channel: ChannelId },
-		/// Root answered a hold on this chain's behalf.
-		AnswerForced { key: DepositKey, held: bool },
+		/// A side now holds `amount`.
+		DepositSet { channel: ChannelId, side: DepositSide, amount: Balance },
+		/// The deposits of request `id` could not be set. Nothing changed.
+		DepositRefused { id: u64, channel: ChannelId },
+		/// Everything held for a side, `amount`, was released.
+		DepositReleased { channel: ChannelId, side: DepositSide, amount: Balance },
+		/// A migrated deposit of `amount` was taken over: `held` of it is now held for the side,
+		/// on top of what it held. The rest, if any, the paying para could not cover.
+		DepositMigrated { channel: ChannelId, side: DepositSide, amount: Balance, held: Balance },
 	}
 
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The answer could not be handed to the transport.
 		SendFailed,
-		/// Nothing is held for this deposit.
-		NoSuchDeposit,
+		/// The side cannot cover its deposit.
+		InsufficientFunds,
+		/// The side's deposit could not be held or released for another reason.
+		CannotChangeDeposit,
 	}
 
 	#[pallet::hooks]
@@ -164,94 +159,109 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take a message from the relay chain.
+		/// Take a message from the relay chain for HRMP deposits.
+		///
+		/// The origin must be root.
+		// The index must equal `RECEIVE_CALL_INDEX`.
 		#[pallet::call_index(0)]
 		#[pallet::weight(match message {
-			MessageToPara::V1(MessageToParaV1::Hold { .. }) => T::WeightInfo::receive_hold(),
-			MessageToPara::V1(MessageToParaV1::Release { .. }) =>
-				T::WeightInfo::receive_release(),
+			MessageToPara::V1(MessageToParaV1::SetDeposits { .. }) =>
+				T::WeightInfo::receive_set_deposits(),
+			MessageToPara::V1(MessageToParaV1::Release { .. }) => T::WeightInfo::receive_release(),
 		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
-			T::RelayOrigin::ensure_origin_or_root(origin)?;
-
+			ensure_root(origin)?;
 			match message {
-				MessageToPara::V1(MessageToParaV1::Hold { key, amount }) => {
-					let held = Self::do_hold(key, amount).is_ok();
-					if held {
-						Self::deposit_event(Event::DepositHeld { key, amount });
-					} else {
-						Self::deposit_event(Event::DepositRefused { key, amount });
+				MessageToPara::V1(MessageToParaV1::SetDeposits {
+					id,
+					channel,
+					sender,
+					recipient,
+				}) => {
+					let result = with_transaction_opaque_err(|| {
+						let result =
+							[(DepositSide::Sender, sender), (DepositSide::Recipient, recipient)]
+								.into_iter()
+								.try_for_each(|(side, target)| match target {
+									Some(target) => Self::set_side(channel, side, target),
+									None => Ok(()),
+								});
+						if result.is_ok() {
+							TransactionOutcome::Commit(result)
+						} else {
+							TransactionOutcome::Rollback(result)
+						}
+					})
+					.unwrap_or(Err(DepositError::Other)); // Too deep in nested transactions.
+
+					if result.is_err() {
+						Self::deposit_event(Event::DepositRefused { id, channel });
 					}
-					Self::send(MessageToRelayV1::HoldResult { key, held })?;
+					Self::send(MessageToRelayV1::DepositsSet { id, result })
 				},
-				MessageToPara::V1(MessageToParaV1::Release { key, amount }) => {
-					if let Some(amount) = Self::do_release(key, amount) {
-						Self::deposit_event(Event::DepositReleased { key, amount });
+				MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient }) => {
+					for (side, release) in
+						[(DepositSide::Sender, sender), (DepositSide::Recipient, recipient)]
+					{
+						if release {
+							Self::release_side(channel, side);
+						}
 					}
+					Ok(())
 				},
 			}
-			Ok(())
 		}
 
-		/// Release everything held for `key`.
+		/// Hold or release so that `side` of `channel` holds `amount`, for a side that holds other
+		/// than what the relay chain records.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::WeightInfo::force_release())]
-		pub fn force_release(origin: OriginFor<T>, key: DepositKey) -> DispatchResult {
-			frame_system::ensure_root(origin)?;
-			let amount = Self::do_release(key, None).ok_or(Error::<T>::NoSuchDeposit)?;
-			Self::deposit_event(Event::DepositForceReleased { key, amount });
-			Ok(())
-		}
-
-		/// Ask the relay chain to bring a channel's deposits in line with its configuration.
-		///
-		/// Any signed origin may call this, as on the relay chain.
-		#[pallet::call_index(2)]
-		#[pallet::weight(T::WeightInfo::poke_channel_deposits())]
-		pub fn poke_channel_deposits(
+		#[pallet::weight(T::WeightInfo::receive_set_deposits())]
+		pub fn force_set_deposit(
 			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
+			channel: ChannelId,
+			side: DepositSide,
+			amount: Balance,
 		) -> DispatchResult {
-			ensure_signed(origin)?;
-			let channel = ChannelId { sender, recipient };
-			Self::send(MessageToRelayV1::PokeChannelDeposits { channel })?;
-			Self::deposit_event(Event::PokeRequested { channel });
-			Ok(())
-		}
-
-		/// Ask the relay chain to open a channel between two system chains.
-		///
-		/// Any signed origin may call this, as on the relay chain.
-		#[pallet::call_index(3)]
-		#[pallet::weight(T::WeightInfo::establish_system_channel())]
-		pub fn establish_system_channel(
-			origin: OriginFor<T>,
-			sender: ParaId,
-			recipient: ParaId,
-		) -> DispatchResult {
-			ensure_signed(origin)?;
-			let channel = ChannelId { sender, recipient };
-			Self::send(MessageToRelayV1::EstablishSystemChannel { channel })?;
-			Self::deposit_event(Event::SystemChannelRequested { channel });
-			Ok(())
-		}
-
-		/// Answer a hold on this chain's behalf, for one whose answer never arrived.
-		#[pallet::call_index(4)]
-		#[pallet::weight(T::WeightInfo::force_answer())]
-		pub fn force_answer(origin: OriginFor<T>, key: DepositKey, held: bool) -> DispatchResult {
-			frame_system::ensure_root(origin)?;
-			Self::send(MessageToRelayV1::HoldResult { key, held })?;
-			Self::deposit_event(Event::AnswerForced { key, held });
-			Ok(())
+			ensure_root(origin)?;
+			if Deposits::<T>::get((channel, side)).unwrap_or_default() == amount {
+				return Ok(());
+			}
+			Self::set_side(channel, side, amount).map_err(Self::dispatch_error)
 		}
 	}
 }
 
+impl<T: Config> ReceiveMigratedDeposits for Pallet<T> {
+	fn receive_deposit(key: DepositKey, amount: Balance) -> DispatchResult {
+		let DepositKey { channel, side } = key;
+		let who = Self::payer(&channel, side);
+		// What a hold may take, as `hold` checks it.
+		let held = T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force)
+			.min(amount);
+		if held != 0 {
+			let current = Deposits::<T>::get((channel, side)).unwrap_or_default();
+			Self::set_side(channel, side, current.saturating_add(held))
+				.map_err(Self::dispatch_error)?;
+		}
+		Self::deposit_event(Event::DepositMigrated { channel, side, amount, held });
+		Ok(())
+	}
+
+	fn weight_of_receive_deposit() -> Weight {
+		T::WeightInfo::receive_deposit()
+	}
+}
+
 impl<T: Config> Pallet<T> {
-	fn payer(key: &DepositKey) -> T::AccountId {
-		T::SovereignAccountOf::convert(key.para())
+	fn payer(channel: &ChannelId, side: DepositSide) -> T::AccountId {
+		T::SovereignAccountOf::convert(side.para(channel))
+	}
+
+	fn dispatch_error(e: DepositError) -> DispatchError {
+		match e {
+			DepositError::InsufficientFunds => Error::<T>::InsufficientFunds.into(),
+			DepositError::Other => Error::<T>::CannotChangeDeposit.into(),
+		}
 	}
 
 	fn send(message: MessageToRelayV1) -> DispatchResult {
@@ -259,41 +269,55 @@ impl<T: Config> Pallet<T> {
 			.map_err(|()| Error::<T>::SendFailed.into())
 	}
 
-	/// Hold `amount` for `key`, adding to anything already held for it.
-	fn do_hold(key: DepositKey, amount: Balance) -> DispatchResult {
-		T::Currency::hold(&HoldReason::ChannelDeposit.into(), &Self::payer(&key), amount)?;
-		Deposits::<T>::mutate(key, |held| {
-			*held = Some(held.unwrap_or_default().saturating_add(amount))
-		});
+	/// Holds or releases the difference between what `side` holds and `target`.
+	fn set_side(
+		channel: ChannelId,
+		side: DepositSide,
+		target: Balance,
+	) -> Result<(), DepositError> {
+		let reason = HoldReason::ChannelDeposit.into();
+		let who = Self::payer(&channel, side);
+		let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
+		if target > held {
+			T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
+				DispatchError::Token(TokenError::FundsUnavailable) => {
+					DepositError::InsufficientFunds
+				},
+				_ => DepositError::Other,
+			})?;
+		} else if target < held {
+			T::Currency::release(&reason, &who, held - target, Precision::BestEffort)
+				.map_err(|_| DepositError::Other)?;
+		}
+		if target == 0 {
+			Deposits::<T>::remove((channel, side));
+		} else {
+			Deposits::<T>::insert((channel, side), target);
+		}
+		Self::deposit_event(Event::DepositSet { channel, side, amount: target });
 		Ok(())
 	}
 
-	/// Release `amount` of what is held for `key`, or all of it, returning how much that was.
-	fn do_release(key: DepositKey, amount: Option<Balance>) -> Option<Balance> {
-		let held = Deposits::<T>::get(key)?;
-		let amount = amount.map_or(held, |amount| amount.min(held));
-		if amount == held {
-			Deposits::<T>::remove(key);
-		} else {
-			Deposits::<T>::insert(key, held - amount);
-		}
-		let released = T::Currency::release(
-			&HoldReason::ChannelDeposit.into(),
-			&Self::payer(&key),
-			amount,
-			Precision::BestEffort,
-		)
-		.unwrap_or_default();
-		Some(released)
+	/// Releases everything held for `side`. Nothing held is not an error.
+	fn release_side(channel: ChannelId, side: DepositSide) {
+		let Some(held) = Deposits::<T>::take((channel, side)) else { return };
+		let reason = HoldReason::ChannelDeposit.into();
+		let who = Self::payer(&channel, side);
+		let amount =
+			T::Currency::release(&reason, &who, held, Precision::BestEffort).unwrap_or_default();
+		Self::deposit_event(Event::DepositReleased { channel, side, amount });
 	}
 
-	/// Check that each para has exactly its recorded deposits on hold.
+	/// Checks that each para has exactly its recorded deposits on hold.
+	// `std` as well: the minimal-relay snapshot suite calls this between migration rounds.
 	#[cfg(any(feature = "try-runtime", feature = "std", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
-		let mut per_para = alloc::collections::btree_map::BTreeMap::<ParaId, Balance>::new();
-		for (key, amount) in Deposits::<T>::iter() {
-			ensure!(!amount.is_zero(), "hrmp-para: a deposit with nothing held is recorded");
-			let total = per_para.entry(key.para()).or_default();
+		use alloc::collections::btree_map::BTreeMap;
+		use frame_support::traits::fungible::InspectHold;
+		let mut per_para = BTreeMap::<ParaId, Balance>::new();
+		for ((channel, side), amount) in Deposits::<T>::iter() {
+			ensure!(amount != 0, "hrmp-para: a side holding nothing is recorded");
+			let total = per_para.entry(side.para(&channel)).or_default();
 			*total = total.saturating_add(amount);
 		}
 		for (para, recorded) in per_para {
@@ -303,32 +327,6 @@ impl<T: Config> Pallet<T> {
 			);
 			ensure!(on_hold == recorded, "hrmp-para: a para's hold differs from its deposits");
 		}
-		Ok(())
-	}
-}
-
-extern crate alloc;
-
-/// Holds what the paying para can cover, up to `amount`. A shortfall is recorded, never refused.
-impl<T: Config> ReceiveMigratedDeposits for Pallet<T> {
-	fn receive_deposit(key: DepositKey, amount: Balance) -> DispatchResult {
-		let held = if Self::do_hold(key, amount).is_ok() {
-			amount
-		} else {
-			let who = Self::payer(&key);
-			let available =
-				T::Currency::reducible_balance(&who, Preservation::Protect, Fortitude::Force);
-			let held = amount.min(available);
-			if !held.is_zero() {
-				Self::do_hold(key, held)?;
-			}
-			held
-		};
-		Self::deposit_event(Event::DepositMigrated {
-			key,
-			held,
-			missing: amount.saturating_sub(held),
-		});
 		Ok(())
 	}
 }

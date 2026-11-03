@@ -21,10 +21,9 @@
 use super::*;
 use crate::{
 	mock::{
-		answer_hold, deregister_parachain, new_test_ext, register_parachain,
-		register_parachain_with_balance, AskedHolds, AsyncDeposits, Dmp, Hrmp, MockGenesisConfig,
-		Paras, ParasShared, RemoteHeld, RuntimeEvent as MockEvent, RuntimeOrigin, System, Test,
-		TestUsesOnlyStoredVersionWrapper,
+		deregister_parachain, new_test_ext, register_parachain, register_parachain_with_balance,
+		Dmp, Hrmp, MockGenesisConfig, Paras, ParasShared, RuntimeEvent as MockEvent, RuntimeOrigin,
+		System, Test, TestUsesOnlyStoredVersionWrapper,
 	},
 	shared,
 };
@@ -337,6 +336,23 @@ fn force_open_channel_works_with_existing_request() {
 }
 
 #[test]
+fn force_open_channel_with_invalid_sender_fails() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// Only B is registered.
+		register_parachain(para_b);
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_noop!(
+			Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8),
+			Error::<Test>::OpenHrmpChannelInvalidSender
+		);
+	});
+}
+
+#[test]
 fn open_system_channel_works() {
 	let para_a = 1.into();
 	let para_b = 3.into();
@@ -453,6 +469,73 @@ fn poke_deposits_works() {
 		assert_eq!(
 			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
 			0
+		);
+	});
+}
+
+fn insert_channel_without_deposits(channel_id: &HrmpChannelId) {
+	let config = configuration::ActiveConfig::<Test>::get();
+	HrmpChannels::<Test>::insert(
+		channel_id,
+		HrmpChannel {
+			sender_deposit: 0,
+			recipient_deposit: 0,
+			max_capacity: config.hrmp_channel_max_capacity,
+			max_total_size: config.hrmp_channel_max_total_size,
+			max_message_size: config.hrmp_channel_max_message_size,
+			msg_count: 0,
+			total_size: 0,
+			mqc_head: None,
+		},
+	);
+}
+
+#[test]
+fn poke_deposits_increase_works() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 110);
+		let channel_id = HrmpChannelId { sender: para_a, recipient: para_b };
+		insert_channel_without_deposits(&channel_id);
+
+		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b));
+
+		let channel = HrmpChannels::<Test>::get(&channel_id).unwrap();
+		assert_eq!((channel.sender_deposit, channel.recipient_deposit), (20, 15));
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_a.into_account_truncating()),
+			20
+		);
+		assert_eq!(
+			<Test as Config>::Currency::reserved_balance(&para_b.into_account_truncating()),
+			15
+		);
+	});
+}
+
+#[test]
+fn poke_deposits_increase_without_balance_fails() {
+	let para_a = 2001.into();
+	let para_b = 2002.into();
+
+	let mut genesis = GenesisConfigBuilder::default();
+	genesis.hrmp_sender_deposit = 20;
+	genesis.hrmp_recipient_deposit = 15;
+	new_test_ext(genesis.build()).execute_with(|| {
+		register_parachain_with_balance(para_a, 100);
+		register_parachain_with_balance(para_b, 0);
+		insert_channel_without_deposits(&HrmpChannelId { sender: para_a, recipient: para_b });
+
+		// The sender's deposit is taken first and must be rolled back too.
+		assert_noop!(
+			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), para_a, para_b),
+			pallet_balances::Error::<Test, _>::InsufficientBalance
 		);
 	});
 }
@@ -1229,464 +1312,6 @@ fn hrmp_notifications_works() {
 				recipient: u32::from(para_a),
 			}]))
 			.encode(),
-		);
-	});
-}
-
-fn hrmp_events() -> Vec<Event<Test>> {
-	let events = System::events()
-		.into_iter()
-		.filter_map(|r| match r.event {
-			MockEvent::Hrmp(e) => Some(e),
-			_ => None,
-		})
-		.collect();
-	System::reset_events();
-	events
-}
-
-fn free(para: ParaId) -> Balance {
-	<Test as Config>::Currency::free_balance(&para.into_account_truncating())
-}
-
-fn reserved(para: ParaId) -> Balance {
-	<Test as Config>::Currency::reserved_balance(&para.into_account_truncating())
-}
-
-/// Sender deposit 20, recipient deposit 15.
-fn async_genesis() -> MockGenesisConfig {
-	let mut genesis = GenesisConfigBuilder::default();
-	genesis.hrmp_sender_deposit = 20;
-	genesis.hrmp_recipient_deposit = 15;
-	genesis.build()
-}
-
-/// Register `paras` with 100 each, onboard them, then hold deposits asynchronously.
-fn async_setup(paras: &[ParaId]) {
-	for para in paras {
-		register_parachain_with_balance(*para, 100);
-	}
-	run_to_block(5, Some(vec![4, 5]));
-	AsyncDeposits::set(true);
-	AskedHolds::set(vec![]);
-	RemoteHeld::set(Default::default());
-	let _ = hrmp_events();
-}
-
-#[test]
-fn async_deposits_open_and_close_a_channel_without_relay_funds() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-	let sender_key = DepositKey::sender(channel.clone());
-	let recipient_key = DepositKey::recipient(channel.clone());
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN deposits are held on another chain.
-		async_setup(&[alice, bob]);
-
-		// WHEN alice asks for a channel
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-
-		// THEN only the hold goes out: no request, no notification.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).is_none());
-		assert_eq!(
-			PendingDeposits::<Test>::get(&sender_key),
-			Some(PendingDeposit::Init {
-				max_capacity: 2,
-				max_message_size: 8,
-				amount: 20,
-				then_accept: false,
-			})
-		);
-		assert_eq!(AskedHolds::get(), vec![(sender_key.clone(), 20)]);
-		assert!(Dmp::dmq_contents(bob).is_empty());
-
-		// WHEN the hold lands
-		answer_hold(true);
-
-		// THEN the request is written and bob is told.
-		assert_eq!(HrmpOpenChannelRequests::<Test>::get(&channel).unwrap().sender_deposit, 20);
-		assert_eq!(Dmp::dmq_contents(bob).len(), 1);
-		assert_eq!(PendingDeposits::<Test>::iter().count(), 0);
-
-		// WHEN bob accepts, and the hold lands
-		assert_ok!(Hrmp::accept_open_channel(bob, alice));
-		assert!(!HrmpOpenChannelRequests::<Test>::get(&channel).unwrap().confirmed);
-		assert_eq!(Dmp::dmq_contents(alice).len(), 0);
-		answer_hold(true);
-
-		// THEN the request is confirmed and alice is told.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).unwrap().confirmed);
-		assert_eq!(Dmp::dmq_contents(alice).len(), 1);
-
-		// WHEN the session turns
-		run_to_block(8, Some(vec![8]));
-
-		// THEN the channel opens with nothing reserved here, and the deposits are held remotely.
-		assert!(channel_exists(alice, bob));
-		assert_eq!((free(alice), reserved(alice)), (100, 0));
-		assert_eq!((free(bob), reserved(bob)), (100, 0));
-		assert_eq!(
-			RemoteHeld::get(),
-			BTreeMap::from([(sender_key.clone(), 20), (recipient_key.clone(), 15)])
-		);
-		Hrmp::assert_storage_consistency_exhaustive();
-
-		// WHEN bob closes and the session turns
-		assert_ok!(Hrmp::close_channel(bob, channel.clone()));
-		run_to_block(10, Some(vec![10]));
-
-		// THEN both deposits are released remotely.
-		assert!(!channel_exists(alice, bob));
-		assert!(RemoteHeld::get().is_empty());
-		assert_eq!(
-			hrmp_events(),
-			vec![
-				Event::DepositPending { key: sender_key },
-				Event::OpenChannelRequested {
-					sender: alice,
-					recipient: bob,
-					proposed_max_capacity: 2,
-					proposed_max_message_size: 8,
-				},
-				Event::DepositPending { key: recipient_key },
-				Event::OpenChannelAccepted { sender: alice, recipient: bob },
-			]
-		);
-	});
-}
-
-#[test]
-fn a_refused_hold_drops_the_request() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-	let sender_key = DepositKey::sender(channel.clone());
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN alice's request waits on its deposit.
-		async_setup(&[alice, bob]);
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-
-		// WHEN a second request for the same channel arrives meanwhile
-		// THEN it is refused.
-		assert_noop!(Hrmp::init_open_channel(alice, bob, 2, 8), Error::<Test>::DepositPending);
-
-		// WHEN the hold is refused
-		answer_hold(false);
-
-		// THEN nothing is recorded, nothing is held, and alice may ask again.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).is_none());
-		assert_eq!(PendingDeposits::<Test>::iter().count(), 0);
-		assert!(RemoteHeld::get().is_empty());
-		assert!(Dmp::dmq_contents(bob).is_empty());
-		assert_eq!(
-			hrmp_events(),
-			vec![
-				Event::DepositPending { key: sender_key.clone() },
-				Event::DepositRefused { key: sender_key },
-			]
-		);
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-	});
-}
-
-#[test]
-fn a_held_deposit_is_returned_if_the_request_no_longer_passes() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let charlie: ParaId = 2096.into(); // recipient
-	let dave: ParaId = 2128.into(); // recipient
-									// The default genesis allows two outbound channels per para.
-	let third = HrmpChannelId { sender: alice, recipient: dave };
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN deposits are held on another chain.
-		async_setup(&[alice, bob, charlie, dave]);
-
-		// WHEN alice asks for three channels while the first hold is still out
-		// THEN all three are parked: a parked request does not count towards the limit.
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-		assert_ok!(Hrmp::init_open_channel(alice, charlie, 2, 8));
-		assert_ok!(Hrmp::init_open_channel(alice, dave, 2, 8));
-		assert_eq!(AskedHolds::get().len(), 3);
-
-		// WHEN all three holds land
-		answer_hold(true);
-		answer_hold(true);
-		let _ = hrmp_events();
-		let key = answer_hold(true);
-
-		// THEN the third fails its re-check and its deposit goes back.
-		assert_eq!(key, DepositKey::sender(third.clone()));
-		assert_eq!(HrmpOpenChannelRequestCount::<Test>::get(alice), 2);
-		assert!(HrmpOpenChannelRequests::<Test>::get(&third).is_none());
-		assert_eq!(RemoteHeld::get().get(&key), None);
-		assert_eq!(
-			hrmp_events(),
-			vec![Event::DepositReturned {
-				key,
-				error: Error::<Test>::OpenHrmpChannelLimitExceeded.into(),
-			}]
-		);
-	});
-}
-
-#[test]
-fn a_held_deposit_is_returned_if_the_recipient_offboarded_meanwhile() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient, offboards
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN alice's request waits on its deposit.
-		async_setup(&[alice, bob]);
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-
-		// WHEN bob offboards before the hold lands
-		deregister_parachain(bob);
-		run_to_block(7, Some(vec![6, 7]));
-		let _ = hrmp_events();
-		let key = answer_hold(true);
-
-		// THEN the request is refused and the deposit goes back.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).is_none());
-		assert!(RemoteHeld::get().is_empty());
-		assert_eq!(
-			hrmp_events(),
-			vec![Event::DepositReturned {
-				key,
-				error: Error::<Test>::OpenHrmpChannelInvalidRecipient.into(),
-			}]
-		);
-	});
-}
-
-#[test]
-fn an_offboarded_senders_request_deposit_is_released_where_it_is_held() {
-	let alice: ParaId = 2032.into(); // sender, offboards
-	let bob: ParaId = 2064.into(); // recipient
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN alice's request is written and its deposit held elsewhere.
-		async_setup(&[alice, bob]);
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-		answer_hold(true);
-		assert_eq!(RemoteHeld::get().len(), 1);
-
-		// WHEN alice offboards
-		deregister_parachain(alice);
-		run_to_block(7, Some(vec![6, 7]));
-
-		// THEN the request is gone and so is the deposit. Reserved locally it would stay reserved,
-		// which `refund_deposit_on_offboarding` pins for `ReserveDeposits`.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).is_none());
-		assert!(RemoteHeld::get().is_empty());
-	});
-}
-
-#[test]
-fn ordered_answers_keep_a_pending_accept_off_a_replaced_request() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-	let recipient_key = DepositKey::recipient(channel.clone());
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN alice's request for capacity 1 is written, and bob's accept waits on its deposit.
-		async_setup(&[alice, bob]);
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 1, 8));
-		answer_hold(true);
-		assert_ok!(Hrmp::accept_open_channel(bob, alice));
-
-		// WHEN alice cancels and asks again with capacity 2 before bob's hold lands
-		assert_ok!(Hrmp::cancel_open_request(alice, channel.clone()));
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-		let _ = hrmp_events();
-
-		// THEN bob's answer, which comes back first, finds no request and returns his deposit,
-		let key = answer_hold(true);
-		assert_eq!(key, recipient_key);
-		assert_eq!(
-			hrmp_events(),
-			vec![Event::DepositReturned {
-				key: recipient_key.clone(),
-				error: Error::<Test>::AcceptHrmpChannelDoesntExist.into(),
-			}]
-		);
-
-		// AND alice's new request lands unconfirmed.
-		answer_hold(true);
-		let request = HrmpOpenChannelRequests::<Test>::get(&channel).unwrap();
-		assert_eq!((request.max_capacity, request.confirmed), (2, false));
-		assert_eq!(RemoteHeld::get().get(&recipient_key), None);
-	});
-}
-
-#[test]
-fn force_open_takes_both_deposits_and_accepts_once_the_first_is_held() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-	let sender_key = DepositKey::sender(channel.clone());
-	let recipient_key = DepositKey::recipient(channel.clone());
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN deposits are held on another chain.
-		async_setup(&[alice, bob]);
-
-		// WHEN governance force-opens a paying channel
-		assert_ok!(Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), alice, bob, 2, 8));
-
-		// THEN it succeeds, waiting on the sender's deposit.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).is_none());
-		assert_eq!(AskedHolds::get(), vec![(sender_key.clone(), 20)]);
-		assert_eq!(hrmp_events(), vec![Event::DepositPending { key: sender_key.clone() }]);
-
-		// WHEN the sender's deposit is held
-		answer_hold(true);
-
-		// THEN the request is recorded and accepted on the recipient's behalf, which waits on the
-		// recipient's deposit.
-		assert!(!HrmpOpenChannelRequests::<Test>::get(&channel).unwrap().confirmed);
-		assert_eq!(AskedHolds::get(), vec![(recipient_key.clone(), 15)]);
-
-		// WHEN the recipient's deposit is held
-		answer_hold(true);
-
-		// THEN the request is confirmed with both deposits held, and opens at the next session.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).unwrap().confirmed);
-		assert_eq!(RemoteHeld::get(), BTreeMap::from([(sender_key, 20), (recipient_key, 15)]));
-		run_to_block(8, Some(vec![8]));
-		assert!(channel_exists(alice, bob));
-	});
-}
-
-#[test]
-fn a_force_open_the_recipient_cannot_accept_returns_the_sender_deposit() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient, at its inbound limit
-	let charlie: ParaId = 2096.into(); // sender
-	let dave: ParaId = 2128.into(); // sender
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN bob has as many inbound channels as the default genesis allows (two).
-		register_parachain_with_balance(alice, 100);
-		register_parachain_with_balance(bob, 100);
-		register_parachain_with_balance(charlie, 100);
-		register_parachain_with_balance(dave, 100);
-		run_to_block(5, Some(vec![4, 5]));
-		for sender in [charlie, dave] {
-			assert_ok!(Hrmp::init_open_channel(sender, bob, 2, 8));
-			assert_ok!(Hrmp::accept_open_channel(bob, sender));
-		}
-		run_to_block(8, Some(vec![8]));
-		AsyncDeposits::set(true);
-		let _ = hrmp_events();
-
-		// WHEN governance force-opens alice to bob, and alice's deposit is held
-		assert_ok!(Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), alice, bob, 2, 8));
-		answer_hold(true);
-
-		// THEN the accept is refused, so the request is withdrawn and alice's deposit released.
-		assert!(HrmpOpenChannelRequests::<Test>::get(&channel).is_none());
-		assert!(RemoteHeld::get().is_empty());
-		assert!(AskedHolds::get().is_empty());
-		assert!(hrmp_events().contains(&Event::DepositReturned {
-			key: DepositKey::sender(channel.clone()),
-			error: Error::<Test>::AcceptHrmpChannelLimitExceeded.into(),
-		}));
-	});
-}
-
-#[test]
-fn poke_reprices_deposits_that_are_held_asynchronously() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let channel = HrmpChannelId { sender: alice, recipient: bob };
-	let sender_key = DepositKey::sender(channel.clone());
-	let recipient_key = DepositKey::recipient(channel.clone());
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN an open channel whose deposits (20 and 15) are held remotely.
-		async_setup(&[alice, bob]);
-		assert_ok!(Hrmp::init_open_channel(alice, bob, 2, 8));
-		answer_hold(true);
-		assert_ok!(Hrmp::accept_open_channel(bob, alice));
-		answer_hold(true);
-		run_to_block(8, Some(vec![8]));
-		let _ = hrmp_events();
-
-		// WHEN the sender deposit rises to 30 and the recipient's falls to 5, and someone pokes
-		configuration::ActiveConfig::<Test>::mutate(|c| {
-			c.hrmp_sender_deposit = 30;
-			c.hrmp_recipient_deposit = 5;
-		});
-		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), alice, bob));
-
-		// THEN the decrease is released now, and the increase waits on its hold.
-		let recorded = HrmpChannels::<Test>::get(&channel).unwrap();
-		assert_eq!((recorded.sender_deposit, recorded.recipient_deposit), (20, 5));
-		assert_eq!(RemoteHeld::get().get(&recipient_key), Some(&5));
-		assert_eq!(AskedHolds::get(), vec![(sender_key.clone(), 10)]);
-
-		// AND poking again meanwhile is refused.
-		assert_noop!(
-			Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), alice, bob),
-			Error::<Test>::DepositPending
-		);
-
-		// WHEN the increase is held
-		answer_hold(true);
-
-		// THEN the channel records the new price, and the remote side holds it.
-		let recorded = HrmpChannels::<Test>::get(&channel).unwrap();
-		assert_eq!((recorded.sender_deposit, recorded.recipient_deposit), (30, 5));
-		assert_eq!(
-			RemoteHeld::get(),
-			BTreeMap::from([(sender_key.clone(), 30), (recipient_key, 5)])
-		);
-
-		// WHEN it rises again but the hold is refused
-		configuration::ActiveConfig::<Test>::mutate(|c| c.hrmp_sender_deposit = 90);
-		assert_ok!(Hrmp::poke_channel_deposits(RuntimeOrigin::signed(1), alice, bob));
-		answer_hold(false);
-
-		// THEN the old deposit stands.
-		assert_eq!(HrmpChannels::<Test>::get(&channel).unwrap().sender_deposit, 30);
-		assert_eq!(RemoteHeld::get().get(&sender_key), Some(&30));
-	});
-}
-
-#[test]
-fn a_parked_request_is_announced_once_its_deposit_is_held() {
-	let alice: ParaId = 2032.into(); // sender
-	let bob: ParaId = 2064.into(); // recipient
-	let sender_key = DepositKey::sender(HrmpChannelId { sender: alice, recipient: bob });
-
-	new_test_ext(async_genesis()).execute_with(|| {
-		// GIVEN deposits are held on another chain.
-		async_setup(&[alice, bob]);
-
-		// WHEN alice asks through the extrinsic
-		assert_ok!(Hrmp::hrmp_init_open_channel(crate::Origin::Parachain(alice).into(), bob, 2, 8));
-
-		// THEN only the pending deposit is announced,
-		assert_eq!(hrmp_events(), vec![Event::DepositPending { key: sender_key.clone() }]);
-
-		// AND the request is announced once the deposit is held.
-		answer_hold(true);
-		assert_eq!(
-			hrmp_events(),
-			vec![Event::OpenChannelRequested {
-				sender: alice,
-				recipient: bob,
-				proposed_max_capacity: 2,
-				proposed_max_message_size: 8,
-			}]
 		);
 	});
 }

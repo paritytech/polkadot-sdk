@@ -1539,11 +1539,11 @@ parameter_types! {
 }
 
 impl parachains_hrmp::Config for Runtime {
-	type ChannelDeposits = parachains_hrmp::ReserveDeposits<Runtime>;
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type ChannelManager = EnsureRoot<AccountId>;
 	type Currency = Balances;
+	type DepositProvider = Hrmp;
 	type DefaultChannelSizeAndCapacityWithSystem = ActiveConfigHrmpChannelSizeAndCapacityRatio<
 		Runtime,
 		HrmpChannelSizeAndCapacityWithSystemRatio,
@@ -1660,8 +1660,6 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
-	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
-	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;

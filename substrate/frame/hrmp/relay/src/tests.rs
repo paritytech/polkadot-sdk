@@ -15,247 +15,508 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for `pallet-hrmp-relay`.
-
-use crate::{mock::*, Error, Event, PendingReleases};
-use frame_support::{assert_noop, assert_ok, traits::Hooks};
+use crate::{
+	mock::*, Call, Error, Event, Outbox, PendingRequests, PendingSides, WeightInfo,
+	RECEIVE_CALL_INDEX,
+};
+use frame_support::{
+	assert_noop, assert_ok,
+	dispatch::GetDispatchInfo,
+	traits::{GetCallIndex, Hooks},
+	weights::{Weight, WeightMeter},
+};
 use hrmp_primitives::{
-	ChannelId, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaRequest,
-	ParaRequestV1,
+	ChannelId, DepositError as WireDepositError, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1,
+};
+use polkadot_primitives::{HrmpChannelId, Id as ParaId};
+use polkadot_runtime_parachains::{
+	hrmp::deposits::{
+		ChannelDepositProvider, DepositAction, DepositChange, DepositChangeRequest,
+		DepositChangeResponse, DepositError,
+	},
+	origin as parachains_origin,
 };
 use sp_runtime::DispatchError;
 
-fn hold_msg(amount: u128) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::Hold { key: sender_key(), amount })
+const INIT: DepositAction =
+	DepositAction::InitOpenChannel { max_capacity: 8, max_message_size: 8, max_total_size: 64 };
+
+fn wire(sender: u32, recipient: u32) -> ChannelId {
+	ChannelId { sender, recipient }
 }
 
-fn release_msg(key: hrmp_primitives::DepositKey, amount: Option<u128>) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::Release { key, amount })
+/// A request for the channel `sender → recipient`, each side moving from `current` to `target`.
+fn request(
+	(sender, recipient): (u32, u32),
+	sender_change: Option<(u128, u128)>,
+	recipient_change: Option<(u128, u128)>,
+	action: DepositAction,
+) -> DepositChangeRequest {
+	let change = |(current, target)| DepositChange { current, target };
+	DepositChangeRequest {
+		channel_id: HrmpChannelId { sender: sender.into(), recipient: recipient.into() },
+		sender: sender_change.map(change),
+		recipient: recipient_change.map(change),
+		action,
+	}
 }
 
-fn request(request: ParaRequestV1) -> ParaRequest {
-	ParaRequest::V1(request)
+/// A request to release both sides of `sender → recipient`.
+fn release_request(channel: (u32, u32)) -> DepositChangeRequest {
+	request(channel, Some((10, 0)), Some((10, 0)), DepositAction::Release)
 }
 
+fn try_set(request: DepositChangeRequest) -> Result<DepositChangeResponse, DispatchError> {
+	<HrmpRelay as ChannelDepositProvider>::try_set_deposit(request)
+}
+
+fn para_origin(para: u32) -> RuntimeOrigin {
+	parachains_origin::Origin::Parachain(ParaId::from(para)).into()
+}
+
+fn holder() -> RuntimeOrigin {
+	para_origin(HolderParaId::get().into())
+}
+
+fn answer(id: u64, result: Result<(), WireDepositError>) -> MessageToRelay {
+	MessageToRelay::V1(MessageToRelayV1::DepositsSet { id, result })
+}
+
+fn release_message(channel: (u32, u32)) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::Release {
+		channel: wire(channel.0, channel.1),
+		sender: true,
+		recipient: true,
+	})
+}
+
+/// Takes the messages sent so far.
+fn sent() -> Vec<MessageToPara> {
+	SENT.take()
+}
+
+/// Takes the answers handed to `OnDepositSet` so far.
+fn answers() -> Vec<(DepositChangeRequest, Result<(), DepositError>)> {
+	ANSWERS.take()
+}
+
+/// Takes this pallet's events so far.
+fn events() -> Vec<Event<Test>> {
+	let events = System::events()
+		.into_iter()
+		.filter_map(|r| match r.event {
+			RuntimeEvent::HrmpRelay(e) => Some(e),
+			_ => None,
+		})
+		.collect();
+	System::reset_events();
+	events
+}
+
+/// Queues a release of `channel` while the transport refuses it.
+fn queue_release(channel: (u32, u32)) {
+	let accept = ACCEPT.replace(Some(0));
+	assert_eq!(try_set(release_request(channel)), Ok(DepositChangeResponse::Applied));
+	ACCEPT.set(accept);
+}
+
+fn poll() {
+	HrmpRelay::on_poll(1, &mut WeightMeter::new());
+}
+
+/// The chain that holds the deposits encodes `receive` with [`RECEIVE_CALL_INDEX`].
 #[test]
-fn relay_request_dispatches_every_request_as_the_asking_para() {
-	new_test_ext().execute_with(|| {
-		// GIVEN para A acting as itself.
-		let para_a = RuntimeOrigin::signed(PARA_A_ACCOUNT);
+fn receive_call_index_ok() {
+	let message = MessageToRelay::V1(MessageToRelayV1::DepositsSet { id: 0, result: Ok(()) });
+	let call = Call::<Test>::receive { message };
+	assert_eq!(call.get_call_index(), RECEIVE_CALL_INDEX);
+}
 
-		// WHEN it sends each of the five requests
-		for r in [
-			ParaRequestV1::InitOpenChannel {
-				recipient: PARA_B,
-				proposed_max_capacity: 8,
-				proposed_max_message_size: 1_024,
-			},
-			ParaRequestV1::AcceptOpenChannel { sender: PARA_B },
-			ParaRequestV1::CloseChannel { channel: CHANNEL },
-			ParaRequestV1::CancelOpenRequest { channel: CHANNEL, open_requests: 3 },
-			ParaRequestV1::EstablishChannelWithSystem { target_system_chain: 1_000 },
-		] {
-			assert_ok!(HrmpRelay::relay_request(para_a.clone(), request(r)));
+/// A request is sent with its targets and waits for its answer, locking its sides.
+#[test]
+fn request_is_sent_and_pending() {
+	new_test_ext(|| {
+		let req = request((1, 2), Some((3, 10)), Some((4, 20)), INIT);
+		assert_eq!(try_set(req.clone()), Ok(DepositChangeResponse::Pending));
+
+		let message = MessageToParaV1::SetDeposits {
+			id: 0,
+			channel: wire(1, 2),
+			sender: Some(10),
+			recipient: Some(20),
+		};
+		assert_eq!(sent(), vec![MessageToPara::V1(message)]);
+		assert_eq!(PendingRequests::<Test>::get(0), Some(req));
+		assert_eq!(PendingSides::<Test>::get((wire(1, 2), DepositSide::Sender)), Some(0));
+		assert_eq!(PendingSides::<Test>::get((wire(1, 2), DepositSide::Recipient)), Some(0));
+		assert_eq!(events(), vec![Event::DepositRequested { id: 0, channel: wire(1, 2) }]);
+		assert!(answers().is_empty());
+
+		// The next request takes the next id.
+		assert_ok!(try_set(request((1, 3), Some((0, 10)), None, INIT)));
+		assert_eq!(events(), vec![Event::DepositRequested { id: 1, channel: wire(1, 3) }]);
+	});
+}
+
+/// A side that waits for its answer refuses another request, and leaves no trace.
+#[test]
+fn pending_side_refuses() {
+	new_test_ext(|| {
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), None, INIT)));
+		assert_ok!(try_set(request(
+			(1, 2),
+			None,
+			Some((0, 10)),
+			DepositAction::AcceptOpenChannel { max_capacity: 1, max_message_size: 1 }
+		)));
+		sent();
+
+		let poke = DepositAction::PokeChannelDeposits;
+		for (sender, recipient) in
+			[(Some((10, 20)), None), (None, Some((10, 20))), (Some((10, 20)), Some((10, 20)))]
+		{
+			assert_noop!(
+				try_set(request((1, 2), sender, recipient, poke)),
+				Error::<Test>::DepositPending
+			);
 		}
-
-		// THEN each reaches HRMP as para A, with its arguments.
-		assert_eq!(
-			HrmpCalls::get(),
-			vec![
-				HrmpCall::Init { para: PARA_A, recipient: PARA_B, capacity: 8, size: 1_024 },
-				HrmpCall::Accept { para: PARA_A, sender: PARA_B },
-				HrmpCall::Close { para: PARA_A, channel: CHANNEL },
-				HrmpCall::Cancel { para: PARA_A, channel: CHANNEL, open_requests: 3 },
-				HrmpCall::WithSystem { para: PARA_A, target: 1_000 },
-			]
-		);
-		assert_eq!(events(), vec![Event::RequestServed { para: PARA_A }; 5]);
+		assert!(sent().is_empty());
 	});
 }
 
+/// A pending side locks neither the other side, nor the reverse channel, nor another channel.
 #[test]
-fn relay_request_needs_a_parachain_origin() {
-	new_test_ext().execute_with(|| {
-		let close = request(ParaRequestV1::CloseChannel { channel: CHANNEL });
+fn pending_side_does_not_block_others() {
+	new_test_ext(|| {
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), None, INIT)));
+		assert_ok!(try_set(request(
+			(1, 2),
+			None,
+			Some((0, 10)),
+			DepositAction::AcceptOpenChannel { max_capacity: 1, max_message_size: 1 }
+		)));
+		assert_ok!(try_set(request((2, 1), Some((0, 10)), None, INIT)));
+		assert_ok!(try_set(request((1, 3), Some((0, 10)), None, INIT)));
+		assert_eq!(sent().len(), 4);
+	});
+}
 
-		// A plain account, or root, is not a para.
+/// A request that changes no side is still sent and answered, and locks nothing.
+#[test]
+fn request_without_sides() {
+	new_test_ext(|| {
+		let req = request((1, 2), None, None, DepositAction::PokeChannelDeposits);
+		assert_eq!(try_set(req.clone()), Ok(DepositChangeResponse::Pending));
+		assert_eq!(PendingSides::<Test>::iter().count(), 0);
+
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+		assert_eq!(answers(), vec![(req, Ok(()))]);
+	});
+}
+
+/// A request the transport refuses leaves no trace: no id taken, nothing pending, no event.
+#[test]
+fn send_failure_leaves_no_trace() {
+	new_test_ext(|| {
+		ACCEPT.set(Some(0));
 		assert_noop!(
-			HrmpRelay::relay_request(RuntimeOrigin::signed(ALICE), close.clone()),
-			DispatchError::BadOrigin
+			try_set(request((1, 2), Some((0, 10)), Some((0, 10)), INIT)),
+			Error::<Test>::SendFailed
+		);
+
+		// The next request takes id 0.
+		ACCEPT.set(None);
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), Some((0, 10)), INIT)));
+		assert_eq!(events(), vec![Event::DepositRequested { id: 0, channel: wire(1, 2) }]);
+	});
+}
+
+/// A request must not overtake a release that waits in the outbox, whatever its channel.
+#[test]
+fn request_refused_while_outbox_not_empty() {
+	new_test_ext(|| {
+		queue_release((1, 2));
+		assert_noop!(
+			try_set(request((1, 2), Some((0, 10)), None, INIT)),
+			Error::<Test>::TransportBusy
 		);
 		assert_noop!(
-			HrmpRelay::relay_request(RuntimeOrigin::root(), close),
-			DispatchError::BadOrigin
+			try_set(request((3, 4), Some((0, 10)), None, INIT)),
+			Error::<Test>::TransportBusy
 		);
-		assert!(HrmpCalls::get().is_empty());
+		assert!(sent().is_empty());
+
+		poll();
+		assert_eq!(sent(), vec![release_message((1, 2))]);
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), None, INIT)));
 	});
 }
 
+/// A release is sent at once, applied, and never waits for an answer.
 #[test]
-fn relay_request_is_refused_while_the_para_is_rationed() {
-	new_test_ext().execute_with(|| {
-		// GIVEN para A is over its ration.
-		Rationed::set(vec![PARA_A]);
+fn release_sent_immediately() {
+	new_test_ext(|| {
+		let req = request((1, 2), Some((10, 0)), None, DepositAction::Release);
+		assert_eq!(try_set(req), Ok(DepositChangeResponse::Applied));
 
-		// WHEN it asks, THEN nothing reaches HRMP.
-		assert_noop!(
-			HrmpRelay::relay_request(
-				RuntimeOrigin::signed(PARA_A_ACCOUNT),
-				request(ParaRequestV1::CloseChannel { channel: CHANNEL })
-			),
-			Error::<Test>::RequestRefused
-		);
-		assert!(HrmpCalls::get().is_empty());
-
-		// AND another para is unaffected.
-		assert_ok!(HrmpRelay::relay_request(
-			RuntimeOrigin::signed(PARA_B_ACCOUNT),
-			request(ParaRequestV1::CloseChannel { channel: CHANNEL })
-		));
+		let message =
+			MessageToParaV1::Release { channel: wire(1, 2), sender: true, recipient: false };
+		assert_eq!(sent(), vec![MessageToPara::V1(message)]);
+		assert_eq!(events(), vec![Event::ReleaseSent { channel: wire(1, 2) }]);
+		assert_eq!(PendingRequests::<Test>::iter().count(), 0);
+		assert_eq!(PendingSides::<Test>::iter().count(), 0);
 	});
 }
 
+/// A release goes through while a side waits for its answer, and the answer is still taken.
 #[test]
-fn relay_request_surfaces_the_hrmp_error() {
-	new_test_ext().execute_with(|| {
-		HrmpFails::set(Some(DispatchError::Other("refused")));
+fn release_ignores_pending_side() {
+	new_test_ext(|| {
+		let req = request((1, 2), Some((0, 10)), None, INIT);
+		assert_ok!(try_set(req.clone()));
+		sent();
 
-		assert_noop!(
-			HrmpRelay::relay_request(
-				RuntimeOrigin::signed(PARA_A_ACCOUNT),
-				request(ParaRequestV1::AcceptOpenChannel { sender: PARA_B })
-			),
-			DispatchError::Other("refused")
-		);
+		assert_eq!(try_set(release_request((1, 2))), Ok(DepositChangeResponse::Applied));
+		assert_eq!(sent(), vec![release_message((1, 2))]);
+		assert_eq!(PendingSides::<Test>::get((wire(1, 2), DepositSide::Sender)), Some(0));
+
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+		assert_eq!(answers(), vec![(req, Ok(()))]);
 	});
 }
 
+/// A release the transport refuses waits in the outbox.
 #[test]
-fn hold_sends_queued_releases_first() {
-	new_test_ext().execute_with(|| {
-		// GIVEN two releases queued.
-		HrmpRelay::release(sender_key(), None);
-		HrmpRelay::release(recipient_key(), Some(40));
-		assert!(Sent::get().is_empty());
-
-		// WHEN a hold is sent for a key that was just released
-		assert_ok!(HrmpRelay::hold(sender_key(), 100));
-
-		// THEN the parachain sees both releases before the hold.
-		assert_eq!(
-			Sent::get(),
-			vec![
-				release_msg(sender_key(), None),
-				release_msg(recipient_key(), Some(40)),
-				hold_msg(100)
-			]
-		);
-		assert!(PendingReleases::<Test>::get().is_empty());
-		assert_eq!(
-			events(),
-			vec![
-				Event::ReleaseSent { key: sender_key(), amount: None },
-				Event::ReleaseSent { key: recipient_key(), amount: Some(40) },
-				Event::HoldSent { key: sender_key(), amount: 100 },
-			]
-		);
-	});
-}
-
-#[test]
-fn queued_releases_go_out_at_the_start_of_the_next_block() {
-	new_test_ext().execute_with(|| {
-		// GIVEN a release queued.
-		HrmpRelay::release(sender_key(), None);
-		assert!(Sent::get().is_empty());
-
-		// WHEN the next block starts
-		HrmpRelay::on_initialize(2);
-
-		// THEN it is sent.
-		assert_eq!(Sent::get(), vec![release_msg(sender_key(), None)]);
-		assert!(PendingReleases::<Test>::get().is_empty());
-	});
-}
-
-#[test]
-fn a_release_the_transport_refuses_is_dropped_and_reported() {
-	new_test_ext().execute_with(|| {
-		HrmpRelay::release(sender_key(), None);
-		SendFails::set(true);
-
-		HrmpRelay::on_initialize(2);
-
-		assert!(PendingReleases::<Test>::get().is_empty());
-		assert_eq!(events(), vec![Event::ReleaseFailed { key: sender_key(), amount: None }]);
-	});
-}
-
-#[test]
-fn a_hold_the_transport_refuses_is_an_error() {
-	new_test_ext().execute_with(|| {
-		SendFails::set(true);
-
-		assert_eq!(HrmpRelay::hold(sender_key(), 100), Err(()));
+fn release_queued_on_send_failure() {
+	new_test_ext(|| {
+		queue_release((1, 2));
+		assert_eq!(Outbox::<Test>::get().into_inner(), vec![release_message((1, 2))]);
+		assert!(sent().is_empty());
 		assert!(events().is_empty());
 	});
 }
 
+/// A release waits behind those already in the outbox, even if the transport would take it.
 #[test]
-fn receive_passes_the_hold_answer_on() {
-	new_test_ext().execute_with(|| {
-		let answer =
-			|held| MessageToRelay::V1(MessageToRelayV1::HoldResult { key: sender_key(), held });
-
-		// Only the deposit-holding parachain, or root, may answer.
-		assert_noop!(
-			HrmpRelay::receive(RuntimeOrigin::signed(ALICE), answer(true)),
-			DispatchError::BadOrigin
-		);
-		assert_noop!(
-			HrmpRelay::receive(RuntimeOrigin::signed(PARA_A_ACCOUNT), answer(true)),
-			DispatchError::BadOrigin
-		);
-
-		assert_ok!(HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), answer(true)));
-		assert_ok!(HrmpRelay::receive(RuntimeOrigin::root(), answer(false)));
-
-		assert_eq!(Answers::get(), vec![(sender_key(), true), (sender_key(), false)]);
+fn release_queued_behind_outbox() {
+	new_test_ext(|| {
+		queue_release((1, 2));
+		assert_ok!(try_set(release_request((3, 4))));
+		assert!(sent().is_empty());
 		assert_eq!(
-			events(),
-			vec![
-				Event::HoldAnswered { key: sender_key(), held: true },
-				Event::HoldAnswered { key: sender_key(), held: false },
-			]
+			Outbox::<Test>::get().into_inner(),
+			vec![release_message((1, 2)), release_message((3, 4))]
 		);
 	});
 }
 
+/// A release that finds the outbox full is dropped, and still reported as applied.
 #[test]
-fn receive_serves_the_calls_users_make_on_the_deposit_holding_parachain() {
-	new_test_ext().execute_with(|| {
-		let poke = MessageToRelay::V1(MessageToRelayV1::PokeChannelDeposits { channel: CHANNEL });
-		let system = ChannelId { sender: 1_000, recipient: 1_001 };
-		let open = MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { channel: system });
+fn release_dropped_when_outbox_full() {
+	new_test_ext(|| {
+		for sender in 0..4 {
+			queue_release((sender, 10));
+		}
+		events();
 
-		// Only the deposit-holding parachain, or root, may ask.
-		assert_noop!(
-			HrmpRelay::receive(RuntimeOrigin::signed(PARA_A_ACCOUNT), poke.clone()),
-			DispatchError::BadOrigin
-		);
+		ACCEPT.set(Some(0));
+		assert_eq!(try_set(release_request((5, 10))), Ok(DepositChangeResponse::Applied));
+		assert_eq!(events(), vec![Event::ReleaseDropped { channel: wire(5, 10) }]);
+		assert_eq!(Outbox::<Test>::decode_len(), Some(4));
+	});
+}
 
-		assert_ok!(HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), poke));
-		assert_ok!(HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), open.clone()));
+/// `on_poll` sends what waits in the outbox, oldest first.
+#[test]
+fn poll_sends_in_order() {
+	new_test_ext(|| {
+		poll();
+		assert!(sent().is_empty());
+
+		for sender in 0..3 {
+			queue_release((sender, 10));
+		}
+		poll();
+		let channels = [(0, 10), (1, 10), (2, 10)];
+		assert_eq!(sent(), channels.map(release_message).to_vec());
 		assert_eq!(
-			HrmpCalls::get(),
-			vec![HrmpCall::Poke { channel: CHANNEL }, HrmpCall::SystemChannel { channel: system }]
+			events(),
+			channels.map(|(s, r)| Event::ReleaseSent { channel: wire(s, r) }).to_vec()
+		);
+		assert!(Outbox::<Test>::get().is_empty());
+	});
+}
+
+/// `on_poll` stops at the first message the transport refuses, and keeps the rest in order.
+#[test]
+fn poll_stops_at_first_failure() {
+	new_test_ext(|| {
+		for sender in 0..3 {
+			queue_release((sender, 10));
+		}
+		ACCEPT.set(Some(1));
+		poll();
+		assert_eq!(sent(), vec![release_message((0, 10))]);
+		assert_eq!(
+			Outbox::<Test>::get().into_inner(),
+			vec![release_message((1, 10)), release_message((2, 10))]
 		);
 
-		// A refusal is the call's error.
-		HrmpFails::set(Some(DispatchError::Other("not system")));
-		assert_noop!(
-			HrmpRelay::receive(RuntimeOrigin::signed(CORETIME), open),
-			DispatchError::Other("not system")
+		// It goes on in a later block.
+		ACCEPT.set(None);
+		poll();
+		assert_eq!(sent(), vec![release_message((1, 10)), release_message((2, 10))]);
+	});
+}
+
+/// `on_poll` sends no more than its meter has room for.
+#[test]
+fn poll_respects_weight_meter() {
+	new_test_ext(|| {
+		for sender in 0..3 {
+			queue_release((sender, 10));
+		}
+
+		// No room to check the outbox.
+		let mut meter = WeightMeter::with_limit(
+			<() as WeightInfo>::flush_outbox(0).saturating_sub(Weight::from_parts(1, 0)),
 		);
+		HrmpRelay::on_poll(1, &mut meter);
+		assert_eq!(meter.consumed(), Weight::zero());
+		assert!(sent().is_empty());
+
+		// Room for one message.
+		let limit = <() as WeightInfo>::flush_outbox(2).saturating_sub(Weight::from_parts(1, 0));
+		let mut meter = WeightMeter::with_limit(limit);
+		HrmpRelay::on_poll(1, &mut meter);
+		assert_eq!(meter.consumed(), <() as WeightInfo>::flush_outbox(1));
+		assert_eq!(sent(), vec![release_message((0, 10))]);
+		assert_eq!(Outbox::<Test>::decode_len(), Some(2));
+	});
+}
+
+/// Only the para that holds the deposits may answer.
+#[test]
+fn receive_only_from_holder() {
+	new_test_ext(|| {
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), None, INIT)));
+		for origin in [para_origin(1), RuntimeOrigin::root(), RuntimeOrigin::signed(1)] {
+			assert_noop!(HrmpRelay::receive(origin, answer(0, Ok(()))), DispatchError::BadOrigin);
+		}
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+	});
+}
+
+/// An answer hands the request back unchanged, and unlocks its sides.
+#[test]
+fn answer_resumes_request() {
+	new_test_ext(|| {
+		let req = request((1, 2), Some((3, 10)), Some((4, 20)), INIT);
+		assert_ok!(try_set(req.clone()));
+		events();
+
+		let result = Err(WireDepositError::InsufficientFunds);
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, result)));
+		assert_eq!(answers(), vec![(req, Err(DepositError::InsufficientFunds))]);
+		assert_eq!(events(), vec![Event::DepositAnswered { id: 0, result }]);
+		assert_eq!(PendingRequests::<Test>::iter().count(), 0);
+		assert_eq!(PendingSides::<Test>::iter().count(), 0);
+
+		// The sides take requests again.
+		assert_ok!(try_set(request((1, 2), Some((3, 10)), Some((4, 20)), INIT)));
+	});
+}
+
+/// An answer for no pending request is ignored, without failing the message.
+#[test]
+fn unknown_answer_is_ignored() {
+	new_test_ext(|| {
+		assert_ok!(HrmpRelay::receive(holder(), answer(7, Ok(()))));
+		assert_eq!(events(), vec![Event::UnknownAnswer { id: 7 }]);
+		assert!(answers().is_empty());
+	});
+}
+
+/// A second answer for the same request is ignored.
+#[test]
+fn duplicate_answer_is_ignored() {
+	new_test_ext(|| {
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), None, INIT)));
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+		answers();
+		events();
+
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+		assert_eq!(events(), vec![Event::UnknownAnswer { id: 0 }]);
+		assert!(answers().is_empty());
+	});
+}
+
+/// Answers may come in any order, each going back to its own request.
+#[test]
+fn answers_out_of_order() {
+	new_test_ext(|| {
+		let first = request((1, 2), Some((0, 10)), None, INIT);
+		let second = request((3, 4), Some((0, 20)), None, INIT);
+		assert_ok!(try_set(first.clone()));
+		assert_ok!(try_set(second.clone()));
+
+		assert_ok!(HrmpRelay::receive(holder(), answer(1, Err(WireDepositError::Other))));
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+		assert_eq!(answers(), vec![(second, Err(DepositError::Other)), (first, Ok(()))]);
+	});
+}
+
+/// `receive` and `force_answer` are charged the dearest answer a request can get. A release
+/// gets no answer, so its weight does not count.
+#[test]
+fn receive_weight_includes_max_answer_weight() {
+	let expected = <() as WeightInfo>::receive() + Weight::from_parts(4, 40);
+	let call = Call::<Test>::receive { message: answer(0, Ok(())) };
+	assert_eq!(call.get_dispatch_info().call_weight, expected);
+	let call = Call::<Test>::force_answer { id: 0, result: Ok(()) };
+	assert_eq!(call.get_dispatch_info().call_weight, expected);
+}
+
+/// Only governance answers on the parachain's behalf.
+#[test]
+fn force_answer_requires_root() {
+	new_test_ext(|| {
+		assert_ok!(try_set(request((1, 2), Some((0, 10)), None, INIT)));
+		for origin in [holder(), RuntimeOrigin::signed(1)] {
+			assert_noop!(HrmpRelay::force_answer(origin, 0, Ok(())), DispatchError::BadOrigin);
+		}
+	});
+}
+
+/// Governance can only answer a pending request.
+#[test]
+fn force_answer_unknown() {
+	new_test_ext(|| {
+		assert_noop!(
+			HrmpRelay::force_answer(RuntimeOrigin::root(), 0, Ok(())),
+			Error::<Test>::UnknownRequest
+		);
+	});
+}
+
+/// A forced answer acts like the parachain's, which is then ignored if it comes late.
+#[test]
+fn force_answer_resumes() {
+	new_test_ext(|| {
+		let req = request((1, 2), Some((0, 10)), None, INIT);
+		assert_ok!(try_set(req.clone()));
+		events();
+
+		let result = Err(WireDepositError::Other);
+		assert_ok!(HrmpRelay::force_answer(RuntimeOrigin::root(), 0, result));
+		assert_eq!(answers(), vec![(req, Err(DepositError::Other))]);
+		assert_eq!(events(), vec![Event::DepositAnswered { id: 0, result }]);
+		assert_eq!(PendingSides::<Test>::iter().count(), 0);
+
+		assert_ok!(HrmpRelay::receive(holder(), answer(0, Ok(()))));
+		assert_eq!(events(), vec![Event::UnknownAnswer { id: 0 }]);
+		assert!(answers().is_empty());
 	});
 }

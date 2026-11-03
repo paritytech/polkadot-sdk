@@ -34,7 +34,7 @@ use frame_system::EnsureRoot;
 use polkadot_primitives::{Id as ParaId, ValidationCode};
 use polkadot_runtime_common::{paras_registrar, traits::OnSwap};
 use polkadot_runtime_parachains::{
-	configuration, dmp, hrmp,
+	configuration,
 	inclusion::{AggregateMessageOrigin, UmpQueueId},
 	origin, paras, shared,
 };
@@ -53,7 +53,7 @@ use xcm_builder::{
 use xcm_executor::XcmExecutor;
 
 use crate::{
-	senders::{EnsureRegistrarPara, RelayHrmpSendToPara, RelaySendToPara},
+	senders::{EnsureRegistrarPara, RelaySendToPara},
 	MAX_CODE_SIZE, MAX_HEAD_SIZE,
 };
 
@@ -133,21 +133,7 @@ impl frame_support::traits::EstimateNextSessionRotation<BlockNumber> for TestNex
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
-}
-
-/// Tells the control plane that a para has produced its first block.
-///
-/// The relay chain's whole part in the lock: this is the one fact the control plane cannot
-/// observe for itself, and a para's first block is what decides that its manager may no longer
-/// change its code, rewrite its head or deregister it. Wired here as `paras::Config::OnNewHead`,
-/// alongside `paras_registrar`, which keeps the relay chain's own copy of the flag.
-pub struct NoteFirstHeadToPara;
-
-impl paras::OnNewHead for NoteFirstHeadToPara {
-	fn on_new_head(id: ParaId, _head: &polkadot_primitives::HeadData) -> Weight {
-		pallet_registrar_relay::Pallet::<Runtime>::note_first_head(id.into())
-	}
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl paras::Config for Runtime {
@@ -156,7 +142,7 @@ impl paras::Config for Runtime {
 	type UnsignedPriority = ParasUnsignedPriority;
 	type QueueFootprinter = ();
 	type NextSessionRotation = TestNextSessionRotation;
-	type OnNewHead = (paras_registrar::Pallet<Runtime>, NoteFirstHeadToPara);
+	type OnNewHead = (ParasRegistrar, RegistrarRelay);
 	type AssignCoretime = ();
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
@@ -187,8 +173,6 @@ parameter_types! {
 }
 
 impl paras_registrar::Config for Runtime {
-	type ParaSelfOrigin = polkadot_runtime_parachains::origin::EnsureParachain;
-	type ParaRequests = ();
 	type RuntimeOrigin = RuntimeOrigin;
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
@@ -199,7 +183,7 @@ impl paras_registrar::Config for Runtime {
 }
 
 parameter_types! {
-	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 }
 
 impl pallet_registrar_relay::Config for Runtime {
@@ -212,7 +196,6 @@ impl pallet_registrar_relay::Config for Runtime {
 	type MaxCodeSize = frame_support::traits::ConstU32<MAX_CODE_SIZE>;
 	type MaxPendingRegistrations = frame_support::traits::ConstU32<MAX_PENDING>;
 	type UnsignedPriority = RegistrarUnsignedPriority;
-	type MaxForwardsPerBlock = frame_support::traits::ConstU32<1>;
 	type WeightInfo = ();
 }
 
@@ -352,38 +335,6 @@ impl pallet_message_queue::Config for Runtime {
 	type WeightInfo = ();
 }
 
-impl dmp::Config for Runtime {}
-
-parameter_types! {
-	/// Matches the mock parachain's own mirrors, so a request that passes there passes here.
-	pub const DefaultChannelSizeAndCapacityWithSystem: (u32, u32) =
-		(crate::MAX_MESSAGE_SIZE, crate::MAX_CAPACITY);
-}
-
-impl hrmp::Config for Runtime {
-	// Every deposit is held on the parachain, as it is on a relay chain after the migration.
-	type ChannelDeposits = crate::senders::CoretimeDeposits;
-	type RuntimeEvent = RuntimeEvent;
-	type RuntimeOrigin = RuntimeOrigin;
-	type ChannelManager = EnsureRoot<AccountId>;
-	type Currency = Balances;
-	type DefaultChannelSizeAndCapacityWithSystem = DefaultChannelSizeAndCapacityWithSystem;
-	type VersionWrapper = ();
-	type WeightInfo = hrmp::TestWeightInfo;
-}
-
-impl pallet_hrmp_relay::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type ParaOrigin = EnsureRegistrarPara;
-	type ParachainOrigin = crate::senders::EnsureAnyParachain;
-	type SendToPara = RelayHrmpSendToPara;
-	// The real `hrmp`, driven as the asking para.
-	type Hrmp = crate::senders::HrmpAsPara;
-	type OnDepositHeld = crate::senders::DepositAnswers;
-	type AdmitRequest = ();
-	type WeightInfo = ();
-}
-
 construct_runtime!(
 	pub enum Runtime {
 		System: frame_system,
@@ -393,10 +344,7 @@ construct_runtime!(
 		Parachains: paras,
 		ParasOrigin: origin,
 		ParasRegistrar: paras_registrar,
-		Registrar: pallet_registrar_relay,
-		Dmp: dmp,
-		Hrmp: hrmp,
-		HrmpControl: pallet_hrmp_relay,
+		RegistrarRelay: pallet_registrar_relay,
 		XcmPallet: pallet_xcm,
 		MessageQueue: pallet_message_queue,
 	}
@@ -418,16 +366,6 @@ pub fn run_to_block(n: BlockNumber) {
 				shared::Pallet::<Runtime>::set_active_validators_ascending(keys);
 
 				Parachains::test_on_new_session();
-
-				// `hrmp::initializer_on_new_session` is `pub(crate)`, so this mock drives the
-				// same work through the governance calls that exist for it. Without this,
-				// requests never become channels and nothing HRMP-shaped ever completes.
-				let open =
-					hrmp::HrmpOpenChannelRequestsList::<Runtime>::decode_len().unwrap_or(0) as u32;
-				let close =
-					hrmp::HrmpCloseChannelRequestsList::<Runtime>::decode_len().unwrap_or(0) as u32;
-				let _ = Hrmp::force_process_hrmp_open(RuntimeOrigin::root(), open);
-				let _ = Hrmp::force_process_hrmp_close(RuntimeOrigin::root(), close);
 			}
 		}),
 	);
@@ -436,15 +374,6 @@ pub fn run_to_block(n: BlockNumber) {
 /// Advance whole sessions.
 pub fn run_to_session(n: BlockNumber) {
 	run_to_block(n * BLOCKS_PER_SESSION);
-}
-
-/// Rotate `n` more sessions from wherever the chain is now.
-///
-/// Anything that has to happen "a couple of sessions later" should use this rather than an
-/// absolute session number, so it still works after a test has already advanced the chain.
-pub fn advance_sessions(n: BlockNumber) {
-	let now = shared::CurrentSessionIndex::<Runtime>::get();
-	run_to_session(now + n);
 }
 
 /// Have the validators approve `code`, so onboarding can proceed.

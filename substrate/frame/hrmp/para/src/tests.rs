@@ -15,296 +15,481 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for `pallet-hrmp-para`.
-
-use crate::{mock::*, Deposits, Error, Event};
-use frame_support::{assert_noop, assert_ok};
-use hrmp_primitives::{
-	DepositKey, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1,
-	ReceiveMigratedDeposits,
+use crate::{mock::*, Call, Deposits, Error, Event, HoldReason, RECEIVE_CALL_INDEX};
+use frame_support::{
+	assert_noop, assert_ok, assert_storage_noop,
+	traits::{
+		fungible::{InspectHold, MutateHold},
+		tokens::{Fortitude, Precision},
+		GetCallIndex, UnfilteredDispatchable,
+	},
 };
-use sp_runtime::DispatchError;
+use hrmp_primitives::{
+	Balance, ChannelId, DepositError, DepositKey, DepositSide, MessageToPara, MessageToParaV1,
+	MessageToRelay, MessageToRelayV1, ParaId, ReceiveMigratedDeposits,
+};
+use sp_runtime::{DispatchError, DispatchResult};
 
-fn hold(key: DepositKey, amount: u128) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::Hold { key, amount })
+use DepositSide::{Recipient, Sender};
+
+fn ch(sender: ParaId, recipient: ParaId) -> ChannelId {
+	ChannelId { sender, recipient }
 }
 
-fn release(key: DepositKey) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::Release { key, amount: None })
+/// What `para` holds for channel deposits.
+fn on_hold(para: ParaId) -> Balance {
+	Balances::balance_on_hold(&HoldReason::ChannelDeposit.into(), &para.into())
 }
 
-fn release_part(key: DepositKey, amount: u128) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::Release { key, amount: Some(amount) })
+fn deposit(channel: ChannelId, side: DepositSide) -> Option<Balance> {
+	Deposits::<Test>::get((channel, side))
 }
 
-fn answer(key: DepositKey, held: bool) -> MessageToRelay {
-	MessageToRelay::V1(MessageToRelayV1::HoldResult { key, held })
+fn set_message(
+	id: u64,
+	channel: ChannelId,
+	sender: Option<Balance>,
+	recipient: Option<Balance>,
+) -> MessageToPara {
+	MessageToPara::V1(MessageToParaV1::SetDeposits { id, channel, sender, recipient })
 }
 
-fn relay() -> RuntimeOrigin {
-	RuntimeOrigin::signed(RELAY)
+fn set(
+	id: u64,
+	channel: ChannelId,
+	sender: Option<Balance>,
+	recipient: Option<Balance>,
+) -> DispatchResult {
+	HrmpPara::receive(RuntimeOrigin::root(), set_message(id, channel, sender, recipient))
 }
 
+fn release(channel: ChannelId, sender: bool, recipient: bool) {
+	let message = MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient });
+	assert_ok!(HrmpPara::receive(RuntimeOrigin::root(), message));
+}
+
+fn answer(id: u64, result: Result<(), DepositError>) -> MessageToRelay {
+	MessageToRelay::V1(MessageToRelayV1::DepositsSet { id, result })
+}
+
+/// Takes the messages sent so far.
+fn sent() -> Vec<MessageToRelay> {
+	SENT.take()
+}
+
+/// Takes this pallet's events so far.
+fn events() -> Vec<Event<Test>> {
+	let events = System::events()
+		.into_iter()
+		.filter_map(|r| match r.event {
+			RuntimeEvent::HrmpPara(e) => Some(e),
+			_ => None,
+		})
+		.collect();
+	System::reset_events();
+	events
+}
+
+/// The relay chain encodes `receive` with [`RECEIVE_CALL_INDEX`].
 #[test]
-fn a_hold_is_taken_from_the_payers_sovereign_and_answered() {
-	new_test_ext().execute_with(|| {
-		// WHEN the relay chain asks for both ends of a channel
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
-		assert_ok!(HrmpPara::receive(relay(), hold(recipient_key(), 40)));
+fn receive_call_index_ok() {
+	let channel = ChannelId { sender: 0, recipient: 0 };
+	let message =
+		MessageToPara::V1(MessageToParaV1::Release { channel, sender: false, recipient: false });
+	let call = Call::<Test>::receive { message };
+	assert_eq!(call.get_call_index(), RECEIVE_CALL_INDEX);
+}
 
-		// THEN each end pays its own, and each hold is answered.
-		assert_eq!((on_hold(PARA_A), on_hold(PARA_B)), (100, 40));
-		assert_eq!(Deposits::<Test>::get(sender_key()), Some(100));
-		assert_eq!(Deposits::<Test>::get(recipient_key()), Some(40));
-		assert_eq!(Sent::get(), vec![answer(sender_key(), true), answer(recipient_key(), true)]);
+/// Each side's deposit is held from its own para's sovereign account, and the request answered.
+#[test]
+fn set_deposits_holds_both_sides() {
+	new_test_ext(|| {
+		assert_ok!(set(7, ch(1, 2), Some(10), Some(20)));
+		assert_eq!((on_hold(1), on_hold(2)), (10, 20));
+		assert_eq!((deposit(ch(1, 2), Sender), deposit(ch(1, 2), Recipient)), (Some(10), Some(20)));
 		assert_eq!(
 			events(),
 			vec![
-				Event::DepositHeld { key: sender_key(), amount: 100 },
-				Event::DepositHeld { key: recipient_key(), amount: 40 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 10 },
+				Event::DepositSet { channel: ch(1, 2), side: Recipient, amount: 20 },
 			]
 		);
-		assert_ok!(HrmpPara::do_try_state());
+		assert_eq!(sent(), vec![answer(7, Ok(()))]);
 	});
 }
 
+/// A side named `None` is left as it is.
 #[test]
-fn a_hold_the_payer_cannot_cover_is_refused_and_answered() {
-	new_test_ext().execute_with(|| {
-		// WHEN the relay chain asks for more than the sender has
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 5_000)));
+fn set_deposits_one_side_leaves_other() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), Some(20)));
+		events();
 
-		// THEN nothing is held, and the relay chain is told.
-		assert_eq!(on_hold(PARA_A), 0);
-		assert_eq!(Deposits::<Test>::get(sender_key()), None);
-		assert_eq!(Sent::get(), vec![answer(sender_key(), false)]);
-		assert_eq!(events(), vec![Event::DepositRefused { key: sender_key(), amount: 5_000 }]);
+		assert_ok!(set(1, ch(1, 2), Some(15), None));
+		assert_eq!((on_hold(1), on_hold(2)), (15, 20));
+		assert_eq!(
+			events(),
+			vec![Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 15 }]
+		);
 	});
 }
 
+/// A request that names no side changes nothing, and is answered.
 #[test]
-fn a_second_hold_for_the_same_key_adds_to_it() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 20)));
-
-		assert_eq!(Deposits::<Test>::get(sender_key()), Some(120));
-		assert_eq!(on_hold(PARA_A), 120);
-		assert_ok!(HrmpPara::do_try_state());
-	});
-}
-
-#[test]
-fn a_release_returns_everything_held_for_the_key() {
-	new_test_ext().execute_with(|| {
-		// GIVEN both ends are held.
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
-		assert_ok!(HrmpPara::receive(relay(), hold(recipient_key(), 40)));
-		let _ = events();
-
-		// WHEN the sender's is released
-		assert_ok!(HrmpPara::receive(relay(), release(sender_key())));
-
-		// THEN only the sender's comes back, and nothing is answered.
-		assert_eq!((on_hold(PARA_A), on_hold(PARA_B)), (0, 40));
-		assert_eq!(Deposits::<Test>::get(sender_key()), None);
-		assert_eq!(Sent::get().len(), 2);
-		assert_eq!(events(), vec![Event::DepositReleased { key: sender_key(), amount: 100 }]);
-
-		// AND releasing it again does nothing.
-		assert_ok!(HrmpPara::receive(relay(), release(sender_key())));
+fn set_deposits_none_none_answers_ok() {
+	new_test_ext(|| {
+		assert_ok!(set(3, ch(1, 2), None, None));
 		assert!(events().is_empty());
-		assert_ok!(HrmpPara::do_try_state());
+		assert_eq!(Deposits::<Test>::iter().count(), 0);
+		assert_eq!(sent(), vec![answer(3, Ok(()))]);
 	});
 }
 
+/// A side holds or releases the difference to its target.
 #[test]
-fn only_the_relay_chain_or_root_may_send() {
-	new_test_ext().execute_with(|| {
-		assert_noop!(
-			HrmpPara::receive(RuntimeOrigin::signed(ALICE), hold(sender_key(), 100)),
-			DispatchError::BadOrigin
-		);
-		assert_ok!(HrmpPara::receive(RuntimeOrigin::root(), hold(sender_key(), 100)));
-		assert_eq!(on_hold(PARA_A), 100);
+fn set_deposits_raises_and_lowers() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		assert_ok!(set(1, ch(1, 2), Some(15), None));
+		assert_eq!(on_hold(1), 15);
+		assert_ok!(set(2, ch(1, 2), Some(4), None));
+		assert_eq!(on_hold(1), 4);
+		assert_eq!(Balances::free_balance(1), ENDOWMENT - 4);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(4));
 	});
 }
 
+/// A side moved to zero releases everything and holds no entry.
 #[test]
-fn a_hold_whose_answer_cannot_be_sent_is_undone() {
-	new_test_ext().execute_with(|| {
-		SendFails::set(true);
+fn set_deposits_to_zero_removes_entry() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		events();
 
-		assert_noop!(
-			HrmpPara::receive(relay(), hold(sender_key(), 100)),
-			Error::<Test>::SendFailed
-		);
-		assert_eq!(on_hold(PARA_A), 0);
-	});
-}
-
-#[test]
-fn root_can_force_a_release() {
-	new_test_ext().execute_with(|| {
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
-		let _ = events();
-
-		assert_noop!(
-			HrmpPara::force_release(RuntimeOrigin::signed(RELAY), sender_key()),
-			DispatchError::BadOrigin
-		);
-		assert_ok!(HrmpPara::force_release(RuntimeOrigin::root(), sender_key()));
-
-		assert_eq!(on_hold(PARA_A), 0);
-		assert_eq!(events(), vec![Event::DepositForceReleased { key: sender_key(), amount: 100 }]);
-		assert_noop!(
-			HrmpPara::force_release(RuntimeOrigin::root(), sender_key()),
-			Error::<Test>::NoSuchDeposit
-		);
-	});
-}
-
-#[test]
-fn a_migrated_deposit_holds_what_the_payer_can_cover() {
-	let poor = DepositKey {
-		channel: hrmp_primitives::ChannelId { sender: PARA_POOR, recipient: PARA_A },
-		side: hrmp_primitives::DepositSide::Sender,
-	};
-
-	new_test_ext().execute_with(|| {
-		// WHEN a covered deposit migrates
-		assert_ok!(HrmpPara::receive_deposit(sender_key(), 100));
-		// THEN all of it is held.
-		assert_eq!(Deposits::<Test>::get(sender_key()), Some(100));
-		assert_eq!(on_hold(PARA_A), 100);
-
-		// WHEN a para that holds 30 owes 100
-		assert_ok!(HrmpPara::receive_deposit(poor, 100));
-		// THEN what it can spend while staying alive is held, and the rest is reported.
-		// Existential deposit is 1, so 29 of its 30 can be held.
-		assert_eq!(Deposits::<Test>::get(poor), Some(29));
-		assert_eq!(on_hold(PARA_POOR), 29);
+		assert_ok!(set(1, ch(1, 2), Some(0), None));
+		assert_eq!(on_hold(1), 0);
+		assert_eq!(deposit(ch(1, 2), Sender), None);
 		assert_eq!(
 			events(),
-			vec![
-				Event::DepositMigrated { key: sender_key(), held: 100, missing: 0 },
-				Event::DepositMigrated { key: poor, held: 29, missing: 71 },
-			]
+			vec![Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 0 }]
 		);
-
-		// AND releasing it returns only what was held.
-		assert_ok!(HrmpPara::receive(relay(), release(poor)));
-		assert_eq!(on_hold(PARA_POOR), 0);
-		assert_ok!(HrmpPara::do_try_state());
 	});
 }
 
+/// A side already at its target is answered `Ok` without moving funds.
 #[test]
-fn a_migrated_deposit_the_payer_cannot_cover_at_all_records_nothing() {
-	new_test_ext().execute_with(|| {
-		let broke = DepositKey {
-			channel: hrmp_primitives::ChannelId { sender: 2_999, recipient: PARA_A },
-			side: hrmp_primitives::DepositSide::Sender,
+fn set_deposits_same_target() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		sent();
+
+		assert_ok!(set(1, ch(1, 2), Some(10), None));
+		assert_eq!(on_hold(1), 10);
+		assert_eq!(Balances::free_balance(1), ENDOWMENT - 10);
+		assert_eq!(sent(), vec![answer(1, Ok(()))]);
+	});
+}
+
+/// If one side cannot hold, the other side's hold is undone: both sides move, or neither.
+#[test]
+fn set_deposits_is_atomic() {
+	new_test_ext(|| {
+		assert_ok!(set(4, ch(1, 2), Some(10), Some(ENDOWMENT + 1)));
+		assert_eq!((on_hold(1), on_hold(2)), (0, 0));
+		assert_eq!(Deposits::<Test>::iter().count(), 0);
+		// The sender's `DepositSet` is undone with it.
+		assert_eq!(events(), vec![Event::DepositRefused { id: 4, channel: ch(1, 2) }]);
+		assert_eq!(sent(), vec![answer(4, Err(DepositError::InsufficientFunds))]);
+	});
+}
+
+/// A release on one side is undone too when the other side cannot hold.
+#[test]
+fn set_deposits_atomic_with_release_and_hold() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), Some(10)));
+		sent();
+
+		assert_ok!(set(1, ch(1, 2), Some(5), Some(ENDOWMENT + 1)));
+		assert_eq!((on_hold(1), on_hold(2)), (10, 10));
+		assert_eq!((deposit(ch(1, 2), Sender), deposit(ch(1, 2), Recipient)), (Some(10), Some(10)));
+		assert_eq!(sent(), vec![answer(1, Err(DepositError::InsufficientFunds))]);
+	});
+}
+
+/// A para's deposits for different channels and sides add up in one hold.
+#[test]
+fn set_deposits_accumulate_across_channels() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		assert_ok!(set(1, ch(3, 1), None, Some(20)));
+		assert_eq!(on_hold(1), 30);
+
+		release(ch(1, 2), true, false);
+		assert_eq!(on_hold(1), 20);
+	});
+}
+
+/// A channel from a para to itself charges the same account for both sides.
+#[test]
+fn set_deposits_sender_equals_recipient() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 1), Some(10), Some(20)));
+		assert_eq!(on_hold(1), 30);
+		assert_eq!((deposit(ch(1, 1), Sender), deposit(ch(1, 1), Recipient)), (Some(10), Some(20)));
+	});
+}
+
+/// An answer that cannot be sent fails the message, which then changes nothing: an unanswered
+/// request holds nothing, so the relay chain may force a refusal.
+#[test]
+fn set_deposits_send_failure_reverts() {
+	new_test_ext(|| {
+		FAIL_SEND.set(true);
+		let dispatch = |sender, recipient| {
+			Call::<Test>::receive { message: set_message(0, ch(1, 2), sender, recipient) }
+				.dispatch_bypass_filter(RuntimeOrigin::root())
 		};
-
-		assert_ok!(HrmpPara::receive_deposit(broke, 100));
-
-		assert_eq!(Deposits::<Test>::get(broke), None);
-		assert_eq!(events(), vec![Event::DepositMigrated { key: broke, held: 0, missing: 100 }]);
-		assert_ok!(HrmpPara::do_try_state());
+		// Applied.
+		assert_noop!(dispatch(Some(10), Some(20)), Error::<Test>::SendFailed);
+		// Refused.
+		assert_noop!(dispatch(Some(10), Some(ENDOWMENT + 1)), Error::<Test>::SendFailed);
+		assert!(sent().is_empty());
 	});
 }
 
+/// A release gives back everything held for both sides, and is not answered.
 #[test]
-fn try_state_catches_a_record_that_disagrees_with_the_hold() {
-	new_test_ext().execute_with(|| {
-		// GIVEN a valid deposit.
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
+fn release_both_sides() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), Some(20)));
+		sent();
+		events();
 
-		// WHEN its record is corrupted
-		Deposits::<Test>::insert(sender_key(), 90);
-		// THEN try-state notices.
-		assert!(HrmpPara::do_try_state().is_err());
-
-		// Restore.
-		Deposits::<Test>::insert(sender_key(), 100);
-		assert_ok!(HrmpPara::do_try_state());
-	});
-}
-
-#[test]
-fn a_partial_release_keeps_the_rest_held() {
-	new_test_ext().execute_with(|| {
-		// GIVEN a deposit of 100.
-		assert_ok!(HrmpPara::receive(relay(), hold(sender_key(), 100)));
-		let _ = events();
-
-		// WHEN 30 of it is released
-		assert_ok!(HrmpPara::receive(relay(), release_part(sender_key(), 30)));
-
-		// THEN 70 stays held.
-		assert_eq!(Deposits::<Test>::get(sender_key()), Some(70));
-		assert_eq!(on_hold(PARA_A), 70);
-		assert_eq!(events(), vec![Event::DepositReleased { key: sender_key(), amount: 30 }]);
-
-		// AND releasing more than is held releases what is left.
-		assert_ok!(HrmpPara::receive(relay(), release_part(sender_key(), 500)));
-		assert_eq!(Deposits::<Test>::get(sender_key()), None);
-		assert_eq!(on_hold(PARA_A), 0);
-		assert_eq!(events(), vec![Event::DepositReleased { key: sender_key(), amount: 70 }]);
-		assert_ok!(HrmpPara::do_try_state());
-	});
-}
-
-#[test]
-fn users_ask_the_relay_chain_for_its_signed_hrmp_calls() {
-	new_test_ext().execute_with(|| {
-		let system = hrmp_primitives::ChannelId { sender: 1_000, recipient: 1_001 };
-
-		// Signed only.
-		assert_noop!(
-			HrmpPara::poke_channel_deposits(RuntimeOrigin::root(), PARA_A, PARA_B),
-			DispatchError::BadOrigin
-		);
-
-		assert_ok!(HrmpPara::poke_channel_deposits(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B));
-		assert_ok!(HrmpPara::establish_system_channel(RuntimeOrigin::signed(ALICE), 1_000, 1_001));
-
-		assert_eq!(
-			Sent::get(),
-			vec![
-				MessageToRelay::V1(MessageToRelayV1::PokeChannelDeposits { channel: CHANNEL }),
-				MessageToRelay::V1(MessageToRelayV1::EstablishSystemChannel { channel: system }),
-			]
-		);
+		release(ch(1, 2), true, true);
+		assert_eq!((on_hold(1), on_hold(2)), (0, 0));
+		assert_eq!(Deposits::<Test>::iter().count(), 0);
 		assert_eq!(
 			events(),
 			vec![
-				Event::PokeRequested { channel: CHANNEL },
-				Event::SystemChannelRequested { channel: system },
+				Event::DepositReleased { channel: ch(1, 2), side: Sender, amount: 10 },
+				Event::DepositReleased { channel: ch(1, 2), side: Recipient, amount: 20 },
 			]
 		);
+		assert!(sent().is_empty());
+	});
+}
 
-		// A request that cannot be sent fails.
-		SendFails::set(true);
-		assert_noop!(
-			HrmpPara::poke_channel_deposits(RuntimeOrigin::signed(ALICE), PARA_A, PARA_B),
-			Error::<Test>::SendFailed
+/// A release gives back only the sides it names.
+#[test]
+fn release_only_named_side() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), Some(20)));
+		release(ch(1, 2), true, false);
+		assert_eq!((on_hold(1), on_hold(2)), (0, 20));
+		assert_eq!(deposit(ch(1, 2), Recipient), Some(20));
+	});
+}
+
+/// Releasing a side that holds nothing is not an error.
+#[test]
+fn release_nothing_held_is_ok() {
+	new_test_ext(|| {
+		release(ch(1, 2), true, true);
+		assert!(events().is_empty());
+	});
+}
+
+/// A release leaves the para's deposits for other channels held.
+#[test]
+fn release_one_channel_keeps_others() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		assert_ok!(set(1, ch(1, 3), Some(20), None));
+		release(ch(1, 2), true, true);
+		assert_eq!(on_hold(1), 20);
+		assert_eq!(deposit(ch(1, 3), Sender), Some(20));
+	});
+}
+
+/// After part of a hold is slashed, a release gives back what is left and forgets the side.
+#[test]
+fn release_after_hold_partially_slashed() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		assert_ok!(Balances::burn_held(
+			&HoldReason::ChannelDeposit.into(),
+			&1,
+			4,
+			Precision::Exact,
+			Fortitude::Force,
+		));
+		events();
+
+		release(ch(1, 2), true, false);
+		assert_eq!(on_hold(1), 0);
+		assert_eq!(deposit(ch(1, 2), Sender), None);
+		assert_eq!(
+			events(),
+			vec![Event::DepositReleased { channel: ch(1, 2), side: Sender, amount: 6 }]
 		);
 	});
 }
 
+/// Only the relay chain sends messages, and only governance forces a deposit.
 #[test]
-fn root_can_answer_a_hold_whose_answer_never_arrived() {
-	new_test_ext().execute_with(|| {
+fn calls_require_root() {
+	new_test_ext(|| {
 		assert_noop!(
-			HrmpPara::force_answer(RuntimeOrigin::signed(ALICE), sender_key(), true),
+			HrmpPara::receive(RuntimeOrigin::signed(1), set_message(0, ch(1, 2), Some(10), None)),
 			DispatchError::BadOrigin
 		);
+		assert_noop!(
+			HrmpPara::force_set_deposit(RuntimeOrigin::signed(1), ch(1, 2), Sender, 10),
+			DispatchError::BadOrigin
+		);
+	});
+}
 
-		assert_ok!(HrmpPara::force_answer(RuntimeOrigin::root(), sender_key(), false));
+/// Forcing a side to what it holds succeeds and changes nothing.
+#[test]
+fn force_set_unchanged() {
+	new_test_ext(|| {
+		let force = |amount| {
+			let origin = RuntimeOrigin::root();
+			assert_storage_noop!(assert_eq!(
+				HrmpPara::force_set_deposit(origin, ch(1, 2), Sender, amount),
+				Ok(())
+			));
+		};
+		force(0);
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		force(10);
+	});
+}
 
-		assert_eq!(Sent::get(), vec![answer(sender_key(), false)]);
-		assert_eq!(events(), vec![Event::AnswerForced { key: sender_key(), held: false }]);
+/// Governance holds or releases the difference, without telling the relay chain.
+#[test]
+fn force_set_raises_lowers_and_clears() {
+	new_test_ext(|| {
+		let force = |amount| {
+			HrmpPara::force_set_deposit(RuntimeOrigin::root(), ch(1, 2), Recipient, amount)
+		};
+		assert_ok!(force(10));
+		assert_eq!((on_hold(2), deposit(ch(1, 2), Recipient)), (10, Some(10)));
+		assert_ok!(force(4));
+		assert_eq!((on_hold(2), deposit(ch(1, 2), Recipient)), (4, Some(4)));
+		assert_ok!(force(0));
+		assert_eq!((on_hold(2), deposit(ch(1, 2), Recipient)), (0, None));
+		assert!(sent().is_empty());
+	});
+}
+
+/// A forced deposit the para cannot cover changes nothing.
+#[test]
+fn force_set_cannot_hold() {
+	new_test_ext(|| {
+		assert_noop!(
+			HrmpPara::force_set_deposit(RuntimeOrigin::root(), ch(1, 2), Sender, ENDOWMENT + 1),
+			Error::<Test>::InsufficientFunds
+		);
+	});
+}
+
+/// A migrated deposit is held on top of what the side holds, from the para's free balance.
+#[test]
+fn receive_deposit_holds_on_top() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		events();
+		sent();
+
+		let key = DepositKey { channel: ch(1, 2), side: Sender };
+		assert_ok!(HrmpPara::receive_deposit(key, 20));
+
+		assert_eq!(on_hold(1), 30);
+		assert_eq!(Balances::free_balance(1), ENDOWMENT - 30);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(30));
+		assert_eq!(
+			events(),
+			vec![
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 30 },
+				Event::DepositMigrated { channel: ch(1, 2), side: Sender, amount: 20, held: 20 },
+			]
+		);
+		assert!(sent().is_empty());
+	});
+}
+
+/// A migrated deposit the para cannot cover whole is held as far as its existential deposit;
+/// a para with nothing holds nothing, and neither is an error.
+#[test]
+fn receive_deposit_holds_what_the_para_can_cover() {
+	new_test_ext(|| {
+		let key = DepositKey { channel: ch(1, 2), side: Sender };
+		assert_ok!(HrmpPara::receive_deposit(key, ENDOWMENT + 1));
+		assert_eq!(on_hold(1), ENDOWMENT - 1);
+		assert_eq!(Balances::free_balance(1), 1);
+		assert_eq!(deposit(ch(1, 2), Sender), Some(ENDOWMENT - 1));
+		events();
+
+		let key = DepositKey { channel: ch(1, 4), side: Recipient };
+		assert_ok!(HrmpPara::receive_deposit(key, 100));
+		assert_eq!(on_hold(4), 0);
+		assert_eq!(deposit(ch(1, 4), Recipient), None);
+		assert_eq!(
+			events(),
+			vec![Event::DepositMigrated {
+				channel: ch(1, 4),
+				side: Recipient,
+				amount: 100,
+				held: 0
+			}]
+		);
+	});
+}
+
+/// A migration is charged the benchmarked weight for a deposit it hands over.
+#[test]
+fn receive_deposit_weight_is_the_benchmarked_one() {
+	assert_eq!(
+		<HrmpPara as ReceiveMigratedDeposits>::weight_of_receive_deposit(),
+		<() as crate::WeightInfo>::receive_deposit()
+	);
+}
+
+/// Nothing is held for a migrated deposit of nothing.
+#[test]
+fn receive_deposit_zero_holds_nothing() {
+	new_test_ext(|| {
+		let key = DepositKey { channel: ch(1, 2), side: Recipient };
+		assert_ok!(HrmpPara::receive_deposit(key, 0));
+		assert_eq!(on_hold(2), 0);
+		assert_eq!(deposit(ch(1, 2), Recipient), None);
+		assert_eq!(
+			events(),
+			vec![Event::DepositMigrated { channel: ch(1, 2), side: Recipient, amount: 0, held: 0 }]
+		);
+	});
+}
+
+/// `try_state` finds a side recorded as holding nothing.
+#[test]
+fn try_state_detects_zero_entry() {
+	new_test_ext(|| {
+		Deposits::<Test>::insert((ch(1, 2), Sender), 0);
+		assert!(HrmpPara::do_try_state().is_err());
+		Deposits::<Test>::remove((ch(1, 2), Sender));
+	});
+}
+
+/// `try_state` finds a para whose hold differs from its recorded deposits.
+#[test]
+fn try_state_detects_hold_mismatch() {
+	new_test_ext(|| {
+		assert_ok!(set(0, ch(1, 2), Some(10), None));
+		Deposits::<Test>::insert((ch(3, 1), Recipient), 5);
+		assert!(HrmpPara::do_try_state().is_err());
+		Deposits::<Test>::remove((ch(3, 1), Recipient));
 	});
 }

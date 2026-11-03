@@ -17,10 +17,11 @@
 
 //! Tests for `pallet-registrar-relay`.
 
-use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingCodeUpgrades, PendingRegistrations};
+use crate::{mock::*, AwaitingFirstHead, Error, Event, PendingRegistrations};
 use frame_support::{assert_noop, assert_ok};
 use registrar_primitives::{
 	FailureReason, MessageToPara, MessageToParaV1, MessageToRelay, MessageToRelayV1, ParaId,
+	ParachainRegistrar,
 };
 use sp_runtime::{
 	traits::{BlakeTwo256, Hash},
@@ -88,11 +89,6 @@ fn success_report(para_id: ParaId) -> MessageToPara {
 	})
 }
 
-/// The report the relay chain sends when a para produces its first block.
-fn first_head_report(para_id: ParaId) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::NotedFirstHead { para_id })
-}
-
 fn cancel_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
 	MessageToRelay::V1(MessageToRelayV1::CancelRegistration { para_id, message_id: CANCEL_ID })
 }
@@ -101,11 +97,8 @@ fn cancel_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> Mes
 	MessageToPara::V1(MessageToParaV1::CancelResponse { para_id, message_id: CANCEL_ID, outcome })
 }
 
-/// The message id every test deregistration carries. See [`MSG_ID`].
+/// The message id every test deregistration carries, distinct from the ids above.
 const DEREGISTER_ID: u64 = 7;
-
-/// The message id every test deregistration chase-up carries. See [`MSG_ID`].
-const CHASE_UP_ID: u64 = 8;
 
 fn deregister_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
 	MessageToRelay::V1(MessageToRelayV1::Deregister { para_id, message_id: DEREGISTER_ID })
@@ -119,16 +112,16 @@ fn deregister_report(para_id: ParaId, outcome: registrar_primitives::Outcome) ->
 	})
 }
 
-fn chase_up_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
-	MessageToRelay::V1(MessageToRelayV1::CancelDeregistration { para_id, message_id: CHASE_UP_ID })
-}
-
-fn chase_up_report(para_id: ParaId, outcome: registrar_primitives::Outcome) -> MessageToPara {
-	MessageToPara::V1(MessageToParaV1::CancelDeregistrationResponse {
+/// Onboard `para_id` for real, so the registry knows it.
+fn onboard(para_id: ParaId) {
+	let blob = request(para_id, 20, 300);
+	assert_ok!(Registrar::apply_authorized_code(
+		frame_system::RawOrigin::Authorized.into(),
 		para_id,
-		message_id: CHASE_UP_ID,
-		outcome,
-	})
+		blob
+	));
+	let _ = registrar_events();
+	let _ = take_sent();
 }
 
 /// Run `authorize_apply_authorized_code` and the dispatch together, the way the node does.
@@ -160,7 +153,7 @@ fn authorize_and_dispatch(
 	(authorized, dispatched)
 }
 
-mod authorize_code {
+mod receive_register {
 	use super::*;
 
 	#[test]
@@ -339,7 +332,7 @@ mod apply_authorized_code {
 	fn a_blob_of_the_wrong_length_is_refused_by_both() {
 		new_test_ext().execute_with(|| {
 			request(PARA_A, 20, 300);
-			// Shorter than declared, so the manager underpaid on the parachain.
+			// Shorter than declared, which the length check catches before the hash.
 			let short = code(200);
 
 			let (authorized, dispatched) = authorize_and_dispatch(PARA_A, short);
@@ -401,40 +394,6 @@ mod apply_authorized_code {
 		});
 	}
 
-	/// The pending-registration queue is **global**: one para filling it stops every other para
-	/// registering, network-wide, until governance clears it with `force_drop_pending`. Nothing is
-	/// burned to hold a slot — the deposit is a refundable `Consideration` held on the *other*
-	/// chain — so the cost of doing this is capital, not spend. See `open.md` B19 for the figures.
-	#[test]
-	fn the_pending_queue_is_shared_so_one_para_can_block_another() {
-		new_test_ext().execute_with(|| {
-			// GIVEN the queue filled by paras unrelated to the one below.
-			for para_id in [PARA_A, PARA_B] {
-				let _ = request(para_id, 20, 300);
-			}
-			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING);
-
-			// WHEN a different para asks. `receive` never fails — a refusal is reported, not
-			// raised — so the verdict is what the parachain is told.
-			let victim: ParaId = 2002;
-			let _ = take_sent();
-			let (msg, _) = register_msg(victim, 20, 300);
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
-
-			// THEN it is turned away for someone else's occupancy, and its deposit is released
-			// rather than held against a registration it never got.
-			assert_eq!(
-				take_sent(),
-				vec![failure_report(victim, FailureReason::TooManyPending)]
-			);
-			assert!(PendingRegistrations::<Test>::get(victim).is_none());
-
-			// And only root can free the slot; the occupier is under no obligation to.
-			assert_ok!(Registrar::force_drop_pending(RuntimeOrigin::root(), PARA_A));
-			assert_eq!(PendingRegistrations::<Test>::count(), MAX_PENDING - 1);
-		});
-	}
-
 	#[test]
 	fn a_registrar_failure_leaves_the_request_pending() {
 		new_test_ext().execute_with(|| {
@@ -453,22 +412,6 @@ mod apply_authorized_code {
 			assert!(PendingRegistrations::<Test>::get(PARA_A).is_some());
 			assert_eq!(PendingRegistrations::<Test>::count(), 1);
 			assert!(take_sent().is_empty());
-
-			// Two consequences of "nothing was reported" that are worth stating outright, because
-			// they are the cost of the retry above rather than free (see `open.md` B15):
-			//
-			// 1. The parachain is never told. It sits on a held deposit in `Pending` until its
-			//    manager gives up and cancels — there is no deadline here that would prompt them,
-			//    and the sibling `apply_authorized_code_upgrade` reports its refusals instead.
-			// 2. The entry surviving means this transaction stays valid for the pool. It is
-			//    unsigned and feeless, so nobody is charged for resubmitting it, and the only
-			//    thing bounding a failing upload is that somebody has to keep sending the bytes.
-			assert!(Registrar::authorize_apply_authorized_code(
-				TransactionSource::External,
-				&PARA_A,
-				&blob,
-			)
-			.is_ok());
 
 			RegisterFails::set(false);
 			assert_ok!(Registrar::apply_authorized_code(
@@ -491,7 +434,7 @@ mod apply_authorized_code {
 	}
 }
 
-mod cancel_authorization {
+mod receive_cancel_registration {
 	use super::*;
 
 	#[test]
@@ -616,19 +559,21 @@ mod cancel_authorization {
 	}
 }
 
-mod deregister {
+mod receive_deregister {
 	use super::*;
 
-
 	#[test]
-	fn deregisters_a_known_para_and_reports_success() {
+	fn drops_the_para_and_confirms_it() {
 		new_test_ext().execute_with(|| {
-			Managers::set(vec![(PARA_A, ALICE)]);
+			onboard(PARA_A);
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
 
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
 
-			assert_eq!(DeregisteredParas::get(), vec![PARA_A]);
-			assert!(Managers::get().is_empty());
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			// Dropped before its first head, so nothing is left waiting on one.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
 			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
 			assert_eq!(
 				registrar_events(),
@@ -638,13 +583,15 @@ mod deregister {
 	}
 
 	#[test]
-	fn an_id_the_relay_chain_never_knew_is_confirmed_gone() {
+	fn a_retry_after_a_lost_answer_is_confirmed_again() {
 		new_test_ext().execute_with(|| {
-			// There is nothing to remove and the parachain is waiting to release deposits, so
-			// this is a confirmation, not a refusal.
+			onboard(PARA_A);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			let _ = take_sent();
+			let _ = registrar_events();
+
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
 
-			assert!(DeregisteredParas::get().is_empty());
 			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
 			assert_eq!(
 				registrar_events(),
@@ -654,200 +601,63 @@ mod deregister {
 	}
 
 	#[test]
-	fn a_para_registered_outside_the_registry_is_refused() {
+	fn a_registry_that_will_not_let_the_para_go_is_reported_not_dispatch_failed() {
 		new_test_ext().execute_with(|| {
-			// The relay chain knows the para, but not through the registry (e.g. a system para).
-			// This pallet does not test for that itself: the registry refuses, and the refusal is
-			// reported. The protection lives where the knowledge does.
-			AlreadyKnown::set(vec![PARA_A]);
-
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
-
-			assert!(DeregisteredParas::get().is_empty());
-			assert_eq!(
-				take_sent(),
-				vec![deregister_report(PARA_A, Err(FailureReason::CannotDeregister))]
-			);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::DeregistrationRejected {
-					para_id: PARA_A,
-					message_id: DEREGISTER_ID,
-					reason: FailureReason::CannotDeregister,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn the_manager_is_not_re_checked_here() {
-		new_test_ext().execute_with(|| {
-			// The registry's idea of the manager is deliberately ignored: the parachain holds the
-			// deposits, so it is the authority on who may ask, and it has already checked. Once
-			// the registry is drained in favour of the parachain's, `manager_of` answers `None`
-			// for every para that predates the move -- re-checking here would refuse them all,
-			// permanently.
-			Managers::set(vec![(PARA_A, ALICE)]);
-
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
-
-			assert_eq!(DeregisteredParas::get(), vec![PARA_A]);
-			assert_eq!(Managers::get(), vec![]);
-			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn a_lock_on_the_relay_chain_does_not_block_the_control_plane() {
-		new_test_ext().execute_with(|| {
-			// Same reasoning as the manager: the lock is the parachain's state now, and it
-			// enforces it before sending. A stale lock here must not strand a para.
-			Managers::set(vec![(PARA_A, ALICE)]);
-			LockedParas::set(vec![PARA_A]);
-
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
-
-			assert_eq!(DeregisteredParas::get(), vec![PARA_A]);
-			assert_eq!(take_sent(), vec![deregister_report(PARA_A, Ok(()))]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn a_registry_failure_is_rolled_back_and_reported() {
-		new_test_ext().execute_with(|| {
-			Managers::set(vec![(PARA_A, ALICE)]);
+			onboard(PARA_A);
 			DeregisterFails::set(true);
 
-			// A refusal is reported, not an extrinsic failure.
+			// `Ok`, not `Err`: failing would roll the refusal report back with it.
 			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
 
-			assert_eq!(Managers::get(), vec![(PARA_A, ALICE)]);
+			assert!(MockRegistrar::is_registered(PARA_A));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
 			assert_eq!(
 				take_sent(),
-				vec![deregister_report(PARA_A, Err(FailureReason::CannotDeregister))]
+				vec![deregister_report(PARA_A, Err(FailureReason::NotDeregisterable))]
 			);
 			assert_eq!(
 				registrar_events(),
-				vec![Event::DeregistrationRejected {
-					para_id: PARA_A,
-					message_id: DEREGISTER_ID,
-					reason: FailureReason::CannotDeregister,
-				}]
+				vec![Event::DeregistrationRejected { para_id: PARA_A, message_id: DEREGISTER_ID }]
 			);
-			// The registry wrote before it failed; the storage layer unwound that write even
-			// though the extrinsic as a whole succeeded.
-			assert_eq!(frame_support::storage::unhashed::get::<ParaId>(PARTIAL_WRITE_KEY), None);
 		});
 	}
 
 	#[test]
-	fn only_the_parachain_may_deregister() {
+	fn only_the_parachain_may_ask() {
 		new_test_ext().execute_with(|| {
-			Managers::set(vec![(PARA_A, ALICE)]);
+			onboard(PARA_A);
 
 			assert_noop!(
 				Registrar::receive(RuntimeOrigin::signed(ALICE), deregister_msg(PARA_A)),
 				DispatchError::BadOrigin
 			);
-			assert!(DeregisteredParas::get().is_empty());
-		});
-	}
-}
-
-mod cancel_deregistration {
-	use super::*;
-
-	#[test]
-	fn a_chase_up_while_the_para_is_still_registered_is_confirmed() {
-		new_test_ext().execute_with(|| {
-			// The deregistration request never arrived, so the para is still in the registry and
-			// the parachain may safely go back to registered.
-			Managers::set(vec![(PARA_A, ALICE)]);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				chase_up_msg(PARA_A)
-			));
-
-			assert_eq!(Managers::get(), vec![(PARA_A, ALICE)]);
-			assert_eq!(take_sent(), vec![chase_up_report(PARA_A, Ok(()))]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::DeregistrationCancelled { para_id: PARA_A, message_id: CHASE_UP_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn a_chase_up_after_the_deregistration_went_through_is_refused() {
-		new_test_ext().execute_with(|| {
-			// The para is gone: the deregistration happened and its report was lost, so the
-			// parachain is told to release the deposits after all.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				chase_up_msg(PARA_A)
-			));
-
-			assert_eq!(
-				take_sent(),
-				vec![chase_up_report(PARA_A, Err(FailureReason::NotRegistered))]
-			);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::DeregistrationCancellationRefused {
-					para_id: PARA_A,
-					message_id: CHASE_UP_ID,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn a_chase_up_for_a_para_the_registry_knows_only_by_lifecycle_is_confirmed() {
-		new_test_ext().execute_with(|| {
-			// GIVEN a para this chain knows about but holds no manager record for. That is what
-			// every para looks like once the registry itself has moved to the parachain: the
-			// lifecycle stays here, the manager does not.
-			AlreadyKnown::set(vec![PARA_A]);
-			assert!(Managers::get().is_empty());
-
-			// WHEN the parachain chases up a deregistration whose verdict it never got.
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), chase_up_msg(PARA_A)));
-
-			// THEN it is told the para is still registered. Answering `NotRegistered` here would
-			// have the parachain release both deposits and drop its record of a live parachain.
-			assert_eq!(take_sent(), vec![chase_up_report(PARA_A, Ok(()))]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::DeregistrationCancelled { para_id: PARA_A, message_id: CHASE_UP_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn only_the_parachain_may_chase_up() {
-		new_test_ext().execute_with(|| {
-			assert_noop!(
-				Registrar::receive(
-					RuntimeOrigin::signed(ALICE),
-					chase_up_msg(PARA_A)
-				),
-				DispatchError::BadOrigin
-			);
+			assert!(MockRegistrar::is_registered(PARA_A));
 		});
 	}
 }
 
 mod reporting {
 	use super::*;
+
+	#[test]
+	fn a_bounced_report_does_not_undo_the_deregistration() {
+		new_test_ext().execute_with(|| {
+			onboard(PARA_A);
+			SendFails::set(true);
+
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+
+			// The para is gone here regardless; the parachain retries and is confirmed then.
+			assert!(!MockRegistrar::is_registered(PARA_A));
+			assert_eq!(
+				registrar_events(),
+				vec![
+					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
+					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
+				]
+			);
+		});
+	}
 
 	#[test]
 	fn a_bounced_report_does_not_undo_the_onboarding() {
@@ -875,636 +685,131 @@ mod reporting {
 			);
 		});
 	}
+}
+
+mod head_noted {
+	use super::*;
+	use polkadot_runtime_parachains::paras::OnNewHead;
+
+	/// Leave `para_id` in the state a registration leaves behind: waiting on its first head.
+	fn awaiting(para_id: ParaId) {
+		AwaitingFirstHead::<Test>::insert(para_id, ());
+	}
 
 	#[test]
-	fn a_bounced_deregistration_report_does_not_undo_the_deregistration() {
+	fn a_registration_leaves_the_para_awaiting_its_first_head() {
 		new_test_ext().execute_with(|| {
-			Managers::set(vec![(PARA_A, ALICE)]);
-			SendFails::set(true);
+			request(PARA_A, 20, 300);
 
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+		});
+	}
 
-			assert_eq!(DeregisteredParas::get(), vec![PARA_A]);
-			assert!(Managers::get().is_empty());
+	#[test]
+	fn tells_the_parachain_about_a_new_head() {
+		new_test_ext().execute_with(|| {
+			request(PARA_A, 20, 300);
+			let _ = registrar_events();
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
 			assert_eq!(
-				registrar_events(),
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+		});
+	}
+
+	#[test]
+	fn a_para_this_pallet_never_registered_is_skipped() {
+		new_test_ext().execute_with(|| {
+			// Only paras registered through here are waiting on a notification; every other para
+			// on this chain locks itself and must not be told anything.
+			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn a_later_head_is_not_reported_again() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			assert_eq!(take_sent().len(), 1);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
+		});
+	}
+
+	#[test]
+	fn each_para_is_reported_once() {
+		new_test_ext().execute_with(|| {
+			awaiting(PARA_A);
+			awaiting(PARA_B);
+
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+			Registrar::on_new_head(PARA_B.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
 				vec![
-					Event::ReportFailed { para_id: PARA_A, message_id: DEREGISTER_ID },
-					Event::Deregistered { para_id: PARA_A, message_id: DEREGISTER_ID },
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A }),
+					MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_B }),
 				]
 			);
 		});
 	}
-}
-
-/// The message id every test code upgrade carries. See [`MSG_ID`].
-const UPGRADE_ID: u64 = 9;
-
-fn upgrade_msg(para_id: ParaId, code: &[u8]) -> MessageToRelay<AccountId> {
-	MessageToRelay::V1(MessageToRelayV1::AuthorizeCodeUpgrade {
-		para_id,
-		message_id: UPGRADE_ID,
-		code_hash: hash_of(code),
-		code_len: code.len() as u32,
-	})
-}
-
-/// A para the registry knows, so upgrade and head requests have something to act on.
-fn known_para(para_id: ParaId) {
-	Managers::set(vec![(para_id, ALICE)]);
-}
-
-mod authorize_code_upgrade {
-	use super::*;
 
 	#[test]
-	fn parks_the_authorization_for_a_known_para() {
+	fn a_bounced_notification_is_only_surfaced() {
 		new_test_ext().execute_with(|| {
-			known_para(PARA_A);
-			let blob = code(MAX_CODE_SIZE as usize);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &blob)
-			));
-
-			let pending = PendingCodeUpgrades::<Test>::get(PARA_A).unwrap();
-			assert_eq!(pending.message_id, UPGRADE_ID);
-			assert_eq!(pending.code_hash, hash_of(&blob));
-			assert_eq!(pending.code_len, MAX_CODE_SIZE);
-			// Nothing goes back: an upgrade stakes nothing on the parachain, so a verdict would
-			// be a round trip nobody is waiting on.
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgradePending {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					code_hash: hash_of(&blob),
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn refuses_a_para_the_registry_does_not_know() {
-		new_test_ext().execute_with(|| {
-			let blob = code(MAX_CODE_SIZE as usize);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &blob)
-			));
-
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_none());
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgradeRejected {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					reason: FailureReason::NotRegistered,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn refuses_code_the_live_configuration_would_not_take() {
-		new_test_ext().execute_with(|| {
-			known_para(PARA_A);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &code(MAX_CODE_SIZE as usize + 1))
-			));
-
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_none());
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgradeRejected {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					reason: FailureReason::InvalidOnboardingData,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn one_authorization_per_para_at_a_time() {
-		new_test_ext().execute_with(|| {
-			known_para(PARA_A);
-			let first = code(MAX_CODE_SIZE as usize);
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &first)
-			));
-			let _ = registrar_events();
-
-			// A second attempt must not overwrite the first, or a para could grow this state
-			// without bound and invalidate an upload already in flight.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &code(MIN_CODE_SIZE as usize))
-			));
-
-			assert_eq!(PendingCodeUpgrades::<Test>::get(PARA_A).unwrap().code_hash, hash_of(&first));
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgradeRejected {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					reason: FailureReason::CannotUpgrade,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn refuses_users() {
-		new_test_ext().execute_with(|| {
-			known_para(PARA_A);
-
-			assert_noop!(
-				Registrar::receive(
-					RuntimeOrigin::signed(ALICE),
-					upgrade_msg(PARA_A, &code(MIN_CODE_SIZE as usize))
-				),
-				DispatchError::BadOrigin
-			);
-		});
-	}
-}
-
-mod apply_authorized_code_upgrade {
-	use super::*;
-
-	fn authorize(para_id: ParaId, blob: &[u8]) {
-		known_para(para_id);
-		assert_ok!(Registrar::receive(
-			RuntimeOrigin::root(),
-			upgrade_msg(para_id, blob)
-		));
-		let _ = registrar_events();
-	}
-
-	#[test]
-	fn anybody_may_upload_matching_bytes_and_the_upgrade_lands() {
-		new_test_ext().execute_with(|| {
-			let blob = code(MAX_CODE_SIZE as usize);
-			authorize(PARA_A, &blob);
-
-			assert_ok!(Registrar::apply_authorized_code_upgrade(
-				frame_system::RawOrigin::Authorized.into(),
-				PARA_A,
-				blob.clone()
-			));
-
-			assert_eq!(Upgraded::get(), vec![(PARA_A, blob)]);
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_none());
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgraded { para_id: PARA_A, message_id: UPGRADE_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn refuses_bytes_that_do_not_match_the_commitment() {
-		new_test_ext().execute_with(|| {
-			let blob = code(MAX_CODE_SIZE as usize);
-			authorize(PARA_A, &blob);
-
-			// Right length, wrong bytes.
-			let mut wrong = blob.clone();
-			wrong[0] = wrong[0].wrapping_add(1);
-			assert_noop!(
-				Registrar::apply_authorized_code_upgrade(
-					frame_system::RawOrigin::Authorized.into(),
-					PARA_A,
-					wrong
-				),
-				Error::<Test>::CodeHashMismatch
-			);
-
-			// Wrong length.
-			assert_noop!(
-				Registrar::apply_authorized_code_upgrade(
-					frame_system::RawOrigin::Authorized.into(),
-					PARA_A,
-					code(MAX_CODE_SIZE as usize - 1)
-				),
-				Error::<Test>::CodeLenMismatch
-			);
-
-			assert!(Upgraded::get().is_empty());
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_some());
-		});
-	}
-
-	#[test]
-	fn refuses_an_upload_nobody_authorized() {
-		new_test_ext().execute_with(|| {
-			assert_noop!(
-				Registrar::apply_authorized_code_upgrade(
-					frame_system::RawOrigin::Authorized.into(),
-					PARA_A,
-					code(MIN_CODE_SIZE as usize)
-				),
-				Error::<Test>::NothingPendingUpgrade
-			);
-		});
-	}
-
-	#[test]
-	fn a_registry_refusal_is_reported_and_clears_the_authorization() {
-		new_test_ext().execute_with(|| {
-			let blob = code(MAX_CODE_SIZE as usize);
-			authorize(PARA_A, &blob);
-			UpgradeFails::set(true);
-
-			// Not an extrinsic failure: the upload was valid, the registry simply said no.
-			assert_ok!(Registrar::apply_authorized_code_upgrade(
-				frame_system::RawOrigin::Authorized.into(),
-				PARA_A,
-				blob
-			));
-
-			assert!(Upgraded::get().is_empty());
-			// The entry goes either way, so a manager cannot keep trying different bytes.
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_none());
-			assert_eq!(
-				registrar_events(),
-				vec![Event::CodeUpgradeRejected {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					reason: FailureReason::CannotUpgrade,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn the_pool_check_agrees_with_the_dispatch() {
-		new_test_ext().execute_with(|| {
-			let blob = code(MAX_CODE_SIZE as usize);
-			authorize(PARA_A, &blob);
-
-			assert!(Registrar::authorize_apply_authorized_code_upgrade(
-				TransactionSource::External,
-				&PARA_A,
-				&blob,
-			)
-			.is_ok());
-
-			assert_eq!(
-				Registrar::authorize_apply_authorized_code_upgrade(
-					TransactionSource::External,
-					&PARA_A,
-					&code(MIN_CODE_SIZE as usize),
-				),
-				Err(InvalidTransaction::Custom(
-					Registrar::err_to_code(Error::<Test>::CodeLenMismatch)
-				)
-				.into())
-			);
-		});
-	}
-}
-
-mod set_current_head {
-	use super::*;
-
-	fn head_msg(para_id: ParaId, head: Vec<u8>) -> MessageToRelay<AccountId> {
-		MessageToRelay::V1(MessageToRelayV1::SetCurrentHead {
-			para_id,
-			message_id: UPGRADE_ID,
-			head,
-		})
-	}
-
-	#[test]
-	fn writes_the_head_for_a_known_para() {
-		new_test_ext().execute_with(|| {
-			known_para(PARA_A);
-			let new_head = head(MAX_HEAD_SIZE as usize);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				head_msg(PARA_A, new_head.clone())
-			));
-
-			assert_eq!(HeadsSet::get(), vec![(PARA_A, new_head)]);
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::HeadSet { para_id: PARA_A, message_id: UPGRADE_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn refuses_a_para_the_registry_does_not_know() {
-		new_test_ext().execute_with(|| {
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				head_msg(PARA_A, head(4))
-			));
-
-			assert!(HeadsSet::get().is_empty());
-			assert_eq!(
-				registrar_events(),
-				vec![Event::HeadRejected {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					reason: FailureReason::NotRegistered,
-				}]
-			);
-		});
-	}
-
-	#[test]
-	fn a_registry_refusal_is_reported() {
-		new_test_ext().execute_with(|| {
-			known_para(PARA_A);
-			SetHeadFails::set(true);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				head_msg(PARA_A, head(4))
-			));
-
-			assert!(HeadsSet::get().is_empty());
-			assert_eq!(
-				registrar_events(),
-				vec![Event::HeadRejected {
-					para_id: PARA_A,
-					message_id: UPGRADE_ID,
-					reason: FailureReason::InvalidOnboardingData,
-				}]
-			);
-		});
-	}
-}
-
-mod force_drop_pending {
-	use super::*;
-
-	#[test]
-	fn root_clears_both_kinds_of_pending_entry() {
-		new_test_ext().execute_with(|| {
-			// GIVEN a para with a registration and an upgrade both waiting on code. Neither
-			// expires on its own, so without this call they would sit here for good.
-			let blob = code(MAX_CODE_SIZE as usize);
-			let (register, _) = register_msg(PARA_A, 20, MAX_CODE_SIZE as usize);
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), register));
-			known_para(PARA_A);
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &blob)
-			));
-			let _ = registrar_events();
-
-			assert_noop!(
-				Registrar::force_drop_pending(RuntimeOrigin::signed(ALICE), PARA_A),
-				DispatchError::BadOrigin
-			);
-
-			assert_ok!(Registrar::force_drop_pending(RuntimeOrigin::root(), PARA_A));
-
-			assert!(PendingRegistrations::<Test>::get(PARA_A).is_none());
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_none());
-			// Nothing is sent: the parachain still holds its deposit and must cancel there.
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(registrar_events(), vec![Event::PendingDropped { para_id: PARA_A }]);
-		});
-	}
-}
-
-mod bounds {
-	use super::*;
-
-	#[test]
-	fn the_two_pending_maps_are_bounded_separately_but_by_the_same_number() {
-		new_test_ext().execute_with(|| {
-			// Fill the registration map to its bound.
-			for i in 0..MAX_PENDING {
-				let para = PARA_A + 100 + i;
-				let (msg, _) = register_msg(para, 20, 300);
-				assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
-				assert!(PendingRegistrations::<Test>::get(para).is_some(), "para {para}");
-			}
-			let _ = take_sent();
-			let _ = registrar_events();
-
-			// One more is refused and reported, rather than silently growing relay-chain state
-			// that no deposit here pays for.
-			let overflow = PARA_A + 999;
-			let (msg, _) = register_msg(overflow, 20, 300);
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), msg));
-			assert!(PendingRegistrations::<Test>::get(overflow).is_none());
-			assert_eq!(
-				take_sent(),
-				vec![failure_report(overflow, FailureReason::TooManyPending)]
-			);
-
-			// The upgrade map has its own budget: a full registration map must not stop a
-			// registered para from upgrading.
-			known_para(PARA_A);
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				upgrade_msg(PARA_A, &code(MAX_CODE_SIZE as usize))
-			));
-			assert!(PendingCodeUpgrades::<Test>::get(PARA_A).is_some());
-		});
-	}
-
-	#[test]
-	fn every_validation_failure_reports_a_distinct_code() {
-		// These codes are what a node sees when an unsigned upload is refused from the pool. Two
-		// failures sharing one would make the refusal ambiguous to anybody debugging it.
-		let errors = [
-			Error::<Test>::NothingPending,
-			Error::<Test>::CodeHashMismatch,
-			Error::<Test>::CodeLenMismatch,
-			Error::<Test>::CodeTooLarge,
-			Error::<Test>::NothingPendingUpgrade,
-		];
-		let mut codes: Vec<u8> = errors.into_iter().map(Registrar::err_to_code).collect();
-		let total = codes.len();
-		codes.sort_unstable();
-		codes.dedup();
-		assert_eq!(codes.len(), total, "two errors share an InvalidTransaction::Custom code");
-	}
-}
-
-mod remove_upgrade_cooldown {
-	use super::*;
-
-	fn cooldown_msg(para_id: ParaId) -> MessageToRelay<AccountId> {
-		MessageToRelay::V1(MessageToRelayV1::RemoveUpgradeCooldown {
-			para_id,
-			message_id: MSG_ID,
-		})
-	}
-
-	#[test]
-	fn drops_the_cooldown_and_charges_nothing_here() {
-		new_test_ext().execute_with(|| {
-			InCooldown::set(vec![PARA_A]);
-
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				cooldown_msg(PARA_A)
-			));
-
-			assert!(InCooldown::get().is_empty());
-			// The payer was charged on the parachain, so nothing goes back and nothing is taken
-			// here.
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(
-				registrar_events(),
-				vec![Event::UpgradeCooldownRemoved { para_id: PARA_A, message_id: MSG_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn a_cooldown_that_already_expired_is_said_so_rather_than_looking_like_success() {
-		new_test_ext().execute_with(|| {
-			// The cooldown may lapse between the parachain deciding to pay and this arriving.
-			assert_ok!(Registrar::receive(
-				RuntimeOrigin::root(),
-				cooldown_msg(PARA_A)
-			));
-
-			assert_eq!(
-				registrar_events(),
-				vec![Event::NoUpgradeCooldown { para_id: PARA_A, message_id: MSG_ID }]
-			);
-		});
-	}
-
-	#[test]
-	fn users_cannot_reach_it() {
-		new_test_ext().execute_with(|| {
-			assert_noop!(
-				Registrar::receive(RuntimeOrigin::signed(ALICE), cooldown_msg(PARA_A)),
-				DispatchError::BadOrigin
-			);
-		});
-	}
-}
-
-/// The per-para budget on forwarded requests. What is rationed is unpaid relay-chain execution:
-/// the forwarded calls run here for free and are priced on the chain that serves them, so this is
-/// the only thing bounding how much free work one para id can ask for.
-mod forward_budget {
-	use super::*;
-
-	#[test]
-	fn a_para_gets_its_budget_per_block_and_no_more() {
-		new_test_ext().execute_with(|| {
-			System::set_block_number(1);
-
-			// The budget is one per block, shared across the registrar and HRMP forwards.
-			assert!(Registrar::note_forwarded(PARA_A));
-			assert!(!Registrar::note_forwarded(PARA_A));
-
-			// Another para's budget is its own.
-			assert!(Registrar::note_forwarded(PARA_B));
-
-			// The next block starts a fresh budget.
-			System::set_block_number(2);
-			assert!(Registrar::note_forwarded(PARA_A));
-			assert!(!Registrar::note_forwarded(PARA_A));
-		});
-	}
-}
-
-mod note_first_head {
-	use super::*;
-
-	/// Onboard `para_id` for real, so it is being watched for its first block.
-	fn onboard(para_id: ParaId) {
-		let blob = request(para_id, 20, 300);
-		let (authorized, dispatched) = authorize_and_dispatch(para_id, blob);
-		assert_eq!(authorized, Ok(()));
-		assert_eq!(dispatched, Ok(()));
-		let _ = take_sent();
-		let _ = registrar_events();
-	}
-
-	#[test]
-	fn onboarding_starts_the_watch_and_the_first_block_ends_it() {
-		new_test_ext().execute_with(|| {
-			// GIVEN a para onboarded through this pallet, which is therefore being watched.
-			onboard(PARA_A);
-			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
-
-			// WHEN it produces its first block. THEN the control plane is told once, and the
-			// watch is gone — the notification is what a lock is decided on there, and it must
-			// not arrive twice or the para's own later unlock could be overridden.
-			Registrar::note_first_head(PARA_A);
-			assert_eq!(take_sent(), vec![first_head_report(PARA_A)]);
-			assert_eq!(registrar_events(), vec![Event::FirstHeadNoted { para_id: PARA_A }]);
-			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
-
-			// AND every block after it costs one read and says nothing. `OnNewHead` fires for
-			// every head of every para, so the uninteresting case has to be the cheap one.
-			Registrar::note_first_head(PARA_A);
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(registrar_events(), vec![]);
-		});
-	}
-
-	#[test]
-	fn a_para_this_pallet_never_onboarded_is_never_reported() {
-		new_test_ext().execute_with(|| {
-			// Migrated paras are the real case: they arrived on the control plane already live
-			// and already locked, so there is nothing left to tell it. Without the watch every
-			// live parachain would send one of these on its next block.
-			Managers::set(vec![(PARA_A, ALICE)]);
-
-			Registrar::note_first_head(PARA_A);
-
-			assert_eq!(take_sent(), vec![]);
-			assert_eq!(registrar_events(), vec![]);
-		});
-	}
-
-	#[test]
-	fn a_refused_transport_is_reported_and_not_retried() {
-		new_test_ext().execute_with(|| {
-			// GIVEN a watched para whose report cannot be sent.
-			onboard(PARA_A);
+			awaiting(PARA_A);
 			SendFails::set(true);
 
-			// WHEN it produces its first block. THEN the failure is surfaced, and the watch is
-			// still cleared: nothing here retries, because this chain's state is already correct
-			// and the para is live either way. Root locks it on the control plane if it matters.
-			Registrar::note_first_head(PARA_A);
-			assert_eq!(registrar_events(), vec![Event::FirstHeadNoteFailed { para_id: PARA_A }]);
-			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
 
-			SendFails::set(false);
-			Registrar::note_first_head(PARA_A);
-			assert_eq!(take_sent(), vec![], "no retry");
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
 		});
 	}
 
 	#[test]
-	fn deregistering_before_the_first_block_drops_the_watch() {
+	fn a_bounced_notification_is_retried_on_the_next_head() {
 		new_test_ext().execute_with(|| {
-			// GIVEN a para onboarded and then given up on before it ever produced a block — the
-			// bad-blob case. Nothing else would ever clear its watch.
-			onboard(PARA_A);
-			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			awaiting(PARA_A);
+			SendFails::set(true);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
 
+			// A bounced notification keeps the para waiting, otherwise it would never learn about
+			// its first head and could stay unlocked forever.
+			assert!(AwaitingFirstHead::<Test>::contains_key(PARA_A));
+			assert!(take_sent().is_empty());
+			assert_eq!(registrar_events(), vec![Event::HeadNoteFailed { para_id: PARA_A }]);
+
+			SendFails::set(false);
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert_eq!(
+				take_sent(),
+				vec![MessageToPara::V1(MessageToParaV1::HeadNoted { para_id: PARA_A })]
+			);
+			assert_eq!(registrar_events(), vec![Event::HeadNoted { para_id: PARA_A }]);
 			assert!(!AwaitingFirstHead::<Test>::contains_key(PARA_A));
-			let _ = take_sent();
-			Registrar::note_first_head(PARA_A);
-			assert_eq!(take_sent(), vec![], "nothing left to report about a para that is gone");
+
+			// And once it lands it is not sent again.
+			Registrar::on_new_head(PARA_A.into(), &Default::default());
+
+			assert!(take_sent().is_empty());
+			assert!(registrar_events().is_empty());
 		});
 	}
 }
