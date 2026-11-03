@@ -936,6 +936,9 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		);
 
 		let proposal_hash = Self::proposal_hash(&proposal, threshold);
+		// A `ProposalProvider` (e.g. pallet-alliance) can store a motion with `threshold < 2`
+		// through `do_propose_proposed`, so the same identity may still be live here.
+		ensure!(!<ProposalOf<T, I>>::contains_key(proposal_hash), Error::<T, I>::DuplicateProposal);
 
 		let seats = Members::<T, I>::get().len() as MemberCount;
 		let result = proposal.dispatch(RawOrigin::Members(1, seats).into());

@@ -101,6 +101,8 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
+	// Non-zero so that weight assertions are meaningful.
+	type DbWeight = frame_support::weights::constants::RocksDbWeight;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
@@ -1228,16 +1230,14 @@ fn motions_reproposing_disapproved_works() {
 			proposal_len
 		));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![]);
+		// Same call and threshold, so the same motion is proposed again.
 		assert_ok!(Collective::propose(
 			RuntimeOrigin::signed(1),
-			2,
+			3,
 			Box::new(proposal.clone()),
 			proposal_len
 		));
-		assert_eq!(
-			*Proposals::<Test, Instance1>::get(),
-			vec![Collective::proposal_hash(&proposal, 2)]
-		);
+		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![hash]);
 	});
 }
 
@@ -1982,7 +1982,11 @@ fn migration_v5_rekeys_active_proposals() {
 		assert_eq!(StorageVersion::get::<Collective>(), StorageVersion::new(4));
 		assert!(Collective::do_try_state().is_err());
 
-		migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		let weight = migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		// Proposals r1 w1; per entry ProposalOf + Voting r2 w4, CostOf r1 (+w2 for the one with a
+		// deposit); the storage version r1 w1.
+		let db_weight = <<Test as frame_system::Config>::DbWeight as Get<RuntimeDbWeight>>::get();
+		assert_eq!(weight, db_weight.reads_writes(1 + 3 * 3 + 1, 1 + 3 * 4 + 2 + 1));
 
 		assert_eq!(StorageVersion::get::<Collective>(), StorageVersion::new(5));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), new_hashes);
@@ -2016,7 +2020,6 @@ fn migration_v5_rekeys_active_proposals() {
 		// Running the migration again is a no-op: the version is already 5.
 		let proposals_before = Proposals::<Test, Instance1>::get();
 		let weight = migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
-		let db_weight = <<Test as frame_system::Config>::DbWeight as Get<RuntimeDbWeight>>::get();
 		assert_eq!(weight, db_weight.reads(1));
 		assert_eq!(Proposals::<Test, Instance1>::get(), proposals_before);
 		assert_eq!(StorageVersion::get::<Collective>(), StorageVersion::new(5));
@@ -2039,5 +2042,73 @@ fn migration_v5_leaves_inconsistent_entries_in_place() {
 		assert_eq!(StorageVersion::get::<Collective>(), StorageVersion::new(5));
 		assert_eq!(*Proposals::<Test, Instance1>::get(), old_hashes);
 		assert_eq!(ProposalOf::<Test, Instance1>::get(old_hashes[0]), Some(call));
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migration_v5_try_runtime_hooks_pass() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build_and_execute(|| {
+		let calls = [(make_proposal(1), 3u32), (make_proposal(2), 2u32), (make_proposal(3), 3u32)];
+		for (call, threshold) in calls.iter() {
+			let len = call.using_encoded(|p| p.len() as u32);
+			assert_ok!(Collective::propose(
+				RuntimeOrigin::signed(1),
+				*threshold,
+				Box::new(call.clone()),
+				len
+			));
+		}
+		downgrade_proposals_to_v4();
+		let state = migrations::v5::MigrateToV5::<Test, Instance1>::pre_upgrade().unwrap();
+		migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		assert_ok!(migrations::v5::MigrateToV5::<Test, Instance1>::post_upgrade(state));
+	});
+}
+
+#[test]
+fn migration_v5_skips_entry_without_call_and_rekeys_the_rest() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	// The state is deliberately inconsistent, so skip the end-of-test try_state.
+	ExtBuilder::default().build().execute_with(|| {
+		let (a, b) = (make_proposal(1), make_proposal(2));
+		for call in [&a, &b] {
+			let len = call.using_encoded(|p| p.len() as u32);
+			assert_ok!(Collective::propose(
+				RuntimeOrigin::signed(1),
+				3,
+				Box::new(call.clone()),
+				len
+			));
+		}
+		let old_hashes = downgrade_proposals_to_v4();
+		// The first entry lost its call, e.g. because it no longer decodes after an upgrade.
+		ProposalOf::<Test, Instance1>::remove(old_hashes[0]);
+
+		migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+
+		let new_b = Collective::proposal_hash(&b, 3);
+		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![old_hashes[0], new_b]);
+		assert!(Voting::<Test, Instance1>::contains_key(old_hashes[0]));
+		assert_eq!(ProposalOf::<Test, Instance1>::get(new_b), Some(b));
+	});
+}
+
+#[test]
+fn propose_execute_rejects_identity_of_live_motion() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let len = proposal.using_encoded(|p| p.len() as u32);
+		// A `ProposalProvider` such as pallet-alliance can store a motion with threshold < 2.
+		assert_ok!(Collective::do_propose_proposed(1, 1, Box::new(proposal.clone()), len));
+		assert!(ProposalOf::<Test, Instance1>::contains_key(Collective::proposal_hash(
+			&proposal, 1
+		)));
+		// Executing the same (call, threshold) directly must not reuse the live motion's hash.
+		assert_noop!(
+			Collective::propose(RuntimeOrigin::signed(1), 1, Box::new(proposal), len),
+			Error::<Test, Instance1>::DuplicateProposal
+		);
 	});
 }

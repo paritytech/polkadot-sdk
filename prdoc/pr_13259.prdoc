@@ -16,10 +16,17 @@ doc:
     Breaking changes:
     - `Pallet::do_propose_execute` takes the `threshold` as its first argument.
     - Off-chain tooling that computed the proposal hash as `hash(call)` to call `vote`, `close`,
-      `disapprove_proposal` or `kill` must now compute `hash((call, threshold))`, or read the
-      hash from the `Proposed` event.
-    - The `proposal_hash` in the `MemberExecuted` event, emitted when a proposal with
-      `threshold < 2` executes immediately, is also `hash((call, threshold))`.
+      `disapprove_proposal` or `kill` must now compute `hash((call, threshold))`, with
+      `threshold` encoded as a plain `u32` (not compact, as in the extrinsic), or read the hash
+      from the `Proposed` event.
+    - The `proposal_hash` in the `Executed` event, emitted when `propose` is called with
+      `threshold < 2` and the call executes immediately, is also `hash((call, threshold))`.
+      `MemberExecuted`, emitted by `execute`, still carries `hash(call)`.
+    - Only active proposals are re-keyed. The deposit of a motion closed before the upgrade is
+      still released with `release_proposal_cost(hash(call))`.
+    - A call that names a motion by its old hash and has not run yet (a pending or scheduled
+      `vote`, `close`, `kill` or `disapprove_proposal`) no longer finds that motion after the
+      upgrade.
 - audience: Runtime User
   description: |-
     The Alliance collective on Collectives Westend runs a one-off storage migration that re-keys
@@ -28,7 +35,7 @@ crates:
 - name: pallet-collective
   bump: major
 - name: pallet-alliance
-  bump: none
+  bump: patch
 - name: pallet-utility
   bump: none
 - name: collectives-westend-runtime
