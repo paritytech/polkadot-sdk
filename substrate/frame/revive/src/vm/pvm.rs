@@ -62,6 +62,9 @@ pub trait Memory<T: Config> {
 	/// - requested buffer is not within the bounds of the sandbox memory.
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError>;
 
+	/// Returns whether `len` bytes starting at `ptr` are within the bounds of the sandbox memory.
+	fn is_readable(&self, ptr: u32, len: u32) -> bool;
+
 	/// Write the given buffer to the designated location in the sandbox memory.
 	///
 	/// Returns `Err` if one of the following conditions occurs:
@@ -89,6 +92,9 @@ pub trait Memory<T: Config> {
 	///
 	/// - requested buffer is not within the bounds of the sandbox memory.
 	fn read(&mut self, ptr: u32, len: u32) -> Result<Vec<u8>, DispatchError> {
+		if !self.is_readable(ptr, len) {
+			return Err(Error::<T>::OutOfBounds.into());
+		}
 		let mut buf = vec![0u8; len as usize];
 		self.read_into_buf(ptr, buf.as_mut_slice())?;
 		Ok(buf)
@@ -148,6 +154,10 @@ pub trait PolkaVmInstance<T: Config>: Memory<T> {
 // in the streaming implementation while it could fail with a segfault in the copy implementation.
 #[cfg(feature = "runtime-benchmarks")]
 impl<T: Config> Memory<T> for [u8] {
+	fn is_readable(&self, ptr: u32, len: u32) -> bool {
+		(ptr as usize).checked_add(len as usize).is_some_and(|end| end <= self.len())
+	}
+
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		let ptr = ptr as usize;
 		let bound_checked =
@@ -172,6 +182,10 @@ impl<T: Config> Memory<T> for [u8] {
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
+	fn is_readable(&self, ptr: u32, len: u32) -> bool {
+		self.is_memory_accessible(ptr, len, polkavm::MemoryProtection::Read)
+	}
+
 	fn read_into_buf(&mut self, ptr: u32, buf: &mut [u8]) -> Result<(), DispatchError> {
 		self.read_memory_into(ptr, buf)
 			.map(|_| ())
@@ -893,5 +907,41 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		self.instance.set_reg(polkavm::Reg::A0, a0.into());
 		self.instance.set_reg(polkavm::Reg::A1, a1);
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::tests::Test;
+
+	struct Unreadable;
+
+	impl Memory<Test> for Unreadable {
+		fn is_readable(&self, _ptr: u32, _len: u32) -> bool {
+			false
+		}
+
+		fn read_into_buf(&mut self, _ptr: u32, _buf: &mut [u8]) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn write(&mut self, _ptr: u32, _buf: &[u8]) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn zero(&mut self, _ptr: u32, _len: u32) -> Result<(), DispatchError> {
+			unimplemented!()
+		}
+
+		fn reset_interpreter_cache(&mut self) {}
+	}
+
+	#[test]
+	fn mem_read_early_return() {
+		assert_eq!(
+			Memory::<Test>::read(&mut Unreadable, 0, 1024 * 1024),
+			Err(Error::<Test>::OutOfBounds.into())
+		);
 	}
 }
