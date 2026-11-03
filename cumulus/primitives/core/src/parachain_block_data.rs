@@ -457,7 +457,7 @@ mod tests {
 
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MmrExtensionProof::identity(),
+			extension: MmrExtensionProof::identity(&Default::default()),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		let lifts = LiftsBySource::try_from(BTreeMap::from([
