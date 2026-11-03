@@ -242,7 +242,7 @@ impl Oracle {
 		apply(&self.palette, items, edits)
 	}
 
-	/// Fuzz entry point for [`MMRExtensionProof::verify`].
+	/// Fuzz entry point for [`MMRExtensionProof::calculate_root`].
 	pub fn check_extension_input(&self, input: &ExtensionInput) -> Outcome {
 		let Some(from) = self.from(&input.from) else { return Outcome::Skipped };
 		let mut proof = input
@@ -258,7 +258,7 @@ impl Oracle {
 
 	/// A real root must come from the honest proof off a real frontier.
 	pub fn check_extension(&self, from: &MmrFrontier, proof: &MMRExtensionProof) -> Outcome {
-		let Ok(root) = proof.verify(from) else { return Outcome::Rejected };
+		let Ok(root) = proof.calculate_root(from) else { return Outcome::Rejected };
 		let Some(&m) = self.roots.get(&root.0) else { return Outcome::Unbound };
 		let k = from.leaf_count();
 		if proof.leaf_count == 0 && proof.connecting_nodes.is_empty() {

@@ -180,7 +180,7 @@ pub(crate) fn verify_messages_response(
 			.map_err(|_| VerifyError::MalformedResponse)?;
 	}
 
-	let current = resp.extension.verify(&frontier)?;
+	let current = resp.extension.calculate_root(&frontier)?;
 	bind_under(stream, under, current, &resp.tree_proof)
 }
 

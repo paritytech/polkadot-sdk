@@ -122,17 +122,21 @@ fn forged_extension_never_reaches_the_committed_root() {
 		let from = frontier_at(&all, k);
 		let target = frontier_at(&all, n).root();
 		let honest = extension(&all, k, n);
-		assert_eq!(honest.verify(&from), Ok(target));
+		assert_eq!(honest.calculate_root(&from), Ok(target));
 
 		for count in claimable_counts().filter(|count| *count != n as u64) {
 			let forged = MMRExtensionProof { leaf_count: count, ..honest.clone() };
-			assert_ne!(forged.verify(&from), Ok(target), "{k} -> {count} poses as {k} -> {n}");
+			assert_ne!(
+				forged.calculate_root(&from),
+				Ok(target),
+				"{k} -> {count} poses as {k} -> {n}"
+			);
 		}
 		for count in claimable_counts().filter(|count| *count != k as u64) {
 			let Some(forged) = MmrFrontier::from_parts(from.peaks().to_vec(), count) else {
 				continue;
 			};
-			assert_ne!(honest.verify(&forged), Ok(target), "{count} leaves pose as {k}");
+			assert_ne!(honest.calculate_root(&forged), Ok(target), "{count} leaves pose as {k}");
 		}
 	}
 }
