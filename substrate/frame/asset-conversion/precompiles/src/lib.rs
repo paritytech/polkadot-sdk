@@ -235,6 +235,7 @@ const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_INVALID_ASSET_PAIR: &str = "Invalid asset pair";
 const ERR_POOL_NOT_FOUND: &str = "Pool does not exist";
 const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
+const ERR_POOL_UNAVAILABLE: &str = "Pool is frozen or blocked";
 const ERR_ZERO_AMOUNT: &str = "Amount can't be zero";
 /// `QuotePrice` returns `None` for more than missing liquidity, e.g. when the output rounds to
 /// zero or the computation overflows, so this does not name a cause.
@@ -586,15 +587,38 @@ where
 	/// Map a reserves failure to the same revert `getReserves` returns.
 	///
 	/// A missing pool and an empty pool both reach here as `PoolEmpty` from the pallet, so they
-	/// get their own reasons once `reserves` has told them apart. Anything else is unexpected from
-	/// `get_reserves` and keeps its variant name.
+	/// get their own reasons once `reserves` has told them apart. A frozen or blocked pool is
+	/// `PoolUnavailable`. Anything else is unexpected from `get_reserves` and keeps its variant
+	/// name. The rest are listed so that a new variant fails to compile.
 	fn reserves_error(e: pallet_asset_conversion::Error<Runtime>) -> Error {
 		use pallet_asset_conversion::Error::*;
 		let reason = match e {
 			InvalidAssetPair => ERR_INVALID_ASSET_PAIR,
 			PoolNotFound => ERR_POOL_NOT_FOUND,
 			PoolEmpty => ERR_POOL_EMPTY,
-			e => {
+			PoolUnavailable => ERR_POOL_UNAVAILABLE,
+			e @ (PoolExists |
+			WrongDesiredAmount |
+			AmountOneLessThanMinimal |
+			AmountTwoLessThanMinimal |
+			ReserveLeftLessThanMinimal |
+			AmountOutTooHigh |
+			Overflow |
+			AssetOneDepositDidNotMeetMinimum |
+			AssetTwoDepositDidNotMeetMinimum |
+			AssetOneWithdrawalDidNotMeetMinimum |
+			AssetTwoWithdrawalDidNotMeetMinimum |
+			OptimalAmountLessThanDesired |
+			InsufficientLiquidityMinted |
+			ZeroLiquidity |
+			ZeroAmount |
+			ProvidedMinimumNotSufficientForSwap |
+			ProvidedMaximumNotSufficientForSwap |
+			InvalidPath |
+			NonUniquePath |
+			IncorrectPoolAssetId |
+			BelowMinimum |
+			FeeTooHigh) => {
 				frame_support::defensive!("get_reserves returned unexpected error");
 				<&'static str>::from(DispatchError::from(e))
 			},
@@ -605,7 +629,7 @@ where
 	/// Why `QuotePrice` returned `None`.
 	///
 	/// A zero amount is rejected before the pool is read. Reserve failures reuse
-	/// `reserves_error`, so a missing pool, an empty pool and an invalid pair report
+	/// `reserves_error`, so a missing, empty, frozen or blocked pool and an invalid pair report
 	/// the same reasons as `getReserves`. Any other `None` has no single cause.
 	fn quote_failure(
 		asset1: &<Runtime as pallet_asset_conversion::Config>::AssetKind,

@@ -19,13 +19,16 @@ doc:
   description: |-
     ERC-20 `transfer` and `transferFrom` on pallet-assets tokens revert with "Transfer would leave
     sender below minimum balance" rather than sending more than `value`. Send the full balance or
-    keep at least the minimum. A contract that tracks deposits should pay out `balanceOf(this)` on
-    the last withdrawal, since anyone can send it a small amount that puts the tracked total in
-    that range.
+    keep at least the minimum. XCM that moves such a token through its precompile address
+    (`ERC20Transactor`) fails instead of moving more than it declared. A
+    contract that tracks deposits should pay out `balanceOf(this)` on the last withdrawal, since
+    anyone can send it a small amount that puts the tracked total in that range.
 
-    Precompile reverts now use error names such as "AssetNotLive" or "PoolEmpty". Quotes report
-    "Amount can't be zero", "Pool does not exist", "Pool exists but has no liquidity" or
-    "Quote failed".
+    Precompile reverts now use error names such as "AssetNotLive" or "PoolEmpty", and a
+    `DELEGATECALL` reverts with a reason instead of empty data. Swaps can revert with "Swap amount
+    cannot be withdrawn exactly". Quotes report "Amount can't be zero", "Pool does not exist",
+    "Pool exists but has no liquidity", "Pool is frozen or blocked" or "Quote failed";
+    `getReserves` reports the same pool reasons, so a missing pool is now "Pool does not exist".
 
 crates:
 - name: pallet-asset-conversion

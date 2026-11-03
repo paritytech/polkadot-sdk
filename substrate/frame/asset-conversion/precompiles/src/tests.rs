@@ -181,8 +181,9 @@ fn swap_exact_tokens_for_tokens_works() {
 }
 
 /// A swap that fails inside `pallet-assets` must revert with that pallet's error name.
-/// Freezing the asset makes the debit return `AssetNotLive`. That is not an
-/// asset-conversion error, so the precompile reports the module message.
+/// Freezing the swapper's account makes the debit return `Frozen`. That is not an
+/// asset-conversion error, so the precompile reports the module message. Freezing the whole
+/// asset would fail earlier, in the pool's own check, with `PoolUnavailable`.
 #[test]
 fn swap_reverts_with_the_inner_pallets_message() {
 	new_test_ext().execute_with(|| {
@@ -192,7 +193,7 @@ fn swap_reverts_with_the_inner_pallets_message() {
 
 		setup_pool(provider, 10_000, 10_000);
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), asset_id, swapper, 1_000));
-		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(provider), asset_id));
+		assert_ok!(Assets::freeze(RuntimeOrigin::signed(provider), asset_id, swapper));
 
 		let data = IAssetConversion::swapExactTokensForTokensCall {
 			path: vec![encode_asset(asset_id).into(), encode_native().into()],
@@ -203,7 +204,7 @@ fn swap_reverts_with_the_inner_pallets_message() {
 		}
 		.abi_encode();
 
-		assert_revert_reason(&bare_call(swapper, data), "AssetNotLive");
+		assert_revert_reason(&bare_call(swapper, data), "Frozen");
 	});
 }
 
@@ -459,6 +460,35 @@ fn quote_reverts_for_empty_pool() {
 		}
 		.abi_encode();
 		assert_revert_reason(&bare_call(creator, exact_out), "Pool exists but has no liquidity");
+	});
+}
+
+/// A frozen pool cannot send its asset, so `QuotePrice` returns `None` and the quote reports
+/// the same reason as `getReserves`.
+#[test]
+fn quote_reverts_for_frozen_pool() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 10_000);
+		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(provider), 1));
+
+		let exact = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(provider, exact), "Pool is frozen or blocked");
+
+		let exact_out = IAssetConversion::quoteTokensForExactTokensCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		assert_revert_reason(&bare_call(provider, exact_out), "Pool is frozen or blocked");
 	});
 }
 
@@ -779,6 +809,23 @@ fn get_reserves_fails_for_nonexistent_pool() {
 
 		let result = bare_call(caller, data);
 		assert_revert_reason(&result, "Pool does not exist");
+	});
+}
+
+#[test]
+fn get_reserves_fails_for_frozen_pool() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 10_000);
+		assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(provider), 1));
+
+		let data = IAssetConversion::getReservesCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		assert_revert_reason(&bare_call(provider, data), "Pool is frozen or blocked");
 	});
 }
 

@@ -424,7 +424,8 @@ where
 	/// Every pallet or token failure of a state-changing call is a Solidity revert, with the
 	/// reason sp-runtime gives the error: the variant name for a module error, so a contract sees
 	/// the same name whichever precompile surfaced it. `Error::Error` comes from the blanket
-	/// `From<DispatchError>`; only charging failures should reach it.
+	/// `From<DispatchError>`; only charging and receipt-limit failures should reach it, the
+	/// latter from `deposit_event` in `approve` or `permit`.
 	fn revert_dispatch(e: DispatchError) -> Error {
 		Error::Revert(Revert { reason: <&'static str>::from(e).into() })
 	}
