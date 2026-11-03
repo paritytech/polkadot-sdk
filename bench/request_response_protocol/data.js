@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793719351437,
+  "lastUpdate": 1793741765840,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141155,6 +141155,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2561731256,
             "range": "± 19788591",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d40d771c2117b597258dbf3a1012b7a7051fc836",
+          "message": "ci: follow-up to #13611 (#13700)\n\n- tests.yml had no aggregate job, so quick-benchmarks was a required\ncheck with the changes_rust guard on it. The new job \"All quick tests\npassed\" gives the workflow the same shape as the other twelve.\n- reusable-preflight.yml: the output changes_currentWorkflow goes away,\nbecause no workflow reads it. The filter group gets the name sharedCi,\nwhich matches what it holds after #13611. A dead line that set\ncurrentActionDir goes away. Two glob patterns get the **/* form that the\nfile uses elsewhere.",
+          "timestamp": "2026-11-03T19:20:53Z",
+          "tree_id": "ea5c0b84ae37420a20e7054438247ccb607c4127",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d40d771c2117b597258dbf3a1012b7a7051fc836"
+        },
+        "date": 1793741721417,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20284030,
+            "range": "± 339233",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20975622,
+            "range": "± 367439",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 22531857,
+            "range": "± 229331",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27179682,
+            "range": "± 442243",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 65670958,
+            "range": "± 989506",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 405360604,
+            "range": "± 5009292",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2944556119,
+            "range": "± 89934899",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17990039,
+            "range": "± 304503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18242186,
+            "range": "± 242101",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19194278,
+            "range": "± 142982",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24171141,
+            "range": "± 362969",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 67225509,
+            "range": "± 645544",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 403889956,
+            "range": "± 3537323",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3096811328,
+            "range": "± 73659562",
             "unit": "ns/iter"
           }
         ]
