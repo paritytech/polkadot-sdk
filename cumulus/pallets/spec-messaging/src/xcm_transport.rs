@@ -120,7 +120,8 @@ impl<Queue: frame_support::traits::QueueFootprintQuery<InChannelId>>
 /// - Otherwise the XCM goes over the spec-msg XCM channel if it is open, else falls through.
 /// - An open channel without capacity is a hard [`SendError::Transport`]: falling through would
 ///   lose the XCM in `XcmpQueue`.
-/// - Each delivery charges [`Pallet::send_weight`] to the block.
+/// - Each delivery charges [`Pallet::send_weight`] to the block. A send it would push past the
+///   normal class's limit is a hard [`SendError::Transport`] too.
 ///
 /// `ChannelInfo` is usually `ParachainSystem`, `VersionWrapper` usually `PolkadotXcm` (same
 /// destination `Location` as HRMP, so negotiated versions carry over).
@@ -173,6 +174,15 @@ where
 				SendError::Transport("spec-msg XCM channel has no capacity")
 			}
 		})?;
+		// `deliver` charges the send unchecked, so the room is checked here.
+		let weights = T::BlockWeights::get();
+		let limit = weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
+		let used = frame_system::BlockWeight::<T>::get()
+			.get(DispatchClass::Normal)
+			.saturating_add(Pallet::<T>::send_weight(encoded.len() as u32));
+		if !used.all_lte(limit) {
+			return Err(SendError::Transport("block has no room for the spec-msg send"));
+		}
 		Ok(((channel, encoded), price))
 	}
 

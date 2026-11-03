@@ -1789,6 +1789,24 @@ mod xcm_layer {
 			);
 		});
 	}
+
+	#[test]
+	fn a_send_past_the_block_limit_is_a_hard_error() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			let weights: frame_system::limits::BlockWeights =
+				<Test as frame_system::Config>::BlockWeights::get();
+			let limit = weights.get(DispatchClass::Normal).max_total.unwrap();
+			let len = VersionedXcm::from(xcm()).encode().len() as u32;
+			let room = limit.saturating_sub(SpecMessaging::send_weight(len));
+			frame_system::BlockWeight::<Test>::mutate(|w| w.set(room, DispatchClass::Normal));
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			assert_eq!(
+				send_xcm::<Router>(sibling(), xcm()),
+				Err(SendError::Transport("block has no room for the spec-msg send"))
+			);
+		});
+	}
 }
 
 /// A channel that wants to open and applied an `Accepting` register for versions `min..=max`.
