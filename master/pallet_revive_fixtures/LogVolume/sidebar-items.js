@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LogVolumeCalls","LogVolumeEvents"],"struct":["Outer","emitLogsCall","emitLogsGuardedCall","emitLogsGuardedReturn","emitLogsReturn","emitLogsThenCallCall","emitLogsThenCallReturn","emitLogsThenRevertCall","emitLogsThenRevertReturn","storeAndEmitLogsCall","storeAndEmitLogsReturn","storedCall","storedReturn"]};

@@ -574,7 +574,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#424 id=424 data-nosnippet>424</a>			num_topic: topics.len() <span class="kw">as </span>u32,
 <a href=#425 id=425 data-nosnippet>425</a>			len: data.len() <span class="kw">as </span>u32,
 <a href=#426 id=426 data-nosnippet>426</a>		})<span class="question-mark">?</span>;
-<a href=#427 id=427 data-nosnippet>427</a>		env.deposit_event(topics, data.to_vec());
+<a href=#427 id=427 data-nosnippet>427</a>		env.deposit_event(topics, data.to_vec())<span class="question-mark">?</span>;
 <a href=#428 id=428 data-nosnippet>428</a>		<span class="prelude-val">Ok</span>(())
 <a href=#429 id=429 data-nosnippet>429</a>	}
 <a href=#430 id=430 data-nosnippet>430</a>
