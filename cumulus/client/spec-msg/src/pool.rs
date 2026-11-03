@@ -152,14 +152,20 @@ impl SourcePool {
 	}
 
 	/// Store a head read, with its binding (the head is the stream's entry under its root, so the
-	/// extension is the identity) and its context's root.
+	/// extension is the identity at its end count) and its context's root.
 	pub fn insert_head(&mut self, stream: StreamId, head: HeadRead, tree_proof: StreamProof) {
 		let count = head.end_count();
 		self.insert_binding(
 			stream,
 			count,
 			head.under,
-			Binding { extension: MMRExtensionProof::identity(), tree_proof },
+			Binding {
+				extension: MMRExtensionProof {
+					leaf_count: count,
+					connecting_nodes: Default::default(),
+				},
+				tree_proof,
+			},
 		);
 		self.read_under.insert((stream, count), head.under);
 		self.heads.insert(stream, head);
