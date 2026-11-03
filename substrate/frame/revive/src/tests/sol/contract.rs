@@ -1069,8 +1069,11 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 mod eip_150 {
 	use super::*;
 	use crate::{
-		ContractResult, EthTxInfo, Pallet, evm::GenericTransaction, test_utils::ETH_GAS_LIMIT,
-		tests::DepositPerByte,
+		ContractResult, EthTxInfo, Pallet,
+		evm::{CallTracer, GenericTransaction},
+		test_utils::ETH_GAS_LIMIT,
+		tests::{DepositPerByte, test_utils::dispatch_eth_transaction},
+		tracing::trace,
 	};
 	use frame_support::{
 		assert_ok,
@@ -1148,7 +1151,9 @@ mod eip_150 {
 			without_commit(|| Pallet::<Test>::dry_run_eth_transact(tx.clone(), None, true, None))
 				.unwrap();
 		let tx = GenericTransaction { gas: Some(dry_run.eth_gas), ..tx };
-		Pallet::<Test>::dry_run_eth_transact(tx, None, true, None).unwrap().data
+		let mut tracer = CallTracer::default();
+		assert_ok!(trace(&mut tracer, || dispatch_eth_transaction(tx)));
+		tracer.collect_trace().unwrap().output.0
 	}
 
 	/// Returns an `aggregate3` call that stores `data` in `callee`.
@@ -1371,6 +1376,10 @@ mod eip_150 {
 
 			let output = call_with_estimated_limits(caller_addr, input, &limits);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+			let stored = builder::bare_call(callee_addr)
+				.data(Callee::storedCall {}.abi_encode())
+				.build_and_unwrap_result();
+			assert_eq!(Callee::storedCall::abi_decode_returns(&stored.data).unwrap(), 7);
 		});
 	}
 
@@ -1393,16 +1402,19 @@ mod eip_150 {
 			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
 			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
 			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+			let value = 1;
 			let input = Caller::normalCall {
 				_callee: receiver_addr.0.into(),
-				_value: 1,
+				_value: value,
 				_data: Default::default(),
 				_gas: 0,
 			}
 			.abi_encode();
 
+			let receiver_balance = Pallet::<Test>::evm_balance(&receiver_addr);
 			let output = call_with_estimated_limits(caller_addr, input, &limits);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
+			assert_eq!(Pallet::<Test>::evm_balance(&receiver_addr), receiver_balance + value);
 		});
 	}
 

@@ -1674,6 +1674,7 @@ mod emitter_logs {
 		test_utils::{ALICE, WEIGHT_LIMIT, deposit_limit},
 		tests::{
 			Contracts, ExtBuilder, RuntimeCall, RuntimeEvent, System, Test, builder, pallet_dummy,
+			test_utils::eth_extrinsic_revert,
 		},
 	};
 	use alloy_core::sol_types::{SolCall, SolEvent};
@@ -1721,16 +1722,6 @@ mod emitter_logs {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	fn bloom_of(contract: H160, topic: H256) -> [u8; 256] {
