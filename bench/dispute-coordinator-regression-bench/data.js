@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793720484089,
+  "lastUpdate": 1793742156153,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5b25a4922a6a95b570d41e2340f17c39551a42dd",
-          "message": "Bump collation `in_peers` to 300 for the experimental collator protocol (#11762)\n\nSync the values of `CONNECTED_PEERS_PARA_LIMIT` in experimental collator\nprotocol and `MAX_AUTHORITY_INCOMING_STREAMS` in peer_set.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:00:24Z",
-          "tree_id": "4eb2d5627e972cc4e2d29cbeb43b9f38a3cced4d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b25a4922a6a95b570d41e2340f17c39551a42dd"
-        },
-        "date": 1776418125221,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009493033399999979,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009793228680000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0027156555199999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009496145979999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d40d771c2117b597258dbf3a1012b7a7051fc836",
+          "message": "ci: follow-up to #13611 (#13700)\n\n- tests.yml had no aggregate job, so quick-benchmarks was a required\ncheck with the changes_rust guard on it. The new job \"All quick tests\npassed\" gives the workflow the same shape as the other twelve.\n- reusable-preflight.yml: the output changes_currentWorkflow goes away,\nbecause no workflow reads it. The filter group gets the name sharedCi,\nwhich matches what it holds after #13611. A dead line that set\ncurrentActionDir goes away. Two glob patterns get the **/* form that the\nfile uses elsewhere.",
+          "timestamp": "2026-11-03T19:20:53Z",
+          "tree_id": "ea5c0b84ae37420a20e7054438247ccb607c4127",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d40d771c2117b597258dbf3a1012b7a7051fc836"
+        },
+        "date": 1793742114171,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009827408489999998,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009336495349999988,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025631293099999996,
             "unit": "seconds"
           }
         ]
