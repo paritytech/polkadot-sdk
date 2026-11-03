@@ -90,8 +90,8 @@ pub struct RequiresLift {
 	/// One extension per gap in the stream's interval chain, in gap order. Empty when there are no
 	/// gaps.
 	pub advances: Vec<MMRExtensionProof>,
-	/// Extends the chain's endpoint to the stream's current root. The identity extension when the
-	/// endpoint already is that root.
+	/// Extends the chain's endpoint to the stream's current root. The identity of the endpoint's
+	/// frontier when it already is that root.
 	pub extension: MMRExtensionProof,
 	/// Keyed walk from the current stream root to the `StreamsRoot` the requires entry becomes.
 	pub tree_proof: StreamProof,
@@ -404,7 +404,7 @@ mod tests {
 		let interval = Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 3) };
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof,
 		};
 		let streams = SourceStreams::from([(stream, vec![interval])]);
@@ -436,7 +436,7 @@ mod tests {
 			source,
 			vec![RequiresLift {
 				advances: Vec::new(),
-				extension: MMRExtensionProof::identity(),
+				extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
 				tree_proof,
 			}],
 		);
@@ -459,7 +459,7 @@ mod tests {
 	fn lifts_by_source_decode_enforces_canonical_form() {
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&MmrFrontier::new()),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		let pair = |id: u32| (ParaId::from(id), vec![lift()]);
@@ -507,9 +507,9 @@ mod tests {
 		let (_pa, proof_a) = gen_stream_proof(&entries, a).unwrap();
 		let (_pb, proof_b) = gen_stream_proof(&entries, b).unwrap();
 
-		let lift = |tree_proof| RequiresLift {
+		let lift = |tree_proof, n| RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier_at(&all, n)),
 			tree_proof,
 		};
 		// SourceStreams is keyed, so it iterates a, b — the order the lifts must match.
@@ -518,7 +518,7 @@ mod tests {
 			(b, vec![Interval { start: MmrRoot(H256::zero()), end: frontier_at(&all, 5) }]),
 		]);
 		assert_eq!(
-			build_requires_entry(&streams, &[lift(proof_a), lift(proof_b)]).unwrap(),
+			build_requires_entry(&streams, &[lift(proof_a, 3), lift(proof_b, 5)]).unwrap(),
 			expected
 		);
 	}
@@ -546,7 +546,7 @@ mod tests {
 			};
 			let lift = RequiresLift {
 				advances: Vec::new(),
-				extension: MMRExtensionProof::identity(),
+				extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
 				tree_proof,
 			};
 			(record, lift)
@@ -578,8 +578,9 @@ mod tests {
 			Interval { start: root_at(&all, 4), end: frontier_at(&all, 5) }, // gap @2 → @4
 		];
 		let lift = RequiresLift {
-			advances: vec![extension(&all, 2, 4)],    // bridges the gap
-			extension: MMRExtensionProof::identity(), // endpoint @5 already the committed root
+			advances: vec![extension(&all, 2, 4)], // bridges the gap
+			extension: MMRExtensionProof::identity(&frontier_at(&all, 5)), /* endpoint @5 already
+			                                        * the committed root */
 			tree_proof,
 		};
 		let streams = SourceStreams::from([(stream, intervals)]);
@@ -596,7 +597,7 @@ mod tests {
 		)]);
 		let lift = || RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		// One stream, no lifts, and one stream, two lifts — both mismatch.
@@ -656,7 +657,7 @@ mod tests {
 		};
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof: bad,
 		};
 		assert_eq!(build_requires_entry(&streams, &[lift]), Err(LiftError::BadTreeProof));
@@ -672,7 +673,7 @@ mod tests {
 		let mk = |intervals, advances| {
 			let lift = RequiresLift {
 				advances,
-				extension: MMRExtensionProof::identity(),
+				extension: MMRExtensionProof::identity(&frontier_at(&all, 5)),
 				tree_proof: tree_proof.clone(),
 			};
 			build_requires_entry(&SourceStreams::from([(stream, intervals)]), &[lift])
@@ -705,7 +706,7 @@ mod tests {
 
 		let mk = |tree_proof| RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier_at(&all, 3)),
 			tree_proof,
 		};
 		let streams = SourceStreams::from([
@@ -838,7 +839,7 @@ mod tests {
 
 	#[test]
 	fn extension_proof_frozen_layout() {
-		assert_eq!(MMRExtensionProof::identity().encode(), vec![0x00, 0x00]);
+		assert_eq!(MMRExtensionProof::identity(&MmrFrontier::new()).encode(), vec![0x00, 0x00]);
 
 		let proof = MMRExtensionProof {
 			leaf_count: 1 << 47,

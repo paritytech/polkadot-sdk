@@ -288,21 +288,12 @@ pub enum ProofError {
 /// `connecting_nodes`. Verification computes the new root; it is never declared alongside the
 /// proof. It holds node hashes only, no message payloads.
 #[derive(
-	Clone,
-	Encode,
-	Decode,
-	DecodeWithMemTracking,
-	MaxEncodedLen,
-	PartialEq,
-	Eq,
-	Debug,
-	TypeInfo,
-	Default,
+	Clone, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo,
 )]
 pub struct MMRExtensionProof {
 	/// Leaf count of the extended MMR. The `mmr_lib` node count is derived from it, so no
-	/// independent size can be smuggled in. `0` with empty `connecting_nodes` is the identity
-	/// extension.
+	/// independent size can be smuggled in. The frontier's own count with empty
+	/// `connecting_nodes` is the identity extension.
 	/// Compact-encoded, since this is PoV-carried.
 	#[codec(compact)]
 	pub leaf_count: u64,
@@ -314,9 +305,9 @@ pub struct MMRExtensionProof {
 }
 
 impl MMRExtensionProof {
-	/// The identity extension. Yields a frontier's own root for the caught-up case.
-	pub fn identity() -> Self {
-		Self { leaf_count: 0, connecting_nodes: BoundedVec::new() }
+	/// The identity extension of `from`: its own leaf count and no connecting nodes.
+	pub fn identity(from: &MmrFrontier) -> Self {
+		Self { leaf_count: from.leaf_count(), connecting_nodes: BoundedVec::new() }
 	}
 
 	/// Exact encoded byte size of a skip/extension proof from `n1` leaves to `n2` leaves, computed
@@ -351,18 +342,16 @@ impl MMRExtensionProof {
 		if self.leaf_count > MAX_MMR_LEAF_COUNT {
 			return Err(ProofError::LeafCountTooLarge);
 		}
-		// `0` is the identity only without connecting nodes. This also keeps the `leaf_count - 1`
-		// below from underflowing.
-		if self.leaf_count == 0 {
+		if self.leaf_count < from.leaf_count() {
+			return Err(ProofError::NotForward);
+		}
+		// The identity: the same count with no connecting nodes. This includes the empty frontier.
+		if self.leaf_count == from.leaf_count() {
 			return if self.connecting_nodes.is_empty() {
 				Ok(from.root())
 			} else {
 				Err(ProofError::InvalidProof)
 			};
-		}
-		// Strictly forward: the extended MMR must have more leaves than the frontier.
-		if self.leaf_count <= from.leaf_count() {
-			return Err(ProofError::NotForward);
 		}
 		let new_mmr_size = mmr_size(self.leaf_count);
 
@@ -595,7 +584,7 @@ mod tests {
 		bad.connecting_nodes[0] = H256::repeat_byte(0xff);
 		assert_ne!(bad.calculate_root(&frontier_at(&all, 2)), Ok(root_at(&all, 5)));
 		// Identity extension yields the frontier's own root.
-		let id = MMRExtensionProof::identity();
+		let id = MMRExtensionProof::identity(&frontier_at(&all, 3));
 		assert_eq!(id.calculate_root(&frontier_at(&all, 3)), Ok(root_at(&all, 3)));
 	}
 
@@ -647,10 +636,10 @@ mod tests {
 	#[test]
 	fn extension_verify_rejects_non_forward() {
 		let all = leaves(5);
-		// A real (non-identity) extension pointed *back* to the frontier's own size is not strictly
-		// forward → rejected up front, before any crypto work.
+		// A real extension pointed *back* below the frontier's size is rejected up front, before
+		// any crypto work.
 		let mut ext = extension(&all, 2, 5);
-		ext.leaf_count = 2;
+		ext.leaf_count = 1;
 		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Err(ProofError::NotForward));
 	}
 
@@ -670,22 +659,48 @@ mod tests {
 	}
 
 	#[test]
-	fn extension_verify_rejects_zero_leaf_count() {
+	fn identity_verifies_to_the_frontier_root() {
 		let all = leaves(5);
-		// `0` with connecting nodes is not the identity: malformed, not merely non-forward.
-		let mut ext = extension(&all, 2, 5);
-		ext.leaf_count = 0;
-		assert_eq!(ext.calculate_root(&frontier_at(&all, 2)), Err(ProofError::InvalidProof));
+		for f in [MmrFrontier::new(), frontier_at(&all, 1), frontier_at(&all, 5)] {
+			let id = MMRExtensionProof::identity(&f);
+			assert_eq!(id.leaf_count, f.leaf_count());
+			assert!(id.connecting_nodes.is_empty());
+			assert_eq!(id.calculate_root(&f), Ok(f.root()));
+		}
+		assert_eq!(
+			MMRExtensionProof::identity(&MmrFrontier::new()).calculate_root(&MmrFrontier::new()),
+			Ok(empty_root()),
+		);
 	}
 
 	#[test]
-	fn extension_identity_on_empty_frontier_yields_empty_root() {
-		// Yields `empty_root()`. An empty stream is never in the tree, so the tree walk is what
-		// fails.
+	fn empty_extension_is_only_the_identity() {
+		let all = leaves(5);
+		let f = frontier_at(&all, 3);
+		let empty =
+			|leaf_count| MMRExtensionProof { leaf_count, connecting_nodes: BoundedVec::new() };
+		// Below the frontier, including `0` on a non-empty one.
+		assert_eq!(empty(0).calculate_root(&f), Err(ProofError::NotForward));
+		assert_eq!(empty(2).calculate_root(&f), Err(ProofError::NotForward));
+		// Above it, no nodes cannot reach the new root.
+		assert_eq!(empty(4).calculate_root(&f), Err(ProofError::InvalidProof));
+		assert_eq!(empty(5).calculate_root(&f), Err(ProofError::InvalidProof));
 		assert_eq!(
-			MMRExtensionProof::identity().calculate_root(&MmrFrontier::default()),
-			Ok(MmrFrontier::default().root()),
+			empty(MAX_MMR_LEAF_COUNT + 1).calculate_root(&f),
+			Err(ProofError::LeafCountTooLarge)
 		);
+		// From the empty frontier any non-zero count without peaks is malformed.
+		assert_eq!(empty(1).calculate_root(&MmrFrontier::new()), Err(ProofError::InvalidProof));
+	}
+
+	#[test]
+	fn equal_count_with_connecting_nodes_is_invalid() {
+		let all = leaves(5);
+		for f in [MmrFrontier::new(), frontier_at(&all, 3)] {
+			let mut id = MMRExtensionProof::identity(&f);
+			id.connecting_nodes.try_push(h(1)).unwrap();
+			assert_eq!(id.calculate_root(&f), Err(ProofError::InvalidProof));
+		}
 	}
 
 	#[test]

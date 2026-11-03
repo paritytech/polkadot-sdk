@@ -141,7 +141,10 @@ impl Oracle {
 			.map(|k| {
 				(0..=N)
 					.map(|m| {
-						(k < m).then(|| {
+						(k <= m).then(|| {
+							if k == m {
+								return MMRExtensionProof::identity(&frontiers[m]);
+							}
 							let connecting_nodes = if k == 0 {
 								frontiers[m].peaks().to_vec()
 							} else {
@@ -216,7 +219,7 @@ impl Oracle {
 		let mut proof = input
 			.template
 			.and_then(|m| self.extension(from.leaf_count(), m as u64 % (N as u64 + 1)).cloned())
-			.unwrap_or_default();
+			.unwrap_or_else(|| MMRExtensionProof::identity(&from));
 		if let Some(count) = input.leaf_count {
 			proof.leaf_count = count.get();
 		}
@@ -229,7 +232,7 @@ impl Oracle {
 		let Ok(root) = proof.calculate_root(from) else { return Outcome::Rejected };
 		let Some(&m) = self.roots.get(&root.0) else { return Outcome::Unbound };
 		let k = from.leaf_count();
-		if proof.leaf_count == 0 && proof.connecting_nodes.is_empty() {
+		if proof.leaf_count == k && proof.connecting_nodes.is_empty() {
 			assert!(
 				self.frontier(k) == Some(from) && k == m as u64,
 				"FORGERY: identity extension on a forged {k}-leaf frontier yields the real root of \
