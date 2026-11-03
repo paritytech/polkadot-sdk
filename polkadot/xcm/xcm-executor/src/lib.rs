@@ -564,7 +564,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				if holding_cannot_take_refund {
 					// Trapped rather than bought back from the trader, which would be another swap
 					// for a trader that swapped. The error still ends the program, so a message
-					// cannot trap once per `RefundSurplus`.
+					// cannot trap on every `RefundSurplus`.
 					let mut trapped = refund;
 					trapped.subsume_assets(self.fees.saturating_take(Wild(All)));
 					tracing::trace!(
