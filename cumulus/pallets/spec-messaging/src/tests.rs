@@ -1513,3 +1513,27 @@ fn a_forged_register_position_lifts_to_no_committed_root() {
 		assert_eq!(applied.position, MessagePosition(1 << 47));
 	});
 }
+
+#[test]
+fn enact_and_commit_weights_charge_the_fixed_cost_once() {
+	use crate::weights::WeightInfo as _;
+	type W = ();
+
+	assert_eq!(commit_weight::<Test>(1, 0), W::commit_sends(1));
+
+	let channel_only = MessagingInherentData {
+		channels: BTreeMap::from([(in_channel(), vec![Vec::new()])]),
+		..Default::default()
+	};
+	assert_eq!(
+		enact_weight::<Test>(&channel_only),
+		W::enact_channels(1).saturating_add(commit_weight::<Test>(0, 1))
+	);
+
+	let mut registers_only = MessagingInherentData::default();
+	registers_only.registers.insert(out_channel(), LossyRead::default());
+	assert_eq!(
+		enact_weight::<Test>(&registers_only),
+		W::enact_registers(1).saturating_add(commit_weight::<Test>(1, 0))
+	);
+}

@@ -659,9 +659,12 @@ pub mod pallet {
 	}
 }
 
-/// The end-of-block work for `sends` sends and `publishes` register publishes.
+/// The end-of-block work for `sends` sends and `publishes` register publishes. Both benchmarks'
+/// bases hold the commit's fixed cost, so `commit_publishes` adds only its slope.
 fn commit_weight<T: Config>(sends: u32, publishes: u32) -> Weight {
-	T::WeightInfo::commit_sends(sends).saturating_add(T::WeightInfo::commit_publishes(publishes))
+	let publishes = T::WeightInfo::commit_publishes(publishes)
+		.saturating_sub(T::WeightInfo::commit_publishes(0));
+	T::WeightInfo::commit_sends(sends).saturating_add(publishes)
 }
 
 /// Weight of one `enact_messages`, with the end-of-block work it causes: one register publish per
@@ -677,11 +680,22 @@ fn enact_weight<T: Config>(data: &MessagingInherentData) -> Weight {
 		bytes = bytes.saturating_add(payload.len() as u32);
 		handler = handler.saturating_add(T::DataHandler::on_data_weight(payload.len() as u32));
 	}
-	// The payload benchmark counts the messages beyond the first of each channel.
-	T::WeightInfo::enact_channels(channels)
-		.saturating_add(T::WeightInfo::enact_payloads(payloads.saturating_sub(channels)))
-		.saturating_add(T::WeightInfo::enact_bytes(bytes))
-		.saturating_add(T::WeightInfo::enact_registers(registers))
+	// Every benchmark's base holds the inherent's fixed cost, and the payload and byte bases one
+	// channel's too: `enact_channels`, or `enact_registers` without channels, charges them once.
+	let registers_weight = T::WeightInfo::enact_registers(registers);
+	let enact = if channels == 0 {
+		registers_weight
+	} else {
+		// The payload benchmark counts the messages beyond the first of each channel.
+		let payloads = T::WeightInfo::enact_payloads(payloads.saturating_sub(channels))
+			.saturating_sub(T::WeightInfo::enact_payloads(0));
+		let bytes = T::WeightInfo::enact_bytes(bytes).saturating_sub(T::WeightInfo::enact_bytes(0));
+		T::WeightInfo::enact_channels(channels)
+			.saturating_add(payloads)
+			.saturating_add(bytes)
+			.saturating_add(registers_weight.saturating_sub(T::WeightInfo::enact_registers(0)))
+	};
+	enact
 		.saturating_add(handler)
 		.saturating_add(commit_weight::<T>(registers, channels))
 }
