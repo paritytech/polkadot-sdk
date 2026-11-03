@@ -105,13 +105,20 @@ fn evm_call_stipends_work_for_send_zero() {
 	});
 }
 
-#[test_case(FixtureType::Solc, "BalanceReader")]
-#[test_case(FixtureType::Resolc, "BalanceReader")]
-#[test_case(FixtureType::Solc, "BalanceOfReader")]
-#[test_case(FixtureType::Resolc, "BalanceOfReader")]
+#[test_case(FixtureType::Solc, "BalanceReader", false)]
+#[test_case(FixtureType::Resolc, "BalanceReader", false)]
+#[test_case(FixtureType::Solc, "BalanceOfReader", false)]
+#[test_case(FixtureType::Resolc, "BalanceOfReader", false)]
+#[test_case(FixtureType::Solc, "SenderBalanceReader", true)]
+#[test_case(FixtureType::Resolc, "SenderBalanceReader", true)]
+#[test_case(FixtureType::Solc, "SimpleReceiver", false)]
 // On PolkaVM the stipend does not cover emitting an event.
-#[test_case(FixtureType::Solc, "SimpleReceiver")]
-fn call_stipends_work_for_balance_reads_and_events(fixture_type: FixtureType, receiver: &str) {
+#[test_case(FixtureType::Resolc, "SimpleReceiver", true)]
+fn call_stipends_cover_own_balance_reads_and_evm_events(
+	fixture_type: FixtureType,
+	receiver: &str,
+	reverts: bool,
+) {
 	let (receiver_code, _) = compile_module_with_type(receiver, fixture_type).unwrap();
 	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
 	// Half of it moves one native unit plus dust.
@@ -123,8 +130,11 @@ fn call_stipends_work_for_balance_reads_and_events(fixture_type: FixtureType, re
 
 		let Contract { addr: receiver, .. } =
 			builder::bare_instantiate(Code::Upload(receiver_code)).build_and_unwrap_contract();
-		let Contract { addr, .. } =
+		let Contract { addr, account_id } =
 			builder::bare_instantiate(Code::Upload(test_code)).build_and_unwrap_contract();
+		// Keeps the sender's balance above 0, so `SenderBalanceReader` fails only because of the
+		// cost of the balance read.
+		<Test as Config>::Currency::mint_into(&account_id, 10_000_000_000_000).unwrap();
 
 		let result = builder::bare_call(addr)
 			.data(
@@ -133,7 +143,7 @@ fn call_stipends_work_for_balance_reads_and_events(fixture_type: FixtureType, re
 			.evm_value(value.into())
 			.build_and_unwrap_result();
 
-		assert!(!result.did_revert());
+		assert_eq!(result.did_revert(), reverts);
 	});
 }
 

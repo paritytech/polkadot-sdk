@@ -60,6 +60,16 @@ contract BalanceOfReader {
 }
 
 /**
+ * @title SenderBalanceReader
+ * @dev Receiver contract 6: reads the sender's balance
+ */
+contract SenderBalanceReader {
+    receive() external payable {
+        require(msg.sender.balance > 0);
+    }
+}
+
+/**
  * @title ReentrancyAttacker
  * @dev On receiving ETH, attempts to call back into the sender
  */

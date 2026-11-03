@@ -3,10 +3,10 @@ doc:
 - audience: Runtime Dev
   description: |-
     `CallSetup` no longer whitelists the executing contract's `System::Account`, so its accesses
-    are now included in the weights of `seal_call_transfer`, `seal_instantiate`,
-    `seal_instantiate_transfer`, `evm_instantiate`, `evm_instantiate_transfer`, `seal_terminate`
-    and `seal_terminate_logic`. Runtimes on the pallet's default weights need no action, and the
-    `WeightInfo` trait is unchanged. Runtimes with their own `pallet_revive` weights
+    are now included in the weights of `seal_call_transfer`, `seal_call_transfer_to_existing`,
+    `seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate`, `evm_instantiate_transfer`,
+    `seal_terminate` and `seal_terminate_logic`. Runtimes on the pallet's default weights need no
+    action, and the `WeightInfo` trait is unchanged. Runtimes with their own `pallet_revive` weights
     have to re-run the benchmarks. So do precompile benchmarks built with
     `pallet_revive::call_builder::CallSetup` or its re-export
     `pallet_revive::precompiles::run::CallSetup` that access the executing contract's account.
