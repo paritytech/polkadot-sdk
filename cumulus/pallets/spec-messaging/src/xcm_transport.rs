@@ -113,6 +113,12 @@ impl<Queue: frame_support::traits::QueueFootprintQuery<InChannelId>>
 	}
 }
 
+impl<T: Config> frame_support::traits::QueuePausedQuery<InChannelId> for crate::Pallet<T> {
+	fn is_paused(channel: &InChannelId) -> bool {
+		crate::PausedInbound::<T>::contains_key(channel)
+	}
+}
+
 /// XCM sender to sibling parachains over Speculative Messaging. Place it **before** `XcmpQueue`,
 /// which accepts any sibling.
 ///

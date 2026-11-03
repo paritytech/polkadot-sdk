@@ -1673,6 +1673,53 @@ mod xcm_layer {
 	}
 
 	#[test]
+	fn pausing_an_inbound_channel_follows_the_flag() {
+		use frame_support::traits::QueuePausedQuery;
+		new_test_ext().execute_with(|| {
+			let channel = xcm_in();
+			let other = InChannelId { num: channel.num + 1, ..channel };
+			let (sender, domain, num) = (channel.sender, channel.domain, channel.num);
+			assert!(SpecMessaging::pause_inbound_channel(
+				RuntimeOrigin::signed(1),
+				sender,
+				domain,
+				num
+			)
+			.is_err());
+			assert!(SpecMessaging::resume_inbound_channel(
+				RuntimeOrigin::signed(1),
+				sender,
+				domain,
+				num
+			)
+			.is_err());
+			assert!(!SpecMessaging::is_paused(&channel));
+
+			// Pausing and resuming are idempotent.
+			for _ in 0..2 {
+				assert_ok!(SpecMessaging::pause_inbound_channel(
+					RuntimeOrigin::root(),
+					sender,
+					domain,
+					num
+				));
+				assert!(PausedInbound::<Test>::contains_key(channel));
+				assert!(SpecMessaging::is_paused(&channel));
+				assert!(!SpecMessaging::is_paused(&other));
+			}
+			for _ in 0..2 {
+				assert_ok!(SpecMessaging::resume_inbound_channel(
+					RuntimeOrigin::root(),
+					sender,
+					domain,
+					num
+				));
+				assert!(!SpecMessaging::is_paused(&channel));
+			}
+		});
+	}
+
+	#[test]
 	fn other_destinations_are_not_applicable() {
 		new_test_ext().execute_with(|| {
 			open_xcm_channel();

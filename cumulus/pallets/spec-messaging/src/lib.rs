@@ -270,6 +270,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type HrmpClosing<T: Config> = StorageMap<_, Twox64Concat, ParaId, (), OptionQuery>;
 
+	/// Inbound channels whose delivery queue is paused through [`QueuePausedQuery`]. See
+	/// [`Pallet::pause_inbound_channel`].
+	#[pallet::storage]
+	pub type PausedInbound<T: Config> = StorageMap<_, Twox64Concat, InChannelId, (), OptionQuery>;
+
 	/// Whether `enact_messages` ran this block; cleared next block.
 	#[pallet::storage]
 	pub type Enacted<T: Config> = StorageValue<_, (), OptionQuery>;
@@ -650,6 +655,35 @@ pub mod pallet {
 		pub fn clear_hrmp_closing(origin: OriginFor<T>, peer: ParaId) -> DispatchResult {
 			T::ChannelManagementOrigin::ensure_origin(origin)?;
 			HrmpClosing::<T>::remove(peer);
+			Ok(())
+		}
+
+		/// Pause the delivery queue of an inbound channel: execution stops at once, and
+		/// consumption stops when the queue reaches `MaxQueueFootprint`. Idempotent.
+		#[pallet::call_index(7)]
+		#[pallet::weight((T::WeightInfo::pause_inbound_channel(), DispatchClass::Operational))]
+		pub fn pause_inbound_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			PausedInbound::<T>::insert(InChannelId { sender, domain, num }, ());
+			Ok(())
+		}
+
+		/// Resume the delivery queue paused by [`Pallet::pause_inbound_channel`]. Idempotent.
+		#[pallet::call_index(8)]
+		#[pallet::weight((T::WeightInfo::resume_inbound_channel(), DispatchClass::Operational))]
+		pub fn resume_inbound_channel(
+			origin: OriginFor<T>,
+			sender: ParaId,
+			domain: u8,
+			num: u16,
+		) -> DispatchResult {
+			T::ChannelManagementOrigin::ensure_origin(origin)?;
+			PausedInbound::<T>::remove(InChannelId { sender, domain, num });
 			Ok(())
 		}
 	}
