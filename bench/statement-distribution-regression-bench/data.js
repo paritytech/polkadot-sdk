@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793690686041,
+  "lastUpdate": 1793702077563,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "9842640+manuelmauro@users.noreply.github.com",
-            "name": "Manuel Mauro",
-            "username": "manuelmauro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2ba71927ba129107dda65a15563f19632f884fe2",
-          "message": "[xcm-emulator] Make block producer overridable for non-Aura chains (#11791)\n\n# Description\n\nMakes the slot/digest producer used by `xcm-emulator`'s\n`decl_test_parachains!` macro overridable so parachains that don't run\nAura (e.g. Nimbus-based chains like Moonbeam) can be wired into\nxcm-emulator-based integration tests.\n\nPreviously, `new_block()` was hard-coded to call\n`pallet_aura::Pallet::<Runtime>::slot_duration()` and to build an Aura\n`PreRuntime` digest. This forced every emulated parachain to implement\n`pallet_aura::Config`, which is not viable for Nimbus-based runtimes.\n\n  ## Integration\n\nFully backwards-compatible — existing `decl_test_parachains!`\ninvocations need no changes. Aura-based parachains keep the same\nbehaviour through a default `AuraBlockProducer<T>` impl.\n\nNon-Aura parachains can now plug in a custom producer via a new optional\n`BlockProducer:` field:\n\n  ```diff\n   decl_test_parachains! {\n       pub struct MyPara {\n           genesis = genesis(),\n           on_init = (),\n           runtime = my_runtime,\n           core = {\n               XcmpMessageHandler: my_runtime::XcmpQueue,\n               LocationToAccountId: my_runtime::LocationToAccountId,\n               ParachainInfo: my_runtime::ParachainInfo,\nMessageOrigin: cumulus_primitives_core::AggregateMessageOrigin,\n  +            BlockProducer: MyNimbusBlockProducer,\n           },\n           pallets = { /* ... */ }\n       }\n   }\n  ```\n\n  Where `MyNimbusBlockProducer` implements the new trait:\n\n  ```rust\n  pub trait BlockProducer {\n      fn slot_duration() -> u64;\n      fn pre_runtime_digest(relay_block_number: u32) -> Digest;\n  }\n  ```\n\nIf the field is omitted, `AuraBlockProducer<Runtime>` is used,\nreproducing the previous behaviour exactly.\n\n## Review Notes\n\n- Adds a public `BlockProducer` trait in\n`cumulus/xcm/xcm-emulator/src/lib.rs` with two methods (`slot_duration`,\n`pre_runtime_digest`) — the two call sites in `new_block()` that\npreviously depended on\n  `pallet_aura`.\n- Provides `AuraBlockProducer<T>` as the default impl, gated on `T:\npallet_aura::Config` with `u64: From<T::Moment>`. Its\n`pre_runtime_digest` reproduces the previous inline digest construction\nverbatim (same\n  slot derivation, same `AURA_ENGINE_ID`).\n- Adds `type BlockProducer: BlockProducer` to the `Parachain` trait.\n- Extends `decl_test_parachains!` with an optional `BlockProducer:`\nfield and an `@inner_block_producer` helper arm that falls back to\n`$crate::AuraBlockProducer<$runtime::Runtime>` when unspecified.\n- In `new_block()`, `slot_duration` and the pre-runtime digest are now\nobtained through `<Self as Parachain>::BlockProducer`; all other\ninherent/timestamp logic is unchanged.\n\nNo new tests. Behaviour for Aura-based parachains is unchanged and\nalready covered by existing emulator tests; the new extension point is\nexercised by downstream (Moonbeam) integration tests.",
-          "timestamp": "2026-04-17T07:10:17Z",
-          "tree_id": "3bb942d884110e607c76c7788c20044b3ff6b95d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/2ba71927ba129107dda65a15563f19632f884fe2"
-        },
-        "date": 1776414688219,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.08999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038177647131999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0790259529699999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08183287959599987,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7c7b86afe492eb0c6af381cd74863a5818d62cf7",
+          "message": "pallet-psm: simplify PSM account handling (#13626)\n\n### Description\n\nPSMs no longer manage provider refs on their reserve account and fee\ndestination, so both follow the standard account rules.\n\n### Changes\n\n- `create_psm` and `remove_psm` no longer touch provider refs.\n- `mint` and `redeem` waive the fee when the fee destination can't\nreceive it.\n- `add_external_asset` requires the reserve account to be able to\nreceive the external asset, and fails with `ReserveCannotReceive`\notherwise. For a non-sufficient asset, create the reserve's asset\naccount first (e.g. with `touch_other`).\n- New `reserve_account` view function returns the reserve account of a\nPSM instance.\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T08:57:34Z",
+          "tree_id": "fbbc1842e6a08641186b194488e1c5c59eeb521d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7c7b86afe492eb0c6af381cd74863a5818d62cf7"
+        },
+        "date": 1793702045885,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.15200000000002,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08575674150199991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038614027138000016,
             "unit": "seconds"
           }
         ]
