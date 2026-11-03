@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793702077563,
+  "lastUpdate": 1793720424966,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "tsvetomir@parity.io",
-            "name": "Tsvetomir Dimitrov",
-            "username": "tdimitrov"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "5b25a4922a6a95b570d41e2340f17c39551a42dd",
-          "message": "Bump collation `in_peers` to 300 for the experimental collator protocol (#11762)\n\nSync the values of `CONNECTED_PEERS_PARA_LIMIT` in experimental collator\nprotocol and `MAX_AUTHORITY_INCOMING_STREAMS` in peer_set.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:00:24Z",
-          "tree_id": "4eb2d5627e972cc4e2d29cbeb43b9f38a3cced4d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/5b25a4922a6a95b570d41e2340f17c39551a42dd"
-        },
-        "date": 1776418094053,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.04999999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0847443380179999,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03826157998199999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038614027138000016,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "94361101f96f0d6ff0991c37cdcbacc8447c7681",
+          "message": "pallet-revive: split the call and instantiate benchmarks by value transfer (#13342)\n\nThe `seal_call`, `seal_instantiate` and `evm_instantiate` benchmarks had\ncomponents for the value, the dust and the input size. The benchmark\ntool changes one component at a time and keeps the others at their\nmaximum, so it never ran an operation without value or dust, and that\nprice was extrapolated. The 3 benchmarks now send no value, and each\ngets a new benchmark with a value transfer: `seal_call_transfer`,\n`seal_instantiate_transfer` and `evm_instantiate_transfer`.\n\nOther changes:\n- The `seal_call` benchmark now measures the per-byte cost of cloning\nthe input with the `CLONE_INPUT` flag, about 150 picoseconds instead of\n3. Previously, it set the input with `CallSetup::set_data` but created\nthe runtime with an empty input, so it always cloned nothing.\n- `evm_instantiate` now starts at 1 byte of init code, and\n`call_with_evm_code_per_byte` goes up to `MAX_CODE_SIZE`.\n- An instantiate that sends only dust now pays the full transfer cost,\nas a call already does.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T13:58:12Z",
+          "tree_id": "38d1da4f95948917c7f2bc18c484a0c8333c2f3a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94361101f96f0d6ff0991c37cdcbacc8447c7681"
+        },
+        "date": 1793720390227,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 128.11199999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08527377934399998,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.038881321183999985,
             "unit": "seconds"
           }
         ]
