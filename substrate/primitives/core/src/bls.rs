@@ -34,8 +34,8 @@ use crate::{
 use alloc::vec::Vec;
 
 use w3f_bls::{
-	dual_scalar_mul::DualScalarMultiplication, DoubleNuggetBLS, DoubleNuggetSignature, EngineBLS,
-	Keypair, Message, NuggetBLSnCPPoP, NuggetDoublePublicKey,
+	dual_scalar_mul::DualScalarMultiplication, DoubleNuggetBLS, DoubleNuggetPublicKey,
+	DoubleNuggetSignature, EngineBLS, Keypair, Message, NuggetBLSnCPPoP,
 	ProofOfPossession as BlsProofOfPossession, SecretKey, SerializableToBytes, TinyBLS381,
 };
 
@@ -126,7 +126,7 @@ const SECRET_KEY_SERIALIZED_SIZE: usize =
 
 /// Public key serialized size
 pub const PUBLIC_KEY_SERIALIZED_SIZE: usize =
-	<NuggetDoublePublicKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
+	<DoubleNuggetPublicKey<TinyBLS381> as SerializableToBytes>::SERIALIZED_BYTES_SIZE;
 
 /// Signature serialized size
 pub const SIGNATURE_SERIALIZED_SIZE: usize =
@@ -223,7 +223,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 
 	fn public(&self) -> Self::Public {
 		let mut raw = [0u8; PUBLIC_KEY_SERIALIZED_SIZE];
-		let pk = self.0.to_nugget_double_public_key().to_bytes();
+		let pk = self.0.to_double_nugget_public_key().to_bytes();
 		raw.copy_from_slice(pk.as_slice());
 		Self::Public::unchecked_from(raw)
 	}
@@ -247,7 +247,7 @@ impl<T: BlsBound> TraitPair for Pair<T> {
 				Ok(pk) => pk,
 				Err(_) => return false,
 			};
-		let public_key = match NuggetDoublePublicKey::<T>::from_bytes(&pubkey_array) {
+		let public_key = match DoubleNuggetPublicKey::<T>::from_bytes(&pubkey_array) {
 			Ok(pk) => pk,
 			Err(_) => return false,
 		};
@@ -285,7 +285,7 @@ impl<T: BlsBound> Pair<T> {
 			<Keypair<T> as BlsProofOfPossessionGenerator<
 				T,
 				Sha256,
-				NuggetDoublePublicKey<T>,
+				DoubleNuggetPublicKey<T>,
 				NuggetBLSnCPPoP<T>,
 			>>::generate_pok(&mut self.0)
 			.to_bytes()
@@ -324,7 +324,7 @@ impl<T: BlsBound> KeyProofVerifier for Pair<T> {
 		allegedly_possessed_pubkey: &Self::Public,
 	) -> bool {
 		let Ok(allegedly_possessed_pubkey_as_bls_pubkey) =
-			NuggetDoublePublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref())
+			DoubleNuggetPublicKey::<T>::from_bytes(allegedly_possessed_pubkey.as_ref())
 		else {
 			return false;
 		};

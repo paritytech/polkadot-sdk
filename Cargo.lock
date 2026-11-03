@@ -24784,7 +24784,7 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
  "strum 0.26.3",
- "w3f-bls 0.3.3",
+ "w3f-bls 0.3.4",
 ]
 
 [[package]]
@@ -24883,7 +24883,7 @@ dependencies = [
  "substrate-bip39 0.4.7",
  "thiserror 1.0.65",
  "tracing",
- "w3f-bls 0.3.3",
+ "w3f-bls 0.3.4",
  "zeroize",
 ]
 
@@ -29067,9 +29067,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-bls"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28e7579516f65302d9cfc673f5efaaef84d024f66ef6451250d9cdabba36a2d7"
+checksum = "1b4103d2432edb0581343ec10d66eac6b9f43628d1a49654d87e61f4c1e33106"
 dependencies = [
  "ark-bls12-377 0.6.0",
  "ark-bls12-381 0.6.0",

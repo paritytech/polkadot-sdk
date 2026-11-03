@@ -6,7 +6,7 @@ doc:
     [RFC-145](https://github.com/polkadot-fellows/RFCs/pull/145) and
     [RFC-156](https://github.com/polkadot-fellows/RFCs/pull/156).
 
-    Also upgrades `w3f-bls` to 0.3.3 (post-audit version).
+    Also upgrades `w3f-bls` to 0.3.4 (post-audit version).
 
 crates:
 - name: sp-io
