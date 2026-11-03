@@ -30,7 +30,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	inherent::{InherentData, ProvideInherent},
 	pallet_prelude::Weight,
-	traits::{Get, OnFinalize, OnInitialize},
+	traits::{OnFinalize, OnInitialize, OnRuntimeUpgrade},
 };
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -1598,4 +1598,154 @@ fn enact_and_commit_weights_charge_the_fixed_cost_once() {
 		enact_weight::<Test>(&registers_only),
 		W::enact_registers(1).saturating_add(commit_weight::<Test>(1, 0))
 	);
+}
+
+/// A channel that wants to open and applied an `Accepting` register for versions `min..=max`.
+fn awaiting_hello(num: u16, min: u8, max: u8) -> OutChannelId {
+	let ch = OutChannelId { recipient: ParaId::from(1000u32), domain: 0, num };
+	let register = Register {
+		up_to: MessagePosition(0),
+		status: RegisterStatus::Accepting { session: 1, min, max, max_message_size: 1024 },
+	};
+	OutChannels::<Test>::insert(
+		ch,
+		OutChannelState {
+			want_open: true,
+			session: 1,
+			register: Some(AppliedRegister { position: MessagePosition(0), register }),
+			..Default::default()
+		},
+	);
+	ch
+}
+
+/// Runs the upgrade into a new `SupportedVersions` range.
+fn upgrade_to(versions: core::ops::RangeInclusive<u8>) {
+	SupportedVersions::set(versions);
+	SpecMessaging::on_runtime_upgrade();
+}
+
+/// The `Hello`s (and other sends) this block on `ch`.
+fn hellos_on(ch: OutChannelId) -> Vec<Vec<u8>> {
+	sent_on(ch.data_stream())
+}
+
+#[test]
+fn a_changed_range_starts_a_pass_that_sends_the_due_hello_next_block() {
+	new_test_ext().execute_with(|| {
+		SpecMessaging::on_runtime_upgrade();
+		let ch = awaiting_hello(0, 2, 2);
+		assert_eq!(OutChannels::<Test>::get(ch).unwrap().open, None);
+
+		upgrade_to(1..=2);
+		assert!(HelloPassCursor::<Test>::get().is_some_and(|cursor| cursor.is_empty()));
+		assert_eq!(OutChannels::<Test>::get(ch).unwrap().open, None);
+		assert!(hellos_on(ch).is_empty());
+
+		roll_one_block();
+		assert_eq!(hellos_on(ch), vec![ChannelMessage::Hello { session: 1, version: 2 }.encode()]);
+		assert!(OutChannels::<Test>::get(ch).unwrap().took_part_in(1));
+		assert!(HelloPassCursor::<Test>::get().is_none());
+	});
+}
+
+#[test]
+fn an_unchanged_range_starts_no_pass() {
+	new_test_ext().execute_with(|| {
+		SpecMessaging::on_runtime_upgrade();
+		let ch = awaiting_hello(0, 2, 2);
+		SpecMessaging::on_runtime_upgrade();
+		assert!(HelloPassCursor::<Test>::get().is_none());
+
+		roll_one_block();
+		assert!(hellos_on(ch).is_empty());
+	});
+}
+
+#[test]
+fn the_first_upgrade_with_channels_starts_a_pass() {
+	new_test_ext().execute_with(|| {
+		awaiting_hello(0, 2, 2);
+		assert_eq!(SeenVersions::<Test>::get(), None);
+		SpecMessaging::on_runtime_upgrade();
+		assert!(HelloPassCursor::<Test>::get().is_some());
+		assert_eq!(SeenVersions::<Test>::get(), Some((1, 1)));
+	});
+}
+
+#[test]
+fn a_pass_spans_blocks_by_the_per_block_bound() {
+	new_test_ext().execute_with(|| {
+		SpecMessaging::on_runtime_upgrade();
+		let bound = MaxHelloPassPerBlock::get() as u16;
+		let channels: Vec<_> = (0..2 * bound + 1).map(|num| awaiting_hello(num, 2, 2)).collect();
+		upgrade_to(1..=2);
+
+		let mut sent = 0;
+		for block in 0..3 {
+			roll_one_block();
+			let now = channels.iter().filter(|ch| !hellos_on(**ch).is_empty()).count();
+			assert_eq!(now, if block < 2 { bound as usize } else { 1 });
+			sent += now;
+			assert_eq!(HelloPassCursor::<Test>::get().is_none(), block == 2);
+		}
+		assert_eq!(sent, channels.len());
+		assert!(channels.iter().all(|ch| OutChannels::<Test>::get(ch).unwrap().took_part_in(1)));
+	});
+}
+
+#[test]
+fn a_pass_stops_at_the_send_limit_and_resumes_next_block() {
+	new_test_ext().execute_with(|| {
+		SpecMessaging::on_runtime_upgrade();
+		let first = awaiting_hello(0, 2, 2);
+		let second = awaiting_hello(1, 2, 2);
+		upgrade_to(1..=2);
+
+		let next = System::block_number() + 1;
+		System::initialize(&next, &Default::default(), &Default::default());
+		SpecMessaging::roll_over();
+		let per_stream = MaxMessagesPerBlock::get();
+		for i in 0..SpecMessaging::send_limit() - 1 {
+			assert_ok!(SpecMessaging::append_to_stream(
+				stream((i / per_stream) as u16),
+				b"x".to_vec()
+			));
+		}
+		SpecMessaging::on_initialize(next);
+		assert_eq!(hellos_on(first).len(), 1);
+		assert!(hellos_on(second).is_empty());
+		assert_eq!(
+			HelloPassCursor::<Test>::get().map(|cursor| cursor.into_inner()),
+			Some(OutChannels::<Test>::hashed_key_for(first)),
+		);
+
+		roll_one_block();
+		assert!(hellos_on(first).is_empty());
+		assert_eq!(hellos_on(second).len(), 1);
+		assert!(HelloPassCursor::<Test>::get().is_none());
+	});
+}
+
+#[test]
+fn a_pass_sends_nothing_for_taken_part_or_unwanted_channels() {
+	new_test_ext().execute_with(|| {
+		SpecMessaging::on_runtime_upgrade();
+		let taken = awaiting_hello(0, 2, 2);
+		OutChannels::<Test>::mutate(taken, |state| {
+			state.as_mut().unwrap().open = Some(OpenSession {
+				session: 1,
+				params: SessionParams { version: 1, max_message_size: 1024 },
+				opened: false,
+			});
+		});
+		let unwanted = awaiting_hello(1, 2, 2);
+		OutChannels::<Test>::mutate(unwanted, |state| state.as_mut().unwrap().want_open = false);
+		upgrade_to(1..=2);
+
+		roll_one_block();
+		assert!(hellos_on(taken).is_empty());
+		assert!(hellos_on(unwanted).is_empty());
+		assert!(HelloPassCursor::<Test>::get().is_none());
+	});
 }

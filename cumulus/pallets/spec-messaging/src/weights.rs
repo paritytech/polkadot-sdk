@@ -61,6 +61,7 @@ pub trait WeightInfo {
 	fn commit_publishes(p: u32, ) -> Weight;
 	fn send(b: u32, ) -> Weight;
 	fn idle_commit() -> Weight;
+	fn hello_pass(n: u32, ) -> Weight;
 }
 
 /// Weights for `cumulus_pallet_spec_messaging` using the Substrate node and recommended hardware.
@@ -516,6 +517,43 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
+	/// Storage: `SpecMessaging::OutChannels` (r:1 w:0)
+	/// Proof: `SpecMessaging::OutChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::HrmpClosing` (r:0 w:1)
+	/// Proof: `SpecMessaging::HrmpClosing` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::HelloPassCursor` (r:1 w:1)
+	/// Proof: `SpecMessaging::HelloPassCursor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutChannels` (r:9 w:8)
+	/// Proof: `SpecMessaging::OutChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutboundFrontier` (r:8 w:0)
+	/// Proof: `SpecMessaging::OutboundFrontier` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutboundMessages` (r:8 w:8)
+	/// Proof: `SpecMessaging::OutboundMessages` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Number` (r:1 w:0)
+	/// Proof: `System::Number` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `SpecMessaging::RolledOver` (r:1 w:0)
+	/// Proof: `SpecMessaging::RolledOver` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::BlockStreamsRoot` (r:1 w:0)
+	/// Proof: `SpecMessaging::BlockStreamsRoot` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::SendsThisBlock` (r:1 w:1)
+	/// Proof: `SpecMessaging::SendsThisBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutboundLeafHashes` (r:8 w:8)
+	/// Proof: `SpecMessaging::OutboundLeafHashes` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[1, 8]`.
+	fn hello_pass(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1714 + n * (103 ±0)`
+		//  Estimated: `5176 + n * (2579 ±0)`
+		// Minimum execution time: 28_240_000 picoseconds.
+		Weight::from_parts(11_519_758, 5176)
+			// Standard Error: 8_448
+			.saturating_add(Weight::from_parts(19_023_107, 0).saturating_mul(n.into()))
+			.saturating_add(T::DbWeight::get().reads(6_u64))
+			.saturating_add(T::DbWeight::get().reads((4_u64).saturating_mul(n.into())))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(n.into()))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -969,5 +1007,42 @@ impl WeightInfo for () {
 		Weight::from_parts(7_020_000, 3539)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SpecMessaging::OutChannels` (r:1 w:0)
+	/// Proof: `SpecMessaging::OutChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::HrmpClosing` (r:0 w:1)
+	/// Proof: `SpecMessaging::HrmpClosing` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::HelloPassCursor` (r:1 w:1)
+	/// Proof: `SpecMessaging::HelloPassCursor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutChannels` (r:9 w:8)
+	/// Proof: `SpecMessaging::OutChannels` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutboundFrontier` (r:8 w:0)
+	/// Proof: `SpecMessaging::OutboundFrontier` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutboundMessages` (r:8 w:8)
+	/// Proof: `SpecMessaging::OutboundMessages` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Number` (r:1 w:0)
+	/// Proof: `System::Number` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `Measured`)
+	/// Storage: `SpecMessaging::RolledOver` (r:1 w:0)
+	/// Proof: `SpecMessaging::RolledOver` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::BlockStreamsRoot` (r:1 w:0)
+	/// Proof: `SpecMessaging::BlockStreamsRoot` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::SendsThisBlock` (r:1 w:1)
+	/// Proof: `SpecMessaging::SendsThisBlock` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
+	/// Storage: `SpecMessaging::OutboundLeafHashes` (r:8 w:8)
+	/// Proof: `SpecMessaging::OutboundLeafHashes` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `n` is `[1, 8]`.
+	fn hello_pass(n: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1714 + n * (103 ±0)`
+		//  Estimated: `5176 + n * (2579 ±0)`
+		// Minimum execution time: 28_240_000 picoseconds.
+		Weight::from_parts(11_519_758, 5176)
+			// Standard Error: 8_448
+			.saturating_add(Weight::from_parts(19_023_107, 0).saturating_mul(n.into()))
+			.saturating_add(RocksDbWeight::get().reads(6_u64))
+			.saturating_add(RocksDbWeight::get().reads((4_u64).saturating_mul(n.into())))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
+			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(n.into()))
 	}
 }

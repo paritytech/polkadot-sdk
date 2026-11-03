@@ -478,5 +478,37 @@ mod benchmarks {
 		assert!(Pallet::<T>::current_streams_root().is_none());
 	}
 
+	/// A Hello pass over `n` channels, each due a `Hello` on a stream with a wide frontier, in a
+	/// tree `MaxTreeDepth` deep.
+	#[benchmark(pov_mode = Measured)]
+	fn hello_pass(n: Linear<1, { T::MaxHelloPassPerBlock::get() }>) {
+		let channels: Vec<OutChannelId> = (0..n)
+			.map(|i| OutChannelId { recipient: sibling::<T>(i), domain: 0, num: 0 })
+			.collect();
+		let streams: Vec<StreamId> = channels.iter().map(OutChannelId::data_stream).collect();
+		build_tree_around::<T>(streams[0]);
+		for (channel, stream) in channels.iter().zip(&streams) {
+			accepting_outbound::<T>(*channel, true);
+			OutChannels::<T>::mutate(channel, |state| {
+				if let Some(AppliedRegister { register, .. }) =
+					state.as_mut().and_then(|s| s.register.as_mut())
+				{
+					register.up_to = MessagePosition((1 << 47) - 1);
+				}
+			});
+			OutboundFrontier::<T>::insert(*stream, wide_frontier());
+		}
+		mark_rolled_over::<T>();
+		HelloPassCursor::<T>::put(BoundedVec::default());
+
+		#[block]
+		{
+			Pallet::<T>::run_hello_pass();
+		}
+
+		assert_eq!(SendsThisBlock::<T>::get(), n);
+		assert!(!HelloPassCursor::<T>::exists());
+	}
+
 	impl_benchmark_test_suite!(Pallet, crate::mock::new_test_ext(), crate::mock::Test);
 }

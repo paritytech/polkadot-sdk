@@ -58,7 +58,7 @@ parameter_types! {
 	pub const MaxBundleStreams: u32 = 512;
 	pub const MaxTreeDepth: u32 = 4;
 	pub const MaxInboundMessagesPerItem: u32 = 16;
-	pub const SupportedVersions: RangeInclusive<u8> = 1..=1;
+	pub const MaxHelloPassPerBlock: u32 = 2;
 	pub const MaxMessageSize: u32 = 1024;
 	pub const MaxQueueFootprint: u32 = 4;
 	pub SelfParaId: ParaId = ParaId::from(SELF_PARA);
@@ -74,6 +74,7 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type MaxBundleStreams = MaxBundleStreams;
 	type MaxTreeDepth = MaxTreeDepth;
 	type MaxInboundMessagesPerItem = MaxInboundMessagesPerItem;
+	type MaxHelloPassPerBlock = MaxHelloPassPerBlock;
 	type SupportedVersions = SupportedVersions;
 	type MaxMessageSize = MaxMessageSize;
 	type MaxQueueFootprint = MaxQueueFootprint;
@@ -82,6 +83,11 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type WeightInfo = ();
 	type OpenChannelOrigin = EnsureRoot<u64>;
 	type AcceptChannelOrigin = EnsureRoot<u64>;
+}
+
+parameter_types! {
+	/// The versions the pallet supports; tests change it to model a runtime upgrade.
+	pub static SupportedVersions: RangeInclusive<u8> = 1..=1;
 }
 
 std::thread_local! {

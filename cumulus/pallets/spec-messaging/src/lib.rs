@@ -161,6 +161,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type SupportedVersions: Get<RangeInclusive<u8>>;
 
+		/// Cap on the channels one block's pass over [`OutChannels`] visits after a change of
+		/// [`Self::SupportedVersions`]; at least 1.
+		#[pallet::constant]
+		type MaxHelloPassPerBlock: Get<u32>;
+
 		/// Advertised maximum message size when accepting an inbound channel.
 		#[pallet::constant]
 		type MaxMessageSize: Get<u32>;
@@ -237,6 +242,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type OutChannels<T: Config> =
 		StorageMap<_, Twox64Concat, OutChannelId, OutChannelState, OptionQuery>;
+
+	/// The [`Config::SupportedVersions`] range last seen by `on_runtime_upgrade`.
+	#[pallet::storage]
+	pub type SeenVersions<T: Config> = StorageValue<_, (u8, u8), OptionQuery>;
+
+	/// The raw [`OutChannels`] key the Hello pass resumes after; empty to start over. A pass is
+	/// running while this is set.
+	#[pallet::storage]
+	pub type HelloPassCursor<T: Config> =
+		StorageValue<_, BoundedVec<u8, ConstU32<64>>, OptionQuery>;
 
 	/// Receiver side, per inbound channel.
 	#[pallet::storage]
@@ -343,7 +358,30 @@ pub mod pallet {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			let drained = Self::roll_over();
 			// The calls and the inherent charge the end-of-block commit; this charges the idle one.
-			T::WeightInfo::on_initialize(drained).saturating_add(T::WeightInfo::idle_commit())
+			let weight =
+				T::WeightInfo::on_initialize(drained).saturating_add(T::WeightInfo::idle_commit());
+			match Self::run_hello_pass() {
+				Some((visited, hellos)) => weight
+					.saturating_add(T::WeightInfo::hello_pass(visited))
+					.saturating_add(commit_weight::<T>(hellos, 0)),
+				None => weight,
+			}
+		}
+
+		/// Only schedules the Hello pass when [`Config::SupportedVersions`] changed: sends are
+		/// refused before initialization, so `on_initialize` does the work.
+		fn on_runtime_upgrade() -> Weight {
+			let supported = T::SupportedVersions::get();
+			let now = (*supported.start(), *supported.end());
+			let changed = match SeenVersions::<T>::get() {
+				Some(seen) => seen != now,
+				None => OutChannels::<T>::iter_keys().next().is_some(),
+			};
+			if changed {
+				HelloPassCursor::<T>::put(BoundedVec::default());
+			}
+			SeenVersions::<T>::put(now);
+			T::DbWeight::get().reads_writes(2, 2)
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
@@ -384,6 +422,10 @@ pub mod pallet {
 			assert!(
 				!T::SupportedVersions::get().is_empty(),
 				"`SupportedVersions` must not be empty",
+			);
+			assert!(
+				T::MaxHelloPassPerBlock::get() >= 1,
+				"`MaxHelloPassPerBlock` must be at least 1"
 			);
 		}
 	}
@@ -1016,6 +1058,47 @@ impl<T: Config> Pallet<T> {
 		ensure!(sent.saturating_sub(up_to) < T::MaxInFlight::get() as u64, Error::<T>::NoCredit);
 
 		Self::append_to_stream(stream, payload)
+	}
+
+	/// One block's step of the Hello pass, if one is scheduled: returns the channels visited and
+	/// the `Hello`s sent. The cursor stays before a channel the send limit stopped.
+	fn run_hello_pass() -> Option<(u32, u32)> {
+		use frame_support::storage::generator::StorageMap as _;
+		let cursor = HelloPassCursor::<T>::get()?;
+		let mut last = if cursor.is_empty() {
+			OutChannels::<T>::prefix_hash().to_vec()
+		} else {
+			cursor.into_inner()
+		};
+		let limit = Self::send_limit();
+		let (mut visited, mut hellos) = (0u32, 0u32);
+		let mut finished = true;
+		for (channel, mut state) in OutChannels::<T>::iter_from(last.clone()) {
+			if visited >= T::MaxHelloPassPerBlock::get() {
+				finished = false;
+				break;
+			}
+			visited = visited.saturating_add(1);
+			match Self::evaluate_hello_rule(&channel, &mut state, limit) {
+				Ok(true) => {
+					OutChannels::<T>::insert(channel, state);
+					hellos = hellos.saturating_add(1);
+				},
+				Err(Error::<T>::TooManySends) => {
+					finished = false;
+					break;
+				},
+				Ok(false) | Err(_) => {},
+			}
+			last = OutChannels::<T>::hashed_key_for(channel);
+		}
+		if finished {
+			HelloPassCursor::<T>::kill();
+		} else {
+			let cursor = BoundedVec::try_from(last).expect("an `OutChannels` key fits; qed");
+			HelloPassCursor::<T>::put(cursor);
+		}
+		Some((visited, hellos))
 	}
 
 	/// Evaluate the Hello rule for an outbound channel, emitting `Hello` within `limit` if due.
