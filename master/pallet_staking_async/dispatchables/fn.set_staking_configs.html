@@ -172,7 +172,8 @@ should be filled in order for the <code>chill_other</code> transaction to work.<
 This is checked only upon calling <code>validate</code>. Existing validators are not affected.</li>
 <li><code>chill_inactive_threshold</code>: The number of eras a validator can remain inactive during
 the last <a href="../trait.Config.html#associatedtype.HistoryDepth" title="associated type pallet_staking_async::Config::HistoryDepth"><code>Config::HistoryDepth</code></a> eras before being subject to chilling becuase of
-inactivity.</li>
+inactivity. The weight of <code>chill_inactive</code> with a proof of this length must fit in one
+normal extrinsic. When removed, <code>chill_inactive</code> is disabled.</li>
 </ul>
 <p>RuntimeOrigin must be Root to call this function.</p>
 <p>NOTE: Existing nominators and validators will not be affected by this update.

@@ -622,7 +622,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 <a href=#472 id=472 data-nosnippet>472</a>	<span class="kw">type </span>PlanningEraOffset =
 <a href=#473 id=473 data-nosnippet>473</a>		pallet_staking_async::PlanningEraOffsetOf&lt;<span class="self">Self</span>, RelaySessionDuration, ConstU32&lt;<span class="number">10</span>&gt;&gt;;
 <a href=#474 id=474 data-nosnippet>474</a>	<span class="kw">type </span>RcClientInterface = StakingRcClient;
-<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">type </span>IsValidatorInactive = ();
+<a href=#475 id=475 data-nosnippet>475</a>	<span class="kw">type </span>IsValidatorInactive = pallet_staking_async::AllZero;
 <a href=#476 id=476 data-nosnippet>476</a>	<span class="kw">type </span>OnEraStart = ();
 <a href=#477 id=477 data-nosnippet>477</a>}
 <a href=#478 id=478 data-nosnippet>478</a>

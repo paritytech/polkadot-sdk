@@ -154,6 +154,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../" data
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Chill an inactive validator.</p>
 <p>This extrinsic can be called by anyone, given that the valid inactivity proof is
 provided. Inactivity proof is a vector of eras where the given validator was inactive.</p>
+<p>Disabled while <a href="../type.ChillInactiveThreshold.html" title="type pallet_staking_async::ChillInactiveThreshold"><code>ChillInactiveThreshold</code></a> is not set.</p>
 <p>Requirements for the inactivity proof:</p>
 <ul>
 <li>The length must be equal to <a href="../type.ChillInactiveThreshold.html" title="type pallet_staking_async::ChillInactiveThreshold"><code>ChillInactiveThreshold</code></a>.</li>
