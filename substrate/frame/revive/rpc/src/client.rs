@@ -376,7 +376,7 @@ impl SubscriptionGapQueue {
 			Err(err) => {
 				log::error!(target: LOG_TARGET,
 					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}. \
-					 Sync head stays at its current block until a restart fills the gap");
+					 These blocks stay unindexed; in archive mode the sync head stays at its current block until a restart fills the gap");
 			},
 		}
 	}
