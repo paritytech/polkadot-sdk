@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793661686937,
+  "lastUpdate": 1793672498654,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e4350132f00e54bc5605559b91496f99ff97ac75",
-          "message": "pallet-asset-conversion: distinguish `PoolEmpty` from `PoolNotFound` (#11798)\n\n## Summary\n\n- Adds a new `PoolEmpty` error variant to `pallet-asset-conversion`\n- `PoolNotFound` now only means the pool does not exist in storage\n- `PoolEmpty` is returned when the pool exists but has zero reserves\n\n## Motivation\n\nWhen a pool exists but has no liquidity, `get_reserves()` returned\n`PoolNotFound`. This is misleading — the pool is in storage, it just has\nempty reserves. Users and frontends cannot distinguish between \"you need\nto create a pool\" and \"you need to add liquidity.\"\n\n## Changes\n\n- `substrate/frame/asset-conversion/src/lib.rs`: Added `PoolEmpty` error\nvariant, changed the zero-reserves check in `get_reserves()` to use it\n- `substrate/frame/asset-conversion/src/tests.rs`: Updated\n`can_not_swap_in_pool_with_no_liquidity_added_yet` to expect `PoolEmpty`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-17T09:44:46Z",
-          "tree_id": "3873485068066c85890568152464c0ef3c45060d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e4350132f00e54bc5605559b91496f99ff97ac75"
-        },
-        "date": 1776428038758,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14329696805333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025417189493333336,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007301237186666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009815698693333309,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007567426386666664,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4b6793567c457371b0b8d00349dba1b5ba7e3b6f",
+          "message": "[pallet-revive] PVM performance: early return on mem read (#13678)\n\nSmall optimization: We can return early when the read would fail anyway.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T00:46:13Z",
+          "tree_id": "efe63a4025088ca7099d1c9fef4e89ca89001732",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b6793567c457371b0b8d00349dba1b5ba7e3b6f"
+        },
+        "date": 1793672471512,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025105522240000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007597593606666667,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009868528993333313,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14481482136000007,
             "unit": "seconds"
           }
         ]
