@@ -659,8 +659,9 @@ impl Client {
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
 				// The block may be unindexed; the gap filler re-indexes it and keeps the
-				// sync head below it until then.
-				if subscription_type == SubscriptionType::FinalizedBlocks {
+				// sync head below it until then. Pruning mode has no sync head, and rows the
+				// gap filler writes bypass its eviction, so there the block stays unindexed.
+				if subscription_type == SubscriptionType::FinalizedBlocks && self.is_archive {
 					self.subscription_gap_queue.queue(block_number, block_number);
 				}
 			} else {
