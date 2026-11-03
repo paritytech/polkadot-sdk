@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793741765840,
+  "lastUpdate": 1793747699623,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141263,6 +141263,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3096811328,
             "range": "± 73659562",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce5174d79049c47b8a30cde19de2debaf6253d7d",
+          "message": "staking-async: check inactivity per service in chill_inactive (#13536)\n\nBuilds on #13464, which records era points per service\n(`ErasRewardPointsByService`).\n\n`IsValidatorInactive::is_inactive` now receives the era points of the\nvalidator per\n`ValidatorServiceKind`, as `&[(ValidatorServiceKind, RewardPoint)]`,\ninstead of a single total. A runtime can so decide inactivity per\nservice, for example that only relay consensus points keep a validator\nactive.\n\nPoints of the tally not recorded per service, which are those of eras\nbefore points were\nrecorded per service, count as `RelayConsensus`.\n\n`chill_inactive` is now disabled by default:\n- The `()` implementation of `IsValidatorInactive` never finds a\nvalidator inactive. The new `AllZero` implementation has the old\nbehaviour of `()`: a validator is inactive if it earned no points for\n**any** service. Runtimes that want the old behaviour must use\n`AllZero`. Custom implementations must take the points per service;\n\nMoreover:\n\n- `ChillInactiveThreshold` has no default anymore. While it is not set,\n`chill_inactive` fails with `ChillInactiveDisabled`. Removing it through\n`set_staking_configs` disables the call.\n- `set_staking_configs` rejects a `chill_inactive_threshold` for which\nthe weight of `chill_inactive` does not fit in one normal extrinsic.\n\n> **As it stands, on AssetHub Westend, we can check up to 67 previous\neras to reach `MAX_WEIGHT * NORMAL_EXTRINSIC_RATIO`.**\n\nWeight correction: \n\nThe weight of `chill_inactive` now includes reading\n`ErasRewardPointsByService` of every proof era. Its benchmark now writes\ndifferent reward points for every era and service. Before, equal values\nwere held only once in the proof, so the proof size did not grow with\nthe number of eras.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T21:51:06Z",
+          "tree_id": "45a063310816dc74d12eb4158020b0b96a8230cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce5174d79049c47b8a30cde19de2debaf6253d7d"
+        },
+        "date": 1793747664590,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19646382,
+            "range": "± 339080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19937815,
+            "range": "± 185755",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21406828,
+            "range": "± 528651",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25465861,
+            "range": "± 141501",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58853102,
+            "range": "± 868425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 356326956,
+            "range": "± 11927073",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2475968617,
+            "range": "± 75158442",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17153054,
+            "range": "± 117216",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17356607,
+            "range": "± 116079",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17902131,
+            "range": "± 138390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22445658,
+            "range": "± 118740",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 60468933,
+            "range": "± 570622",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 358170824,
+            "range": "± 4014742",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2760588111,
+            "range": "± 26595525",
             "unit": "ns/iter"
           }
         ]
