@@ -31,7 +31,9 @@ doc:
       contract's own account, so a nested contract called without value reads it without paying,
       until #12673.
     - In the prestate tracer's diff mode, a contract whose constructor reads its own balance with
-      `BALANCE` and then reverts no longer appears in the post state, as in geth.
+      `BALANCE` and then reverts no longer appears in the post state. The contract is still
+      included in the post state if its constructor writes storage, makes a call or creates a
+      contract before it reverts.
 crates:
 - name: pallet-revive
   bump: patch

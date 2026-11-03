@@ -116,10 +116,10 @@ fn evm_call_stipends_work_for_send_zero() {
 #[test_case(FixtureType::Resolc, "SimpleReceiver", true)]
 fn call_stipends_cover_own_balance_reads_and_evm_events(
 	fixture_type: FixtureType,
-	receiver: &str,
+	receiver_name: &str,
 	reverts: bool,
 ) {
-	let (receiver_code, _) = compile_module_with_type(receiver, fixture_type).unwrap();
+	let (receiver_code, _) = compile_module_with_type(receiver_name, fixture_type).unwrap();
 	let (test_code, _) = compile_module_with_type("SendAndTransferTest", fixture_type).unwrap();
 	// Half of it moves one native unit plus dust.
 	let value = 2_000_002_u128;
