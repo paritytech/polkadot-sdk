@@ -17,10 +17,8 @@
 
 use super::Bytes;
 use alloc::collections::BTreeMap;
-use codec::{Decode, Encode};
 use ethereum_types::*;
-use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use pallet_revive_types::runtime_api::*;
 
 /// A mapping from account addresses to their state overrides, used to temporarily modify account
 /// state during `eth_call` and similar simulation methods without affecting on-chain data.
@@ -29,9 +27,7 @@ use serde::{Deserialize, Serialize};
 /// account's state to replace for the duration of the call.
 ///
 /// Conforms to the [Geth state override set specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateOverrideSet(pub BTreeMap<Address, StateOverride>);
 
 impl core::ops::Deref for StateOverrideSet {
@@ -48,12 +44,23 @@ impl core::ops::DerefMut for StateOverrideSet {
 	}
 }
 
+impl From<StateOverrideSetV1> for StateOverrideSet {
+	fn from(value: StateOverrideSetV1) -> Self {
+		Self(
+			value
+				.0
+				.into_iter()
+				.map(|(address, overrides)| (address, overrides.into()))
+				.collect(),
+		)
+	}
+}
+
 /// Specifies how an account's storage should be overridden during a simulated call.
 ///
 /// The Geth state override specification mandates that `state` and `stateDiff` are mutually
 /// exclusive. This enum encodes that constraint at the type level.
-#[derive(Debug, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum StorageOverride {
 	/// Completely replaces the account's storage with the provided mapping. Any existing slots
 	/// not present in the mapping are effectively zeroed out.
@@ -63,33 +70,46 @@ pub enum StorageOverride {
 	StateDiff(BTreeMap<H256, H256>),
 }
 
+impl From<StorageOverrideV1> for StorageOverride {
+	fn from(value: StorageOverrideV1) -> Self {
+		match value {
+			StorageOverrideV1::State(state) => Self::State(state),
+			StorageOverrideV1::StateDiff(state_diff) => Self::StateDiff(state_diff),
+		}
+	}
+}
+
 /// Per-account state overrides applied during `eth_call` and similar simulation methods.
 ///
 /// All fields are optional. Only the fields that are set will be overridden; the rest of the
 /// account's state is read from the chain as normal.
 ///
 /// Conforms to the [Geth state override object specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/objects#state-override-set).
-#[derive(
-	Debug, Default, Clone, Encode, Decode, TypeInfo, Serialize, Deserialize, Eq, PartialEq,
-)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Default, Clone, Eq, PartialEq)]
 pub struct StateOverride {
 	/// Fake balance to set for the account before executing the call.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub balance: Option<U256>,
 	/// Fake nonce to set for the account before executing the call.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub nonce: Option<U256>,
 	/// Fake EVM bytecode to inject into the account before executing the call.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub code: Option<Bytes>,
 	/// Storage override specifying either a full replacement or a partial diff. These two modes
 	/// are mutually exclusive per the Geth specification.
-	#[serde(flatten)]
 	pub storage: Option<StorageOverride>,
 	/// Moves the precompile at the account's address to the specified address. Useful for
 	/// overriding a precompile's code with custom logic while still being able to invoke the
 	/// original precompile at a different address.
-	#[serde(skip_serializing_if = "Option::is_none")]
 	pub move_precompile_to_address: Option<Address>,
+}
+
+impl From<StateOverrideV1> for StateOverride {
+	fn from(value: StateOverrideV1) -> Self {
+		Self {
+			balance: value.balance,
+			nonce: value.nonce,
+			code: value.code,
+			storage: value.storage.map(Into::into),
+			move_precompile_to_address: value.move_precompile_to_address,
+		}
+	}
 }

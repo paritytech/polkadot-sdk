@@ -54,7 +54,7 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, ServiceKind, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -68,7 +68,7 @@ pub mod pallet {
 	use super::*;
 	use crate::{
 		session_rotation::{self, Eras, Rotator},
-		IsValidatorInactive, PagedExposureMetadata, SnapshotStatus,
+		IsValidatorInactive, OnEraStart, PagedExposureMetadata, SnapshotStatus,
 	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
@@ -433,6 +433,10 @@ pub mod pallet {
 		/// This check is used by `chill_inactive` extrinsic to check which
 		/// validators can be chilled.
 		type IsValidatorInactive: IsValidatorInactive<Self::AccountId>;
+
+		/// Notified with the validators of each era when it becomes active.
+		#[pallet::no_default_bounds]
+		type OnEraStart: OnEraStart<Self::AccountId>;
 	}
 
 	/// A reason for placing a hold on funds.
@@ -488,6 +492,7 @@ pub mod pallet {
 			type Filter = Nothing;
 			type WeightInfo = ();
 			type IsValidatorInactive = ();
+			type OnEraStart = ();
 		}
 	}
 
@@ -922,9 +927,28 @@ pub mod pallet {
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
+	///
+	/// The same points split by the service that earned them are in [`ErasRewardPointsByService`].
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
+
+	/// The points of [`ErasRewardPoints`] split by the service that earned them.
+	///
+	/// Values are era points as credited, in the same unit as [`ErasRewardPoints`]. A service
+	/// measured in other units, such as blocks authored, is converted to points before it is
+	/// credited. Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more
+	/// than the tally does for the same account.
+	#[pallet::storage]
+	pub type ErasRewardPointsByService<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		ServiceKind,
+		EraRewardPoints<T>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -1072,6 +1096,16 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ElectableStashes<T: Config> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxValidatorSet>, ValueQuery>;
+
+	/// The validators elected for the planned era, kept from the moment its election completes
+	/// until the era starts, for [`Config::OnEraStart`].
+	///
+	/// Only written when [`OnEraStart::enabled`] is true, and removed at the start of its era
+	/// whether or not the hook is still enabled. An era whose election completed before the hook
+	/// was enabled has no copy and is not notified.
+	#[pallet::storage]
+	pub type NextEraValidators<T: Config> =
+		StorageValue<_, (EraIndex, BoundedVec<T::AccountId, T::MaxValidatorSet>), OptionQuery>;
 
 	/// Tracks the current step of era pruning process for each era being lazily pruned.
 	#[pallet::storage]
@@ -1340,6 +1374,8 @@ pub mod pallet {
 		Unbonded {
 			stash: T::AccountId,
 			amount: BalanceOf<T>,
+			/// The era at which `amount` becomes withdrawable.
+			era: EraIndex,
 		},
 		/// An account has called `withdraw_unbonded` and removed unbonding chunks worth `Balance`
 		/// from the unlocking queue.
@@ -1460,6 +1496,14 @@ pub mod pallet {
 			optimum_self_stake: BalanceOf<T>,
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
+		},
+		/// Points earned for `service` were credited to `era`. `credited` entries were exposed in
+		/// `era` and `dropped` entries were not.
+		ServicePointsCredited {
+			service: ServiceKind,
+			era: EraIndex,
+			credited: u32,
+			dropped: u32,
 		},
 	}
 
@@ -1686,6 +1730,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
+					// At most one entry per `ServiceKind`.
+					let _ = ErasRewardPointsByService::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},
@@ -2027,7 +2073,7 @@ pub mod pallet {
 					let _ = T::VoterList::on_update(&stash, Self::weight_of(&stash));
 				}
 
-				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value });
+				Self::deposit_event(Event::<T>::Unbonded { stash, amount: value, era });
 			}
 
 			let actual_weight = if let Some(withdraw_weight) = maybe_withdraw_weight {

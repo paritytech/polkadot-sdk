@@ -30,7 +30,10 @@ use frame_support::{
 use sp_core::defer;
 use sp_io::hashing::blake2_128;
 use sp_weights::Weight;
-use xcm::latest::{prelude::*, AssetTransferFilter};
+use xcm::{
+	latest::{prelude::*, AssetTransferFilter},
+	RECURSION_LIMIT,
+};
 
 pub mod traits;
 use traits::{
@@ -62,14 +65,6 @@ pub struct FeesMode {
 	/// Defaults to false.
 	pub jit_withdraw: bool,
 }
-
-/// The maximum recursion depth allowed when executing nested XCM instructions.
-///
-/// Exceeding this limit results in `XcmError::ExceedsStackLimit` or
-/// `ProcessMessageError::StackLimitReached`.
-///
-/// Also used in the `DenyRecursively` barrier.
-pub const RECURSION_LIMIT: u8 = 10;
 
 environmental::environmental!(recursion_count: u8);
 
@@ -1011,8 +1006,8 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			TransferReserveAsset { mut assets, dest, xcm } => {
-				Config::TransactionalProcessor::process(|| {
-					let origin = self.origin_ref().ok_or(XcmError::BadOrigin)?;
+				self.transactional_process(|self_ref| {
+					let origin = self_ref.origin_ref().ok_or(XcmError::BadOrigin)?;
 					let mut total_surplus = Weight::zero();
 					// Take `assets` from the origin account (on-chain) and place into dest account.
 					for asset in assets.inner() {
@@ -1020,7 +1015,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 							asset,
 							origin,
 							&dest,
-							&self.context,
+							&self_ref.context,
 						)?;
 						// If we have some surplus, aggregate it.
 						total_surplus.saturating_accrue(surplus);
@@ -1040,9 +1035,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 						})?;
 					let mut message = vec![ReserveAssetDeposited(assets), ClearOrigin];
 					message.extend(xcm.0.into_iter());
-					self.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
+					self_ref.send(dest, Xcm(message), FeeReason::TransferReserveAsset)?;
 					// Credit the total surplus.
-					self.total_surplus.saturating_accrue(total_surplus);
+					self_ref.total_surplus.saturating_accrue(total_surplus);
 					Ok(())
 				})
 			},
@@ -1073,7 +1068,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 				})
 			},
 			// `fallback_max_weight` is not used in the executor, it's only for conversions.
-			Transact { origin_kind, mut call, .. } => {
+			Transact { origin_kind, call, .. } => {
 				let origin = self.cloned_origin().ok_or_else(|| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
@@ -1083,7 +1078,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					XcmError::BadOrigin
 				})?;
 
-				let message_call = call.take_decoded().map_err(|_| {
+				let message_call = call.try_into().map_err(|_| {
 					tracing::trace!(
 						target: "xcm::process_instruction::transact",
 						"Failed to decode call",
@@ -1094,7 +1089,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 				tracing::trace!(
 					target: "xcm::process_instruction::transact",
-					?call,
+					?message_call,
 					"Processing call",
 				);
 

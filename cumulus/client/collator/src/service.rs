@@ -18,26 +18,20 @@
 //! The Cumulus [`CollatorService`] is a utility struct for performing common
 //! operations used in parachain consensus/authoring.
 
-use cumulus_client_network::WaitToAnnounce;
 use cumulus_primitives_core::{
-	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof,
+	CollationInfo, CollectCollationInfo, ParachainBlockData, SchedulingProof, SchedulingSignals,
 };
 
 use polkadot_primitives::UMP_SEPARATOR;
 use sc_client_api::BlockBackend;
 use sp_api::{ApiExt, ProvideRuntimeApi, StorageProof};
 use sp_consensus::BlockStatus;
-use sp_core::traits::SpawnNamed;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT, Zero};
 
 use cumulus_client_consensus_common::ParachainCandidate;
-use polkadot_node_primitives::{
-	BlockData, Collation, CollationSecondedSignal, MaybeCompressedPoV, PoV,
-};
+use polkadot_node_primitives::{BlockData, Collation, MaybeCompressedPoV, PoV};
 
 use codec::Encode;
-use futures::channel::oneshot;
-use parking_lot::Mutex;
 use std::sync::Arc;
 /// The logging target.
 const LOG_TARGET: &str = "cumulus-collator";
@@ -80,16 +74,6 @@ pub trait ServiceInterface<Block: BlockT> {
 		scheduling_proof: Option<SchedulingProof>,
 	) -> Option<(Collation, ParachainBlockData<Block>)>;
 
-	/// Inform networking systems that the block should be announced after a signal has
-	/// been received to indicate the block has been seconded by a relay-chain validator.
-	///
-	/// This sets up the barrier and returns the sending side of a channel, for the signal
-	/// to be passed through.
-	fn announce_with_barrier(
-		&self,
-		block_hash: Block::Hash,
-	) -> oneshot::Sender<CollationSecondedSignal>;
-
 	/// Directly announce a block on the network.
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>);
 }
@@ -101,7 +85,6 @@ pub trait ServiceInterface<Block: BlockT> {
 /// and distributing new parachain blocks along the network.
 pub struct CollatorService<Block: BlockT, BS, RA> {
 	block_status: Arc<BS>,
-	wait_to_announce: Arc<Mutex<WaitToAnnounce<Block>>>,
 	announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 	runtime_api: Arc<RA>,
 }
@@ -110,7 +93,6 @@ impl<Block: BlockT, BS, RA> Clone for CollatorService<Block, BS, RA> {
 	fn clone(&self) -> Self {
 		Self {
 			block_status: self.block_status.clone(),
-			wait_to_announce: self.wait_to_announce.clone(),
 			announce_block: self.announce_block.clone(),
 			runtime_api: self.runtime_api.clone(),
 		}
@@ -132,14 +114,10 @@ where
 	/// Create a new instance.
 	pub fn new(
 		block_status: Arc<BS>,
-		spawner: Arc<dyn SpawnNamed + Send + Sync>,
 		announce_block: Arc<dyn Fn(Block::Hash, Option<Vec<u8>>) + Send + Sync>,
 		runtime_api: Arc<RA>,
 	) -> Self {
-		let wait_to_announce =
-			Arc::new(Mutex::new(WaitToAnnounce::new(spawner, announce_block.clone())));
-
-		Self { block_status, wait_to_announce, announce_block, runtime_api }
+		Self { block_status, announce_block, runtime_api }
 	}
 
 	/// Checks the status of the given block hash in the Parachain.
@@ -313,6 +291,11 @@ where
 		// Sort by recipient as required by the relay chain rules.
 		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
+		// Capture the signed scheduling info before `scheduling_proof` is moved; the tail below is
+		// rebuilt from it.
+		let signed_scheduling_info =
+			scheduling_proof.as_ref().and_then(|p| p.signed_scheduling_info.clone());
+
 		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof, scheduling_proof);
 
 		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
@@ -332,10 +315,19 @@ where
 			}),
 		});
 
-		// If we got some signals, push them now.
-		if !upward_message_signals.is_empty() {
-			upward_messages.push(UMP_SEPARATOR);
-			upward_messages.extend(upward_message_signals.into_iter());
+		// Emit the scheduling-signal tail. A signed scheduling info (resubmission) replaces the
+		// block's own signals wholesale, via the same `SchedulingSignals::from_scheduling_info` the
+		// PVF applies, so the two can't drift; otherwise the block's signals pass through
+		// unchanged.
+		match signed_scheduling_info {
+			Some(signed_info) => upward_messages
+				.extend(SchedulingSignals::from_scheduling_info(&signed_info).into_ump_messages()),
+			None => {
+				if !upward_message_signals.is_empty() {
+					upward_messages.push(UMP_SEPARATOR);
+					upward_messages.extend(upward_message_signals.into_iter());
+				}
+			},
 		}
 
 		let upward_messages = upward_messages
@@ -372,17 +364,6 @@ where
 
 		Some((collation, block_data))
 	}
-
-	/// Inform the networking systems that the block should be announced after an appropriate
-	/// signal has been received. This returns the sending half of the signal.
-	pub fn announce_with_barrier(
-		&self,
-		block_hash: Block::Hash,
-	) -> oneshot::Sender<CollationSecondedSignal> {
-		let (result_sender, signed_stmt_recv) = oneshot::channel();
-		self.wait_to_announce.lock().wait_to_announce(block_hash, signed_stmt_recv);
-		result_sender
-	}
 }
 
 impl<Block, BS, RA> ServiceInterface<Block> for CollatorService<Block, BS, RA>
@@ -410,13 +391,6 @@ where
 			candidate.proof,
 			scheduling_proof,
 		)
-	}
-
-	fn announce_with_barrier(
-		&self,
-		block_hash: Block::Hash,
-	) -> oneshot::Sender<CollationSecondedSignal> {
-		CollatorService::announce_with_barrier(self, block_hash)
 	}
 
 	fn announce_block(&self, block_hash: Block::Hash, data: Option<Vec<u8>>) {

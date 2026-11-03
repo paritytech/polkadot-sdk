@@ -40,7 +40,7 @@ use sp_runtime::{
 	traits::{Bounded, One, StaticLookup, Zero},
 	Perbill, Percent, Saturating,
 };
-use sp_staking::currency_to_vote::CurrencyToVote;
+use sp_staking::{currency_to_vote::CurrencyToVote, ServiceKind};
 use testing_utils::*;
 
 const SEED: u32 = 0;
@@ -343,7 +343,7 @@ mod benchmarks {
 		let (_, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		let amount = asset::existential_deposit::<T>() * 5u32.into(); // Half of total
 		Staking::<T>::unbond(RawOrigin::Signed(controller.clone()).into(), amount)?;
-		set_active_era::<T>(EraIndex::max_value());
+		set_active_era::<T>(EraIndex::MAX);
 		let ledger = Ledger::<T>::get(&controller).ok_or("ledger not created before")?;
 		let original_total: BalanceOf<T> = ledger.total;
 		whitelist_account!(controller);
@@ -377,7 +377,7 @@ mod benchmarks {
 		let mut ledger = Ledger::<T>::get(&controller).unwrap();
 		ledger.active = ed - One::one();
 		Ledger::<T>::insert(&controller, ledger);
-		set_active_era::<T>(EraIndex::max_value());
+		set_active_era::<T>(EraIndex::MAX);
 
 		whitelist_account!(controller);
 
@@ -1269,6 +1269,8 @@ mod benchmarks {
 			validator_points,
 			activation_timestamp,
 		};
+		// The era-start hook is charged on top of this weight, so it must not run here.
+		NextEraValidators::<T>::kill();
 
 		#[block]
 		{
@@ -1276,6 +1278,72 @@ mod benchmarks {
 		}
 
 		ensure!(Rotator::<T>::active_era() == initial_active_era + 1, "active era not bumped");
+		Ok(())
+	}
+
+	/// Every account of the largest validator set is exposed, has an incentive weight and already
+	/// holds a point in both reward records, so the report updates `v` entries of full maps.
+	#[benchmark]
+	fn reward_service_points(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = 1;
+		let max_validators = T::MaxValidatorSet::get();
+		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: Some(0) });
+		let accounts = (0..max_validators)
+			.map(|i| account::<T::AccountId>("validator", i, SEED))
+			.collect::<Vec<_>>();
+		for who in &accounts {
+			Eras::<T>::upsert_exposure(
+				era,
+				who,
+				Exposure { total: 1u32.into(), own: 1u32.into(), others: vec![] },
+			);
+			ErasValidatorIncentiveWeight::<T>::insert(era, who, BalanceOf::<T>::from(100u64));
+		}
+		let full_record = || -> Result<EraRewardPoints<T>, BenchmarkError> {
+			Ok(EraRewardPoints::<T> {
+				total: max_validators,
+				individual: accounts
+					.iter()
+					.map(|who| (who.clone(), 1))
+					.collect::<BTreeMap<_, _>>()
+					.try_into()
+					.map_err(|_| BenchmarkError::Stop("reward points exceed the validator set"))?,
+			})
+		};
+		ErasRewardPoints::<T>::insert(era, full_record()?);
+		ErasRewardPointsByService::<T>::insert(era, ServiceKind::Collation, full_record()?);
+		ErasSumWeightedPoints::<T>::insert(
+			era,
+			BalanceOf::<T>::from(100u64 * max_validators as u64),
+		);
+
+		let points = accounts
+			.into_iter()
+			.take(v as usize)
+			.enumerate()
+			.map(|(i, who)| (who, 1 + i as u32 % 10))
+			.collect::<Vec<_>>();
+		let total_before = ErasRewardPoints::<T>::get(era).total;
+		let collation_before =
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total;
+		let reported: RewardPoint = points.iter().map(|(_, p)| p).sum();
+
+		#[block]
+		{
+			Pallet::<T>::reward_service_points(ServiceKind::Collation, points);
+		}
+
+		ensure!(
+			ErasRewardPoints::<T>::get(era).total == total_before + reported,
+			"the points were not credited"
+		);
+		ensure!(
+			ErasRewardPointsByService::<T>::get(era, ServiceKind::Collation).total ==
+				collation_before + reported,
+			"the points were not recorded under their service"
+		);
 		Ok(())
 	}
 
@@ -1352,9 +1420,28 @@ mod benchmarks {
 			era,
 			crate::EraRewardPoints::<T> {
 				total: 77777,
-				individual: reward_points_individual.try_into().unwrap(),
+				individual: reward_points_individual.clone().try_into().unwrap(),
 			},
 		);
+		// The 7 points of each validator split as 4 for relay consensus and 3 for collation. One
+		// entry per `ServiceKind` variant, so the weight of `prune_era_reward_points`
+		// covers all of them. A new variant must be added here.
+		for (service, points) in
+			[(ServiceKind::RelayConsensus, 4u32), (ServiceKind::Collation, 3u32)]
+		{
+			let individual = reward_points_individual
+				.keys()
+				.map(|validator| (validator.clone(), points))
+				.collect::<BTreeMap<_, _>>();
+			ErasRewardPointsByService::<T>::insert(
+				era,
+				service,
+				crate::EraRewardPoints::<T> {
+					total: points * validators,
+					individual: individual.try_into().unwrap(),
+				},
+			);
+		}
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 		ErasNominatorsSlashable::<T>::insert(era, true);
 		ErasSumValidatorIncentiveWeight::<T>::insert(era, total_incentive_weight);

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	AccountInfo, Code, Config, ExecReturnValue, Key, Pallet, PristineCode, Weight,
+	Code, Config, ExecReturnValue, Key, Pallet, Weight,
 	evm::{Bytes, PrestateTrace, PrestateTraceInfo, PrestateTracerConfig},
 	tracing::Tracing,
 };
@@ -182,9 +182,8 @@ where
 {
 	/// Get the code of the contract.
 	fn bytecode(address: &H160) -> Option<Bytes> {
-		let code_hash = AccountInfo::<T>::load_contract(address)?.code_hash;
-		let code: Vec<u8> = PristineCode::<T>::get(&code_hash)?.into();
-		return Some(code.into());
+		let code = Pallet::<T>::code(address);
+		(!code.is_empty()).then(|| code.into())
 	}
 
 	/// Update the prestate info for the given address.
@@ -254,19 +253,23 @@ where
 		&mut self,
 		from: H160,
 		to: H160,
-		delegate_call: Option<H160>,
+		code_address: Option<H160>,
+		is_delegate_call: bool,
 		_is_read_only: bool,
 		_value: U256,
 		_input: &[u8],
 		_gas_limit: u64,
 	) {
-		if let Some(delegate_call) = delegate_call {
+		if is_delegate_call {
 			self.calls.push(self.current_addr());
-			self.read_account(delegate_call);
 		} else {
 			self.calls.push(to);
-			self.read_account(from);
 		}
+
+		if let Some(code_address) = code_address {
+			self.read_account(code_address);
+		}
+		self.read_account(from);
 
 		if self.create_code.take().is_some() {
 			self.created_addrs.insert(to);

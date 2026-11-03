@@ -23,16 +23,9 @@
 
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{
-		fungible::{
-			metadata::{Inspect as FungibleMetadataInspect, Mutate as FungibleMetadataMutate},
-			Create as FungibleCreate, Inspect as FungibleInspect,
-		},
-		fungibles::{
-			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
-			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
-		},
-		Get,
+	traits::fungibles::{
+		metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
 };
 use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
@@ -53,14 +46,30 @@ type BalanceOf<Runtime> =
 pub type AssetIdOf<Runtime> = <Runtime as pallet_psm::Config>::AssetId;
 
 /// [`PsmTestConfig`] for a given runtime.
-pub type PsmTestConfigOf<Runtime> = PsmTestConfig<AssetIdOf<Runtime>>;
+pub type PsmTestConfigOf<Runtime> = PsmTestConfig<
+	AssetIdOf<Runtime>,
+	<Runtime as frame_system::Config>::AccountId,
+	BalanceOf<Runtime>,
+>;
 
-/// Configuration for which asset to use as the external stablecoin in tests.
-pub struct PsmTestConfig<AssetId> {
-	/// The external stablecoin asset ID.
+/// Configuration for which asset to use as the external asset in tests.
+pub struct PsmTestConfig<AssetId, AccountId, Balance> {
+	/// The internal stablecoin asset ID for the PSM instance under test.
+	pub internal_asset_id: AssetId,
+	/// The external asset asset ID.
 	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
 	pub internal_asset_decimals: u8,
+	/// PSM fee destination written into the bootstrapped `PsmInfo`.
+	pub fee_destination: AccountId,
+	/// Absolute internal-asset debt ceiling for the PSM instance.
+	pub max_debt: Balance,
+	/// Minting fee for the `(internal_asset, external_asset)` pair.
+	pub minting_fee: sp_runtime::Permill,
+	/// Redemption fee for the `(internal_asset, external_asset)` pair.
+	pub redemption_fee: sp_runtime::Permill,
+	/// Ceiling weight assigned to `external_asset` on the PSM.
+	pub ceiling_weight: sp_runtime::Permill,
 	/// The pallet name for the assets pallet on the target chain (e.g., "Assets").
 	/// Used to determine which storage prefixes to fetch from the live chain.
 	pub assets_pallet_name: String,
@@ -70,15 +79,16 @@ pub struct PsmTestConfig<AssetId> {
 	pub pre_create_hook: Option<Box<dyn Fn()>>,
 }
 
-/// Amount of external stablecoin to swap in tests (1000 units).
+/// Amount of external asset to swap in tests (1000 units).
 const SWAP_AMOUNT: u128 = 1_000;
-/// Amount of external stablecoin to fund the test caller with (2000 units).
+/// Amount of external asset to fund the test caller with (2000 units).
 const FUND_AMOUNT: u128 = 2_000;
 /// Amount for a small redeem in circuit breaker tests (100 units).
 const SMALL_REDEEM: u128 = 100;
 
 /// Common test state returned by [`setup`].
 struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
+	internal_asset_id: Runtime::AssetId,
 	asset_id: Runtime::AssetId,
 	caller: Runtime::AccountId,
 	psm_account: Runtime::AccountId,
@@ -87,18 +97,17 @@ struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
 
 /// Create internal asset if needed, configure PSM, and fund test accounts.
 /// Must be called inside `execute_with`.
-fn setup<Runtime, InitialPsmConfig>(config: &PsmTestConfigOf<Runtime>) -> TestEnv<Runtime>
+fn setup<Runtime>(config: &PsmTestConfigOf<Runtime>) -> TestEnv<Runtime>
 where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-	Runtime::InternalAsset:
-		FungibleCreate<Runtime::AccountId> + FungibleMetadataMutate<Runtime::AccountId>,
-	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	let asset_id = config.external_asset_id.clone();
-	let psm_account: Runtime::AccountId = Runtime::PalletId::get().into_account_truncating();
+	let internal_asset_id = config.internal_asset_id.clone();
+	let psm_account: Runtime::AccountId =
+		pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
 
 	// Check that the external asset actually exists on-chain.
 	assert!(
@@ -119,8 +128,9 @@ where
 	);
 
 	// Create the internal asset if it doesn't exist yet.
-	if <Runtime::InternalAsset as FungibleInspect<Runtime::AccountId>>::minimum_balance().is_zero()
-	{
+	if !<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(
+		internal_asset_id.clone(),
+	) {
 		// Run pre-create hook (e.g., set NextAssetId for AutoIncAssetId chains).
 		if let Some(hook) = &config.pre_create_hook {
 			hook();
@@ -128,14 +138,16 @@ where
 
 		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
 
-		assert_ok!(<Runtime::InternalAsset as FungibleCreate<Runtime::AccountId>>::create(
+		assert_ok!(<Runtime::Fungibles as FungiblesCreate<Runtime::AccountId>>::create(
+			internal_asset_id.clone(),
 			psm_account.clone(),
 			true,
 			10_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed")),
 		));
 
 		// Set internal asset metadata using the configured decimals.
-		assert_ok!(<Runtime::InternalAsset as FungibleMetadataMutate<Runtime::AccountId>>::set(
+		assert_ok!(<Runtime::Fungibles as FungiblesMetadataMutate<Runtime::AccountId>>::set(
+			internal_asset_id.clone(),
 			&psm_account,
 			b"internal".to_vec(),
 			b"internal".to_vec(),
@@ -151,7 +163,9 @@ where
 
 	// Verify the stable asset and external asset have matching decimals.
 	let internal_decimals =
-		<Runtime::InternalAsset as FungibleMetadataInspect<Runtime::AccountId>>::decimals();
+		<Runtime::Fungibles as FungiblesMetadataInspect<Runtime::AccountId>>::decimals(
+			internal_asset_id.clone(),
+		);
 	let external_decimals =
 		<Runtime::Fungibles as FungiblesMetadataInspect<Runtime::AccountId>>::decimals(
 			asset_id.clone(),
@@ -162,9 +176,63 @@ where
 		internal_decimals, external_decimals,
 	);
 
-	// Initialize PSM parameters (idempotent — skips already-configured assets).
-	<pallet_psm::migrations::init::InitializePsm::<Runtime, InitialPsmConfig> as
-		frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
+	// Bootstrap the PSM by writing the [`PsmInfo`] / [`PsmAdminInfo`] records directly with
+	// `Root` as both admins, then setting up the external via the public dispatchables
+	// (dispatched as root, which matches `full_admin`). This avoids needing to fund a
+	// signer for `create_psm` in the remote-ext environment.
+	let internal_decimals_u8 = internal_decimals;
+	let root_origin: <Runtime as pallet_psm::Config>::PalletsOrigin =
+		frame_system::RawOrigin::<Runtime::AccountId>::Root.into();
+	pallet_psm::Psm::<Runtime>::insert(
+		&internal_asset_id,
+		pallet_psm::PsmInfo::<Runtime> {
+			fee_destination: config.fee_destination.clone(),
+			max_debt: config.max_debt,
+			min_swap_amount: 1u128
+				.try_into()
+				.unwrap_or_else(|_| panic!("balance conversion failed")),
+			internal_decimals: internal_decimals_u8,
+			external_count: 0,
+		},
+	);
+	pallet_psm::PsmAdmin::<Runtime>::insert(
+		&internal_asset_id,
+		pallet_psm::PsmAdminInfo::<Runtime> {
+			full_admin: root_origin.clone(),
+			emergency_admin: root_origin,
+			deposit: None,
+		},
+	);
+	let psm_account_id = pallet_psm::Pallet::<Runtime>::psm_account(&internal_asset_id);
+	if !frame_system::Pallet::<Runtime>::account_exists(&psm_account_id) {
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account_id);
+	}
+	if !frame_system::Pallet::<Runtime>::account_exists(&config.fee_destination) {
+		let _ = frame_system::Pallet::<Runtime>::inc_providers(&config.fee_destination);
+	}
+	assert_ok!(pallet_psm::Pallet::<Runtime>::add_external_asset(
+		frame_system::RawOrigin::Root.into(),
+		internal_asset_id.clone(),
+		asset_id.clone(),
+	));
+	assert_ok!(pallet_psm::Pallet::<Runtime>::set_minting_fee(
+		frame_system::RawOrigin::Root.into(),
+		internal_asset_id.clone(),
+		asset_id.clone(),
+		config.minting_fee,
+	));
+	assert_ok!(pallet_psm::Pallet::<Runtime>::set_redemption_fee(
+		frame_system::RawOrigin::Root.into(),
+		internal_asset_id.clone(),
+		asset_id.clone(),
+		config.redemption_fee,
+	));
+	assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_ceiling_weight(
+		frame_system::RawOrigin::Root.into(),
+		internal_asset_id.clone(),
+		asset_id.clone(),
+		config.ceiling_weight,
+	));
 
 	// Fund test account.
 	let caller: Runtime::AccountId =
@@ -186,7 +254,7 @@ where
 		.try_into()
 		.unwrap_or_else(|_| panic!("balance conversion failed"));
 
-	TestEnv { asset_id, caller, psm_account, swap_amount }
+	TestEnv { internal_asset_id, asset_id, caller, psm_account, swap_amount }
 }
 
 const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
@@ -230,10 +298,10 @@ pub fn clear_ext() {
 ///
 /// This test:
 /// 1. Sets up PSM with an approved external asset
-/// 2. Mints internal asset by depositing the external stablecoin
-/// 3. Redeems internal asset back for the external stablecoin
+/// 2. Mints internal asset by depositing the external asset
+/// 3. Redeems internal asset back for the external asset
 /// 4. Verifies balances, debt tracking, and fee accounting
-pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
+pub fn mint_and_redeem<Runtime, Block>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfigOf<Runtime>,
 ) where
@@ -242,13 +310,10 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-	Runtime::InternalAsset:
-		FungibleCreate<Runtime::AccountId> + FungibleMetadataMutate<Runtime::AccountId>,
-	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, psm_account, swap_amount } =
-			setup::<Runtime, InitialPsmConfig>(config);
+		let TestEnv { internal_asset_id, asset_id, caller, psm_account, swap_amount } =
+			setup::<Runtime>(config);
 
 		let balance_before = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 			asset_id.clone(),
@@ -257,15 +322,17 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 
 		log::info!(
 			target: LOG_TARGET,
-			"Test account external stablecoin balance: {:?}",
+			"Test account external asset balance: {:?}",
 			balance_before,
 		);
 
 		// Test mint
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
+			config.minting_fee,
 		));
 
 		let balance_after_mint =
@@ -283,12 +350,12 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
 
-		// The PSM account should hold the external stablecoin.
+		// The PSM account should hold the external asset.
 		let psm_external = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 			asset_id.clone(),
 			&psm_account,
 		);
-		assert_eq!(psm_external, swap_amount, "PSM should hold the external stablecoin");
+		assert_eq!(psm_external, swap_amount, "PSM should hold the external asset");
 
 		log::info!(
 			target: LOG_TARGET,
@@ -298,17 +365,26 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 		);
 
 		// Redeem all internal asset the caller has.
-		let internal_balance = Runtime::InternalAsset::balance(&caller);
+		let internal_balance =
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+				internal_asset_id.clone(),
+				&caller,
+			);
 		let redeem_amount = internal_balance;
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id,
 			redeem_amount,
+			config.redemption_fee,
 		));
 
 		// Verify caller's internal asset was fully spent.
-		let internal_after = Runtime::InternalAsset::balance(&caller);
+		let internal_after = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+			internal_asset_id.clone(),
+			&caller,
+		);
 		assert_eq!(internal_after, Zero::zero(), "Caller should have no internal asset remaining");
 
 		// Debt should decrease after redeem but not reach zero (fees keep some debt alive).
@@ -318,8 +394,13 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 		assert!(debt_after < total_debt, "Debt should decrease after redeem");
 
 		// Fee destination should have received fees.
-		let fee_dest = Runtime::FeeDestination::get();
-		let fee_balance = Runtime::InternalAsset::balance(&fee_dest);
+		let fee_dest = pallet_psm::Psm::<Runtime>::get(internal_asset_id.clone())
+			.expect("PSM installed by setup")
+			.fee_destination;
+		let fee_balance = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+			internal_asset_id,
+			&fee_dest,
+		);
 		assert!(fee_balance > Zero::zero(), "Fee destination should have collected fees");
 
 		log::info!(
@@ -340,7 +421,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 /// 2. Activates circuit breaker to `MintingDisabled` — verifies mint fails, redeem works
 /// 3. Activates circuit breaker to `AllDisabled` — verifies both mint and redeem fail
 /// 4. Deactivates circuit breaker — verifies both operations resume
-pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
+pub fn circuit_breaker<Runtime, Block>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfigOf<Runtime>,
 ) where
@@ -349,19 +430,18 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-	Runtime::InternalAsset:
-		FungibleCreate<Runtime::AccountId> + FungibleMetadataMutate<Runtime::AccountId>,
-	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, swap_amount, .. } =
-			setup::<Runtime, InitialPsmConfig>(config);
+		let TestEnv { internal_asset_id, asset_id, caller, swap_amount, .. } =
+			setup::<Runtime>(config);
 
 		// Mint some internal asset first so we have something to redeem later.
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
+			config.minting_fee,
 		));
 
 		let unit = 10u128.pow(config.internal_asset_decimals as u32);
@@ -372,6 +452,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		// Test: MintingDisabled. Mint fails, redeem still works
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			pallet_psm::CircuitBreakerLevel::MintingDisabled,
 		));
@@ -379,16 +460,20 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		assert_noop!(
 			pallet_psm::Pallet::<Runtime>::mint(
 				frame_system::RawOrigin::Signed(caller.clone()).into(),
+				internal_asset_id.clone(),
 				asset_id.clone(),
 				swap_amount,
+				config.minting_fee,
 			),
 			pallet_psm::Error::<Runtime>::MintingStopped
 		);
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			small_redeem,
+			config.redemption_fee,
 		));
 
 		log::info!(target: LOG_TARGET, "MintingDisabled: mint blocked, redeem allowed");
@@ -396,6 +481,7 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		// Test: AllDisabled. Both mint and redeem fail
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			pallet_psm::CircuitBreakerLevel::AllDisabled,
 		));
@@ -403,8 +489,10 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		assert_noop!(
 			pallet_psm::Pallet::<Runtime>::mint(
 				frame_system::RawOrigin::Signed(caller.clone()).into(),
+				internal_asset_id.clone(),
 				asset_id.clone(),
 				swap_amount,
+				config.minting_fee,
 			),
 			pallet_psm::Error::<Runtime>::MintingStopped
 		);
@@ -412,8 +500,10 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		assert_noop!(
 			pallet_psm::Pallet::<Runtime>::redeem(
 				frame_system::RawOrigin::Signed(caller.clone()).into(),
+				internal_asset_id.clone(),
 				asset_id.clone(),
 				small_redeem,
+				config.redemption_fee,
 			),
 			pallet_psm::Error::<Runtime>::AllSwapsStopped
 		);
@@ -423,20 +513,25 @@ pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 		// Test: Re-enable. Both operations resume
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			pallet_psm::CircuitBreakerLevel::AllEnabled,
 		));
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id.clone(),
 			asset_id.clone(),
 			swap_amount,
+			config.minting_fee,
 		));
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
 			frame_system::RawOrigin::Signed(caller.clone()).into(),
+			internal_asset_id,
 			asset_id,
 			small_redeem,
+			config.redemption_fee,
 		));
 
 		log::info!(target: LOG_TARGET, "AllEnabled: both mint and redeem resumed");

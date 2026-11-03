@@ -23,6 +23,7 @@ extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::Decode;
+use core::any::TypeId;
 use polkadot_sdk::{
 	pallet_revive::{
 		pallet_revive_types::runtime_api::ReviveRuntimeApiVersionDeclarations,
@@ -30,11 +31,17 @@ use polkadot_sdk::{
 	},
 	sp_io::TestExternalities,
 	sp_metadata_ir::frame_metadata::{
-		v16::{ItemDeprecationInfo, RuntimeApiMetadata, RuntimeMetadataV16},
+		v16::{
+			ItemDeprecationInfo, RuntimeApiMetadata, RuntimeApiMethodMetadata, RuntimeMetadataV16,
+		},
 		RuntimeMetadata, RuntimeMetadataPrefixed,
 	},
 };
-use scale_info::{form::PortableForm, Field, Type, TypeDef};
+use scale_info::{
+	form::PortableForm, interner::UntrackedSymbol, Field, Type, TypeDef, TypeDefArray,
+	TypeDefBitSequence, TypeDefCompact, TypeDefComposite, TypeDefPrimitive, TypeDefSequence,
+	TypeDefTuple, TypeDefVariant,
+};
 
 const UNVERSIONED_RUNTIME_APIS: [&str; 28] = [
 	"eth_block",
@@ -315,19 +322,605 @@ fn test_versioned_runtime_api_invariants() {
 	)
 }
 
-fn metadata() -> (RuntimeMetadataV16, RuntimeApiMetadata<PortableForm>) {
-	let metadata = TestExternalities::default().execute_with(|| {
-		let opaque_metadata = revive_dev_runtime::Runtime::metadata_at_version(16)
-			.expect("the runtime serves v16 metadata");
-		let RuntimeMetadata::V16(metadata) =
-			RuntimeMetadataPrefixed::decode(&mut &opaque_metadata[..])
-				.expect("the runtime metadata decodes")
-				.1
-		else {
-			panic!("the runtime must serve v16 metadata")
-		};
-		metadata
+#[test]
+fn unversioned_runtime_api_functions_are_unchanged_by_versioning() {
+	let (pre_versioning_metadata, pre_versioning_runtime_api) = pre_versioning_metadata();
+	let (post_versioning_metadata, post_versioning_runtime_api) = metadata();
+
+	// The opcodes of the execution tracer's steps changed from bare `u8`s into the `EvmOpcodeV1`
+	// and `PolkavmSyscallV1` types when the tracing wire types were added. They're all
+	// scale-compatible with a `u8` and the change is intentional, therefore these pairs of types
+	// are reconciled as being equal.
+	let pre_versioning_u8_type_id = type_id_of(&pre_versioning_metadata, |ty| {
+		matches!(&ty.type_def, TypeDef::Primitive(TypeDefPrimitive::U8))
 	});
+	let mut recursion_guard = BTreeSet::new();
+	for reconciled_type_name in ["EvmOpcodeV1", "PolkavmSyscallV1"] {
+		recursion_guard.insert((
+			pre_versioning_u8_type_id,
+			type_id_of(&post_versioning_metadata, |ty| {
+				ty.path.ident().as_deref() == Some(reconciled_type_name)
+			}),
+		));
+	}
+
+	for function_name in UNVERSIONED_RUNTIME_APIS
+		.into_iter()
+		.filter(|function_name| *function_name != "version_declarations")
+	{
+		let pre_versioning_function = pre_versioning_runtime_api
+			.methods
+			.iter()
+			.find(|method| method.name == function_name)
+			.unwrap_or_else(|| {
+				panic!(
+					"the pre-versioning metadata must contain the `{function_name}` runtime API \
+                    function"
+				)
+			});
+		let post_versioning_function = post_versioning_runtime_api
+			.methods
+			.iter()
+			.find(|method| method.name == function_name)
+			.unwrap_or_else(|| {
+				panic!(
+					"the post-versioning metadata must contain the `{function_name}` runtime API \
+                    function"
+				)
+			});
+
+		check_function(
+			State {
+				metadata: &pre_versioning_metadata,
+				path: FunctionPathItem::new(function_name).into(),
+				item: pre_versioning_function,
+			},
+			State {
+				metadata: &post_versioning_metadata,
+				path: FunctionPathItem::new(function_name).into(),
+				item: post_versioning_function,
+			},
+			&mut recursion_guard,
+		);
+	}
+}
+
+fn check_function(
+	pre_versioning_state: State<'_, RuntimeApiMethodMetadata<PortableForm>>,
+	post_versioning_state: State<'_, RuntimeApiMethodMetadata<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	assert_eq!(
+		pre_versioning_state.item.inputs.len(),
+		post_versioning_state.item.inputs.len(),
+		"Encountered a runtime API function which has a different number of arguments before \
+        and after versioning. \n\
+        Before: {}\n\
+        After: {}\n\
+        Pre Versioning Item Path: {:?}\n
+        Post Versioning Item Path: {:?}\n",
+		pre_versioning_state.item.inputs.len(),
+		post_versioning_state.item.inputs.len(),
+		pre_versioning_state.path,
+		post_versioning_state.path,
+	);
+
+	for (pre_versioning_argument, post_versioning_argument) in pre_versioning_state
+		.item
+		.inputs
+		.iter()
+		.zip(post_versioning_state.item.inputs.iter())
+	{
+		check_type(
+			pre_versioning_state
+				.push(ArgumentPathItem::new(pre_versioning_argument.name.as_str()))
+				.with_item(&pre_versioning_argument.ty),
+			post_versioning_state
+				.push(ArgumentPathItem::new(post_versioning_argument.name.as_str()))
+				.with_item(&post_versioning_argument.ty),
+			recursion_guard,
+		)
+	}
+
+	check_type(
+		pre_versioning_state.with_item(&pre_versioning_state.item.output),
+		post_versioning_state.with_item(&post_versioning_state.item.output),
+		recursion_guard,
+	);
+}
+
+fn check_type(
+	pre_versioning_state: State<'_, UntrackedSymbol<TypeId>>,
+	post_versioning_state: State<'_, UntrackedSymbol<TypeId>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	if !recursion_guard.insert((pre_versioning_state.item.id, post_versioning_state.item.id)) {
+		return;
+	}
+
+	let pre_versioning_type = pre_versioning_state
+		.metadata
+		.types
+		.resolve(pre_versioning_state.item.id)
+		.expect("can't happen on well-formed metadata; qed");
+	let post_versioning_type = post_versioning_state
+		.metadata
+		.types
+		.resolve(post_versioning_state.item.id)
+		.expect("can't happen on well-formed metadata; qed");
+
+	let pre_versioning_type_name = pre_versioning_type.path.ident();
+	let post_versioning_type_name = post_versioning_type.path.ident();
+
+	let pre_versioning_state = match &pre_versioning_type_name {
+		Some(type_name) => pre_versioning_state.push(TypePathItem::new(type_name.as_str())),
+		None => pre_versioning_state,
+	}
+	.with_item(&pre_versioning_type.type_def);
+	let post_versioning_state = match &post_versioning_type_name {
+		Some(type_name) => post_versioning_state.push(TypePathItem::new(type_name.as_str())),
+		None => post_versioning_state,
+	}
+	.with_item(&post_versioning_type.type_def);
+
+	match (pre_versioning_state.item, post_versioning_state.item) {
+		(
+			TypeDef::Composite(pre_versioning_type_def),
+			TypeDef::Composite(post_versioning_type_def),
+		) => check_type_composite(
+			pre_versioning_state.with_item(pre_versioning_type_def),
+			post_versioning_state.with_item(post_versioning_type_def),
+			recursion_guard,
+		),
+		(TypeDef::Variant(pre_versioning_type_def), TypeDef::Variant(post_versioning_type_def)) => {
+			check_type_variant(
+				pre_versioning_state.with_item(pre_versioning_type_def),
+				post_versioning_state.with_item(post_versioning_type_def),
+				recursion_guard,
+			)
+		},
+		(
+			TypeDef::Sequence(pre_versioning_type_def),
+			TypeDef::Sequence(post_versioning_type_def),
+		) => check_type_sequence(
+			pre_versioning_state.with_item(pre_versioning_type_def),
+			post_versioning_state.with_item(post_versioning_type_def),
+			recursion_guard,
+		),
+		(TypeDef::Array(pre_versioning_type_def), TypeDef::Array(post_versioning_type_def)) => {
+			check_type_array(
+				pre_versioning_state.with_item(pre_versioning_type_def),
+				post_versioning_state.with_item(post_versioning_type_def),
+				recursion_guard,
+			)
+		},
+		(TypeDef::Tuple(pre_versioning_type_def), TypeDef::Tuple(post_versioning_type_def)) => {
+			check_type_tuple(
+				pre_versioning_state.with_item(pre_versioning_type_def),
+				post_versioning_state.with_item(post_versioning_type_def),
+				recursion_guard,
+			)
+		},
+		(
+			TypeDef::Primitive(pre_versioning_type_def),
+			TypeDef::Primitive(post_versioning_type_def),
+		) => check_type_primitive(
+			pre_versioning_state.with_item(pre_versioning_type_def),
+			post_versioning_state.with_item(post_versioning_type_def),
+			recursion_guard,
+		),
+		(TypeDef::Compact(pre_versioning_type_def), TypeDef::Compact(post_versioning_type_def)) => {
+			check_type_compact(
+				pre_versioning_state.with_item(pre_versioning_type_def),
+				post_versioning_state.with_item(post_versioning_type_def),
+				recursion_guard,
+			)
+		},
+		(
+			TypeDef::BitSequence(pre_versioning_type_def),
+			TypeDef::BitSequence(post_versioning_type_def),
+		) => check_type_bit_sequence(
+			pre_versioning_state.with_item(pre_versioning_type_def),
+			post_versioning_state.with_item(post_versioning_type_def),
+			recursion_guard,
+		),
+		_ => {
+			panic!(
+                "Encountered a type which has a different kind of type definition before and after \
+                versioning. \n\
+                Before: {:?}\n\
+                After: {:?}\n\
+                Pre Versioning Item Path: {:?}\n\
+                Post Versioning Item Path: {:?}\n",
+                pre_versioning_state.item,
+                post_versioning_state.item,
+                pre_versioning_state.path,
+                post_versioning_state.path,
+            )
+		},
+	}
+}
+
+fn check_type_composite(
+	pre_versioning_state: State<'_, TypeDefComposite<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefComposite<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	assert_eq!(
+		pre_versioning_state.item.fields.len(),
+		post_versioning_state.item.fields.len(),
+		"Encountered a composite type which has a different number of fields before and after \
+        versioning. \n\
+        Before: {}\n\
+        After: {}\n\
+        Pre Versioning Item Path: {:?}\n\
+        Post Versioning Item Path: {:?}\n",
+		pre_versioning_state.item.fields.len(),
+		post_versioning_state.item.fields.len(),
+		pre_versioning_state.path,
+		post_versioning_state.path,
+	);
+
+	for (index, (pre_versioning_field, post_versioning_field)) in pre_versioning_state
+		.item
+		.fields
+		.iter()
+		.zip(post_versioning_state.item.fields.iter())
+		.enumerate()
+	{
+		check_type(
+			pre_versioning_state
+				.push(FieldPathItem::new(FieldIdentifier::new(index, pre_versioning_field)))
+				.with_item(&pre_versioning_field.ty),
+			post_versioning_state
+				.push(FieldPathItem::new(FieldIdentifier::new(index, post_versioning_field)))
+				.with_item(&post_versioning_field.ty),
+			recursion_guard,
+		)
+	}
+}
+
+fn check_type_variant(
+	pre_versioning_state: State<'_, TypeDefVariant<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefVariant<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	assert_eq!(
+		pre_versioning_state.item.variants.len(),
+		post_versioning_state.item.variants.len(),
+		"Encountered an enum type which has a different number of variants before and after \
+        versioning. \n\
+        Before: {}\n\
+        After: {}\n\
+        Pre Versioning Item Path: {:?}\n\
+        Post Versioning Item Path: {:?}\n",
+		pre_versioning_state.item.variants.len(),
+		post_versioning_state.item.variants.len(),
+		pre_versioning_state.path,
+		post_versioning_state.path,
+	);
+
+	let mut pre_versioning_variants = pre_versioning_state.item.variants.iter().collect::<Vec<_>>();
+	pre_versioning_variants.sort_by_key(|variant| variant.index);
+	let mut post_versioning_variants =
+		post_versioning_state.item.variants.iter().collect::<Vec<_>>();
+	post_versioning_variants.sort_by_key(|variant| variant.index);
+
+	for (pre_versioning_variant, post_versioning_variant) in
+		pre_versioning_variants.into_iter().zip(post_versioning_variants)
+	{
+		let pre_versioning_state =
+			pre_versioning_state.push(VariantPathItem::new(pre_versioning_variant.name.as_str()));
+		let post_versioning_state =
+			post_versioning_state.push(VariantPathItem::new(post_versioning_variant.name.as_str()));
+
+		assert_eq!(
+			pre_versioning_variant.index,
+			post_versioning_variant.index,
+			"Encountered a variant which has a different index before and after versioning. \n\
+            Before: {}\n\
+            After: {}\n\
+            Pre Versioning Item Path: {:?}\n\
+            Post Versioning Item Path: {:?}\n",
+			pre_versioning_variant.index,
+			post_versioning_variant.index,
+			pre_versioning_state.path,
+			post_versioning_state.path,
+		);
+
+		assert_eq!(
+			pre_versioning_variant.fields.len(),
+			post_versioning_variant.fields.len(),
+			"Encountered a variant which has a different number of fields before and after \
+            versioning. \n\
+            Before: {}\n\
+            After: {}\n\
+            Pre Versioning Item Path: {:?}\n\
+            Post Versioning Item Path: {:?}\n",
+			pre_versioning_variant.fields.len(),
+			post_versioning_variant.fields.len(),
+			pre_versioning_state.path,
+			post_versioning_state.path,
+		);
+
+		for (index, (pre_versioning_field, post_versioning_field)) in pre_versioning_variant
+			.fields
+			.iter()
+			.zip(post_versioning_variant.fields.iter())
+			.enumerate()
+		{
+			check_type(
+				pre_versioning_state
+					.push(FieldPathItem::new(FieldIdentifier::new(index, pre_versioning_field)))
+					.with_item(&pre_versioning_field.ty),
+				post_versioning_state
+					.push(FieldPathItem::new(FieldIdentifier::new(index, post_versioning_field)))
+					.with_item(&post_versioning_field.ty),
+				recursion_guard,
+			)
+		}
+	}
+}
+
+fn check_type_sequence(
+	pre_versioning_state: State<'_, TypeDefSequence<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefSequence<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	check_type(
+		pre_versioning_state.with_item(&pre_versioning_state.item.type_param),
+		post_versioning_state.with_item(&post_versioning_state.item.type_param),
+		recursion_guard,
+	);
+}
+
+fn check_type_array(
+	pre_versioning_state: State<'_, TypeDefArray<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefArray<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	assert_eq!(
+		pre_versioning_state.item.len,
+		post_versioning_state.item.len,
+		"Encountered an array type which has a different length before and after versioning. \n\
+        Before: {}\n\
+        After: {}\n\
+        Pre Versioning Item Path: {:?}\n\
+        Post Versioning Item Path: {:?}\n",
+		pre_versioning_state.item.len,
+		post_versioning_state.item.len,
+		pre_versioning_state.path,
+		post_versioning_state.path,
+	);
+
+	check_type(
+		pre_versioning_state.with_item(&pre_versioning_state.item.type_param),
+		post_versioning_state.with_item(&post_versioning_state.item.type_param),
+		recursion_guard,
+	);
+}
+
+fn check_type_tuple(
+	pre_versioning_state: State<'_, TypeDefTuple<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefTuple<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	assert_eq!(
+		pre_versioning_state.item.fields.len(),
+		post_versioning_state.item.fields.len(),
+		"Encountered a tuple type which has a different number of fields before and after \
+        versioning. \n\
+        Before: {}\n\
+        After: {}\n\
+        Pre Versioning Item Path: {:?}\n\
+        Post Versioning Item Path: {:?}\n",
+		pre_versioning_state.item.fields.len(),
+		post_versioning_state.item.fields.len(),
+		pre_versioning_state.path,
+		post_versioning_state.path,
+	);
+
+	for (index, (pre_versioning_field, post_versioning_field)) in pre_versioning_state
+		.item
+		.fields
+		.iter()
+		.zip(post_versioning_state.item.fields.iter())
+		.enumerate()
+	{
+		check_type(
+			pre_versioning_state
+				.push(FieldPathItem::new(FieldIdentifier::Index(index)))
+				.with_item(pre_versioning_field),
+			post_versioning_state
+				.push(FieldPathItem::new(FieldIdentifier::Index(index)))
+				.with_item(post_versioning_field),
+			recursion_guard,
+		)
+	}
+}
+
+fn check_type_primitive(
+	pre_versioning_state: State<'_, TypeDefPrimitive>,
+	post_versioning_state: State<'_, TypeDefPrimitive>,
+	_: &mut BTreeSet<(u32, u32)>,
+) {
+	assert_eq!(
+		pre_versioning_state.item,
+		post_versioning_state.item,
+		"Encountered a primitive type which is different before and after versioning. \n\
+        Before: {:?}\n\
+        After: {:?}\n\
+        Pre Versioning Item Path: {:?}\n\
+        Post Versioning Item Path: {:?}\n",
+		pre_versioning_state.item,
+		post_versioning_state.item,
+		pre_versioning_state.path,
+		post_versioning_state.path,
+	);
+}
+
+fn check_type_compact(
+	pre_versioning_state: State<'_, TypeDefCompact<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefCompact<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	check_type(
+		pre_versioning_state.with_item(&pre_versioning_state.item.type_param),
+		post_versioning_state.with_item(&post_versioning_state.item.type_param),
+		recursion_guard,
+	);
+}
+
+fn check_type_bit_sequence(
+	pre_versioning_state: State<'_, TypeDefBitSequence<PortableForm>>,
+	post_versioning_state: State<'_, TypeDefBitSequence<PortableForm>>,
+	recursion_guard: &mut BTreeSet<(u32, u32)>,
+) {
+	check_type(
+		pre_versioning_state.with_item(&pre_versioning_state.item.bit_store_type),
+		post_versioning_state.with_item(&post_versioning_state.item.bit_store_type),
+		recursion_guard,
+	);
+	check_type(
+		pre_versioning_state.with_item(&pre_versioning_state.item.bit_order_type),
+		post_versioning_state.with_item(&post_versioning_state.item.bit_order_type),
+		recursion_guard,
+	);
+}
+
+struct State<'a, T> {
+	metadata: &'a RuntimeMetadataV16,
+	path: PathItem<'a>,
+	item: &'a T,
+}
+
+impl<'a, T> State<'a, T> {
+	fn push(&self, item: impl Into<PathItem<'a>>) -> Self {
+		let mut path = self.path.clone();
+		path.push(item);
+		Self { metadata: self.metadata, path, item: self.item }
+	}
+
+	fn with_item<B>(&self, item: &'a B) -> State<'a, B> {
+		State { metadata: self.metadata, path: self.path.clone(), item }
+	}
+}
+
+macro_rules! define_path_item {
+    (
+        $(
+            $ident: ident { $($field_ident: ident: $field_ty: ty),* $(,)? }
+        ),* $(,)?
+    ) => {
+        #[allow(clippy::enum_variant_names)]
+        #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        enum PathItem<'a> {
+            $(
+                $ident(alloc::boxed::Box<$ident<'a>>)
+            ),*
+        }
+
+        impl<'a> PathItem<'a> {
+            fn push(&mut self, item: impl Into<Self>) {
+                match self {
+                    $(
+                        Self::$ident(this) => this.push(item)
+                    ),*
+                }
+            }
+        }
+
+        $(
+            #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+            struct $ident<'a> {
+                $(
+                    $field_ident: $field_ty,
+                )*
+                inner: Option<PathItem<'a>>
+            }
+
+            impl<'a> $ident<'a> {
+                pub fn new($($field_ident: $field_ty),*) -> Self {
+                    Self {
+                        $(
+                            $field_ident,
+                        )*
+                        inner: None
+                    }
+                }
+
+                fn push(&mut self, item: impl Into<PathItem<'a>>) {
+                    match self.inner {
+                        Some(ref mut inner) => inner.push(item),
+                        ref mut inner @ None => *inner = Some(item.into())
+                    }
+                }
+            }
+
+            impl<'a> From<$ident<'a>> for PathItem<'a> {
+                fn from(value: $ident<'a>) -> Self {
+                    Self::$ident(alloc::boxed::Box::new(value))
+                }
+            }
+        )*
+    };
+}
+
+define_path_item! {
+	FunctionPathItem { function_name: &'a str },
+	ArgumentPathItem { argument_name: &'a str },
+	TypePathItem { type_name: &'a str },
+	FieldPathItem { field_identifier: FieldIdentifier<'a> },
+	VariantPathItem { variant_name: &'a str },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum FieldIdentifier<'a> {
+	Index(usize),
+	Name(&'a str),
+}
+
+impl<'a> FieldIdentifier<'a> {
+	fn new(index: usize, field: &'a Field<PortableForm>) -> Self {
+		match &field.name {
+			Some(name) => Self::Name(name.as_str()),
+			None => Self::Index(index),
+		}
+	}
+}
+
+fn metadata() -> (RuntimeMetadataV16, RuntimeApiMetadata<PortableForm>) {
+	let opaque_metadata = TestExternalities::default().execute_with(|| {
+		revive_dev_runtime::Runtime::metadata_at_version(16)
+			.expect("the runtime serves v16 metadata")
+	});
+	decode_metadata(&opaque_metadata)
+}
+
+fn pre_versioning_metadata() -> (RuntimeMetadataV16, RuntimeApiMetadata<PortableForm>) {
+	decode_metadata(include_bytes!("./pre-versioning-revive-metadata.scale"))
+}
+
+fn type_id_of(
+	metadata: &RuntimeMetadataV16,
+	predicate: impl Fn(&Type<PortableForm>) -> bool,
+) -> u32 {
+	metadata
+		.types
+		.types
+		.iter()
+		.find(|ty| predicate(&ty.ty))
+		.expect("the metadata contains the requested type")
+		.id
+}
+
+fn decode_metadata(bytes: &[u8]) -> (RuntimeMetadataV16, RuntimeApiMetadata<PortableForm>) {
+	let RuntimeMetadata::V16(metadata) = RuntimeMetadataPrefixed::decode(&mut &bytes[..])
+		.expect("the runtime metadata decodes")
+		.1
+	else {
+		panic!("the runtime must serve v16 metadata")
+	};
 
 	let runtime_api_metadata = metadata
 		.apis

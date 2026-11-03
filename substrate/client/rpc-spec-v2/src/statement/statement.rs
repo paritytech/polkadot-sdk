@@ -27,7 +27,7 @@ use crate::{
 	},
 	SubscriptionTaskExecutor,
 };
-use codec::Decode;
+use codec::DecodeAll;
 use futures::{FutureExt, StreamExt};
 use jsonrpsee::{
 	core::async_trait, types::SubscriptionId, ConnectionId, Extensions, PendingSubscriptionSink,
@@ -74,6 +74,9 @@ fn connection_id(ext: &Extensions) -> ConnectionId {
 
 fn validate_topic_filter(filter: TopicFilter) -> Result<OptimizedTopicFilter, Error> {
 	match &filter {
+		TopicFilter::MatchAll(topics) if topics.is_empty() => Err(Error::InvalidParam(
+			"`matchAll` topic filter must contain between 1 and 4 topics".to_string(),
+		)),
 		TopicFilter::MatchAny(_) => Err(Error::InvalidParam(
 			"`matchAny` topic filter is not supported by statement_unstable_add_filter; \
 			 use `\"any\"` or `{\"matchAll\": [...]}` instead"
@@ -193,7 +196,7 @@ where
 	}
 
 	fn statement_unstable_submit(&self, encoded: Bytes) -> Result<SubmitOutcome, Error> {
-		let statement = Statement::decode(&mut &encoded[..])
+		let statement = Statement::decode_all(&mut &encoded[..])
 			.map_err(|e| Error::InvalidParam(format!("Error decoding statement: {e}")))?;
 		let submit_result = self.store.submit(statement, StatementSource::Local);
 		SubmitOutcome::from_submit_result(submit_result)

@@ -19,7 +19,7 @@
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
+	TransactionByteFee, Treasury, TreasuryInteriorLocation, WeightToFee, XcmPallet,
 };
 use crate::{governance::pallet_custom_origins::Treasurer, Balance, RuntimeHoldReason};
 use frame_support::{
@@ -59,6 +59,9 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	pub LocalCheckAccount: (AccountId, MintLocation) = (CheckAccount::get(), MintLocation::Local);
 	pub TreasuryAccount: AccountId = Treasury::account_id();
+	/// `PayOverXcm` charges treasury payout delivery fees from this location. No converter
+	/// maps it to an account, so it must stay in `WaivedLocations`.
+	pub TreasuryLocation: Location = TreasuryInteriorLocation::get().into();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
@@ -186,7 +189,8 @@ pub type Barrier = TrailingSetTopicAsId<(
 
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (SystemParachains, Equals<RootLocation>, LocalPlurality);
+pub type WaivedLocations =
+	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<TreasuryLocation>);
 
 /// We let locations alias into child locations of their own.
 /// This is a very simple aliasing rule, mimicking the behaviour of

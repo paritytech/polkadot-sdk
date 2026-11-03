@@ -21,6 +21,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 anyhow = { workspace = true, optional = true }
 async-channel = { workspace = true }
+codec = { workspace = true, default-features = true }
 futures = { workspace = true }
 itertools = { workspace = true }
 log = { workspace = true, default-features = true }
@@ -32,6 +33,7 @@ sc-keystore = { workspace = true, default-features = true }
 sc-network-statement = { workspace = true, default-features = true }
 sc-utils = { workspace = true }
 scale-info = { workspace = true, default-features = true, optional = true }
+schnellru = { workspace = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
@@ -49,5 +51,22 @@ tempfile = { workspace = true }
 
 [[bench]]
 name = "statement_store"
+harness = false
+required-features = []
+
+[[bench]]
+name = "full_store"
+path = "benches/full_store/main.rs"
+harness = false
+required-features = []
+
+[[bench]]
+name = "add_filter"
+harness = false
+required-features = []
+
+[[bench]]
+name = "enforce_limits"
+path = "benches/enforce_limits.rs"
 harness = false
 required-features = []

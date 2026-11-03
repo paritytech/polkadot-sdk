@@ -189,6 +189,28 @@ mod solution_type {
 	}
 
 	#[test]
+	fn max_encoded_len_accounts_for_multi_byte_length_prefix() {
+		generate_solution_type!(
+			pub struct InnerTestSolution::<
+				VoterIndex = u32,
+				TargetIndex = u32,
+				Accuracy = TestAccuracy,
+				MaxVoters = ConstU32::<64>,
+			>(3)
+		);
+		// 64 voters in the last bucket, whose length prefix is a two-byte compact.
+		let solution = InnerTestSolution {
+			votes1: vec![],
+			votes2: vec![],
+			votes3: (0u32..64)
+				.map(|i| (i, [(i + 100, p(50)), (i + 200, p(20))], i + 300))
+				.collect(),
+		};
+
+		assert_eq!(solution.encode().len(), InnerTestSolution::max_encoded_len());
+	}
+
+	#[test]
 	fn solution_struct_is_codec() {
 		let solution = TestSolution {
 			votes1: vec![(2, 20), (4, 40)],

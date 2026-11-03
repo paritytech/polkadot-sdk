@@ -248,7 +248,7 @@ mod tests {
 	use multiply_by_rational_with_rounding as mulrat;
 	use Rounding::*;
 
-	const MAX: u128 = u128::max_value();
+	const MAX: u128 = u128::MAX;
 
 	#[test]
 	fn rational_multiply_basic_rounding_works() {

@@ -6,7 +6,8 @@
 
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	initialize_network, maybe_enable_experimental_collator_protocol, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -139,7 +140,9 @@ fn build_network_config(number_of_paras: u32) -> Result<NetworkConfig, anyhow::E
         .with_chain("rococo-local")
         .with_default_command("polkadot")
         .with_default_image(polkadot_image.as_str())
-        .with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
+        .with_default_args(maybe_enable_experimental_collator_protocol(
+            vec!["-lparachain=debug,runtime=debug".into()],
+        ))
         .with_genesis_overrides(json!({
             "patch": {
                 "configuration": {

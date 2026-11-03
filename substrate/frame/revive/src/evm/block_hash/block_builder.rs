@@ -442,7 +442,10 @@ mod test {
 
 		for (block_path, receipts_path) in test_data {
 			let json = std::fs::read_to_string(block_path).unwrap();
-			let block: Block = serde_json::from_str(&json).unwrap();
+			let block: pallet_revive_types::runtime_api::BlockV1 =
+				serde_json::from_str(&json).unwrap();
+			let block: Block = codec::Decode::decode(&mut &codec::Encode::encode(&block)[..])
+				.expect("BlockV1 and Block must be scale-compatible");
 
 			let json = std::fs::read_to_string(receipts_path).unwrap();
 			let receipts: Vec<ReceiptInfo> = serde_json::from_str(&json).unwrap();

@@ -63,11 +63,15 @@ pub trait WeightInfo {
 	fn redeem() -> Weight;
 	fn set_minting_fee() -> Weight;
 	fn set_redemption_fee() -> Weight;
-	fn set_max_psm_debt() -> Weight;
+	fn set_max_debt() -> Weight;
 	fn set_asset_status() -> Weight;
 	fn set_asset_ceiling_weight() -> Weight;
 	fn add_external_asset() -> Weight;
 	fn remove_external_asset() -> Weight;
+	fn create_psm() -> Weight;
+	fn remove_psm() -> Weight;
+	fn set_full_admin() -> Weight;
+	fn set_emergency_admin() -> Weight;
 }
 
 /// Weights for `pallet_psm` using the Substrate node and recommended hardware.
@@ -146,7 +150,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Psm::MaxPsmDebtOfTotal` (r:1 w:1)
 	/// Proof: `Psm::MaxPsmDebtOfTotal` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_max_psm_debt() -> Weight {
+	fn set_max_debt() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306`
 		//  Estimated: `1489`
@@ -214,6 +218,27 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(29_621_000, 3501)
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().writes(6_u64))
+	}
+	// Placeholder until benchmarks run; estimated like `add_external_asset`.
+	fn create_psm() -> Weight {
+		Weight::from_parts(30_000_000, 3501)
+			.saturating_add(T::DbWeight::get().reads(3_u64))
+			.saturating_add(T::DbWeight::get().writes(3_u64))
+	}
+	fn remove_psm() -> Weight {
+		Weight::from_parts(25_000_000, 3501)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
+	}
+	fn set_full_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn set_emergency_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 }
 
@@ -292,7 +317,7 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Psm::MaxPsmDebtOfTotal` (r:1 w:1)
 	/// Proof: `Psm::MaxPsmDebtOfTotal` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)
-	fn set_max_psm_debt() -> Weight {
+	fn set_max_debt() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `306`
 		//  Estimated: `1489`
@@ -360,5 +385,26 @@ impl WeightInfo for () {
 		Weight::from_parts(29_621_000, 3501)
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().writes(6_u64))
+	}
+	// Placeholder until benchmarks run; estimated like `add_external_asset`.
+	fn create_psm() -> Weight {
+		Weight::from_parts(30_000_000, 3501)
+			.saturating_add(RocksDbWeight::get().reads(3_u64))
+			.saturating_add(RocksDbWeight::get().writes(3_u64))
+	}
+	fn remove_psm() -> Weight {
+		Weight::from_parts(25_000_000, 3501)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
+	}
+	fn set_full_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn set_emergency_admin() -> Weight {
+		Weight::from_parts(20_000_000, 3501)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }

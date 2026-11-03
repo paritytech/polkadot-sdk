@@ -22,8 +22,9 @@ use super::{
 	precompiles::{INoInfo, NoInfo},
 };
 use crate::{
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
+	AccountInfo, AccountInfoOf, BalanceWithDust, Code, CodeRejection, Config, ContractInfo,
+	DebugSettings, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet,
+	StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -75,7 +76,11 @@ fn eth_call_transfer_with_dust_works() {
 		let Contract { addr, .. } =
 			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
 
-		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(10_000_000_000));
+		// Pot must also cover the worst-case EIP-7702 authorization weight that eth_call
+		// reserves pre-dispatch even for an empty authorization list.
+		<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
+			100_000_000_000,
+		));
 
 		let balance =
 			Pallet::<Test>::convert_native_to_evm(BalanceWithDust::new_unchecked::<Test>(100, 10));
@@ -973,9 +978,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 			<Test as Config>::Currency::total_balance(&contract.account_id),
 			get_contract(&contract.addr).total_deposit() + min_balance,
 		);
-		// + 1 because due to fixed point arithmetic we can sometimes refund
-		// one unit to little
-		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2 + 1);
+		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2);
 	});
 }
 
@@ -1057,15 +1060,6 @@ fn self_destruct_by_precompile_works() {
 			vec![
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: DJANGO_FALLBACK,
-						amount: initial_contract_balance,
-					}),
-					topics: vec![],
-				},
-				EventRecord {
-					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
 						reason: <Test as Config>::RuntimeHoldReason::Contracts(
 							HoldReason::StorageDepositReserve,
@@ -1073,6 +1067,15 @@ fn self_destruct_by_precompile_works() {
 						source: contract.account_id.clone(),
 						dest: ALICE,
 						amount: hold_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
+						from: contract.account_id.clone(),
+						to: DJANGO_FALLBACK,
+						amount: initial_contract_balance,
 					}),
 					topics: vec![],
 				},
@@ -2436,8 +2439,7 @@ fn storage_deposit_works() {
 
 		// Remove more storage (but also add some)
 		assert_ok!(builder::call(addr).data((10u32, 20u32).encode()).build());
-		// -1 for numeric instability
-		let refunded0 = 90 - 10 - 1;
+		let refunded0 = 90 - 10;
 		deposit -= refunded0;
 		assert_eq!(get_contract(&addr).total_deposit(), deposit);
 
@@ -3533,6 +3535,22 @@ fn static_data_limit_is_enforced() {
 	let (oom_rw_included, _) = compile_module("oom_rw_included").unwrap();
 	let (oom_ro, _) = compile_module("oom_ro").unwrap();
 
+	assert_matches!(
+		crate::check_pvm_code(&oom_rw_trailing),
+		Err(CodeRejection::BaselineMemoryTooLarge {
+			size,
+			limit: limits::code::BASELINE_MEMORY_LIMIT,
+		}) if size > limits::code::BASELINE_MEMORY_LIMIT
+	);
+	assert_matches!(
+		crate::check_pvm_code(&oom_rw_included),
+		Err(CodeRejection::BlobTooLarge { limit: limits::code::BLOB_BYTES, .. })
+	);
+	assert_matches!(
+		crate::check_pvm_code(&oom_ro),
+		Err(CodeRejection::BlobTooLarge { limit: limits::code::BLOB_BYTES, .. })
+	);
+
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
 
@@ -3559,6 +3577,26 @@ fn static_data_limit_is_enforced() {
 			<Error<Test>>::BlobTooLarge
 		);
 	});
+}
+
+#[test]
+fn check_pvm_code_reports_blob_size() {
+	let size = limits::code::BLOB_BYTES + 1;
+	assert_eq!(
+		crate::check_pvm_code(&vec![0; size as usize]),
+		Err(CodeRejection::BlobTooLarge { size, limit: limits::code::BLOB_BYTES }),
+	);
+}
+
+#[test]
+fn check_pvm_code_rejects_malformed_blob() {
+	assert_eq!(crate::check_pvm_code(&[0xde, 0xad, 0xbe, 0xef]), Err(CodeRejection::Malformed));
+}
+
+#[test]
+fn check_pvm_code_accepts_valid_blob() {
+	let (code, _) = compile_module("dummy").unwrap();
+	assert_eq!(crate::check_pvm_code(&code), Ok(()));
 }
 
 #[test]
@@ -3810,23 +3848,14 @@ fn delegatecall_immutable_charge_follows_callee_not_caller() {
 }
 
 #[test]
-fn sbrk_cannot_be_linked() {
-	// The sbrk instruction is not available in the revive_v1 instruction set.
-	// This test verifies that the linker rejects it during the linking phase.
-	let result = pallet_revive_fixtures::try_compile_invalid_fixture("sbrk");
-
-	assert!(result.is_err(), "Expected linking to fail for sbrk fixture");
-	let err_msg = result.unwrap_err().to_string();
-	assert!(
-		err_msg.contains("sbrk") || err_msg.contains("not available"),
-		"Expected error message to mention 'sbrk' or 'not available', got: {}",
-		err_msg
-	);
-}
-
-#[test]
 fn overweight_basic_block_cannot_be_deployed() {
 	let (code, _) = compile_module("basic_block").unwrap();
+
+	assert_matches!(
+		crate::check_pvm_code(&code),
+		Err(CodeRejection::BasicBlockTooLarge { size, limit: limits::code::BASIC_BLOCK_SIZE })
+			if size > limits::code::BASIC_BLOCK_SIZE
+	);
 
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = Balances::set_balance(&ALICE, 1_000_000);
@@ -4137,6 +4166,8 @@ fn gas_limit_api_works() {
 fn unknown_syscall_rejected() {
 	let (code, _) = compile_module("unknown_syscall").unwrap();
 
+	assert_eq!(crate::check_pvm_code(&code), Err(CodeRejection::Malformed));
+
 	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
 		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
@@ -4144,6 +4175,22 @@ fn unknown_syscall_rejected() {
 			builder::bare_instantiate(Code::Upload(code)).build().result,
 			<Error<Test>>::CodeRejected,
 		)
+	});
+}
+
+#[test]
+fn benchmark_only_syscall_rejected() {
+	let (code, _) = compile_module("noop").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let result = builder::bare_instantiate(Code::Upload(code)).build().result;
+		if cfg!(feature = "runtime-benchmarks") {
+			assert_ok!(result);
+		} else {
+			assert_err!(result, <Error<Test>>::CodeRejected);
+		}
 	});
 }
 
@@ -4207,6 +4254,43 @@ fn execution_tracing_records_consumption_for_plain_transfer() {
 			 existential-deposit transfer — see issue #278",
 		);
 	});
+}
+
+/// `failed` and `returnValue` are the header fields clients read to tell whether a traced
+/// transaction succeeded and why.
+#[test]
+fn execution_tracing_reports_the_outcome_of_a_failing_transaction() {
+	use crate::evm::{ExecutionTracer, ExecutionTracerConfig};
+
+	// Input 2 reverts with an ABI-encoded reason; input 1 panics, which surfaces as a trap.
+	let (code, _) = compile_module("tracing_callee").unwrap();
+
+	for input in [2u32, 1] {
+		ExtBuilder::default().existential_deposit(200).build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000);
+
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code.clone())).build_and_unwrap_contract();
+
+			let mut tracer = ExecutionTracer::new(ExecutionTracerConfig::default());
+			let result =
+				trace(&mut tracer, || builder::bare_call(addr).data(input.encode()).build());
+
+			let trace = tracer.collect_trace();
+			assert!(trace.failed, "input {input}: a failed transaction is reported as failed");
+
+			match result.result {
+				Ok(returned) => {
+					assert!(returned.did_revert(), "input {input}: expected a revert");
+					assert_eq!(
+						trace.return_value.0, returned.data,
+						"the revert data is the output"
+					);
+				},
+				Err(_) => assert!(trace.return_value.0.is_empty(), "a trap produces no output"),
+			}
+		});
+	}
 }
 
 fn replace_actual_gas(expected: &mut CallTrace, actual: &CallTrace) {

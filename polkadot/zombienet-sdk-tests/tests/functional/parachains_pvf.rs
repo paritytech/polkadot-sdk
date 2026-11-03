@@ -7,8 +7,9 @@
 //! It sets up a network with 8 validators and 8 parachains,
 
 use crate::utils::{
-	assert_nodes_are_validators, env_or_default, initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC,
-	COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	assert_nodes_are_validators, env_or_default, initialize_network,
+	maybe_enable_experimental_collator_protocol, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
+	INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -133,7 +134,9 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
-			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
+			.with_default_args(maybe_enable_experimental_collator_protocol(vec![
+				"-lparachain=debug,runtime=debug".into(),
+			]))
 			.with_default_resources(|r| {
 				r.with_limit_memory("4G")
 					.with_limit_cpu("2")

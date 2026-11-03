@@ -22,7 +22,7 @@ pub mod evm;
 pub mod pvm;
 mod runtime_costs;
 
-pub use runtime_costs::RuntimeCosts;
+pub use runtime_costs::{RuntimeCosts, StorageAccessKind};
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
@@ -244,6 +244,13 @@ impl<T: Config> CodeInfo<T> {
 			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
 		}
+	}
+
+	/// Override the refcount. Test-only — used to engineer overflow scenarios on
+	/// `increment_refcount`.
+	#[cfg(test)]
+	pub fn set_refcount(&mut self, refcount: u64) {
+		self.refcount = refcount;
 	}
 
 	/// Returns reference count of the module.
