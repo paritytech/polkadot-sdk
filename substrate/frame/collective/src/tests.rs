@@ -101,8 +101,12 @@ parameter_types! {
 impl frame_system::Config for Test {
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<u64>;
-	// Non-zero so that weight assertions are meaningful.
-	type DbWeight = frame_support::weights::constants::RocksDbWeight;
+	type DbWeight = TestDbWeight;
+}
+
+parameter_types! {
+	// Reads and writes differ by orders of magnitude, so `reads_writes(r, w)` pins both counts.
+	pub const TestDbWeight: RuntimeDbWeight = RuntimeDbWeight { read: 1, write: 1_000 };
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig as pallet_balances::DefaultConfig)]
@@ -2086,12 +2090,19 @@ fn migration_v5_skips_entry_without_call_and_rekeys_the_rest() {
 		// The first entry lost its call, e.g. because it no longer decodes after an upgrade.
 		ProposalOf::<Test, Instance1>::remove(old_hashes[0]);
 
-		migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		let weight = migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		// Proposals r1 w1; skipped entry r2; re-keyed entry r3 w4 (no deposit); version r1 w1.
+		let db_weight = <<Test as frame_system::Config>::DbWeight as Get<RuntimeDbWeight>>::get();
+		assert_eq!(weight, db_weight.reads_writes(1 + 2 + 3 + 1, 1 + 4 + 1));
 
 		let new_b = Collective::proposal_hash(&b, 3);
 		assert_eq!(*Proposals::<Test, Instance1>::get(), vec![old_hashes[0], new_b]);
 		assert!(Voting::<Test, Instance1>::contains_key(old_hashes[0]));
 		assert_eq!(ProposalOf::<Test, Instance1>::get(new_b), Some(b));
+		assert!(Voting::<Test, Instance1>::contains_key(new_b));
+		assert!(!ProposalOf::<Test, Instance1>::contains_key(old_hashes[1]));
+		assert!(!Voting::<Test, Instance1>::contains_key(old_hashes[1]));
+		assert_eq!(StorageVersion::get::<Collective>(), StorageVersion::new(5));
 	});
 }
 
@@ -2110,5 +2121,58 @@ fn propose_execute_rejects_identity_of_live_motion() {
 			Collective::propose(RuntimeOrigin::signed(1), 1, Box::new(proposal), len),
 			Error::<Test, Instance1>::DuplicateProposal
 		);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migration_v5_post_upgrade_catches_a_lost_deposit() {
+	use frame_support::traits::OnRuntimeUpgrade;
+	ExtBuilder::default().build().execute_with(|| {
+		// The third proposal carries a deposit (the mock delays deposits by two proposals).
+		for i in 1..=3 {
+			let call = make_proposal(i);
+			let len = call.using_encoded(|p| p.len() as u32);
+			assert_ok!(Collective::propose(RuntimeOrigin::signed(1), 3, Box::new(call), len));
+		}
+		downgrade_proposals_to_v4();
+		let state = migrations::v5::MigrateToV5::<Test, Instance1>::pre_upgrade().unwrap();
+		migrations::v5::MigrateToV5::<Test, Instance1>::on_runtime_upgrade();
+		// Simulate a migration that forgot to move the deposit: `post_upgrade` must notice.
+		CostOf::<Test, Instance1>::remove(Collective::proposal_hash(&make_proposal(3), 3));
+		assert!(migrations::v5::MigrateToV5::<Test, Instance1>::post_upgrade(state).is_err());
+	});
+}
+
+#[test]
+fn propose_execute_is_not_blocked_by_a_motion_with_another_threshold() {
+	ExtBuilder::default().build_and_execute(|| {
+		let proposal = make_proposal(42);
+		let len = proposal.using_encoded(|p| p.len() as u32);
+		// A motion for the same call is pending with threshold 3.
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(1),
+			3,
+			Box::new(proposal.clone()),
+			len
+		));
+		// Executing it directly is a different identity, so a pending motion cannot block it.
+		assert_ok!(Collective::propose(
+			RuntimeOrigin::signed(2),
+			1,
+			Box::new(proposal.clone()),
+			len
+		));
+		System::assert_last_event(RuntimeEvent::Collective(CollectiveEvent::Executed {
+			proposal_hash: Collective::proposal_hash(&proposal, 1),
+			result: Err(DispatchError::BadOrigin),
+		}));
+		assert_eq!(Proposals::<Test, Instance1>::get().len(), 1);
+		// `execute` keeps identifying the call by its own hash.
+		assert_ok!(Collective::execute(RuntimeOrigin::signed(1), Box::new(proposal.clone()), len));
+		System::assert_last_event(RuntimeEvent::Collective(CollectiveEvent::MemberExecuted {
+			proposal_hash: BlakeTwo256::hash_of(&proposal),
+			result: Err(DispatchError::BadOrigin),
+		}));
 	});
 }

@@ -9,24 +9,28 @@ doc:
 
     The pallet's storage version is bumped to 5. Runtimes must add
     `pallet_collective::migrations::v5::MigrateToV5<Runtime, Instance>` to their migrations for
-    every instance of the pallet. The migration re-keys all active proposals in `Proposals`,
-    `ProposalOf`, `Voting` and `CostOf` under the new hash; it is bounded by `MaxProposals` and
-    runs in a single block.
+    every instance of the pallet. The migration re-keys every active proposal in `Proposals`,
+    `ProposalOf`, `Voting` and `CostOf` under the new hash; an entry missing its call or its
+    votes is logged and left under its old key. It is bounded by `MaxProposals` and runs in a
+    single block.
+
+    A proposal with `threshold < 2` executes immediately even while a motion for the same call
+    with a different threshold is pending; before, it failed with `DuplicateProposal`.
 
     Breaking changes:
     - `Pallet::do_propose_execute` takes the `threshold` as its first argument.
     - Off-chain tooling that computed the proposal hash as `hash(call)` to call `vote`, `close`,
-      `disapprove_proposal` or `kill` must now compute `hash((call, threshold))`, with
-      `threshold` encoded as a plain `u32` (not compact, as in the extrinsic), or read the hash
-      from the `Proposed` event.
+      `disapprove_proposal`, `kill` or `release_proposal_cost` must now compute
+      `hash((call, threshold))`, with `threshold` encoded as a plain `u32` (not compact, as in
+      the extrinsic), or read the hash from the `Proposed` event.
     - The `proposal_hash` in the `Executed` event, emitted when `propose` is called with
       `threshold < 2` and the call executes immediately, is also `hash((call, threshold))`.
       `MemberExecuted`, emitted by `execute`, still carries `hash(call)`.
     - Only active proposals are re-keyed. The deposit of a motion closed before the upgrade is
       still released with `release_proposal_cost(hash(call))`.
-    - A call that names a motion by its old hash and has not run yet (a pending or scheduled
-      `vote`, `close`, `kill` or `disapprove_proposal`) no longer finds that motion after the
-      upgrade.
+    - A call that names a motion by its old hash and has not run yet no longer finds that motion
+      after the upgrade: a pending or scheduled `vote`, `close` or `kill` fails with
+      `ProposalMissing`, while `disapprove_proposal` returns `Ok` and leaves the motion active.
 - audience: Runtime User
   description: |-
     The Alliance collective on Collectives Westend runs a one-off storage migration that re-keys

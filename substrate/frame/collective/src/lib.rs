@@ -499,7 +499,7 @@ pub mod pallet {
 	pub enum Error<T, I = ()> {
 		/// Account is not a member
 		NotMember,
-		/// Duplicate proposals not allowed
+		/// A proposal with the same call and threshold is already active.
 		DuplicateProposal,
 		/// Proposal must exist
 		ProposalMissing,
@@ -672,7 +672,9 @@ pub mod pallet {
 		/// The proposal is identified by [`Pallet::proposal_hash`], which covers both the call
 		/// and the `threshold`. The threshold is fixed at submission time and is therefore part
 		/// of the proposal's identity: the same call may be under consideration with different
-		/// thresholds without colliding.
+		/// thresholds without colliding. With `threshold < 2` the call still fails with
+		/// `DuplicateProposal` while a motion with the same call and threshold is active; such a
+		/// motion can be opened through [`Pallet::do_propose_proposed`], e.g. by pallet-alliance.
 		///
 		/// ## Complexity
 		/// - `O(B + M + P1)` or `O(B + M + P2)` where:
