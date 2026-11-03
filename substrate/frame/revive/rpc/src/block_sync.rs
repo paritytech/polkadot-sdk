@@ -80,7 +80,7 @@ impl SyncCheckpoint {
 const BLOCK_INTERVAL: u32 = 128;
 
 /// Attempts per subscription gap fill before the request is left pending.
-const GAP_FILL_MAX_ATTEMPTS: u32 = 3;
+const GAP_FILL_MAX_ATTEMPTS: u32 = 5;
 
 /// Delay before the first gap-fill retry, doubled for each further retry.
 const GAP_FILL_BACKOFF: Duration = Duration::from_secs(2);
