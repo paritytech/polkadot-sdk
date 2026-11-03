@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793689811941,
+  "lastUpdate": 1793700993501,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -140939,6 +140939,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2863591990,
             "range": "± 49132150",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7c7b86afe492eb0c6af381cd74863a5818d62cf7",
+          "message": "pallet-psm: simplify PSM account handling (#13626)\n\n### Description\n\nPSMs no longer manage provider refs on their reserve account and fee\ndestination, so both follow the standard account rules.\n\n### Changes\n\n- `create_psm` and `remove_psm` no longer touch provider refs.\n- `mint` and `redeem` waive the fee when the fee destination can't\nreceive it.\n- `add_external_asset` requires the reserve account to be able to\nreceive the external asset, and fails with `ReserveCannotReceive`\notherwise. For a non-sufficient asset, create the reserve's asset\naccount first (e.g. with `touch_other`).\n- New `reserve_account` view function returns the reserve account of a\nPSM instance.\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T08:57:34Z",
+          "tree_id": "fbbc1842e6a08641186b194488e1c5c59eeb521d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7c7b86afe492eb0c6af381cd74863a5818d62cf7"
+        },
+        "date": 1793700963542,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 20303679,
+            "range": "± 146299",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20791681,
+            "range": "± 239310",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21970147,
+            "range": "± 131761",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25934535,
+            "range": "± 186138",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 58910785,
+            "range": "± 994784",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 371084301,
+            "range": "± 6453511",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2529905135,
+            "range": "± 76722398",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17178263,
+            "range": "± 216906",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17137408,
+            "range": "± 156183",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17953769,
+            "range": "± 92122",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 22607331,
+            "range": "± 132546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 62114195,
+            "range": "± 404722",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 373467083,
+            "range": "± 4764077",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2784206635,
+            "range": "± 27136879",
             "unit": "ns/iter"
           }
         ]
