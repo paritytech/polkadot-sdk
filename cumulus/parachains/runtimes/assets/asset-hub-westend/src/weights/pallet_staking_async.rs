@@ -1159,6 +1159,8 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// Proof: `Staking::ErasStakersOverview` (`max_values`: None, `max_size`: Some(92), added: 2567, mode: `Measured`)
 	/// Storage: `Staking::ErasRewardPoints` (r:84 w:0)
 	/// Proof: `Staking::ErasRewardPoints` (`max_values`: None, `max_size`: Some(36018), added: 38493, mode: `Measured`)
+	/// Storage: `Staking::ErasRewardPointsByService` (r:252 w:0)
+	/// Proof: `Staking::ErasRewardPointsByService` (`max_values`: None, `max_size`: Some(36027), added: 38502, mode: `Measured`)
 	/// Storage: `Staking::Validators` (r:1 w:1)
 	/// Proof: `Staking::Validators` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `Measured`)
 	/// Storage: `Staking::CounterForValidators` (r:1 w:1)
@@ -1174,16 +1176,16 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 	/// The range of component `l` is `[2, 84]`.
 	fn chill_inactive(l: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `1595 + l * (36096 ±0)`
-		//  Estimated: `5061 + l * (38571 ±0)`
-		// Minimum execution time: 317_146_000 picoseconds.
-		Weight::from_parts(234_579_525, 0)
-			.saturating_add(Weight::from_parts(0, 5061))
-			// Standard Error: 158_048
-			.saturating_add(Weight::from_parts(71_707_836, 0).saturating_mul(l.into()))
+		//  Measured:  `1418 + l * (108161 ±0)`
+		//  Estimated: `4884 + l * (115587 ±0)`
+		// Minimum execution time: 725_897_000 picoseconds.
+		Weight::from_parts(250_386_913, 0)
+			.saturating_add(Weight::from_parts(0, 4884))
+			// Standard Error: 94_857
+			.saturating_add(Weight::from_parts(272_170_095, 0).saturating_mul(l.into()))
 			.saturating_add(T::DbWeight::get().reads(8))
-			.saturating_add(T::DbWeight::get().reads((2_u64).saturating_mul(l.into())))
+			.saturating_add(T::DbWeight::get().reads((5_u64).saturating_mul(l.into())))
 			.saturating_add(T::DbWeight::get().writes(5))
-			.saturating_add(Weight::from_parts(0, 38571).saturating_mul(l.into()))
+			.saturating_add(Weight::from_parts(0, 115587).saturating_mul(l.into()))
 	}
 }
