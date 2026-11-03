@@ -528,67 +528,76 @@ pub mod pallet {
 			up_to: Timeslice,
 			beneficiary: &T::AccountId,
 		) -> (Vec<(Timeslice, BalanceOf<T>)>, u32) {
-			let mut revenue = Revenue::<T>::get();
-			let claimable = revenue.range(..=up_to).count() as u32;
+			let mut revenue = Revenue::<T>::get().into_inner();
+			let pot = Self::account_id();
+			let maximum_transfer_amount = T::Currency::reducible_balance(&pot, Preserve, Polite);
+
+			let mut claimable_entries = 0u32;
+			let mut total = BalanceOf::<T>::zero();
+			let mut total_ignoring_max_transfer_amount = BalanceOf::<T>::zero();
+			let mut paid = alloc::collections::BTreeMap::new();
+			let mut is_enough_funds_for_transfer = true;
+			for (&when, &amount) in revenue.range(..=up_to) {
+				claimable_entries += 1;
+
+				total_ignoring_max_transfer_amount =
+					total_ignoring_max_transfer_amount.saturating_add(amount);
+
+				if total_ignoring_max_transfer_amount > maximum_transfer_amount {
+					is_enough_funds_for_transfer = false;
+				}
+
+				if is_enough_funds_for_transfer {
+					total = total_ignoring_max_transfer_amount;
+					paid.insert(when, amount);
+				}
+			}
+
 			// Early return when nothing to be claimed: everything up to `up_to` is already paid
 			// out, so it is settled even without revenue.
-			if claimable == 0 {
+			if claimable_entries == 0 {
 				return (Vec::from([(up_to, Zero::zero())]), 0);
 			}
 
-			let pot = Self::account_id();
-			// The pot is kept alive so that the (possibly sub-existential) payments for individual
-			// orders keep working.
-			let reducible = T::Currency::reducible_balance(&pot, Preserve, Polite);
-
-			// Take the revenue of as many timeslices as can be paid out in full, oldest first.
-			let mut total = BalanceOf::<T>::zero();
-			let mut paid = Vec::new();
-			while let Some((&oldest, &amount)) = revenue.range(..=up_to).next() {
-				let with_oldest = total.saturating_add(amount);
-				if with_oldest > reducible {
-					break;
-				}
-				total = with_oldest;
-				paid.push((oldest, amount));
-				revenue.remove(&oldest);
-			}
-
-			let complete = revenue.range(..=up_to).next().is_none();
-			if complete && paid.last().map_or(true, |&(when, _)| when != up_to) {
-				// Everything up to `up_to` was paid out, so it is settled even without revenue.
-				paid.push((up_to, Zero::zero()));
-			}
-			if !complete {
-				// Some revenue can only be paid out once the pot has been topped up.
-				let booked = revenue
-					.range(..=up_to)
-					.fold(total, |booked, (_, &amount)| booked.saturating_add(amount));
+			if is_enough_funds_for_transfer {
+				paid.entry(up_to).or_default();
+			} else {
 				log::error!(
 					target: LOG_TARGET,
-					"The pot holds less than the {booked:?} of revenue booked up to timeslice \
-					 {up_to}; paying out {total:?} instead.",
+					"The pot holds less than the {:?} of revenue booked up to timeslice {}; paying \
+					 out {:?} instead.",
+					total_ignoring_max_transfer_amount, up_to, total,
 				);
 				Self::deposit_event(Event::<T>::UnexpectedLowFunds {
-					attempted_to_claim: booked,
-					claimable: reducible,
+					attempted_to_claim: total_ignoring_max_transfer_amount,
+					claimable: maximum_transfer_amount,
 					paid_out: total,
 				});
 			}
 
 			if !total.is_zero() {
 				if let Err(err) = T::Currency::transfer(&pot, beneficiary, total, Preserve) {
-					// The revenue stays booked, to be claimed along with a later timeslice.
 					log::error!(
 						target: LOG_TARGET,
 						"Paying out {total:?} of revenue failed: {err:?}",
 					);
-					return (Vec::new(), claimable);
+					return (Vec::new(), claimable_entries);
 				}
 			}
 
-			Revenue::<T>::put(revenue);
-			for &(when, amount) in paid.iter().filter(|(_, amount)| !amount.is_zero()) {
+			// Everything up to the last timeslice paid out has been claimed, so drop it.
+			if let Some((&last_paid, _)) = paid.last_key_value() {
+				revenue = revenue.split_off(&last_paid);
+				// In the unlikely case that last_paid is Timeslice::MAX, doing this separately
+				// instead of splitting at last_paid + 1 avoids an overflow.
+				revenue.remove(&last_paid);
+			}
+			Revenue::<T>::put(
+				BoundedBTreeMap::try_from(revenue)
+					.expect("entries were only removed from a bounded map; qed"),
+			);
+
+			for (&when, &amount) in paid.iter().filter(|(_, amount)| !amount.is_zero()) {
 				Self::deposit_event(Event::<T>::RevenueClaimed {
 					when,
 					amount,
@@ -596,7 +605,7 @@ pub mod pallet {
 				});
 			}
 
-			(paid, claimable)
+			(paid.into_iter().collect(), claimable_entries)
 		}
 	}
 }
