@@ -373,9 +373,9 @@ impl SubscriptionGapQueue {
 				log::info!(target: LOG_TARGET,
 					"🔄 Subscription gap queue: queued #{from_inclusive} down to #{to_inclusive} ({gap_len} blocks)");
 			},
-			// The range is never indexed, so it stays counted as pending for the rest of the
-			// process lifetime: the sync head cannot advance over it until a restart's
-			// backward sync fills it.
+			// The range is not indexed by this process, so it stays counted as pending for
+			// the rest of the process lifetime: in archive mode the sync head cannot advance
+			// over it until a restart's backward sync fills it.
 			Err(err) => {
 				log::error!(target: LOG_TARGET,
 					"🔄 Subscription gap queue error, dropping #{from_inclusive}..#{to_inclusive} ({gap_len} blocks): {err}. \

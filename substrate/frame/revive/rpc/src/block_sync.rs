@@ -439,8 +439,9 @@ impl Client {
 	/// The request is marked done once a backward sync of the range returns without error,
 	/// which includes stopping early at a block without an EVM hash. A range that still fails
 	/// after `max_attempts` stays pending, which keeps [`Client::advance_sync_head`] from
-	/// moving the `Head` label over the missing blocks. The next restart's backward sync
-	/// fills them.
+	/// moving the `Head` label over the missing blocks. In archive mode the next restart's
+	/// backward sync fills them, provided the cause has cleared; otherwise that sync stops at
+	/// the same block and the label stays where it is.
 	pub(crate) async fn fill_subscription_gap(
 		&self,
 		GapFillRequest { from_inclusive, to_inclusive }: GapFillRequest,
