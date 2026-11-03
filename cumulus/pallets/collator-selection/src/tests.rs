@@ -74,6 +74,31 @@ fn it_should_set_invulnerables_even_with_some_invalid() {
 }
 
 #[test]
+fn set_invulnerables_cannot_wipe_collators_via_unregistered_keys() {
+	new_test_ext().execute_with(|| {
+		assert_eq!(Invulnerables::<Test>::get(), vec![1, 2]);
+		assert_eq!(CandidateList::<Test>::get().iter().count(), 0);
+
+		// An empty set is rejected because it would leave no eligible collators.
+		assert_noop!(
+			CollatorSelection::set_invulnerables(RuntimeOrigin::signed(RootAccount::get()), vec![]),
+			Error::<Test>::TooFewEligibleCollators,
+		);
+
+		// A set whose only member has no registered keys filters down to the same empty set and
+		// must be rejected for the same reason.
+		assert_noop!(
+			CollatorSelection::set_invulnerables(
+				RuntimeOrigin::signed(RootAccount::get()),
+				vec![42]
+			),
+			Error::<Test>::TooFewEligibleCollators,
+		);
+		assert_eq!(CollatorSelection::assemble_collators(), vec![1, 2]);
+	});
+}
+
+#[test]
 fn add_invulnerable_works() {
 	new_test_ext().execute_with(|| {
 		initialize_to_block(1);

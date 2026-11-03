@@ -1,0 +1,15 @@
+title: "collator-selection: don't let `set_invulnerables` empty the collator set"
+doc:
+  - audience: Runtime Dev
+    description: |
+      Fixes #13679. `set_invulnerables` refuses an empty list unless the candidate list alone
+      can meet `MinEligibleCollators`, but it checked this before dropping the accounts that
+      have no registered session keys. A list made up only of such accounts was therefore
+      accepted, and `Invulnerables` became empty, which is the state the check exists to
+      prevent. Two sessions later the session validator set was empty too.
+
+      The check now runs on the filtered list, so such a call fails with
+      `TooFewEligibleCollators`, just like an empty list.
+crates:
+  - name: pallet-collator-selection
+    bump: patch
