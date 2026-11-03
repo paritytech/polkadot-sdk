@@ -575,7 +575,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	) -> Result<(), ClientError> {
 		let block_map = BlockHashMap::new(block.hash(), *ethereum_hash);
 		self.prune_blocks(block.number(), &block_map).await?;
-		self.insert_into_db(block, receipts, ethereum_hash).await?;
+		if let Err(err) = self.insert_into_db(block, receipts, ethereum_hash).await {
+			// The cache reports a block as processed; only committed rows may do that.
+			let mut block_number_to_hash = self.block_number_to_hashes.lock().await;
+			if block_number_to_hash.get(&block.number()) == Some(&block_map) {
+				block_number_to_hash.remove(&block.number());
+			}
+			return Err(err);
+		}
 		Ok(())
 	}
 
@@ -1053,6 +1060,23 @@ mod tests {
 		provider.remove(&[block_map]).await?;
 		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", Some(block.hash())).await, 0);
 		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 0);
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_failed_insert_does_not_mark_block_processed(
+		pool: SqlitePool,
+	) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool.clone()).await;
+		let block = MockBlockInfo { hash: H256::from([7_u8; 32]), number: 5 };
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+		let ethereum_hash = H256::from([1_u8; 32]);
+
+		sqlx::query("DROP TABLE transaction_hashes").execute(&pool).await?;
+		assert!(provider.insert(&block, &receipts, &ethereum_hash).await.is_err());
+
+		assert_eq!(provider.get_processed_eth_block_hash(block.number(), block.hash()).await, None);
+		assert_eq!(provider.get_ethereum_hash(&block.hash()).await, None);
 		Ok(())
 	}
 
