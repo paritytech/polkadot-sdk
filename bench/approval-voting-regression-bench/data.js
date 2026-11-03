@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793661739101,
+  "lastUpdate": 1793672548719,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a9ffa03ac6738da49622d81a64a1bb4809911464",
-          "message": "Add token transfers via XCM to DAP from the satellites (#11434)\n\nPR https://github.com/paritytech/polkadot-sdk/pull/10597 introduces the\nDAP satellite for gathering funds on every system parachain. This PR\nadds the periodic transfer of the gathered funds to the central DAP on\nAH. A minimum balance is expected for a transfer to take place. Both the\nperiod (in blocks) and the minimum balance are configurable.\n\nClose #10596.\n\nChanges:\n- Inside `pallet-dap-satellite`, on every `on_idle`, a transfer is\nattempted if (1) sufficient funds have been gathered in the satellite's\naccount and (2) a number of blocks have elapsed since the last transfer\nattempt\n- The transfer is an XCM teleport, which handles the burning of funds at\nthe source and the minting at the destination; if a transfer fails, the\nburnt funds are re-minted at the source to maintain consistency\n- The interval of the transfers is not affected by a single transfer's\nsuccess or failure\n- The DAP pallet gets a dedicated *staging* account, where all funds get\ndeposited (including those previously deposited into the main DAP\naccount); on every `on_idle`, all funds are taken from the staging\naccount, deposited into the main DAP account and deactivated. The\nstaging account is pre-funded (with the ED) in the same way as the main\nDAP account.\n\nThis is a continuation of PR\nhttps://github.com/paritytech/polkadot-sdk/pull/11294.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:51:43Z",
-          "tree_id": "e1f94e9ac49161cc4e1577dbea7e5255bafe0413",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9ffa03ac6738da49622d81a64a1bb4809911464"
-        },
-        "date": 1776420830864,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 52939.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 63638.76000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002344694,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.711564338089946,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005618507720000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.465546469779984,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.838345509710001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7474132983999648,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.318589359622865,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9336687314899996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023141450000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023141450000000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.82028155973,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9006902612599976,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002344694,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-db",
             "value": 2.275989938239998,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4b6793567c457371b0b8d00349dba1b5ba7e3b6f",
+          "message": "[pallet-revive] PVM performance: early return on mem read (#13678)\n\nSmall optimization: We can return early when the read would fail anyway.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T00:46:13Z",
+          "tree_id": "efe63a4025088ca7099d1c9fef4e89ca89001732",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b6793567c457371b0b8d00349dba1b5ba7e3b6f"
+        },
+        "date": 1793672520920,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63558.880000000005,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52939.90000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00001837119,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.7469528224500004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.188712910220008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.437729570242803,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3004574343799984,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000017679830000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8431729200700039,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000017679830000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005119811820000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00001837119,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7591278885200006,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7571452946200035,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7767367383600012,
             "unit": "seconds"
           }
         ]
