@@ -237,7 +237,7 @@ impl Oracle {
 					.map(|w| self.extension(w[0].1, w[1].0).expect("b < a' <= N; qed").clone())
 					.collect();
 				let extension = if endpoint == c {
-					MMRExtensionProof::identity()
+					MMRExtensionProof::identity(&self.frontiers[c as usize])
 				} else {
 					self.extension(endpoint, c).expect("endpoint < c <= N; qed").clone()
 				};
@@ -311,7 +311,10 @@ impl Oracle {
 			AddAdvance { source, stream, item, from, to } => {
 				if let Some(c) = consumed_mut(sources, *source, *stream) {
 					let wrap = |x: u8| x as u64 % (N as u64 + 1);
-					let proof = self.extension(wrap(*from), wrap(*to)).cloned().unwrap_or_default();
+					let proof =
+						self.extension(wrap(*from), wrap(*to)).cloned().unwrap_or_else(|| {
+							MMRExtensionProof::identity(&self.frontiers[wrap(*from) as usize])
+						});
 					let at = *item as usize % (c.lift.advances.len() + 1);
 					c.lift.advances.insert(at, proof);
 				}

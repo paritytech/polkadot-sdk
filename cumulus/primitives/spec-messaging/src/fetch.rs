@@ -111,8 +111,8 @@ pub struct MessagesResponse {
 	/// The payloads, in MMR order; payload `i` sits at position `frontier.leaf_count() + i`. At
 	/// most [`MAX_MESSAGES_PER_RESPONSE`], rejected at the length prefix.
 	pub payloads: BoundedVec<Vec<u8>, ConstU32<MAX_MESSAGES_PER_RESPONSE>>,
-	/// From the frontier after `payloads` to the stream's state under `under`; the identity
-	/// extension when `payloads` already reach it.
+	/// From the frontier after `payloads` to the stream's state under `under`; the identity of
+	/// that frontier when `payloads` already reach it.
 	pub extension: MMRExtensionProof,
 	/// From the stream's root to `under`.
 	pub tree_proof: StreamProof,
@@ -165,15 +165,7 @@ pub fn verify_messages(req: &MessagesRequest, resp: &MessagesResponse) -> Result
 		Some(start) if base != start.0 => return Err(VerifyError::UnexpectedBase),
 		Some(_) => {},
 		None => {
-			let after_payloads = base
-				.checked_add(resp.payloads.len() as u64)
-				.ok_or(VerifyError::MalformedResponse)?;
-			let end_count = if resp.extension.leaf_count == 0 {
-				after_payloads
-			} else {
-				resp.extension.leaf_count
-			};
-			if base.checked_add(1) != Some(end_count) {
+			if base.checked_add(1) != Some(resp.extension.leaf_count) {
 				return Err(VerifyError::NotAtHead);
 			}
 		},
@@ -379,7 +371,7 @@ mod tests {
 		let resp = MessagesResponse {
 			frontier: MmrFrontier::new(),
 			payloads: payloads.clone().try_into().unwrap(),
-			extension: MMRExtensionProof::identity(),
+			extension: identity_after(&MmrFrontier::new(), &payloads),
 			tree_proof,
 		};
 
@@ -407,7 +399,7 @@ mod tests {
 		let resp = MessagesResponse {
 			frontier: MmrFrontier::new(),
 			payloads: payloads.clone().try_into().unwrap(),
-			extension: MMRExtensionProof::identity(),
+			extension: identity_after(&MmrFrontier::new(), &payloads),
 			tree_proof,
 		};
 
@@ -495,7 +487,7 @@ mod tests {
 		let head_resp = MessagesResponse {
 			frontier: frontier_at(leaves, 5),
 			payloads: vec![payloads[5].clone()].try_into().unwrap(),
-			extension: MMRExtensionProof::identity(),
+			extension: identity_after(&frontier_at(leaves, 5), &payloads[5..]),
 			tree_proof: tree_proof.clone(),
 		};
 		let head_req = MessagesRequest { stream, under: t.under, start: None, max_bytes: 1024 };
@@ -539,7 +531,7 @@ mod tests {
 		let resp = MessagesResponse {
 			frontier: MmrFrontier::new(),
 			payloads: payloads.clone().try_into().unwrap(),
-			extension: MMRExtensionProof::identity(),
+			extension: identity_after(&MmrFrontier::new(), &payloads),
 			tree_proof,
 		};
 		let req = |max_bytes| MessagesRequest {
@@ -559,7 +551,7 @@ mod tests {
 			(
 				MmrFrontier::new(),
 				vec![Vec::<u8>::new(); count],
-				MMRExtensionProof::identity(),
+				MMRExtensionProof::identity(&MmrFrontier::new()),
 				StreamProof { steps: Default::default() },
 			)
 				.encode()
@@ -583,8 +575,8 @@ mod tests {
 
 		let resp = MessagesResponse {
 			frontier: MmrFrontier::new(),
+			extension: identity_after(&MmrFrontier::new(), &payloads),
 			payloads: payloads.try_into().unwrap(),
-			extension: MMRExtensionProof::identity(),
 			tree_proof,
 		};
 
@@ -609,7 +601,9 @@ mod tests {
 		let at_ceiling = MessagesResponse {
 			frontier: MmrFrontier::from_parts(vec![H256::zero(); 1], MAX_MMR_LEAF_COUNT).unwrap(),
 			payloads: vec![vec![0x01]].try_into().unwrap(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(
+				&MmrFrontier::from_parts(vec![H256::zero(); 1], MAX_MMR_LEAF_COUNT).unwrap(),
+			),
 			tree_proof: StreamProof { steps: Default::default() },
 		};
 		assert_eq!(
@@ -681,6 +675,13 @@ mod tests {
 		assert_eq!(refused.encode(), vec![0x01, 0x03]);
 	}
 
+	/// The identity extension of `frontier` after `payloads` are appended.
+	fn identity_after(frontier: &MmrFrontier, payloads: &[Vec<u8>]) -> MMRExtensionProof {
+		let mut end = frontier.clone();
+		payloads.iter().for_each(|p| end.append(leaf_hash(p)));
+		MMRExtensionProof::identity(&end)
+	}
+
 	/// Two committed 6-leaf streams with distinct payloads, and the `StreamsRoot` over both.
 	struct TwoStreams {
 		under: StreamsRoot,
@@ -710,8 +711,11 @@ mod tests {
 		base: usize,
 		end: usize,
 	) -> MessagesResponse {
-		let extension =
-			if end == 6 { MMRExtensionProof::identity() } else { ancestry(leaves, end, 6) };
+		let extension = if end == 6 {
+			MMRExtensionProof::identity(&frontier_at(leaves, 6))
+		} else {
+			ancestry(leaves, end, 6)
+		};
 		MessagesResponse {
 			frontier: frontier_at(leaves, base),
 			payloads: payloads[base..end].to_vec().try_into().unwrap(),

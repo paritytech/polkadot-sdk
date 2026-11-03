@@ -38,9 +38,9 @@ use arbitrary::Arbitrary;
 use codec::{Decode, Encode};
 use cumulus_primitives_spec_messaging::{
 	streams_root::{gen_stream_proof, streams_root, TreeStep},
-	verify_messages, ChannelMessage, MessagePosition, MessagesRequest, MessagesResponse,
-	MessagingInherentData, MmrFrontier, Register, StreamId, StreamProof, StreamsRoot, LEAF_VERSION,
-	MAX_SPECULATIVE_MESSAGE_LEN,
+	verify_messages, ChannelMessage, MMRExtensionProof, MessagePosition, MessagesRequest,
+	MessagesResponse, MessagingInherentData, MmrFrontier, Register, StreamId, StreamProof,
+	StreamsRoot, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_core::{bounded::BoundedVec, H256 as Hash};
@@ -195,7 +195,7 @@ impl MessageOracle {
 		let resp = MessagesResponse {
 			frontier: self.mmr.frontiers[base as usize].clone(),
 			payloads: payloads.try_into().expect("N < MAX_MESSAGES_PER_RESPONSE; qed"),
-			extension: self.mmr.extension(end, m).cloned().unwrap_or_default(),
+			extension: self.mmr.extension(end, m).cloned().expect("end <= m <= N; qed"),
 			tree_proof: self.tree_proof(h, s),
 		};
 		let req = MessagesRequest {
@@ -219,11 +219,7 @@ impl MessageOracle {
 				"accepted a response that does not start at the request"
 			);
 		} else {
-			let end_count = if resp.extension.leaf_count == 0 {
-				base + payloads.len() as u64
-			} else {
-				resp.extension.leaf_count
-			};
+			let end_count = resp.extension.leaf_count;
 			assert_eq!(
 				end_count,
 				base + 1,
@@ -271,7 +267,7 @@ impl MessageOracle {
 		);
 		assert_eq!(
 			resp.extension,
-			self.mmr.extension(end, m).cloned().unwrap_or_default(),
+			self.mmr.extension(end, m).cloned().expect("end <= m <= N; qed"),
 			"MALLEABLE: non-honest extension from {end} to {m} for stream {s}"
 		);
 		assert_eq!(
@@ -300,11 +296,10 @@ impl MessageOracle {
 		req.stream = stream;
 		if let Some(target) = input.target {
 			let end = resp.frontier.leaf_count() + resp.payloads.len() as u64;
-			resp.extension = self
-				.mmr
-				.extension(end, target as u64 % (N as u64 + 1))
-				.cloned()
-				.unwrap_or_default();
+			resp.extension =
+				self.mmr.extension(end, target as u64 % (N as u64 + 1)).cloned().unwrap_or_else(
+					|| MMRExtensionProof::identity(&self.mmr.frontiers[end as usize]),
+				);
 		}
 		let leaf_count = input.resp_base.map_or(resp.frontier.leaf_count(), Count::get);
 		let mut peaks = resp.frontier.peaks().to_vec();

@@ -82,7 +82,7 @@ fn forged_head_frontier_never_moves_a_leaf() {
 		let honest = MessagesResponse {
 			frontier: honest_frontier.clone(),
 			payloads: BoundedVec::truncate_from(vec![payloads[m - 1].clone()]),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier_at(&all, m)),
 			tree_proof: tree_proof.clone(),
 		};
 		assert_eq!(verify_messages(&req, &honest), Ok(()));
@@ -95,13 +95,29 @@ fn forged_head_frontier_never_moves_a_leaf() {
 			else {
 				continue;
 			};
-			let forged = MessagesResponse { frontier: forged_frontier, ..honest.clone() };
+			// The honest extension no longer ends at the forged head.
+			let moved = MessagesResponse { frontier: forged_frontier.clone(), ..honest.clone() };
+			assert_eq!(verify_messages(&req, &moved), Err(VerifyError::NotAtHead));
+			// An extension that fits the forged head passes the head rule and misses the root.
+			let mut forged_end = forged_frontier.clone();
+			forged_end.append(all[m - 1]);
+			let forged =
+				MessagesResponse { extension: MMRExtensionProof::identity(&forged_end), ..moved };
 			assert_eq!(verify_messages(&req, &forged), Err(VerifyError::RootMismatch));
 		}
 		if let Some(ceiling_frontier) =
 			MmrFrontier::from_parts(honest_frontier.peaks().to_vec(), MAX_MMR_LEAF_COUNT)
 		{
-			let at_ceiling = MessagesResponse { frontier: ceiling_frontier, ..honest.clone() };
+			// The extension names the head's end count, one past the ceiling.
+			let past_ceiling = MMRExtensionProof {
+				leaf_count: MAX_MMR_LEAF_COUNT + 1,
+				..honest.extension.clone()
+			};
+			let at_ceiling = MessagesResponse {
+				frontier: ceiling_frontier,
+				extension: past_ceiling,
+				..honest.clone()
+			};
 			assert_eq!(verify_messages(&req, &at_ceiling), Err(VerifyError::MalformedResponse));
 		}
 	}
