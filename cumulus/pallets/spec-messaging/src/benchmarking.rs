@@ -43,6 +43,20 @@ fn mark_rolled_over<T: Config>() {
 	RolledOver::<T>::put((now, 0));
 }
 
+/// Fills the bundle's touched streams to the bound, leaving `room` for the benchmark's own. The
+/// fillers are unrelated keys, so the benchmarked streams are still first touches.
+fn fill_bundle_streams<T: Config>(room: u32) {
+	let filler = ParaId::from(u32::MAX);
+	let streams: BTreeSet<_> = (0..T::MaxBundleStreams::get().saturating_sub(room))
+		.map(|i| (filler, deep_stream(i)))
+		.collect();
+	BundleStreams::<T>::put(BoundedBTreeSet::try_from(streams).expect("within the bound; qed"));
+}
+
+fn assert_bundle_full<T: Config>() {
+	assert_eq!(BundleStreams::<T>::get().len() as u32, T::MaxBundleStreams::get());
+}
+
 /// A private stream, with `index` spread over the high bits so streams share few tree nodes.
 fn deep_stream(index: u32) -> StreamId {
 	let mut body = [0u8; 7];
@@ -269,11 +283,13 @@ mod benchmarks {
 			data.channels.insert(channel, vec![ChannelMessage::Data(Vec::new()).encode()]);
 		}
 		mark_rolled_over::<T>();
+		fill_bundle_streams::<T>(c);
 
 		#[extrinsic_call]
 		enact_messages(RawOrigin::None, data);
 
 		assert_eq!(ConsumptionOutbox::<T>::get().len() as u32, c);
+		assert_bundle_full::<T>();
 	}
 
 	/// One channel consumed with `n` messages beyond the first.
@@ -287,11 +303,13 @@ mod benchmarks {
 			..Default::default()
 		};
 		mark_rolled_over::<T>();
+		fill_bundle_streams::<T>(1);
 
 		#[extrinsic_call]
 		enact_messages(RawOrigin::None, data);
 
 		assert_eq!(ConsumptionOutbox::<T>::get().len(), 1);
+		assert_bundle_full::<T>();
 	}
 
 	/// One channel consumed with a `b`-byte message.
@@ -307,11 +325,13 @@ mod benchmarks {
 			..Default::default()
 		};
 		mark_rolled_over::<T>();
+		fill_bundle_streams::<T>(1);
 
 		#[extrinsic_call]
 		enact_messages(RawOrigin::None, data);
 
 		assert_eq!(ConsumptionOutbox::<T>::get().len(), 1);
+		assert_bundle_full::<T>();
 	}
 
 	/// `r` register reads that each make the sender send a `Hello`, on new streams.
@@ -338,11 +358,13 @@ mod benchmarks {
 			data.registers.insert(channel, read);
 		}
 		mark_rolled_over::<T>();
+		fill_bundle_streams::<T>(r);
 
 		#[extrinsic_call]
 		enact_messages(RawOrigin::None, data);
 
 		assert_eq!(SendsThisBlock::<T>::get(), r);
+		assert_bundle_full::<T>();
 	}
 
 	/// `on_initialize` draining `d` leaf hashes, each in its own stream with a wide frontier.

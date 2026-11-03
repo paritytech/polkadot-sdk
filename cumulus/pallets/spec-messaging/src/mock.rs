@@ -15,7 +15,10 @@
 
 use crate as cumulus_pallet_spec_messaging;
 use core::ops::RangeInclusive;
-use frame_support::{derive_impl, parameter_types};
+use frame_support::{
+	derive_impl, pallet_prelude::Weight, parameter_types,
+	weights::constants::WEIGHT_REF_TIME_PER_SECOND,
+};
 use frame_system::EnsureRoot;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use sp_runtime::BuildStorage;
@@ -32,6 +35,16 @@ frame_support::construct_runtime!(
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
 	type Block = Block;
+	type BlockWeights = MockBlockWeights;
+}
+
+parameter_types! {
+	// A finite proof limit, which `MaxBundleStreams` must cover.
+	pub MockBlockWeights: frame_system::limits::BlockWeights =
+		frame_system::limits::BlockWeights::with_sensible_defaults(
+			Weight::from_parts(2 * WEIGHT_REF_TIME_PER_SECOND, 1 << 20),
+			sp_runtime::Perbill::from_percent(75),
+		);
 }
 
 pub const SELF_PARA: u32 = 2000;
@@ -42,6 +55,7 @@ parameter_types! {
 	pub const MaxInFlight: u32 = 4;
 	pub const MaxSendsPerBlock: u32 = 32;
 	pub const MaxTouchedStreams: u32 = 8;
+	pub const MaxBundleStreams: u32 = 512;
 	pub const MaxTreeDepth: u32 = 4;
 	pub const MaxInboundMessagesPerItem: u32 = 16;
 	pub const SupportedVersions: RangeInclusive<u8> = 1..=1;
@@ -57,6 +71,7 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type MaxInFlight = MaxInFlight;
 	type MaxSendsPerBlock = MaxSendsPerBlock;
 	type MaxTouchedStreams = MaxTouchedStreams;
+	type MaxBundleStreams = MaxBundleStreams;
 	type MaxTreeDepth = MaxTreeDepth;
 	type MaxInboundMessagesPerItem = MaxInboundMessagesPerItem;
 	type SupportedVersions = SupportedVersions;

@@ -46,6 +46,23 @@ fn stream(num: u16) -> StreamId {
 	StreamId::Channel { recipient: ParaId::from(SELF_PARA), domain: 0, num }
 }
 
+/// Replaces the bundle's touched streams with `count` streams from `make`.
+fn fill_bundle_streams(count: u32, make: impl Fn(u32) -> (ParaId, StreamId)) {
+	let streams: BTreeSet<_> = (0..count).map(make).collect();
+	BundleStreams::<Test>::put(BoundedBTreeSet::try_from(streams).unwrap());
+}
+
+/// Fills the bundle's touched streams up to `MaxBundleStreams`, with `taken` of them left to the
+/// caller.
+fn fill_bundle_to_bound(taken: u32) {
+	fill_bundle_streams(MaxBundleStreams::get() - taken, |i| {
+		(
+			ParaId::from(9000),
+			StreamId::Channel { recipient: ParaId::from(9000), domain: 0, num: i as u16 },
+		)
+	});
+}
+
 fn src() -> ParaId {
 	ParaId::from(1000u32)
 }
@@ -793,7 +810,7 @@ fn bundle_streams_retained_across_bundle_blocks_and_reset_on_index_0() {
 		let mut data = MessagingInherentData::default();
 		data.channels.insert(ch, vec![hello.encode()]);
 		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
-		assert_eq!(BundleSources::<Test>::get().len(), 1);
+		assert_eq!(BundleStreams::<Test>::get().len(), 1);
 
 		// Roll over to block 2 with an index-1 digest: retained.
 		SpecMessaging::on_finalize(1);
@@ -802,7 +819,7 @@ fn bundle_streams_retained_across_bundle_blocks_and_reset_on_index_0() {
 		digest1.push(CumulusDigestItem::BlockBundleInfo(info1).to_digest_item());
 		System::initialize(&2, &Default::default(), &digest1);
 		SpecMessaging::on_initialize(2);
-		assert_eq!(BundleSources::<Test>::get().len(), 1);
+		assert_eq!(BundleStreams::<Test>::get().len(), 1);
 
 		// Roll over to block 3 with an index-0 digest: reset.
 		SpecMessaging::on_finalize(2);
@@ -811,7 +828,7 @@ fn bundle_streams_retained_across_bundle_blocks_and_reset_on_index_0() {
 		digest0.push(CumulusDigestItem::BlockBundleInfo(info0).to_digest_item());
 		System::initialize(&3, &Default::default(), &digest0);
 		SpecMessaging::on_initialize(3);
-		assert_eq!(BundleSources::<Test>::get().len(), 0);
+		assert_eq!(BundleStreams::<Test>::get().len(), 0);
 	});
 }
 
@@ -1372,10 +1389,9 @@ fn a_new_source_over_the_commitment_cap_is_rejected() {
 		let ch = in_channel();
 		accept(ch);
 		SpecMessaging::roll_over();
-		let full: BTreeSet<ParaId> = (0..polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES)
-			.map(|i| ParaId::from(5000 + i))
-			.collect();
-		BundleSources::<Test>::put(full);
+		fill_bundle_streams(polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES, |i| {
+			(ParaId::from(5000 + i), StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 })
+		});
 
 		let mut inherent = InherentData::new();
 		inherent
@@ -1386,6 +1402,52 @@ fn a_new_source_over_the_commitment_cap_is_rejected() {
 			SpecMessaging::enact_messages(RuntimeOrigin::none(), channel_item(ch, vec![hello(1)])),
 			Error::<Test>::MaxCommitmentEntriesExceeded
 		);
+	});
+}
+
+#[test]
+fn a_new_stream_over_the_bundle_bound_is_refused() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		SpecMessaging::roll_over();
+		fill_bundle_to_bound(0);
+
+		let mut inherent = InherentData::new();
+		inherent
+			.put_data(INHERENT_IDENTIFIER, &channel_item(ch, vec![hello(1)]))
+			.unwrap();
+		assert!(SpecMessaging::create_inherent(&inherent).is_none());
+		assert_err!(
+			SpecMessaging::enact_messages(RuntimeOrigin::none(), channel_item(ch, vec![hello(1)])),
+			Error::<Test>::TooManyStreams
+		);
+	});
+}
+
+#[test]
+fn a_stream_already_in_a_full_bundle_is_still_accepted() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		SpecMessaging::roll_over();
+		fill_bundle_to_bound(1);
+		let stream = ch.sender_data_stream(SelfParaId::get());
+		BundleStreams::<Test>::mutate(|set| {
+			set.try_insert(stream).unwrap();
+		});
+		assert_eq!(BundleStreams::<Test>::get().len() as u32, MaxBundleStreams::get());
+
+		let mut inherent = InherentData::new();
+		inherent
+			.put_data(INHERENT_IDENTIFIER, &channel_item(ch, vec![hello(1)]))
+			.unwrap();
+		assert!(SpecMessaging::create_inherent(&inherent).is_some());
+		assert_ok!(SpecMessaging::enact_messages(
+			RuntimeOrigin::none(),
+			channel_item(ch, vec![hello(1)])
+		));
+		assert_eq!(BundleStreams::<Test>::get().len() as u32, MaxBundleStreams::get());
 	});
 }
 

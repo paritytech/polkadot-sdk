@@ -52,7 +52,7 @@ use frame_support::{
 	inherent::InherentData,
 	pallet_prelude::Weight,
 	traits::{EnsureOrigin, Get},
-	BoundedVec,
+	BoundedBTreeSet, BoundedVec,
 };
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
@@ -142,6 +142,11 @@ pub mod pallet {
 		/// Per-block cap on streams the inherent may touch; `<= MAX_COMMITMENT_ENTRIES`.
 		#[pallet::constant]
 		type MaxTouchedStreams: Get<u32>;
+
+		/// Cap on distinct streams the candidate bundle may touch. It must cover the block proof
+		/// size divided by a lift's reservation, so the proof size always binds first.
+		#[pallet::constant]
+		type MaxBundleStreams: Get<u32>;
 
 		/// Cap on the depth of the commitment tree this chain builds over its own streams, which
 		/// bounds the proof size of every touched stream; `1..=64`.
@@ -249,17 +254,11 @@ pub mod pallet {
 	pub type ConsumptionOutbox<T: Config> =
 		StorageValue<_, Vec<(ParaId, StreamId, Interval)>, ValueQuery>;
 
-	/// Distinct source parachains touched across blocks in the candidate bundle. Cleared on index
-	/// 0.
-	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type BundleSources<T: Config> = StorageValue<_, BTreeSet<ParaId>, ValueQuery>;
-
 	/// Streams touched across blocks in the candidate bundle: a stream's first touch reserves its
-	/// lift. Cleared on index 0.
+	/// lift, and the touched sources are their parachains. Cleared on index 0.
 	#[pallet::storage]
-	#[pallet::unbounded]
-	pub type BundleStreams<T: Config> = StorageValue<_, BTreeSet<(ParaId, StreamId)>, ValueQuery>;
+	pub type BundleStreams<T: Config> =
+		StorageValue<_, BoundedBTreeSet<(ParaId, StreamId), T::MaxBundleStreams>, ValueQuery>;
 
 	/// Inbound channels whose register may have changed; published at block end, and kept for the
 	/// next block if the publish fails.
@@ -365,6 +364,11 @@ pub mod pallet {
 				"`MaxTouchedStreams` must be below `MaxSendsPerBlock`",
 			);
 			assert!(
+				T::MaxBundleStreams::get() as u64 * lift_len() as u64 >=
+					T::BlockWeights::get().max_block.proof_size(),
+				"`MaxBundleStreams` lifts must cover the block proof size",
+			);
+			assert!(
 				(1..=STREAM_ID_LEN as u32 * 8).contains(&T::MaxTreeDepth::get()),
 				"`MaxTreeDepth` must be in `1..=64`",
 			);
@@ -421,8 +425,10 @@ pub mod pallet {
 			// Broadcast subscriptions are not supported yet.
 			ensure!(data.events.is_empty(), Error::<T>::NotAdmitted);
 
-			BundleSources::<T>::put(&budget.sources);
-			BundleStreams::<T>::put(&budget.streams);
+			BundleStreams::<T>::put(
+				BoundedBTreeSet::try_from(budget.streams)
+					.map_err(|_| Error::<T>::TooManyStreams)?,
+			);
 			// Lifts are attached after the block is built, so their proof size is charged here.
 			// Extra weight is outside the call's declared weight, so weight reclaim cannot refund
 			// it.
@@ -700,6 +706,12 @@ fn enact_weight<T: Config>(data: &MessagingInherentData) -> Weight {
 		.saturating_add(commit_weight::<T>(registers, channels))
 }
 
+/// The proof bytes one lift without advances reserves; a bundle has at most 256 blocks, so the
+/// `advances` length prefix takes 2 bytes.
+fn lift_len() -> usize {
+	2 + MMRExtensionProof::max_encoded_len() + StreamProof::max_encoded_len()
+}
+
 /// The candidate bundle's touched sources and streams, plus this inherent's touches and the proof
 /// bytes it reserved for lifts.
 struct BundleBudget {
@@ -711,12 +723,9 @@ struct BundleBudget {
 
 impl BundleBudget {
 	fn load<T: Config>() -> Self {
-		Self {
-			touched: 0,
-			sources: BundleSources::<T>::get(),
-			streams: BundleStreams::<T>::get(),
-			reserved: 0,
-		}
+		let streams = BundleStreams::<T>::get().into_inner();
+		let sources = streams.iter().map(|(source, _)| *source).collect();
+		Self { touched: 0, sources, streams, reserved: 0 }
 	}
 
 	fn record(&mut self, stream: (ParaId, StreamId), bytes: u64) {
@@ -798,7 +807,6 @@ impl<T: Config> Pallet<T> {
 			CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
 				.map_or(true, |info| info.index == 0);
 		if is_first {
-			BundleSources::<T>::kill();
 			BundleStreams::<T>::kill();
 		}
 
@@ -1062,6 +1070,11 @@ impl<T: Config> Pallet<T> {
 		skip: Option<(u64, u64)>,
 	) -> Result<u64, Error<T>> {
 		ensure!(budget.touched < T::MaxTouchedStreams::get(), Error::<T>::TooManyStreams);
+		ensure!(
+			budget.streams.contains(&stream) ||
+				budget.streams.len() < T::MaxBundleStreams::get() as usize,
+			Error::<T>::TooManyStreams
+		);
 		let new_source = !budget.sources.contains(&stream.0);
 		ensure!(
 			!new_source || budget.sources.len() < MAX_COMMITMENT_ENTRIES as usize,
@@ -1076,9 +1089,7 @@ impl<T: Config> Pallet<T> {
 			bytes += ParaId::max_encoded_len() + Compact::<u32>::max_encoded_len();
 		}
 		if !budget.streams.contains(&stream) {
-			// One lift without advances; a bundle has at most 256 blocks, so the `advances` length
-			// prefix takes 2 bytes.
-			bytes += 2 + MMRExtensionProof::max_encoded_len() + StreamProof::max_encoded_len();
+			bytes += lift_len();
 		} else if let Some((n1, n2)) = skip {
 			bytes += MMRExtensionProof::encoded_len_for(n1, n2)
 				.unwrap_or_else(MMRExtensionProof::max_encoded_len);
