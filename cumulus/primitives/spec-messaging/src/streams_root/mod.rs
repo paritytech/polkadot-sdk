@@ -21,20 +21,12 @@
 //! `Provides`, and a receiver proves the streams it consumed against it, without a sender-state
 //! proof.
 //!
-//! # Why a keyed trie
-//!
-//! The trie is keyed by [`StreamId::to_bytes`], so a proof is a walk driven by the key:
-//! verification recomputes the leaf from the caller's `StreamId` and takes each branch direction
-//! from that key's bits. A proof built for stream A cannot verify as stream B. Requires-lift
-//! synthesis depends on this, since lifts are matched to the consumption record's streams by
-//! position. A positional Merkle tree does not give it. Patricia compression also keeps proofs
-//! `O(log S)` in the number of streams rather than `O(64)` in the key width.
+//! The key drives the walk, so a proof cannot be moved to another stream
+//! ([`streams_root_from_proof`]).
 //!
 //! Roles: the sender builds the root ([`streams_root`]) and its node serves proofs
 //! ([`gen_stream_proof`]), checking its own header digest ([`read_streams_root`]); a receiver's
 //! lift walks a proof up to the committed root ([`streams_root_from_proof`]).
-//!
-//! A leaf hash binds the full key, an inner hash its split bit.
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeAll, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -59,8 +51,7 @@ const KEY_BITS: usize = STREAM_ID_LEN * 8;
 /// The sender's per-block stream commitment root. Defined relay-side and re-exported here.
 pub use polkadot_primitives::StreamsRoot;
 
-/// One step of a trie walk. The branch direction is not stored; verification takes it from the
-/// proven key's bit at `split_bit`.
+/// One step of a trie walk. The branch direction is not stored.
 #[derive(
 	Clone,
 	Copy,
@@ -81,7 +72,7 @@ pub struct TreeStep {
 }
 
 /// A membership proof that `(stream, stream_root)` is committed under a `StreamsRoot`. Served by
-/// the sender, verified by the receiver. Carries no leaf index; the key drives the walk.
+/// the sender, verified by the receiver.
 #[derive(
 	Clone,
 	Encode,
@@ -232,8 +223,7 @@ pub fn read_streams_root(digest: &Digest) -> Option<StreamsRoot> {
 /// Fold a membership proof for `(stream, stream_root)` up to the `StreamsRoot` it implies, or
 /// `None` on a malformed step. Callers compare the root themselves (the requires-lift records it,
 /// the fetch checks it against `under`). Each branch direction is `stream`'s bit at `split_bit`, so
-/// a proof built for another stream folds the siblings on the wrong sides and yields a different
-/// root.
+/// a proof built for another stream yields a different root.
 pub fn streams_root_from_proof(
 	stream: StreamId,
 	stream_root: Hash,
@@ -255,7 +245,6 @@ pub fn streams_root_from_proof(
 			return None;
 		}
 		prev = Some(step.split_bit);
-		// The branch direction is the proven key's bit at `split_bit`. This is the key binding.
 		node = if bit(&key, split_bit) {
 			hash_inner(step.split_bit, &step.sibling, &node)
 		} else {

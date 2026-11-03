@@ -95,7 +95,7 @@ fn forged_head_frontier_never_moves_a_leaf() {
 			else {
 				continue;
 			};
-			// The honest extension no longer ends at the forged head.
+			// The honest extension does not end at the forged head.
 			let moved = MessagesResponse { frontier: forged_frontier.clone(), ..honest.clone() };
 			assert_eq!(verify_messages(&req, &moved), Err(VerifyError::NotAtHead));
 			// An extension that fits the forged head passes the head rule and misses the root.

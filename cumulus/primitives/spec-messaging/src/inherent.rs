@@ -48,8 +48,8 @@ pub struct ConsumedStreams {
 	/// frontier. Its `leaf_count()` is the fetch cursor, and fetch responses must match the
 	/// frontier.
 	pub channels: BTreeMap<InChannelId, MmrFrontier>,
-	/// Outbound channels whose recipient's register should be read (`want_open`), mapped to the
-	/// cursor (`applied.position + 1`, or `0` before the first read).
+	/// Outbound channels whose recipient's register should be read, mapped to the cursor
+	/// ([`crate::OutChannelState::register_cursor`]).
 	pub registers: BTreeMap<OutChannelId, MessagePosition>,
 	/// Active broadcast subscriptions, mapped to the cursor (`highwater + 1`, or `0` before the
 	/// first read).
@@ -69,8 +69,7 @@ impl ConsumedStreams {
 /// Lossy consumption item (register or event read): carries the stream's frontier just before its
 /// first payload, standing in for the frontier a lossy consumer does not store.
 ///
-/// Trust-free: `frontier` decodes through [`MmrFrontier::from_parts`], and stream roots bind their
-/// leaf counts, so a lie yields an endpoint no lift can bind.
+/// Trust-free: a false `frontier` yields an endpoint no lift can bind.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct LossyRead {
 	pub frontier: MmrFrontier,

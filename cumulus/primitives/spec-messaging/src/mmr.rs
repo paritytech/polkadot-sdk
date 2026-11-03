@@ -16,11 +16,9 @@
 
 //! MMR primitives for the Speculative Messaging protocol.
 //!
-//! Hashing is [`SpecHasher`] with domain tags: leaves by [`leaf_hash`]
-//! (`LEAF_TAG`), inner nodes by [`SpecMerge::merge`] (`INNER_TAG`), peak bagging by
-//! [`SpecMerge::merge_peaks`] (`PEAK_TAG`). `mmr_lib` calls `merge` for tree nodes and
-//! `merge_peaks` when bagging, so no two roles collide. The stream root binds the leaf count over
-//! the bagged peaks (`ROOT_TAG`, [`MmrRoot::from_bag`]).
+//! Hashing is [`SpecHasher`] with the crate's domain tags: leaves by [`leaf_hash`], inner nodes by
+//! [`SpecMerge::merge`], peak bagging by [`SpecMerge::merge_peaks`] (`mmr_lib` calls it only when
+//! bagging), stream roots by [`MmrRoot::from_bag`].
 //!
 //! [`SpecMerge`] is the `mmr_lib::Merge` for inclusion proofs (`gen_proof` / `MerkleProof::verify`)
 //! and ancestry proofs (`gen_ancestry_proof` / `verify_incremental`). [`MmrFrontier`] is the
@@ -74,7 +72,6 @@ impl Merge for SpecMerge {
 		Ok(tagged_node(INNER_TAG, left, right))
 	}
 
-	/// Tagged apart from `merge`, so a bagged value can never be read as an inner node.
 	fn merge_peaks(left: &Hash, right: &Hash) -> Result<Hash, MmrError> {
 		Ok(tagged_node(PEAK_TAG, left, right))
 	}
@@ -94,10 +91,8 @@ pub fn leaf_hash(payload: &[u8]) -> Hash {
 	leaf_hash_with_version(LEAF_VERSION, payload)
 }
 
-/// Hash a payload into a stream MMR leaf at an explicit leaf version.
-///
-/// Versions are hash-disjoint, so only the correct one reproduces a committed root. Used to test
-/// format disjointness across format revisions.
+/// Hash a payload into a stream MMR leaf at an explicit leaf version. Used to test format
+/// disjointness across format revisions.
 pub fn leaf_hash_with_version(leaf_version: u8, payload: &[u8]) -> Hash {
 	let mut preimage = Vec::with_capacity(2 + payload.len());
 	preimage.push(LEAF_TAG);
@@ -112,8 +107,7 @@ pub fn empty_root() -> MmrRoot {
 }
 
 /// Bag the peaks (highest to lowest) with `mmr_lib`'s own bagging, so the result equals
-/// `MMR::get_root`. Not a stream root: [`MmrRoot::from_bag`] binds the leaf count over it. No peaks
-/// bag to zero.
+/// `MMR::get_root`. Not a stream root (see [`MmrRoot::from_bag`]). No peaks bag to zero.
 pub fn bag_peaks(peaks: &[Hash]) -> Hash {
 	// `SpecMerge` is infallible, so `Err` means no peaks.
 	bagging_peaks_hashes::<Hash, SpecMerge>(peaks.to_vec()).unwrap_or_default()
@@ -123,8 +117,8 @@ pub fn bag_peaks(peaks: &[Hash]) -> Hash {
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct FrontierFull;
 
-/// A stream's committed root at some point in its history: the leaf count bound over the bagged
-/// peaks. A newtype so it cannot be confused with a `StreamsRoot`, the commitment-tree root.
+/// A stream's committed root at some point in its history ([`Self::from_bag`]). A newtype so it
+/// cannot be confused with a `StreamsRoot`, the commitment-tree root.
 #[derive(
 	Clone,
 	Copy,
@@ -158,12 +152,7 @@ impl MmrRoot {
 /// Peak hashes equal `mmr_lib`'s, so [`root`](Self::root) is `mmr_lib::MMR::get_root` bound to the
 /// leaf count, and proofs from a full `mmr_lib::MMR` over the same leaves verify against it.
 ///
-/// Fields are private. [`new`](Self::new), [`from_parts`](Self::from_parts) and `Decode` are the
-/// only constructors, and each enforces one peak per set bit of `leaf_count` and `leaf_count <=
-/// MAX_MMR_LEAF_COUNT`.
-///
-/// Encodes as `leaf_count ‖ peaks`. A decoder reads the count first, and the `BoundedVec` rejects
-/// an over-long length prefix before any peak is read.
+/// Fields are private, so every frontier holds the [`from_parts`](Self::from_parts) rules.
 #[derive(Clone, Encode, MaxEncodedLen, PartialEq, Eq, Debug, TypeInfo, Default)]
 pub struct MmrFrontier {
 	/// Number of leaves these peaks summarize; also the position of the next message to append.
@@ -232,9 +221,8 @@ impl MmrFrontier {
 			.expect("a frontier built leaf by leaf never reaches `MAX_MMR_LEAF_COUNT`; qed")
 	}
 
-	/// The root: the leaf count bound over the bagged peaks ([`MmrRoot::from_bag`]). The empty
-	/// frontier bags to zero ([`empty_root`]), so a frontier that has consumed nothing compares and
-	/// extends like any other.
+	/// The stream root ([`MmrRoot::from_bag`]). The empty frontier bags to zero ([`empty_root`]),
+	/// so a frontier that has consumed nothing compares and extends like any other.
 	pub fn root(&self) -> MmrRoot {
 		MmrRoot::from_bag(self.leaf_count, bag_peaks(&self.peaks))
 	}
@@ -256,9 +244,8 @@ pub(crate) fn mmr_size(leaf_count: u64) -> u64 {
 	}
 }
 
-/// Field order matches the derived `Encode`. The decoded pair goes through
-/// [`from_parts`](MmrFrontier::from_parts), so a frontier off the wire holds the same invariants as
-/// one built here.
+/// Field order matches the derived `Encode`; the decoded pair goes through
+/// [`from_parts`](MmrFrontier::from_parts).
 impl Decode for MmrFrontier {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
 		let leaf_count = u64::decode(input)?;
@@ -299,8 +286,7 @@ pub struct MMRExtensionProof {
 	pub leaf_count: u64,
 	/// The connecting-node hashes, in `mmr_lib`'s proof order. Positions are not stored: an MMR's
 	/// shape is fixed by its size, so they are derived at verify time from the two leaf counts
-	/// (`ancestry_proof_positions`). Empty for the identity. At most [`MAX_MMR_HASHES`], enforced
-	/// at decode.
+	/// (`ancestry_proof_positions`). Empty for the identity.
 	pub connecting_nodes: BoundedVec<Hash, ConstU32<MAX_MMR_HASHES>>,
 }
 

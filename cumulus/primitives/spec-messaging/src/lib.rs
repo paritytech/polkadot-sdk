@@ -84,8 +84,7 @@ pub const INNER_TAG: u8 = 0x2;
 /// MMR peak bagging.
 pub const PEAK_TAG: u8 = 0x3;
 
-/// Stream root ([`mmr::MmrRoot::from_bag`]). It binds the leaf count, so the same peaks at a forged
-/// position give another root.
+/// Stream root ([`mmr::MmrRoot::from_bag`]).
 pub const ROOT_TAG: u8 = 0x4;
 
 /// Commitment-tree leaf. It binds the full `StreamId` key.
