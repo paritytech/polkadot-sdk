@@ -1,0 +1,12 @@
+title: Consolidate CI script tests with pinned pytest dependencies
+
+doc:
+  - audience: Node Dev
+    description: |
+      Run the command-bot and prdoc tests through pytest with shared pinned test
+      dependencies and isolated script fixtures. Consolidate repeated benchmark,
+      label and prdoc cases while preserving the existing scenarios and covered
+      production lines and branches. Add coverage for both logging-setup paths.
+      CI installs the test dependencies in a temporary virtual environment.
+      Runtime script behavior is unchanged. No crates require publishing.
+crates: []
