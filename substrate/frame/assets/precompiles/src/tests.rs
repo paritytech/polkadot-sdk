@@ -1943,6 +1943,7 @@ fn guard_is_inert_for_min_balance_one(asset_index: u16) {
 		assert_eq!(Assets::balance(asset_id, from), 0);
 		assert_eq!(Assets::balance(asset_id, to), 100);
 	});
+}
 /// 32 logs without topics and with this much data each fill an ethereum transaction's receipt
 /// exactly (`MAX_RECEIPT_LOGS_BYTES`).
 const LOG_DATA: u32 = 65_508;
