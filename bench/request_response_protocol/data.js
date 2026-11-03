@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793660990870,
+  "lastUpdate": 1793689811941,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -140831,6 +140831,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2853047330,
             "range": "± 42772767",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4fac30fa6fe3328ab5ed4f971288682d53069cd2",
+          "message": "[pallet-revive] Exact pro rata storage deposit refunds (#13204)\n\nCloses #12692\n\nStorage refunds are now `deposit * removed / stored` in exact integer\narithmetic, rounded down. The old `FixedU128` ratio could refund one\nunit too little (3 bytes with deposit 3, one removed: 0 before, 1 now).\n\nNetting is unchanged and now documented on `Diff::update_contract`. No\nmigration is needed.",
+          "timestamp": "2026-11-03T05:47:59Z",
+          "tree_id": "872e4e923ebfa9c339099b522d2631dee1ed9bc7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fac30fa6fe3328ab5ed4f971288682d53069cd2"
+        },
+        "date": 1793689773089,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19674694,
+            "range": "± 183080",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19835268,
+            "range": "± 82597",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21459842,
+            "range": "± 106785",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25949793,
+            "range": "± 135433",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 59271712,
+            "range": "± 1177432",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 356971198,
+            "range": "± 3786370",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2467601805,
+            "range": "± 172840352",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 17497090,
+            "range": "± 161178",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 17566200,
+            "range": "± 131221",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18461989,
+            "range": "± 294438",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23102193,
+            "range": "± 214328",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65609773,
+            "range": "± 1254336",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 373884674,
+            "range": "± 3528308",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2863591990,
+            "range": "± 49132150",
             "unit": "ns/iter"
           }
         ]
