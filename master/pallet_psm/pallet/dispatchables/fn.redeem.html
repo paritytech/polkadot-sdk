@@ -158,8 +158,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <p>Must be <code>Signed</code> by the user performing the swap.</p>
 <h3 id="details"><a class="doc-anchor" href="#details">§</a>Details</h3>
 <p>Burns <code>internal_amount</code> of <code>internal_asset</code> from the caller minus fee (transferred
-to the instance’s <a href="../struct.PsmInfo.html#structfield.fee_destination" title="field pallet_psm::pallet::PsmInfo::fee_destination"><code>PsmInfo::fee_destination</code></a>), then transfers the resulting
-amount in <code>external_asset</code> from the PSM reserve to the caller. The fee is
+to the instance’s <a href="../struct.PsmInfo.html#structfield.fee_destination" title="field pallet_psm::pallet::PsmInfo::fee_destination"><code>PsmInfo::fee_destination</code></a>, or waived if that account cannot
+receive it), then transfers the resulting amount in <code>external_asset</code> from the PSM
+reserve to the caller. The fee is
 calculated using ceiling rounding (<code>mul_ceil</code>), ensuring the protocol never
 undercharges. Redemptions use the decimals snapshotted when the PSM/external pair
 was registered, allowing existing positions to unwind even if live metadata later

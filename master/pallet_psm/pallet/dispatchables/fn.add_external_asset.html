@@ -154,6 +154,9 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 )</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Approve an external asset for a given internal asset.</p>
 <p>Snapshots the external asset’s live decimals at registration time and
 increments <a href="../struct.PsmInfo.html#structfield.external_count" title="field pallet_psm::pallet::PsmInfo::external_count"><code>PsmInfo::external_count</code></a>.</p>
+<p>The reserve account (<a href="../struct.Pallet.html#method.reserve_account" title="associated function pallet_psm::pallet::Pallet::reserve_account"><code>Pallet::reserve_account</code></a>) must already be able to receive
+<code>external_asset</code>. For a non-sufficient asset, create its asset account first (e.g. via
+<code>touch_other</code>).</p>
 <h3 id="dispatch-origin"><a class="doc-anchor" href="#dispatch-origin">§</a>Dispatch Origin</h3>
 <p>Must match the PSM instance’s <code>full_admin</code> (the <code>Full</code> privilege level).</p>
 <h3 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h3>
@@ -171,6 +174,8 @@ increments <a href="../struct.PsmInfo.html#structfield.external_count" title="fi
 fungibles backend.</li>
 <li><a href="../enum.Error.html#variant.DecimalsRangeExceeded" title="variant pallet_psm::pallet::Error::DecimalsRangeExceeded"><code>Error::DecimalsRangeExceeded</code></a>: If <code>|asset_decimals − internal_decimals|</code> exceeds
 <a href="../constant.MAX_DECIMALS_DIFF.html" title="constant pallet_psm::pallet::MAX_DECIMALS_DIFF"><code>MAX_DECIMALS_DIFF</code></a>.</li>
+<li><a href="../enum.Error.html#variant.ReserveCannotReceive" title="variant pallet_psm::pallet::Error::ReserveCannotReceive"><code>Error::ReserveCannotReceive</code></a>: If the reserve account cannot receive
+<code>external_asset</code>.</li>
 </ul>
 <h3 id="events"><a class="doc-anchor" href="#events">§</a>Events</h3>
 <ul>

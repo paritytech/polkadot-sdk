@@ -170,7 +170,8 @@ later be reassigned via <a href="../struct.Pallet.html#method.set_full_admin" ti
 fungibles backend; must not already have a PSM registered.</li>
 <li><code>full_admin</code>: Origin granted full management of the new PSM.</li>
 <li><code>emergency_admin</code>: Origin granted emergency management of the new PSM.</li>
-<li><code>fee_destination</code>: Account that will receive mint/redeem fees.</li>
+<li><code>fee_destination</code>: Account that will receive mint/redeem fees. Fees are waived while
+it cannot receive the internal asset.</li>
 <li><code>max_debt</code>: Initial absolute internal-asset debt ceiling.</li>
 <li><code>min_swap_amount</code>: Minimum swap amount for this instance, in internal-asset units.
 Must be non-zero.</li>

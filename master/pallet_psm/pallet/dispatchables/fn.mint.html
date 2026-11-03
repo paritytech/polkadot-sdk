@@ -161,7 +161,8 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../" d
 <code>internal_asset</code>’s PSM reserve account, then mints <code>internal_asset</code> to the
 caller minus the minting fee. The fee is calculated using ceiling rounding
 (<code>mul_ceil</code>), ensuring the protocol never undercharges. The fee is
-transferred to <a href="../struct.PsmInfo.html#structfield.fee_destination" title="field pallet_psm::pallet::PsmInfo::fee_destination"><code>PsmInfo::fee_destination</code></a> of the targeted instance.</p>
+transferred to <a href="../struct.PsmInfo.html#structfield.fee_destination" title="field pallet_psm::pallet::PsmInfo::fee_destination"><code>PsmInfo::fee_destination</code></a> of the targeted instance, and waived
+if that account cannot receive it.</p>
 <h3 id="parameters"><a class="doc-anchor" href="#parameters">§</a>Parameters</h3>
 <ul>
 <li><code>internal_asset</code>: The internal stablecoin that identifies the PSM instance.</li>
