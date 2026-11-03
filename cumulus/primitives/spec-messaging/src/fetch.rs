@@ -101,8 +101,7 @@ pub struct MessagesRequest {
 }
 
 /// Response: the frontier before the first served leaf, the payloads from `frontier.leaf_count()`
-/// on, and the proofs binding them to the requested `StreamsRoot`. Nothing is trusted: roots bind
-/// their leaf counts, so a wrong frontier or count cannot verify under `under`.
+/// on, and the proofs binding them to the requested `StreamsRoot`. Nothing is trusted.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct MessagesResponse {
 	/// The stream just before the first leaf served. Its `leaf_count()` is the start position.
@@ -150,12 +149,8 @@ pub enum FetchError {
 	BeyondHead,
 }
 
-/// Verify a [`MessagesResponse`] against its [`MessagesRequest`]:
-/// - for `start: Some(pos)`, `resp.frontier.leaf_count() == pos.0`;
-/// - for `start: None` (a head request), the stream under `under` ends at
-///   `resp.frontier.leaf_count() + 1`;
-/// - total payload bytes are within `req.max_bytes` (`0` means proofs only);
-/// - the payloads, `extension` and `tree_proof` recompute to `req.under` for `req.stream`.
+/// Verify a [`MessagesResponse`] against its [`MessagesRequest`]: the requested start or head, the
+/// byte budget, and the proofs up to `req.under`.
 ///
 /// For a channel fetch, use [`verify_channel_messages`] to also check that `resp.frontier`
 /// equals the stored frontier from `consumed_streams()`.

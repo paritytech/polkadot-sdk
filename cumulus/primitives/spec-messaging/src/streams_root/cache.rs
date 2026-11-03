@@ -76,12 +76,13 @@ impl NodeKey {
 pub enum TreeChild {
 	/// Child is a leaf storing `(stream_id_key, stream_root)`.
 	Leaf { key: [u8; STREAM_ID_LEN], value: Hash },
-	/// Child is an inner node stored under `key`, with `height` inner nodes on its longest path.
+	/// Child is an inner node stored under `key`. `height` is the inner-node count on its longest
+	/// path down to a leaf, itself included: the step count of the longest proof through it.
 	Node { key: NodeKey, height: u8 },
 }
 
 impl TreeChild {
-	/// Inner nodes on the longest path from this child down to a leaf; 0 for a leaf.
+	/// 0 for a leaf.
 	pub fn height(&self) -> u8 {
 		match self {
 			Self::Leaf { .. } => 0,
@@ -117,7 +118,6 @@ impl InnerNode {
 		hash_inner(self.split_bit, &self.left_hash, &self.right_hash)
 	}
 
-	/// Inner nodes on the longest path from this node down to a leaf, itself included.
 	pub fn height(&self) -> u8 {
 		1 + self.left_child.height().max(self.right_child.height())
 	}
@@ -152,7 +152,6 @@ impl TreeRootEntry {
 		}
 	}
 
-	/// The step count of the longest `StreamProof` in the tree.
 	pub fn height(&self) -> u8 {
 		match self {
 			Self::Leaf { .. } => 0,
@@ -398,7 +397,7 @@ impl StreamsTree {
 		self.root.as_ref().map(|r| r.streams_root())
 	}
 
-	/// The step count of the longest proof in the tree; 0 if empty or single-stream.
+	/// 0 if empty or single-stream.
 	pub fn height(&self) -> u8 {
 		self.root.as_ref().map_or(0, |r| r.height())
 	}

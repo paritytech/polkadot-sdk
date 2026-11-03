@@ -28,10 +28,7 @@
 //! gap is a forward extension, see [`stitch`]), and one lift binds the chain's endpoint to a
 //! committed root, which binds everything consumed.
 //!
-//! The record is STF output and trusted; the lifts are PoV data and verified here. Lifts are
-//! matched to a source's `StreamId`-sorted record streams by position. A mispaired lift cannot
-//! verify, because the `tree_proof` walk binds the record's key
-//! ([`crate::streams_root::streams_root_from_proof`]).
+//! The record is STF output and trusted; the lifts are PoV data and verified here.
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
@@ -84,7 +81,7 @@ pub struct ConsumptionRecord {
 pub type SourceStreams = BTreeMap<StreamId, Vec<Interval>>;
 
 /// One lift, carried in the PoV. Matched by position to a source's `StreamId`-sorted record
-/// streams; a mispaired lift cannot verify because `tree_proof` binds the record's key.
+/// streams.
 #[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, Eq, Debug, TypeInfo)]
 pub struct RequiresLift {
 	/// One extension per gap in the stream's interval chain, in gap order. Empty when there are no
@@ -230,8 +227,7 @@ pub fn build_requires_entry(
 		// The endpoint is contained in the stream's current root, computed rather than declared,
 		let current =
 			lift.extension.calculate_root(&endpoint).map_err(|_| LiftError::BadExtension)?;
-		// and the keyed walk from it yields the `StreamsRoot`. The walk binds the record's `stream`
-		// key, so a mispaired lift cannot verify.
+		// and the walk from it, keyed by the record's `stream`, yields the `StreamsRoot`.
 		let root = streams_root_from_proof(*stream, current.0, &lift.tree_proof)
 			.ok_or(LiftError::BadTreeProof)?;
 		match entry {

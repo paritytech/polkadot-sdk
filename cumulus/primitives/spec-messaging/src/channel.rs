@@ -62,9 +62,8 @@ pub enum ChannelMessage {
 	/// until a new session opens.
 	#[codec(index = 1)]
 	CloseChannel { session: u32 },
-	/// Channel version 1 (index 2). Userspace payload bytes, delivered in order. Bounds apply to
-	/// the encoded [`ChannelMessage`] leaf payload; the variant byte and compact length take up to
-	/// 5 bytes.
+	/// Channel version 1 (index 2). Userspace payload bytes, delivered in order. Size bounds apply
+	/// to the whole encoded leaf payload, envelope included.
 	#[codec(index = 2)]
 	Data(Vec<u8>),
 }
@@ -317,9 +316,7 @@ impl OutChannelState {
 		self.closed_session == Some(s)
 	}
 
-	/// The active session parameters if we may send `Data` right now: `open` is `Some(o)` with
-	/// `o.opened`, we have not closed `o.session`, and `o.params.version` is in
-	/// `supported_versions`.
+	/// The active session parameters if we may send `Data` right now.
 	pub fn active_session(&self, supported_versions: RangeInclusive<u8>) -> Option<SessionParams> {
 		let o = self.open?;
 		if o.opened && !self.closed(o.session) && supported_versions.contains(&o.params.version) {
@@ -329,8 +326,8 @@ impl OutChannelState {
 		}
 	}
 
-	/// Cursor for reading the recipient's register in `consumed_streams()`, if watched
-	/// (`want_open`): the applied register's position + 1, or 0 before the first read.
+	/// Cursor for reading the recipient's register in `consumed_streams()`, while we want the
+	/// channel open: the position after the applied register.
 	pub fn register_cursor(&self) -> Option<MessagePosition> {
 		if !self.want_open {
 			return None;
@@ -364,8 +361,7 @@ pub struct InChannelState {
 }
 
 impl InChannelState {
-	/// Whether the channel is in a watched phase (`Accepting`, `Opened`, or `Draining`).
-	/// `consumed_streams()` lists it when this holds and its delivery queue has room.
+	/// `consumed_streams()` lists the channel when this holds and its delivery queue has room.
 	pub fn is_watched(&self) -> bool {
 		matches!(self.status, RegisterStatus::Accepting { .. } | RegisterStatus::Opened) ||
 			self.draining

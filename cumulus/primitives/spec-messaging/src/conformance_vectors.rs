@@ -14,9 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Conformance vectors for extension proofs and requires synthesis. Every vector is frozen and was
-//! cross-checked against an independent model of the design's hashing rules, so a mismatch here is
-//! a consensus break, not a refactor to absorb.
+//! Conformance vectors for extension proofs and requires synthesis, checked against an independent
+//! model of the design's rules. They are frozen: a change is a consensus break.
 
 use alloc::{collections::BTreeMap, vec::Vec};
 use codec::{Decode, Encode};
@@ -122,8 +121,7 @@ fn bundle() -> (Vec<ConsumptionRecord>, LiftsBySource) {
 
 #[test]
 fn extension_proofs_are_frozen() {
-	// Frozen vectors, checked by an independent model: a change is a consensus break. Each row is
-	// `(from, to, proof bytes, MmrRoot the proof extends to)`.
+	// Each row is `(from, to, proof bytes, MmrRoot the proof extends to)`.
 	let vectors: &[(usize, usize, &[u8], [u8; 32])] = &[
 		(
 			0,
@@ -260,7 +258,6 @@ fn extension_proofs_are_frozen() {
 
 #[test]
 fn requires_synthesis_is_frozen() {
-	// Frozen vectors, checked by an independent model: a change is a consensus break.
 	let record1 = hex!(
 		"08d0070000080000000bb80000003efd2c3528b8f163c2e2349211af73f86181"
 		"b748be1b6a5eebfbadc9428643ce03000000000000000853052f72b5bf7028bf"
