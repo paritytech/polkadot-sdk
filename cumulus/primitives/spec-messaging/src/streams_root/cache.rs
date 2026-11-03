@@ -76,19 +76,8 @@ impl NodeKey {
 pub enum TreeChild {
 	/// Child is a leaf storing `(stream_id_key, stream_root)`.
 	Leaf { key: [u8; STREAM_ID_LEN], value: Hash },
-	/// Child is an inner node stored under `key`. `height` is the inner-node count on its longest
-	/// path down to a leaf, itself included: the step count of the longest proof through it.
-	Node { key: NodeKey, height: u8 },
-}
-
-impl TreeChild {
-	/// 0 for a leaf.
-	pub fn height(&self) -> u8 {
-		match self {
-			Self::Leaf { .. } => 0,
-			Self::Node { height, .. } => *height,
-		}
-	}
+	/// Child is an inner node stored under `key`.
+	Node { key: NodeKey },
 }
 
 /// An inner node in the commitment trie.
@@ -117,10 +106,6 @@ impl InnerNode {
 	pub fn hash(&self) -> Hash {
 		hash_inner(self.split_bit, &self.left_hash, &self.right_hash)
 	}
-
-	pub fn height(&self) -> u8 {
-		1 + self.left_child.height().max(self.right_child.height())
-	}
 }
 
 /// The root entry of the commitment trie.
@@ -139,8 +124,8 @@ impl InnerNode {
 pub enum TreeRootEntry {
 	/// Tree has a single stream.
 	Leaf { key: [u8; STREAM_ID_LEN], value: Hash },
-	/// Tree has >= 2 streams, rooted at the inner node with `key` and `height`.
-	Node { key: NodeKey, root_hash: Hash, height: u8 },
+	/// Tree has >= 2 streams, rooted at the inner node with `key`.
+	Node { key: NodeKey, root_hash: Hash },
 }
 
 impl TreeRootEntry {
@@ -149,13 +134,6 @@ impl TreeRootEntry {
 		match self {
 			Self::Leaf { key, value } => StreamsRoot(hash_leaf(key, value)),
 			Self::Node { root_hash, .. } => StreamsRoot(*root_hash),
-		}
-	}
-
-	pub fn height(&self) -> u8 {
-		match self {
-			Self::Leaf { .. } => 0,
-			Self::Node { height, .. } => *height,
 		}
 	}
 }
@@ -244,18 +222,17 @@ fn insert_inner_node(
 	key: &[u8; STREAM_ID_LEN],
 	stream_root: Hash,
 	store: &mut impl NodeStore,
-) -> Result<(NodeKey, Hash, u8), TreeError> {
+) -> Result<(NodeKey, Hash), TreeError> {
 	let mut inner = load_node(store, curr_key, parent)?;
 	let d = first_diverging_bit(key, &curr_key.prefix);
 
 	// `key` leaves this node's prefix above its split bit: a new inner node goes above it.
 	if d < inner.split_bit as usize {
-		let above = (TreeChild::Node { key: curr_key, height: inner.height() }, inner.hash());
+		let above = (TreeChild::Node { key: curr_key }, inner.hash());
 		let new_node = branch(d as u8, bit(key, d), leaf(key, stream_root), above);
-		let (new_key, hash, height) =
-			(NodeKey::new(key, d as u8), new_node.hash(), new_node.height());
+		let (new_key, hash) = (NodeKey::new(key, d as u8), new_node.hash());
 		store.set_node(new_key, new_node);
-		return Ok((new_key, hash, height));
+		return Ok((new_key, hash));
 	}
 
 	let (child, child_hash) = if bit(key, inner.split_bit as usize) {
@@ -269,18 +246,18 @@ fn insert_inner_node(
 			let (node_key, node) = split_leaf(&leaf_key, value, key, stream_root);
 			let hash = node.hash();
 			store.set_node(node_key, node);
-			(TreeChild::Node { key: node_key, height: node.height() }, hash)
+			(TreeChild::Node { key: node_key }, hash)
 		},
-		TreeChild::Node { key: child_key, .. } => {
-			let (child_key, hash, height) =
+		TreeChild::Node { key: child_key } => {
+			let (child_key, hash) =
 				insert_inner_node(child_key, Some(inner.split_bit), key, stream_root, store)?;
-			(TreeChild::Node { key: child_key, height }, hash)
+			(TreeChild::Node { key: child_key }, hash)
 		},
 	};
 
-	let (hash, height) = (inner.hash(), inner.height());
+	let hash = inner.hash();
 	store.set_node(curr_key, inner);
-	Ok((curr_key, hash, height))
+	Ok((curr_key, hash))
 }
 
 /// Incrementally update or insert a stream into the commitment trie storage.
@@ -309,17 +286,15 @@ pub fn update_tree_leaf(
 				let (node_key, node) = split_leaf(leaf_key, *leaf_val, &key, stream_root);
 				let root_hash = node.hash();
 				store.set_node(node_key, node);
-				*root_entry =
-					Some(TreeRootEntry::Node { key: node_key, root_hash, height: node.height() });
+				*root_entry = Some(TreeRootEntry::Node { key: node_key, root_hash });
 				Ok(StreamsRoot(root_hash))
 			}
 		},
 		Some(TreeRootEntry::Node { key: root_key, .. }) => {
 			let root_key = *root_key;
-			let (new_root_key, new_root_hash, height) =
+			let (new_root_key, new_root_hash) =
 				insert_inner_node(root_key, None, &key, stream_root, store)?;
-			*root_entry =
-				Some(TreeRootEntry::Node { key: new_root_key, root_hash: new_root_hash, height });
+			*root_entry = Some(TreeRootEntry::Node { key: new_root_key, root_hash: new_root_hash });
 			Ok(StreamsRoot(new_root_hash))
 		},
 	}
@@ -346,7 +321,7 @@ pub fn gen_stream_proof_from_nodes(
 				None
 			}
 		},
-		TreeRootEntry::Node { key: root_key, root_hash, .. } => {
+		TreeRootEntry::Node { key: root_key, root_hash } => {
 			let mut curr_key = *root_key;
 			let mut parent = None;
 			let mut steps = Vec::new();
@@ -366,7 +341,7 @@ pub fn gen_stream_proof_from_nodes(
 				match child {
 					TreeChild::Leaf { key: leaf_key, .. } if leaf_key == key => break,
 					TreeChild::Leaf { .. } => return None,
-					TreeChild::Node { key: next_key, .. } => curr_key = next_key,
+					TreeChild::Node { key: next_key } => curr_key = next_key,
 				}
 			}
 			steps.reverse();
@@ -395,11 +370,6 @@ impl StreamsTree {
 	/// The current `StreamsRoot`, or `None` if empty.
 	pub fn root(&self) -> Option<StreamsRoot> {
 		self.root.as_ref().map(|r| r.streams_root())
-	}
-
-	/// 0 if empty or single-stream.
-	pub fn height(&self) -> u8 {
-		self.root.as_ref().map_or(0, |r| r.height())
 	}
 
 	/// Update or insert a stream root in `O(log S)` time.
