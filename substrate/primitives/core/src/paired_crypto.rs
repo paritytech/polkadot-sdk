@@ -285,14 +285,30 @@ impl<
 		const SIGNATURE_LEN: usize,
 		const KEY_PROOFS_LEN: usize,
 		SubTag: PairedCryptoSubTagBound,
-	> From<Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>>
-	for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
+	>
+	From<
+		Pair<
+			LeftPair,
+			RightPair,
+			LEFT_PLUS_RIGHT_PUBLIC_LEN,
+			SIGNATURE_LEN,
+			KEY_PROOFS_LEN,
+			SubTag,
+		>,
+	> for Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>
 where
 	Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>:
 		PairT<Public = Public<LEFT_PLUS_RIGHT_PUBLIC_LEN, SubTag>>,
 {
 	fn from(
-		x: Pair<LeftPair, RightPair, LEFT_PLUS_RIGHT_PUBLIC_LEN, SIGNATURE_LEN, KEY_PROOFS_LEN, SubTag>,
+		x: Pair<
+			LeftPair,
+			RightPair,
+			LEFT_PLUS_RIGHT_PUBLIC_LEN,
+			SIGNATURE_LEN,
+			KEY_PROOFS_LEN,
+			SubTag,
+		>,
 	) -> Self {
 		x.public()
 	}
@@ -491,22 +507,18 @@ where
 		let Ok(left_pub) = allegedly_possessed_pubkey.0[..LeftPair::Public::LEN].try_into() else {
 			return false;
 		};
-		let Ok(left_key_proofs) =
-			key_proofs.0[0..LeftPair::KeyProofs::LEN].try_into()
-		else {
+		let Ok(left_key_proofs) = key_proofs.0[0..LeftPair::KeyProofs::LEN].try_into() else {
 			return false;
 		};
 
 		if !LeftPair::verify_key_proofs(owner, &left_key_proofs, &left_pub) {
-			return false
+			return false;
 		}
 
 		let Ok(right_pub) = allegedly_possessed_pubkey.0[LeftPair::Public::LEN..].try_into() else {
 			return false;
 		};
-		let Ok(right_key_proofs) =
-			key_proofs.0[LeftPair::KeyProofs::LEN..].try_into()
-		else {
+		let Ok(right_key_proofs) = key_proofs.0[LeftPair::KeyProofs::LEN..].try_into() else {
 			return false;
 		};
 		RightPair::verify_key_proofs(owner, &right_key_proofs, &right_pub)
@@ -594,14 +606,14 @@ mod tests {
 		let pair = Pair::from_seed(&([seed_left_and_right].concat()[..].try_into().unwrap()));
 		let public = pair.public();
 		assert_eq!(
-					public,
-					Public::unchecked_from(
-						array_bytes::hex2array_unchecked("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"),
-		    		),
-		    	);
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(
+				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
+			),),
+		);
 		let message = b"";
-		let signature =
-		array_bytes::hex2array_unchecked("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af2501c68ab88ec0495f962a4f55c7c460275a8d356cfa344c27778ca4c641bd9a3604ce5c28f9ed566e1d29bf3b5d3591e46ae28be3ece035e8e4db53a40fc5826002"
+		let signature = array_bytes::hex2array_unchecked(
+			"3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af250123a5b8314dd23c2f879b9b82d2753f44ebc452bef88610af81238cf10b9c78034b755a26b8e73643eeddf1a283b0c7b596f973be86f1b96bf697fca5e6df8607",
 		);
 		let signature = Signature::unchecked_from(signature);
 		assert!(pair.sign(&message[..]) == signature);
@@ -617,16 +629,15 @@ mod tests {
 		.unwrap();
 		let public = pair.public();
 		assert_eq!(
-				public,
-				Public::unchecked_from(
-					array_bytes::hex2array_unchecked("028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
-	 ),
-	    		),
-	    	);
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(
+				"028db55b05db86c0b1786ca49f095d76344c9e6056b2f02701a7e7f3c20aabfd917a84ca8ce4c37c93c95ecee6a3c0c9a7b9c225093cf2f12dc4f69cbfb847ef9424a18f5755d5a742247d386ff2aabb806bcf160eff31293ea9616976628f77266c8a8cc1d8753be04197bd6cdd8c5c87a148f782c4c1568d599b48833fd539001e580cff64bbc71850605433fcd051f3afc3b74819786f815ffb5272030a8d03e5df61e6183f8fd8ea85f26defa83400"
+			),),
+		);
 		let message = b"";
-		let signature =
-	array_bytes::hex2array_unchecked("3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af2501c68ab88ec0495f962a4f55c7c460275a8d356cfa344c27778ca4c641bd9a3604ce5c28f9ed566e1d29bf3b5d3591e46ae28be3ece035e8e4db53a40fc5826002"
-	);
+		let signature = array_bytes::hex2array_unchecked(
+			"3dde91174bd9359027be59a428b8146513df80a2a3c7eda2194f64de04a69ab97b753169e94db6ffd50921a2668a48b94ca11e3d32c1ff19cfe88890aa7e8f3c00124571b4bf23083b5d07e720fde0a984d4d592868156ece77487e97a1ba4b29397dbdc454f13e3aed1ad4b6a99af250123a5b8314dd23c2f879b9b82d2753f44ebc452bef88610af81238cf10b9c78034b755a26b8e73643eeddf1a283b0c7b596f973be86f1b96bf697fca5e6df8607",
+		);
 		let signature = Signature::unchecked_from(signature);
 		assert!(pair.sign(&message[..]) == signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
@@ -648,14 +659,14 @@ mod tests {
 			Pair::from_seed(&(b"12345678901234567890123456789012".as_slice().try_into().unwrap()));
 		let public = pair.public();
 		assert_eq!(
-	    		public,
-				Public::unchecked_from(
-					array_bytes::hex2array_unchecked("035676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba9754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080")
-	 ),
-	    	);
-		let message =
-	    	array_bytes::hex2bytes_unchecked("2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000"
-	    );
+			public,
+			Public::unchecked_from(array_bytes::hex2array_unchecked(
+				"035676109c54b9a16d271abeb4954316a40a32bcce023ac14c8e26e958aa68fba9754d2f2bbfa67df54d7e0e951979a18a1e0f45948857752cc2bac6bbb0b1d05e8e48bcc453920bf0c4bbd5993212480112a1fb433f04d74af0a8b700d93dc957ab3207f8d071e948f5aca1a7632c00bdf6d06be05b43e2e6216dccc8a5d55a0071cb2313cfd60b7e9114619cd17c06843b352f0b607a99122f6651df8f02e1ad3697bd208e62af047ddd7b942ba80080"
+			)),
+		);
+		let message = array_bytes::hex2bytes_unchecked(
+			"2f8c6129d816cf51c374bc7f08c3e63ed156cf78aefb4a6550d97b87997977ee00000000000000000200d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a4500000000000000",
+		);
 		let signature = pair.sign(&message[..]);
 		println!("Correct signature: {:?}", signature);
 		assert!(Pair::verify(&signature, &message[..], &public));
@@ -764,10 +775,7 @@ mod tests {
 		let other_pair = Pair::from_seed(b"23456789012345678901234567890123");
 		let key_proofs = pair.generate_key_proofs(owner);
 		assert!(Pair::verify_key_proofs(owner, &key_proofs, &pair.public()));
-		assert_eq!(
-			Pair::verify_key_proofs(owner, &key_proofs, &other_pair.public()),
-			false
-		);
+		assert_eq!(Pair::verify_key_proofs(owner, &key_proofs, &other_pair.public()), false);
 		assert!(!Pair::verify_key_proofs(not_owner, &key_proofs, &pair.public()));
 	}
 }
