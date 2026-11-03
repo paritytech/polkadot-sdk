@@ -539,7 +539,7 @@ mod inflation {
 }
 
 #[test]
-fn locked_era_pot_shorts_payouts_after_slot_reuse() {
+fn locked_era_pot_pays_out_in_full_after_slot_reuse() {
 	ExtBuilder::default().nominate(true).build_and_execute(|| {
 		let era = 1;
 		let reused_era = era + POT_POOL_SIZE;
