@@ -175,12 +175,12 @@ mod tests {
 		let record = ConsumptionRecord {
 			entries: BTreeMap::from([(
 				source,
-				vec![(stream, Interval { start: MmrRoot(RHash::zero()), end: frontier })],
+				vec![(stream, Interval { start: MmrRoot(RHash::zero()), end: frontier.clone() })],
 			)]),
 		};
 		let lift = RequiresLift {
 			advances: Vec::new(),
-			extension: MMRExtensionProof::identity(),
+			extension: MMRExtensionProof::identity(&frontier),
 			tree_proof,
 		};
 		let lifts = LiftsBySource::try_from(BTreeMap::from([(source, vec![lift])])).unwrap();
