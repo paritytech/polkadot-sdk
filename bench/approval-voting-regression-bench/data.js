@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793672548719,
+  "lastUpdate": 1793690634952,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e4350132f00e54bc5605559b91496f99ff97ac75",
-          "message": "pallet-asset-conversion: distinguish `PoolEmpty` from `PoolNotFound` (#11798)\n\n## Summary\n\n- Adds a new `PoolEmpty` error variant to `pallet-asset-conversion`\n- `PoolNotFound` now only means the pool does not exist in storage\n- `PoolEmpty` is returned when the pool exists but has zero reserves\n\n## Motivation\n\nWhen a pool exists but has no liquidity, `get_reserves()` returned\n`PoolNotFound`. This is misleading — the pool is in storage, it just has\nempty reserves. Users and frontends cannot distinguish between \"you need\nto create a pool\" and \"you need to add liquidity.\"\n\n## Changes\n\n- `substrate/frame/asset-conversion/src/lib.rs`: Added `PoolEmpty` error\nvariant, changed the zero-reserves check in `get_reserves()` to use it\n- `substrate/frame/asset-conversion/src/tests.rs`: Updated\n`can_not_swap_in_pool_with_no_liquidity_added_yet` to expect `PoolEmpty`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-17T09:44:46Z",
-          "tree_id": "3873485068066c85890568152464c0ef3c45060d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e4350132f00e54bc5605559b91496f99ff97ac75"
-        },
-        "date": 1776428069188,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63616.670000000006,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002207551,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.91788331556,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005519874020000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00003434369000000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.775885004299946,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00003434369000000001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.820138561679998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002207551,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8650886121100014,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.288719649412803,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4955581862499985,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9031218201199995,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7685746345599498,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.7767367383600012,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4fac30fa6fe3328ab5ed4f971288682d53069cd2",
+          "message": "[pallet-revive] Exact pro rata storage deposit refunds (#13204)\n\nCloses #12692\n\nStorage refunds are now `deposit * removed / stored` in exact integer\narithmetic, rounded down. The old `FixedU128` ratio could refund one\nunit too little (3 bytes with deposit 3, one removed: 0 before, 1 now).\n\nNetting is unchanged and now documented on `Diff::update_contract`. No\nmigration is needed.",
+          "timestamp": "2026-11-03T05:47:59Z",
+          "tree_id": "872e4e923ebfa9c339099b522d2631dee1ed9bc7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fac30fa6fe3328ab5ed4f971288682d53069cd2"
+        },
+        "date": 1793690599670,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63561.87999999999,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002179909,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7608431796399993,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.736949608089997,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.212784777670024,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002179909,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001931627,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005532005150000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.735493193729999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001931627,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.352590438939995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8406887378100322,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.423382710142746,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.78068761431,
             "unit": "seconds"
           }
         ]
