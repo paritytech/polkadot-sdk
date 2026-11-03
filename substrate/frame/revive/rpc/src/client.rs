@@ -359,9 +359,11 @@ impl SubscriptionGapQueue {
 		if current.saturating_sub(last) <= 1 {
 			return;
 		}
+		self.queue(current.saturating_sub(1), last.saturating_add(1));
+	}
 
-		let from_inclusive = current.saturating_sub(1);
-		let to_inclusive = last.saturating_add(1);
+	/// Queue a gap-fill for `from_inclusive` down to `to_inclusive`.
+	pub fn queue(&self, from_inclusive: SubstrateBlockNumber, to_inclusive: SubstrateBlockNumber) {
 		let gap_len = from_inclusive.saturating_sub(to_inclusive) + 1;
 		self.pending.fetch_add(1, Ordering::Release);
 		match self.tx.try_send(GapFillRequest { from_inclusive, to_inclusive }) {
@@ -580,7 +582,7 @@ impl Client {
 	}
 
 	/// Subscribe to new blocks, and execute the async closure for each block.
-	async fn subscribe_new_blocks<F, Fut>(
+	pub(crate) async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
 		callback: F,
@@ -652,6 +654,11 @@ impl Client {
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
+				// The block may be unindexed; the gap filler re-indexes it and keeps the
+				// sync head below it until then.
+				if subscription_type == SubscriptionType::FinalizedBlocks {
+					self.subscription_gap_queue.queue(block_number, block_number);
+				}
 			} else {
 				log::trace!(target: LOG_TARGET_SUBSCRIPTION, "✅ Processed {subscription_type:?} block: {block_number}");
 			}
