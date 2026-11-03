@@ -1050,6 +1050,9 @@ where
 		input_data: &Vec<u8>,
 	) -> Result<Option<(Self, ExecutableOrPrecompile<T, E, Self>)>, ExecError> {
 		origin.ensure_mapped()?;
+		if matches!(origin, Origin::Root) {
+			transaction_meter.waive_storage_deposits();
+		}
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
@@ -1583,6 +1586,10 @@ where
 				}
 
 				let deposit = frame.contract_info().update_base_deposit(code_deposit);
+				if matches!(self.origin, Origin::Root) {
+					// Nothing is held for the base deposit under Root, so record it as 0.
+					frame.contract_info().storage_base_deposit = Zero::zero();
+				}
 				frame.frame_meter.charge_contract_deposit_and_transfer(
 					frame.account_id.clone(),
 					StorageDeposit::Charge(deposit),

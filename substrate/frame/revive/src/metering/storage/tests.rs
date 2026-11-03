@@ -609,3 +609,115 @@ fn partial_refund_rounds_down() {
 	assert_eq!(diff.update_contract::<Test>(Some(&mut info)), Deposit::Refund(7));
 	assert_eq!((info.storage_bytes, info.storage_byte_deposit), (0, 0));
 }
+
+/// A waived meter applies storage changes to the counters but never grows the recorded
+/// deposit, and settles nothing whatever origin it is settled with.
+#[test]
+fn waived_meter_updates_counts_only() {
+	for origin in [Origin::<Test>::Root, Origin::<Test>::from_account_id(ALICE)] {
+		clear_ext();
+
+		let mut meter = TestMeter::new(Some(100));
+		meter.waive_deposits();
+
+		let mut nested0_info = new_info(StorageInfo {
+			bytes: 100,
+			items: 5,
+			bytes_deposit: 100,
+			items_deposit: 10,
+			immutable_data_len: 0,
+		});
+		let mut nested0 = meter.nested(Some(BalanceOf::<Test>::zero()));
+		nested0.charge(&Diff {
+			bytes_added: 108,
+			bytes_removed: 5,
+			items_added: 1,
+			items_removed: 2,
+		});
+		// Notional amounts are priced at the list price, as for a paid meter.
+		assert_eq!(nested0.consumed(), Deposit::Charge(103));
+		nested0.charge(&Diff { bytes_removed: 99, ..Default::default() });
+		assert_eq!(nested0.consumed(), Deposit::Charge(4));
+
+		// Pool at the list price: a removal takes out its pro rata share.
+		let mut nested1_info = new_info(StorageInfo {
+			bytes: 100,
+			items: 10,
+			bytes_deposit: 100,
+			items_deposit: 20,
+			immutable_data_len: 0,
+		});
+		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::zero()));
+		nested1.charge(&Diff { items_removed: 5, ..Default::default() });
+		nested1.finalize_own_contributions(Some(&mut nested1_info));
+		assert_eq!(nested1.consumed(), Deposit::Refund(10));
+		nested0.absorb(nested1, &CHARLIE, Some(&mut nested1_info));
+
+		// Pool above the list price: removing every item empties the pool.
+		let mut nested2_info = new_info(StorageInfo {
+			bytes: 100,
+			items: 7,
+			bytes_deposit: 100,
+			items_deposit: 20,
+			immutable_data_len: 0,
+		});
+		let mut nested2 = nested0.nested(Some(BalanceOf::<Test>::zero()));
+		nested2.charge(&Diff { items_removed: 7, ..Default::default() });
+		nested2.finalize_own_contributions(Some(&mut nested2_info));
+		assert_eq!(nested2.consumed(), Deposit::Refund(14));
+		nested0.absorb(nested2, &CHARLIE, Some(&mut nested2_info));
+
+		nested0.finalize_own_contributions(Some(&mut nested0_info));
+		assert_eq!(nested0.consumed(), Deposit::Refund(22));
+		meter.absorb(nested0, &BOB, Some(&mut nested0_info));
+		assert_eq!(meter.consumed(), Deposit::Refund(22));
+
+		assert_eq!(
+			meter
+				.execute_postponed_deposits(&origin, &ExecConfig::new_substrate_tx())
+				.unwrap(),
+			Deposit::Charge(0),
+		);
+		assert_eq!(TestExtTestValue::get(), TestExt { charges: vec![] });
+
+		// Counters follow the diffs. Added bytes add no deposit; the removed item takes
+		// 10 * 1/5 = 2 out of the item pool.
+		assert_eq!(
+			(nested0_info.storage_bytes, nested0_info.storage_items, nested0_info.extra_deposit()),
+			(104, 4, 108)
+		);
+		assert_eq!((nested1_info.storage_items, nested1_info.extra_deposit()), (5, 110));
+		assert_eq!((nested2_info.storage_items, nested2_info.extra_deposit()), (0, 100));
+	}
+}
+
+#[test]
+fn waived_removal_keeps_pool_pro_rata() {
+	let mut meter = TestMeter::new(None);
+	meter.waive_deposits();
+
+	// Above the list price (as after a price decrease): 1000 * 10/100 = 100 taken out.
+	let mut above = new_info(StorageInfo { bytes: 100, bytes_deposit: 1000, ..Default::default() });
+	let mut nested = meter.nested(None);
+	nested.charge(&Diff { bytes_removed: 10, ..Default::default() });
+	nested.finalize_own_contributions(Some(&mut above));
+	assert_eq!((above.storage_bytes, above.storage_byte_deposit), (90, 900));
+
+	// Below the list price (unbacked storage present): kept while it is below 1 * remaining.
+	let mut below = new_info(StorageInfo { bytes: 100, bytes_deposit: 50, ..Default::default() });
+	let mut nested = meter.nested(None);
+	nested.charge(&Diff { bytes_removed: 10, ..Default::default() });
+	nested.finalize_own_contributions(Some(&mut below));
+	assert_eq!((below.storage_bytes, below.storage_byte_deposit), (90, 50));
+
+	// Clamped to the list price of the remainder (40), not to the pro rata remainder (23).
+	let mut nested = meter.nested(None);
+	nested.charge(&Diff { bytes_removed: 50, ..Default::default() });
+	nested.finalize_own_contributions(Some(&mut below));
+	assert_eq!((below.storage_bytes, below.storage_byte_deposit), (40, 40));
+
+	let mut nested = meter.nested(None);
+	nested.charge(&Diff { bytes_added: 60, ..Default::default() });
+	nested.finalize_own_contributions(Some(&mut below));
+	assert_eq!((below.storage_bytes, below.storage_byte_deposit), (100, 40));
+}
