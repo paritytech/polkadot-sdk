@@ -29,21 +29,21 @@ serde = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true, default-features = true }
 url = { workspace = true }
 
-# JAM backend (PoC wiring: path deps to the sibling checkouts; the upstream shape
-# is git deps behind a feature or a publish = false shim crate). The two interface
-# crates are this repo's own: parachain-service dropped its copies of them.
+# JAM backend (PoC wiring: the parachain-service crates come from the rev pinned in the workspace
+# manifest). The two interface crates are this repo's own: parachain-service dropped its copies
+# of them.
 jam-interface = { package = "cumulus-jam-interface", path = "../../jam/interface" }
 jam-rpc-interface = { package = "cumulus-jam-rpc-interface", path = "../../jam/rpc-interface" }
-# The parachain-service sibling's consolidated core crate (types, storage keys, service id,
+# The parachain service's consolidated core crate (types, storage keys, service id,
 # authorizer helpers). The aura/authorizer machinery the old `cumulus` facade re-exported now
 # comes straight from its source crates.
 jam-codec = { version = "0.1.1", features = ["derive", "std"] }
-jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }
-jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = ["std"] }
-parachain-authorizer = { path = "../../../../parachain-service/authorizer", features = ["std"] }
-parachain-authorizer-ed25519 = { path = "../../../../parachain-service/authorizer-ed25519" }
-parachain-authorizer-sr25519 = { path = "../../../../parachain-service/authorizer-sr25519" }
-parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
+jam-std-common = { workspace = true }
+jam-types = { workspace = true, features = ["std"] }
+parachain-authorizer = { workspace = true, features = ["std"] }
+parachain-authorizer-ed25519 = { workspace = true }
+parachain-authorizer-sr25519 = { workspace = true }
+parachain-service-core = { workspace = true, features = ["std"] }
 
 # Local
 frame-metadata = { workspace = true, default-features = true }

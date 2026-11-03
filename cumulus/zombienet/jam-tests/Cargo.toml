@@ -38,19 +38,18 @@ zombienet-sdk = { workspace = true }
 # The `ParaConfig` the spawned collators' subxt clients are typed with.
 cumulus-zombienet-sdk-helpers = { workspace = true }
 # The authorizer hash written into genesis has to be the one the collator derives, so it is built
-# out of the very crates the collator and the guest use — the same path deps polkadot-omni-node-lib
+# out of the very crates the collator and the guest use — the same pinned deps polkadot-omni-node-lib
 # names. `parachain-service-core` is the consolidated types/keys/authorizer crate the former
 # `cumulus` facade re-exported from.
-parachain-service-core = { path = "../../../../parachain-service/core", features = ["std"] }
-parachain-authorizer = { path = "../../../../parachain-service/authorizer", features = ["std"] }
-# The genesis `gen-spec` compiles is built by `parachain-chain-spec` (uncommitted sibling-repo
-# work), so the storage layout and authorizer hashes cannot drift from what the service decodes.
-parachain-chain-spec = { path = "../../../../parachain-service/chain-spec" }
-jam-std-common = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-std-common" }
+parachain-service-core = { workspace = true, features = ["std"] }
+parachain-authorizer = { workspace = true, features = ["std"] }
+# The genesis `gen-spec` compiles is built by `parachain-chain-spec`, so the storage layout and authorizer hashes cannot drift from what the service decodes.
+parachain-chain-spec = { workspace = true }
+jam-std-common = { workspace = true }
 # The hash an unassigned core's queue holds at genesis.
-jam-null-authorizer-bin = { path = "../../../../parachain-service/vendor/polkajam/services/null-authorizer-bin" }
+jam-null-authorizer-bin = { workspace = true }
 # The byte strings the JAM RPC carries are base64, and this is where that spelling is defined.
-jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", features = [
+jam-types = { workspace = true, features = [
 	"bytes",
 	"serde",
 	"std",

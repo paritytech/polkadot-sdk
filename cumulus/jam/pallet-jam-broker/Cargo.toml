@@ -24,7 +24,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
-parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
+parachain-service-core = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-api = { workspace = true }
 sp-arithmetic = { workspace = true }

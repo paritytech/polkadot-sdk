@@ -931,10 +931,12 @@ is-terminal = { version = "0.4.9" }
 is_executable = { version = "1.0.1" }
 itertools = { version = "0.11" }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
-# The vendored copies rather than the polkajam git rev: the omni-node names these by path
-# already, and two instances of them would not unify at the jam-interface trait boundary.
-jam-std-common = { path = "../parachain-service/vendor/polkajam/crates/jam-std-common" }
-jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
+# The JAM crates come from the polkajam submodule of the pinned parachain-service rev below, so the
+# service crates and this repo share one instance of each: two would not unify at the
+# jam-interface trait boundary.
+jam-null-authorizer-bin = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
+jam-std-common = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
+jam-types = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }
@@ -1137,7 +1139,14 @@ pallet-xcm-benchmarks = { path = "polkadot/xcm/pallet-xcm-benchmarks", default-f
 pallet-xcm-bridge-hub = { path = "bridges/modules/xcm-bridge-hub", default-features = false }
 pallet-xcm-bridge-hub-router = { path = "bridges/modules/xcm-bridge-hub-router", default-features = false }
 pallet-xcm-precompiles = { path = "polkadot/xcm/pallet-xcm/precompiles", default-features = false }
+# The parachain service, pinned to one commit; its `vendor/` submodules (polkajam, the SDK companion)
+# follow from that commit; see `cumulus/zombienet/jam-tests/README.md`.
+parachain-authorizer = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
+parachain-authorizer-ed25519 = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
+parachain-authorizer-sr25519 = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
+parachain-chain-spec = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
 parachain-info = { path = "cumulus/parachains/pallets/parachain-info", default-features = false, package = "staging-parachain-info" }
+parachain-service-core = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550", default-features = false }
 parachain-template-runtime = { path = "templates/parachain/runtime" }
 parachains-common = { path = "cumulus/parachains/common", default-features = false }
 parachains-common-types = { path = "cumulus/parachains/common/types", default-features = false }
@@ -1615,7 +1624,7 @@ wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
 
-# The AURA authorizer utilities and zombienet name `jam-types` from crates.io; one vendored copy
-# serves all of them.
+# The AURA authorizer utilities and zombienet name `jam-types` from crates.io; the copy from the
+# pinned parachain-service rev serves all of them.
 [patch.crates-io]
-jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types" }
+jam-types = { git = "https://github.com/paritytech/parachain-service", rev = "527e4d1eb62156226f2bd8954f11bd224224f550" }
