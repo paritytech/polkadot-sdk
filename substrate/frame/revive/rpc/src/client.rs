@@ -627,7 +627,8 @@ impl Client {
 			// Resolution fails for pruned/retracted blocks and on transient RPC errors;
 			// erroring out here would kill the essential subscription task and with it the
 			// whole server. Skip instead: a skipped finalized block doesn't advance
-			// `last_finalized_seen`, so the gap filler backfills it.
+			// `last_finalized_seen`, so the next block's gap detection backfills it. The
+			// first block of the stream has no later block to detect it, so queue it here.
 			let block = match block.at().await {
 				Ok(block) => block,
 				Err(err) => {
@@ -637,6 +638,12 @@ impl Client {
 						block.number(),
 						block.hash(),
 					);
+					if subscription_type == SubscriptionType::FinalizedBlocks &&
+						last_finalized_seen.is_none()
+					{
+						self.subscription_gap_queue.queue(block.number(), block.number());
+						last_finalized_seen = Some(block.number());
+					}
 					continue;
 				},
 			};
