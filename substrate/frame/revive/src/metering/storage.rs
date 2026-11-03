@@ -490,8 +490,13 @@ where
 		if self.deposits_waived {
 			return Ok(Deposit::Charge(Zero::zero()));
 		}
-		// Root has no account to charge or refund. Call stacks started by Root are always
-		// waived (`Stack::new`), so this only applies to meters that were never run as a stack.
+		// Root has no account to charge or refund. Reaching this with a Root origin means the
+		// stack recorded deposit that nothing will collect. Release builds still settle nothing
+		// rather than failing the call, as this arm did before deposits could be waived.
+		debug_assert!(
+			!matches!(origin, Origin::Root),
+			"a Root stack waives its deposits in `Stack::new`; qed",
+		);
 		let origin = match origin {
 			Origin::Root => return Ok(Deposit::Charge(Zero::zero())),
 			Origin::Signed(o) => o,

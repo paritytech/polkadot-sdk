@@ -171,23 +171,17 @@ fn empty_charge_works() {
 
 #[test]
 fn charging_works() {
-	let test_cases = vec![
-		ChargingTestCase {
-			origin: Origin::<Test>::from_account_id(ALICE),
-			deposit: Deposit::Refund(28),
-			expected: TestExt {
-				charges: vec![
-					Charge { origin: ALICE, contract: CHARLIE, amount: Deposit::Refund(30) },
-					Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(2) },
-				],
-			},
+	// A Root stack waives its deposits in `Stack::new`, so only a signed origin settles here.
+	let test_cases = vec![ChargingTestCase {
+		origin: Origin::<Test>::from_account_id(ALICE),
+		deposit: Deposit::Refund(28),
+		expected: TestExt {
+			charges: vec![
+				Charge { origin: ALICE, contract: CHARLIE, amount: Deposit::Refund(30) },
+				Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(2) },
+			],
 		},
-		ChargingTestCase {
-			origin: Origin::<Test>::Root,
-			deposit: Deposit::Charge(0),
-			expected: TestExt { charges: vec![] },
-		},
-	];
+	}];
 
 	for test_case in test_cases {
 		clear_ext();
@@ -279,20 +273,14 @@ fn charging_works() {
 
 #[test]
 fn termination_works() {
-	let test_cases = vec![
-		ChargingTestCase {
-			origin: Origin::<Test>::from_account_id(ALICE),
-			deposit: Deposit::Refund(108),
-			expected: TestExt {
-				charges: vec![Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(12) }],
-			},
+	// A Root stack waives its deposits in `Stack::new`, so only a signed origin settles here.
+	let test_cases = vec![ChargingTestCase {
+		origin: Origin::<Test>::from_account_id(ALICE),
+		deposit: Deposit::Refund(108),
+		expected: TestExt {
+			charges: vec![Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(12) }],
 		},
-		ChargingTestCase {
-			origin: Origin::<Test>::Root,
-			deposit: Deposit::Charge(0),
-			expected: TestExt { charges: vec![] },
-		},
-	];
+	}];
 
 	for test_case in test_cases {
 		clear_ext();
