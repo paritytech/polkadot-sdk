@@ -633,7 +633,7 @@ pub mod pallet {
 		/// execute before an older one still queued from HRMP: where order matters, let that queue
 		/// drain first.
 		#[pallet::call_index(5)]
-		#[pallet::weight((T::DbWeight::get().reads_writes(2, 1), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::set_hrmp_closing(), DispatchClass::Operational))]
 		pub fn set_hrmp_closing(origin: OriginFor<T>, peer: ParaId) -> DispatchResult {
 			T::ChannelManagementOrigin::ensure_origin(origin)?;
 			let open = OutChannels::<T>::get(xcm_channel(peer))
@@ -646,7 +646,7 @@ pub mod pallet {
 		/// Clear the [`HrmpClosing`] flag for `peer`: the router prefers HRMP again whenever an
 		/// HRMP channel is open. XCM already sent over spec-msg is still delivered. Idempotent.
 		#[pallet::call_index(6)]
-		#[pallet::weight((T::DbWeight::get().writes(1), DispatchClass::Operational))]
+		#[pallet::weight((T::WeightInfo::clear_hrmp_closing(), DispatchClass::Operational))]
 		pub fn clear_hrmp_closing(origin: OriginFor<T>, peer: ParaId) -> DispatchResult {
 			T::ChannelManagementOrigin::ensure_origin(origin)?;
 			HrmpClosing::<T>::remove(peer);

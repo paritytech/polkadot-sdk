@@ -217,6 +217,36 @@ mod benchmarks {
 		Ok(())
 	}
 
+	/// The XCM channel to the peer is open, so the flag is set.
+	#[benchmark]
+	fn set_hrmp_closing() -> Result<(), BenchmarkError> {
+		let origin = T::ChannelManagementOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)?;
+		let peer = sibling::<T>(0);
+		open_outbound::<T>(xcm_channel(peer));
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, peer);
+
+		assert!(HrmpClosing::<T>::contains_key(peer));
+		Ok(())
+	}
+
+	/// The flag is set, so the call removes an entry.
+	#[benchmark]
+	fn clear_hrmp_closing() -> Result<(), BenchmarkError> {
+		let origin = T::ChannelManagementOrigin::try_successful_origin()
+			.map_err(|_| BenchmarkError::Weightless)?;
+		let peer = sibling::<T>(0);
+		HrmpClosing::<T>::insert(peer, ());
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, peer);
+
+		assert!(!HrmpClosing::<T>::contains_key(peer));
+		Ok(())
+	}
+
 	/// Reaccepting a closed channel whose frontier is wide.
 	#[benchmark]
 	fn accept_open_channel() -> Result<(), BenchmarkError> {

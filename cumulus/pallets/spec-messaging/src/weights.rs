@@ -62,6 +62,8 @@ pub trait WeightInfo {
 	fn send(b: u32, ) -> Weight;
 	fn idle_commit() -> Weight;
 	fn hello_pass(n: u32, ) -> Weight;
+	fn set_hrmp_closing() -> Weight;
+	fn clear_hrmp_closing() -> Weight;
 }
 
 /// Weights for `cumulus_pallet_spec_messaging` using the Substrate node and recommended hardware.
@@ -530,6 +532,25 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(n.into()))
 	}
+	fn set_hrmp_closing() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `118`
+		//  Estimated: `3583`
+		// Minimum execution time: 6_020_000 picoseconds.
+		Weight::from_parts(6_380_000, 3583)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SpecMessaging::HrmpClosing` (r:0 w:1)
+	/// Proof: `SpecMessaging::HrmpClosing` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn clear_hrmp_closing() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_190_000 picoseconds.
+		Weight::from_parts(2_430_000, 0)
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
 }
 
 // For backwards compatibility and tests.
@@ -996,5 +1017,24 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
 			.saturating_add(RocksDbWeight::get().writes((3_u64).saturating_mul(n.into())))
 			.saturating_add(Weight::from_parts(0, 2579).saturating_mul(n.into()))
+	}
+	fn set_hrmp_closing() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `118`
+		//  Estimated: `3583`
+		// Minimum execution time: 6_020_000 picoseconds.
+		Weight::from_parts(6_380_000, 3583)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `SpecMessaging::HrmpClosing` (r:0 w:1)
+	/// Proof: `SpecMessaging::HrmpClosing` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn clear_hrmp_closing() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `0`
+		//  Estimated: `0`
+		// Minimum execution time: 2_190_000 picoseconds.
+		Weight::from_parts(2_430_000, 0)
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 }
