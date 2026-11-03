@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793672448394,
+  "lastUpdate": 1793690531283,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e8ca55095e6bdb540f193c560cdc0419637a6d1",
-          "message": "Block Bundling Node Side (#10477)\n\nThis implements Block bundling aka 500ms on the node side. Right now the\npull request also contains the runtime changes, but this is already its\n[own pull\nrequest](https://github.com/paritytech/polkadot-sdk/pull/10315).\n\nThe main changes are in the slot-based collator. Instead of building one\nblock per core, blocks will be build as requested and distributed over\nthe available cores.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/9080\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8963\nCloses: https://github.com/paritytech/polkadot-sdk/issues/6495\n\n---------\n\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2026-04-17T15:47:07Z",
-          "tree_id": "831317484632f091cde3f113120c8fe29339f1f5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e8ca55095e6bdb540f193c560cdc0419637a6d1"
-        },
-        "date": 1776446919558,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.763704828499998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13073418016666666,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 11.113507524166668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4fac30fa6fe3328ab5ed4f971288682d53069cd2",
+          "message": "[pallet-revive] Exact pro rata storage deposit refunds (#13204)\n\nCloses #12692\n\nStorage refunds are now `deposit * removed / stored` in exact integer\narithmetic, rounded down. The old `FixedU128` ratio could refund one\nunit too little (3 bytes with deposit 3, one removed: 0 before, 1 now).\n\nNetting is unchanged and now documented on `Diff::update_contract`. No\nmigration is needed.",
+          "timestamp": "2026-11-03T05:47:59Z",
+          "tree_id": "872e4e923ebfa9c339099b522d2631dee1ed9bc7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fac30fa6fe3328ab5ed4f971288682d53069cd2"
+        },
+        "date": 1793690496359,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.789507605933334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.13194224613333336,
             "unit": "seconds"
           }
         ]
