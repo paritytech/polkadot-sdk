@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793701911189,
+  "lastUpdate": 1793720248876,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b80b5691f3d02f058f3d251a88aa2e1021dad26e",
-          "message": "[Staking] Refactor Staking Reward Mode Selection (#11806)\n\nRefactor of the payout mode selection in `pallet-staking-async`.\nPreviously the payout path was chosen by checking whether the era's\nreward pot account existed on-chain. Instead we now depend on the\nstorage `DisableMintingGuard` which is more reliable source of truth for\nwhether an era belongs to the DAP or legacy mint path",
-          "timestamp": "2026-04-20T06:51:43Z",
-          "tree_id": "d0427449a6552948b94206e59a1b6fefd37d36e8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b80b5691f3d02f058f3d251a88aa2e1021dad26e"
-        },
-        "date": 1776672887650,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.654415669500002,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1344514955,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.876696009933335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "94361101f96f0d6ff0991c37cdcbacc8447c7681",
+          "message": "pallet-revive: split the call and instantiate benchmarks by value transfer (#13342)\n\nThe `seal_call`, `seal_instantiate` and `evm_instantiate` benchmarks had\ncomponents for the value, the dust and the input size. The benchmark\ntool changes one component at a time and keeps the others at their\nmaximum, so it never ran an operation without value or dust, and that\nprice was extrapolated. The 3 benchmarks now send no value, and each\ngets a new benchmark with a value transfer: `seal_call_transfer`,\n`seal_instantiate_transfer` and `evm_instantiate_transfer`.\n\nOther changes:\n- The `seal_call` benchmark now measures the per-byte cost of cloning\nthe input with the `CLONE_INPUT` flag, about 150 picoseconds instead of\n3. Previously, it set the input with `CallSetup::set_data` but created\nthe runtime with an empty input, so it always cloned nothing.\n- `evm_instantiate` now starts at 1 byte of init code, and\n`call_with_evm_code_per_byte` goes up to `MAX_CODE_SIZE`.\n- An instantiate that sends only dust now pays the full transfer cost,\nas a call already does.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T13:58:12Z",
+          "tree_id": "38d1da4f95948917c7f2bc18c484a0c8333c2f3a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94361101f96f0d6ff0991c37cdcbacc8447c7681"
+        },
+        "date": 1793720213635,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.857123837166666,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1302781821333333,
             "unit": "seconds"
           }
         ]
