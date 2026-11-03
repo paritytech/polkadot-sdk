@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793701966513,
+  "lastUpdate": 1793720307949,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e8ca55095e6bdb540f193c560cdc0419637a6d1",
-          "message": "Block Bundling Node Side (#10477)\n\nThis implements Block bundling aka 500ms on the node side. Right now the\npull request also contains the runtime changes, but this is already its\n[own pull\nrequest](https://github.com/paritytech/polkadot-sdk/pull/10315).\n\nThe main changes are in the slot-based collator. Instead of building one\nblock per core, blocks will be build as requested and distributed over\nthe available cores.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/9080\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8963\nCloses: https://github.com/paritytech/polkadot-sdk/issues/6495\n\n---------\n\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2026-04-17T15:47:07Z",
-          "tree_id": "831317484632f091cde3f113120c8fe29339f1f5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e8ca55095e6bdb540f193c560cdc0419637a6d1"
-        },
-        "date": 1776446949452,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006895268993333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023965667366666676,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00978916839999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14185919191999996,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007430672106666668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "94361101f96f0d6ff0991c37cdcbacc8447c7681",
+          "message": "pallet-revive: split the call and instantiate benchmarks by value transfer (#13342)\n\nThe `seal_call`, `seal_instantiate` and `evm_instantiate` benchmarks had\ncomponents for the value, the dust and the input size. The benchmark\ntool changes one component at a time and keeps the others at their\nmaximum, so it never ran an operation without value or dust, and that\nprice was extrapolated. The 3 benchmarks now send no value, and each\ngets a new benchmark with a value transfer: `seal_call_transfer`,\n`seal_instantiate_transfer` and `evm_instantiate_transfer`.\n\nOther changes:\n- The `seal_call` benchmark now measures the per-byte cost of cloning\nthe input with the `CLONE_INPUT` flag, about 150 picoseconds instead of\n3. Previously, it set the input with `CallSetup::set_data` but created\nthe runtime with an empty input, so it always cloned nothing.\n- `evm_instantiate` now starts at 1 byte of init code, and\n`call_with_evm_code_per_byte` goes up to `MAX_CODE_SIZE`.\n- An instantiate that sends only dust now pays the full transfer cost,\nas a call already does.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T13:58:12Z",
+          "tree_id": "38d1da4f95948917c7f2bc18c484a0c8333c2f3a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94361101f96f0d6ff0991c37cdcbacc8447c7681"
+        },
+        "date": 1793720271509,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024888495233333342,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14420103743999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.00978971759333331,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007653572039999996,
             "unit": "seconds"
           }
         ]
