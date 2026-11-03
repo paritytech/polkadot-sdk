@@ -390,7 +390,8 @@ impl SubscriptionGapQueue {
 		}
 	}
 
-	/// Mark one request as indexed. Abandoned and dropped requests are never marked done.
+	/// Mark one request as finished: its backward sync returned without error. Abandoned and
+	/// dropped requests are never marked done.
 	pub fn mark_done(&self) {
 		let res = self
 			.pending
@@ -591,7 +592,8 @@ impl Client {
 			.unwrap_or(0)
 	}
 
-	/// Subscribe to new blocks, and execute the async closure for each block.
+	/// Subscribe to new blocks, and execute the async closure for each block. In archive mode a
+	/// finalized block whose closure returns an error is queued for the gap filler.
 	pub(crate) async fn subscribe_new_blocks<F, Fut>(
 		&self,
 		subscription_type: SubscriptionType,
@@ -664,16 +666,18 @@ impl Client {
 				if let Some(last) = last_finalized_seen {
 					self.subscription_gap_queue.detect_and_queue(block_number, last);
 				}
-				// Update unconditionally — a callback failure doesn't mean the block was missed.
+				// The stream position advances whatever the callback does, so gap detection
+				// only sees stream gaps; a failed finalized block is queued separately below.
 				last_finalized_seen = Some(block_number);
 			}
 
 			log::trace!(target: LOG_TARGET_SUBSCRIPTION, "⏳ Processing {subscription_type:?} block: {block_number}");
 			if let Err(err) = callback(block).await {
 				log::error!(target: LOG_TARGET, "Failed to process block {block_number}: {err:?}");
-				// The block may be unindexed; the gap filler re-indexes it and keeps the
-				// sync head below it until then. Pruning mode has no sync head, and rows the
-				// gap filler writes bypass its eviction, so there the block stays unindexed.
+				// The block is not known to be indexed; the gap filler re-indexes it and keeps
+				// the sync head from advancing past it until then. Pruning mode has no sync
+				// head, and rows the gap filler writes bypass its eviction, so there the block
+				// stays unindexed.
 				if subscription_type == SubscriptionType::FinalizedBlocks && self.is_archive {
 					self.subscription_gap_queue.queue(block_number, block_number);
 				}
