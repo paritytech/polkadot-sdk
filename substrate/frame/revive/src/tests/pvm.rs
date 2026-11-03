@@ -23,8 +23,8 @@ use super::{
 };
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, CodeRejection, Config, ContractInfo,
-	DebugSettings, DeletionQueue, DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin,
-	Pallet, StorageDeposit,
+	DebugSettings, DeletionQueue, DeletionQueueCounter, Error, ExecConfig, HoldReason,
+	NativeDepositOf, Origin, Pallet, StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
@@ -1594,8 +1594,16 @@ fn lazy_removal_partial_remove_works() {
 			);
 	let weight_per_entry = <<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_entry()
 		.saturating_sub(<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch());
+	let weight_per_native_key =
+		<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
+			.saturating_sub(
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(
+					0,
+				),
+			);
 	let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
 		.saturating_sub(weight_per_entry)
+		.saturating_sub(weight_per_native_key)
 		.checked_div_per_component(&weight_per_key)
 		.unwrap_or(0) as u32;
 	let vals: Vec<_> = (0..max_keys + extra_keys)
@@ -1607,7 +1615,9 @@ fn lazy_removal_partial_remove_works() {
 	let trie = ext.execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let (_, trie) = create_and_terminate(0);
+		let (addr, trie) = create_and_terminate(0);
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		NativeDepositOf::<Test>::insert(&account_id, &ALICE, 1);
 
 		// Put value into the contracts child trie
 		for val in &vals {
@@ -1687,21 +1697,27 @@ fn lazy_removal_does_not_use_all_weight() {
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
-	let (trie, vals, weight_per_key, weight_per_entry) = ext.execute_with(|| {
+	let weight_per_key =
+		<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(1)
+			.saturating_sub(
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(0),
+			);
+	let weight_per_entry = <<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_entry()
+		.saturating_sub(<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch());
+	let weight_per_native_key =
+		<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
+			.saturating_sub(
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(
+					0,
+				),
+			);
+
+	let (trie, account_id, vals) = ext.execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
 
-		let weight_per_key =
-			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(1)
-				.saturating_sub(
-					<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(0),
-				);
-		let weight_per_entry =
-			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_entry()
-				.saturating_sub(
-					<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch(),
-				);
 		let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
 			.saturating_sub(weight_per_entry)
+			.saturating_sub(weight_per_native_key)
 			.checked_div_per_component(&weight_per_key)
 			.unwrap_or(0) as u32;
 		assert!(max_keys > 0);
@@ -1711,14 +1727,16 @@ fn lazy_removal_does_not_use_all_weight() {
 			.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
 			.collect();
 
-		let (_, trie) = create_and_terminate(0);
+		let (addr, trie) = create_and_terminate(0);
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		NativeDepositOf::<Test>::insert(&account_id, &ALICE, 1);
 
 		// Put value into the contracts child trie
 		for val in &vals {
 			child::put(&trie, &blake2_256(&val.0), &val.1);
 		}
 
-		(trie, vals, weight_per_key, weight_per_entry)
+		(trie, account_id, vals)
 	});
 
 	// The lazy removal limit only applies to the backend but not to the overlay.
@@ -1729,8 +1747,12 @@ fn lazy_removal_does_not_use_all_weight() {
 		// Run the lazy removal
 		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
 		let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch();
-		let expected = base_weight + weight_per_entry + weight_per_key.mul(vals.len() as _);
+		let expected = base_weight +
+			weight_per_entry +
+			weight_per_native_key +
+			weight_per_key.mul(vals.len() as _);
 		assert_eq!(meter.consumed(), expected);
+		assert!(NativeDepositOf::<Test>::iter_prefix(&account_id).next().is_none());
 
 		// All the keys are removed
 		for val in vals {
