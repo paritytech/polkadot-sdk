@@ -39,6 +39,7 @@ use sp_additional_data::{AdditionalData, AdditionalDataExt, AdditionalDataFinali
 use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
+use sp_trie::proof_size_extension::ProofSizeExt;
 use std::{marker::PhantomData, sync::Arc};
 
 /// Turn the carried additional-data map into the JAM reader and finalizer re-execution needs.
@@ -189,6 +190,10 @@ where
 		// proof is *stored* for a rebuild — that needs the carried map and a `JamParent` digest.
 		let recorder = ProofRecorder::<Block>::default();
 		runtime_api.record_proof_with_recorder(recorder.clone());
+		// The builder serves the storage proof size from its recorder; the re-execution has to
+		// as well, or `StorageWeightReclaim` reclaims a different weight on import and the block's
+		// state root no longer matches.
+		runtime_api.register_extension(ProofSizeExt::new(recorder.clone()));
 
 		runtime_api
 			.execute_block(parent_hash, Block::new(params.header.clone(), body.clone()).into())
