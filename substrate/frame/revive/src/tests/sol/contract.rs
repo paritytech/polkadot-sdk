@@ -1456,7 +1456,6 @@ mod eip_150 {
 		[FixtureType::Solc, FixtureType::Resolc],
 		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
 	)]
-	#[ignore = "a refund recorded during the call still pays for that call"]
 	fn dry_run_estimates_suffice_for_transaction_with_reentrant_refund(
 		storage_type: FixtureType,
 		proxy_type: FixtureType,

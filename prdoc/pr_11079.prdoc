@@ -27,6 +27,9 @@ doc:
     `EthTransactInfo::eth_gas`, include 1/63 of what each nested call needs. Hence, the result of
     `eth_estimateGas` does too.
 
+    A dry run also no longer reports a `max_storage_deposit` that is too low when a contract
+    frees storage and then makes a call that reenters it.
+
     A transaction can now fail in a nested call if its limits do not include the part each caller
     keeps. This applies to limits from a dry run on a runtime without this change, which must be
     estimated again, and to limits set to what a dry run or an earlier transaction consumed, for

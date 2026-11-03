@@ -718,6 +718,30 @@ mod eip_150 {
 	}
 
 	#[test]
+	fn refund_recorded_during_a_subcall_does_not_pay_for_that_subcall() {
+		for subcall_reverts in [false, true] {
+			// Without a deposit limit, so that the refund counts in full.
+			let mut parent_meter = TestMeter::new(None).nested(None);
+			let mut child_meter = parent_meter.nested(None);
+			child_meter.record_charge(&Deposit::Charge(6300));
+			// The caller's refund is recorded while the subcall runs, as when a reentered frame of
+			// the caller's contract returns.
+			parent_meter.record_charge(&Deposit::Refund(1000));
+			if subcall_reverts {
+				parent_meter.absorb_only_max_charged(child_meter);
+			} else {
+				parent_meter.absorb(child_meter, &ALICE, None);
+			}
+
+			// The subcall's 6300 is added to the 0 the caller had consumed before the call, not to
+			// the -1000 after the refund: max_charged = 6300, peak = 6300 + ceil(6300/63) = 6400
+			let context = format!("subcall reverted: {subcall_reverts}");
+			assert_eq!(parent_meter.max_charged(), Deposit::Charge(6300), "{context}");
+			assert_eq!(parent_meter.eip_150_peak.get(), 6400, "{context}");
+		}
+	}
+
+	#[test]
 	fn earlier_deposit_refund_pays_for_later_charges() {
 		enum DepositChange {
 			Caller(DepositOf<Test>),

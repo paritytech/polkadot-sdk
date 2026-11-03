@@ -39,8 +39,8 @@ contract ReentryStorage {
 		s1 = 1;
 	}
 
-	/// Write `s1` in a reentered frame, free `s0`, then reenter self transitively through `proxy`
-	/// to write `s0` again.
+	/// Write `s1` in a reentered frame, free `s0`, then call `proxy`, which calls back into this
+	/// contract to write `s0` again.
 	function writeFreeAndRewriteVia(address proxy) external {
 		this.writeS1();
 		s0 = 0;

@@ -90,6 +90,9 @@ pub struct RawMeter<T: Config, E, S: State> {
 	/// The maximal consumed deposit that occurred at any point during the execution of this
 	/// storage deposit meter
 	max_charged: BalanceOf<T>,
+	/// The deposit the parent had consumed before it created this meter, as returned by
+	/// [`RawMeter::consumed`].
+	parent_consumed: DepositOf<T>,
 	/// True if this is the root meter.
 	///
 	/// Sometimes we cannot know at compile time.
@@ -253,7 +256,7 @@ where
 			limit = Some(new_limit.min(old_limit));
 		}
 
-		RawMeter { limit, ..Default::default() }
+		RawMeter { limit, parent_consumed: self.consumed(), ..Default::default() }
 	}
 
 	/// Absorb a child that was spawned to handle a sub call.
@@ -277,7 +280,6 @@ where
 		contract: &T::AccountId,
 		info: Option<&mut ContractInfo<T>>,
 	) {
-		// Update the 63/64 peak first, from this meter's consumption without the child's deposit.
 		self.update_eip_150_peak(&absorbed);
 
 		// We are now at the position to calculate the actual final net charge of `absorbed` as we
@@ -287,9 +289,12 @@ where
 		// `absorbed` here before we absorb it because the actual final net charge will not be more
 		// than the net charge we observed before (as we only ignored net refunds but not net
 		// charges).
-		self.max_charged = self
-			.max_charged
-			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+		self.max_charged = self.max_charged.max(
+			absorbed
+				.parent_consumed
+				.saturating_add(&absorbed.max_charged())
+				.charge_or_zero(),
+		);
 
 		let own_deposit = absorbed.own_contribution.update_contract(info);
 		self.total_deposit = self
@@ -318,9 +323,12 @@ where
 	pub fn absorb_only_max_charged(&mut self, absorbed: RawMeter<T, E, Nested>) {
 		self.update_eip_150_peak(&absorbed);
 
-		self.max_charged = self
-			.max_charged
-			.max(self.consumed().saturating_add(&absorbed.max_charged()).charge_or_zero());
+		self.max_charged = self.max_charged.max(
+			absorbed
+				.parent_consumed
+				.saturating_add(&absorbed.max_charged())
+				.charge_or_zero(),
+		);
 	}
 
 	/// Record a charge that has taken place externally.
@@ -334,8 +342,9 @@ where
 
 	/// The amount of balance that this meter has consumed.
 	///
-	/// This disregards any refunds pending in the current frame. This
-	/// is because we can calculate refunds only at the end of each frame.
+	/// This disregards any refunds pending in the current frame. This is because we can calculate
+	/// refunds only when the frame ends, or, if the contract is reentered before that, when the
+	/// reentrant call returns without reverting.
 	pub fn consumed(&self) -> DepositOf<T> {
 		self.total_deposit.saturating_add(&self.own_contribution.update_contract(None))
 	}
@@ -357,18 +366,18 @@ where
 
 	/// Raises the 63/64 peak to the deposit this meter needed for `child`, if that is higher.
 	fn update_eip_150_peak(&mut self, child: &RawMeter<T, E, Nested>) {
-		// Without a deposit limit, the child can use a refund the caller received. With a limit,
-		// the child never gets more than that limit, so a net refund counts as zero.
-		let consumed_deposit = match self.limit {
-			Some(_) => Deposit::Charge(self.consumed().charge_or_zero()),
-			None => self.consumed(),
+		// Without a deposit limit, the child can use a refund the caller received before the call.
+		// With a limit, the child never gets more than that limit, so a net refund counts as zero.
+		let consumed_before_call = match self.limit {
+			Some(_) => Deposit::Charge(child.parent_consumed.charge_or_zero()),
+			None => child.parent_consumed.clone(),
 		};
 		let child_deposit_required = child.max_charged().charge_or_zero();
 		let child_deposit_overhead = child.eip_150_total_overhead(S::EIP_150_RULE);
 		let child_deposit_peak =
 			Deposit::Charge(child_deposit_required.saturating_add(child_deposit_overhead));
 		let current_deposit_peak =
-			consumed_deposit.saturating_add(&child_deposit_peak).charge_or_zero();
+			consumed_before_call.saturating_add(&child_deposit_peak).charge_or_zero();
 		self.eip_150_peak.update(current_deposit_peak);
 	}
 
