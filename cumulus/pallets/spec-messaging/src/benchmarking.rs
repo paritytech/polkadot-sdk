@@ -18,7 +18,9 @@
 
 use super::*;
 use alloc::vec;
-use cumulus_primitives_spec_messaging::{PrivateKind, StreamsTree, STREAM_ID_LEN};
+use cumulus_primitives_spec_messaging::{
+	streams_root::gen_stream_proof_from_nodes, PrivateKind, StreamsTree, STREAM_ID_LEN,
+};
 use frame_benchmarking::v2::*;
 use frame_support::traits::{EnsureOrigin, Hooks};
 use frame_system::RawOrigin;
@@ -97,8 +99,7 @@ fn build_deep_tree<T: Config>(streams: &[StreamId]) {
 	}
 	if !touched.is_empty() {
 		Pallet::<T>::fold_into_tree(&touched).expect("an empty cache folds; qed");
-		let height = TreeRoot::<T>::get().map_or(0, |entry| entry.height());
-		assert!(height as u32 >= depth - CHANNEL_KIND_LOSS);
+		assert!(longest_path::<T>(touched.keys()) >= depth - CHANNEL_KIND_LOSS);
 	}
 }
 
@@ -111,8 +112,17 @@ fn build_tree_around<T: Config>(stream: StreamId) {
 		.map(|other| (other, Hash::repeat_byte(3)))
 		.collect();
 	Pallet::<T>::fold_into_tree(&touched).expect("an empty cache folds; qed");
-	let height = TreeRoot::<T>::get().map_or(0, |entry| entry.height());
-	assert!(height as u32 + 1 >= depth - CHANNEL_KIND_LOSS);
+	assert!(longest_path::<T>(touched.keys()) + 1 >= depth - CHANNEL_KIND_LOSS);
+}
+
+/// The most proof steps among `streams` in the node cache.
+fn longest_path<'a, T: Config>(streams: impl Iterator<Item = &'a StreamId>) -> u32 {
+	let (entry, nodes) = (TreeRoot::<T>::get(), TreeNodeOverlay::<T>::default());
+	streams
+		.filter_map(|stream| gen_stream_proof_from_nodes(&entry, *stream, &nodes))
+		.map(|(_, proof)| proof.steps.len() as u32)
+		.max()
+		.unwrap_or(0)
 }
 
 /// Queue one send on `stream` directly: payload, leaf hash and the block's send count.
