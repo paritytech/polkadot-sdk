@@ -38,6 +38,8 @@ pub mod streams_root;
 #[cfg(test)]
 mod adversarial_tests;
 #[cfg(test)]
+mod conformance_vectors;
+#[cfg(test)]
 mod test_utils;
 
 pub use channel::{
