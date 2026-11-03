@@ -61,6 +61,34 @@
 //!   PSM's reserve.
 //! * **Circuit Breaker**: Per-external emergency control to disable minting or all swaps.
 //!
+<<<<<<< HEAD
+=======
+//! ### Storage Invariants
+//!
+//! With the `try-runtime` feature, the pallet tests fifteen storage invariants in
+//! each block. The function `do_try_state` does these tests. It confirms that:
+//!
+//! * each decimals snapshot agrees with the live asset metadata;
+//! * each reserve covers the debt that the PSM records against it;
+//! * the issuance of the internal asset covers the debt of the instance;
+//! * no storage row stays after the removal of its PSM;
+//! * no debt exists for a pair that the PSM does not approve.
+//!
+//! Five of the fifteen checks are advisory. An advisory check writes a warning to
+//! the log. It does not return an error. A permitted action can create these five
+//! states, so an error would stop the chain after a correct call:
+//!
+//! * debt above a per-asset ceiling;
+//! * debt above the ceiling of an instance;
+//! * a reserve with a balance, but with zero weight and zero debt;
+//! * live decimals of the internal asset that differ from the recorded value;
+//! * live decimals of an external asset that differ from the recorded value.
+//!
+//! The two decimal checks are advisory because an asset owner can change asset
+//! metadata at any time, and swaps use the recorded values. Drift does not change
+//! the arithmetic of the pallet. It changes what a reader of live metadata sees.
+//!
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 //! ### Fee Structure
 //!
 //! * **Minting Fee (`MintingFee`)**: Deducted from internal-asset output during minting, configured
@@ -137,7 +165,7 @@ pub mod pallet {
 				roles::Inspect as FungiblesRolesInspect, Inspect as FungiblesInspect,
 				Mutate as FungiblesMutate,
 			},
-			tokens::{Fortitude, Precision, Preservation},
+			tokens::{DepositConsequence, Fortitude, Precision, Preservation, Provenance},
 			CallerTrait, Consideration, EnsureOriginWithArg, Footprint, OriginTrait,
 		},
 		PalletId,
@@ -652,6 +680,14 @@ pub mod pallet {
 		PsmHasApprovedExternals,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
+<<<<<<< HEAD
+=======
+		/// An admin origin was supplied that cannot be used as an authority, such as the system
+		/// `None` origin.
+		InvalidAdminOrigin,
+		/// The PSM reserve account cannot receive the external asset.
+		ReserveCannotReceive,
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 	}
 
 	#[pallet::call]
@@ -668,7 +704,8 @@ pub mod pallet {
 		/// `internal_asset`'s PSM reserve account, then mints `internal_asset` to the
 		/// caller minus the minting fee. The fee is calculated using ceiling rounding
 		/// (`mul_ceil`), ensuring the protocol never undercharges. The fee is
-		/// transferred to [`PsmInfo::fee_destination`] of the targeted instance.
+		/// transferred to [`PsmInfo::fee_destination`] of the targeted instance, and waived
+		/// if that account cannot receive it.
 		///
 		/// ## Parameters
 		///
@@ -725,6 +762,16 @@ pub mod pallet {
 			let fee_rate = MintingFee::<T>::get(&internal_asset, &external_asset);
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
 			let fee = fee_rate.mul_ceil(internal_equivalent);
+			// Waive the fee if the fee destination cannot receive it, so it never blocks swaps.
+			let fee = match T::Fungibles::can_deposit(
+				internal_asset.clone(),
+				&info.fee_destination,
+				fee,
+				Provenance::Minted,
+			) {
+				DepositConsequence::Success => fee,
+				_ => Zero::zero(),
+			};
 			let internal_to_user = internal_equivalent.saturating_sub(fee);
 
 			let current_total_psm_debt = Self::total_psm_debt(&internal_asset);
@@ -773,8 +820,9 @@ pub mod pallet {
 		/// ## Details
 		///
 		/// Burns `internal_amount` of `internal_asset` from the caller minus fee (transferred
-		/// to the instance's [`PsmInfo::fee_destination`]), then transfers the resulting
-		/// amount in `external_asset` from the PSM reserve to the caller. The fee is
+		/// to the instance's [`PsmInfo::fee_destination`], or waived if that account cannot
+		/// receive it), then transfers the resulting amount in `external_asset` from the PSM
+		/// reserve to the caller. The fee is
 		/// calculated using ceiling rounding (`mul_ceil`), ensuring the protocol never
 		/// undercharges. Redemptions use the decimals snapshotted when the PSM/external pair
 		/// was registered, allowing existing positions to unwind even if live metadata later
@@ -827,7 +875,17 @@ pub mod pallet {
 
 			let fee_rate = RedemptionFee::<T>::get(&internal_asset, &external_asset);
 			ensure!(fee_rate <= max_fee, Error::<T>::FeeTooHigh);
-			let mut fee = fee_rate.mul_ceil(internal_amount);
+			let fee = fee_rate.mul_ceil(internal_amount);
+			// Waive the fee if the fee destination cannot receive it, so it never blocks swaps.
+			let mut fee = match T::Fungibles::can_deposit(
+				internal_asset.clone(),
+				&info.fee_destination,
+				fee,
+				Provenance::Extant,
+			) {
+				DepositConsequence::Success => fee,
+				_ => Zero::zero(),
+			};
 			let internal_net = internal_amount.saturating_sub(fee);
 
 			let external_out =
@@ -853,12 +911,21 @@ pub mod pallet {
 			}
 
 			// `burn_from` would also burn a remainder below `min_balance`, which this pair's debt
-			// may not cover. Send it to the fee destination along with the fee instead.
+			// may not cover. Send it to the fee destination along with the fee instead, if the fee
+			// destination can receive it.
 			let remainder = T::Fungibles::balance(internal_asset.clone(), &who)
 				.saturating_sub(fee.saturating_add(effective_internal_net));
 
-			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) {
-				fee.saturating_accrue(remainder);
+			let with_remainder = fee.saturating_add(remainder);
+			if remainder < T::Fungibles::minimum_balance(internal_asset.clone()) &&
+				T::Fungibles::can_deposit(
+					internal_asset.clone(),
+					&info.fee_destination,
+					with_remainder,
+					Provenance::Extant,
+				) == DepositConsequence::Success
+			{
+				fee = with_remainder;
 			}
 
 			if !fee.is_zero() {
@@ -929,7 +996,8 @@ pub mod pallet {
 		///   fungibles backend; must not already have a PSM registered.
 		/// - `full_admin`: Origin granted full management of the new PSM.
 		/// - `emergency_admin`: Origin granted emergency management of the new PSM.
-		/// - `fee_destination`: Account that will receive mint/redeem fees.
+		/// - `fee_destination`: Account that will receive mint/redeem fees. Fees are waived while
+		///   it cannot receive the internal asset.
 		/// - `max_debt`: Initial absolute internal-asset debt ceiling.
 		/// - `min_swap_amount`: Minimum swap amount for this instance, in internal-asset units.
 		///   Must be non-zero.
@@ -993,14 +1061,6 @@ pub mod pallet {
 					deposit,
 				},
 			);
-			// Acquire a provider reference on the reserve account and the fee destination for the
-			// lifetime of this PSM, so they can hold non-sufficient assets (external collateral /
-			// minted fees). Released in `remove_psm`. Unconditional (rather than
-			// `ensure_account_exists`) so the inc/dec is symmetric even when an account already
-			// exists or is shared across PSMs.
-			frame_system::Pallet::<T>::inc_providers(&Self::psm_account(&internal_asset));
-			frame_system::Pallet::<T>::inc_providers(&fee_destination);
-
 			Self::deposit_event(Event::PsmCreated {
 				internal_asset,
 				full_admin: Box::new(full_admin),
@@ -1050,12 +1110,6 @@ pub mod pallet {
 
 			Psm::<T>::remove(&internal_asset);
 			PsmAdmin::<T>::remove(&internal_asset);
-
-			// Release the provider references acquired in `create_psm`. Reaps each account when
-			// empty; a `ConsumerRemaining` error just means it still holds funds and must stay
-			// alive, so the result is intentionally discarded.
-			frame_system::Pallet::<T>::dec_providers(&Self::psm_account(&internal_asset)).ok();
-			frame_system::Pallet::<T>::dec_providers(&info.fee_destination).ok();
 
 			Self::deposit_event(Event::PsmRemoved { internal_asset });
 			Ok(())
@@ -1295,6 +1349,10 @@ pub mod pallet {
 		/// Snapshots the external asset's live decimals at registration time and
 		/// increments [`PsmInfo::external_count`].
 		///
+		/// The reserve account ([`Pallet::reserve_account`]) must already be able to receive
+		/// `external_asset`. For a non-sufficient asset, create its asset account first (e.g. via
+		/// `touch_other`).
+		///
 		/// ## Dispatch Origin
 		///
 		/// Must match the PSM instance's `full_admin` (the `Full` privilege level).
@@ -1314,6 +1372,8 @@ pub mod pallet {
 		///   fungibles backend.
 		/// - [`Error::DecimalsRangeExceeded`]: If `|asset_decimals − internal_decimals|` exceeds
 		///   [`MAX_DECIMALS_DIFF`].
+		/// - [`Error::ReserveCannotReceive`]: If the reserve account cannot receive
+		///   `external_asset`.
 		///
 		/// ## Events
 		///
@@ -1341,6 +1401,16 @@ pub mod pallet {
 			ensure!(
 				(asset_decimals.abs_diff(info.internal_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
+			);
+
+			ensure!(
+				T::Fungibles::can_deposit(
+					external_asset.clone(),
+					&Self::psm_account(&internal_asset),
+					T::Fungibles::minimum_balance(external_asset.clone()),
+					Provenance::Extant,
+				) == DepositConsequence::Success,
+				Error::<T>::ReserveCannotReceive
 			);
 
 			ExternalAssets::<T>::insert(
@@ -1496,6 +1566,14 @@ pub mod pallet {
 				new_admin: Box::new(new_admin),
 			});
 			Ok(())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// The reserve account of the PSM instance for `internal_asset`.
+		pub fn reserve_account(internal_asset: T::AssetId) -> T::AccountId {
+			Self::psm_account(&internal_asset)
 		}
 	}
 
@@ -1673,6 +1751,22 @@ pub mod pallet {
 			Ok(())
 		}
 
+<<<<<<< HEAD
+=======
+		/// Test the storage invariants of the pallet.
+		///
+		/// This function runs with the `try-runtime` feature, and in tests. The
+		/// checks occur at three levels:
+		///
+		/// * Checks 1 to 4, 10 and 11 run for each PSM instance.
+		/// * Checks 5 to 9 run for each approved external asset of an instance.
+		/// * Checks 12 to 15 run once, across all of the storage.
+		///
+		/// Checks 2, 5, 8, 9 and 15 are advisory. They write a warning to the
+		/// log, and they do not return an error. A permitted action can create
+		/// each of these states: a metadata change by an asset owner for checks
+		/// 2 and 5, a parameter change by governance for checks 8, 9 and 15.
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 		#[cfg(any(feature = "try-runtime", test))]
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
@@ -1684,6 +1778,38 @@ pub mod pallet {
 					"PSM instance without a paired PsmAdmin record"
 				);
 
+<<<<<<< HEAD
+=======
+				// Check 2 (advisory): live internal decimals match the PsmInfo snapshot.
+				// Swaps use the recorded value, so drift does not change the pallet's
+				// arithmetic; it changes what off-chain readers of live metadata see.
+				let live_internal_decimals = T::Fungibles::decimals(internal_asset.clone());
+				if live_internal_decimals != info.internal_decimals {
+					log::warn!(
+						target: "runtime::psm",
+						"PSM {:?}: internal asset live decimals ({}) differ from the PsmInfo \
+						snapshot ({}); swaps keep using the snapshot",
+						internal_asset, live_internal_decimals, info.internal_decimals,
+					);
+				}
+
+				// Check 3: the minimum swap amount of the instance is not zero.
+				// `create_psm` refuses a zero value. A migration or a manual genesis
+				// file can bypass that check. A zero value permits swaps of dust.
+				ensure!(!info.min_swap_amount.is_zero(), "PSM instance has a zero min_swap_amount");
+
+				// Check 4: the issuance of the internal asset covers the debt of this
+				// instance. The PSM mints the internal asset for each mint call, and
+				// burns it for each redeem call. A lower issuance therefore has two
+				// possible causes: something burned the asset outside of the PSM, or
+				// the debt records are wrong.
+				ensure!(
+					T::Fungibles::total_issuance(internal_asset.clone()) >=
+						Self::total_psm_debt(&internal_asset),
+					"Total internal issuance is less than total PSM debt"
+				);
+
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 				let mut counted = 0u32;
 				for (external_asset, external) in ExternalAssets::<T>::iter_prefix(&internal_asset)
 				{
@@ -1692,6 +1818,25 @@ pub mod pallet {
 					// 1. Per-external reserve covers tracked debt.
 					let debt = PsmDebt::<T>::get(&internal_asset, &external_asset);
 					let reserve = Self::get_reserve(&internal_asset, &external_asset);
+<<<<<<< HEAD
+=======
+
+					// Check 5 (advisory): live external decimals match the registration
+					// snapshot. Same rationale as check 2: the asset owner can change
+					// metadata at any time, and swaps keep using the snapshot.
+					let live_external_decimals = T::Fungibles::decimals(external_asset.clone());
+					if live_external_decimals != external.decimals {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?}: live decimals ({}) differ from the registration \
+							snapshot ({}); swaps keep using the snapshot",
+							internal_asset, external_asset,
+							live_external_decimals, external.decimals,
+						);
+					}
+
+					// Check 6: the reserve covers tracked debt, compared in external units.
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 					let debt_as_external =
 						Self::internal_to_external(debt, external.decimals, info.internal_decimals)
 							.map_err(|_| "Failed to convert tracked debt to external units")?;
@@ -1699,26 +1844,86 @@ pub mod pallet {
 						reserve >= debt_as_external,
 						"PSM reserve is less than tracked debt for an asset"
 					);
+<<<<<<< HEAD
 				}
 
 				// 2. Cached `external_count` matches the iterated externals.
+=======
+
+					// Check 7: summing approved debt must not overflow.
+					approved_debt = approved_debt
+						.checked_add(&debt)
+						.ok_or("PSM debt overflow when summing approved externals")?;
+
+					// Check 8 (advisory): the debt of one asset is above its ceiling.
+					// Governance can set a weight or `max_debt` below the debt. One
+					// documented procedure does this on purpose: to retire an asset,
+					// governance disables minting and sets the weight to zero, which
+					// drives the ceiling to zero while the debt drains. The warning
+					// still fires in that state; it is advisory for this reason.
+					let ceiling = Self::max_asset_debt(&internal_asset, &external_asset, &info);
+					if debt > ceiling {
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?} debt ({:?}) exceeds ceiling ({:?})",
+							internal_asset, external_asset, debt, ceiling,
+						);
+					}
+
+					// Check 9 (advisory): the ceiling weight and the debt are zero,
+					// but the reserve has a balance. A donation or an error can do
+					// this.
+					if AssetCeilingWeight::<T>::get(&internal_asset, &external_asset).is_zero() &&
+						debt.is_zero() && !reserve.is_zero()
+					{
+						log::warn!(
+							target: "runtime::psm",
+							"Asset {:?}/{:?} has zero ceiling, zero debt, but non-zero reserve {:?}",
+							internal_asset, external_asset, reserve,
+						);
+					}
+				}
+
+				// Check 10: the cached external_count matches the approved externals.
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 				ensure!(
 					info.external_count == counted,
 					"PsmInfo.external_count does not match the approved externals"
 				);
 
+<<<<<<< HEAD
 				// 3. Sum of per-asset debts equals the aggregate helper.
 				let mut sum = BalanceOf::<T>::zero();
 				for (_, debt) in PsmDebt::<T>::iter_prefix(&internal_asset) {
 					sum = sum.checked_add(&debt).ok_or("PSM debt overflow when summing")?;
 				}
+=======
+				// Check 11: the approved-external count is within the configured bound.
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 				ensure!(
 					sum == Self::total_psm_debt(&internal_asset),
 					"sum of per-asset debts disagrees with total_psm_debt"
 				);
 			}
 
+<<<<<<< HEAD
 			// 5. No orphaned per-asset state outside registered PSMs.
+=======
+			// Check 12: no `PsmDebt` row with a value exists for a pair that the PSM
+			// does not approve. This check replaces an earlier comparison between
+			// `total_psm_debt` and a sum of the same rows. That comparison always
+			// held true, because both values add the same rows.
+			for (internal_asset, external_asset, debt) in PsmDebt::<T>::iter() {
+				if !debt.is_zero() {
+					ensure!(
+						ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+						"PsmDebt entry exists for non-approved pair"
+					);
+				}
+			}
+
+			// Check 13: no per-instance row survives without its parent PSM.
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 			for (internal_asset, _, _) in ExternalAssets::<T>::iter() {
 				ensure!(
 					Psm::<T>::contains_key(&internal_asset),
@@ -1738,6 +1943,46 @@ pub mod pallet {
 				);
 			}
 
+<<<<<<< HEAD
+=======
+			// Check 14: no fee row or weight row exists for a pair that the PSM
+			// does not approve. The fee extrinsics refuse assets that are not
+			// approved, and remove_external_asset clears all three rows. A stray
+			// weight row also shrinks the ceilings of the approved assets, because
+			// the ceiling formula divides by the sum of the weights.
+			for (internal_asset, external_asset, _) in MintingFee::<T>::iter() {
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"MintingFee entry exists for non-approved pair"
+				);
+			}
+			for (internal_asset, external_asset, _) in RedemptionFee::<T>::iter() {
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"RedemptionFee entry exists for non-approved pair"
+				);
+			}
+			for (internal_asset, external_asset, _) in AssetCeilingWeight::<T>::iter() {
+				ensure!(
+					ExternalAssets::<T>::contains_key(&internal_asset, &external_asset),
+					"AssetCeilingWeight entry exists for non-approved pair"
+				);
+			}
+
+			// Check 15 (advisory): the debt of an instance is above its ceiling.
+			// Governance can set `max_debt` below the debt.
+			for (internal_asset, info) in Psm::<T>::iter() {
+				let total = Self::total_psm_debt(&internal_asset);
+				if total > info.max_debt {
+					log::warn!(
+						target: "runtime::psm",
+						"PSM {:?}: total debt ({:?}) exceeds ceiling ({:?})",
+						internal_asset, total, info.max_debt,
+					);
+				}
+			}
+
+>>>>>>> 7c7b86af (pallet-psm: simplify PSM account handling (#13626))
 			Ok(())
 		}
 	}
