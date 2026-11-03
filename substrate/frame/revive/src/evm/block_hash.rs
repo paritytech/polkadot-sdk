@@ -19,7 +19,7 @@
 #![warn(missing_docs)]
 
 mod receipt;
-pub use receipt::{AccumulateReceipt, LogsBloom};
+pub use receipt::{AccumulateReceipt, CommittedReceiptLogs, LogsBloom};
 
 mod hash_builder;
 pub use hash_builder::{BuilderPhase, IncrementalHashBuilder, IncrementalHashBuilderIR};
