@@ -34,6 +34,7 @@ use codec::{
 	Output,
 };
 use polkadot_parachain_primitives::primitives::Id as ParaId;
+use scale_info::{build::Fields, Path, Type, TypeInfo};
 
 pub const STREAM_ID_LEN: usize = 8;
 
@@ -42,7 +43,7 @@ pub const STREAM_ID_LEN: usize = 8;
 /// Byte 0 of the encoding is the discriminant for standard kinds and the payload for `Private`, so
 /// a lower kind would encode like a standard kind and break the `Ord` = byte-order equivalence. The
 /// constructor enforces the range, so construction and `Decode` follow one rule.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, scale_info::TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub struct PrivateKind(u8);
 
 impl PrivateKind {
@@ -66,7 +67,7 @@ impl PrivateKind {
 ///
 /// `recipient` is the party that reads the stream: a channel's messages are for the recipient, an
 /// ack register is for the chain it grants credit to, broadcasts have no addressee.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, scale_info::TypeInfo)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum StreamId {
 	/// Ordered, flow-controlled, guaranteed, unidirectional channel to `recipient`.
 	Channel { recipient: ParaId, domain: u8, num: u16 },
@@ -172,6 +173,17 @@ impl MaxEncodedLen for StreamId {
 impl Decode for StreamId {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
 		Self::from_bytes(<[u8; STREAM_ID_LEN]>::decode(input)?)
+	}
+}
+
+/// Metadata sees the canonical encoding as opaque bytes, since a derived enum would not match it.
+impl TypeInfo for StreamId {
+	type Identity = Self;
+
+	fn type_info() -> Type {
+		Type::builder()
+			.path(Path::new("StreamId", module_path!()))
+			.composite(Fields::unnamed().field(|f| f.ty::<[u8; STREAM_ID_LEN]>()))
 	}
 }
 
