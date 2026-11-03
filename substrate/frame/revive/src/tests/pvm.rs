@@ -30,7 +30,7 @@ use crate::{
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},
 	exec::Key,
 	limits,
-	metering::{DENOMINATOR, NUMERATOR, TransactionLimits},
+	metering::TransactionLimits,
 	precompiles::alloy::sol_types::{
 		SolType,
 		sol_data::{Bool, FixedBytes},
@@ -2905,8 +2905,7 @@ fn deposit_limit_in_nested_instantiate() {
 			let storage_len = 1;
 			let caller_item_deposit = empty_item_deposit + storage_len;
 			let callee_deposit = callee_min_deposit + storage_len;
-			let callee_eip_150_peak =
-				(callee_deposit * DENOMINATOR.get() as u128).div_ceil(NUMERATOR.get() as u128);
+			let callee_eip_150_peak = (callee_deposit * 64).div_ceil(63);
 			assert!(callee_eip_150_peak - callee_deposit >= caller_item_deposit);
 			caller_item_deposit + callee_eip_150_peak
 		};
@@ -2951,11 +2950,9 @@ fn deposit_limit_in_nested_instantiate() {
 		let storage_len = 50u32;
 		let caller_deposit = empty_item_deposit + storage_len as u128;
 		let callee_deposit = callee_min_deposit + storage_len as u128;
-		let callee_eip_150_peak =
-			(callee_deposit * DENOMINATOR.get() as u128).div_ceil(NUMERATOR.get() as u128);
+		let callee_eip_150_peak = (callee_deposit * 64).div_ceil(63);
 		let caller_total_deposit = callee_eip_150_peak + caller_deposit;
-		let eip_150_retained =
-			(callee_eip_150_peak + NUMERATOR.get() as u128) / DENOMINATOR.get() as u128;
+		let eip_150_retained = callee_eip_150_peak.div_ceil(64);
 		assert!(
 			eip_150_retained < caller_deposit,
 			"eip_150_retained ({eip_150_retained}) must be < caller_deposit ({caller_deposit})"

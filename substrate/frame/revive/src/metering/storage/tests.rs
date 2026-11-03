@@ -546,7 +546,7 @@ mod eip_150 {
 
 		// Without subcalls, a meter has no peak and requires only what it charged.
 		assert_eq!(meter.max_charged(), Deposit::Charge(6300));
-		assert_eq!(meter.eip_150_peak(), 0);
+		assert_eq!(meter.eip_150_peak.get(), 0);
 		assert_eq!(meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
 		// As the transaction's first call, nothing is kept back for it. As a nested call, its
 		// caller keeps ceil(6300/63) = 100.
@@ -602,7 +602,7 @@ mod eip_150 {
 					Deposit::Charge(case.max_charged),
 					"{context}",
 				);
-				assert_eq!(parent_meter.eip_150_peak(), case.peak, "{context}");
+				assert_eq!(parent_meter.eip_150_peak.get(), case.peak, "{context}");
 				assert_eq!(
 					parent_meter.deposit_required_with_eip_150(),
 					Deposit::Charge(case.peak),
@@ -631,7 +631,7 @@ mod eip_150 {
 
 			// second_level_meter has no subcalls, so no peak; overhead = ceil(6300/63) = 100
 			assert_eq!(second_level_meter.max_charged(), Deposit::Charge(6300));
-			assert_eq!(second_level_meter.eip_150_peak(), 0);
+			assert_eq!(second_level_meter.eip_150_peak.get(), 0);
 			assert_eq!(second_level_meter.deposit_required_with_eip_150(), Deposit::Charge(6300));
 			assert_eq!(second_level_meter.eip_150_total_overhead(Rule::Apply), 100);
 
@@ -640,7 +640,7 @@ mod eip_150 {
 			// first_level_meter: peak = 2000 + 6300 + 100 = 8400, max_charged = 8300
 			// children_overhead = 100, own = ceil(8400/63) = 134, total = 234
 			assert_eq!(first_level_meter.max_charged(), Deposit::Charge(8300));
-			assert_eq!(first_level_meter.eip_150_peak(), 8400);
+			assert_eq!(first_level_meter.eip_150_peak.get(), 8400);
 			assert_eq!(first_level_meter.deposit_required_with_eip_150(), Deposit::Charge(8400));
 			assert_eq!(first_level_meter.eip_150_total_overhead(Rule::Apply), 234);
 
@@ -654,7 +654,7 @@ mod eip_150 {
 			// first_call_meter: peak = 1000 + 8300 + 234 = 9534, max_charged = 9300, overhead = 234
 			let context = format!("first level reverts: {first_level_reverts}");
 			assert_eq!(first_call_meter.max_charged(), Deposit::Charge(9300), "{context}");
-			assert_eq!(first_call_meter.eip_150_peak(), 9534, "{context}");
+			assert_eq!(first_call_meter.eip_150_peak.get(), 9534, "{context}");
 			assert_eq!(
 				first_call_meter.deposit_required_with_eip_150(),
 				Deposit::Charge(9534),
@@ -675,13 +675,13 @@ mod eip_150 {
 		parent_meter.absorb(first_child_meter, &ALICE, None);
 		// peak = 500 + 3000 + 48 = 3548, consumed = 3500
 		assert_eq!(parent_meter.max_charged(), Deposit::Charge(3500));
-		assert_eq!(parent_meter.eip_150_peak(), 3548);
+		assert_eq!(parent_meter.eip_150_peak.get(), 3548);
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 48);
 
 		parent_meter.record_charge(&Deposit::Charge(700));
 		// consumed = 4200, past the peak (3548), so the overhead drops to 0
 		assert_eq!(parent_meter.max_charged(), Deposit::Charge(4200));
-		assert_eq!(parent_meter.eip_150_peak(), 3548);
+		assert_eq!(parent_meter.eip_150_peak.get(), 3548);
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 0);
 
 		// Second child: 1000 deposit, overhead = ceil(1000/63) = 16
@@ -691,7 +691,7 @@ mod eip_150 {
 
 		// peak = max(3548, 4200 + 1000 + 16) = 5216, max_charged = max(4200, 5200) = 5200
 		assert_eq!(parent_meter.max_charged(), Deposit::Charge(5200));
-		assert_eq!(parent_meter.eip_150_peak(), 5216);
+		assert_eq!(parent_meter.eip_150_peak.get(), 5216);
 		assert_eq!(parent_meter.deposit_required_with_eip_150(), Deposit::Charge(5216));
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 16);
 	}
@@ -712,7 +712,7 @@ mod eip_150 {
 		parent_meter.absorb(second_child_meter, &ALICE, None);
 
 		assert_eq!(parent_meter.max_charged(), Deposit::Charge(6810));
-		assert_eq!(parent_meter.eip_150_peak(), 6900);
+		assert_eq!(parent_meter.eip_150_peak.get(), 6900);
 		assert_eq!(parent_meter.deposit_required_with_eip_150(), Deposit::Charge(6900));
 		assert_eq!(parent_meter.eip_150_total_overhead(Rule::Skip), 90);
 	}

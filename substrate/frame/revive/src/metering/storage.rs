@@ -372,12 +372,6 @@ where
 		self.eip_150_peak.update(current_deposit_peak);
 	}
 
-	/// Returns the 63/64 deposit peak.
-	#[cfg(test)]
-	fn eip_150_peak(&self) -> BalanceOf<T> {
-		self.eip_150_peak.get()
-	}
-
 	/// Returns the extra deposit the parent needs beyond `max_charged()` to cover the part each
 	/// caller keeps at and below this level.
 	///

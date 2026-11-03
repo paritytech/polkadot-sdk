@@ -157,33 +157,6 @@ fn test_eip_150_overhead_of_balance() {
 }
 
 #[test]
-fn test_gas_ratio() {
-	use super::math::gas_ratio;
-
-	ExtBuilder::default().build().execute_with(|| {
-		// (gas_limit, remaining_gas, expected_numerator, expected_denominator)
-		let ratio_cases: Vec<(u128, u128, u128, u128)> = vec![
-			(100, 100, 1, 1),
-			(200, 100, 1, 1),
-			(100, 0, 1, 1),
-			(0, 0, 1, 1),
-			(50, 100, 1, 2),
-			(25, 100, 1, 4),
-			(1, 100, 1, 100),
-			(0, 100, 0, 1),
-		];
-
-		for (gas_limit, remaining, num, denom) in ratio_cases {
-			assert_eq!(
-				gas_ratio::<Test>(gas_limit, remaining),
-				FixedU128::from_rational(num, denom),
-				"failed for gas_limit={gas_limit}, remaining={remaining}"
-			);
-		}
-	});
-}
-
-#[test]
 fn test_apply_eip_150_to_balance() {
 	ExtBuilder::default().build().execute_with(|| {
 		// (input, expected)
@@ -205,49 +178,6 @@ fn test_apply_eip_150_to_balance() {
 			assert_eq!(BalanceEip150::<Test>::apply(input), expected, "failed for input {input}");
 		}
 	});
-}
-
-#[test]
-fn test_scale_weight_by_ratio() {
-	use super::math::scale_weight_by_ratio;
-
-	// (input_weight, ratio, expected_weight)
-	let test_cases: Vec<(Weight, FixedU128, Weight)> = vec![
-		(
-			Weight::from_parts(1000, 500),
-			FixedU128::from_rational(1, 1),
-			Weight::from_parts(1000, 500),
-		),
-		(Weight::from_parts(1000, 500), FixedU128::from_rational(0, 1), Weight::from_parts(0, 0)),
-		(
-			Weight::from_parts(1001, 503),
-			FixedU128::from_rational(1, 3),
-			Weight::from_parts(333, 167),
-		),
-		(
-			Weight::from_parts(1001, 503),
-			FixedU128::from_rational(2, 3),
-			Weight::from_parts(667, 335),
-		),
-		(
-			Weight::from_parts(1237, 891),
-			FixedU128::from_rational(5, 7),
-			Weight::from_parts(883, 636),
-		),
-		(
-			Weight::from_parts(847_293_651, 123_456_789),
-			FixedU128::from_rational(63, 64),
-			Weight::from_parts(834_054_687, 121_527_776),
-		),
-	];
-
-	for (input, ratio, expected) in test_cases {
-		assert_eq!(
-			scale_weight_by_ratio(input, ratio),
-			expected,
-			"failed for input {input:?}, ratio {ratio:?}"
-		);
-	}
 }
 
 #[test]

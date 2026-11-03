@@ -29,8 +29,6 @@ use crate::{
 };
 
 pub use gas::SignedGas;
-#[cfg(test)]
-pub use math::eip_150::{DENOMINATOR, NUMERATOR};
 pub use storage::Diff;
 pub use weight::{ChargedAmount, Token};
 

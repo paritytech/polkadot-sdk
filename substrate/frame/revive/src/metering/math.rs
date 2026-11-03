@@ -204,23 +204,6 @@ pub fn validate_and_get_stipend<T: Config>(weight_left: Weight) -> Result<Weight
 	Ok(weight_stipend)
 }
 
-/// Returns `gas_limit` as a fraction of `remaining_gas`, capped at 1.
-pub fn gas_ratio<T: Config>(gas_limit: BalanceOf<T>, remaining_gas: BalanceOf<T>) -> FixedU128 {
-	if remaining_gas.is_zero() || gas_limit >= remaining_gas {
-		return FixedU128::one();
-	}
-
-	FixedU128::from_rational(gas_limit.saturated_into(), remaining_gas.saturated_into())
-}
-
-/// Scale weight by the given ratio.
-pub fn scale_weight_by_ratio(weight: Weight, ratio: FixedU128) -> Weight {
-	Weight::from_parts(
-		ratio.saturating_mul_int(weight.ref_time()),
-		ratio.saturating_mul_int(weight.proof_size()),
-	)
-}
-
 pub mod substrate_execution {
 	use super::*;
 
@@ -315,9 +298,22 @@ pub mod substrate_execution {
 					// Cap to u64::MAX since Ethereum gas is u64. Without this, large deposit_left
 					// (e.g., u128::MAX) causes ratio ≈ 0, giving nested calls almost no weight.
 					let remaining_gas = remaining_gas.min(u64::MAX.saturated_into());
+
 					let callee_gas_limit = remaining_gas.min(*requested_gas);
-					let ratio = gas_ratio::<T>(callee_gas_limit, remaining_gas);
-					let mut weight_limit = scale_weight_by_ratio(weight_left, ratio);
+
+					let ratio = if remaining_gas.is_zero() {
+						FixedU128::one()
+					} else {
+						FixedU128::from_rational(
+							callee_gas_limit.saturated_into(),
+							remaining_gas.saturated_into(),
+						)
+					};
+
+					let mut weight_limit = Weight::from_parts(
+						ratio.saturating_mul_int(weight_left.ref_time()),
+						ratio.saturating_mul_int(weight_left.proof_size()),
+					);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
 					// Stipend: check against `weight_left_before_rule` (parent's budget) and add it
@@ -506,16 +502,18 @@ pub mod ethereum_execution {
 		let remaining_gas = remaining_gas_before_rule.apply_eip_150(eip_150_rule);
 		let max_total_gas = total_gas_consumption.saturating_add(&remaining_gas);
 
+		let weight_limit_left_before_rule = meter
+			.weight
+			.weight_limit
+			.checked_sub(&self_consumed_weight)
+			.ok_or(<Error<T>>::OutOfGas)?;
+
 		let weight_left = {
 			let unbounded_weight_left = eth_tx_info
 				.weight_remaining(&max_total_gas, &total_consumed_weight, &total_consumed_deposit)
 				.ok_or(<Error<T>>::OutOfGas)?;
-			let weight_limit_left = meter
-				.weight
-				.weight_limit
-				.checked_sub(&self_consumed_weight)
-				.map(|left| eip_150_rule.apply::<WeightEip150>(left))
-				.ok_or(<Error<T>>::OutOfGas)?;
+			let weight_limit_left =
+				eip_150_rule.apply::<WeightEip150>(weight_limit_left_before_rule);
 
 			unbounded_weight_left.min(weight_limit_left)
 		};
@@ -551,8 +549,14 @@ pub mod ethereum_execution {
 					let gas_limit =
 						remaining_gas.min(&SignedGas::from_ethereum_gas(*requested_gas));
 					let (gas_limit, weight_limit, stipend) = if *add_stipend {
-						let weight_left_before_rule =
-							self::weight_left(meter, eth_tx_info).ok_or(<Error<T>>::OutOfGas)?;
+						let weight_left_before_rule = eth_tx_info
+							.weight_remaining(
+								&meter.max_total_gas,
+								&total_consumed_weight,
+								&total_consumed_deposit,
+							)
+							.ok_or(<Error<T>>::OutOfGas)?
+							.min(weight_limit_left_before_rule);
 						let weight_stipend =
 							validate_and_get_stipend::<T>(weight_left_before_rule)?;
 						let gas_stipend = SignedGas::<T>::from_weight_fee(

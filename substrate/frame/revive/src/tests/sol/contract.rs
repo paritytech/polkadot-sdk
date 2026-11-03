@@ -1069,10 +1069,7 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 mod eip_150 {
 	use super::*;
 	use crate::{
-		ContractResult, EthTxInfo, Pallet,
-		evm::GenericTransaction,
-		metering::{DENOMINATOR, NUMERATOR},
-		test_utils::ETH_GAS_LIMIT,
+		ContractResult, EthTxInfo, Pallet, evm::GenericTransaction, test_utils::ETH_GAS_LIMIT,
 		tests::DepositPerByte,
 	};
 	use frame_support::{
@@ -1208,9 +1205,7 @@ mod eip_150 {
 		result: &ContractResult<ExecReturnValue, BalanceOf<Test>>,
 		limits: &TransactionLimits<Test>,
 	) {
-		let used_up = |consumed: u128, limit: u128| {
-			consumed * u128::from(DENOMINATOR.get()) >= limit * u128::from(NUMERATOR.get())
-		};
+		let used_up = |consumed: u128, limit: u128| consumed * 64 >= limit * 63;
 		let used_up_ref_time = |weight_limit: &Weight| {
 			used_up(result.weight_consumed.ref_time().into(), weight_limit.ref_time().into())
 		};
