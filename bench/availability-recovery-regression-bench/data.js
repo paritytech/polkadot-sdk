@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793690531283,
+  "lastUpdate": 1793701911189,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "878b1583b5031aa4ee936cb98ff45257778acafa",
-          "message": "PSM init: skip assets with mismatched decimals instead of panicking (#11807)\n\nAddresses issue @ggwpez raised in this comment:\nhttps://github.com/paritytech/polkadot-sdk/pull/11068#discussion_r3096189282\n\n## Summary\n\nReplaces the `assert!` in the PSM `InitializePsm` migration with a log +\nskip when an asset's decimals don't match the stable asset. Panicking in\na runtime upgrade bricks the chain. Migrations must be infallible.\n\n### Test\n\nAdds `initialize_psm_skips_assets_with_wrong_decimals` which verifies\nthat assets with mismatched decimals are skipped while\ncorrectly-configured assets in the same migration are still added.",
-          "timestamp": "2026-04-18T17:42:40Z",
-          "tree_id": "b4c9fffcc4588d1f361e7427b9439223e2d11602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/878b1583b5031aa4ee936cb98ff45257778acafa"
-        },
-        "date": 1776539122922,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.591675139466668,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13211203496666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.13194224613333336,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7c7b86afe492eb0c6af381cd74863a5818d62cf7",
+          "message": "pallet-psm: simplify PSM account handling (#13626)\n\n### Description\n\nPSMs no longer manage provider refs on their reserve account and fee\ndestination, so both follow the standard account rules.\n\n### Changes\n\n- `create_psm` and `remove_psm` no longer touch provider refs.\n- `mint` and `redeem` waive the fee when the fee destination can't\nreceive it.\n- `add_external_asset` requires the reserve account to be able to\nreceive the external asset, and fails with `ReserveCannotReceive`\notherwise. For a non-sufficient asset, create the reserve's asset\naccount first (e.g. with `touch_other`).\n- New `reserve_account` view function returns the reserve account of a\nPSM instance.\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T08:57:34Z",
+          "tree_id": "fbbc1842e6a08641186b194488e1c5c59eeb521d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7c7b86afe492eb0c6af381cd74863a5818d62cf7"
+        },
+        "date": 1793701879338,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1307437749333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.876696009933335,
             "unit": "seconds"
           }
         ]
