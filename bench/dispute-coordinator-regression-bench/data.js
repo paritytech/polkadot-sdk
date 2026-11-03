@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793661842042,
+  "lastUpdate": 1793672648215,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "mertwole@gmail.com",
-            "name": "mertwole",
-            "username": "mertwole"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a0d4b392e1cc2dc0fe95ca95b461ed6fc580aa20",
-          "message": "[pallet-broker] introduce `Market` trait for a generic coretime market (#11563)\n\nThis PR is a part of #10916 containing only the `Market` trait\n\nPart of #10900",
-          "timestamp": "2026-04-16T14:44:09Z",
-          "tree_id": "335e81cb05948d157e190a8758a0d172fd136c7d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a0d4b392e1cc2dc0fe95ca95b461ed6fc580aa20"
-        },
-        "date": 1776356168517,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.009369694409999966,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026295402999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009900267800000006,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025776933099999995,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4b6793567c457371b0b8d00349dba1b5ba7e3b6f",
+          "message": "[pallet-revive] PVM performance: early return on mem read (#13678)\n\nSmall optimization: We can return early when the read would fail anyway.\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T00:46:13Z",
+          "tree_id": "efe63a4025088ca7099d1c9fef4e89ca89001732",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4b6793567c457371b0b8d00349dba1b5ba7e3b6f"
+        },
+        "date": 1793672621347,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009727574670000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009339926059999986,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.002559478830000001,
             "unit": "seconds"
           }
         ]
