@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793742006522,
+  "lastUpdate": 1793748388747,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "878b1583b5031aa4ee936cb98ff45257778acafa",
-          "message": "PSM init: skip assets with mismatched decimals instead of panicking (#11807)\n\nAddresses issue @ggwpez raised in this comment:\nhttps://github.com/paritytech/polkadot-sdk/pull/11068#discussion_r3096189282\n\n## Summary\n\nReplaces the `assert!` in the PSM `InitializePsm` migration with a log +\nskip when an asset's decimals don't match the stable asset. Panicking in\na runtime upgrade bricks the chain. Migrations must be infallible.\n\n### Test\n\nAdds `initialize_psm_skips_assets_with_wrong_decimals` which verifies\nthat assets with mismatched decimals are skipped while\ncorrectly-configured assets in the same migration are still added.",
-          "timestamp": "2026-04-18T17:42:40Z",
-          "tree_id": "b4c9fffcc4588d1f361e7427b9439223e2d11602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/878b1583b5031aa4ee936cb98ff45257778acafa"
-        },
-        "date": 1776539181324,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63628.5,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52945.8,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005246147109999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.901372013360001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.838103821740001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.62966562931997,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7637747654199634,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.818443063740001,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.279871411772931,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002218863,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.000023037540000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002218863,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.459814450690003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.000023037540000000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.842911367259999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-gather-signatures",
             "value": 0.005805269600000003,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce5174d79049c47b8a30cde19de2debaf6253d7d",
+          "message": "staking-async: check inactivity per service in chill_inactive (#13536)\n\nBuilds on #13464, which records era points per service\n(`ErasRewardPointsByService`).\n\n`IsValidatorInactive::is_inactive` now receives the era points of the\nvalidator per\n`ValidatorServiceKind`, as `&[(ValidatorServiceKind, RewardPoint)]`,\ninstead of a single total. A runtime can so decide inactivity per\nservice, for example that only relay consensus points keep a validator\nactive.\n\nPoints of the tally not recorded per service, which are those of eras\nbefore points were\nrecorded per service, count as `RelayConsensus`.\n\n`chill_inactive` is now disabled by default:\n- The `()` implementation of `IsValidatorInactive` never finds a\nvalidator inactive. The new `AllZero` implementation has the old\nbehaviour of `()`: a validator is inactive if it earned no points for\n**any** service. Runtimes that want the old behaviour must use\n`AllZero`. Custom implementations must take the points per service;\n\nMoreover:\n\n- `ChillInactiveThreshold` has no default anymore. While it is not set,\n`chill_inactive` fails with `ChillInactiveDisabled`. Removing it through\n`set_staking_configs` disables the call.\n- `set_staking_configs` rejects a `chill_inactive_threshold` for which\nthe weight of `chill_inactive` does not fit in one normal extrinsic.\n\n> **As it stands, on AssetHub Westend, we can check up to 67 previous\neras to reach `MAX_WEIGHT * NORMAL_EXTRINSIC_RATIO`.**\n\nWeight correction: \n\nThe weight of `chill_inactive` now includes reading\n`ErasRewardPointsByService` of every proof era. Its benchmark now writes\ndifferent reward points for every era and service. Before, equal values\nwere held only once in the proof, so the proof size did not grow with\nthe number of eras.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T21:51:06Z",
+          "tree_id": "45a063310816dc74d12eb4158020b0b96a8230cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce5174d79049c47b8a30cde19de2debaf6253d7d"
+        },
+        "date": 1793748353711,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 52940,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 63568.02,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7466956558500017,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.7695513020200004,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.804438718330007,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.128637230190005,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002237221,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.0054221846800000025,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00002035563,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.746850781989999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002237221,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.461626763852955,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.346922684719998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00002035563,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7087559026,
             "unit": "seconds"
           }
         ]
