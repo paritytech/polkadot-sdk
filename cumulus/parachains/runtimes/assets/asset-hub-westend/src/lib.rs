@@ -2851,6 +2851,16 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				Location::new(1, [Parachain(2001)])
 			}
 
+			/// Gives the staking pot its existential deposit, so a trader settles its fee the way
+			/// it does on a live chain instead of creating the pot or burning a fee below the
+			/// existential deposit.
+			fn fund_staking_pot() {
+				assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
+					&StakingPot::get(),
+					ExistentialDeposit::get()
+				));
+			}
+
 			/// Creates the fee asset, funds an account with it and opens its pool against the
 			/// native asset, so fee swaps and asset exchanges have liquidity to run against.
 			/// Funds the staking pot as well, so the trader settles its fee the way it does on a
@@ -2866,10 +2876,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 					&account,
 					ExistentialDeposit::get() + (1_000 * UNITS)
 				));
-				assert_ok!(<Balances as fungible::Mutate<_>>::mint_into(
-					&StakingPot::get(),
-					ExistentialDeposit::get()
-				));
+				fund_staking_pot();
 
 				assert_ok!(ForeignAssets::force_create(
 					RuntimeOrigin::root(),
@@ -3082,6 +3089,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 				}
 
 				fn worst_case_for_native_trader() -> Result<(Asset, WeightLimit), BenchmarkError> {
+					fund_staking_pot();
 					Ok((Asset {
 						id: AssetId(WestendLocation::get()),
 						fun: Fungible(1_000 * UNITS),

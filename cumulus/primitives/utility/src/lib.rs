@@ -536,7 +536,7 @@ where
 		let refund = match SwapCredit::swap_exact_tokens_for_tokens(
 			vec![Target::get(), refund_swap_asset],
 			refund,
-			None,
+			Some(1u32.into()),
 		) {
 			Ok(refund_in_target) => refund_in_target,
 			Err((refund, _)) => {
