@@ -295,7 +295,10 @@ fn nothing_new_is_empty_with_the_identity_extension() {
 	verify_messages(&req, &resp).unwrap();
 	assert_eq!(resp.frontier, frontier_at(&pa, 3));
 	assert!(resp.payloads.is_empty());
-	assert_eq!(resp.extension, Default::default());
+	assert_eq!(
+		resp.extension,
+		cumulus_primitives_spec_messaging::MMRExtensionProof::identity(&resp.frontier)
+	);
 }
 
 #[test]

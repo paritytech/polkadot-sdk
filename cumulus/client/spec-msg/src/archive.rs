@@ -507,7 +507,10 @@ where
 	/// The extension proof from `from` to `to` leaves.
 	fn extension(nodes: &Nodes<'_, S>, from: u64, to: u64) -> Option<MMRExtensionProof> {
 		if from == to {
-			return Some(MMRExtensionProof::identity());
+			return Some(MMRExtensionProof {
+				leaf_count: to,
+				connecting_nodes: Default::default(),
+			});
 		}
 		if from == 0 {
 			// Nothing to extend from: the connecting nodes are the new MMR's peaks.
