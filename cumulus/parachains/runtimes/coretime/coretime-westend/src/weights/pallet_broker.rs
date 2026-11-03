@@ -512,17 +512,6 @@ impl<T: frame_system::Config> pallet_broker::WeightInfo for WeightInfo<T> {
 			.saturating_add(T::DbWeight::get().reads(5))
 			.saturating_add(T::DbWeight::get().writes(2))
 	}
-	/// The range of component `n` is `[0, 100]`.
-	fn tally_claimed_revenue(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 197_000 picoseconds.
-		Weight::from_parts(253_346, 0)
-			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 14
-			.saturating_add(Weight::from_parts(46_014, 0).saturating_mul(n.into()))
-	}
 	/// Storage: `ParachainSystem::UpwardDeliveryFeeFactor` (r:1 w:0)
 	/// Proof: `ParachainSystem::UpwardDeliveryFeeFactor` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
 	/// Storage: `PolkadotXcm::SupportedVersion` (r:1 w:0)

@@ -18,20 +18,19 @@
 //! Interface between `pallet-broker` and the on-demand Coretime market it shares a chain with.
 
 use crate::Timeslice;
-use alloc::vec::Vec;
+use alloc::collections::BTreeMap;
 use sp_weights::Weight;
 
 /// The outcome of claiming on-demand revenue through [`OnDemandRevenue::claim_revenue`].
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct RevenueClaim<Balance> {
-	/// The amount transferred for each timeslice whose revenue was paid out, oldest first,
-	/// possibly zero.
+	/// The amount transferred for each timeslice whose revenue was paid out, possibly zero.
 	///
 	/// If a timeslice is not listed, but a later timeslice is, it means there was no revenue
 	/// booked for that timeslice. If no later timeslice is listed, the revenue should be
 	/// assumed to not have been paid out yet, and if it exists, it will be paid out in a later
 	/// claim.
-	pub paid: Vec<(Timeslice, Balance)>,
+	pub paid: BTreeMap<Timeslice, Balance>,
 	/// The weight consumed by the claim.
 	pub weight: Weight,
 }
@@ -66,6 +65,6 @@ impl<Balance, AccountId> OnDemandRevenue<Balance, AccountId> for () {
 	}
 
 	fn claim_revenue(_up_to: Timeslice, _beneficiary: &AccountId) -> RevenueClaim<Balance> {
-		RevenueClaim { paid: Vec::new(), weight: Weight::zero() }
+		RevenueClaim { paid: BTreeMap::new(), weight: Weight::zero() }
 	}
 }

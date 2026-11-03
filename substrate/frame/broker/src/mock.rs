@@ -160,27 +160,25 @@ impl OnDemandRevenue<u64, u64> for TestLocalRevenue {
 
 		// Pay out the revenue of as many timeslices as the market's funds allow, oldest first.
 		let mut funds = RevenueClaimFunds::get().unwrap_or(u64::MAX);
-		let mut paid = Vec::new();
+		let mut paid = BTreeMap::new();
 		for (when, amount) in booked {
 			if amount > funds {
 				break;
 			}
 			funds -= amount;
-			paid.push((when, amount));
+			paid.insert(when, amount);
 		}
 		let timeslice_of = |n: &u32| (*n as u64 / period) as Timeslice;
-		CoretimeSpending::mutate(|s| {
-			s.retain(|(n, _)| !paid.iter().any(|(w, _)| *w == timeslice_of(n)))
-		});
+		CoretimeSpending::mutate(|s| s.retain(|(n, _)| !paid.contains_key(&timeslice_of(n))));
 		// Once all revenue up to `up_to` is paid out, `up_to` is settled even without revenue.
 		let complete = CoretimeSpending::get().iter().all(|(n, _)| timeslice_of(n) > up_to);
-		if complete && paid.last().map_or(true, |&(when, _)| when != up_to) {
-			paid.push((up_to, 0));
+		if complete {
+			paid.entry(up_to).or_insert(0);
 		}
 
 		// The market holds the revenue on this chain, so paying it out is a transfer rather than a
 		// teleport. `mint_to_pot` stands in for the transfer out of the market's pot.
-		mint_to_pot(paid.iter().map(|(_, amount)| amount).sum());
+		mint_to_pot(paid.values().sum());
 		RevenueClaim { paid, weight: Weight::zero() }
 	}
 }

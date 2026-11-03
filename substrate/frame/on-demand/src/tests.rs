@@ -21,6 +21,7 @@ use crate::{
 	mock::*, weights::WeightInfo, Enabled, Error, Event, PendingBatch, PriceConfig,
 	PriceParameters, QueueState, Revenue, DEFAULT_BASE_FEE, DEFAULT_PRICE_STEP,
 };
+use alloc::collections::BTreeMap;
 use fp_coretime::revenue::OnDemandRevenue;
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
@@ -291,8 +292,12 @@ fn configure_works() {
 /// Claim the revenue of timeslice `up_to` and every earlier one for `BOB`.
 fn claim(up_to: u32) -> Vec<(u32, u64)> {
 	let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(up_to, &BOB);
-	assert_eq!(result.paid.last().map(|&(when, _)| when), Some(up_to), "`up_to` is settled");
-	result.paid
+	assert_eq!(
+		result.paid.last_key_value().map(|(&when, _)| when),
+		Some(up_to),
+		"`up_to` is settled"
+	);
+	result.paid.into_iter().collect()
 }
 
 /// The unclaimed revenue, as `(timeslice, amount)`, oldest first.
@@ -437,7 +442,7 @@ fn only_revenue_which_can_be_paid_in_full_is_claimed_oldest_first() {
 
 		// Timeslices 0 and 1 are paid out in full, timeslice 2 not at all.
 		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(2, &BOB);
-		assert_eq!(result.paid, vec![(0, in_0), (1, in_1)]);
+		assert_eq!(result.paid, BTreeMap::from([(0, in_0), (1, in_1)]));
 		assert_eq!(unclaimed(), vec![(2, in_2)]);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + in_2 - shortfall);
 		assert!(on_demand_events().contains(&Event::UnexpectedLowFunds {
@@ -448,7 +453,7 @@ fn only_revenue_which_can_be_paid_in_full_is_claimed_oldest_first() {
 
 		// Claiming again does not help until the pot has been topped up.
 		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(2, &BOB);
-		assert_eq!(result.paid, vec![]);
+		assert!(result.paid.is_empty());
 		assert_eq!(unclaimed(), vec![(2, in_2)]);
 
 		// Once it has, the revenue of timeslice 2 is claimed along with that of a later one.
@@ -471,7 +476,7 @@ fn an_unendowed_pot_holds_back_the_revenue_it_cannot_pay_out_while_staying_alive
 
 		// Paying out the revenue would reap the pot, so it is not paid out.
 		let result = <OnDemand as OnDemandRevenue<_, _>>::claim_revenue(0, &BOB);
-		assert_eq!(result.paid, vec![]);
+		assert!(result.paid.is_empty());
 		assert_eq!(unclaimed(), vec![(0, revenue)]);
 
 		// Endowing the pot fixes it.

@@ -96,7 +96,6 @@ pub trait WeightInfo {
 	fn rotate_sale(n: u32, ) -> Weight;
 	fn process_pool() -> Weight;
 	fn process_core_schedule() -> Weight;
-	fn tally_claimed_revenue(n: u32, ) -> Weight;
 	fn request_revenue_info_at() -> Weight;
 	fn notify_core_count() -> Weight;
 	fn notify_revenue() -> Weight;
@@ -504,16 +503,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(18_732_000, 4681)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(2_u64))
-	}
-	/// The range of component `n` is `[0, 100]`.
-	fn tally_claimed_revenue(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 215_000 picoseconds.
-		Weight::from_parts(222_399, 0)
-			// Standard Error: 21
-			.saturating_add(Weight::from_parts(49_056, 0).saturating_mul(n.into()))
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:
@@ -1059,16 +1048,6 @@ impl WeightInfo for () {
 		Weight::from_parts(18_732_000, 4681)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(2_u64))
-	}
-	/// The range of component `n` is `[0, 100]`.
-	fn tally_claimed_revenue(n: u32, ) -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `0`
-		//  Estimated: `0`
-		// Minimum execution time: 215_000 picoseconds.
-		Weight::from_parts(222_399, 0)
-			// Standard Error: 21
-			.saturating_add(Weight::from_parts(49_056, 0).saturating_mul(n.into()))
 	}
 	fn request_revenue_info_at() -> Weight {
 		// Proof Size summary in bytes:

@@ -39,8 +39,6 @@ use sp_runtime::{
 
 const SEED: u32 = 0;
 const MAX_CORE_COUNT: u16 = 1_000;
-/// The most timeslices whose on-demand revenue is benchmarked to be claimed at once.
-const MAX_CLAIMED_TIMESLICES: u32 = 100;
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -1053,20 +1051,6 @@ mod benches {
 			assignment.push((CoreAssignment::Task(i.try_into().unwrap()), 57600));
 		}
 		assert_last_event::<T>(Event::CoreAssigned { core, when: rc_begin, assignment }.into());
-	}
-
-	#[benchmark]
-	fn tally_claimed_revenue(n: Linear<0, MAX_CLAIMED_TIMESLICES>) {
-		// Each timeslice listed separately, oldest first, as `OnDemandRevenue` lists them.
-		let paid: Vec<_> = (0..n).map(|when| (when, 1_000_000u32.into())).collect();
-
-		let revenue;
-		#[block]
-		{
-			revenue = Broker::<T>::tally_claimed_revenue(paid);
-		}
-
-		assert_eq!(revenue.len(), n as usize);
 	}
 
 	#[benchmark]

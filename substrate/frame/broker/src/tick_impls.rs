@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 use frame_support::{pallet_prelude::*, traits::defensive_prelude::*, weights::WeightMeter};
 use sp_arithmetic::traits::{One, SaturatedConversion, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, ConvertBack, MaybeConvert};
@@ -100,39 +100,21 @@ impl<T: Config> Pallet<T> {
 		let claim = T::OnDemandRevenue::claim_revenue(ended_timeslice, &Self::account_id());
 		meter.consume(claim.weight);
 
-		let paid_count = claim.paid.len().saturated_into();
-		let revenue = Self::tally_claimed_revenue(claim.paid);
-		meter.consume(T::WeightInfo::tally_claimed_revenue(paid_count));
-
 		// The timeslices listed are settled. The revenue of any later timeslice stays booked, to
 		// be claimed later; until then, its history is kept intact. An earlier timeslice which is
 		// not listed, because it had no revenue or because its revenue was merged into a later
 		// timeslice's, keeps its history until it is dropped with `drop_history`.
-		if !revenue.contains_key(&ended_timeslice) {
+		if !claim.paid.contains_key(&ended_timeslice) {
 			log::warn!(
 				target: "pallet_broker::process_revenue",
 				"Not all on-demand revenue up to timeslice {ended_timeslice} could be claimed",
 			);
 		}
 
-		for (when, amount) in revenue {
+		for (when, amount) in claim.paid {
 			Self::process_revenue_amount(when, amount);
 			meter.consume(T::WeightInfo::process_revenue());
 		}
-	}
-
-	/// Sum up the revenue claimed for each timeslice listed in `paid`.
-	///
-	/// Its cost is linear in the length of `paid`, and is accounted for separately by
-	/// [`WeightInfo::tally_claimed_revenue`].
-	pub(crate) fn tally_claimed_revenue(
-		paid: Vec<(Timeslice, BalanceOf<T>)>,
-	) -> BTreeMap<Timeslice, BalanceOf<T>> {
-		let mut revenue = BTreeMap::<Timeslice, BalanceOf<T>>::new();
-		for (when, amount) in paid {
-			revenue.entry(when).or_insert_with(Zero::zero).saturating_accrue(amount);
-		}
-		revenue
 	}
 
 	pub(crate) fn process_core_count(status: &mut StatusRecord) -> bool {

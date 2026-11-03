@@ -55,7 +55,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, vec::Vec};
 use fp_coretime::{TaskId, Timeslice};
 use frame_support::traits::EnsureOrigin;
 use sp_runtime::traits::BlockNumberProvider;
@@ -527,7 +527,7 @@ pub mod pallet {
 		fn do_claim_revenue(
 			up_to: Timeslice,
 			beneficiary: &T::AccountId,
-		) -> (Vec<(Timeslice, BalanceOf<T>)>, u32) {
+		) -> (BTreeMap<Timeslice, BalanceOf<T>>, u32) {
 			let mut revenue = Revenue::<T>::get().into_inner();
 			let pot = Self::account_id();
 			let maximum_transfer_amount = T::Currency::reducible_balance(&pot, Preserve, Polite);
@@ -535,7 +535,7 @@ pub mod pallet {
 			let mut claimable_entries = 0u32;
 			let mut total = BalanceOf::<T>::zero();
 			let mut total_ignoring_max_transfer_amount = BalanceOf::<T>::zero();
-			let mut paid = alloc::collections::BTreeMap::new();
+			let mut paid = BTreeMap::new();
 			let mut is_enough_funds_for_transfer = true;
 			for (&when, &amount) in revenue.range(..=up_to) {
 				claimable_entries += 1;
@@ -556,7 +556,7 @@ pub mod pallet {
 			// Early return when nothing to be claimed: everything up to `up_to` is already paid
 			// out, so it is settled even without revenue.
 			if claimable_entries == 0 {
-				return (Vec::from([(up_to, Zero::zero())]), 0);
+				return (BTreeMap::from([(up_to, Zero::zero())]), 0);
 			}
 
 			if is_enough_funds_for_transfer {
@@ -581,7 +581,7 @@ pub mod pallet {
 						target: LOG_TARGET,
 						"Paying out {total:?} of revenue failed: {err:?}",
 					);
-					return (Vec::new(), claimable_entries);
+					return (BTreeMap::new(), claimable_entries);
 				}
 			}
 
@@ -605,7 +605,7 @@ pub mod pallet {
 				});
 			}
 
-			(paid.into_iter().collect(), claimable_entries)
+			(paid, claimable_entries)
 		}
 	}
 }
