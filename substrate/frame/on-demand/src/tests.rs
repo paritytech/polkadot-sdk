@@ -59,7 +59,7 @@ fn on_demand_events() -> Vec<Event<Test>> {
 
 #[test]
 fn place_order_charges_spot_price_and_batches_the_order() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let before = Balances::balance(&ALICE);
 
 		assert_ok!(OnDemand::place_order(
@@ -97,7 +97,7 @@ fn place_order_charges_spot_price_and_batches_the_order() {
 
 #[test]
 fn spot_price_grows_with_the_queue_depth() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Every order already outstanding raises the price by 3%.
 		let price_0 = DEFAULT_BASE_FEE as u64;
 		let price_1 = price_0 / 100 * (100 + DEFAULT_PRICE_STEP as u64);
@@ -114,7 +114,7 @@ fn spot_price_grows_with_the_queue_depth() {
 
 #[test]
 fn place_order_respects_max_amount() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_noop!(
 			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_BASE_FEE as u64 - 1),
 			Error::<Test>::SpotPriceHigherThanMaxAmount
@@ -125,7 +125,7 @@ fn place_order_respects_max_amount() {
 
 #[test]
 fn place_order_fails_once_the_order_cap_is_reached() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		set_order_cap(1);
 		assert_ok!(OnDemand::place_order(
 			RuntimeOrigin::signed(ALICE),
@@ -141,7 +141,7 @@ fn place_order_fails_once_the_order_cap_is_reached() {
 
 #[test]
 fn place_order_fails_when_no_cores_in_pool() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		MockCorePool::set_pool_cores(0);
 		assert_noop!(
 			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE / 2),
@@ -152,7 +152,7 @@ fn place_order_fails_when_no_cores_in_pool() {
 
 #[test]
 fn enable_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// On-demand Coretime is not sold until it is enabled.
 		Enabled::<Test>::kill();
 		assert!(!<OnDemand as OnDemandRevenue<_, _>>::is_enabled());
@@ -174,7 +174,7 @@ fn enable_works() {
 
 #[test]
 fn place_order_fails_until_enabled() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		Enabled::<Test>::kill();
 		assert_noop!(
 			OnDemand::place_order(RuntimeOrigin::signed(ALICE), 2000, DEFAULT_ACCOUNT_BALANCE / 2),
@@ -192,7 +192,7 @@ fn place_order_fails_until_enabled() {
 
 #[test]
 fn the_queue_estimate_drains_over_relay_chain_blocks() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		for _ in 0..3 {
 			assert_ok!(OnDemand::place_order(
 				RuntimeOrigin::signed(ALICE),
@@ -221,7 +221,7 @@ fn the_queue_estimate_drains_over_relay_chain_blocks() {
 
 #[test]
 fn the_pending_batch_is_forwarded_to_the_relay_chain_on_finalize() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		assert_ok!(OnDemand::place_order(
 			RuntimeOrigin::signed(ALICE),
 			2000,
@@ -246,7 +246,7 @@ fn the_pending_batch_is_forwarded_to_the_relay_chain_on_finalize() {
 
 #[test]
 fn configure_works() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let config = PriceParameters {
 			order_cap: 10,
 			drain_rate_per_block: 2,
@@ -305,7 +305,7 @@ fn unclaimed() -> Vec<(u32, u64)> {
 
 #[test]
 fn revenue_is_booked_against_the_timeslice_of_the_order() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// The first and last Relay-chain blocks of timeslice 0, and the first one of timeslice 1.
 		let first = place_order_at(0);
 		let second = place_order_at(TIMESLICE_PERIOD - 1);
@@ -317,7 +317,7 @@ fn revenue_is_booked_against_the_timeslice_of_the_order() {
 
 #[test]
 fn claim_revenue_pays_out_the_given_and_all_earlier_timeslices() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let in_0 = place_order_at(0);
 		let in_2 = place_order_at(2 * TIMESLICE_PERIOD);
 		let in_3 = place_order_at(3 * TIMESLICE_PERIOD);
@@ -344,7 +344,7 @@ fn claim_revenue_pays_out_the_given_and_all_earlier_timeslices() {
 
 #[test]
 fn the_oldest_unclaimed_revenue_is_merged_into_the_next_oldest_once_the_history_is_full() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let revenue: Vec<_> = (0..=MAX_UNCLAIMED_TIMESLICES)
 			.map(|when| place_order_at(when * TIMESLICE_PERIOD))
 			.collect();
@@ -365,19 +365,22 @@ fn the_oldest_unclaimed_revenue_is_merged_into_the_next_oldest_once_the_history_
 
 #[test]
 fn revenue_for_an_earlier_timeslice_is_booked_against_that_timeslice() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let in_0 = place_order_at(0);
 		let in_2 = place_order_at(2 * TIMESLICE_PERIOD);
 		let more_in_0 = place_order_at(0);
 		let in_1 = place_order_at(TIMESLICE_PERIOD);
 
 		assert_eq!(unclaimed(), vec![(2, in_2), (1, in_1), (0, in_0 + more_in_0)]);
+
+		// The Relay chain never moves back in time, so it is back in timeslice 2 at the end.
+		set_relay_block_number(2 * TIMESLICE_PERIOD);
 	});
 }
 
 #[test]
 fn revenue_for_an_earlier_timeslice_is_merged_correctly_into_a_full_history() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		// Fill the history with timeslices 2, 4, 6.
 		let mut revenue: Vec<_> = (1..=MAX_UNCLAIMED_TIMESLICES)
 			.map(|i| place_order_at(2 * i * TIMESLICE_PERIOD))
@@ -394,12 +397,15 @@ fn revenue_for_an_earlier_timeslice_is_merged_correctly_into_a_full_history() {
 			unclaimed(),
 			vec![(6, revenue[0]), (4, revenue[1]), (3, in_3 + revenue[2] + in_1)]
 		);
+
+		// The Relay chain never moves back in time, so it is back in timeslice 6 at the end.
+		set_relay_block_number(2 * MAX_UNCLAIMED_TIMESLICES * TIMESLICE_PERIOD);
 	});
 }
 
 #[test]
 fn the_weight_of_a_claim_depends_on_the_number_of_timeslices_claimed() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		place_order_at(0);
 		place_order_at(TIMESLICE_PERIOD);
 		place_order_at(2 * TIMESLICE_PERIOD);
@@ -414,7 +420,7 @@ fn the_weight_of_a_claim_depends_on_the_number_of_timeslices_claimed() {
 
 #[test]
 fn claiming_revenue_keeps_the_pot_alive() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let pot = OnDemand::account_id();
 		let revenue = place_order_at(0);
 		assert_eq!(Balances::balance(&pot), EXISTENTIAL_DEPOSIT + revenue);
@@ -427,7 +433,7 @@ fn claiming_revenue_keeps_the_pot_alive() {
 
 #[test]
 fn only_revenue_which_can_be_paid_in_full_is_claimed_oldest_first() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let pot = OnDemand::account_id();
 		let in_0 = place_order_at(0);
 		let in_1 = place_order_at(TIMESLICE_PERIOD);
@@ -463,7 +469,7 @@ fn only_revenue_which_can_be_paid_in_full_is_claimed_oldest_first() {
 
 #[test]
 fn an_unendowed_pot_holds_back_the_revenue_it_cannot_pay_out_while_staying_alive() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let pot = OnDemand::account_id();
 		// Take away the endowment, so that the pot holds nothing but the revenue of the orders.
 		Balances::set_balance(&pot, 0);
@@ -485,7 +491,7 @@ fn an_unendowed_pot_holds_back_the_revenue_it_cannot_pay_out_while_staying_alive
 
 #[test]
 fn claiming_revenue_with_nothing_to_claim_is_a_no_op() {
-	new_test_ext().execute_with(|| {
+	build_and_execute(|| {
 		let revenue = place_order_at(TIMESLICE_PERIOD);
 		let before = Balances::balance(&BOB);
 

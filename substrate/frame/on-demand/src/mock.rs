@@ -172,6 +172,14 @@ pub const DEFAULT_ACCOUNT_BALANCE: u64 = DEFAULT_BASE_FEE as u64 * 1000;
 /// The existential deposit of the mock runtime's balances pallet.
 pub const EXISTENTIAL_DEPOSIT: u64 = 1;
 
+/// Run `test` in fresh externalities, then check the pallet's invariants.
+pub fn build_and_execute(test: impl FnOnce()) {
+	new_test_ext().execute_with(|| {
+		test();
+		OnDemand::do_try_state().expect("the pallet's invariants hold");
+	});
+}
+
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	set_relay_block_number(0);
 	QUEUED_BATCHES.with(|b| b.borrow_mut().clear());

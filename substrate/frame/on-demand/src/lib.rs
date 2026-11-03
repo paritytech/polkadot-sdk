@@ -307,6 +307,11 @@ pub mod pallet {
 				batch.into_iter().map(|order| (order.para_id, order.ordered_at)).collect(),
 			);
 		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
+		}
 	}
 
 	#[pallet::call(weight(<T as Config>::WeightInfo))]
@@ -365,6 +370,38 @@ pub mod pallet {
 				Self::deposit_event(Event::<T>::Enabled);
 			}
 			Ok(Pays::No.into())
+		}
+	}
+
+	#[cfg(any(feature = "try-runtime", test))]
+	impl<T: Config> Pallet<T> {
+		/// Check the invariants of the pallet's storage.
+		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+			let revenue = Revenue::<T>::get();
+
+			// The revenue is booked newest first, with one record per timeslice.
+			ensure!(
+				revenue.windows(2).all(|pair| pair[0].when > pair[1].when),
+				"The unclaimed revenue is not ordered newest first, one record per timeslice"
+			);
+
+			// No revenue is booked for the future.
+			let now = T::RelayBlockNumberProvider::current_block_number();
+			let current: Timeslice = (now / T::TimeslicePeriod::get()).saturated_into();
+			ensure!(
+				revenue.first().map_or(true, |record| record.when <= current),
+				"Revenue is booked against a timeslice which has not started yet"
+			);
+
+			// The pot holds the revenue booked. If it does not, the revenue is held back until the
+			// pot is topped up.
+			let booked = revenue.iter().fold(BalanceOf::<T>::zero(), |booked, record| {
+				booked.saturating_add(record.amount)
+			});
+			let reducible = T::Currency::reducible_balance(&Self::account_id(), Preserve, Polite);
+			ensure!(reducible >= booked, "The pot holds less than can be paid out as revenue");
+
+			Ok(())
 		}
 	}
 
