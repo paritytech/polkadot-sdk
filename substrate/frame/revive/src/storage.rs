@@ -455,10 +455,8 @@ impl<T: Config> ContractInfo<T> {
 			return Err(Error::<T>::DuplicateContract.into());
 		}
 
-		// Reject reuse of an address whose previous occupant still has unflushed
-		// `NativeDepositOf` rows in the deletion queue. The on_idle drain will eventually
-		// clear them; until it does, instantiating here would let the new contract inherit
-		// stale per-payer entitlements.
+		// Reject reuse of an address whose previous occupant still has `NativeDepositOf` rows
+		// that the deletion queue has not cleared yet. `DeletionQueueItem` explains why.
 		let account_id = T::AddressMapper::to_fallback_account_id(address);
 		if NativeDepositOf::<T>::iter_prefix(&account_id).next().is_some() {
 			return Err(Error::<T>::PendingDepositCleanup.into());
@@ -716,17 +714,21 @@ impl<T: Config> ContractInfo<T> {
 			let Some(after_entry) = remaining.checked_sub(&weight_per_entry) else { break };
 			remaining = after_entry;
 
-			// Phase 1: drain `NativeDepositOf` rows for this contract.
-			let key_budget = key_budget_for(remaining, weight_per_native_key);
-			if key_budget == 0 {
-				break;
-			}
-			let result =
-				NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
-			remaining = remaining
-				.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
-			if result.maybe_cursor.is_some() {
-				break;
+			// Phase 1: drain `NativeDepositOf` rows for this contract. Skipped while a contract is
+			// live at the address, because the rows then belong to it. See `DeletionQueueItem`.
+			let address = T::AddressMapper::to_address(&entry.value.account_id);
+			if !AccountInfo::<T>::is_contract(&address) {
+				let key_budget = key_budget_for(remaining, weight_per_native_key);
+				if key_budget == 0 {
+					break;
+				}
+				let result =
+					NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
+				remaining = remaining
+					.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
+				if result.maybe_cursor.is_some() {
+					break;
+				}
 			}
 
 			// Phase 2: kill the child trie.
@@ -838,6 +840,13 @@ pub struct DeletionQueueManager<T: Config> {
 /// Holds the data needed to drain both the contract's [`NativeDepositOf`] rows and its child
 /// trie. Cleanup runs in two phases per batch (native rows first, then the trie); the entry
 /// stays in the queue until both phases have finished for it.
+///
+/// The native rows are keyed by `account_id`, the fallback account of the address, which every
+/// contract created at that address shares. [`ContractInfo::new`] refuses to create a contract
+/// at an address that still has rows, so a new contract cannot inherit the per-payer
+/// entitlements of a terminated one. Once a contract is live at the address again, every row
+/// under `account_id` belongs to it. Therefore the first phase only runs while no contract is
+/// live at the address; otherwise only the child trie is removed.
 #[derive(Encode, Decode, TypeInfo, MaxEncodedLen, CloneNoBound, DebugNoBound, PartialEq, Eq)]
 #[scale_info(skip_type_params(T))]
 pub struct DeletionQueueItem<T: Config> {
