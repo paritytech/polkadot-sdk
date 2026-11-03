@@ -376,7 +376,7 @@ pub mod pallet {
 
 	/// Per-sender window of recently committed `StreamsRoot`s for speculative messaging, newest
 	/// last, at most [`MAX_PROVIDES_WINDOW_SIZE`]. A receiver's `Requires` matches a root in it.
-	/// Reverted with the chain, cleared on a dispute freeze, dropped when the sender offboards.
+	/// Reverted with the chain, dropped when the sender offboards.
 	/// Not cleared by a forced head update (`force_set_current_head`, `force_note_new_head`): that
 	/// is a Root recovery, and undoing what receivers already consumed is an off-chain runbook
 	/// step.
@@ -999,14 +999,6 @@ impl<T: Config> Pallet<T> {
 			// Appending at `len` never fails; a full window evicts its oldest root.
 			let _evicted = window.force_insert_keep_right(window.len(), root);
 		});
-	}
-
-	/// Clear every window, on a dispute freeze. A finalized invalid candidate cannot be reverted,
-	/// so its root would otherwise outlive `force_unfreeze`. Windows refill as senders provide
-	/// again. Returns the weight of the removals.
-	pub(crate) fn clear_provides() -> Weight {
-		let removed = RecentProvides::<T>::clear(u32::MAX, None);
-		T::DbWeight::get().reads_writes(removed.loops as u64, removed.unique as u64)
 	}
 
 	pub(crate) fn relay_dispatch_queue_size(para_id: ParaId) -> (u32, u32) {
