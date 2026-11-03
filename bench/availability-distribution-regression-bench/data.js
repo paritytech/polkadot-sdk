@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793672498654,
+  "lastUpdate": 1793690583086,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "14ed925742ea797129c824531c24d4982a08d8d2",
-          "message": "[DAP] V2 Migration bootstraps drip (#11809)\n\n## Context\nThe DAP V2 migration seeded `LastIssuanceTimestamp` to a point in the\npast (active era start) so the next regular drip would credit elapsed\ntime back to that point. That elapsed is then clamped\nby`MaxElapsedPerDrip`, so only up to one cap's worth of inflation is\nactually credited on the first drip, and the rest is silently dropped.\n\n## Fix\nThis migration now performs a one-shot catch-up drip for the full\n`[last_inflation, now]` window and seeds `LastIssuanceTimestamp` to\n`now`, so regular drips start a fresh cadence from this point. The one\nshot inflation is also clamped by Max Era Length to avoid over\ninflation.",
-          "timestamp": "2026-04-17T11:41:42Z",
-          "tree_id": "9d7667fc16ca9573adbf260d571392cafc5ef5e3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/14ed925742ea797129c824531c24d4982a08d8d2"
-        },
-        "date": 1776433860996,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009954387646666639,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14250090170000004,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.025644212106666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007130711106666664,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-store",
             "value": 0.14481482136000007,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73991674+Nathy-bajo@users.noreply.github.com",
+            "name": "Nathaniel Bajo",
+            "username": "Nathy-bajo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "4fac30fa6fe3328ab5ed4f971288682d53069cd2",
+          "message": "[pallet-revive] Exact pro rata storage deposit refunds (#13204)\n\nCloses #12692\n\nStorage refunds are now `deposit * removed / stored` in exact integer\narithmetic, rounded down. The old `FixedU128` ratio could refund one\nunit too little (3 bytes with deposit 3, one removed: 0 before, 1 now).\n\nNetting is unchanged and now documented on `Diff::update_contract`. No\nmigration is needed.",
+          "timestamp": "2026-11-03T05:47:59Z",
+          "tree_id": "872e4e923ebfa9c339099b522d2631dee1ed9bc7",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fac30fa6fe3328ab5ed4f971288682d53069cd2"
+        },
+        "date": 1793690548219,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.1459297290066668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.025084874600000005,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009986325239999958,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007937837553333332,
             "unit": "seconds"
           }
         ]
