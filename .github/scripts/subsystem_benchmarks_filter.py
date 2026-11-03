@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Report whether a PR affects the subsystem benchmarks; never skip their execution."""
+"""Select subsystem benchmarks for PRs, running the full suite when inputs are uncertain."""
 
 import argparse
 import json
@@ -26,8 +26,8 @@ EXTRA_INPUTS = ("substrate/test-utils/runtime/res/",)
 GLOBAL_FILES = {"Cargo.toml", "Cargo.lock", "rust-toolchain", "rust-toolchain.toml"}
 
 
-def result(would_run, reason, **details):
-	return {"mode": "report-only", "would_run": would_run, "reason": reason, **details}
+def result(run_benchmarks, reason, **details):
+	return {"run_benchmarks": run_benchmarks, "reason": reason, **details}
 
 
 def package_owner(path, packages):
@@ -117,7 +117,7 @@ def dependency_coverage(root, roots=BENCHMARK_PACKAGES):
 
 
 def decide(root, changed_paths, event_name="pull_request"):
-	"""Unknown inputs and graph errors propose running the full suite."""
+	"""Unknown inputs and graph errors run the full suite."""
 	if event_name != "pull_request":
 		return result(True, "full suite for non-PR events")
 	paths = sorted(set(changed_paths))
@@ -212,12 +212,15 @@ def main():
 	print(json.dumps(report, indent=2))
 	if os.environ.get("GITHUB_STEP_SUMMARY"):
 		with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a") as summary:
-			summary.write("## Subsystem benchmark filter: report only\n\n")
-			summary.write("All five benchmark jobs still run regardless of this decision.\n\n")
-			summary.write(f"Proposed decision: **{'RUN' if report['would_run'] else 'SKIP'}**\n\n")
+			summary.write("## Subsystem benchmark selection\n\n")
+			summary.write(f"Decision: **{'RUN' if report['run_benchmarks'] else 'SKIP'}**\n\n")
 			summary.write(f"Reason: {report['reason']}.\n")
 			if "dependency_count" in report:
 				summary.write(f"\nLocal crates covered: {report['dependency_count']}.\n")
+	# Publish the decision last; incomplete execution must not authorize skipping.
+	if os.environ.get("GITHUB_OUTPUT"):
+		with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
+			output.write(f"run_benchmarks={str(report['run_benchmarks']).lower()}\n")
 
 
 if __name__ == "__main__":

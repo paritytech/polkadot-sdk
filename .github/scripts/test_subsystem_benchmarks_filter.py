@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Conservative dependency and actual-merge-context tests for the report-only selector."""
+"""Conservative dependency and actual-merge-context tests for the benchmark selector."""
 
 import json
 import os
@@ -72,13 +72,13 @@ class DependencyTests(unittest.TestCase):
 		):
 			with self.subTest(package=package):
 				answer = selector.decide(self.root, [package + "/src/lib.rs"])
-				self.assertTrue(answer["would_run"])
+				self.assertTrue(answer["run_benchmarks"])
 				self.assertEqual(answer["reason"], "dependency changed")
 
 	def test_unrelated_crates_and_transitive_dev_dependencies_can_skip(self):
 		for package in ("unrelated", "transitive-dev", "shared/independent"):
 			with self.subTest(package=package):
-				self.assertFalse(selector.decide(self.root, [package + "/src/lib.rs"])["would_run"])
+				self.assertFalse(selector.decide(self.root, [package + "/src/lib.rs"])["run_benchmarks"])
 
 	def test_global_inputs_always_run(self):
 		for path in (
@@ -86,50 +86,50 @@ class DependencyTests(unittest.TestCase):
 			"unrelated/Cargo.toml", ".github/env", ".cargo/config.toml", ".config/test.toml",
 		):
 			with self.subTest(path=path):
-				self.assertTrue(selector.decide(self.root, [path])["would_run"])
+				self.assertTrue(selector.decide(self.root, [path])["run_benchmarks"])
 
 	def test_documentation_and_prdoc_can_skip(self):
 		answer = selector.decide(
 			self.root, ["docs/guide.md", "docs/diagram.mmd", "docs/image.png", "prdoc/pr_1.prdoc"]
 		)
-		self.assertFalse(answer["would_run"])
+		self.assertFalse(answer["run_benchmarks"])
 
 	def test_unknown_code_and_other_inputs_under_docs_run(self):
 		for path in ("docs/new-input.rs", "docs/build.sh", "docs/image.svg"):
 			with self.subTest(path=path):
 				answer = selector.decide(self.root, ["docs/guide.md", path])
-				self.assertTrue(answer["would_run"])
+				self.assertTrue(answer["run_benchmarks"])
 				self.assertEqual(answer["reason"], "unknown input")
 
 	def test_code_under_docs_uses_dependency_coverage(self):
 		path = "docs/sdk/src/lib.rs"
-		self.assertFalse(selector.decide(self.root, [path])["would_run"])
+		self.assertFalse(selector.decide(self.root, [path])["run_benchmarks"])
 		with (self.root / "bench0/Cargo.toml").open("a") as manifest:
 			manifest.write('docs = { path = "../docs/sdk", package = "docs-sdk" }\n')
 		answer = selector.decide(self.root, [path])
-		self.assertTrue(answer["would_run"])
+		self.assertTrue(answer["run_benchmarks"])
 		self.assertEqual(answer["reason"], "dependency changed")
 
 	def test_cross_crate_fixtures_run(self):
 		path = "substrate/test-utils/runtime/res/default_genesis_config.json"
-		self.assertTrue(selector.decide(self.root, [path])["would_run"])
+		self.assertTrue(selector.decide(self.root, [path])["run_benchmarks"])
 
 	def test_unknown_or_unsafe_inputs_run(self):
 		for path in ("new-root-input.rs", "../outside.rs", "/absolute.rs"):
 			with self.subTest(path=path):
-				self.assertTrue(selector.decide(self.root, [path])["would_run"])
+				self.assertTrue(selector.decide(self.root, [path])["run_benchmarks"])
 
 	def test_missing_or_malformed_dependency_runs(self):
 		(self.root / "leaf/Cargo.toml").unlink()
-		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["would_run"])
+		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["run_benchmarks"])
 		(self.root / "leaf/Cargo.toml").write_text("invalid [ toml")
-		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["would_run"])
+		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["run_benchmarks"])
 
 	def test_dependency_outside_repository_runs(self):
 		with (self.root / "bench0/Cargo.toml").open("a") as manifest:
 			manifest.write('outside = { path = "../../outside" }\n')
 		answer = selector.decide(self.root, ["unrelated/lib.rs"])
-		self.assertTrue(answer["would_run"])
+		self.assertTrue(answer["run_benchmarks"])
 		self.assertEqual(answer["reason"], "dependency graph unavailable")
 
 	def test_explicit_sources_outside_their_package_run(self):
@@ -142,7 +142,7 @@ class DependencyTests(unittest.TestCase):
 						original + f'\n{table}\nname = "input"\npath = "../unrelated/input.rs"\n'
 					)
 					answer = selector.decide(self.root, ["unrelated/input.rs"])
-					self.assertTrue(answer["would_run"])
+					self.assertTrue(answer["run_benchmarks"])
 					self.assertEqual(answer["reason"], "dependency graph unavailable")
 			manifest.write_text(original)
 
@@ -157,26 +157,23 @@ class DependencyTests(unittest.TestCase):
 			with self.subTest(manifest=content):
 				manifest.write_text(content)
 				answer = selector.decide(self.root, ["unrelated/lib.rs"])
-				self.assertTrue(answer["would_run"])
+				self.assertTrue(answer["run_benchmarks"])
 				self.assertEqual(answer["reason"], "dependency graph unavailable")
 
 	def test_custom_sources_inside_their_package_allow_unrelated_changes(self):
 		manifest = self.root / "shared/Cargo.toml"
 		content = manifest.read_text().replace('[package]', '[package]\nbuild = "build/main.rs"')
 		manifest.write_text(content + '\n[lib]\npath = "custom/lib.rs"\n')
-		self.assertFalse(selector.decide(self.root, ["unrelated/lib.rs"])["would_run"])
+		self.assertFalse(selector.decide(self.root, ["unrelated/lib.rs"])["run_benchmarks"])
 
 	def test_unsupported_workspace_globs_run(self):
 		(self.root / "Cargo.toml").write_text('[workspace]\nmembers = ["bench*"]\n')
-		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["would_run"])
+		self.assertTrue(selector.decide(self.root, ["unrelated/lib.rs"])["run_benchmarks"])
 
 	def test_non_pr_events_always_run(self):
 		for event in ("push", "merge_group", "workflow_dispatch"):
 			with self.subTest(event=event):
-				self.assertTrue(selector.decide(self.root, [], event)["would_run"])
-
-	def test_mode_is_always_report_only(self):
-		self.assertEqual(selector.decide(self.root, ["unrelated/lib.rs"])["mode"], "report-only")
+				self.assertTrue(selector.decide(self.root, [], event)["run_benchmarks"])
 
 
 class MergeContextTests(unittest.TestCase):
@@ -218,7 +215,7 @@ class MergeContextTests(unittest.TestCase):
 		self.assertEqual(set(paths), {"shared/old.rs", "unrelated/new.rs"})
 		self.assertEqual(checkout, self.checkout)
 		self.assertEqual(base, self.base)
-		self.assertTrue(selector.decide(self.root, paths)["would_run"])
+		self.assertTrue(selector.decide(self.root, paths)["run_benchmarks"])
 
 	def test_sparse_checkout_preserves_changes_to_excluded_files(self):
 		self.git("sparse-checkout", "set", "--no-cone", "**/Cargo.toml")
@@ -227,7 +224,7 @@ class MergeContextTests(unittest.TestCase):
 		with patch.dict(os.environ, {"GITHUB_SHA": self.checkout}):
 			paths, _, _ = selector.pull_request_changes(self.root, payload=self.payload)
 		self.assertEqual(set(paths), {"shared/old.rs", "unrelated/new.rs"})
-		self.assertTrue(selector.decide(self.root, paths)["would_run"])
+		self.assertTrue(selector.decide(self.root, paths)["run_benchmarks"])
 
 	def test_wrong_base_or_head_is_rejected(self):
 		for field in ("base", "head"):
@@ -249,7 +246,7 @@ class MergeContextTests(unittest.TestCase):
 			env=environment, text=True,
 		)
 		answer = json.loads(output)
-		self.assertTrue(answer["would_run"])
+		self.assertTrue(answer["run_benchmarks"])
 		self.assertEqual(answer["reason"], "pull-request context unavailable")
 
 	def test_malformed_event_context_reports_run(self):
@@ -263,7 +260,74 @@ class MergeContextTests(unittest.TestCase):
 					["python3", selector.__file__, "--repo", str(self.root),
 					 "--event", "pull_request"], env=environment, text=True,
 				)
-				self.assertTrue(json.loads(output)["would_run"])
+				self.assertTrue(json.loads(output)["run_benchmarks"])
+
+	def unrelated_merge(self):
+		self.git("checkout", "-q", "-b", "unrelated-change", self.base)
+		(self.root / "unrelated/lib.rs").write_text("pub fn unrelated() {}\n")
+		self.commit("unrelated change")
+		self.head = self.git("rev-parse", "HEAD").strip()
+		self.git("checkout", "-q", "--detach", self.base)
+		self.git("merge", "--no-ff", "--no-commit", "unrelated-change")
+		self.commit("unrelated synthetic merge")
+		self.checkout = self.git("rev-parse", "HEAD").strip()
+		self.payload["pull_request"]["head"]["sha"] = self.head
+
+	def run_cli(self, event_name="pull_request", broken_summary=False):
+		event = self.root / "event.json"
+		event.write_text(json.dumps(self.payload))
+		output = self.root / "github-output"
+		output.write_text("")
+		summary = self.root if broken_summary else self.root / "summary.md"
+		environment = {k: v for k, v in os.environ.items() if not k.startswith("GITHUB_")}
+		environment.update(
+			GITHUB_EVENT_NAME=event_name, GITHUB_EVENT_PATH=str(event),
+			GITHUB_SHA=self.checkout, GITHUB_OUTPUT=str(output),
+			GITHUB_STEP_SUMMARY=str(summary),
+		)
+		process = subprocess.run(
+			["python3", selector.__file__, "--repo", str(self.root)],
+			env=environment, text=True, capture_output=True,
+		)
+		return process, output.read_text(), summary
+
+	def test_cli_publishes_skip_for_unrelated_merge(self):
+		self.unrelated_merge()
+		process, output, summary = self.run_cli()
+		self.assertEqual(process.returncode, 0, process.stderr)
+		self.assertFalse(json.loads(process.stdout)["run_benchmarks"])
+		self.assertEqual(output, "run_benchmarks=false\n")
+		self.assertIn("Decision: **SKIP**", summary.read_text())
+
+	def test_cli_publishes_run_for_affected_merge(self):
+		process, output, summary = self.run_cli()
+		self.assertEqual(process.returncode, 0, process.stderr)
+		self.assertTrue(json.loads(process.stdout)["run_benchmarks"])
+		self.assertEqual(output, "run_benchmarks=true\n")
+		self.assertIn("Decision: **RUN**", summary.read_text())
+
+	def test_cli_invalid_context_publishes_run(self):
+		self.unrelated_merge()
+		self.payload["pull_request"]["base"]["sha"] = "0" * 40
+		process, output, _ = self.run_cli()
+		self.assertEqual(process.returncode, 0, process.stderr)
+		self.assertEqual(output, "run_benchmarks=true\n")
+		self.assertEqual(json.loads(process.stdout)["reason"], "pull-request context unavailable")
+
+	def test_cli_non_pr_events_publish_run(self):
+		self.unrelated_merge()
+		for event in ("push", "merge_group"):
+			with self.subTest(event=event):
+				process, output, _ = self.run_cli(event_name=event)
+				self.assertEqual(process.returncode, 0, process.stderr)
+				self.assertEqual(output, "run_benchmarks=true\n")
+
+	def test_cli_failure_does_not_publish_skip(self):
+		self.unrelated_merge()
+		process, output, _ = self.run_cli(broken_summary=True)
+		self.assertNotEqual(process.returncode, 0)
+		self.assertFalse(json.loads(process.stdout)["run_benchmarks"])
+		self.assertEqual(output, "")
 
 
 class WorkflowContractTests(unittest.TestCase):

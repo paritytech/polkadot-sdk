@@ -1,16 +1,14 @@
-title: Add report-only Subsystem Benchmarks filtering
+title: Skip unaffected Subsystem Benchmarks on pull requests
 
 doc:
   - audience: Node Dev
     description: |
-      Add an independent CI job that reports whether a pull request affects the five
-      Subsystem Benchmarks through local Cargo dependencies or shared build inputs.
-      Run reporting only for pull requests, with a sparse checkout of its inputs.
-      The selector verifies the actual CI merge checkout and proposes a full run for
-      unknown inputs, source paths outside their owning crate, or errors.
+      Skip the five Subsystem Benchmarks when a pull request changes no modeled
+      benchmark inputs. Select using local Cargo dependencies and shared build inputs,
+      with a sparse checkout and verification of the actual CI merge commit.
+      Run the full suite for unknown inputs, source paths outside their owning crate,
+      selector failures, or missing outputs. Preserve cancellation and preflight checks.
       Match shared preflight's documentation exclusions while treating code under
-      docs/ as a build input. Reporting runs even when preflight excludes a change.
-      All five benchmark jobs continue to run regardless of the report.
-      The change includes regression tests and rollout documentation;
-      it does not enable skipping. No crates require publishing.
+      docs/ as a build input. Keep full benchmark runs on master and the merge queue.
+      Include regression tests and historical PR replay validation. No crates require publishing.
 crates: []
