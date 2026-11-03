@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793719298010,
+  "lastUpdate": 1793741683077,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -252095,6 +252095,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2427947719,
             "range": "± 91342240",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d40d771c2117b597258dbf3a1012b7a7051fc836",
+          "message": "ci: follow-up to #13611 (#13700)\n\n- tests.yml had no aggregate job, so quick-benchmarks was a required\ncheck with the changes_rust guard on it. The new job \"All quick tests\npassed\" gives the workflow the same shape as the other twelve.\n- reusable-preflight.yml: the output changes_currentWorkflow goes away,\nbecause no workflow reads it. The filter group gets the name sharedCi,\nwhich matches what it holds after #13611. A dead line that set\ncurrentActionDir goes away. Two glob patterns get the **/* form that the\nfile uses elsewhere.",
+          "timestamp": "2026-11-03T19:20:53Z",
+          "tree_id": "ea5c0b84ae37420a20e7054438247ccb607c4127",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d40d771c2117b597258dbf3a1012b7a7051fc836"
+        },
+        "date": 1793741636995,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4655343,
+            "range": "± 63075",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 344298,
+            "range": "± 4872",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4443293,
+            "range": "± 46555",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 424246,
+            "range": "± 4666",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5604993,
+            "range": "± 66037",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 1004396,
+            "range": "± 9174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 11953359,
+            "range": "± 172381",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5451398,
+            "range": "± 50850",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 50173205,
+            "range": "± 835377",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 42206499,
+            "range": "± 601386",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 397644241,
+            "range": "± 5847714",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 334650701,
+            "range": "± 3455536",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2903281327,
+            "range": "± 35463029",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2502569485,
+            "range": "± 33210116",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3927787,
+            "range": "± 49556",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2168645,
+            "range": "± 16517",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 4292117,
+            "range": "± 54301",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2229572,
+            "range": "± 20271",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4691450,
+            "range": "± 121289",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2384224,
+            "range": "± 26367",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8497134,
+            "range": "± 70754",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5740030,
+            "range": "± 50886",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 42167545,
+            "range": "± 593688",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 39940898,
+            "range": "± 576320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 337522215,
+            "range": "± 5065849",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 291399029,
+            "range": "± 1698046",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2632191375,
+            "range": "± 46078503",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2531925208,
+            "range": "± 87629803",
             "unit": "ns/iter"
           }
         ]
