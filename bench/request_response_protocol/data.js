@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793700993501,
+  "lastUpdate": 1793719351437,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141047,6 +141047,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2784206635,
             "range": "± 27136879",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "94361101f96f0d6ff0991c37cdcbacc8447c7681",
+          "message": "pallet-revive: split the call and instantiate benchmarks by value transfer (#13342)\n\nThe `seal_call`, `seal_instantiate` and `evm_instantiate` benchmarks had\ncomponents for the value, the dust and the input size. The benchmark\ntool changes one component at a time and keeps the others at their\nmaximum, so it never ran an operation without value or dust, and that\nprice was extrapolated. The 3 benchmarks now send no value, and each\ngets a new benchmark with a value transfer: `seal_call_transfer`,\n`seal_instantiate_transfer` and `evm_instantiate_transfer`.\n\nOther changes:\n- The `seal_call` benchmark now measures the per-byte cost of cloning\nthe input with the `CLONE_INPUT` flag, about 150 picoseconds instead of\n3. Previously, it set the input with `CallSetup::set_data` but created\nthe runtime with an empty input, so it always cloned nothing.\n- `evm_instantiate` now starts at 1 byte of init code, and\n`call_with_evm_code_per_byte` goes up to `MAX_CODE_SIZE`.\n- An instantiate that sends only dust now pays the full transfer cost,\nas a call already does.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T13:58:12Z",
+          "tree_id": "38d1da4f95948917c7f2bc18c484a0c8333c2f3a",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/94361101f96f0d6ff0991c37cdcbacc8447c7681"
+        },
+        "date": 1793719323860,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19261495,
+            "range": "± 102152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19520934,
+            "range": "± 132589",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 20956175,
+            "range": "± 49230",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25239574,
+            "range": "± 155707",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 55676732,
+            "range": "± 399010",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 320888500,
+            "range": "± 3141152",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2459742250,
+            "range": "± 127259829",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16840415,
+            "range": "± 159270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16842705,
+            "range": "± 130265",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17331240,
+            "range": "± 68577",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21823703,
+            "range": "± 104195",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 56829171,
+            "range": "± 260533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 338098698,
+            "range": "± 1754571",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2561731256,
+            "range": "± 19788591",
             "unit": "ns/iter"
           }
         ]
