@@ -970,7 +970,7 @@ a state change that has already happened.
 #### Outgoing transfers
 
 Replaying a `TransferOut` (step 6) forwards it to JAM `transfer`. `deferred`
-selects between the two modes that host-call offers (Gray Paper, `transfer`):
+selects between the two modes that the host call offers (Gray Paper, `transfer`):
 
 | | `deferred = None` (plain move) | `deferred = Some((memo, gas))` |
 |---|---|---|
