@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793720424966,
+  "lastUpdate": 1793742082138,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "142614787+andreitrand@users.noreply.github.com",
-            "name": "Andrei Trandafir",
-            "username": "andreitrand"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "a9ffa03ac6738da49622d81a64a1bb4809911464",
-          "message": "Add token transfers via XCM to DAP from the satellites (#11434)\n\nPR https://github.com/paritytech/polkadot-sdk/pull/10597 introduces the\nDAP satellite for gathering funds on every system parachain. This PR\nadds the periodic transfer of the gathered funds to the central DAP on\nAH. A minimum balance is expected for a transfer to take place. Both the\nperiod (in blocks) and the minimum balance are configurable.\n\nClose #10596.\n\nChanges:\n- Inside `pallet-dap-satellite`, on every `on_idle`, a transfer is\nattempted if (1) sufficient funds have been gathered in the satellite's\naccount and (2) a number of blocks have elapsed since the last transfer\nattempt\n- The transfer is an XCM teleport, which handles the burning of funds at\nthe source and the minting at the destination; if a transfer fails, the\nburnt funds are re-minted at the source to maintain consistency\n- The interval of the transfers is not affected by a single transfer's\nsuccess or failure\n- The DAP pallet gets a dedicated *staging* account, where all funds get\ndeposited (including those previously deposited into the main DAP\naccount); on every `on_idle`, all funds are taken from the staging\naccount, deposited into the main DAP account and deactivated. The\nstaging account is pre-funded (with the ED) in the same way as the main\nDAP account.\n\nThis is a continuation of PR\nhttps://github.com/paritytech/polkadot-sdk/pull/11294.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T08:51:43Z",
-          "tree_id": "e1f94e9ac49161cc4e1577dbea7e5255bafe0413",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/a9ffa03ac6738da49622d81a64a1bb4809911464"
-        },
-        "date": 1776420861502,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.03799999999995,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038331819184,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07784146659599997,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038881321183999985,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d40d771c2117b597258dbf3a1012b7a7051fc836",
+          "message": "ci: follow-up to #13611 (#13700)\n\n- tests.yml had no aggregate job, so quick-benchmarks was a required\ncheck with the changes_rust guard on it. The new job \"All quick tests\npassed\" gives the workflow the same shape as the other twelve.\n- reusable-preflight.yml: the output changes_currentWorkflow goes away,\nbecause no workflow reads it. The filter group gets the name sharedCi,\nwhich matches what it holds after #13611. A dead line that set\ncurrentActionDir goes away. Two glob patterns get the **/* form that the\nfile uses elsewhere.",
+          "timestamp": "2026-11-03T19:20:53Z",
+          "tree_id": "ea5c0b84ae37420a20e7054438247ccb607c4127",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/d40d771c2117b597258dbf3a1012b7a7051fc836"
+        },
+        "date": 1793742037558,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.11600000000007,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03866248103999999,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08415802259999994,
             "unit": "seconds"
           }
         ]
