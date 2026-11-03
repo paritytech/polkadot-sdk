@@ -161,10 +161,13 @@ takes a provider reference on each pallet account (§3.2). Governance is
 required to set the metadata (symbol `JAMKB`, decimals 3) with
 `force_set_metadata`.
 
-Parachain state footprint is backed on the Coretime chain. JAMKB is teleported
-there, and the Coretime chain backs each parachain's footprint against what it
-holds. Teleported units leave Asset Hub's spendable supply and park in the XCM
-checking account.
+Parachain state footprint is backed on the Coretime chain. JAMKB moves there
+by reserve transfer, and the Coretime chain backs each parachain's footprint
+against what it holds. The units stay on Asset Hub in the Coretime chain's
+sovereign account. The Coretime chain never grants more quota than the JAMKB
+it holds, and lowers the quota before the units backing it leave, so a
+release cannot take the Parachain Service below what the parachains were
+promised.
 
 ### 3.2 `pallet-jamkb`
 
@@ -206,10 +209,10 @@ For voluntary return (§4.4) it receives each `incoming_transfers` bucket
 from parachain-system and books it. A valid beneficiary memo
 credits `Unclaimed`; a missing or malformed memo credits `Excess`.
 
-A transfer may land on the Parachain Service's supervisor balance. The pallet
-books it and queues a plain transfer moving the amount from the supervisor
-balance to the regular balance. It is queued before any operation that could
-use the units.
+A transfer may land on the Parachain Service's supervisor balance. For each
+bucket with such transfers, the pallet records one `Move` of their sum from
+the supervisor balance to the regular balance, and books them when the `Move`
+is confirmed.
 
 The pallet starts inactive. Governance verifies, against public JAM state at a
 defined block, that the Parachain Service balance and the balances of all
@@ -243,6 +246,8 @@ const MEMO_GAS: u64;
 const SETTLEMENT_WEIGHT: Weight;
 
 /// A code hash with no preimage; a target set to it cannot run (§4.3).
+///
+/// Used to prevent an uncooperative lease holder from executing again.
 const FROZEN_CODE_HASH: Hash = [0u8; 32];
 
 type AllocationId = u64;              // assigned from 1;
@@ -253,9 +258,11 @@ type ServiceId = u32;
 
 /// A JAM timeslot.
 type Timeslot = u32;
+/// An Asset Hub block number.
+type BlockNumber = u32;
 
 /// Added to the lease end (`reclaim`, §4.3).
-const GRACE_PERIOD: BlockNumber;
+const LEASE_GRACE_PERIOD: BlockNumber;
 
 /// The cap on a target's accepted leases: those in `Delivering`, `Delivered`
 /// or `Reclaiming`.
@@ -279,10 +286,12 @@ type Key = BoundedVec<u8, MAX_KEY_LEN>;
 /// The Asset Hub account associated with a JAM service.
 type ServiceAccounts = Map<ServiceId, AccountId>;
 
-/// Awaiting `claim`, per beneficiary (§4.4).
+/// Awaiting `claim`, per beneficiary (§4.4). Σ `Unclaimed` equals the balance
+/// of the `unclaimed` account.
 type Unclaimed = Map<AccountId, Balance>;
 
-/// Unattributed inflows, per source service (§4.4).
+/// Unattributed inflows, per source service (§4.4). Σ `Excess` equals the
+/// free balance of the `excess` account.
 type Excess = Map<ServiceId, Balance>;
 
 /// The frozen lease targets (§4.3).
@@ -293,6 +302,10 @@ struct Allocation {
     id: AllocationId,
     mode: AllocationMode,             // Lease { duration } | Permanent { memo }
     target: ServiceId,
+    /// Held by `pallet-assets-holder` while open: `Leased` on the approver,
+    /// `Releasing` on custody. The hold is released before the allocation is
+    /// dropped. An approver's `Leased` hold covers its open leases and their
+    /// unsettled `Increase`s.
     amount: Balance,
     state: AllocationState,
     delivered_at: Option<BlockNumber>,
@@ -300,7 +313,8 @@ struct Allocation {
                                       // A lease ends at
                                       // `delivered_at + duration`
     approver: Option<AccountId>,      // the signing account or contract;
-                                      // `None`: governance is the approver
+                                      // `None`: governance, for a permanent
+                                      // release
     valid_from: BlockNumber,          // `accept_lease` and `execute_release`
                                       // are rejected before this block
     expires_at: BlockNumber,          // `accept_lease` and `execute_release`
@@ -378,8 +392,9 @@ enum OperationPayload {
     ///
     /// Confirmed: `amount` is released from the hold and the allocation's
     /// amount falls by `amount`; a fully returned lease moves to `Closed`.
-    /// Failed: a `Reclaim` sent past the lease end and `GRACE_PERIOD` moves a
-    /// `Delivered` lease to `Reclaiming`; otherwise the lease keeps its state.
+    /// Failed: a `Reclaim` sent past the lease end and `LEASE_GRACE_PERIOD`
+    /// moves a `Delivered` lease to `Reclaiming`; otherwise the lease keeps
+    /// its state.
     Reclaim {
         allocation: AllocationId,
         amount: Balance,
@@ -446,13 +461,16 @@ enum OperationPayload {
     Unsupervise {
         target: ServiceId,
     },
-    /// A move of the Parachain Service's supervisor balance to its regular
-    /// balance (§3.2). One plain `TransferOut` between the two. It cannot
-    /// fail while the Parachain Service is its own supervisor.
+    /// A move of a bucket's transfers to the Parachain Service's supervisor
+    /// balance to its regular balance (§3.2). One plain `TransferOut` of their
+    /// sum between the two. It cannot fail while the Parachain Service is its
+    /// own supervisor and nothing else spends its supervisor balance (§7.6).
     ///
-    /// Confirmed: no further state change.
+    /// Confirmed: each transfer is booked (§4.4).
+    /// Failed: nothing is booked; the units stay in the `released` account,
+    /// as they stay on the supervisor balance.
     Move {
-        amount: Balance,
+        transfers: IncomingTransfers,
     },
     /// A refund of an incoming transfer to its source (`dispose_excess`).
     /// One deferred `TransferOut` from the Parachain Service's regular balance
@@ -531,7 +549,8 @@ enum Event {
     /// (§3.2).
     SettlementFailed { id: OperationId, error: DispatchError },
     /// An amount was booked (§4.4): unclaimed for `beneficiary`, or excess
-    /// when `beneficiary` is `None`, with the raw `memo` of the return.
+    /// when `beneficiary` is `None`, with the raw `memo` of the return. For a
+    /// transfer to the supervisor balance, when its `Move` is confirmed.
     ReturnBooked { source: ServiceId, amount: Balance, class: ReturnClass,
                    beneficiary: Option<AccountId>, memo: [u8; 128] },
     /// A beneficiary's unclaimed balance was claimed.
@@ -626,8 +645,8 @@ fn increase_lease(id: AllocationId, additional: Balance);
 fn extend_lease(id: AllocationId, duration: BlockNumber);
 
 /// Takes `amount` of the leased units back from the target. Origin: any
-/// signed account past the lease end and `GRACE_PERIOD`, or the target's
-/// service account at any time. Legal from `Delivered` and from
+/// signed account past the lease end and `LEASE_GRACE_PERIOD`, or the
+/// target's service account at any time. Legal from `Delivered` and from
 /// `Reclaiming`. Records a `Reclaim` operation for `amount`, capped at the
 /// allocation's `amount`.
 fn reclaim(id: AllocationId, amount: Balance);
@@ -696,7 +715,8 @@ fn claim(beneficiary: AccountId);
 /// `excess` account and records a `Refund` operation sending the units back to
 /// the `source` service's regular balance, with `memo` unchanged (§5.2); with
 /// `refund = false` it moves the units from the `excess` account to custody
-/// and `memo` is ignored.
+/// and `memo` is ignored. A refund cannot hold the last plank of the `excess`
+/// account.
 fn dispose_excess(source: ServiceId, amount: Balance, refund: bool,
                   memo: [u8; 128]);
 
@@ -875,16 +895,21 @@ The transport layer responsibilities:
 - `CleanUpBucketsUpTo` sent after the processed `incoming_transfers` buckets;
 - the Parachain Service balances delivered for drift detection;
 - a send queue within 1024 messages and 40 KiB per block, FIFO, with a
-  sharing policy between pallets;
-- gas accounting for the send queue messages: a limit on how much gas the
-  messages of one block cost, shared between pallets. Each deferred
-  `TransferOut` costs JAM's fixed transfer cost, `C_gasT` (Gray Paper), plus
-  the memo gas. The limit is large enough
-  for any single message, so every queued message is sent; messages that do
-  not fit in this block are sent in a later one;
-- a bound on the log entries not yet delivered: each message counts the
-  largest entry it can cause in `parachain_log` until the entries of its
-  block are delivered, and the messages of one operation are sent in one
+  sharing policy between pallets; a pallet's share fits any single
+  operation, a full `Cleanup` page included;
+- a delivery fee factor that grows geometrically with the queued size, as
+  `UpwardDeliveryFeeFactor` does for upward messages;
+- gas accounting for the send queue messages: the base cost and the
+  messages of one block fit the accumulate gas its work item declares,
+  shared between pallets; a block over it is skipped whole. Each message
+  costs its replay; a `TransferOut` adds `C_gasT` (Gray Paper), plus the
+  memo gas if deferred. The limit is large enough for any single operation,
+  so every queued message is sent; messages that do not fit in this block
+  are sent in a later one;
+- a bound on the log entries not yet pruned: each message counts the
+  largest `AccumulateLog` event it can cause, and each block its
+  `LogEntry::Accumulate`, until an Asset Hub block whose lookup-anchor is
+  past them is accepted; the messages of one operation are sent in one
   block; the total stays within the 64 KiB log, so no entry is evicted
   before Asset Hub reads it;
 
@@ -1090,7 +1115,9 @@ rest zero.
    creation and upgrade belong to a service registry pallet that does not
    exist. The recovery calls of §4.3 stay here: they apply their origin rule
    and the recovery deposit, then request through `ServiceRegistry`. The
-   registry is the only sender of service-management messages. It keeps one
+   registry is the only sender of service-management messages. It also
+   re-solicits a forgotten code preimage, so that a frozen target can be
+   restored by `unfreeze_target`. It keeps one
    pending request per service, takes its outcome from parachain-system, and
    reports it through `OnServiceEvent`. Before its own
    dispatchables send it asks
@@ -1264,3 +1291,9 @@ rest zero.
        ) -> Result<(), ()>;
    }
    ```
+
+8. **Transfer to Coretime.** The Coretime chain needs `pallet-assets` with a
+   JAMKB asset, its XCM config trusting Asset Hub as the JAMKB reserve, and a
+   call that returns units to Asset Hub after lowering the quota. The
+   Coretime sovereign account on Asset Hub and each parachain sovereign
+   account on Coretime need a DOT balance before the first deposit.
