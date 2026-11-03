@@ -18,7 +18,9 @@ BENCHMARK_PACKAGES = (
 	"polkadot-node-core-dispute-coordinator",
 )
 GLOBAL_PREFIXES = (".github/", ".cargo/", ".config/")
-IGNORED_PREFIXES = ("docs/", "prdoc/")
+IGNORED_PREFIXES = ("prdoc/",)
+# Match shared preflight: code under docs/ remains a build input.
+IGNORED_DOC_SUFFIXES = (".md", ".mmd", ".png")
 # Chain-spec unit tests include these across crate boundaries. Cover them conservatively.
 EXTRA_INPUTS = ("substrate/test-utils/runtime/res/",)
 GLOBAL_FILES = {"Cargo.toml", "Cargo.lock", "rust-toolchain", "rust-toolchain.toml"}
@@ -133,7 +135,9 @@ def decide(root, changed_paths, event_name="pull_request"):
 		for path in paths:
 			if path.startswith(EXTRA_INPUTS):
 				return result(True, "cross-crate fixture changed", input=path)
-			if path.startswith(IGNORED_PREFIXES):
+			if path.startswith(IGNORED_PREFIXES) or (
+				path.startswith("docs/") and path.endswith(IGNORED_DOC_SUFFIXES)
+			):
 				continue
 			owner = package_owner(path, known)
 			if owner is None:

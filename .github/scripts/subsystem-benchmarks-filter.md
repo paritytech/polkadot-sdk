@@ -9,6 +9,10 @@ Only PRs run the report job. Master pushes and merge queues retain their existin
 runs without an additional reporting runner. Sparse checkout includes all Cargo manifests, the
 selector and its tests, and this workflow; it does not materialize Rust source files.
 
+Shared preflight emits `changes_rust` as `'true'` or an empty string following #13611. Reporting
+does not use that output: it must still collect proposed decisions for excluded changes. The five
+benchmark jobs also retain their existing dependency on successful preflight, without a change gate.
+
 For PRs, checkout fetches two commits of history so both parents of the synthetic merge are
 available. The selector verifies the base and head from the event against those parents, then
 compares the actual checkout to its first parent. Rename detection is disabled to preserve both
@@ -20,8 +24,10 @@ optional dependencies, all targets and build dependencies. It includes developme
 of the benchmark roots, and conservatively includes local registry patches and known cross-crate
 fixtures. It does not resolve feature combinations. Any manifest, root lockfile, toolchain or CI
 configuration change proposes a full run. Files outside known packages also propose a full run;
-`docs/` and `prdoc/` are excluded. Unsupported graphs propose a full run, including explicit
-target or build-script paths outside their owning crate or inside a nested crate.
+`prdoc/` and files ending in `.md`, `.mmd` or `.png` under `docs/` are excluded, matching shared
+preflight. Code and other files under `docs/` use the same dependency checks as other build inputs;
+unknown inputs propose a full run. Unsupported graphs propose a full run, including explicit target
+or build-script paths outside their owning crate or inside a nested crate.
 
 Keep `BENCHMARK_PACKAGES` in the selector synchronized with the workflow matrix. The report job
 runs the contract and regression tests before emitting a proposed decision. The contract inspects

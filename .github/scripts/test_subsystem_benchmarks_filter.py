@@ -17,7 +17,7 @@ def make_workspace(root):
 	packages = {f"bench{i}": name for i, name in enumerate(selector.BENCHMARK_PACKAGES)}
 	for name in (
 		"shared", "shared/independent", "optional", "builder", "dev", "leaf",
-		"transitive-dev", "unrelated", "target", "patched",
+		"transitive-dev", "unrelated", "target", "patched", "docs/sdk",
 	):
 		packages[name] = name.replace("/", "-")
 	(root / "Cargo.toml").write_text(
@@ -89,8 +89,26 @@ class DependencyTests(unittest.TestCase):
 				self.assertTrue(selector.decide(self.root, [path])["would_run"])
 
 	def test_documentation_and_prdoc_can_skip(self):
-		answer = selector.decide(self.root, ["docs/guide.md", "prdoc/pr_1.prdoc"])
+		answer = selector.decide(
+			self.root, ["docs/guide.md", "docs/diagram.mmd", "docs/image.png", "prdoc/pr_1.prdoc"]
+		)
 		self.assertFalse(answer["would_run"])
+
+	def test_unknown_code_and_other_inputs_under_docs_run(self):
+		for path in ("docs/new-input.rs", "docs/build.sh", "docs/image.svg"):
+			with self.subTest(path=path):
+				answer = selector.decide(self.root, ["docs/guide.md", path])
+				self.assertTrue(answer["would_run"])
+				self.assertEqual(answer["reason"], "unknown input")
+
+	def test_code_under_docs_uses_dependency_coverage(self):
+		path = "docs/sdk/src/lib.rs"
+		self.assertFalse(selector.decide(self.root, [path])["would_run"])
+		with (self.root / "bench0/Cargo.toml").open("a") as manifest:
+			manifest.write('docs = { path = "../docs/sdk", package = "docs-sdk" }\n')
+		answer = selector.decide(self.root, [path])
+		self.assertTrue(answer["would_run"])
+		self.assertEqual(answer["reason"], "dependency changed")
 
 	def test_cross_crate_fixtures_run(self):
 		path = "substrate/test-utils/runtime/res/default_genesis_config.json"

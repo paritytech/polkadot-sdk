@@ -8,6 +8,8 @@ doc:
       Run reporting only for pull requests, with a sparse checkout of its inputs.
       The selector verifies the actual CI merge checkout and proposes a full run for
       unknown inputs, source paths outside their owning crate, or errors.
+      Match shared preflight's documentation exclusions while treating code under
+      docs/ as a build input. Reporting runs even when preflight excludes a change.
       All five benchmark jobs continue to run regardless of the report.
       The change includes regression tests and rollout documentation;
       it does not enable skipping. No crates require publishing.
