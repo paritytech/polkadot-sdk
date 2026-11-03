@@ -324,19 +324,22 @@ pub struct Client {
 	is_archive: bool,
 	/// Whether historic backfill has completed. `false` if not started or in progress.
 	backfill_complete: Arc<AtomicBool>,
-	/// Queue for backfilling blocks missed during subscription reconnects.
+	/// Queue for backfilling blocks missed during subscription reconnects and finalized
+	/// blocks whose processing failed.
 	subscription_gap_queue: SubscriptionGapQueue,
 	/// Hands out the version-aware runtime API of specific blocks.
 	runtime_api_provider: VersionAwareRuntimeApiProvider,
 }
 
-/// A request to backfill a range of missed blocks (both bounds inclusive).
+/// A request to backfill a range of blocks the subscriptions did not index (both bounds
+/// inclusive).
 pub(crate) struct GapFillRequest {
 	pub from_inclusive: SubstrateBlockNumber,
 	pub to_inclusive: SubstrateBlockNumber,
 }
 
-/// Queues gap-fill requests for blocks missed during subscription reconnects.
+/// Queues gap-fill requests for blocks missed during subscription reconnects and for
+/// finalized blocks whose processing failed.
 #[derive(Clone)]
 pub(crate) struct SubscriptionGapQueue {
 	/// Sender half of the gap-fill queue.
@@ -350,8 +353,11 @@ pub(crate) struct SubscriptionGapQueue {
 
 impl SubscriptionGapQueue {
 	pub(crate) fn new() -> (Self, mpsc::Receiver<GapFillRequest>) {
-		// Each reconnect produces one gap-fill request for the entire missed range,
-		// so 32 allows for 32 rapid disconnects before the consumer processes any.
+		// Reconnects produce one request per missed range and failed finalized blocks one
+		// request each, served by a single consumer that holds a failing request for its
+		// whole retry schedule. A request that does not fit is dropped but stays pending,
+		// which freezes the sync head exactly as an abandoned fill does; the restart's
+		// backward sync then re-indexes the dropped range like any other gap.
 		let (tx, rx) = mpsc::channel(32);
 		(Self { tx, pending: Arc::new(AtomicUsize::new(0)) }, rx)
 	}
