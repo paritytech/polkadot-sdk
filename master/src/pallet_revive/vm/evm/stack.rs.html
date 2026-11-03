@@ -220,7 +220,7 @@ data-theme="ayu"></script><meta name="rustdoc-vars" data-root-path="../../../../
 <a href=#70 id=70 data-nosnippet>70</a>	}
 <a href=#71 id=71 data-nosnippet>71</a>
 <a href=#72 id=72 data-nosnippet>72</a>	<span class="doccomment">/// Get a reference to the top stack item without removing it
-<a href=#73 id=73 data-nosnippet>73</a>	</span><span class="attr">#[cfg(any(test, feature = <span class="string">"runtime-benchmarks"</span>))]
+<a href=#73 id=73 data-nosnippet>73</a>	</span><span class="attr">#[cfg(test)]
 <a href=#74 id=74 data-nosnippet>74</a>	</span><span class="kw">pub fn </span>top(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>U256&gt; {
 <a href=#75 id=75 data-nosnippet>75</a>		<span class="self">self</span>.stack.last()
 <a href=#76 id=76 data-nosnippet>76</a>	}
