@@ -319,14 +319,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 	/// Storage: `Broker::InstaPoolContribution` (r:1 w:1)
 	/// Proof: `Broker::InstaPoolContribution` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::InstaPoolHistory` (r:3 w:1)
+	/// Storage: `Broker::Status` (r:1 w:0)
+	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::InstaPoolHistory` (r:3 w:3)
 	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `m` is `[1, 3]`.
 	fn claim_revenue(m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `827`
+		//  Measured:  `820 + m * (49 ±0)`
 		//  Estimated: `6196 + m * (2520 ±0)`
 		// Minimum execution time: 75_331_000 picoseconds.
 		Weight::from_parts(76_496_738, 6196)
@@ -334,7 +336,8 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(Weight::from_parts(2_104_185, 0).saturating_mul(m.into()))
 			.saturating_add(T::DbWeight::get().reads(3_u64))
 			.saturating_add(T::DbWeight::get().reads((1_u64).saturating_mul(m.into())))
-			.saturating_add(T::DbWeight::get().writes(5_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
+			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(m.into()))
 	}
 	/// Storage: `System::Account` (r:1 w:1)
@@ -871,14 +874,16 @@ impl WeightInfo for () {
 	}
 	/// Storage: `Broker::InstaPoolContribution` (r:1 w:1)
 	/// Proof: `Broker::InstaPoolContribution` (`max_values`: None, `max_size`: Some(68), added: 2543, mode: `MaxEncodedLen`)
-	/// Storage: `Broker::InstaPoolHistory` (r:3 w:1)
+	/// Storage: `Broker::Status` (r:1 w:0)
+	/// Proof: `Broker::Status` (`max_values`: Some(1), `max_size`: Some(18), added: 513, mode: `MaxEncodedLen`)
+	/// Storage: `Broker::InstaPoolHistory` (r:3 w:3)
 	/// Proof: `Broker::InstaPoolHistory` (`max_values`: None, `max_size`: Some(45), added: 2520, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:2 w:2)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
 	/// The range of component `m` is `[1, 3]`.
 	fn claim_revenue(m: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `827`
+		//  Measured:  `820 + m * (49 ±0)`
 		//  Estimated: `6196 + m * (2520 ±0)`
 		// Minimum execution time: 75_331_000 picoseconds.
 		Weight::from_parts(76_496_738, 6196)
@@ -886,7 +891,8 @@ impl WeightInfo for () {
 			.saturating_add(Weight::from_parts(2_104_185, 0).saturating_mul(m.into()))
 			.saturating_add(RocksDbWeight::get().reads(3_u64))
 			.saturating_add(RocksDbWeight::get().reads((1_u64).saturating_mul(m.into())))
-			.saturating_add(RocksDbWeight::get().writes(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
+			.saturating_add(RocksDbWeight::get().writes((1_u64).saturating_mul(m.into())))
 			.saturating_add(Weight::from_parts(0, 2520).saturating_mul(m.into()))
 	}
 	/// Storage: `System::Account` (r:1 w:1)

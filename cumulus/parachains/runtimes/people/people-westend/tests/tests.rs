@@ -25,6 +25,7 @@ use people_westend_runtime::{
 	Balances, Block, Executive, ExistentialDeposit, Runtime, RuntimeCall, RuntimeOrigin,
 	TxExtension, UncheckedExtrinsic,
 };
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::crypto::Ss58Codec;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::{generic::Era, AccountId32, Either};
@@ -63,7 +64,10 @@ fn collator_session_keys() -> parachains_runtimes_test_utils::CollatorSessionKey
 	parachains_runtimes_test_utils::CollatorSessionKeys::new(
 		AccountId::from(Sr25519Keyring::Alice),
 		AccountId::from(Sr25519Keyring::Alice),
-		people_westend_runtime::SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
+		people_westend_runtime::SessionKeys {
+			aura: AuraId::from(Sr25519Keyring::Alice.public()),
+			authority_discovery: AuthorityDiscoveryId::from(Sr25519Keyring::Alice.public()),
+		},
 	)
 }
 

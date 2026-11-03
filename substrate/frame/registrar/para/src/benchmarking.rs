@@ -21,15 +21,38 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+use polkadot_primitives::AsyncBackingParams;
 use registrar_primitives::{MessageToPara, MessageToParaV1};
 
-/// An account able to pay every consideration this pallet can ask for.
+/// The host configuration every benchmark runs under.
+fn host_configuration() -> AbridgedHostConfiguration {
+	AbridgedHostConfiguration {
+		max_code_size: 3 * 1024 * 1024,
+		max_head_data_size: 32 * 1024,
+		max_upward_queue_count: 8,
+		max_upward_queue_size: 1024 * 1024,
+		max_upward_message_size: 4 * 1024,
+		max_upward_message_num_per_candidate: 2,
+		hrmp_max_message_num_per_candidate: 2,
+		validation_upgrade_cooldown: 2,
+		validation_upgrade_delay: 2,
+		async_backing_params: AsyncBackingParams {
+			allowed_ancestry_len: 0,
+			max_candidate_depth: 0,
+		},
+	}
+}
+
+/// Put [`host_configuration`] in place and return an account able to pay every consideration.
 fn funded_manager<T: Config>() -> T::AccountId {
+	let config = host_configuration();
+	T::BenchmarkHelper::set_host_configuration(config.clone());
+
 	let who: T::AccountId = account("manager", 0, 0);
-	T::ReservationConsideration::ensure_successful(&who, Footprint::from_parts(1, 0));
+	T::ReservationConsideration::ensure_successful(&who, Pallet::<T>::reservation_footprint());
 	T::RegistrationConsideration::ensure_successful(
 		&who,
-		Pallet::<T>::registration_footprint(T::MaxHeadDataSize::get(), T::MaxCodeSize::get()),
+		Pallet::<T>::registration_footprint(config.max_head_data_size, &config),
 	);
 	who
 }
@@ -43,11 +66,12 @@ fn reserve_for<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> 
 /// Reserve a para id and put it into `Pending`.
 fn make_pending<T: Config>(who: &T::AccountId) -> Result<ParaId, BenchmarkError> {
 	let para_id = reserve_for::<T>(who)?;
+	let config = host_configuration();
 	Pallet::<T>::register(
 		RawOrigin::Signed(who.clone()).into(),
 		para_id,
-		alloc::vec![2u8; T::MaxHeadDataSize::get() as usize],
-		T::MaxCodeSize::get(),
+		alloc::vec![2u8; config.max_head_data_size as usize],
+		config.max_code_size,
 		sp_core::H256::repeat_byte(1),
 	)?;
 	Ok(para_id)
@@ -102,7 +126,9 @@ mod benchmarks {
 
 	/// Requesting a registration. Dominated by shipping the head data to the relay chain.
 	#[benchmark]
-	fn register(h: Linear<0, { T::MaxHeadDataSize::get() }>) -> Result<(), BenchmarkError> {
+	fn register(
+		h: Linear<0, { host_configuration().max_head_data_size }>,
+	) -> Result<(), BenchmarkError> {
 		let who = funded_manager::<T>();
 		let para_id = reserve_for::<T>(&who)?;
 
@@ -111,8 +137,37 @@ mod benchmarks {
 			RawOrigin::Signed(who),
 			para_id,
 			alloc::vec![2u8; h as usize],
-			T::MaxCodeSize::get(),
+			host_configuration().max_code_size,
 			sp_core::H256::repeat_byte(1),
+		);
+
+		assert!(matches!(
+			Paras::<T>::get(para_id).map(|i| i.state),
+			Some(RegistrationState::Pending { .. })
+		));
+		Ok(())
+	}
+
+	/// Force-registering an id nobody reserved: the worst case, since both considerations are
+	/// taken rather than just the registration's.
+	#[benchmark]
+	fn force_register(
+		h: Linear<0, { host_configuration().max_head_data_size }>,
+	) -> Result<(), BenchmarkError> {
+		let origin =
+			T::ForceOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
+		let who = funded_manager::<T>();
+		let para_id = T::FirstPublicParaId::get();
+
+		#[extrinsic_call]
+		_(
+			origin as T::RuntimeOrigin,
+			para_id,
+			who,
+			alloc::vec![2u8; h as usize],
+			host_configuration().max_code_size,
+			sp_core::H256::repeat_byte(1),
+			false,
 		);
 
 		assert!(matches!(

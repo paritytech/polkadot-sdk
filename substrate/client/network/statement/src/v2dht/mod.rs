@@ -280,7 +280,9 @@ impl V2DhtOrchestrator {
 	}
 
 	pub(crate) fn on_substream_closed(&mut self, peer: PeerId) {
-		self.peers_topology.on_substream_closed(peer);
+		if self.peers_topology.on_substream_closed(peer) {
+			self.publish_dht_affinity();
+		}
 		self.peer_steering.on_substream_closed(peer);
 		// The filter arrived over this substream, so it lives exactly as long.
 		self.explicit_affinity.on_substream_closed(peer);
@@ -369,12 +371,19 @@ impl V2DhtOrchestrator {
 		statements_by_peer.into_iter().collect()
 	}
 
-	/// Recompute the peers the node needs connected, those covering its topics and its routing
-	/// peers, and hand them to peer steering.
+	/// Recompute the peers the node needs connected, those covering its topics, its routing peers
+	/// and the reserved peers without the DHT path, and hand them to peer steering.
 	pub(crate) fn on_pending_affinities(&mut self) {
 		let topics = self.explicit_affinity.topics();
 		let mut desired = self.peers_topology.peers_for_topics(&topics);
 		desired.extend(self.peers_topology.peers_for_routing());
+		// A reserved peer without the DHT path stays reserved: releasing a peer this node dialed
+		// closes its substream, which returns the peer to the index and gets it dialed again.
+		desired.extend(
+			self.peer_steering
+				.reserved_peers()
+				.filter(|peer| self.peers_topology.is_without_dht(peer)),
+		);
 		self.peer_steering.update_peers_needing_connections(desired);
 		if let Some(metrics) = &self.metrics {
 			metrics.set_desired_unconnected_peers(self.peer_steering.peers_to_connect().len());
@@ -385,6 +394,15 @@ impl V2DhtOrchestrator {
 	/// protocol's reserved set on `network`.
 	pub(crate) fn refresh_connections<N: NetworkPeers>(&mut self, network: &N) {
 		self.peer_steering.refresh_connections(network);
+	}
+
+	/// Release `peer` if steering holds it reserved as a peer without the DHT path, so that a
+	/// disconnect sent next closes its substream. The litep2p peerset ignores a disconnect of a
+	/// reserved peer, and it takes both commands from one queue, in order.
+	pub(crate) fn release_peer_without_dht<N: NetworkPeers>(&mut self, network: &N, peer: PeerId) {
+		if self.peer_steering.is_reserved(&peer) && self.peers_topology.is_without_dht(&peer) {
+			self.peer_steering.release_peer(network, peer);
+		}
 	}
 
 	/// Whether peer steering holds `peer` in the statement protocol's reserved set.
@@ -744,6 +762,42 @@ mod tests {
 		assert_eq!(orchestrator.peers_topology.connected_peers().count(), 0);
 		assert!(orchestrator.peers_topology.routing_targets(topic(1)).is_empty());
 		assert_eq!(orchestrator.propagation_plan(&statements), vec![(peer, vec![0])]);
+	}
+
+	#[test]
+	fn a_peer_without_dht_returns_to_the_index_when_its_substream_closes() {
+		let mut orchestrator = orchestrator_with(1, topology_config(1, 1));
+		let handle = RetentionHandle::new(peer(1), nz(1));
+		orchestrator.set_retention_handle(handle.clone());
+		let remote = peer(2);
+		let statement = statement_on(Topic(sp_crypto_hashing::blake2_256(&remote.to_bytes())));
+		orchestrator.on_substream_opened(remote);
+		orchestrator.on_peer_without_dht(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::DHT_AFFINITY);
+
+		orchestrator.on_substream_closed(remote);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+
+		orchestrator.on_peer_identified(remote, true);
+		assert_eq!(handle.resolver()(&statement), RetentionReasonMask::TRANSIENT);
+	}
+
+	#[test]
+	fn a_reserved_peer_without_dht_stays_reserved() {
+		let mut orchestrator = orchestrator();
+		let dialed = peer(2);
+		let dialed_in = peer(3);
+		let no_longer_needed = peer(4);
+		for remote in [dialed, dialed_in] {
+			orchestrator.on_substream_opened(remote);
+			orchestrator.on_peer_without_dht(remote);
+		}
+		orchestrator.peer_steering.reserve([dialed, no_longer_needed]);
+
+		orchestrator.on_pending_affinities();
+
+		assert_eq!(orchestrator.peer_steering.peers_to_release(), vec![no_longer_needed]);
+		assert!(orchestrator.peer_steering.peers_to_reserve().is_empty());
 	}
 
 	#[test]

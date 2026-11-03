@@ -2003,6 +2003,7 @@ dependencies = [
  "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-bags-list",
  "pallet-balances",
@@ -2036,6 +2037,7 @@ dependencies = [
  "pallet-session",
  "pallet-staking",
  "pallet-staking-async",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-runtime-api",
  "pallet-state-trie-migration",
@@ -5922,6 +5924,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "polkadot-primitives",
+ "serde_json",
  "sp-crypto-hashing 0.1.0",
  "sp-runtime 31.0.1",
  "tokio",
@@ -14623,6 +14626,7 @@ dependencies = [
  "log",
  "pallet-balances",
  "parity-scale-codec",
+ "polkadot-primitives",
  "registrar-primitives",
  "scale-info",
  "sp-core 28.0.0",
@@ -15262,6 +15266,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-staking-async-points-converter"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "sp-staking",
+]
+
+[[package]]
 name = "pallet-staking-async-preset-store"
 version = "0.1.0"
 dependencies = [
@@ -15691,6 +15709,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "log",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-session",
@@ -15946,14 +15965,17 @@ version = "7.0.0"
 dependencies = [
  "cumulus-primitives-core",
  "cumulus-primitives-utility",
+ "frame-executive",
  "frame-support",
  "frame-system",
+ "log",
  "pallet-assets",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
  "pallet-message-queue",
  "pallet-multi-asset-bounties",
+ "pallet-session",
  "pallet-treasury",
  "pallet-xcm",
  "parachains-common-types",
@@ -15961,10 +15983,12 @@ dependencies = [
  "polkadot-primitives",
  "polkadot-runtime-common",
  "scale-info",
+ "sp-authority-discovery",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "sp-version 29.0.0",
  "staging-parachain-info",
  "staging-xcm",
  "staging-xcm-executor",
@@ -16296,11 +16320,13 @@ version = "0.1.0"
 dependencies = [
  "emulated-integration-tests-common",
  "frame-support",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-session",
  "pallet-staking-async",
+ "pallet-staking-async-points-converter",
  "pallet-validator-collators",
  "pallet-validator-set-announcer",
  "pallet-xcm",
@@ -16310,6 +16336,7 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
+ "sp-staking",
  "staging-xcm",
  "staging-xcm-executor",
  "westend-runtime",
@@ -16340,6 +16367,7 @@ dependencies = [
  "frame-try-runtime",
  "pallet-accumulate-and-forward",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
@@ -16367,12 +16395,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api 26.0.0",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
  "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
  "sp-keyring",
  "sp-offchain",
  "sp-runtime 31.0.1",
@@ -18174,6 +18204,7 @@ dependencies = [
  "pallet-staking",
  "pallet-staking-async",
  "pallet-staking-async-ah-client",
+ "pallet-staking-async-points-converter",
  "pallet-staking-async-rc-client",
  "pallet-staking-async-runtime-api",
  "pallet-staking-reward-curve",
@@ -31822,10 +31853,12 @@ name = "yet-another-parachain-runtime"
 version = "0.6.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
+ "log",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
  "serde_json",
+ "sp-io 30.0.0",
  "substrate-wasm-builder",
 ]
 
