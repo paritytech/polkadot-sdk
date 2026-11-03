@@ -38,14 +38,13 @@ use codec::{Compact, DecodeAll, Encode, MaxEncodedLen};
 use core::{marker::PhantomData, ops::RangeInclusive};
 use cumulus_primitives_core::CumulusDigestItem;
 use cumulus_primitives_spec_messaging::{
-	leaf_hash_with_version,
-	streams_root::{gen_stream_proof_from_nodes, update_tree_leaf},
-	AppliedRegister, ChannelMessage, ConsumedStreams, ConsumptionRecord, InChannelId,
-	InChannelState, InnerNode, Interval, LossyRead, MMRExtensionProof, MessagePosition,
-	MessagingInherentData, MmrFrontier, MmrRoot, NodeKey, NodeLookup, NodeStore, OpenSession,
-	OutChannelId, OutChannelState, Payload, ProvideConsumptionRecord, Register, RegisterStatus,
-	SessionParams, StreamId, StreamProof, StreamsRoot, TreeError, TreeRootEntry,
-	INHERENT_IDENTIFIER, LEAF_VERSION, MAX_SPECULATIVE_MESSAGE_LEN, SPMS_ENGINE_ID, STREAM_ID_LEN,
+	leaf_hash_with_version, streams_root::update_tree_leaf, AppliedRegister, ChannelMessage,
+	ConsumedStreams, ConsumptionRecord, InChannelId, InChannelState, InnerNode, Interval,
+	LossyRead, MMRExtensionProof, MessagePosition, MessagingInherentData, MmrFrontier, MmrRoot,
+	NodeKey, NodeLookup, NodeStore, OpenSession, OutChannelId, OutChannelState, Payload,
+	ProvideConsumptionRecord, Register, RegisterStatus, SessionParams, StreamId, StreamProof,
+	StreamsRoot, TreeError, TreeRootEntry, INHERENT_IDENTIFIER, LEAF_VERSION,
+	MAX_SPECULATIVE_MESSAGE_LEN, SPMS_ENGINE_ID,
 };
 use frame_support::{
 	ensure,
@@ -148,11 +147,6 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxBundleStreams: Get<u32>;
 
-		/// Cap on the depth of the commitment tree this chain builds over its own streams, which
-		/// bounds the proof size of every touched stream; `1..=64`.
-		#[pallet::constant]
-		type MaxTreeDepth: Get<u32>;
-
 		/// Per-item cap on inbound messages consumed.
 		#[pallet::constant]
 		type MaxInboundMessagesPerItem: Get<u32>;
@@ -224,10 +218,6 @@ pub mod pallet {
 	/// block's touched streams into it, so it must hold every stream from the first send on.
 	#[pallet::storage]
 	pub type TreeRoot<T: Config> = StorageValue<_, TreeRootEntry, OptionQuery>;
-
-	/// Stream keys reserved by [`Pallet::reserve_tree_key`] and not yet in the tree.
-	#[pallet::storage]
-	pub type PendingTreeKeys<T: Config> = CountedStorageMap<_, Twox64Concat, StreamId, ()>;
 
 	/// Inner nodes of the [`TreeRoot`] trie.
 	#[pallet::storage]
@@ -348,9 +338,6 @@ pub mod pallet {
 		TooManyInboundMessages,
 		/// Candidate bundle exceeded `MAX_COMMITMENT_ENTRIES` distinct sources.
 		MaxCommitmentEntriesExceeded,
-		/// A new stream would deepen the commitment tree past [`Config::MaxTreeDepth`], or the
-		/// tree cannot be walked.
-		TreeTooDeep,
 	}
 
 	#[pallet::hooks]
@@ -405,10 +392,6 @@ pub mod pallet {
 				T::MaxBundleStreams::get() as u64 * lift_len() as u64 >=
 					T::BlockWeights::get().max_block.proof_size(),
 				"`MaxBundleStreams` lifts must cover the block proof size",
-			);
-			assert!(
-				(1..=STREAM_ID_LEN as u32 * 8).contains(&T::MaxTreeDepth::get()),
-				"`MaxTreeDepth` must be in `1..=64`",
 			);
 			assert!(
 				T::MaxMessageSize::get() <= T::MaxMsgLen::get(),
@@ -497,7 +480,6 @@ pub mod pallet {
 			let channel = OutChannelId { recipient, domain, num };
 			let mut state = OutChannels::<T>::get(channel).unwrap_or_default();
 			ensure!(!state.want_open, Error::<T>::AlreadyOpen);
-			Self::reserve_tree_key(channel.data_stream())?;
 			state.want_open = true;
 
 			// A Hello that cannot be sent now fails the call: no later event would re-check it.
@@ -537,7 +519,6 @@ pub mod pallet {
 			);
 
 			let session = state.session.checked_add(1).ok_or(Error::<T>::SessionOverflow)?;
-			Self::reserve_tree_key(channel.ack_stream())?;
 			let supported = T::SupportedVersions::get();
 			state.session = session;
 			state.status = RegisterStatus::Accepting {
@@ -965,35 +946,7 @@ impl<T: Config> Pallet<T> {
 		}
 		nodes.flush();
 		TreeRoot::<T>::set(entry);
-		for stream in touched.keys() {
-			if PendingTreeKeys::<T>::contains_key(stream) {
-				PendingTreeKeys::<T>::remove(stream);
-			}
-		}
 		Ok(root.expect("callers pass at least one touched stream; qed"))
-	}
-
-	/// Reserve room in the commitment tree for `stream`. Every new stream key must pass through
-	/// here before its first send, so the tree never exceeds [`Config::MaxTreeDepth`]: each
-	/// pending key deepens the tree by at most one level.
-	fn reserve_tree_key(stream: StreamId) -> Result<(), Error<T>> {
-		if PendingTreeKeys::<T>::contains_key(stream) {
-			return Ok(());
-		}
-		let mut entry = TreeRoot::<T>::get();
-		let mut nodes = TreeNodeOverlay::<T>::default();
-		if gen_stream_proof_from_nodes(&entry, stream, &nodes).is_some() {
-			return Ok(());
-		}
-		update_tree_leaf(&mut entry, stream, Hash::zero(), &mut nodes)
-			.map_err(|_| Error::<T>::TreeTooDeep)?;
-		let height = entry.map_or(0, |e| e.height()) as u32;
-		ensure!(
-			height.saturating_add(PendingTreeKeys::<T>::count()) <= T::MaxTreeDepth::get(),
-			Error::<T>::TreeTooDeep
-		);
-		PendingTreeKeys::<T>::insert(stream, ());
-		Ok(())
 	}
 
 	/// This block's committed [`StreamsRoot`], if any.

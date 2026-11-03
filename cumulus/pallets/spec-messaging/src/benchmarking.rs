@@ -14,7 +14,7 @@
 // limitations under the License.
 
 //! Benchmarks for the spec-messaging pallet. Each one sets up its worst case: the widest frontiers,
-//! one stream per send, and commitment-tree paths `MaxTreeDepth` nodes deep.
+//! one stream per send, and commitment-tree paths 64 (`KEY_BITS`) nodes deep.
 
 use super::*;
 use alloc::vec;
@@ -64,56 +64,55 @@ fn deep_stream(index: u32) -> StreamId {
 	StreamId::Private { kind: PrivateKind::new(0x80).expect("in range; qed"), body }
 }
 
-/// `count` valid keys one bit away from `stream`, flipping bits from the last one up and never
-/// at or before `after`. Each deepens `stream`'s path by one node.
-fn neighbours(stream: StreamId, count: u32, after: Option<u8>) -> Vec<StreamId> {
-	let first = after.map_or(0, |bit| bit as usize + 1);
-	let found: Vec<StreamId> = (first..STREAM_ID_LEN * 8)
+/// Path depth a channel or ack stream loses to kind-byte flips that make an invalid key.
+const CHANNEL_KIND_LOSS: u32 = 6;
+
+/// The valid keys one bit away from `stream`, skipping the bits in `skip`. Each splits `stream`'s
+/// path at its own bit.
+fn neighbours(stream: StreamId, skip: &[u8]) -> Vec<StreamId> {
+	(0..STREAM_ID_LEN * 8)
 		.rev()
+		.filter(|bit| !skip.contains(&(*bit as u8)))
 		.filter_map(|bit| {
 			let mut other = stream.to_bytes();
 			other[bit / 8] ^= 0x80 >> (bit % 8);
 			StreamId::from_bytes(other).ok()
 		})
-		.take(count as usize)
-		.collect();
-	assert_eq!(found.len(), count as usize, "the key has room for the depth");
-	found
+		.collect()
 }
 
-/// Fold `streams` into the node cache, each with neighbours so its path is exactly
-/// `MaxTreeDepth` nodes deep.
+/// Fold `streams` into the node cache, each with neighbours so its path is 64 nodes deep, less
+/// the `CHANNEL_KIND_LOSS` for a channel or ack stream.
 fn build_deep_tree<T: Config>(streams: &[StreamId]) {
-	let depth = T::MaxTreeDepth::get();
+	let depth = STREAM_ID_LEN as u32 * 8;
 	let shape = StreamsTree::from_entries(&streams.iter().map(|s| (*s, Hash::zero())).collect());
 	let mut touched = BTreeMap::new();
 	for stream in streams {
 		touched.insert(*stream, Hash::repeat_byte(2));
 		let (_, proof) = shape.gen_stream_proof(*stream).expect("the stream is in the shape; qed");
-		let shared = proof.steps.len() as u32;
-		let below = proof.steps.iter().map(|step| step.split_bit).max();
-		for other in neighbours(*stream, depth.checked_sub(shared).expect("few streams"), below) {
+		let shared: Vec<u8> = proof.steps.iter().map(|step| step.split_bit).collect();
+		for other in neighbours(*stream, &shared) {
 			touched.insert(other, Hash::repeat_byte(3));
 		}
 	}
 	if !touched.is_empty() {
 		Pallet::<T>::fold_into_tree(&touched).expect("an empty cache folds; qed");
 		let height = TreeRoot::<T>::get().map_or(0, |entry| entry.height());
-		assert_eq!(height as u32, depth);
+		assert!(height as u32 >= depth - CHANNEL_KIND_LOSS);
 	}
 }
 
-/// Fold neighbours of `stream`, but not `stream`, so inserting it walks a path `MaxTreeDepth - 1`
-/// nodes deep and ends `MaxTreeDepth` deep.
+/// Fold neighbours of `stream`, but not `stream`, so inserting it walks a path one node short of
+/// 64, less the `CHANNEL_KIND_LOSS` for a channel or ack stream.
 fn build_tree_around<T: Config>(stream: StreamId) {
-	let depth = T::MaxTreeDepth::get();
-	let touched = neighbours(stream, depth, None)
+	let depth = STREAM_ID_LEN as u32 * 8;
+	let touched = neighbours(stream, &[])
 		.into_iter()
 		.map(|other| (other, Hash::repeat_byte(3)))
 		.collect();
 	Pallet::<T>::fold_into_tree(&touched).expect("an empty cache folds; qed");
 	let height = TreeRoot::<T>::get().map_or(0, |entry| entry.height());
-	assert_eq!(height as u32 + 1, depth);
+	assert!(height as u32 + 1 >= depth - CHANNEL_KIND_LOSS);
 }
 
 /// Queue one send on `stream` directly: payload, leaf hash and the block's send count.
@@ -205,7 +204,6 @@ mod benchmarks {
 		_(origin as T::RuntimeOrigin, channel.recipient, channel.domain, channel.num);
 
 		assert_eq!(OutboundLeafHashes::<T>::get(channel.data_stream()).len(), 1);
-		assert_eq!(PendingTreeKeys::<T>::count(), 1);
 		Ok(())
 	}
 
@@ -238,7 +236,6 @@ mod benchmarks {
 			InChannels::<T>::get(channel).map(|s| s.status),
 			Some(RegisterStatus::Accepting { .. })
 		));
-		assert_eq!(PendingTreeKeys::<T>::count(), 1);
 		Ok(())
 	}
 
@@ -390,7 +387,7 @@ mod benchmarks {
 	}
 
 	/// The end-of-block work for `k` streams with one send each. Every frontier is wide, and every
-	/// stream's path in the tree is `MaxTreeDepth` deep.
+	/// stream's path in the tree is 64 deep.
 	#[benchmark(pov_mode = Measured)]
 	fn commit_sends(k: Linear<0, 16>) {
 		let sends: Vec<StreamId> = (0..k).map(deep_stream).collect();
@@ -410,7 +407,7 @@ mod benchmarks {
 	}
 
 	/// The end-of-block work for `p` register publishes, each on its own stream, with a path
-	/// `MaxTreeDepth` deep.
+	/// 64 deep.
 	#[benchmark(pov_mode = Measured)]
 	fn commit_publishes(p: Linear<0, 16>) {
 		let channels: Vec<InChannelId> = (0..p)
@@ -479,7 +476,7 @@ mod benchmarks {
 	}
 
 	/// A Hello pass over `n` channels, each due a `Hello` on a stream with a wide frontier, in a
-	/// tree `MaxTreeDepth` deep.
+	/// tree 64 deep.
 	#[benchmark(pov_mode = Measured)]
 	fn hello_pass(n: Linear<1, { T::MaxHelloPassPerBlock::get() }>) {
 		let channels: Vec<OutChannelId> = (0..n)

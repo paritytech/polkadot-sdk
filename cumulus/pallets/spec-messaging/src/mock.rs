@@ -56,7 +56,6 @@ parameter_types! {
 	pub const MaxSendsPerBlock: u32 = 32;
 	pub const MaxTouchedStreams: u32 = 8;
 	pub const MaxBundleStreams: u32 = 512;
-	pub const MaxTreeDepth: u32 = 4;
 	pub const MaxInboundMessagesPerItem: u32 = 16;
 	pub const MaxHelloPassPerBlock: u32 = 2;
 	pub const MaxMessageSize: u32 = 1024;
@@ -72,7 +71,6 @@ impl cumulus_pallet_spec_messaging::Config for Test {
 	type MaxSendsPerBlock = MaxSendsPerBlock;
 	type MaxTouchedStreams = MaxTouchedStreams;
 	type MaxBundleStreams = MaxBundleStreams;
-	type MaxTreeDepth = MaxTreeDepth;
 	type MaxInboundMessagesPerItem = MaxInboundMessagesPerItem;
 	type MaxHelloPassPerBlock = MaxHelloPassPerBlock;
 	type SupportedVersions = SupportedVersions;

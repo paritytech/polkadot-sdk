@@ -368,9 +368,8 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type MaxMessagesPerBlock = ConstU32<256>;
 	type MaxInFlight = ConstU32<128>;
 	type MaxSendsPerBlock = ConstU32<1024>;
-	type MaxTouchedStreams = ConstU32<24>;
+	type MaxTouchedStreams = ConstU32<14>;
 	type MaxBundleStreams = ConstU32<3000>;
-	type MaxTreeDepth = ConstU32<32>;
 	type MaxInboundMessagesPerItem = ConstU32<256>;
 	type MaxHelloPassPerBlock = ConstU32<8>;
 	type SupportedVersions = SpecMsgSupportedVersions;
