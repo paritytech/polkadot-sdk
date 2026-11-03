@@ -78,7 +78,10 @@ const DEFAULT_NODES: usize = 16;
 const PEERS_CONNECTED_METRIC: &str = "substrate_sync_statement_peers_connected{kind=\"full\"}";
 const DESIRED_UNCONNECTED_METRIC: &str = "substrate_sync_statement_v2dht_desired_unconnected_peers";
 const BYTES_SENT_METRIC: &str = "substrate_sync_statement_bytes_sent_total";
-const BYTES_RECEIVED_METRIC: &str = "substrate_sync_statement_bytes_received_total";
+const BYTES_RECEIVED_METRICS: [&str; 2] = [
+	"substrate_sync_statement_bytes_received_total{route=\"dht\"}",
+	"substrate_sync_statement_bytes_received_total{route=\"flood\"}",
+];
 const LATE_AFTER: Duration = Duration::from_secs(10);
 const RESTART_EVERY_WAVES: u64 = 4;
 const MANDATORY_RESTARTS: u64 = 2;
@@ -963,7 +966,9 @@ async fn log_traffic(nodes: &[NodeHandle], dht_off: &[bool]) -> Result<(), anyho
 		let (mut sent, mut received, mut count) = (0.0, 0.0, 0.0);
 		for (handle, _) in nodes.iter().zip(dht_off).filter(|(_, &off)| off == is_dht_off) {
 			sent += handle.node.reports(BYTES_SENT_METRIC).await?;
-			received += handle.node.reports(BYTES_RECEIVED_METRIC).await?;
+			for metric in BYTES_RECEIVED_METRICS {
+				received += handle.node.reports(metric).await?;
+			}
 			count += 1.0;
 		}
 		info!(

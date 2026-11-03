@@ -1095,7 +1095,7 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	let alice_sent_after = Cell::new(0.0f64);
 	alice
 		.wait_metric_with_timeout(
-			"substrate_sync_initial_sync_statements_sent",
+			"substrate_sync_initial_sync_statements_sent{route=\"flood\"}",
 			|v| {
 				alice_sent_after.set(v);
 				true
@@ -1105,7 +1105,7 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		.await?;
 	let bob_sent_after = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
-		"substrate_sync_initial_sync_statements_sent",
+		"substrate_sync_initial_sync_statements_sent{route=\"flood\"}",
 		|v| {
 			bob_sent_after.set(v);
 			true

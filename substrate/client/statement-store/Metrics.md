@@ -43,6 +43,16 @@ of statements in the database
 - **Why it matters:** Metric detects byte-level saturation independently of count.
 - **How to read:** Color thresholds match statement count: green/yellow/red at 70%/90% of capacity.
 
+#### Storage Used by Retention Track
+- **Metric:** `substrate_sub_statement_store_bytes_by_retention{track}`
+- **Type:** Gauge, refreshed by store maintenance (every 29s)
+- **What it measures:** Bytes of statement data per retention track:
+  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the v2 DHT path keeps everything here)
+  - `explicit`: kept only for explicit (subscription) affinity
+  - `transient`: kept only until propagated to the replicas
+- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range next to what it relays.
+- **How to read:** Stacked area; the tracks sum to `bytes_total`.
+
 #### Unique Accounts
 - **Metric:** `substrate_sub_statement_store_accounts_total`
 - **Type:** Gauge
@@ -231,9 +241,13 @@ bandwidth, latency, and network health indicators.
 - **What it measures:** Actual network bandwidth consumed by the statement protocol.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
+- **Labels:** `bytes_received_total` carries `route`: `dht` for senders served through the v2 DHT path, `flood` for the rest. A sender counts as `dht` only once its affinity filter applies, so a
+  peer in its grace period counts as `flood`. A node without the v2 DHT path reports every sender
+  as `flood`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
+  - Show the flood share of a v2 node's inbound traffic during the rollout
 
 ---
 
@@ -273,6 +287,22 @@ percentiles, making it easy to spot tail latency regressions.
 
 ### Network Health Indicators
 
+#### Peers Assumed Match-All
+- **Metric:** `rate(substrate_sync_statement_peers_assumed_match_all_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Peers that sent no affinity filter within the 10s grace period, so the node
+  serves them as v1 peers.
+- **Why it matters:** Old peers land here once per connection. Compare with
+  `substrate_sync_statement_late_affinity_filters_total`.
+
+#### Late Affinity Filters
+- **Metric:** `rate(substrate_sync_statement_late_affinity_filters_total[$__rate_interval])`
+- **Type:** Counter (displayed as rate)
+- **What it measures:** Affinity filters that arrived after the grace period and moved their peer
+  back to the v2 DHT path.
+- **Why it matters:** Each one is a v2 peer that was slow with its filter and got flooded in the
+  meantime. A steady rate suggests the grace period is too short.
+
 ---
 
 ### Statement Expiration & Cleanup
@@ -303,6 +333,10 @@ percentiles, making it easy to spot tail latency regressions.
 ---
 
 ### Initial Sync
+
+`initial_sync_statements_sent`, `initial_sync_bursts_total` and `initial_sync_duration_seconds`
+carry a `route` label (`dht` or `flood`), fixed when the sync starts. A flapping old peer that gets
+a full store replay on every reconnect shows as a high `bursts_total{route="flood"}` rate.
 
 #### Initial Sync Active Peers
 - **Metric:** `substrate_sync_initial_sync_peers_active`
