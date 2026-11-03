@@ -34,7 +34,6 @@ impl frame_system::Config for Test {
 	type Block = Block;
 }
 
-/// This chain's own id — consumed streams are addressed to it.
 pub const SELF_PARA: u32 = 2000;
 
 parameter_types! {

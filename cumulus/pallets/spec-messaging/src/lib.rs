@@ -85,7 +85,7 @@ impl<Id> QueueFootprintQuery<Id> for () {
 	}
 }
 
-/// Sink for consumed `Data` payloads. `()` drops them; the real handler lands with the XCM layer.
+/// Sink for consumed `Data` payloads. `()` drops them.
 pub trait OnSpecMsgData {
 	/// One `Data` payload, consumed in order at `position` of `(source, stream)`.
 	fn on_data(source: ParaId, stream: StreamId, position: MessagePosition, data: Vec<u8>);
@@ -816,7 +816,7 @@ impl<T: Config> Pallet<T> {
 		drained
 	}
 
-	/// The block's send cap for everything but the sends the inherent causes.
+	/// The block's send cap outside the inherent's room.
 	pub fn send_limit() -> u32 {
 		T::MaxSendsPerBlock::get().saturating_sub(T::MaxTouchedStreams::get())
 	}

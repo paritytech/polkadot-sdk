@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the spec-messaging pallet. Each one sets up its worst case: frontiers with 47
-//! peaks, one stream per send, and commitment-tree paths `MaxTreeDepth` nodes deep.
+//! Benchmarks for the spec-messaging pallet. Each one sets up its worst case: the widest frontiers,
+//! one stream per send, and commitment-tree paths `MaxTreeDepth` nodes deep.
 
 use super::*;
 use alloc::vec;
@@ -28,8 +28,8 @@ fn sibling<T: Config>(index: u32) -> ParaId {
 	ParaId::from(u32::from(T::SelfParaId::get()).saturating_add(1).saturating_add(index))
 }
 
-/// A frontier with 47 peaks. Appending a leaf merges all of them, and the frontier still has room
-/// for the payloads of one item.
+/// The most peaks a frontier can hold and still take one item's payloads; appending a leaf merges
+/// them all.
 fn wide_frontier() -> MmrFrontier {
 	const LEAVES: u64 = (1 << 47) - 1;
 	MmrFrontier::from_parts(vec![Hash::repeat_byte(1); LEAVES.count_ones() as usize], LEAVES)

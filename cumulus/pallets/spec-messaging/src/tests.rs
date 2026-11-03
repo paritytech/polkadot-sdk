@@ -577,14 +577,14 @@ fn max_in_flight_gate_blocks_data_and_hello_but_exempts_close() {
 		});
 		OutChannels::<Test>::insert(out_ch, out_st);
 
-		// MaxInFlight is 4 in mock:
+		// Fill the in-flight gate:
 		for _ in 0..4 {
 			assert_ok!(SpecMessaging::send(out_ch, b"msg".to_vec()));
 		}
-		// 5th send rejected by gate:
+		// The next send is rejected by the gate:
 		assert_err!(SpecMessaging::send(out_ch, b"5th".to_vec()), Error::<Test>::NoCredit);
 
-		// CloseChannel is exempt from the gate!
+		// `CloseChannel` is exempt from the gate.
 		assert_ok!(SpecMessaging::close_channel(
 			RuntimeOrigin::root(),
 			out_ch.recipient,
@@ -795,7 +795,7 @@ fn bundle_streams_retained_across_bundle_blocks_and_reset_on_index_0() {
 		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
 		assert_eq!(BundleSources::<Test>::get().len(), 1);
 
-		// Roll over to block 2 with index 1 digest: retained!
+		// Roll over to block 2 with an index-1 digest: retained.
 		SpecMessaging::on_finalize(1);
 		let mut digest1 = sp_runtime::generic::Digest::default();
 		let info1 = BlockBundleInfo { index: 1, is_last: true };
@@ -804,7 +804,7 @@ fn bundle_streams_retained_across_bundle_blocks_and_reset_on_index_0() {
 		SpecMessaging::on_initialize(2);
 		assert_eq!(BundleSources::<Test>::get().len(), 1);
 
-		// Roll over to block 3 with index 0 digest: reset!
+		// Roll over to block 3 with an index-0 digest: reset.
 		SpecMessaging::on_finalize(2);
 		let mut digest0 = sp_runtime::generic::Digest::default();
 		let info0 = BlockBundleInfo { index: 0, is_last: false };
@@ -839,7 +839,7 @@ fn create_inherent_cuts_at_violation_and_drops_empty_items() {
 		let call = <SpecMessaging as ProvideInherent>::create_inherent(&inh_data).unwrap();
 		let Call::enact_messages { data: filtered } = call else { panic!("wrong call") };
 
-		// create_inherent cut before duplicate Hello, keeping only first Hello!
+		// `create_inherent` cuts before the duplicate `Hello`, keeping only the first.
 		assert_eq!(filtered.channels.get(&ch).unwrap().len(), 1);
 		assert_eq!(filtered.channels.get(&ch).unwrap()[0], hello1.encode());
 
@@ -1019,7 +1019,7 @@ fn register_read_interval_starts_before_payload_and_stitches() {
 		let (peer, stream, interval1) = outbox1[0].clone();
 		assert_eq!(peer, ch.recipient);
 		assert_eq!(stream, ch.peer_ack_stream(SELF_PARA.into()).1);
-		// start MUST be the root BEFORE the read's payload is appended:
+		// `start` is the root before the read's payload is appended:
 		assert_eq!(interval1.start, initial_root);
 		assert_ne!(interval1.start, interval1.end.root());
 		assert_eq!(interval1.end.leaf_count(), 1);
@@ -1046,7 +1046,7 @@ fn register_read_interval_starts_before_payload_and_stitches() {
 		let outbox2 = ConsumptionOutbox::<Test>::get();
 		assert_eq!(outbox2.len(), 1);
 		let (_, _, interval2) = outbox2[0].clone();
-		// start MUST equal interval1's end root:
+		// `start` equals `interval1`'s end root:
 		assert_eq!(interval2.start, interval1.end.root());
 		assert_eq!(interval2.end.leaf_count(), 2);
 
