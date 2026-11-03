@@ -106,6 +106,7 @@ jobs:
     # If any new job gets added, be sure to add it to this array
     needs:
       - preflight
+      - differential-tests
       - evm-test-suite
     if: always() && !cancelled()
     steps:
