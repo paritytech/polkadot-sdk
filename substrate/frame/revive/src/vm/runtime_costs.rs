@@ -397,6 +397,8 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge { dust_transfer } => {
+				// `Weight::max` is per dimension, so ref time and proof size can each be taken from
+				// either of the two benches.
 				T::WeightInfo::seal_call_transfer(dust_transfer.into())
 					.max(T::WeightInfo::seal_call_transfer_to_existing(dust_transfer.into()))
 					.saturating_sub(T::WeightInfo::seal_call(0))
