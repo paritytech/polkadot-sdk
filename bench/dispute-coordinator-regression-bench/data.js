@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793690737744,
+  "lastUpdate": 1793702132628,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "gui.thiolliere@gmail.com",
-            "name": "Guillaume Thiolliere",
-            "username": "gui1117"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4fba586ff870438250674e5787c1a58204117bd3",
-          "message": "frame-omni-bencher: better diagnostic on insufficient data points (#11510)\n\nWhen a benchmark is run with not enough steps and too many points are\nskipped then it can make the analysis panic. This PR improves the panic\nmessage and gives precise information about which benchmark is at fault.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Shawn Tabrizi <shawntabrizi@gmail.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-16T20:43:45Z",
-          "tree_id": "0cf7271908e8f3aa3deeeb5c8643ef2938363fcb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/4fba586ff870438250674e5787c1a58204117bd3"
-        },
-        "date": 1776377557610,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009547688199999994,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00264948295,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00934394146999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.0025256219400000006,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "73715684+Szegoo@users.noreply.github.com",
+            "name": "Sergej Sakac",
+            "username": "Szegoo"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "7c7b86afe492eb0c6af381cd74863a5818d62cf7",
+          "message": "pallet-psm: simplify PSM account handling (#13626)\n\n### Description\n\nPSMs no longer manage provider refs on their reserve account and fee\ndestination, so both follow the standard account rules.\n\n### Changes\n\n- `create_psm` and `remove_psm` no longer touch provider refs.\n- `mint` and `redeem` waive the fee when the fee destination can't\nreceive it.\n- `add_external_asset` requires the reserve account to be able to\nreceive the external asset, and fails with `ReserveCannotReceive`\notherwise. For a non-sufficient asset, create the reserve's asset\naccount first (e.g. with `touch_other`).\n- New `reserve_account` view function returns the reserve account of a\nPSM instance.\n\n---------\n\nCo-authored-by: muharem <ismailov.m.h@gmail.com>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T08:57:34Z",
+          "tree_id": "fbbc1842e6a08641186b194488e1c5c59eeb521d",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/7c7b86afe492eb0c6af381cd74863a5818d62cf7"
+        },
+        "date": 1793702101488,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009348350840000009,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0026248371900000006,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009237595209999993,
             "unit": "seconds"
           }
         ]
