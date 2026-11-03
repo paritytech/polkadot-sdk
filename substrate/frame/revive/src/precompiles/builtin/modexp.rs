@@ -181,8 +181,8 @@ fn calculate_gas_cost(
 			//
 			// Notes:
 			// * exp_length is bounded to 1024 and is > 32
-			// * exponent can be zero, so we subtract 1 after adding the other terms (whose sum must
-			//   be > 0)
+			// * the first 32 bytes of the exponent can be zero, in which case EIP-198 takes the
+			//   index of their highest bit to be 0 and the result is exactly 8 * (exp_length - 32)
 			// * the addition can't overflow because the terms are both capped at roughly 8 * max
 			//   size of exp_length (1024)
 			// * the EIP spec is written in python, in which (exponent & (2**256 - 1)) takes the
@@ -190,7 +190,7 @@ fn calculate_gas_cost(
 			//   thus instead take the bytes manually.
 			let exponent_head = BigUint::from_bytes_be(&exponent_bytes[..32]);
 
-			iteration_count = (8 * (exp_length - 32)) + exponent_head.bits() - 1;
+			iteration_count = (8 * (exp_length - 32)) + max(exponent_head.bits(), 1) - 1;
 		}
 
 		max(iteration_count, 1)
@@ -394,14 +394,19 @@ mod tests {
 	fn test_zero_modulus_charges_eip2565_cost() {
 		use crate::{call_builder::CallSetup, metering::Token, tests::ExtBuilder};
 
-		// EIP-2565 cost for an all-0xff base and exponent.
-		for (base_len, exp_len, gas) in
-			[(0u16, 0u16, 200), (0, 32, 200), (32, 32, 1360), (1024, 1024, 44_733_781)]
-		{
+		// EIP-2565 cost for an all-0xff base.
+		for (base_len, exp_len, exp_byte, gas) in [
+			(0u16, 0u16, 0xff, 200),
+			(0, 32, 0xff, 200),
+			(32, 32, 0xff, 1360),
+			(1024, 1024, 0xff, 44_733_781),
+			(1024, 33, 0x00, 43_690),
+		] {
 			let mut input = vec![0u8; 96];
 			input[30..32].copy_from_slice(&base_len.to_be_bytes());
 			input[62..64].copy_from_slice(&exp_len.to_be_bytes());
-			input.extend(vec![0xff; base_len as usize + exp_len as usize]);
+			input.extend(vec![0xff; base_len as usize]);
+			input.extend(vec![exp_byte; exp_len as usize]);
 
 			ExtBuilder::default().build().execute_with(|| {
 				let mut call_setup = CallSetup::<Test>::default();
