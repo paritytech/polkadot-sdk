@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793741683077,
+  "lastUpdate": 1793747646999,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -252287,6 +252287,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2531925208,
             "range": "± 87629803",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ce5174d79049c47b8a30cde19de2debaf6253d7d",
+          "message": "staking-async: check inactivity per service in chill_inactive (#13536)\n\nBuilds on #13464, which records era points per service\n(`ErasRewardPointsByService`).\n\n`IsValidatorInactive::is_inactive` now receives the era points of the\nvalidator per\n`ValidatorServiceKind`, as `&[(ValidatorServiceKind, RewardPoint)]`,\ninstead of a single total. A runtime can so decide inactivity per\nservice, for example that only relay consensus points keep a validator\nactive.\n\nPoints of the tally not recorded per service, which are those of eras\nbefore points were\nrecorded per service, count as `RelayConsensus`.\n\n`chill_inactive` is now disabled by default:\n- The `()` implementation of `IsValidatorInactive` never finds a\nvalidator inactive. The new `AllZero` implementation has the old\nbehaviour of `()`: a validator is inactive if it earned no points for\n**any** service. Runtimes that want the old behaviour must use\n`AllZero`. Custom implementations must take the points per service;\n\nMoreover:\n\n- `ChillInactiveThreshold` has no default anymore. While it is not set,\n`chill_inactive` fails with `ChillInactiveDisabled`. Removing it through\n`set_staking_configs` disables the call.\n- `set_staking_configs` rejects a `chill_inactive_threshold` for which\nthe weight of `chill_inactive` does not fit in one normal extrinsic.\n\n> **As it stands, on AssetHub Westend, we can check up to 67 previous\neras to reach `MAX_WEIGHT * NORMAL_EXTRINSIC_RATIO`.**\n\nWeight correction: \n\nThe weight of `chill_inactive` now includes reading\n`ErasRewardPointsByService` of every proof era. Its benchmark now writes\ndifferent reward points for every era and service. Before, equal values\nwere held only once in the proof, so the proof size did not grow with\nthe number of eras.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-03T21:51:06Z",
+          "tree_id": "45a063310816dc74d12eb4158020b0b96a8230cb",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ce5174d79049c47b8a30cde19de2debaf6253d7d"
+        },
+        "date": 1793747611808,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 5139262,
+            "range": "± 105457",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 347547,
+            "range": "± 3470",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4961544,
+            "range": "± 315533",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 405290,
+            "range": "± 5520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 6037437,
+            "range": "± 173009",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 1048624,
+            "range": "± 34576",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 12288477,
+            "range": "± 193118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 5674253,
+            "range": "± 82898",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 46349374,
+            "range": "± 1768329",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 48094147,
+            "range": "± 852218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 425298058,
+            "range": "± 8179765",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 357660831,
+            "range": "± 5117520",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 3078967717,
+            "range": "± 42572268",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2840161250,
+            "range": "± 108119354",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 4990021,
+            "range": "± 211202",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 2308209,
+            "range": "± 41056",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 4719541,
+            "range": "± 174028",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2519245,
+            "range": "± 103222",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 5319104,
+            "range": "± 209006",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2825105,
+            "range": "± 114019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 9447824,
+            "range": "± 255743",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 6736706,
+            "range": "± 221281",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 42130866,
+            "range": "± 1029546",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 42412418,
+            "range": "± 3754827",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 343254395,
+            "range": "± 8688676",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 295807163,
+            "range": "± 18579807",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2933756849,
+            "range": "± 190112144",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2608227858,
+            "range": "± 40016882",
             "unit": "ns/iter"
           }
         ]
