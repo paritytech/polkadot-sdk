@@ -2879,10 +2879,12 @@ mod benchmarks {
 			callee_exists: true
 		);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2902,10 +2904,12 @@ mod benchmarks {
 			callee_exists: false
 		);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2925,10 +2929,12 @@ mod benchmarks {
 			callee_exists: true
 		);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2989,10 +2995,12 @@ mod benchmarks {
 		// so we make sure to create it
 		assert_eq!(do_benchmark().unwrap(), ReturnErrorCode::Success);
 
+		// Inside an ethereum transaction, the worst case: the pre-compile's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_benchmark();
+			result = block_storage::bench_with_ethereum_context(|| do_benchmark());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3018,18 +3026,22 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_delegate_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(0, 0),        // flags + address ptr
-				u64::MAX,                // ref_time_limit
-				u64::MAX,                // proof_size_limit
-				address_len,             // deposit_ptr
-				pack_hi_lo(0, 0),        // input len + data ptr
-				pack_hi_lo(0, SENTINEL), // output len + ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					address_len,             // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + data ptr
+					pack_hi_lo(0, SENTINEL), // output len + ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3127,10 +3139,12 @@ mod benchmarks {
 			input_len: i
 		);
 
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_instantiate();
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3149,10 +3163,12 @@ mod benchmarks {
 			input_len: 0u32
 		);
 
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_instantiate();
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3243,10 +3259,12 @@ mod benchmarks {
 			init_code_len: i
 		);
 
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_instantiate();
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert!(result.is_continue());
@@ -3265,10 +3283,12 @@ mod benchmarks {
 			init_code_len: BENCH_MIN_EVM_INIT_CODE_LEN
 		);
 
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_instantiate();
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert!(result.is_continue());
@@ -4872,12 +4892,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so each lands on the transaction's own receipt
 			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
 			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
 			for _ in 0..e {
-				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![]);
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![])?;
 			}
 
 			let (encoded_logs, bloom) =
@@ -4895,7 +4915,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -4964,12 +4985,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so the log lands on the transaction's own
 			// receipt — the path `on_finalize_block_per_event` is charged for on every
 			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
 			// separately.
-			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics);
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics)?;
 
 			let (encoded_logs, bloom) =
 				block_storage::get_receipt_details::<T>().unwrap_or_default();
@@ -4986,7 +5007,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{

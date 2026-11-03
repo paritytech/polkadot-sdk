@@ -1550,8 +1550,8 @@ where
 	/// `is_major_syncing` guard was active.
 	///
 	/// With the v2 DHT path on, only the drop from a peer without the DHT path leads here, so only
-	/// such a peer is picked. Steering reserves v2 peers only, so the peer is not reserved: its
-	/// substream is closed directly, and the peer, which holds this node in its own reserved set,
+	/// such a peer is picked. Steering may hold it reserved, so it is released before its
+	/// substream is closed, and the peer, which holds this node in its own reserved set,
 	/// reconnects on its own.
 	fn start_sync_recovery(&mut self) {
 		if !self.dropped_statements_during_sync {
@@ -1579,6 +1579,7 @@ where
 		);
 
 		if v2dht_enabled() {
+			self.v2dht.release_peer_without_dht(&self.network, peer_id);
 			self.network.disconnect_peer(peer_id, self.protocol_name.clone());
 			return;
 		}
@@ -1976,6 +1977,9 @@ where
 				self.network.report_peer(who, rep::STATEMENT_FLOODING);
 
 				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
+				if v2dht_enabled() {
+					self.v2dht.release_peer_without_dht(&self.network, who);
+				}
 				self.network.disconnect_peer(who, self.protocol_name.clone());
 
 				if let Some(ref metrics) = self.metrics {
@@ -7512,6 +7516,30 @@ mod tests {
 		assert_eq!(network.get_removed_reserved().len(), 1);
 		assert!(!handler.v2dht.is_reserved(&peer_ids[0]), "a released peer is reserved no more");
 		assert!(!handler.inbound_slot_free(ObservedRole::Light));
+	}
+
+	#[test]
+	fn only_a_held_peer_without_dht_is_released_for_a_disconnect() {
+		let (mut handler, _store, network, _notification_service) = build_handler_no_peers();
+		let held = PeerId::random();
+		let routing = PeerId::random();
+		let unreserved = PeerId::random();
+		for peer in [held, routing, unreserved] {
+			handler.v2dht.on_substream_opened(peer);
+		}
+		for peer in [held, unreserved] {
+			handler.v2dht.on_peer_without_dht(peer);
+		}
+		handler.v2dht.update_peers_needing_connections([held, routing]);
+		handler.v2dht.refresh_connections(&network);
+
+		for peer in [held, routing, unreserved] {
+			handler.v2dht.release_peer_without_dht(&network, peer);
+		}
+
+		assert_eq!(network.get_removed_reserved(), vec![vec![held]]);
+		assert!(!handler.v2dht.is_reserved(&held));
+		assert!(handler.v2dht.is_reserved(&routing));
 	}
 
 	#[test]

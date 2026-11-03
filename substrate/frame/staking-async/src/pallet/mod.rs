@@ -54,7 +54,7 @@ use sp_runtime::{
 	ArithmeticError, Perbill, Percent,
 };
 use sp_staking::{
-	EraIndex, Page, SessionIndex,
+	EraIndex, Page, ServiceKind, SessionIndex,
 	StakingAccount::{self, Controller, Stash},
 	StakingInterface,
 };
@@ -927,9 +927,28 @@ pub mod pallet {
 
 	/// Rewards for the last [`Config::HistoryDepth`] eras.
 	/// If reward hasn't been set or has been removed then 0 reward is returned.
+	///
+	/// The same points split by the service that earned them are in [`ErasRewardPointsByService`].
 	#[pallet::storage]
 	pub type ErasRewardPoints<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, EraRewardPoints<T>, ValueQuery>;
+
+	/// The points of [`ErasRewardPoints`] split by the service that earned them.
+	///
+	/// Values are era points as credited, in the same unit as [`ErasRewardPoints`]. A service
+	/// measured in other units, such as blocks authored, is converted to points before it is
+	/// credited. Written with [`ErasRewardPoints`] and pruned with it. An entry never holds more
+	/// than the tally does for the same account.
+	#[pallet::storage]
+	pub type ErasRewardPointsByService<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		ServiceKind,
+		EraRewardPoints<T>,
+		ValueQuery,
+	>;
 
 	/// The total amount staked for the last [`Config::HistoryDepth`] eras.
 	/// If total hasn't been set or has been removed then 0 stake is returned.
@@ -1478,6 +1497,14 @@ pub mod pallet {
 			hard_cap_self_stake: BalanceOf<T>,
 			slope_factor: Perbill,
 		},
+		/// Points earned for `service` were credited to `era`. `credited` entries were exposed in
+		/// `era` and `dropped` entries were not.
+		ServicePointsCredited {
+			service: ServiceKind,
+			era: EraIndex,
+			credited: u32,
+			dropped: u32,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1703,6 +1730,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
+					// At most one entry per `ServiceKind`.
+					let _ = ErasRewardPointsByService::<T>::clear_prefix(era, u32::MAX, None);
 					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
 				},
