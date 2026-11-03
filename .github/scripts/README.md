@@ -1,21 +1,18 @@
 # Python script tests
 
-Use Python 3.11 or newer. From the repository root, install the pinned test dependencies in a
-virtual environment and run the same command as CI:
+Use Python 3.11 or newer. From the repository root, run the same commands as CI:
 
 ```sh
-ci_scripts_venv="$(mktemp -d)"
-python3 -m venv "$ci_scripts_venv"
-"$ci_scripts_venv/bin/python" -m pip install -r .github/scripts/requirements-test.txt
-"$ci_scripts_venv/bin/python" -m pytest .github/scripts
+python3 -m pip install --user -r .github/scripts/requirements-test.txt
+python3 -m pytest .github/scripts
 ```
 
 To measure line and branch coverage without creating files in the checkout:
 
 ```sh
-COVERAGE_FILE=/tmp/ci-scripts.coverage "$ci_scripts_venv/bin/python" -m coverage run --branch \
+COVERAGE_FILE=/tmp/ci-scripts.coverage python3 -m coverage run --branch \
   --source=.github/scripts,scripts/release/changelog -m pytest .github/scripts
-COVERAGE_FILE=/tmp/ci-scripts.coverage "$ci_scripts_venv/bin/python" -m coverage report
+COVERAGE_FILE=/tmp/ci-scripts.coverage python3 -m coverage report
 ```
 
 Tests use isolated imports, temporary directories and mocks for network/workspace dependencies;

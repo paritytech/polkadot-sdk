@@ -7,6 +7,6 @@ doc:
       dependencies and isolated script fixtures. Consolidate repeated benchmark,
       label and prdoc cases while preserving the existing scenarios and covered
       production lines and branches. Add coverage for both logging-setup paths.
-      CI installs the test dependencies in a temporary virtual environment.
+      CI installs the pinned dependencies using its existing Python environment.
       Runtime script behavior is unchanged. No crates require publishing.
 crates: []

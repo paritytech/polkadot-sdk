@@ -19,9 +19,5 @@ jobs:
     needs: [isdraft]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Test Python CI scripts
-        run: |
-          python3 -m venv "$RUNNER_TEMP/ci-scripts-venv"
-          "$RUNNER_TEMP/ci-scripts-venv/bin/python" -m pip install \
-            -r .github/scripts/requirements-test.txt
-          "$RUNNER_TEMP/ci-scripts-venv/bin/python" -m pytest .github/scripts
+      - run: python3 -m pip install --user -r .github/scripts/requirements-test.txt
+      - run: python3 -m pytest .github/scripts
