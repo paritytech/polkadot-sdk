@@ -92,6 +92,8 @@ pub type DeltaKeys<K> = HashMap<K, DeltaKeyOp, KeyHashBuilder>;
 /// path in the block-start trie, while a removal restructures the trie and may load sibling nodes
 /// that later removals depend on. The trie therefore accumulates removals across size estimation
 /// calls.
+///
+/// The nodes only a transaction's snapshot kept alive are freed when the transaction ends.
 pub struct ProofSizeTracker<K, H: Hasher> {
 	/// Stack of parent transaction layers (outermost first).
 	layers: Vec<TransactionLayer<K, H>>,
@@ -214,6 +216,15 @@ impl<K: Debug + Eq + Hash, H: Hasher> ProofSizeTracker<K, H> {
 
 			parent.dirty_keys.extend(self.current.dirty_keys.drain(..));
 
+			if let (Some(trie), Some(snapshot)) =
+				(self.estimation_trie.as_mut(), &self.current.trie_snapshot)
+			{
+				trie.discard_from(snapshot).expect(
+					"nested layers ended before this one and a rollback never drops older \
+					 snapshots, so this layer's snapshot is live; qed",
+				);
+			}
+
 			self.current = parent;
 		}
 	}
@@ -227,9 +238,13 @@ impl<K: Debug + Eq + Hash, H: Hasher> ProofSizeTracker<K, H> {
 		if let Some(layer) = self.layers.pop() {
 			let discarded = mem::replace(&mut self.current, layer);
 			match (self.estimation_trie.as_mut(), discarded.trie_snapshot) {
-				(Some(trie), Some(snapshot)) => trie.rollback_to(&snapshot).expect(
-					"layers are a stack, so a layer's snapshot is never rolled back past; qed",
-				),
+				(Some(trie), Some(snapshot)) => {
+					trie.rollback_to(&snapshot).expect(
+						"layers are a stack, so a layer's snapshot is never rolled back past; qed",
+					);
+					trie.discard_from(&snapshot)
+						.expect("a rollback keeps the snapshot it rolled back to; qed");
+				},
 				(_, None) => self.estimation_trie = None,
 				(None, Some(_)) => unreachable!(
 					"a layer only holds a snapshot of a trie that existed when it started; qed"
@@ -1100,6 +1115,7 @@ mod tests {
 		const FIRST: &[u8] = b"first";
 		const SECOND: &[u8] = b"second";
 		const THIRD: &[u8] = b"third";
+		const ABSENT: &[u8] = b"absent";
 
 		struct Fixture {
 			tracker: Tracker,
@@ -1140,6 +1156,13 @@ mod tests {
 				let (db, trie) = self.db_and_trie();
 				let trie = AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(db, trie).build();
 				trie.get(key).unwrap().is_some()
+			}
+
+			fn arena_len(&mut self) -> usize {
+				let (db, trie) = self.db_and_trie();
+				AppendOnlyTrieDBMutBuilder::<Layout>::from_detached(db, trie)
+					.build()
+					.arena_len()
 			}
 
 			fn db_and_trie(&mut self) -> (&MemoryDB<Blake2Hasher>, &mut DetachedTrieDBMut<Layout>) {
@@ -1213,6 +1236,47 @@ mod tests {
 
 			assert!(fixture.tracker.estimation_trie_mut().is_none());
 			assert!(fixture.contains(FIRST));
+		}
+
+		/// Every extrinsic runs in a transaction. In the PVF the trie lives on the wasm heap, so
+		/// what a committed transaction's snapshot kept alive must not stay until the block ends.
+		#[test]
+		fn committed_transactions_do_not_grow_the_arena() {
+			let mut fixture = Fixture::new();
+			fixture.remove(ABSENT);
+
+			let arena_lens: Vec<usize> = (0..3)
+				.map(|_| {
+					fixture.tracker.start_transaction();
+					fixture.remove(ABSENT);
+					fixture.tracker.commit_transaction();
+					fixture.arena_len()
+				})
+				.collect();
+
+			assert_eq!(arena_lens[1], arena_lens[2], "{arena_lens:?}");
+		}
+
+		/// A failed extrinsic is rolled back. Its snapshot must be freed too, or every failed
+		/// extrinsic makes later removals copy their path on the wasm heap of the PVF.
+		#[test]
+		fn rolled_back_transactions_do_not_grow_the_arena() {
+			let mut fixture = Fixture::new();
+			fixture.remove(ABSENT);
+
+			let arena_lens: Vec<usize> = [FIRST, SECOND, THIRD]
+				.into_iter()
+				.map(|key| {
+					fixture.tracker.start_transaction();
+					fixture.remove(key);
+					fixture.tracker.rollback_transaction();
+					assert!(fixture.contains(key));
+					fixture.remove(ABSENT);
+					fixture.arena_len()
+				})
+				.collect();
+
+			assert_eq!(arena_lens[1], arena_lens[2], "{arena_lens:?}");
 		}
 	}
 }

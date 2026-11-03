@@ -227,6 +227,23 @@ impl<H: Hasher> EstimationTrie<H> {
 			),
 		}
 	}
+
+	/// Discard `snapshot` and every later one, see [`DetachedTrieDBMut::discard_from`].
+	///
+	/// Panics if the snapshot was taken from a trie with a different layout.
+	pub fn discard_from(
+		&mut self,
+		snapshot: &EstimationTrieSnapshot<H>,
+	) -> Result<(), InvalidSnapshot> {
+		match (self, snapshot) {
+			(Self::V0(trie), EstimationTrieSnapshot::V0(snapshot)) => trie.discard_from(snapshot),
+			(Self::V1(trie), EstimationTrieSnapshot::V1(snapshot)) => trie.discard_from(snapshot),
+			_ => unreachable!(
+				"a snapshot is taken from the trie it is discarded from, and a trie keeps its \
+				 layout for its whole life; qed"
+			),
+		}
+	}
 }
 
 /// A state backend is used to read state data and can have changes committed
