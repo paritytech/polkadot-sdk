@@ -15777,6 +15777,7 @@ dependencies = [
  "frame-system",
  "pallet-balances",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "pallet-timestamp",
  "pallet-vesting",
  "parity-scale-codec",
@@ -15784,6 +15785,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "test-case",
 ]
 
 [[package]]
@@ -15912,6 +15914,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "test-case",
  "tracing",
  "xcm-simulator",
 ]

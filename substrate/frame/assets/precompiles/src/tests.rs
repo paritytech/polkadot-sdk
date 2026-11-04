@@ -1118,6 +1118,191 @@ fn transfer_from_decrements_normally_after_max_approve(asset_index: u16) {
 	});
 }
 
+pub mod stipend_limited_frame {
+	use super::*;
+	use crate::mock::GasScale;
+	use pallet_revive::test_utils::with_parameter;
+	use pallet_revive_fixtures::FixtureType;
+	use test_case::test_case;
+
+	pub const ASSET_ID: u32 = 0;
+	pub const AMOUNT: u128 = 10;
+	const OWNER: u64 = 123456789;
+
+	/// A gas scale high enough that 2300 gas pays for the operation under test, so only the
+	/// stipend check can deny it.
+	pub const RAISED_GAS_SCALE: u32 = 50_000_000;
+
+	/// Calls the asset pre-compile with `data` from a `CallingReceiver` reached with `gas_limit`.
+	/// Returns whether the call was denied and what `read_state` reads.
+	///
+	/// The receiver holds `owner`'s asset and an allowance from `owner`. `data` takes the recipient
+	/// and the amount, `read_state` the receiver and the recipient.
+	pub fn call_precompile_via_receiver<R>(
+		fixture_type: FixtureType,
+		gas_limit: u64,
+		owner: u64,
+		create_asset: impl FnOnce() -> H160,
+		data: impl FnOnce(alloy::primitives::Address, U256) -> Vec<u8>,
+		read_state: impl FnOnce(u64, u64) -> R,
+	) -> (bool, R) {
+		use alloy::sol_types::{SolConstructor, SolValue};
+		use pallet_revive::test_utils::builder::{BareCallBuilder, BareInstantiateBuilder};
+		use pallet_revive_fixtures::{CallingReceiver, StipendSender};
+
+		const RECIPIENT: u64 = 987654321;
+
+		new_test_ext().execute_with(|| {
+			let asset_addr = create_asset();
+			Balances::make_free_balance_be(&owner, 1_000_000_000_000_000);
+
+			let deploy = |name: &str, constructor: Vec<u8>| {
+				let (code, _) =
+					pallet_revive_fixtures::compile_module_with_type(name, fixture_type).unwrap();
+				BareInstantiateBuilder::<Test>::bare_instantiate(
+					RuntimeOrigin::signed(owner),
+					Code::Upload(code),
+				)
+				.constructor_data(constructor)
+				.transaction_limits(TransactionLimits::WeightAndDeposit {
+					weight_limit: Weight::MAX,
+					deposit_limit: u128::MAX,
+				})
+				.build_and_unwrap_contract()
+			};
+
+			let recipient = <Test as pallet_revive::Config>::AddressMapper::to_address(&RECIPIENT);
+			let receiver = deploy(
+				"CallingReceiver",
+				CallingReceiver::constructorCall {
+					_target: asset_addr.0.into(),
+					_data: data(recipient.0.into(), U256::from(AMOUNT)).into(),
+				}
+				.abi_encode(),
+			);
+			let sender = deploy(
+				"StipendSender",
+				StipendSender::constructorCall { _receiver: receiver.addr.0.into() }.abi_encode(),
+			);
+
+			assert_ok!(Assets::mint(
+				RuntimeOrigin::signed(owner),
+				ASSET_ID,
+				receiver.account_id,
+				AMOUNT
+			));
+			Balances::make_free_balance_be(&receiver.account_id, 1_000);
+			assert_ok!(Assets::approve_transfer(
+				RuntimeOrigin::signed(owner),
+				ASSET_ID,
+				receiver.account_id,
+				AMOUNT
+			));
+
+			let result =
+				BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(owner), sender.addr)
+					.data(
+						StipendSender::isCallWithGasDeniedCall { gasLimit: gas_limit }.abi_encode(),
+					)
+					.build_and_unwrap_result();
+			(bool::abi_decode(&result.data).unwrap(), read_state(receiver.account_id, RECIPIENT))
+		})
+	}
+
+	/// Creates the asset `OWNER` owns and holds, and returns its pre-compile address.
+	fn create_stipend_test_asset() -> H160 {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), ASSET_ID, OWNER, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(OWNER), ASSET_ID, OWNER, AMOUNT));
+		H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX))
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn transfer_is_denied(fixture_type: FixtureType) {
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						OWNER,
+						create_stipend_test_asset,
+						|to, value| IERC20::transferCall { to, value }.abi_encode(),
+						|_, recipient| Assets::balance(ASSET_ID, recipient),
+					)
+				})
+			});
+		assert_eq!(with_2300_gas, (true, 0), "the receiver of a `send` should not transfer assets");
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies the transfer"
+		);
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn approve_is_denied(fixture_type: FixtureType) {
+		use frame_support::traits::fungibles::approvals::Inspect;
+
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						OWNER,
+						create_stipend_test_asset,
+						|spender, value| IERC20::approveCall { spender, value }.abi_encode(),
+						|receiver, recipient| Assets::allowance(ASSET_ID, &receiver, &recipient),
+					)
+				})
+			});
+		assert_eq!(
+			with_2300_gas,
+			(true, 0),
+			"the receiver of a `send` should not approve a spender"
+		);
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies the approval"
+		);
+	}
+
+	#[test_case(FixtureType::Solc; "solc")]
+	#[test_case(FixtureType::Resolc; "resolc")]
+	fn transfer_from_is_denied(fixture_type: FixtureType) {
+		let [with_2300_gas, with_2299_gas, with_2301_gas] =
+			with_parameter(GasScale::get, GasScale::set, RAISED_GAS_SCALE, || {
+				[2300, 2299, 2301].map(|gas_limit| {
+					call_precompile_via_receiver(
+						fixture_type,
+						gas_limit,
+						OWNER,
+						create_stipend_test_asset,
+						|to, value| {
+							let from =
+								<Test as pallet_revive::Config>::AddressMapper::to_address(&OWNER);
+							IERC20::transferFromCall { from: from.0.into(), to, value }.abi_encode()
+						},
+						|_, recipient| Assets::balance(ASSET_ID, recipient),
+					)
+				})
+			});
+		assert_eq!(
+			with_2300_gas,
+			(true, 0),
+			"the receiver of a `send` should not spend an allowance"
+		);
+		assert_eq!(
+			[with_2299_gas, with_2301_gas],
+			[(false, AMOUNT); 2],
+			"only a `send` denies spending an allowance"
+		);
+	}
+}
+
 // The `Erc20TransferLogsCallback` callback (wired as `CallbackHandle` in the mock) mirrors plain
 // substrate asset operations — no precompile involved — as canonical ERC-20 `Transfer` logs
 // at the asset's precompile address. Mint = from 0x0, burn = to 0x0, per ERC-20 convention.
