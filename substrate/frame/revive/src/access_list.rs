@@ -440,42 +440,6 @@ impl AccessEntry {
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmarking {
-	use super::{Access, AccessEntry, Warmth};
-	use crate::Config;
-
-	/// Whitelists every entry the access reads.
-	pub fn whitelist_access<T: Config>(access: impl Access) {
-		access.expand(|entry, _op| {
-			if let Some(key) = entry.storage_key::<T>() {
-				frame_benchmarking::benchmarking::add_to_whitelist(key.into());
-			}
-			Warmth::new_cold_non_revertible()
-		});
-	}
-
-	/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
-	///
-	/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
-	/// by `cargo test` does not track the whitelist.
-	pub fn assert_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
-		let whitelist = frame_benchmarking::benchmarking::get_whitelist();
-		access.expand(|entry, _op| {
-			let whitelisted = entry.storage_key::<T>().is_some_and(|key| {
-				whitelist
-					.iter()
-					.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key)
-			});
-			assert!(
-				!whitelisted || except.contains(&entry),
-				"{entry:?} is whitelisted, so the benchmark does not measure its read",
-			);
-			Warmth::new_cold_non_revertible()
-		});
-	}
-}
-
 /// The most entries a single access has: a transfer and an instantiate have four.
 const MAX_ENTRIES_PER_ACCESS: usize = 4;
 

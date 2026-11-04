@@ -21,9 +21,8 @@
 use crate::{
 	Pallet as Contracts,
 	access_list::{
-		AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
-		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems,
-		benchmarking::{assert_not_whitelisted, whitelist_access},
+		Access, AccessEntry, AccessList, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
+		MAX_ACCESS_LIST_ENTRIES, StorageOp, TransferItems, Warmth,
 	},
 	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
@@ -121,33 +120,55 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Whitelists every entry the access reads.
+fn whitelist_access<T: Config>(access: impl Access) {
+	access.expand(|entry, _op| {
+		if let Some(key) = entry.storage_key::<T>() {
+			frame_benchmarking::benchmarking::add_to_whitelist(key.into());
+		}
+		Warmth::new_cold_non_revertible()
+	});
+}
+
+/// Returns whether the benchmark whitelist holds `key`.
+///
+/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+/// by `cargo test` does not track the whitelist.
+fn is_whitelisted(key: &[u8]) -> bool {
+	frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key)
+}
+
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = is_whitelisted(&key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
+/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+fn assert_access_items_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
+	access.expand(|entry, _op| {
+		let whitelisted = entry.storage_key::<T>().is_some_and(|key| is_whitelisted(&key));
+		assert!(
+			!whitelisted || except.contains(&entry),
+			"{entry:?} is whitelisted, so the benchmark does not measure its read",
+		);
+		Warmth::new_cold_non_revertible()
+	});
+}
+
 /// Asserts that the bench measures every entry marked hot before the transaction's first call
 /// runs.
 fn assert_first_call_items_not_whitelisted<T: Config>(contract: &Contract<T>, dust: bool) {
 	let caller = T::AddressMapper::to_address(&contract.caller);
-	assert_not_whitelisted::<T>(CallItems::new(contract.address, false), &[]);
+	assert_access_items_not_whitelisted::<T>(CallItems::new(contract.address, false), &[]);
 	// Every signed transaction already reads and writes the signer's account, for nonce and fee.
-	assert_not_whitelisted::<T>(
+	assert_access_items_not_whitelisted::<T>(
 		TransferItems { from: caller, to: contract.address, dust },
 		&[AccessEntry::Account { address: caller }],
 	);
-}
-
-/// Asserts that the bench measures every entry an instantiation marks hot.
-fn assert_instantiate_items_not_whitelisted<T: Config>(address: H160, deployer: H160) {
-	assert_not_whitelisted::<T>(InstantiateItems { address, deployer }, &[]);
-}
-
-/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
-///
-/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
-/// by `cargo test` does not track the whitelist.
-fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
-	let key = frame_system::Account::<T>::hashed_key_for(account);
-	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
-		.iter()
-		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
-	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
 }
 
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
@@ -3478,7 +3499,11 @@ mod benchmarks {
 			let salt_ptr = value_ptr + value_len;
 
 			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
-			assert_instantiate_items_not_whitelisted::<T>(new_contract_addr, deployer);
+			// The `instantiate` syscall marks these entries hot, so this bench must measure them.
+			assert_access_items_not_whitelisted::<T>(
+				InstantiateItems { address: new_contract_addr, deployer },
+				&[],
+			);
 			if $dust != 0 {
 				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
 			}
@@ -3514,7 +3539,6 @@ mod benchmarks {
 					"{deployer:?} should pay only the value"
 				);
 			};
-			assert_account_not_whitelisted::<T>(account_id);
 		};
 	}
 
@@ -3578,7 +3602,6 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
-			let deployer_account = setup.contract().account_id.clone();
 			let deployer = setup.contract().address;
 			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
 
@@ -3607,7 +3630,11 @@ mod benchmarks {
 			let _ = interpreter.stack.push(U256::from(init_code.len()));
 			let _ = interpreter.stack.push(U256::zero());
 			let _ = interpreter.stack.push(evm_value);
-			assert_instantiate_items_not_whitelisted::<T>(new_contract_addr, deployer);
+			// The `CREATE2` opcode marks these entries hot, so this bench must measure them.
+			assert_access_items_not_whitelisted::<T>(
+				InstantiateItems { address: new_contract_addr, deployer },
+				&[],
+			);
 
 			let mut $do_instantiate = || {
 				// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
@@ -3618,7 +3645,10 @@ mod benchmarks {
 				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
 					.expect("the create should deploy a contract");
 				// The stored code starts warm, so only this bench pays for its entries.
-				assert_not_whitelisted::<T>(CodeLoadItems::new(new_contract.code_hash), &[]);
+				assert_access_items_not_whitelisted::<T>(
+					CodeLoadItems::new(new_contract.code_hash),
+					&[],
+				);
 				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
 				assert_eq!(
 					Pallet::<T>::evm_balance(&new_contract_addr),
@@ -3640,7 +3670,6 @@ mod benchmarks {
 					"{deployer:?} should pay only the value and the code deposit"
 				);
 			};
-			assert_account_not_whitelisted::<T>(&deployer_account);
 		};
 	}
 
