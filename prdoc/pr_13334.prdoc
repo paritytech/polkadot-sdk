@@ -35,15 +35,16 @@ doc:
     Asset Hub Westend charges `BuyExecution` and `PayFees` paid in a foreign asset the weight of
     the swap path, and `RefundSurplus` that weight whatever the fee asset. With this runtime's
     `InMemoryDbWeight`, `BuyExecution` goes from about 28 µs to about 316 µs and `PayFees` from
-    about 104 µs to about 316 µs for foreign-asset payers, and `RefundSurplus` from about 2 µs to
-    about 284 µs for everyone, each with a proof size of 6196 bytes. WND payers keep the native
-    weight for `BuyExecution` and `PayFees`, now measured with the staking pot in place: about
-    59 µs and about 60 µs, each with a proof size of 3593 bytes. Senders of such messages with a
-    hard-coded `Limited` weight limit may now fail with `Overweight` and should raise it. A
-    hard-coded fee amount is affected whatever the weight limit, `Unlimited` included: the barrier
-    raises the limit to the message weight and `PayFees` always buys the message weight, so a
-    fixed amount can now fail with `TooExpensive`. Senders that quote both through
-    `XcmPaymentApi` need no change.
+    about 104 µs to about 316 µs for foreign-asset payers, each with a proof size of 6196 bytes,
+    and `RefundSurplus` from about 2 µs to about 285 µs for everyone, with a proof size of 4689
+    bytes. WND payers keep the native weight for `BuyExecution` and `PayFees`, now measured with
+    the staking pot in place: `BuyExecution` goes from about 28 µs to about 61 µs and `PayFees`
+    from about 104 µs to about 60 µs, each with a proof size of 3593 bytes. Senders with a
+    hard-coded `Limited` weight limit, WND payers included, may now fail with `Overweight` and
+    should raise it. A hard-coded fee amount is affected whatever the weight limit, `Unlimited`
+    included: the barrier raises the limit to the message weight and `PayFees` always buys the
+    message weight, so a fixed amount can now fail with `TooExpensive`. Senders that quote both
+    through `XcmPaymentApi` need no change.
 crates:
 - name: pallet-xcm-benchmarks
   bump: minor
