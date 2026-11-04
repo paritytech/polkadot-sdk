@@ -69,6 +69,7 @@ use pallet_revive::{
 use pallet_revive_fixtures::{compile_module, compile_module_with_type, FixtureType};
 use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_aura::SlotDuration;
 use sp_core::{crypto::Ss58Codec, H160, H256};
 use sp_keyring::Sr25519Keyring;
@@ -122,7 +123,12 @@ fn collator_session_key(account: [u8; 32]) -> CollatorSessionKey<Runtime> {
 	CollatorSessionKey::new(
 		AccountId::from(account),
 		AccountId::from(account),
-		SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)) },
+		SessionKeys {
+			aura: AuraId::from(sp_core::sr25519::Public::from_raw(account)),
+			authority_discovery: AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(
+				account,
+			)),
+		},
 	)
 }
 
@@ -188,11 +194,7 @@ fn test_buy_and_refund_weight_in_native() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -264,11 +266,7 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -400,11 +398,7 @@ fn test_buy_and_refund_weight_with_swap_foreign_asset_xcm_trader() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let bob: AccountId = SOME_ASSET_ADMIN.into();
@@ -538,11 +532,7 @@ fn test_asset_xcm_take_first_trader_refund_not_possible_since_amount_less_than_e
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// We need root origin to create a sufficient asset
@@ -621,11 +611,7 @@ fn test_asset_xcm_take_first_trader_not_possible_for_non_sufficient_assets() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// Create a non-sufficient asset with specific existential deposit
@@ -708,11 +694,7 @@ fn test_nft_asset_transactor_works<T: TransactAsset>() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let collection_id = 42;
@@ -879,11 +861,7 @@ fn test_assets_balances_api_works() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let local_asset_id = 1;
@@ -1003,11 +981,7 @@ fn authorized_aliases_work() {
 	ExtBuilder::<Runtime>::default()
 		.with_tracing()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			let alice: AccountId = ALICE.into();
@@ -2144,7 +2118,12 @@ fn erc20_mirror_ext() -> sp_io::TestExternalities {
 		.with_session_keys(vec![(
 			AccountId::from(ALICE),
 			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			SessionKeys {
+				aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+				authority_discovery: AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(ALICE),
+				),
+			},
 		)])
 		.build()
 }
@@ -3280,11 +3259,7 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 
 	ExtBuilder::<Runtime>::default()
 		.with_collators(vec![AccountId::from(ALICE)])
-		.with_session_keys(vec![(
-			AccountId::from(ALICE),
-			AccountId::from(ALICE),
-			SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-		)])
+		.with_session_keys(collator_session_keys().session_keys())
 		.build()
 		.execute_with(|| {
 			// GIVEN: fund controller and operator
@@ -3500,11 +3475,7 @@ mod dap {
 
 		ExtBuilder::<Runtime>::default()
 			.with_collators(vec![alice.clone()])
-			.with_session_keys(vec![(
-				alice.clone(),
-				alice.clone(),
-				SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
-			)])
+			.with_session_keys(collator_session_keys().session_keys())
 			.with_balances(vec![
 				(alice.clone(), 100 * ed),
 				(buffer.clone(), ed),
@@ -3558,11 +3529,7 @@ mod dap {
 
 		ExtBuilder::<Runtime>::default()
 			.with_collators(vec![AccountId::from(ALICE)])
-			.with_session_keys(vec![(
-				AccountId::from(ALICE),
-				AccountId::from(ALICE),
-				SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
-			)])
+			.with_session_keys(collator_session_keys().session_keys())
 			.build()
 			.execute_with(|| {
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
@@ -3875,5 +3842,139 @@ mod revive_trace_reclaim {
 		let without = with_block(false, |b| trace_tx(b, 1));
 		assert!(with_recorder.is_some(), "tail tx traced with a recorder");
 		assert!(without.is_none(), "tail tx trace dropped without a recorder");
+	}
+}
+
+#[test]
+fn relay_proof_request_includes_the_validator_collators_randomness_key() {
+	use cumulus_primitives_core::{
+		relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS,
+		runtime_decl_for_key_to_include_in_relay_proof::KeyToIncludeInRelayProofV1,
+		RelayStorageKey,
+	};
+	// GIVEN the runtime wires pallet-validator-collators, which reads the relay chain epoch
+	// randomness from every relay chain state proof
+	// WHEN a collator asks the runtime which relay chain keys to prove
+	let keys = Runtime::keys_to_prove().keys;
+	// THEN the randomness key is requested
+	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
+}
+
+// `fast-runtime` shortens the era, not the expected era duration.
+#[cfg(not(feature = "fast-runtime"))]
+#[test]
+fn expected_era_duration_matches_the_staking_era() {
+	use testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS;
+	// GIVEN the era length of Asset Hub's staking
+	let era = staking::SessionsPerEra::get() as u64 *
+		staking::RelaySessionDuration::get() as u64 *
+		RELAY_CHAIN_SLOT_DURATION_MILLIS as u64;
+	// WHEN system chains expect the end of an era after the arrival of its set
+	// THEN they expect it after one era, so they report shortly before the rotation
+	assert_eq!(
+		EXPECTED_ERA_DURATION_MILLIS, era,
+		"update `testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS` \
+		to the era length of {era} ms",
+	);
+}
+
+#[test]
+fn own_blocks_are_credited_to_staking_under_this_chain_id() {
+	use asset_hub_westend_runtime::{ParachainInfo, StakingPointsConverter, ValidatorCollators};
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let alice = AccountId::from(ALICE);
+		let bob = AccountId::from(BOB);
+		let own = ParachainInfo::parachain_id();
+		// GIVEN era 1 is active with Alice exposed, this chain's blocks earn 5 points, and the
+		// stored set of Alice and Bob
+		pallet_staking_async::ActiveEra::<Runtime>::put(pallet_staking_async::ActiveEraInfo {
+			index: 1,
+			start: Some(0),
+		});
+		pallet_staking_async::session_rotation::Eras::<Runtime>::upsert_exposure(
+			1,
+			&alice,
+			pallet_staking_async::Exposure { total: 1, own: 1, others: vec![] },
+		);
+		assert_ok!(StakingPointsConverter::set_points_per_service(
+			RuntimeOrigin::root(),
+			own,
+			sp_staking::ServiceKind::Collation,
+			5
+		));
+		assert_ok!(ValidatorCollators::receive_validator_set(1, [alice.clone(), bob.clone()]));
+		// AND Alice authored 3 blocks here
+		for _ in 0..3 {
+			<ValidatorCollators as pallet_authorship::EventHandler<_, _>>::note_author(
+				alice.clone(),
+			);
+		}
+		// WHEN the report block comes
+		let period = pallet_validator_collators::ReportPeriod::<Runtime>::get();
+		frame_system::Pallet::<Runtime>::reset_events();
+		ValidatorCollators::on_poll(period, &mut frame_support::weights::WeightMeter::new());
+		// THEN Alice's blocks reach staking as collation points of this chain, with no message
+		// sent
+		assert_eq!(
+			pallet_staking_async::ErasRewardPoints::<Runtime>::get(1)
+				.individual
+				.into_iter()
+				.collect::<Vec<_>>(),
+			vec![(alice.clone(), 15)]
+		);
+		assert_eq!(
+			pallet_staking_async::ErasRewardPointsByService::<Runtime>::get(
+				1,
+				sp_staking::ServiceKind::Collation
+			)
+			.individual
+			.into_iter()
+			.collect::<Vec<_>>(),
+			vec![(alice, 15)]
+		);
+		let events = frame_system::Pallet::<Runtime>::events()
+			.into_iter()
+			.map(|r| r.event)
+			.collect::<Vec<_>>();
+		assert!(events.contains(&RuntimeEvent::StakingPointsConverter(
+			pallet_staking_async_points_converter::Event::BlocksCredited { source: own, blocks: 3 }
+		)));
+		assert!(events.contains(&RuntimeEvent::Staking(
+			pallet_staking_async::Event::ServicePointsCredited {
+				service: sp_staking::ServiceKind::Collation,
+				era: 1,
+				credited: 1,
+				dropped: 0
+			}
+		)));
+	});
+}
+
+#[test]
+fn only_people_reports_blocks_and_only_as_itself() {
+	use asset_hub_westend_runtime::{staking::EnsureReportingSiblings, ReportingSiblings};
+	use frame_support::traits::EnsureOrigin;
+	type EnsureReportingSibling = EnsureReportingSiblings<ReportingSiblings>;
+	use testnet_parachains_constants::westend::locations::{PeopleLocation, PeopleParaId};
+	let sibling =
+		|id: u32| RuntimeOrigin::from(cumulus_pallet_xcm::Origin::SiblingParachain(id.into()));
+	// GIVEN People as a sibling parachain origin
+	// WHEN it reports THEN it is accepted under People's id
+	assert_eq!(
+		EnsureReportingSibling::try_origin(sibling(PeopleParaId::get().into())).ok(),
+		Some(PeopleParaId::get())
+	);
+	// GIVEN another sibling, the relay chain, People's location as an XCM origin, or People's
+	// sovereign account through a `Transact` with another origin kind
+	let people_account = LocationToAccountId::convert_location(&PeopleLocation::get()).unwrap();
+	for origin in [
+		sibling(2000),
+		RuntimeOrigin::from(cumulus_pallet_xcm::Origin::Relay),
+		RuntimeOrigin::from(pallet_xcm::Origin::Xcm(PeopleLocation::get())),
+		RuntimeOrigin::signed(people_account),
+		RuntimeOrigin::root(),
+	] {
+		// WHEN it reports THEN it is rejected
+		assert!(EnsureReportingSibling::try_origin(origin).is_err());
 	}
 }

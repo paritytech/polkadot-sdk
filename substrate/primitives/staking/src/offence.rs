@@ -97,19 +97,6 @@ pub enum OffenceError {
 	Other(u8),
 }
 
-impl sp_runtime::traits::Printable for OffenceError {
-	fn print(&self) {
-		"OffenceError".print();
-		match self {
-			Self::DuplicateReport => "DuplicateReport".print(),
-			Self::Other(e) => {
-				"Other".print();
-				e.print();
-			},
-		}
-	}
-}
-
 /// A trait for decoupling offence reporters from the actual handling of offence reports.
 pub trait ReportOffence<Reporter, Offender, O: Offence<Offender>> {
 	/// Report an `offence` and reward given `reporters`.

@@ -1141,10 +1141,10 @@ pub mod pallet {
 				if let Ok(res) = Self::validate_code_is_authorized(&code[..]) {
 					if Self::can_set_code(&code, false).is_ok() {
 						return Ok(ValidTransaction {
-							priority: u64::max_value(),
+							priority: u64::MAX,
 							requires: Vec::new(),
 							provides: vec![res.code_hash.encode()],
-							longevity: TransactionLongevity::max_value(),
+							longevity: TransactionLongevity::MAX,
 							propagate: true,
 						});
 					}
@@ -1163,10 +1163,10 @@ pub mod pallet {
 				if source == TransactionSource::InBlock || source == TransactionSource::Local {
 					if task.is_valid() {
 						return Ok(ValidTransaction {
-							priority: u64::max_value(),
+							priority: u64::MAX,
 							requires: Vec::new(),
 							provides: vec![T::Hashing::hash_of(&task.encode()).as_ref().to_vec()],
-							longevity: TransactionLongevity::max_value(),
+							longevity: TransactionLongevity::MAX,
 							propagate: false,
 						});
 					}
@@ -1423,6 +1423,33 @@ impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O> for Ensur
 impl_ensure_origin_with_arg_ignoring_arg! {
 	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
 		EnsureOriginWithArg<O, T> for EnsureNone<AccountId>
+	{}
+}
+
+/// Ensure the origin is `Authorized`, i.e. a call authorized by [`AuthorizeCall`].
+pub struct EnsureAuthorized<AccountId>(core::marker::PhantomData<AccountId>);
+impl<O: OriginTrait<AccountId = AccountId>, AccountId> EnsureOrigin<O>
+	for EnsureAuthorized<AccountId>
+{
+	type Success = ();
+	fn try_origin(o: O) -> Result<Self::Success, O> {
+		match o.as_system_ref() {
+			Some(RawOrigin::Authorized) => Ok(()),
+			_ => Err(o),
+		}
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<O, ()> {
+		let mut o = O::none();
+		o.set_caller(O::PalletsOrigin::from(RawOrigin::Authorized));
+		Ok(o)
+	}
+}
+
+impl_ensure_origin_with_arg_ignoring_arg! {
+	impl< { O: OriginTrait<AccountId = AccountId>, AccountId, T } >
+		EnsureOriginWithArg<O, T> for EnsureAuthorized<AccountId>
 	{}
 }
 
@@ -2265,7 +2292,7 @@ impl<T: Config> Pallet<T> {
 	pub fn reset_events() {
 		<Events<T>>::kill();
 		EventCount::<T>::kill();
-		let _ = <EventTopics<T>>::clear(u32::max_value(), None);
+		let _ = <EventTopics<T>>::clear(u32::MAX, None);
 	}
 
 	/// Assert the given `event` exists.
