@@ -1589,7 +1589,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-rococo-runtime"
-version = "0.43.0"
+version = "0.45.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -1724,7 +1724,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.56.0"
+version = "0.58.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -1868,7 +1868,7 @@ dependencies = [
 
 [[package]]
 name = "asset-test-utils"
-version = "41.0.0"
+version = "43.0.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-parachain-system",
@@ -1898,7 +1898,7 @@ dependencies = [
 
 [[package]]
 name = "assets-common"
-version = "0.39.0"
+version = "0.41.0"
 dependencies = [
  "cumulus-primitives-core",
  "ethereum-standards",
@@ -3014,7 +3014,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.38.0"
+version = "0.40.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -3117,7 +3117,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-test-utils"
-version = "0.40.0"
+version = "0.42.0"
 dependencies = [
  "asset-test-utils",
  "bp-header-chain",
@@ -3223,7 +3223,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.35.1"
+version = "0.37.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -6648,7 +6648,7 @@ checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
 name = "emulated-integration-tests-common"
-version = "40.0.0"
+version = "42.0.0"
 dependencies = [
  "asset-test-utils",
  "bp-messages",
@@ -7700,7 +7700,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "48.1.0"
+version = "48.1.1"
 dependencies = [
  "Inflector",
  "aquamarine",
@@ -12562,7 +12562,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion"
-version = "31.0.0"
+version = "31.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12602,7 +12602,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-asset-conversion-precompiles"
-version = "0.5.0"
+version = "0.8.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -12692,7 +12692,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets"
-version = "53.0.0"
+version = "53.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -12738,7 +12738,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-assets-precompiles"
-version = "0.11.1"
+version = "0.13.0"
 dependencies = [
  "const-crypto",
  "ethereum-standards",
@@ -12894,7 +12894,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-balances"
-version = "50.0.0"
+version = "50.0.1"
 dependencies = [
  "docify",
  "frame-benchmarking",
@@ -14248,7 +14248,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-on-demand-para"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -14420,7 +14420,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-psm"
-version = "0.5.1"
+version = "0.7.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -14537,7 +14537,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.19.1"
+version = "0.21.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -14657,7 +14657,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.15.1"
+version = "0.15.2"
 dependencies = [
  "alloy-core",
  "anyhow",
@@ -14682,7 +14682,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-uapi"
-version = "0.15.1"
+version = "0.15.5"
 dependencies = [
  "alloy-core",
  "bitflags 1.3.2",
@@ -14918,7 +14918,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking-async"
-version = "0.15.0"
+version = "0.15.1"
 dependencies = [
  "anyhow",
  "env_logger 0.11.3",
@@ -15541,7 +15541,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-vesting-precompiles"
-version = "0.5.1"
+version = "0.7.0"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -15665,7 +15665,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-xcm-precompiles"
-version = "0.9.1"
+version = "0.12.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -16003,7 +16003,7 @@ dependencies = [
 
 [[package]]
 name = "penpal-runtime"
-version = "0.47.0"
+version = "0.49.0"
 dependencies = [
  "assets-common",
  "cumulus-pallet-aura-ext",
@@ -17686,7 +17686,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-runtime-parachains"
-version = "29.0.0"
+version = "29.1.0"
 dependencies = [
  "assert_matches",
  "bitflags 1.3.2",
@@ -17746,7 +17746,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-sdk"
-version = "2606.5.0"
+version = "2606.6.0"
 dependencies = [
  "asset-test-utils",
  "assets-common",
@@ -20602,7 +20602,7 @@ dependencies = [
 
 [[package]]
 name = "rococo-runtime"
-version = "38.0.0"
+version = "38.0.1"
 dependencies = [
  "binary-merkle-tree 13.0.0",
  "bitvec",
@@ -24304,7 +24304,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-beacon-primitives"
-version = "0.21.1"
+version = "0.21.2"
 dependencies = [
  "byte-slice-cast",
  "frame-support",
@@ -24348,7 +24348,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.20.0"
+version = "0.22.0"
 dependencies = [
  "alloy-core",
  "assets-common",
@@ -24492,7 +24492,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.31.0"
+version = "0.33.0"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -24520,7 +24520,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.39.0"
+version = "0.41.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -24532,7 +24532,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.20.0"
+version = "0.22.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -24568,7 +24568,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
-version = "0.20.0"
+version = "0.22.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -26789,7 +26789,7 @@ dependencies = [
 
 [[package]]
 name = "staging-xcm-executor"
-version = "28.1.0"
+version = "28.1.1"
 dependencies = [
  "environmental",
  "frame-benchmarking",
@@ -30547,7 +30547,7 @@ dependencies = [
 
 [[package]]
 name = "westend-runtime"
-version = "39.0.0"
+version = "39.0.1"
 dependencies = [
  "approx",
  "binary-merkle-tree 13.0.0",
@@ -31603,7 +31603,7 @@ dependencies = [
 
 [[package]]
 name = "yet-another-parachain-runtime"
-version = "0.13.0"
+version = "0.17.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "parity-scale-codec",
