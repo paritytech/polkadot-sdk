@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793803368148,
+  "lastUpdate": 1793815143151,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "02bbf3dc1676deed290a7017dae69f3cd8321547",
-          "message": "statement-store: add subscription reconnection tests (#11618)\n\n# Description\nImplement unit tests for \"Subscription reconnection: verify reconnecting\nsubscribers receive current state\" #11534\n\n## Summary\n- `subscription_reconnect_receives_current_state` — verifies\nreconnecting subscribers receive full current state including\nadditions/removals made while disconnected\n- `subscription_reconnect_with_topic_filter` — verifies topic filtering\nworks correctly on reconnect and filter can change between connections\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-17T13:15:55Z",
-          "tree_id": "c702e4f576a177146ac082a76ed94adf6b16d365",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/02bbf3dc1676deed290a7017dae69f3cd8321547"
-        },
-        "date": 1776437540341,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.002667359109999999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009901848320000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00942859837999999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-distribution",
             "value": 0.009292813079999972,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "092b50173aa9dbbe6c68e040d075209aee85c5db",
+          "message": "[pallet-revive] align terminate precompile with opcodes (#13689)\n\nThis PR aligns the terminate precompile with the opcodes. \n\n- The precompile now pays out the balance immediately and only deletes\nthe contract if this transaction created it, as `SELFDESTRUCT` does.\n- The deposit is no longer refunded when terminate is called.\n- TerminateArgs and schedule_termination are gone; the scheduling map\njust stores the beneficiary.\n\nTests:\n- Tests that relied on deleting a contract from an earlier transaction\nnow create and terminate it in the same call.\n- Tests that call terminate on an older contract now assert the contract\nsurvives.\n- Removed tests whose scenario can no longer happen:\n  - the deposit refund at call time (two tests)\n  - several payers' deposits being refunded at termination\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T15:36:52Z",
+          "tree_id": "7d5715a80e55733699a14c15ff7ff8ae6a7a0952",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/092b50173aa9dbbe6c68e040d075209aee85c5db"
+        },
+        "date": 1793815115736,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.00252731288,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.011602142070000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009569435469999985,
             "unit": "seconds"
           }
         ]
