@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793799791125,
+  "lastUpdate": 1793803214333,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "71da30286be32e2368b4d948b5febd80c0b6a92d",
-          "message": "pallet-beefy: Allow unsigned execution of an unsigned method (#11816)\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-20T19:01:03Z",
-          "tree_id": "369fddca6948db7257d0963f64fb1ad24c4d04e9",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/71da30286be32e2368b4d948b5febd80c0b6a92d"
-        },
-        "date": 1776722674555,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007264485479999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14356742096000003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00929376333333331,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.024128492966666665,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "bitfield-distribution",
             "value": 0.02496420827333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "006389c761e9ce8433dd99ea2cb3536fd5047598",
+          "message": "pallet-validator-collators: configurable default for MaxCollators (#13710)\n\nAdd `DefaultMaxCollators`, the value of `MaxCollators` until governance\nsets it. `MaxCollators` becomes a `ValueQuery` of `Option<u32>` with\nthat default, and `set_max_collators(None)` means no cap.\n\nAsset Hub Westend and People Westend default to a cap of 0, so\nvalidators contribute no collators until governance raises the cap.",
+          "timestamp": "2026-11-04T13:08:26Z",
+          "tree_id": "32e3877f2aec1041d0c9eb6bc92d62cbefaf13f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/006389c761e9ce8433dd99ea2cb3536fd5047598"
+        },
+        "date": 1793803185809,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02483863523333333,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009715886339999966,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14500527560666673,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007371512126666665,
             "unit": "seconds"
           }
         ]
