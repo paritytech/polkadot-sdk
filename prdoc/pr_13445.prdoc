@@ -13,8 +13,8 @@ crates:
 - name: sc-network
   bump: major
 - name: sc-network-types
-  bump: major
+  bump: minor
 - name: sc-network-bitswap
-  bump: patch
+  bump: minor
 - name: sc-network-statement
   bump: patch
