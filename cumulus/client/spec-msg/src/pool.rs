@@ -24,7 +24,7 @@ use cumulus_primitives_spec_messaging::{
 };
 use polkadot_core_primitives::Hash;
 use std::{
-	collections::{BTreeMap, VecDeque},
+	collections::{BTreeMap, BTreeSet, VecDeque},
 	ops::Bound,
 };
 
@@ -198,17 +198,34 @@ impl SourcePool {
 	/// Keep the bindings, advances and read contexts that `live` still names, plus those of the
 	/// newest head reads. `live` holds `(stream, leaf count)` endpoints of unfinalized blocks.
 	pub fn retain_endpoints(&mut self, live: &BTreeMap<(StreamId, u64), MmrFrontier>) {
-		let heads: std::collections::BTreeSet<_> =
+		let heads: BTreeSet<_> =
 			self.heads.iter().map(|(stream, head)| (*stream, head.end_count())).collect();
 		let keep = |key: &(StreamId, u64)| live.contains_key(key) || heads.contains(key);
 		self.read_under.retain(|key, _| keep(key));
 		self.advances.retain(|(stream, _, to, _), _| keep(&(*stream, *to)));
+		// A block the runtime cut ends before the endpoint the node bound, and its lift is rebased
+		// from the lowest binding above its end: keep that one under every root the end has none
+		// under. It may be the only material that lifts the block.
+		let mut rebase_from = BTreeSet::new();
+		for (stream, count) in live.keys() {
+			for root in &self.roots {
+				if self.binding(stream, *count, root).is_some() {
+					continue;
+				}
+				if let Some((later, _)) = self.bindings_above(stream, *count, root).next() {
+					rebase_from.insert((*stream, later, root.0));
+				}
+			}
+		}
 		// Other bindings are kept under the newest root only: the next block may consume up to
 		// them. Anything older is fetched again if ever needed.
 		let newest = self.newest_root();
-		self.bindings.retain(|key, by_root| {
-			if !keep(key) {
-				by_root.retain(|root, _| newest.is_some_and(|newest| newest.0 == *root));
+		self.bindings.retain(|(stream, count), by_root| {
+			if !keep(&(*stream, *count)) {
+				by_root.retain(|root, _| {
+					newest.is_some_and(|newest| newest.0 == *root) ||
+						rebase_from.contains(&(*stream, *count, *root))
+				});
 			}
 			!by_root.is_empty()
 		});

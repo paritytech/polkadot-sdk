@@ -942,3 +942,135 @@ fn reads_in_different_bundles_fetch_no_advance() {
 	assert!(!receiver.has_advance(&source(), ack(US), 1, 4));
 	assert_eq!(requires(&receiver, &[second]), Some(root2));
 }
+
+/// A deterministic xorshift, so a failing run replays.
+struct Rng(u64);
+
+impl Rng {
+	/// A number in `0..n`.
+	fn below(&mut self, n: u64) -> u64 {
+		self.0 ^= self.0 << 13;
+		self.0 ^= self.0 >> 7;
+		self.0 ^= self.0 << 17;
+		self.0 % n
+	}
+}
+
+#[test]
+fn runtime_cuts_in_every_block_keep_consuming_and_every_bundle_lifts() {
+	for seed in 1..=8u64 {
+		let sender = Sender::new();
+		let receiver = receiver(&sender, Budget { max_payloads: 8, ..Budget::default() });
+		let mut chain = Chain::default();
+		let mut rng = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+		let mut sent = Vec::new();
+		let mut tag = 0u8;
+		let mut up_to = 0;
+		let mut cuts = 0;
+		// Chain states by block number, for the views of finalized blocks.
+		let mut states = vec![chain.clone()];
+		let mut author = |sender: &Sender, rng: &mut Rng, sent: &mut Vec<Vec<u8>>| {
+			tag += 1;
+			let data = payloads(tag, 1 + rng.below(12) as usize);
+			sent.extend(data.iter().cloned());
+			let mut sends = vec![(channel(US), data)];
+			if rng.below(2) == 0 {
+				up_to += 1;
+				sends.push((ack(US), vec![register(up_to).encode()]));
+			}
+			sender.author(sends)
+		};
+
+		let root = author(&sender, &mut rng, &mut sent);
+		block_on(receiver.on_root(source(), root, &chain.wants()));
+		for bundle in 0..30 {
+			let size = 1 + rng.below(4);
+			let mut records = Vec::new();
+			for index in 0..size {
+				if rng.below(3) == 0 {
+					let root = author(&sender, &mut rng, &mut sent);
+					block_on(receiver.on_root(source(), root, &chain.wants()));
+				}
+				let wants = chain.wants();
+				let mut data = block_on(receiver.inherent_data(&chain.view(), &records));
+				// `create_inherent` keeps a strict prefix of the channel item, and may drop the
+				// register read.
+				if let Some(planned) = data.channels.get_mut(&in_id(0)) {
+					if planned.len() > 1 {
+						let kept = 1 + rng.below(planned.len() as u64 - 1);
+						planned.truncate(kept as usize);
+						cuts += 1;
+					}
+				}
+				if rng.below(3) == 0 {
+					data.registers.clear();
+				}
+				let record = chain.enact(&data);
+				// A newer root's round may run before the block is imported, on the parent's view,
+				// and fail: its retry waits for the next relay block.
+				if rng.below(4) == 0 {
+					let root = author(&sender, &mut rng, &mut sent);
+					*sender.down.write() = rng.below(3) == 0;
+					block_on(receiver.on_root(source(), root, &wants));
+					*sender.down.write() = false;
+				}
+				chain.number += 1;
+				block_on(receiver.on_block(
+					chain.number,
+					chain.number - 1,
+					chain.number,
+					index > 0,
+					record.clone(),
+				));
+				states.push(chain.clone());
+				records.push(record);
+			}
+			// Finality of a block before the bundle may arrive before its collation is assembled.
+			if rng.below(2) == 0 {
+				let finalized = (chain.number - size).saturating_sub(rng.below(4));
+				receiver.on_finalized(finalized, &states[finalized as usize].view());
+			}
+			if records.iter().any(|record| !record.entries.is_empty()) {
+				assert!(
+					requires(&receiver, &records).is_some(),
+					"seed {seed}, bundle {bundle}: the candidate lifts"
+				);
+			}
+			// Finality trails the best block by up to two bundles.
+			let finalized = chain.number.saturating_sub(rng.below(8));
+			receiver.on_finalized(finalized, &states[finalized as usize].view());
+		}
+
+		assert!(cuts >= 20, "seed {seed}: only {cuts} cuts");
+		// With no more cuts the channel drains: nothing was skipped or lost.
+		let root = sender.author(vec![]);
+		block_on(receiver.on_root(source(), root, &chain.wants()));
+		while chain.frontier.leaf_count() < sent.len() as u64 {
+			let before = chain.frontier.leaf_count();
+			let record = chain.block(&receiver);
+			assert!(chain.frontier.leaf_count() > before, "seed {seed}: the channel drains");
+			assert_eq!(requires(&receiver, &[record]), Some(root));
+		}
+		assert_eq!(chain.frontier, frontier_at(&sent, sent.len()), "seed {seed}");
+	}
+}
+
+#[test]
+fn a_cut_endpoint_keeps_its_lift_material_past_finality() {
+	let sender = Sender::new();
+	let root1 = sender.author(vec![(channel(US), payloads(1, 10))]);
+	let receiver = receiver(&sender, Budget { max_payloads: 6, ..Budget::default() });
+	let mut chain = Chain::default();
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	// The node plans six payloads and binds their end; the runtime keeps two.
+	let record = chain.cut_block(&receiver, 2);
+
+	// A newer root's round fails, so the cut endpoint is bound under no newer root.
+	let root2 = sender.author(vec![(channel(US), payloads(2, 1))]);
+	*sender.down.write() = true;
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	// A finality notification for an earlier block prunes the pool before the collation is
+	// assembled.
+	receiver.on_finalized(0, &Chain::default().view());
+	assert_eq!(requires(&receiver, &[record]), Some(root1));
+}
