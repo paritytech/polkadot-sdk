@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793748490918,
+  "lastUpdate": 1793799992552,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "robertvaneerdewijk@gmail.com",
-            "name": "0xRVE",
-            "username": "0xRVE"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e4350132f00e54bc5605559b91496f99ff97ac75",
-          "message": "pallet-asset-conversion: distinguish `PoolEmpty` from `PoolNotFound` (#11798)\n\n## Summary\n\n- Adds a new `PoolEmpty` error variant to `pallet-asset-conversion`\n- `PoolNotFound` now only means the pool does not exist in storage\n- `PoolEmpty` is returned when the pool exists but has zero reserves\n\n## Motivation\n\nWhen a pool exists but has no liquidity, `get_reserves()` returned\n`PoolNotFound`. This is misleading — the pool is in storage, it just has\nempty reserves. Users and frontends cannot distinguish between \"you need\nto create a pool\" and \"you need to add liquidity.\"\n\n## Changes\n\n- `substrate/frame/asset-conversion/src/lib.rs`: Added `PoolEmpty` error\nvariant, changed the zero-reserves check in `get_reserves()` to use it\n- `substrate/frame/asset-conversion/src/tests.rs`: Updated\n`can_not_swap_in_pool_with_no_liquidity_added_yet` to expect `PoolEmpty`\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Bastian Köcher <git@kchr.de>",
-          "timestamp": "2026-04-17T09:44:46Z",
-          "tree_id": "3873485068066c85890568152464c0ef3c45060d",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/e4350132f00e54bc5605559b91496f99ff97ac75"
-        },
-        "date": 1776428131261,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.008920146549999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00922452438999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.00269589608,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "dispute-coordinator",
             "value": 0.00250684838,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1de9ddfe5387691ee0867946876368088b57ac6a",
+          "message": "pallet-revive: measure the contract's own account in host function benchmarks (#13501)\n\n`CallSetup` whitelisted the executing contract's `System::Account` in\nevery host function benchmark. The whitelist was added in #4233, since\nthe weight of the `call` extrinsic already includes the account of the\nfirst frame's contract. When a nested contract is called without value,\nits account access has not been paid for, and a later transfer, contract\ncreation or self-destruct in that call does not pay for it either.\nRemoving the whitelist only affects the benchmarks that access that\naccount, and their weights now include it. Whitelisting `AccountInfoOf`\nremains safe, since the call that creates a frame already reads and\nwrites the contract's info.\n\nThe benchmarks that access the contract's account now assert that it is\nnot whitelisted: `seal_call_transfer`, `seal_instantiate`,\n`seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`, `seal_terminate` and `seal_terminate_logic`.\n\n`seal_balance` keeps the account whitelisted, so that a `transfer` or\n`send` receiver, whose stipend is too small for a storage read, can\nstill read its own balance. The read is undercharged if no frame in the\ntransaction pays for the account. This exception should be removed once\n#12673 lands, since the receiver's account will then always be hot.\n\nIn the following scenarios, the account access is charged more than\nonce:\n- A contract called directly by the transaction, whose extrinsic weight\nalready includes the account.\n- A contract called with value, or created by an instantiate.\n- Any repeated use within the same transaction.\n\nA self-destruct is charged both `seal_terminate` and\n`seal_terminate_logic`, so it now pays twice for reading the contract's\naccount. I propose deferring this to a follow-up, since it is an\novercharge on a rare opcode and the fix will probably need to rework the\nterminate pricing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T09:03:19Z",
+          "tree_id": "4e7c2a21e8957e83dcb95f623b5de2b9b53988c5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1de9ddfe5387691ee0867946876368088b57ac6a"
+        },
+        "date": 1793799951783,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009423452329999967,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025523398400000004,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.010556486930000001,
             "unit": "seconds"
           }
         ]
