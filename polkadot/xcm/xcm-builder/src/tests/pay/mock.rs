@@ -298,6 +298,7 @@ impl pallet_xcm::Config for Test {
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type TrustedLockers = ();
 	type SovereignAccountOf = SovereignAccountOf;
+	type TrapAccountLocation = pallet_xcm::AccountId32TrapLocation;
 	type Currency = Balances;
 	type CurrencyMatcher = IsConcrete<RelayLocation>;
 	type MaxLockers = frame_support::traits::ConstU32<8>;

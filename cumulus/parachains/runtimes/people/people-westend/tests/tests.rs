@@ -327,3 +327,13 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	// THEN the randomness key is requested
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }
+
+/// The trap account migration of `pallet_xcm` sets the account up and moves known traps into it,
+/// and the pallet's trap account try-state check passes afterwards.
+#[test]
+fn pallet_xcm_trap_account_migration_works() {
+	parachains_runtimes_test_utils::test_cases::pallet_xcm_trap_account_migration_works::<Runtime>(
+		collator_session_keys(),
+		1004,
+	)
+}

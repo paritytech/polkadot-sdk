@@ -1245,6 +1245,8 @@ pub type UncheckedExtrinsic =
 
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
+	// unreleased
+	pallet_xcm::migration::v2::MigrateToV2<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 );

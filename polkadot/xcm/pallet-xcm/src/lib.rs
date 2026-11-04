@@ -15,6 +15,39 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Pallet to handle XCM messages.
+//!
+//! # Asset traps
+//!
+//! Assets left in the holding register when a program finishes are trapped: the executor hands
+//! them to this pallet's [`DropAssets`] implementation, which deposits them into the trap account
+//! (the account at [`Config::TrapAccountLocation`]) and records the trap under the hash of the
+//! `(origin, assets)` pair in [`AssetTraps`], announced by [`Event::AssetsTrapped`]. The origin
+//! gets them back with the `ClaimAsset` instruction or the [`Pallet::claim_assets`] extrinsic,
+//! which withdraws them from the trap account again. Trapped assets therefore always sit in a
+//! balance, and the sum of balances keeps matching total issuance.
+//!
+//! The trap account holds the native existential deposit (funded at genesis, or by
+//! [`migration::v2::MigrateToV2`]), so any amount can be trapped and claimed. Traps made before the
+//! trap account existed are kept in [`LegacyAssetTraps`] and claimed by minting.
+//!
+//! ## For issuers of non-sufficient assets
+//!
+//! A `pallet_assets` account for a non-sufficient asset normally costs the holder a
+//! `frame_system` consumer reference, of which an account has at most
+//! `frame_system::Config::MaxConsumers`. Once the trap account holds that many distinct
+//! non-sufficient assets, it cannot receive another one: such a trapped asset is burned, recorded
+//! as a trap of its own (the assets trapped alongside it stay claimable) and reported by
+//! [`Event::AssetsTrapFailed`]; its trap only becomes claimable once the trap account is funded
+//! with it again.
+//!
+//! To make an asset reliably recoverable from traps, create an asset account deposit for your
+//! asset for the trap account using `pallet_assets::Pallet::touch_other(asset, trap_account)`,
+//! where `trap_account` is [`Pallet::trap_account`]. The caller reserves
+//! `pallet_assets::Config::AssetAccountDeposit` and, in return, the account uses no consumer
+//! reference and is kept when its balance drops to zero, so the asset can be trapped and claimed
+//! indefinitely. Should an `AssetsTrapFailed` event be emitted for an asset anyway, its admin can
+//! `touch_other` the trap account and `mint` the reported amount into it, after which the original
+//! owner claims it as usual.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -258,7 +291,7 @@ pub mod pallet {
 		pub const MaxAuthorizedAliases: u32 = 10;
 	}
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -345,6 +378,30 @@ pub mod pallet {
 
 		/// How to get an `AccountId` value from a `Location`, useful for handling asset locks.
 		type SovereignAccountOf: ConvertLocation<Self::AccountId>;
+
+		/// The location of the account holding trapped assets until they are claimed.
+		///
+		/// Assets dropped by the executor are deposited to this location through the executor's
+		/// `AssetTransactor` and claims withdraw from it again, so trapped assets always sit
+		/// in a balance. It must be a local location that both [`Self::SovereignAccountOf`] and the
+		/// `AssetTransactor` convert to the same account; chains with 32-byte account ids can use
+		/// [`AccountId32TrapLocation`].
+		///
+		/// The account must hold the native existential deposit (funded at genesis, or by
+		/// [`migration::v2::MigrateToV2`] on existing chains) so that amounts of any size can
+		/// be trapped and claimed without dusting; that balance also keeps the account alive.
+		///
+		/// A trapped asset the account cannot receive is burned, recorded as a trap of its own
+		/// (so the other assets trapped with it stay claimable) and reported through
+		/// [`Event::AssetsTrapFailed`]: for example an asset no `AssetTransactor` handles, or a
+		/// non-sufficient `pallet_assets` asset once the account already holds
+		/// `frame_system::Config::MaxConsumers` distinct ones. Issuers of non-sufficient assets
+		/// avoid the latter by creating the trap account's asset account with a deposit once,
+		/// through `pallet_assets::Pallet::touch_other(asset, trap_account)`: such an account
+		/// uses no consumer reference and is kept when its balance drops to zero, so the asset
+		/// can be trapped and claimed indefinitely. Should an asset get burned anyway, its admin
+		/// can make its trap claimable by minting the amount into the trap account.
+		type TrapAccountLocation: Get<Location>;
 
 		/// The maximum number of local XCM locks that a single account may have.
 		#[pallet::constant]
@@ -533,7 +590,7 @@ pub mod pallet {
 	}
 
 	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	#[pallet::generate_deposit(pub (super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// Execution of an XCM message was attempted.
 		Attempted { outcome: xcm::latest::Outcome },
@@ -593,8 +650,16 @@ pub mod pallet {
 		InvalidResponderVersion { origin: Location, query_id: QueryId },
 		/// Received query response has been read and removed.
 		ResponseTaken { query_id: QueryId },
-		/// Some assets have been placed in an asset trap.
+		/// Some assets have been placed in an asset trap: they are held by the trap account and
+		/// claimable by `origin` under the trap `hash`.
 		AssetsTrapped { hash: H256, origin: Location, assets: VersionedAssets },
+		/// The trap account could not receive this `asset`, so it was burned instead of being held
+		/// in it, and recorded as a trap of its own under `hash` (the hash of `origin` and
+		/// `asset` alone) so that it does not block the claim of the other assets trapped with it.
+		///
+		/// The trap becomes claimable once the trap account is funded with the asset, by the
+		/// asset's issuer or through governance. Use this event as evidence.
+		AssetsTrapFailed { hash: H256, origin: Location, asset: Asset, error: XcmError },
 		/// An XCM version change notification message has been attempted to be sent.
 		///
 		/// The cost of sending it (borne by the chain) is included.
@@ -824,10 +889,21 @@ pub mod pallet {
 
 	/// The existing asset traps.
 	///
+	/// The trapped assets themselves are held by the trap account (see
+	/// [`Config::TrapAccountLocation`]), which claims withdraw them from.
+	///
 	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair. Value is the number of
 	/// times this pair has been trapped (usually just 1 if it exists at all).
 	#[pallet::storage]
-	pub(super) type AssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
+	pub type AssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
+
+	/// Asset traps made before trapped assets were held by the trap account. Nothing is added
+	/// here anymore; entries are only removed when claimed.
+	///
+	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair. Value is the number of
+	/// times this pair has been trapped (usually just 1 if it exists at all).
+	#[pallet::storage]
+	pub type LegacyAssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
 
 	/// Default version to encode XCM when latest version of destination is unknown. If `None`,
 	/// then the destinations whose XCM version is unknown are considered unreachable.
@@ -1049,6 +1125,14 @@ pub mod pallet {
 			weight_used
 		}
 
+		fn integrity_test() {
+			assert!(
+				Pallet::<T>::trap_account().is_some(),
+				"`Config::TrapAccountLocation` must convert to an account through \
+				 `Config::SovereignAccountOf`",
+			);
+		}
+
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_n: BlockNumberFor<T>) -> Result<(), TryRuntimeError> {
 			Self::do_try_state()
@@ -1127,7 +1211,7 @@ pub mod pallet {
 		}
 	}
 
-	#[pallet::call(weight(<T as Config>::WeightInfo))]
+	#[pallet::call(weight(< T as Config >::WeightInfo))]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		pub fn send(
@@ -2014,6 +2098,12 @@ impl<T: Config> Pallet<T> {
 	/// (usually just 1 if it exists at all).
 	pub fn asset_trap(trap_id: &H256) -> u32 {
 		AssetTraps::<T>::get(trap_id)
+	}
+
+	/// The asset traps made before trapped assets were held by the trap account, see
+	/// [`LegacyAssetTraps`].
+	pub fn legacy_asset_trap(trap_id: &H256) -> u32 {
+		LegacyAssetTraps::<T>::get(trap_id)
 	}
 
 	/// Find `TransferType`s for `assets` and fee identified through `fee_asset_item`, when
@@ -3065,6 +3155,15 @@ impl<T: Config> Pallet<T> {
 		AccountIdConversion::<T::AccountId>::into_account_truncating(&ID)
 	}
 
+	/// The account holding trapped assets until they are claimed, see
+	/// [`Config::TrapAccountLocation`].
+	///
+	/// `None` if [`Config::SovereignAccountOf`] cannot convert the configured location, but
+	/// that should never happen as it is enforced by `integrity_test()`.
+	pub fn trap_account() -> Option<T::AccountId> {
+		T::SovereignAccountOf::convert_location(&T::TrapAccountLocation::get())
+	}
+
 	/// Dry-runs `call` with the given `origin`.
 	///
 	/// Returns not only the call result and events, but also the local XCM, if any,
@@ -3595,6 +3694,22 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This should be valid before and after each state transition of this pallet.
 	///
+	/// Ensures the trap account invariant holds (see [`Config::TrapAccountLocation`]): the
+	/// account holds at least the native existential deposit, so trapped amounts of any size can
+	/// be deposited and claimed without dusting.
+	///
+	/// Set up at genesis or by [`migration::v2::MigrateToV2`]. Part of this pallet's
+	/// `try_state`; also usable from runtime tests.
+	pub fn try_state_trap_account() -> Result<(), DispatchError> {
+		let trap_account = Self::trap_account()
+			.ok_or(DispatchError::Other("`TrapAccountLocation` does not convert to an account"))?;
+		ensure!(
+			T::Currency::free_balance(&trap_account) >= T::Currency::minimum_balance(),
+			DispatchError::Other("trap account holds less than the existential deposit")
+		);
+		Ok(())
+	}
+
 	/// ## Invariants
 	///
 	/// All entries stored in the `SupportedVersion` / `VersionNotifiers` / `VersionNotifyTargets`
@@ -3603,6 +3718,8 @@ impl<T: Config> Pallet<T> {
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), TryRuntimeError> {
 		use migration::data::NeedsMigration;
+
+		Self::try_state_trap_account()?;
 
 		// Take the minimum version between `SafeXcmVersion` and `latest - 1` and ensure that the
 		// operational data is stored at least at that version, for example, to prevent issues when
@@ -3941,29 +4058,87 @@ impl<T: Config> VersionChangeNotifier for Pallet<T> {
 	}
 }
 
+/// The pallet id [`AccountId32TrapLocation`] derives the trap account from.
+pub const TRAP_PALLET_ID: PalletId = PalletId(*b"py/xcmtp");
+
+/// A [`Config::TrapAccountLocation`] for chains with 32-byte account ids: the local, network-less
+/// `AccountId32` junction of the account derived from [`TRAP_PALLET_ID`], which
+/// `xcm_builder::AccountId32Aliases` converts to that account.
+pub struct AccountId32TrapLocation;
+impl Get<Location> for AccountId32TrapLocation {
+	fn get() -> Location {
+		let id: [u8; 32] =
+			AccountIdConversion::<[u8; 32]>::into_account_truncating(&TRAP_PALLET_ID);
+		Location::new(0, [AccountId32 { network: None, id }])
+	}
+}
+
 impl<T: Config> DropAssets for Pallet<T> {
-	fn drop_assets(origin: &Location, holding: AssetsInHolding, _context: &XcmContext) -> Weight {
+	fn drop_assets(origin: &Location, holding: AssetsInHolding, context: &XcmContext) -> Weight {
 		if holding.is_empty() {
 			return Weight::zero();
 		}
-		let assets: Vec<Asset> = holding.assets_iter().collect();
-		// SAFETY: "forget" about any fungible imbalances so that they are not dropped/resolved
-		// here. The mirrored asset claiming operation will "recover" the imbalances by minting
-		// back into holding, effectively duplicating the imbalance and only then dropping the
-		// duplicate. As a result, total issuance doesn't change.
-		holding.fungible.into_iter().for_each(|(_, mut accounting)| {
-			accounting.forget_imbalance();
-		});
-		let versioned = VersionedAssets::from(Assets::from(assets));
-		let hash = BlakeTwo256::hash_of(&(&origin, &versioned));
-		AssetTraps::<T>::mutate(hash, |n| *n += 1);
-		Self::deposit_event(Event::AssetsTrapped {
-			hash,
-			origin: origin.clone(),
-			assets: versioned,
-		});
+		// Move the assets into the trap account, which a future claim will withdraw them from.
+		// What the account receives is recorded as one trap. An asset it cannot receive is burned
+		// (its credit is dropped) rather than left counted in total issuance without a balance
+		// holding it, and is recorded as a trap of its own so that it does not block the claim of
+		// the others: it becomes claimable by itself once the trap account is funded with it
+		// again, by the asset's issuer or through governance.
+		let trap_location = T::TrapAccountLocation::get();
+		let mut held: Vec<Asset> = Vec::new();
+		for single in holding.into_per_asset_holdings() {
+			// A per-asset holding is a single credit or a single non-fungible instance, which a
+			// transactor deposits entirely or not at all.
+			let assets: Vec<Asset> = single.assets_iter().collect();
+			let deposit = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+				single,
+				&trap_location,
+				Some(context),
+			);
+			match deposit {
+				Ok(()) => held.extend(assets),
+				Err((unspent, error)) => {
+					let failed: Vec<Asset> = unspent.assets_iter().collect();
+					// Dropping `unspent` burns it.
+					drop(unspent);
+					for asset in failed {
+						tracing::debug!(
+							target: "xcm::pallet_xcm::drop_assets",
+							?error, ?asset, ?trap_location,
+							"Trap account cannot receive trapped asset, burning it",
+						);
+						let hash = Self::record_trap(origin, Assets::from(vec![asset.clone()]));
+						Self::deposit_event(Event::AssetsTrapFailed {
+							hash,
+							origin: origin.clone(),
+							asset,
+							error,
+						});
+					}
+				},
+			}
+		}
+		if !held.is_empty() {
+			let assets = Assets::from(held);
+			let hash = Self::record_trap(origin, assets.clone());
+			Self::deposit_event(Event::AssetsTrapped {
+				hash,
+				origin: origin.clone(),
+				assets: VersionedAssets::from(assets),
+			});
+		}
 		// TODO #3735: Put the real weight in there.
 		Weight::zero()
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Record a trap of `assets` by `origin` in [`AssetTraps`] and return its hash, the claim
+	/// ticket.
+	fn record_trap(origin: &Location, assets: Assets) -> H256 {
+		let hash = BlakeTwo256::hash_of(&(origin, VersionedAssets::from(assets)));
+		AssetTraps::<T>::mutate(hash, |n| *n += 1);
+		hash
 	}
 }
 
@@ -3986,10 +4161,67 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 			_ => return None,
 		};
 		let hash = BlakeTwo256::hash_of(&(origin.clone(), versioned.clone()));
-		match AssetTraps::<T>::get(hash) {
+		let count = AssetTraps::<T>::get(hash);
+		if count == 0 {
+			return Self::claim_legacy_assets(hash, origin, versioned, assets, context);
+		}
+		// Withdraw the assets from the trap account, all or nothing using a transactional layer.
+		let trap_location = T::TrapAccountLocation::get();
+		let claimed = with_transaction(
+			|| -> TransactionOutcome<Result<Option<AssetsInHolding>, DispatchError>> {
+				let mut claimed = AssetsInHolding::new();
+				for asset in assets.inner() {
+					let withdrawn =
+						<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::withdraw_asset(
+							asset,
+							&trap_location,
+							Some(context),
+						);
+					match withdrawn {
+						Ok(credit) => claimed.subsume_assets(credit),
+						Err(error) => {
+							tracing::debug!(
+								target: "xcm::pallet_xcm::claim_assets",
+								?asset, ?error, ?trap_location,
+								"Asset claimed from trap but unable to withdraw it from the trap account",
+							);
+							return TransactionOutcome::Rollback(Ok(None));
+						},
+					}
+				}
+				TransactionOutcome::Commit(Ok(Some(claimed)))
+			},
+		)
+		.ok()
+		.flatten()?;
+		if count == 1 {
+			AssetTraps::<T>::remove(hash);
+		} else {
+			AssetTraps::<T>::insert(hash, count - 1);
+		}
+		Self::deposit_event(Event::AssetsClaimed {
+			hash,
+			origin: origin.clone(),
+			assets: versioned,
+		});
+		Some(claimed)
+	}
+}
+
+impl<T: Config> Pallet<T> {
+	/// Claim a trap recorded in [`LegacyAssetTraps`]: the trapped fungible amounts are still
+	/// counted in total issuance without a balance holding them, so they are minted back.
+	fn claim_legacy_assets(
+		hash: H256,
+		origin: &Location,
+		versioned: VersionedAssets,
+		assets: &Assets,
+		context: &XcmContext,
+	) -> Option<AssetsInHolding> {
+		match LegacyAssetTraps::<T>::get(hash) {
 			0 => return None,
-			1 => AssetTraps::<T>::remove(hash),
-			n => AssetTraps::<T>::insert(hash, n - 1),
+			1 => LegacyAssetTraps::<T>::remove(hash),
+			n => LegacyAssetTraps::<T>::insert(hash, n - 1),
 		}
 		let mut claimed = AssetsInHolding::new();
 		for asset in assets.inner() {
@@ -4004,8 +4236,7 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 					//
 					// Note: This may emit Burned/Minted events even though the net issuance change
 					// is zero. The mint creates a +X imbalance, and dropping the clone resolves -X,
-					// resulting in no net change but potentially two events. This is an acceptable
-					// tradeoff for the asset trap/claim mechanism.
+					// resulting in no net change but potentially two events.
 					minted.fungible.iter().for_each(|(_, imbalance)| {
 						let to_resolve = imbalance.unsafe_clone();
 						core::mem::drop(to_resolve);
@@ -4014,7 +4245,7 @@ impl<T: Config> ClaimAssets for Pallet<T> {
 				},
 				Err(error) => tracing::debug!(
 					target: "xcm::pallet_xcm::claim_assets",
-					?asset, ?error, "Asset claimed from trap but unable to mint."
+					?asset, ?error, "Asset claimed from legacy trap but unable to mint."
 				),
 			}
 		}

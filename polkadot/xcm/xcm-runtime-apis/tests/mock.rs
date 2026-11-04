@@ -158,6 +158,9 @@ parameter_types! {
 	pub const NativeTokenPerSecondPerByte: (AssetId, u128, u128) = (AssetId(HereLocation::get()), 1, 1);
 	pub UniversalLocation: InteriorLocation = [GlobalConsensus(NetworkId::ByGenesis([0; 32])), Parachain(2000)].into();
 	pub const HereLocation: Location = Location::here();
+	/// The trap account, see `pallet_xcm::Config::TrapAccountLocation`; this mock uses u64
+	/// account ids, so it is an `AccountIndex64` junction.
+	pub TrapAccountLocation: Location = AccountIndex64 { index: 7_777_777, network: None }.into();
 	pub const RelayLocation: Location = Location::parent();
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub CheckAccount: AccountId = XcmPallet::check_account();
@@ -463,7 +466,8 @@ impl pallet_xcm::Config for TestRuntime {
 	type AdvertisedXcmVersion = pallet_xcm::CurrentXcmVersion;
 	type AdminOrigin = EnsureRoot<AccountId>;
 	type TrustedLockers = ();
-	type SovereignAccountOf = ();
+	type SovereignAccountOf = LocationToAccountId;
+	type TrapAccountLocation = TrapAccountLocation;
 	type Currency = Balances;
 	type CurrencyMatcher = IsConcrete<HereLocation>;
 	type MaxLockers = ConstU32<0>;

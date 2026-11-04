@@ -46,6 +46,11 @@ fn people_westend_genesis(
 					AccumulateForward::accumulation_account(),
 					PEOPLE_WESTEND_ED
 				)))
+				.chain(core::iter::once((
+					PolkadotXcm::trap_account()
+						.expect("the trap location converts to an account; qed"),
+					PEOPLE_WESTEND_ED
+				)))
 				.collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
