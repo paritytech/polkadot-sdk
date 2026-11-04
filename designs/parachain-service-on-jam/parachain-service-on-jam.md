@@ -818,7 +818,7 @@ Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a cor
 
 - If the call succeeds, the core is dropped from both maps. The exception is a core that
   stays assigned to this service and whose queue needs rewriting every 80 timeslots (§7.1). It
-  is re-armed 80 timeslots out with its rotation advanced.
+  is re-armed 80 timeslots out.
 - If JAM rejects it because this service is no longer the core's assigner, the core is
   dropped from both maps and `AccumulateLog::CoreNotAssignable` is recorded in the
   Coretime chain's log.
@@ -1633,19 +1633,30 @@ capacity-bounded `parachain_log` (§3.1). The validation code should panic inste
 
 #### Filling the 80-slot queue
 
-JAM's `assign` consumes exactly 80 authorizer hashes, one per slot. The Coretime chain
-supplies the authorizer set as a queue of length X ≤ 80, and the service fills the 80
-slots with the next 80 entries of that set repeated endlessly:
+JAM's `assign` replaces a core's queue of exactly 80 authorizer hashes, and at timeslot
+`t` JAM adds queue entry `t % 80` to the core's pool. The Coretime chain supplies the
+authorizer set as a queue of length X ≤ 80, and slot `t` gets hash `t % X` of the set:
 
-- X = 80, or X < 80 with `80 % X == 0`: the 80 slots tile the set a whole number of
-  times, so the installed queue keeps cycling correctly on its own and is written once. A
-  handoff to another assigner likewise has to be self-sufficient, so `AssignCore` with a
-  `Some` assigner demands an exact 80-hash queue (§4.3).
-- X < 80 with `80 % X != 0`: 80 slots do not land on a set boundary, so each cycle must
-  resume where the last one stopped. The service keeps the queue and rewrites it every
-  80 slots, shifting its start forward by `80 % X` each time. For X = 11 the first
-  cycle is 7 full passes (77) plus authorizers 1 to 3. The next starts at the 4th, runs
-  to the 11th, then repeats. The stored order is the schedule, so there is no separate cursor.
+- X = 80, or X < 80 with `80 % X == 0`: the queue is taken as it comes, repeated from
+  entry 0. The 80 entries tile the set a whole number of times, so the installed queue
+  keeps cycling correctly on its own and is written once. A handoff to another assigner
+  likewise has to be self-sufficient, so `AssignCore` with a `Some` assigner demands an
+  exact 80-hash queue (§4.3).
+- X < 80 with `80 % X != 0`: for an assign due at timeslot `d`, the service writes the
+  hashes for slots `d` to `d + 79` into entries `d % 80` onwards, wrapping from entry 79
+  to entry 0. It keeps the set in `pending_assigns` and does the same again at `d + 80`.
+
+For example, the set `[A, B, C]` due at slot 40 starts with hash `40 % 3 = 1`, which is
+`B`, at entry 40:
+
+```
+slot   40 41 42 ... 78 79 | 80 81 ... 119 | 120
+entry  40 41 42 ... 78 79 |  0  1 ...  39 |  40
+hash    B  C  A ...  A  B |  C  A ...   C |   A
+```
+
+At slot 120 entry 40 comes round again, and the service writes the next 80 slots,
+starting with `A`.
 
 #### Collator Set Rotation Flow
 
@@ -1660,7 +1671,7 @@ Coretime chain
     ▼
 Parachain Service (Accumulate)
     │  applies at jam_slot. If the set cannot fill 80 exactly it is kept and
-    │  re-presented with a rotating partial every 80 blocks (§5.1)
+    │  rewritten every 80 slots (§5.1)
     ▼
 Pool (up to 8 entries)
     │  Old authorizer hashes drain out over ~8 blocks (48s)
