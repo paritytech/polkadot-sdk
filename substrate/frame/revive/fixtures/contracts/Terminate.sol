@@ -23,6 +23,39 @@ contract Terminate {
 		_terminate(method, beneficiary);
 	}
 
+<<<<<<< HEAD
+=======
+	/// Terminate through the pre-compile, then run `SELFDESTRUCT` in this frame or in a delegate
+	/// call to this contract.
+	function terminateThenSelfdestruct(address beneficiary, bool viaDelegateCall) external {
+		_terminate(METHOD_PRECOMPILE, beneficiary);
+		if (!viaDelegateCall) {
+			// Halts execution.
+			_terminate(METHOD_SYSCALL, beneficiary);
+		}
+		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_SYSCALL, beneficiary);
+		(bool success, bytes memory returnData) = address(this).delegatecall(data);
+		if (!success) {
+			assembly {
+				revert(add(returnData, 0x20), mload(returnData))
+			}
+		}
+	}
+
+	/// Run `SELFDESTRUCT` in a delegate call to this contract, then terminate through the
+	/// pre-compile.
+	function selfdestructThenTerminate(address beneficiary) external {
+		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_SYSCALL, beneficiary);
+		(bool success, bytes memory returnData) = address(this).delegatecall(data);
+		if (!success) {
+			assembly {
+				revert(add(returnData, 0x20), mload(returnData))
+			}
+		}
+		_terminate(METHOD_PRECOMPILE, beneficiary);
+	}
+
+>>>>>>> 092b5017 ([pallet-revive] align terminate precompile with opcodes (#13689))
 	function indirectDelegateTerminate(address beneficiary) external {
 		bytes memory data = abi.encodeWithSelector(this.terminate.selector, METHOD_PRECOMPILE, beneficiary);
 		(bool success, bytes memory returnData) = address(this).delegatecall(data);
