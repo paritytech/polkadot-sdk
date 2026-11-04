@@ -127,8 +127,6 @@ pub mod pallet {
 		DepositSet { channel: ChannelId, side: DepositSide, amount: Balance },
 		/// The deposits of request `id` could not be set. Nothing changed.
 		DepositRefused { id: u64, channel: ChannelId },
-		/// Everything held for a side, `amount`, was released.
-		DepositReleased { channel: ChannelId, side: DepositSide, amount: Balance },
 	}
 
 	#[pallet::error]
@@ -274,9 +272,12 @@ impl<T: Config> Pallet<T> {
 		let Some(held) = Deposits::<T>::take((channel, side)) else { return };
 		let reason = HoldReason::ChannelDeposit.into();
 		let who = Self::payer(&channel, side);
-		let amount =
+		let released =
 			T::Currency::release(&reason, &who, held, Precision::BestEffort).unwrap_or_default();
-		Self::deposit_event(Event::DepositReleased { channel, side, amount });
+		if released != held {
+			frame_support::defensive!("hrmp-para: released less than recorded", (held, released));
+		}
+		Self::deposit_event(Event::DepositSet { channel, side, amount: 0 });
 	}
 
 	/// Checks that each para has exactly its recorded deposits on hold.

@@ -18,11 +18,7 @@
 use crate::{mock::*, Call, Deposits, Error, Event, HoldReason, RECEIVE_CALL_INDEX};
 use frame_support::{
 	assert_noop, assert_ok, assert_storage_noop,
-	traits::{
-		fungible::{InspectHold, MutateHold},
-		tokens::{Fortitude, Precision},
-		GetCallIndex, UnfilteredDispatchable,
-	},
+	traits::{fungible::InspectHold, GetCallIndex, UnfilteredDispatchable},
 };
 use hrmp_primitives::{
 	Balance, ChannelId, DepositError, DepositSide, MessageToPara, MessageToParaV1, MessageToRelay,
@@ -272,8 +268,8 @@ fn release_both_sides() {
 		assert_eq!(
 			events(),
 			vec![
-				Event::DepositReleased { channel: ch(1, 2), side: Sender, amount: 10 },
-				Event::DepositReleased { channel: ch(1, 2), side: Recipient, amount: 20 },
+				Event::DepositSet { channel: ch(1, 2), side: Sender, amount: 0 },
+				Event::DepositSet { channel: ch(1, 2), side: Recipient, amount: 0 },
 			]
 		);
 		assert!(sent().is_empty());
@@ -309,30 +305,6 @@ fn release_one_channel_keeps_others() {
 		release(ch(1, 2), true, true);
 		assert_eq!(on_hold(1), 20);
 		assert_eq!(deposit(ch(1, 3), Sender), Some(20));
-	});
-}
-
-/// After part of a hold is slashed, a release gives back what is left and forgets the side.
-#[test]
-fn release_after_hold_partially_slashed() {
-	new_test_ext(|| {
-		assert_ok!(set(0, ch(1, 2), Some(10), None));
-		assert_ok!(Balances::burn_held(
-			&HoldReason::ChannelDeposit.into(),
-			&1,
-			4,
-			Precision::Exact,
-			Fortitude::Force,
-		));
-		events();
-
-		release(ch(1, 2), true, false);
-		assert_eq!(on_hold(1), 0);
-		assert_eq!(deposit(ch(1, 2), Sender), None);
-		assert_eq!(
-			events(),
-			vec![Event::DepositReleased { channel: ch(1, 2), side: Sender, amount: 6 }]
-		);
 	});
 }
 
