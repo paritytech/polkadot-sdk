@@ -547,9 +547,10 @@ where
 	}
 
 	/// Apply retention at `finalized`: drop boundaries imported before `horizon_cutoff` (never
-	/// `finalized` itself); prune each channel below its watermark (none: keep all); keep every
-	/// other stream from the oldest kept boundary's head. `watermarks` must be read at `finalized`,
-	/// so a reverted read never prunes.
+	/// `finalized` itself) with their roots, except the root the oldest kept boundary still points
+	/// at; prune each channel below its watermark (none: keep all); keep every other stream from
+	/// the oldest kept boundary's head. `watermarks` must be read at `finalized`, so a reverted
+	/// read never prunes.
 	pub fn retain(
 		&mut self,
 		finalized: H,
@@ -575,11 +576,8 @@ where
 		// The pruning below reads the index.
 		self.store.commit(core::mem::take(&mut batch)).map_err(ArchiveError::Store)?;
 
-		// Drop boundaries past the horizon, oldest first. A dropped block's state may still be
-		// what later blocks without sends point at, so the newest dropped state is kept and the
-		// one before it deleted: anything pointing at that one is older, hence dropped already.
-		let mut pruned_state: Option<H> =
-			self.store.get(&pruned_state_key()).and_then(|v| H::decode(&mut &v[..]).ok());
+		// Drop boundaries past the horizon, oldest first.
+		let mut dropped_states = Vec::new();
 		while oldest < top {
 			let Some(hash) = self.canon(oldest) else { break };
 			let Some(boundary) = self.boundary(&hash) else { break };
@@ -589,18 +587,37 @@ where
 			batch.delete.push(boundary_key(&hash));
 			batch.delete.push(canon_key(oldest));
 			if boundary.state_at == Some(hash) {
-				if let Some(root) = self.block_state(&hash).and_then(|s| s.root) {
-					batch.delete.push(root_key(&root));
-				}
-				if let Some(previous) = pruned_state.replace(hash) {
-					batch.delete.push(state_key(&previous));
-				}
+				dropped_states.push(hash);
 			}
 			oldest += 1;
 		}
+		// A dropped block's state is still current while the kept blocks have sent nothing since:
+		// they all point at it, and for an idle sender its root is the newest included one. Keep
+		// that state and its root; delete every other dropped state with its root. Only the oldest
+		// kept block can point at a dropped state, and every later kept one then points at it too.
+		let current = self.canon(oldest).and_then(|hash| self.boundary(&hash)?.state_at);
+		let previous: Option<H> =
+			self.store.get(&pruned_state_key()).and_then(|v| H::decode(&mut &v[..]).ok());
+		let mut pruned_state = None;
+		for hash in previous.into_iter().chain(dropped_states) {
+			let root = self.block_state(&hash).and_then(|s| s.root);
+			if Some(hash) == current {
+				// Written again: retention before this rule deleted it.
+				if let Some(root) = root {
+					batch.insert.push((root_key(&root), hash.encode()));
+				}
+				pruned_state = Some(hash);
+				continue;
+			}
+			if let Some(root) = root {
+				batch.delete.push(root_key(&root));
+			}
+			batch.delete.push(state_key(&hash));
+		}
 		batch.insert.push((oldest_key(), oldest.encode()));
-		if let Some(hash) = pruned_state {
-			batch.insert.push((pruned_state_key(), hash.encode()));
+		match pruned_state {
+			Some(hash) => batch.insert.push((pruned_state_key(), hash.encode())),
+			None => batch.delete.push(pruned_state_key()),
 		}
 		self.store.commit(batch).map_err(ArchiveError::Store)?;
 

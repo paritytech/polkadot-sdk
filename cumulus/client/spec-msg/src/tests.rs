@@ -564,24 +564,54 @@ fn a_pruned_state_still_serves_later_blocks_without_sends() {
 	let store = Arc::new(MemoryStore::default());
 	let mut archive = TestArchive::open(store.clone());
 	let mut model = Model::default();
-	let a = channel(2000);
-	// Blocks 1 and 2 are past the horizon; block 2 and 3 send nothing and point at block 1's state.
-	let root1 = model.send(&[(a, payloads(1, 3))]);
+	let (a, r) = (channel(2000), ack(2000));
+	// Blocks 1 to 3 are past the horizon. Block 2 supersedes block 1's root; blocks 3 and 4 send
+	// nothing and point at block 2's state.
+	let root1 = model.send(&[(a, payloads(1, 3)), (r, payloads(9, 1))]);
 	archive
-		.import_block(1, 0, 1, 10, vec![(a, payloads(1, 3))], Some(root1))
+		.import_block(1, 0, 1, 10, vec![(a, payloads(1, 3)), (r, payloads(9, 1))], Some(root1))
 		.unwrap();
-	archive.import_block(2, 1, 2, 10, vec![], None).unwrap();
-	archive.import_block(3, 2, 3, 100, vec![], None).unwrap();
-	archive.retain(3, &BTreeMap::new(), 50).unwrap();
+	let root2 = model.send(&[(a, payloads(2, 2)), (r, payloads(8, 1))]);
+	archive
+		.import_block(2, 1, 2, 10, vec![(a, payloads(2, 2)), (r, payloads(8, 1))], Some(root2))
+		.unwrap();
+	archive.import_block(3, 2, 3, 10, vec![], None).unwrap();
+	archive.import_block(4, 3, 4, 100, vec![], None).unwrap();
+	archive.retain(4, &BTreeMap::new(), 50).unwrap();
+
+	// The superseded root is gone; the current one, an idle sender's newest included, is served.
 	assert_eq!(
 		archive.serve_messages(&messages(a, 0, root1, 0), u32::MAX),
 		Err(FetchError::UnknownRoot)
 	);
+	assert_eq!(served(&archive, &messages(a, 0, root2, u32::MAX)).unwrap().len(), 5);
+	assert_eq!(served(&archive, &head(r, root2, 1024)), Ok(payloads(8, 1)));
+	// Its `Ack` stream keeps the head only: the floor comes from the oldest kept state.
+	assert_eq!(
+		archive.serve_messages(&messages(r, 0, root2, 1024), u32::MAX),
+		Err(FetchError::OutsideHorizon { lowest: MessagePosition(1) })
+	);
+	// Idempotent.
+	archive.retain(4, &BTreeMap::new(), 50).unwrap();
+	assert!(served(&archive, &head(r, root2, 1024)).is_ok());
 
 	// After a restart the tip's state is still known, so the next root is right.
 	let mut archive = TestArchive::open(store);
-	let root4 = import(&mut archive, &mut model, 4, vec![(a, payloads(4, 2))]);
-	assert_eq!(served(&archive, &messages(a, 3, root4, u32::MAX)), Ok(payloads(4, 2)));
+	assert!(served(&archive, &head(r, root2, 1024)).is_ok());
+	let root5 = model.send(&[(a, payloads(5, 2))]);
+	archive
+		.import_block(5, 4, 5, 200, vec![(a, payloads(5, 2))], Some(root5))
+		.unwrap();
+	assert_eq!(served(&archive, &messages(a, 5, root5, u32::MAX)), Ok(payloads(5, 2)));
+
+	// Once a kept block sends again, the old state is superseded and goes with its root.
+	archive.retain(5, &BTreeMap::new(), 150).unwrap();
+	assert_eq!(
+		archive.serve_messages(&head(r, root2, 1024), u32::MAX),
+		Err(FetchError::UnknownRoot)
+	);
+	assert_eq!(served(&archive, &messages(a, 5, root5, u32::MAX)), Ok(payloads(5, 2)));
+	assert!(served(&archive, &head(r, root5, 1024)).is_ok());
 }
 
 #[test]
