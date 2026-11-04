@@ -25,6 +25,7 @@ use crate::{
 	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
 	StorageDeposit as Deposit,
 	address::AddressMapper,
+	deposit_payment::Deposit as _,
 	storage::{AccountInfo, ContractInfo},
 };
 use alloc::vec::Vec;
@@ -62,8 +63,8 @@ pub trait Ext<T: Config> {
 	/// It will fail in case the `origin` has not enough balance to cover all storage deposits.
 	///
 	/// A refund may be released only in part, for example when `origin` is not entitled to the
-	/// part of the hold that another account paid. The implementer keeps the unreleased part
-	/// refundable to an entitled origin.
+	/// part of the hold that another account paid. The implementer pays what the hold exceeds
+	/// the contract's recorded deposit by to an `origin` that is entitled to it.
 	fn charge(
 		origin: &T::AccountId,
 		contract: &T::AccountId,
@@ -561,36 +562,29 @@ impl<T: Config> Ext<T> for ReservingExt {
 				)?;
 			},
 			Deposit::Refund(amount) => {
-				let released = <Pallet<T>>::refund_deposit(
-					HoldReason::StorageDepositReserve,
-					contract,
-					exec_config.funds(origin),
-					*amount,
-				)?;
-				let unreleased = amount.saturating_sub(released);
-				if !unreleased.is_zero() {
-					Self::retain_refund::<T>(contract, unreleased);
+				let reason = HoldReason::StorageDepositReserve;
+				let held = T::Deposit::total_on_hold(reason, contract);
+				<Pallet<T>>::refund_deposit(reason, contract, exec_config.funds(origin), *amount)?;
+
+				// The backend releases a refund only as far as the origin is entitled to it, while
+				// the contract info was lowered by the whole refund when the storage change was
+				// recorded. The hold then exceeds the recorded deposit by the unreleased part. Pay
+				// that excess to an origin entitled to it, so that it does not stay on hold until
+				// the contract is terminated. The info is written at frame exit, before the
+				// deposits are paid, so it is current here. Its key is already in the overlay.
+				let recorded =
+					AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(contract))
+						.map(|info| info.total_deposit());
+				let Some(recorded) = recorded else {
+					frame_support::defensive!("refund for an account without contract info");
+					return Ok(());
+				};
+				let excess = held.saturating_sub(recorded).saturating_sub(*amount);
+				if !excess.is_zero() {
+					T::Deposit::refund_excess(reason, contract, origin, excess)?;
 				}
 			},
 		}
 		Ok(())
-	}
-}
-
-impl ReservingExt {
-	/// Keep the part of a refund that the deposit backend did not release refundable.
-	///
-	/// The contract info was lowered by the full refund when the storage change was recorded.
-	/// Adding the unreleased part back keeps the info in step with the hold, so a later refund
-	/// to an entitled origin releases it. Without this the amount stays on hold until the
-	/// contract is terminated.
-	fn retain_refund<T: Config>(contract: &T::AccountId, amount: BalanceOf<T>) {
-		let address = T::AddressMapper::to_address(contract);
-		let Some(mut info) = AccountInfo::<T>::load_contract(&address) else {
-			frame_support::defensive!("refund for an account without contract info");
-			return;
-		};
-		info.retain_deposit(amount);
-		AccountInfo::<T>::insert_contract(&address, info);
 	}
 }

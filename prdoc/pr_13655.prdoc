@@ -2,13 +2,11 @@ title: 'pallet-revive: keep an unreleased storage deposit refund refundable'
 doc:
 - audience: Runtime Dev
   description: |-
-    On a runtime using `PGasDeposit`, a refund for removed contract storage is released only to the account that paid the deposit in native currency. When a different account removes that storage, the backend releases nothing, but the contract's recorded storage deposit was already lowered by the full refund. The unreleased amount stayed on hold and could only leave it at contract termination, paid to the terminating origin.
+    On a runtime using `PGasDeposit`, the native part of a refund for removed contract storage is released only to an account that paid a storage deposit for the contract in native currency, and only up to what it paid. When a different account removes that storage, the backend leaves the native part on the contract's hold, but the contract's recorded storage deposit was already lowered by the full refund. The unreleased amount stayed on hold and could only leave it at contract termination, paid to the terminating origin.
 
-    The unreleased part is now added back to the contract's recorded storage deposit, so a later storage removal by an entitled account releases it. No migration is needed: deposits already stranded on existing contracts stay on hold until that contract is terminated.
+    The amount the hold exceeds the recorded storage deposit by is now paid out with the next storage removal by an account that paid a native deposit for the contract, up to what that account paid, to its free balance. It is not part of the storage deposit the call reports. Amounts stranded on existing contracts before this change are paid out the same way; no migration is needed.
 
-    `Deposit::refund_on_hold` returns the amount released from the hold instead of `()`. Only the pallet's own backends implement the trait, which is sealed; callers of the method need to accept the new return type.
-
-    `PGasDeposit::refund_all` returns the amount released from the contract's holds, including the burned part of the PGAS hold, as the trait documents. It returned the native part plus only the PGAS share credited to the destination. The storage deposit reported for a call that terminates a contract on a `PGasDeposit` runtime now includes the burned share. The amounts credited and burned do not change.
+    `Deposit` gains the method `refund_excess`, which pays such an amount from a contract's hold. The trait is sealed, so no downstream implementation needs updating.
 crates:
 - name: pallet-revive
-  bump: major
+  bump: minor

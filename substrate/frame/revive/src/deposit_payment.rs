@@ -97,9 +97,9 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 	/// Refund `amount` of held funds from contract `from`.
 	///
-	/// Returns the amount released from the hold. A backend may release less than `amount`
-	/// without failing, for example when `dst` is not entitled to the part of the hold that was
-	/// paid in a particular currency. The rest stays on hold.
+	/// A backend may release less than `amount` without failing, for example when `dst` is not
+	/// entitled to the part of the hold that was paid in a particular currency. The rest stays
+	/// on hold, see [`Self::refund_excess`].
 	///
 	/// # Parameters
 	/// - `reason`: hold reason the funds were placed under.
@@ -111,6 +111,27 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 		reason: HoldReason,
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
+		amount: BalanceOf<T>,
+	) -> DispatchResult;
+
+	/// Refund to `to` up to `amount` of the funds held on `from` that no deposit is recorded
+	/// for, and return the amount released.
+	///
+	/// A refund that [`Self::refund_on_hold`] released only in part leaves the rest on the hold
+	/// while the contract's recorded deposit was already lowered by the whole refund. The
+	/// backend releases such funds only to an account entitled to them: `PGasDeposit` pays
+	/// them from the native hold, up to the native deposit `to` paid. The refund goes to the
+	/// free balance of `to`.
+	///
+	/// # Parameters
+	/// - `reason`: hold reason the funds were placed under.
+	/// - `from`: contract whose hold is being released.
+	/// - `to`: account the refund is paid to.
+	/// - `amount`: upper bound of the refund.
+	fn refund_excess(
+		reason: HoldReason,
+		from: &T::AccountId,
+		to: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Result<BalanceOf<T>, DispatchError>;
 
@@ -220,7 +241,7 @@ impl<T: Config> Deposit<T> for () {
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> DispatchResult {
 		match dst {
 			Funds::Balance(to) => {
 				T::Currency::transfer_on_hold(
@@ -246,6 +267,17 @@ impl<T: Config> Deposit<T> for () {
 				T::FeeInfo::deposit_txfee(credit);
 			},
 		}
+		Ok(())
+	}
+
+	/// The whole hold is native and refundable to any origin, so the funds go to `to` in full.
+	fn refund_excess(
+		reason: HoldReason,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		<Self as Deposit<T>>::refund_on_hold(reason, from, Funds::Balance(to), amount)?;
 		Ok(amount)
 	}
 
@@ -395,29 +427,25 @@ where
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	) -> DispatchResult {
 		let to = match &dst {
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
-		let contribution = NativeDepositOf::<T>::get(from, to);
-		let native_requested = amount.min(contribution);
-
-		let native_refunded = if !native_requested.is_zero() {
-			<() as Deposit<T>>::refund_on_hold(reason, from, dst, native_requested)?;
-			let new_val = contribution.saturating_sub(native_requested);
-			if new_val.is_zero() {
-				NativeDepositOf::<T>::remove(from, to);
-			} else {
-				NativeDepositOf::<T>::insert(from, to, new_val);
-			}
-			native_requested
-		} else {
-			BalanceOf::<T>::zero()
-		};
-
+		let native_refunded = Self::refund_native(reason, from, dst, amount)?;
 		let pgas_needed = amount.saturating_sub(native_refunded);
-		let pgas_released = Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
-		Ok(native_refunded.saturating_add(pgas_released))
+		Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
+		Ok(())
+	}
+
+	/// Only the native hold is paid out, up to the native deposit `to` paid. The PGAS hold is
+	/// left alone: a PGAS refund is never short, so nothing on it is owed to anyone.
+	fn refund_excess(
+		reason: HoldReason,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		Self::refund_native(reason, from, Funds::Balance(to), amount)
 	}
 
 	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
@@ -431,8 +459,7 @@ where
 	/// per-contributor cap, then settles the PGAS hold via [`Self::settle_pgas_refund`]
 	/// (refunding `RefundPercent` to `dst` and burning the rest). The native cap only makes
 	/// sense for partial refunds on a live contract; at termination there is one recipient and
-	/// the contract is gone. Returns the amount released from both holds, including the burned
-	/// part of the PGAS hold.
+	/// the contract is gone.
 	///
 	/// Note: callers must run inside a storage layer so partial state rolls back on error.
 	fn refund_all(
@@ -446,8 +473,8 @@ where
 		let reason = HoldReason::StorageDepositReserve;
 
 		let pgas = Self::pgas_on_hold(reason, from);
-		let pgas_released = Self::settle_pgas_refund(reason, from, to, pgas)?;
-		Ok(native.saturating_add(pgas_released))
+		let pgas = Self::settle_pgas_refund(reason, from, to, pgas)?;
+		Ok(native.saturating_add(pgas))
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
@@ -572,9 +599,36 @@ where
 		});
 	}
 
+	/// Refund up to `amount` of the native hold on `from` to `dst`, capped by the native deposit
+	/// the account in `dst` paid ([`NativeDepositOf`]). Returns the amount refunded.
+	fn refund_native(
+		reason: HoldReason,
+		from: &T::AccountId,
+		dst: Funds<T::AccountId>,
+		amount: BalanceOf<T>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		let to = match &dst {
+			Funds::Balance(to) | Funds::TxFee(to) => *to,
+		};
+		let contribution = NativeDepositOf::<T>::get(from, to);
+		let amount = amount.min(contribution);
+		if amount.is_zero() {
+			return Ok(Zero::zero());
+		}
+
+		<() as Deposit<T>>::refund_on_hold(reason, from, dst, amount)?;
+		let left = contribution.saturating_sub(amount);
+		if left.is_zero() {
+			NativeDepositOf::<T>::remove(from, to);
+		} else {
+			NativeDepositOf::<T>::insert(from, to, left);
+		}
+		Ok(amount)
+	}
+
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
-	/// burn the rest. Returns the amount released from the hold: the part transferred to `to`
-	/// and the part burned.
+	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
+	/// portion).
 	///
 	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
 	/// account and the refund would create one below ED), the refund portion is folded into
@@ -590,7 +644,7 @@ where
 		amount: BalanceOf<T>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		if amount.is_zero() {
-			return Ok(Zero::zero());
+			return Ok(BalanceOf::<T>::zero());
 		}
 		// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
 		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
@@ -598,7 +652,7 @@ where
 		let pgas_held = Self::pgas_on_hold(reason, from);
 		let amount = amount.min(pgas_held);
 		if amount.is_zero() {
-			return Ok(Zero::zero());
+			return Ok(BalanceOf::<T>::zero());
 		}
 		let refund = RefundPercent::get().mul_floor(amount);
 		let mut burn = amount.saturating_sub(refund);
@@ -640,6 +694,6 @@ where
 				Fortitude::Polite,
 			)?;
 		}
-		Ok(refunded.saturating_add(burn))
+		Ok(refunded)
 	}
 }
