@@ -1890,13 +1890,6 @@ where
 		// Every scheduled contract has its info stored by now: popping its frame wrote it.
 		let account_info = AccountInfoOf::<T>::get(contract_address).unwrap_or_default();
 
-		// Refund the storage deposit as far as the freeze on the account allows. A freeze can
-		// keep part of it on hold. That part stays on the account.
-		let refund = Self::best_effort(&contract_address, "refund the storage deposit", || {
-			Self::refund_on_terminate(exec_config, contract_account, origin)
-		})
-		.unwrap_or_default();
-
 		// we added this consumer manually when instantiating
 		System::<T>::dec_consumers(contract_account);
 
@@ -1964,12 +1957,12 @@ where
 		ImmutableDataOf::<T>::remove(contract_address);
 
 		// the meter needs to discard all deposits interacting with the terminated contract
-		transaction_meter.terminate(contract_account.clone(), refund);
+		transaction_meter.terminate(contract_account.clone());
 
 		log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
 	}
 
-	/// The origin that receives the refunds of a terminated contract.
+	/// The origin on whose behalf the remaining balance of a terminated contract is sent.
 	///
 	/// If root created the contract we need to use the pallet account_id because root has no
 	/// account.
@@ -1978,17 +1971,6 @@ where
 			Origin::Signed(o) => Origin::Signed(o.clone()),
 			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
 		}
-	}
-
-	/// Refunds the storage deposit held on `contract_account` to the termination origin, as far
-	/// as the freezes on the account allow, and returns the amount refunded.
-	fn refund_on_terminate(
-		exec_config: &ExecConfig<T>,
-		contract_account: &T::AccountId,
-		origin: &Origin<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
-		let origin = Self::termination_origin(origin);
-		T::Deposit::refund_all(contract_account, exec_config.funds(origin.account_id()?))
 	}
 
 	/// Runs `f` in its own storage transaction.

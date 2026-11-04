@@ -613,10 +613,9 @@ impl<T: Config> TransactionMeter<T> {
 	/// Mark a contract as terminated
 	///
 	/// This will signal to the meter to discard all charged and refunds incured by this
-	/// contract. Furthermore it will record that there was a refund of `refunded` and adapt the
-	/// total deposit accordingly
-	pub fn terminate(&mut self, contract_account: T::AccountId, refunded: BalanceOf<T>) {
-		self.deposit.terminate(contract_account, refunded);
+	/// contract.
+	pub fn terminate(&mut self, contract_account: T::AccountId) {
+		self.deposit.terminate(contract_account);
 	}
 }
 

@@ -455,12 +455,8 @@ where
 	///
 	/// This will signal to the meter to discard all charged and refunds incured by this
 	/// contract.
-	pub fn terminate(&mut self, contract: T::AccountId, refunded: BalanceOf<T>) {
-		self.total_deposit = self.total_deposit.saturating_add(&Deposit::Refund(refunded));
+	pub fn terminate(&mut self, contract: T::AccountId) {
 		self.charges.push(Charge { contract, state: ContractState::Terminated });
-
-		// no need to recalculate max_charged here as the total consumed amount will just decrease
-		// with this extra refund
 	}
 }
 

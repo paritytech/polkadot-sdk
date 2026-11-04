@@ -1744,6 +1744,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_terminate_logic() -> Result<(), BenchmarkError> {
 		let caller = whitelisted_caller();
+		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let beneficiary = account::<T::AccountId>("beneficiary", 0, 0);
 		T::AddressMapper::map_no_deposit_unchecked(&beneficiary)?;
 
@@ -1752,13 +1753,14 @@ mod benchmarks {
 
 		assert!(PristineCode::<T>::get(code_hash).is_some());
 
-		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
-
-		let storage_deposit = T::Currency::balance_on_hold(
+		// Only a contract created in the same transaction is torn down. Its deposit is still a
+		// pending meter charge at that point, so nothing is on hold.
+		T::Currency::release_all(
 			&HoldReason::StorageDepositReserve.into(),
 			&instance.account_id,
-		);
-		NativeDepositOf::<T>::insert(&instance.account_id, &caller, storage_deposit);
+			Precision::BestEffort,
+		)?;
+		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
 		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
 			weight_limit: Default::default(),

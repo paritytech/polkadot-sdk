@@ -282,7 +282,7 @@ fn termination_works() {
 	let test_cases = vec![
 		ChargingTestCase {
 			origin: Origin::<Test>::from_account_id(ALICE),
-			deposit: Deposit::Refund(108),
+			deposit: Deposit::Charge(12),
 			expected: TestExt {
 				charges: vec![Charge { origin: ALICE, contract: BOB, amount: Deposit::Charge(12) }],
 			},
@@ -323,7 +323,6 @@ fn termination_works() {
 		});
 		let mut nested1 = nested0.nested(Some(BalanceOf::<Test>::MAX));
 		assert_eq!(nested1.consumed(), Default::default());
-		let total_deposit = nested1_info.total_deposit();
 		nested1.charge(&Diff { items_removed: 5, ..Default::default() });
 		assert_eq!(nested1.consumed(), Default::default());
 		nested1.charge(&Diff { bytes_added: 20, ..Default::default() });
@@ -336,8 +335,8 @@ fn termination_works() {
 		meter.absorb(nested0, &BOB, None);
 		assert_eq!(meter.consumed(), Deposit::Charge(22));
 
-		meter.terminate(CHARLIE, total_deposit);
-		assert_eq!(meter.consumed(), Deposit::Refund(98));
+		meter.terminate(CHARLIE);
+		assert_eq!(meter.consumed(), Deposit::Charge(22));
 		assert_eq!(
 			meter
 				.execute_postponed_deposits(&test_case.origin, &ExecConfig::new_substrate_tx())
