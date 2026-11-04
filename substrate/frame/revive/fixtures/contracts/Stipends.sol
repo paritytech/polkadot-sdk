@@ -70,6 +70,19 @@ contract SenderBalanceReader {
 }
 
 /**
+ * @title TwoEventsReceiver
+ * @dev Receiver contract 7: emits two events, which cost more than the call stipend
+ */
+contract TwoEventsReceiver {
+    event Received(address from, uint256 amount);
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+        emit Received(msg.sender, msg.value);
+    }
+}
+
+/**
  * @title ReentrancyAttacker
  * @dev On receiving ETH, attempts to call back into the sender
  */

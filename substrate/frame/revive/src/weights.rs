@@ -1915,20 +1915,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 14_945_000 picoseconds.
-		Weight::from_parts(89_321_676, 0)
-			// Standard Error: 494
-			.saturating_add(Weight::from_parts(122_408, 0).saturating_mul(r.into()))
+		// Minimum execution time: 13_546_000 picoseconds.
+		Weight::from_parts(62_003_243, 0)
+			// Standard Error: 397
+			.saturating_add(Weight::from_parts(62_908, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr_empty_loop(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 3_670_000 picoseconds.
-		Weight::from_parts(3_439_619, 0)
-			// Standard Error: 7
-			.saturating_add(Weight::from_parts(38_960, 0).saturating_mul(r.into()))
+		// Minimum execution time: 3_554_000 picoseconds.
+		Weight::from_parts(3_667_835, 0)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(38_880, 0).saturating_mul(r.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
@@ -3881,20 +3881,20 @@ impl WeightInfo for () {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 14_945_000 picoseconds.
-		Weight::from_parts(89_321_676, 0)
-			// Standard Error: 494
-			.saturating_add(Weight::from_parts(122_408, 0).saturating_mul(r.into()))
+		// Minimum execution time: 13_546_000 picoseconds.
+		Weight::from_parts(62_003_243, 0)
+			// Standard Error: 397
+			.saturating_add(Weight::from_parts(62_908, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr_empty_loop(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 3_670_000 picoseconds.
-		Weight::from_parts(3_439_619, 0)
-			// Standard Error: 7
-			.saturating_add(Weight::from_parts(38_960, 0).saturating_mul(r.into()))
+		// Minimum execution time: 3_554_000 picoseconds.
+		Weight::from_parts(3_667_835, 0)
+			// Standard Error: 8
+			.saturating_add(Weight::from_parts(38_880, 0).saturating_mul(r.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)

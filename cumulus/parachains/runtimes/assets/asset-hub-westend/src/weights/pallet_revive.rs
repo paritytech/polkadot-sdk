@@ -1971,22 +1971,22 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 13_855_000 picoseconds.
-		Weight::from_parts(71_935_411, 0)
+		// Minimum execution time: 13_086_000 picoseconds.
+		Weight::from_parts(38_015_075, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 383
-			.saturating_add(Weight::from_parts(134_350, 0).saturating_mul(r.into()))
+			// Standard Error: 292
+			.saturating_add(Weight::from_parts(69_474, 0).saturating_mul(r.into()))
 	}
 	/// The range of component `r` is `[0, 10000]`.
 	fn instr_empty_loop(r: u32, ) -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_925_000 picoseconds.
-		Weight::from_parts(6_329_125, 0)
+		// Minimum execution time: 4_922_000 picoseconds.
+		Weight::from_parts(5_079_651, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 26
-			.saturating_add(Weight::from_parts(39_456, 0).saturating_mul(r.into()))
+			// Standard Error: 15
+			.saturating_add(Weight::from_parts(39_171, 0).saturating_mul(r.into()))
 	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:0)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
