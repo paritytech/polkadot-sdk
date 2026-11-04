@@ -615,6 +615,50 @@ fn a_pruned_state_still_serves_later_blocks_without_sends() {
 }
 
 #[test]
+fn retention_keeps_every_leaf_the_oldest_kept_block_sent() {
+	let mut archive = TestArchive::open(Arc::new(MemoryStore::default()));
+	let mut model = Model::default();
+	let (e, r) = (StreamId::Broadcast { domain: 0, subdomain: 0, num: 0 }, ack(2000));
+	let (first, second) = (payloads(1, 2), payloads(2, 3));
+	// Block 1 sends two events and is finalized: it is the first and oldest kept block, so both
+	// stay, not only the head.
+	let root1 = model.send(&[(e, first.clone())]);
+	archive
+		.import_block(1, 0, 1, 10, vec![(e, first.clone())], Some(root1))
+		.unwrap();
+	archive.retain(1, &BTreeMap::new(), 50).unwrap();
+	assert_eq!(served(&archive, &messages(e, 0, root1, u32::MAX)), Ok(first));
+
+	// Block 2 sends three more; block 1 passes the horizon. Block 2's events all stay.
+	let root2 = model.send(&[(e, second.clone())]);
+	archive
+		.import_block(2, 1, 2, 100, vec![(e, second.clone())], Some(root2))
+		.unwrap();
+	archive.retain(2, &BTreeMap::new(), 50).unwrap();
+	assert_eq!(served(&archive, &messages(e, 2, root2, u32::MAX)), Ok(second.clone()));
+	assert_eq!(
+		archive.serve_messages(&messages(e, 1, root2, u32::MAX), u32::MAX),
+		Err(FetchError::OutsideHorizon { lowest: MessagePosition(2) })
+	);
+	// Again, once block 1's boundary is gone: the floor stays.
+	archive.retain(2, &BTreeMap::new(), 50).unwrap();
+	assert_eq!(served(&archive, &messages(e, 2, root2, u32::MAX)), Ok(second.clone()));
+
+	// Block 3 sends no events; block 2 passes the horizon. The head stays, with the frontier
+	// before it.
+	let root3 = model.send(&[(r, payloads(9, 1))]);
+	archive
+		.import_block(3, 2, 3, 200, vec![(r, payloads(9, 1))], Some(root3))
+		.unwrap();
+	archive.retain(3, &BTreeMap::new(), 150).unwrap();
+	assert_eq!(served(&archive, &head(e, root3, 1024)), Ok(second[2..].to_vec()));
+	assert_eq!(
+		archive.serve_messages(&messages(e, 3, root3, u32::MAX), u32::MAX),
+		Err(FetchError::OutsideHorizon { lowest: MessagePosition(4) })
+	);
+}
+
+#[test]
 fn a_channel_without_a_watermark_keeps_everything() {
 	let mut archive = TestArchive::open(Arc::new(MemoryStore::default()));
 	let mut model = Model::default();

@@ -83,6 +83,12 @@ impl MemoryStore {
 	pub fn is_empty(&self) -> bool {
 		self.0.lock().is_empty()
 	}
+
+	/// Every stored key, in order.
+	#[cfg(test)]
+	pub(crate) fn keys(&self) -> Vec<Vec<u8>> {
+		self.0.lock().keys().cloned().collect()
+	}
 }
 
 impl ArchiveStore for MemoryStore {

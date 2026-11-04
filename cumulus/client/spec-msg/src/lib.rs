@@ -59,6 +59,8 @@ pub use worker::{check_state_pruning, run_archiver, run_watermark_reader, SERVIN
 pub const LOG_TARGET: &str = "spec-msg";
 
 #[cfg(test)]
+mod archive_model;
+#[cfg(test)]
 mod receiver_tests;
 #[cfg(test)]
 mod tests;

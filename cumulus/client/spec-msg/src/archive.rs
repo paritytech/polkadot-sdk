@@ -549,8 +549,8 @@ where
 	/// Apply retention at `finalized`: drop boundaries imported before `horizon_cutoff` (never
 	/// `finalized` itself) with their roots, except the root the oldest kept boundary still points
 	/// at; prune each channel below its watermark (none: keep all); keep every other stream from
-	/// the oldest kept boundary's head. `watermarks` must be read at `finalized`, so a reverted
-	/// read never prunes.
+	/// the first leaf the oldest kept boundary sent, or else from its head. `watermarks` must be
+	/// read at `finalized`, so a reverted read never prunes.
 	pub fn retain(
 		&mut self,
 		finalized: H,
@@ -619,19 +619,33 @@ where
 			Some(hash) => batch.insert.push((pruned_state_key(), hash.encode())),
 			None => batch.delete.push(pruned_state_key()),
 		}
-		self.store.commit(batch).map_err(ArchiveError::Store)?;
 
-		// Raise the floors.
-		let mut batch = Batch::default();
-		let kept = self.canon(oldest).and_then(|hash| self.state_at(&hash)).unwrap_or_default();
+		// Raise the floors, in the same batch: the parent of the oldest kept block is read here,
+		// before its boundary goes.
+		let oldest_hash = self.canon(oldest);
+		let oldest_boundary = oldest_hash.and_then(|hash| self.boundary(&hash));
+		let kept = oldest_hash.and_then(|hash| self.state_at(&hash)).unwrap_or_default();
+		// If the oldest kept block sent, the leaf counts before its sends: every leaf it sent stays
+		// servable. They read as 0 when its parent is not archived: it is the first archived
+		// block, or an earlier run dropped the parent and already raised the floors this far.
+		let before = oldest_boundary
+			.filter(|boundary| boundary.state_at == oldest_hash)
+			.map(|boundary| self.state_at(&boundary.parent).unwrap_or_default());
 		let at_finalized = self.state_at(&finalized).unwrap_or_default();
 		for (stream, state) in &at_finalized {
+			let count = |streams: &BTreeMap<StreamId, StreamState>| {
+				streams.get(stream).map_or(0, |s| s.leaf_count)
+			};
 			let target = match stream {
 				StreamId::Channel { .. } => {
 					watermarks.get(stream).copied().unwrap_or(0).min(state.leaf_count)
 				},
-				// The head under the oldest kept root stays servable, with its inclusion path.
-				_ => kept.get(stream).map_or(0, |s| s.leaf_count.saturating_sub(1)),
+				// The head under the oldest kept root stays servable, with the frontier before it,
+				// and so does every leaf a kept block sent.
+				_ => {
+					let head = count(&kept).saturating_sub(1);
+					before.as_ref().map_or(head, |before| count(before).min(head))
+				},
 			};
 			self.raise_floor(&mut batch, stream, target);
 		}
