@@ -1,0 +1,15 @@
+title: 'EPMB: determine the signed base deposit at registration'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The base deposit of a signed submission is now charged once, when the submitter calls
+    `register`, and is not re-computed afterwards. `submit_page` only holds or releases the change
+    in the per-page part of the deposit. Previously, every `submit_page` re-computed the
+    whole deposit from the current queue length, so the held amount depended on registrations made
+    by other accounts after the submitter registered.
+
+    No storage migration is needed. Submissions in flight at upgrade keep their held deposit, and
+    later page changes only move the per-page part.
+crates:
+- name: pallet-election-provider-multi-block
+  bump: major
