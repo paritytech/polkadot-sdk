@@ -726,6 +726,9 @@ pub mod pallet {
 
 		/// Unreserve some balance from a user by force.
 		///
+		/// Only acts on the part of the reserved balance that does not back a hold or a named
+		/// reserve.
+		///
 		/// Can only be called by ROOT.
 		#[pallet::call_index(5)]
 		pub fn force_unreserve(
@@ -890,6 +893,24 @@ pub mod pallet {
 			who: &T::AccountId,
 		) -> BoundedVec<ReserveData<T::ReserveIdentifier, T::Balance>, T::MaxReserves> {
 			Reserves::<T, I>::get(who)
+		}
+
+		/// The part of `who`'s reserved balance that is accounted for by its holds and named
+		/// reserves, leaving out the named reserve `except`.
+		///
+		/// The unnamed [`ReservableCurrency`] operations never act on this part. The named ones
+		/// pass their own reserve as `except`, so that they can act on it.
+		pub(crate) fn reserved_accounted_for(
+			who: &T::AccountId,
+			except: Option<&T::ReserveIdentifier>,
+		) -> T::Balance {
+			let held = Holds::<T, I>::get(who)
+				.iter()
+				.fold(T::Balance::zero(), |acc, hold| acc.saturating_add(hold.amount));
+			Reserves::<T, I>::get(who)
+				.iter()
+				.filter(|reserve| Some(&reserve.id) != except)
+				.fold(held, |acc, reserve| acc.saturating_add(reserve.amount))
 		}
 
 		fn ed() -> T::Balance {
@@ -1251,6 +1272,9 @@ pub mod pallet {
 		/// Move the reserved balance of one account into the balance of another, according to
 		/// `status`. This will respect freezes/locks only if `fortitude` is `Polite`.
 		///
+		/// Only the part of `slashed`'s reserved balance that is not accounted for by its holds and
+		/// named reserves, other than the named reserve `except`, can be moved.
+		///
 		/// Is a no-op if the value to be moved is zero.
 		///
 		/// NOTE: returns actual amount of transferred value in `Ok` case.
@@ -1261,14 +1285,19 @@ pub mod pallet {
 			precision: Precision,
 			fortitude: Fortitude,
 			status: Status,
+			except: Option<&T::ReserveIdentifier>,
 		) -> Result<T::Balance, DispatchError> {
 			if value.is_zero() {
 				return Ok(Zero::zero());
 			}
 
+			let unaccounted = Self::account(slashed)
+				.reserved
+				.saturating_sub(Self::reserved_accounted_for(slashed, except));
 			let max = <Self as fungible::InspectHold<_>>::reducible_total_balance_on_hold(
 				slashed, fortitude,
-			);
+			)
+			.min(unaccounted);
 			let actual = match precision {
 				Precision::BestEffort => value.min(max),
 				Precision::Exact => value,
@@ -1276,7 +1305,9 @@ pub mod pallet {
 			ensure!(actual <= max, TokenError::FundsUnavailable);
 			if slashed == beneficiary {
 				return match status {
-					Status::Free => Ok(actual.saturating_sub(Self::unreserve(slashed, actual))),
+					Status::Free => {
+						Ok(actual.saturating_sub(Self::do_unreserve(slashed, actual, except)))
+					},
 					Status::Reserved => Ok(actual),
 				};
 			}
