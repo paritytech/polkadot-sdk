@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TerminateStorageCallerCalls"],"struct":["constructorCall","writeAndTerminateCall","writeAndTerminateReturn","writeFreshCall","writeFreshReturn","writeOnlyCall","writeOnlyReturn"]};
+window.SIDEBAR_ITEMS = {"enum":["TerminateStorageCallerCalls"],"struct":["constructorCall","createWriteAndTerminateCall","createWriteAndTerminateReturn","writeAndTerminateCall","writeAndTerminateReturn","writeFreshCall","writeFreshReturn","writeOnlyCall","writeOnlyReturn"]};
