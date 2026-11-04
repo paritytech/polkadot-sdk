@@ -120,7 +120,7 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
-/// Whitelists every entry the access reads.
+/// Whitelists every entry of the access.
 fn whitelist_access<T: Config>(access: impl Access) {
 	access.expand(|entry, _op| {
 		if let Some(key) = entry.storage_key::<T>() {
@@ -147,7 +147,7 @@ fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
 	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
 }
 
-/// Asserts that no entry the access reads is whitelisted, except those listed in `except`.
+/// Asserts that no entry of the access is whitelisted, except those listed in `except`.
 fn assert_access_items_not_whitelisted<T: Config>(access: impl Access, except: &[AccessEntry]) {
 	access.expand(|entry, _op| {
 		let whitelisted = entry.storage_key::<T>().is_some_and(|key| is_whitelisted(&key));

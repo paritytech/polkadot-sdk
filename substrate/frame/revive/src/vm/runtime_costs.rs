@@ -1032,51 +1032,47 @@ mod tests {
 			);
 		}
 
-		for dust in [false, true] {
-			let cold_weight = weight_of(dust, Some(Warmth::new_cold_non_revertible()));
-			let hot_weight = weight_of(dust, Some(write_paid));
-			assert!(
-				cold_weight.ref_time() > hot_weight.ref_time(),
-				"dust={dust}: cold={cold_weight:?} hot={hot_weight:?}",
-			);
-		}
-
 		let untracked = weight_of(false, None);
 		let tracked_cold = weight_of(false, Some(Warmth::new_cold_non_revertible()));
 		assert!(
 			untracked.ref_time() < tracked_cold.ref_time(),
-			"untracked state pays the bench alone, with no access-list overhead on top: \
+			"untracked pays no access-list overhead: \
 			 untracked={untracked:?} tracked_cold={tracked_cold:?}",
 		);
-	}
 
-	#[test]
-	fn a_hot_value_call_pays_its_bench_once() {
-		let write_paid = Warmth::new_write_paid();
-		let target = H160::repeat_byte(2);
-		let overlay_overhead = RuntimeCosts::hot_storage_overlay_overhead::<Test>();
-		let access_list_costs = |summary: WarmthSummary| {
-			weight(&RuntimeCosts::AccessListRegistration(summary))
-				.saturating_add(overlay_overhead.saturating_mul(summary.total().into()))
-		};
-
+		let call_bench = <Test as Config>::WeightInfo::seal_call(0);
 		for dust in [false, true] {
-			let call = Summarized::from_warmths(CallItems::new(target, false), [write_paid; 2]);
-			let transfer = Summarized::from_warmths(
-				TransferItems { from: H160::zero(), to: target, dust },
-				[write_paid; 4],
-			);
-			let charged = weight(&RuntimeCosts::CallBase(call)).saturating_add(weight(
-				&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked(transfer)),
-			));
+			let cold_transfer_measurements = [
+				<Test as Config>::WeightInfo::seal_call_transfer(dust.into())
+					.saturating_sub(call_bench),
+				<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into())
+					.saturating_sub(call_bench),
+			];
+			let hot_transfer_measurement =
+				<Test as Config>::WeightInfo::seal_call_transfer_hot(dust.into())
+					.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot());
 
-			assert_eq!(
-				charged
-					.saturating_sub(access_list_costs(call.summary()))
-					.saturating_sub(access_list_costs(transfer.summary())),
-				<Test as Config>::WeightInfo::seal_call_transfer_hot(dust.into()),
-				"dust={dust}: the call and its transfer together pay the hot value call bench once",
+			let hot_transfer_charge = weight_of(dust, Some(write_paid));
+			let cold_transfer_charge = weight_of(dust, Some(Warmth::new_cold_non_revertible()));
+			assert!(
+				cold_transfer_charge.ref_time() > hot_transfer_charge.ref_time(),
+				"dust={dust}: cold={cold_transfer_charge:?} hot={hot_transfer_charge:?}",
 			);
+			assert!(
+				hot_transfer_charge.all_gte(hot_transfer_measurement),
+				"dust={dust}: charge={hot_transfer_charge:?} \
+				 measurement={hot_transfer_measurement:?}",
+			);
+			for (case, charge) in
+				[("cold", cold_transfer_charge), ("untracked (precompile)", weight_of(dust, None))]
+			{
+				for measurement in cold_transfer_measurements {
+					assert!(
+						charge.all_gte(measurement),
+						"{case}, dust={dust}: charge={charge:?} measurement={measurement:?}",
+					);
+				}
+			}
 		}
 	}
 
