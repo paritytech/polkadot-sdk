@@ -14,7 +14,6 @@ doc:
     - Removed tests whose scenario can no longer happen:
       - the deposit refund at call time (two tests)
       - several payers' deposits being refunded at termination
-      - the "late funds can't be sent because of the deposit limit" case. Creating the contract in the same transaction needs deposit headroom, and that headroom then covers the beneficiary's ED.
 crates:
 - name: pallet-revive-fixtures
   bump: major

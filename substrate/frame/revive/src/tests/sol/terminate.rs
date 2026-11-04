@@ -19,8 +19,9 @@ use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfoOf, Config, H160, H256,
 	HoldReason, Pallet, StorageDeposit, U256,
 	address::{AddressMapper, create1, create2},
+	metering::TransactionLimits,
 	storage::AccountType,
-	test_utils::{ALICE, BOB, DJANGO, DJANGO_ADDR, builder::Contract},
+	test_utils::{ALICE, BOB, DJANGO, DJANGO_ADDR, WEIGHT_LIMIT, builder::Contract},
 	tests::{
 		Balances, BurnDestination, Contracts, ExtBuilder, RuntimeFreezeReason, RuntimeHoldReason,
 		RuntimeOrigin, System, Test, builder, pallet_dummy,
@@ -460,6 +461,73 @@ fn sent_funds_after_terminate_shall_be_credited_to_beneficiary_base_case(
 		);
 		let account = <Test as Config>::AddressMapper::to_account_id(&addr);
 		assert_eq!(get_balance(&account), 0, "ucontract has balance after terminate");
+	});
+}
+
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[METHOD_PRECOMPILE, METHOD_SYSCALL]
+)]
+fn terminate_when_late_funds_cannot_be_sent(fixture_type: FixtureType, method: u8) {
+	let (code, _) = compile_module_with_type("Terminate", fixture_type).unwrap();
+	let (caller_code, _) = compile_module_with_type("TerminateCaller", fixture_type).unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let ed = Contracts::min_balance();
+		let late = 123u128;
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		let upload = || {
+			if fixture_type == FixtureType::Resolc {
+				assert_ok!(Pallet::<Test>::upload_code(
+					RuntimeOrigin::signed(ALICE),
+					code.clone(),
+					<BalanceOf<Test>>::MAX,
+				));
+			}
+		};
+		let deploy_caller = |salt: u8| {
+			builder::bare_instantiate(Code::Upload(caller_code.clone()))
+				.native_value(late)
+				.salt(Some([salt; 32]))
+				.build_and_unwrap_contract()
+				.addr
+		};
+		let call_data = |beneficiary: H160| {
+			TerminateCaller::sendFundsAfterTerminateAndCreateCall {
+				value: alloy_core::primitives::U256::from_limbs(evm_value(late, 0).0),
+				method,
+				beneficiary: beneficiary.0.into(),
+			}
+			.abi_encode()
+		};
+
+		upload();
+		let probe = builder::bare_call(deploy_caller(1))
+			.data(call_data(H160::from([0x41u8; 20])))
+			.build();
+		assert!(probe.result.is_ok(), "probe call failed: {:?}", probe.result);
+		let limit = probe.max_storage_deposit.charge_or_zero() - 1;
+
+		upload();
+		let beneficiary = H160::from([0x42u8; 20]);
+		let beneficiary_account = <Test as Config>::AddressMapper::to_account_id(&beneficiary);
+		let result = builder::bare_call(deploy_caller(2))
+			.data(call_data(beneficiary))
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: limit,
+			})
+			.build_and_unwrap_result();
+
+		assert!(!result.did_revert(), "call must succeed: {}", decode_error(&result.data));
+		let addr = H160::from_slice(
+			TerminateCaller::sendFundsAfterTerminateAndCreateCall::abi_decode_returns(&result.data)
+				.unwrap()
+				.as_slice(),
+		);
+		let account_id = <Test as Config>::AddressMapper::to_account_id(&addr);
+		assert!(get_contract_checked(&addr).is_none(), "contract must be deleted");
+		assert_eq!(get_balance(&beneficiary_account), 0, "beneficiary must not be created");
+		assert_eq!(Balances::total_balance(&account_id), ed + late, "late funds stay");
 	});
 }
 
