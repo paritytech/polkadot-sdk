@@ -1242,9 +1242,36 @@ fn create_inherent_trims_to_the_remaining_ref_time() {
 		};
 
 		assert_eq!(kept(weight(3, true)), (3, true));
-		assert_eq!(kept(weight(3, true) - 1), (3, false));
+		// The register read goes first: the channel item is cut, not the read.
+		assert_eq!(kept(weight(3, true) - 1), (2, true));
 		assert_eq!(kept(weight(3, false) - 1), (2, false));
 		assert_eq!(kept(weight(1, false) - 1), (0, false));
+	});
+}
+
+#[test]
+fn a_channel_item_that_fills_the_ref_time_leaves_room_for_the_register_read() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		want_open(out_channel());
+		let payloads = vec![hello(1), data(b"a"), data(b"b"), data(b"c")];
+		let mut offered = channel_item(ch, payloads.clone());
+		offered.registers = register_read(0).registers;
+		let channel_alone = enact_weight::<Test>(&channel_item(ch, payloads)).ref_time();
+		let register_alone = enact_weight::<Test>(&register_read(0)).ref_time();
+		let max = <Test as frame_system::Config>::BlockWeights::get().max_block.ref_time();
+		// The block has room for the whole channel item, or for the register read, not both: a
+		// backlogged channel offers that much in every block.
+		frame_system::BlockWeight::<Test>::kill();
+		System::register_extra_weight_unchecked(
+			Weight::from_parts(max - channel_alone.max(register_alone), 0),
+			DispatchClass::Mandatory,
+		);
+		let data = created(&offered).expect("something fits");
+		// The register carries our flow-control grant: the sender stalls without it.
+		assert!(!data.registers.is_empty(), "the register read is kept");
+		assert!(enact_weight::<Test>(&data).ref_time() <= channel_alone.max(register_alone));
 	});
 }
 

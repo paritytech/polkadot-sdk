@@ -726,6 +726,36 @@ pub mod pallet {
 				.ref_time()
 				.saturating_sub(frame_system::Pallet::<T>::block_weight().total().ref_time());
 			let mut tally = EnactTally::default();
+			// Register reads go first: they carry our flow-control grants, and a channel backlog
+			// that fills the block's ref time would otherwise drop them in every block.
+			let mut filtered_registers = BTreeMap::new();
+			for (channel_id, lossy) in data.registers {
+				let stream = channel_id.peer_ack_stream(us);
+				// One read per register per bundle; a newer register waits for the next bundle.
+				// A second read can skip leaves, and the PoV then needs an advance over them,
+				// which the node fetches only after importing the block: usually after the
+				// collation is built. A read that skips none waits too, so no two reads of a
+				// register are ever stitched.
+				if budget.streams.contains(&stream) {
+					continue;
+				}
+				let Ok(skip) = Self::admit_register_read(channel_id, &lossy) else {
+					continue;
+				};
+				let Ok(bytes) = Self::lift_reservation(&budget, stream, skip) else {
+					continue;
+				};
+				let cost = bytes.saturating_add((channel_id, &lossy).encoded_size() as u64);
+				let item = EnactTally { registers: tally.registers.saturating_add(1), ..tally };
+				if cost > remaining || item.weight::<T>().ref_time() > ref_time {
+					continue;
+				}
+				remaining -= cost;
+				tally = item;
+				budget.record(stream, bytes);
+				filtered_registers.insert(channel_id, lossy);
+			}
+
 			let mut filtered_channels = BTreeMap::new();
 
 			for (channel_id, payloads) in data.channels {
@@ -761,34 +791,6 @@ pub mod pallet {
 				tally = item;
 				budget.record(stream, bytes);
 				filtered_channels.insert(channel_id, admitted.payloads);
-			}
-
-			let mut filtered_registers = BTreeMap::new();
-			for (channel_id, lossy) in data.registers {
-				let stream = channel_id.peer_ack_stream(us);
-				// One read per register per bundle; a newer register waits for the next bundle.
-				// A second read can skip leaves, and the PoV then needs an advance over them,
-				// which the node fetches only after importing the block: usually after the
-				// collation is built. A read that skips none waits too, so no two reads of a
-				// register are ever stitched.
-				if budget.streams.contains(&stream) {
-					continue;
-				}
-				let Ok(skip) = Self::admit_register_read(channel_id, &lossy) else {
-					continue;
-				};
-				let Ok(bytes) = Self::lift_reservation(&budget, stream, skip) else {
-					continue;
-				};
-				let cost = bytes.saturating_add((channel_id, &lossy).encoded_size() as u64);
-				let item = EnactTally { registers: tally.registers.saturating_add(1), ..tally };
-				if cost > remaining || item.weight::<T>().ref_time() > ref_time {
-					continue;
-				}
-				remaining -= cost;
-				tally = item;
-				budget.record(stream, bytes);
-				filtered_registers.insert(channel_id, lossy);
 			}
 
 			let filtered = MessagingInherentData {
