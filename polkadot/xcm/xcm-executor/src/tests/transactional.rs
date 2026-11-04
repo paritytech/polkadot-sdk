@@ -153,7 +153,7 @@ fn response_info(destination: Location) -> xcm::latest::QueryResponseInfo {
 	xcm::latest::QueryResponseInfo { destination, query_id: 0, max_weight: Weight::zero() }
 }
 
-/// List of instructions that send a message through `send`.
+/// Some instructions that send a message through `send`.
 fn sending_instructions(destination: Location) -> Vec<(&'static str, Instruction<TestCall>)> {
 	vec![
 		("ReportError", ReportError(response_info(destination.clone()))),
