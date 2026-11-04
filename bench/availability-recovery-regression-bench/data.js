@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793803160868,
+  "lastUpdate": 1793814937252,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0cfb1d5b0f990f1e6b8d36ed156a7a0ca562c2eb",
-          "message": "make prepare-* jobs required to trigger zombienet workflows (#11835)\n\nMake `prepare-*` jobs required to prevent race conditions like\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/24575289788/job/71864462979?pr=11815.\n\ncc: @alvicsam / @bkchr",
-          "timestamp": "2026-04-21T10:44:16Z",
-          "tree_id": "28c3613306b026a3cf94266be7e2ae44f495146f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cfb1d5b0f990f1e6b8d36ed156a7a0ca562c2eb"
-        },
-        "date": 1776774760101,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.461928883166669,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.13064382550000003,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.994159919166668,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "092b50173aa9dbbe6c68e040d075209aee85c5db",
+          "message": "[pallet-revive] align terminate precompile with opcodes (#13689)\n\nThis PR aligns the terminate precompile with the opcodes. \n\n- The precompile now pays out the balance immediately and only deletes\nthe contract if this transaction created it, as `SELFDESTRUCT` does.\n- The deposit is no longer refunded when terminate is called.\n- TerminateArgs and schedule_termination are gone; the scheduling map\njust stores the beneficiary.\n\nTests:\n- Tests that relied on deleting a contract from an earlier transaction\nnow create and terminate it in the same call.\n- Tests that call terminate on an older contract now assert the contract\nsurvives.\n- Removed tests whose scenario can no longer happen:\n  - the deposit refund at call time (two tests)\n  - several payers' deposits being refunded at termination\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T15:36:52Z",
+          "tree_id": "7d5715a80e55733699a14c15ff7ff8ae6a7a0952",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/092b50173aa9dbbe6c68e040d075209aee85c5db"
+        },
+        "date": 1793814897742,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12289107940000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.821886419366667,
             "unit": "seconds"
           }
         ]
