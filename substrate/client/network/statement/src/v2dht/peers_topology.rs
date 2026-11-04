@@ -61,7 +61,7 @@ const MAX_KNOWN_PEERS: usize = 8192;
 /// Event-fed local view of statement-store peers that ages out peers unseen for
 /// `PEER_STALENESS_TTL`.
 ///
-/// The topology is built from peers learned through routing-table updates, identify metadata and
+/// The topology is built from peers learned through DHT discovery, identify metadata and
 /// statement notification connections. It computes XOR distances locally over that learned peer
 /// set; it does not issue topic-specific Kademlia lookups.
 ///
@@ -95,10 +95,10 @@ impl PeersTopology {
 		}
 	}
 
-	/// Record that a litep2p routing-table update saw `peers`.
+	/// Record `peers` discovered via the DHT.
 	///
-	/// `RoutingTableUpdate` is used as the discovery source because litep2p's internal
-	/// Kademlia table is bucket-limited and may discard many discovered peers.
+	/// Used instead of the Kademlia routing table, which is bucket-limited and holds only a
+	/// fraction of discovered peers.
 	pub fn on_peers_discovered(&mut self, peers: impl IntoIterator<Item = PeerId>) {
 		for peer in peers {
 			self.get_or_insert_peer(peer);

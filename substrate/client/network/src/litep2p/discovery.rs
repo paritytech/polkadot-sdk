@@ -122,9 +122,9 @@ pub enum DiscoveryEvent {
 		addresses: Vec<Multiaddr>,
 	},
 
-	/// Routing table has been updated.
-	RoutingTableUpdate {
-		/// Peers that were added to routing table.
+	/// Peers discovered via the DHT.
+	PeersDiscovered {
+		/// Discovered peers.
 		peers: HashSet<PeerId>,
 	},
 
@@ -646,7 +646,7 @@ impl Stream for Discovery {
 
 				this.next_kad_query = Some(Delay::new(KADEMLIA_QUERY_INTERVAL));
 
-				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
+				return Poll::Ready(Some(DiscoveryEvent::PeersDiscovered {
 					peers: peers.into_iter().map(|(peer, _)| peer).collect(),
 				}));
 			},
@@ -660,16 +660,16 @@ impl Stream for Discovery {
 				}));
 			},
 			Poll::Ready(Some(KademliaEvent::RoutingTableUpdate { peers })) => {
-				log::trace!(target: LOG_TARGET, "routing table update, discovered {} peers", peers.len());
+				log::trace!(target: LOG_TARGET, "proven server peers discovered: {}", peers.len());
 
-				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
+				return Poll::Ready(Some(DiscoveryEvent::PeersDiscovered {
 					peers: peers.into_iter().collect(),
 				}));
 			},
 			Poll::Ready(Some(KademliaEvent::PeersDiscovered { peers })) => {
 				log::trace!(target: LOG_TARGET, "discovered {} peers", peers.len());
 
-				return Poll::Ready(Some(DiscoveryEvent::RoutingTableUpdate {
+				return Poll::Ready(Some(DiscoveryEvent::PeersDiscovered {
 					peers: peers.into_iter().collect(),
 				}));
 			},
