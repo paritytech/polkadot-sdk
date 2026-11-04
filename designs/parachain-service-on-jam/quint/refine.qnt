@@ -25,7 +25,7 @@ module refine {
   }
 
   type WorkPackage = {
-    // Authorizer config prefix binding work-item index → ParaId (design §3.2, §7.1).
+    // Authorizer config prefix binding work-item index → ParaId (design §3.2, §7.2).
     authorizedParas: List[ParaId],
     // One candidate per work item. Currently `length(items) == 1` per design §3.2.
     items: List[ParachainCandidate]

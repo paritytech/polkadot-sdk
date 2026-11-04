@@ -26,8 +26,9 @@
    - 6.3 [Forced Updates (Recovery)](#63-forced-updates-recovery)
    - 6.4 [Clean-up (Deregistration)](#64-clean-up-deregistration)
 7. [Authorization & Coretime](#7-authorization-coretime)
-   - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
-   - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
+   - 7.1 [Installing Authorizer Queues](#71-installing-authorizer-queues)
+   - 7.2 [Authorizer Design: AURA Example](#72-authorizer-design-aura-example)
+   - 7.3 [On-Demand Parachains](#73-on-demand-parachains)
 8. [Messaging](#8-messaging)
 9. [References](#9-references)
 
@@ -513,7 +514,7 @@ Initially, each work package will contain a single work item (one parachain cand
 Support for multiple items per package may be added later.
 
 The `ParaId` for each work item is **not** stored in the work item itself. Instead, it is
-sourced from the authorizer config, which is pinned by the Coretime chain (see §7.1). The
+sourced from the authorizer config, which is pinned by the Coretime chain (see §7.2). The
 Parachain Service enforces that every authorizer config begins with a `Vec<ParaId>` whose
 length matches the number of work items in the package, so that work item `item_index` is
 authoritatively bound to `authorized_paras[item_index]`. Refine reads this prefix via
@@ -667,7 +668,7 @@ work-report is limited to **48 KiB** by the Gray Paper.
   checks in §5.1, Accumulate records the failure in the parachain's `parachain_log` as a
   `LogEntry::Refine`, together with the work-report's authorizer trace. The trace comes
   from the authorizer and can identify who submitted the work package, such as the
-  collator key in §7.1. A parachain can use it, for example, to slash a collator that
+  collator key in §7.2. A parachain can use it, for example, to slash a collator that
   claimed a slot it was not entitled to.
 
 > **JAM `WorkErrorCode` is skipped.** When JAM substitutes a work-item with
@@ -1535,7 +1536,38 @@ For the Parachain Service, the ownership boundary is:
 - JAM's `is_authorized` invocation then checks a work-package token against one of the
   authorizers currently in the core's authorizer pool.
 
-### 7.1 Authorizer Design: AURA Example
+### 7.1 Installing Authorizer Queues
+
+JAM's `assign` replaces a core's queue of exactly 80 authorizer hashes, and at timeslot
+`t` JAM adds queue entry `t % 80` to the core's pool. The Coretime chain supplies the
+authorizer set as a queue of length X ≤ 80, and slot `t` gets hash `t % X` of the set:
+
+- X = 80, or X < 80 with `80 % X == 0`: the queue is taken as it comes, repeated from
+  entry 0. The 80 entries tile the set a whole number of times, so the installed queue
+  keeps cycling correctly on its own and is written once. A handoff to another assigner
+  likewise has to be self-sufficient, so `AssignCore` with a `Some` assigner demands an
+  exact 80-hash queue (§4.3).
+- X < 80 with `80 % X != 0`: for an assign due at timeslot `d`, the service writes the
+  hashes for slots `d` to `d + 79` into entries `d % 80` onwards, wrapping from entry 79
+  to entry 0. It keeps the set in `pending_assigns` and does the same again at `d + 80`.
+  A new `AssignCore` for the core replaces the kept set and so ends these rewrites. The
+  Coretime chain must therefore schedule it no later than the kept set's next rewrite,
+  which is at most 80 slots away. Otherwise the slots in between read the hashes written
+  for the slots 80 earlier.
+
+For example, the set `[A, B, C]` due at slot 40 starts with hash `40 % 3 = 1`, which is
+`B`, at entry 40:
+
+```
+slot   40 41 42 ... 78 79 | 80 81 ... 119 | 120
+entry  40 41 42 ... 78 79 |  0  1 ...  39 |  40
+hash    B  C  A ...  A  B |  C  A ...   C |   A
+```
+
+At slot 120 entry 40 comes round again, and the service writes the next 80 slots,
+starting with `A`.
+
+### 7.2 Authorizer Design: AURA Example
 
 Each parachain supplies its own authorizer, and the Parachain Service does not prescribe
 one. Its only constraint is that the authorizer's config blob begins with a `Vec<ParaId>`
@@ -1638,33 +1670,6 @@ is the wrong tool. There is no known account to slash, so the complaint has no r
 writing one would hand the buyer a free way to evict genuine entries from the
 capacity-bounded `parachain_log` (§3.1). The validation code should panic instead (§4.2).
 
-#### Filling the 80-slot queue
-
-JAM's `assign` replaces a core's queue of exactly 80 authorizer hashes, and at timeslot
-`t` JAM adds queue entry `t % 80` to the core's pool. The Coretime chain supplies the
-authorizer set as a queue of length X ≤ 80, and slot `t` gets hash `t % X` of the set:
-
-- X = 80, or X < 80 with `80 % X == 0`: the queue is taken as it comes, repeated from
-  entry 0. The 80 entries tile the set a whole number of times, so the installed queue
-  keeps cycling correctly on its own and is written once. A handoff to another assigner
-  likewise has to be self-sufficient, so `AssignCore` with a `Some` assigner demands an
-  exact 80-hash queue (§4.3).
-- X < 80 with `80 % X != 0`: for an assign due at timeslot `d`, the service writes the
-  hashes for slots `d` to `d + 79` into entries `d % 80` onwards, wrapping from entry 79
-  to entry 0. It keeps the set in `pending_assigns` and does the same again at `d + 80`.
-
-For example, the set `[A, B, C]` due at slot 40 starts with hash `40 % 3 = 1`, which is
-`B`, at entry 40:
-
-```
-slot   40 41 42 ... 78 79 | 80 81 ... 119 | 120
-entry  40 41 42 ... 78 79 |  0  1 ...  39 |  40
-hash    B  C  A ...  A  B |  C  A ...   C |   A
-```
-
-At slot 120 entry 40 comes round again, and the service writes the next 80 slots,
-starting with `A`.
-
 #### Collator Set Rotation Flow
 
 ```
@@ -1685,7 +1690,7 @@ Pool (up to 8 entries)
     │  New ones rotate in
 ```
 
-### 7.2 On-Demand Parachains
+### 7.3 On-Demand Parachains
 
 On-demand coretime is not a special case for the Parachain Service. The **Coretime chain**
 handles it. When someone buys a single-slot coretime allocation, the Coretime chain emits
