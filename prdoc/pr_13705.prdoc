@@ -1,0 +1,24 @@
+title: 'statement-store: metrics for the v2 DHT rollout'
+doc:
+  - audience: Node Operator
+    description: |
+      Adds metrics to help watch the statement store while some nodes run the new v2 DHT mode
+      and others don't yet.
+
+      These metrics now have a `route` label (`dht` or `flood`). Their names stay the same, so
+      dashboards that read them without labels may need a `sum()`:
+      - `substrate_sync_statement_bytes_received_total`
+      - `substrate_sync_initial_sync_statements_sent`
+      - `substrate_sync_initial_sync_bursts_total`
+      - `substrate_sync_initial_sync_duration_seconds`
+
+      New metrics:
+      - `substrate_sync_statement_peers_assumed_match_all_total`: peers that did not send their
+        filter in time.
+      - `substrate_sync_statement_late_affinity_filters_total`: peers whose filter arrived late.
+      - `substrate_sub_statement_store_bytes_by_retention`: bytes in the store per retention track.
+crates:
+  - name: sc-network-statement
+    bump: patch
+  - name: sc-statement-store
+    bump: patch

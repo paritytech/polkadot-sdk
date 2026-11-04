@@ -362,13 +362,14 @@ mod sync_outcome {
 
 impl Metrics {
 	fn register(r: &Registry) -> Result<Self, PrometheusError> {
-		let register_by_route = |opts, registry| {
-			let counter = register(CounterVec::new(opts, &["route"])?, r)?;
-			for route in peer_route::ALL {
-				counter.with_label_values(&[route]);
-			}
-			Ok(counter)
-		};
+		let register_by_route =
+			|opts: Opts, registry: &Registry| -> Result<CounterVec<U64>, PrometheusError> {
+				let counter = register(CounterVec::new(opts, &["route"])?, registry)?;
+				for route in peer_route::ALL {
+					counter.with_label_values(&[route]);
+				}
+				Ok(counter)
+			};
 
 		let peers_connected = register(
 			GaugeVec::new(
