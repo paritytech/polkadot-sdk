@@ -20,8 +20,8 @@
 use super::StorageInstance;
 use crate::{
 	storage::types::{
-		CountedStorageMapInstance, CountedStorageNMapInstance, Counter, KeyGenerator,
-		QueryKindTrait,
+		CountedStorageMapInstance, CountedStorageNMapInstance, Counter, Key as NMapKey,
+		KeyGenerator, QueryKindTrait,
 	},
 	traits::{PartialStorageInfoTrait, StorageInfo},
 	StorageHasher,
@@ -30,11 +30,12 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeAll, FullCodec};
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_core::Get;
+use sp_metadata_ir::StorageHasherIR;
 
 /// Decode the entire data under the given storage type.
 ///
 /// For values, this is trivial. For all kinds of maps, it should decode all the values associated
-/// with all keys existing in the map.
+/// with all keys existing in the map, and the keys themselves (see `is_reversible`).
 ///
 /// Tuple implementations are provided and simply decode each type in the tuple, summing up the
 /// decoded bytes if `Ok(_)`.
@@ -66,7 +67,16 @@ impl TryDecodeEntireStorage for Tuple {
 	}
 }
 
-/// A value could not be decoded.
+/// Which part of a storage entry could not be decoded.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UndecodableStoragePart {
+	/// The map key.
+	Key,
+	/// The value.
+	Value,
+}
+
+/// A storage entry could not be decoded.
 #[derive(Clone, PartialEq, Eq)]
 pub struct TryDecodeEntireStorageError {
 	/// The key of the undecodable value.
@@ -75,16 +85,22 @@ pub struct TryDecodeEntireStorageError {
 	pub raw: Option<Vec<u8>>,
 	/// The storage info of the key.
 	pub info: StorageInfo,
+	/// Whether the key or the value is undecodable.
+	pub part: UndecodableStoragePart,
 }
 
 impl core::fmt::Display for TryDecodeEntireStorageError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
-			"`{}::{}` key `{}` is undecodable",
+			"`{}::{}` key `{}` has an undecodable {}",
 			&alloc::str::from_utf8(&self.info.pallet_name).unwrap_or("<invalid>"),
 			&alloc::str::from_utf8(&self.info.storage_name).unwrap_or("<invalid>"),
-			array_bytes::bytes2hex("0x", &self.key)
+			array_bytes::bytes2hex("0x", &self.key),
+			match self.part {
+				UndecodableStoragePart::Key => "key",
+				UndecodableStoragePart::Value => "value",
+			},
 		)
 	}
 }
@@ -93,7 +109,8 @@ impl core::fmt::Debug for TryDecodeEntireStorageError {
 	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		write!(
 			f,
-			"key: {} value: {} info: {:?}",
+			"part: {:?} key: {} value: {} info: {:?}",
+			self.part,
 			array_bytes::bytes2hex("0x", &self.key),
 			array_bytes::bytes2hex("0x", self.raw.clone().unwrap_or_default()),
 			self.info
@@ -101,47 +118,116 @@ impl core::fmt::Debug for TryDecodeEntireStorageError {
 	}
 }
 
-/// Decode all the values based on the prefix of `info` to `V`.
+/// Decode the key parts following the storage prefix. Parts behind an opaque hasher are only
+/// length-checked.
+pub trait TryDecodeFinalKey {
+	/// Decode the key parts, advancing `key` past the consumed bytes.
+	fn try_decode_final_key(key: &mut &[u8]) -> Result<(), codec::Error>;
+
+	/// Whether any key part is behind an opaque hasher.
+	fn has_opaque_part() -> bool;
+}
+
+impl TryDecodeFinalKey for () {
+	fn try_decode_final_key(_: &mut &[u8]) -> Result<(), codec::Error> {
+		Ok(())
+	}
+
+	fn has_opaque_part() -> bool {
+		false
+	}
+}
+
+/// Whether `H` keeps the encoded key, i.e. implements [`crate::ReversibleStorageHasher`].
+fn is_reversible<H: StorageHasher>() -> bool {
+	match H::METADATA {
+		StorageHasherIR::Identity |
+		StorageHasherIR::Twox64Concat |
+		StorageHasherIR::Blake2_128Concat => true,
+		StorageHasherIR::Blake2_128 |
+		StorageHasherIR::Blake2_256 |
+		StorageHasherIR::Twox128 |
+		StorageHasherIR::Twox256 => false,
+	}
+}
+
+impl<H: StorageHasher, K: Decode> TryDecodeFinalKey for NMapKey<H, K> {
+	fn try_decode_final_key(key: &mut &[u8]) -> Result<(), codec::Error> {
+		let hash_len = H::max_len::<()>();
+		if key.len() < hash_len {
+			return Err("Storage key is shorter than the hash of its hasher".into());
+		}
+		*key = &key[hash_len..];
+		if is_reversible::<H>() {
+			K::decode(key)?;
+		}
+		Ok(())
+	}
+
+	fn has_opaque_part() -> bool {
+		!is_reversible::<H>()
+	}
+}
+
+#[impl_for_tuples(1, 18)]
+impl TryDecodeFinalKey for Tuple {
+	fn try_decode_final_key(key: &mut &[u8]) -> Result<(), codec::Error> {
+		for_tuples!( #( Tuple::try_decode_final_key(key)?; )* );
+		Ok(())
+	}
+
+	fn has_opaque_part() -> bool {
+		for_tuples!( #( Tuple::has_opaque_part() )|* )
+	}
+}
+
+/// Decode all the values based on the prefix of `info` to `V`, and their keys to `K`.
 ///
 /// Basically, it decodes and sums up all the values who's key start with `info.prefix`. For values,
 /// this would be the value itself. For all sorts of maps, this should be all map items in the
 /// absence of key collision.
-fn decode_storage_info<V: Decode>(
+fn decode_storage_info<K: TryDecodeFinalKey, V: Decode>(
 	info: StorageInfo,
 ) -> Result<usize, Vec<TryDecodeEntireStorageError>> {
 	let mut decoded = 0;
-
-	let decode_key = |key: &[u8]| match sp_io::storage::get(key) {
-		None => Ok(0),
-		Some(bytes) => {
-			let len = bytes.len();
-			<V as DecodeAll>::decode_all(&mut bytes.as_ref()).map_err(|_| {
-				TryDecodeEntireStorageError {
-					key: key.to_vec(),
-					raw: Some(bytes.to_vec()),
-					info: info.clone(),
-				}
-			})?;
-
-			Ok::<usize, _>(len)
-		},
-	};
-
 	let mut errors = vec![];
+	let mut entries = 0usize;
 	let mut next_key = Some(info.prefix.clone());
 	loop {
 		match next_key {
 			Some(key) if key.starts_with(&info.prefix) => {
-				match decode_key(&key) {
-					Ok(bytes) => {
-						decoded += bytes;
-					},
-					Err(e) => errors.push(e),
-				};
+				entries += 1;
+				// Check both the key and the value, reporting each failure.
+				if let Some(bytes) = sp_io::storage::get(&key) {
+					let err = |part| TryDecodeEntireStorageError {
+						key: key.clone(),
+						raw: Some(bytes.to_vec()),
+						info: info.clone(),
+						part,
+					};
+					let mut key_rest = &key[info.prefix.len()..];
+					if K::try_decode_final_key(&mut key_rest).is_err() || !key_rest.is_empty() {
+						errors.push(err(UndecodableStoragePart::Key));
+					}
+					match <V as DecodeAll>::decode_all(&mut bytes.as_ref()) {
+						Ok(_) => decoded += bytes.len(),
+						Err(_) => errors.push(err(UndecodableStoragePart::Value)),
+					}
+				}
 				next_key = sp_io::storage::next_key(&key);
 			},
 			_ => break,
 		}
+	}
+
+	// Once per storage item, not per entry.
+	if entries > 0 && K::has_opaque_part() {
+		log::warn!(
+			target: "runtime::try-decode-state",
+			"`{}::{}`: {entries} key(s) behind an opaque hasher are only length-checked",
+			alloc::str::from_utf8(&info.pallet_name).unwrap_or("<invalid>"),
+			alloc::str::from_utf8(&info.storage_name).unwrap_or("<invalid>"),
+		);
 	}
 
 	if errors.is_empty() {
@@ -164,7 +250,7 @@ where
 			.first()
 			.cloned()
 			.expect("Value has only one storage info; qed");
-		decode_storage_info::<Value>(info)
+		decode_storage_info::<(), Value>(info)
 	}
 }
 
@@ -184,7 +270,7 @@ where
 			.first()
 			.cloned()
 			.expect("Map has only one storage info; qed");
-		decode_storage_info::<Value>(info)
+		decode_storage_info::<NMapKey<Hasher, Key>, Value>(info)
 	}
 }
 
@@ -212,8 +298,8 @@ where
 			[a, b] => (a.clone(), b.clone()),
 			_ => panic!("Counted map has two storage info items; qed"),
 		};
-		let mut decoded = decode_storage_info::<Counter>(counter_info)?;
-		decoded += decode_storage_info::<Value>(map_info)?;
+		let mut decoded = decode_storage_info::<(), Counter>(counter_info)?;
+		decoded += decode_storage_info::<NMapKey<Hasher, Key>, Value>(map_info)?;
 		Ok(decoded)
 	}
 }
@@ -247,7 +333,7 @@ where
 			.first()
 			.cloned()
 			.expect("Double-map has only one storage info; qed");
-		decode_storage_info::<Value>(info)
+		decode_storage_info::<(NMapKey<Hasher1, Key1>, NMapKey<Hasher2, Key2>), Value>(info)
 	}
 }
 
@@ -255,7 +341,7 @@ impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireStorage
 	for crate::storage::types::StorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: StorageInstance,
-	Key: KeyGenerator,
+	Key: KeyGenerator + TryDecodeFinalKey,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
@@ -266,7 +352,7 @@ where
 			.first()
 			.cloned()
 			.expect("N-map has only one storage info; qed");
-		decode_storage_info::<Value>(info)
+		decode_storage_info::<Key, Value>(info)
 	}
 }
 
@@ -274,7 +360,7 @@ impl<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues> TryDecodeEntireStorage
 	for crate::storage::types::CountedStorageNMap<Prefix, Key, Value, QueryKind, OnEmpty, MaxValues>
 where
 	Prefix: CountedStorageNMapInstance,
-	Key: KeyGenerator,
+	Key: KeyGenerator + TryDecodeFinalKey,
 	Value: FullCodec,
 	QueryKind: QueryKindTrait<Value, OnEmpty>,
 	OnEmpty: Get<QueryKind::Query> + 'static,
@@ -286,8 +372,8 @@ where
 			_ => panic!("Counted NMap has two storage info items; qed"),
 		};
 
-		let mut decoded = decode_storage_info::<Counter>(counter_info)?;
-		decoded += decode_storage_info::<Value>(map_info)?;
+		let mut decoded = decode_storage_info::<(), Counter>(counter_info)?;
+		decoded += decode_storage_info::<Key, Value>(map_info)?;
 		Ok(decoded)
 	}
 }
@@ -297,8 +383,9 @@ mod tests {
 	use super::*;
 	use crate::{
 		storage::types::{self, CountedStorageMapInstance, CountedStorageNMapInstance, Key},
-		Blake2_128Concat,
+		Blake2_128, Blake2_128Concat, Identity, StorageHasher, Twox64Concat,
 	};
+	use codec::Encode;
 
 	type H = Blake2_128Concat;
 
@@ -376,8 +463,9 @@ mod tests {
 
 			// two bytes, cannot be decoded into u32.
 			sp_io::storage::set(&Map::hashed_key_for(2), &[0u8, 1]);
-			assert!(Map::try_decode_entire_state().is_err());
-			assert_eq!(Map::try_decode_entire_state().unwrap_err().len(), 1);
+			let errors = Map::try_decode_entire_state().unwrap_err();
+			assert_eq!(errors.len(), 1);
+			assert_eq!(errors[0].part, UndecodableStoragePart::Value);
 
 			// multiple errs in the same map are be detected
 			sp_io::storage::set(&Map::hashed_key_for(3), &[0u8, 1]);
@@ -510,6 +598,169 @@ mod tests {
 			// 6bytes, too many to fit in u32, should be rejected.
 			sp_io::storage::set(&Map::hashed_key_for(2), &[0u8, 1, 3, 4, 5, 6]);
 			assert!(Map::try_decode_entire_state().is_err());
+		})
+	}
+
+	/// `OldKey` with the `V3` variant removed.
+	#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, Debug)]
+	enum NewKey {
+		#[codec(index = 4)]
+		V4(u32),
+		#[codec(index = 5)]
+		V5(u32),
+	}
+
+	#[derive(Encode)]
+	enum OldKey {
+		#[codec(index = 3)]
+		V3(u32),
+	}
+
+	build_prefix!(EnumMapPrefix);
+	type EnumMap = types::StorageMap<EnumMapPrefix, Blake2_128Concat, NewKey, u32>;
+
+	build_prefix!(TwoxMapPrefix);
+	type TwoxMap = types::StorageMap<TwoxMapPrefix, Twox64Concat, u32, u32>;
+
+	build_prefix!(IdentityMapPrefix);
+	type IdentityMap = types::StorageMap<IdentityMapPrefix, Identity, u32, u32>;
+
+	build_prefix!(OpaqueMapPrefix);
+	type OpaqueMap = types::StorageMap<OpaqueMapPrefix, Blake2_128, NewKey, u32>;
+
+	build_prefix!(EnumDMapPrefix);
+	type EnumDMap = types::StorageDoubleMap<EnumDMapPrefix, H, u32, Twox64Concat, NewKey, u32>;
+
+	build_prefix!(EnumNMapPrefix);
+	type EnumNMap =
+		types::StorageNMap<EnumNMapPrefix, (Key<H, u8>, Key<Blake2_128, u8>, Key<H, NewKey>), u32>;
+
+	build_prefix!(EnumCMapCounterPrefix);
+	build_prefix!(EnumCMapPrefix);
+	impl CountedStorageMapInstance for EnumCMapPrefix {
+		type CounterPrefix = EnumCMapCounterPrefix;
+	}
+	type EnumCMap = types::CountedStorageMap<EnumCMapPrefix, H, NewKey, u32>;
+
+	/// Store `42u32` under `P`'s prefix followed by `hashed_key`, returning the key.
+	fn set_raw<P: StorageInstance>(hashed_key: &[u8]) -> Vec<u8> {
+		let key = [&P::prefix_hash()[..], hashed_key].concat();
+		sp_io::storage::set(&key, &42u32.encode());
+		key
+	}
+
+	/// Assert a single undecodable-key error and return it.
+	fn single_key_error(
+		res: Result<usize, Vec<TryDecodeEntireStorageError>>,
+	) -> TryDecodeEntireStorageError {
+		let mut errors = res.unwrap_err();
+		assert_eq!(errors.len(), 1);
+		assert_eq!(errors[0].part, UndecodableStoragePart::Key);
+		errors.remove(0)
+	}
+
+	#[test]
+	fn undecodable_map_key_is_detected() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			EnumMap::insert(NewKey::V4(1), 42);
+			EnumMap::insert(NewKey::V5(1), 42);
+			assert_eq!(EnumMap::try_decode_entire_state(), Ok(8));
+
+			// A removed variant: the value decodes, the key does not.
+			let key = set_raw::<EnumMapPrefix>(&H::hash(&OldKey::V3(1).encode()));
+			assert_eq!(single_key_error(EnumMap::try_decode_entire_state()).key, key);
+		})
+	}
+
+	#[test]
+	fn undecodable_key_and_value_are_both_reported() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			let key =
+				[&EnumMapPrefix::prefix_hash()[..], &H::hash(&OldKey::V3(1).encode())].concat();
+			// two bytes, cannot be decoded into u32.
+			sp_io::storage::set(&key, &[0u8, 1]);
+
+			let errors = EnumMap::try_decode_entire_state().unwrap_err();
+			assert_eq!(
+				errors.iter().map(|e| (e.part, e.key.clone())).collect::<Vec<_>>(),
+				vec![
+					(UndecodableStoragePart::Key, key.clone()),
+					(UndecodableStoragePart::Value, key)
+				],
+			);
+		})
+	}
+
+	#[test]
+	fn map_key_with_trailing_or_missing_bytes_is_detected() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			// trailing bytes after a valid `u32` key.
+			set_raw::<TwoxMapPrefix>(&[Twox64Concat::hash(&1u32.encode()), vec![0]].concat());
+			single_key_error(TwoxMap::try_decode_entire_state());
+
+			// key shorter than a `u32`.
+			set_raw::<IdentityMapPrefix>(&[1, 2]);
+			single_key_error(IdentityMap::try_decode_entire_state());
+
+			// key shorter than the hash of the hasher.
+			set_raw::<MapPrefix>(&[0u8; 10]);
+			single_key_error(Map::try_decode_entire_state());
+		});
+	}
+
+	#[test]
+	fn opaque_hasher_keys_are_only_length_checked() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			OpaqueMap::insert(NewKey::V4(1), 42);
+			// A removed variant is not detectable behind an opaque hasher...
+			set_raw::<OpaqueMapPrefix>(&Blake2_128::hash(&OldKey::V3(1).encode()));
+			assert_eq!(OpaqueMap::try_decode_entire_state(), Ok(8));
+
+			// ...but a key of the wrong length is.
+			set_raw::<OpaqueMapPrefix>(&[0u8; 17]);
+			single_key_error(OpaqueMap::try_decode_entire_state());
+		})
+	}
+
+	#[test]
+	fn undecodable_double_map_key_is_detected() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			EnumDMap::insert(1, NewKey::V4(1), 42);
+			assert_eq!(EnumDMap::try_decode_entire_state(), Ok(4));
+
+			set_raw::<EnumDMapPrefix>(
+				&[H::hash(&1u32.encode()), Twox64Concat::hash(&OldKey::V3(1).encode())].concat(),
+			);
+			single_key_error(EnumDMap::try_decode_entire_state());
+		})
+	}
+
+	#[test]
+	fn undecodable_n_map_key_is_detected() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			EnumNMap::insert((1, 2, NewKey::V5(3)), 42);
+			assert_eq!(EnumNMap::try_decode_entire_state(), Ok(4));
+
+			set_raw::<EnumNMapPrefix>(
+				&[
+					H::hash(&1u8.encode()),
+					Blake2_128::hash(&2u8.encode()).to_vec(),
+					H::hash(&OldKey::V3(3).encode()),
+				]
+				.concat(),
+			);
+			single_key_error(EnumNMap::try_decode_entire_state());
+		})
+	}
+
+	#[test]
+	fn undecodable_counted_map_key_is_detected() {
+		sp_io::TestExternalities::new_empty().execute_with(|| {
+			EnumCMap::insert(NewKey::V4(1), 42);
+			assert_eq!(EnumCMap::try_decode_entire_state(), Ok(4 + 4));
+
+			set_raw::<EnumCMapPrefix>(&H::hash(&OldKey::V3(1).encode()));
+			single_key_error(EnumCMap::try_decode_entire_state());
 		})
 	}
 
