@@ -6,6 +6,8 @@ doc:
 
     The amount the hold exceeds the recorded storage deposit by is now paid out with the next storage removal by an account that paid a native deposit for the contract, up to what that account paid, to its free balance. It is not part of the storage deposit the call reports. Amounts stranded on existing contracts before this change are paid out the same way; no migration is needed.
 
+    Unchanged: when the contract also holds PGAS, a removal by an account without a native deposit on the contract is paid from the PGAS hold in full. The native deposit then stays on hold until a removal whose refund the PGAS hold no longer covers, from which point it is paid out as above.
+
     `Deposit` gains the method `refund_excess`, which pays such an amount from a contract's hold. The trait is sealed, so no downstream implementation needs updating.
 crates:
 - name: pallet-revive
