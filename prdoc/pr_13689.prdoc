@@ -15,7 +15,9 @@ doc:
 crates:
 - name: pallet-revive-fixtures
   bump: minor
+  validate: false
 - name: pallet-revive
   bump: minor
+  validate: false
 - name: pallet-revive-uapi
   bump: patch
