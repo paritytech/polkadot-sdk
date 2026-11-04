@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793798833403,
+  "lastUpdate": 1793802557644,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141479,6 +141479,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2847175213,
             "range": "± 32110502",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "006389c761e9ce8433dd99ea2cb3536fd5047598",
+          "message": "pallet-validator-collators: configurable default for MaxCollators (#13710)\n\nAdd `DefaultMaxCollators`, the value of `MaxCollators` until governance\nsets it. `MaxCollators` becomes a `ValueQuery` of `Option<u32>` with\nthat default, and `set_max_collators(None)` means no cap.\n\nAsset Hub Westend and People Westend default to a cap of 0, so\nvalidators contribute no collators until governance raises the cap.",
+          "timestamp": "2026-11-04T13:08:26Z",
+          "tree_id": "32e3877f2aec1041d0c9eb6bc92d62cbefaf13f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/006389c761e9ce8433dd99ea2cb3536fd5047598"
+        },
+        "date": 1793802522765,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19701194,
+            "range": "± 213180",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 20223014,
+            "range": "± 240459",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21698515,
+            "range": "± 152270",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 26039248,
+            "range": "± 218411",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 60352800,
+            "range": "± 985425",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 381925206,
+            "range": "± 6188895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2862340186,
+            "range": "± 111825244",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18032900,
+            "range": "± 220290",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18012824,
+            "range": "± 171483",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 18640120,
+            "range": "± 228772",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 23535464,
+            "range": "± 213390",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 64937356,
+            "range": "± 1253049",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 390372123,
+            "range": "± 6096773",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2911492661,
+            "range": "± 38443655",
             "unit": "ns/iter"
           }
         ]
