@@ -204,7 +204,31 @@ impl Chain {
 	/// Build, enact and import one block; return its record.
 	fn block(&mut self, receiver: &Receiver<u64, Sender>) -> ConsumptionRecord {
 		let data = block_on(receiver.inherent_data(&self.view()));
-		let record = self.enact(&data);
+		self.import(receiver, &data)
+	}
+
+	/// Build, enact and import a block whose runtime admits only the first `admitted` payloads of
+	/// the planned channel item, as `create_inherent` cuts an item at the first payload it cannot
+	/// admit or at the block's proof budget; return its record.
+	fn cut_block(
+		&mut self,
+		receiver: &Receiver<u64, Sender>,
+		admitted: usize,
+	) -> ConsumptionRecord {
+		let mut data = block_on(receiver.inherent_data(&self.view()));
+		let payloads = data.channels.get_mut(&in_id(0)).expect("a channel item is planned");
+		assert!(admitted < payloads.len(), "the runtime admits a strict prefix");
+		payloads.truncate(admitted);
+		self.import(receiver, &data)
+	}
+
+	/// Enact `data` and import the block; return its record.
+	fn import(
+		&mut self,
+		receiver: &Receiver<u64, Sender>,
+		data: &MessagingInherentData,
+	) -> ConsumptionRecord {
+		let record = self.enact(data);
 		self.number += 1;
 		block_on(receiver.on_block(self.number, self.number - 1, self.number, record.clone()));
 		record
@@ -282,6 +306,46 @@ fn a_budget_cut_ends_mid_stream_and_lifts_from_a_proofs_only_response() {
 	// The next block continues from the stored frontier; the two form one bundle.
 	let second = chain.block(&receiver);
 	assert_eq!(chain.frontier.leaf_count(), 4);
+	assert_eq!(requires(&receiver, &[first, second]), Some(root));
+}
+
+#[test]
+fn a_block_cut_before_an_inadmissible_payload_lifts() {
+	let sender = Sender::new();
+	// A payload the runtime admits, then one it never does, sent in one block: every fetch returns
+	// both, and binds only the endpoint after the second.
+	let root = sender.author(vec![(channel(US), vec![vec![1, 0, 0xAB], vec![0xFF; 3]])]);
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	block_on(receiver.on_root(source(), root, &chain.wants()));
+
+	// The node offers both; `create_inherent` admits the first.
+	let record = chain.cut_block(&receiver, 1);
+	assert_eq!(chain.frontier.leaf_count(), 1);
+	// The root is settled, so nothing asks for the cut endpoint's binding.
+	block_on(receiver.on_root(source(), root, &chain.wants()));
+	assert_eq!(sender.requests(channel(US)).len(), 1);
+	// The lift extends the cut endpoint over the second payload to the root.
+	assert_eq!(requires(&receiver, &[record]), Some(root));
+}
+
+#[test]
+fn blocks_cut_short_of_a_proofs_only_binding_lift_as_a_bundle() {
+	let sender = Sender::new();
+	let root = sender.author(vec![(channel(US), payloads(1, 6))]);
+	// Four payloads per block: each planned endpoint is behind the root, bound by a proofs-only
+	// response.
+	let receiver = receiver(&sender, Budget { max_payloads: 4, ..Budget::default() });
+	let mut chain = Chain::default();
+	block_on(receiver.on_root(source(), root, &chain.wants()));
+
+	// The runtime admits one payload of the first four, then two of the next four.
+	let first = chain.cut_block(&receiver, 1);
+	let second = chain.cut_block(&receiver, 2);
+	assert_eq!(chain.frontier.leaf_count(), 3);
+	let cut = |r: &MessagesRequest| [1, 3].map(|n| Some(MessagePosition(n))).contains(&r.start);
+	assert!(!sender.requests(channel(US)).iter().any(cut), "no cut endpoint is fetched");
+	assert_eq!(requires(&receiver, &[first.clone()]), Some(root));
 	assert_eq!(requires(&receiver, &[first, second]), Some(root));
 }
 
@@ -486,11 +550,14 @@ fn final_blocks_are_not_rebound_to_newer_roots() {
 	block_on(receiver.on_root(source(), root1, &chain.wants()));
 	let first = chain.block(&receiver);
 
-	// Block 1 is final, so it is never bundled again: a newer root does not rebind it.
+	// Block 1 is final, so it is never bundled again: a newer root does not fetch its binding.
 	receiver.on_finalized(1, &chain.view());
 	let root2 = sender.author(vec![(channel(US), payloads(2, 1))]);
 	block_on(receiver.on_root(source(), root2, &chain.wants()));
-	assert_eq!(requires(&receiver, &[first]), Some(root1));
+	let at_one = |r: &MessagesRequest| r.under == root2 && r.start == Some(MessagePosition(1));
+	assert!(!sender.requests(channel(US)).iter().any(at_one));
+	// Its lift to the newer root still follows from the payloads the pool keeps past it.
+	assert_eq!(requires(&receiver, &[first]), Some(root2));
 	// An unfinalized block lifts to the newest root.
 	let second = chain.block(&receiver);
 	assert_eq!(requires(&receiver, &[second]), Some(root2));

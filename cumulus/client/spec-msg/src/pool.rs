@@ -23,7 +23,10 @@ use cumulus_primitives_spec_messaging::{
 	MMRExtensionProof, MmrFrontier, StreamId, StreamProof, StreamsRoot,
 };
 use polkadot_core_primitives::Hash;
-use std::collections::{BTreeMap, VecDeque};
+use std::{
+	collections::{BTreeMap, VecDeque},
+	ops::Bound,
+};
 
 /// Source roots kept per source, newest last. Lifts target the newest root the material covers,
 /// so older roots only matter while their material is all a bundle has.
@@ -149,6 +152,19 @@ impl SourcePool {
 	/// The binding of `stream` at `count` under `root`.
 	pub fn binding(&self, stream: &StreamId, count: u64, root: &StreamsRoot) -> Option<&Binding> {
 		self.bindings.get(&(*stream, count)).and_then(|by_root| by_root.get(&root.0))
+	}
+
+	/// The bindings of `stream` above `count` under `root`, by leaf count, lowest first.
+	pub fn bindings_above(
+		&self,
+		stream: &StreamId,
+		count: u64,
+		root: &StreamsRoot,
+	) -> impl Iterator<Item = (u64, &Binding)> {
+		let root = root.0;
+		self.bindings
+			.range((Bound::Excluded((*stream, count)), Bound::Included((*stream, u64::MAX))))
+			.filter_map(move |((_, later), by_root)| Some((*later, by_root.get(&root)?)))
 	}
 
 	/// Store a head read, with its binding (the head is the stream's entry under its root, so the

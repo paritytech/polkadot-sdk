@@ -26,6 +26,7 @@
 use crate::{
 	fetch::{fetch, RequestError, Transport},
 	pool::{Binding, HeadRead, SourcePool},
+	rebase::rebase,
 	LOG_TARGET,
 };
 use codec::{DecodeAll, MaxEncodedLen};
@@ -882,10 +883,32 @@ fn lift(
 				.cloned()
 		})
 		.collect::<Option<Vec<_>>>()?;
-	let binding = pool.binding(stream, intervals.last()?.end.leaf_count(), root)?;
-	Some(RequiresLift {
-		advances,
-		extension: binding.extension.clone(),
-		tree_proof: binding.tree_proof.clone(),
+	let end = &intervals.last()?.end;
+	let binding = match pool.binding(stream, end.leaf_count(), root) {
+		Some(binding) => binding.clone(),
+		None => rebased_binding(pool, stream, end, root)?,
+	};
+	Some(RequiresLift { advances, extension: binding.extension, tree_proof: binding.tree_proof })
+}
+
+/// The binding of `stream` at `end` under `root`, computed from a later one and the payloads in
+/// between. `create_inherent` may admit only a prefix of a planned channel item, so a block can
+/// end before the endpoint the node bound.
+fn rebased_binding(
+	pool: &SourcePool,
+	stream: &StreamId,
+	end: &MmrFrontier,
+	root: &StreamsRoot,
+) -> Option<Binding> {
+	let count = end.leaf_count();
+	pool.bindings_above(stream, count, root).find_map(|(later, binding)| {
+		let wanted = usize::try_from(later - count).ok()?;
+		let leaves: Vec<_> =
+			pool.contiguous_from(stream, count).take(wanted).map(|p| leaf_hash(p)).collect();
+		if leaves.len() != wanted {
+			return None;
+		}
+		let extension = rebase(end, &leaves, &binding.extension)?;
+		Some(Binding { extension, tree_proof: binding.tree_proof.clone() })
 	})
 }
