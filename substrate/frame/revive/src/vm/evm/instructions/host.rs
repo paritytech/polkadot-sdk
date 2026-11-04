@@ -37,9 +37,15 @@ use core::ops::ControlFlow;
 ///
 /// Gets the balance of the given account.
 pub fn balance<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
 	let ([], top) = interpreter.stack.popn_top()?;
-	*top = interpreter.ext.balance_of(&top.into_address());
+	let address = top.into_address();
+	*top = if address == interpreter.ext.address() {
+		interpreter.ext.charge_or_halt(RuntimeCosts::Balance)?;
+		interpreter.ext.balance()
+	} else {
+		interpreter.ext.charge_or_halt(RuntimeCosts::BalanceOf)?;
+		interpreter.ext.balance_of(&address)
+	};
 	ControlFlow::Continue(())
 }
 

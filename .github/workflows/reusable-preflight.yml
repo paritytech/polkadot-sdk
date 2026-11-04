@@ -1,7 +1,7 @@
 # Reusable workflow to set various useful variables
 # and to perform checks and generate conditions for other workflows.
-# Currently it checks if any Rust (build-related) file is changed
-# and if the current (caller) workflow file is changed.
+# Currently it checks if any Rust (build-related) file is changed, or if the
+# caller workflow or any shared CI input it depends on is changed.
 # Example:
 #
 # jobs:
@@ -20,8 +20,6 @@ on:
     outputs:
       changes_rust:
         value: ${{ jobs.preflight.outputs.changes_rust }}
-      changes_currentWorkflow:
-        value: ${{ jobs.preflight.outputs.changes_currentWorkflow }}
 
       IMAGE:
         value: ${{ jobs.preflight.outputs.IMAGE }}
@@ -75,8 +73,7 @@ jobs:
       # so existing consuming conditions can keep using truthiness.
       changes_rust: >-
         ${{ (steps.set_changes.outputs.rust_any_changed == 'true' ||
-             steps.set_changes.outputs.currentWorkflow_any_changed == 'true') && 'true' || '' }}
-      changes_currentWorkflow: ${{ steps.set_changes.outputs.currentWorkflow_any_changed }}
+             steps.set_changes.outputs.sharedCi_any_changed == 'true') && 'true' || '' }}
 
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
 
@@ -105,7 +102,6 @@ jobs:
         shell: bash
         run: |
           echo "currentWorkflowFile=$(echo ${{ github.workflow_ref }} | sed -nE "s/.*(\.github\/workflows\/[a-zA-Z0-9_-]*\.y[a]?ml)@refs.*/\1/p")" >> $GITHUB_OUTPUT
-          echo "currentActionDir=$(echo ${{ github.action_path }} | sed -nE "s/.*(\.github\/actions\/[a-zA-Z0-9_-]*)/\1/p")" >> $GITHUB_OUTPUT
 
       - name: Set changes
         id: set_changes
@@ -119,13 +115,15 @@ jobs:
               - '!docs/**/*.md'
               - '!docs/**/*.mmd'
               - '!docs/**/*.png'
-            currentWorkflow:
+            # The caller workflow itself, plus the shared CI inputs every
+            # guarded job depends on. Excluded from `rust` by '!.github/**/*'.
+            sharedCi:
               - '${{ steps.current_file.outputs.currentWorkflowFile }}'
               - '.github/workflows/reusable-preflight.yml'
               - '.github/workflows/reusable-isdraft.yml'
               - '.github/env'
-              - '.github/actions/**'
-              - '.github/scripts/**'
+              - '.github/actions/**/*'
+              - '.github/scripts/**/*'
               - '.github/workflows/runtimes-matrix.json'
 
       #
