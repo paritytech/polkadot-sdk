@@ -79,7 +79,6 @@ impl EstimateFee<Balance> for FixedCallFee {
 
 parameter_types! {
 	pub static SignedDepositBase: Balance = 5;
-	/// Added to [`SignedDepositBase`] for each submitter already in the queue.
 	pub static SignedDepositBaseIncrease: Balance = 0;
 	pub static SignedDepositPerPage: Balance = 1;
 	pub static InvulnerableDeposit: Balance = 7;
