@@ -272,7 +272,7 @@ module invariants {
     })
 
   /// A cached assign holds a non-empty queue within JAM's queue length.
-  /// Non-emptiness is what makes `assignQueueFor`'s division well-defined; an
+  /// Non-emptiness is what makes `assignQueueFor`'s modulo well-defined; an
   /// empty queue is a no-op and is never cached (§3.3).
   val pending_authorizer_queue_bounded: bool =
     svc.pendingAssigns.keys().forall(c => {
@@ -287,7 +287,7 @@ module invariants {
     svc.pendingAssignCores.keys() == svc.pendingAssigns.keys()
 
   /// A core whose `assign` fired last step is not left due: firing drops its
-  /// entry or re-schedules a rotating queue 80 blocks out. A due entry may only
+  /// entry or re-arms it 80 slots after its due slot. A due entry may only
   /// remain cached when the gas ran out before reaching it (§5.1).
   val fired_assign_not_left_due: bool =
     lastStepAssigns.foldl(true, (acc, a) =>

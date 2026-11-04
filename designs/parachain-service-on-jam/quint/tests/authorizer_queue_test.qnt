@@ -52,6 +52,7 @@ module authorizer_queue_test {
 
   /// A queue that tiles the 80 slots but is scheduled ahead is cached, fires at
   /// its `jam_slot`, and is then gone from both maps; nothing re-presents it.
+  /// It is installed as it comes, although slot 50 is not a multiple of 80.
   run tilingQueueFiresOnceAtJamSlotTest = {
     val core = 4
     val ten = range(0, 10).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
@@ -74,7 +75,7 @@ module authorizer_queue_test {
       assert(beforeDue.assigns == List()),
       assert(beforeDue.state.pendingAssignCores.get(core) == 50),
       assert(atDue.assigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(ten) })),
+        List({ core: core, assigner: ParachainServiceId, queue: repeatList(ten, 8) })),
       assert(not(atDue.state.pendingAssigns.keys().contains(core))),
       assert(not(atDue.state.pendingAssignCores.keys().contains(core))),
       init
@@ -140,11 +141,14 @@ module authorizer_queue_test {
   }
 
   /// A queue too short to fill the 80 slots exactly is cached until its
-  /// `jam_slot`, then kept and re-presented every 80 blocks with the rotation
-  /// advanced (§7.1).
+  /// `jam_slot`, then kept as sent and rewritten every 80 slots (§7.1). The set
+  /// `[A, B, C]` due at slot 40 is the example from §7.1.
   run shortQueueStoredAndScheduledTest = {
     val core = 5
-    val q = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
+    val a: AuthorizerHash = { authBytes: 0 }
+    val b: AuthorizerHash = { authBytes: 1 }
+    val c: AuthorizerHash = { authBytes: 2 }
+    val q = List(a, b, c)
     val baseAcc: AccumulateOutcome = {
       state: initialState,
       jamDesignate: List(),
@@ -153,76 +157,98 @@ module authorizer_queue_test {
       logs: List(),
       foreign: Map()
     }
-    // Cached at now = 0 for a future jam_slot of 100.
+    // Cached at now = 0 for a future jam_slot of 40.
     val stored = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
-      AssignCore({ core: core, queue: q, newAssigner: None, jamSlot: 100 })
+      AssignCore({ core: core, queue: q, newAssigner: None, jamSlot: 40 })
     )
-    // 80 slots from the top of a 3-set: 26 full passes (78) then the first 2.
-    val expected = assignQueueFor(q)
-    val beforeDue = applyAlwaysAccumulate(stored.state, 99)
-    val first = applyAlwaysAccumulate(stored.state, 100)
-    val notDueYet = applyAlwaysAccumulate(first.state, 179)
-    val second = applyAlwaysAccumulate(first.state, 180)
+    val beforeDue = applyAlwaysAccumulate(stored.state, 39)
+    val first = applyAlwaysAccumulate(stored.state, 40)
+    val notDueYet = applyAlwaysAccumulate(first.state, 119)
+    val second = applyAlwaysAccumulate(first.state, 120)
+    val firstQueue = first.assigns.nth(0).queue
+    val secondQueue = second.assigns.nth(0).queue
     all {
       // Cached at its jam_slot, nothing forwarded yet.
       assert(stored.jamAssigns == List()),
       assert(stored.state.pendingAssigns.get(core).queue == q),
-      assert(stored.state.pendingAssignCores.get(core) == 100),
+      assert(stored.state.pendingAssignCores.get(core) == 40),
       assert(beforeDue.assigns == List()),
-      // At jam_slot: filled queue emitted, rotation advanced, due again in 80.
-      assert(first.assigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: expected })),
-      // The stored queue is rotated on by the 80 slots just consumed.
-      assert(first.state.pendingAssigns.get(core).queue == advanceAssignQueue(q)),
-      assert(first.state.pendingAssignCores.get(core) == 180),
+      // At jam_slot: one 80-hash queue for this service.
+      assert(first.assigns.length() == 1),
+      assert(first.assigns.nth(0).assigner == ParachainServiceId),
+      assert(firstQueue.length() == AuthorizerQueueLength),
+      // Slots 40 to 79 read entries 40 to 79, slots 80 to 119 entries 0 to 39.
+      assert(firstQueue.nth(40) == b),
+      assert(firstQueue.nth(79) == b),
+      assert(firstQueue.nth(0) == c),
+      assert(firstQueue.nth(39) == c),
+      // The set is kept as sent and due again 80 slots later.
+      assert(first.state.pendingAssigns.get(core).queue == q),
+      assert(first.state.pendingAssignCores.get(core) == 120),
       assert(notDueYet.assigns == List()),
-      assert(notDueYet.state.pendingAssigns.get(core).queue == advanceAssignQueue(q)),
-      // The next cycle resumes from the rotated queue.
-      assert(second.assigns ==
-        List({
-          core: core,
-          assigner: ParachainServiceId,
-          queue: assignQueueFor(advanceAssignQueue(q))
-        })),
-      assert(second.state.pendingAssigns.get(core).queue ==
-        advanceAssignQueue(advanceAssignQueue(q))),
-      assert(second.state.pendingAssignCores.get(core) == 260),
+      // At slot 120 entry 40 comes round again and starts with A.
+      assert(second.assigns.length() == 1),
+      assert(secondQueue.nth(40) == a),
+      assert(second.state.pendingAssigns.get(core).queue == q),
+      assert(second.state.pendingAssignCores.get(core) == 200),
       init
     }
   }
 
-  /// The X = 11 example: 80 slots do not land on a set boundary, so each cycle
-  /// resumes where the last stopped. Cycle 1 is 7 full passes (77) plus the first
-  /// 3; cycle 2 starts at the 4th authorizer, runs to the 11th, then repeats.
-  run assignQueueCyclesContinuouslyTest = {
+  /// Slot `t` gets hash `t % X` of the set across every rewrite. With X = 11 and
+  /// the first assign due at slot 13, every slot from 13 to 252 reads its hash
+  /// from the queue written by the last rewrite before it (§7.1).
+  run assignQueueFollowsSlotOrderTest = {
+    val core = 5
     val q = range(0, 11).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
-    val q1 = advanceAssignQueue(q)
-    val q2 = advanceAssignQueue(q1)
-    val cycle1 = assignQueueFor(q)
-    val cycle2 = assignQueueFor(q1)
-    val cycle3 = assignQueueFor(q2)
+    val armed = {
+      ...initialState,
+      pendingAssigns: Map(core -> { queue: q, assigner: None }),
+      pendingAssignCores: Map(core -> 13)
+    }
+    val first = applyAlwaysAccumulate(armed, 13)
+    val second = applyAlwaysAccumulate(first.state, 93)
+    val third = applyAlwaysAccumulate(second.state, 173)
     all {
-      assert(cycle1.length() == AuthorizerQueueLength),
-      assert(cycle2.length() == AuthorizerQueueLength),
-      // Cycle 1: 7 full passes then the first 3.
-      assert(cycle1.slice(0, 77) == repeatList(q, 7)),
-      assert(cycle1.slice(77, 80) == takeFirst(3, q)),
-      // Cycle 2 picks up at the 4th authorizer and runs to the 11th...
-      assert(cycle2.slice(0, 8) == q.slice(3, 11)),
-      // ...then repeats the set from the top.
-      assert(cycle2.slice(8, 19) == q),
-      // Rotating on by 80 is rotating on by 80 % 11 = 3.
-      assert(q1 == rotateList(q, 3)),
-      // Three cycles laid end to end are the endless sequence, unbroken.
-      assert(cycle1.concat(cycle2).concat(cycle3) ==
-        takeFirst(240, repeatList(q, 23))),
+      assert(range(13, 253).foldl(true, (ok, t) => {
+        val written = if (t < 93) first else if (t < 173) second else third
+        ok and written.assigns.nth(0).queue.nth(t % AuthorizerQueueLength) == q.nth(t % 11)
+      })),
+      init
+    }
+  }
+
+  /// The hash JAM reads at slot `due + i` is element `i` of the set repeated
+  /// from hash `due % q.length()`, for all 80 slots from `due` on. Checked for
+  /// sets that do and do not tile the 80 slots, and for `due` on, just before and
+  /// just after a multiple of 80. A set that tiles the 80 slots comes out as it
+  /// is, repeated from entry 0.
+  run assignQueueForLayoutTest = {
+    pure def hashes(n: int): List[AuthorizerHash] =
+      range(0, n).foldl(List(), (acc, i) => acc.append({ authBytes: i }))
+    pure def laidOut(q: List[AuthorizerHash], due: Timeslot): bool = {
+      val start = due % q.length()
+      val expected = repeatList(
+        q.slice(start, q.length()).concat(q.slice(0, start)),
+        AuthorizerQueueLength / q.length() + 1
+      )
+      val queue = assignQueueFor(q, due)
+      queue.length() == AuthorizerQueueLength and
+        range(0, AuthorizerQueueLength).foldl(true, (ok, i) =>
+          ok and queue.nth((due + i) % AuthorizerQueueLength) == expected.nth(i))
+    }
+    all {
+      assert(tuples(Set(1, 3, 7, 10, 11, 79, 80), Set(0, 13, 40, 79, 80, 173))
+        .forall(c => laidOut(hashes(c._1), c._2))),
+      assert(assignQueueFor(hashes(10), 50) == repeatList(hashes(10), 8)),
+      assert(assignQueueFor(hashes(AuthorizerQueueLength), 5) == hashes(AuthorizerQueueLength)),
       init
     }
   }
 
   /// A second short assignment for a core that already has one stored replaces
-  /// it wholesale (queue, due time and rotation reset; last write wins).
+  /// it wholesale (queue and due time; last write wins).
   run newAssignmentReplacesPendingTest = {
     val core = 5
     val q1 = List({ authBytes: 0 }, { authBytes: 1 }, { authBytes: 2 })
@@ -281,8 +307,8 @@ module authorizer_queue_test {
       { ...out, jamAssigns: List(), logs: List() }, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 })
     )
-    // Keep-assigner short queue is stored and rotated as usual, from a state
-    // where the core was never handed away.
+    // A keep-assigner short queue is kept as usual, from a state where the core
+    // was never handed away.
     val stored = applyUpwardMessage(
       baseAcc, CoretimeParaId, FixedCodeLen, 0, 0,
       AssignCore({ core: core, queue: three, newAssigner: None, jamSlot: 0 })
@@ -297,11 +323,12 @@ module authorizer_queue_test {
       assert(after.jamAssigns == List()),
       assert(after.logs == List(CoreNotAssignable({ core: core }))),
       assert(after.state == out.state),
-      // A short keep-assigner queue still rotates, `None` resolving to this service.
+      // A short keep-assigner queue is kept for its rewrite, `None` resolving to
+      // this service.
       assert(stored.jamAssigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three) })),
+        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three, 0) })),
       assert(stored.state.pendingAssigns.get(core).assigner == None),
-      assert(stored.state.pendingAssigns.get(core).queue == advanceAssignQueue(three)),
+      assert(stored.state.pendingAssigns.get(core).queue == three),
       init
     }
   }
@@ -382,14 +409,14 @@ module authorizer_queue_test {
     }
   }
 
-  /// A rotation left armed on a core that has since been handed away is
+  /// A rewrite left armed on a core that has since been handed away is
   /// rejected by JAM when it falls due: it takes no effect, the entry is
   /// dropped, and the rejection is logged (§7.1).
   run dueFlushDropsHandedAwayCoreTest = {
     val core = 3
     val other = MkServiceId(7)
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
-    // A rotation armed for `core`, due now, but `other` owns the core.
+    // A rewrite armed for `core`, due now, but `other` owns the core.
     val armed = {
       ...initialState,
       pendingAssigns: initialState.pendingAssigns.put(
@@ -399,7 +426,7 @@ module authorizer_queue_test {
       jamCoreAssigners: initialState.jamCoreAssigners.put(core, other)
     }
     val flushed = applyAlwaysAccumulate(armed, 10)
-    // Same rotation on a core still owned by the service does fire.
+    // The same rewrite on a core still owned by the service does fire.
     val owned = { ...armed, jamCoreAssigners: initialState.jamCoreAssigners }
     val flushedOwned = applyAlwaysAccumulate(owned, 10)
     all {
@@ -411,8 +438,10 @@ module authorizer_queue_test {
       assert(flushed.logs == List(CoreNotAssignable({ core: core }))),
       assert(owned.isAssignerOf(core)),
       assert(flushedOwned.assigns ==
-        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three) })),
+        List({ core: core, assigner: ParachainServiceId, queue: assignQueueFor(three, 5) })),
       assert(flushedOwned.logs == List()),
+      // Applied late at slot 10, it is still due again at 5 + 80.
+      assert(flushedOwned.state.pendingAssignCores.get(core) == 85),
       init
     }
   }
@@ -433,7 +462,7 @@ module authorizer_queue_test {
       pendingAssignCores: Map(3 -> 5, 4 -> 2, 5 -> 8, 6 -> 5)
     }
     pure def call(c: CoreIndex): AssignCall =
-      { core: c, assigner: ParachainServiceId, queue: assignQueueFor(one) }
+      { core: c, assigner: ParachainServiceId, queue: repeatList(one, AuthorizerQueueLength) }
     val first = accumulateBlockBudgeted(
       armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 }
     )

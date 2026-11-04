@@ -386,7 +386,7 @@ module transfers_test {
   }
 
   /// §5.1: an invocation carrying only transfers still flushes due assigns
-  /// before recording them. A due rotation fires and is re-armed, a due entry on
+  /// before recording them. A due rewrite fires and is re-armed, a due entry on
   /// a handed-away core is dropped and logged, and one not yet due is kept.
   run transferOnlyInvocationFlushesDueAssignsTest = {
     val three = List({ authBytes: 1 }, { authBytes: 2 }, { authBytes: 3 })
@@ -406,9 +406,9 @@ module transfers_test {
       .then(incomingTransferInvocation(List(t), FullAssignBudget))
       .then(expectThat(all {
         lastStepAssigns ==
-          List({ core: 3, assigner: ParachainServiceId, queue: assignQueueFor(three) }),
+          List({ core: 3, assigner: ParachainServiceId, queue: assignQueueFor(three, 0) }),
         svc.pendingAssigns ==
-          Map(3 -> { queue: advanceAssignQueue(three), assigner: None },
+          Map(3 -> { queue: three, assigner: None },
             5 -> { queue: three, assigner: None }),
         svc.pendingAssignCores == Map(3 -> AuthorizerQueueLength, 5 -> 50),
         svc.paraLog(CoretimeParaId) ==

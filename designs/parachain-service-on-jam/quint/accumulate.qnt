@@ -294,7 +294,7 @@ module accumulate {
               jamAssigns: acc.jamAssigns.append({
                 core: payload.core,
                 assigner: payload.newAssigner.optionGetOr(ParachainServiceId),
-                queue: assignQueueFor(payload.queue)
+                queue: assignQueueFor(payload.queue, payload.jamSlot)
               }),
               state: {
                 ...acc.state.recordAssigner(
@@ -303,13 +303,13 @@ module accumulate {
                 pendingAssigns:
                   if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(payload.core)
                   else acc.state.pendingAssigns.put(payload.core, {
-                    queue: advanceAssignQueue(payload.queue),
+                    queue: payload.queue,
                     assigner: payload.newAssigner
                   }),
                 pendingAssignCores:
                   if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(payload.core)
                   else acc.state.pendingAssignCores.put(
-                    payload.core, now + AuthorizerQueueLength
+                    payload.core, payload.jamSlot + AuthorizerQueueLength
                   )
               }
             }
@@ -638,6 +638,7 @@ module accumulate {
           }
         else {
           val pending = s.pendingAssigns.get(c)
+          val dueAt = s.pendingAssignCores.get(c)
           val queueLen = pending.queue.length()
           {
             state: {
@@ -646,18 +647,15 @@ module accumulate {
               ),
               pendingAssigns:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssigns.mapRemove(c)
-                else acc.state.pendingAssigns.put(c, {
-                  ...pending,
-                  queue: advanceAssignQueue(pending.queue)
-                }),
+                else acc.state.pendingAssigns,
               pendingAssignCores:
                 if (fillsDirectly(queueLen)) acc.state.pendingAssignCores.mapRemove(c)
-                else acc.state.pendingAssignCores.put(c, now + AuthorizerQueueLength)
+                else acc.state.pendingAssignCores.put(c, dueAt + AuthorizerQueueLength)
             },
             assigns: acc.assigns.append({
               core: c,
               assigner: pending.assigner.optionGetOr(ParachainServiceId),
-              queue: assignQueueFor(pending.queue)
+              queue: assignQueueFor(pending.queue, dueAt)
             }),
             logs: acc.logs
           }

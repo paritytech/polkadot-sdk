@@ -111,8 +111,7 @@ module state {
     parachainLog: ParaId -> ParachainLog,
     // Scheduled-but-unapplied `assign` payloads, keyed by core: the queue to
     // install and who owns the core afterwards (`None` = this service,
-    // unchanged). A queue that must keep cycling is stored already rotated to
-    // where the next cycle starts, so its own order carries the schedule (§7.1).
+    // unchanged). The queue is the set as the Coretime chain sent it (§7.1).
     // Cold: read only for a core that is due.
     pendingAssigns: CoreIndex -> {
       queue: List[AuthorizerHash],
@@ -284,34 +283,24 @@ module state {
   pure def repeatList(l: List[AuthorizerHash], n: int): List[AuthorizerHash] =
     range(0, n).foldl(List(), (acc, _) => acc.concat(l))
 
-  /// The first `k` elements of `l`.
-  pure def takeFirst(k: int, l: List[AuthorizerHash]): List[AuthorizerHash] =
-    range(0, k).foldl(List(), (acc, i) => acc.append(l.nth(i)))
-
-  /// `l` re-ordered to start at index `k`, wrapping the earlier elements to the
-  /// end.
-  pure def rotateList(l: List[AuthorizerHash], k: int): List[AuthorizerHash] =
-    if (l.length() == 0) l
-    else {
-      val o = k % l.length()
-      l.slice(o, l.length()).concat(l.slice(0, o))
-    }
-
   /// True iff `x` authorizers tile JAM's 80 slots exactly, so the installed
   /// queue cycles correctly forever and never needs re-presenting.
   pure def fillsDirectly(queueLen: int): bool =
     queueLen == AuthorizerQueueLength or (AuthorizerQueueLength % queueLen) == 0
 
-  /// The 80 slots JAM sees: `q` repeated and cut to
-  /// `AuthorizerQueueLength`. `q` is stored already rotated to where this cycle
-  /// starts, so no separate offset is needed (§7.1).
-  pure def assignQueueFor(q: List[AuthorizerHash]): List[AuthorizerHash] =
-    takeFirst(AuthorizerQueueLength, repeatList(q, AuthorizerQueueLength / q.length() + 1))
-
-  /// The queue to store for the cycle after `q`: rotated on by the 80 slots just
-  /// consumed, so the next cycle resumes where this one stopped.
-  pure def advanceAssignQueue(q: List[AuthorizerHash]): List[AuthorizerHash] =
-    rotateList(q, AuthorizerQueueLength)
+  /// The 80-entry JAM queue for an assign due at slot `due` (§7.1). JAM reads
+  /// entry `t % 80` at slot `t`, and slot `t` gets hash `t % q.length()` of `q`.
+  /// The result covers the slots `due` to `due + 79`. A set that tiles the 80
+  /// slots comes out as `q` repeated from entry 0 and is written once. Any other
+  /// set is written again at `due + 80`, `due + 160`, and so on.
+  pure def assignQueueFor(q: List[AuthorizerHash], due: Timeslot): List[AuthorizerHash] = {
+    // Hashes for the slots `due` to `due + 79`, in slot order.
+    val bySlot = range(due, due + AuthorizerQueueLength).foldl(List(), (acc, t) =>
+      acc.append(q.nth(t % q.length())))
+    // Slot `due` goes to entry `due % 80`, so the slots after entry 79 wrap to entry 0.
+    val wrap = AuthorizerQueueLength - due % AuthorizerQueueLength
+    bySlot.slice(wrap, AuthorizerQueueLength).concat(bySlot.slice(0, wrap))
+  }
 
   pure def paraLog(s: ParachainServiceState, para_id: ParaId): ParachainLog =
     if (s.parachainLog.keys().contains(para_id)) s.parachainLog.get(para_id)

@@ -548,7 +548,7 @@ module main {
         minAccGas: 0,
         minMemoGas: 0
       }),
-    // Assignments of every kind: tiles directly (1), kept and rotated (3),
+    // Assignments of every kind: tiles directly (1), kept and rewritten (3),
     // an empty one and one for an unknown core, both of which Refine rejects,
     // and a hand-off, which requires an exact 80-hash queue (§3.3).
     AssignCore({ core: CoreCount, queue: List(anyAuthHash), newAssigner: None, jamSlot: 100 }),
