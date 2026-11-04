@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793802557644,
+  "lastUpdate": 1793812509223,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141587,6 +141587,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2911492661,
             "range": "± 38443655",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "092b50173aa9dbbe6c68e040d075209aee85c5db",
+          "message": "[pallet-revive] align terminate precompile with opcodes (#13689)\n\nThis PR aligns the terminate precompile with the opcodes. \n\n- The precompile now pays out the balance immediately and only deletes\nthe contract if this transaction created it, as `SELFDESTRUCT` does.\n- The deposit is no longer refunded when terminate is called.\n- TerminateArgs and schedule_termination are gone; the scheduling map\njust stores the beneficiary.\n\nTests:\n- Tests that relied on deleting a contract from an earlier transaction\nnow create and terminate it in the same call.\n- Tests that call terminate on an older contract now assert the contract\nsurvives.\n- Removed tests whose scenario can no longer happen:\n  - the deposit refund at call time (two tests)\n  - several payers' deposits being refunded at termination\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T15:36:52Z",
+          "tree_id": "7d5715a80e55733699a14c15ff7ff8ae6a7a0952",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/092b50173aa9dbbe6c68e040d075209aee85c5db"
+        },
+        "date": 1793812472776,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 22668349,
+            "range": "± 823680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 22617456,
+            "range": "± 491495",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23801187,
+            "range": "± 344731",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 28184060,
+            "range": "± 563207",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 70684628,
+            "range": "± 2255360",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 462893245,
+            "range": "± 17972161",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2998635465,
+            "range": "± 128833343",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18578903,
+            "range": "± 262451",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18709380,
+            "range": "± 415128",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 19717916,
+            "range": "± 528416",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 25285318,
+            "range": "± 627450",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 69310120,
+            "range": "± 1889110",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 430929298,
+            "range": "± 13629799",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 3000359994,
+            "range": "± 50868115",
             "unit": "ns/iter"
           }
         ]
