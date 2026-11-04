@@ -22,14 +22,9 @@ use super::{
 	precompiles::{INoInfo, NoInfo},
 };
 use crate::{
-<<<<<<< HEAD
 	AccountInfo, AccountInfoOf, BalanceWithDust, Code, Config, ContractInfo, DebugSettings,
-	DeletionQueueCounter, Error, ExecConfig, HoldReason, Origin, Pallet, StorageDeposit,
-=======
-	AccountInfo, AccountInfoOf, BalanceWithDust, Code, CodeRejection, Config, ContractInfo,
-	DebugSettings, DeletionQueue, DeletionQueueCounter, Error, ExecConfig, HoldReason,
-	NativeDepositOf, Origin, Pallet, StorageDeposit,
->>>>>>> 092b501 ([pallet-revive] align terminate precompile with opcodes (#13689))
+	DeletionQueue, DeletionQueueCounter, Error, ExecConfig, HoldReason, NativeDepositOf, Origin,
+	Pallet, StorageDeposit,
 	address::{AddressMapper, create1, create2},
 	assert_refcount, assert_return_code,
 	evm::{CallTrace, CallTracer, CallType, fees::InfoT},

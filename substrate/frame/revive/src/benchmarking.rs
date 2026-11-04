@@ -1370,12 +1370,6 @@ mod benchmarks {
 		let exec_config = ExecConfig::new_substrate_tx();
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
-<<<<<<< HEAD
-		let beneficiary_clone = beneficiary.clone();
-		let only_if_same_tx = false;
-=======
-		assert_account_not_whitelisted::<T>(contract_account);
->>>>>>> 092b501 ([pallet-revive] align terminate precompile with opcodes (#13689))
 
 		#[block]
 		{
