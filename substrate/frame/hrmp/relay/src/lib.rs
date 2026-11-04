@@ -158,7 +158,18 @@ pub mod pallet {
 	pub type PendingSides<T: Config> =
 		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), u64, OptionQuery>;
 
-	/// Releases the transport did not take yet, oldest first.
+	/// Releases that could not be sent yet, oldest first.
+	///
+	/// A release cannot fail: [`ChannelDepositProvider`] requires it to be applied. So when
+	/// [`Config::SendToPara`] refuses a release, it waits here instead of being dropped, and is
+	/// retried in `on_poll`. Any later release joins the queue behind it, to keep releases in
+	/// order.
+	///
+	/// Normally the outbox is empty. It only fills when the transport to the parachain is broken.
+	/// While it is not empty, other deposit requests are refused with [`Error::TransportBusy`] so
+	/// that they do not overtake a waiting release. Once it is full, further releases are dropped
+	/// with [`Event::ReleaseDropped`]; governance then has to fix the deposits on the parachain
+	/// with `force_set_deposit` of `pallet-hrmp-para`.
 	#[pallet::storage]
 	pub type Outbox<T: Config> =
 		StorageValue<_, BoundedVec<ReleaseMessageToPara, T::MaxOutbox>, ValueQuery>;
