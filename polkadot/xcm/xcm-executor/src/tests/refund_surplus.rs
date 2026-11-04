@@ -115,21 +115,37 @@ fn implicit_refund_after_explicit_refund_is_a_noop() {
 }
 
 #[test]
-fn refund_holding_cannot_take_is_trapped_and_fails() {
+fn refund_holding_cannot_take_fails_and_is_left_to_the_end() {
 	let mut vm = executor_with_leftover_fees();
-	vm.set_total_surplus(Weight::from_parts(2, 2));
+	vm.set_total_surplus(Weight::from_parts(4, 4));
 	// Holding is empty and its limit zero, so a refund in `Here` cannot be added to it.
 	vm.set_holding_limit(0);
 
-	let error = vm.bench_process(Xcm(vec![RefundSurplus, RefundSurplus])).unwrap_err();
+	let error = vm.bench_process(Xcm(vec![RefundSurplus])).unwrap_err();
 
-	// The first `RefundSurplus` fails, so the second never runs and only one refund is trapped.
+	// Nothing is refunded or trapped and the leftover fees stay in `fees`.
 	assert_eq!(error.index, 0);
 	assert_eq!(error.xcm_error, XcmError::HoldingWouldOverflow);
-	assert_eq!(vm.total_refunded(), &Weight::from_parts(2, 2));
-	// The refund of `4` and the leftover fees of `6` are trapped together; holding stays empty.
+	assert_eq!(vm.total_refunded(), &Weight::zero());
+	assert_eq!(asset_list(TRAPPED_ASSETS), []);
+	assert_eq!(get_first_fungible(vm.fees()).unwrap(), (Here, 6u128).into());
+
+	let outcome = vm.bench_post_process(Weight::from_parts(10, 10));
+
+	// The end of the message refunds `(2, 2)` of the surplus, `4` of `Here`, and traps it with the
+	// leftover fees of `6`.
+	assert_eq!(outcome.weight_used(), Weight::from_parts(8, 8));
 	assert_eq!(asset_list(TRAPPED_ASSETS), [(Here, 10u128).into()]);
-	assert_eq!(get_first_fungible(vm.holding()), None);
+}
+
+#[test]
+fn refund_surplus_without_surplus_succeeds_with_holding_at_capacity() {
+	let mut vm = executor_with_leftover_fees();
+	vm.set_holding_limit(0);
+
+	assert!(vm.bench_process(Xcm(vec![RefundSurplus])).is_ok());
+
+	assert_eq!(get_first_fungible(vm.holding()).unwrap(), (Here, 6u128).into());
 	assert_eq!(get_first_fungible(vm.fees()), None);
 }
 

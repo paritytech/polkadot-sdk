@@ -563,8 +563,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					.unwrap_or(false);
 				if holding_cannot_take_refund {
 					// Trapped rather than bought back from the trader, which would be another swap
-					// for a trader that swapped. The error still ends the program, so a message
-					// cannot trap on every `RefundSurplus`.
+					// for a trader that swapped.
 					let mut trapped = refund;
 					trapped.subsume_assets(self.fees.saturating_take(Wild(All)));
 					tracing::trace!(
@@ -1514,7 +1513,14 @@ impl<Config: config::Config> XcmExecutor<Config> {
 					},
 				)
 			},
-			RefundSurplus => self.refund_surplus(Weight::zero()),
+			RefundSurplus => {
+				// A refund holding might not take is left to the end of the message, so the
+				// program does not trap it.
+				if self.total_surplus.any_gt(self.total_refunded) {
+					self.ensure_can_subsume_assets(1)?;
+				}
+				self.refund_surplus(Weight::zero())
+			},
 			SetErrorHandler(mut handler) => {
 				let handler_weight = Config::Weigher::weight(&mut handler, Weight::MAX)
 					.map_err(|error| {

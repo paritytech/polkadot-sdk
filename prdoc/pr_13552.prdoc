@@ -12,7 +12,9 @@ doc:
 
     A refund whose asset holding cannot take, because the asset is not in holding and holding is
     at capacity, is now trapped for the claimer together with any leftover `fees`, instead of
-    being bought back from the trader. `RefundSurplus` still fails with `HoldingWouldOverflow`.
+    being bought back from the trader. `RefundSurplus` with surplus to refund and holding at
+    capacity now fails with `HoldingWouldOverflow` before asking the trader, even when the refund
+    asset is in holding, and leaves the surplus to the end of the message.
     Before, the trader bought the refund back, or dropped it when the buy-back failed, as it always
     did for `TakeFirstAssetTrader`, and the leftover `fees` were dropped with the executor; both
     are now claimable.
