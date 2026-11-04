@@ -1608,6 +1608,24 @@ fn a_forged_register_position_lifts_to_no_committed_root() {
 }
 
 #[test]
+fn enact_charges_one_footprint_query_per_channel_item() {
+	use crate::weights::WeightInfo as _;
+	type W = ();
+
+	let footprint = MockQueueFootprint::ready_pages_weight();
+	assert!(footprint.all_gt(Weight::zero()));
+	let mut two = MessagingInherentData::default();
+	for num in 0..2 {
+		two.channels
+			.insert(InChannelId { num, ..in_channel() }, vec![Vec::new(), Vec::new()]);
+	}
+	let without = W::enact_channels(2)
+		.saturating_add(W::enact_payloads(2).saturating_sub(W::enact_payloads(0)))
+		.saturating_add(commit_weight::<Test>(0, 2));
+	assert_eq!(enact_weight::<Test>(&two), without.saturating_add(footprint.saturating_mul(2)));
+}
+
+#[test]
 fn enact_and_commit_weights_charge_the_fixed_cost_once() {
 	use crate::weights::WeightInfo as _;
 	type W = ();
@@ -1618,9 +1636,12 @@ fn enact_and_commit_weights_charge_the_fixed_cost_once() {
 		channels: BTreeMap::from([(in_channel(), vec![Vec::new()])]),
 		..Default::default()
 	};
+	let footprint = MockQueueFootprint::ready_pages_weight();
 	assert_eq!(
 		enact_weight::<Test>(&channel_only),
-		W::enact_channels(1).saturating_add(commit_weight::<Test>(0, 1))
+		W::enact_channels(1)
+			.saturating_add(footprint)
+			.saturating_add(commit_weight::<Test>(0, 1))
 	);
 
 	let mut registers_only = MessagingInherentData::default();

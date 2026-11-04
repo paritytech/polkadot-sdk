@@ -81,6 +81,12 @@ pub use xcm_transport::{
 pub trait QueueFootprintQuery<Id> {
 	/// Number of ready pages in the channel's delivery queue.
 	fn ready_pages(id: &Id) -> u32;
+
+	/// Upper bound of one [`Self::ready_pages`]. `enact_messages` makes one per channel item and
+	/// charges it on top of its benchmarks, which run with `()`.
+	fn ready_pages_weight() -> Weight {
+		Weight::zero()
+	}
 }
 
 impl<Id> QueueFootprintQuery<Id> for () {
@@ -863,8 +869,10 @@ impl EnactTally {
 				.saturating_add(bytes)
 				.saturating_add(registers_weight.saturating_sub(T::WeightInfo::enact_registers(0)))
 		};
+		let footprints = T::QueueFootprint::ready_pages_weight().saturating_mul(channels.into());
 		enact
 			.saturating_add(handler)
+			.saturating_add(footprints)
 			.saturating_add(commit_weight::<T>(registers, channels))
 	}
 }

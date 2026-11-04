@@ -173,6 +173,10 @@ impl crate::QueueFootprintQuery<cumulus_primitives_spec_messaging::InChannelId>
 	fn ready_pages(_: &cumulus_primitives_spec_messaging::InChannelId) -> u32 {
 		READY_PAGES.with(|p| p.get())
 	}
+
+	fn ready_pages_weight() -> Weight {
+		Weight::from_parts(25_000_000, 2536)
+	}
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {

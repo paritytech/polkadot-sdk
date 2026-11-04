@@ -103,14 +103,19 @@ impl<Queue: EnqueueMessage<InChannelId>, EnqueueWeight: Convert<u32, Weight>> On
 
 /// [`QueueFootprintQuery`] over a message queue that reports footprints per [`InChannelId`], such
 /// as `TransformOrigin<MessageQueue, AggregateMessageOrigin, InChannelId, ChannelToSpecMsg>`. A
-/// channel whose queue has `MaxQueueFootprint` ready pages stops being consumed.
-pub struct QueueFootprintOf<Queue>(PhantomData<Queue>);
+/// channel whose queue has `MaxQueueFootprint` ready pages stops being consumed. `QueryWeight` is
+/// the weight of one query, for `MessageQueue` one `BookStateFor` read.
+pub struct QueueFootprintOf<Queue, QueryWeight = ()>(PhantomData<(Queue, QueryWeight)>);
 
-impl<Queue: frame_support::traits::QueueFootprintQuery<InChannelId>>
-	QueueFootprintQuery<InChannelId> for QueueFootprintOf<Queue>
+impl<Queue: frame_support::traits::QueueFootprintQuery<InChannelId>, QueryWeight: Get<Weight>>
+	QueueFootprintQuery<InChannelId> for QueueFootprintOf<Queue, QueryWeight>
 {
 	fn ready_pages(id: &InChannelId) -> u32 {
 		Queue::footprint(*id).ready_pages
+	}
+
+	fn ready_pages_weight() -> Weight {
+		QueryWeight::get()
 	}
 }
 

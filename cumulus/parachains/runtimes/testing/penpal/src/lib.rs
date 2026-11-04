@@ -688,6 +688,22 @@ parameter_types! {
 	pub const SpecMsgSupportedVersions: core::ops::RangeInclusive<u8> = 1..=1;
 }
 
+/// Weight of one spec-msg delivery-queue footprint query: a `MessageQueue::BookStateFor` read. Its
+/// proof size is what the benchmarks give an unbounded map's entry: 2475 bytes of trie nodes, the
+/// `Twox64Concat` key and the value.
+pub struct SpecMsgFootprintQueryWeight;
+impl frame_support::traits::Get<Weight> for SpecMsgFootprintQueryWeight {
+	fn get() -> Weight {
+		use codec::MaxEncodedLen;
+		let entry = 8 +
+			AggregateMessageOrigin::max_encoded_len() +
+			pallet_message_queue::BookState::<AggregateMessageOrigin>::max_encoded_len();
+		RocksDbWeight::get()
+			.reads(1)
+			.saturating_add(Weight::from_parts(0, 2475 + entry as u64))
+	}
+}
+
 /// Weight of enqueueing a spec-msg payload: the same message-queue work as an HRMP message.
 pub struct SpecMsgEnqueueWeight;
 impl sp_runtime::traits::Convert<u32, Weight> for SpecMsgEnqueueWeight {
@@ -718,6 +734,7 @@ impl cumulus_pallet_spec_messaging::Config for Runtime {
 	type MaxQueueFootprint = ConstU32<48>;
 	type QueueFootprint = cumulus_pallet_spec_messaging::QueueFootprintOf<
 		TransformOrigin<MessageQueue, AggregateMessageOrigin, InChannelId, ChannelToSpecMsg>,
+		SpecMsgFootprintQueryWeight,
 	>;
 	// Execute the XCM channel's payloads in the channel's own queue, which XCM sees as the
 	// sibling.
