@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793747646999,
+  "lastUpdate": 1793798776530,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "notifications_protocol": [
@@ -252479,6 +252479,198 @@ window.BENCHMARK_DATA = {
             "name": "notifications_protocol/litep2p/with_backpressure/16MB",
             "value": 2608227858,
             "range": "± 40016882",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1de9ddfe5387691ee0867946876368088b57ac6a",
+          "message": "pallet-revive: measure the contract's own account in host function benchmarks (#13501)\n\n`CallSetup` whitelisted the executing contract's `System::Account` in\nevery host function benchmark. The whitelist was added in #4233, since\nthe weight of the `call` extrinsic already includes the account of the\nfirst frame's contract. When a nested contract is called without value,\nits account access has not been paid for, and a later transfer, contract\ncreation or self-destruct in that call does not pay for it either.\nRemoving the whitelist only affects the benchmarks that access that\naccount, and their weights now include it. Whitelisting `AccountInfoOf`\nremains safe, since the call that creates a frame already reads and\nwrites the contract's info.\n\nThe benchmarks that access the contract's account now assert that it is\nnot whitelisted: `seal_call_transfer`, `seal_instantiate`,\n`seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`, `seal_terminate` and `seal_terminate_logic`.\n\n`seal_balance` keeps the account whitelisted, so that a `transfer` or\n`send` receiver, whose stipend is too small for a storage read, can\nstill read its own balance. The read is undercharged if no frame in the\ntransaction pays for the account. This exception should be removed once\n#12673 lands, since the receiver's account will then always be hot.\n\nIn the following scenarios, the account access is charged more than\nonce:\n- A contract called directly by the transaction, whose extrinsic weight\nalready includes the account.\n- A contract called with value, or created by an instantiate.\n- Any repeated use within the same transaction.\n\nA self-destruct is charged both `seal_terminate` and\n`seal_terminate_logic`, so it now pays twice for reading the contract's\naccount. I propose deferring this to a follow-up, since it is an\novercharge on a rare opcode and the fix will probably need to rework the\nterminate pricing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T09:03:19Z",
+          "tree_id": "4e7c2a21e8957e83dcb95f623b5de2b9b53988c5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1de9ddfe5387691ee0867946876368088b57ac6a"
+        },
+        "date": 1793798742510,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "notifications_protocol/libp2p/serially/64B",
+            "value": 4234367,
+            "range": "± 17962",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64B",
+            "value": 305806,
+            "range": "± 2971",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/512B",
+            "value": 4069819,
+            "range": "± 12385",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/512B",
+            "value": 380438,
+            "range": "± 3833",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/4KB",
+            "value": 5014439,
+            "range": "± 23711",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/4KB",
+            "value": 904132,
+            "range": "± 8699",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/64KB",
+            "value": 10609498,
+            "range": "± 69757",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/64KB",
+            "value": 4927265,
+            "range": "± 42697",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/256KB",
+            "value": 45121665,
+            "range": "± 396851",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/256KB",
+            "value": 38139137,
+            "range": "± 306059",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/2MB",
+            "value": 356545232,
+            "range": "± 3282091",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/2MB",
+            "value": 297913827,
+            "range": "± 1748169",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/serially/16MB",
+            "value": 2576518957,
+            "range": "± 7331458",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/libp2p/with_backpressure/16MB",
+            "value": 2324580523,
+            "range": "± 27352008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64B",
+            "value": 3556307,
+            "range": "± 40939",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64B",
+            "value": 1945120,
+            "range": "± 10813",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/512B",
+            "value": 3585734,
+            "range": "± 23153",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/512B",
+            "value": 2015764,
+            "range": "± 9636",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/4KB",
+            "value": 4276370,
+            "range": "± 49320",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/4KB",
+            "value": 2338177,
+            "range": "± 12513",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/64KB",
+            "value": 8086996,
+            "range": "± 50311",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/64KB",
+            "value": 5387485,
+            "range": "± 56164",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/256KB",
+            "value": 38771447,
+            "range": "± 209534",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/256KB",
+            "value": 36806816,
+            "range": "± 519895",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/2MB",
+            "value": 316192640,
+            "range": "± 2097068",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/2MB",
+            "value": 285734263,
+            "range": "± 1737472",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/serially/16MB",
+            "value": 2509119742,
+            "range": "± 8550841",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "notifications_protocol/litep2p/with_backpressure/16MB",
+            "value": 2487530934,
+            "range": "± 72880283",
             "unit": "ns/iter"
           }
         ]
