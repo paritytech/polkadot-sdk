@@ -350,9 +350,15 @@ fn a_channel_fetch_binds_the_stored_frontier() {
 	assert_eq!(run_fetch(&transport, &messages(a, 0, root, u32::MAX), Some(&stored)), unserved);
 	// A gap: the start is past the stored frontier.
 	assert_eq!(run_fetch(&transport, &messages(a, 4, root, u32::MAX), Some(&stored)), unserved);
-	// The same count with other contents.
+	// The same count with other contents: a response that verifies proves the stream under the
+	// root does not run through it.
 	let forged = frontier_at(&payloads(5, 6), 2);
-	assert_eq!(run_fetch(&transport, &messages(a, 2, root, u32::MAX), Some(&forged)), unserved);
+	let request = messages(a, 2, root, u32::MAX);
+	assert_eq!(run_fetch(&transport, &request, Some(&forged)), Err(RequestError::Diverged));
+	// A response that does not verify proves nothing.
+	let archive = transport.0[0].1.archive.clone();
+	let liar = ArchiveTransport(vec![(PeerId::random(), TestPeer { archive, tamper: true })]);
+	assert_eq!(run_fetch(&liar, &request, Some(&forged)), unserved);
 	// Without a stored frontier any start verifies.
 	assert!(run_fetch(&transport, &messages(a, 4, root, u32::MAX), None).is_ok());
 }

@@ -23,7 +23,10 @@
 use crate::{
 	fetch::Transport,
 	protocol,
-	receiver::{skip_proof, FETCH_MAX_BYTES, INHERENT_FETCH_TIMEOUT, MAX_BUFFERED_BYTES},
+	receiver::{
+		skip_proof, FETCH_MAX_BYTES, INHERENT_FETCH_TIMEOUT, MAX_BUFFERED_BYTES,
+		MAX_BUFFERED_PAYLOADS,
+	},
 	tests::{ack, channel, frontier_at, import, payloads, Model, TestArchive},
 	Archive, Budget, ChainView, MemoryStore, Receiver, SourceWants,
 };
@@ -99,6 +102,14 @@ impl Sender {
 		import(&mut self.archive.write(), &mut self.model.write(), *number, sends)
 	}
 
+	/// Drop the blocks above `number`, as after a reorg: the next block is authored on it. `model`
+	/// holds the sends up to `number`.
+	fn fork_at(&self, number: u64, model: Model) {
+		self.archive.write().rewind_to(number, number).unwrap();
+		*self.model.write() = model;
+		*self.number.write() = number;
+	}
+
 	/// The requests of `stream` served so far.
 	fn requests(&self, stream: StreamId) -> Vec<MessagesRequest> {
 		self.log
@@ -139,7 +150,7 @@ fn register(up_to: u64) -> Register {
 
 /// The receiving chain, as the pallet consumes: the channel's stored frontier, and the position of
 /// the register last read.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Chain {
 	frontier: MmrFrontier,
 	read_at: Option<u64>,
@@ -664,4 +675,151 @@ fn missing_bindings_are_fetched_under_one_deadline() {
 	let data = block_on(receiver.inherent_data(&view_of(wants, 16)));
 	assert!(started.elapsed() < INHERENT_FETCH_TIMEOUT);
 	assert_eq!(data.channels.len(), 2);
+}
+
+/// A relay reorg includes another source block 2 than the one whose sends the pool holds: the
+/// rounds under the new root, and the blocks built meanwhile.
+fn rounds_after_a_reorg(
+	receiver: &Receiver<u64, Sender>,
+	chain: &mut Chain,
+	root: StreamsRoot,
+) -> Vec<ConsumptionRecord> {
+	(0..3)
+		.map(|_| {
+			block_on(receiver.on_root(source(), root, &chain.wants()));
+			chain.block(receiver)
+		})
+		.collect()
+}
+
+#[test]
+fn payloads_of_an_abandoned_sender_fork_are_replaced() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let first = payloads(1, 1);
+	let root1 = sender.author(vec![(channel(US), first.clone())]);
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	chain.block(&receiver);
+
+	// Block 2's three sends are fetched, not consumed yet.
+	let at_fork = sender.model.read().clone();
+	let root2 = sender.author(vec![(channel(US), payloads(2, 3))]);
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	assert!(receiver.is_settled(&source(), &root2, &chain.wants()));
+
+	// The other block 2 sent four others at those positions.
+	sender.fork_at(1, at_fork);
+	let other = payloads(3, 4);
+	let root2b = sender.author(vec![(channel(US), other.clone())]);
+	let records = rounds_after_a_reorg(&receiver, &mut chain, root2b);
+	assert_eq!(
+		chain.frontier,
+		frontier_at(&[first, other].concat(), 5),
+		"the new fork is consumed"
+	);
+	assert!(receiver.is_settled(&source(), &root2b, &chain.wants()));
+	assert_eq!(requires(&receiver, &records[..1]), Some(root2b));
+}
+
+#[test]
+fn payloads_past_the_end_of_a_shorter_fork_are_replaced() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let first = payloads(1, 1);
+	let root1 = sender.author(vec![(channel(US), first.clone())]);
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	chain.block(&receiver);
+	let at_fork = sender.model.read().clone();
+	let root2 = sender.author(vec![(channel(US), payloads(2, 3))]);
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+
+	// The other block 2 sent two others: the stream ends before the held payloads do, and the
+	// source sends nothing more.
+	sender.fork_at(1, at_fork);
+	let other = payloads(3, 2);
+	let root2b = sender.author(vec![(channel(US), other.clone())]);
+	let records = rounds_after_a_reorg(&receiver, &mut chain, root2b);
+	assert_eq!(
+		chain.frontier,
+		frontier_at(&[first, other].concat(), 3),
+		"the new fork is consumed"
+	);
+	assert_eq!(requires(&receiver, &records[..1]), Some(root2b));
+}
+
+#[test]
+fn a_full_buffer_of_an_abandoned_sender_fork_is_replaced() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let root1 = sender.author(vec![(channel(US), payloads(1, MAX_BUFFERED_PAYLOADS))]);
+	for _ in 0..8 {
+		block_on(receiver.on_root(source(), root1, &chain.wants()));
+	}
+	assert!(receiver.is_settled(&source(), &root1, &chain.wants()), "the buffer is full");
+
+	// The other block 1 sent as many others: fetching had paused, yet the pool is checked.
+	sender.fork_at(0, Model::default());
+	let other = payloads(2, MAX_BUFFERED_PAYLOADS);
+	let root1b = sender.author(vec![(channel(US), other.clone())]);
+	rounds_after_a_reorg(&receiver, &mut chain, root1b);
+	let consumed = chain.frontier.leaf_count() as usize;
+	assert!(consumed > 0, "the new fork is consumed");
+	assert_eq!(chain.frontier, frontier_at(&other, consumed));
+}
+
+#[test]
+fn payloads_ahead_of_an_older_root_are_kept() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let chain = Chain::default();
+	let data = payloads(1, 3);
+	let root1 = sender.author(vec![(channel(US), data[..1].to_vec())]);
+	let root2 = sender.author(vec![(channel(US), data[1..].to_vec())]);
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+
+	// The relay best block moves to a fork that has included only block 1, then back. The payloads
+	// were ahead of its root, not another fork's: they are kept, and not fetched again.
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	assert!(receiver.is_settled(&source(), &root2, &chain.wants()));
+	let starts: Vec<_> = sender
+		.requests(channel(US))
+		.iter()
+		.filter(|request| request.max_bytes == FETCH_MAX_BYTES)
+		.filter_map(|request| request.start)
+		.collect();
+	assert_eq!(starts, [0, 3, 3].map(MessagePosition));
+	let consumed = block_on(receiver.inherent_data(&chain.view()));
+	assert_eq!(consumed.channels[&in_id(0)], data);
+}
+
+#[test]
+fn an_advance_is_not_reused_for_another_forks_read() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let root1 = sender.author(vec![(ack(US), vec![register(0).encode()])]);
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	let first = chain.block(&receiver);
+	let (at_one, at_fork) = (chain.clone(), sender.model.read().clone());
+
+	// Block 2 reads the register at 3: the advance over 1 and 2 is fetched.
+	let root2 = sender.author(vec![(ack(US), (1..=3).map(|i| register(i).encode()).collect())]);
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	let second = chain.block(&receiver);
+	assert_eq!(requires(&receiver, &[first.clone(), second]), Some(root2));
+
+	// A relay reorg includes another source block 2, with other registers at 1 to 3. A sibling of
+	// our block 2 reads its register at 3: the same leaf counts, another advance.
+	sender.fork_at(1, at_fork);
+	let root2b = sender.author(vec![(ack(US), (4..=6).map(|i| register(i).encode()).collect())]);
+	let mut fork = at_one;
+	block_on(receiver.on_root(source(), root2b, &fork.wants()));
+	let sibling = fork.enact(&block_on(receiver.inherent_data(&fork.view())));
+	assert_eq!(fork.read_at, Some(3));
+	block_on(receiver.on_block(102, 1, 2, sibling.clone()));
+	assert_eq!(requires(&receiver, &[first, sibling]), Some(root2b));
 }

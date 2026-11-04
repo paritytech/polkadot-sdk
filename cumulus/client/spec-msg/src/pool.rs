@@ -73,8 +73,9 @@ pub struct SourcePool {
 	pub(crate) heads: BTreeMap<StreamId, HeadRead>,
 	/// Bindings by `(stream, leaf count)` and root hash.
 	pub(crate) bindings: BTreeMap<(StreamId, u64), BTreeMap<Hash, Binding>>,
-	/// Advances by `(stream, from leaf count, to leaf count)`.
-	pub(crate) advances: BTreeMap<(StreamId, u64, u64), MMRExtensionProof>,
+	/// Advances by `(stream, from leaf count, to leaf count)` and the stream root they reach, the
+	/// start of the read they lead to: two forks' reads can share the leaf counts.
+	pub(crate) advances: BTreeMap<(StreamId, u64, u64, Hash), MMRExtensionProof>,
 	/// The root each read context was fetched under, by `(stream, leaf count)`. An advance to that
 	/// context is fetched under it.
 	pub(crate) read_under: BTreeMap<(StreamId, u64), StreamsRoot>,
@@ -138,6 +139,13 @@ impl SourcePool {
 		}
 	}
 
+	/// Drop the payloads of `stream` from `from` on: another fork's.
+	pub fn drop_payloads_from(&mut self, stream: &StreamId, from: u64) {
+		if let Some(stored) = self.payloads.get_mut(stream) {
+			stored.split_off(&from);
+		}
+	}
+
 	/// Store a binding.
 	pub fn insert_binding(
 		&mut self,
@@ -194,7 +202,7 @@ impl SourcePool {
 			self.heads.iter().map(|(stream, head)| (*stream, head.end_count())).collect();
 		let keep = |key: &(StreamId, u64)| live.contains_key(key) || heads.contains(key);
 		self.read_under.retain(|key, _| keep(key));
-		self.advances.retain(|(stream, _, to), _| keep(&(*stream, *to)));
+		self.advances.retain(|(stream, _, to, _), _| keep(&(*stream, *to)));
 		// Other bindings are kept under the newest root only: the next block may consume up to
 		// them. Anything older is fetched again if ever needed.
 		let newest = self.newest_root();

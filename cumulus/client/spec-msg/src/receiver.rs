@@ -34,9 +34,9 @@ use cumulus_primitives_core::ParaId;
 use cumulus_primitives_spec_messaging::{
 	build_requires_entry, leaf_hash, mmr::SpecMerge, BroadcastId, ConsumedStreams,
 	ConsumptionRecord, FetchError, InChannelId, Interval, LiftsBySource, LossyRead,
-	MMRExtensionProof, MessagePosition, MessagesRequest, MessagingInherentData, MmrFrontier,
-	MmrRoot, OutChannelId, Register, RequiresLift, SourceStreams, StreamId, StreamProof,
-	StreamsRoot, MAX_SPECULATIVE_MESSAGE_LEN,
+	MMRExtensionProof, MessagePosition, MessagesRequest, MessagesResponse, MessagingInherentData,
+	MmrFrontier, MmrRoot, OutChannelId, Register, RequiresLift, SourceStreams, StreamId,
+	StreamProof, StreamsRoot, MAX_SPECULATIVE_MESSAGE_LEN,
 };
 use futures::FutureExt;
 use mmr_lib::{
@@ -280,10 +280,9 @@ where
 		to: u64,
 	) -> bool {
 		let state = self.state.lock();
-		state
-			.sources
-			.get(source)
-			.is_some_and(|pool| pool.advances.contains_key(&(stream, from, to)))
+		state.sources.get(source).is_some_and(|pool| {
+			pool.advances.keys().any(|key| (key.0, key.1, key.2) == (stream, from, to))
+		})
 	}
 
 	/// Whether everything `wants` names has been fetched under `root`, `source`'s newest root: the
@@ -313,16 +312,31 @@ where
 
 		for (id, stored) in &wants.channels {
 			let stream = id.sender_data_stream(self.us).1;
-			let Some((start, frontier)) = self.channel_start(source, &stream, stored) else {
+			let cursor = stored.leaf_count();
+			let Some((frontier, max_bytes)) = self.channel_start(source, &stream, stored) else {
 				continue;
 			};
-			let request = MessagesRequest {
-				stream,
-				under: root,
-				start: Some(MessagePosition(start)),
-				max_bytes: FETCH_MAX_BYTES,
-			};
-			match fetch(&self.transport, source, &request, Some(&frontier)).await {
+			let mut start = frontier.leaf_count();
+			let mut result = self.fetch_channel(source, stream, root, &frontier, max_bytes).await;
+			if start > cursor {
+				if let Err(error) = &result {
+					if self.held_is_stale(source, stream, stored, root, error).await {
+						log::debug!(
+							target: LOG_TARGET,
+							"{stream:?} of {source:?} under {root:?} is another fork's from \
+							 {cursor}: fetching it again",
+						);
+						let mut state = self.state.lock();
+						let pool = state.sources.entry(source).or_default();
+						pool.drop_payloads_from(&stream, cursor);
+						drop(state);
+						start = cursor;
+						result =
+							self.fetch_channel(source, stream, root, stored, FETCH_MAX_BYTES).await;
+					}
+				}
+			}
+			match result {
 				Ok(response) => {
 					let end = start + response.payloads.len() as u64;
 					let reach = match response.extension.leaf_count {
@@ -389,23 +403,84 @@ where
 		);
 	}
 
-	/// Where the next fetch of the channel `stream` starts: after the payloads the pool holds from
-	/// the cursor, with the frontier there. `None` while the buffer is full.
+	/// Where the next fetch of the channel `stream` starts: the frontier after the payloads the
+	/// pool holds from the cursor, with the payload budget. While the buffer is full the budget is
+	/// zero: the fetch only checks that the root's stream still runs through what the pool holds.
 	fn channel_start(
 		&self,
 		source: ParaId,
 		stream: &StreamId,
 		stored: &MmrFrontier,
-	) -> Option<(u64, MmrFrontier)> {
+	) -> Option<(MmrFrontier, u32)> {
 		let state = self.state.lock();
 		let cursor = stored.leaf_count();
-		let Some(pool) = state.sources.get(&source) else { return Some((cursor, stored.clone())) };
+		let Some(pool) = state.sources.get(&source) else {
+			return Some((stored.clone(), FETCH_MAX_BYTES));
+		};
 		let (count, bytes) = pool.buffered(stream, cursor);
-		if buffer_full(count, bytes) {
-			return None;
+		let max_bytes = if buffer_full(count, bytes) { 0 } else { FETCH_MAX_BYTES };
+		Some((extended(stored, pool.contiguous_from(stream, cursor))?, max_bytes))
+	}
+
+	/// Fetch the channel `stream` under `root` from `frontier`, with up to `max_bytes` of payloads.
+	async fn fetch_channel(
+		&self,
+		source: ParaId,
+		stream: StreamId,
+		root: StreamsRoot,
+		frontier: &MmrFrontier,
+		max_bytes: u32,
+	) -> Result<MessagesResponse, RequestError> {
+		let request = MessagesRequest {
+			stream,
+			under: root,
+			start: Some(MessagePosition(frontier.leaf_count())),
+			max_bytes,
+		};
+		fetch(&self.transport, source, &request, Some(frontier)).await
+	}
+
+	/// Whether the payloads the pool holds of the channel `stream` from `stored` are another
+	/// fork's than the stream's under `root`, once the fetch from their end failed with `error`.
+	/// Only a response that verifies under `root` tells: one with another frontier where they end,
+	/// or a head that ends within them where they do not. A peer that refuses or lies proves
+	/// nothing, so it cannot make the pool drop payloads that are the stream's.
+	async fn held_is_stale(
+		&self,
+		source: ParaId,
+		stream: StreamId,
+		stored: &MmrFrontier,
+		root: StreamsRoot,
+		error: &RequestError,
+	) -> bool {
+		let beyond_head = match error {
+			RequestError::Diverged => return true,
+			RequestError::Unserved { refusals } => {
+				refusals.iter().any(|(_, refusal)| *refusal == FetchError::BeyondHead)
+			},
+			RequestError::NoPeers => false,
+		};
+		if !beyond_head {
+			return false;
 		}
-		let frontier = extended(stored, pool.contiguous_from(stream, cursor))?;
-		Some((cursor + count, frontier))
+		// The stream may end within the payloads held: compare where its head ends.
+		let request = MessagesRequest {
+			stream,
+			under: root,
+			start: None,
+			max_bytes: MAX_SPECULATIVE_MESSAGE_LEN,
+		};
+		let Ok(head) = fetch(&self.transport, source, &request, None).await else { return false };
+		let Some(known) = extended(&head.frontier, head.payloads.iter()) else { return false };
+		let Some(within) = known.leaf_count().checked_sub(stored.leaf_count()) else {
+			return false;
+		};
+		let Ok(within) = usize::try_from(within) else { return false };
+		let state = self.state.lock();
+		let Some(pool) = state.sources.get(&source) else { return false };
+		let held: Vec<_> =
+			pool.contiguous_from(&stream, stored.leaf_count()).take(within).collect();
+		held.len() == within && extended(stored, held).is_some_and(|expected| expected != known)
 	}
 
 	/// The messaging inherent for a block whose parent has `view`.
@@ -582,7 +657,12 @@ where
 				let from = previous.end.clone();
 				let to_count = interval.end.leaf_count();
 				let Some(pool) = state.sources.get(source) else { continue };
-				if pool.advances.contains_key(&(*stream, from.leaf_count(), to_count)) {
+				if pool.advances.contains_key(&(
+					*stream,
+					from.leaf_count(),
+					to_count,
+					interval.start.0,
+				)) {
 					continue;
 				}
 				// Only a read context the pool fetched has a root to fetch the leaves under.
@@ -606,12 +686,12 @@ where
 	/// Fetch the leaves of `gaps` and keep the advances over them.
 	pub(crate) async fn fetch_gaps(&self, gaps: Vec<Gap>) {
 		for gap in gaps {
-			let (source, stream, from_count, to_count) =
-				(gap.source, gap.stream, gap.from.leaf_count(), gap.to_count);
+			let key = (gap.stream, gap.from.leaf_count(), gap.to_count, gap.to_start.0);
+			let source = gap.source;
 			if let Some(extension) = self.fetch_skip_proof(gap).await {
 				let mut state = self.state.lock();
 				let pool = state.sources.entry(source).or_default();
-				pool.advances.insert((stream, from_count, to_count), extension);
+				pool.advances.insert(key, extension);
 			}
 		}
 	}
@@ -878,9 +958,9 @@ fn lift(
 		.windows(2)
 		.filter(|pair| pair[1].start != pair[0].end.root())
 		.map(|pair| {
-			pool.advances
-				.get(&(*stream, pair[0].end.leaf_count(), pair[1].end.leaf_count()))
-				.cloned()
+			let key =
+				(*stream, pair[0].end.leaf_count(), pair[1].end.leaf_count(), pair[1].start.0);
+			pool.advances.get(&key).cloned()
 		})
 		.collect::<Option<Vec<_>>>()?;
 	let end = &intervals.last()?.end;
