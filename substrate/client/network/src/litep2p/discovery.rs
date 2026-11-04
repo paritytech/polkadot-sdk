@@ -308,6 +308,15 @@ impl Discovery {
 			panic!("memory transport not supported")
 		};
 
+		// Non-global addresses are neither dialed nor added to the routing table.
+		if config.allow_non_globals_in_dht && !allow_private_ip {
+			log::warn!(
+				target: LOG_TARGET,
+				"`--discover-local` has no effect without `--allow-private-ip` on the litep2p \
+				 network backend",
+			);
+		}
+
 		let (mdns_config, mdns_event_stream) = match enable_mdns {
 			true => {
 				let (mdns_config, mdns_event_stream) = MdnsConfig::new(MDNS_QUERY_INTERVAL);
