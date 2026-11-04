@@ -746,16 +746,16 @@ its Gray Paper index. Those native to the Parachain Service are numbered from 20
 
 #### JAM host functions
 
-Forwarded unchanged. Signatures and operands are specified in the Gray Paper and are
-not restated here:
+These keep the signatures and operands of the JAM host calls, which are specified in the
+Gray Paper and not restated here.
 
-| Index | Host function | Purpose |
+| Index | Host function | What the validation code gets |
 |---|---|---|
-| 0 | `gas` | The remaining gas budget. |
-| 1 | `grow_heap` | Expand the RW data region. |
-| 2 | `fetch` | Read the work package and its context: the package itself, the refine context, the authorizer config and token, the work-item summaries, payloads and extrinsics, and the import segments. |
-| 7 | `historical_lookup` | Read a service's preimage store at the lookup-anchor, for both own and foreign lookups. |
-| 8 | `export` | Write a segment to the JAM Data Lake, e.g. an outbound XCMP payload. |
+| 0 | `gas` | The gas left in the inner VM, rather than Refine's own remaining gas. |
+| 1 | `grow_heap` | Handled by the service: grows the inner VM's heap to the requested number of pages and maps the new pages into the inner VM. Returns the heap's page count afterwards. |
+| 2 | `fetch` | Forwarded to JAM `fetch`: the work package and its context, i.e. the package itself, the refine context, the authorizer config and token, the work-item summaries, payloads and extrinsics, and the import segments. |
+| 7 | `historical_lookup` | Forwarded to JAM `historical_lookup`: a service's preimage store at the lookup-anchor. The own-service id refers to the Parachain Service, whose store holds the parachains' preimages. |
+| 8 | `export` | Forwarded to JAM `export`: writes a segment to the JAM Data Lake, e.g. an outbound XCMP payload, and returns its index. If JAM refuses the segment, the whole Refine fails (§4.2). |
 
 #### Parachain Service host functions
 
