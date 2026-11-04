@@ -805,8 +805,10 @@ pub enum ProxyType {
 	/// kicking, and managing session keys. Cannot bond/unbond funds, change reward
 	/// destinations, or nominate.
 	///
-	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
-	/// and `Utility` batching calls (batch, batch_all, force_batch).
+	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys) for
+	/// the relay chain session keys, `Session` (set_keys, purge_keys) for the session keys of
+	/// this chain, with which a validator collates here, and `Utility` batching calls (batch,
+	/// batch_all, force_batch).
 	StakingOperator,
 }
 impl Default for ProxyType {
@@ -984,7 +986,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+				) | RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
+					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
 					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
 					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
@@ -1185,6 +1189,70 @@ impl pallet_collator_selection::Config for Runtime {
 }
 
 parameter_types! {
+<<<<<<< HEAD
+=======
+	/// The validators of a set, the invulnerables and candidates of collator selection, and a
+	/// buffer for the authors that leave the collators before the next report.
+	pub MaxEntriesPerReport: u32 =
+		testnet_parachains_constants::westend::staking::MAX_VALIDATOR_SET
+			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
+			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
+			+ 30;
+	// Validators contribute no collators until governance raises the cap.
+	pub const DefaultMaxCollators: Option<u32> = Some(0);
+}
+
+impl pallet_validator_collators::Config for Runtime {
+	// The set is written only by the staking era-start hook, since there is no cross-chain call
+	// here, unlike a remote chain.
+	type SetOrigin = frame_system::EnsureNever<AccountId>;
+	type UpdateOrigin = CollatorSelectionUpdateOrigin;
+	type ValidatorRegistration = Session;
+	type MaxValidators = staking::MaxValidatorSet;
+	type MaxEntriesPerReport = MaxEntriesPerReport;
+	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type BlockReporter = staking::CreditBlocksLocally;
+	type DefaultMaxCollators = DefaultMaxCollators;
+	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
+	type UnixTime = Timestamp;
+	type DefaultExpectedEraDuration =
+		ConstU64<{ testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS }>;
+	type DefaultReportMargin = ConstU64<300_000>;
+	type MaxReportMargin = ConstU64<1_800_000>;
+	type WeightInfo = weights::pallet_validator_collators::WeightInfo<Runtime>;
+}
+
+impl pallet_validator_set_announcer::Config for Runtime {
+	type Sender = staking::ValidatorSetToSystemChains;
+	type Destinations = staking::ValidatorSetDestinations;
+	type WeightInfo = weights::pallet_validator_set_announcer::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+	/// Twice the blocks a system chain can author in an expected era duration.
+	pub const MaxBlocksPerEntry: u32 = (2 *
+		testnet_parachains_constants::westend::staking::EXPECTED_ERA_DURATION_MILLIS /
+		(RELAY_CHAIN_SLOT_DURATION_MILLIS / BLOCK_PROCESSING_VELOCITY) as u64) as u32;
+	/// The sibling system chains that run `pallet-validator-collators` and report their authored
+	/// blocks here.
+	pub ReportingSiblings: Vec<ParaId> =
+		vec![testnet_parachains_constants::westend::locations::PeopleParaId::get()];
+}
+
+impl pallet_staking_async_points_converter::Config for Runtime {
+	type Source = ParaId;
+	type ReportOrigin = staking::EnsureReportingSiblings<ReportingSiblings>;
+	type PointsOrigin = CollatorSelectionUpdateOrigin;
+	type RewardPoints = Staking;
+	// A relay chain block earns a fixed number of points. The cap leaves governance room above the
+	// per-unit value that matches it, while an era's total stays far from saturating.
+	type MaxPointsPerService = ConstU32<1_000>;
+	type MaxBlocksPerEntry = MaxBlocksPerEntry;
+	type WeightInfo = weights::pallet_staking_async_points_converter::WeightInfo<Runtime>;
+}
+
+parameter_types! {
+>>>>>>> f3c6cf3 (Small tweaks to westend runtimes  (#13711))
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 }
 
