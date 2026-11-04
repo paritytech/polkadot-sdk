@@ -50,7 +50,9 @@ doc:
 
     `pallet-on-demand-para` is also wired into the coretime-westend runtime. It starts out
     disabled, so the broker keeps requesting the revenue from the Relay Chain until on-demand
-    coretime sales are enabled with `enable`, without a runtime upgrade.
+    coretime sales are enabled with `enable`, without a runtime upgrade. As `place_order` pays
+    the spot price out of the proxied account, of its proxies only `Any`, `Broker` and
+    `OnDemandPurchaser` can call it; `NonTransfer` proxies cannot.
 
     With the `try-runtime` feature enabled, `pallet-on-demand-para` checks in `try_state`
     that its unclaimed revenue is ordered and not booked against future timeslices, and that
