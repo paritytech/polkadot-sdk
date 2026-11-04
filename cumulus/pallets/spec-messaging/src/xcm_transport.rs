@@ -216,6 +216,10 @@ impl<T: Config, ChannelInfo, VersionWrapper, Price> InspectMessageQueues
 		// The state is the last block's, whose `on_finalize` may have committed a root: a send
 		// would then fail with `RootCommitted`, though it would not in a real block.
 		BlockStreamsRoot::<T>::kill();
+		// Finalization also unset the execution phase, which `Pallet::send` requires.
+		if frame_system::Pallet::<T>::execution_phase().is_none() {
+			frame_system::Pallet::<T>::note_finished_initialize();
+		}
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {

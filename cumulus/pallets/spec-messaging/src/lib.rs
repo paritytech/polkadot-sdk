@@ -1125,11 +1125,18 @@ impl<T: Config> Pallet<T> {
 		T::WeightInfo::send(data_len).saturating_add(commit_weight::<T>(1, 0))
 	}
 
-	/// Whether [`Self::send`] would accept `data_len` bytes on `channel` now, apart from the
-	/// initialization check: the encoded `Data` leaf fits [`Config::MaxMsgLen`] and the session's
-	/// `max_message_size`, the channel is open with credit left, and the stream and the block have
-	/// room. No side effects.
+	/// Whether [`Self::send`] would accept `data_len` bytes on `channel` now: the block is
+	/// initialized and its root not committed, the encoded `Data` leaf fits [`Config::MaxMsgLen`]
+	/// and the session's `max_message_size`, the channel is open with credit left, and the stream
+	/// and the block have room. No side effects: before this block's [`Self::roll_over`], the
+	/// stored root and sends are the last block's, so it reads them as the roll-over would leave
+	/// them.
 	pub fn can_send(channel: OutChannelId, data_len: usize) -> Result<(), Error<T>> {
+		ensure!(frame_system::Pallet::<T>::execution_phase().is_some(), Error::<T>::NotInitialized);
+		let now = frame_system::Pallet::<T>::block_number();
+		let rolled_over = RolledOver::<T>::get().is_some_and(|(at, _)| at == now);
+		ensure!(!rolled_over || !BlockStreamsRoot::<T>::exists(), Error::<T>::RootCommitted);
+
 		// The `Data` leaf is a variant byte, the compact length and the bytes.
 		let len = u32::try_from(data_len).map_err(|_| Error::<T>::MessageTooBig)?;
 		let leaf_len = (data_len as u64)
@@ -1148,15 +1155,16 @@ impl<T: Config> Pallet<T> {
 		let up_to = state.register.map(|r| r.register.up_to.0).unwrap_or(0);
 		ensure!(sent.saturating_sub(up_to) < T::MaxInFlight::get() as u64, Error::<T>::NoCredit);
 
-		let queued = OutboundMessages::<T>::decode_len(stream).unwrap_or(0);
-		ensure!(queued < T::MaxMessagesPerBlock::get() as usize, Error::<T>::TooManyMessages);
-		ensure!(SendsThisBlock::<T>::get() < Self::send_limit(), Error::<T>::TooManySends);
+		if rolled_over {
+			let queued = OutboundMessages::<T>::decode_len(stream).unwrap_or(0);
+			ensure!(queued < T::MaxMessagesPerBlock::get() as usize, Error::<T>::TooManyMessages);
+			ensure!(SendsThisBlock::<T>::get() < Self::send_limit(), Error::<T>::TooManySends);
+		}
 		Ok(())
 	}
 
 	/// Send `data` on an outbound channel.
 	pub fn send(channel: OutChannelId, data: Vec<u8>) -> Result<MessagePosition, Error<T>> {
-		ensure!(frame_system::Pallet::<T>::execution_phase().is_some(), Error::<T>::NotInitialized);
 		Self::can_send(channel, data.len())?;
 		Self::append_to_stream(channel.data_stream(), ChannelMessage::Data(data).encode())
 	}

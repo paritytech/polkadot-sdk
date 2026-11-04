@@ -1919,6 +1919,80 @@ mod xcm_layer {
 		});
 	}
 
+	/// `validate` on the router, its error or `Ok(())`.
+	fn validate() -> Result<(), SendError> {
+		let (mut d, mut m) = (Some(sibling()), Some(xcm()));
+		Router::validate(&mut d, &mut m).map(|_| ())
+	}
+
+	#[test]
+	fn validate_refuses_a_send_after_the_root_is_committed() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			SpecMessaging::commit_streams_root();
+			// A pallet's `on_finalize` after ours: `deliver` would fail after fees were taken.
+			assert!(validate().is_err());
+			assert!(send_xcm::<Router>(sibling(), xcm()).is_err());
+			assert!(sent_on(xcm_channel(out_channel().recipient).data_stream()).is_empty());
+		});
+	}
+
+	#[test]
+	fn validate_refuses_a_send_before_initialization() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			// `on_runtime_upgrade` of the next block runs before `System::initialize`.
+			SpecMessaging::on_finalize(System::block_number());
+			let _ = System::finalize();
+			// Without the last block's root, only the unset phase refuses the send.
+			BlockStreamsRoot::<Test>::kill();
+			assert_err!(
+				SpecMessaging::send(xcm_channel(out_channel().recipient), Vec::new()),
+				Error::<Test>::NotInitialized
+			);
+			assert!(validate().is_err());
+		});
+	}
+
+	#[test]
+	fn a_dry_run_on_a_finalized_block_can_send() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			// Runtime APIs run on the finalized state: the root is committed and the execution
+			// phase is unset.
+			SpecMessaging::on_finalize(System::block_number());
+			let _ = System::finalize();
+
+			Router::clear_messages();
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			assert_eq!(Router::get_messages().len(), 1);
+		});
+	}
+
+	#[test]
+	fn a_send_before_our_on_initialize_sees_a_fresh_block() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			let per_stream = MaxMessagesPerBlock::get();
+			for i in 0..SpecMessaging::send_limit() {
+				assert_ok!(SpecMessaging::append_to_stream(
+					stream((i / per_stream) as u16),
+					b"x".to_vec()
+				));
+			}
+			assert!(validate().is_err());
+
+			// A pallet's `on_initialize` before ours, as `MessageQueue` servicing XCM: neither
+			// the last block's root nor its sends are this block's.
+			let n = System::block_number();
+			SpecMessaging::on_finalize(n);
+			System::initialize(&(n + 1), &Default::default(), &Default::default());
+			assert_ok!(validate());
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+		});
+	}
+
 	#[test]
 	fn a_closing_hrmp_channel_diverts_new_xcm_to_spec_msg() {
 		new_test_ext().execute_with(|| {
