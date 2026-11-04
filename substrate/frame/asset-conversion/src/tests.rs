@@ -28,7 +28,7 @@ use frame_support::{
 	},
 };
 use sp_arithmetic::Permill;
-use sp_runtime::{BuildStorage, DispatchError, TokenError};
+use sp_runtime::{BuildStorage, DispatchError, DispatchResult, TokenError};
 
 fn events() -> Vec<Event<Test>> {
 	let result = System::events()
@@ -3392,5 +3392,428 @@ fn per_pool_fee_is_applied_to_swaps() {
 			false,
 		));
 		assert_eq!(balance(user, token_1), with_pool_fee + ed);
+	});
+}
+
+fn price(amount1: u128, amount2: u128) -> Price<u128> {
+	Price { amount1, amount2 }
+}
+
+/// Creates the `(Native, WithId(2))` pool with user 1. With `seed`, user 1 adds `10_000` native
+/// and `40_000` of asset 2 via `add_liquidity` (LP total supply `20_000`). Returns the LP token.
+fn attested_price_setup(seed: bool) -> u32 {
+	let user = 1;
+	let token_1 = NativeOrWithId::Native;
+	let token_2 = NativeOrWithId::WithId(2);
+	create_tokens(user, vec![token_2.clone()]);
+	let lp_token = AssetConversion::get_next_pool_asset_id();
+	assert_ok!(AssetConversion::create_pool(
+		RuntimeOrigin::signed(user),
+		Box::new(token_1.clone()),
+		Box::new(token_2.clone())
+	));
+	if seed {
+		assert_ok!(Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			user,
+			10_000 + get_native_ed()
+		));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 40_000 + 1));
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1),
+			Box::new(token_2),
+			10_000,
+			40_000,
+			10_000,
+			40_000,
+			user,
+		));
+		assert_eq!(<<Test as Config>::PoolAssets>::total_issuance(lp_token), 20_000);
+	}
+	events();
+	lp_token
+}
+
+fn attested_price_fund(who: u128, native: u128, asset2: u128) {
+	assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), who, native));
+	if asset2 > 0 {
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 2, who, asset2));
+	}
+}
+
+fn attest(
+	who: u128,
+	asset1: NativeOrWithId<u32>,
+	asset2: NativeOrWithId<u32>,
+	p: Price<u128>,
+) -> DispatchResult {
+	AssetConversion::attest_price(RuntimeOrigin::signed(who), Box::new(asset1), Box::new(asset2), p)
+}
+
+fn add_at_attested_price(
+	who: u128,
+	asset1: NativeOrWithId<u32>,
+	asset2: NativeOrWithId<u32>,
+	amount1_max: u128,
+	amount2_max: u128,
+	min_price: Price<u128>,
+	max_price: Price<u128>,
+) -> DispatchResult {
+	AssetConversion::add_liquidity_at_attested_price(
+		RuntimeOrigin::signed(who),
+		Box::new(asset1),
+		Box::new(asset2),
+		amount1_max,
+		amount2_max,
+		min_price,
+		max_price,
+		who,
+	)
+}
+
+#[test]
+fn attested_price_add_into_empty_pool() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let lp_token = attested_price_setup(false);
+		// Reducible (`Preserve`) balances are exactly 10_000 of each asset.
+		attested_price_fund(user, 10_000 + get_native_ed(), 10_000 + 1);
+		let pool_id = (token_1.clone(), token_2.clone());
+		let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
+
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), price(1, 2)));
+			assert_ok!(add_at_attested_price(
+				user,
+				token_1.clone(),
+				token_2.clone(),
+				10_000,
+				10_000,
+				price(1, 1),
+				price(1, 3),
+			));
+		});
+
+		let events = events();
+		assert!(events.contains(&Event::<Test>::PriceAttested {
+			who: user,
+			pool_id: pool_id.clone(),
+			asset1: token_1.clone(),
+			asset2: token_2.clone(),
+			price: price(1, 2),
+		}));
+		assert!(events.contains(&Event::<Test>::LiquidityAdded {
+			who: user,
+			mint_to: user,
+			pool_id: pool_id.clone(),
+			amount1_provided: 5_000,
+			amount2_provided: 10_000,
+			lp_token,
+			lp_token_minted: 6_971,
+		}));
+		assert_eq!(pool_balance(user, lp_token), 7_071 - 100);
+		assert_eq!(balance(pool_account, token_1), 5_000);
+		assert_eq!(balance(pool_account, token_2), 10_000);
+	});
+}
+
+/// Adds liquidity at `attested_price` (oriented as `(Native, WithId(2))`) into a pool priced at 4.
+/// With `attest_reversed`, the price is attested in the `(WithId(2), Native)` order.
+fn attested_price_mispriced_pool(attested_price: Price<u128>, attest_reversed: bool) {
+	let user = 2;
+	let token_1 = NativeOrWithId::Native;
+	let token_2 = NativeOrWithId::WithId(2);
+	let lp_token = attested_price_setup(true);
+	attested_price_fund(user, 2_000, 10_000 + 1);
+	let pool_id = (token_1.clone(), token_2.clone());
+	let pool_account = <Test as Config>::PoolLocator::address(&pool_id).unwrap();
+	let native_reserve = balance(pool_account, token_1.clone());
+	let asset2_reserve = balance(pool_account, token_2.clone());
+	assert_eq!((native_reserve, asset2_reserve), (10_000, 40_000));
+
+	frame_support::dispatch_context::run_in_context(|| {
+		if attest_reversed {
+			let reversed =
+				Price { amount1: attested_price.amount2, amount2: attested_price.amount1 };
+			assert_ok!(attest(user, token_2.clone(), token_1.clone(), reversed));
+		} else {
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), attested_price));
+		}
+		assert_ok!(add_at_attested_price(
+			user,
+			token_1.clone(),
+			token_2.clone(),
+			1_000,
+			10_000,
+			price(1, 4),
+			price(1, 6),
+		));
+	});
+
+	assert!(events().contains(&Event::<Test>::LiquidityAdded {
+		who: user,
+		mint_to: user,
+		pool_id,
+		amount1_provided: 1_000,
+		amount2_provided: 5_000,
+		lp_token,
+		lp_token_minted: 2_222,
+	}));
+	// Value at P = 5: 20_000 * (1_000 * 5 + 5_000 * 1) / (10_000 * 5 + 40_000 * 1).
+	assert_eq!(pool_balance(user, lp_token), 2_222);
+	let native_reserve_after = balance(pool_account, token_1);
+	let asset2_reserve_after = balance(pool_account, token_2);
+	assert_eq!((native_reserve_after, asset2_reserve_after), (11_000, 45_000));
+
+	// The pool's deviation from the attested price does not grow.
+	let deviation = |native: u128, asset2: u128| {
+		(asset2 as i128 * attested_price.amount1 as i128 -
+			native as i128 * attested_price.amount2 as i128)
+			.abs()
+	};
+	let deviation_before = deviation(native_reserve, asset2_reserve);
+	let deviation_after = deviation(native_reserve_after, asset2_reserve_after);
+	assert_eq!((deviation_before, deviation_after), (10_000, 10_000));
+}
+
+#[test]
+fn attested_price_add_into_mispriced_pool_mints_by_value() {
+	new_test_ext().execute_with(|| {
+		attested_price_mispriced_pool(price(1, 5), false);
+	});
+}
+
+#[test]
+fn attested_price_reversed_asset_order() {
+	new_test_ext().execute_with(|| {
+		attested_price_mispriced_pool(price(1, 5), true);
+	});
+}
+
+#[test]
+fn attested_price_missing_fails() {
+	new_test_ext().execute_with(|| {
+		let user = 2;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		attested_price_setup(true);
+		attested_price_fund(user, 2_000, 10_000 + 1);
+
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_noop!(
+				add_at_attested_price(
+					user,
+					token_1.clone(),
+					token_2.clone(),
+					1_000,
+					10_000,
+					price(1, 4),
+					price(1, 6),
+				),
+				Error::<Test>::PriceNotAttested
+			);
+		});
+		assert_noop!(
+			add_at_attested_price(user, token_1, token_2, 1_000, 10_000, price(1, 4), price(1, 6)),
+			Error::<Test>::PriceNotAttested
+		);
+	});
+}
+
+#[test]
+fn attest_price_outside_context_fails() {
+	new_test_ext().execute_with(|| {
+		attested_price_setup(false);
+		assert_noop!(
+			attest(1, NativeOrWithId::Native, NativeOrWithId::WithId(2), price(1, 5)),
+			Error::<Test>::NoDispatchContext
+		);
+	});
+}
+
+#[test]
+fn attested_price_other_pool_not_used() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let token_3 = NativeOrWithId::WithId(3);
+		attested_price_setup(false);
+		create_tokens(user, vec![token_3.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_3.clone())
+		));
+		attested_price_fund(user, 10_000, 10_000);
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 3, user, 10_000));
+
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_ok!(attest(user, token_1.clone(), token_2, price(1, 5)));
+			assert_noop!(
+				add_at_attested_price(
+					user,
+					token_1,
+					token_3,
+					1_000,
+					10_000,
+					price(1, 4),
+					price(1, 6),
+				),
+				Error::<Test>::PriceNotAttested
+			);
+		});
+	});
+}
+
+#[test]
+fn attested_price_bounds() {
+	new_test_ext().execute_with(|| {
+		let user = 2;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		attested_price_setup(true);
+		attested_price_fund(user, 2_000, 10_000 + 1);
+		let add = |min_price, max_price| {
+			add_at_attested_price(
+				user,
+				NativeOrWithId::Native,
+				NativeOrWithId::WithId(2),
+				1_000,
+				10_000,
+				min_price,
+				max_price,
+			)
+		};
+
+		frame_support::dispatch_context::run_in_context(|| {
+			// Above `max_price`.
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), price(1, 7)));
+			assert_noop!(add(price(1, 4), price(1, 6)), Error::<Test>::PriceOutOfBounds);
+			// Below `min_price`.
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), price(1, 3)));
+			assert_noop!(add(price(1, 4), price(1, 6)), Error::<Test>::PriceOutOfBounds);
+			// Bounds with a zero component.
+			assert_noop!(add(price(0, 4), price(1, 6)), Error::<Test>::InvalidPrice);
+			assert_noop!(add(price(1, 0), price(1, 6)), Error::<Test>::InvalidPrice);
+			assert_noop!(add(price(1, 4), price(0, 6)), Error::<Test>::InvalidPrice);
+			assert_noop!(add(price(1, 4), price(1, 0)), Error::<Test>::InvalidPrice);
+			// `min_price > max_price`.
+			assert_noop!(add(price(1, 6), price(1, 4)), Error::<Test>::InvalidPrice);
+			// `attest_price` with a zero component.
+			assert_noop!(
+				attest(user, token_1.clone(), token_2.clone(), price(0, 5)),
+				Error::<Test>::InvalidPrice
+			);
+			assert_noop!(
+				attest(user, token_1.clone(), token_2.clone(), price(1, 0)),
+				Error::<Test>::InvalidPrice
+			);
+			// `attest_price` for a non-existent pool.
+			assert_noop!(
+				attest(user, token_1.clone(), NativeOrWithId::WithId(3), price(1, 5)),
+				Error::<Test>::PoolNotFound
+			);
+		});
+	});
+}
+
+#[test]
+fn attested_price_no_leak_across_contexts() {
+	new_test_ext().execute_with(|| {
+		let user = 2;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		attested_price_setup(true);
+		attested_price_fund(user, 2_000, 10_000 + 1);
+
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), price(1, 5)));
+		});
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_noop!(
+				add_at_attested_price(
+					user,
+					token_1,
+					token_2,
+					1_000,
+					10_000,
+					price(1, 4),
+					price(1, 6),
+				),
+				Error::<Test>::PriceNotAttested
+			);
+		});
+	});
+}
+
+#[test]
+fn attested_price_insufficient_balance_fails() {
+	new_test_ext().execute_with(|| {
+		let user = 2;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		attested_price_setup(true);
+		attested_price_fund(user, 2_000, 0);
+		assert_eq!(balance(user, token_2.clone()), 0);
+
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), price(1, 5)));
+			assert_noop!(
+				add_at_attested_price(
+					user,
+					token_1.clone(),
+					token_2.clone(),
+					1_000,
+					10_000,
+					price(1, 4),
+					price(1, 6),
+				),
+				Error::<Test>::WrongDesiredAmount
+			);
+		});
+		assert_eq!(balance(user, token_1), 2_000);
+		assert_eq!(balance(user, token_2), 0);
+	});
+}
+
+#[test]
+fn attested_price_caps_by_maxes_and_balance() {
+	new_test_ext().execute_with(|| {
+		let user = 2;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let native_ed = get_native_ed();
+		attested_price_setup(true);
+		attested_price_fund(user, 1_100, 20_000);
+
+		frame_support::dispatch_context::run_in_context(|| {
+			assert_ok!(attest(user, token_1.clone(), token_2.clone(), price(1, 5)));
+			assert_ok!(add_at_attested_price(
+				user,
+				token_1.clone(),
+				token_2.clone(),
+				u128::MAX,
+				10_000,
+				price(1, 4),
+				price(1, 6),
+			));
+		});
+
+		let (native_provided, asset2_provided) = events()
+			.into_iter()
+			.find_map(|e| match e {
+				Event::<Test>::LiquidityAdded { amount1_provided, amount2_provided, .. } => {
+					Some((amount1_provided, amount2_provided))
+				},
+				_ => None,
+			})
+			.unwrap();
+		assert_eq!((native_provided, asset2_provided), (1_000, 5_000));
+		assert_eq!(balance(user, token_1), native_ed);
+		assert_eq!(balance(user, token_2), 20_000 - 5_000);
 	});
 }

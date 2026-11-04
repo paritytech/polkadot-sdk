@@ -103,7 +103,9 @@ use xcm_executor::{
 };
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
-use sp_runtime::traits::OpaqueKeys;
+use frame_support::{dispatch::GetDispatchInfo, traits::Get};
+use pallet_asset_conversion::Price;
+use sp_runtime::traits::{Dispatchable, IntegerSquareRoot, OpaqueKeys};
 
 const ALICE: [u8; 32] = [1u8; 32];
 const BOB: [u8; 32] = [2u8; 32];
@@ -390,6 +392,192 @@ fn test_buy_and_refund_weight_with_swap_local_asset_xcm_trader() {
 			// With imbalance accounting, total_issuance should match what it was after withdraw
 			assert_eq!(Assets::total_issuance(asset_1), asset_total_issuance_after_withdraw);
 			assert_eq!(Balances::total_issuance(), native_total_issuance);
+		})
+}
+
+struct AttestedPriceOutcome {
+	alice: AccountId,
+	multisig: AccountId,
+	native: xcm::v5::Location,
+	asset_1: xcm::v5::Location,
+	asset_1_id: u32,
+	/// `result` of the `MultisigExecuted` event, i.e. the result of the inner call.
+	inner_result: sp_runtime::DispatchResult,
+}
+
+/// Sets up an empty (native, asset_1) pool and a 2-of-2 multisig of Alice (treasury stand-in)
+/// and Bob (attester) funded with `200 * UNITS` native and `1_000 * UNITS` of asset_1. Alice
+/// pre-approves an `add_liquidity_at_attested_price` call, then Bob dispatches
+/// `batch_all([attest_price(price) (if any), as_multi(final approval)])`.
+fn attested_price_multisig_batch(price: Option<Price<Balance>>) -> AttestedPriceOutcome {
+	let alice = Sr25519Keyring::Alice.to_account_id();
+	let bob = Sr25519Keyring::Bob.to_account_id();
+	let mut signatories = vec![alice.clone(), bob.clone()];
+	signatories.sort();
+	let multisig = pallet_multisig::Pallet::<Runtime>::multi_account_id(&signatories, 2);
+
+	let asset_1_id: u32 = 1;
+	let native = xcm::v5::Location::try_from(WestendLocation::get()).expect("conversion works");
+	let asset_1 = xcm::v5::Location::try_from(
+		AssetIdForTrustBackedAssetsConvert::convert_back(&asset_1_id).unwrap(),
+	)
+	.expect("conversion works");
+
+	assert_ok!(<Assets as Create<_>>::create(asset_1_id, alice.clone(), true, 10));
+	assert_ok!(Balances::mint_into(&alice, 1_000 * UNITS));
+	assert_ok!(Balances::mint_into(&bob, 1_000 * UNITS));
+	assert_ok!(Balances::mint_into(&multisig, 200 * UNITS));
+	assert_ok!(Assets::mint_into(asset_1_id, &multisig, 1_000 * UNITS));
+
+	assert_ok!(AssetConversion::create_pool(
+		RuntimeHelper::origin_of(alice.clone()),
+		Box::new(native.clone()),
+		Box::new(asset_1.clone()),
+	));
+
+	let inner = RuntimeCall::AssetConversion(
+		pallet_asset_conversion::Call::add_liquidity_at_attested_price {
+			asset1: Box::new(native.clone()),
+			asset2: Box::new(asset_1.clone()),
+			amount1_max: 100 * UNITS,
+			amount2_max: 1_000 * UNITS,
+			min_price: Price { amount1: UNITS, amount2: UNITS },
+			max_price: Price { amount1: UNITS, amount2: 10 * UNITS },
+			mint_to: alice.clone(),
+		},
+	);
+	let call_hash = sp_io::hashing::blake2_256(&inner.encode());
+	let max_weight = inner.get_dispatch_info().call_weight;
+
+	assert_ok!(pallet_multisig::Pallet::<Runtime>::approve_as_multi(
+		RuntimeOrigin::signed(alice.clone()),
+		2,
+		vec![bob.clone()],
+		None,
+		call_hash,
+		max_weight,
+	));
+	let timepoint = pallet_multisig::Multisigs::<Runtime>::get(&multisig, call_hash)
+		.expect("approval is stored")
+		.when;
+
+	let as_multi = RuntimeCall::Multisig(pallet_multisig::Call::as_multi {
+		threshold: 2,
+		other_signatories: vec![alice.clone()],
+		maybe_timepoint: Some(timepoint),
+		call: Box::new(inner),
+		max_weight,
+	});
+	let mut calls = Vec::new();
+	if let Some(price) = price {
+		calls.push(RuntimeCall::AssetConversion(pallet_asset_conversion::Call::attest_price {
+			asset1: Box::new(native.clone()),
+			asset2: Box::new(asset_1.clone()),
+			price,
+		}));
+	}
+	calls.push(as_multi);
+	assert_ok!(RuntimeCall::Utility(pallet_utility::Call::batch_all { calls })
+		.dispatch(RuntimeOrigin::signed(bob)));
+
+	let inner_result = System::events()
+		.into_iter()
+		.find_map(|record| match record.event {
+			RuntimeEvent::Multisig(pallet_multisig::Event::MultisigExecuted {
+				multisig: ref m,
+				call_hash: h,
+				result,
+				..
+			}) if *m == multisig && h == call_hash => Some(result),
+			_ => None,
+		})
+		.expect("`MultisigExecuted` is emitted");
+	// The final approval always consumes the multisig operation.
+	assert!(pallet_multisig::Multisigs::<Runtime>::get(&multisig, call_hash).is_none());
+
+	AttestedPriceOutcome { alice, multisig, native, asset_1, asset_1_id, inner_result }
+}
+
+/// Asserts that a failed inner call left the pool empty and the multisig funds untouched.
+fn assert_attested_price_add_burned(outcome: &AttestedPriceOutcome) {
+	assert!(matches!(
+		AssetConversion::get_reserves(outcome.native.clone(), outcome.asset_1.clone()),
+		Err(pallet_asset_conversion::Error::<Runtime>::PoolEmpty),
+	));
+	assert_eq!(Balances::balance(&outcome.multisig), 200 * UNITS);
+	assert_eq!(Assets::balance(outcome.asset_1_id, &outcome.multisig), 1_000 * UNITS);
+}
+
+#[test]
+fn attested_price_multisig_batch_adds_liquidity() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let outcome =
+				attested_price_multisig_batch(Some(Price { amount1: UNITS, amount2: 5 * UNITS }));
+			assert_eq!(outcome.inner_result, Ok(()));
+			assert!(System::events().iter().any(|record| matches!(
+				record.event,
+				RuntimeEvent::AssetConversion(pallet_asset_conversion::Event::PriceAttested { .. })
+			)));
+
+			// Deposited exactly at the attested price, capped by `amount1_max`.
+			assert_eq!(
+				AssetConversion::get_reserves(outcome.native.clone(), outcome.asset_1.clone()).ok(),
+				Some((100 * UNITS, 500 * UNITS)),
+			);
+			let lp_token = pallet_asset_conversion::Pools::<Runtime>::get((
+				outcome.native.clone(),
+				outcome.asset_1.clone(),
+			))
+			.expect("pool exists")
+			.lp_token;
+			let min_liquidity: Balance =
+				<Runtime as pallet_asset_conversion::Config>::MintMinLiquidity::get();
+			assert_eq!(
+				PoolAssets::balance(lp_token, &outcome.alice),
+				(100 * UNITS * 500 * UNITS).integer_sqrt() - min_liquidity,
+			);
+			assert_eq!(Balances::balance(&outcome.multisig), 100 * UNITS);
+			assert_eq!(Assets::balance(outcome.asset_1_id, &outcome.multisig), 500 * UNITS);
+		})
+}
+
+#[test]
+fn attested_price_missing_burns_multisig_approval() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let outcome = attested_price_multisig_batch(None);
+			assert_eq!(
+				outcome.inner_result,
+				Err(pallet_asset_conversion::Error::<Runtime>::PriceNotAttested.into()),
+			);
+			assert_attested_price_add_burned(&outcome);
+		})
+}
+
+#[test]
+fn attested_price_out_of_bounds_burns_multisig_approval() {
+	ExtBuilder::<Runtime>::default()
+		.with_tracing()
+		.with_collators(vec![AccountId::from(ALICE)])
+		.with_session_keys(collator_session_keys().session_keys())
+		.build()
+		.execute_with(|| {
+			let outcome =
+				attested_price_multisig_batch(Some(Price { amount1: UNITS, amount2: 20 * UNITS }));
+			assert_eq!(
+				outcome.inner_result,
+				Err(pallet_asset_conversion::Error::<Runtime>::PriceOutOfBounds.into()),
+			);
+			assert_attested_price_add_burned(&outcome);
 		})
 }
 

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use scale_info::TypeInfo;
 use sp_runtime::traits::TryConvert;
@@ -39,6 +39,28 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 pub struct PoolInfo<PoolAssetId> {
 	/// Liquidity pool asset
 	pub lp_token: PoolAssetId,
+}
+
+/// An exchange ratio between two assets, expressed in raw balances: `amount1` of the first
+/// asset is worth `amount2` of the second asset. "First" and "second" always refer to the
+/// asset order of the call that carries the price.
+#[derive(
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub struct Price<Balance> {
+	/// Amount of the first asset.
+	pub amount1: Balance,
+	/// Amount of the second asset.
+	pub amount2: Balance,
 }
 
 /// Provides means to resolve the `PoolId` and `AccountId` from a pair of assets.

@@ -74,6 +74,8 @@ pub trait WeightInfo {
 	fn create_pool() -> Weight;
 	fn create_pool_with_fee() -> Weight;
 	fn set_pool_fee() -> Weight;
+	fn attest_price() -> Weight;
+	fn add_liquidity_at_attested_price() -> Weight;
 	fn add_liquidity() -> Weight;
 	fn remove_liquidity() -> Weight;
 	fn swap_exact_tokens_for_tokens(n: u32, ) -> Weight;
@@ -159,6 +161,37 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	/// Storage: `PoolAssets::Account` (r:2 w:2)
 	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	fn add_liquidity() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1612`
+		//  Estimated: `11426`
+		// Minimum execution time: 156_705_000 picoseconds.
+		Weight::from_parts(164_075_000, 11426)
+			.saturating_add(T::DbWeight::get().reads(11_u64))
+			.saturating_add(T::DbWeight::get().writes(10_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	fn attest_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `157`
+		//  Estimated: `3495`
+		// Minimum execution time: 16_359_000 picoseconds.
+		Weight::from_parts(17_732_000, 3495)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:2 w:2)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:4 w:4)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Account` (r:2 w:2)
+	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	fn add_liquidity_at_attested_price() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1612`
 		//  Estimated: `11426`
@@ -340,6 +373,37 @@ impl WeightInfo for () {
 	/// Storage: `PoolAssets::Account` (r:2 w:2)
 	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
 	fn add_liquidity() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `1612`
+		//  Estimated: `11426`
+		// Minimum execution time: 156_705_000 picoseconds.
+		Weight::from_parts(164_075_000, 11426)
+			.saturating_add(RocksDbWeight::get().reads(11_u64))
+			.saturating_add(RocksDbWeight::get().writes(10_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	fn attest_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `157`
+		//  Estimated: `3495`
+		// Minimum execution time: 16_359_000 picoseconds.
+		Weight::from_parts(17_732_000, 3495)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(30), added: 2505, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Asset` (r:2 w:2)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `Assets::Account` (r:4 w:4)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Account` (r:2 w:2)
+	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	fn add_liquidity_at_attested_price() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `1612`
 		//  Estimated: `11426`

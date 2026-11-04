@@ -112,6 +112,45 @@ impl<T: frame_system::Config> pallet_asset_conversion::WeightInfo for WeightInfo
 	}
 	/// Storage: `AssetConversion::Pools` (r:1 w:0)
 	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+	fn attest_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `158`
+		//  Estimated: `4689`
+		// Minimum execution time: 19_370_000 picoseconds.
+		Weight::from_parts(21_010_000, 0)
+			.saturating_add(Weight::from_parts(0, 4689))
+			.saturating_add(T::DbWeight::get().reads(1))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
+	/// Storage: `ForeignAssets::Account` (r:2 w:2)
+	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `ForeignAssets::Asset` (r:1 w:1)
+	/// Proof: `ForeignAssets::Asset` (`max_values`: None, `max_size`: Some(808), added: 3283, mode: `MaxEncodedLen`)
+	/// Storage: `ForeignAssetsFreezer::FrozenBalances` (r:1 w:0)
+	/// Proof: `ForeignAssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(682), added: 3157, mode: `MaxEncodedLen`)
+	/// Storage: `Revive::OriginalAccount` (r:1 w:1)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	/// Storage: `AssetsPrecompiles::ForeignAssetIdToAssetIndex` (r:1 w:0)
+	/// Proof: `AssetsPrecompiles::ForeignAssetIdToAssetIndex` (`max_values`: None, `max_size`: Some(622), added: 3097, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Asset` (r:1 w:1)
+	/// Proof: `PoolAssets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `MaxEncodedLen`)
+	/// Storage: `PoolAssets::Account` (r:2 w:2)
+	/// Proof: `PoolAssets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `MaxEncodedLen`)
+	fn add_liquidity_at_attested_price() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4020`
+		//  Estimated: `7404`
+		// Minimum execution time: 211_566_000 picoseconds.
+		Weight::from_parts(223_717_000, 0)
+			.saturating_add(Weight::from_parts(0, 7404))
+			.saturating_add(T::DbWeight::get().reads(11))
+			.saturating_add(T::DbWeight::get().writes(8))
+	}
+	/// Storage: `AssetConversion::Pools` (r:1 w:0)
+	/// Proof: `AssetConversion::Pools` (`max_values`: None, `max_size`: Some(1224), added: 3699, mode: `MaxEncodedLen`)
 	/// Storage: `ForeignAssets::Account` (r:2 w:2)
 	/// Proof: `ForeignAssets::Account` (`max_values`: None, `max_size`: Some(732), added: 3207, mode: `MaxEncodedLen`)
 	/// Storage: `System::Account` (r:1 w:1)

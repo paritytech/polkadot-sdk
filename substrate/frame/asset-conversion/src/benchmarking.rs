@@ -282,6 +282,68 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn attest_price() {
+		let caller: T::AccountId = whitelisted_caller();
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+
+		create_fee_asset::<T>(&caller);
+		let _ = create_asset_and_pool::<T>(&caller, &asset1, &asset2);
+		let price = Price { amount1: T::Balance::one(), amount2: T::Balance::one() };
+
+		#[extrinsic_call]
+		_(
+			SystemOrigin::Signed(caller.clone()),
+			Box::new(asset1.clone()),
+			Box::new(asset2.clone()),
+			price,
+		);
+
+		let pool_id = T::PoolLocator::pool_id(&asset1, &asset2).unwrap();
+		assert_last_event::<T>(
+			Event::PriceAttested { who: caller, pool_id, asset1, asset2, price }.into(),
+		);
+	}
+
+	#[benchmark]
+	fn add_liquidity_at_attested_price() {
+		let caller: T::AccountId = whitelisted_caller();
+		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
+
+		create_fee_asset::<T>(&caller);
+		let (lp_token, liquidity1, liquidity2) =
+			create_asset_and_pool::<T>(&caller, &asset1, &asset2);
+
+		let price = Price { amount1: liquidity1, amount2: liquidity2 };
+		let pool_id = T::PoolLocator::pool_id(&asset1, &asset2).unwrap();
+
+		#[block]
+		{
+			assert_ok!(frame_support::dispatch_context::run_in_context(|| {
+				with_context::<AttestedPrices<T>, _>(|v| {
+					v.or_default().0.insert(pool_id.clone(), (asset1.clone(), price));
+				});
+				AssetConversion::<T>::add_liquidity_at_attested_price(
+					SystemOrigin::Signed(caller.clone()).into(),
+					Box::new(asset1.clone()),
+					Box::new(asset2.clone()),
+					liquidity1,
+					liquidity2,
+					price,
+					price,
+					caller.clone(),
+				)
+			}));
+		}
+
+		let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).unwrap();
+		let lp_minted =
+			AssetConversion::<T>::calc_lp_amount_for_zero_supply(&liquidity1, &liquidity2).unwrap();
+		assert_eq!(T::PoolAssets::balance(lp_token, &caller), lp_minted);
+		assert_eq!(T::Assets::balance(asset1, &pool_account), liquidity1);
+		assert_eq!(T::Assets::balance(asset2, &pool_account), liquidity2);
+	}
+
+	#[benchmark]
 	fn remove_liquidity() {
 		let caller: T::AccountId = whitelisted_caller();
 		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);

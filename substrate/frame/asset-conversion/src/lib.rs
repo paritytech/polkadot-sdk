@@ -30,6 +30,8 @@
 //!    there is a pool created, or
 //!  - [swap some assets for a specific amount of
 //!    another](`Pallet::swap_tokens_for_exact_tokens()`).
+//!  - [attest a price](`Pallet::attest_price()`) and [add liquidity at that
+//!    price](`Pallet::add_liquidity_at_attested_price()`)
 //!  - [query for an exchange price](`AssetConversionApi::quote_price_exact_tokens_for_tokens`) via
 //!    a runtime call endpoint
 //!  - [query the size of a liquidity pool](`AssetConversionApi::get_reserves`) via a runtime api
@@ -74,9 +76,14 @@ pub use weights::WeightInfo;
 
 extern crate alloc;
 
-use alloc::{boxed::Box, collections::btree_set::BTreeSet, vec::Vec};
+use alloc::{
+	boxed::Box,
+	collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+	vec::Vec,
+};
 use codec::Codec;
 use frame_support::{
+	dispatch_context::with_context,
 	traits::{
 		fungibles::{Balanced, Create, Credit, Inspect, Mutate},
 		tokens::{
@@ -97,6 +104,39 @@ use sp_runtime::{
 	},
 	DispatchError, Saturating, TokenError, TransactionOutcome,
 };
+
+/// Prices attested via [`Pallet::attest_price`] in the current dispatch context.
+pub(crate) struct AttestedPrices<T: Config>(
+	/// Keyed by pool. Each value is the asset that `Price::amount1` refers to, plus the price.
+	pub(crate) BTreeMap<T::PoolId, (T::AssetKind, Price<T::Balance>)>,
+);
+
+impl<T: Config> Default for AttestedPrices<T> {
+	fn default() -> Self {
+		Self(BTreeMap::new())
+	}
+}
+
+/// Input of [`Pallet::deposit_liquidity`].
+struct DepositLiquidity<'a, T: Config> {
+	/// The account the assets are taken from.
+	who: &'a T::AccountId,
+	/// The account the LP tokens are minted to.
+	mint_to: &'a T::AccountId,
+	pool_id: T::PoolId,
+	pool: PoolInfo<T::PoolAssetId>,
+	pool_account: T::AccountId,
+	asset1: T::AssetKind,
+	asset2: T::AssetKind,
+	/// Amount of `asset1` to deposit.
+	amount1: T::Balance,
+	/// Amount of `asset2` to deposit.
+	amount2: T::Balance,
+	/// Reserve of `asset1` before the deposit.
+	reserve1: T::Balance,
+	/// Reserve of `asset2` before the deposit.
+	reserve2: T::Balance,
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -357,6 +397,21 @@ pub mod pallet {
 			/// The account initiating the touch.
 			who: T::AccountId,
 		},
+		/// A price was attested for a pool via [`Pallet::attest_price`]. It is valid only within
+		/// the current dispatch context.
+		PriceAttested {
+			/// The account that attested the price.
+			who: T::AccountId,
+			/// The pool the price was attested for.
+			pool_id: T::PoolId,
+			/// The asset that `price.amount1` refers to.
+			asset1: T::AssetKind,
+			/// The asset that `price.amount2` refers to.
+			asset2: T::AssetKind,
+			/// The attested price: `price.amount1` of `asset1` is worth `price.amount2` of
+			/// `asset2`.
+			price: Price<T::Balance>,
+		},
 	}
 
 	#[pallet::error]
@@ -417,6 +472,14 @@ pub mod pallet {
 		/// The pool account can't send one of its assets (e.g. the asset class is frozen or the
 		/// pool account is blocked).
 		PoolUnavailable,
+		/// No price was attested for this pool in the current dispatch context.
+		PriceNotAttested,
+		/// A price component is zero, or `min_price` is greater than `max_price`.
+		InvalidPrice,
+		/// The attested price lies outside of `[min_price, max_price]`.
+		PriceOutOfBounds,
+		/// [`Pallet::attest_price`] was executed outside of a dispatch context.
+		NoDispatchContext,
 	}
 
 	#[pallet::hooks]
@@ -659,6 +722,91 @@ pub mod pallet {
 			Self::deposit_event(Event::PoolFeeSet { pool_id, fee });
 			Ok(())
 		}
+
+		/// Attest the exchange `price` of the pool of `asset1` and `asset2` for the current
+		/// dispatch context, i.e. for the rest of the extrinsic that executes this call.
+		///
+		/// `price.amount1` of `asset1` is worth `price.amount2` of `asset2`. Both components must
+		/// be non-zero. A second attestation for the same pool in the same extrinsic overwrites
+		/// the first one.
+		///
+		/// The price is used by [`Pallet::add_liquidity_at_attested_price`] later in the same
+		/// extrinsic.
+		///
+		/// Fails with [`Error::NoDispatchContext`] if executed outside a dispatch context.
+		///
+		/// Emits [`Event::PriceAttested`] on success.
+		#[pallet::call_index(8)]
+		#[pallet::weight(T::WeightInfo::attest_price())]
+		pub fn attest_price(
+			origin: OriginFor<T>,
+			asset1: Box<T::AssetKind>,
+			asset2: Box<T::AssetKind>,
+			price: Price<T::Balance>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(!price.amount1.is_zero() && !price.amount2.is_zero(), Error::<T>::InvalidPrice);
+			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			ensure!(Pools::<T>::contains_key(&pool_id), Error::<T>::PoolNotFound);
+			with_context::<AttestedPrices<T>, _>(|v| {
+				v.or_default().0.insert(pool_id.clone(), ((*asset1).clone(), price));
+			})
+			.ok_or(Error::<T>::NoDispatchContext)?;
+			Self::deposit_event(Event::PriceAttested {
+				who,
+				pool_id,
+				asset1: *asset1,
+				asset2: *asset2,
+				price,
+			});
+			Ok(())
+		}
+
+		/// Provide liquidity into the pool of `asset1` and `asset2` exactly at the price attested
+		/// via [`Pallet::attest_price`] earlier in the same extrinsic.
+		///
+		/// - `amount1_max`/`amount2_max`: the most of `asset1`/`asset2` to deposit. The amounts are
+		///   further capped by the caller's reducible balance (keeping the account alive).
+		/// - `min_price`/`max_price`: the accepted price band. Both are oriented like this call,
+		///   i.e. `amount1` of `asset1` is worth `amount2` of `asset2`. The attested price must lie
+		///   within `[min_price, max_price]`, otherwise [`Error::PriceOutOfBounds`].
+		/// - `mint_to`: receives the minted LP tokens.
+		///
+		/// The attestation may use either asset order. Both assets are deposited exactly at the
+		/// attested ratio (rounding down), never at the pool's own ratio, so an existing pool's
+		/// deviation from that price does not grow. If the pool already has LP supply, LP tokens
+		/// are minted by value at the attested price.
+		///
+		/// Fails with [`Error::PriceNotAttested`] if no price was attested for this pool in the
+		/// current extrinsic.
+		///
+		/// Emits [`Event::LiquidityAdded`] on success.
+		#[pallet::call_index(9)]
+		#[pallet::weight(T::WeightInfo::add_liquidity_at_attested_price())]
+		pub fn add_liquidity_at_attested_price(
+			origin: OriginFor<T>,
+			asset1: Box<T::AssetKind>,
+			asset2: Box<T::AssetKind>,
+			amount1_max: T::Balance,
+			amount2_max: T::Balance,
+			min_price: Price<T::Balance>,
+			max_price: Price<T::Balance>,
+			mint_to: T::AccountId,
+		) -> DispatchResult {
+			let sender = ensure_signed(origin)?;
+			Self::do_add_liquidity_at_attested_price(
+				&sender,
+				*asset1,
+				*asset2,
+				amount1_max,
+				amount2_max,
+				min_price,
+				max_price,
+				&mint_to,
+			)?;
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -846,6 +994,49 @@ pub mod pallet {
 				}
 			}
 
+			Self::deposit_liquidity(
+				DepositLiquidity {
+					who,
+					mint_to,
+					pool_id,
+					pool,
+					pool_account,
+					asset1,
+					asset2,
+					amount1,
+					amount2,
+					reserve1,
+					reserve2,
+				},
+				|total_supply| {
+					let side1 = Self::mul_div(&amount1, &total_supply, &reserve1)?;
+					let side2 = Self::mul_div(&amount2, &total_supply, &reserve2)?;
+					Ok(side1.min(side2))
+				},
+			)
+		}
+
+		/// Transfer `amount1`/`amount2` into the pool and mint the LP tokens to `mint_to`.
+		///
+		/// `lp_amount_with_supply` computes the LP amount from the current total LP supply when the
+		/// pool already has LP supply. The first deposit uses
+		/// [`Self::calc_lp_amount_for_zero_supply`].
+		fn deposit_liquidity(
+			DepositLiquidity {
+				who,
+				mint_to,
+				pool_id,
+				pool,
+				pool_account,
+				asset1,
+				asset2,
+				amount1,
+				amount2,
+				reserve1,
+				reserve2,
+			}: DepositLiquidity<T>,
+			lp_amount_with_supply: impl FnOnce(T::Balance) -> Result<T::Balance, Error<T>>,
+		) -> Result<T::Balance, DispatchError> {
 			ensure!(
 				amount1.saturating_add(reserve1) >= T::Assets::minimum_balance(asset1.clone()),
 				Error::<T>::AmountOneLessThanMinimal
@@ -860,19 +1051,17 @@ pub mod pallet {
 
 			let total_supply = T::PoolAssets::total_issuance(pool.lp_token.clone());
 
-			let lp_token_amount: T::Balance;
-			if total_supply.is_zero() {
-				lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
+			let lp_token_amount = if total_supply.is_zero() {
+				let lp_token_amount = Self::calc_lp_amount_for_zero_supply(&amount1, &amount2)?;
 				T::PoolAssets::mint_into(
 					pool.lp_token.clone(),
 					&pool_account,
 					T::MintMinLiquidity::get(),
 				)?;
+				lp_token_amount
 			} else {
-				let side1 = Self::mul_div(&amount1, &total_supply, &reserve1)?;
-				let side2 = Self::mul_div(&amount2, &total_supply, &reserve2)?;
-				lp_token_amount = side1.min(side2);
-			}
+				lp_amount_with_supply(total_supply)?
+			};
 
 			ensure!(
 				lp_token_amount > T::MintMinLiquidity::get(),
@@ -892,6 +1081,128 @@ pub mod pallet {
 			});
 
 			Ok(lp_token_amount)
+		}
+
+		/// Add liquidity to a pool exactly at the price attested in the current dispatch context.
+		///
+		/// See [`Pallet::add_liquidity_at_attested_price`].
+		pub(crate) fn do_add_liquidity_at_attested_price(
+			who: &T::AccountId,
+			asset1: T::AssetKind,
+			asset2: T::AssetKind,
+			amount1_max: T::Balance,
+			amount2_max: T::Balance,
+			min_price: Price<T::Balance>,
+			max_price: Price<T::Balance>,
+			mint_to: &T::AccountId,
+		) -> Result<T::Balance, DispatchError> {
+			type Hp<T> = <T as Config>::HigherPrecisionBalance;
+			let hp = |b: T::Balance| Hp::<T>::from(b);
+			let mul = |a: &Hp<T>, b: &Hp<T>| a.checked_mul(b).ok_or(Error::<T>::Overflow);
+			let div = |a: &Hp<T>, b: &Hp<T>| a.checked_div(b).ok_or(Error::<T>::Overflow);
+			let to_balance = |v: Hp<T>| -> Result<T::Balance, Error<T>> {
+				v.try_into().map_err(|_| Error::<T>::Overflow)
+			};
+
+			let pool_id = T::PoolLocator::pool_id(&asset1, &asset2)
+				.map_err(|_| Error::<T>::InvalidAssetPair)?;
+			let pool = Pools::<T>::get(&pool_id).ok_or(Error::<T>::PoolNotFound)?;
+			let pool_account =
+				T::PoolLocator::address(&pool_id).map_err(|_| Error::<T>::InvalidAssetPair)?;
+
+			// Validate the bounds: non-zero and `min_price <= max_price`.
+			ensure!(
+				!min_price.amount1.is_zero() &&
+					!min_price.amount2.is_zero() &&
+					!max_price.amount1.is_zero() &&
+					!max_price.amount2.is_zero(),
+				Error::<T>::InvalidPrice
+			);
+			ensure!(
+				mul(&hp(min_price.amount2), &hp(max_price.amount1))? <=
+					mul(&hp(max_price.amount2), &hp(min_price.amount1))?,
+				Error::<T>::InvalidPrice
+			);
+
+			let (attested_asset1, attested_price) =
+				with_context::<AttestedPrices<T>, _>(|prices| {
+					prices.get().and_then(|prices| prices.0.get(&pool_id).cloned())
+				})
+				.flatten()
+				.ok_or(Error::<T>::PriceNotAttested)?;
+
+			// Orient the price to this call's asset order: `price_amount1` of `asset1` is worth
+			// `price_amount2` of `asset2`.
+			let (price_amount1, price_amount2) = if attested_asset1 == asset1 {
+				(attested_price.amount1, attested_price.amount2)
+			} else {
+				(attested_price.amount2, attested_price.amount1)
+			};
+			let (price_amount1, price_amount2) = (hp(price_amount1), hp(price_amount2));
+
+			ensure!(
+				mul(&hp(min_price.amount2), &price_amount1)? <=
+					mul(&price_amount2, &hp(min_price.amount1))? &&
+					mul(&price_amount2, &hp(max_price.amount1))? <=
+						mul(&hp(max_price.amount2), &price_amount1)?,
+				Error::<T>::PriceOutOfBounds
+			);
+
+			let spendable1 = amount1_max.min(T::Assets::reducible_balance(
+				asset1.clone(),
+				who,
+				Preserve,
+				Polite,
+			));
+			let spendable2 = amount2_max.min(T::Assets::reducible_balance(
+				asset2.clone(),
+				who,
+				Preserve,
+				Polite,
+			));
+
+			// Amounts at the attested price, rounding down.
+			let amount1_for_spendable2 =
+				div(&mul(&hp(spendable2), &price_amount1)?, &price_amount2)?;
+			let amount1 = if hp(spendable1) < amount1_for_spendable2 {
+				hp(spendable1)
+			} else {
+				amount1_for_spendable2
+			};
+			let amount2 = div(&mul(&amount1, &price_amount2)?, &price_amount1)?;
+			let (amount1, amount2) = (to_balance(amount1)?, to_balance(amount2)?);
+			ensure!(!amount1.is_zero() && !amount2.is_zero(), Error::<T>::WrongDesiredAmount);
+
+			// Reserves before the transfer.
+			let reserve1 = Self::get_balance(&pool_account, asset1.clone());
+			let reserve2 = Self::get_balance(&pool_account, asset2.clone());
+
+			Self::deposit_liquidity(
+				DepositLiquidity {
+					who,
+					mint_to,
+					pool_id,
+					pool,
+					pool_account,
+					asset1,
+					asset2,
+					amount1,
+					amount2,
+					reserve1,
+					reserve2,
+				},
+				// By value at the attested price.
+				|total_supply| {
+					let pool_value = mul(&hp(reserve1), &price_amount2)?
+						.checked_add(&mul(&hp(reserve2), &price_amount1)?)
+						.ok_or(Error::<T>::Overflow)?;
+					ensure!(!pool_value.is_zero(), Error::<T>::PoolEmpty);
+					let deposit_value = mul(&hp(amount1), &price_amount2)?
+						.checked_add(&mul(&hp(amount2), &price_amount1)?)
+						.ok_or(Error::<T>::Overflow)?;
+					to_balance(div(&mul(&hp(total_supply), &deposit_value)?, &pool_value)?)
+				},
+			)
 		}
 
 		/// Remove liquidity from a pool.
