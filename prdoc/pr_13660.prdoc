@@ -1,0 +1,13 @@
+title: 'cumulus: hold slot-based block building on an unincluded runtime upgrade'
+doc:
+- audience: Node Dev
+  description: |
+    The slot-based collator no longer builds on a block that applies a runtime upgrade until that
+    block is included. It stops iterating cores after building such a block. While one is
+    unincluded, it reruns the parent search under the scheduling rules of the upgrade's parent:
+    it waits while the upgrade can still be backed, and builds below it once it expires. This
+    avoids candidates that the new or old validation code rejects when the upgrade changes the
+    scheduling format, such as a switch from V2 to V3.
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch

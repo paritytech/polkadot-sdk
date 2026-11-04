@@ -107,6 +107,7 @@ mod message;
 mod relay_chain_data_cache;
 mod resubmission;
 mod resubmittable_segment;
+mod runtime_upgrade;
 mod scheduling;
 mod slot_timer;
 
