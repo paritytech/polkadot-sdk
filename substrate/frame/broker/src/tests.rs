@@ -1267,6 +1267,44 @@ fn instapool_contributions_cannot_be_duplicated_through_repooling() {
 }
 
 #[test]
+fn instapool_contributions_cannot_be_duplicated_through_repooling_after_begin() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+
+		// Pooling again once the region has started only counts it once.
+		advance_to(8);
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 1);
+
+		advance_to(14);
+		assert_eq!(InstaPoolHistory::<Test>::get(6).unwrap().private_contributions, 80);
+	});
+}
+
+#[test]
+fn assigning_provisionally_pooled_region_after_begin_unpools_it() {
+	TestExt::new().endow(1, 1000).execute_with(|| {
+		assert_ok!(Broker::do_start_sales(100, 1));
+		advance_to(2);
+
+		let region_id = Broker::do_purchase(1, u64::max_value()).unwrap();
+		assert_ok!(Broker::do_pool(region_id, None, 2, Provisional));
+
+		// Assigning once the region has started removes it from the pool.
+		advance_to(8);
+		assert_ok!(Broker::do_assign(region_id, None, 1000, Final));
+		assert_eq!(InstaPoolContribution::<Test>::iter().count(), 0);
+
+		advance_to(14);
+		assert_eq!(InstaPoolHistory::<Test>::get(6).unwrap().private_contributions, 0);
+	});
+}
+
+#[test]
 fn initialize_with_system_paras_works() {
 	TestExt::new().execute_with(|| {
 		let item = ScheduleItem { assignment: Task(1u32), mask: CoreMask::complete() };
