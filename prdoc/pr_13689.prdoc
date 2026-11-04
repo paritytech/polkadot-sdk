@@ -11,9 +11,7 @@ doc:
     Tests:
     - Tests that relied on deleting a contract from an earlier transaction now create and terminate it in the same call.
     - Tests that call terminate on an older contract now assert the contract survives.
-    - Removed tests whose scenario can no longer happen:
-      - the deposit refund at call time (two tests)
-      - several payers' deposits being refunded at termination
+    - Removed tests whose scenario can no longer happen (deposit refund at call time and several payers' deposits being refunded at termination).
 crates:
 - name: pallet-revive-fixtures
   bump: major
