@@ -1,0 +1,57 @@
+title: 'pallet-revive: record no storage deposit for writes under Root'
+doc:
+- audience: Runtime User
+  description: |-
+    Storage written by a call stack whose origin is `Root` no longer adds to the deposit a
+    contract records.
+
+    Before this change the pallet priced such a write at `DepositPerByte` and
+    `DepositPerChildTrieItem` and added it to `ContractInfo`. Settlement then collected nothing,
+    because Root has no account to charge, so the contract recorded more deposit than it held.
+
+    On a runtime that leaves `Config::Deposit` at the default `()`, a refund computed from the
+    inflated record paid out of deposit other users had put down. Once the hold ran short, a
+    refund failed with `StorageRefundNotEnoughFunds`. Under `PGasDeposit` a user who had
+    contributed to the contract could draw the excess out of the hold, down to and including the
+    base deposit. Both are fixed. The recorded deposit now stays equal to the held amount for
+    storage written after the upgrade.
+
+    Refunds change for everyone holding storage in a contract Root writes to. The pallet refunds
+    a removal pro rata of the deposit the contract holds, over every unit it holds, and Root's
+    units now count toward that total without having added to the pool. A depositor who paid for
+    `a` units of a contract that also holds `r` Root-written units gets back `a / (a + r)` of
+    what they paid. The remainder stays held on the contract until it is terminated. Before this
+    change the same depositor got back everything they had paid, because a Root write added to
+    the pool at list price as well as to the count.
+
+    Whoever removes Root-written units is paid a pro rata share of a pool they did not fund.
+    Where one depositor paid 132 for two slots and Root then wrote fifty, an account that clears
+    all fifty is credited 126 of that 132. Under `()` it keeps the 126. Under `PGasDeposit` the
+    native part of a refund is capped at that account's own `NativeDepositOf` contribution, which
+    is nothing here, so a deposit paid in native stays held on the contract. A deposit paid in
+    PGAS has no such cap, so the account receives `RefundPercent` of the 126 and the rest is
+    burned.
+
+    The pallet pays nobody for storage that Root removes. Clearing the fifty slots Root wrote
+    leaves the depositor's 132 in the pool, so the dilution those writes caused is undone.
+    Clearing a contract's last slots empties the pool instead. That deposit leaves the record,
+    is refunded to no one, and stays held on the contract until it is terminated.
+- audience: Runtime Dev
+  description: |-
+    There is no `Config` change and no storage migration. `ContractInfo` keeps its layout, and
+    recorded deposits stay valid.
+
+    This release does not repair contracts that are already in the inflated state. A chain that
+    has executed Root-originated storage writes keeps those contracts recording more deposit than
+    they hold, and their refunds keep failing or over-drawing as before. The pallet accounts
+    correctly only for storage written after the upgrade.
+
+    Contracts instantiated by a Root call stack record a base deposit of zero and hold nothing. A
+    later signed write to such a contract is charged and recorded in full.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-fixtures
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
