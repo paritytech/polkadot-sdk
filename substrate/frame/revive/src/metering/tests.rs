@@ -726,7 +726,7 @@ fn substrate_metering_charges_works() {
 /// Gas amounts in this module are `GasScale` times Ethereum gas, the unit the meter computes in.
 mod nesting {
 	use super::*;
-	use crate::FrameMeter;
+	use crate::{FrameMeter, metering::math::ethereum_execution};
 	use sp_runtime::DispatchError;
 	use test_case::test_case;
 
@@ -741,6 +741,15 @@ mod nesting {
 			eip_150::Rule::Apply => transaction_meter
 				.new_nested(&CallResources::NoLimits)?
 				.new_nested(call_resources),
+		}
+	}
+
+	/// Returns `amount`, in the meter's gas unit, as a `SignedGas`.
+	fn signed_gas(amount: i128) -> SignedGas<Test> {
+		if amount < 0 {
+			SignedGas::Negative(amount.unsigned_abs())
+		} else {
+			SignedGas::Positive(amount.unsigned_abs())
 		}
 	}
 
@@ -760,7 +769,8 @@ mod nesting {
 		gas_left: u128,
 		weight_left: Weight,
 		deposit_left: u128,
-		total_consumed_gas: u128,
+		/// Negative when refunds exceed all charges.
+		total_consumed_gas: i128,
 	}
 
 	/// A nested call from `caller` with `call_resources`, and what the callee's meter reports
@@ -837,7 +847,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1476558808, 9949),
 					deposit_left: 590623523,
 					total_consumed_gas: 2000007500,
@@ -854,10 +864,10 @@ mod nesting {
 					total_consumed_gas: 4577887218,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 415517270,
+					gas_left: 415517269,
 					weight_left: Weight::from_parts(492064207, 1088),
 					deposit_left: 83103453,
-					total_consumed_gas: 4577887220,
+					total_consumed_gas: 4577887218,
 				},
 			},
 			// 2: NoLimits, large deposit refund.
@@ -871,10 +881,10 @@ mod nesting {
 					total_consumed_gas: 4291382335,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 697545520,
+					gas_left: 697545513,
 					weight_left: Weight::from_parts(18703122785, 1827),
 					deposit_left: 139509102,
-					total_consumed_gas: 4291382340,
+					total_consumed_gas: 4291382335,
 				},
 			},
 			// 3: NoLimits, a deposit refund larger than all charges.
@@ -891,13 +901,13 @@ mod nesting {
 					gas_left: 315708617665,
 					weight_left: Weight::from_parts(176499997750, 827611),
 					deposit_left: 63141723533,
-					total_consumed_gas: 0,
+					total_consumed_gas: -310708617665,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 310775670520,
+					gas_left: 310775670513,
 					weight_left: Weight::from_parts(173742185285, 814679),
 					deposit_left: 62155134102,
-					total_consumed_gas: 0,
+					total_consumed_gas: -310708617665,
 				},
 			},
 			// 4: WeightDeposit, the call's limits are above remaining.
@@ -914,7 +924,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1476558808, 9949),
 					deposit_left: 590623523,
 					total_consumed_gas: 2000007500,
@@ -934,7 +944,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1000000000, 9949),
 					deposit_left: 590623523,
 					total_consumed_gas: 2000007500,
@@ -954,7 +964,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1476558808, 9949),
 					deposit_left: 590623523,
 					total_consumed_gas: 2000007500,
@@ -974,7 +984,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1476558808, 9949),
 					deposit_left: 100000000,
 					total_consumed_gas: 2000007500,
@@ -1063,7 +1073,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1476558808, 9949),
 					deposit_left: 590623523,
 					total_consumed_gas: 2000007500,
@@ -1080,7 +1090,7 @@ mod nesting {
 					total_consumed_gas: 2000007500,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 2953117620,
+					gas_left: 2953117617,
 					weight_left: Weight::from_parts(1476558808, 9949),
 					deposit_left: 590623523,
 					total_consumed_gas: 2000007500,
@@ -1131,10 +1141,10 @@ mod nesting {
 					total_consumed_gas: 4291382335,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 697545520,
+					gas_left: 697545513,
 					weight_left: Weight::from_parts(18703122785, 1827),
 					deposit_left: 139509102,
-					total_consumed_gas: 4291382340,
+					total_consumed_gas: 4291382335,
 				},
 			},
 			// 16: Ethereum gas, large refund, requested gas above remaining.
@@ -1148,10 +1158,10 @@ mod nesting {
 					total_consumed_gas: 4291382335,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 697545520,
+					gas_left: 697545513,
 					weight_left: Weight::from_parts(18703122785, 1827),
 					deposit_left: 139509102,
-					total_consumed_gas: 4291382340,
+					total_consumed_gas: 4291382335,
 				},
 			},
 			// 17: Ethereum gas, large proof_size charge, requested gas above remaining.
@@ -1165,10 +1175,10 @@ mod nesting {
 					total_consumed_gas: 4999999996,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 10,
+					gas_left: 3,
 					weight_left: Weight::from_parts(1476335227, 0),
 					deposit_left: 0,
-					total_consumed_gas: 5000000000,
+					total_consumed_gas: 4999999996,
 				},
 			},
 			// 18: Ethereum gas, large proof_size charge, small requested gas above remaining.
@@ -1182,10 +1192,10 @@ mod nesting {
 					total_consumed_gas: 4999999996,
 				},
 				expected_with_rule: CalleeMeter {
-					gas_left: 10,
+					gas_left: 3,
 					weight_left: Weight::from_parts(1476335227, 0),
 					deposit_left: 0,
-					total_consumed_gas: 5000000000,
+					total_consumed_gas: 4999999996,
 				},
 			},
 			// 19: Ethereum gas, small requested gas, moderate proof_size charge.
@@ -1316,6 +1326,11 @@ mod nesting {
 							.unwrap();
 
 					assert_eq!(
+						Some(SignedGas::Positive(expected.gas_left)),
+						ethereum_execution::gas_left(&nested, &eth_tx_info),
+						"exact gas_left mismatch in test case {i}"
+					);
+					assert_eq!(
 						expected.gas_left.div_ceil(gas_scale),
 						nested.eth_gas_left().unwrap(),
 						"gas_left mismatch in test case {i}"
@@ -1331,7 +1346,12 @@ mod nesting {
 						"deposit_left mismatch in test case {i}"
 					);
 					assert_eq!(
-						expected.total_consumed_gas.div_ceil(gas_scale),
+						signed_gas(expected.total_consumed_gas),
+						ethereum_execution::total_consumed_gas(&nested, &eth_tx_info),
+						"exact total_consumed_gas mismatch in test case {i}"
+					);
+					assert_eq!(
+						(expected.total_consumed_gas.max(0) as u128).div_ceil(gas_scale),
 						nested.total_consumed_gas(),
 						"total_consumed_gas mismatch in test case {i}"
 					);
@@ -1567,7 +1587,7 @@ mod nesting {
 							total_consumed_gas: 2000007700,
 						}),
 						expected_with_rule: Some(CalleeMeter {
-							gas_left: 2953117420,
+							gas_left: 2953117417,
 							weight_left: Weight::from_parts(1476558708, 9849),
 							deposit_left: 590623483,
 							total_consumed_gas: 2000007700,
@@ -1582,7 +1602,7 @@ mod nesting {
 							total_consumed_gas: 2000008200,
 						}),
 						expected_with_rule: Some(CalleeMeter {
-							gas_left: 2953116920,
+							gas_left: 2953116917,
 							weight_left: Weight::from_parts(1476558458, 9849),
 							deposit_left: 590623383,
 							total_consumed_gas: 2000008200,
@@ -1625,7 +1645,7 @@ mod nesting {
 							total_consumed_gas: 2000007500,
 						}),
 						expected_with_rule: Some(CalleeMeter {
-							gas_left: 2953117620,
+							gas_left: 2953117617,
 							weight_left: Weight::from_parts(1476558808, 9949),
 							deposit_left: 590623523,
 							total_consumed_gas: 2000007500,
@@ -1647,7 +1667,7 @@ mod nesting {
 							total_consumed_gas: 2000007700,
 						}),
 						expected_with_rule: Some(CalleeMeter {
-							gas_left: 2953117420,
+							gas_left: 2953117417,
 							weight_left: Weight::from_parts(1476558708, 9849),
 							deposit_left: 590623483,
 							total_consumed_gas: 2000007700,
@@ -1662,7 +1682,7 @@ mod nesting {
 							total_consumed_gas: 2000008200,
 						}),
 						expected_with_rule: Some(CalleeMeter {
-							gas_left: 2953116920,
+							gas_left: 2953116917,
 							weight_left: Weight::from_parts(1476558458, 9849),
 							deposit_left: 590623383,
 							total_consumed_gas: 2000008200,
@@ -1677,7 +1697,7 @@ mod nesting {
 							total_consumed_gas: 2200008200,
 						}),
 						expected_with_rule: Some(CalleeMeter {
-							gas_left: 2753116920,
+							gas_left: 2753116917,
 							weight_left: Weight::from_parts(1376558458, 9849),
 							deposit_left: 550623383,
 							total_consumed_gas: 2200008200,
@@ -1712,7 +1732,7 @@ mod nesting {
 						TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
 							eth_gas_limit: caller.gas_limit.div_ceil(gas_scale),
 							weight_limit: Weight::MAX,
-							eth_tx_info,
+							eth_tx_info: eth_tx_info.clone(),
 							authorization_deposit: Default::default(),
 						})
 						.unwrap();
@@ -1775,6 +1795,11 @@ mod nesting {
 						if let Some(expected) = expected {
 							assert!(is_ok, "charge failed in test case {i}, step {j}");
 							assert_eq!(
+								Some(SignedGas::Positive(expected.gas_left)),
+								ethereum_execution::gas_left(&nested, &eth_tx_info),
+								"exact gas_left mismatch in test case {i}, step {j}"
+							);
+							assert_eq!(
 								expected.gas_left.div_ceil(gas_scale),
 								nested.eth_gas_left().unwrap(),
 								"gas_left mismatch in test case {i}, step {j}"
@@ -1790,7 +1815,12 @@ mod nesting {
 								"deposit_left mismatch in test case {i}, step {j}"
 							);
 							assert_eq!(
-								expected.total_consumed_gas.div_ceil(gas_scale),
+								signed_gas(expected.total_consumed_gas),
+								ethereum_execution::total_consumed_gas(&nested, &eth_tx_info),
+								"exact total_consumed_gas mismatch in test case {i}, step {j}"
+							);
+							assert_eq!(
+								(expected.total_consumed_gas.max(0) as u128).div_ceil(gas_scale),
 								nested.total_consumed_gas(),
 								"total_consumed_gas mismatch in test case {i}, step {j}"
 							);
