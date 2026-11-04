@@ -8608,7 +8608,7 @@ dependencies = [
 [[package]]
 name = "hash-db"
 version = "0.16.0"
-source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#5d04704ce19ebddcdfcf4271c969055de1651f2b"
+source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#a77571564fbc62708f908a8fef073a96d87ca8cb"
 
 [[package]]
 name = "hash256-std-hasher"
@@ -29529,7 +29529,7 @@ dependencies = [
 [[package]]
 name = "trie-db"
 version = "0.32.0"
-source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#5d04704ce19ebddcdfcf4271c969055de1651f2b"
+source = "git+https://github.com/paritytech/trie?branch=mku-triedb-transaction-support#a77571564fbc62708f908a8fef073a96d87ca8cb"
 dependencies = [
  "hash-db",
  "log",
