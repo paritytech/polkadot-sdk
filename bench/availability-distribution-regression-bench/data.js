@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793748337247,
+  "lastUpdate": 1793799791125,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "ismailov.m.h@gmail.com",
-            "name": "muharem",
-            "username": "muharem"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "bee56e790ca0709e5049e0781d9f4b535247a018",
-          "message": "Remove deprecated CurrencyAdapter from pallet-transaction-payment (#11822)\n\nRemoves the deprecated `CurrencyAdapter` from\n`pallet-transaction-payment`. This adapter was deprecated since March\n2024 in favor of `FungibleAdapter`. Runtimes still using\n`CurrencyAdapter` must migrate to `FungibleAdapter`.",
-          "timestamp": "2026-04-20T14:37:17Z",
-          "tree_id": "5f5ec88956bb87d8bfdb4f4ea51c94191b0fb325",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/bee56e790ca0709e5049e0781d9f4b535247a018"
-        },
-        "date": 1776719241210,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.006894404940000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.02386127500666666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009560383926666647,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14255623274000004,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.009760948866666633,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1de9ddfe5387691ee0867946876368088b57ac6a",
+          "message": "pallet-revive: measure the contract's own account in host function benchmarks (#13501)\n\n`CallSetup` whitelisted the executing contract's `System::Account` in\nevery host function benchmark. The whitelist was added in #4233, since\nthe weight of the `call` extrinsic already includes the account of the\nfirst frame's contract. When a nested contract is called without value,\nits account access has not been paid for, and a later transfer, contract\ncreation or self-destruct in that call does not pay for it either.\nRemoving the whitelist only affects the benchmarks that access that\naccount, and their weights now include it. Whitelisting `AccountInfoOf`\nremains safe, since the call that creates a frame already reads and\nwrites the contract's info.\n\nThe benchmarks that access the contract's account now assert that it is\nnot whitelisted: `seal_call_transfer`, `seal_instantiate`,\n`seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`, `seal_terminate` and `seal_terminate_logic`.\n\n`seal_balance` keeps the account whitelisted, so that a `transfer` or\n`send` receiver, whose stipend is too small for a storage read, can\nstill read its own balance. The read is undercharged if no frame in the\ntransaction pays for the account. This exception should be removed once\n#12673 lands, since the receiver's account will then always be hot.\n\nIn the following scenarios, the account access is charged more than\nonce:\n- A contract called directly by the transaction, whose extrinsic weight\nalready includes the account.\n- A contract called with value, or created by an instantiate.\n- Any repeated use within the same transaction.\n\nA self-destruct is charged both `seal_terminate` and\n`seal_terminate_logic`, so it now pays twice for reading the contract's\naccount. I propose deferring this to a follow-up, since it is an\novercharge on a rare opcode and the fix will probably need to rework the\nterminate pricing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T09:03:19Z",
+          "tree_id": "4e7c2a21e8957e83dcb95f623b5de2b9b53988c5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1de9ddfe5387691ee0867946876368088b57ac6a"
+        },
+        "date": 1793799749842,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007625594293333336,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14430049810000012,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009836514333333303,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.02496420827333333,
             "unit": "seconds"
           }
         ]
