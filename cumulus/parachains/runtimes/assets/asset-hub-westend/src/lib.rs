@@ -1193,6 +1193,8 @@ parameter_types! {
 			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
 			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
 			+ 30;
+	// Validators contribute no collators until governance raises the cap.
+	pub const DefaultMaxCollators: Option<u32> = Some(0);
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -1204,6 +1206,7 @@ impl pallet_validator_collators::Config for Runtime {
 	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = staking::CreditBlocksLocally;
+	type DefaultMaxCollators = DefaultMaxCollators;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
