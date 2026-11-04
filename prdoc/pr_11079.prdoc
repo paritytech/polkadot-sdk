@@ -3,14 +3,16 @@ doc:
 - audience: Runtime User
   description: |-
     When a contract calls another contract or a precompile, or creates a contract, the nested call
-    now gets at most 63/64 of the gas, weight and storage deposit the caller has left, plus the
-    call stipend if it gets one. Nested calls with higher limits, or none, get less than
-    before, for example a Solidity `call` without a gas argument. The rule does not apply to the
-    transaction's first call. It also applies to contracts that are already deployed: a nested
-    call that needs more than 63/64 of what its caller has left now fails.
+    now gets at most 63/64 of the caller's remaining resources, plus the call stipend if it gets
+    one. In Substrate mode this applies to each weight dimension and to the storage deposit. In
+    Ethereum mode it applies to the gas, and the weight and storage deposit the nested call can
+    use follow from that gas. Nested calls with higher limits, or none, get less than before, for
+    example a Solidity `call` without a gas argument. The rule does not apply to the transaction's
+    first call. It also applies to contracts that are already deployed: a nested call that needs
+    more than 63/64 of what its caller has left now fails.
 
     The 63/64 rule also applies to calls to the System precompile, so `ISystem.weightLeft()` now
-    returns at most 63/64 of the weight the calling contract has left.
+    returns the weight left without the part the calling contract keeps.
 
     Even when the callee uses up its whole gas limit, the caller now keeps 1/64 of its remaining
     gas, or less if the call gets a stipend. As on Ethereum, this lets Solidity contracts handle

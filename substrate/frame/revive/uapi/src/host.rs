@@ -88,10 +88,12 @@ pub trait HostFn: private::Sealed {
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `callee`: The address of the callee. Should be decodable as an `T::AccountId`. Traps
 	///   otherwise.
-	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
-	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
-	///   specific limit for the call.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `deposit`: The storage deposit limit for the call. The callee gets the smaller of this
+	///   limit and 63/64 of the storage deposit the caller has left.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
@@ -192,10 +194,12 @@ pub trait HostFn: private::Sealed {
 	/// - `flags`: See [`CallFlags`] for a documentation of the supported flags.
 	/// - `address`: The address of the code to be executed. Should be decodable as an
 	///   `T::AccountId`. Traps otherwise.
-	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
-	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit_limit`: The storage deposit limit for delegate call. Passing `None` means setting
-	///   no specific limit for the call.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `deposit_limit`: The storage deposit limit for the delegate call. The call gets the
+	///   smaller of this limit and 63/64 of the storage deposit the caller has left.
 	/// - `input`: The input data buffer used to call the contract.
 	/// - `output`: A reference to the output data buffer to write the call output buffer. If `None`
 	///   is provided then the output buffer is not copied.
@@ -317,10 +321,12 @@ pub trait HostFn: private::Sealed {
 	///
 	/// # Parameters
 	///
-	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution.
-	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution.
-	/// - `deposit`: The storage deposit limit for instantiation. Passing `None` means setting no
-	///   specific limit for the call.
+	/// - `ref_time_limit`: how much *ref_time* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `proof_size_limit`: how much *proof_size* Weight to devote to the execution, capped at the
+	///   callee's share under the EIP-150 63/64 rule.
+	/// - `deposit`: The storage deposit limit for instantiation. The instantiation gets the smaller
+	///   of this limit and 63/64 of the storage deposit the caller has left.
 	/// - `value`: The value to transfer into the contract.
 	/// - `input`: The code hash and constructor input data buffer. The first 32 bytes are the code
 	///   hash of the code to be instantiated. The remaining bytes are the constructor call data.

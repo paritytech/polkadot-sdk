@@ -2042,6 +2042,7 @@ mod receipt_size_limit {
 			PGAS_ASSET_ID, RuntimeCall, RuntimeEvent, RuntimeOrigin, System, Test, builder,
 			initialize_block, pallet_dummy,
 			precompiles::{INoInfo, NoInfo},
+			test_utils::eth_extrinsic_revert,
 		},
 		tracing::trace,
 	};
@@ -2065,7 +2066,7 @@ mod receipt_size_limit {
 	};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
-	use sp_runtime::{DispatchError, traits::Dispatchable};
+	use sp_runtime::traits::Dispatchable;
 	use test_case::test_case;
 
 	/// The data of a log without topics that takes up 65,536 bytes of the receipt: 32 of them
@@ -2127,16 +2128,6 @@ mod receipt_size_limit {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	/// Finalize the block holding a single ethereum transaction and return that transaction's

@@ -1080,10 +1080,10 @@ mod eip_150 {
 		storage::{TransactionOutcome, with_transaction},
 	};
 	use pallet_revive_fixtures::{
-		CatchInvalid, Forwarder, GasLeftReceiver, Multicall3, ReentryStorage,
+		CatchInvalid, Forwarder, GasLeftReceiver, Multicall3, ReentryStorage, WeightLeft,
 	};
 	use pretty_assertions::assert_eq;
-	use test_case::test_matrix;
+	use test_case::{test_case, test_matrix};
 
 	/// Returns the limits of an Ethereum call with `eth_gas_limit` and `weight_limit`.
 	fn ethereum_limits(eth_gas_limit: u64, weight_limit: Weight) -> TransactionLimits<Test> {
@@ -1463,6 +1463,31 @@ mod eip_150 {
 		});
 	}
 
+	/// A call to the System precompile gets 63/64 of each weight dimension its caller has left, as
+	/// other nested calls do.
+	#[test_case(FixtureType::Solc)]
+	#[test_case(FixtureType::Resolc)]
+	fn system_precompile_call_gets_63_64_of_the_weight_left(caller_type: FixtureType) {
+		let (code, _) = compile_module_with_type("WeightLeft", caller_type).unwrap();
+		let weight_left = |limit| {
+			ExtBuilder::default().build().execute_with(|| {
+				let [addr] = deploy([code.clone()]);
+				let output = builder::bare_call(addr)
+					.data(WeightLeft::weightLeftCall {}.abi_encode())
+					.transaction_limits(substrate_limits(Weight::from_all(limit)))
+					.build_and_unwrap_result();
+				let WeightLeft::weightLeftReturn { refTime: ref_time, proofSize: proof_size } =
+					WeightLeft::weightLeftCall::abi_decode_returns(&output.data).unwrap();
+				Weight::from_parts(ref_time, proof_size)
+			})
+		};
+
+		// The caller spends the same before the call under both limits, so the call gets exactly
+		// 63/64 of the extra weight.
+		let limit = 64_000_000_000;
+		assert_eq!(weight_left(2 * limit) - weight_left(limit), Weight::from_all(limit * 63 / 64));
+	}
+
 	/// A call that writes storage after an earlier call freed the same amount succeeds when its
 	/// caller runs with exactly the limits a dry run returned.
 	#[test_matrix(
@@ -1520,8 +1545,8 @@ mod eip_150 {
 					.data(ReentryStorage::writeS0Call {}.abi_encode())
 					.build_and_unwrap_result();
 
-				// Writing `s1` first leaves the storage contract with a charge of its own, so that
-				// without the fix the refund lowers the Substrate estimate too.
+				// Writing `s1` first gives the storage contract a charge for the refund to lower:
+				// under a deposit limit, as in Substrate mode, a net refund counts as zero.
 				call_with_estimated_limits(
 					storage_addr,
 					ReentryStorage::writeFreeAndRewriteViaCall { proxy: proxy_addr.0.into() }

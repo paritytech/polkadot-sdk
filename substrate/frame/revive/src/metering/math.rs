@@ -316,8 +316,8 @@ pub mod substrate_execution {
 					);
 					let deposit_limit = ratio.saturating_mul_int(deposit_left);
 
-					// Stipend: check against `weight_left_before_rule` (parent's budget) and add it
-					// to `weight_limit` (nested frame's allowance) on top of the 63/64 share.
+					// The stipend comes on top of the 63/64 share, so it is checked against all the
+					// weight the caller has left.
 					let stipend = if *add_stipend {
 						let weight_stipend =
 							validate_and_get_stipend::<T>(weight_left_before_rule)?;
