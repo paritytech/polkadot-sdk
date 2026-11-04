@@ -19,10 +19,10 @@
 
 use crate::LOG_TARGET;
 use prometheus_endpoint::{
-	exponential_buckets, prometheus::HistogramTimer, register, CounterVec, Gauge, Histogram,
-	HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
+	exponential_buckets, prometheus::HistogramTimer, register, CounterVec, Gauge, GaugeVec,
+	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
 };
-use sp_price_oracle::market::MarketId;
+use sp_price_oracle::{market::MarketId, PairId};
 use std::time::Duration;
 
 /// Metrics of the price oracle service. Recording is a no-op when metrics are disabled.
@@ -37,6 +37,7 @@ struct Inner {
 	markets_priced: Gauge<U64>,
 	market_failures: CounterVec<U64>,
 	market_fetch_duration: HistogramVec,
+	pair_votes: GaugeVec<U64>,
 }
 
 impl Metrics {
@@ -96,6 +97,13 @@ impl Metrics {
 				.observe(elapsed.as_secs_f64());
 		}
 	}
+
+	/// Set the votes `pair` got in a tick.
+	pub(crate) fn on_pair_votes(&self, pair: PairId, votes: u32) {
+		if let Some(metrics) = &self.0 {
+			metrics.pair_votes.with_label_values(&[&pair.0.to_string()]).set(votes.into());
+		}
+	}
 }
 
 impl Inner {
@@ -151,6 +159,16 @@ impl Inner {
 					)
 					.buckets(exponential_buckets(0.05, 2.0, 10)?),
 					&["market"],
+				)?,
+				registry,
+			)?,
+			pair_votes: register(
+				GaugeVec::new(
+					Opts::new(
+						"substrate_price_oracle_pair_votes",
+						"Number of votes a pair got in the last tick that aggregated, by pair",
+					),
+					&["pair"],
 				)?,
 				registry,
 			)?,

@@ -421,6 +421,7 @@ where
 	let quotes: Vec<Quote> = aggregates
 		.into_iter()
 		.filter_map(|PairAggregate { pair, votes, quorum, price }| {
+			metrics.on_pair_votes(pair, votes);
 			// A pair at its quorum is one failing market away from being unpriced.
 			if votes <= quorum {
 				log::warn!(
