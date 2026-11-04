@@ -23,9 +23,7 @@
 //! Each submission must put a deposit down. This is parameterize-able by the runtime, and might be
 //! a constant, linear or exponential value. See [`signed::Config::DepositPerPage`] and
 //! [`signed::Config::DepositBase`]. The base deposit is charged once, at
-//! [`signed::Call::register`], and is not re-computed afterwards. Each
-//! [`signed::Call::submit_page`] then holds or releases the change in the per-page part. Accounts
-//! in [`signed::Invulnerables`] hold [`signed::Config::InvulnerableDeposit`], with no per-page
+//! [`signed::Call::register`]. [`signed::Call::submit_page`] only holds or releases the per-page
 //! part.
 //!
 //! During the queuing time, if the queue is full, and a better solution comes in, the weakest
@@ -110,9 +108,6 @@ type BalanceOf<T> =
 #[scale_info(skip_type_params(T))]
 pub struct SubmissionMetadata<T: Config> {
 	/// The amount of deposit that has been held in reserve.
-	///
-	/// The base deposit is charged at registration. Each page submission or removal then adds or
-	/// removes the change in the per-page deposit. Invulnerables have no per-page part.
 	deposit: BalanceOf<T>,
 	/// The amount of transaction fee that this submission has cost for its submitter so far.
 	fee: BalanceOf<T>,
@@ -229,8 +224,6 @@ impl<T: Config> SolutionDataProvider for Pallet<T> {
 
 /// Something that can compute the base deposit that is collected upon `register`.
 ///
-/// The base deposit is computed once, at registration, and is not re-computed afterwards.
-///
 /// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
 /// as deposit.
 pub trait CalculateBaseDeposit<Balance> {
@@ -243,21 +236,18 @@ impl<Balance, G: Get<Balance>> CalculateBaseDeposit<Balance> for G {
 	}
 }
 
-/// Something that can calculate the deposit for a number of pages upon `submit`.
-///
-/// It only depends on the number of pages, so the per-page part of a submission's deposit is
-/// known in advance.
+/// Something that can calculate the deposit per-page upon `submit`.
 ///
 /// A blanket impl allows for any `Get` to be used as-is, which will always return the said balance
 /// as deposit **per page**.
 pub trait CalculatePageDeposit<Balance> {
-	fn calculate_page_deposit(pages: usize) -> Balance;
+	fn calculate_page_deposit(page_size: usize) -> Balance;
 }
 
 impl<Balance: From<u32> + Saturating, G: Get<Balance>> CalculatePageDeposit<Balance> for G {
-	fn calculate_page_deposit(pages: usize) -> Balance {
-		let pages: Balance = (pages as u32).into();
-		G::get().saturating_mul(pages)
+	fn calculate_page_deposit(page_size: usize) -> Balance {
+		let page_size: Balance = (page_size as u32).into();
+		G::get().saturating_mul(page_size)
 	}
 }
 
@@ -351,7 +341,7 @@ pub mod pallet {
 			+ MutateHold<Self::AccountId, Reason: From<HoldReason>>
 			+ BalancedHold<Self::AccountId>;
 
-		/// Base deposit amount for a submission, determined at [`Pallet::register`].
+		/// Base deposit amount for a submission.
 		type DepositBase: CalculateBaseDeposit<BalanceOf<Self>>;
 
 		/// Extra deposit per-page.
@@ -688,7 +678,7 @@ pub mod pallet {
 			})
 		}
 
-		/// Get the deposit of a new registration with the given number of pages.
+		/// Get the deposit of a registration with the given number of pages.
 		fn deposit_for(who: &T::AccountId, pages: usize) -> BalanceOf<T> {
 			if Pallet::<T>::is_invulnerable(who) {
 				T::InvulnerableDeposit::get()
@@ -696,7 +686,8 @@ pub mod pallet {
 				let round = Pallet::<T>::current_round();
 				let queue_size = Self::submitters_count(round);
 				let base = T::DepositBase::calculate_base_deposit(queue_size);
-				base.saturating_add(T::DepositPerPage::calculate_page_deposit(pages))
+				let pages = T::DepositPerPage::calculate_page_deposit(pages);
+				base.saturating_add(pages)
 			}
 		}
 
@@ -1136,8 +1127,7 @@ pub mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// Get the deposit amount that will be held for a solution of `pages`, if `who` registers
-		/// now.
+		/// Get the deposit amount that will be held for a solution of `pages`.
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
 		/// [`Config::DepositBase`] are doing under the hood. It also takes into account if `who` is

@@ -8,6 +8,9 @@ doc:
     whole deposit from the current queue length, so the held amount depended on registrations made
     by other accounts after the submitter registered.
 
+    `CalculatePageDeposit::calculate_page_deposit` no longer takes the number of existing
+    submitters. Custom implementations must drop that argument.
+
     No storage migration is needed. Submissions in flight at upgrade keep their held deposit, and
     later page changes only move the per-page part.
 crates:
