@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793812509223,
+  "lastUpdate": 1793819688193,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141695,6 +141695,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 3000359994,
             "range": "± 50868115",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c6cf388bd8d27f80899c92e8c42fa72e0f785f",
+          "message": "Small tweaks to westend runtimes  (#13711)\n\nAs a follow-up to:\nhttps://github.com/paritytech/polkadot-sdk/pull/13464.\n\n- [x] make `IsValidatorInactive` configurable for future testing,\ndisabled by default\n- [x] make `StakingOperator` in AH capable of setting local session keys\n+ add it to PC",
+          "timestamp": "2026-11-04T17:53:22Z",
+          "tree_id": "29e0364ea1694a59fdcad1eb482e80611c3cf699",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c6cf388bd8d27f80899c92e8c42fa72e0f785f"
+        },
+        "date": 1793819656084,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 19494999,
+            "range": "± 166159",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 19835392,
+            "range": "± 144787",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 21078061,
+            "range": "± 119019",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 25165522,
+            "range": "± 101796",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 56263464,
+            "range": "± 641615",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 321968841,
+            "range": "± 2905061",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2451211309,
+            "range": "± 76514174",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 16719823,
+            "range": "± 160709",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 16796888,
+            "range": "± 78831",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 17502744,
+            "range": "± 94680",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 21942169,
+            "range": "± 130375",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 58454512,
+            "range": "± 619118",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 341532218,
+            "range": "± 3450154",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2630035579,
+            "range": "± 22262485",
             "unit": "ns/iter"
           }
         ]
