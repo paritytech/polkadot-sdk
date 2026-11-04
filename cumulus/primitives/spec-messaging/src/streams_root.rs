@@ -23,7 +23,7 @@
 //!
 //! # Why a keyed trie
 //!
-//! The trie is keyed by the `StreamId`'s 8-byte encoding, so a proof is a walk driven by the key:
+//! The trie is keyed by [`StreamId::to_bytes`], so a proof is a walk driven by the key:
 //! verification recomputes the leaf from the caller's `StreamId` and takes each branch direction
 //! from that key's bits. A proof built for stream A cannot verify as stream B. Requires-lift
 //! synthesis depends on this, since lifts are matched to the consumption record's streams by
@@ -125,9 +125,8 @@ fn node_hash(entries: &[([u8; STREAM_ID_LEN], Hash)]) -> Hash {
 
 /// Encoded keys in trie order.
 ///
-/// `BTreeMap` iterates in `StreamId`'s `Ord`, which equals the byte order. The trie splits on
-/// bytes, so sort by them here rather than rely on that. Unsorted input would leave one side of
-/// `split` empty and make `prove` recurse on its own slice.
+/// The trie splits on bytes, so sort by them rather than rely on `Ord`. Unsorted input would leave
+/// one side of `split` empty and make `prove` recurse on its own slice.
 fn keyed(entries: &BTreeMap<StreamId, Hash>) -> Vec<([u8; STREAM_ID_LEN], Hash)> {
 	let mut keyed: Vec<_> =
 		entries.iter().map(|(stream, root)| (stream.to_bytes(), *root)).collect();

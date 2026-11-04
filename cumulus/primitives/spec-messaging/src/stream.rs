@@ -20,30 +20,24 @@
 //! id; only the `StreamsRoot` reaches it. Ids live in tree paths, proofs and networking. The full
 //! stream key is `(sender ParaId, StreamId)`, with the sender implicit in its own candidate.
 //!
-//! # Canonical encoding (consensus-critical, frozen)
+//! # Tree key (consensus-critical, frozen)
 //!
-//! Manual SCALE, exactly 8 bytes, big-endian, so byte order equals field-tuple order: kinds
-//! cluster and sequential ids are neighbours. The encoding is the commitment-tree key, and there
-//! is no second format. That is why the impl is manual: default SCALE integers are little-endian.
-//!
-//! `Decode` enforces canonicality and rejects the reserved kinds. `Ord` equals the encoding order
-//! (tested).
+//! [`StreamId::to_bytes`] is the commitment-tree key. It is big-endian, so `Ord` equals the key's
+//! byte order: kinds cluster and sequential ids are neighbours.
 
-use codec::{
-	Decode, DecodeWithMemTracking, Encode, EncodeLike, Error as CodecError, Input, MaxEncodedLen,
-	Output,
-};
+use codec::{Decode, DecodeWithMemTracking, Encode, Error as CodecError, Input, MaxEncodedLen};
 use polkadot_parachain_primitives::primitives::Id as ParaId;
-use scale_info::{build::Fields, Path, Type, TypeInfo};
+use scale_info::TypeInfo;
 
 pub const STREAM_ID_LEN: usize = 8;
 
-/// A private-use kind byte, at least [`Self::MIN`].
+/// A private-use kind byte.
 ///
-/// Byte 0 of the encoding is the discriminant for standard kinds and the payload for `Private`, so
-/// a lower kind would encode like a standard kind and break the `Ord` = byte-order equivalence. The
-/// constructor enforces the range, so construction and `Decode` follow one rule.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+/// Byte 0 of the tree key is the discriminant for standard kinds and the payload for `Private`, so
+/// a kind below [`Self::MIN`] would collide with a standard kind. [`Self::new`] is the only check.
+#[derive(
+	Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Encode, MaxEncodedLen, TypeInfo,
+)]
 pub struct PrivateKind(u8);
 
 impl PrivateKind {
@@ -63,20 +57,48 @@ impl PrivateKind {
 	}
 }
 
-/// A parachain-structured stream key. See the module docs for the encoding.
+impl Decode for PrivateKind {
+	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
+		Self::new(u8::decode(input)?).ok_or_else(|| "PrivateKind: below MIN".into())
+	}
+}
+
+impl DecodeWithMemTracking for PrivateKind {}
+
+/// A parachain-structured stream key.
 ///
 /// `recipient` is the party that reads the stream: a channel's messages are for the recipient, an
 /// ack register is for the chain it grants credit to, broadcasts have no addressee.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+///
+/// SCALE variant indices follow the tree key's kind bytes.
+#[derive(
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Hash,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
 pub enum StreamId {
 	/// Ordered, flow-controlled, guaranteed, unidirectional channel to `recipient`.
+	#[codec(index = 0)]
 	Channel { recipient: ParaId, domain: u8, num: u16 },
 	/// The receiver's lossy confirmation register for a channel, addressed to `recipient` (the
 	/// sender).
+	#[codec(index = 1)]
 	Ack { recipient: ParaId, domain: u8, num: u16 },
 	/// Sender-wide event stream (pub-sub), no addressee.
+	#[codec(index = 2)]
 	Broadcast { domain: u16, subdomain: u8, num: u32 },
 	/// Private-use kind; 7 chain-defined body bytes.
+	#[codec(index = 0x80)]
 	Private { kind: PrivateKind, body: [u8; 7] },
 }
 
@@ -90,7 +112,7 @@ impl StreamId {
 		}
 	}
 
-	/// The canonical encoding, which is also the commitment-tree key.
+	/// The commitment-tree key.
 	pub fn to_bytes(&self) -> [u8; STREAM_ID_LEN] {
 		let mut out = [0u8; STREAM_ID_LEN];
 		match self {
@@ -141,49 +163,11 @@ impl StreamId {
 				num: u32::from_be_bytes([rest[3], rest[4], rest[5], rest[6]]),
 			}),
 			0x80..=0xFF => {
-				// The arm guarantees the range. Go through `new` so the invariant has one
-				// enforcement point.
 				let kind = PrivateKind::new(kind).ok_or("StreamId: private kind out of range")?;
 				Ok(StreamId::Private { kind, body: rest })
 			},
 			_ => Err(CodecError::from("StreamId: reserved/unknown kind")),
 		}
-	}
-}
-
-impl Encode for StreamId {
-	fn size_hint(&self) -> usize {
-		STREAM_ID_LEN
-	}
-
-	fn encode_to<T: Output + ?Sized>(&self, dest: &mut T) {
-		dest.write(&self.to_bytes());
-	}
-}
-
-impl EncodeLike for StreamId {}
-impl DecodeWithMemTracking for StreamId {}
-
-impl MaxEncodedLen for StreamId {
-	fn max_encoded_len() -> usize {
-		STREAM_ID_LEN
-	}
-}
-
-impl Decode for StreamId {
-	fn decode<I: Input>(input: &mut I) -> Result<Self, CodecError> {
-		Self::from_bytes(<[u8; STREAM_ID_LEN]>::decode(input)?)
-	}
-}
-
-/// Metadata sees the canonical encoding as opaque bytes, since a derived enum would not match it.
-impl TypeInfo for StreamId {
-	type Identity = Self;
-
-	fn type_info() -> Type {
-		Type::builder()
-			.path(Path::new("StreamId", module_path!()))
-			.composite(Fields::unnamed().field(|f| f.ty::<[u8; STREAM_ID_LEN]>()))
 	}
 }
 
@@ -207,8 +191,6 @@ mod tests {
 
 	#[test]
 	fn private_kind_rejects_standard_and_reserved_bytes() {
-		// Anything below MIN would collide with a standard kind's first byte, or land in the
-		// reserved block `Decode` rejects.
 		for byte in 0x00..PrivateKind::MIN {
 			assert!(PrivateKind::new(byte).is_none(), "0x{byte:02X} must not be a private kind");
 		}
@@ -218,35 +200,27 @@ mod tests {
 	}
 
 	#[test]
-	fn encoding_layout_is_exact() {
-		// Frozen vectors. Any change is a consensus break.
+	fn tree_key_layout_is_exact() {
 		assert_eq!(
-			StreamId::Channel { recipient: ParaId::from(2000), domain: 0, num: 0 }.encode(),
-			vec![0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00],
+			StreamId::Channel { recipient: ParaId::from(2000), domain: 0, num: 0 }.to_bytes(),
+			[0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00],
 		);
 		assert_eq!(
-			StreamId::Ack { recipient: ParaId::from(1000), domain: 0, num: 5 }.encode(),
-			vec![0x01, 0x00, 0x00, 0x03, 0xE8, 0x00, 0x00, 0x05],
+			StreamId::Ack { recipient: ParaId::from(1000), domain: 0, num: 5 }.to_bytes(),
+			[0x01, 0x00, 0x00, 0x03, 0xE8, 0x00, 0x00, 0x05],
 		);
 		assert_eq!(
-			StreamId::Broadcast { domain: 0, subdomain: 0, num: 1 }.encode(),
-			vec![0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01],
+			StreamId::Broadcast { domain: 0, subdomain: 0, num: 1 }.to_bytes(),
+			[0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01],
 		);
 		assert_eq!(
 			StreamId::Private {
 				kind: PrivateKind::new(0x80).unwrap(),
 				body: [1, 2, 3, 4, 5, 6, 7]
 			}
-			.encode(),
-			vec![0x80, 1, 2, 3, 4, 5, 6, 7],
+			.to_bytes(),
+			[0x80, 1, 2, 3, 4, 5, 6, 7],
 		);
-		for id in sample_ids() {
-			assert_eq!(
-				id.encode().len(),
-				STREAM_ID_LEN,
-				"{id:?} must encode to {STREAM_ID_LEN} bytes"
-			);
-		}
 	}
 
 	#[test]
@@ -254,25 +228,33 @@ mod tests {
 		for id in sample_ids() {
 			assert_eq!(StreamId::from_bytes(id.to_bytes()).unwrap(), id);
 		}
-		assert!(StreamId::from_bytes([0x03, 0, 0, 0, 0, 0, 0, 0]).is_err());
+	}
+
+	#[test]
+	fn from_bytes_rejects_reserved_kinds() {
+		for kind in 0x03u8..=0x7F {
+			assert!(
+				StreamId::from_bytes([kind, 0, 0, 0, 0, 0, 0, 0]).is_err(),
+				"reserved kind {kind:#x} must reject"
+			);
+		}
 	}
 
 	#[test]
 	fn decode_round_trips() {
 		for id in sample_ids() {
-			assert_eq!(StreamId::decode(&mut &id.encode()[..]).unwrap(), id);
+			let encoded = id.encode();
+			assert!(encoded.len() <= StreamId::max_encoded_len());
+			assert_eq!(StreamId::decode(&mut &encoded[..]).unwrap(), id);
 		}
 	}
 
 	#[test]
-	fn decode_rejects_reserved_kinds() {
-		for kind in 0x03u8..=0x7F {
-			let bytes = [kind, 0, 0, 0, 0, 0, 0, 0];
-			assert!(
-				StreamId::decode(&mut &bytes[..]).is_err(),
-				"reserved kind {kind:#x} must reject"
-			);
-		}
+	fn decode_rejects_private_kind_below_min() {
+		let mut encoded =
+			StreamId::Private { kind: PrivateKind::new(0x80).unwrap(), body: [0; 7] }.encode();
+		encoded[1] = PrivateKind::MIN - 1;
+		assert!(StreamId::decode(&mut &encoded[..]).is_err());
 	}
 
 	#[test]
@@ -284,12 +266,12 @@ mod tests {
 	}
 
 	#[test]
-	fn ord_equals_canonical_encoding_order() {
+	fn ord_equals_tree_key_order() {
 		let mut by_ord = sample_ids();
 		by_ord.sort();
-		let mut by_bytes = sample_ids();
-		by_bytes.sort_by_key(|id| id.encode());
-		assert_eq!(by_ord, by_bytes, "Ord must match canonical-encoding lexicographic order");
+		let mut by_key = sample_ids();
+		by_key.sort_by_key(StreamId::to_bytes);
+		assert_eq!(by_ord, by_key, "Ord must match the tree key's lexicographic order");
 	}
 
 	#[test]
