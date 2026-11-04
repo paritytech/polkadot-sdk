@@ -28,7 +28,7 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	LeafSchedulingInfo, LOG_TARGET,
+	LeafClaimQueues, LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -44,8 +44,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::View as ImplicitView, metrics::prometheus::prometheus::HistogramTimer,
-	request_claim_queue, request_session_index_for_child, request_validator_groups,
-	request_validators, runtime::recv_runtime,
+	request_session_index_for_child, request_validator_groups, request_validators,
+	runtime::recv_runtime,
 };
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
@@ -57,7 +57,12 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
+<<<<<<< HEAD
 	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
+=======
+	collections::{BTreeSet, HashMap},
+	sync::Arc,
+>>>>>>> ffaca8cc (Fix inconsistency on session boundaries (#12255))
 	time::{Duration, Instant},
 };
 
@@ -85,12 +90,8 @@ pub struct CollationManager {
 	// ancestors.
 	implicit_view: ImplicitView,
 
-	// The full claim queue per core for each active leaf, fetched once per leaf via
-	// `request_claim_queue`. This is the authoritative CQ — it's what the runtime will see
-	// when candidates get backed on-chain — so all capacity reasoning routes through it.
-	// Per-scheduling-parent capacity is derived via offset arithmetic from the leaf's CQ
-	// (`unfulfilled_claim_queue_entries`, `slots_available`).
-	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	// The per-core claim queues (plus scheduling lookahead) for each active leaf.
+	leaf_claim_queues: HashMap<Hash, LeafClaimQueues>,
 
 	// Collations which we haven't been able to second due to their parent not being known by
 	// prospective-parachains. Mapped from the para_id and parent_head_hash to the fetched
@@ -250,12 +251,22 @@ impl CollationManager {
 					.insert(*ancestor, PerSchedulingParent::new(session_index, core));
 			}
 
-			// Fetch and store the leaf's full per-core claim queue. Capacity at every
-			// scheduling parent on a path to this leaf is computed from this CQ via offset
-			// arithmetic — the leaf is authoritative because it's closest to what the runtime
-			// will see when candidates get backed.
-			let claim_queues = recv_runtime(request_claim_queue(*leaf, sender).await).await?;
-			self.leaf_claim_queues.insert(*leaf, claim_queues);
+			// Fetch and store the leaf's per-core claim queues and scheduling lookahead. Capacity
+			// at every scheduling parent on a path to this leaf is computed from these via offset
+			// arithmetic — the leaf is authoritative because it's closest to what the runtime will
+			// see when candidates get backed.
+			match LeafClaimQueues::fetch(*leaf, session_index, sender)
+				.await
+				.map_err(Error::Runtime)
+			{
+				Ok(leaf_claim_queues) => {
+					self.leaf_claim_queues.insert(*leaf, leaf_claim_queues);
+				},
+				Err(err) => {
+					err.split()?.log();
+					continue;
+				},
+			}
 		}
 
 		Ok(())
@@ -348,11 +359,6 @@ impl CollationManager {
 		Ok(())
 	}
 
-	/// Claim queue for `core` at `leaf`.
-	fn cq(&self, leaf: &Hash, core: CoreIndex) -> Option<&VecDeque<ParaId>> {
-		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
-	}
-
 	/// CQ positions at `core` schedulable by an advertisement made at `scheduling_parent`.
 	///
 	/// We use the *leaf's* CQ rather than the SP's: the SP's original CQ predicted slots
@@ -377,22 +383,12 @@ impl CollationManager {
 			.into_iter()
 			.filter_map(|path| {
 				let leaf = path.last()?;
-				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
-				// SP at depth `d` from the leaf can host advertisements landing at leaf-CQ
-				// positions `i` where `i + d < lookahead`. The bound is the lookahead, NOT
-				// `cq.len()`, which may be shorter.
-				let lookahead = self
-					.implicit_view
-					.known_allowed_relay_parents_under(leaf)
-					.map(|p| p.len())
-					.unwrap_or(0);
 				let depth = path
 					.iter()
 					.rev()
 					.position(|h| h == scheduling_parent)
 					.expect("paths_via_relay_parent only returns paths containing the SP; qed");
-				let valid_len = lookahead.saturating_sub(depth).min(cq.len());
-				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
+				Some(self.leaf_claim_queues.get(leaf)?.window(core, depth))
 			})
 			.max_by_key(Vec::len)
 			.unwrap_or_default()
@@ -485,20 +481,11 @@ impl CollationManager {
 		let mut out: Vec<LeafCoreCq> = Vec::new();
 		for leaf in leaves {
 			for &core in &cores {
-				let Some(cq) = self.cq(&leaf, core) else { continue };
+				let Some(leaf_cqs) = self.leaf_claim_queues.get(&leaf) else { continue };
 				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
 					continue;
 				};
-				// Pad the CQ up to the lookahead so `cq.len() == sps_by_depth.len()`. The
-				// runtime may return a CQ shorter than the lookahead.
-				let lookahead = path.len();
-				let mut cq: Vec<Option<ParaId>> = cq
-					.iter()
-					.copied()
-					.map(Some)
-					.chain(std::iter::repeat(None))
-					.take(lookahead)
-					.collect();
+				let Some(mut cq) = leaf_cqs.slots(core) else { continue };
 				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
 				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
 				let sps_by_depth: Vec<Option<Hash>> = path
@@ -506,8 +493,8 @@ impl CollationManager {
 					.map(|sp_hash| {
 						self.per_scheduling_parent
 							.get(sp_hash)
-							.filter(|per_sp| per_sp.core_index == core)
-							.map(|_| *sp_hash)
+							.is_some_and(|per_sp| per_sp.core_index == core)
+							.then_some(*sp_hash)
 					})
 					.collect();
 
@@ -1137,10 +1124,9 @@ struct FetchedCollationInfo {
 /// candidates for our slots, and cross-core reservations are no-ops because the SP isn't
 /// found in `sps_by_depth`.
 ///
-/// Invariant: `cq.len() == sps_by_depth.len() == scheduling_lookahead`. The runtime may
-/// return a CQ shorter than the lookahead (on-demand cores); `build_leaf_core_cqs` pads it
-/// with `None` so the SP-window arithmetic (`cq.len() - depth`) matches the lookahead, not
-/// the runtime CQ length.
+/// `cq` is padded to the scheduling lookahead (`build_leaf_core_cqs`), so the SP-window
+/// arithmetic (`cq.len() - depth`) is bounded by the lookahead, not the runtime CQ length
+/// (which may be shorter for e.g. on-demand cores).
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
