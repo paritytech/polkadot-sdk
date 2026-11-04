@@ -91,6 +91,11 @@ fn release_message(channel: (u32, u32)) -> MessageToPara {
 	})
 }
 
+/// The releases waiting in the outbox, as sent.
+fn outbox() -> Vec<MessageToPara> {
+	Outbox::<Test>::get().into_iter().map(Into::into).collect()
+}
+
 /// Takes the messages sent so far.
 fn sent() -> Vec<MessageToPara> {
 	SENT.take()
@@ -291,7 +296,7 @@ fn release_ignores_pending_side() {
 fn release_queued_on_send_failure() {
 	new_test_ext(|| {
 		queue_release((1, 2));
-		assert_eq!(Outbox::<Test>::get().into_inner(), vec![release_message((1, 2))]);
+		assert_eq!(outbox(), vec![release_message((1, 2))]);
 		assert!(sent().is_empty());
 		assert!(events().is_empty());
 	});
@@ -304,10 +309,7 @@ fn release_queued_behind_outbox() {
 		queue_release((1, 2));
 		assert_ok!(try_set(release_request((3, 4))));
 		assert!(sent().is_empty());
-		assert_eq!(
-			Outbox::<Test>::get().into_inner(),
-			vec![release_message((1, 2)), release_message((3, 4))]
-		);
+		assert_eq!(outbox(), vec![release_message((1, 2)), release_message((3, 4))]);
 	});
 }
 
@@ -358,10 +360,7 @@ fn poll_stops_at_first_failure() {
 		ACCEPT.set(Some(1));
 		poll();
 		assert_eq!(sent(), vec![release_message((0, 10))]);
-		assert_eq!(
-			Outbox::<Test>::get().into_inner(),
-			vec![release_message((1, 10)), release_message((2, 10))]
-		);
+		assert_eq!(outbox(), vec![release_message((1, 10)), release_message((2, 10))]);
 
 		// It goes on in a later block.
 		ACCEPT.set(None);

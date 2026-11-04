@@ -71,6 +71,24 @@ pub trait SendToPara {
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
 
+/// A [`MessageToParaV1::Release`] waiting in [`Outbox`] for the transport.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct ReleaseMessageToPara {
+	/// The channel whose deposits are given back.
+	pub channel: ChannelId,
+	/// Whether the sender's deposit is given back.
+	pub sender: bool,
+	/// Whether the recipient's deposit is given back.
+	pub recipient: bool,
+}
+
+impl From<ReleaseMessageToPara> for MessageToPara {
+	fn from(release: ReleaseMessageToPara) -> Self {
+		let ReleaseMessageToPara { channel, sender, recipient } = release;
+		MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient })
+	}
+}
+
 #[cfg(feature = "std")]
 impl SendToPara for () {
 	fn send(_message: MessageToPara) -> Result<(), ()> {
@@ -143,7 +161,7 @@ pub mod pallet {
 	/// Releases the transport did not take yet, oldest first.
 	#[pallet::storage]
 	pub type Outbox<T: Config> =
-		StorageValue<_, BoundedVec<MessageToPara, T::MaxOutbox>, ValueQuery>;
+		StorageValue<_, BoundedVec<ReleaseMessageToPara, T::MaxOutbox>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -281,20 +299,17 @@ impl<T: Config> Pallet<T> {
 		}
 		let mut outbox = Outbox::<T>::get();
 		let mut sent = 0usize;
-		for (n, message) in (1..).zip(outbox.iter()) {
+		for (n, release) in (1..).zip(outbox.iter()) {
 			// What the `n`th message adds to the flush.
 			let weight =
 				T::WeightInfo::flush_outbox(n).saturating_sub(T::WeightInfo::flush_outbox(n - 1));
 			if meter.try_consume(weight).is_err() {
 				break;
 			}
-			if T::SendToPara::send(message.clone()).is_err() {
+			if T::SendToPara::send(release.clone().into()).is_err() {
 				break;
 			}
-			// Only releases wait in the outbox.
-			if let MessageToPara::V1(MessageToParaV1::Release { channel, .. }) = message {
-				Self::deposit_event(Event::ReleaseSent { channel: *channel });
-			}
+			Self::deposit_event(Event::ReleaseSent { channel: release.channel });
 			sent += 1;
 		}
 		if sent > 0 {
@@ -310,12 +325,12 @@ impl<T: Config> Pallet<T> {
 
 	/// Sends a release, or keeps it in [`Outbox`] after anything already waiting there.
 	fn release(channel: ChannelId, sender: bool, recipient: bool) {
-		let message = MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient });
-		if Self::outbox_is_empty() && T::SendToPara::send(message.clone()).is_ok() {
+		let release = ReleaseMessageToPara { channel, sender, recipient };
+		if Self::outbox_is_empty() && T::SendToPara::send(release.clone().into()).is_ok() {
 			Self::deposit_event(Event::ReleaseSent { channel });
 			return;
 		}
-		if Outbox::<T>::try_append(message).is_err() {
+		if Outbox::<T>::try_append(release).is_err() {
 			log::error!(target: LOG_TARGET, "outbox full, dropped the release of {channel:?}");
 			Self::deposit_event(Event::ReleaseDropped { channel });
 		}

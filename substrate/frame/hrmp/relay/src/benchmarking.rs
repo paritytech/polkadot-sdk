@@ -83,11 +83,7 @@ mod benchmarks {
 		let outbox: Vec<_> = (0..n)
 			.map(|i| {
 				let channel = ChannelId { sender: i, recipient: i + 1 };
-				MessageToPara::V1(MessageToParaV1::Release {
-					channel,
-					sender: true,
-					recipient: true,
-				})
+				ReleaseMessageToPara { channel, sender: true, recipient: true }
 			})
 			.collect();
 		Outbox::<T>::put(BoundedVec::try_from(outbox).expect("at most `MaxOutbox`; qed"));
