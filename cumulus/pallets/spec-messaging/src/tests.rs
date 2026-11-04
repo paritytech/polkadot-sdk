@@ -2031,6 +2031,8 @@ mod xcm_layer {
 	fn a_send_past_the_block_limit_is_a_hard_error() {
 		new_test_ext().execute_with(|| {
 			open_xcm_channel();
+			// A transaction's send.
+			System::note_finished_initialize();
 			let weights: frame_system::limits::BlockWeights =
 				<Test as frame_system::Config>::BlockWeights::get();
 			let limit = weights.get(DispatchClass::Normal).max_total.unwrap();
@@ -2049,8 +2051,9 @@ mod xcm_layer {
 	fn a_send_past_the_block_weight_is_a_hard_error() {
 		new_test_ext().execute_with(|| {
 			open_xcm_channel();
-			// A block that hooks filled, as `MessageQueue` servicing XCM in `on_idle`: the normal
-			// class is empty, but the block has room for one send only.
+			// A transaction's send in a block that hooks filled: the normal class is empty, but the
+			// block has room for one send only.
+			System::note_finished_initialize();
 			let weights: frame_system::limits::BlockWeights =
 				<Test as frame_system::Config>::BlockWeights::get();
 			let len = VersionedXcm::from(xcm()).encode().len() as u32;
@@ -2062,6 +2065,78 @@ mod xcm_layer {
 				Err(SendError::Transport("block has no room for the spec-msg send"))
 			);
 			assert!(System::block_weight().total().all_lte(weights.max_block));
+		});
+	}
+
+	/// The block's weight per class.
+	fn used() -> frame_support::dispatch::PerDispatchClass<Weight> {
+		frame_system::BlockWeight::<Test>::get()
+	}
+
+	#[test]
+	fn a_hook_send_is_charged_to_the_mandatory_class_without_normal_room() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			// Transactions filled the normal class; `MessageQueue::on_idle` then services an XCM
+			// that sends over spec-msg.
+			let weights: frame_system::limits::BlockWeights =
+				<Test as frame_system::Config>::BlockWeights::get();
+			let normal = weights.get(DispatchClass::Normal).max_total.unwrap();
+			frame_system::BlockWeight::<Test>::mutate(|w| w.set(normal, DispatchClass::Normal));
+			System::note_finished_extrinsics();
+
+			let before = used();
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			let len = VersionedXcm::from(xcm()).encode().len() as u32;
+			assert_eq!(*used().get(DispatchClass::Normal), *before.get(DispatchClass::Normal));
+			assert_eq!(
+				*used().get(DispatchClass::Mandatory) - *before.get(DispatchClass::Mandatory),
+				SpecMessaging::send_weight(len)
+			);
+		});
+	}
+
+	#[test]
+	fn a_hook_send_past_the_block_weight_is_still_sent() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			// `MessageQueue::on_initialize` has already been charged the whole block: the XCM it
+			// executes was metered there, and a refused send would trap its assets.
+			let weights: frame_system::limits::BlockWeights =
+				<Test as frame_system::Config>::BlockWeights::get();
+			frame_system::BlockWeight::<Test>::mutate(|w| {
+				w.set(weights.max_block, DispatchClass::Mandatory)
+			});
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			assert_eq!(Router::get_messages()[0].1.len(), 2);
+			// The block's caps still bound it.
+			for _ in 2..MaxInFlight::get() {
+				assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			}
+			assert_eq!(
+				send_xcm::<Router>(sibling(), xcm()),
+				Err(SendError::Transport("spec-msg XCM channel has no capacity"))
+			);
+		});
+	}
+
+	#[test]
+	fn a_dry_run_after_a_full_block_can_send() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			let weights: frame_system::limits::BlockWeights =
+				<Test as frame_system::Config>::BlockWeights::get();
+			frame_system::BlockWeight::<Test>::mutate(|w| {
+				w.set(weights.max_block, DispatchClass::Normal)
+			});
+			SpecMessaging::on_finalize(System::block_number());
+			let _ = System::finalize();
+
+			// A dry run models a fresh block: the last block's weight is not its own.
+			Router::clear_messages();
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			assert_eq!(Router::get_messages().len(), 1);
 		});
 	}
 }

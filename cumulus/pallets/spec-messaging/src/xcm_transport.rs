@@ -36,6 +36,7 @@ use frame_support::{
 	traits::{EnqueueMessage, Get},
 	BoundedSlice,
 };
+use frame_system::Phase;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_runtime_common::xcm_sender::PriceForMessageDelivery;
 use sp_runtime::traits::Convert;
@@ -126,8 +127,12 @@ impl<T: Config> frame_support::traits::QueuePausedQuery<InChannelId> for crate::
 /// - Otherwise the XCM goes over the spec-msg XCM channel if it is open, else falls through.
 /// - An open channel without capacity is a hard [`SendError::Transport`]: falling through would
 ///   lose the XCM in `XcmpQueue`.
-/// - Each delivery charges [`Pallet::send_weight`] to the block. A send it would push past the
-///   normal class's limit or the block's is a hard [`SendError::Transport`] too.
+/// - Each delivery charges [`Pallet::send_weight`] to the block. A transaction's send goes to the
+///   normal class, and one it would push past that class's limit or the block's is a hard
+///   [`SendError::Transport`] too: the transaction fails and reverts. A hook's send, such as XCM
+///   the message queue executes in `on_initialize` or `on_idle`, goes to the mandatory class with
+///   no room check, as `XcmpQueue` charges nothing at send: the queue already metered the XCM, and
+///   a refused send would trap its assets. The block's send caps still bound it.
 ///
 /// `ChannelInfo` is usually `ParachainSystem`, `VersionWrapper` usually `PolkadotXcm` (same
 /// destination `Location` as HRMP, so negotiated versions carry over).
@@ -180,17 +185,19 @@ where
 				SendError::Transport("spec-msg XCM channel has no capacity")
 			}
 		})?;
-		// `deliver` charges the send unchecked, so the room is checked here, as `CheckWeight`
-		// checks a normal call: within the class and within the block. A hook, such as the
-		// message queue's `on_idle`, can fill the block outside the normal class.
-		let weights = T::BlockWeights::get();
-		let limit = weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
-		let send = Pallet::<T>::send_weight(encoded.len() as u32);
-		let used = frame_system::BlockWeight::<T>::get();
-		if !used.get(DispatchClass::Normal).saturating_add(send).all_lte(limit) ||
-			!used.total().saturating_add(send).all_lte(weights.max_block)
-		{
-			return Err(SendError::Transport("block has no room for the spec-msg send"));
+		// `deliver` charges the send unchecked, so a transaction's room is checked here, as
+		// `CheckWeight` checks a normal call: within the class and within the block. A hook, such
+		// as the message queue's `on_idle`, can fill the block outside the normal class.
+		if send_class::<T>() == DispatchClass::Normal {
+			let weights = T::BlockWeights::get();
+			let limit = weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
+			let send = Pallet::<T>::send_weight(encoded.len() as u32);
+			let used = frame_system::BlockWeight::<T>::get();
+			if !used.get(DispatchClass::Normal).saturating_add(send).all_lte(limit) ||
+				!used.total().saturating_add(send).all_lte(weights.max_block)
+			{
+				return Err(SendError::Transport("block has no room for the spec-msg send"));
+			}
 		}
 		Ok(((channel, encoded), price))
 	}
@@ -201,8 +208,17 @@ where
 		Pallet::<T>::send(channel, encoded)
 			.map_err(|_| SendError::Transport("spec-msg XCM send failed"))?;
 		// Not a call, so nothing else charges the send and the commit it causes.
-		frame_system::Pallet::<T>::register_extra_weight_unchecked(weight, DispatchClass::Normal);
+		frame_system::Pallet::<T>::register_extra_weight_unchecked(weight, send_class::<T>());
 		Ok(hash)
+	}
+}
+
+/// The class a router send is charged to: a transaction's to the normal class, any other's, run by
+/// a hook, to the mandatory class the hook runs in.
+fn send_class<T: Config>() -> DispatchClass {
+	match frame_system::Pallet::<T>::execution_phase() {
+		Some(Phase::ApplyExtrinsic(_)) => DispatchClass::Normal,
+		_ => DispatchClass::Mandatory,
 	}
 }
 
@@ -223,6 +239,8 @@ impl<T: Config, ChannelInfo, VersionWrapper, Price> InspectMessageQueues
 		if frame_system::Pallet::<T>::execution_phase().is_none() {
 			frame_system::Pallet::<T>::note_finished_initialize();
 		}
+		// The weight is the last block's too: a full one would refuse a send a fresh block takes.
+		frame_system::BlockWeight::<T>::kill();
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
