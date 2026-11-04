@@ -38,8 +38,15 @@ use cumulus_jam_zombienet_tests::{
 	spawn::{spawn, JamNetwork, SpawnOptions},
 };
 use cumulus_primitives_core::relay_chain;
-use cumulus_zombienet_sdk_helpers::find_jam_parent;
+use cumulus_zombienet_sdk_helpers::{
+	coretime::sudo_call, find_jam_parent, submit_extrinsic_and_wait_for_best_block_success,
+	PARA_BLOCK_METRIC,
+};
 use std::time::Duration;
+use zombienet_sdk::{
+	subxt::{dynamic::Value, tx::dynamic},
+	subxt_signer::sr25519::dev,
+};
 
 /// Long enough that a stall lasting a few slots cannot be mistaken for progress.
 const BLOCKS: u64 = 30;
@@ -160,4 +167,64 @@ async fn assert_jam_parent_in_blocks(jam: &JamNetwork, para: &Para) -> anyhow::R
 		 lookup_anchor={lookup_anchor:?}"
 	);
 	Ok(())
+}
+
+/// How many blocks past the one carrying the signed extrinsic every collator must import.
+const IMPORTED_PAST: u64 = 3;
+
+/// Budget for every collator to import [`IMPORTED_PAST`] blocks past the signed extrinsic.
+const IMPORT_BUDGET: Duration = Duration::from_secs(4 * 60);
+
+/// Budget for the remark to land in a best block of the collator it was submitted to.
+const SUBMIT_BUDGET: Duration = Duration::from_secs(2 * 60);
+
+/// A signed extrinsic runs `StorageWeightReclaim`, which reads the storage proof size: a collator
+/// that re-executes the block without serving it reclaims a different weight, computes another
+/// state root and forks off at that block.
+#[tokio::test(flavor = "multi_thread")]
+async fn a_signed_extrinsic_imports_on_every_collator() -> Result<(), anyhow::Error> {
+	let para = Para::single(2);
+	let paras = std::slice::from_ref(&para);
+	let jam =
+		spawn("a_signed_extrinsic_imports_on_every_collator", paras, SpawnOptions::new(TINY_CORES))
+			.await?;
+	let result = async {
+		wait_for_collators(&jam.network, paras, 5, 2, DEADLINE.as_secs()).await?;
+		let name = para.collators.first().context("the para has no collator")?;
+		let client = jam.collator_client(name).await?;
+		let remark = dynamic("System", "remark_with_event", vec![Value::from_bytes(b"remark")]);
+		let (sudo, alice) = (sudo_call(remark), dev::alice());
+		let submit = submit_extrinsic_and_wait_for_best_block_success(&client, &sudo, &alice);
+		// The helper waits forever for a block that never comes: a collator that forked off at
+		// another collator's block holding the remark never puts it in a best block of its own.
+		let block = tokio::time::timeout(SUBMIT_BUDGET, submit)
+			.await
+			.map_err(|_| anyhow!("the remark is not in a best block after {SUBMIT_BUDGET:?}"))??;
+		log::info!("System::remark_with_event included in para block {block:?}");
+
+		let included_at = jam.network.get_node(name.as_str())?.reports(PARA_BLOCK_METRIC).await?;
+		let past = included_at + IMPORTED_PAST as f64;
+		for name in &para.collators {
+			let node = jam.network.get_node(name.as_str())?;
+			node.wait_metric_with_timeout(
+				PARA_BLOCK_METRIC,
+				|best| best >= past,
+				IMPORT_BUDGET.as_secs(),
+			)
+			.await
+			.map_err(|error| anyhow!("{name} stopped below #{past}: {error}"))?;
+			let failed = node
+				.logs()
+				.await?
+				.lines()
+				.filter(|line| line.contains("Error importing block"))
+				.count();
+			anyhow::ensure!(failed == 0, "{name} failed {failed} block imports");
+		}
+		Ok(())
+	}
+	.await;
+
+	jam.destroy().await;
+	result
 }
