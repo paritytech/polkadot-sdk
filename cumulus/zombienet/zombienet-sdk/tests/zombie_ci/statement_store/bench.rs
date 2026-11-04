@@ -150,18 +150,22 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 			let node = network.get_node(name)?;
 			let prev_count = prev_propagated.get(name).copied().unwrap_or(0);
 
-			let current_count = Cell::new(0.0f64);
-			node.wait_metric_with_timeout(
-				"substrate_sync_propagated_statements",
-				|count| {
-					current_count.set(count);
-					true
-				},
-				30u64,
-			)
-			.await?;
+			let mut total = 0.0f64;
+			for route in ["dht", "without_dht"] {
+				let current_count = Cell::new(0.0f64);
+				node.wait_metric_with_timeout(
+					format!("substrate_sync_propagated_statements{{route=\"{route}\"}}"),
+					|count| {
+						current_count.set(count);
+						true
+					},
+					30u64,
+				)
+				.await?;
+				total += current_count.get();
+			}
 
-			let count = current_count.get() as u64;
+			let count = total as u64;
 			let delta = count - prev_count;
 			let rate = delta / interval;
 			propagated_metrics.push((name, count, rate));

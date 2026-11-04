@@ -15,7 +15,6 @@ doc:
       - `substrate_sync_statement_bytes_received_total`
       - `substrate_sync_initial_sync_statements_sent`
       - `substrate_sync_initial_sync_bursts_total`
-      - `substrate_sync_initial_sync_duration_seconds`
 
       New metrics:
       - `substrate_sync_statement_peers_assumed_match_all_total`: v2 peers that did not send

@@ -362,6 +362,17 @@ mod sync_outcome {
 
 impl Metrics {
 	fn register(r: &Registry) -> Result<Self, PrometheusError> {
+		// A counter split by the `route` label, with every route present at zero so the series
+		// exist before the first statement.
+		let register_by_route =
+			|opts: Opts, registry: &Registry| -> Result<CounterVec<U64>, PrometheusError> {
+				let counter = register(CounterVec::new(opts, &["route"])?, registry)?;
+				for route in [peer_route::DHT, peer_route::WITHOUT_DHT] {
+					counter.with_label_values(&[route]);
+				}
+				Ok(counter)
+			};
+
 		let peers_connected = register(
 			GaugeVec::new(
 				Opts::new(
@@ -376,14 +387,11 @@ impl Metrics {
 		peers_connected.with_label_values(&["light"]).set(0);
 
 		Ok(Self {
-			propagated_statements: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_propagated_statements",
-						"Total statements propagated to peers, counted once per recipient (a statement sent to N peers increments by N)",
-					),
-					&["route"],
-				)?,
+			propagated_statements: register_by_route(
+				Opts::new(
+					"substrate_sync_propagated_statements",
+					"Total statements propagated to peers, counted once per recipient (a statement sent to N peers increments by N)",
+				),
 				r,
 			)?,
 			known_statements_received: register(
@@ -434,34 +442,25 @@ impl Metrics {
 				r,
 			)?,
 			peers_connected,
-			statements_received: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_statements_received",
-						"Total number of statements received from peers",
-					),
-					&["route"],
-				)?,
+			statements_received: register_by_route(
+				Opts::new(
+					"substrate_sync_statements_received",
+					"Total number of statements received from peers",
+				),
 				r,
 			)?,
-			bytes_sent_total: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_statement_bytes_sent_total",
-						"Total bytes sent for statement protocol messages",
-					),
-					&["route"],
-				)?,
+			bytes_sent_total: register_by_route(
+				Opts::new(
+					"substrate_sync_statement_bytes_sent_total",
+					"Total bytes sent for statement protocol messages",
+				),
 				r,
 			)?,
-			bytes_received_total: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_statement_bytes_received_total",
-						"Total bytes received for statement protocol messages (includes bytes from notifications that are later discarded — e.g. while major-syncing)",
-					),
-					&["route"],
-				)?,
+			bytes_received_total: register_by_route(
+				Opts::new(
+					"substrate_sync_statement_bytes_received_total",
+					"Total bytes received for statement protocol messages (includes bytes from notifications that are later discarded — e.g. while major-syncing)",
+				),
 				r,
 			)?,
 			sent_latency_seconds: register(
@@ -475,24 +474,18 @@ impl Metrics {
 				)?,
 				r,
 			)?,
-			initial_sync_statements_sent: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_initial_sync_statements_sent",
-						"Total statements sent during initial sync bursts to newly connected peers",
-					),
-					&["route"],
-				)?,
+			initial_sync_statements_sent: register_by_route(
+				Opts::new(
+					"substrate_sync_initial_sync_statements_sent",
+					"Total statements sent during initial sync bursts to newly connected peers",
+				),
 				r,
 			)?,
-			initial_sync_bursts_total: register(
-				CounterVec::new(
-					Opts::new(
-						"substrate_sync_initial_sync_bursts_total",
-						"Total initial-sync burst rounds attempted (includes rounds that return early with no hashes left)",
-					),
-					&["route"],
-				)?,
+			initial_sync_bursts_total: register_by_route(
+				Opts::new(
+					"substrate_sync_initial_sync_bursts_total",
+					"Total initial-sync burst rounds attempted (includes rounds that return early with no hashes left)",
+				),
 				r,
 			)?,
 			initial_sync_in_flight_bytes: register(
@@ -523,7 +516,7 @@ impl Metrics {
 						"Per-peer duration of initial sync, by outcome: completed (backlog drained) or abandoned (ended with statements still queued)",
 					)
 					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
-					&["outcome", "route"],
+					&["outcome"],
 				)?,
 				r,
 			)?,
@@ -1016,9 +1009,6 @@ struct PendingInitialSync {
 	/// One past the newest admission covered by this sync.
 	watermark: u64,
 	started_at: Instant,
-	/// The peer's `route` when this sync started. A disconnect removes the peer before the sync
-	/// is recorded as abandoned, so the route is kept here rather than looked up then.
-	route: &'static str,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
 	/// apart once its result arrives.
 	sync_id: u64,
@@ -1878,7 +1868,10 @@ where
 				}
 
 				if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-					self.record_initial_sync_completion(sync_outcome::ABANDONED, &pending);
+					self.record_initial_sync_completion(
+						sync_outcome::ABANDONED,
+						pending.started_at,
+					);
 				}
 				self.initial_sync_peer_queue.retain(|p| *p != peer);
 				let abandoned = self.propagation_outboxes.remove(&peer);
@@ -2617,14 +2610,12 @@ where
 		let sync_id = self.next_initial_sync_id;
 		self.next_initial_sync_id = self.next_initial_sync_id.saturating_add(1);
 		if let Some(pending) = self.pending_initial_syncs.remove(&peer) {
-			self.record_initial_sync_completion(sync_outcome::ABANDONED, &pending);
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		if watermark > 0 {
-			let mut route = peer_route::WITHOUT_DHT;
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
-				route = peer_data.route();
 			}
 			// Hashes queued for propagation before this scheduling sit below the new
 			// watermark, so the cursor already covers them; dropping the outbox keeps
@@ -2632,13 +2623,7 @@ where
 			self.propagation_outboxes.remove(&peer);
 			self.pending_initial_syncs.insert(
 				peer,
-				PendingInitialSync {
-					cursor: 0,
-					watermark,
-					started_at: Instant::now(),
-					route,
-					sync_id,
-				},
+				PendingInitialSync { cursor: 0, watermark, started_at: Instant::now(), sync_id },
 			);
 			self.initial_sync_peer_queue.push_back(peer);
 			self.metrics.as_ref().map(|metrics| {
@@ -2788,13 +2773,13 @@ where
 	}
 
 	/// Record initial sync completion metrics for a peer being removed.
-	fn record_initial_sync_completion(&self, outcome: &str, sync: &PendingInitialSync) {
+	fn record_initial_sync_completion(&self, outcome: &str, started_at: Instant) {
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_peers_active.dec();
 			metrics
 				.initial_sync_duration_seconds
-				.with_label_values(&[outcome, sync.route])
-				.observe(sync.started_at.elapsed().as_secs_f64());
+				.with_label_values(&[outcome])
+				.observe(started_at.elapsed().as_secs_f64());
 		});
 	}
 
@@ -2831,15 +2816,16 @@ where
 			return;
 		};
 		let sync_id = entry.get().sync_id;
-		let route = entry.get().route;
+		let route = self.peers.get(&peer_id).map_or(peer_route::WITHOUT_DHT, Peer::route);
 
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_bursts_total.with_label_values(&[route]).inc();
 		});
 
 		if entry.get().cursor >= entry.get().watermark {
-			let pending = entry.remove();
-			self.record_initial_sync_completion(sync_outcome::COMPLETED, &pending);
+			let started_at = entry.get().started_at;
+			entry.remove();
+			self.record_initial_sync_completion(sync_outcome::COMPLETED, started_at);
 			return;
 		}
 
@@ -2848,7 +2834,7 @@ where
 		let Some(peer_data) = self.peers.get(&peer_id) else {
 			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
 			let pending = entry.remove();
-			self.record_initial_sync_completion(sync_outcome::ABANDONED, &pending);
+			self.record_initial_sync_completion(sync_outcome::ABANDONED, pending.started_at);
 			return;
 		};
 		let peer_version = peer_data.protocol_version;
@@ -5577,8 +5563,8 @@ mod tests {
 		// So per-statement overhead = 1 + 1 + 8 + 1 + 2 = 13 bytes
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 1 + 8 + 1 + 2; // Vec<Field> length + expiry field + data discriminant + Compact data length
-														
+		// Vec<Field> length + expiry field + data discriminant + Compact data length
+		let per_statement_overhead = 1 + 1 + 8 + 1 + 2;
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;

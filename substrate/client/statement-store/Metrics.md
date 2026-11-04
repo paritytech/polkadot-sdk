@@ -337,9 +337,9 @@ percentiles, making it easy to spot tail latency regressions.
 
 ### Initial Sync
 
-`initial_sync_statements_sent`, `initial_sync_bursts_total` and `initial_sync_duration_seconds`
-carry a `route` label (`dht` or `without_dht`), fixed when the sync starts. A flapping peer without the DHT
-path that gets a full store replay on every reconnect shows as a high `bursts_total{route="without_dht"}` rate.
+`initial_sync_statements_sent` and `initial_sync_bursts_total` carry a `route` label (`dht` or
+`without_dht`), read when each burst runs. A flapping peer without the DHT path that gets a full store replay
+on every reconnect shows as a high `bursts_total{route="without_dht"}` rate.
 
 #### Initial Sync Active Peers
 - **Metric:** `substrate_sync_initial_sync_peers_active`
