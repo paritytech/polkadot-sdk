@@ -326,10 +326,13 @@ where
 							"{stream:?} of {source:?} under {root:?} is another fork's from \
 							 {cursor}: fetching it again",
 						);
-						let mut state = self.state.lock();
-						let pool = state.sources.entry(source).or_default();
-						pool.drop_payloads_from(&stream, cursor);
-						drop(state);
+						// One statement: a guard `drop`ped by hand still makes the future `!Send`.
+						self.state
+							.lock()
+							.sources
+							.entry(source)
+							.or_default()
+							.drop_payloads_from(&stream, cursor);
 						start = cursor;
 						result =
 							self.fetch_channel(source, stream, root, stored, FETCH_MAX_BYTES).await;

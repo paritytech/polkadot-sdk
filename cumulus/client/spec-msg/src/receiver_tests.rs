@@ -878,3 +878,14 @@ fn a_source_whose_bundle_does_not_lift_to_its_newest_root_waits() {
 	let second = chain.import(&receiver, &data);
 	assert_eq!(requires(&receiver, &[first, second]), Some(root1));
 }
+
+#[test]
+fn the_receiver_futures_are_send() {
+	fn send<T: Send>(_: &T) {}
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let chain = Chain::default();
+	send(&receiver.on_root(source(), StreamsRoot(Default::default()), &chain.wants()));
+	send(&receiver.inherent_data(&chain.view(), &[]));
+	send(&receiver.on_block(1, 0, 1, ConsumptionRecord::default()));
+}
