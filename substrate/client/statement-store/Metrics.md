@@ -47,10 +47,11 @@ of statements in the database
 - **Metric:** `substrate_sub_statement_store_bytes_by_retention{track}`
 - **Type:** Gauge, refreshed by store maintenance (every 29s)
 - **What it measures:** Bytes of statement data per retention track:
-  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the v2 DHT path keeps everything here)
+  - `persistent`: kept for DHT affinity, or with no retention limit (a node without the v2 DHT path keeps
+    everything here)
   - `explicit`: kept only for explicit (subscription) affinity
   - `transient`: kept only until propagated to the replicas
-- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range 
+- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range
   next to what it relays.
 - **How to read:** Stacked area; the tracks sum to `bytes_total`.
 
@@ -242,11 +243,9 @@ bandwidth, latency, and network health indicators.
 - **What it measures:** Actual network bandwidth consumed by the statement protocol.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
-- **Labels:** `bytes_received_total` carries `route`: `dht` for senders served through the v2 DHT path, `flood` for the rest. 
-  A sender counts as `dht` only once its affinity filter applies, so a
-  peer in its grace period counts as `flood`. 
-  A node without the v2 DHT path reports every sender
-  as `flood`.
+- **Labels:** `bytes_received_total` carries `route`: `dht` for senders served through the v2 DHT path,
+  `flood` for the rest. A sender counts as `dht` only once its affinity filter applies, so a peer in its grace
+  period counts as `flood`. A node without the v2 DHT path reports every sender as `flood`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements

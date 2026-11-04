@@ -3243,13 +3243,9 @@ impl StatementStore for Store {
 				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
 					summary.count < validation.max_count as usize &&
 						summary.data_size + statement_len <= validation.max_size as usize
-				}) &&
-				submit_index
-					.exceeded_limit(
-						&submit_index.totals_after_insert(track, statement_len, []),
-						track,
-					)
-					.is_none();
+				}) && submit_index
+				.exceeded_limit(&submit_index.totals_after_insert(track, statement_len, []), track)
+				.is_none();
 			let loaded_record = if cached || summary_admits || oversize {
 				None
 			} else {
