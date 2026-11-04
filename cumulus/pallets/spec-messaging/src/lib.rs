@@ -56,7 +56,7 @@ use frame_support::{
 use polkadot_core_primitives::Hash;
 use polkadot_parachain_primitives::primitives::Id as ParaId;
 use polkadot_primitives::v9::MAX_COMMITMENT_ENTRIES;
-use sp_runtime::generic::DigestItem;
+use sp_runtime::{generic::DigestItem, SaturatedConversion};
 
 pub use pallet::*;
 
@@ -757,8 +757,14 @@ pub mod pallet {
 			}
 
 			let mut filtered_channels = BTreeMap::new();
+			// Channel items follow from a start that moves every block: when the block cannot hold
+			// them all, the cut does not always fall on the channels last in key order.
+			let mut channels: Vec<_> = data.channels.into_iter().collect();
+			let number = frame_system::Pallet::<T>::block_number().saturated_into::<u64>();
+			let start = trim_start(number, channels.len());
+			channels.rotate_left(start);
 
-			for (channel_id, payloads) in data.channels {
+			for (channel_id, payloads) in channels {
 				let Some(mut admitted) = Self::admit_channel_item(channel_id, &payloads) else {
 					continue;
 				};
@@ -810,6 +816,16 @@ pub mod pallet {
 			matches!(call, Call::enact_messages { .. })
 		}
 	}
+}
+
+/// Where `create_inherent` starts trimming `len` channel items in block `number`. Scrambled, so
+/// it never runs in step with the node's own rotation and skips the same channels every time.
+fn trim_start(number: u64, len: usize) -> usize {
+	if len == 0 {
+		return 0;
+	}
+	let mixed = number.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+	((mixed ^ (mixed >> 29)) % len as u64) as usize
 }
 
 /// The end-of-block work for `sends` sends and `publishes` register publishes. Both benchmarks'

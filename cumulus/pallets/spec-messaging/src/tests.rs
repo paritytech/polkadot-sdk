@@ -1276,6 +1276,34 @@ fn a_channel_item_that_fills_the_ref_time_leaves_room_for_the_register_read() {
 }
 
 #[test]
+fn a_ref_time_trim_does_not_always_cut_the_same_channels() {
+	new_test_ext().execute_with(|| {
+		let channels: Vec<_> = (0..3).map(|num| InChannelId { num, ..in_channel() }).collect();
+		let mut offered = MessagingInherentData::default();
+		for ch in &channels {
+			accept(*ch);
+			offered.channels.insert(*ch, vec![hello(1), data(b"a")]);
+		}
+		// Room for one channel item per block, in every block.
+		let one = enact_weight::<Test>(&channel_item(channels[0], vec![hello(1), data(b"a")]));
+		let max = <Test as frame_system::Config>::BlockWeights::get().max_block.ref_time();
+		let mut served = BTreeSet::new();
+		for n in 1..=6 {
+			System::set_block_number(n);
+			frame_system::BlockWeight::<Test>::kill();
+			System::register_extra_weight_unchecked(
+				Weight::from_parts(max - one.ref_time(), 0),
+				DispatchClass::Mandatory,
+			);
+			let data = created(&offered).expect("one channel item fits");
+			assert_eq!(data.channels.len(), 1);
+			served.extend(data.channels.keys().copied());
+		}
+		assert_eq!(served.len(), 3, "every channel is served within six blocks");
+	});
+}
+
+#[test]
 fn enact_rejects_items_the_watching_rule_excludes() {
 	new_test_ext().execute_with(|| {
 		let ch = in_channel();
