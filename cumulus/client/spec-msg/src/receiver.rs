@@ -218,7 +218,7 @@ struct Planned {
 }
 
 /// A gap between two reads of a stream, and where its leaves come from.
-struct Gap {
+pub(crate) struct Gap {
 	source: ParaId,
 	stream: StreamId,
 	from: MmrFrontier,
@@ -261,6 +261,28 @@ where
 	/// The newest root seen for `source`.
 	pub fn newest_root(&self, source: &ParaId) -> Option<StreamsRoot> {
 		self.state.lock().sources.get(source).and_then(SourcePool::newest_root)
+	}
+
+	/// Whether the record of block `hash` is noted and not final yet.
+	#[cfg(test)]
+	pub(crate) fn is_live(&self, hash: &H) -> bool {
+		self.state.lock().live.contains_key(hash)
+	}
+
+	/// Whether the pool holds the advance of `source`'s `stream` from `from` to `to` leaves.
+	#[cfg(test)]
+	pub(crate) fn has_advance(
+		&self,
+		source: &ParaId,
+		stream: StreamId,
+		from: u64,
+		to: u64,
+	) -> bool {
+		let state = self.state.lock();
+		state
+			.sources
+			.get(source)
+			.is_some_and(|pool| pool.advances.contains_key(&(stream, from, to)))
 	}
 
 	/// Whether everything `wants` names has been fetched under `root`, `source`'s newest root: the
@@ -535,38 +557,53 @@ where
 
 	/// Note an imported block's consumption record, and fetch the leaves its reads skipped.
 	pub async fn on_block(&self, hash: H, parent: H, number: u64, record: ConsumptionRecord) {
-		let gaps = {
-			let mut state = self.state.lock();
-			let mut gaps = Vec::new();
-			for (source, streams) in &record.entries {
-				for (stream, interval) in streams {
-					let Some(previous) = state.nearest(parent, source, stream) else { continue };
-					if interval.start == previous.end.root() {
-						continue;
-					}
-					let from = previous.end.clone();
-					let to_count = interval.end.leaf_count();
-					let Some(pool) = state.sources.get(source) else { continue };
-					if pool.advances.contains_key(&(*stream, from.leaf_count(), to_count)) {
-						continue;
-					}
-					// Only a read context the pool fetched has a root to fetch the leaves under.
-					let Some(under) = pool.read_under.get(&(*stream, to_count)).copied() else {
-						continue;
-					};
-					gaps.push(Gap {
-						source: *source,
-						stream: *stream,
-						from,
-						to_start: interval.start,
-						to_count,
-						under,
-					});
+		let gaps = self.note_block(hash, parent, number, record);
+		self.fetch_gaps(gaps).await;
+	}
+
+	/// Note an imported block's consumption record; return the gaps its reads skipped, for
+	/// [`Self::fetch_gaps`].
+	pub(crate) fn note_block(
+		&self,
+		hash: H,
+		parent: H,
+		number: u64,
+		record: ConsumptionRecord,
+	) -> Vec<Gap> {
+		let mut state = self.state.lock();
+		let mut gaps = Vec::new();
+		for (source, streams) in &record.entries {
+			for (stream, interval) in streams {
+				let Some(previous) = state.nearest(parent, source, stream) else { continue };
+				if interval.start == previous.end.root() {
+					continue;
 				}
+				let from = previous.end.clone();
+				let to_count = interval.end.leaf_count();
+				let Some(pool) = state.sources.get(source) else { continue };
+				if pool.advances.contains_key(&(*stream, from.leaf_count(), to_count)) {
+					continue;
+				}
+				// Only a read context the pool fetched has a root to fetch the leaves under.
+				let Some(under) = pool.read_under.get(&(*stream, to_count)).copied() else {
+					continue;
+				};
+				gaps.push(Gap {
+					source: *source,
+					stream: *stream,
+					from,
+					to_start: interval.start,
+					to_count,
+					under,
+				});
 			}
-			state.live.insert(hash, LiveBlock { number, parent, record });
-			gaps
-		};
+		}
+		state.live.insert(hash, LiveBlock { number, parent, record });
+		gaps
+	}
+
+	/// Fetch the leaves of `gaps` and keep the advances over them.
+	pub(crate) async fn fetch_gaps(&self, gaps: Vec<Gap>) {
 		for gap in gaps {
 			let (source, stream, from_count, to_count) =
 				(gap.source, gap.stream, gap.from.leaf_count(), gap.to_count);
