@@ -739,9 +739,6 @@ impl RetentionTrack {
 		matches!(self, RetentionTrack::Persistent)
 	}
 
-	const ALL: [RetentionTrack; RetentionTrack::COUNT] =
-		[RetentionTrack::Transient, RetentionTrack::ExplicitOnly, RetentionTrack::Persistent];
-
 	/// Name of the track, used as the `track` label in metrics.
 	fn label(&self) -> &'static str {
 		match self {
@@ -2610,7 +2607,11 @@ impl Store {
 		self.metrics.report(|metrics| {
 			metrics.statements_total.set(active_count as u64);
 			metrics.bytes_total.set(totals.size() as u64);
-			for track in RetentionTrack::ALL {
+			for track in [
+				RetentionTrack::Transient,
+				RetentionTrack::ExplicitOnly,
+				RetentionTrack::Persistent,
+			] {
 				metrics
 					.bytes_by_retention
 					.with_label_values(&[track.label()])
@@ -3243,9 +3244,13 @@ impl StatementStore for Store {
 				submit_index.summaries.peek(&account_id).is_some_and(|summary| {
 					summary.count < validation.max_count as usize &&
 						summary.data_size + statement_len <= validation.max_size as usize
-				}) && submit_index
-				.exceeded_limit(&submit_index.totals_after_insert(track, statement_len, []), track)
-				.is_none();
+				}) &&
+				submit_index
+					.exceeded_limit(
+						&submit_index.totals_after_insert(track, statement_len, []),
+						track,
+					)
+					.is_none();
 			let loaded_record = if cached || summary_admits || oversize {
 				None
 			} else {

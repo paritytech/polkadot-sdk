@@ -303,7 +303,7 @@ pub fn set_v2dht_enabled(enabled: bool) {
 }
 
 struct Metrics {
-	propagated_statements: Counter<U64>,
+	propagated_statements: CounterVec<U64>,
 	known_statements_received: Counter<U64>,
 	skipped_oversized_statements: Counter<U64>,
 	propagated_statements_chunks: HistogramVec,
@@ -311,8 +311,8 @@ struct Metrics {
 	ignored_statements: Counter<U64>,
 	peers_connected: GaugeVec<U64>,
 	peers_without_dht: Gauge<U64>,
-	statements_received: Counter<U64>,
-	bytes_sent_total: Counter<U64>,
+	statements_received: CounterVec<U64>,
+	bytes_sent_total: CounterVec<U64>,
 	bytes_received_total: CounterVec<U64>,
 	sent_latency_seconds: Histogram,
 	initial_sync_statements_sent: CounterVec<U64>,
@@ -346,11 +346,11 @@ mod send_failure {
 
 /// Values for the `route` metric label. They say how we send statements to a peer.
 mod peer_route {
-	/// We use the new v2 DHT path and send only what the peer's filter asks for.
+	/// We use the v2 DHT path and send only what the peer's filter asks for.
 	pub const DHT: &str = "dht";
-	/// We treat the peer as an old v1 peer and send it everything.
-	pub const FLOOD: &str = "flood";
-	pub const ALL: [&str; 2] = [DHT, FLOOD];
+	/// We send the peer everything. This covers v1 peers, v2 peers that sent no filter within the
+	/// grace period, and every peer while this node runs without the v2 DHT.
+	pub const WITHOUT_DHT: &str = "without_dht";
 }
 
 mod sync_outcome {
@@ -362,15 +362,6 @@ mod sync_outcome {
 
 impl Metrics {
 	fn register(r: &Registry) -> Result<Self, PrometheusError> {
-		let register_by_route =
-			|opts: Opts, registry: &Registry| -> Result<CounterVec<U64>, PrometheusError> {
-				let counter = register(CounterVec::new(opts, &["route"])?, registry)?;
-				for route in peer_route::ALL {
-					counter.with_label_values(&[route]);
-				}
-				Ok(counter)
-			};
-
 		let peers_connected = register(
 			GaugeVec::new(
 				Opts::new(
@@ -384,28 +375,14 @@ impl Metrics {
 		peers_connected.with_label_values(&["full"]).set(0);
 		peers_connected.with_label_values(&["light"]).set(0);
 
-		let initial_sync_duration_seconds = register(
-			HistogramVec::new(
-				HistogramOpts::new(
-					"substrate_sync_initial_sync_duration_seconds",
-					"Per-peer duration of initial sync, by outcome: completed (backlog drained) or abandoned (ended with statements still queued), and by how this node serves the peer",
-				)
-				.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
-				&["outcome", "route"],
-			)?,
-			r,
-		)?;
-		for outcome in [sync_outcome::COMPLETED, sync_outcome::ABANDONED] {
-			for route in peer_route::ALL {
-				initial_sync_duration_seconds.with_label_values(&[outcome, route]);
-			}
-		}
-
 		Ok(Self {
 			propagated_statements: register(
-				Counter::new(
-					"substrate_sync_propagated_statements",
-					"Total statements propagated to peers, counted once per recipient (a statement sent to N peers increments by N)",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_propagated_statements",
+						"Total statements propagated to peers, counted once per recipient (a statement sent to N peers increments by N)",
+					),
+					&["route"],
 				)?,
 				r,
 			)?,
@@ -458,24 +435,33 @@ impl Metrics {
 			)?,
 			peers_connected,
 			statements_received: register(
-				Counter::new(
-					"substrate_sync_statements_received",
-					"Total number of statements received from peers",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statements_received",
+						"Total number of statements received from peers",
+					),
+					&["route"],
 				)?,
 				r,
 			)?,
 			bytes_sent_total: register(
-				Counter::new(
-					"substrate_sync_statement_bytes_sent_total",
-					"Total bytes sent for statement protocol messages",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_bytes_sent_total",
+						"Total bytes sent for statement protocol messages",
+					),
+					&["route"],
 				)?,
 				r,
 			)?,
-			bytes_received_total: register_by_route(
-				Opts::new(
-					"substrate_sync_statement_bytes_received_total",
-					"Total bytes received for statement protocol messages, by how this node serves the sender (includes bytes from notifications that are later discarded — e.g. while major-syncing)",
-				),
+			bytes_received_total: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_statement_bytes_received_total",
+						"Total bytes received for statement protocol messages (includes bytes from notifications that are later discarded — e.g. while major-syncing)",
+					),
+					&["route"],
+				)?,
 				r,
 			)?,
 			sent_latency_seconds: register(
@@ -489,18 +475,24 @@ impl Metrics {
 				)?,
 				r,
 			)?,
-			initial_sync_statements_sent: register_by_route(
-				Opts::new(
-					"substrate_sync_initial_sync_statements_sent",
-					"Total statements sent during initial sync bursts to newly connected peers, by how this node serves the peer",
-				),
+			initial_sync_statements_sent: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_initial_sync_statements_sent",
+						"Total statements sent during initial sync bursts to newly connected peers",
+					),
+					&["route"],
+				)?,
 				r,
 			)?,
-			initial_sync_bursts_total: register_by_route(
-				Opts::new(
-					"substrate_sync_initial_sync_bursts_total",
-					"Total initial-sync burst rounds attempted, by how this node serves the peer (includes rounds that return early with no hashes left)",
-				),
+			initial_sync_bursts_total: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sync_initial_sync_bursts_total",
+						"Total initial-sync burst rounds attempted (includes rounds that return early with no hashes left)",
+					),
+					&["route"],
+				)?,
 				r,
 			)?,
 			initial_sync_in_flight_bytes: register(
@@ -524,7 +516,17 @@ impl Metrics {
 				)?,
 				r,
 			)?,
-			initial_sync_duration_seconds,
+			initial_sync_duration_seconds: register(
+				HistogramVec::new(
+					HistogramOpts::new(
+						"substrate_sync_initial_sync_duration_seconds",
+						"Per-peer duration of initial sync, by outcome: completed (backlog drained) or abandoned (ended with statements still queued)",
+					)
+					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
+					&["outcome", "route"],
+				)?,
+				r,
+			)?,
 			statement_flooding_detected: register(
 				Counter::new(
 					"substrate_sync_statement_flooding_detected",
@@ -562,7 +564,7 @@ impl Metrics {
 			peers_assumed_match_all: register(
 				Counter::new(
 					"substrate_sync_statement_peers_assumed_match_all_total",
-					"Total peers served as v1 peers after sending no affinity filter within the grace period",
+					"Total v2 peers that sent no affinity filter within the grace period and are now sent everything",
 				)?,
 				r,
 			)?,
@@ -1014,8 +1016,8 @@ struct PendingInitialSync {
 	/// One past the newest admission covered by this sync.
 	watermark: u64,
 	started_at: Instant,
-	/// The peer's `route` when this sync started. The peer's route can change during the sync,
-	/// but we keep counting the whole sync under the route it started with.
+	/// The peer's `route` when this sync started. A disconnect removes the peer before the sync
+	/// is recorded as abandoned, so the route is kept here rather than looked up then.
 	route: &'static str,
 	/// Identifies this scheduling, so that a chunk still in flight from a previous one can be told
 	/// apart once its result arrives.
@@ -1056,6 +1058,8 @@ struct PendingSendResult {
 	bytes_sent: u64,
 	result: SendOutcome,
 	kind: SendKind,
+	/// The peer's `route` when the chunk was queued. Peer may be gone when the result lands.
+	route: &'static str,
 	/// Id of the sent chunk, propagation or initial-sync. The result is stale if the id
 	/// doesn't match the peer's send slot in `in_flight_chunks`.
 	chunk_id: u64,
@@ -1265,13 +1269,13 @@ impl Peer {
 	/// The `route` label for this peer.
 	///
 	/// If the v2 DHT path is off, we send everything to every peer, so the answer is always
-	/// `flood`. If it is on, the peer is `dht` only after we have its filter.
-	/// Until then we count it as `flood`.
+	/// `without_dht`. If it is on, the peer is `dht` only after we have its filter.
+	/// Until then we count it as `without_dht`.
 	fn route(&self) -> &'static str {
 		if v2dht_enabled() && !self.without_dht() && self.topic_affinity.is_some() {
 			peer_route::DHT
 		} else {
-			peer_route::FLOOD
+			peer_route::WITHOUT_DHT
 		}
 	}
 
@@ -1559,8 +1563,9 @@ where
 		.await
 		{
 			Ok(Ok(())) => {
+				let route = self.peers.get(peer).map_or(peer_route::WITHOUT_DHT, Peer::route);
 				self.metrics.as_ref().map(|metrics| {
-					metrics.bytes_sent_total.inc_by(bytes_to_send);
+					metrics.bytes_sent_total.with_label_values(&[route]).inc_by(bytes_to_send);
 				});
 				true
 			},
@@ -1885,8 +1890,7 @@ where
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;
 				self.metrics.as_ref().map(|metrics| {
-					// Count peer as flood if it is not in self.peers
-					let route = self.peers.get(&peer).map_or(peer_route::FLOOD, Peer::route);
+					let route = self.peers.get(&peer).map_or(peer_route::WITHOUT_DHT, Peer::route);
 					metrics.bytes_received_total.with_label_values(&[route]).inc_by(bytes_received);
 				});
 
@@ -2020,8 +2024,12 @@ where
 	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 
+		let route = self.peers.get(&who).map_or(peer_route::WITHOUT_DHT, Peer::route);
 		self.metrics.as_ref().map(|metrics| {
-			metrics.statements_received.inc_by(statements.len() as u64);
+			metrics
+				.statements_received
+				.with_label_values(&[route])
+				.inc_by(statements.len() as u64);
 		});
 
 		if let Some(ref mut peer) = self.peers.get_mut(&who) {
@@ -2408,6 +2416,7 @@ where
 			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 			self.set_propagation_in_flight_bytes(in_flight);
 			self.charge_send_budget(&who, statement_count);
+			let route = self.peers.get(&who).map_or(peer_route::WITHOUT_DHT, Peer::route);
 			let sent_latency =
 				self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 			self.pending_sends.push(Box::pin(async move {
@@ -2420,6 +2429,7 @@ where
 					bytes_sent,
 					result,
 					kind: SendKind::Propagation,
+					route,
 					chunk_id,
 				}
 			}));
@@ -2438,7 +2448,7 @@ where
 
 	/// Returns whether the result freed the peer's send slot.
 	fn process_send_result(&mut self, send_result: PendingSendResult) -> bool {
-		let PendingSendResult { peer, statement_count, bytes_sent, result, kind, chunk_id } =
+		let PendingSendResult { peer, statement_count, bytes_sent, result, kind, route, chunk_id } =
 			send_result;
 
 		let kind_label = kind.label();
@@ -2465,8 +2475,11 @@ where
 			SendOutcome::Sent => {
 				log::trace!(target: LOG_TARGET, "Sent {} statements to {}", statement_count, peer);
 				self.metrics.as_ref().map(|metrics| {
-					metrics.propagated_statements.inc_by(statement_count as u64);
-					metrics.bytes_sent_total.inc_by(bytes_sent);
+					metrics
+						.propagated_statements
+						.with_label_values(&[route])
+						.inc_by(statement_count as u64);
+					metrics.bytes_sent_total.with_label_values(&[route]).inc_by(bytes_sent);
 					metrics
 						.propagated_statements_chunks
 						.with_label_values(&[kind_label])
@@ -2518,9 +2531,9 @@ where
 			return slot_freed;
 		}
 
-		let Some(pending) = self.pending_initial_syncs.get_mut(&peer) else { return slot_freed };
-		pending.cursor = next_cursor;
-		let route = pending.route;
+		if let Some(pending) = self.pending_initial_syncs.get_mut(&peer) {
+			pending.cursor = next_cursor;
+		}
 		self.metrics.as_ref().map(|metrics| {
 			metrics
 				.initial_sync_statements_sent
@@ -2608,7 +2621,7 @@ where
 			self.initial_sync_peer_queue.retain(|p| *p != peer);
 		}
 		if watermark > 0 {
-			let mut route = peer_route::FLOOD;
+			let mut route = peer_route::WITHOUT_DHT;
 			if let Some(peer_data) = self.peers.get_mut(&peer) {
 				peer_data.sync_watermark = peer_data.sync_watermark.max(watermark);
 				route = peer_data.route();
@@ -2920,6 +2933,7 @@ where
 				bytes_sent: bytes_to_send,
 				result,
 				kind: SendKind::InitialSync { sync_id, next_cursor },
+				route,
 				chunk_id,
 			}
 		}));
@@ -5191,6 +5205,7 @@ mod tests {
 			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
 			result: SendOutcome::Sent,
 			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
+			route: peer_route::WITHOUT_DHT,
 			chunk_id: 0,
 		});
 		handler.flush_pending_sends().await;
@@ -5224,6 +5239,7 @@ mod tests {
 			bytes_sent: 100,
 			result: SendOutcome::Sent,
 			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
+			route: peer_route::WITHOUT_DHT,
 			chunk_id: 0,
 		});
 		assert_eq!(handler.pending_sends.len(), 1);
@@ -5268,6 +5284,7 @@ mod tests {
 			bytes_sent: INITIAL_SYNC_RESERVED_BYTES,
 			result: SendOutcome::Sent,
 			kind: SendKind::Propagation,
+			route: peer_route::WITHOUT_DHT,
 			chunk_id: 0,
 		});
 		assert!(handler.pending_sends.is_empty(), "the reserve must not refill propagation");
@@ -5560,7 +5577,8 @@ mod tests {
 		// So per-statement overhead = 1 + 1 + 8 + 1 + 2 = 13 bytes
 		let max_size = MAX_STATEMENT_NOTIFICATION_SIZE as usize - Compact::<u32>::max_encoded_len();
 		let num_statements: usize = 100;
-		let per_statement_overhead = 1 + 1 + 8 + 1 + 2; // Vec<Field> length + expiry field + data discriminant + Compact data length
+		let per_statement_overhead = 1 + 1 + 8 + 1 + 2; // Vec<Field> length + expiry field + data
+														// discriminant + Compact data length
 		let total_overhead = per_statement_overhead * num_statements;
 		let total_data_size = max_size - total_overhead;
 		let per_statement_data_size = total_data_size / num_statements;

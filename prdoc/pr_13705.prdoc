@@ -5,16 +5,21 @@ doc:
       Adds metrics to help watch the statement store while some nodes run the new v2 DHT mode
       and others don't yet.
 
-      These metrics now have a `route` label (`dht` or `flood`). Their names stay the same, so
-      dashboards that read them without labels may need a `sum()`:
+      These metrics now have a `route` label (`dht` or `without_dht`). `without_dht` covers every
+      peer this node sends everything to: v1 peers, v2 peers that sent no filter in time, and all
+      peers when the node runs without the v2 DHT. Names stay the same, so dashboards that
+      read them without labels may need a `sum()`:
+      - `substrate_sync_propagated_statements`
+      - `substrate_sync_statements_received`
+      - `substrate_sync_statement_bytes_sent_total`
       - `substrate_sync_statement_bytes_received_total`
       - `substrate_sync_initial_sync_statements_sent`
       - `substrate_sync_initial_sync_bursts_total`
       - `substrate_sync_initial_sync_duration_seconds`
 
       New metrics:
-      - `substrate_sync_statement_peers_assumed_match_all_total`: peers that did not send their
-        filter in time.
+      - `substrate_sync_statement_peers_assumed_match_all_total`: v2 peers that did not send
+        their filter in time.
       - `substrate_sync_statement_late_affinity_filters_total`: peers whose filter arrived late.
       - `substrate_sub_statement_store_bytes_by_retention`: bytes in the store per retention track.
 crates:

@@ -243,13 +243,14 @@ bandwidth, latency, and network health indicators.
 - **What it measures:** Actual network bandwidth consumed by the statement protocol.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
-- **Labels:** `bytes_received_total` carries `route`: `dht` for senders served through the v2 DHT path,
-  `flood` for the rest. A sender counts as `dht` only once its affinity filter applies, so a peer in its grace
-  period counts as `flood`. A node without the v2 DHT path reports every sender as `flood`.
+- **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
+  carry `route`: `dht` for peers served through the v2 DHT path, `without_dht` for the rest (v1 peers and v2
+  peers without a filter). A peer counts as `dht` only once its affinity filter applies, so a peer in its grace
+  period counts as `without_dht`. A node without the v2 DHT path reports every peer as `without_dht`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
-  - Show the flood share of a v2 node's inbound traffic during the rollout
+  - Show the `without_dht` share of a v2 node's traffic during the rollout
 
 ---
 
@@ -292,9 +293,9 @@ percentiles, making it easy to spot tail latency regressions.
 #### Peers Assumed Match-All
 - **Metric:** `rate(substrate_sync_statement_peers_assumed_match_all_total[$__rate_interval])`
 - **Type:** Counter (displayed as rate)
-- **What it measures:** Peers that sent no affinity filter within the 10s grace period, so the node
-  serves them as v1 peers.
-- **Why it matters:** Old peers land here once per connection. Compare with
+- **What it measures:** v2 peers that sent no affinity filter within the 10s grace period, so the node
+  sends them everything.
+- **Why it matters:** v2 peers running without the DHT path land here once per connection. Compare with
   `substrate_sync_statement_late_affinity_filters_total`.
 
 #### Late Affinity Filters
@@ -302,7 +303,7 @@ percentiles, making it easy to spot tail latency regressions.
 - **Type:** Counter (displayed as rate)
 - **What it measures:** Affinity filters that arrived after the grace period and moved their peer
   back to the v2 DHT path.
-- **Why it matters:** Each one is a v2 peer that was slow with its filter and got flooded in the
+- **Why it matters:** Each one is a v2 peer that was slow with its filter and was sent everything in the
   meantime. A steady rate suggests the grace period is too short.
 
 ---
@@ -337,8 +338,8 @@ percentiles, making it easy to spot tail latency regressions.
 ### Initial Sync
 
 `initial_sync_statements_sent`, `initial_sync_bursts_total` and `initial_sync_duration_seconds`
-carry a `route` label (`dht` or `flood`), fixed when the sync starts. A flapping old peer that gets
-a full store replay on every reconnect shows as a high `bursts_total{route="flood"}` rate.
+carry a `route` label (`dht` or `without_dht`), fixed when the sync starts. A flapping peer without the DHT
+path that gets a full store replay on every reconnect shows as a high `bursts_total{route="without_dht"}` rate.
 
 #### Initial Sync Active Peers
 - **Metric:** `substrate_sync_initial_sync_peers_active`
