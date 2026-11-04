@@ -770,6 +770,11 @@ fn validate_block_synthesizes_requires_from_the_lifts() {
 	let parent_head = accept_channels(&client, genesis_head, &[source]);
 	let (TestBlockData { block, validation_data }, lifts, committed) =
 		consuming_block(&client, parent_head.clone(), source);
+	// Consuming publishes the ack register at block end, so the block also provides its root.
+	let provides = cumulus_primitives_core::bundle_provides(
+		block.blocks().iter().map(|block| block.header().digest()),
+	)
+	.expect("the ack register publish commits a `StreamsRoot`");
 
 	let upward_messages = call_validate_block_validation_result(
 		WASM_BINARY.expect("You need to build the WASM binaries to run the tests!"),
@@ -781,7 +786,14 @@ fn validate_block_synthesizes_requires_from_the_lifts() {
 	.upward_messages;
 
 	let requires = RequiresSet::try_from_iter([(source, committed)]).unwrap();
-	assert_eq!(upward_messages, vec![UMP_SEPARATOR, UMPSignal::Requires(requires).encode()]);
+	assert_eq!(
+		upward_messages,
+		vec![
+			UMP_SEPARATOR,
+			UMPSignal::Provides(provides).encode(),
+			UMPSignal::Requires(requires).encode(),
+		]
+	);
 }
 
 /// Rerun the test `name` in a subprocess: the wasm trap drops the panic message, which only the
