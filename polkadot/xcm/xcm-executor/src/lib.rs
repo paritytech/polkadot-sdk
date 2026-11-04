@@ -98,6 +98,14 @@ pub struct XcmExecutor<Config: config::Config> {
 	message_weight: Weight,
 	asset_claimer: Option<Location>,
 	already_paid_fees: bool,
+	/// A failed delivery recorded by [`Self::send`] during the current instruction, as
+	/// `(destination, error, message_id)`.
+	///
+	/// The send failure event is not emitted from within [`Self::send`] because that always runs
+	/// inside a transactional scope which is rolled back on failure, together with any event
+	/// deposited inside it. [`Self::process`] emits it once the instruction has returned, outside
+	/// of that scope.
+	pending_send_failure: Option<(Location, SendError, XcmHash)>,
 	_config: PhantomData<Config>,
 }
 
@@ -387,6 +395,7 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			message_weight: Weight::zero(),
 			asset_claimer: None,
 			already_paid_fees: false,
+			pending_send_failure: None,
 			_config: PhantomData,
 		}
 	}
@@ -452,6 +461,9 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Note: Must be called within [`Self::transactional_process`]. On a failed fee swap,
 	/// `take_fee` leaves the fee asset in the `fees` register, and on a failed delivery the fee
 	/// stays charged. The caller is responsible for rollback of the registers and storage.
+	///
+	/// A failed delivery is recorded in `pending_send_failure` rather than emitted, so that the
+	/// event is not rolled back with the instruction. [`Self::process`] emits it.
 	fn send(
 		&mut self,
 		dest: Location,
@@ -488,12 +500,11 @@ impl<Config: config::Config> XcmExecutor<Config> {
 			},
 			Err(error) => {
 				tracing::debug!(target: "xcm::send", ?error, "XCM failed to deliver with error");
-				Config::XcmEventEmitter::emit_send_failure_event(
-					self.original_origin.clone(),
-					dest,
-					error.clone(),
-					self.context.topic_or_message_id(),
-				);
+				// Emitting the event here would get it rolled back together with the rest of the
+				// failed instruction, so defer it to `process`, which emits it outside the
+				// transactional scope.
+				self.pending_send_failure =
+					Some((dest, error.clone(), self.context.topic_or_message_id()));
 				Err(error.into())
 			},
 		}
@@ -876,6 +887,16 @@ impl<Config: config::Config> XcmExecutor<Config> {
 
 						self.process_instruction(instr)
 					});
+					// Emit any send failure of the instruction now that its transactional scope
+					// is closed, so that the event survives the rollback of the instruction.
+					if let Some((dest, error, message_id)) = self.pending_send_failure.take() {
+						Config::XcmEventEmitter::emit_send_failure_event(
+							self.original_origin.clone(),
+							dest,
+							error,
+							message_id,
+						);
+					}
 					if let Err(error) = inst_res {
 						tracing::debug!(
 							target: "xcm::process",
