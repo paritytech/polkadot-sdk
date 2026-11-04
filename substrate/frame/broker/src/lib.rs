@@ -1094,6 +1094,13 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Swap the leases of two tasks.
+		///
+		/// Every lease held by task `id` is reassigned to task `other` and vice versa.
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `id`: The first task whose leases should be swapped.
+		/// - `other`: The second task whose leases should be swapped.
 		#[pallet::call_index(99)]
 		#[pallet::weight(T::WeightInfo::swap_leases())]
 		pub fn swap_leases(origin: OriginFor<T>, id: TaskId, other: TaskId) -> DispatchResult {
