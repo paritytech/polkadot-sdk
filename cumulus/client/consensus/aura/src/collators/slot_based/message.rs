@@ -18,6 +18,7 @@
 //! The `builder -> collator` channel: the [`CollatorMessage`] payload and its
 //! [`CollatorMessageBuilder`]. Pure data; the collation task builds and submits the collations.
 
+use super::scheduling::SiblingParams;
 use cumulus_primitives_core::SchedulingProof;
 use polkadot_primitives::{
 	CoreIndex, Hash as RelayHash, PersistedValidationData, SessionIndex, ValidationCodeHash,
@@ -39,6 +40,8 @@ pub(super) enum CollatorMessage<Block: BlockT> {
 		resubmittable_headers: Vec<Block::Header>,
 		/// The freshly-built bundle for this core, if any. Submitted after the resubmitted parts.
 		bundle: Option<CollationParts<Block>>,
+		/// Set when the segment may also be submitted under sibling scheduling parents.
+		siblings: Option<SiblingParams>,
 	},
 }
 
@@ -68,11 +71,18 @@ pub(super) struct CollatorMessageBuilder<Block: BlockT> {
 	bundle: Option<CollationParts<Block>>,
 	resubmittable_headers: Vec<Block::Header>,
 	scheduling_proof: Option<SchedulingProof>,
+	siblings: Option<SiblingParams>,
 }
 
 impl<Block: BlockT> CollatorMessageBuilder<Block> {
 	pub(super) fn new(core_index: CoreIndex) -> Self {
-		Self { core_index, bundle: None, resubmittable_headers: Vec::new(), scheduling_proof: None }
+		Self {
+			core_index,
+			bundle: None,
+			resubmittable_headers: Vec::new(),
+			scheduling_proof: None,
+			siblings: None,
+		}
 	}
 
 	/// Attach the freshly-built bundle.
@@ -97,6 +107,12 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 		self
 	}
 
+	/// Allow submitting under sibling scheduling parents. Only meaningful with a scheduling proof.
+	pub(super) fn with_siblings(mut self, siblings: Option<SiblingParams>) -> Self {
+		self.siblings = siblings;
+		self
+	}
+
 	/// Build the message. `None` when there is nothing to submit for the core.
 	pub(super) fn build(self) -> Option<CollatorMessage<Block>> {
 		match self.scheduling_proof {
@@ -110,6 +126,7 @@ impl<Block: BlockT> CollatorMessageBuilder<Block> {
 					core_index: self.core_index,
 					resubmittable_headers: self.resubmittable_headers,
 					bundle: self.bundle,
+					siblings: self.siblings,
 				})
 			},
 			None => self
