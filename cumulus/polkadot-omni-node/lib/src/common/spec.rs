@@ -27,7 +27,7 @@ use crate::{
 		},
 		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
 	},
-	nodes::jam::{block_import::JamBlockImport, pov_store::BlockPovs},
+	nodes::jam::block_import::{JamBlockImport, JamImportShared},
 };
 use codec::Encode;
 use cumulus_client_bootnodes::{start_bootnode_tasks, StartBootnodeTasksParams};
@@ -249,7 +249,7 @@ pub(crate) trait BaseNodeSpec {
 	/// orphan that worker by dropping its queue.
 	fn new_partial(
 		config: &Configuration,
-		jam: Option<BlockPovs<Self::Block>>,
+		jam: Option<JamImportShared<Self::Block>>,
 	) -> sc_service::error::Result<
 		ParachainService<
 			Self::Block,
@@ -327,10 +327,15 @@ pub(crate) trait BaseNodeSpec {
 		// the life of the node, so on the JAM path it must be built over the `JamBlockImport`
 		// re-execution wrapper (task 12) — never built once and rebuilt after, which would orphan
 		// that worker by dropping its queue.
-		let import_queue = if let Some(block_povs) = jam {
+		let import_queue = if let Some(jam) = jam {
 			Self::BuildImportQueue::build_import_queue(
 				client.clone(),
-				JamBlockImport::new(block_import.clone(), client.clone(), Some(block_povs)),
+				JamBlockImport::new(
+					block_import.clone(),
+					client.clone(),
+					Some(jam.povs),
+					Some(jam.code),
+				),
 				config,
 				telemetry.as_ref().map(|telemetry| telemetry.handle()),
 				&task_manager,

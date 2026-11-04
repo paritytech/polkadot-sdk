@@ -67,6 +67,8 @@ pub struct Para {
 	/// `validation_code`, so the bytes JAM validates and the bytes the collators execute cannot
 	/// disagree.
 	pub runtime: Option<PathBuf>,
+	/// Merged into the para chain spec's genesis patch, like zombienet's `with_genesis_overrides`.
+	pub genesis_overrides: Option<serde_json::Value>,
 }
 
 impl Para {
@@ -79,6 +81,7 @@ impl Para {
 			collators: collators.iter().map(|name| name.to_string()).collect(),
 			full_nodes: Vec::new(),
 			runtime: None,
+			genesis_overrides: None,
 		}
 	}
 
@@ -92,6 +95,7 @@ impl Para {
 			collators: (0..count).map(chain_spec::dev_name).collect(),
 			full_nodes: Vec::new(),
 			runtime: None,
+			genesis_overrides: None,
 		}
 	}
 
@@ -106,6 +110,27 @@ impl Para {
 	/// the service's `validation_code` are both built from it.
 	pub fn with_runtime(mut self, runtime: impl Into<PathBuf>) -> Self {
 		self.runtime = Some(runtime.into());
+		self
+	}
+
+	/// Validate this para with the runtime `code`, written to a file named after `name`.
+	///
+	/// `code` is a `cumulus-test-runtime` flavor's `WASM_BINARY`, which is the PolkaVM blob when
+	/// the test crate is built for the riscv target.
+	pub fn with_runtime_code(self, name: &str, code: Option<&[u8]>) -> anyhow::Result<Self> {
+		let code = code.ok_or_else(|| anyhow::anyhow!("the `{name}` runtime was not built"))?;
+		// Per process, so two checkouts running the suite at once cannot overwrite each other's
+		// blob. The harness copies the file into the run's work dir before genesis reads it.
+		let dir = std::env::temp_dir().join(format!("cumulus-jam-runtimes-{}", std::process::id()));
+		std::fs::create_dir_all(&dir)?;
+		let path = dir.join(format!("{name}.polkavm"));
+		std::fs::write(&path, code)?;
+		Ok(self.with_runtime(path))
+	}
+
+	/// Merge `overrides` into this para's genesis, like zombienet's `with_genesis_overrides`.
+	pub fn with_genesis_overrides(mut self, overrides: serde_json::Value) -> Self {
+		self.genesis_overrides = Some(overrides);
 		self
 	}
 

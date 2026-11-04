@@ -32,6 +32,8 @@ use super::{
 use codec::Decode;
 use cumulus_jam_state_reader::{JamProofFinalizer, JamProofReader, JamStateExt, JAM_PROOF_KEY};
 use cumulus_primitives_core::CumulusDigestItem;
+use futures::future::BoxFuture;
+use jam_interface::HeaderHash;
 use parachain_service_core::StateProof;
 use sc_client_api::backend::AuxStore;
 use sc_consensus::{BlockImport, BlockImportParams, ImportResult, StateAction};
@@ -40,7 +42,26 @@ use sp_api::{ApiExt, CallApiAt, CallContext, Core, ProofRecorder, ProvideRuntime
 use sp_consensus::BlockOrigin;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_trie::proof_size_extension::ProofSizeExt;
-use std::{marker::PhantomData, sync::Arc};
+use std::{
+	marker::PhantomData,
+	sync::{Arc, OnceLock},
+};
+
+/// Caches the runtime code a block's `:code` marker names, reading the preimage from JAM at the
+/// given anchor. Set once the JAM connection is up; imports before that skip it.
+pub(crate) type CodeResolver<Block> = Arc<
+	OnceLock<
+		Box<dyn Fn(<Block as BlockT>::Hash, HeaderHash) -> BoxFuture<'static, ()> + Send + Sync>,
+	>,
+>;
+
+/// What the JAM import queue shares with the rest of the JAM node.
+pub(crate) struct JamImportShared<Block: BlockT> {
+	/// See [`JamBlockImport::imported`].
+	pub povs: BlockPovs<Block>,
+	/// See [`JamBlockImport::code`].
+	pub code: CodeResolver<Block>,
+}
 
 /// Turn the carried additional-data map into the JAM reader and finalizer re-execution needs.
 ///
@@ -65,13 +86,22 @@ pub(crate) struct JamBlockImport<Block: BlockT, BI, Client> {
 	/// The PoV store: the network import queue's instance records a proof for every block it
 	/// re-executes, so a later resubmission can rebuild the PoV. `None` on a non-JAM path.
 	imported: Option<BlockPovs<Block>>,
+	/// Resolves the code behind a `:code` marker an imported block wrote, so its children can be
+	/// verified. `None` on a non-JAM path.
+	code: Option<CodeResolver<Block>>,
 	_block: PhantomData<Block>,
 }
 
 impl<Block: BlockT, BI, Client> JamBlockImport<Block, BI, Client> {
-	/// Create a new instance wrapping `inner`, recording PoVs into `imported` when present.
-	pub fn new(inner: BI, client: Arc<Client>, imported: Option<BlockPovs<Block>>) -> Self {
-		Self { inner, client, imported, _block: PhantomData }
+	/// Create a new instance wrapping `inner`, recording PoVs into `imported` and resolving
+	/// `:code` markers through `code` when present.
+	pub fn new(
+		inner: BI,
+		client: Arc<Client>,
+		imported: Option<BlockPovs<Block>>,
+		code: Option<CodeResolver<Block>>,
+	) -> Self {
+		Self { inner, client, imported, code, _block: PhantomData }
 	}
 }
 
@@ -81,6 +111,7 @@ impl<Block: BlockT, BI: Clone, Client> Clone for JamBlockImport<Block, BI, Clien
 			inner: self.inner.clone(),
 			client: self.client.clone(),
 			imported: self.imported.clone(),
+			code: self.code.clone(),
 			_block: PhantomData,
 		}
 	}
@@ -123,7 +154,21 @@ where
 			self.replay_jam_state(&mut params).await?;
 		}
 
-		self.inner.import_block(params).await.map_err(Into::into)
+		let block_hash = params.post_hash();
+		let anchor = CumulusDigestItem::find_jam_parent_info(params.header.digest())
+			.map(|jam_parent| HeaderHash(jam_parent.anchor.0));
+		let result = self.inner.import_block(params).await.map_err(Into::into)?;
+
+		// A block that enacts a JAM code upgrade leaves a marker in `:code`, and its children can
+		// only be verified once the code it names is cached. The import queue verifies the next
+		// block only after this returns.
+		if let (ImportResult::Imported(_), Some(resolve), Some(anchor)) =
+			(&result, self.code.as_ref().and_then(|code| code.get()), anchor)
+		{
+			resolve(block_hash, anchor).await;
+		}
+
+		Ok(result)
 	}
 }
 

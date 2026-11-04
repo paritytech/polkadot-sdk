@@ -214,6 +214,12 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, value_name = "URL", num_args = 1..)]
 	pub jam_recovery_rpc_urls: Vec<url::Url>,
 
+	/// EXPERIMENTAL (JAM): Report every third work-package recovery as unavailable once.
+	///
+	/// Testing only, exercises the recovery retry.
+	#[arg(long, hide = true)]
+	pub fail_pov_recovery: bool,
+
 	/// DEPRECATED: This feature has been stabilized, pLease use `--authoring slot-based` instead.
 	///
 	/// Use slot-based collator which can handle elastic scaling.
@@ -317,6 +323,8 @@ pub struct JamNodeParams {
 	pub authorizer_blob: PathBuf,
 	/// Length of a parachain slot in JAM timeslots.
 	pub slot_duration: u32,
+	/// Report every third work-package recovery as unavailable once.
+	pub fail_pov_recovery: bool,
 }
 
 /// Development sealing mode.
@@ -398,6 +406,7 @@ impl<Config: CliConfig> Cli<Config> {
 			service_id,
 			authorizer_blob,
 			slot_duration: self.jam_slot_duration,
+			fail_pov_recovery: self.fail_pov_recovery,
 		}))
 	}
 

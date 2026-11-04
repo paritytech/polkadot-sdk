@@ -40,13 +40,20 @@ async fn elastic_scaling_slot_based_authoring() -> Result<(), anyhow::Error> {
 	let network = initialize_network(config).await?;
 	#[cfg(not(feature = "jam"))]
 	let network = &network;
+	// Each para holds its cores from genesis, there is no relay chain to assign them.
 	#[cfg(feature = "jam")]
 	let paras = vec![
-		Para::new(PARA_ID_1, 0, &["collator-elastic"]).also_on([1]),
-		Para::new(PARA_ID_2, 2, &["collator-single-core"]),
+		Para::new(PARA_ID_1, 0, &["collator-elastic"])
+			.also_on([1, 2])
+			.with_runtime_code(
+				"elastic_scaling",
+				cumulus_test_runtime::elastic_scaling::WASM_BINARY,
+			)?,
+		Para::new(PARA_ID_2, 3, &["collator-single-core"])
+			.with_runtime_code("default", cumulus_test_runtime::WASM_BINARY)?,
 	];
 	#[cfg(feature = "jam")]
-	let jam = spawn("elastic_scaling_slot_based_authoring", &paras, SpawnOptions::new(3)).await?;
+	let jam = spawn("elastic_scaling_slot_based_authoring", &paras, SpawnOptions::new(4)).await?;
 	#[cfg(feature = "jam")]
 	let network = &jam.network;
 

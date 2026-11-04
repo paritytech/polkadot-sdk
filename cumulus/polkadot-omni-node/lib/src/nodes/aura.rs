@@ -49,7 +49,8 @@ use cumulus_client_consensus_aura::{
 use cumulus_client_consensus_common as consensus_common;
 use cumulus_client_consensus_relay_chain::Verifier as RelayChainVerifier;
 use cumulus_client_jam_work_package_recovery::{
-	ImportBlocksSink, JamWorkPackageRecovery, RecoveredBlock, RecoveryDelayRange, RpcBundleRecovery,
+	FailingBundleRecovery, ImportBlocksSink, JamBundleRecovery, JamWorkPackageRecovery,
+	RecoveredBlock, RecoveryDelayRange, RpcBundleRecovery,
 };
 use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_primitives_core::{
@@ -567,6 +568,8 @@ where
 		// and the collation task. Created before `new_partial` so the queue's `JamBlockImport`
 		// records into it.
 		let block_povs = jam::pov_store::BlockPovs::new(jam::pov_store::BLOCK_POVS_CAPACITY);
+		// Filled once the JAM connection is up, so imports can resolve `:code` markers.
+		let code_resolver = jam::block_import::CodeResolver::<Block>::default();
 
 		let PartialComponents {
 			client,
@@ -577,7 +580,13 @@ where
 			select_chain: _,
 			transaction_pool,
 			other: (block_import, mut telemetry, _, _, _),
-		} = Self::new_partial(&config, Some(block_povs.clone()))?;
+		} = Self::new_partial(
+			&config,
+			Some(jam::block_import::JamImportShared {
+				povs: block_povs.clone(),
+				code: code_resolver.clone(),
+			}),
+		)?;
 
 		// The JAM import path (task 12): wrap the inner import so every block that re-executes on
 		// import does so with the carried JAM state proof registered. The import queue
@@ -587,6 +596,7 @@ where
 			block_import.clone(),
 			client.clone(),
 			Some(block_povs.clone()),
+			Some(code_resolver.clone()),
 		);
 
 		let is_authority = config.role.is_authority();
@@ -712,6 +722,7 @@ where
 			let spawn_essential = task_manager.spawn_essential_handle();
 			let announce_block = announce_block.clone();
 			let block_import = block_import.clone();
+			let code_resolver = code_resolver.clone();
 			async move {
 				let (jam, worker) = match JamRpcInterface::new(jam_params.rpc_urls.clone()).await {
 					Ok(connection) => connection,
@@ -726,6 +737,29 @@ where
 				};
 				let jam = Arc::new(jam);
 				spawn_essential.spawn_essential("jam-rpc-worker", Some("jam"), Box::pin(worker));
+
+				{
+					let client = client.clone();
+					let para_backend = para_backend.clone();
+					let jam = jam.clone();
+					let service_id = jam_params.service_id;
+					let _ = code_resolver.set(Box::new(move |block, anchor| {
+						let (client, para_backend, jam) =
+							(client.clone(), para_backend.clone(), jam.clone());
+						async move {
+							jam::ensure_code_blob_at(
+								&client,
+								&para_backend,
+								&*jam,
+								service_id,
+								block,
+								anchor,
+							)
+							.await
+						}
+						.boxed()
+					}));
+				}
 
 				let best_heads = match jam::para_header_stream::<Block, _>(
 					&*jam,
@@ -830,14 +864,15 @@ where
 						},
 					}
 				};
+				let bundle_recovery: Box<dyn JamBundleRecovery> = if jam_params.fail_pov_recovery {
+					Box::new(FailingBundleRecovery::new(RpcBundleRecovery::new(bundle_source)))
+				} else {
+					Box::new(RpcBundleRecovery::new(bundle_source))
+				};
 				spawn_essential.spawn(
 					"cumulus-jam-wp-recovery",
 					None,
-					Box::pin(recovery.run(
-						Box::new(RpcBundleRecovery::new(bundle_source)),
-						block_status_fn,
-						import_notifications,
-					)),
+					Box::pin(recovery.run(bundle_recovery, block_status_fn, import_notifications)),
 				);
 				let Some(jam_authorizer) = jam_authorizer else {
 					// Essential task: park forever, returning would shut the node down.

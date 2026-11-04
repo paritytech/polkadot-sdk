@@ -10,9 +10,6 @@ use zombienet_orchestrator::network::node::LogLineCountOptions;
 use {
 	crate::utils::initialize_network,
 	anyhow::anyhow,
-	// The `network::` variant takes the node name and asserts the para-side block floor; the
-	// top-level one takes a relay client and counts `CandidateBacked` events. This test drives a
-	// network, so it needs the former — which is also the only one the JAM build has.
 	cumulus_zombienet_sdk_helpers::{assert_para_is_registered, network::assert_para_throughput},
 	serde_json::json,
 	zombienet_configuration::types::Arg,
@@ -66,6 +63,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	let result = network.wait_until_is_up(200u64).await;
 	assert!(result.is_ok(), "Network is not up: {:?}", result.unwrap_err());
 
+	// On JAM the para is registered in genesis.
 	#[cfg(not(feature = "jam"))]
 	{
 		let validator_3 = network.get_node("validator-3")?;
@@ -88,7 +86,19 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	}
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(&network, "bob", 20, [(ParaId::from(PARA_ID), 2..20)], []).await?;
+	#[cfg(not(feature = "jam"))]
+	let expected_candidates = 2..20;
+	// JAM accepts a candidate in every block, so all 20 counted blocks can carry one.
+	#[cfg(feature = "jam")]
+	let expected_candidates = 2..21;
+	assert_para_throughput(
+		&network,
+		"validator-0",
+		20,
+		[(ParaId::from(PARA_ID), expected_candidates)],
+		[],
+	)
+	.await?;
 
 	for (name, timeout_secs) in [("bob", 600u64)] {
 		log::info!("Checking block production for {name} within {timeout_secs}s");
@@ -284,6 +294,7 @@ fn build_collator_args(in_args: Vec<Arg>) -> Vec<Arg> {
 ///     - will need to recover the blocks through JAM work-package recovery
 ///   - eve
 ///     - collator which produces blocks, but has no para peers
+///     - it fails recovery from time to time to test retries
 ///   - one
 ///     - collator which produces blocks, but has no para peers
 ///   - two
@@ -317,6 +328,9 @@ async fn spawn_jam_network() -> Result<JamNetwork, anyhow::Error> {
 			} else {
 				isolated()
 			};
+			if *name == "eve" {
+				args.push("--fail-pov-recovery".into());
+			}
 			args.push(
 				("--jam-recovery-rpc-urls", format!("ws://127.0.0.1:{port}").as_str()).into(),
 			);
@@ -324,8 +338,9 @@ async fn spawn_jam_network() -> Result<JamNetwork, anyhow::Error> {
 		})
 		.collect::<HashMap<_, _>>();
 
-	let para =
-		Para::new(PARA_ID, 0, &["bob", "alice", "eve", "one"]).with_full_nodes(&["charlie", "two"]);
+	let para = Para::new(PARA_ID, 0, &["bob", "alice", "eve", "one"])
+		.with_full_nodes(&["charlie", "two"])
+		.with_runtime_code("default", cumulus_test_runtime::WASM_BINARY)?;
 	spawn(
 		"pov_recovery",
 		&[para],

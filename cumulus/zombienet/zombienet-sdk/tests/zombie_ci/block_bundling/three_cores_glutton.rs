@@ -22,7 +22,6 @@ use cumulus_zombienet_sdk_helpers::network::{
 	assert_finality_lag, assert_para_throughput, assign_cores,
 };
 use polkadot_primitives::Id as ParaId;
-#[cfg(not(feature = "jam"))]
 use serde_json::json;
 #[cfg(not(feature = "jam"))]
 use zombienet_sdk::NetworkConfig;
@@ -53,11 +52,14 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	let network = zombienet_sdk::environment::get_spawn_fn()(config).await?;
 	#[cfg(not(feature = "jam"))]
 	let network = &network;
+	// The para holds its three cores from genesis, there is no relay chain to assign them.
 	#[cfg(feature = "jam")]
 	let jam = spawn(
 		"block_bundling_three_cores_glutton",
-		// The three cores the relay network assigns, held from genesis.
-		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"]).also_on([1, 2])],
+		&[Para::new(PARA_ID, 0, &["collator-0", "collator-1", "collator-2"])
+			.also_on([1, 2])
+			.with_runtime_code("block_bundling", cumulus_test_runtime::block_bundling::WASM_BINARY)?
+			.with_genesis_overrides(glutton_genesis())],
 		SpawnOptions::new(3),
 	)
 	.await?;
@@ -74,18 +76,35 @@ async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
 	// Wait for the parachain to produce 72 blocks with 3 cores and glutton active
 	// With 3 cores, we expect roughly 3x throughput compared to single core
 	// Adjusting expectations based on glutton consuming 80% of ref time
+	#[cfg(not(feature = "jam"))]
+	let expected_blocks = 44..73;
+	// The JAM collator puts every block alone into its work package, so there is one block per
+	// candidate instead of a bundle.
+	#[cfg(feature = "jam")]
+	let expected_blocks = 12..19;
 	assert_para_throughput(
 		network,
 		"validator-0",
 		6,
 		[(ParaId::from(PARA_ID), 12..19)],
-		[(ParaId::from(PARA_ID), (para_client.clone(), 44..73))],
+		[(ParaId::from(PARA_ID), (para_client.clone(), expected_blocks))],
 	)
 	.await?;
 
 	assert_finality_lag(network, "collator-1", 72).await?;
 	log::info!("Test finished successfully - 72 blocks produced with 3 cores and glutton");
 	Ok(())
+}
+
+fn glutton_genesis() -> serde_json::Value {
+	json!({
+	"glutton": {
+		"compute": "0.1",
+		"storage": "0",
+		"trashDataCount": 5000,
+		"blockLength": "0"
+	}
+	})
 }
 
 #[cfg(not(feature = "jam"))]
@@ -127,14 +146,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					("slot-based").into(),
 					("-lparachain=debug,aura=trace,runtime=trace").into(),
 				])
-				.with_genesis_overrides(json!({
-				"glutton": {
-					"compute": "0.1",
-					"storage": "0",
-					"trashDataCount": 5000,
-					"blockLength": "0"
-				}
-				}))
+				.with_genesis_overrides(glutton_genesis())
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
 				.with_collator(|n| n.with_name("collator-2"))

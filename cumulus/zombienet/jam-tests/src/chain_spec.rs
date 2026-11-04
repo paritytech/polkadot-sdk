@@ -297,6 +297,7 @@ pub fn build(
 	path: &Path,
 	para_id: u32,
 	collators: &[String],
+	genesis_overrides: Option<&Value>,
 ) -> anyhow::Result<()> {
 	anyhow::ensure!(
 		!collators.is_empty(),
@@ -305,7 +306,7 @@ pub fn build(
 
 	generate(omni_node, runtime_wasm, path, "jam", para_id)?;
 
-	patch(path, para_id, collators)
+	patch(path, para_id, collators, genesis_overrides)
 }
 
 /// Point the spec at `para_id` and give every running collator an aura slot.
@@ -314,7 +315,12 @@ pub fn build(
 /// block production for a full slot each. Where the set lives is the preset's shape — see
 /// [`rewrite_preset`] — and `collators` must be in the order the AURA round-robin walks them,
 /// because the authorizer hash commits to that order ([`in_authority_order`]).
-fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> {
+fn patch(
+	path: &Path,
+	para_id: u32,
+	collators: &[String],
+	genesis_overrides: Option<&Value>,
+) -> anyhow::Result<()> {
 	let mut spec: Value = serde_json::from_slice(&std::fs::read(path)?)
 		.with_context(|| format!("parsing {}", path.display()))?;
 
@@ -323,6 +329,9 @@ fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> 
 		.ok_or_else(|| anyhow!("chain spec has no genesis.runtimeGenesis.patch"))?;
 
 	rewrite_preset(patch, para_id, collators)?;
+	if let Some(overrides) = genesis_overrides {
+		merge(patch, overrides);
+	}
 
 	// `--para-id` / `--relay-chain jam` already set these; assert rather than re-set them, so a
 	// chain-spec-builder change cannot silently leave the collators on the wrong chain.
@@ -339,6 +348,18 @@ fn patch(path: &Path, para_id: u32, collators: &[String]) -> anyhow::Result<()> 
 
 	std::fs::write(path, serde_json::to_vec_pretty(&spec)?)?;
 	Ok(())
+}
+
+/// Merge `overrides` into `target`: objects key by key, anything else replaced.
+fn merge(target: &mut Value, overrides: &Value) {
+	match (target, overrides) {
+		(Value::Object(target), Value::Object(overrides)) => {
+			for (key, value) in overrides {
+				merge(target.entry(key.clone()).or_insert(Value::Null), value);
+			}
+		},
+		(target, overrides) => *target = overrides.clone(),
+	}
 }
 
 /// The rewrite [`patch`] applies to a parsed preset: one authority per running collator, and

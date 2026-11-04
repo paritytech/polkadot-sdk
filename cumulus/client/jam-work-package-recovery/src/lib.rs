@@ -154,5 +154,38 @@ impl<J: JamWorkPackageSubmission> JamBundleRecovery for RpcBundleRecovery<J> {
 	}
 }
 
+/// `JamBundleRecovery` that reports every third bundle as unavailable to exercise the retry.
+///
+/// Testing only. A report is failed at most once, so recovery still makes progress.
+pub struct FailingBundleRecovery<R> {
+	inner: R,
+	counter: u32,
+	failed: std::collections::HashSet<WorkReportHash>,
+}
+
+impl<R: JamBundleRecovery> FailingBundleRecovery<R> {
+	/// Wrap `inner`, failing every third recovery once.
+	pub fn new(inner: R) -> Self {
+		Self { inner, counter: 0, failed: Default::default() }
+	}
+}
+
+#[async_trait::async_trait]
+impl<R: JamBundleRecovery> JamBundleRecovery for FailingBundleRecovery<R> {
+	async fn recover_bundle(
+		&mut self,
+		report_hash: WorkReportHash,
+		assurance_epoch: EpochIndex,
+	) -> Result<Option<Vec<u8>>, String> {
+		let fail = self.counter.is_multiple_of(3) && self.failed.insert(report_hash);
+		self.counter += 1;
+		if fail {
+			tracing::info!(target: LOG_TARGET, ?report_hash, "Failing pov recovery.");
+			return Ok(None);
+		}
+		self.inner.recover_bundle(report_hash, assurance_epoch).await
+	}
+}
+
 #[cfg(test)]
 mod tests;

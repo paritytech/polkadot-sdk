@@ -65,7 +65,14 @@ pub fn build_jam_genesis(
 			// Written in authority order, so a runtime that keeps genesis order (no
 			// collator-selection) returns the same set `genesis.rs` hashes.
 			let collators = chain_spec::in_authority_order(&para.collators)?;
-			chain_spec::build(&binaries.omni_node, runtime_blob, &spec, para.id, &collators)?;
+			chain_spec::build(
+				&binaries.omni_node,
+				runtime_blob,
+				&spec,
+				para.id,
+				&collators,
+				para.genesis_overrides.as_ref(),
+			)?;
 			Ok(spec)
 		})
 		.collect::<anyhow::Result<Vec<_>>>()?;
