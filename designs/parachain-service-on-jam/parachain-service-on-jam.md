@@ -833,7 +833,7 @@ The always-accumulate allowance is unlikely to cover an assign for every core in
 block. A core whose queue is rewritten every 80 timeslots is due at `jam_slot`,
 `jam_slot + 80`, `jam_slot + 160`, and so on. The Coretime chain should therefore spread
 the `jam_slot`s of these cores evenly over the 80 slots, so that only a few of them are
-due in the same block. Until a carried-over rewrite is applied, the
+due at the same slot. Until a carried-over rewrite is applied, the
 core's pool takes the hashes written for the slots 80 timeslots earlier.
 
 #### Incoming transfer processing
@@ -1681,7 +1681,7 @@ Parachain Service (Accumulate)
     │  rewritten every 80 slots (§5.1)
     ▼
 Pool (up to 8 entries)
-    │  Old authorizer hashes drain out over ~8 blocks (48s)
+    │  Old authorizer hashes drain out over ~8 slots (48s)
     │  New ones rotate in
 ```
 
