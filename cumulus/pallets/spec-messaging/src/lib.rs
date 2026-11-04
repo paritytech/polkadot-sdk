@@ -708,6 +708,12 @@ pub mod pallet {
 			let us = T::SelfParaId::get();
 			let mut budget = BundleBudget::load::<T>();
 			let mut remaining = Self::proof_budget(inherent_data);
+			// The call is mandatory, so nothing refuses it past the block's ref time: keep within.
+			let ref_time = T::BlockWeights::get()
+				.max_block
+				.ref_time()
+				.saturating_sub(frame_system::Pallet::<T>::block_weight().total().ref_time());
+			let mut tally = EnactTally::default();
 			let mut filtered_channels = BTreeMap::new();
 
 			for (channel_id, payloads) in data.channels {
@@ -722,13 +728,17 @@ pub mod pallet {
 				let mut cost = bytes
 					.saturating_add(channel_id.encoded_size() as u64)
 					.saturating_add(Compact::<u32>::max_encoded_len() as u64);
+				let mut item = EnactTally { channels: tally.channels.saturating_add(1), ..tally };
 				let mut keep = 0;
 				for payload in &admitted.payloads {
 					let next = cost.saturating_add(payload.encoded_size() as u64);
-					if next > remaining {
+					let mut next_item = item;
+					next_item.add_payload::<T>(payload);
+					if next > remaining || next_item.weight::<T>().ref_time() > ref_time {
 						break;
 					}
 					cost = next;
+					item = next_item;
 					keep += 1;
 				}
 				if keep == 0 {
@@ -736,6 +746,7 @@ pub mod pallet {
 				}
 				admitted.payloads.truncate(keep);
 				remaining -= cost;
+				tally = item;
 				budget.record(stream, bytes);
 				filtered_channels.insert(channel_id, admitted.payloads);
 			}
@@ -758,10 +769,12 @@ pub mod pallet {
 					continue;
 				};
 				let cost = bytes.saturating_add((channel_id, &lossy).encoded_size() as u64);
-				if cost > remaining {
+				let item = EnactTally { registers: tally.registers.saturating_add(1), ..tally };
+				if cost > remaining || item.weight::<T>().ref_time() > ref_time {
 					continue;
 				}
 				remaining -= cost;
+				tally = item;
 				budget.record(stream, bytes);
 				filtered_registers.insert(channel_id, lossy);
 			}
@@ -796,34 +809,58 @@ fn commit_weight<T: Config>(sends: u32, publishes: u32) -> Weight {
 /// Weight of one `enact_messages`, with the end-of-block work it causes: one register publish per
 /// channel item and at most one send per register read.
 fn enact_weight<T: Config>(data: &MessagingInherentData) -> Weight {
-	let channels = data.channels.len() as u32;
-	let registers = data.registers.len() as u32;
-	let mut payloads = 0u32;
-	let mut bytes = 0u32;
-	let mut handler = Weight::zero();
-	for payload in data.channels.values().flatten() {
-		payloads = payloads.saturating_add(1);
-		bytes = bytes.saturating_add(payload.len() as u32);
-		handler = handler.saturating_add(T::DataHandler::on_data_weight(payload.len() as u32));
-	}
-	// Every benchmark's base holds the inherent's fixed cost, and the payload and byte bases one
-	// channel's too: `enact_channels`, or `enact_registers` without channels, charges them once.
-	let registers_weight = T::WeightInfo::enact_registers(registers);
-	let enact = if channels == 0 {
-		registers_weight
-	} else {
-		// The payload benchmark counts the messages beyond the first of each channel.
-		let payloads = T::WeightInfo::enact_payloads(payloads.saturating_sub(channels))
-			.saturating_sub(T::WeightInfo::enact_payloads(0));
-		let bytes = T::WeightInfo::enact_bytes(bytes).saturating_sub(T::WeightInfo::enact_bytes(0));
-		T::WeightInfo::enact_channels(channels)
-			.saturating_add(payloads)
-			.saturating_add(bytes)
-			.saturating_add(registers_weight.saturating_sub(T::WeightInfo::enact_registers(0)))
+	let mut tally = EnactTally {
+		channels: data.channels.len() as u32,
+		registers: data.registers.len() as u32,
+		..Default::default()
 	};
-	enact
-		.saturating_add(handler)
-		.saturating_add(commit_weight::<T>(registers, channels))
+	for payload in data.channels.values().flatten() {
+		tally.add_payload::<T>(payload);
+	}
+	tally.weight::<T>()
+}
+
+/// What [`enact_weight`] charges for, so `create_inherent` can grow an inherent payload by payload.
+#[derive(Clone, Copy, Default)]
+struct EnactTally {
+	channels: u32,
+	payloads: u32,
+	bytes: u32,
+	handler: Weight,
+	registers: u32,
+}
+
+impl EnactTally {
+	fn add_payload<T: Config>(&mut self, payload: &Payload) {
+		let len = payload.len() as u32;
+		self.payloads = self.payloads.saturating_add(1);
+		self.bytes = self.bytes.saturating_add(len);
+		self.handler = self.handler.saturating_add(T::DataHandler::on_data_weight(len));
+	}
+
+	fn weight<T: Config>(&self) -> Weight {
+		let Self { channels, payloads, bytes, handler, registers } = *self;
+		// Every benchmark's base holds the inherent's fixed cost, and the payload and byte bases
+		// one channel's too: `enact_channels`, or `enact_registers` without channels, charges them
+		// once.
+		let registers_weight = T::WeightInfo::enact_registers(registers);
+		let enact = if channels == 0 {
+			registers_weight
+		} else {
+			// The payload benchmark counts the messages beyond the first of each channel.
+			let payloads = T::WeightInfo::enact_payloads(payloads.saturating_sub(channels))
+				.saturating_sub(T::WeightInfo::enact_payloads(0));
+			let bytes =
+				T::WeightInfo::enact_bytes(bytes).saturating_sub(T::WeightInfo::enact_bytes(0));
+			T::WeightInfo::enact_channels(channels)
+				.saturating_add(payloads)
+				.saturating_add(bytes)
+				.saturating_add(registers_weight.saturating_sub(T::WeightInfo::enact_registers(0)))
+		};
+		enact
+			.saturating_add(handler)
+			.saturating_add(commit_weight::<T>(registers, channels))
+	}
 }
 
 /// The proof bytes one lift without advances reserves; a bundle has at most 256 blocks, so the

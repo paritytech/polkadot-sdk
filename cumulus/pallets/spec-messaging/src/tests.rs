@@ -1210,6 +1210,45 @@ fn create_inherent_trims_to_the_proof_budget() {
 }
 
 #[test]
+fn create_inherent_trims_to_the_remaining_ref_time() {
+	new_test_ext().execute_with(|| {
+		let ch = in_channel();
+		accept(ch);
+		want_open(out_channel());
+		let payloads = vec![hello(1), data(b"a"), data(b"b")];
+		let mut offered = channel_item(ch, payloads.clone());
+		offered.registers = register_read(0).registers;
+		let weight = |kept: usize, register: bool| {
+			let mut data = channel_item(ch, payloads[..kept].to_vec());
+			if kept == 0 {
+				data.channels.clear();
+			}
+			if register {
+				data.registers = offered.registers.clone();
+			}
+			enact_weight::<Test>(&data).ref_time()
+		};
+		let max = <Test as frame_system::Config>::BlockWeights::get().max_block.ref_time();
+		// `(payloads kept, register kept)` with `left` ref time in the block.
+		let kept = |left: u64| {
+			frame_system::BlockWeight::<Test>::kill();
+			System::register_extra_weight_unchecked(
+				Weight::from_parts(max - left, 0),
+				DispatchClass::Mandatory,
+			);
+			created(&offered).map_or((0, false), |data| {
+				(data.channels.get(&ch).map_or(0, Vec::len), !data.registers.is_empty())
+			})
+		};
+
+		assert_eq!(kept(weight(3, true)), (3, true));
+		assert_eq!(kept(weight(3, true) - 1), (3, false));
+		assert_eq!(kept(weight(3, false) - 1), (2, false));
+		assert_eq!(kept(weight(1, false) - 1), (0, false));
+	});
+}
+
+#[test]
 fn enact_rejects_items_the_watching_rule_excludes() {
 	new_test_ext().execute_with(|| {
 		let ch = in_channel();
