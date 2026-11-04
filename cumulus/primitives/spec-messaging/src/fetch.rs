@@ -626,7 +626,7 @@ mod tests {
 			start: Some(MessagePosition(5)),
 			max_bytes: 1024,
 		};
-		let mut expected = vec![0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00]; // stream
+		let mut expected = vec![0x00, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00]; // stream
 		expected.extend([0x11; 32]); // under
 		expected.extend([0x01, 0x05, 0, 0, 0, 0, 0, 0, 0]); // start: Some, u64 LE
 		expected.extend([0x00, 0x04, 0, 0]); // max_bytes: u32 LE
@@ -634,7 +634,7 @@ mod tests {
 		assert_eq!(MessagesRequest::decode(&mut &expected[..]).unwrap(), request);
 
 		let head = MessagesRequest { start: None, ..request };
-		let mut expected = vec![0x00, 0x00, 0x00, 0x07, 0xD0, 0x00, 0x00, 0x00];
+		let mut expected = vec![0x00, 0xD0, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00];
 		expected.extend([0x11; 32]);
 		expected.push(0x00); // start: None
 		expected.extend([0x00, 0x04, 0, 0]);
