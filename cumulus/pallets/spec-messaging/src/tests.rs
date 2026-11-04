@@ -2066,6 +2066,52 @@ mod xcm_layer {
 	}
 }
 
+#[test]
+fn register_publishes_carried_over_are_charged_next_block() {
+	use crate::weights::WeightInfo;
+	use frame_support::{traits::Get, weights::RuntimeDbWeight};
+	type W = ();
+	new_test_ext().execute_with(|| {
+		let per_stream = MaxMessagesPerBlock::get();
+		for i in 0..SpecMessaging::send_limit() {
+			assert_ok!(SpecMessaging::append_to_stream(
+				stream((i / per_stream) as u16),
+				b"x".to_vec()
+			));
+		}
+		// One more acceptance than the room kept for publishes, so one register waits.
+		let room = MaxSendsPerBlock::get() - SpecMessaging::send_limit();
+		for sender in 0..=room {
+			accept(InChannelId { sender: ParaId::from(3000 + sender), domain: 0, num: 0 });
+		}
+		SpecMessaging::commit_streams_root();
+		assert_eq!(PendingRegisterPublishes::<Test>::get().len(), 1);
+
+		// The calls charged the publish in this block; the next block's commit does it.
+		let n = System::block_number();
+		SpecMessaging::on_finalize(n);
+		System::initialize(&(n + 1), &Default::default(), &Default::default());
+		let charged = SpecMessaging::on_initialize(n + 1);
+		let drained = RolledOver::<Test>::get().unwrap().1;
+		let read =
+			<<Test as frame_system::Config>::DbWeight as Get<RuntimeDbWeight>>::get().reads(1);
+		assert_eq!(
+			charged,
+			<W as WeightInfo>::on_initialize(drained) +
+				W::idle_commit() +
+				read + commit_weight::<Test>(0, 1)
+		);
+
+		SpecMessaging::on_finalize(n + 1);
+		assert!(PendingRegisterPublishes::<Test>::get().is_empty());
+		// Nothing carried: only the read.
+		System::initialize(&(n + 2), &Default::default(), &Default::default());
+		let charged = SpecMessaging::on_initialize(n + 2);
+		let drained = RolledOver::<Test>::get().unwrap().1;
+		assert_eq!(charged, <W as WeightInfo>::on_initialize(drained) + W::idle_commit() + read);
+	});
+}
+
 /// A channel that wants to open and applied an `Accepting` register for versions `min..=max`.
 fn awaiting_hello(num: u16, min: u8, max: u8) -> OutChannelId {
 	let ch = OutChannelId { recipient: ParaId::from(1000u32), domain: 0, num };

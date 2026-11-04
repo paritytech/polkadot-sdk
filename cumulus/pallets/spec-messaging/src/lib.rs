@@ -372,9 +372,15 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			let drained = Self::roll_over();
-			// The calls and the inherent charge the end-of-block commit; this charges the idle one.
-			let weight =
-				T::WeightInfo::on_initialize(drained).saturating_add(T::WeightInfo::idle_commit());
+			// The calls and the inherent charge the end-of-block commit; this charges the idle one,
+			// and the publishes the last block could not make, which no call of this block charges.
+			let mut weight = T::WeightInfo::on_initialize(drained)
+				.saturating_add(T::WeightInfo::idle_commit())
+				.saturating_add(T::DbWeight::get().reads(1));
+			let carried = PendingRegisterPublishes::<T>::get().len() as u32;
+			if carried > 0 {
+				weight = weight.saturating_add(commit_weight::<T>(0, carried));
+			}
 			match Self::run_hello_pass() {
 				Some((visited, hellos)) => weight
 					.saturating_add(T::WeightInfo::hello_pass(visited))
