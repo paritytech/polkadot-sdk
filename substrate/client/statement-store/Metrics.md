@@ -50,7 +50,8 @@ of statements in the database
   - `persistent`: kept for DHT affinity, or with no retention limit (a node without the v2 DHT path keeps everything here)
   - `explicit`: kept only for explicit (subscription) affinity
   - `transient`: kept only until propagated to the replicas
-- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range next to what it relays.
+- **Why it matters:** During the v2 DHT rollout this shows the share of the store a node holds for its own DHT range 
+  next to what it relays.
 - **How to read:** Stacked area; the tracks sum to `bytes_total`.
 
 #### Unique Accounts
@@ -241,8 +242,10 @@ bandwidth, latency, and network health indicators.
 - **What it measures:** Actual network bandwidth consumed by the statement protocol.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
-- **Labels:** `bytes_received_total` carries `route`: `dht` for senders served through the v2 DHT path, `flood` for the rest. A sender counts as `dht` only once its affinity filter applies, so a
-  peer in its grace period counts as `flood`. A node without the v2 DHT path reports every sender
+- **Labels:** `bytes_received_total` carries `route`: `dht` for senders served through the v2 DHT path, `flood` for the rest. 
+  A sender counts as `dht` only once its affinity filter applies, so a
+  peer in its grace period counts as `flood`. 
+  A node without the v2 DHT path reports every sender
   as `flood`.
 - **Problems it solves:**
   - Detect bandwidth issues
