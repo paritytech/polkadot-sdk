@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793815092772,
+  "lastUpdate": 1793820619058,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "73715684+Szegoo@users.noreply.github.com",
-            "name": "Sergej Sakac",
-            "username": "Szegoo"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "878b1583b5031aa4ee936cb98ff45257778acafa",
-          "message": "PSM init: skip assets with mismatched decimals instead of panicking (#11807)\n\nAddresses issue @ggwpez raised in this comment:\nhttps://github.com/paritytech/polkadot-sdk/pull/11068#discussion_r3096189282\n\n## Summary\n\nReplaces the `assert!` in the PSM `InitializePsm` migration with a log +\nskip when an asset's decimals don't match the stable asset. Panicking in\na runtime upgrade bricks the chain. Migrations must be infallible.\n\n### Test\n\nAdds `initialize_psm_skips_assets_with_wrong_decimals` which verifies\nthat assets with mismatched decimals are skipped while\ncorrectly-configured assets in the same migration are still added.",
-          "timestamp": "2026-04-18T17:42:40Z",
-          "tree_id": "b4c9fffcc4588d1f361e7427b9439223e2d11602",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/878b1583b5031aa4ee936cb98ff45257778acafa"
-        },
-        "date": 1776539210886,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.08599999999998,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038496139654,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.0857700746919999,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.08391227207599986,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c6cf388bd8d27f80899c92e8c42fa72e0f785f",
+          "message": "Small tweaks to westend runtimes  (#13711)\n\nAs a follow-up to:\nhttps://github.com/paritytech/polkadot-sdk/pull/13464.\n\n- [x] make `IsValidatorInactive` configurable for future testing,\ndisabled by default\n- [x] make `StakingOperator` in AH capable of setting local session keys\n+ add it to PC",
+          "timestamp": "2026-11-04T17:53:22Z",
+          "tree_id": "29e0364ea1694a59fdcad1eb482e80611c3cf699",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c6cf388bd8d27f80899c92e8c42fa72e0f785f"
+        },
+        "date": 1793820588952,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.10799999999998,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03921033976600001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.0871684092879999,
             "unit": "seconds"
           }
         ]
