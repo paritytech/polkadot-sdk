@@ -660,12 +660,18 @@ pub mod env {
 		addr_ptr: u32,
 		out_ptr: u32,
 	) -> Result<(), TrapReason> {
-		self.charge_gas(RuntimeCosts::BalanceOf)?;
 		let address = memory.read_h160(addr_ptr)?;
+		let balance = if address == self.ext.address() {
+			self.charge_gas(RuntimeCosts::Balance)?;
+			self.ext.balance()
+		} else {
+			self.charge_gas(RuntimeCosts::BalanceOf)?;
+			self.ext.balance_of(&address)
+		};
 		Ok(self.write_fixed_sandbox_output(
 			memory,
 			out_ptr,
-			&self.ext.balance_of(&address).to_little_endian(),
+			&balance.to_little_endian(),
 			false,
 			already_charged,
 		)?)
