@@ -27,6 +27,7 @@
 
 extern crate alloc;
 
+use core::cmp::Ordering;
 use frame_support::{
 	pallet_prelude::*,
 	storage::{transactional::with_transaction_opaque_err, TransactionOutcome},
@@ -244,16 +245,20 @@ impl<T: Config> Pallet<T> {
 		let reason = HoldReason::ChannelDeposit.into();
 		let who = Self::payer(&channel, side);
 		let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
-		if target > held {
-			T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
-				DispatchError::Token(TokenError::FundsUnavailable) => {
-					DepositError::InsufficientFunds
-				},
-				_ => DepositError::Other,
-			})?;
-		} else if target < held {
-			T::Currency::release(&reason, &who, held - target, Precision::BestEffort)
-				.map_err(|_| DepositError::Other)?;
+		match target.cmp(&held) {
+			Ordering::Greater => {
+				T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
+					DispatchError::Token(TokenError::FundsUnavailable) => {
+						DepositError::InsufficientFunds
+					},
+					_ => DepositError::Other,
+				})?;
+			},
+			Ordering::Less => {
+				T::Currency::release(&reason, &who, held - target, Precision::BestEffort)
+					.map_err(|_| DepositError::Other)?;
+			},
+			Ordering::Equal => {},
 		}
 		if target == 0 {
 			Deposits::<T>::remove((channel, side));
