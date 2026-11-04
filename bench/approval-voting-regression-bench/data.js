@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793815042669,
+  "lastUpdate": 1793820564135,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c319f547cae0c67204a18d9dd3daf98a2c152004",
-          "message": "Statement-store: defer statement protocol connections during major sync (#11487)\n\n# Description\nImplement #11411\n\nReconnect all statement protocol peers when major sync ends. Removing\nand re-adding peers to the reserved set closes and reopens the\nnotification substreams on both sides, triggering a fresh bidirectional\ninitial sync. This causes peers to re-deliver any statements that were\ndropped during the sync window.\n\n- On was_major_syncing → false transition, call\nreconnect_statement_peers which removes then re-adds all connected peers\nfrom the statement\nprotocol reserved set\n- Both sides receive NotificationStreamClosed then\nNotificationStreamOpened, restarting the 100ms initial sync burst\n \n# Changes\n- `reconnect_statement_peers`: fires when major sync ends, reconnects\nall statement peers to trigger fresh initial sync\n- New zombienet integration test:\nstatement_store_peer_disconnect_during_major_sync — verifies that\nstatements submitted before a late-joining nodeenters major sync are\nfully recovered after sync completes, confirmed via log assertion that\nreconnect_statement_peers fired\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T04:53:59Z",
-          "tree_id": "522d3584a40b602fc08588068b809aa44ce288eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c319f547cae0c67204a18d9dd3daf98a2c152004"
-        },
-        "date": 1776754321144,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63629.020000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.40000000001,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.000023833639999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.8711774306400004,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.7826037324899571,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.005827469779999996,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002338054,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8649036868700013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.9552306231900003,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.847537507430001,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002338054,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.000023833639999999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.824106615579959,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.4968261651800003,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.316809825703051,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-2",
             "value": 2.770709232039999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5588131+kianenigma@users.noreply.github.com",
+            "name": "Kian Paimani",
+            "username": "kianenigma"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "f3c6cf388bd8d27f80899c92e8c42fa72e0f785f",
+          "message": "Small tweaks to westend runtimes  (#13711)\n\nAs a follow-up to:\nhttps://github.com/paritytech/polkadot-sdk/pull/13464.\n\n- [x] make `IsValidatorInactive` configurable for future testing,\ndisabled by default\n- [x] make `StakingOperator` in AH capable of setting local session keys\n+ add it to PC",
+          "timestamp": "2026-11-04T17:53:22Z",
+          "tree_id": "29e0364ea1694a59fdcad1eb482e80611c3cf699",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/f3c6cf388bd8d27f80899c92e8c42fa72e0f785f"
+        },
+        "date": 1793820534314,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.41000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52944.8,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.000019419440000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.000019419440000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.7791849445100008,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.000020650550000000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.753246139609999,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.3336754945800076,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7461282216399985,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8453726638400234,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005290094260000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.26481582832003,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.801918269880002,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.559073695722884,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.000020650550000000002,
             "unit": "seconds"
           }
         ]
