@@ -503,11 +503,12 @@ where
 		// claimed author, with no awareness of a boundary inside it. This is not yet correct in two
 		// cases.
 		// TODO(https://github.com/paritytech/polkadot-sdk/issues/13631): across an aura authority-set
-		// change, a block built by the old set cannot be resubmitted by the new set, because its PVF
-		// checks the scheduling signature against the old authorities and the current slot.
+		// change, a block built by the old set cannot be resubmitted by the new set, because its
+		// PVF checks the scheduling signature against the old authorities and the current slot.
 		// TODO(https://github.com/paritytech/polkadot-sdk/issues/13660): across a parachain runtime
-		// upgrade, a delayed upgrade block resubmitted in the new format is rejected by the old code,
-		// and blocks built on the upgrade block in the old format are rejected by the new code.
+		// upgrade, a delayed upgrade block resubmitted in the new format is rejected by the old
+		// code, and blocks built on the upgrade block in the old format are rejected by the new
+		// code.
 		let resubmittable_headers = parent_search_result.resubmittable_segment;
 
 		// Building on a parent that already sits on our relay parent would put two blocks on the
