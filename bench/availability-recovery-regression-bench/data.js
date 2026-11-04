@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793799723026,
+  "lastUpdate": 1793803160868,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "marian@parity.io",
-            "name": "Marian Radu",
-            "username": "marian-radu"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1f705c2fe6505da8aa9ebab22c8e01d768aeb3c9",
-          "message": "eth-rpc: Bulk INSERT/DELETE and commit per-block writes atomically (#11726)\n\n### Summary\n\n- Query SQLite's max variable limit at startup and use it to chunk bulk\nINSERTs and DELETEs, avoiding bind-parameter overflows\n- Replace per-row individual inserts with batched bulk inserts\n- Commit transaction hashes, logs, and block mapping in a single SQLite\ntransaction per block, same for deletes\n- Use `INSERT OR REPLACE` for logs (previously plain INSERT) to match\ntransaction_hashes and prevent UNIQUE constraint failures if the EXISTS\ndedup guard is bypassed\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T09:42:37Z",
-          "tree_id": "4a66e89e5d744d17c7e6be0dd29e0999f2436304",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/1f705c2fe6505da8aa9ebab22c8e01d768aeb3c9"
-        },
-        "date": 1776772454568,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.237519331833337,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.1218694417,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.1254682148333333,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "006389c761e9ce8433dd99ea2cb3536fd5047598",
+          "message": "pallet-validator-collators: configurable default for MaxCollators (#13710)\n\nAdd `DefaultMaxCollators`, the value of `MaxCollators` until governance\nsets it. `MaxCollators` becomes a `ValueQuery` of `Option<u32>` with\nthat default, and `set_max_collators(None)` means no cap.\n\nAsset Hub Westend and People Westend default to a cap of 0, so\nvalidators contribute no collators until governance raises the cap.",
+          "timestamp": "2026-11-04T13:08:26Z",
+          "tree_id": "32e3877f2aec1041d0c9eb6bc92d62cbefaf13f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/006389c761e9ce8433dd99ea2cb3536fd5047598"
+        },
+        "date": 1793803132315,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.12555674600000002,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 10.994159919166668,
             "unit": "seconds"
           }
         ]
