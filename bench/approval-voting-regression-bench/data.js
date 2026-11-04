@@ -1,107 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793748388747,
+  "lastUpdate": 1793799858293,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "approval-voting-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b80b5691f3d02f058f3d251a88aa2e1021dad26e",
-          "message": "[Staking] Refactor Staking Reward Mode Selection (#11806)\n\nRefactor of the payout mode selection in `pallet-staking-async`.\nPreviously the payout path was chosen by checking whether the era's\nreward pot account existed on-chain. Instead we now depend on the\nstorage `DisableMintingGuard` which is more reliable source of truth for\nwhether an era belongs to the DAP or legacy mint path",
-          "timestamp": "2026-04-20T06:51:43Z",
-          "tree_id": "d0427449a6552948b94206e59a1b6fefd37d36e8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b80b5691f3d02f058f3d251a88aa2e1021dad26e"
-        },
-        "date": 1776672941549,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 63643.65,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 52941.09999999999,
-            "unit": "KiB"
-          },
-          {
-            "name": "approval-distribution",
-            "value": 0.00002288209,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-1",
-            "value": 2.8304405254900002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
-            "value": 0.756108303139991,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 4.278733137792844,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-0",
-            "value": 2.9094184980899986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting",
-            "value": 0.00002205366,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-distribution/test-environment",
-            "value": 0.00002288209,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-2",
-            "value": 2.949838098229999,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-db",
-            "value": 2.5347305939000013,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting/test-environment",
-            "value": 0.00002205366,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-parallel-3",
-            "value": 2.8299297832199986,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel/approval-voting-gather-signatures",
-            "value": 0.006441961410000002,
-            "unit": "seconds"
-          },
-          {
-            "name": "approval-voting-parallel",
-            "value": 14.816907763479993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -49499,6 +49400,105 @@ window.BENCHMARK_DATA = {
           {
             "name": "approval-voting-parallel/approval-voting-parallel-1",
             "value": 2.7087559026,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1de9ddfe5387691ee0867946876368088b57ac6a",
+          "message": "pallet-revive: measure the contract's own account in host function benchmarks (#13501)\n\n`CallSetup` whitelisted the executing contract's `System::Account` in\nevery host function benchmark. The whitelist was added in #4233, since\nthe weight of the `call` extrinsic already includes the account of the\nfirst frame's contract. When a nested contract is called without value,\nits account access has not been paid for, and a later transfer, contract\ncreation or self-destruct in that call does not pay for it either.\nRemoving the whitelist only affects the benchmarks that access that\naccount, and their weights now include it. Whitelisting `AccountInfoOf`\nremains safe, since the call that creates a frame already reads and\nwrites the contract's info.\n\nThe benchmarks that access the contract's account now assert that it is\nnot whitelisted: `seal_call_transfer`, `seal_instantiate`,\n`seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`, `seal_terminate` and `seal_terminate_logic`.\n\n`seal_balance` keeps the account whitelisted, so that a `transfer` or\n`send` receiver, whose stipend is too small for a storage read, can\nstill read its own balance. The read is undercharged if no frame in the\ntransaction pays for the account. This exception should be removed once\n#12673 lands, since the receiver's account will then always be hot.\n\nIn the following scenarios, the account access is charged more than\nonce:\n- A contract called directly by the transaction, whose extrinsic weight\nalready includes the account.\n- A contract called with value, or created by an instantiate.\n- Any repeated use within the same transaction.\n\nA self-destruct is charged both `seal_terminate` and\n`seal_terminate_logic`, so it now pays twice for reading the contract's\naccount. I propose deferring this to a follow-up, since it is an\novercharge on a rare opcode and the fix will probably need to rework the\nterminate pricing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T09:03:19Z",
+          "tree_id": "4e7c2a21e8957e83dcb95f623b5de2b9b53988c5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1de9ddfe5387691ee0867946876368088b57ac6a"
+        },
+        "date": 1793799817584,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 63563.31000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 52937.40000000001,
+            "unit": "KiB"
+          },
+          {
+            "name": "approval-voting",
+            "value": 0.00001786346,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-0",
+            "value": 2.748810490329998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution",
+            "value": 0.00002026398,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting/test-environment",
+            "value": 0.00001786346,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel",
+            "value": 14.108321057890034,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-1",
+            "value": 2.7218280601800027,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-2",
+            "value": 2.744254657319998,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-gather-signatures",
+            "value": 0.005899618139999995,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-3",
+            "value": 2.72592733018,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-distribution/test-environment",
+            "value": 0.00002026398,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-subsystem",
+            "value": 0.8419139508000283,
+            "unit": "seconds"
+          },
+          {
+            "name": "approval-voting-parallel/approval-voting-parallel-db",
+            "value": 2.319686950940008,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 4.286621686602819,
             "unit": "seconds"
           }
         ]
