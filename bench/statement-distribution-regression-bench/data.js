@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793803316768,
+  "lastUpdate": 1793815092772,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "git@kchr.de",
-            "name": "Bastian Köcher",
-            "username": "bkchr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "6e8ca55095e6bdb540f193c560cdc0419637a6d1",
-          "message": "Block Bundling Node Side (#10477)\n\nThis implements Block bundling aka 500ms on the node side. Right now the\npull request also contains the runtime changes, but this is already its\n[own pull\nrequest](https://github.com/paritytech/polkadot-sdk/pull/10315).\n\nThe main changes are in the slot-based collator. Instead of building one\nblock per core, blocks will be build as requested and distributed over\nthe available cores.\n\nCloses: https://github.com/paritytech/polkadot-sdk/issues/9080\nCloses: https://github.com/paritytech/polkadot-sdk/issues/8963\nCloses: https://github.com/paritytech/polkadot-sdk/issues/6495\n\n---------\n\nCo-authored-by: Guillaume Thiolliere <gui.thiolliere@gmail.com>\nCo-authored-by: Oliver Tale-Yazdi <oliver.tale-yazdi@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>\nCo-authored-by: Sebastian Kunert <skunert49@gmail.com>\nCo-authored-by: Sebastian Kunert <mail@skunert.dev>\nCo-authored-by: Michal Kucharczyk <1728078+michalkucharczyk@users.noreply.github.com>",
-          "timestamp": "2026-04-17T15:47:07Z",
-          "tree_id": "831317484632f091cde3f113120c8fe29339f1f5",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/6e8ca55095e6bdb540f193c560cdc0419637a6d1"
-        },
-        "date": 1776447009229,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sent to peers",
-            "value": 128.112,
-            "unit": "KiB"
-          },
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.03817962393399999,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07772410634199993,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "statement-distribution",
             "value": 0.038851812262,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "cyrill@parity.io",
+            "name": "xermicus",
+            "username": "xermicus"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "092b50173aa9dbbe6c68e040d075209aee85c5db",
+          "message": "[pallet-revive] align terminate precompile with opcodes (#13689)\n\nThis PR aligns the terminate precompile with the opcodes. \n\n- The precompile now pays out the balance immediately and only deletes\nthe contract if this transaction created it, as `SELFDESTRUCT` does.\n- The deposit is no longer refunded when terminate is called.\n- TerminateArgs and schedule_termination are gone; the scheduling map\njust stores the beneficiary.\n\nTests:\n- Tests that relied on deleting a contract from an earlier transaction\nnow create and terminate it in the same call.\n- Tests that call terminate on an older contract now assert the contract\nsurvives.\n- Removed tests whose scenario can no longer happen:\n  - the deposit refund at call time (two tests)\n  - several payers' deposits being refunded at termination\n\n---------\n\nSigned-off-by: xermicus <cyrill@parity.io>\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T15:36:52Z",
+          "tree_id": "7d5715a80e55733699a14c15ff7ff8ae6a7a0952",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/092b50173aa9dbbe6c68e040d075209aee85c5db"
+        },
+        "date": 1793815065654,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.084,
+            "unit": "KiB"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03860578405000001,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08391227207599986,
             "unit": "seconds"
           }
         ]
