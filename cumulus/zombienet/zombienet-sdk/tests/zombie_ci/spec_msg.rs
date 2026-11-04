@@ -635,18 +635,21 @@ async fn channel_map<K: Decode + Ord, V: Decode>(
 	client: &OnlineClient<PolkadotConfig>,
 	map: &str,
 ) -> Result<BTreeMap<K, V>, anyhow::Error> {
-	// The 32-byte prefix and the 8-byte `Twox64Concat` hash come before the encoded key.
-	const KEY_OFFSET: usize = 40;
 	let query = subxt::dynamic::storage("SpecMessaging", map, Vec::<Value>::new());
 	let storage = client.storage().at(best_hash(client).await?);
 	let mut entries = storage.iter(query).await?;
 	let mut out = BTreeMap::new();
 	while let Some(entry) = entries.next().await {
 		let entry = entry?;
-		let key = entry.key_bytes.get(KEY_OFFSET..).ok_or_else(|| anyhow!("short storage key"))?;
-		out.insert(K::decode(&mut &key[..])?, V::decode(&mut &entry.value.into_encoded()[..])?);
+		out.insert(map_key(&entry.key_bytes)?, V::decode(&mut &entry.value.into_encoded()[..])?);
 	}
 	Ok(out)
+}
+
+/// The key of a `Twox64Concat` map entry, which follows the 32-byte prefix and the 8-byte hash.
+fn map_key<K: Decode>(key_bytes: &[u8]) -> Result<K, anyhow::Error> {
+	let key = key_bytes.get(40..).ok_or_else(|| anyhow!("short storage key"))?;
+	Ok(K::decode(&mut &key[..])?)
 }
 
 /// The hash of a chain's latest best block.
@@ -717,24 +720,19 @@ async fn committed_stream_roots(
 	block: &Block<PolkadotConfig, OnlineClient<PolkadotConfig>>,
 ) -> Result<BTreeMap<StreamId, MmrRoot>, anyhow::Error> {
 	let storage = block.storage();
-	// A `Twox64Concat` key ends with the encoded `StreamId`.
-	let stream_of = |key: &[u8]| -> Result<StreamId, anyhow::Error> {
-		let id = key.len().checked_sub(8).ok_or_else(|| anyhow!("short storage key"))?;
-		Ok(StreamId::decode(&mut &key[id..])?)
-	};
 	let mut frontiers = BTreeMap::new();
 	let query = subxt::dynamic::storage("SpecMessaging", "OutboundFrontier", Vec::<Value>::new());
 	let mut entries = storage.iter(query).await?;
 	while let Some(entry) = entries.next().await {
 		let entry = entry?;
 		let frontier = MmrFrontier::decode(&mut &entry.value.into_encoded()[..])?;
-		frontiers.insert(stream_of(&entry.key_bytes)?, frontier);
+		frontiers.insert(map_key(&entry.key_bytes)?, frontier);
 	}
 	let query = subxt::dynamic::storage("SpecMessaging", "OutboundLeafHashes", Vec::<Value>::new());
 	let mut entries = storage.iter(query).await?;
 	while let Some(entry) = entries.next().await {
 		let entry = entry?;
-		let frontier = frontiers.entry(stream_of(&entry.key_bytes)?).or_default();
+		let frontier = frontiers.entry(map_key::<StreamId>(&entry.key_bytes)?).or_default();
 		for leaf in Vec::<[u8; 32]>::decode(&mut &entry.value.into_encoded()[..])? {
 			frontier.append(leaf.into());
 		}
