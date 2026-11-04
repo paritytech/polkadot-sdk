@@ -1,57 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793799992552,
+  "lastUpdate": 1793803368148,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "dispute-coordinator-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "14ed925742ea797129c824531c24d4982a08d8d2",
-          "message": "[DAP] V2 Migration bootstraps drip (#11809)\n\n## Context\nThe DAP V2 migration seeded `LastIssuanceTimestamp` to a point in the\npast (active era start) so the next regular drip would credit elapsed\ntime back to that point. That elapsed is then clamped\nby`MaxElapsedPerDrip`, so only up to one cap's worth of inflation is\nactually credited on the first drip, and the rest is silently dropped.\n\n## Fix\nThis migration now performs a one-shot catch-up drip for the full\n`[last_inflation, now]` window and seeds `LastIssuanceTimestamp` to\n`now`, so regular drips start a fresh cadence from this point. The one\nshot inflation is also clamped by Max Era Length to avoid over\ninflation.",
-          "timestamp": "2026-04-17T11:41:42Z",
-          "tree_id": "9d7667fc16ca9573adbf260d571392cafc5ef5e3",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/14ed925742ea797129c824531c24d4982a08d8d2"
-        },
-        "date": 1776433952686,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 23.800000000000004,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 227.09999999999997,
-            "unit": "KiB"
-          },
-          {
-            "name": "dispute-distribution",
-            "value": 0.00928803675999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.009152284199999998,
-            "unit": "seconds"
-          },
-          {
-            "name": "dispute-coordinator",
-            "value": 0.0026830683100000008,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -24499,6 +24450,55 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.010556486930000001,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "paolo@parity.io",
+            "name": "Paolo La Camera",
+            "username": "sigurpol"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "006389c761e9ce8433dd99ea2cb3536fd5047598",
+          "message": "pallet-validator-collators: configurable default for MaxCollators (#13710)\n\nAdd `DefaultMaxCollators`, the value of `MaxCollators` until governance\nsets it. `MaxCollators` becomes a `ValueQuery` of `Option<u32>` with\nthat default, and `set_max_collators(None)` means no cap.\n\nAsset Hub Westend and People Westend default to a cap of 0, so\nvalidators contribute no collators until governance raises the cap.",
+          "timestamp": "2026-11-04T13:08:26Z",
+          "tree_id": "32e3877f2aec1041d0c9eb6bc92d62cbefaf13f5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/006389c761e9ce8433dd99ea2cb3536fd5047598"
+        },
+        "date": 1793803340676,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 23.800000000000004,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 227.09999999999997,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009770155160000007,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-coordinator",
+            "value": 0.0025298458300000003,
+            "unit": "seconds"
+          },
+          {
+            "name": "dispute-distribution",
+            "value": 0.009292813079999972,
             "unit": "seconds"
           }
         ]
