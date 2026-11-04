@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793748286033,
+  "lastUpdate": 1793799723026,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-recovery-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "15388928+DenzelPenzel@users.noreply.github.com",
-            "name": "DenzelPenzel",
-            "username": "DenzelPenzel"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c319f547cae0c67204a18d9dd3daf98a2c152004",
-          "message": "Statement-store: defer statement protocol connections during major sync (#11487)\n\n# Description\nImplement #11411\n\nReconnect all statement protocol peers when major sync ends. Removing\nand re-adding peers to the reserved set closes and reopens the\nnotification substreams on both sides, triggering a fresh bidirectional\ninitial sync. This causes peers to re-deliver any statements that were\ndropped during the sync window.\n\n- On was_major_syncing → false transition, call\nreconnect_statement_peers which removes then re-adds all connected peers\nfrom the statement\nprotocol reserved set\n- Both sides receive NotificationStreamClosed then\nNotificationStreamOpened, restarting the 100ms initial sync burst\n \n# Changes\n- `reconnect_statement_peers`: fires when major sync ends, reconnects\nall statement peers to trigger fresh initial sync\n- New zombienet integration test:\nstatement_store_peer_disconnect_during_major_sync — verifies that\nstatements submitted before a late-joining nodeenters major sync are\nfully recovered after sync completes, confirmed via log assertion that\nreconnect_statement_peers fired\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
-          "timestamp": "2026-04-21T04:53:59Z",
-          "tree_id": "522d3584a40b602fc08588068b809aa44ce288eb",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/c319f547cae0c67204a18d9dd3daf98a2c152004"
-        },
-        "date": 1776754269514,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 307203,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 1.6666666666666665,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-recovery",
-            "value": 11.262474071766666,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.12425995226666668,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-recovery",
             "value": 10.834219337966667,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "marian@parity.io",
+            "name": "Marian Radu",
+            "username": "marian-radu"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1de9ddfe5387691ee0867946876368088b57ac6a",
+          "message": "pallet-revive: measure the contract's own account in host function benchmarks (#13501)\n\n`CallSetup` whitelisted the executing contract's `System::Account` in\nevery host function benchmark. The whitelist was added in #4233, since\nthe weight of the `call` extrinsic already includes the account of the\nfirst frame's contract. When a nested contract is called without value,\nits account access has not been paid for, and a later transfer, contract\ncreation or self-destruct in that call does not pay for it either.\nRemoving the whitelist only affects the benchmarks that access that\naccount, and their weights now include it. Whitelisting `AccountInfoOf`\nremains safe, since the call that creates a frame already reads and\nwrites the contract's info.\n\nThe benchmarks that access the contract's account now assert that it is\nnot whitelisted: `seal_call_transfer`, `seal_instantiate`,\n`seal_instantiate_transfer`, `evm_instantiate`,\n`evm_instantiate_transfer`, `seal_terminate` and `seal_terminate_logic`.\n\n`seal_balance` keeps the account whitelisted, so that a `transfer` or\n`send` receiver, whose stipend is too small for a storage read, can\nstill read its own balance. The read is undercharged if no frame in the\ntransaction pays for the account. This exception should be removed once\n#12673 lands, since the receiver's account will then always be hot.\n\nIn the following scenarios, the account access is charged more than\nonce:\n- A contract called directly by the transaction, whose extrinsic weight\nalready includes the account.\n- A contract called with value, or created by an instantiate.\n- Any repeated use within the same transaction.\n\nA self-destruct is charged both `seal_terminate` and\n`seal_terminate_logic`, so it now pays twice for reading the contract's\naccount. I propose deferring this to a follow-up, since it is an\novercharge on a rare opcode and the fix will probably need to rework the\nterminate pricing.\n\n---------\n\nCo-authored-by: cmd[bot] <41898282+github-actions[bot]@users.noreply.github.com>",
+          "timestamp": "2026-11-04T09:03:19Z",
+          "tree_id": "4e7c2a21e8957e83dcb95f623b5de2b9b53988c5",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/1de9ddfe5387691ee0867946876368088b57ac6a"
+        },
+        "date": 1793799681864,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 1.6666666666666665,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 307203,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-recovery",
+            "value": 11.188871457166668,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.1254682148333333,
             "unit": "seconds"
           }
         ]
