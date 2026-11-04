@@ -490,14 +490,13 @@ fn force_answer_requires_root() {
 	});
 }
 
-/// Governance can only answer a pending request.
+/// A forced answer for no pending request is ignored.
 #[test]
 fn force_answer_unknown() {
 	new_test_ext(|| {
-		assert_noop!(
-			HrmpRelay::force_answer(RuntimeOrigin::root(), 0, Ok(())),
-			Error::<Test>::UnknownRequest
-		);
+		assert_ok!(HrmpRelay::force_answer(RuntimeOrigin::root(), 0, Ok(())));
+		assert_eq!(events(), vec![Event::UnknownAnswer { id: 0 }]);
+		assert!(answers().is_empty());
 	});
 }
 

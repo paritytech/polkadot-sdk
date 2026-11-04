@@ -168,8 +168,6 @@ pub mod pallet {
 		TransportBusy,
 		/// The request could not be handed to the transport.
 		SendFailed,
-		/// No request is pending with this id.
-		UnknownRequest,
 	}
 
 	#[pallet::hooks]
@@ -197,9 +195,7 @@ pub mod pallet {
 			ensure!(para == T::HolderParaId::get(), DispatchError::BadOrigin);
 			match message {
 				MessageToRelay::V1(MessageToRelayV1::DepositsSet { id, result }) => {
-					if Self::answer(id, result).is_err() {
-						Self::deposit_event(Event::UnknownAnswer { id });
-					}
+					Self::answer(id, result)
 				},
 			}
 			Ok(())
@@ -207,6 +203,8 @@ pub mod pallet {
 
 		/// Answer the pending request `id` on the parachain's behalf, for an answer that never
 		/// arrived.
+		///
+		/// An answer for no pending request is ignored, with [`Event::UnknownAnswer`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::receive().saturating_add(Pallet::<T>::max_answer_weight()))]
 		pub fn force_answer(
@@ -215,7 +213,8 @@ pub mod pallet {
 			result: Result<(), WireDepositError>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
-			Self::answer(id, result)
+			Self::answer(id, result);
+			Ok(())
 		}
 	}
 }
@@ -257,8 +256,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Hands the answer to request `id` back to [`Config::OnDepositSet`].
-	fn answer(id: u64, result: Result<(), WireDepositError>) -> DispatchResult {
-		let request = PendingRequests::<T>::take(id).ok_or(Error::<T>::UnknownRequest)?;
+	fn answer(id: u64, result: Result<(), WireDepositError>) {
+		let Some(request) = PendingRequests::<T>::take(id) else {
+			Self::deposit_event(Event::UnknownAnswer { id });
+			return;
+		};
 		let channel = Self::to_wire(&request.channel_id);
 		for side in Self::sides(&request) {
 			PendingSides::<T>::remove((channel, side));
@@ -269,7 +271,6 @@ impl<T: Config> Pallet<T> {
 			WireDepositError::Other => DepositError::Other,
 		});
 		T::OnDepositSet::on_deposit_set(request, result);
-		Ok(())
 	}
 
 	/// Sends what waits in [`Outbox`], oldest first, until `meter` has no room for the next one or
