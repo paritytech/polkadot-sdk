@@ -287,7 +287,8 @@ pub mod pallet {
 		StorageValue<_, Vec<(ParaId, StreamId, Interval)>, ValueQuery>;
 
 	/// Streams touched across blocks in the candidate bundle: a stream's first touch reserves its
-	/// lift, and the touched sources are their parachains. Cleared on index 0.
+	/// lift, and the touched sources are their parachains. Cleared on index 0. `create_inherent`
+	/// reads no register whose stream is here, so its bundles need no `advances`.
 	#[pallet::storage]
 	pub type BundleStreams<T: Config> =
 		StorageValue<_, BoundedBTreeSet<(ParaId, StreamId), T::MaxBundleStreams>, ValueQuery>;
@@ -741,10 +742,18 @@ pub mod pallet {
 
 			let mut filtered_registers = BTreeMap::new();
 			for (channel_id, lossy) in data.registers {
+				let stream = channel_id.peer_ack_stream(us);
+				// One read per register per bundle; a newer register waits for the next bundle.
+				// A second read can skip leaves, and the PoV then needs an advance over them,
+				// which the node fetches only after importing the block: usually after the
+				// collation is built. A read that skips none waits too, so no two reads of a
+				// register are ever stitched.
+				if budget.streams.contains(&stream) {
+					continue;
+				}
 				let Ok(skip) = Self::admit_register_read(channel_id, &lossy) else {
 					continue;
 				};
-				let stream = channel_id.peer_ack_stream(us);
 				let Ok(bytes) = Self::lift_reservation(&budget, stream, skip) else {
 					continue;
 				};
@@ -1201,7 +1210,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Checks the stream and source caps for touching `stream`, and returns the proof bytes the
 	/// candidate attaches for it after the block is built. `skip` is a lossy read's gap from where
-	/// the previous read ended.
+	/// the previous read ended. It costs bytes only when the bundle already read the stream, which
+	/// only a block authored elsewhere does: `create_inherent` reads a register once per bundle.
 	fn lift_reservation(
 		budget: &BundleBudget,
 		stream: (ParaId, StreamId),

@@ -1068,6 +1068,8 @@ fn enact_reserves_the_exact_skip_proof_for_a_later_register_read() {
 		assert_eq!(reserved_proof(), first_lift_bytes());
 
 		// The previous read ended at 1 leaf; this one starts at 5, so the lift needs a skip proof.
+		// `create_inherent` never reads a register twice in a bundle, but a block authored
+		// elsewhere may, and import accepts it.
 		roll_in_bundle(1);
 		let mut frontier = MmrFrontier::new();
 		for i in 0u8..5 {
@@ -1078,6 +1080,81 @@ fn enact_reserves_the_exact_skip_proof_for_a_later_register_read() {
 		let skip = MMRExtensionProof::encoded_len_for(1, 5).unwrap() as u64;
 		assert!(skip > 0);
 		assert_eq!(reserved_proof(), skip);
+	});
+}
+
+/// The peer's `Ack` stream for [`out_channel`]: it accepted session 1, closed it, and accepted
+/// session 2.
+fn peer_registers() -> [Register; 3] {
+	let closed =
+		Register { up_to: MessagePosition(0), status: RegisterStatus::Closed { session: 1 } };
+	[accepting(1), closed, accepting(2)]
+}
+
+/// A read of the peer's register at `position` of [`peer_registers`].
+fn register_read(position: usize) -> MessagingInherentData {
+	let all = peer_registers();
+	let mut frontier = MmrFrontier::new();
+	for register in &all[..position] {
+		frontier.append(leaf_hash_with_version(LEAF_VERSION, &register.encode()));
+	}
+	registers(out_channel(), LossyRead { frontier, payloads: vec![all[position].encode()] })
+}
+
+/// What `create_inherent` keeps of `data`.
+fn created(data: &MessagingInherentData) -> Option<MessagingInherentData> {
+	let mut inherent = InherentData::new();
+	inherent.put_data(INHERENT_IDENTIFIER, data).unwrap();
+	SpecMessaging::create_inherent(&inherent).map(|call| match call {
+		Call::enact_messages { data } => data,
+		_ => panic!("`create_inherent` builds `enact_messages`"),
+	})
+}
+
+fn applied_position(ch: OutChannelId) -> MessagePosition {
+	OutChannels::<Test>::get(ch).unwrap().register.unwrap().position
+}
+
+#[test]
+fn create_inherent_reads_a_register_once_per_bundle() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		want_open(ch);
+		let enact = |data| {
+			assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), data));
+		};
+
+		roll_in_bundle(0);
+		enact(created(&register_read(0)).expect("the bundle's first read is taken"));
+		assert_eq!(applied_position(ch), MessagePosition(0));
+
+		// Later in the bundle, newer registers are offered. The one at 2 skips a leaf, so the
+		// candidate would need an advance over it. The one at 1 skips none and waits as well.
+		roll_in_bundle(1);
+		assert_eq!(created(&register_read(2)), None);
+		assert_eq!(created(&register_read(1)), None);
+
+		// The next bundle reads it.
+		roll_in_bundle(0);
+		enact(created(&register_read(2)).expect("a new bundle reads the register"));
+		assert_eq!(applied_position(ch), MessagePosition(2));
+	});
+}
+
+#[test]
+fn without_bundle_info_create_inherent_reads_a_register_every_block() {
+	new_test_ext().execute_with(|| {
+		let ch = out_channel();
+		want_open(ch);
+		// Each block is its own candidate, so no two reads are stitched.
+		roll_one_block();
+		let first = created(&register_read(0)).expect("the first read is taken");
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), first));
+
+		roll_one_block();
+		let second = created(&register_read(2)).expect("the next block reads the register");
+		assert_ok!(SpecMessaging::enact_messages(RuntimeOrigin::none(), second));
+		assert_eq!(applied_position(ch), MessagePosition(2));
 	});
 }
 
