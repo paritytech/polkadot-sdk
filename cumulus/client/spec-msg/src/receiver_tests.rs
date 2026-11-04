@@ -241,7 +241,14 @@ impl Chain {
 	) -> ConsumptionRecord {
 		let record = self.enact(data);
 		self.number += 1;
-		block_on(receiver.on_block(self.number, self.number - 1, self.number, record.clone()));
+		// Every block extends the bundle: the tests choose which records they assemble together.
+		block_on(receiver.on_block(
+			self.number,
+			self.number - 1,
+			self.number,
+			true,
+			record.clone(),
+		));
 		record
 	}
 }
@@ -820,7 +827,7 @@ fn an_advance_is_not_reused_for_another_forks_read() {
 	block_on(receiver.on_root(source(), root2b, &fork.wants()));
 	let sibling = fork.enact(&block_on(receiver.inherent_data(&fork.view(), &[])));
 	assert_eq!(fork.read_at, Some(3));
-	block_on(receiver.on_block(102, 1, 2, sibling.clone()));
+	block_on(receiver.on_block(102, 1, 2, true, sibling.clone()));
 	assert_eq!(requires(&receiver, &[first, sibling]), Some(root2b));
 }
 
@@ -840,7 +847,7 @@ fn a_round_before_block_one_is_imported(
 		sender.author(vec![(ack(US), vec![register(1).encode()]), (channel(US), payloads(1, 2))]);
 	block_on(receiver.on_root(source(), root2, &wants));
 	chain.number += 1;
-	block_on(receiver.on_block(1, 0, 1, first.clone()));
+	block_on(receiver.on_block(1, 0, 1, false, first.clone()));
 	// The next relay block has the same root: settled, so block 1 is not bound under it.
 	block_on(receiver.on_root(source(), root2, &chain.wants()));
 	assert!(receiver.is_settled(&source(), &root2, &chain.wants()));
@@ -854,10 +861,10 @@ fn a_bundle_straddling_a_new_root_lifts_to_one_root() {
 	let mut chain = Chain::default();
 	let (first, _, root2) = a_round_before_block_one_is_imported(&sender, &receiver, &mut chain);
 
-	// Block 2 of the same bundle consumes the channel under root 2; the runtime reads the
-	// register once per bundle. Block 1's register read is bound under root 2 as well.
-	let mut data = block_on(receiver.inherent_data(&chain.view(), &[first.clone()]));
-	data.registers.clear();
+	// Block 2 of the same bundle consumes the channel under root 2; the register is read once per
+	// bundle. Block 1's register read is bound under root 2 as well.
+	let data = block_on(receiver.inherent_data(&chain.view(), &[first.clone()]));
+	assert!(data.registers.is_empty());
 	let second = chain.import(&receiver, &data);
 	assert_eq!(chain.frontier.leaf_count(), 2);
 	assert_eq!(requires(&receiver, &[first, second]), Some(root2));
@@ -887,5 +894,51 @@ fn the_receiver_futures_are_send() {
 	let chain = Chain::default();
 	send(&receiver.on_root(source(), StreamsRoot(Default::default()), &chain.wants()));
 	send(&receiver.inherent_data(&chain.view(), &[]));
-	send(&receiver.on_block(1, 0, 1, ConsumptionRecord::default()));
+	send(&receiver.on_block(1, 0, 1, false, ConsumptionRecord::default()));
+}
+
+#[test]
+fn a_register_read_in_the_bundle_leaves_its_slot_to_a_channel() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let root1 = sender.author(vec![(ack(US), vec![register(0).encode()])]);
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	let first = chain.block(&receiver);
+
+	// A newer register and channel data; one stream slot per block.
+	let root2 =
+		sender.author(vec![(ack(US), vec![register(1).encode()]), (channel(US), payloads(1, 2))]);
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	let view = ChainView { max_touched_streams: 1, ..chain.view() };
+	// The runtime reads the register once per bundle: the slot goes to the channel.
+	let data = block_on(receiver.inherent_data(&view, &[first.clone()]));
+	assert!(data.registers.is_empty());
+	assert_eq!(data.channels[&in_id(0)].len(), 2);
+	// In the next bundle the newer register is read.
+	let data = block_on(receiver.inherent_data(&view, &[]));
+	assert_eq!(data.registers[&out_id()].frontier.leaf_count(), 1);
+}
+
+#[test]
+fn reads_in_different_bundles_fetch_no_advance() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let root1 = sender.author(vec![(ack(US), vec![register(0).encode()])]);
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	let first = chain.enact(&block_on(receiver.inherent_data(&chain.view(), &[])));
+	block_on(receiver.on_block(1, 0, 1, false, first));
+
+	// Block 2 starts the next bundle and reads the register at 3: its candidate does not stitch
+	// it to block 1's read, so the two leaves it skipped are not fetched.
+	let root2 = sender.author(vec![(ack(US), (1..=3).map(|i| register(i).encode()).collect())]);
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	let second = chain.enact(&block_on(receiver.inherent_data(&chain.view(), &[])));
+	assert_eq!(chain.read_at, Some(3));
+	let fetched = sender.requests(ack(US)).len();
+	block_on(receiver.on_block(2, 1, 2, false, second.clone()));
+	assert_eq!(sender.requests(ack(US)).len(), fetched);
+	assert!(!receiver.has_advance(&source(), ack(US), 1, 4));
+	assert_eq!(requires(&receiver, &[second]), Some(root2));
 }

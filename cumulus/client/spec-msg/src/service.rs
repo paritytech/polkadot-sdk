@@ -128,6 +128,8 @@ pub(crate) struct Imported<H> {
 	pub(crate) hash: H,
 	pub(crate) parent: H,
 	pub(crate) number: u64,
+	/// The block is not the first of its bundle.
+	pub(crate) extends_bundle: bool,
 	pub(crate) record: ConsumptionRecord,
 }
 
@@ -157,6 +159,7 @@ pub async fn run_receiver<Block, C, T>(
 					hash: import.hash,
 					parent: *import.header.parent_hash(),
 					number: (*import.header.number()).saturated_into(),
+					extends_bundle: extends_bundle(&import.header),
 					record,
 				}),
 				Err(e) => {
@@ -223,8 +226,10 @@ pub(crate) async fn drive<H, T, S>(
 				}
 			},
 			import = imports.next() => {
-				let Some(Imported { hash, parent, number, record }) = import else { return };
-				let gaps = receiver.note_block(hash, parent, number, record);
+				let Some(Imported { hash, parent, number, extends_bundle, record }) = import else {
+					return
+				};
+				let gaps = receiver.note_block(hash, parent, number, extends_bundle, record);
 				if !gaps.is_empty() {
 					gap_fetches.push(receiver.fetch_gaps(gaps));
 				}
@@ -561,7 +566,8 @@ mod tests {
 		}
 
 		fn import(&mut self, hash: u64, record: ConsumptionRecord) {
-			let imported = Imported { hash, parent: hash - 1, number: hash, record };
+			let imported =
+				Imported { hash, parent: hash - 1, number: hash, extends_bundle: true, record };
 			self.imports.unbounded_send(imported).unwrap();
 			self.pool.run_until_stalled();
 		}

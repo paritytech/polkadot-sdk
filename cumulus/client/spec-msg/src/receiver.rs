@@ -165,6 +165,8 @@ impl<T: Transport + ?Sized> Transport for Rotating<T> {
 struct LiveBlock<H> {
 	number: u64,
 	parent: H,
+	/// The block is not the first of its bundle: its candidate holds its parent.
+	extends_bundle: bool,
 	record: ConsumptionRecord,
 }
 
@@ -174,7 +176,8 @@ struct State<H> {
 }
 
 impl<H: Copy + Eq + StdHash> State<H> {
-	/// The interval of the nearest live block at or above `from` that touched `stream`.
+	/// The interval of the nearest live block at or above `from`, in `from`'s bundle, that touched
+	/// `stream`. Only reads within a candidate are stitched.
 	fn nearest(&self, mut from: H, source: &ParaId, stream: &StreamId) -> Option<&Interval> {
 		for _ in 0..self.live.len() {
 			let block = self.live.get(&from)?;
@@ -184,7 +187,7 @@ impl<H: Copy + Eq + StdHash> State<H> {
 					.find(|(touched, _)| touched == stream)
 					.map(|(_, interval)| interval)
 			});
-			if touched.is_some() {
+			if touched.is_some() || !block.extends_bundle {
 				return touched;
 			}
 			from = block.parent;
@@ -500,10 +503,11 @@ where
 		view: &ChainView,
 		bundle: &[ConsumptionRecord],
 	) -> MessagingInherentData {
-		let planned = self.plan(view);
+		let bundle = last_endpoints(bundle);
+		let planned = self.plan(view, &bundle);
 		let roots: BTreeMap<ParaId, StreamsRoot> =
 			planned.iter().map(|p| (p.source, p.root)).collect();
-		let earlier: Vec<_> = last_endpoints(bundle)
+		let earlier: Vec<_> = bundle
 			.into_iter()
 			.filter_map(|((source, stream), end)| Some((source, stream, end, *roots.get(&source)?)))
 			.collect();
@@ -580,8 +584,13 @@ where
 	/// Choose the items within the budget, from what the pool holds under each source's newest
 	/// root. Register reads go first: one leaf each, so channel backlogs cannot take every stream
 	/// slot and stall our own sends. Both lists start from a position that rotates each block, so
-	/// no source's backlog takes every block.
-	fn plan(&self, view: &ChainView) -> Vec<Planned> {
+	/// no source's backlog takes every block. A register the bundle read already (`bundle` holds
+	/// its streams) is not offered: `create_inherent` reads one once per bundle.
+	fn plan(
+		&self,
+		view: &ChainView,
+		bundle: &BTreeMap<(ParaId, StreamId), MmrFrontier>,
+	) -> Vec<Planned> {
 		let Budget { max_streams, max_reads, max_payloads, max_bytes } = self.budget;
 		let max_streams = max_streams.min(view.max_touched_streams);
 		let (mut streams, mut reads, mut payloads, mut bytes) = (0u32, 0u32, 0u32, 0u64);
@@ -605,8 +614,11 @@ where
 			if streams >= max_streams || reads >= max_reads {
 				break;
 			}
-			let Some((pool, root)) = newest(source) else { continue };
 			let stream = id.peer_ack_stream(self.us).1;
+			if bundle.contains_key(&(*source, stream)) {
+				continue;
+			}
+			let Some((pool, root)) = newest(source) else { continue };
 			let Some(head) = pool.heads.get(&stream) else { continue };
 			// The pallet rejects the block on a head at or below the applied one, and on an
 			// undecodable register.
@@ -675,24 +687,34 @@ where
 		planned
 	}
 
-	/// Note an imported block's consumption record, and fetch the leaves its reads skipped.
-	pub async fn on_block(&self, hash: H, parent: H, number: u64, record: ConsumptionRecord) {
-		let gaps = self.note_block(hash, parent, number, record);
+	/// Note an imported block's consumption record, and fetch the leaves its reads skipped since
+	/// an earlier read in its bundle. `extends_bundle`: the block is not the first of its bundle.
+	pub async fn on_block(
+		&self,
+		hash: H,
+		parent: H,
+		number: u64,
+		extends_bundle: bool,
+		record: ConsumptionRecord,
+	) {
+		let gaps = self.note_block(hash, parent, number, extends_bundle, record);
 		self.fetch_gaps(gaps).await;
 	}
 
-	/// Note an imported block's consumption record; return the gaps its reads skipped, for
-	/// [`Self::fetch_gaps`].
+	/// Note an imported block's consumption record; return the gaps its reads skipped since an
+	/// earlier read in its bundle, for [`Self::fetch_gaps`]. Reads in different candidates are
+	/// never stitched, so no gap spans a bundle boundary.
 	pub(crate) fn note_block(
 		&self,
 		hash: H,
 		parent: H,
 		number: u64,
+		extends_bundle: bool,
 		record: ConsumptionRecord,
 	) -> Vec<Gap> {
 		let mut state = self.state.lock();
 		let mut gaps = Vec::new();
-		for (source, streams) in &record.entries {
+		for (source, streams) in record.entries.iter().filter(|_| extends_bundle) {
 			for (stream, interval) in streams {
 				let Some(previous) = state.nearest(parent, source, stream) else { continue };
 				if interval.start == previous.end.root() {
@@ -723,7 +745,7 @@ where
 				});
 			}
 		}
-		state.live.insert(hash, LiveBlock { number, parent, record });
+		state.live.insert(hash, LiveBlock { number, parent, extends_bundle, record });
 		gaps
 	}
 
