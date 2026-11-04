@@ -1330,7 +1330,7 @@ fn named_reserve_should_work() {
 }
 
 #[test]
-fn reserved_accounted_for_sums_holds_and_named_reserves() {
+fn max_reserved_touchable_works() {
 	ExtBuilder::default().build_and_execute_with(|| {
 		// given an account with two holds, two named reserves and an unnamed reserve.
 		let _ = Balances::deposit_creating(&1, 100);
@@ -1341,15 +1341,15 @@ fn reserved_accounted_for_sums_holds_and_named_reserves() {
 		assert_ok!(Balances::reserve(&1, 16));
 		assert_eq!(Balances::reserved_balance(1), 31);
 
-		// then it is the sum of all holds and named reserves, without the unnamed reserve.
-		assert_eq!(Balances::reserved_accounted_for(&1, None), 15);
-		// `except` leaves out only the named reserve with that id, not the hold with the same id.
-		assert_eq!(Balances::reserved_accounted_for(&1, Some(&TestId::Foo)), 11);
-		assert_eq!(Balances::reserved_accounted_for(&1, Some(&TestId::Bar)), 7);
-		// an `except` with no named reserve leaves nothing out.
-		assert_eq!(Balances::reserved_accounted_for(&1, Some(&TestId::Baz)), 15);
-		// an account with nothing held or reserved has nothing accounted for.
-		assert_eq!(Balances::reserved_accounted_for(&2, None), 0);
+		// then the unnamed operations can touch the unnamed reserve only.
+		assert_eq!(Balances::max_reserved_touchable(&1, None), 16);
+		// the named ones can touch their own named reserve only, not the hold with the same id.
+		assert_eq!(Balances::max_reserved_touchable(&1, Some(&TestId::Foo)), 4);
+		assert_eq!(Balances::max_reserved_touchable(&1, Some(&TestId::Bar)), 8);
+		// and nothing for an id with no named reserve.
+		assert_eq!(Balances::max_reserved_touchable(&1, Some(&TestId::Baz)), 0);
+		// an account with nothing held or reserved has nothing to touch.
+		assert_eq!(Balances::max_reserved_touchable(&2, None), 0);
 	});
 }
 

@@ -689,11 +689,9 @@ where
 	}
 }
 
-/// The [`ReservableCurrency`] operations, acting only on the part of the reserved balance that is
-/// not accounted for by holds and named reserves, other than the named reserve `except`.
+/// The [`ReservableCurrency`] operations, acting on at most `max_reserved_touchable(who, id)`.
 ///
-/// The unnamed operations pass `None`. The named ones pass their own reserve, which they have
-/// already capped `value` to.
+/// The unnamed operations pass `None`, the named ones pass their own reserve.
 impl<T: Config<I>, I: 'static> Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
@@ -701,7 +699,7 @@ where
 	pub(crate) fn do_unreserve(
 		who: &T::AccountId,
 		value: T::Balance,
-		except: Option<&T::ReserveIdentifier>,
+		id: Option<&T::ReserveIdentifier>,
 	) -> T::Balance {
 		if value.is_zero() {
 			return Zero::zero();
@@ -710,9 +708,9 @@ where
 			return value;
 		}
 
-		let accounted = Self::reserved_accounted_for(who, except);
+		let max = Self::max_reserved_touchable(who, id);
 		let actual = match Self::mutate_account_handling_dust(who, false, |account| {
-			let actual = cmp::min(account.reserved.saturating_sub(accounted), value);
+			let actual = value.min(max).min(account.reserved);
 			account.reserved -= actual;
 			// defensive only: this can never fail since total issuance which is at least
 			// free+reserved fits into the same data type.
@@ -735,7 +733,7 @@ where
 	pub(crate) fn do_slash_reserved(
 		who: &T::AccountId,
 		value: T::Balance,
-		except: Option<&T::ReserveIdentifier>,
+		id: Option<&T::ReserveIdentifier>,
 	) -> (NegativeImbalance<T, I>, T::Balance) {
 		if value.is_zero() {
 			return (NegativeImbalance::zero(), Zero::zero());
@@ -747,9 +745,9 @@ where
 		// NOTE: `mutate_account` may fail if it attempts to reduce the balance to the point that an
 		//   account is attempted to be illegally destroyed.
 
-		let accounted = Self::reserved_accounted_for(who, except);
+		let max = Self::max_reserved_touchable(who, id);
 		match Self::mutate_account_handling_dust(who, false, |account| {
-			let actual = value.min(account.reserved.saturating_sub(accounted));
+			let actual = value.min(max).min(account.reserved);
 			account.reserved.saturating_reduce(actual);
 
 			// underflow should never happen, but it if does, there's nothing to be done here.
@@ -771,7 +769,7 @@ where
 		beneficiary: &T::AccountId,
 		value: T::Balance,
 		status: Status,
-		except: Option<&T::ReserveIdentifier>,
+		id: Option<&T::ReserveIdentifier>,
 	) -> Result<T::Balance, DispatchError> {
 		let actual = Self::do_transfer_reserved(
 			slashed,
@@ -780,7 +778,7 @@ where
 			BestEffort,
 			Polite,
 			status,
-			except,
+			id,
 		)?;
 		Ok(value.saturating_sub(actual))
 	}

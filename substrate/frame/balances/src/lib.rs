@@ -895,22 +895,33 @@ pub mod pallet {
 			Reserves::<T, I>::get(who)
 		}
 
-		/// The part of `who`'s reserved balance that is accounted for by its holds and named
-		/// reserves, leaving out the named reserve `except`.
+		/// The most of `who`'s reserved balance that a [`ReservableCurrency`] operation can act on.
 		///
-		/// The unnamed [`ReservableCurrency`] operations never act on this part. The named ones
-		/// pass their own reserve as `except`, so that they can act on it.
-		pub(crate) fn reserved_accounted_for(
+		/// With `None`, this is the unnamed reserve: the part backing neither a hold nor a named
+		/// reserve. With `Some(id)`, this is the named reserve `id`, but never the part backing a
+		/// hold.
+		pub(crate) fn max_reserved_touchable(
 			who: &T::AccountId,
-			except: Option<&T::ReserveIdentifier>,
+			id: Option<&T::ReserveIdentifier>,
 		) -> T::Balance {
 			let held = Holds::<T, I>::get(who)
 				.iter()
 				.fold(T::Balance::zero(), |acc, hold| acc.saturating_add(hold.amount));
-			Reserves::<T, I>::get(who)
-				.iter()
-				.filter(|reserve| Some(&reserve.id) != except)
-				.fold(held, |acc, reserve| acc.saturating_add(reserve.amount))
+			let not_held = Self::account(who).reserved.saturating_sub(held);
+			let reserves = Reserves::<T, I>::get(who);
+			match id {
+				// if we are operating on a non-identified reserve, we can never touch held or named
+				// reserves.
+				None => reserves
+					.iter()
+					.fold(not_held, |acc, reserve| acc.saturating_sub(reserve.amount)),
+				// if we are operating on a named reserve, we can only touch that named reserve, or
+				// whatever is not held, whichever is less.
+				Some(id) => reserves
+					.binary_search_by_key(id, |reserve| reserve.id)
+					.map_or(T::Balance::zero(), |index| reserves[index].amount)
+					.min(not_held),
+			}
 		}
 
 		fn ed() -> T::Balance {
@@ -1272,8 +1283,7 @@ pub mod pallet {
 		/// Move the reserved balance of one account into the balance of another, according to
 		/// `status`. This will respect freezes/locks only if `fortitude` is `Polite`.
 		///
-		/// Only the part of `slashed`'s reserved balance that is not accounted for by its holds and
-		/// named reserves, other than the named reserve `except`, can be moved.
+		/// Moves at most `max_reserved_touchable(slashed, id)`.
 		///
 		/// Is a no-op if the value to be moved is zero.
 		///
@@ -1285,19 +1295,16 @@ pub mod pallet {
 			precision: Precision,
 			fortitude: Fortitude,
 			status: Status,
-			except: Option<&T::ReserveIdentifier>,
+			id: Option<&T::ReserveIdentifier>,
 		) -> Result<T::Balance, DispatchError> {
 			if value.is_zero() {
 				return Ok(Zero::zero());
 			}
 
-			let unaccounted = Self::account(slashed)
-				.reserved
-				.saturating_sub(Self::reserved_accounted_for(slashed, except));
 			let max = <Self as fungible::InspectHold<_>>::reducible_total_balance_on_hold(
 				slashed, fortitude,
 			)
-			.min(unaccounted);
+			.min(Self::max_reserved_touchable(slashed, id));
 			let actual = match precision {
 				Precision::BestEffort => value.min(max),
 				Precision::Exact => value,
@@ -1306,7 +1313,7 @@ pub mod pallet {
 			if slashed == beneficiary {
 				return match status {
 					Status::Free => {
-						Ok(actual.saturating_sub(Self::do_unreserve(slashed, actual, except)))
+						Ok(actual.saturating_sub(Self::do_unreserve(slashed, actual, id)))
 					},
 					Status::Reserved => Ok(actual),
 				};
