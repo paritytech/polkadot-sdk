@@ -793,6 +793,35 @@ fn new_pallet_with_a_cap_returns_nothing_until_a_set_arrives() {
 }
 
 #[test]
+fn default_cap_applies_until_governance_sets_the_cap() {
+	build_and_execute(|| {
+		// GIVEN a default cap of zero and a set of validators with keys
+		DefaultMaxCollators::set(Some(0));
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		assert_eq!(MaxCollators::<Test>::get(), Some(0));
+
+		// WHEN the set arrives and is brought into force
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(3);
+
+		// THEN no validator collates
+		assert_eq!(drawn(), Some(vec![]));
+		assert_eq!(Session::validators(), vec![1, 2]);
+
+		// WHEN governance removes the cap
+		set_cap(None);
+		initialize_to_block(5);
+
+		// THEN the stored value replaces the default and every validator with keys collates
+		assert_eq!(MaxCollators::<Test>::get(), None);
+		assert_eq!(drawn(), Some(vec![10, 11]));
+		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+	});
+}
+
+#[test]
 fn capped_set_draws_with_a_zero_value_without_cache_or_with_the_key_absent() {
 	build_and_execute(|| {
 		// GIVEN a runtime without the `OnSystemEvent` wiring, so no randomness is cached

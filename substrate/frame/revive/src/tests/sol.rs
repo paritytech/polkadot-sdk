@@ -34,7 +34,9 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
+use pallet_revive_fixtures::{
+	ConstructorRevertAfterAction, Fibonacci, FixtureType, NestedCounter, compile_module_with_type,
+};
 use pallet_revive_types::runtime_api::*;
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
@@ -1152,6 +1154,58 @@ fn prestate_diff_mode_tracing_works() {
 	}
 }
 
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::ReadOwnBalance, false)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::ReadOwnBalance, false)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::WriteStorage, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::WriteStorage, true)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::Call, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::Call, true)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::Create, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::Create, true)]
+fn prestate_diff_includes_reverted_contract_by_action(
+	fixture_type: FixtureType,
+	action: ConstructorRevertAfterAction::Action,
+	appears_in_post: bool,
+) {
+	use crate::{InstantiateReturnValue, evm::PrestateTrace};
+	use alloy_core::sol_types::SolConstructor;
+
+	let (code, _) = compile_module_with_type("ConstructorRevertAfterAction", fixture_type).unwrap();
+	let (dummy_code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+		if fixture_type == FixtureType::Resolc {
+			assert_ok!(Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				dummy_code,
+				<BalanceOf<Test>>::MAX,
+			));
+		}
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let InstantiateReturnValue { result, addr } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code))
+				.constructor_data(
+					ConstructorRevertAfterAction::constructorCall { action }.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+		assert!(result.did_revert(), "{result:?}");
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { post, .. } => {
+				assert_eq!(post.contains_key(&addr), appears_in_post, "addr={addr:?} post={post:?}")
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
+}
+
 #[test]
 fn eth_substrate_call_dispatches_successfully() {
 	use frame_support::traits::fungible::Inspect;
@@ -2046,6 +2100,7 @@ mod emitter_logs {
 /// receipt, for a Solc and a Resolc build of the same contract and for logs mirrored from outside
 /// any frame.
 mod receipt_size_limit {
+	use super::eth_extrinsic_revert;
 	use crate::{
 		Code, Config, EthBlockBuilderFirstValues, EthBlockBuilderIR, EthTransactError, Origin,
 		Pallet, RUNTIME_PALLETS_ADDR, RuntimeCosts, WeightToken,
@@ -2084,7 +2139,7 @@ mod receipt_size_limit {
 	};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
-	use sp_runtime::{DispatchError, traits::Dispatchable};
+	use sp_runtime::traits::Dispatchable;
 	use test_case::test_case;
 
 	/// The data of a log without topics that takes up 65,536 bytes of the receipt: 32 of them
@@ -2146,16 +2201,6 @@ mod receipt_size_limit {
 				_ => None,
 			})
 			.collect()
-	}
-
-	/// The error the ethereum transaction failed with, if it failed.
-	fn eth_extrinsic_revert() -> Option<DispatchError> {
-		System::events().into_iter().find_map(|record| match record.event {
-			RuntimeEvent::Contracts(crate::Event::EthExtrinsicRevert { dispatch_error }) => {
-				Some(dispatch_error)
-			},
-			_ => None,
-		})
 	}
 
 	/// Finalize the block holding a single ethereum transaction and return that transaction's
