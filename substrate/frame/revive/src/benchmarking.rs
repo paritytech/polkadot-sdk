@@ -117,6 +117,18 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 	pallet_account
 }
 
+/// Asserts that `account` is not whitelisted, so the benchmark measures its storage accesses.
+///
+/// Effective only in benchmark runs (e.g. `frame-omni-bencher`): the externalities backend used
+/// by `cargo test` does not track the whitelist.
+fn assert_account_not_whitelisted<T: Config>(account: &T::AccountId) {
+	let key = frame_system::Account::<T>::hashed_key_for(account);
+	let whitelisted = frame_benchmarking::benchmarking::get_whitelist()
+		.iter()
+		.any(|tracked| tracked.child_trie_key.is_none() && tracked.key == key);
+	assert!(!whitelisted, "the account is whitelisted, so the benchmark does not measure it");
+}
+
 /// Delegate `address` to `target` (EIP-7702) without going through signature recovery.
 ///
 /// Returns the account id the `seal_call` family expects in guest memory: `address` is never
@@ -1346,6 +1358,11 @@ mod benchmarks {
 			Pallet::<T>::min_balance() * 2u32.into(),
 			42u32,
 		));
+		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
+		// still be able to read its own balance. In a contract called without value by another
+		// contract, the read is unpaid until #12673 removes this whitelist.
+		let account_id = &contract.account_id;
+		whitelist_account!(account_id);
 
 		let result;
 		#[block]
@@ -1728,6 +1745,7 @@ mod benchmarks {
 		if !delete_code {
 			<CodeInfo<T>>::increment_refcount(code_hash).unwrap();
 		}
+		assert_account_not_whitelisted::<T>(&instance.account_id);
 
 		let result;
 		#[block]
@@ -1768,6 +1786,7 @@ mod benchmarks {
 		let exec_config = ExecConfig::new_substrate_tx();
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
+		assert_account_not_whitelisted::<T>(contract_account);
 
 		#[block]
 		{
@@ -2819,6 +2838,7 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::default();
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
+			let caller_account = setup.contract().account_id.clone();
 			let caller_addr = setup.contract().address;
 			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
 			let callee_ed_paid = if $callee_exists {
@@ -2858,6 +2878,7 @@ mod benchmarks {
 					"{caller_addr:?} should pay only the value and the callee's ED"
 				);
 			};
+			assert_account_not_whitelisted::<T>(&caller_account);
 		};
 	}
 
@@ -3119,6 +3140,7 @@ mod benchmarks {
 					"{deployer:?} should pay only the value"
 				);
 			};
+			assert_account_not_whitelisted::<T>(account_id);
 		};
 	}
 
@@ -3182,6 +3204,7 @@ mod benchmarks {
 			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 			setup.set_balance(caller_funding::<T>());
+			let deployer_account = setup.contract().account_id.clone();
 			let deployer = setup.contract().address;
 			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
 
@@ -3237,6 +3260,7 @@ mod benchmarks {
 					"{deployer:?} should pay only the value and the code deposit"
 				);
 			};
+			assert_account_not_whitelisted::<T>(&deployer_account);
 		};
 	}
 
