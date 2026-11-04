@@ -2609,6 +2609,78 @@ mod enter {
 		});
 	}
 
+	/// A receiver block built while its sender was live still matches when it is backed after the
+	/// sender offboarded. It is a V3 candidate that keeps its relay parent from the session before
+	/// the change, as a collator's resubmitted block does.
+	#[test]
+	fn requires_matches_a_sender_that_offboarded() {
+		let sender = ParaId::from(7);
+		let mut config = default_config();
+		config.configuration.config.max_relay_parent_session_age = 2;
+		config.paras.paras.push((
+			sender,
+			paras::ParaGenesisArgs {
+				genesis_head: Vec::new().into(),
+				validation_code: polkadot_primitives::ValidationCode(vec![7]),
+				para_kind: paras::ParaKind::Parachain,
+			},
+		));
+
+		new_test_ext(config).execute_with(|| {
+			configuration::Pallet::<Test>::set_node_feature(
+				RuntimeOrigin::root(),
+				FeatureIndex::CandidateReceiptV3 as u8,
+				true,
+			)
+			.unwrap();
+			// The sender committed root 42. Its offboarding takes effect at the session 2 change,
+			// which the scenario's setup runs through the initializer.
+			inclusion::Pallet::<Test>::record_provides(sender, streams_root(42));
+			crate::mock::deregister_parachain(sender);
+
+			let mut backed_and_concluding = BTreeMap::new();
+			backed_and_concluding.insert(0, 1);
+			backed_and_concluding.insert(1, 1);
+			let scenario = make_inherent_data(TestConfig {
+				dispute_statements: BTreeMap::new(),
+				dispute_sessions: vec![],
+				backed_and_concluding,
+				num_validators_per_core: 1,
+				code_upgrade: None,
+				elastic_paras: BTreeMap::new(),
+				unavailable_cores: vec![],
+				descriptor_version: CandidateDescriptorVersionConfig::V3,
+				approved_peer_signal: Some(vec![1, 2, 3].try_into().unwrap()),
+				candidate_modifier: Some(|mut candidate: CommittedCandidateReceiptV2| {
+					if candidate.descriptor.para_id() == 1.into() {
+						// Built on a session 1 relay parent, scheduled in session 2.
+						candidate.descriptor.set_relay_parent(sp_core::H256::repeat_byte(0xCC));
+						candidate.descriptor.set_session_index(1);
+						candidate.descriptor.set_scheduling_session_offset(1);
+						candidate.commitments.upward_messages.force_push(requires_on(7, 42));
+					}
+					candidate
+				}),
+			});
+			assert_eq!(shared::CurrentSessionIndex::<Test>::get(), 2);
+			assert!(!paras::Pallet::<Test>::is_valid_para(sender));
+
+			// The session 1 relay parent, with the number and state root the candidate's
+			// validation data was built with.
+			shared::AllowedRelayParents::<Test>::insert(
+				1,
+				sp_core::H256::repeat_byte(0xCC),
+				RelayParentInfo {
+					number: frame_system::Pallet::<Test>::block_number() - 1,
+					state_root: Default::default(),
+				},
+			);
+
+			assert_eq!(kept_paras(scenario), vec![ParaId::from(0), ParaId::from(1)]);
+			assert_eq!(inclusion::Pallet::<Test>::newest_provides(sender), Some(streams_root(42)));
+		});
+	}
+
 	#[rstest]
 	#[case(true, true)]
 	#[case(true, false)]

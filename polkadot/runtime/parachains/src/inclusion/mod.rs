@@ -376,7 +376,10 @@ pub mod pallet {
 
 	/// Per-sender window of recently committed `StreamsRoot`s for speculative messaging, newest
 	/// last, at most [`MAX_PROVIDES_WINDOW_SIZE`]. A receiver's `Requires` matches a root in it.
-	/// Reverted with the chain, dropped when the sender offboards.
+	/// Reverted with the chain. Kept when the sender offboards, frozen since nothing pushes to it
+	/// any more: receiver blocks built before the offboarding name its roots and must still match
+	/// when backed again. That leaves about 4 KiB per para that ever provided. A re-registered
+	/// `ParaId` pushes into the same window.
 	/// Not cleared by a forced head update (`force_set_current_head`, `force_note_new_head`): that
 	/// is a Root recovery, and undoing what receivers already consumed is an off-chain runbook
 	/// step.
@@ -507,10 +510,7 @@ impl<T: Config> Pallet<T> {
 		for _ in PendingAvailability::<T>::drain() {}
 
 		Self::cleanup_outgoing_ump_dispatch_queues(outgoing_paras);
-
-		for outgoing_para in outgoing_paras {
-			RecentProvides::<T>::remove(outgoing_para);
-		}
+		// Outgoing paras keep their `RecentProvides` window; see its docs.
 	}
 
 	pub(crate) fn cleanup_outgoing_ump_dispatch_queues(outgoing: &[ParaId]) {

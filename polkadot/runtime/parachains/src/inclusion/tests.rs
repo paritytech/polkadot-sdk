@@ -3292,25 +3292,33 @@ mod speculative_provides_window {
 		});
 	}
 
+	/// Receivers may hold lifts under an offboarded sender's roots, in blocks built before the
+	/// offboarding and backed again after the session change drained them from availability.
 	#[test]
-	fn offboarding_clears_provides_window() {
-		new_test_ext(genesis_config(Vec::new())).execute_with(|| {
-			let (staying, leaving) = (ParaId::from(1), ParaId::from(2));
-			ParaInclusion::record_provides(staying, sr(0xA));
-			ParaInclusion::record_provides(leaving, sr(0xB));
-			assert!(!RecentProvides::<Test>::get(leaving).is_empty());
+	fn offboarding_keeps_the_provides_window() {
+		let sender = ParaId::from(1);
+		new_test_ext(genesis_config(vec![(sender, ParaKind::Parachain)])).execute_with(|| {
+			ParaInclusion::record_provides(sender, sr(0xA));
+			ParaInclusion::record_provides(sender, sr(0xB));
 
-			// A session change that offboards `leaving` drops its window; `staying` is untouched.
-			let notification = crate::initializer::SessionChangeNotification::default();
-			ParaInclusion::initializer_on_new_session(&notification, &[leaving]);
+			// Offboarding takes effect at the second session change after it is scheduled.
+			crate::mock::deregister_parachain(sender);
+			run_to_block_default_notifications(3, vec![2, 3]);
+			assert!(!Paras::is_valid_para(sender));
 
-			assert!(RecentProvides::<Test>::get(leaving).is_empty());
-			assert!(!RecentProvides::<Test>::get(staying).is_empty());
+			// Nothing pushes after the sender is gone, so its window stays as it was.
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1, 0xA)])).is_ok());
+			assert!(ParaInclusion::requires_satisfied(&requires(&[(1, 0xB)])).is_ok());
+			assert_eq!(
+				crate::runtime_api_impl::vstaging::newest_included_provides::<Test>(sender),
+				Some(sr(0xB))
+			);
 		});
 	}
 
 	/// Seeded random pushes and offboardings across a few senders, checked after every
 	/// step against a plain model: window length, newest root and membership of a random root.
+	/// Offboarding leaves a window as it is.
 	#[test]
 	fn window_matches_a_model_under_random_operations() {
 		use std::collections::{BTreeMap, VecDeque};
@@ -3336,7 +3344,6 @@ mod speculative_provides_window {
 					0 | 1 => {
 						let notification = crate::initializer::SessionChangeNotification::default();
 						ParaInclusion::initializer_on_new_session(&notification, &[source]);
-						model.remove(&source);
 					},
 					_ => {
 						let pushed = root(next(distinct_roots));
