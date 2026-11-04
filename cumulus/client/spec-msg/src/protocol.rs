@@ -68,8 +68,11 @@ pub const MAX_RESPONSE_SIZE: u64 = MAX_PAYLOAD_BYTES as u64 + MAX_FRAMING_BYTES;
 const INBOUND_QUEUE_SIZE: usize = 1024;
 
 /// Requests queued per peer. Beyond it a peer's requests are refused, so one peer cannot fill the
-/// queue and starve the others.
-const MAX_QUEUED_PER_PEER: usize = 4;
+/// queue and starve the others. A receiver building its inherent asks for every missing binding
+/// at once, up to [`crate::receiver::Budget`]'s `max_streams` (16) to the same peer, alongside its
+/// other fetches: twice that leaves room. Queued requests are at most [`MAX_REQUEST_SIZE`] each,
+/// and only one response per peer is in flight, so this costs little memory.
+const MAX_QUEUED_PER_PEER: usize = 32;
 
 /// Request timeout.
 const TIMEOUT: Duration = Duration::from_secs(10);
@@ -417,6 +420,27 @@ mod tests {
 			handler.pool.run_until_stalled();
 			first = answered(waiting).expect("served once the previous response is sent");
 			assert!(first.result.is_ok());
+		}
+	}
+
+	#[test]
+	fn a_receivers_burst_is_fully_served() {
+		use crate::receiver::Budget;
+		// Building an inherent asks for up to `max_streams` bindings at once, all to one peer.
+		let burst = Budget::default().max_streams as usize;
+		let mut handler = Handler::new(InFlightLimits::default());
+		let peer = PeerId::random();
+		let mut responses: Vec<_> = (0..burst).map(|_| handler.request(peer)).collect();
+		let mut previous = answered(&mut responses[0]).expect("served");
+		assert!(previous.result.is_ok());
+		for waiting in &mut responses[1..] {
+			assert!(answered(waiting).is_none(), "queued, not refused");
+		}
+		for waiting in &mut responses[1..] {
+			previous.sent_feedback.take().unwrap().send(()).unwrap();
+			handler.pool.run_until_stalled();
+			previous = answered(waiting).expect("served once the previous response is sent");
+			assert!(previous.result.is_ok());
 		}
 	}
 
