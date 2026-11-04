@@ -58,8 +58,8 @@ use std::{
 	time::Duration,
 };
 
-/// Payload bytes asked for per channel fetch. The server may cap harder.
-pub const FETCH_MAX_BYTES: u32 = 1024 * 1024;
+/// Payload bytes asked for per channel fetch: what a server serves at most.
+pub const FETCH_MAX_BYTES: u32 = crate::protocol::MAX_PAYLOAD_BYTES;
 
 /// Payloads buffered per channel beyond its cursor before fetching pauses.
 pub const MAX_BUFFERED_PAYLOADS: usize = 4096;

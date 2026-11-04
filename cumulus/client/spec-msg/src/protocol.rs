@@ -50,12 +50,19 @@ pub const PROTOCOL_NAME: &str = "/spec-msg/fetch/1";
 /// Maximum encoded request size. A request is a stream id, a position, a root and a budget.
 pub const MAX_REQUEST_SIZE: u64 = 1024;
 
-/// Maximum payload bytes served per response, whatever the request's budget.
-pub const MAX_PAYLOAD_BYTES: u32 = 4 * 1024 * 1024;
+/// Maximum payload bytes served per response, whatever the request's budget. The receiver asks for
+/// exactly this much ([`crate::receiver::FETCH_MAX_BYTES`]) and every other request for less, so a
+/// larger cap would only let peers that ask for more pin more of [`MAX_IN_FLIGHT_BYTES`].
+pub const MAX_PAYLOAD_BYTES: u32 = 1024 * 1024;
 
-/// Maximum encoded response size, enforced by the network before decode: the payload cap plus
-/// generous room for the proofs and the per-payload length prefixes.
-pub const MAX_RESPONSE_SIZE: u64 = MAX_PAYLOAD_BYTES as u64 + 1024 * 1024;
+/// Room in a response for everything but the payload bytes: the result envelope, the frontier and
+/// the extension (48 hashes each at most), the tree proof (64 steps) and up to
+/// `MAX_MESSAGES_PER_RESPONSE` payload length prefixes. About 9.3 KiB at worst.
+const MAX_FRAMING_BYTES: u64 = 16 * 1024;
+
+/// Maximum encoded response size, enforced by the network before decode: the payload cap and the
+/// worst-case framing around it.
+pub const MAX_RESPONSE_SIZE: u64 = MAX_PAYLOAD_BYTES as u64 + MAX_FRAMING_BYTES;
 
 /// Pending inbound requests the handler queues before the network drops new ones.
 const INBOUND_QUEUE_SIZE: usize = 1024;
@@ -68,8 +75,8 @@ const MAX_QUEUED_PER_PEER: usize = 4;
 const TIMEOUT: Duration = Duration::from_secs(10);
 
 /// Response bytes handed to the network and not yet sent, across all peers. A response waits in
-/// the network until the peer reads it or the request times out, so a peer that does not read
-/// could otherwise pin many multi-MiB responses. Beyond it requests are refused.
+/// the network until the peer reads it or the request times out, so peers that do not read could
+/// otherwise pin many full responses. Beyond it requests are refused.
 const MAX_IN_FLIGHT_BYTES: usize = 64 * 1024 * 1024;
 
 /// How long a response counts as in flight when the network never reports it sent or dropped.
@@ -476,6 +483,43 @@ mod tests {
 		handler.pool.run_until_stalled();
 		let mut again = handler.request(peers[2]);
 		assert!(answered(&mut again).expect("answered").result.is_ok());
+	}
+
+	#[test]
+	fn a_full_response_fits_the_response_size() {
+		use codec::{Compact, CompactLen, MaxEncodedLen};
+		use cumulus_primitives_spec_messaging::{
+			streams_root::TreeStep, FetchError, FetchResponse, MMRExtensionProof, MessagesResponse,
+			MmrFrontier, StreamProof, MAX_MESSAGES_PER_RESPONSE, MAX_SPECULATIVE_MESSAGE_LEN,
+		};
+		use sp_core::H256;
+
+		// Each part at its bound; a length prefix is at most that of the largest payload.
+		let framing = 1 +
+			MmrFrontier::max_encoded_len() +
+			MMRExtensionProof::max_encoded_len() +
+			StreamProof::max_encoded_len() +
+			Compact::<u32>::compact_len(&MAX_MESSAGES_PER_RESPONSE) +
+			MAX_MESSAGES_PER_RESPONSE as usize *
+				Compact::<u32>::compact_len(&MAX_SPECULATIVE_MESSAGE_LEN);
+		assert!(framing.max(FetchError::max_encoded_len() + 1) as u64 <= MAX_FRAMING_BYTES);
+
+		// A response that reaches every bound at once encodes within the size.
+		let peaks = vec![H256::repeat_byte(1); 48];
+		let full = MmrFrontier::from_parts(peaks.clone(), (1 << 48) - 1).unwrap();
+		let count = MAX_MESSAGES_PER_RESPONSE as usize;
+		let payload = vec![7u8; MAX_PAYLOAD_BYTES as usize / count];
+		let step = TreeStep { split_bit: 0, sibling: H256::repeat_byte(2) };
+		let response: FetchResponse = Ok(MessagesResponse {
+			frontier: full,
+			payloads: vec![payload; count].try_into().unwrap(),
+			extension: MMRExtensionProof {
+				leaf_count: 1 << 48,
+				connecting_nodes: peaks.try_into().unwrap(),
+			},
+			tree_proof: StreamProof { steps: vec![step; 64].try_into().unwrap() },
+		});
+		assert!(response.encode().len() as u64 <= MAX_RESPONSE_SIZE);
 	}
 
 	#[test]
