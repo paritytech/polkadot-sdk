@@ -31,6 +31,10 @@ contract Factory {
     function createReverting() external {
         try new RevertingChild() {} catch {}
     }
+
+    function createGasBurning() external {
+        try new GasBurningChild() {} catch {}
+    }
 }
 
 /**
@@ -48,5 +52,17 @@ contract ReceivingChild {
 contract RevertingChild {
     constructor() {
         revert();
+    }
+}
+
+/**
+ * @title GasBurningChild
+ * @dev Uses up all the gas it gets in the constructor.
+ */
+contract GasBurningChild {
+    constructor() {
+        assembly {
+            invalid()
+        }
     }
 }

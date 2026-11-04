@@ -14,23 +14,20 @@ doc:
     `seal_delegate_call_hot`, `call_with_pvm_code_per_byte_hot`,
     `call_with_evm_code_per_byte_hot`, `access_list_touch_hot_upgrade`,
     `access_list_touch_hot_address_upgrade`, `access_list_touch_cold_address_empty`,
-    `access_list_touch_cold_address_full`, `access_list_touch_hot_address_nearly_empty`,
+    `access_list_touch_cold_address_full`, `access_list_touch_hot_address_single_element`,
     `access_list_touch_hot_address_full` and `access_list_rollback_address_amortization`.
     Some existing benchmarks also measure different work now, so runtimes with their own
     `pallet_revive` weights must regenerate them:
-    - `call`, `eth_call`, `seal_call`, `seal_delegate_call`, `instantiate` and `seal_instantiate`
-      no longer measure the reads of the contract blob and its code info, and `instantiate` and
-      `seal_instantiate` no longer measure the write that bumps the code's reference count.
-      These are now charged with the `code_load` weight, when the code was not accessed earlier
-      in the same transaction.
-    - `seal_instantiate` and `evm_instantiate` also measure a read of the new address's
-      `OriginalAccount` entry.
-    - The access-list touch benchmarks, `access_list_touch_cold_empty`,
-      `access_list_touch_cold_full`, `access_list_touch_hot_full` and the new ones, take the
-      number of touches `n` and measure `n` touches per run. `access_list_touch_hot_single_element`
-      is renamed to `access_list_touch_hot_nearly_empty` and touches `n` entries of a nearly
-      empty list. `access_list_touch_hot_full` no longer measures an upgrade, which
-      `access_list_touch_hot_upgrade` now does.
+    - `call`, `eth_call`, `seal_call`, `seal_call_transfer`, `seal_call_transfer_to_existing`,
+      `seal_delegate_call`, `instantiate`, `seal_instantiate` and `seal_instantiate_transfer` no
+      longer measure the reads of the contract blob and its code info, and `instantiate`,
+      `seal_instantiate` and `seal_instantiate_transfer` no longer measure the write that bumps
+      the code's reference count. These are now charged with the `code_load` weight, when the code
+      was not accessed earlier in the same transaction.
+    - `seal_instantiate`, `seal_instantiate_transfer`, `evm_instantiate` and
+      `evm_instantiate_transfer` also measure a read of the new address's `OriginalAccount` entry.
+    - `access_list_touch_hot_full` now touches a read-paid entry with a read, so it no longer
+      measures an upgrade; `access_list_touch_hot_upgrade` measures that.
     - Since the access list grew from 2,048 to 4,096 entries, the benchmarks that fill it now go
       up to 4,096.
 
@@ -52,8 +49,8 @@ doc:
       `dust_transfer`, and `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that
       charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
       variants; it should charge the cold price from `WeightInfo` instead, for example
-      `env.charge(T::WeightInfo::seal_call(transfer, dust, 0))`, or `seal_delegate_call()` for a
-      delegate call.
+      `env.charge(T::WeightInfo::seal_call(0))`, `seal_delegate_call()` for a delegate call, or
+      `seal_call_transfer(dust).max(seal_call_transfer_to_existing(dust))` for a call with value.
 
     `ContractBlob::store_code` now returns `Result<Option<BalanceOf<T>>, DispatchError>`. On
     success it holds the deposit collected for newly stored code, or `None` when the code was
@@ -83,6 +80,11 @@ doc:
     A call or delegate call to an EIP-7702 delegated account whose delegation target is not a
     deployed contract now also pays for reading the target's account info, which tells whether
     the target is itself delegated.
+
+    A contract creation now sets aside the weight to register the new contract in the access list
+    before the constructor runs, so the constructor gets that much less weight. If the constructor
+    fails or reverts after using up all of its weight, the caller gets the set-aside weight back and
+    can continue with it.
 crates:
 - name: pallet-revive
   bump: major

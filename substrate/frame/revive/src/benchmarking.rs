@@ -42,8 +42,8 @@ use crate::{
 	},
 	storage::WriteOutcome,
 	vm::{
-		evm,
-		evm::{ExtBytecode, Halt, Interpreter, instructions, instructions::utility::IntoAddress},
+		BENCH_MIN_EVM_INIT_CODE_LEN, evm,
+		evm::{ExtBytecode, Halt, Interpreter, instructions},
 		pvm,
 	},
 	*,
@@ -68,9 +68,12 @@ use pallet_revive_uapi::{
 };
 use rand::{Rng, SeedableRng, seq::SliceRandom};
 use rand_pcg::Pcg64;
-use revm::bytecode::{
-	Bytecode,
-	opcode::{ADDMOD, DIV, MOD, MULMOD, POP, SDIV, SMOD},
+use revm::{
+	bytecode::{
+		Bytecode,
+		opcode::{ADDMOD, DIV, MOD, MULMOD, POP, SDIV, SMOD},
+	},
+	primitives::{eip170::MAX_CODE_SIZE, eip3860::MAX_INITCODE_SIZE},
 };
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
@@ -86,16 +89,6 @@ use sp_runtime::{generic::DigestItem, traits::Zero};
 /// the results appeared to be stable. Reducing the number would speed up the benchmarks
 /// but might make the results less precise.
 const API_BENCHMARK_RUNS: u32 = 1600;
-
-/// The most touches a full-list bench makes in one run, one per default benchmark step.
-const ACCESS_LIST_MAX_TOUCHES_PER_RUN: u32 = 50;
-
-const _: () = assert!((ACCESS_LIST_MAX_TOUCHES_PER_RUN as usize) < MAX_ACCESS_LIST_ENTRIES);
-
-/// The most entries an empty or nearly empty list bench holds, so its list fits in one tree node.
-/// A larger list would add node splits and deeper searches, which increase the base that every
-/// touch price subtracts, and would lower the access-list overhead every access pays.
-const ACCESS_LIST_BASE_ENTRIES: u32 = 11;
 
 macro_rules! memory(
 	($($bytes:expr,)*) => {{
@@ -168,6 +161,13 @@ fn chained_delegation_setup<T: Config>() -> Result<(H160, TransactionMeter<T>), 
 	let meter = TransactionMeter::<T>::new_from_limits(Weight::MAX, BalanceOf::<T>::max_value())
 		.map_err(|_| BenchmarkError::Stop("could not build the meter"))?;
 	Ok((address, meter))
+}
+
+/// Sets the dust of `address` so that receiving `dust` makes the transfer mint a plank.
+fn set_dust_so_transfer_mints<T: Config>(address: &H160, dust: u32) {
+	AccountInfoOf::<T>::mutate(address, |info| {
+		info.get_or_insert_default().dust = T::NativeToEthRatio::get() - dust;
+	});
 }
 
 /// Pushes the data a benchmark set up out of the L1 and L2 caches by writing unrelated memory.
@@ -663,7 +663,7 @@ mod benchmarks {
 			$assert_transferred:ident, $module:expr, $delegate:expr, $t:expr, $d:expr) => {
 			let callee_contract = Contract::<T>::with_index(1, $module, vec![])?;
 			let code_hash = callee_contract.info()?.code_hash;
-			// Delegated callee, the same worst case the cold benches measure. See `seal_call`.
+			// Delegated callee, the same worst case the cold benches measure. See `call_setup!`.
 			let callee_addr = H160([0x42; 20]);
 			let callee = delegated_eoa::<T>(callee_addr, callee_contract.address)?;
 			// A fresh EOA would make the origin pay its ED, leaving nothing to burn into dust.
@@ -672,9 +672,12 @@ mod benchmarks {
 			let callee_bytes = callee.encode();
 			let $callee_len = callee_bytes.len() as u32;
 
-			// Same amounts as the cold `seal_call` bench, so both take the same transfer branches.
+			// Same transfer as `seal_call_transfer_to_existing`, so both take the same branches.
 			let native: BalanceOf<T> = (1_000_000u32 * $t).into();
 			let dust = 100u32 * $d;
+			if dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, dust);
+			}
 			let value = BalanceWithDust::new_unchecked::<T>(native, dust);
 			let evm_value = Pallet::<T>::convert_native_to_evm(value);
 			let value_bytes = evm_value.encode();
@@ -718,6 +721,7 @@ mod benchmarks {
 					Pallet::<T>::evm_balance(&callee_addr),
 					before + evm_value,
 				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
 			};
 		};
 	}
@@ -772,7 +776,9 @@ mod benchmarks {
 	// the execution engine.
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let instance = Contract::<T>::with_caller(
 			whitelisted_caller(),
 			VmBinaryModule::evm_init_code_for_runtime_size(c),
@@ -804,7 +810,9 @@ mod benchmarks {
 
 	// c: code size in bytes.
 	#[benchmark(pov_mode = Measured)]
-	fn call_with_evm_code_per_byte_hot(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
+	fn call_with_evm_code_per_byte_hot(
+		c: Linear<1, { MAX_CODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::evm_init_code_for_runtime_size(c));
 
 		let result;
@@ -2611,193 +2619,143 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
+		let entry = AccessEntry::with_index(0, KeyFamily::ContractStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().cold, n);
-		assert_eq!(al.metrics().hot, 0);
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
-	// n: cold touches on an empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_address_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_cold_address_empty() -> Result<(), BenchmarkError> {
 		let mut al = AccessList::new();
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
+		let entry = AccessEntry::with_index(0, KeyFamily::PalletStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().cold, n);
-		assert_eq!(al.metrics().hot, 0);
+		assert!(!outcome.is_hot());
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_nearly_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(
-			ACCESS_LIST_BASE_ENTRIES as usize,
-			KeyFamily::ContractStorageSlot,
-		);
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::ContractStorageSlot);
+	fn access_list_touch_hot_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(1, KeyFamily::ContractStorageSlot);
+		let entry = al.first();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a nearly empty list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_nearly_empty(
-		n: Linear<1, { ACCESS_LIST_BASE_ENTRIES }>,
-	) -> Result<(), BenchmarkError> {
-		let mut al = AccessList::with_entries(
-			ACCESS_LIST_BASE_ENTRIES as usize,
-			KeyFamily::PalletStorageSlot,
-		);
-		let entries = AccessEntry::with_indices(0..n as usize, KeyFamily::PalletStorageSlot);
+	fn access_list_touch_hot_address_single_element() -> Result<(), BenchmarkError> {
+		let mut al = AccessList::with_entries(1, KeyFamily::PalletStorageSlot);
+		let entry = al.first();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: cold touches that fill the list up to the cap
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let mut al = AccessList::with_entries(range.start, KeyFamily::ContractStorageSlot);
-		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+	fn access_list_touch_cold_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
+		assert!(!outcome.is_hot());
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
-		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_full() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: cold touches that fill the list up to the cap
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_cold_address_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let mut al = AccessList::with_entries(range.start, KeyFamily::PalletStorageSlot);
-		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+	fn access_list_touch_cold_address_full() -> Result<(), BenchmarkError> {
+		let mut al =
+			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let entry =
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
+		assert!(!outcome.is_hot());
 		assert_eq!(al.metrics().size, MAX_ACCESS_LIST_ENTRIES);
-		assert_eq!(al.metrics().hot, 0);
 		Ok(())
 	}
 
-	// n: hot touches of distinct entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_full(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_full() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Read);
-			}
+			outcome = al.touch(entry, StorageOp::Read);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: upgrades of distinct read-paid entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_upgrade(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_upgrade() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::ContractStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Write);
-			}
+			outcome = al.touch(entry, StorageOp::Write);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
-	// n: upgrades of distinct read-paid entries of a full list
 	#[benchmark(pov_mode = Ignored)]
-	fn access_list_touch_hot_address_upgrade(
-		n: Linear<1, { ACCESS_LIST_MAX_TOUCHES_PER_RUN }>,
-	) -> Result<(), BenchmarkError> {
+	fn access_list_touch_hot_address_upgrade() -> Result<(), BenchmarkError> {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot);
-		let range = MAX_ACCESS_LIST_ENTRIES - n as usize..MAX_ACCESS_LIST_ENTRIES;
-		let entries = AccessEntry::with_indices(range, KeyFamily::PalletStorageSlot);
+		let entry = al.last();
+		let outcome;
 		#[block]
 		{
-			for entry in entries {
-				al.touch(entry, StorageOp::Write);
-			}
+			outcome = al.touch(entry, StorageOp::Write);
 		}
-		assert_eq!(al.metrics().hot, n, "the fill seeded these entries");
+		assert!(outcome.is_hot(), "the fill seeded this entry");
 		Ok(())
 	}
 
@@ -2806,10 +2764,11 @@ mod benchmarks {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::ContractStorageSlot),
+		let outcome = al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::ContractStorageSlot),
 			StorageOp::Read,
 		);
+		assert!(!outcome.is_hot());
 		#[block]
 		{
 			al.rollback_frame();
@@ -2822,10 +2781,11 @@ mod benchmarks {
 		let mut al =
 			AccessList::with_entries(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot);
 		al.enter_frame();
-		al.touch(
-			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES, KeyFamily::PalletStorageSlot),
+		let outcome = al.touch(
+			AccessEntry::with_index(MAX_ACCESS_LIST_ENTRIES - 1, KeyFamily::PalletStorageSlot),
 			StorageOp::Read,
 		);
+		assert!(!outcome.is_hot());
 		#[block]
 		{
 			al.rollback_frame();
@@ -3138,77 +3098,161 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
-	// i: size of the input data
+	// Sets up a call that sends `$value` plus `$dust` and clones an input of `$input_len` bytes.
+	// The callee's account is funded up front if `$callee_exists`; otherwise the transfer creates
+	// it. Defines `$do_call` to make the call and `$assert_transferred` to check that the value
+	// arrived.
+	macro_rules! call_setup {
+		(
+			$do_call:ident, $assert_transferred:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr,
+			callee_exists: $callee_exists:expr
+		) => {
+			// An EIP-7702 delegated callee is the worst case for the account resolution.
+			let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
+			let callee_addr = H160([0x42; 20]);
+			let callee = delegated_eoa::<T>(callee_addr, target.address)?;
+			// The code read is priced by `code_load`.
+			whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
+			if $callee_exists {
+				T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+			}
+			assert_eq!(System::<T>::account_exists(&callee), $callee_exists);
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&callee_addr, $dust);
+			}
+			let callee_balance_before = Pallet::<T>::evm_balance(&callee_addr);
+
+			let callee_bytes = callee.encode();
+			let callee_len = callee_bytes.len() as u32;
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+
+			let deposit = default_deposit_limit::<T>();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let caller_addr = setup.contract().address;
+			let caller_balance_before = Pallet::<T>::evm_balance(&caller_addr);
+			let callee_ed_paid = if $callee_exists {
+				U256::zero()
+			} else {
+				Pallet::<T>::convert_native_to_evm(Pallet::<T>::min_balance())
+			};
+
+			let (mut ext, _) = setup.ext();
+			// `CLONE_INPUT` clones the runtime's own input, so the input goes here.
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![42; $input_len as usize]);
+			let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
+
+			let mut $do_call = || {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+					u64::MAX,                                     // ref_time_limit
+					u64::MAX,                                     // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                             // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+				)
+			};
+
+			let $assert_transferred = || {
+				assert!(System::<T>::account_exists(&callee), "{callee_addr:?} should exist");
+				assert_eq!(
+					Pallet::<T>::evm_balance(&callee_addr),
+					callee_balance_before + evm_value,
+					"{callee_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(AccountInfoOf::<T>::get(&callee_addr).map(|info| info.dust), Some(0));
+				assert_eq!(
+					Pallet::<T>::evm_balance(&caller_addr),
+					caller_balance_before - evm_value - callee_ed_paid,
+					"{caller_addr:?} should pay only the value and the callee's ED"
+				);
+			};
+		};
+	}
+
+	// i: size of the input the call clones
 	#[benchmark(pov_mode = Measured)]
-	fn seal_call(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::code::BLOB_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		// An EIP-7702 delegated callee is the worst case for the account resolution in
-		// `new_frame`: the `AccountInfoOf` entry decodes the larger `DelegatedEOA` variant and
-		// the call still runs the target's code.
-		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
-		let callee_addr = H160([0x42; 20]);
-		let callee = delegated_eoa::<T>(callee_addr, target.address)?;
-		// Keep the origin's budget the same as with a contract callee. A contract already exists
-		// in `System`, so `Stack::transfer` skips the "create the destination" arm; a fresh EOA
-		// does not, and that arm charges the destination's ED to the origin, leaving it nothing
-		// for `ensure_sufficient_dust` to burn into dust when `d == 1`.
-		T::Currency::set_balance(&callee, Pallet::<T>::min_balance());
+	fn seal_call(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i,
+			callee_exists: true
+		);
 
-		// The code read is priced by `code_load`.
-		whitelist_access::<T>(CodeLoadItems::new(target.info()?.code_hash));
-
-		let callee_bytes = callee.encode();
-		let callee_len = callee_bytes.len() as u32;
-
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-
-		let deposit: BalanceOf<T> = (u32::MAX - 100).into();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_storage_deposit_limit(deposit);
-		// We benchmark the overhead of cloning the input. Not passing it to the contract.
-		// This is why we set the input here instead of passig it as pointer to the `bench_call`.
-		setup.set_data(vec![42; i as usize]);
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + Pallet::<T>::min_balance());
-
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
-		let before = Pallet::<T>::evm_balance(&callee_addr);
-
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert_eq!(
-			Pallet::<T>::evm_balance(&callee_addr),
-			before + evm_value,
-			"{callee_addr:?} balance should have grown by {evm_value:?}"
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: false
 		);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn seal_call_transfer_to_existing(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		call_setup!(
+			do_call,
+			assert_transferred,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32,
+			callee_exists: true
+		);
+
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_call());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_transferred();
 		Ok(())
 	}
 
@@ -3216,10 +3260,12 @@ mod benchmarks {
 	fn seal_call_hot() -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, VmBinaryModule::dummy());
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3231,10 +3277,12 @@ mod benchmarks {
 	fn seal_call_transfer_hot(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
 		hot_call_setup!(do_call, assert_transferred, VmBinaryModule::dummy(), 1, d);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3295,10 +3343,12 @@ mod benchmarks {
 		// so we make sure to create it
 		assert_eq!(do_benchmark().unwrap(), ReturnErrorCode::Success);
 
+		// Inside an ethereum transaction, the worst case: the pre-compile's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_benchmark();
+			result = block_storage::bench_with_ethereum_context(|| do_benchmark());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3307,7 +3357,6 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn seal_delegate_call() -> Result<(), BenchmarkError> {
 		// Delegated code source: worst case for the callee resolution in `new_frame`.
-		// See `seal_call`.
 		let target = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?;
 		let address = delegated_eoa::<T>(H160([0x43; 20]), target.address)?;
 
@@ -3328,18 +3377,22 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_delegate_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(0, 0),        // flags + address ptr
-				u64::MAX,                // ref_time_limit
-				u64::MAX,                // proof_size_limit
-				address_len,             // deposit_ptr
-				pack_hi_lo(0, 0),        // input len + data ptr
-				pack_hi_lo(0, SENTINEL), // output len + ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					address_len,             // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + data ptr
+					pack_hi_lo(0, SENTINEL), // output len + ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -3350,147 +3403,274 @@ mod benchmarks {
 	fn seal_delegate_call_hot() -> Result<(), BenchmarkError> {
 		hot_call_setup!(delegate do_call, VmBinaryModule::dummy());
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_call();
+			result = block_storage::bench_with_ethereum_context(|| do_call());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
-	// d: with or without dust value to transfer
+	// Sets up an instantiate that sends `$value` plus `$dust` with an input of `$input_len` bytes.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! seal_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, input_len: $input_len:expr
+		) => {
+			let code = VmBinaryModule::dummy();
+			let hash =
+				Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
+			// The code load prices these reads.
+			whitelist_access::<T>(CodeLoadItems::new(hash));
+			let hash_bytes = hash.encode();
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+			let value_bytes = evm_value.encode();
+			let value_len = value_bytes.len() as u32;
+
+			let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
+			let deposit_bytes = Into::<U256>::into(deposit).encode();
+			let deposit_len = deposit_bytes.len() as u32;
+
+			let mut setup = CallSetup::<T>::default();
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+
+			let account_id = &setup.contract().account_id.clone();
+			let (mut ext, _) = setup.ext();
+			let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
+
+			let input = vec![42u8; $input_len as usize];
+			let input_len = hash_bytes.len() as u32 + input.len() as u32;
+			let salt = [42u8; 32];
+			let deployer = T::AddressMapper::to_address(&account_id);
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+			let new_contract_addr = crate::address::create2(&deployer, &code.code, &input, &salt);
+			let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
+			let deposit_ptr = input_len;
+			let value_ptr = deposit_ptr + deposit_len;
+			let salt_ptr = value_ptr + value_len;
+
+			assert!(AccountInfoOf::<T>::get(&new_contract_addr).is_none());
+			assert_instantiate_items_not_whitelisted::<T>(new_contract_addr, deployer);
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
+
+			let mut $do_instantiate = || {
+				// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
+				let _ = T::AddressMapper::to_account_id(&new_contract_addr);
+				runtime.bench_instantiate(
+					memory.as_mut_slice(),
+					u64::MAX,                           // ref_time_limit
+					u64::MAX,                           // proof_size_limit
+					pack_hi_lo(deposit_ptr, value_ptr), // deposit_ptr + value_ptr
+					pack_hi_lo(input_len, 0),           // input_data_len + input_data
+					pack_hi_lo(0, SENTINEL),            // output_len_ptr + output_ptr
+					pack_hi_lo(SENTINEL, salt_ptr),     // address_ptr + salt_ptr
+				)
+			};
+			let $assert_instantiated = || {
+				assert!(AccountInfo::<T>::load_contract(&new_contract_addr).is_some());
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value,
+					"{deployer:?} should pay only the value"
+				);
+			};
+		};
+	}
+
 	// i: size of the input data
 	#[benchmark(pov_mode = Measured)]
-	fn seal_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<0, { limits::CALLDATA_BYTES }>,
-	) -> Result<(), BenchmarkError> {
-		let code = VmBinaryModule::dummy();
-		let hash = Contract::<T>::with_index(1, VmBinaryModule::dummy(), vec![])?.info()?.code_hash;
-		// The code load prices these reads.
-		whitelist_access::<T>(CodeLoadItems::new(hash));
-		let hash_bytes = hash.encode();
+	fn seal_instantiate(i: Linear<0, { limits::CALLDATA_BYTES }>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			input_len: i
+		);
 
-		let value: BalanceOf<T> = (1_000_000u32 * t).into();
-		let dust = 100u32 * d;
-		let evm_value =
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust));
-		let value_bytes = evm_value.encode();
-		let value_len = value_bytes.len() as u32;
-
-		let deposit: BalanceOf<T> = BalanceOf::<T>::max_value();
-		let deposit_bytes = Into::<U256>::into(deposit).encode();
-		let deposit_len = deposit_bytes.len() as u32;
-
-		let mut setup = CallSetup::<T>::default();
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(value + 1u32.into() + (Pallet::<T>::min_balance() * 2u32.into()));
-
-		let account_id = &setup.contract().account_id.clone();
-		let (mut ext, _) = setup.ext();
-		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
-
-		let input = vec![42u8; i as _];
-		let input_len = hash_bytes.len() as u32 + input.len() as u32;
-		let salt = [42u8; 32];
-		let deployer = T::AddressMapper::to_address(&account_id);
-		let addr = crate::address::create2(&deployer, &code.code, &input, &salt);
-		let mut memory = memory!(hash_bytes, input, deposit_bytes, value_bytes, salt,);
-
-		let mut offset = {
-			let mut current = 0u32;
-			move |after: u32| {
-				current += after;
-				current
-			}
-		};
-
-		assert!(AccountInfoOf::<T>::get(&addr).is_none());
-		assert_instantiate_items_not_whitelisted::<T>(addr, deployer);
-
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
-			let _ = T::AddressMapper::to_account_id(&addr);
-			result = runtime.bench_instantiate(
-				memory.as_mut_slice(),
-				u64::MAX,                                           // ref_time_limit
-				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
-				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
-				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
-				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
-		assert!(AccountInfo::<T>::load_contract(&addr).is_some());
-
-		assert_eq!(
-			Pallet::<T>::evm_balance(&addr),
-			evm_value,
-			"{addr:?} balance should hold {evm_value:?}"
-		);
+		assert_instantiated();
 		Ok(())
 	}
 
-	// t: with or without some value to transfer
 	// d: with or without dust value to transfer
-	// i: size of the init code (max 49152 bytes per EIP-3860)
 	#[benchmark(pov_mode = Measured)]
-	fn evm_instantiate(
-		t: Linear<0, 1>,
-		d: Linear<0, 1>,
-		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
-	) -> Result<(), BenchmarkError> {
-		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
-		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
-		setup.set_balance(caller_funding::<T>());
-		let deployer = setup.contract().address;
+	fn seal_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		seal_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			input_len: 0u32
+		);
 
-		let (mut ext, _) = setup.ext();
-		let mut interpreter = Interpreter::new(Default::default(), Default::default(), &mut ext);
-
-		let value = {
-			let value: BalanceOf<T> = (1_000_000u32 * t).into();
-			let dust = 100u32 * d;
-			Pallet::<T>::convert_native_to_evm(BalanceWithDust::new_unchecked::<T>(value, dust))
-		};
-
-		let init_code = vec![BENCH_INIT_CODE; i as usize];
-		let _ = interpreter.memory.resize(0, init_code.len());
-		let salt = U256::from(42u64);
-		interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
-		let addr = crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
-
-		// Setup stack for create instruction [value, offset, size, salt]
-		let _ = interpreter.stack.push(salt);
-		let _ = interpreter.stack.push(U256::from(init_code.len()));
-		let _ = interpreter.stack.push(U256::zero());
-		let _ = interpreter.stack.push(value);
-		assert_instantiate_items_not_whitelisted::<T>(addr, deployer);
-
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
-			let _ = T::AddressMapper::to_account_id(&addr);
-			result = instructions::contract::create::<true, _>(&mut interpreter);
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
+		}
+
+		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
+		assert_instantiated();
+		Ok(())
+	}
+
+	// Sets up an instantiate that sends `$value` plus `$dust` with `$init_code_len` bytes of code.
+	// Defines `$do_instantiate` to run it and `$assert_instantiated` to check that the value
+	// arrived.
+	macro_rules! evm_instantiate_setup {
+		(
+			$do_instantiate:ident, $assert_instantiated:ident,
+			value: $value:expr, dust: $dust:expr, init_code_len: $init_code_len:expr
+		) => {
+			use crate::vm::evm::instructions::BENCH_INIT_CODE;
+			let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
+			setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
+			setup.set_balance(caller_funding::<T>());
+			let deployer = setup.contract().address;
+			let deployer_balance_before = Pallet::<T>::evm_balance(&deployer);
+
+			let (mut ext, _) = setup.ext();
+			let mut interpreter =
+				Interpreter::new(Default::default(), Default::default(), &mut ext);
+
+			let value: BalanceOf<T> = $value.into();
+			let evm_value = Pallet::<T>::convert_native_to_evm(
+				BalanceWithDust::new_unchecked::<T>(value, $dust),
+			);
+
+			let init_code = vec![BENCH_INIT_CODE; $init_code_len as usize];
+			let _ = interpreter.memory.resize(0, init_code.len());
+			let salt = U256::from(42u64);
+			interpreter.memory.set_data(0, 0, init_code.len(), &init_code);
+			let new_contract_addr =
+				crate::address::create2(&deployer, &init_code, &[], &salt.to_big_endian());
+			if $dust != 0 {
+				set_dust_so_transfer_mints::<T>(&new_contract_addr, $dust);
+			}
+			let new_contract_balance_before = Pallet::<T>::evm_balance(&new_contract_addr);
+
+			// Setup stack for create instruction [value, offset, size, salt]
+			let _ = interpreter.stack.push(salt);
+			let _ = interpreter.stack.push(U256::from(init_code.len()));
+			let _ = interpreter.stack.push(U256::zero());
+			let _ = interpreter.stack.push(evm_value);
+			assert_instantiate_items_not_whitelisted::<T>(new_contract_addr, deployer);
+
+			let mut $do_instantiate = || {
+				// Charges for the `OriginalAccount` entry the instantiate warms but never reads.
+				let _ = T::AddressMapper::to_account_id(&new_contract_addr);
+				instructions::contract::create::<true, _>(&mut interpreter)
+			};
+			let $assert_instantiated = || {
+				let new_contract = AccountInfo::<T>::load_contract(&new_contract_addr)
+					.expect("the create should deploy a contract");
+				// The stored code starts warm, so only this bench pays for its entries.
+				assert_not_whitelisted::<T>(CodeLoadItems::new(new_contract.code_hash), &[]);
+				assert_eq!(Pallet::<T>::code(&new_contract_addr).len(), MAX_CODE_SIZE);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&new_contract_addr),
+					new_contract_balance_before + evm_value,
+					"{new_contract_addr:?} balance should grow by {evm_value:?}"
+				);
+				assert_eq!(
+					AccountInfoOf::<T>::get(&new_contract_addr).map(|info| info.dust),
+					Some(0)
+				);
+				let code_deposit = Pallet::<T>::convert_native_to_evm(
+					CodeInfoOf::<T>::get(new_contract.code_hash)
+						.expect("the create should store its runtime code")
+						.deposit(),
+				);
+				assert_eq!(
+					Pallet::<T>::evm_balance(&deployer),
+					deployer_balance_before - evm_value - code_deposit,
+					"{deployer:?} should pay only the value and the code deposit"
+				);
+			};
+		};
+	}
+
+	// i: size of the init code
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate(
+		i: Linear<{ BENCH_MIN_EVM_INIT_CODE_LEN }, { MAX_INITCODE_SIZE as u32 }>,
+	) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 0u32,
+			dust: 0u32,
+			init_code_len: i
+		);
+
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
 		}
 
 		assert!(result.is_continue());
-		let addr = interpreter.stack.top().unwrap().into_address();
-		let child = AccountInfo::<T>::load_contract(&addr).expect("the create stores the child");
-		// The stored code starts warm, so only this bench pays for its entries.
-		assert_not_whitelisted::<T>(CodeLoadItems::new(child.code_hash), &[]);
-		assert_eq!(Pallet::<T>::code(&addr).len(), revm::primitives::eip170::MAX_CODE_SIZE);
-		assert_eq!(Pallet::<T>::evm_balance(&addr), value, "balance should hold {value:?}");
+		assert_instantiated();
+		Ok(())
+	}
+
+	// d: with or without dust value to transfer
+	#[benchmark(pov_mode = Measured)]
+	fn evm_instantiate_transfer(d: Linear<0, 1>) -> Result<(), BenchmarkError> {
+		evm_instantiate_setup!(
+			do_instantiate,
+			assert_instantiated,
+			value: 1_000_000u32,
+			dust: 100u32 * d,
+			init_code_len: BENCH_MIN_EVM_INIT_CODE_LEN
+		);
+
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
+		let result;
+		#[block]
+		{
+			result = block_storage::bench_with_ethereum_context(|| do_instantiate());
+		}
+
+		assert!(result.is_continue());
+		assert_instantiated();
 		Ok(())
 	}
 
@@ -5090,12 +5270,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so each lands on the transaction's own receipt
 			// — the path `on_finalize_block_per_event` is charged for on every `DepositEvent`. The
 			// outside-of-frame drain is `outside_frame_log`'s, charged separately.
 			for _ in 0..e {
-				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![]);
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![])?;
 			}
 
 			let (encoded_logs, bloom) =
@@ -5113,7 +5293,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -5182,12 +5363,12 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
 			// Captured inside the ethereum context, so the log lands on the transaction's own
 			// receipt — the path `on_finalize_block_per_event` is charged for on every
 			// `DepositEvent`. The outside-of-frame drain is `outside_frame_log`'s, charged
 			// separately.
-			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics);
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics)?;
 
 			let (encoded_logs, bloom) =
 				block_storage::get_receipt_details::<T>().unwrap_or_default();
@@ -5204,7 +5385,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
+			Ok(())
+		})?;
 
 		#[block]
 		{

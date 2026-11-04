@@ -1242,115 +1242,85 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 			// Standard Error: 15
 			.saturating_add(Weight::from_parts(639, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_cold_empty(n: u32, ) -> Weight {
+	fn access_list_touch_cold_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 577_000 picoseconds.
-		Weight::from_parts(674_000, 0)
+		// Minimum execution time: 515_000 picoseconds.
+		Weight::from_parts(639_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 997
-			.saturating_add(Weight::from_parts(601_365, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_cold_address_empty(n: u32, ) -> Weight {
+	fn access_list_touch_cold_address_empty() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 483_000 picoseconds.
-		Weight::from_parts(134_333, 0)
+		// Minimum execution time: 386_000 picoseconds.
+		Weight::from_parts(471_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 303
-			.saturating_add(Weight::from_parts(258_012, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_hot_nearly_empty(n: u32, ) -> Weight {
+	fn access_list_touch_hot_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 502_000 picoseconds.
-		Weight::from_parts(582_000, 0)
+		// Minimum execution time: 465_000 picoseconds.
+		Weight::from_parts(553_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_067
-			.saturating_add(Weight::from_parts(618_034, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 11]`.
-	fn access_list_touch_hot_address_nearly_empty(n: u32, ) -> Weight {
+	fn access_list_touch_hot_address_single_element() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 347_000 picoseconds.
-		Weight::from_parts(32_606, 0)
+		// Minimum execution time: 282_000 picoseconds.
+		Weight::from_parts(357_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 280
-			.saturating_add(Weight::from_parts(209_658, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_cold_full(n: u32, ) -> Weight {
+	fn access_list_touch_cold_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_063_000 picoseconds.
-		Weight::from_parts(5_162_000, 0)
+		// Minimum execution time: 4_477_000 picoseconds.
+		Weight::from_parts(5_495_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5_811
-			.saturating_add(Weight::from_parts(4_529_298, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_full(n: u32, ) -> Weight {
+	fn access_list_touch_hot_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 4_924_000 picoseconds.
-		Weight::from_parts(5_348_780, 0)
+		// Minimum execution time: 4_855_000 picoseconds.
+		Weight::from_parts(5_572_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 5_912
-			.saturating_add(Weight::from_parts(3_809_547, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_cold_address_full(n: u32, ) -> Weight {
+	fn access_list_touch_cold_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_445_000 picoseconds.
-		Weight::from_parts(363_707, 0)
+		// Minimum execution time: 1_362_000 picoseconds.
+		Weight::from_parts(1_492_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 1_206
-			.saturating_add(Weight::from_parts(1_123_699, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_address_full(n: u32, ) -> Weight {
+	fn access_list_touch_hot_address_full() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_481_000 picoseconds.
-		Weight::from_parts(1_740_060, 0)
+		// Minimum execution time: 1_363_000 picoseconds.
+		Weight::from_parts(1_490_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 764
-			.saturating_add(Weight::from_parts(884_096, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_upgrade(n: u32, ) -> Weight {
+	fn access_list_touch_hot_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 5_582_000 picoseconds.
-		Weight::from_parts(5_860_497, 0)
+		// Minimum execution time: 5_380_000 picoseconds.
+		Weight::from_parts(6_212_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 6_572
-			.saturating_add(Weight::from_parts(3_968_208, 0).saturating_mul(n.into()))
 	}
-	/// The range of component `n` is `[1, 50]`.
-	fn access_list_touch_hot_address_upgrade(n: u32, ) -> Weight {
+	fn access_list_touch_hot_address_upgrade() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `0`
 		//  Estimated: `0`
-		// Minimum execution time: 1_699_000 picoseconds.
-		Weight::from_parts(2_146_493, 0)
+		// Minimum execution time: 1_413_000 picoseconds.
+		Weight::from_parts(1_540_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
-			// Standard Error: 922
-			.saturating_add(Weight::from_parts(924_698, 0).saturating_mul(n.into()))
 	}
 	fn access_list_rollback_amortization() -> Weight {
 		// Proof Size summary in bytes:
@@ -1468,26 +1438,68 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `i` is `[0, 131072]`.
+	fn seal_call(i: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2480`
+		//  Estimated: `5945`
+		// Minimum execution time: 55_149_000 picoseconds.
+		Weight::from_parts(58_096_894, 0)
+			.saturating_add(Weight::from_parts(0, 5945))
+			// Standard Error: 0
+			.saturating_add(Weight::from_parts(158, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(4))
+			.saturating_add(T::DbWeight::get().writes(1))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `System::Account` (r:1 w:1)
 	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
-	/// The range of component `t` is `[0, 1]`.
 	/// The range of component `d` is `[0, 1]`.
-	/// The range of component `i` is `[0, 1048576]`.
-	fn seal_call(t: u32, d: u32, _i: u32, ) -> Weight {
+	fn seal_call_transfer(d: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3146 + t * (52 ±0)`
-		//  Estimated: `6611 + t * (52 ±0)`
-		// Minimum execution time: 95_416_000 picoseconds.
-		Weight::from_parts(74_454_037, 0)
-			.saturating_add(Weight::from_parts(0, 6611))
-			// Standard Error: 78_623
-			.saturating_add(Weight::from_parts(36_738_092, 0).saturating_mul(t.into()))
-			// Standard Error: 78_623
-			.saturating_add(Weight::from_parts(24_498_927, 0).saturating_mul(d.into()))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(1))
-			.saturating_add(T::DbWeight::get().writes((1_u64).saturating_mul(t.into())))
-			.saturating_add(Weight::from_parts(0, 52).saturating_mul(t.into()))
+		//  Measured:  `3686`
+		//  Estimated: `7151`
+		// Minimum execution time: 151_357_000 picoseconds.
+		Weight::from_parts(159_640_981, 0)
+			.saturating_add(Weight::from_parts(0, 7151))
+			// Standard Error: 286_695
+			.saturating_add(Weight::from_parts(41_508_935, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
+	}
+	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:0)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_call_transfer_to_existing(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `3821`
+		//  Estimated: `7286`
+		// Minimum execution time: 112_418_000 picoseconds.
+		Weight::from_parts(117_779_148, 0)
+			.saturating_add(Weight::from_parts(0, 7286))
+			// Standard Error: 182_328
+			.saturating_add(Weight::from_parts(41_375_735, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(5))
+			.saturating_add(T::DbWeight::get().writes(2))
 	}
 	fn seal_call_hot() -> Weight {
 		// Proof Size summary in bytes:
@@ -1547,8 +1559,10 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 		Weight::from_parts(32_328_000, 0)
 			.saturating_add(Weight::from_parts(0, 0))
 	}
-	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
@@ -1563,29 +1577,50 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `AssetsFreezer::Freezes` (`max_values`: None, `max_size`: Some(123), added: 2598, mode: `Measured`)
 	/// Storage: `AssetsFreezer::FrozenBalances` (r:1 w:1)
 	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
-	/// The range of component `t` is `[0, 1]`.
-	/// The range of component `d` is `[0, 1]`.
 	/// The range of component `i` is `[0, 131072]`.
-	fn seal_instantiate(t: u32, d: u32, i: u32, ) -> Weight {
+	fn seal_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `3373`
-		//  Estimated: `6622 + d * (255 ±36) + t * (255 ±36)`
-		// Minimum execution time: 220_756_000 picoseconds.
-		Weight::from_parts(162_694_044, 0)
-			.saturating_add(Weight::from_parts(0, 6622))
-			// Standard Error: 392_207
-			.saturating_add(Weight::from_parts(39_261_982, 0).saturating_mul(t.into()))
-			// Standard Error: 392_207
-			.saturating_add(Weight::from_parts(29_656_093, 0).saturating_mul(d.into()))
-			// Standard Error: 4
-			.saturating_add(Weight::from_parts(4_065, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(8))
-			.saturating_add(T::DbWeight::get().writes(6))
-			.saturating_add(Weight::from_parts(0, 255).saturating_mul(d.into()))
-			.saturating_add(Weight::from_parts(0, 255).saturating_mul(t.into()))
+		//  Measured:  `2597`
+		//  Estimated: `6043`
+		// Minimum execution time: 165_079_000 picoseconds.
+		Weight::from_parts(173_821_178, 0)
+			.saturating_add(Weight::from_parts(0, 6043))
+			// Standard Error: 5
+			.saturating_add(Weight::from_parts(4_111, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(7))
 	}
-	/// Storage: `Revive::OriginalAccount` (r:1 w:0)
-	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:1 w:0)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::NativeDepositOf` (r:1 w:0)
+	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `System::Account` (r:1 w:1)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
+	/// Storage: `Assets::Account` (r:1 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `Measured`)
+	/// Storage: `AssetsFreezer::Freezes` (r:1 w:1)
+	/// Proof: `AssetsFreezer::Freezes` (`max_values`: None, `max_size`: Some(123), added: 2598, mode: `Measured`)
+	/// Storage: `AssetsFreezer::FrozenBalances` (r:1 w:1)
+	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn seal_instantiate_transfer(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `2523`
+		//  Estimated: `5988`
+		// Minimum execution time: 201_589_000 picoseconds.
+		Weight::from_parts(213_388_677, 0)
+			.saturating_add(Weight::from_parts(0, 5988))
+			// Standard Error: 424_078
+			.saturating_add(Weight::from_parts(42_389_582, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(9))
+			.saturating_add(T::DbWeight::get().writes(7))
+	}
 	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
 	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
 	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
@@ -1608,26 +1643,53 @@ impl<T: frame_system::Config> pallet_revive::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
 	/// Storage: `Revive::PristineCode` (r:0 w:1)
 	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
-	/// The range of component `t` is `[0, 1]`.
-	/// The range of component `d` is `[0, 1]`.
-	/// The range of component `i` is `[10240, 49152]`.
-	fn evm_instantiate(t: u32, d: u32, i: u32, ) -> Weight {
+	/// The range of component `i` is `[1, 49152]`.
+	fn evm_instantiate(i: u32, ) -> Weight {
 		// Proof Size summary in bytes:
-		//  Measured:  `5730`
-		//  Estimated: `11092 + d * (460 ±37) + t * (460 ±37)`
-		// Minimum execution time: 481_128_000 picoseconds.
-		Weight::from_parts(335_705_186, 0)
-			.saturating_add(Weight::from_parts(0, 11092))
-			// Standard Error: 716_377
-			.saturating_add(Weight::from_parts(38_306_598, 0).saturating_mul(t.into()))
-			// Standard Error: 716_377
-			.saturating_add(Weight::from_parts(27_200_275, 0).saturating_mul(d.into()))
-			// Standard Error: 28
-			.saturating_add(Weight::from_parts(8_118, 0).saturating_mul(i.into()))
-			.saturating_add(T::DbWeight::get().reads(15))
+		//  Measured:  `4528`
+		//  Estimated: `10270`
+		// Minimum execution time: 341_566_000 picoseconds.
+		Weight::from_parts(347_865_429, 0)
+			.saturating_add(Weight::from_parts(0, 10270))
+			// Standard Error: 16
+			.saturating_add(Weight::from_parts(7_523, 0).saturating_mul(i.into()))
+			.saturating_add(T::DbWeight::get().reads(14))
 			.saturating_add(T::DbWeight::get().writes(11))
-			.saturating_add(Weight::from_parts(0, 460).saturating_mul(d.into()))
-			.saturating_add(Weight::from_parts(0, 460).saturating_mul(t.into()))
+	}
+	/// Storage: `Revive::AccountInfoOf` (r:1 w:1)
+	/// Proof: `Revive::AccountInfoOf` (`max_values`: None, `max_size`: Some(301), added: 2776, mode: `Measured`)
+	/// Storage: `Revive::NativeDepositOf` (r:2 w:1)
+	/// Proof: `Revive::NativeDepositOf` (`max_values`: None, `max_size`: Some(80), added: 2555, mode: `Measured`)
+	/// Storage: `System::Account` (r:2 w:2)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `Measured`)
+	/// Storage: `Assets::Asset` (r:1 w:1)
+	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode: `Measured`)
+	/// Storage: `Assets::Account` (r:2 w:1)
+	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode: `Measured`)
+	/// Storage: `AssetsFreezer::Freezes` (r:1 w:1)
+	/// Proof: `AssetsFreezer::Freezes` (`max_values`: None, `max_size`: Some(123), added: 2598, mode: `Measured`)
+	/// Storage: `AssetsFreezer::FrozenBalances` (r:2 w:1)
+	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
+	/// Storage: `Revive::CodeInfoOf` (r:1 w:1)
+	/// Proof: `Revive::CodeInfoOf` (`max_values`: None, `max_size`: Some(97), added: 2572, mode: `Measured`)
+	/// Storage: `AssetsHolder::BalancesOnHold` (r:1 w:0)
+	/// Proof: `AssetsHolder::BalancesOnHold` (`max_values`: None, `max_size`: Some(84), added: 2559, mode: `Measured`)
+	/// Storage: `Balances::Holds` (r:1 w:1)
+	/// Proof: `Balances::Holds` (`max_values`: None, `max_size`: Some(409), added: 2884, mode: `Measured`)
+	/// Storage: `Revive::PristineCode` (r:0 w:1)
+	/// Proof: `Revive::PristineCode` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// The range of component `d` is `[0, 1]`.
+	fn evm_instantiate_transfer(d: u32, ) -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4205`
+		//  Estimated: `10145`
+		// Minimum execution time: 375_907_000 picoseconds.
+		Weight::from_parts(399_942_441, 0)
+			.saturating_add(Weight::from_parts(0, 10145))
+			// Standard Error: 557_048
+			.saturating_add(Weight::from_parts(43_429_908, 0).saturating_mul(d.into()))
+			.saturating_add(T::DbWeight::get().reads(14))
+			.saturating_add(T::DbWeight::get().writes(11))
 	}
 	/// The range of component `n` is `[0, 1048576]`.
 	fn sha2_256(n: u32, ) -> Weight {
