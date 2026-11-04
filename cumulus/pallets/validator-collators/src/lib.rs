@@ -50,6 +50,8 @@
 //! with no notice, so a validator with keys must already run a synced collator node to collate
 //! when drawn.
 //!
+//! Until governance sets it, the cap is [`Config::DefaultMaxCollators`].
+//!
 //! The pallet implements [`cumulus_pallet_parachain_system::OnSystemEvent`]. The runtime must
 //! include it in the `OnSystemEvent` of `cumulus-pallet-parachain-system`, alone or in a tuple
 //! with other handlers, to keep [`EpochRandomness`] up to date from the relay chain state proof.
@@ -278,6 +280,10 @@ pub mod pallet {
 		/// Hands the block counts of one report to the chain that credits them.
 		type BlockReporter: ReportAuthoredBlocks<Self::AccountId>;
 
+		/// Value of [`MaxCollators`] until governance sets it, `None` meaning no cap.
+		#[pallet::constant]
+		type DefaultMaxCollators: Get<Option<u32>>;
+
 		/// Number of blocks between two reports until governance sets [`ReportPeriod`].
 		#[pallet::constant]
 		type DefaultReportPeriod: Get<BlockNumberFor<Self>>;
@@ -315,7 +321,9 @@ pub mod pallet {
 	pub type ExternalSetReceivedAt<T: Config> = StorageValue<_, u64, OptionQuery>;
 
 	/// Maximum number of validators returned as collators, `None` returns every validator with
-	/// registered keys. Only validators with keys count against the cap.
+	/// registered keys. Only validators with keys count against the cap. It is
+	/// [`Config::DefaultMaxCollators`] until [`Pallet::set_max_collators`] stores a value,
+	/// including an explicit `None`.
 	///
 	/// The cap applies before the union with the other session manager. A validator that the
 	/// other session manager also returns takes a place under the cap without adding a collator.
@@ -331,12 +339,13 @@ pub mod pallet {
 	/// from the stored set, so the drawn validators can change. The change is in force two blocks
 	/// later. Removing the cap returns every validator of the stored set with registered keys.
 	#[pallet::storage]
-	pub type MaxCollators<T: Config> = StorageValue<_, u32, OptionQuery>;
+	pub type MaxCollators<T: Config> =
+		StorageValue<_, Option<u32>, ValueQuery, <T as Config>::DefaultMaxCollators>;
 
 	/// The collators last returned to pallet-session, taken from [`ExternalValidatorSet`].
 	///
 	/// Written at every session rotation, and holds only validators that had registered keys at
-	/// that rotation. Without [`MaxCollators`] it is every validator of the set with keys, in
+	/// that rotation. Without a cap it is every validator of the set with keys, in
 	/// account order. Under a cap it is the draw made at the first rotation after a set arrives or
 	/// the cap changes, and each later rotation returns it again without the validators that have
 	/// removed their keys since. `None` when the last rotation returned no list, as before the
@@ -585,7 +594,7 @@ pub mod pallet {
 		///
 		/// With a stored set, the change forces two rotations and the first draws
 		/// [`DrawnCollators`] again, so the drawn validators can change. `None` returns the whole
-		/// stored set from then on.
+		/// stored set from then on, and replaces [`Config::DefaultMaxCollators`].
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_max_collators())]
 		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {
