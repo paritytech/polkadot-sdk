@@ -176,7 +176,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_025_003,
+	spec_version: 1_025_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -185,7 +185,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_025_003);
+	pub const AdMigrationVersion: codec::Compact<u32> = codec::Compact::<u32>(1_025_004);
 	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
 		.max_length(5 * 1024 * 1024)
 		.modify_max_length_for_class(DispatchClass::Normal, |m| {
@@ -1223,6 +1223,8 @@ parameter_types! {
 			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
 			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
 			+ 30;
+	// Validators contribute no collators until governance raises the cap.
+	pub const DefaultMaxCollators: Option<u32> = Some(0);
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -1234,6 +1236,7 @@ impl pallet_validator_collators::Config for Runtime {
 	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = staking::CreditBlocksLocally;
+	type DefaultMaxCollators = DefaultMaxCollators;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
