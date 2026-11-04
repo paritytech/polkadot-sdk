@@ -2,8 +2,9 @@ title: 'HRMP: let a migration hand its deposits to `pallet-hrmp-para`'
 doc:
 - audience: Runtime Dev
   description: |-
-    Modify `ReceiveMigratedDeposits` spec to be indempotent and to set the deposit of a channel side.
-    Implement `ReceiveMigratedDeposits` on `pallet-hrmp-para`, for AHMv2 migration.
+    Replace `ReceiveMigratedChannels` with `ReceiveMigratedDeposits`: the migration trait now hands
+    over the deposit of one side of a channel.
+    Implement `ReceiveMigratedDeposits` on `pallet-hrmp-para`, for the AHMv2 migration.
 
 crates:
 - name: pallet-hrmp-para

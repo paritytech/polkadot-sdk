@@ -35,7 +35,7 @@ pub trait WeightInfo {
 	fn receive_set_deposits() -> Weight;
 	/// `receive` of `Release` with both sides set.
 	fn receive_release() -> Weight;
-	/// `receive_deposit` on top of a side already held.
+	/// `receive_deposit` holding the whole deposit on a side that held nothing.
 	fn receive_deposit() -> Weight;
 }
 
