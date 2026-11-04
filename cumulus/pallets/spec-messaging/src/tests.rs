@@ -2044,6 +2044,26 @@ mod xcm_layer {
 			);
 		});
 	}
+
+	#[test]
+	fn a_send_past_the_block_weight_is_a_hard_error() {
+		new_test_ext().execute_with(|| {
+			open_xcm_channel();
+			// A block that hooks filled, as `MessageQueue` servicing XCM in `on_idle`: the normal
+			// class is empty, but the block has room for one send only.
+			let weights: frame_system::limits::BlockWeights =
+				<Test as frame_system::Config>::BlockWeights::get();
+			let len = VersionedXcm::from(xcm()).encode().len() as u32;
+			let room = weights.max_block.saturating_sub(SpecMessaging::send_weight(len));
+			frame_system::BlockWeight::<Test>::mutate(|w| w.set(room, DispatchClass::Mandatory));
+			assert_ok!(send_xcm::<Router>(sibling(), xcm()));
+			assert_eq!(
+				send_xcm::<Router>(sibling(), xcm()),
+				Err(SendError::Transport("block has no room for the spec-msg send"))
+			);
+			assert!(System::block_weight().total().all_lte(weights.max_block));
+		});
+	}
 }
 
 /// A channel that wants to open and applied an `Accepting` register for versions `min..=max`.

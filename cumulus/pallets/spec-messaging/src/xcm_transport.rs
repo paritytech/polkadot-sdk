@@ -127,7 +127,7 @@ impl<T: Config> frame_support::traits::QueuePausedQuery<InChannelId> for crate::
 /// - An open channel without capacity is a hard [`SendError::Transport`]: falling through would
 ///   lose the XCM in `XcmpQueue`.
 /// - Each delivery charges [`Pallet::send_weight`] to the block. A send it would push past the
-///   normal class's limit is a hard [`SendError::Transport`] too.
+///   normal class's limit or the block's is a hard [`SendError::Transport`] too.
 ///
 /// `ChannelInfo` is usually `ParachainSystem`, `VersionWrapper` usually `PolkadotXcm` (same
 /// destination `Location` as HRMP, so negotiated versions carry over).
@@ -180,13 +180,16 @@ where
 				SendError::Transport("spec-msg XCM channel has no capacity")
 			}
 		})?;
-		// `deliver` charges the send unchecked, so the room is checked here.
+		// `deliver` charges the send unchecked, so the room is checked here, as `CheckWeight`
+		// checks a normal call: within the class and within the block. A hook, such as the
+		// message queue's `on_idle`, can fill the block outside the normal class.
 		let weights = T::BlockWeights::get();
 		let limit = weights.get(DispatchClass::Normal).max_total.unwrap_or(weights.max_block);
-		let used = frame_system::BlockWeight::<T>::get()
-			.get(DispatchClass::Normal)
-			.saturating_add(Pallet::<T>::send_weight(encoded.len() as u32));
-		if !used.all_lte(limit) {
+		let send = Pallet::<T>::send_weight(encoded.len() as u32);
+		let used = frame_system::BlockWeight::<T>::get();
+		if !used.get(DispatchClass::Normal).saturating_add(send).all_lte(limit) ||
+			!used.total().saturating_add(send).all_lte(weights.max_block)
+		{
 			return Err(SendError::Transport("block has no room for the spec-msg send"));
 		}
 		Ok(((channel, encoded), price))
