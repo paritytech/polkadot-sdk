@@ -214,7 +214,7 @@ impl Chain {
 
 	/// Build, enact and import one block; return its record.
 	fn block(&mut self, receiver: &Receiver<u64, Sender>) -> ConsumptionRecord {
-		let data = block_on(receiver.inherent_data(&self.view()));
+		let data = block_on(receiver.inherent_data(&self.view(), &[]));
 		self.import(receiver, &data)
 	}
 
@@ -226,7 +226,7 @@ impl Chain {
 		receiver: &Receiver<u64, Sender>,
 		admitted: usize,
 	) -> ConsumptionRecord {
-		let mut data = block_on(receiver.inherent_data(&self.view()));
+		let mut data = block_on(receiver.inherent_data(&self.view(), &[]));
 		let payloads = data.channels.get_mut(&in_id(0)).expect("a channel item is planned");
 		assert!(admitted < payloads.len(), "the runtime admits a strict prefix");
 		payloads.truncate(admitted);
@@ -421,12 +421,12 @@ fn a_register_at_or_below_the_cursor_is_not_offered() {
 	// A newer root whose head is still the applied leaf: nothing to consume.
 	let root2 = sender.author(vec![(channel(US), vec![vec![1]])]);
 	block_on(receiver.on_root(source(), root2, &chain.wants()));
-	assert!(block_on(receiver.inherent_data(&chain.view())).registers.is_empty());
+	assert!(block_on(receiver.inherent_data(&chain.view(), &[])).registers.is_empty());
 
 	// A head at the cursor is offered.
 	let root3 = sender.author(vec![(ack(US), vec![register(0).encode()])]);
 	block_on(receiver.on_root(source(), root3, &chain.wants()));
-	let data = block_on(receiver.inherent_data(&chain.view()));
+	let data = block_on(receiver.inherent_data(&chain.view(), &[]));
 	assert_eq!(data.registers[&out_id()].frontier.leaf_count(), 1);
 }
 
@@ -444,7 +444,7 @@ fn a_head_too_big_for_the_first_request_is_asked_for_at_its_position() {
 	assert_eq!(requests[1].start, Some(MessagePosition(0)));
 	assert_eq!(requests[1].max_bytes, MAX_SPECULATIVE_MESSAGE_LEN);
 	// It is no register, so it is not offered.
-	assert!(block_on(receiver.inherent_data(&chain.view())).registers.is_empty());
+	assert!(block_on(receiver.inherent_data(&chain.view(), &[])).registers.is_empty());
 }
 
 #[test]
@@ -482,7 +482,7 @@ fn a_channel_fetch_must_start_from_the_stored_frontier() {
 	wants.channels.insert(in_id(0), frontier_at(&payloads(9, 2), 2));
 	block_on(receiver_a.on_root(source(), root, &wants));
 	assert!(!receiver_a.is_settled(&source(), &root, &wants));
-	assert!(block_on(receiver_a.inherent_data(&view_of(wants, 16))).is_empty());
+	assert!(block_on(receiver_a.inherent_data(&view_of(wants, 16), &[])).is_empty());
 
 	// The true frontier of the first two messages is accepted.
 	let receiver_b = receiver(&sender, Budget::default());
@@ -490,7 +490,7 @@ fn a_channel_fetch_must_start_from_the_stored_frontier() {
 	wants.channels.insert(in_id(0), frontier_at(&data, 2));
 	block_on(receiver_b.on_root(source(), root, &wants));
 	assert!(receiver_b.is_settled(&source(), &root, &wants));
-	let consumed = block_on(receiver_b.inherent_data(&view_of(wants, 16)));
+	let consumed = block_on(receiver_b.inherent_data(&view_of(wants, 16), &[]));
 	assert_eq!(consumed.channels[&in_id(0)], data[2..].to_vec());
 }
 
@@ -500,7 +500,7 @@ fn nothing_is_consumed_without_a_root_or_a_peer() {
 	sender.author(vec![(channel(US), payloads(1, 2))]);
 	let receiver = receiver(&sender, Budget::default());
 	let chain = Chain::default();
-	assert!(block_on(receiver.inherent_data(&chain.view())).is_empty(), "no root yet");
+	assert!(block_on(receiver.inherent_data(&chain.view(), &[])).is_empty(), "no root yet");
 	assert_eq!(receiver.assemble(&[]).unwrap().len(), 0, "an empty bundle has no lifts");
 
 	// A source without peers: the root is noted, nothing verifies, nothing is consumed.
@@ -508,7 +508,7 @@ fn nothing_is_consumed_without_a_root_or_a_peer() {
 	let wants = lanes(1, false);
 	block_on(receiver.on_root(other, StreamsRoot(Default::default()), &wants));
 	let view = ChainView { sources: BTreeMap::from([(other, wants)]), max_touched_streams: 16 };
-	assert!(block_on(receiver.inherent_data(&view)).is_empty());
+	assert!(block_on(receiver.inherent_data(&view, &[])).is_empty());
 }
 
 #[test]
@@ -523,7 +523,7 @@ fn a_failed_fetch_is_retried_under_the_same_root() {
 	*sender.down.write() = true;
 	block_on(receiver.on_root(source(), root, &wants));
 	assert!(!receiver.is_settled(&source(), &root, &wants));
-	assert!(block_on(receiver.inherent_data(&chain.view())).is_empty());
+	assert!(block_on(receiver.inherent_data(&chain.view(), &[])).is_empty());
 
 	// The source does not move, yet the next round under the same root fetches again.
 	*sender.down.write() = false;
@@ -593,13 +593,13 @@ fn payloads_survive_a_best_cursor_that_a_reorg_drops() {
 
 	// The fork is dropped; the chain whose cursor is 0 is best again and still has all seven.
 	assert!(receiver.is_settled(&source(), &root2, &at_zero));
-	let consumed = block_on(receiver.inherent_data(&view_of(at_zero.clone(), 16)));
+	let consumed = block_on(receiver.inherent_data(&view_of(at_zero.clone(), 16), &[]));
 	assert_eq!(consumed.channels[&in_id(0)], [data.clone(), more].concat());
 
 	// Only finality at cursor 3 lets the first three go; a cursor of 0 is then uncovered.
 	receiver.on_finalized(1, &view_of(at_three, 16));
 	assert!(!receiver.is_settled(&source(), &root2, &at_zero));
-	assert!(block_on(receiver.inherent_data(&view_of(at_zero, 16))).is_empty());
+	assert!(block_on(receiver.inherent_data(&view_of(at_zero, 16), &[])).is_empty());
 }
 
 #[test]
@@ -614,7 +614,7 @@ fn buffered_bytes_are_capped_per_channel() {
 		let root = sender.author(vec![(channel(US), leaves.clone())]);
 		block_on(receiver.on_root(source(), root, &chain.wants()));
 	}
-	let data = block_on(receiver.inherent_data(&chain.view()));
+	let data = block_on(receiver.inherent_data(&chain.view(), &[]));
 	let bytes: u64 = data.channels[&in_id(0)].iter().map(|p| p.len() as u64).sum();
 	assert!((MAX_BUFFERED_BYTES..MAX_BUFFERED_BYTES + u64::from(FETCH_MAX_BYTES)).contains(&bytes));
 }
@@ -630,8 +630,8 @@ fn a_backlogged_channel_does_not_take_every_block() {
 
 	// Both channels hold more than a block's budget; each block starts at the next one.
 	let first = |data: MessagingInherentData| *data.channels.keys().next().unwrap();
-	assert_eq!(first(block_on(receiver.inherent_data(&view))), in_id(0));
-	assert_eq!(first(block_on(receiver.inherent_data(&view))), in_id(1));
+	assert_eq!(first(block_on(receiver.inherent_data(&view, &[]))), in_id(0));
+	assert_eq!(first(block_on(receiver.inherent_data(&view, &[]))), in_id(1));
 }
 
 #[test]
@@ -647,12 +647,12 @@ fn the_runtime_cap_clamps_the_budget() {
 	block_on(receiver.on_root(source(), root, &wants));
 
 	// Within the budget, all three streams fit.
-	assert_eq!(block_on(receiver.inherent_data(&view_of(wants.clone(), 16))).len(), 3);
+	assert_eq!(block_on(receiver.inherent_data(&view_of(wants.clone(), 16), &[])).len(), 3);
 	// Two slots: the register read goes first, and one channel gets the other.
-	let data = block_on(receiver.inherent_data(&view_of(wants.clone(), 2)));
+	let data = block_on(receiver.inherent_data(&view_of(wants.clone(), 2), &[]));
 	assert_eq!((data.len(), data.registers.len(), data.channels.len()), (2, 1, 1));
 	// One slot: the register read.
-	let data = block_on(receiver.inherent_data(&view_of(wants, 1)));
+	let data = block_on(receiver.inherent_data(&view_of(wants, 1), &[]));
 	assert_eq!((data.len(), data.registers.len()), (1, 1));
 }
 
@@ -672,7 +672,7 @@ fn missing_bindings_are_fetched_under_one_deadline() {
 	// Each fetch takes 60% of the deadline: one after another, the second would miss it.
 	*sender.delay.write() = INHERENT_FETCH_TIMEOUT * 3 / 5;
 	let started = std::time::Instant::now();
-	let data = block_on(receiver.inherent_data(&view_of(wants, 16)));
+	let data = block_on(receiver.inherent_data(&view_of(wants, 16), &[]));
 	assert!(started.elapsed() < INHERENT_FETCH_TIMEOUT);
 	assert_eq!(data.channels.len(), 2);
 }
@@ -792,7 +792,7 @@ fn payloads_ahead_of_an_older_root_are_kept() {
 		.filter_map(|request| request.start)
 		.collect();
 	assert_eq!(starts, [0, 3, 3].map(MessagePosition));
-	let consumed = block_on(receiver.inherent_data(&chain.view()));
+	let consumed = block_on(receiver.inherent_data(&chain.view(), &[]));
 	assert_eq!(consumed.channels[&in_id(0)], data);
 }
 
@@ -818,8 +818,63 @@ fn an_advance_is_not_reused_for_another_forks_read() {
 	let root2b = sender.author(vec![(ack(US), (4..=6).map(|i| register(i).encode()).collect())]);
 	let mut fork = at_one;
 	block_on(receiver.on_root(source(), root2b, &fork.wants()));
-	let sibling = fork.enact(&block_on(receiver.inherent_data(&fork.view())));
+	let sibling = fork.enact(&block_on(receiver.inherent_data(&fork.view(), &[])));
 	assert_eq!(fork.read_at, Some(3));
 	block_on(receiver.on_block(102, 1, 2, sibling.clone()));
 	assert_eq!(requires(&receiver, &[first, sibling]), Some(root2b));
+}
+
+/// Block 1 of a bundle reads the register under `root1`; a newer root's round runs before block 1
+/// is imported, so it binds nothing of block 1. Return block 1's record and both roots.
+fn a_round_before_block_one_is_imported(
+	sender: &Sender,
+	receiver: &Receiver<u64, Sender>,
+	chain: &mut Chain,
+) -> (ConsumptionRecord, StreamsRoot, StreamsRoot) {
+	let root1 = sender.author(vec![(ack(US), vec![register(0).encode()])]);
+	block_on(receiver.on_root(source(), root1, &chain.wants()));
+	let wants = chain.wants();
+	let first = chain.enact(&block_on(receiver.inherent_data(&chain.view(), &[])));
+	// The register moved on under the newer root, and the channel has data.
+	let root2 =
+		sender.author(vec![(ack(US), vec![register(1).encode()]), (channel(US), payloads(1, 2))]);
+	block_on(receiver.on_root(source(), root2, &wants));
+	chain.number += 1;
+	block_on(receiver.on_block(1, 0, 1, first.clone()));
+	// The next relay block has the same root: settled, so block 1 is not bound under it.
+	block_on(receiver.on_root(source(), root2, &chain.wants()));
+	assert!(receiver.is_settled(&source(), &root2, &chain.wants()));
+	(first, root1, root2)
+}
+
+#[test]
+fn a_bundle_straddling_a_new_root_lifts_to_one_root() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let (first, _, root2) = a_round_before_block_one_is_imported(&sender, &receiver, &mut chain);
+
+	// Block 2 of the same bundle consumes the channel under root 2; the runtime reads the
+	// register once per bundle. Block 1's register read is bound under root 2 as well.
+	let mut data = block_on(receiver.inherent_data(&chain.view(), &[first.clone()]));
+	data.registers.clear();
+	let second = chain.import(&receiver, &data);
+	assert_eq!(chain.frontier.leaf_count(), 2);
+	assert_eq!(requires(&receiver, &[first, second]), Some(root2));
+}
+
+#[test]
+fn a_source_whose_bundle_does_not_lift_to_its_newest_root_waits() {
+	let sender = Sender::new();
+	let receiver = receiver(&sender, Budget::default());
+	let mut chain = Chain::default();
+	let (first, root1, _) = a_round_before_block_one_is_imported(&sender, &receiver, &mut chain);
+
+	// Block 1's read cannot be bound under root 2: block 2 consumes nothing from the source, and
+	// the bundle lifts to root 1.
+	*sender.down.write() = true;
+	let data = block_on(receiver.inherent_data(&chain.view(), &[first.clone()]));
+	assert!(data.is_empty());
+	let second = chain.import(&receiver, &data);
+	assert_eq!(requires(&receiver, &[first, second]), Some(root1));
 }

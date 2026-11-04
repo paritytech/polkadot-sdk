@@ -483,29 +483,70 @@ where
 		held.len() == within && extended(stored, held).is_some_and(|expected| expected != known)
 	}
 
-	/// The messaging inherent for a block whose parent has `view`.
-	pub async fn inherent_data(&self, view: &ChainView) -> MessagingInherentData {
+	/// The messaging inherent for a block whose parent has `view`. `bundle` holds the records of
+	/// the blocks before it in its bundle, oldest first.
+	///
+	/// The bundle's candidate needs, per source, one root that every stream's last endpoint in
+	/// the bundle lifts to. A source's items are planned under its newest root, which may be newer
+	/// than the one an earlier block of the bundle used, and that block may have been imported
+	/// after the newer root's round bound the live endpoints. So the earlier endpoints are bound
+	/// under the planned root as well, and a source whose earlier endpoints stay unbound gets no
+	/// item in this block.
+	pub async fn inherent_data(
+		&self,
+		view: &ChainView,
+		bundle: &[ConsumptionRecord],
+	) -> MessagingInherentData {
 		let planned = self.plan(view);
+		let roots: BTreeMap<ParaId, StreamsRoot> =
+			planned.iter().map(|p| (p.source, p.root)).collect();
+		let earlier: Vec<_> = last_endpoints(bundle)
+			.into_iter()
+			.filter_map(|((source, stream), end)| Some((source, stream, end, *roots.get(&source)?)))
+			.collect();
 		let bound = |p: &Planned| {
 			self.state.lock().sources.get(&p.source).is_some_and(|pool| {
 				pool.binding(&p.stream, p.endpoint.leaf_count(), &p.root).is_some()
 			})
 		};
+		let liftable =
+			|(source, stream, end, root): &(ParaId, StreamId, MmrFrontier, StreamsRoot)| {
+				let state = self.state.lock();
+				state.sources.get(source).is_some_and(|pool| lifts_to(pool, stream, end, root))
+			};
 		// Fetch every missing binding at once, under one deadline: authoring waits at most
 		// `INHERENT_FETCH_TIMEOUT`, however many items there are and whatever their peers do.
 		{
 			let missing: Vec<_> = planned
 				.iter()
 				.filter(|p| !bound(p))
-				.map(|p| self.fetch_binding(p.source, p.stream, &p.endpoint, p.root))
+				.map(|p| (p.source, p.stream, p.endpoint.clone(), p.root))
+				.chain(earlier.iter().filter(|e| !liftable(e)).cloned())
 				.collect();
 			if !missing.is_empty() {
+				let fetches = missing.iter().map(|(source, stream, endpoint, root)| {
+					self.fetch_binding(*source, *stream, endpoint, *root)
+				});
 				futures::select! {
-					_ = futures::future::join_all(missing).fuse() => {},
+					_ = futures::future::join_all(fetches).fuse() => {},
 					_ = futures_timer::Delay::new(INHERENT_FETCH_TIMEOUT).fuse() => {},
 				}
 			}
 		}
+		let stuck: std::collections::BTreeSet<ParaId> = earlier
+			.iter()
+			.filter(|e| !liftable(e))
+			.map(|(source, stream, end, _)| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Not consuming from {source:?}: the bundle's {stream:?} at {} does not lift to \
+					 its newest root",
+					end.leaf_count(),
+				);
+				*source
+			})
+			.collect();
+		let planned = planned.into_iter().filter(|p| !stuck.contains(&p.source));
 		let mut data = MessagingInherentData::default();
 		for p in planned {
 			if !bound(&p) {
@@ -842,6 +883,19 @@ where
 	}
 }
 
+/// The last endpoint of each stream in `records`, a bundle's in order, by source.
+fn last_endpoints(records: &[ConsumptionRecord]) -> BTreeMap<(ParaId, StreamId), MmrFrontier> {
+	records
+		.iter()
+		.flat_map(|record| &record.entries)
+		.flat_map(|(source, streams)| {
+			streams
+				.iter()
+				.map(move |(stream, interval)| ((*source, *stream), interval.end.clone()))
+		})
+		.collect()
+}
+
 /// Whether a failed fetch was refused because the stream does not exist under the root.
 fn unknown_stream(error: &RequestError) -> bool {
 	matches!(
@@ -969,6 +1023,17 @@ fn lift(
 		None => rebased_binding(pool, stream, end, root)?,
 	};
 	Some(RequiresLift { advances, extension: binding.extension, tree_proof: binding.tree_proof })
+}
+
+/// Whether the pool's material lifts `stream`'s endpoint `end` to `root`, as the PVF checks it. A
+/// lift rebased over payloads of another fork of the source does not.
+fn lifts_to(pool: &SourcePool, stream: &StreamId, end: &MmrFrontier, root: &StreamsRoot) -> bool {
+	let interval = Interval { start: end.root(), end: end.clone() };
+	let Some(lift) = lift(pool, stream, std::slice::from_ref(&interval), root) else {
+		return false;
+	};
+	let streams = SourceStreams::from([(*stream, vec![interval])]);
+	build_requires_entry(&streams, &[lift]) == Ok(*root)
 }
 
 /// The binding of `stream` at `end` under `root`, computed from a later one and the payloads in

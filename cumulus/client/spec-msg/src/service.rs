@@ -32,7 +32,7 @@ use crate::{
 	LOG_TARGET,
 };
 use cumulus_client_collator::service::{SpecMsgAssembler, SpecMsgInputs};
-use cumulus_primitives_core::{ParaId, SpecMsgApi};
+use cumulus_primitives_core::{CumulusDigestItem, ParaId, SpecMsgApi};
 use cumulus_primitives_spec_messaging::{ConsumptionRecord, MessagingInherentData, StreamsRoot};
 use cumulus_relay_chain_interface::{PHash, RelayChainInterface};
 use futures::{select, stream::FuturesUnordered, Stream, StreamExt};
@@ -292,14 +292,60 @@ pub async fn inherent_data<Block, C, T>(
 ) -> MessagingInherentData
 where
 	Block: BlockT,
-	C: ProvideRuntimeApi<Block>,
+	C: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
 	C::Api: SpecMsgApi<Block>,
 	T: Transport + ?Sized,
 {
-	match chain_view(client, parent) {
-		Some(view) => receiver.inherent_data(&view).await,
-		None => MessagingInherentData::default(),
+	let Some(view) = chain_view(client, parent) else {
+		return MessagingInherentData::default();
+	};
+	match bundle_records(client, parent) {
+		Ok(bundle) => receiver.inherent_data(&view, &bundle).await,
+		Err(e) => {
+			log::warn!(target: LOG_TARGET, "Bundle of a block on {parent:?} unknown: {e}");
+			MessagingInherentData::default()
+		},
 	}
+}
+
+/// The consumption records of the blocks before a block built on `parent` in its bundle, oldest
+/// first. None when `parent` ends its bundle (or bundles nothing): the block starts the next one.
+fn bundle_records<Block, C>(
+	client: &C,
+	parent: Block::Hash,
+) -> Result<Vec<ConsumptionRecord>, String>
+where
+	Block: BlockT,
+	C: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+	C::Api: SpecMsgApi<Block>,
+{
+	let header_of = |hash: Block::Hash| {
+		client
+			.header(hash)
+			.map_err(|e| e.to_string())?
+			.ok_or_else(|| format!("no header of {hash:?}"))
+	};
+	let mut at = parent;
+	let mut header = header_of(at)?;
+	let mut records = Vec::new();
+	if CumulusDigestItem::is_last_block_in_core(header.digest()) != Some(false) {
+		return Ok(records);
+	}
+	loop {
+		records.push(consumption_record(client, at)?);
+		if !extends_bundle(&header) {
+			break;
+		}
+		at = *header.parent_hash();
+		header = header_of(at)?;
+	}
+	records.reverse();
+	Ok(records)
+}
+
+/// Whether the block of `header` is not the first of its bundle: its candidate holds its parent.
+fn extends_bundle<H: HeaderT>(header: &H) -> bool {
+	CumulusDigestItem::find_block_bundle_info(header.digest()).is_some_and(|info| info.index > 0)
 }
 
 /// The collator's assembler: each block's consumption record, and the lifts for them from the
