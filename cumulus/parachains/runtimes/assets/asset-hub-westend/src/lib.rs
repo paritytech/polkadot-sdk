@@ -831,8 +831,10 @@ pub enum ProxyType {
 	/// kicking, and managing session keys. Cannot bond/unbond funds, change reward
 	/// destinations, or nominate.
 	///
-	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys),
-	/// and `Utility` batching calls (batch, batch_all, force_batch).
+	/// Contains `Staking` (validate, chill, kick), `StakingRcClient` (set_keys, purge_keys) for
+	/// the relay chain session keys, `Session` (set_keys, purge_keys) for the session keys of
+	/// this chain, with which a validator collates here, and `Utility` batching calls (batch,
+	/// batch_all, force_batch).
 	StakingOperator,
 }
 impl Default for ProxyType {
@@ -1010,7 +1012,9 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 						pallet_staking_async_rc_client::Call::set_keys { .. }
 					) | RuntimeCall::StakingRcClient(
 					pallet_staking_async_rc_client::Call::purge_keys { .. }
-				) | RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+				) | RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
+					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
 					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
 					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
 			),
@@ -1228,7 +1232,8 @@ parameter_types! {
 }
 
 impl pallet_validator_collators::Config for Runtime {
-	// The set is written only by the staking era-start hook.
+	// The set is written only by the staking era-start hook, since there is no cross-chain call
+	// here, unlike a remote chain.
 	type SetOrigin = frame_system::EnsureNever<AccountId>;
 	type UpdateOrigin = CollatorSelectionUpdateOrigin;
 	type ValidatorRegistration = Session;
