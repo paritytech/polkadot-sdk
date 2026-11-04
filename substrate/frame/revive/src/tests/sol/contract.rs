@@ -1079,7 +1079,9 @@ mod eip_150 {
 		assert_ok,
 		storage::{TransactionOutcome, with_transaction},
 	};
-	use pallet_revive_fixtures::{CatchInvalid, Forwarder, Multicall3, ReentryStorage};
+	use pallet_revive_fixtures::{
+		CatchInvalid, Forwarder, GasLeftReceiver, Multicall3, ReentryStorage,
+	};
 	use pretty_assertions::assert_eq;
 	use test_case::test_matrix;
 
@@ -1415,6 +1417,49 @@ mod eip_150 {
 			let output = call_with_estimated_limits(caller_addr, input, &limits);
 			assert!(Caller::normalCall::abi_decode_returns(&output).unwrap().success);
 			assert_eq!(Pallet::<Test>::evm_balance(&receiver_addr), receiver_balance + value);
+		});
+	}
+
+	/// A value call without a gas limit of its own gets the stipend, as one with the highest
+	/// explicit gas limit does.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[ethereum_limits(ETH_GAS_LIMIT, WEIGHT_LIMIT), substrate_limits(WEIGHT_LIMIT)]
+	)]
+	#[ignore = "a PVM value call with gas u64::MAX gets no stipend"]
+	fn value_call_without_gas_limit_gets_the_stipend(
+		caller_type: FixtureType,
+		limits: TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+		// The caller's backend decides the stipend; the receiver only reports the gas it gets.
+		let (receiver_code, _) =
+			compile_module_with_type("GasLeftReceiver", FixtureType::Solc).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let [receiver_addr, caller_addr] = deploy([receiver_code, caller_code]);
+			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+			let receiver_gas_left = |gas: u64| {
+				let output = builder::bare_call(caller_addr)
+					.data(
+						Caller::normalCall {
+							_callee: receiver_addr.0.into(),
+							_value: 1,
+							_data: GasLeftReceiver::gasLeftCall {}.abi_encode().into(),
+							_gas: gas,
+						}
+						.abi_encode(),
+					)
+					.transaction_limits(limits.clone())
+					.build_and_unwrap_result();
+				let call = Caller::normalCall::abi_decode_returns(&output.data).unwrap();
+				assert!(call.success, "the call with gas {gas} failed");
+				GasLeftReceiver::gasLeftCall::abi_decode_returns(&call.output).unwrap()
+			};
+
+			// Both gas limits exceed the 63/64 share, so each call gets the share plus the stipend.
+			assert_eq!(receiver_gas_left(u64::MAX), receiver_gas_left(u64::MAX - 1));
 		});
 	}
 
