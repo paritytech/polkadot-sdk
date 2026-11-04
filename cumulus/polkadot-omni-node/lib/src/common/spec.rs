@@ -402,6 +402,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			let client = params.client.clone();
 			let backend = params.backend.clone();
 			let mut task_manager = params.task_manager;
+			if node_extra_args.spec_msg.is_some() {
+				// The database's effective pruning mode: it requires full sync exactly when it
+				// keeps every canonical block's state.
+				cumulus_client_spec_msg::check_state_pruning(backend.requires_full_sync())
+					.map_err(sc_service::Error::Other)?;
+			}
 
 			// Resolve parachain id based on runtime, or based on chain spec.
 			let para_id = Self::parachain_id(&client, &parachain_config)

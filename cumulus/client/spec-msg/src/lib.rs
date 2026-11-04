@@ -18,7 +18,8 @@
 //! Speculative Messaging node side: the off-chain half that moves payloads between collators.
 //!
 //! - [`Archive`]: the own chain's sends, served under the root a requester names.
-//! - [`run_archiver`]: keeps the archive current through reorgs and retention.
+//! - [`run_archiver`]: keeps the archive current through reorgs and retention. It needs the state
+//!   of every canonical block; [`check_state_pruning`] refuses a node that prunes it.
 //! - [`fetch_protocol_config`] and [`run_request_handler`]: the `/spec-msg/fetch/1` protocol.
 //! - [`fetch()`]: the requester, which verifies each response before accepting it.
 //! - [`run_watermark_reader`]: reads recipients' registers under finalized roots, so the archive
@@ -51,7 +52,7 @@ pub use relay::{
 };
 pub use service::{assembler, inherent_data, run_receiver};
 pub use store::{ArchiveStore, AuxArchiveStore, Batch, MemoryStore};
-pub use worker::{run_archiver, run_watermark_reader, SERVING_HORIZON};
+pub use worker::{check_state_pruning, run_archiver, run_watermark_reader, SERVING_HORIZON};
 
 /// Log target of this crate.
 pub const LOG_TARGET: &str = "spec-msg";

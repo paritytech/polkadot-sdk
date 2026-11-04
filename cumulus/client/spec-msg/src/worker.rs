@@ -58,6 +58,20 @@ fn now() -> u64 {
 	SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
+/// `Err` unless the node's database keeps the state of every canonical block (an archive pruning
+/// mode): [`run_archiver`] reads each block's sends from that block's state, in order. With a
+/// pruning window, a node that falls further behind than the window (after downtime, say) could
+/// never archive again and would silently stop serving.
+pub fn check_state_pruning(keeps_canonical_state: bool) -> Result<(), String> {
+	if keeps_canonical_state {
+		return Ok(());
+	}
+	Err("`--enable-spec-msg` needs the state of every canonical block, but this node's database \
+		 prunes state. Run with `--state-pruning archive-canonical` (or `archive`), on a database \
+		 created with that mode."
+		.into())
+}
+
 /// Keep `archive` in step with `client` until the client's notification streams end. Calls the
 /// runtime and the store synchronously; spawn it as a blocking task.
 pub async fn run_archiver<Block, C, S>(
@@ -78,7 +92,7 @@ pub async fn run_archiver<Block, C, S>(
 {
 	let mut imports = client.import_notification_stream().fuse();
 	let mut finality = client.finality_notification_stream().fuse();
-	let archiver = Archiver { client, archive, watermarks };
+	let mut archiver = Archiver { client, archive, watermarks, stuck_at: None };
 	archiver.follow(archiver.client.info().best_hash);
 	loop {
 		select! {
@@ -99,6 +113,8 @@ struct Archiver<Block: BlockT, C, S> {
 	client: Arc<C>,
 	archive: Arc<RwLock<Archive<Block::Hash, S>>>,
 	watermarks: Arc<Mutex<BTreeMap<StreamId, u64>>>,
+	/// The block whose unavailable state was last reported.
+	stuck_at: Option<Block::Hash>,
 }
 
 impl<Block, C, S> Archiver<Block, C, S>
@@ -115,7 +131,7 @@ where
 	}
 
 	/// Bring the archive's tip to `target`.
-	fn follow(&self, target: Block::Hash) {
+	fn follow(&mut self, target: Block::Hash) {
 		let tip = self.archive.read().tip();
 		match tip {
 			Some(tip) if tip.hash == target => {},
@@ -176,7 +192,7 @@ where
 	/// or one down longer than the pruning window, never serves again. Seed the archive at the
 	/// first block with state from an `outbound_frontiers()` runtime API (peaks and leaf count per
 	/// stream; both floors at the leaf count), then replay from there.
-	fn find_origin(&self, target: Block::Hash) -> Option<Block::Hash> {
+	fn find_origin(&mut self, target: Block::Hash) -> Option<Block::Hash> {
 		if !self.has_api(target).unwrap_or(false) {
 			return None;
 		}
@@ -190,12 +206,15 @@ where
 			match self.has_api(parent) {
 				Ok(true) => origin = parent,
 				Ok(false) => return Some(origin),
+				Err(e) if state_unavailable(&e) => {
+					self.unavailable(parent, &e);
+					return None;
+				},
 				Err(e) => {
 					log::warn!(
 						target: LOG_TARGET,
-						"Cannot build the spec-msg archive: state below #{} is unavailable ({e}). \
-						 It needs a node that executed the chain since spec-msg was enabled.",
-						header.number(),
+						"Cannot build the spec-msg archive: runtime version at {parent:?} \
+						 unavailable: {e}",
 					);
 					return None;
 				},
@@ -204,7 +223,7 @@ where
 	}
 
 	/// Archive one block. `false` stops the current walk; the next best block retries.
-	fn import(&self, hash: Block::Hash) -> bool {
+	fn import(&mut self, hash: Block::Hash) -> bool {
 		let Ok(Some(header)) = self.client.header(hash) else {
 			log::warn!(target: LOG_TARGET, "Missing header {hash:?}");
 			return false;
@@ -212,12 +231,20 @@ where
 		let sends = match self.has_api(hash) {
 			Ok(true) => match self.client.runtime_api().outbound_messages(hash) {
 				Ok(sends) => sends,
+				Err(e) if state_unavailable(&e) => {
+					self.unavailable(hash, &e);
+					return false;
+				},
 				Err(e) => {
 					log::warn!(target: LOG_TARGET, "outbound_messages at {hash:?} failed: {e}");
 					return false;
 				},
 			},
 			Ok(false) => Vec::new(),
+			Err(e) if state_unavailable(&e) => {
+				self.unavailable(hash, &e);
+				return false;
+			},
 			Err(e) => {
 				log::warn!(target: LOG_TARGET, "Runtime version at {hash:?} unavailable: {e}");
 				return false;
@@ -247,6 +274,25 @@ where
 		true
 	}
 
+	/// The state of `hash`, which the archive needs next, is gone: the archive cannot move past
+	/// it, so the node serves no newer sends. Every later best block retries and fails the same
+	/// way, hence an error, once per block.
+	fn unavailable(&mut self, hash: Block::Hash, e: &sp_api::ApiError) {
+		if self.stuck_at.replace(hash) == Some(hash) {
+			log::debug!(target: LOG_TARGET, "State of {hash:?} still unavailable: {e}");
+			return;
+		}
+		let number = self.client.number(hash).ok().flatten().map(|n| n.to_string());
+		log::error!(
+			target: LOG_TARGET,
+			"The spec-msg archive cannot advance: the state of block #{} ({hash:?}) is \
+			 unavailable ({e}). This node serves no newer sends. The archive needs the state of \
+			 every canonical block since spec-msg was enabled: run with \
+			 `--state-pruning archive-canonical`.",
+			number.as_deref().unwrap_or("?"),
+		);
+	}
+
 	/// Apply retention at `finalized`, if archived.
 	fn retain(&self, finalized: Block::Hash) {
 		if !self.archive.read().contains(&finalized) {
@@ -258,6 +304,11 @@ where
 			log::warn!(target: LOG_TARGET, "Archive retention failed: {e:?}");
 		}
 	}
+}
+
+/// Whether a runtime call failed because the block's state is gone, e.g. pruned.
+fn state_unavailable(error: &sp_api::ApiError) -> bool {
+	matches!(error, sp_api::ApiError::UnknownBlock(_))
 }
 
 /// Read the recipients' registers after each parachain finality notification, so the archiver can
@@ -329,5 +380,28 @@ pub(crate) async fn read_watermarks<H, S, T, R>(
 		let mut watermarks = watermarks.lock();
 		let mark = watermarks.entry(stream).or_default();
 		*mark = (*mark).max(register.up_to.0);
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn the_archiver_needs_the_state_of_every_canonical_block() {
+		assert_eq!(check_state_pruning(true), Ok(()));
+		let error = check_state_pruning(false).unwrap_err();
+		assert!(error.contains("--enable-spec-msg"), "{error}");
+		assert!(error.contains("--state-pruning archive-canonical"), "{error}");
+	}
+
+	#[test]
+	fn pruned_state_is_told_apart_from_other_runtime_call_failures() {
+		// What a runtime call at a block whose state the database discarded fails with.
+		let pruned: sp_api::ApiError =
+			sp_blockchain::Error::UnknownBlock("State already discarded for 0x01".into()).into();
+		assert!(state_unavailable(&pruned));
+		let other: sp_api::ApiError = sp_blockchain::Error::Backend("io".into()).into();
+		assert!(!state_unavailable(&other));
 	}
 }
