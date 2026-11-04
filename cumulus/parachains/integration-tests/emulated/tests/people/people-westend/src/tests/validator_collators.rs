@@ -89,11 +89,22 @@ fn era_start_on_asset_hub_makes_validators_with_keys_collators_on_both_chains() 
 			.collect::<Vec<_>>()
 	};
 
-	// GIVEN Alice and Bob registered collator keys on both chains and Charlie did not
+	// GIVEN Alice and Bob registered collator keys on both chains, Charlie did not, and root
+	// removed the default cap of zero
 	let asset_hub_authorities = AssetHubWestend::execute_with(|| {
+		type Runtime = <AssetHubWestend as Chain>::Runtime;
+		assert_ok!(pallet_validator_collators::Pallet::<Runtime>::set_max_collators(
+			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
+			None,
+		));
 		expected_authorities(register_keys_on_asset_hub(&alice), register_keys_on_asset_hub(&bob))
 	});
 	let people_authorities = PeopleWestend::execute_with(|| {
+		type Runtime = <PeopleWestend as Chain>::Runtime;
+		assert_ok!(pallet_validator_collators::Pallet::<Runtime>::set_max_collators(
+			<PeopleWestend as Chain>::RuntimeOrigin::root(),
+			None,
+		));
 		expected_authorities(register_keys_on_people(&alice), register_keys_on_people(&bob))
 	});
 	let people_session_before = PeopleWestend::execute_with(|| {
