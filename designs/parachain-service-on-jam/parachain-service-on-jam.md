@@ -829,6 +829,13 @@ earliest due timeslot first and then lowest core index, so carried-over ones go 
 newer ones. If gas is left once the work packages are done, they are applied at the end
 of the invocation, otherwise they are carried over to the next block's flush.
 
+The always-accumulate allowance is unlikely to cover an assign for every core in one
+block. A core whose queue is rewritten every 80 timeslots is due at `jam_slot`,
+`jam_slot + 80`, `jam_slot + 160`, and so on. The Coretime chain should therefore spread
+the `jam_slot`s of these cores evenly over the 80 slots, so that only a few of them are
+due in the same block. Until a carried-over rewrite is applied, the
+core's pool takes the hashes written for the slots 80 timeslots earlier.
+
 #### Incoming transfer processing
 
 JAM credits a transfer's balance to the destination service unconditionally, before the
