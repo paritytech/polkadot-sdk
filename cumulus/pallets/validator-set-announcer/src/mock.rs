@@ -49,6 +49,7 @@ impl frame_support::traits::ValidatorRegistration<u64> for AllRegistered {
 parameter_types! {
 	pub const Period: u64 = 10;
 	pub const Offset: u64 = 0;
+	pub const DefaultMaxCollators: Option<u32> = None;
 }
 
 impl pallet_validator_collators::Config for Test {
@@ -58,6 +59,7 @@ impl pallet_validator_collators::Config for Test {
 	type MaxValidators = ConstU32<50>;
 	type PeriodicSession = pallet_session::PeriodicSessions<Period, Offset>;
 	type BlockReporter = ();
+	type DefaultMaxCollators = DefaultMaxCollators;
 	type DefaultReportPeriod = Period;
 	type MaxEntriesPerReport = ConstU32<100>;
 	type UnixTime = ZeroTime;
