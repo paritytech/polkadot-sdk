@@ -483,6 +483,10 @@ mod calls {
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(999), paged.score));
 			assert_eq!(balances(999), (95, 5));
 
+			// AND 999 keeps only enough free balance for its page deposits (3) and the ED.
+			assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(999), 1, 91));
+			assert_eq!(balances(999), (4, 5));
+
 			// AND two other accounts register afterwards, at a higher base deposit.
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(91), score_from(10)));
 			assert_ok!(SignedPallet::register(RuntimeOrigin::signed(92), score_from(20)));
@@ -498,13 +502,14 @@ mod calls {
 				));
 			}
 
-			// THEN only the per-page deposit is added to the base it registered with.
-			assert_eq!(balances(999), (92, 8));
+			// THEN all pages are stored, and only the per-page deposit is added to the base it
+			// registered with.
+			assert_eq!(balances(999), (1, 8));
 			assert_eq!(Submissions::<Runtime>::metadata_of(0, 999).unwrap().deposit, 8);
 
 			// WHEN a page is removed, only that page's deposit is released.
 			assert_ok!(SignedPallet::submit_page(RuntimeOrigin::signed(999), 0, None));
-			assert_eq!(balances(999), (93, 7));
+			assert_eq!(balances(999), (2, 7));
 			assert_eq!(Submissions::<Runtime>::metadata_of(0, 999).unwrap().deposit, 7);
 
 			// WHEN it is stored again, and then replaced, only that page's deposit is held once.
@@ -515,7 +520,7 @@ mod calls {
 					0,
 					Some(Box::new(page_0.clone()))
 				));
-				assert_eq!(balances(999), (92, 8));
+				assert_eq!(balances(999), (1, 8));
 				assert_eq!(Submissions::<Runtime>::metadata_of(0, 999).unwrap().deposit, 8);
 			}
 
@@ -527,7 +532,7 @@ mod calls {
 			// THEN it is rewarded, and its full deposit is released.
 			let reward = SignedRewardBase::get() + fee.min(max_fee_refund());
 			assert!(signed_events().contains(&SignedEvent::Rewarded(0, 999, reward)));
-			assert_eq!(balances(999), (100 + reward, 0));
+			assert_eq!(balances(999), (9 + reward, 0));
 		});
 	}
 }
