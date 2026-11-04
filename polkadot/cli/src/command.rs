@@ -240,11 +240,10 @@ where
 	// Parse collator protocol hold off value and get the list of the invlunerable collators.
 	let collator_protocol_hold_off = cli.run.collator_protocol_hold_off.map(Duration::from_millis);
 	let invulnerable_ah_collators = get_invulnerable_ah_collators(&chain_spec);
-	// Collator revamp is the default one for Kusama, unless explicitly stated otherwise.
+	// Collator revamp is the default one, unless explicitly stated otherwise.
 	let experimental_collator_protocol = match cli.run.experimental_collator_protocol {
 		Some(experimental_protocol_flag) => experimental_protocol_flag,
-		None if chain_spec.is_kusama() => true,
-		None => false,
+		None => true,
 	};
 
 	// Reject `collator_reputation_persist_interval` cli parameter when
@@ -254,7 +253,7 @@ where
 	if !experimental_collator_protocol && cli.run.collator_reputation_persist_interval.is_some() {
 		return Err(Error::Other(
 			"`--collator-reputation-persist-interval` requires the experimental collator protocol \
-			 to be enabled. Pass `--experimental-collator-protocol` to enable it."
+			 to be enabled. Do not pass `--experimental-collator-protocol=false` with it."
 				.into(),
 		));
 	}

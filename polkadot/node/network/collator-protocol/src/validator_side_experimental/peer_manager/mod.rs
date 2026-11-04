@@ -231,7 +231,7 @@ impl<B: Backend> PeerManager<B> {
 			Err(runtime::Error::RuntimeRequest(RuntimeApiError::NotSupported { .. })) => {
 				gum::warn!(
 					target: LOG_TARGET,
-					"Using a runtime which does not support querying the registered paras, this should not be used in production with the `--enable-experimental-collator-protocol` flag."
+					"Using a runtime which does not support querying the registered paras"
 				);
 				return;
 			},
