@@ -718,6 +718,83 @@ fn instapool_payouts_work() {
 }
 
 #[test]
+fn process_revenue_ignores_revenue_for_known_timeslice() {
+	TestExt::new().execute_with(|| {
+		System::set_block_number(1);
+		// Timeslice 4 already has its payout recorded.
+		InstaPoolHistory::<Test>::insert(
+			4,
+			InstaPoolHistoryRecord {
+				private_contributions: 100,
+				system_contributions: 0,
+				maybe_payout: Some(40),
+			},
+		);
+
+		// `until` of 10 maps to timeslice 10 / 2 - 1 = 4.
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: 10, amount: 10 });
+		assert!(Broker::process_revenue());
+
+		System::assert_last_event(Event::HistoryIgnored { when: 4, revenue: 10 }.into());
+		// The existing record is left untouched.
+		assert_eq!(
+			InstaPoolHistory::<Test>::get(4),
+			Some(InstaPoolHistoryRecord {
+				private_contributions: 100,
+				system_contributions: 0,
+				maybe_payout: Some(40),
+			})
+		);
+	});
+}
+
+#[test]
+fn process_revenue_drops_zero_revenue() {
+	TestExt::new().execute_with(|| {
+		System::set_block_number(1);
+		InstaPoolHistory::<Test>::insert(
+			4,
+			InstaPoolHistoryRecord {
+				private_contributions: 100,
+				system_contributions: 0,
+				maybe_payout: None,
+			},
+		);
+
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: 10, amount: 0 });
+		assert!(Broker::process_revenue());
+
+		System::assert_last_event(Event::HistoryDropped { when: 4, revenue: 0 }.into());
+		assert_eq!(InstaPoolHistory::<Test>::get(4), None);
+	});
+}
+
+#[test]
+fn process_revenue_drops_when_only_system_contributed() {
+	TestExt::new().execute_with(|| {
+		System::set_block_number(1);
+		InstaPoolHistory::<Test>::insert(
+			4,
+			InstaPoolHistoryRecord {
+				private_contributions: 0,
+				system_contributions: 100,
+				maybe_payout: None,
+			},
+		);
+		mint_to_pot(10);
+
+		RevenueInbox::<Test>::put(OnDemandRevenueRecord { until: 10, amount: 10 });
+		assert!(Broker::process_revenue());
+
+		// Everything went to the system payout, so nothing is left for private claims.
+		System::assert_last_event(Event::HistoryDropped { when: 4, revenue: 0 }.into());
+		assert_eq!(InstaPoolHistory::<Test>::get(4), None);
+		assert_eq!(pot(), 0);
+		assert_eq!(revenue(), 10);
+	});
+}
+
+#[test]
 fn instapool_claim_does_not_consume_unsettled_timeslices() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales(100, 1));
