@@ -72,6 +72,8 @@ impl Metrics {
 	}
 
 	/// Record `market` being fetched `elapsed` after the start of a tick.
+	/// Only markets whose responses were delivered are recorded; failed fetches are counted in
+	/// the market results.
 	pub(crate) fn on_market_fetched(&self, market: MarketId, elapsed: Duration) {
 		if let Some(metrics) = &self.0 {
 			metrics
@@ -148,8 +150,8 @@ impl Inner {
 				HistogramVec::new(
 					HistogramOpts::new(
 						"substrate_price_oracle_market_fetch_duration_seconds",
-						"Time from the start of a tick until the responses of a market were taken \
-						for parsing, by market",
+						"Time from the start of a tick until the responses of a market were \
+						delivered for parsing, by market. Failed fetches are not recorded",
 					)
 					.buckets(duration_buckets),
 					&["market"],
