@@ -21,6 +21,7 @@
 
 use crate::{
 	fetcher::{Fetcher, MarketResponses},
+	metrics::Metrics,
 	pool::ReportPool,
 	signer, LOG_TARGET,
 };
@@ -137,7 +138,7 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 	/// Check a report `sender` sent against the rules of this tick: it must decode as a
 	/// [`SignedPriceReport`], be anchored within the report window, come from an accepted
 	/// signer, and carry a valid signature, checked in that order. `Err` is the reputation
-	/// change the sender deserves.
+	/// change the sender deserves, and the reason.
 	///
 	/// Reports anchored ahead of this tick are accepted: a peer may be ahead of this node, and
 	/// the runtime rejects anchors ahead of the block including them.
@@ -147,44 +148,86 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		&self,
 		sender: &PeerId,
 		mut data: &[u8],
-	) -> Result<SignedPriceReport<Id, Signature>, ReputationChange>
+	) -> Result<SignedPriceReport<Id, Signature>, (ReputationChange, &'static str)>
 	where
 		Id: RuntimeAppPublic<Signature = Signature> + Decode + PartialEq,
 		Signature: Decode,
 	{
-		let reject = |cost: ReputationChange, what: &str| {
-			log::debug!(target: LOG_TARGET, "Rejecting report from {sender}: {what}");
-			Err(cost)
+		let reject = |cost: ReputationChange, reason: &'static str| {
+			log::debug!(target: LOG_TARGET, "Rejecting report from {sender}: {reason}");
+			Err((cost, reason))
 		};
 		let Ok(report) = SignedPriceReport::<Id, Signature>::decode_all(&mut data) else {
-			return reject(cost::MALFORMED, "undecodable");
+			return reject(cost::MALFORMED, "malformed");
 		};
 		if report.report.anchor < self.oldest() {
 			return reject(cost::STALE_REPORT, "stale");
 		}
 		if !self.settings.signers.contains(&report.signer) {
-			return reject(cost::UNKNOWN_SIGNER, "unknown signer");
+			return reject(cost::UNKNOWN_SIGNER, "unknown_signer");
 		}
 		if !report.verify_signature() {
-			return reject(cost::BAD_SIGNATURE, "bad signature");
+			return reject(cost::BAD_SIGNATURE, "bad_signature");
 		}
 		Ok(report)
+	}
+}
+
+/// How a tick ended.
+pub(crate) enum TickOutcome {
+	/// A report was signed and sent to at least one peer.
+	Reported,
+	/// A report was signed, but no peer it was sent to took it.
+	NotSent,
+	/// The previous tick was still running.
+	Overrun,
+	/// The node was major syncing.
+	Syncing,
+	/// The settings or the markets could not be read from the runtime.
+	ApiUnavailable,
+	/// The keystore holds none of the signer keys.
+	NoSigner,
+	/// No markets are registered.
+	NoMarkets,
+	/// The `aggregate` runtime call failed.
+	RuntimeError,
+	/// No pair reached its quorum.
+	NothingAggregated,
+	/// The keystore did not sign the report.
+	SigningFailed,
+}
+
+impl TickOutcome {
+	/// The outcome label of the tick metric.
+	pub(crate) fn label(&self) -> &'static str {
+		match self {
+			Self::Reported => "reported",
+			Self::NotSent => "not_sent",
+			Self::Overrun => "overrun",
+			Self::Syncing => "syncing",
+			Self::ApiUnavailable => "api_unavailable",
+			Self::NoSigner => "no_signer",
+			Self::NoMarkets => "no_markets",
+			Self::RuntimeError => "runtime_error",
+			Self::NothingAggregated => "nothing_aggregated",
+			Self::SigningFailed => "signing_failed",
+		}
 	}
 }
 
 /// Fetch and price the markets, aggregate the prices, and sign the result as a report anchored
 /// at `setup.anchor`.
 ///
-/// Returns the encoded signed report after inserting it into `pool`. Returns `None` if the node
-/// has no signer key, no markets are registered, no market could be priced, the aggregation
-/// yields no quotes, or signing fails.
-pub async fn run_tick<Block, Client, Id, Signature>(
+/// Returns the encoded signed report after inserting it into `pool`, or the outcome that
+/// stopped the tick.
+pub(crate) async fn run_tick<Block, Client, Id, Signature>(
 	client: Arc<Client>,
 	fetcher: Fetcher,
 	keystore: KeystorePtr,
 	pool: ReportPool<Id, Signature>,
+	metrics: Metrics,
 	setup: TickSetup<Block::Hash, Id>,
-) -> Option<Vec<u8>>
+) -> Result<Vec<u8>, TickOutcome>
 where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block>,
@@ -195,12 +238,14 @@ where
 	let interval = setup.interval();
 	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
 	// The missing signer is warned about in `run`.
-	let signer = signer?;
+	let signer = signer.ok_or(TickOutcome::NoSigner)?;
 	if markets.is_empty() {
 		log::debug!(target: LOG_TARGET, "No markets registered, not reporting");
-		return None;
+		return Err(TickOutcome::NoMarkets);
 	}
 
+	// Times the rest of the tick, whichever way it ends.
+	let _timer = metrics.tick_timer();
 	let started = Instant::now();
 	let deadline = started + interval.saturating_sub(TICK_MARGIN);
 	let (tx, mut rx) = mpsc::unbounded();
@@ -208,14 +253,24 @@ where
 	let parse = async {
 		let mut prices = Vec::new();
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
+			metrics.on_market_fetched(market, started.elapsed());
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
-				Ok(Ok(price)) => prices.push((market, price)),
-				Ok(Err(e)) => log::info!(
-					target: LOG_TARGET,
-					"Market {market:?} not priced: {}",
-					String::from_utf8_lossy(&e.0),
-				),
-				Err(e) => log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
+				Ok(Ok(price)) => {
+					metrics.on_market_result(market, "priced");
+					prices.push((market, price));
+				},
+				Ok(Err(e)) => {
+					log::info!(
+						target: LOG_TARGET,
+						"Market {market:?} not priced: {}",
+						String::from_utf8_lossy(&e.0),
+					);
+					metrics.on_market_result(market, "parse");
+				},
+				Err(e) => {
+					log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}");
+					metrics.on_market_result(market, "runtime_error");
+				},
 			}
 		}
 		prices
@@ -223,6 +278,7 @@ where
 	let (failures, prices) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
 		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
+		metrics.on_market_result(market, failure.label());
 	}
 
 	let priced = prices.len();
@@ -230,12 +286,14 @@ where
 		Ok(aggregates) => aggregates,
 		Err(e) => {
 			log::error!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
-			return None;
+			return Err(TickOutcome::RuntimeError);
 		},
 	};
+	metrics.reset_pair_vote_margins();
 	let quotes: Vec<Quote> = aggregates
 		.into_iter()
 		.filter_map(|PairAggregate { pair, votes, quorum, price }| {
+			metrics.on_pair_vote_margin(pair, votes, quorum);
 			if votes < quorum {
 				log::warn!(target: LOG_TARGET, "{pair:?} below quorum: {votes} of {quorum} votes");
 			} else if votes == quorum {
@@ -247,12 +305,13 @@ where
 		.collect();
 	if quotes.is_empty() {
 		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
-		return None;
+		return Err(TickOutcome::NothingAggregated);
 	}
 	log::debug!(target: LOG_TARGET, "Aggregated quotes: {quotes:?}");
 
 	let report = PriceReport { anchor, quotes };
-	let signed = signer::sign_report(&keystore, signer, report)?;
+	let signed =
+		signer::sign_report(&keystore, signer, report).ok_or(TickOutcome::SigningFailed)?;
 	log::info!(
 		target: LOG_TARGET,
 		"Reporting {} pair prices from {priced} of {} markets at anchor {anchor:?}, tick took {:?}",
@@ -262,7 +321,7 @@ where
 	);
 	let encoded = signed.encode();
 	pool.insert(signed);
-	Some(encoded)
+	Ok(encoded)
 }
 
 /// Current Unix time in milliseconds.
@@ -306,7 +365,7 @@ mod tests {
 	}
 
 	fn check(tick: &TickSetup<H256, AuthorityId>, data: &[u8]) -> Result<Signed, ReputationChange> {
-		tick.check(&PeerId::random(), data)
+		tick.check(&PeerId::random(), data).map_err(|(cost, _)| cost)
 	}
 
 	#[test]

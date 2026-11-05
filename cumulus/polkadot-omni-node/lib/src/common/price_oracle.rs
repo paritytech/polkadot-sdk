@@ -57,6 +57,8 @@ pub struct PriceOracleNetwork<Block: BlockT> {
 	pub sync_service: Arc<sc_network_sync::SyncingService<Block>>,
 	/// Authority discovery of the parachain, to find the authors the reports go to.
 	pub authority_discovery: sc_authority_discovery::Service,
+	/// Prometheus registry of the node.
+	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
 }
 
 /// The collators authoring in the coming Aura slots, found through authority discovery.
@@ -231,6 +233,7 @@ impl<AuraId: AuraIdT + Send + Sync> PriceOracle<AuraId> {
 						recipients,
 						keystore,
 						pool: pool.clone(),
+						prometheus_registry: network.prometheus_registry,
 					},
 				);
 			task_manager.spawn_handle().spawn("price-oracle", None, service);

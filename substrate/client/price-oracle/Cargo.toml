@@ -26,6 +26,7 @@ hyper-rustls = { workspace = true }
 hyper-util = { features = ["client-legacy", "http1", "http2", "tokio"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
+prometheus-endpoint = { workspace = true, default-features = true }
 rustls = { workspace = true }
 sc-network = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }

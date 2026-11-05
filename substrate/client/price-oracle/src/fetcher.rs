@@ -70,6 +70,19 @@ impl std::fmt::Display for FetchError {
 	}
 }
 
+impl FetchError {
+	/// The result label of the market results metric.
+	pub(crate) fn label(&self) -> &'static str {
+		match self {
+			Self::InvalidRequest(_) => "invalid_request",
+			Self::Transport(_) => "transport",
+			Self::Status(_) => "status",
+			Self::TooLarge => "too_large",
+			Self::Timeout => "timeout",
+		}
+	}
+}
+
 /// HTTPS client for the queries of the markets.
 ///
 /// One instance serves all requests of the service. Connections are kept alive between
@@ -111,6 +124,16 @@ impl std::fmt::Display for MarketFailure {
 		match self {
 			Self::Query(tag, e) => write!(f, "query {}: {e}", tag.0),
 			Self::Deadline => write!(f, "tick deadline reached"),
+		}
+	}
+}
+
+impl MarketFailure {
+	/// The result label of the market results metric.
+	pub(crate) fn label(&self) -> &'static str {
+		match self {
+			Self::Query(_, e) => e.label(),
+			Self::Deadline => "deadline",
 		}
 	}
 }

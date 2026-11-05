@@ -132,8 +132,6 @@ tick so key rotation and set changes need no restart.
 
 ## Open points
 
-- Metrics of the service itself are not registered: tick duration, markets priced and failed,
-  reports signed and received, pool size.
 - The acceptance rules do not bound how far ahead of the current anchor a report may be.
 - The service stops if the notification stream ends, rather than recovering.
 - A recipient still being dialed when the report is ready misses it; nothing is retried.

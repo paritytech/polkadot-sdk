@@ -21,6 +21,7 @@
 pub mod delivery;
 pub mod fetcher;
 pub mod inherent;
+mod metrics;
 pub mod pool;
 pub mod signer;
 pub mod tick;
@@ -33,6 +34,8 @@ use codec::{Decode, Encode};
 use delivery::Targets;
 use fetcher::Fetcher;
 use futures::{future::FusedFuture, FutureExt};
+use metrics::Metrics;
+use prometheus_endpoint::Registry;
 use sc_network::{
 	service::traits::{NetworkService, NotificationEvent, NotificationService, ValidationResult},
 	ProtocolName,
@@ -45,7 +48,7 @@ use sp_keystore::KeystorePtr;
 use sp_price_oracle::runtime_api::PriceOracleApi;
 use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
 use std::sync::Arc;
-use tick::{benefit::GOOD_REPORT, run_tick, TickSetup, MIN_TICK_INTERVAL};
+use tick::{benefit::GOOD_REPORT, run_tick, TickOutcome, TickSetup, MIN_TICK_INTERVAL};
 use tokio::time::MissedTickBehavior;
 
 pub(crate) const LOG_TARGET: &str = "price-oracle";
@@ -70,6 +73,8 @@ pub struct Params<Client, SyncService, Recipients, Id, Signature> {
 	/// Pool the service inserts reports into. The same pool is given to the inherent data
 	/// provider.
 	pub pool: ReportPool<Id, Signature>,
+	/// Registry to register the metrics of the service with, if metrics are enabled.
+	pub prometheus_registry: Option<Registry>,
 }
 
 /// The price oracle service.
@@ -110,7 +115,10 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 		recipients,
 		keystore,
 		pool,
+		prometheus_registry,
 	} = params;
+
+	let metrics = Metrics::register(prometheus_registry.as_ref());
 
 	let fetcher = match Fetcher::new() {
 		Ok(fetcher) => fetcher,
@@ -141,10 +149,12 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 				// Start a tick, unless the previous one is still running or the node is syncing.
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
+					metrics.on_tick(TickOutcome::Overrun);
 					continue;
 				}
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
+					metrics.on_tick(TickOutcome::Syncing);
 					// The rules of the last tick are far behind; do not judge peers by them.
 					tick_setup = None;
 					continue;
@@ -154,6 +164,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 				// the rules of the last tick it read.
 				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
+					metrics.on_tick(TickOutcome::ApiUnavailable);
 					continue;
 				};
 				// Warn only once until a signer key is found.
@@ -168,6 +179,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 				}
 				// Drop pooled reports that fell out of the report window.
 				pool.prune(setup.oldest());
+				metrics.on_pool_reports(pool.len());
 				// Keep a substream open to the recipients of this tick.
 				targets.reserve(recipients.recipients(setup.best_hash).await);
 				// Follow a changed tick interval from the next tick on.
@@ -178,16 +190,29 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 				}
 				// Fetch, price, sign and pool in the background; the result arrives in the arm below.
-				tick = run_tick(client.clone(), fetcher.clone(), keystore.clone(), pool.clone(), setup.clone())
-					.boxed()
-					.fuse();
+				tick = run_tick(
+					client.clone(),
+					fetcher.clone(),
+					keystore.clone(),
+					pool.clone(),
+					metrics.clone(),
+					setup.clone(),
+				)
+				.boxed()
+				.fuse();
 				// Check incoming reports against the rules of this tick.
 				tick_setup = Some(setup);
 			},
-			encoded = &mut tick, if !tick.is_terminated() => {
+			result = &mut tick, if !tick.is_terminated() => {
 				// The tick finished: send the signed report, if it produced one, to every
 				// recipient reachable now.
-				let Some(encoded) = encoded else { continue };
+				let encoded = match result {
+					Ok(encoded) => encoded,
+					Err(outcome) => {
+						metrics.on_tick(outcome);
+						continue;
+					},
+				};
 				let mut sent = 0;
 				for peer in targets.reachable() {
 					match notification_service.send_async_notification(peer, encoded.clone()).await {
@@ -196,6 +221,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					}
 				}
 				log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
+				metrics.on_tick(if sent > 0 { TickOutcome::Reported } else { TickOutcome::NotSent });
 			},
 			event = notification_service.next_event() => {
 				use NotificationEvent::*;
@@ -209,10 +235,15 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 							Ok(report) =>
 								if pool.insert(report) {
 									network.report_peer(peer, GOOD_REPORT);
+									metrics.on_received_report("accepted");
 								} else {
 									log::trace!(target: LOG_TARGET, "Superseded report from {peer}");
+									metrics.on_received_report("superseded");
 								},
-							Err(cost) => network.report_peer(peer, cost),
+							Err((cost, reason)) => {
+								network.report_peer(peer, cost);
+								metrics.on_received_report(reason);
+							},
 						}
 					},
 					Some(NotificationStreamOpened { peer, .. }) => targets.opened(peer),

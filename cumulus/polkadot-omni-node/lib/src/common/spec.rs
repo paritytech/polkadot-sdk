@@ -529,6 +529,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					network: network.clone(),
 					sync_service: sync_service.clone(),
 					authority_discovery,
+					prometheus_registry: prometheus_registry.clone(),
 				},
 			);
 
