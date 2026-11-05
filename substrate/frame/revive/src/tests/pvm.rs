@@ -5643,27 +5643,50 @@ fn terminate_at_prefunded_address_keeps_issuance_balanced() {
 			"externally-funded ED must be recorded on the contract info",
 		);
 
-		// Terminate, forwarding the remaining balance to EVE's fallback account.
-		let beneficiary_before = <Test as Config>::Currency::total_balance(&EVE_FALLBACK);
 		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
 
 		assert!(
 			AccountInfo::<Test>::load_contract(&addr).is_none(),
 			"contract must be removed on termination",
 		);
-		// The externally-funded ED was never deactivated or reactivated, so inactive issuance is
-		// undisturbed (the bug drifted it downward).
-		assert_eq!(
-			Balances::inactive_issuance(),
-			inactive_before,
-			"inactive issuance must not drift",
-		);
-		// The ED was forwarded to the beneficiary, not burned, so total issuance is unchanged.
-		assert_eq!(Balances::total_issuance(), total_before, "ED must not be burned");
-		assert!(
-			<Test as Config>::Currency::total_balance(&EVE_FALLBACK) >= beneficiary_before + ed,
-			"the pre-funded ED should reach the beneficiary, not be burned",
-		);
+		assert_eq!(Balances::inactive_issuance(), inactive_before);
+		assert_eq!(Balances::total_issuance(), total_before);
+		assert_eq!(<Test as Config>::Currency::total_balance(&contract_account), ed);
+	});
+}
+
+/// A terminated contract that names itself as the beneficiary leaves its minted ED on the account.
+/// A contract redeployed there sees an existing account, so it must not pay that ED out.
+#[test]
+fn redeploy_onto_kept_account_does_not_pay_out_minted_ed() {
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+	let salt = [0u8; 32];
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000);
+		let ed = Contracts::min_balance();
+		let total_before = Balances::total_issuance();
+		let inactive_before = Balances::inactive_issuance();
+
+		let Contract { addr, account_id } = builder::bare_instantiate(Code::Upload(code.clone()))
+			.salt(Some(salt))
+			.native_value(1_000)
+			.build_and_unwrap_contract();
+		builder::bare_call(addr).data(addr.encode()).build_and_unwrap_result();
+		assert_eq!(<Test as Config>::Currency::total_balance(&account_id), ed + 1_000);
+
+		// Clears the pending deposit cleanup that would otherwise block the redeploy.
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		let Contract { addr: redeployed, .. } = builder::bare_instantiate(Code::Upload(code))
+			.salt(Some(salt))
+			.build_and_unwrap_contract();
+		assert_eq!(redeployed, addr);
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+
+		assert_eq!(<Test as Config>::Currency::total_balance(&account_id), ed);
+		assert_eq!(Balances::total_issuance(), total_before + ed);
+		assert_eq!(Balances::inactive_issuance(), inactive_before + ed);
 	});
 }
 

@@ -63,24 +63,47 @@ pub(crate) mod old {
 	}
 
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
-	pub enum AccountType<Balance> {
+	pub enum AccountType<AccountId, Balance> {
 		Contract(ContractInfo<Balance>),
 		EOA,
+		DelegatedEOA {
+			delegate_target: Option<H160>,
+			contract_info: ContractInfo<Balance>,
+			payer: Option<AccountId>,
+		},
 	}
 
 	#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, Clone, PartialEq, Eq, Debug)]
-	pub struct AccountInfo<Balance> {
-		pub account_type: AccountType<Balance>,
+	pub struct AccountInfo<AccountId, Balance> {
+		pub account_type: AccountType<AccountId, Balance>,
 		pub dust: u32,
 	}
 
 	#[storage_alias]
 	/// The storage item that is being migrated. Shares its prefix with [`crate::AccountInfoOf`].
-	pub type AccountInfoOf<T: Config> =
-		StorageMap<Pallet<T>, Identity, H160, AccountInfo<BalanceOf<T>>>;
+	pub type AccountInfoOf<T: Config> = StorageMap<
+		Pallet<T>,
+		Identity,
+		H160,
+		AccountInfo<<T as frame_system::Config>::AccountId, BalanceOf<T>>,
+	>;
 }
 
-/// Adds `ed_externally_funded: false` to every contract's `ContractInfo`.
+fn migrate_contract<T: Config>(old: old::ContractInfo<BalanceOf<T>>) -> ContractInfo<T> {
+	ContractInfo {
+		trie_id: old.trie_id,
+		code_hash: old.code_hash,
+		storage_bytes: old.storage_bytes,
+		storage_items: old.storage_items,
+		storage_byte_deposit: old.storage_byte_deposit,
+		storage_item_deposit: old.storage_item_deposit,
+		storage_base_deposit: old.storage_base_deposit,
+		immutable_data_len: old.immutable_data_len,
+		ed_externally_funded: false,
+	}
+}
+
+/// Adds `ed_externally_funded: false` to every `ContractInfo`, including delegated accounts'.
 pub struct Migration<T: Config>(PhantomData<T>);
 
 impl<T: Config> SteppedMigration for Migration<T> {
@@ -115,27 +138,26 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			};
 
 			if let Some((key, old_info)) = iter.next() {
-				if let old::AccountType::Contract(old_contract) = old_info.account_type {
-					let contract = ContractInfo::<T> {
-						trie_id: old_contract.trie_id,
-						code_hash: old_contract.code_hash,
-						storage_bytes: old_contract.storage_bytes,
-						storage_items: old_contract.storage_items,
-						storage_byte_deposit: old_contract.storage_byte_deposit,
-						storage_item_deposit: old_contract.storage_item_deposit,
-						storage_base_deposit: old_contract.storage_base_deposit,
-						immutable_data_len: old_contract.immutable_data_len,
-						ed_externally_funded: false,
-					};
+				let account_type = match old_info.account_type {
+					old::AccountType::Contract(contract) => {
+						Some(AccountType::Contract(migrate_contract::<T>(contract)))
+					},
+					old::AccountType::DelegatedEOA { delegate_target, contract_info, payer } => {
+						Some(AccountType::DelegatedEOA {
+							delegate_target,
+							contract_info: migrate_contract::<T>(contract_info),
+							payer,
+						})
+					},
+					// `EOA` entries encode identically, so leave them untouched.
+					old::AccountType::EOA => None,
+				};
+				if let Some(account_type) = account_type {
 					AccountInfoOf::<T>::insert(
 						key,
-						AccountInfo::<T> {
-							account_type: AccountType::Contract(contract),
-							dust: old_info.dust,
-						},
+						AccountInfo::<T> { account_type, dust: old_info.dust },
 					);
 				}
-				// `EOA` entries encode identically, so leave them untouched.
 				cursor = Some(key);
 			} else {
 				cursor = None;
@@ -148,7 +170,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		let contracts: u32 = old::AccountInfoOf::<T>::iter_values()
-			.filter(|info| matches!(info.account_type, old::AccountType::Contract(_)))
+			.filter(|info| !matches!(info.account_type, old::AccountType::EOA))
 			.count() as u32;
 		log::info!(target: LOG_TARGET, "v5: {contracts} contracts to migrate");
 		Ok(contracts.encode())
@@ -162,7 +184,12 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		// Every contract must now decode with the new layout and default to pallet-minted.
 		let mut contracts = 0u32;
 		for (addr, info) in AccountInfoOf::<T>::iter() {
-			if let AccountType::Contract(contract) = info.account_type {
+			let contract = match info.account_type {
+				AccountType::Contract(contract) => Some(contract),
+				AccountType::DelegatedEOA { contract_info, .. } => Some(contract_info),
+				AccountType::EOA => None,
+			};
+			if let Some(contract) = contract {
 				contracts += 1;
 				assert!(
 					!contract.ed_externally_funded,
@@ -196,12 +223,13 @@ mod tests {
 	use crate::tests::{ExtBuilder, Test};
 
 	type V5 = Migration<Test>;
+	type OldAccountInfo = old::AccountInfo<<Test as frame_system::Config>::AccountId, u128>;
 
 	fn seed_old_contract(address: H160, code_hash: H256, immutable_data_len: u32) {
 		let trie_id: TrieId = vec![0xAB; 16].try_into().unwrap();
 		old::AccountInfoOf::<Test>::insert(
 			address,
-			old::AccountInfo::<u128> {
+			OldAccountInfo {
 				account_type: old::AccountType::Contract(old::ContractInfo::<u128> {
 					trie_id,
 					code_hash,
@@ -230,7 +258,7 @@ mod tests {
 			// An EOA entry that must be left untouched.
 			old::AccountInfoOf::<Test>::insert(
 				eoa,
-				old::AccountInfo::<u128> { account_type: old::AccountType::EOA, dust: 9 },
+				OldAccountInfo { account_type: old::AccountType::EOA, dust: 9 },
 			);
 
 			V5::run_to_completion();
@@ -254,6 +282,44 @@ mod tests {
 			let eoa_info = AccountInfoOf::<Test>::get(eoa).unwrap();
 			assert!(matches!(eoa_info.account_type, AccountType::EOA));
 			assert_eq!(eoa_info.dust, 9);
+		});
+	}
+
+	#[test]
+	fn migrate_to_v5_keeps_delegated_accounts() {
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let addr = H160::repeat_byte(0x40);
+			let target = H160::repeat_byte(0x41);
+			let contract = old::ContractInfo::<u128> {
+				trie_id: vec![0xAB; 16].try_into().unwrap(),
+				code_hash: H256::repeat_byte(0xCC),
+				storage_bytes: 1,
+				storage_items: 2,
+				storage_byte_deposit: 3,
+				storage_item_deposit: 4,
+				storage_base_deposit: 5,
+				immutable_data_len: 0,
+			};
+			// Spelled out as bytes to pin the pre-v5 encoding: variant 2 is `DelegatedEOA`.
+			let raw = (2u8, Some(target), contract, Some(crate::test_utils::ALICE), 9u32).encode();
+			frame_support::storage::unhashed::put_raw(
+				&old::AccountInfoOf::<Test>::hashed_key_for(addr),
+				&raw,
+			);
+
+			V5::run_to_completion();
+
+			let info = AccountInfoOf::<Test>::get(addr).expect("delegated entry must still decode");
+			let AccountType::DelegatedEOA { delegate_target, contract_info, payer } =
+				info.account_type
+			else {
+				panic!("should still be delegated");
+			};
+			assert_eq!(delegate_target, Some(target));
+			assert_eq!(payer, Some(crate::test_utils::ALICE));
+			assert_eq!(contract_info.storage_base_deposit, 5);
+			assert!(!contract_info.ed_externally_funded);
+			assert_eq!(info.dust, 9);
 		});
 	}
 

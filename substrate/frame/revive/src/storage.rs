@@ -518,6 +518,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
 			immutable_data_len: 0,
+			ed_externally_funded: false,
 		}
 	}
 

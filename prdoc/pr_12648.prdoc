@@ -14,12 +14,13 @@ doc:
 
     `ContractInfo` now carries an `ed_externally_funded` flag that instantiation sets when the
     account already existed, and termination only reclaims the ED when the pallet actually
-    minted it. Contracts whose ED was externally funded keep it in their balance and forward it
-    to the beneficiary on termination.
+    minted it. An externally funded ED stays on the account after termination, and a contract
+    deployed to the same address later takes it over. The same applies to a minted ED left on an
+    account by an earlier termination: it is never paid out to a beneficiary.
 
     A new multi-block migration (`pallet_revive::migrations::v5`) adds the flag to existing
-    contract entries, defaulting to pallet-minted. Runtimes must add it to their
-    `MultiBlockMigrator` migrations tuple.
+    contract and delegated account entries, defaulting to pallet-minted. Runtimes must add it to
+    their `MultiBlockMigrator` migrations tuple.
 crates:
 - name: pallet-revive
   bump: major

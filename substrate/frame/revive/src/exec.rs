@@ -253,12 +253,6 @@ impl<T: Config> Default for CallResources<T> {
 struct TerminateArgs<T: Config> {
 	/// Where to send the free balance of the terminated contract.
 	beneficiary: T::AccountId,
-	/// The storage child trie of the contract that needs to be deleted.
-	trie_id: TrieId,
-	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
-	code_hash: H256,
-	/// `true` if the ED was externally funded, so termination must not reclaim it.
-	ed_externally_funded: bool,
 	/// Triggered by the EVM opcode.
 	only_if_same_tx: bool,
 	/// The storage deposit already refunded when the termination was scheduled.
@@ -1935,6 +1929,10 @@ where
 		let contract_address = T::AddressMapper::to_address(contract_account);
 		// Every scheduled contract has its info stored by now: popping its frame wrote it.
 		let account_info = AccountInfoOf::<T>::get(contract_address).unwrap_or_default();
+		let ed_externally_funded = matches!(
+			&account_info.account_type,
+			AccountType::Contract(info) if info.ed_externally_funded
+		);
 
 		// `System.terminate` refunded the deposit when it was called, as far as the freeze on
 		// the account allowed. This refunds what is still held. A freeze can keep part of it on
@@ -1944,26 +1942,6 @@ where
 		})
 		.unwrap_or_default();
 
-		// If root created this contract we need to use the pallet account_id because root has no
-		// account.
-		let origin: Origin<T> = match origin {
-			Origin::Signed(o) => Origin::Signed(o.clone()),
-			Origin::Root => Origin::from_account_id(crate::Pallet::<T>::account_id()),
-		};
-
-		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
-			// deposit needs to be removed as it adds a consumer
-			let refund =
-				T::Deposit::refund_all(&contract_account, exec_config.funds(origin.account_id()?))?;
-
-			// we added this consumer manually when instantiating
-			System::<T>::dec_consumers(&contract_account);
-
-			// Only reclaim the ED if the pallet minted it. If it was externally funded, the ED
-			// stays and is forwarded to the beneficiary below; reclaiming would skew issuance.
-			if !args.ed_externally_funded {
-				T::Deposit::destroy_contract(contract_account)?;
-			}
 		// we added this consumer manually when instantiating
 		System::<T>::dec_consumers(contract_account);
 
@@ -2006,8 +1984,11 @@ where
 		// rolls the burn back, and so does a consumer another pallet placed while the account
 		// has no other provider. A provider or sufficient reference another pallet placed does
 		// not roll it back: the burn goes through and the account stays alive on that reference.
-		if dust == 0 &&
-			T::Currency::total_balance(contract_account) == T::Currency::minimum_balance()
+		//
+		// An externally funded ED was never minted or deactivated, so it is kept as well.
+		if !ed_externally_funded &&
+			dust == 0 && T::Currency::total_balance(contract_account) ==
+			T::Currency::minimum_balance()
 		{
 			Self::best_effort(&contract_address, "burn the existential deposit", || {
 				T::Deposit::destroy_contract(contract_account)
@@ -2301,10 +2282,6 @@ where
 			);
 		});
 		let frame = top_frame_mut!(self);
-		let info = frame.contract_info();
-		let trie_id = info.trie_id.clone();
-		let code_hash = info.code_hash;
-		let ed_externally_funded = info.ed_externally_funded;
 		let contract_address = T::AddressMapper::to_address(&frame.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
@@ -2323,13 +2300,6 @@ where
 		let account_id = frame.account_id.clone();
 		self.top_frame_mut().schedule_termination(
 			account_id,
-			TerminateArgs {
-				beneficiary,
-				trie_id,
-				code_hash,
-				ed_externally_funded,
-				only_if_same_tx: true,
-			},
 			TerminateArgs { beneficiary, only_if_same_tx: true, refunded: Zero::zero() },
 		);
 		Ok(CodeRemoved::Yes)
@@ -2818,10 +2788,6 @@ where
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 
-		let info = parent.contract_info();
-		let trie_id = info.trie_id.clone();
-		let code_hash = info.code_hash;
-		let ed_externally_funded = info.ed_externally_funded;
 		let contract_address = T::AddressMapper::to_address(&parent.account_id);
 
 		// EIP-7702: delegated EOAs cannot be destroyed via the system precompile.
@@ -2852,14 +2818,6 @@ where
 		)?;
 
 		// schedule for delayed deletion
-		let args = TerminateArgs {
-			beneficiary,
-			trie_id,
-			code_hash,
-			ed_externally_funded,
-			only_if_same_tx: false,
-		};
-		self.top_frame_mut().contracts_to_be_destroyed.insert(parent_account_id, args);
 		let args = TerminateArgs { beneficiary, only_if_same_tx: false, refunded };
 		self.top_frame_mut().schedule_termination(parent_account_id, args);
 
@@ -2935,9 +2893,6 @@ pub fn bench_do_terminate<T: Config>(
 	contract_account: &T::AccountId,
 	origin: &Origin<T>,
 	beneficiary: T::AccountId,
-	trie_id: TrieId,
-	code_hash: H256,
-	ed_externally_funded: bool,
 	only_if_same_tx: bool,
 ) -> Result<(), DispatchError> {
 	type BenchStack<'a, T> = Stack<'a, T, crate::ContractBlob<T>>;
@@ -2951,8 +2906,6 @@ pub fn bench_do_terminate<T: Config>(
 		exec_config,
 		contract_account,
 		origin,
-		&TerminateArgs { beneficiary, trie_id, code_hash, ed_externally_funded, only_if_same_tx },
-	)
 		&TerminateArgs { beneficiary, only_if_same_tx, refunded },
 	);
 	Ok(())

@@ -1758,9 +1758,6 @@ mod benchmarks {
 		let contract_account = &instance.account_id;
 		let origin = &ExecOrigin::from_account_id(caller);
 		let beneficiary_clone = beneficiary.clone();
-		let trie_id = instance.info()?.trie_id.clone();
-		let code_hash = instance.info()?.code_hash;
-		let ed_externally_funded = instance.info()?.ed_externally_funded;
 		let only_if_same_tx = false;
 
 		let result;
@@ -1772,9 +1769,6 @@ mod benchmarks {
 				contract_account,
 				&origin,
 				beneficiary_clone,
-				trie_id,
-				code_hash,
-				ed_externally_funded,
 				only_if_same_tx,
 			);
 		}
@@ -4434,7 +4428,7 @@ mod benchmarks {
 		let trie_id: TrieId = vec![0xABu8; 16].try_into().unwrap();
 		v5::old::AccountInfoOf::<T>::insert(
 			addr,
-			v5::old::AccountInfo {
+			v5::old::AccountInfo::<T::AccountId, BalanceOf<T>> {
 				account_type: v5::old::AccountType::Contract(v5::old::ContractInfo {
 					trie_id,
 					code_hash: H256::from([0u8; 32]),
