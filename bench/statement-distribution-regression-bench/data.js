@@ -1,52 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793820619058,
+  "lastUpdate": 1793881578836,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "statement-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "10196091+Ank4n@users.noreply.github.com",
-            "name": "Ankan",
-            "username": "Ank4n"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "b80b5691f3d02f058f3d251a88aa2e1021dad26e",
-          "message": "[Staking] Refactor Staking Reward Mode Selection (#11806)\n\nRefactor of the payout mode selection in `pallet-staking-async`.\nPreviously the payout path was chosen by checking whether the era's\nreward pot account existed on-chain. Instead we now depend on the\nstorage `DisableMintingGuard` which is more reliable source of truth for\nwhether an era belongs to the DAP or legacy mint path",
-          "timestamp": "2026-04-20T06:51:43Z",
-          "tree_id": "d0427449a6552948b94206e59a1b6fefd37d36e8",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/b80b5691f3d02f058f3d251a88aa2e1021dad26e"
-        },
-        "date": 1776672968035,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 106.39999999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 128.01599999999996,
-            "unit": "KiB"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.07798025880999991,
-            "unit": "seconds"
-          },
-          {
-            "name": "statement-distribution",
-            "value": 0.038222518686,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -21999,6 +21955,50 @@ window.BENCHMARK_DATA = {
           {
             "name": "test-environment",
             "value": 0.0871684092879999,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ef000ff2bb06d9ec9cc188c8741dad798c56fbd4",
+          "message": "ci: fix review-trigger (#13732)\n\nshould fix a bug when gh shows wrong user association, e.g.\nhttps://github.com/paritytech/polkadot-sdk/pull/13705\n\ncc @playX18",
+          "timestamp": "2026-11-05T10:19:47Z",
+          "tree_id": "e3d67c44f61549b8ded21102fbfeeafba29e0f30",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef000ff2bb06d9ec9cc188c8741dad798c56fbd4"
+        },
+        "date": 1793881550910,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Received from peers",
+            "value": 106.39999999999996,
+            "unit": "KiB"
+          },
+          {
+            "name": "Sent to peers",
+            "value": 128.106,
+            "unit": "KiB"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.08905424519999991,
+            "unit": "seconds"
+          },
+          {
+            "name": "statement-distribution",
+            "value": 0.03863866053,
             "unit": "seconds"
           }
         ]
