@@ -528,6 +528,13 @@ fn origin_codec() {
 
 	let origin = OriginCaller::Module1_9(module1::Origin(Default::default()));
 	assert_eq!(origin.encode()[0], 13);
+
+	let scale_info::TypeDef::Variant(origins) =
+		<OriginCaller as scale_info::TypeInfo>::type_info().type_def
+	else {
+		panic!("OriginCaller must have variant metadata");
+	};
+	assert!(origins.variants.iter().all(|variant| variant.name != "Void"));
 }
 
 #[test]

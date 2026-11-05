@@ -1,0 +1,10 @@
+title: Backport OriginCaller codec fix to v1.10
+doc:
+  - audience: Runtime Dev
+    description: |
+      Exclude the uninhabitable OriginCaller::Void variant from SCALE encoding
+      and metadata so runtimes compile with SCALE's duplicate-index checks.
+      Valid origin indices and encodings are unchanged; no migration is needed.
+crates:
+  - name: frame-support-procedural
+    bump: patch
