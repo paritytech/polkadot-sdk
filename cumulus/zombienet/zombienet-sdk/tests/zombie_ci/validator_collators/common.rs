@@ -120,10 +120,9 @@ pub(super) async fn build_network_config(
 		);
 	}
 	let extra_collators = if options.validator_collators { &VALIDATORS[..] } else { &[] };
-	// The tests need every validator with keys to collate, so the cap is set at genesis to
-	// `CollatorDraw::All`, encoded as `2`.
+	// The tests need every validator with keys to collate, so the cap is removed at genesis.
 	let report_settings = [
-		Some(validator_collators_entry("MaxCollators", 2u8)),
+		Some(validator_collators_entry("MaxCollators", CollatorDraw::All)),
 		options
 			.report_period
 			.map(|period| validator_collators_entry("ReportPeriod", period)),
@@ -240,6 +239,13 @@ fn election_phase_entries() -> Vec<(Vec<u8>, Vec<u8>)> {
 		entry("UnsignedPhase", UNSIGNED_PHASE),
 		entry("SignedValidationPhase", 0),
 	]
+}
+
+/// The `All` variant of `pallet_validator_collators::CollatorDraw`, with the same encoding.
+#[derive(Encode)]
+enum CollatorDraw {
+	#[codec(index = 2)]
+	All,
 }
 
 /// The storage value `item` of `ValidatorCollators`.

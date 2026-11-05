@@ -4,7 +4,8 @@ doc:
   description: |-
     The new enum `CollatorDraw` sets how many validators of the stored set are drawn as
     collators: `None` draws no validator, `UpTo(n)` up to `n` validators with registered keys, and
-    `All` every validator with registered keys. Every variant draws in random order.
+    `All` every validator with registered keys. Every variant draws in random order, and a
+    validator that registers keys after a draw waits for the next validator set or cap change.
 
     `MaxCollators` stores a `CollatorDraw` with `DefaultMaxCollators` as default, and
     `set_max_collators` takes one.
