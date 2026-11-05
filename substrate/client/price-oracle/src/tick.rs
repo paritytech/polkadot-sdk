@@ -210,7 +210,7 @@ where
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
 				Ok(Ok(price)) => prices.push((market, price)),
-				Ok(Err(e)) => log::warn!(
+				Ok(Err(e)) => log::info!(
 					target: LOG_TARGET,
 					"Market {market:?} not priced: {}",
 					String::from_utf8_lossy(&e.0),
