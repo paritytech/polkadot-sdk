@@ -229,6 +229,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					Some(NotificationReceived { peer, notification }) => {
 						let Some(setup) = &tick_setup else {
 							log::trace!(target: LOG_TARGET, "No tick setup yet, dropping a report from {peer}");
+							metrics.on_received_report("no_tick_setup");
 							continue;
 						};
 						match setup.check(&peer, &notification) {
