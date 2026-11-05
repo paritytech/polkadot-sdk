@@ -71,7 +71,7 @@ impl std::fmt::Display for FetchError {
 }
 
 impl FetchError {
-	/// The reason label of the market failure metric.
+	/// The result label of the market results metric.
 	pub(crate) fn label(&self) -> &'static str {
 		match self {
 			Self::InvalidRequest(_) => "invalid_request",
@@ -129,7 +129,7 @@ impl std::fmt::Display for MarketFailure {
 }
 
 impl MarketFailure {
-	/// The reason label of the market failure metric.
+	/// The result label of the market results metric.
 	pub(crate) fn label(&self) -> &'static str {
 		match self {
 			Self::Query(_, e) => e.label(),

@@ -170,12 +170,12 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				// Start a tick, unless the previous one is still running or the node is syncing.
 				if !tick.is_terminated() {
 					log::warn!(target: LOG_TARGET, "Previous tick still running, skipping a tick");
-					metrics.on_tick(TickOutcome::Overrun.label());
+					metrics.on_tick(TickOutcome::Overrun);
 					continue;
 				}
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
-					metrics.on_tick(TickOutcome::Syncing.label());
+					metrics.on_tick(TickOutcome::Syncing);
 					// The rules of the last tick are stale; do not judge peers by them.
 					validator.clear_acceptance();
 					continue;
@@ -184,10 +184,9 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
 					validator.clear_acceptance();
-					metrics.on_tick(TickOutcome::ApiUnavailable.label());
+					metrics.on_tick(TickOutcome::ApiUnavailable);
 					continue;
 				};
-				metrics.on_markets(setup.markets.len());
 				// Warn only once until a signer key is found.
 				if setup.signer.is_some() {
 					no_signer_logged = false;
@@ -225,9 +224,9 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				match result {
 					Ok(encoded) => {
 						gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);
-						metrics.on_tick(TickOutcome::Reported.label());
+						metrics.on_tick(TickOutcome::Reported);
 					},
-					Err(outcome) => metrics.on_tick(outcome.label()),
+					Err(outcome) => metrics.on_tick(outcome),
 				}
 			},
 			notification = incoming.next() => {
@@ -389,18 +388,21 @@ where
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
 			metrics.on_market_fetched(market, started.elapsed());
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
-				Ok(Ok(price)) => prices.push((market, price)),
+				Ok(Ok(price)) => {
+					metrics.on_market_result(market, "priced");
+					prices.push((market, price));
+				},
 				Ok(Err(e)) => {
 					log::warn!(
 						target: LOG_TARGET,
 						"Market {market:?} not priced: {}",
 						String::from_utf8_lossy(&e.0),
 					);
-					metrics.on_market_failure(market, "parse");
+					metrics.on_market_result(market, "parse");
 				},
 				Err(e) => {
 					log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}");
-					metrics.on_market_failure(market, "parse");
+					metrics.on_market_result(market, "runtime_error");
 				},
 			}
 		}
@@ -409,11 +411,10 @@ where
 	let (failures, prices) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
 		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
-		metrics.on_market_failure(market, failure.label());
+		metrics.on_market_result(market, failure.label());
 	}
 
 	let priced = prices.len();
-	metrics.on_markets_priced(priced);
 	let aggregates = match client.runtime_api().aggregate(best_hash, prices) {
 		Ok(aggregates) => aggregates,
 		Err(e) => {
@@ -421,10 +422,11 @@ where
 			return Err(TickOutcome::RuntimeError);
 		},
 	};
+	metrics.reset_pair_vote_margins();
 	let quotes: Vec<Quote> = aggregates
 		.into_iter()
 		.filter_map(|PairAggregate { pair, votes, quorum, price }| {
-			metrics.on_pair_votes(pair, votes);
+			metrics.on_pair_vote_margin(pair, votes, quorum);
 			// A pair at its quorum is one failing market away from being unpriced.
 			if votes <= quorum {
 				log::warn!(

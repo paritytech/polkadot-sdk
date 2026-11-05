@@ -17,10 +17,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! Prometheus metrics of the price oracle service.
 
-use crate::LOG_TARGET;
+use crate::{TickOutcome, LOG_TARGET};
 use prometheus_endpoint::{
 	exponential_buckets, prometheus::HistogramTimer, register, CounterVec, Gauge, GaugeVec,
-	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
+	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, I64, U64,
 };
 use sp_price_oracle::{market::MarketId, PairId};
 use std::time::Duration;
@@ -33,11 +33,9 @@ pub(crate) struct Metrics(Option<Inner>);
 struct Inner {
 	ticks: CounterVec<U64>,
 	tick_duration: Histogram,
-	markets: Gauge<U64>,
-	markets_priced: Gauge<U64>,
-	market_failures: CounterVec<U64>,
+	market_results: CounterVec<U64>,
 	market_fetch_duration: HistogramVec,
-	pair_votes: GaugeVec<U64>,
+	pair_vote_margins: GaugeVec<I64>,
 	gossip_reports: CounterVec<U64>,
 	pool_reports: Gauge<U64>,
 }
@@ -54,9 +52,9 @@ impl Metrics {
 	}
 
 	/// Count a tick ending with `outcome`.
-	pub(crate) fn on_tick(&self, outcome: &str) {
+	pub(crate) fn on_tick(&self, outcome: TickOutcome) {
 		if let Some(metrics) = &self.0 {
-			metrics.ticks.with_label_values(&[outcome]).inc();
+			metrics.ticks.with_label_values(&[outcome.label()]).inc();
 		}
 	}
 
@@ -66,27 +64,10 @@ impl Metrics {
 		self.0.as_ref().map(|metrics| metrics.tick_duration.start_timer())
 	}
 
-	/// Set the number of markets registered at the best block.
-	pub(crate) fn on_markets(&self, count: usize) {
+	/// Count `market` ending a tick with `result`.
+	pub(crate) fn on_market_result(&self, market: MarketId, result: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.markets.set(count as u64);
-		}
-	}
-
-	/// Set the number of markets priced in a tick.
-	pub(crate) fn on_markets_priced(&self, count: usize) {
-		if let Some(metrics) = &self.0 {
-			metrics.markets_priced.set(count as u64);
-		}
-	}
-
-	/// Count `market` not being priced in a tick for `reason`.
-	pub(crate) fn on_market_failure(&self, market: MarketId, reason: &str) {
-		if let Some(metrics) = &self.0 {
-			metrics
-				.market_failures
-				.with_label_values(&[&market.0.to_string(), reason])
-				.inc();
+			metrics.market_results.with_label_values(&[&market.0.to_string(), result]).inc();
 		}
 	}
 
@@ -100,10 +81,20 @@ impl Metrics {
 		}
 	}
 
-	/// Set the votes `pair` got in a tick.
-	pub(crate) fn on_pair_votes(&self, pair: PairId, votes: u32) {
+	/// Drop the vote margins of the previous tick, so pairs no longer aggregated disappear.
+	pub(crate) fn reset_pair_vote_margins(&self) {
 		if let Some(metrics) = &self.0 {
-			metrics.pair_votes.with_label_values(&[&pair.0.to_string()]).set(votes.into());
+			metrics.pair_vote_margins.reset();
+		}
+	}
+
+	/// Set the votes `pair` got in a tick beyond its `quorum`.
+	pub(crate) fn on_pair_vote_margin(&self, pair: PairId, votes: u32, quorum: u32) {
+		if let Some(metrics) = &self.0 {
+			metrics
+				.pair_vote_margins
+				.with_label_values(&[&pair.0.to_string()])
+				.set(i64::from(votes) - i64::from(quorum));
 		}
 	}
 
@@ -124,6 +115,7 @@ impl Metrics {
 
 impl Inner {
 	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		let duration_buckets = exponential_buckets(0.05, 2.0, 10)?;
 		Ok(Self {
 			ticks: register(
 				CounterVec::new(
@@ -138,31 +130,17 @@ impl Inner {
 						"substrate_price_oracle_tick_duration_seconds",
 						"Duration of the ticks that fetched the markets",
 					)
-					.buckets(exponential_buckets(0.1, 2.0, 10)?),
+					.buckets(duration_buckets.clone()),
 				)?,
 				registry,
 			)?,
-			markets: register(
-				Gauge::new(
-					"substrate_price_oracle_markets",
-					"Number of markets registered at the best block",
-				)?,
-				registry,
-			)?,
-			markets_priced: register(
-				Gauge::new(
-					"substrate_price_oracle_markets_priced",
-					"Number of markets priced in the last tick that fetched the markets",
-				)?,
-				registry,
-			)?,
-			market_failures: register(
+			market_results: register(
 				CounterVec::new(
 					Opts::new(
-						"substrate_price_oracle_market_failures_total",
-						"Number of times a market was not priced in a tick, by market and reason",
+						"substrate_price_oracle_market_results_total",
+						"Number of ticks a market was priced or failed in, by market and result",
 					),
-					&["market", "reason"],
+					&["market", "result"],
 				)?,
 				registry,
 			)?,
@@ -170,19 +148,20 @@ impl Inner {
 				HistogramVec::new(
 					HistogramOpts::new(
 						"substrate_price_oracle_market_fetch_duration_seconds",
-						"Time from the start of a tick until all queries of a market answered, \
-						by market",
+						"Time from the start of a tick until the responses of a market were taken \
+						for parsing, by market",
 					)
-					.buckets(exponential_buckets(0.05, 2.0, 10)?),
+					.buckets(duration_buckets),
 					&["market"],
 				)?,
 				registry,
 			)?,
-			pair_votes: register(
+			pair_vote_margins: register(
 				GaugeVec::new(
 					Opts::new(
-						"substrate_price_oracle_pair_votes",
-						"Number of votes a pair got in the last tick that aggregated, by pair",
+						"substrate_price_oracle_pair_vote_margin",
+						"Votes a pair got beyond its quorum in the last tick that aggregated, \
+						by pair",
 					),
 					&["pair"],
 				)?,

@@ -222,8 +222,9 @@ where
 		}
 
 		if !self.pool.insert(report) {
-			// Already held, or a later report of the same signer is: nothing to forward.
-			self.metrics.on_gossip_report("duplicate");
+			// A later report of the same signer is held: nothing to forward. Exact duplicates
+			// are filtered out by the gossip engine before validation.
+			self.metrics.on_gossip_report("superseded");
 			return ValidationResult::Discard;
 		}
 		(self.report_peer)(*sender, benefit::GOOD_REPORT);
