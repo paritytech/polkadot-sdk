@@ -1980,7 +1980,7 @@ pub type Migrations = (
 		ad_migration::KeysTranslator,
 	>,
 	// unreleased
-	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under a new default cap.
+	// Moves `MaxCollators` to `CollatorDraw` and draws the collators again under the default cap.
 	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
