@@ -3211,6 +3211,18 @@ fn staking_operator_filter_allows_validator_ops_and_session_keys() {
 		max_delivery_and_remote_execution_fee: None,
 	})));
 
+	// StakingOperator can manage the session keys of this chain, to collate here
+	assert!(operator.filter(&RuntimeCall::Session(pallet_session::Call::set_keys {
+		keys: SessionKeys {
+			aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)),
+			authority_discovery: AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(
+				ALICE,
+			)),
+		},
+		proof: vec![],
+	})));
+	assert!(operator.filter(&RuntimeCall::Session(pallet_session::Call::purge_keys {})));
+
 	// StakingOperator can batch operations
 	assert!(operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })));
 	assert!(

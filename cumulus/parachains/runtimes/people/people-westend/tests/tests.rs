@@ -328,6 +328,55 @@ fn relay_proof_request_includes_the_validator_collators_randomness_key() {
 	assert!(keys.contains(&RelayStorageKey::Top(ONE_EPOCH_AGO_RANDOMNESS.to_vec())));
 }
 
+#[test]
+fn staking_operator_proxy_manages_session_keys_only() {
+	use frame_support::traits::InstanceFilter;
+	use people_westend_runtime::ProxyType;
+
+	let operator = ProxyType::StakingOperator;
+	let remark = || RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+
+	// GIVEN a `StakingOperator` proxy
+	// THEN it can manage the session keys with which a validator collates here, also in a batch
+	assert!(operator.filter(&RuntimeCall::Session(pallet_session::Call::set_keys {
+		keys: people_westend_runtime::SessionKeys {
+			aura: AuraId::from(Sr25519Keyring::Alice.public()),
+			authority_discovery: AuthorityDiscoveryId::from(Sr25519Keyring::Alice.public()),
+		},
+		proof: vec![],
+	})));
+	assert!(operator.filter(&RuntimeCall::Session(pallet_session::Call::purge_keys {})));
+	assert!(operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch { calls: vec![] })));
+	assert!(
+		operator.filter(&RuntimeCall::Utility(pallet_utility::Call::batch_all { calls: vec![] }))
+	);
+	assert!(
+		operator.filter(&RuntimeCall::Utility(pallet_utility::Call::force_batch { calls: vec![] }))
+	);
+
+	// AND it can do nothing else, neither move funds nor dispatch as another origin
+	assert!(!operator.filter(&remark()));
+	assert!(!operator.filter(&RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+		dest: AccountId::from(ALICE).into(),
+		keep_alive: false,
+	})));
+	assert!(!operator.filter(&RuntimeCall::Utility(pallet_utility::Call::as_derivative {
+		index: 0,
+		call: Box::new(remark()),
+	})));
+	assert!(!operator.filter(&RuntimeCall::Proxy(pallet_proxy::Call::add_proxy {
+		delegate: AccountId::from(ALICE).into(),
+		proxy_type: ProxyType::Any,
+		delay: 0,
+	})));
+
+	// AND only `Any` and `NonTransfer`, which admit every call it admits, are its supersets
+	assert!(ProxyType::Any.is_superset(&operator));
+	assert!(ProxyType::NonTransfer.is_superset(&operator));
+	assert!(!ProxyType::Collator.is_superset(&operator));
+	assert!(!operator.is_superset(&ProxyType::NonTransfer));
+}
+
 /// The trap account migration of `pallet_xcm` sets the account up and moves known traps into it,
 /// and the pallet's trap account try-state check passes afterwards.
 #[test]

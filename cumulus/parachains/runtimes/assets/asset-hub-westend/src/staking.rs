@@ -19,14 +19,14 @@ use cumulus_primitives_core::relay_chain::SessionIndex;
 use frame_election_provider_support::{ElectionDataProvider, SequentialPhragmen};
 use frame_support::traits::{EitherOf, EnsureOrigin, Get};
 use pallet_election_provider_multi_block::{self as multi_block, SolutionAccuracyOf};
-use pallet_staking_async::UseValidatorsMap;
+use pallet_staking_async::{RewardPoint, UseValidatorsMap};
 use pallet_staking_async_rc_client as rc_client;
 use polkadot_runtime_common::{prod_or_fast, BalanceToU256, U256ToBalance};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	transaction_validity::TransactionPriority, FixedPointNumber, FixedU128, SaturatedConversion,
 };
-use sp_staking::EraIndex;
+use sp_staking::{EraIndex, ServiceKind};
 use testnet_parachains_constants::westend::{
 	locations::PeopleLocation, staking::MAX_VALIDATOR_SET,
 };
@@ -284,6 +284,39 @@ parameter_types! {
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
+	/// The era points below which an elected validator is inactive in an era, as
+	/// `(min_relay_consensus, min_collation)`.
+	///
+	/// `None` means no validator is ever inactive. `Some((min_rc, min_collation))` means a
+	/// validator is inactive if it earned fewer than `min_rc` relay consensus points OR fewer than
+	/// `min_collation` collation points.
+	///
+	/// Benchmarks need a validator with no points to be inactive, to measure `chill_inactive`.
+	pub storage IsValidatorInactiveThresholds: Option<(RewardPoint, RewardPoint)> =
+		if cfg!(feature = "runtime-benchmarks") { Some((1, 1)) } else { None };
+}
+
+/// A validator is inactive if its points for a service are below the threshold set for it in
+/// [`IsValidatorInactiveThresholds`].
+pub struct IsValidatorInactive;
+impl pallet_staking_async::IsValidatorInactive<AccountId> for IsValidatorInactive {
+	fn is_inactive(
+		_era: EraIndex,
+		_stash: &AccountId,
+		points: &[(ServiceKind, RewardPoint)],
+	) -> bool {
+		let Some((min_rc, min_collation)) = IsValidatorInactiveThresholds::get() else {
+			return false;
+		};
+		let points_of = |kind: ServiceKind| {
+			points
+				.iter()
+				.find(|(service, _)| *service == kind)
+				.map_or(0, |(_, points)| *points)
+		};
+		points_of(ServiceKind::RelayConsensus) < min_rc ||
+			points_of(ServiceKind::Collation) < min_collation
+	}
 }
 
 impl pallet_staking_async::Config for Runtime {
@@ -322,7 +355,7 @@ impl pallet_staking_async::Config for Runtime {
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
-	type IsValidatorInactive = pallet_staking_async::AllZero;
+	type IsValidatorInactive = IsValidatorInactive;
 	type OnEraStart = AnnounceValidatorSet;
 }
 
