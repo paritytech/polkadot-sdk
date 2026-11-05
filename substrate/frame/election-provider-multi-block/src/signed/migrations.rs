@@ -49,8 +49,8 @@ mod v0 {
 ///
 /// The base is the held deposit minus the per-page deposit of the stored pages, at the per-page
 /// price at upgrade time. For accounts in [`Invulnerables`], the whole deposit becomes the base.
-/// The base is at least the lowest base deposit an account could have paid at registration, and
-/// at most the held deposit. The base is only read when a submitter changes its pages in the signed
+/// The base is at least the lowest base deposit for the account's current status, and at most the
+/// held deposit. The base is only read when a submitter changes its pages in the signed
 /// phase. Rewards, slashes and refunds use the held deposit.
 pub mod v1 {
 	use super::*;
@@ -237,7 +237,7 @@ mod tests {
 
 			hypothetically!({
 				// GIVEN entries holding less than the lowest base deposit (5) plus their per-page
-				// deposit, as accounts removed from invulnerables after storing pages would.
+				// deposit.
 				for (who, deposit) in [(93, 2), (94, 6)] {
 					v0::SubmissionMetadataStorage::<Runtime>::insert(
 						8,
