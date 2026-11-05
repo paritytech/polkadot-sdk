@@ -43,9 +43,31 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<u64>;
 }
 
+/// A hold reason, so tests can put funds on hold.
+#[derive(
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	codec::MaxEncodedLen,
+	scale_info::TypeInfo,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Debug,
+)]
+pub enum TestHoldReason {
+	Test,
+}
+
+impl frame_support::traits::VariantCount for TestHoldReason {
+	const VARIANT_COUNT: u32 = 1;
+}
+
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
+	type RuntimeHoldReason = TestHoldReason;
 }
 
 impl Config for Test {
