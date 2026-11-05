@@ -685,7 +685,7 @@ pub enum DispatchError {
 #[derive(Eq, PartialEq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct DispatchErrorWithPostInfo<Info>
 where
-	Info: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+	Info: Eq + PartialEq + Clone + Copy + Encode + Decode,
 {
 	/// Additional information about the `Dispatchable` which is only known post dispatch.
 	pub post_info: Info,
@@ -707,7 +707,7 @@ impl DispatchError {
 
 impl<T, E> From<E> for DispatchErrorWithPostInfo<T>
 where
-	T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable + Default,
+	T: Eq + PartialEq + Clone + Copy + Encode + Decode + Default,
 	E: Into<DispatchError>,
 {
 	fn from(error: E) -> Self {
@@ -833,63 +833,10 @@ impl From<DispatchError> for &'static str {
 
 impl<T> From<DispatchErrorWithPostInfo<T>> for &'static str
 where
-	T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
+	T: Eq + PartialEq + Clone + Copy + Encode + Decode,
 {
 	fn from(err: DispatchErrorWithPostInfo<T>) -> &'static str {
 		err.error.into()
-	}
-}
-
-impl traits::Printable for DispatchError {
-	fn print(&self) {
-		use DispatchError::*;
-		"DispatchError".print();
-		match self {
-			Other(err) => err.print(),
-			CannotLookup => "Cannot lookup".print(),
-			BadOrigin => "Bad origin".print(),
-			Module(ModuleError { index, error, message }) => {
-				index.print();
-				error.print();
-				if let Some(msg) = message {
-					msg.print();
-				}
-			},
-			ConsumerRemaining => "Consumer remaining".print(),
-			NoProviders => "No providers".print(),
-			TooManyConsumers => "Too many consumers".print(),
-			Token(e) => {
-				"Token error: ".print();
-				<&'static str>::from(*e).print();
-			},
-			Arithmetic(e) => {
-				"Arithmetic error: ".print();
-				<&'static str>::from(*e).print();
-			},
-			Transactional(e) => {
-				"Transactional error: ".print();
-				<&'static str>::from(*e).print();
-			},
-			Exhausted => "Resources exhausted".print(),
-			Corruption => "State corrupt".print(),
-			Unavailable => "Resource unavailable".print(),
-			RootNotAllowed => "Root not allowed".print(),
-			Trie(e) => {
-				"Trie error: ".print();
-				<&'static str>::from(*e).print();
-			},
-		}
-	}
-}
-
-impl<T> traits::Printable for DispatchErrorWithPostInfo<T>
-where
-	T: Eq + PartialEq + Clone + Copy + Encode + Decode + traits::Printable,
-{
-	fn print(&self) {
-		self.error.print();
-		"PostInfo: ".print();
-		self.post_info.print();
 	}
 }
 
@@ -1089,11 +1036,6 @@ impl traits::ExtrinsicLike for OpaqueExtrinsic {
 	fn is_bare(&self) -> bool {
 		false
 	}
-}
-
-/// Print something that implements `Printable` from the runtime.
-pub fn print(print: impl traits::Printable) {
-	print.print();
 }
 
 /// Utility function to declare string literals backed by an array of length N.

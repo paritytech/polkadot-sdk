@@ -83,10 +83,21 @@ pub struct Vote<Id> {
 pub struct Parameters {
 	/// Reports anchored more than this many blocks ago are ignored.
 	pub report_window: u32,
-	/// Minimum number of signers voting on a pair for it to have a price.
+	/// Minimum number of live votes, one per signer, for a pair to have a price. A vote is live
+	/// for `report_window` blocks.
 	pub quorum: u32,
 	/// Time between two ticks of an oracle node, in milliseconds.
 	pub tick_interval_ms: u32,
+}
+
+/// Settings of a registered pair.
+#[derive(
+	Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+)]
+pub struct PairConfig {
+	/// How many market votes an oracle node needs to quote the pair. Used by the nodes, not by
+	/// the on-chain vote.
+	pub market_quorum: u32,
 }
 
 /// Provides the current anchor, against which the age of reports is measured.
@@ -107,25 +118,40 @@ impl<P: BlockNumberProvider> AnchorProvider for P {
 	}
 }
 
-/// Which parts of the pallet are paused.
+/// What is paused.
 #[derive(
 	Clone,
 	Copy,
 	PartialEq,
 	Eq,
 	Debug,
-	Default,
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
 	MaxEncodedLen,
 	TypeInfo,
 )]
-pub struct Pause {
-	/// Reports are ignored. Votes and prices do not change.
-	pub processing: bool,
-	/// Prices are neither exposed to consumers nor announced through [`OnPriceUpdate`].
-	pub publishing: bool,
+pub enum Pause {
+	/// Nothing is processed or published.
+	Full,
+	/// Prices are computed, but neither exposed to consumers nor announced through
+	/// [`OnPriceUpdate`].
+	Publishing,
+	/// Reports are ignored, so votes and prices do not change. Consumers keep reading the last
+	/// prices.
+	Processing,
+}
+
+impl Pause {
+	/// Whether reports are ignored.
+	pub fn stops_processing(&self) -> bool {
+		matches!(self, Pause::Full | Pause::Processing)
+	}
+
+	/// Whether prices are withheld from consumers.
+	pub fn stops_publishing(&self) -> bool {
+		matches!(self, Pause::Full | Pause::Publishing)
+	}
 }
 
 /// Called when the on-chain price of a pair changes.
@@ -208,17 +234,19 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Params<T: Config> = StorageValue<_, Parameters, OptionQuery>;
 
-	/// Which parts of the pallet are paused, set by [`Config::AdminOrigin`].
+	/// What is paused, set by [`Config::AdminOrigin`]. Nothing is paused while unset.
 	#[pallet::storage]
-	pub type Paused<T: Config> = StorageValue<_, Pause, ValueQuery>;
+	pub type Paused<T: Config> = StorageValue<_, Pause, OptionQuery>;
 
-	/// Registered pairs, with the number of market votes each needs to be priced.
+	/// Registered pairs and their settings.
 	#[pallet::storage]
-	pub type Pairs<T: Config> = StorageMap<_, Twox64Concat, PairId, u32, OptionQuery>;
+	pub type Pairs<T: Config> = StorageMap<_, Twox64Concat, PairId, PairConfig, OptionQuery>;
 
 	/// Other ways to price a pair, as `(source, rate)` such that `pair = source * rate`.
 	///
 	/// E.g. DOT/USD => [(DOT/USDT, USDT/USD), (DOT/USDC, USDC/USD)].
+	///
+	/// Read by the oracle nodes; not used by the on-chain vote.
 	#[pallet::storage]
 	pub type CrossRates<T: Config> = StorageMap<
 		_,
@@ -228,11 +256,11 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// Registered venues.
+	/// Registered venues. Read by the oracle nodes; not used by the on-chain vote.
 	#[pallet::storage]
 	pub type Venues<T: Config> = StorageMap<_, Twox64Concat, VenueId, Venue, OptionQuery>;
 
-	/// Registered markets.
+	/// Registered markets. Read by the oracle nodes; not used by the on-chain vote.
 	#[pallet::storage]
 	pub type Markets<T: Config> =
 		StorageMap<_, Twox64Concat, MarketId, StoredMarketOf<T>, OptionQuery>;
@@ -250,8 +278,8 @@ pub mod pallet {
 		ReportsProcessed { accepted: u32, rejected: u32 },
 		/// The parameters were set.
 		ParametersSet { params: Parameters },
-		/// The pause flags were set.
-		PauseSet { pause: Pause },
+		/// The pause was set, or lifted if `None`.
+		PauseSet { pause: Option<Pause> },
 		/// A venue was added or updated.
 		VenueSet { id: VenueId },
 		/// A venue was removed.
@@ -280,6 +308,10 @@ pub mod pallet {
 		UnknownPair,
 		/// The venue still has markets.
 		VenueInUse,
+		/// More reports than signers in one block.
+		TooManyReports,
+		/// Reports were already processed in this block.
+		AlreadyProcessed,
 	}
 
 	#[pallet::hooks]
@@ -300,18 +332,17 @@ pub mod pallet {
 		#[pallet::call_index(0)]
 		#[pallet::weight((
 			T::WeightInfo::process_reports(reports.len() as u32),
-			DispatchClass::Mandatory
+			DispatchClass::Operational
 		))]
 		pub fn process_reports(
 			origin: OriginFor<T>,
 			reports: Vec<SignedPriceReportOf<T>>,
 		) -> DispatchResult {
 			ensure_none(origin)?;
-			assert!(
-				!DidProcess::<T>::exists(),
-				"Price reports must be processed only once in the block"
-			);
+			ensure!(!DidProcess::<T>::exists(), Error::<T>::AlreadyProcessed);
 			DidProcess::<T>::put(true);
+			// The block author's pool holds at most one report per signer.
+			ensure!(reports.len() <= T::MaxSigners::get() as usize, Error::<T>::TooManyReports);
 
 			let Some(params) = Params::<T>::get() else {
 				log::debug!(
@@ -321,7 +352,7 @@ pub mod pallet {
 				);
 				return Ok(());
 			};
-			if Paused::<T>::get().processing {
+			if Paused::<T>::get().is_some_and(|p| p.stops_processing()) {
 				log::debug!(
 					target: LOG_TARGET,
 					"Processing paused, ignoring {} reports",
@@ -355,12 +386,12 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Set which parts of the pallet are paused.
+		/// Set what is paused. `None` lifts the pause.
 		#[pallet::call_index(2)]
 		#[pallet::weight(T::WeightInfo::set_pause())]
-		pub fn set_pause(origin: OriginFor<T>, pause: Pause) -> DispatchResult {
+		pub fn set_pause(origin: OriginFor<T>, pause: Option<Pause>) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			Paused::<T>::put(pause);
+			Paused::<T>::set(pause);
 			Self::deposit_event(Event::PauseSet { pause });
 			Ok(())
 		}
@@ -404,15 +435,15 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Add or update a pair. `quorum` is the number of market votes it needs to be priced.
+		/// Add or update a pair.
 		///
-		/// `quorum` must be non-zero.
+		/// `market_quorum` must be non-zero.
 		#[pallet::call_index(7)]
 		#[pallet::weight(T::WeightInfo::set_pair())]
-		pub fn set_pair(origin: OriginFor<T>, pair: PairId, quorum: u32) -> DispatchResult {
+		pub fn set_pair(origin: OriginFor<T>, pair: PairId, config: PairConfig) -> DispatchResult {
 			T::AdminOrigin::ensure_origin(origin)?;
-			ensure!(quorum >= 1, Error::<T>::InvalidParameters);
-			Pairs::<T>::insert(pair, quorum);
+			ensure!(config.market_quorum >= 1, Error::<T>::InvalidParameters);
+			Pairs::<T>::insert(pair, config);
 			Self::deposit_event(Event::PairSet { pair });
 			Ok(())
 		}
@@ -563,7 +594,7 @@ impl<T: Config> Pallet<T> {
 			.collect();
 		let pairs: Vec<PairId> = Pairs::<T>::iter_keys().collect();
 		let cross_rates = |pair| CrossRates::<T>::get(pair).into_inner();
-		let quorum = |pair| Pairs::<T>::get(pair).unwrap_or(u32::MAX);
+		let quorum = |pair| Pairs::<T>::get(pair).map_or(u32::MAX, |c| c.market_quorum);
 		pricing::aggregate(markets, &pairs, cross_rates, quorum)
 	}
 }
@@ -599,7 +630,7 @@ impl<T: Config> PriceProvider for Pallet<T> {
 
 	/// `None` while publishing is paused.
 	fn price(pair: PairId) -> Option<PricePoint<Self::BlockNumber>> {
-		if Paused::<T>::get().publishing {
+		if Paused::<T>::get().is_some_and(|p| p.stops_publishing()) {
 			return None;
 		}
 		Prices::<T>::get(pair)
@@ -655,6 +686,7 @@ impl<T: Config> Pallet<T> {
 	fn apply_votes(reports: Vec<SignedPriceReportOf<T>>, current: Anchor, params: &Parameters) {
 		let mut votes: BTreeMap<PairId, BoundedVec<Vote<T::SignerId>, T::MaxSigners>> =
 			Votes::<T>::iter().collect();
+		let stored = votes.clone();
 
 		// Prune first, so expired votes never take the room of new ones.
 		for pair_votes in votes.values_mut() {
@@ -685,7 +717,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		let publishing_paused = Paused::<T>::get().publishing;
+		let publishing_paused = Paused::<T>::get().is_some_and(|p| p.stops_publishing());
 		let updated_at = T::BlockNumberProvider::current_block_number();
 
 		for (pair, pair_votes) in votes.iter() {
@@ -693,7 +725,7 @@ impl<T: Config> Pallet<T> {
 				continue;
 			}
 			if (pair_votes.len() as u32) < params.quorum {
-				log::warn!(
+				log::debug!(
 					target: LOG_TARGET,
 					"{pair:?} has {} of {} votes, not priced",
 					pair_votes.len(),
@@ -716,6 +748,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		for (pair, pair_votes) in votes {
+			if stored.get(&pair) == Some(&pair_votes) {
+				continue;
+			}
 			if pair_votes.is_empty() {
 				Votes::<T>::remove(pair);
 			} else {

@@ -330,7 +330,7 @@ impl multi_block::signed::Config for Runtime {
 
 parameter_types! {
 	/// Priority of the offchain miner transactions.
-	pub MinerTxPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub MinerTxPriority: TransactionPriority = TransactionPriority::MAX / 2;
 }
 
 pub struct Balancing;
@@ -472,7 +472,7 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
 	type RcClientInterface = StakingRcClient;
-	type IsValidatorInactive = ();
+	type IsValidatorInactive = pallet_staking_async::AllZero;
 	type OnEraStart = ();
 }
 

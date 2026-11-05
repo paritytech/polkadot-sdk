@@ -1,0 +1,33 @@
+title: 'staking-async: check inactivity per service in chill_inactive'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `IsValidatorInactive::is_inactive` now receives the era points of the validator per
+    `ServiceKind`, as `&[(ServiceKind, RewardPoint)]`, instead of a single total.
+    A runtime can so decide inactivity per service, for example that only relay consensus points
+    keep a validator active.
+
+    Points of the tally not recorded per service, which are those of eras before points were
+    recorded per service, count as `RelayConsensus`. A service the validator earned nothing for may
+    be missing from the slice.
+
+    `chill_inactive` is now disabled by default:
+    - The `()` implementation of `IsValidatorInactive` never finds a validator inactive. The new
+      `AllZero` implementation has the old behaviour of `()`: a validator is inactive if it earned
+      no points for any service. Runtimes that want the old behaviour must use `AllZero`. Custom
+      implementations must take the points per service; to keep the old behaviour, check that the
+      sum of the points is zero.
+    - `ChillInactiveThreshold` has no default anymore. While it is not set, `chill_inactive` fails
+      with `ChillInactiveDisabled`. Removing it through `set_staking_configs` disables the call.
+    - `set_staking_configs` rejects a `chill_inactive_threshold` for which the weight of
+      `chill_inactive` does not fit in one normal extrinsic.
+
+    The weight of `chill_inactive` now includes reading `ErasRewardPointsByService` of every proof
+    era. Its benchmark now writes different reward points for every era and service. Before, equal
+    values were held only once in the proof, so the proof size did not grow with the number of
+    eras.
+crates:
+- name: pallet-staking-async
+  bump: major
+- name: asset-hub-westend-runtime
+  bump: patch

@@ -99,9 +99,12 @@ pub struct StartCollatorDiscoveryParams<Block: BlockT, Client, AD, NetEventStrea
 /// Spawn the authority-discovery worker and the parachain reserved-peer refresh task.
 ///
 /// Only call this on collators with `max_reserved > 0`.
+///
+/// Returns the authority discovery service, which resolves the addresses of an authority and
+/// the authorities behind a peer, for other node components to use.
 pub fn start_collator_discovery<Block, Client, AD, NetEventStream>(
 	params: StartCollatorDiscoveryParams<Block, Client, AD, NetEventStream>,
-) -> Result<(), prometheus_endpoint::PrometheusError>
+) -> Result<sc_authority_discovery::Service, prometheus_endpoint::PrometheusError>
 where
 	Block: BlockT + Unpin + 'static,
 	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
@@ -153,7 +156,8 @@ where
 	)
 }
 
-/// Spawn the authority-discovery worker and refresh task; returns immediately.
+/// Spawn the authority-discovery worker and refresh task; returns the authority discovery
+/// service immediately.
 fn spawn_collator_discovery_tasks<Block, Client, AD, DhtStream>(
 	config: CollatorDiscoveryConfig,
 	client: Arc<Client>,
@@ -167,7 +171,7 @@ fn spawn_collator_discovery_tasks<Block, Client, AD, DhtStream>(
 	persisted_cache_directory: Option<PathBuf>,
 	prometheus_registry: Option<prometheus_endpoint::Registry>,
 	spawn_handle: SpawnTaskHandle,
-) -> Result<(), prometheus_endpoint::PrometheusError>
+) -> Result<sc_authority_discovery::Service, prometheus_endpoint::PrometheusError>
 where
 	Block: BlockT + Unpin + 'static,
 	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
@@ -213,13 +217,13 @@ where
 			authority_discovery,
 			network,
 			sync_service,
-			authority_discovery_service,
+			authority_discovery_service.clone(),
 			keystore,
 			metrics,
 		),
 	);
 
-	Ok(())
+	Ok(authority_discovery_service)
 }
 
 /// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
@@ -306,6 +310,16 @@ impl LoopState {
 /// Compute the additive diff between the multiaddrs we want reserved now and the multiaddrs
 /// we asked for on the previous tick.
 ///
+/// `to_add` holds the multiaddrs the network does not know yet. `to_remove` holds the peers
+/// that have no multiaddr left in `current`. Removing by multiaddr instead would drop a peer
+/// whose address set shrinks although it is still selected: the vanished addresses turn into a
+/// removal, the remaining ones add nothing, and since later ticks see no difference the peer
+/// stays un-reserved until its record changes again. A restart triggers exactly this: the node
+/// publishes a fresh record right at startup, with fewer addresses than the record it published
+/// before the restart (the ones it still has to discover), and the addresses discovered later
+/// are not republished until its keys change or the hourly publish timer fires; compared with
+/// the record its neighbors hold from before the restart, the address set has shrunk.
+///
 /// `to_remove` is restricted to peers we previously added, externally-managed reserved peers
 /// (e.g. operator-supplied `--reserved-nodes`) never appear here and are never removed.
 fn compute_reserved_diff(
@@ -317,7 +331,16 @@ fn compute_reserved_diff(
 		None => current.clone(),
 	};
 	let to_remove = match previous {
-		Some(prev) => prev.difference(current).filter_map(PeerId::try_from_multiaddr).collect(),
+		Some(prev) => {
+			let current_peers: HashSet<PeerId> =
+				current.iter().filter_map(PeerId::try_from_multiaddr).collect();
+			prev.iter()
+				.filter_map(PeerId::try_from_multiaddr)
+				.filter(|peer| !current_peers.contains(peer))
+				.collect::<HashSet<_>>()
+				.into_iter()
+				.collect()
+		},
 		None => Vec::new(),
 	};
 	(to_add, to_remove)
@@ -384,11 +407,12 @@ async fn update_parachain_authorities<Block, AD>(
 	let (addrs, unresolved) =
 		resolve_authority_addresses(&selected, authority_discovery_service, local_peer_id).await;
 	let resolved = target_count.saturating_sub(unresolved);
+	let peer_ids: HashSet<PeerId> = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
 
 	if let Some(m) = metrics {
 		m.target_authorities.set(target_count as u64);
 		m.unresolved_authorities.set(unresolved as u64);
-		m.resolved_peers.set(addrs.len() as u64);
+		m.resolved_peers.set(peer_ids.len() as u64);
 	}
 
 	log_low_connectivity_if_stuck(target_count, resolved, &mut state.low_connectivity_since);
@@ -404,7 +428,6 @@ async fn update_parachain_authorities<Block, AD>(
 	// Diff against the last known state and apply additively.
 	let (to_add, to_remove) = compute_reserved_diff(&addrs, state.last_addrs.as_ref());
 
-	let peer_ids: HashSet<PeerId> = addrs.iter().filter_map(PeerId::try_from_multiaddr).collect();
 	log::debug!(
 		target: LOG_TARGET,
 		"Refreshing reserved peers at {at:?}: target={target_count} unresolved={unresolved} multiaddrs={} peer_ids={} (+{} -{})",
@@ -537,7 +560,7 @@ impl Metrics {
 			resolved_peers: register(
 				Gauge::with_opts(Opts::new(
 					"collator_discovery_resolved_peers",
-					"Number of multiaddrs pushed to the collator-sync reserved set.",
+					"Number of distinct peers resolved for the collator-sync reserved set.",
 				))?,
 				registry,
 			)?,
@@ -699,6 +722,15 @@ mod tests {
 		PeerId::try_from_multiaddr(m).expect("multiaddr from ma() has /p2p/")
 	}
 
+	/// Like [`ma`], but at the address `/memory/<addr>` instead of `/memory/<seed>`: the same
+	/// peer reachable at a different address.
+	fn ma_at(seed: u8, addr: u64) -> Multiaddr {
+		use sc_network::multiaddr::Protocol;
+		Multiaddr::empty()
+			.with(Protocol::Memory(addr))
+			.with(Protocol::P2p(pid_of(&ma(seed)).into()))
+	}
+
 	#[test]
 	fn diff_initial_tick_adds_everything_no_removals() {
 		let current = set_of([ma(1), ma(2)]);
@@ -751,6 +783,37 @@ mod tests {
 		assert!(to_add.is_empty());
 		let removed: HashSet<_> = to_remove.into_iter().collect();
 		assert_eq!(removed, set_of([ma(1), ma(2)]).iter().map(pid_of).collect::<HashSet<_>>());
+	}
+
+	/// A peer that moved to a new address stays reserved and gets the new address.
+	#[test]
+	fn diff_same_peer_new_address_keeps_peer_reserved() {
+		let previous = set_of([ma_at(1, 100)]);
+		let current = set_of([ma_at(1, 200)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert_eq!(to_add, current);
+		assert!(to_remove.is_empty(), "peer 1 is still selected and must not be removed");
+	}
+
+	/// A peer whose record lost one of its addresses stays reserved: nothing to add, nothing
+	/// to remove (a restarted node republishes before it knows all of its external addresses).
+	#[test]
+	fn diff_same_peer_fewer_addresses_keeps_peer_reserved() {
+		let previous = set_of([ma_at(1, 100), ma_at(1, 101), ma(2)]);
+		let current = set_of([ma_at(1, 100), ma(2)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert!(to_add.is_empty());
+		assert!(to_remove.is_empty());
+	}
+
+	/// A peer removed from the selection is removed once, however many addresses it had.
+	#[test]
+	fn diff_peer_with_several_addresses_is_removed_once() {
+		let previous = set_of([ma_at(1, 100), ma_at(1, 101), ma(2)]);
+		let current = set_of([ma(2)]);
+		let (to_add, to_remove) = compute_reserved_diff(&current, Some(&previous));
+		assert!(to_add.is_empty());
+		assert_eq!(to_remove, vec![pid_of(&ma(1))]);
 	}
 
 	#[test]

@@ -41,6 +41,7 @@ pallet-assets-freezer = { workspace = true }
 pallet-assets-holder = { workspace = true }
 pallet-assets-precompiles = { workspace = true }
 pallet-aura = { workspace = true }
+pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
@@ -71,6 +72,7 @@ pallet-scheduler = { workspace = true }
 pallet-session = { workspace = true }
 pallet-staking = { workspace = true }
 pallet-staking-async = { workspace = true }
+pallet-staking-async-points-converter = { workspace = true }
 pallet-staking-async-rc-client = { workspace = true, features = ["xcm-sender"] }
 pallet-staking-runtime-api = { workspace = true }
 pallet-state-trie-migration = { workspace = true }
@@ -229,6 +231,7 @@ runtime-benchmarks = [
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
+	"pallet-staking-async-points-converter/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",
 	"pallet-staking-async/runtime-benchmarks",
 	"pallet-staking/runtime-benchmarks",
@@ -290,6 +293,7 @@ try-runtime = [
 	"pallet-assets-precompiles/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
+	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
@@ -318,6 +322,7 @@ try-runtime = [
 	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
 	"pallet-session/try-runtime",
+	"pallet-staking-async-points-converter/try-runtime",
 	"pallet-staking-async-rc-client/try-runtime",
 	"pallet-staking-async/try-runtime",
 	"pallet-staking/try-runtime",
@@ -385,6 +390,7 @@ std = [
 	"pallet-assets-precompiles/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
+	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",
@@ -416,6 +422,7 @@ std = [
 	"pallet-revive/std",
 	"pallet-scheduler/std",
 	"pallet-session/std",
+	"pallet-staking-async-points-converter/std",
 	"pallet-staking-async-rc-client/std",
 	"pallet-staking-async/std",
 	"pallet-staking-runtime-api/std",

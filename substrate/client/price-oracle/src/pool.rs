@@ -25,7 +25,7 @@ use std::{collections::BTreeMap, sync::Arc};
 /// Reports collected from the oracle nodes, the latest one per signer.
 ///
 /// Reports enter the pool from two sides: the ones signed by this node, and the ones received
-/// from peers and accepted by the gossip validator. A report replaces the signer's previous one
+/// from peers and passed the acceptance rules. A report replaces the signer's previous one
 /// unless the previous one has a greater anchor; at equal anchors the one inserted last wins, as
 /// nothing tells which of two reports with the same anchor is fresher. Reports leave the pool only
 /// by pruning, once their anchor falls out of the window the runtime accepts. The block author
@@ -81,14 +81,6 @@ impl<Id: Ord + Clone, Signature: Clone> ReportPool<Id, Signature> {
 			.filter(|r| on_chain.get(&r.signer).map_or(true, |a| r.report.anchor >= *a))
 			.cloned()
 			.collect()
-	}
-
-	/// Whether `report` is the one held for its signer.
-	pub fn holds(&self, report: &SignedPriceReport<Id, Signature>) -> bool
-	where
-		Signature: PartialEq,
-	{
-		self.inner.read().get(&report.signer) == Some(report)
 	}
 
 	/// The number of reports held.

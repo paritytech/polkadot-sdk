@@ -929,7 +929,12 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	let mut network =
 		spawn_network_sudo(&["charlie", "alice"], items, COLLATOR_TRACE_LOG_FILTER).await?;
 
-	assert_late_joiner_receives_backlog(&mut network, Default::default()).await
+	assert_late_joiner_receives_backlog(
+		&mut network,
+		Default::default(),
+		"Major sync complete, adding",
+	)
+	.await
 }
 
 /// Verifies that a reconnecting subscriber receives the full current state
