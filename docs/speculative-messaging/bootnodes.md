@@ -1,7 +1,9 @@
 # Bootnode Discovery
 
 Parachains need to communicate offchain using the p2p protocols to fetch messages.
+
 On Polkadot, parachain nodes advertise themselves on the relay chain DHT ([RFC-0008](https://github.com/polkadot-fellows/RFCs/blob/main/text/0008-parachain-bootnodes-dht.md)).
+
 Since JAM doesn't use a DHT, this document highlights the equivalent mechanism in the JAM ecosystem.
 
 ## Summary
@@ -41,9 +43,9 @@ The `set_bootnodes` function accepts up to 8 multiaddresses.
 Each multiaddress is provided as UTF-8 text (i.e. `address.to_string().into_bytes()`).
 This ensures that governance can easily provide the multiaddresses from chain-specs without needing to manually parse them.
 
-Before writing to the key-value store, the pallet parses the received addresses and ensures it is valid:
-- The multiaddress follows the standard format:`/<ip4|ip6|dns|dns4|dns6>/<host>/tcp/<port>[/ws|/wss]/p2p/<peerId>`.
-- At least one address is provided.
+Before writing to the key-value store, the pallet parses the received addresses and ensures they are valid:
+- The multiaddress follows the standard format: `/<ip4|ip6|dns|dns4|dns6>/<host>/tcp/<port>[/ws|/wss]/p2p/<peerId>`.
+- At least one address is provided and addresses are unique.
 - The port is in range 1 to 65535.
 - A DNS host is a valid name, not `localhost` and not an IP address.
 - The peer ID is an Ed25519 peer ID.
@@ -67,12 +69,14 @@ The pallet has access to the genesis hash under `frame_system::Pallet::<T>::bloc
 Within the record, addresses are stored in their binary format, where each protocol consists of a code number followed by its raw value.
 The format is similar to authority discovery on DHT records and is obtained by calling `address.to_vec()`.
 
-Because setting a value in the KV store can fail with insufficient balance, the governance is responsible for monitoring the state in JAM and resubmitting the transaction at a later time if it fails.
+Because setting a value in the KV store can fail silently with insufficient balance, the governance is responsible for monitoring the state in JAM and resubmitting the transaction at a later time if it fails.
+
+The `clear_bootnodes` removes the key from storage.
 
 ## Consumers
 
 A node can read its own parachain's record and use it to bootstrap its own network.
-For offchain messaging with other parachains, a node subscribes to KV store changes using a JAM-specific RPC method,
+For offchain messaging with other parachains, a node subscribes to JAM's KV store changes,
 tracking the keys of any parachain it needs to fetch payloads from.
 
 By default, addresses containing non-global (private) IP addresses are ignored on production networks unless the `--allow-private-ip` flag is specified.
