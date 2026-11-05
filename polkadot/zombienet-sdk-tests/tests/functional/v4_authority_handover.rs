@@ -3,32 +3,38 @@
 
 //! Authority handover across an aura set change on a V4 parachain.
 //!
-//! Three collators elastic-scale a parachain onto three cores with per-core resubmission. Mid-run,
-//! sudo rotates `pallet_aura::Authorities` left by one, the same post-state flip a session
-//! rotation enacts, so every slot's expected author changes while each collator keeps its key.
-//! Resubmitted blocks verify against their parent state, so the pre-change blocks can only be
-//! resubmitted by the prior era's selected collator: the handover. The test asserts a collator
-//! performs it and that throughput survives the boundary.
+//! Three collators elastic-scale a parachain onto three cores with per-core resubmission. Sudo
+//! rotates `pallet_aura::Authorities` left by one, the same post-state flip a session rotation
+//! enacts. Resubmitted blocks verify against their parent state, so pre-change blocks can only be
+//! resubmitted by the prior era's slot author. Validators 1-5 are paused across the rotation so no
+//! original submission can be backed and all age out; the rotation block must then be resubmitted
+//! and finalize, which fails without the handover.
 
 use anyhow::anyhow;
 use codec::{Decode, Encode};
-use cumulus_zombienet_sdk_helpers::{
-	assert_finality_lag, assert_para_throughput, assign_cores,
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-};
-use polkadot_primitives::Id as ParaId;
+use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assign_cores};
 use serde_json::json;
 use sp_crypto_hashing::twox_128;
-use std::time::Duration;
-use zombienet_orchestrator::network::node::LogLineCountOptions;
+use std::time::{Duration, Instant};
 use zombienet_sdk::{
-	subxt::{self, dynamic::Value, ext::scale_value::value, OnlineClient, PolkadotConfig},
+	subxt::{
+		self,
+		config::polkadot::PolkadotExtrinsicParamsBuilder,
+		dynamic::Value,
+		ext::{scale_value::value, subxt_rpcs::client::rpc_params},
+		tx::TxStatus,
+		OnlineClient, PolkadotConfig,
+	},
 	subxt_signer::sr25519::dev,
 	NetworkConfigBuilder,
 };
 
 const PARA_ID: u32 = 2900;
 const NUM_COLLATORS: usize = 3;
+const NUM_VALIDATORS: usize = 6;
+const MIN_START_HEIGHT: u32 = 5;
+const RELAY_ADVANCE: u32 = 3;
+const FINALIZED_PAST_ROTATION: u32 = 10;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn v4_authority_handover() -> Result<(), anyhow::Error> {
@@ -61,13 +67,13 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 							},
 							// V2 (bit 4) and V3 (bit 3) descriptors enabled.
 							"node_features": {"bits": 8, "data": [0b00011000]},
-							"max_relay_parent_session_age": 2,
+							"max_relay_parent_session_age": 10,
 						}
 					}
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| {
+			(1..NUM_VALIDATORS).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})
@@ -113,10 +119,18 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 	log::info!("Para {PARA_ID} elastic-scaled to 3 cores (V3 descriptors, resubmission on)");
 
-	// A healthy pre-change window: three cores fed at ~2.6 candidates per relay block (ceiling 3.0,
-	// one per assigned core). Half the baseline throughput test's 100-block window.
-	assert_para_throughput(&relay_client, 50, [(ParaId::from(PARA_ID), 125..150)], []).await?;
-	log::info!("Pre-change throughput confirmed, rotating the aura authority set");
+	// Sanity: the para is producing blocks before the validators are paused.
+	wait_for_para_best(&para_client, MIN_START_HEIGHT, Duration::from_secs(300)).await?;
+	log::info!("Para is producing blocks, pausing validator-1..{}", NUM_VALIDATORS - 1);
+
+	// A lone validator never reaches the 2 backing votes but still authors relay blocks.
+	let paused: Vec<_> = (1..NUM_VALIDATORS)
+		.map(|i| network.get_node(format!("validator-{i}")))
+		.collect::<Result<_, _>>()?;
+	for node in &paused {
+		node.pause().await?;
+	}
+	log::info!("Validators paused, rotating the aura authority set");
 
 	// Rotate `pallet_aura::Authorities` left by one with sudo. The flip lands in the block's
 	// post-state like a session rotation would, aura-ext mirrors it on finalize, and with three
@@ -145,46 +159,105 @@ async fn v4_authority_handover() -> Result<(), anyhow::Error> {
 			System(set_storage { items: items })
 		}],
 	);
-	submit_extrinsic_and_wait_for_finalization_success_with_timeout(
-		&para_client,
-		&rotate_call,
-		&dev::alice(),
-		120u64,
-	)
-	.await
-	.map_err(|e| anyhow!("authority rotation failed to finalize: {e:?}"))?;
-	log::info!("Authority set rotated, waiting for a collator to perform the handover");
-
-	// The pre-change blocks still in flight can only be resubmitted by the prior era's selected
-	// collator, and by the time the rotation is finalized that slot has passed: the handover
-	// must already be in some collator's logs, give or take a few seconds of slack.
-	let mut handover_seen = false;
-	'outer: for _ in 0..12 {
-		for name in &collator_names {
-			let result = network
-				.get_node(name)?
-				.wait_log_line_count_with_timeout(
-					"*Authority handover: resubmitting the prior era's blocks*",
-					true,
-					LogLineCountOptions::new(|n| n >= 1, Duration::from_secs(1), false),
-				)
-				.await?;
-			if result.success() {
-				log::info!("Collator {name} performed the authority handover");
-				handover_seen = true;
-				break 'outer;
+	let rotation_hash = tokio::time::timeout(Duration::from_secs(120), async {
+		let extensions = PolkadotExtrinsicParamsBuilder::new().immortal().build();
+		let tx = para_client.tx().create_signed(&rotate_call, &dev::alice(), extensions).await?;
+		let mut progress = tx.submit_and_watch().await?;
+		while let Some(status) = progress.next().await.transpose()? {
+			match status {
+				TxStatus::InBestBlock(in_block) => {
+					in_block.wait_for_success().await?;
+					return Ok(in_block.block_hash());
+				},
+				TxStatus::Error { message } |
+				TxStatus::Invalid { message } |
+				TxStatus::Dropped { message } => return Err(anyhow!("rotation tx: {message}")),
+				_ => continue,
 			}
+		}
+		Err(anyhow!("rotation tx stream ended before inclusion"))
+	})
+	.await
+	.map_err(|_| anyhow!("timeout waiting for the rotation to be in a best block"))??;
+	let rotation_number = para_client.blocks().at(rotation_hash).await?.number();
+	// Best, not finalized: grandpa stalls while validators are paused.
+	let relay_rpc = relay_node.rpc().await?;
+	let relay_at_rotation = best_number(&relay_rpc).await?;
+	log::info!("Rotation in para block #{rotation_number} {rotation_hash:?}");
+
+	// Original submissions must be out of the allowed relay-parent window (genesis ancestry is
+	// small), so only a resubmission can still back the rotation block.
+	let target = relay_at_rotation + RELAY_ADVANCE;
+	let start = Instant::now();
+	loop {
+		let best = best_number(&relay_rpc).await?;
+		if best >= target {
+			log::info!("Relay advanced to #{best} (rotation seen at #{relay_at_rotation})");
+			break;
+		}
+		if start.elapsed() > Duration::from_secs(360) {
+			return Err(anyhow!("relay stuck at #{best}, wanted #{target} while paused"));
 		}
 		tokio::time::sleep(Duration::from_secs(5)).await;
 	}
-	assert!(handover_seen, "no collator performed the authority handover");
+	for node in &paused {
+		node.resume().await?;
+	}
+	log::info!("Validators resumed, waiting for the rotation block to finalize");
 
-	// The boundary costs the few slots the handover spends resubmitting instead of building, but
-	// all three cores must return to steady state within the window.
-	assert_para_throughput(&relay_client, 50, [(ParaId::from(PARA_ID), 125..150)], []).await?;
+	// Poll, never block on a stream: without the handover the para stalls and must time out.
+	let rpc = collator_node.rpc().await?;
+	let want = rotation_number + FINALIZED_PAST_ROTATION;
+	let start = Instant::now();
+	loop {
+		let fin_hash: subxt::utils::H256 =
+			rpc.request("chain_getFinalizedHead", rpc_params![]).await?;
+		let fin_number = para_client.blocks().at(fin_hash).await?.number();
+		let mut at_rotation = None;
+		if fin_number >= want {
+			let h: subxt::utils::H256 =
+				rpc.request("chain_getBlockHash", rpc_params![rotation_number]).await?;
+			if h == rotation_hash {
+				log::info!("Rotation block #{rotation_number} finalized, head #{fin_number}");
+				break;
+			}
+			at_rotation = Some(h);
+		}
+		if start.elapsed() > Duration::from_secs(300) {
+			return Err(anyhow!(
+				"rotation block #{rotation_number} {rotation_hash:?} not finalized with \
+				 {FINALIZED_PAST_ROTATION} blocks on top: finalized head #{fin_number}, \
+				 hash at rotation {at_rotation:?}"
+			));
+		}
+		tokio::time::sleep(Duration::from_secs(5)).await;
+	}
 
 	assert_finality_lag(&para_client, 30).await?;
 
 	log::info!("V4 authority handover test finished");
 	Ok(())
+}
+
+async fn best_number(rpc: &subxt::backend::rpc::RpcClient) -> Result<u32, anyhow::Error> {
+	let header: serde_json::Value = rpc.request("chain_getHeader", rpc_params![]).await?;
+	let number = header["number"].as_str().ok_or_else(|| anyhow!("header without number"))?;
+	Ok(u32::from_str_radix(number.trim_start_matches("0x"), 16)?)
+}
+
+async fn wait_for_para_best(
+	client: &OnlineClient<PolkadotConfig>,
+	height: u32,
+	timeout: Duration,
+) -> Result<(), anyhow::Error> {
+	let start = Instant::now();
+	loop {
+		if client.blocks().at_latest().await?.number() >= height {
+			return Ok(());
+		}
+		if start.elapsed() > timeout {
+			return Err(anyhow!("para did not reach height {height} within {timeout:?}"));
+		}
+		tokio::time::sleep(Duration::from_secs(3)).await;
+	}
 }
