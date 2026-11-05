@@ -80,6 +80,18 @@ impl BenchmarkHelper for () {
 	fn ensure_send_to_relay() {}
 }
 
+/// What one side of a channel holds, and from whose account.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
+pub struct Deposit<AccountId> {
+	/// What is held.
+	pub amount: Balance,
+	/// The account it is held from, and released to.
+	///
+	/// The depositor is always the sovereign account of the para and should be constant, but we
+	/// record it and use the recorded value defensively, and to help re-anchoring.
+	pub depositor: AccountId,
+}
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -94,6 +106,10 @@ pub mod pallet {
 		type SendToRelay: SendToRelay;
 
 		/// A para's sovereign account on this chain, which pays its deposits.
+		///
+		/// It must be constant for a given para.
+		// Defensively, it is only consulted for a side that holds nothing: a side that holds
+		// something keeps holding from, and is released to, the account recorded in [`Deposits`].
 		type SovereignAccountOf: Convert<ParaId, Self::AccountId>;
 
 		/// Weight information for the operations in this pallet.
@@ -115,12 +131,12 @@ pub mod pallet {
 		ChannelDeposit,
 	}
 
-	/// What is held for each side of each channel.
+	/// What is held for each side of each channel, and from whose account.
 	///
 	/// A side holding nothing has no entry.
 	#[pallet::storage]
 	pub type Deposits<T: Config> =
-		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), Balance, OptionQuery>;
+		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), Deposit<T::AccountId>, OptionQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -218,7 +234,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			ensure_root(origin)?;
 
-			if Deposits::<T>::get((channel, side)).unwrap_or_default() == amount {
+			if Deposits::<T>::get((channel, side)).map_or(0, |d| d.amount) == amount {
 				return Ok(());
 			}
 			Self::set_side(channel, side, amount).map_err(|e| match e {
@@ -230,6 +246,7 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
+	/// The account that pays for `side` of `channel` when it holds nothing yet.
 	fn payer(channel: &ChannelId, side: DepositSide) -> T::AccountId {
 		T::SovereignAccountOf::convert(side.para(channel))
 	}
@@ -246,8 +263,10 @@ impl<T: Config> Pallet<T> {
 		target: Balance,
 	) -> Result<(), DepositError> {
 		let reason = HoldReason::ChannelDeposit.into();
-		let who = Self::payer(&channel, side);
-		let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
+		let (held, who) = match Deposits::<T>::get((channel, side)) {
+			Some(Deposit { amount, depositor }) => (amount, depositor),
+			None => (0, Self::payer(&channel, side)),
+		};
 
 		match target.cmp(&held) {
 			Ordering::Greater => {
@@ -276,7 +295,7 @@ impl<T: Config> Pallet<T> {
 		if target == 0 {
 			Deposits::<T>::remove((channel, side));
 		} else {
-			Deposits::<T>::insert((channel, side), target);
+			Deposits::<T>::insert((channel, side), Deposit { amount: target, depositor: who });
 		}
 		Self::deposit_event(Event::DepositSet { channel, side, amount: target });
 		Ok(())
@@ -286,9 +305,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Nothing held is not an error.
 	fn release_side(channel: ChannelId, side: DepositSide) {
-		let Some(held) = Deposits::<T>::take((channel, side)) else { return };
+		let Some(Deposit { amount: held, depositor: who }) = Deposits::<T>::take((channel, side))
+		else {
+			return;
+		};
 		let reason = HoldReason::ChannelDeposit.into();
-		let who = Self::payer(&channel, side);
 
 		let released =
 			T::Currency::release(&reason, &who, held, Precision::BestEffort).unwrap_or_default();
@@ -299,25 +320,23 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::DepositSet { channel, side, amount: 0 });
 	}
 
-	/// Checks that each para has exactly its recorded deposits on hold.
+	/// Checks that each depositor has exactly its recorded deposits on hold.
 	#[cfg(any(feature = "try-runtime", test))]
 	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 		use alloc::collections::btree_map::BTreeMap;
 		use frame_support::traits::fungible::InspectHold;
-		let mut per_para = BTreeMap::<ParaId, Balance>::new();
+		let mut per_depositor = BTreeMap::<T::AccountId, Balance>::new();
 
-		for ((channel, side), amount) in Deposits::<T>::iter() {
+		for (_, Deposit { amount, depositor }) in Deposits::<T>::iter() {
 			ensure!(amount != 0, "hrmp-para: a side holding nothing is recorded");
-			let total = per_para.entry(side.para(&channel)).or_default();
+			let total = per_depositor.entry(depositor).or_default();
 			*total = total.saturating_add(amount);
 		}
 
-		for (para, recorded) in per_para {
-			let on_hold = T::Currency::balance_on_hold(
-				&HoldReason::ChannelDeposit.into(),
-				&T::SovereignAccountOf::convert(para),
-			);
-			ensure!(on_hold == recorded, "hrmp-para: a para's hold differs from its deposits");
+		for (depositor, recorded) in per_depositor {
+			let on_hold =
+				T::Currency::balance_on_hold(&HoldReason::ChannelDeposit.into(), &depositor);
+			ensure!(on_hold == recorded, "hrmp-para: a depositor's hold differs from its deposits");
 		}
 
 		Ok(())

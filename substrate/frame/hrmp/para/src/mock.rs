@@ -20,8 +20,8 @@
 use crate::{self as pallet_hrmp_para, SendToRelay};
 use core::cell::{Cell, RefCell};
 use frame_support::derive_impl;
-use hrmp_primitives::MessageToRelay;
-use sp_runtime::{traits::ConvertInto, BuildStorage};
+use hrmp_primitives::{MessageToRelay, ParaId};
+use sp_runtime::{traits::Convert, BuildStorage};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -51,6 +51,16 @@ thread_local! {
 	pub static SENT: RefCell<Vec<MessageToRelay>> = const { RefCell::new(Vec::new()) };
 	/// Whether the transport refuses every message.
 	pub static FAIL_SEND: Cell<bool> = const { Cell::new(false) };
+	/// What [`SovereignAccount`] adds to a para's id, to re-anchor the sovereign accounts.
+	pub static ANCHOR: Cell<u64> = const { Cell::new(0) };
+}
+
+/// A para's sovereign account is its id plus [`ANCHOR`].
+pub struct SovereignAccount;
+impl Convert<ParaId, u64> for SovereignAccount {
+	fn convert(para: ParaId) -> u64 {
+		u64::from(para) + ANCHOR.get()
+	}
 }
 
 /// Records what it takes, unless [`FAIL_SEND`].
@@ -68,8 +78,7 @@ impl SendToRelay for RecordingTransport {
 impl pallet_hrmp_para::Config for Test {
 	type Currency = Balances;
 	type SendToRelay = RecordingTransport;
-	// A para's sovereign account is the account with its id.
-	type SovereignAccountOf = ConvertInto;
+	type SovereignAccountOf = SovereignAccount;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
@@ -93,6 +102,7 @@ pub fn build_ext() -> sp_io::TestExternalities {
 		System::set_block_number(1);
 		SENT.take();
 		FAIL_SEND.set(false);
+		ANCHOR.set(0);
 	});
 	ext
 }
