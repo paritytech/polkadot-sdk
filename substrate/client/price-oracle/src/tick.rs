@@ -175,9 +175,9 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 
 /// How a tick ended.
 pub(crate) enum TickOutcome {
-	/// A report was signed and sent to at least one peer.
+	/// A report was signed and queued for at least one peer. Delivery is not confirmed.
 	Reported,
-	/// A report was signed, but no peer it was sent to took it.
+	/// A report was signed, but could not be queued for any peer.
 	NotSent,
 	/// The previous tick was still running.
 	Overrun,
