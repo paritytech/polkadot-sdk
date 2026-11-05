@@ -15,7 +15,8 @@ doc:
     `pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1` in their
     migrations. It adds `base` to every stored submission: the held deposit minus the per-page
     deposit of the stored pages, at the current price. For accounts in `Invulnerables`, the whole
-    deposit becomes the base. If `DepositPerPage` changes in the same release, submissions
+    deposit becomes the base. The base is at least the lowest base deposit an account could have
+    paid at registration, and at most the held deposit. If `DepositPerPage` changes in the same release, submissions
     registered before the upgrade get their base at the new price for the rest of that round.
 crates:
 - name: pallet-election-provider-multi-block

@@ -49,8 +49,9 @@ mod v0 {
 ///
 /// The base is the held deposit minus the per-page deposit of the stored pages, at the per-page
 /// price at upgrade time. For accounts in [`Invulnerables`], the whole deposit becomes the base.
-/// The base is only read when a submitter changes its pages in the signed phase. Rewards, slashes
-/// and refunds use the held deposit.
+/// The base is at least the lowest base deposit an account could have paid at registration, and
+/// at most the held deposit. The base is only read when a submitter changes its pages in the signed
+/// phase. Rewards, slashes and refunds use the held deposit.
 pub mod v1 {
 	use super::*;
 
@@ -77,27 +78,38 @@ pub mod v1 {
 				T::DepositPerPage::calculate_page_deposit(pages.iter().filter(|x| **x).count())
 			}
 		}
+
+		fn min_base_deposit(invulnerables: &[T::AccountId], who: &T::AccountId) -> BalanceOf<T> {
+			if invulnerables.contains(who) {
+				T::InvulnerableDeposit::get()
+			} else {
+				T::DepositBase::calculate_base_deposit(0)
+			}
+		}
 	}
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for InnerMigrateV0ToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
 			let invulnerables = Invulnerables::<T>::get();
 			let mut translated: u64 = 0;
-			let mut saturated: u64 = 0;
+			let mut raised: u64 = 0;
 			SubmissionMetadataStorage::<T>::translate::<v0::SubmissionMetadata<T>, _>(
 				|_round, who, old| {
 					translated.saturating_inc();
 					let page_deposit = Self::page_deposit(&invulnerables, &who, &old.pages);
-					if old.deposit < page_deposit {
-						saturated.saturating_inc();
+					let min_base = Self::min_base_deposit(&invulnerables, &who);
+					let derived = old.deposit.saturating_sub(page_deposit);
+					if derived < min_base {
+						raised.saturating_inc();
 					}
+					let base = derived.max(min_base).min(old.deposit);
 					Some(SubmissionMetadata {
 						deposit: old.deposit,
 						fee: old.fee,
 						reward: old.reward,
 						claimed_score: old.claimed_score,
 						pages: old.pages,
-						base: old.deposit.saturating_sub(page_deposit),
+						base,
 					})
 				},
 			);
@@ -107,12 +119,12 @@ pub mod v1 {
 				"v0 -> v1: migrated {} submission metadata entries",
 				translated
 			);
-			if saturated > 0 {
+			if raised > 0 {
 				crate::sublog!(
 					warn,
 					"signed",
-					"v0 -> v1: {} entries hold less than their per-page deposit, base set to 0",
-					saturated
+					"v0 -> v1: {} entries raised to the lowest base deposit or their held deposit",
+					raised
 				);
 			}
 			T::DbWeight::get().reads_writes(translated.saturating_add(1), translated)
@@ -224,25 +236,28 @@ mod tests {
 			StorageVersion::new(0).put::<SignedPallet>();
 
 			hypothetically!({
-				// GIVEN an old round entry holding less than its per-page deposit.
-				v0::SubmissionMetadataStorage::<Runtime>::insert(
-					8,
-					93,
-					v0::SubmissionMetadata::<Runtime> {
-						deposit: 2,
-						fee: 4,
-						reward: 3,
-						claimed_score: Default::default(),
-						pages: bounded_vec![true, true, true],
-					},
-				);
+				// GIVEN entries holding less than the lowest base deposit (5) plus their per-page
+				// deposit, as accounts removed from invulnerables after storing pages would.
+				for (who, deposit) in [(93, 2), (94, 6)] {
+					v0::SubmissionMetadataStorage::<Runtime>::insert(
+						8,
+						who,
+						v0::SubmissionMetadata::<Runtime> {
+							deposit,
+							fee: 4,
+							reward: 3,
+							claimed_score: Default::default(),
+							pages: bounded_vec![true, true, true],
+						},
+					);
+				}
 
 				// WHEN the migration runs.
 				migrate();
 
-				// THEN its base is 0, and the checks pass.
-				let saturated = Submissions::<Runtime>::metadata_of(8, 93).unwrap();
-				assert_eq!((saturated.deposit, saturated.base), (2, 0));
+				// THEN the base is raised to the lowest base deposit, capped at the held deposit.
+				let base_of = |who| Submissions::<Runtime>::metadata_of(8, who).unwrap().base;
+				assert_eq!((base_of(93), base_of(94)), (2, 5));
 			});
 
 			// WHEN the migration runs.
