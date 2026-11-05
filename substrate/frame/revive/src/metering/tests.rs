@@ -2040,11 +2040,19 @@ fn ethereum_execution_caller_refund_does_not_raise_callee_deposit_limit() {
 	});
 }
 
+/// Returns the Ethereum gas the stipend's weight costs.
+fn stipend_gas() -> BalanceOf<Test> {
+	use crate::evm::fees::InfoT;
+
+	let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+	SignedGas::<Test>::from_weight_fee(<Test as Config>::FeeInfo::weight_to_fee(&stipend_weight))
+		.to_ethereum_gas()
+		.unwrap()
+}
+
 /// The callee of a value call with no gas limit gets the stipend on top of its 63/64 share.
 #[test]
 fn ethereum_execution_stipend_comes_on_top() {
-	use crate::evm::fees::InfoT;
-
 	ExtBuilder::default().build().execute_with(|| {
 		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
 		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
@@ -2068,12 +2076,7 @@ fn ethereum_execution_stipend_comes_on_top() {
 			plain_callee_meter.weight_left().unwrap() + stipend_weight,
 		);
 		let plain_callee_gas = plain_callee_meter.eth_gas_left().unwrap();
-		let stipend_gas = SignedGas::<Test>::from_weight_fee(
-			<Test as Config>::FeeInfo::weight_to_fee(&stipend_weight),
-		)
-		.to_ethereum_gas()
-		.unwrap();
-		let expected_gas = plain_callee_gas + stipend_gas;
+		let expected_gas = plain_callee_gas + stipend_gas();
 		let value_callee_gas = value_callee_meter.eth_gas_left().unwrap();
 		assert!(
 			(expected_gas - 1..=expected_gas).contains(&value_callee_gas),
@@ -2108,42 +2111,14 @@ fn substrate_execution_stipend_comes_on_top() {
 	});
 }
 
-/// A value call succeeds when its caller has exactly one stipend left.
+/// The callee of a value call gets all the gas its caller has left once the stipend is more than
+/// the 1/64 the caller keeps.
 #[test]
-fn ethereum_execution_one_stipend_left_is_enough() {
+fn ethereum_execution_value_call_gets_all_the_caller_gas() {
 	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
-		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-			eth_gas_limit: u64::MAX.into(),
-			weight_limit: stipend_weight,
-			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
-			authorization_deposit: Default::default(),
-		})
-		.unwrap();
-		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
-
-		let callee_meter = caller_meter
-			.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
-			.unwrap();
-		assert_eq!(callee_meter.weight_left().unwrap(), stipend_weight);
-	});
-}
-
-/// The callee of a value call gets at most the gas its caller has left, stipend included.
-#[test]
-fn ethereum_execution_value_call_gets_at_most_the_caller_gas() {
-	use crate::evm::fees::InfoT;
-
-	ExtBuilder::default().build().execute_with(|| {
-		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
-		let stipend_gas = SignedGas::<Test>::from_weight_fee(
-			<Test as Config>::FeeInfo::weight_to_fee(&stipend_weight),
-		)
-		.to_ethereum_gas()
-		.unwrap();
 		// With 10 stipends of gas, 63/64 of the gas plus one stipend is more than the caller has.
 		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
-			eth_gas_limit: 10 * stipend_gas,
+			eth_gas_limit: 10 * stipend_gas(),
 			weight_limit: Weight::MAX,
 			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
 			authorization_deposit: Default::default(),
@@ -2158,12 +2133,38 @@ fn ethereum_execution_value_call_gets_at_most_the_caller_gas() {
 	});
 }
 
-/// A value call succeeds when its caller has exactly one stipend left.
-#[test]
-fn substrate_execution_one_stipend_left_is_enough() {
+/// A value call without gas gets only the stipend's gas, whether its caller has one stipend left or
+/// many.
+#[test_case(1 ; "one stipend left")]
+#[test_case(1000 ; "many stipends left")]
+fn ethereum_execution_value_call_without_gas_gets_only_the_stipend(stipends_left: u64) {
 	ExtBuilder::default().build().execute_with(|| {
 		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
-		let root_meter = TransactionMeter::<Test>::new_from_limits(stipend_weight, 1_000).unwrap();
+		let root_meter = TransactionMeter::<Test>::new(TransactionLimits::EthereumGas {
+			eth_gas_limit: u64::MAX.into(),
+			weight_limit: stipend_weight * stipends_left,
+			eth_tx_info: EthTxInfo::new(0, Weight::zero()),
+			authorization_deposit: Default::default(),
+		})
+		.unwrap();
+		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
+
+		let callee_meter = caller_meter
+			.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
+			.unwrap();
+		assert_eq!(callee_meter.eth_gas_left().unwrap(), stipend_gas());
+	});
+}
+
+/// A value call without gas gets only the stipend, whether its caller has one stipend left or many.
+#[test_case(1 ; "one stipend left")]
+#[test_case(1000 ; "many stipends left")]
+fn substrate_execution_value_call_without_gas_gets_only_the_stipend(stipends_left: u64) {
+	ExtBuilder::default().build().execute_with(|| {
+		let stipend_weight = super::math::validate_and_get_stipend::<Test>(Weight::MAX).unwrap();
+		let root_meter =
+			TransactionMeter::<Test>::new_from_limits(stipend_weight * stipends_left, 1_000)
+				.unwrap();
 		let caller_meter = root_meter.new_nested(&CallResources::NoLimits).unwrap();
 
 		let callee_meter = caller_meter

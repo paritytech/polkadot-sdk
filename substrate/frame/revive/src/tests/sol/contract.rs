@@ -1069,7 +1069,7 @@ fn delegatecall_with_large_deposit_limit_succeeds(
 mod eip_150 {
 	use super::*;
 	use crate::{
-		ContractResult, EthTxInfo, Pallet,
+		CallResources, ContractResult, EthTxInfo, Pallet, TransactionMeter,
 		evm::{CallTracer, GenericTransaction},
 		test_utils::ETH_GAS_LIMIT,
 		tests::{DepositPerByte, test_utils::dispatch_eth_transaction},
@@ -1261,6 +1261,61 @@ mod eip_150 {
 				CatchInvalid::caughtCall::abi_decode_returns(&caught.data).unwrap(),
 				"the catch block must write to storage"
 			);
+		});
+	}
+
+	/// A caller with fewer than 64 stipends of ref_time left can still run its catch block after a
+	/// value call whose callee uses up its gas.
+	#[test_matrix(
+		[FixtureType::Solc, FixtureType::Resolc],
+		[|weight_limit| ethereum_limits(ETH_GAS_LIMIT, weight_limit), substrate_limits]
+	)]
+	#[ignore = "a value call's stipend comes out of the 1/64 its caller keeps"]
+	fn caller_has_gas_left_in_catch_after_value_call_hits_invalid(
+		caller_type: FixtureType,
+		limits: fn(Weight) -> TransactionLimits<Test>,
+	) {
+		let (caller_code, _) = compile_module_with_type("CatchInvalid", caller_type).unwrap();
+		// The caller's backend decides the stipend; the callee only uses up its gas.
+		let (callee_code, _) =
+			compile_module_with_type("PayableInvalid", FixtureType::Solc).unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			// A value call without gas gets just the stipend.
+			let stipend_weight = TransactionMeter::<Test>::new_from_limits(Weight::MAX, 0)
+				.unwrap()
+				.new_nested(&CallResources::NoLimits)
+				.unwrap()
+				.new_nested(&CallResources::Ethereum { gas: 0, add_stipend: true })
+				.unwrap()
+				.weight_left()
+				.unwrap();
+			// The stipend's ref_time is bigger than the 1/64 the caller keeps.
+			let limits = limits((stipend_weight * 32).set_proof_size(WEIGHT_LIMIT.proof_size()));
+			let [callee_addr, caller_addr] = deploy([callee_code, caller_code]);
+			let caller_account = <Test as Config>::AddressMapper::to_account_id(&caller_addr);
+			let _ = <Test as Config>::Currency::set_balance(&caller_account, 1_000_000_000);
+			let catch_block_ran = |value: u64| {
+				builder::bare_call(caller_addr)
+					.data(
+						CatchInvalid::tryPayableInvalidCall { callee: callee_addr.0.into(), value }
+							.abi_encode(),
+					)
+					.transaction_limits(limits.clone())
+					.build()
+					.result
+					.map(|output| {
+						CatchInvalid::tryPayableInvalidCall::abi_decode_returns(&output.data)
+							.unwrap()
+					})
+			};
+
+			assert_eq!(
+				catch_block_ran(0),
+				Ok(true),
+				"the catch block must run after a call without value"
+			);
+			assert_eq!(catch_block_ran(1), Ok(true), "the catch block must run after a value call");
 		});
 	}
 

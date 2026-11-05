@@ -11,8 +11,15 @@ contract InvalidConstructor {
     }
 }
 
-// Calls `invalid()` on the given callee, or creates a contract whose constructor hits INVALID, and
-// records in storage that the catch block ran.
+contract PayableInvalid {
+    function invalid() external payable {
+        assembly {
+            invalid()
+        }
+    }
+}
+
+// Makes calls and creates contracts that hit INVALID, and reports whether the catch block ran.
 contract CatchInvalid {
     bool public caught;
 
@@ -26,5 +33,12 @@ contract CatchInvalid {
         try new InvalidConstructor() {} catch {
             caught = true;
         }
+    }
+
+    function tryPayableInvalid(address callee, uint64 value) external returns (bool) {
+        try PayableInvalid(callee).invalid{value: value}() {} catch {
+            return true;
+        }
+        return false;
     }
 }
