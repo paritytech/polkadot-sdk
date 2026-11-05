@@ -677,8 +677,8 @@ where
 	/// - the `slashed` id equal to `beneficiary` and the `status` is `Reserved`.
 	///
 	/// This is `Polite` and thus will not repatriate any funds which would lead the total balance
-	/// to be less than the frozen amount. Returns `Ok` with the actual amount of funds moved,
-	/// which may be less than `value` since the operation is done on a `BestEffort` basis.
+	/// to be less than the frozen amount. Returns `Ok` with the amount that could not be moved,
+	/// which may be non-zero since the operation is done on a `BestEffort` basis.
 	fn repatriate_reserved(
 		slashed: &T::AccountId,
 		beneficiary: &T::AccountId,
@@ -689,13 +689,14 @@ where
 	}
 }
 
-/// The [`ReservableCurrency`] operations, acting on at most `max_reserved_touchable(who, id)`.
+/// The [`ReservableCurrency`] operations, for both the unnamed and the named reserves.
 ///
-/// The unnamed operations pass `None`, the named ones pass their own reserve.
+/// The unnamed operations pass `None` as `id`, the named ones pass their own reserve.
 impl<T: Config<I>, I: 'static> Pallet<T, I>
 where
 	T::Balance: MaybeSerializeDeserialize + Debug,
 {
+	/// [`ReservableCurrency::unreserve`], acting on at most `max_reserved_touchable(who, id)`.
 	pub(crate) fn do_unreserve(
 		who: &T::AccountId,
 		value: T::Balance,
@@ -730,6 +731,8 @@ where
 		value - actual
 	}
 
+	/// [`ReservableCurrency::slash_reserved`], acting on at most
+	/// `max_reserved_touchable(who, id)`.
 	pub(crate) fn do_slash_reserved(
 		who: &T::AccountId,
 		value: T::Balance,
@@ -764,6 +767,8 @@ where
 		}
 	}
 
+	/// [`ReservableCurrency::repatriate_reserved`], acting on at most
+	/// `max_reserved_touchable(slashed, id)`.
 	pub(crate) fn do_repatriate_reserved(
 		slashed: &T::AccountId,
 		beneficiary: &T::AccountId,

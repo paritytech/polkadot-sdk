@@ -170,7 +170,8 @@ use frame_support::{
 			Preservation::{Expendable, Preserve, Protect},
 			WithdrawConsequence,
 		},
-		Currency, Defensive, Get, OnUnbalanced, ReservableCurrency, StoredMap,
+		Currency, Defensive, Get, NamedReservableCurrency, OnUnbalanced, ReservableCurrency,
+		StoredMap,
 	},
 	BoundedSlice, WeakBoundedVec,
 };
@@ -739,6 +740,31 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(who)?;
 			let _leftover = <Self as ReservableCurrency<_>>::unreserve(&who, amount);
+			Ok(())
+		}
+
+		/// Unreserve some balance of the named reserve `id` from a user by force.
+		///
+		/// Only acts on that named reserve, and never on the part of the reserved balance that
+		/// backs a hold.
+		///
+		/// Can only be called by ROOT.
+		#[pallet::call_index(11)]
+		#[pallet::weight(
+			// `force_unreserve`, plus reading and writing the named reserves.
+			<T as Config<I>>::WeightInfo::force_unreserve()
+				.saturating_add(T::DbWeight::get().reads_writes(1, 1))
+		)]
+		pub fn force_unreserve_named(
+			origin: OriginFor<T>,
+			id: T::ReserveIdentifier,
+			who: AccountIdLookupOf<T>,
+			amount: T::Balance,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let who = T::Lookup::lookup(who)?;
+			let _leftover =
+				<Self as NamedReservableCurrency<_>>::unreserve_named(&id, &who, amount);
 			Ok(())
 		}
 
