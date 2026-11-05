@@ -263,6 +263,44 @@ fn deregister_works() {
 }
 
 #[test]
+fn check_code_upgrade_refuses_a_deregistered_para() {
+	new_test_ext().execute_with(|| {
+		const START_SESSION_INDEX: SessionIndex = 1;
+		run_to_session(START_SESSION_INDEX);
+
+		let para_id = LOWEST_PUBLIC_ID;
+		let check = || {
+			<mock::Registrar as registrar_primitives::ParachainRegistrar>::check_code_upgrade(
+				para_id.into(),
+				MIN_CODE_SIZE,
+			)
+		};
+		assert_eq!(check(), Err(()));
+
+		let validation_code = test_validation_code(32);
+		assert_ok!(mock::Registrar::reserve(RuntimeOrigin::signed(1)));
+		assert_ok!(mock::Registrar::register(
+			RuntimeOrigin::signed(1),
+			para_id,
+			test_genesis_head(32),
+			validation_code.clone(),
+		));
+		conclude_pvf_checking::<Test>(&validation_code, VALIDATORS, START_SESSION_INDEX);
+
+		run_to_session(START_SESSION_INDEX + 2);
+		assert_ok!(check());
+
+		assert_ok!(mock::Registrar::deregister(RuntimeOrigin::root(), para_id));
+		assert!(paras::Pallet::<Test>::is_offboarding(para_id));
+		assert_eq!(check(), Err(()));
+
+		run_to_session(START_SESSION_INDEX + 4);
+		assert!(paras::Pallet::<Test>::lifecycle(para_id).is_none());
+		assert_eq!(check(), Err(()));
+	});
+}
+
+#[test]
 fn deregister_handles_basic_errors() {
 	new_test_ext().execute_with(|| {
 		const START_SESSION_INDEX: SessionIndex = 1;

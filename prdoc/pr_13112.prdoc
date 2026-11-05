@@ -12,12 +12,16 @@ doc:
       and stores the authorization in `PendingCodeUpgrades`,
       replacing any earlier one for that para. Anyone can then upload the matching code with the
       new unsigned, fee-free `apply_authorized_code_upgrade`, which schedules the upgrade and
-      reports back to the parachain. Unlike registrations, the authorization expires after the new
-      `CodeUpgradeValidPeriod`, which runtimes using the pallet must set.
+      reports back to the parachain. The upload is only valid while `check_code_upgrade` still
+      passes, and deregistering the para drops its authorization. Unlike registrations, the
+      authorization expires after the new `CodeUpgradeValidPeriod`, which runtimes using the pallet
+      must set.
 
       `paras_registrar` in `polkadot-runtime-common` implements `check_code_upgrade` and
       `schedule_code_upgrade`, using the new
-      `polkadot_runtime_parachains::can_upgrade_validation_code`.
+      `polkadot_runtime_parachains::can_upgrade_validation_code`. `check_code_upgrade` refuses a
+      para that is unknown or offboarding, so an authorization stops working however the para is
+      deregistered.
 
 crates:
   - name: registrar-primitives

@@ -682,8 +682,11 @@ impl<T: Config> registrar_primitives::ParachainRegistrar for Pallet<T> {
 	}
 
 	fn check_code_upgrade(para_id: u32, code_len: u32) -> Result<(), ()> {
+		let id = ParaId::from(para_id);
 		let max = configuration::ActiveConfig::<T>::get().max_code_size as u32;
-		if !polkadot_runtime_parachains::can_upgrade_validation_code::<T>(ParaId::from(para_id)) ||
+		// `paras` would still schedule an upgrade for a para on its way out.
+		if !paras::Pallet::<T>::lifecycle(id).is_some_and(|l| !l.is_offboarding()) ||
+			!polkadot_runtime_parachains::can_upgrade_validation_code::<T>(id) ||
 			code_len > max ||
 			code_len < MIN_CODE_SIZE
 		{

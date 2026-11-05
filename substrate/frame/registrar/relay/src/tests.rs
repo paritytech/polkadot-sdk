@@ -1019,6 +1019,50 @@ mod receive_authorize_code_upgrade {
 	}
 
 	#[test]
+	fn an_upgrade_the_registry_would_refuse_stays_out_of_the_pool() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+			UpgradeCheckFails::set(true);
+
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob.clone()),
+				(
+					Err(InvalidTransaction::Custom(Registrar::err_to_code(
+						Error::<Test>::CannotUpgradeCode
+					))),
+					Err(Error::<Test>::CannotUpgradeCode.into())
+				)
+			);
+			assert!(ScheduledUpgrades::get().is_empty());
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+
+			UpgradeCheckFails::set(false);
+			assert_eq!(upgrade_and_dispatch(PARA_A, blob), (Ok(()), Ok(())));
+		});
+	}
+
+	#[test]
+	fn a_deregistration_drops_the_authorization() {
+		new_test_ext().execute_with(|| {
+			let blob = authorize(PARA_A, 300);
+
+			DeregisterFails::set(true);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			assert!(PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+
+			DeregisterFails::set(false);
+			assert_ok!(Registrar::receive(RuntimeOrigin::root(), deregister_msg(PARA_A)));
+			assert!(!PendingCodeUpgrades::<Test>::contains_key(PARA_A));
+
+			assert_eq!(
+				upgrade_and_dispatch(PARA_A, blob).1,
+				Err(Error::<Test>::NothingPending.into())
+			);
+			assert!(ScheduledUpgrades::get().is_empty());
+		});
+	}
+
+	#[test]
 	fn it_cannot_be_replayed() {
 		new_test_ext().execute_with(|| {
 			let blob = authorize(PARA_A, 300);

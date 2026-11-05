@@ -267,6 +267,8 @@ pub mod pallet {
 		CodeTooLarge,
 		/// The code upgrade authorization has lapsed.
 		AuthorizationExpired,
+		/// The registry would refuse this code upgrade right now.
+		CannotUpgradeCode,
 	}
 
 	#[pallet::call]
@@ -538,7 +540,8 @@ pub mod pallet {
 			Ok(pending)
 		}
 
-		/// Check `validation_code` against the authorized upgrade for `para_id`.
+		/// Check `validation_code` against the authorized upgrade for `para_id`, and that the
+		/// registry would still take it.
 		fn validate_pending_upgrade(
 			para_id: ParaId,
 			validation_code: &[u8],
@@ -554,6 +557,11 @@ pub mod pallet {
 				Error::<T>::AuthorizationExpired
 			);
 			ensure!(code_len == pending.code_len, Error::<T>::CodeLenMismatch);
+			// Otherwise a blocked upload passes the pool and fails, for free, in every block.
+			ensure!(
+				T::Registrar::check_code_upgrade(para_id, code_len).is_ok(),
+				Error::<T>::CannotUpgradeCode
+			);
 			ensure!(
 				BlakeTwo256::hash(validation_code) == pending.code_hash,
 				Error::<T>::CodeHashMismatch
@@ -570,6 +578,7 @@ pub mod pallet {
 				Error::<T>::CodeLenMismatch => 2,
 				Error::<T>::CodeTooLarge => 3,
 				Error::<T>::AuthorizationExpired => 4,
+				Error::<T>::CannotUpgradeCode => 5,
 			}
 		}
 
@@ -609,6 +618,8 @@ pub mod pallet {
 			}
 
 			AwaitingFirstHead::<T>::remove(para_id);
+			// Nothing prunes it, and not every registry refuses an offboarding para.
+			PendingCodeUpgrades::<T>::remove(para_id);
 			Self::report_deregistration(para_id, message_id, Ok(()));
 			Self::deposit_event(Event::Deregistered { para_id, message_id });
 		}

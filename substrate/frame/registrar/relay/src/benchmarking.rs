@@ -21,6 +21,8 @@ use super::*;
 use frame_benchmarking::v2::*;
 use frame_support::traits::Get;
 use frame_system::RawOrigin;
+// The registry refuses smaller code, and both upgrade benchmarks go through it.
+use polkadot_primitives::MIN_CODE_SIZE;
 use registrar_primitives::{MessageToRelay, MessageToRelayV1};
 use sp_runtime::traits::{BlakeTwo256, Hash, Saturating};
 
@@ -50,9 +52,9 @@ fn park<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
 	Ok(())
 }
 
-/// Authorize a code upgrade for `PARA_ID` expecting exactly `code`, written straight to storage
-/// for the same reason as [`park`].
-fn authorize<T: Config>(code: &[u8]) {
+/// Register `PARA_ID` and authorize a code upgrade for it expecting exactly `code`.
+fn authorize<T: Config>(code: &[u8]) -> Result<(), BenchmarkError> {
+	T::Registrar::setup_code_upgrade(PARA_ID)?;
 	let expire_at =
 		frame_system::Pallet::<T>::block_number().saturating_add(T::CodeUpgradeValidPeriod::get());
 	PendingCodeUpgrades::<T>::insert(
@@ -64,6 +66,7 @@ fn authorize<T: Config>(code: &[u8]) {
 			expire_at,
 		},
 	);
+	Ok(())
 }
 
 #[benchmarks]
@@ -167,10 +170,10 @@ mod benchmarks {
 	/// Uploading the new validation code. Dominated by hashing and scheduling the blob.
 	#[benchmark]
 	fn apply_authorized_code_upgrade(
-		c: Linear<0, { T::MaxCodeSize::get() }>,
+		c: Linear<{ MIN_CODE_SIZE }, { T::MaxCodeSize::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let code = code_of(c);
-		authorize::<T>(&code);
+		authorize::<T>(&code)?;
 
 		#[extrinsic_call]
 		_(RawOrigin::Authorized, PARA_ID, code);
@@ -182,10 +185,10 @@ mod benchmarks {
 	/// Deciding whether an unsigned `apply_authorized_code_upgrade` may enter the pool.
 	#[benchmark]
 	fn authorize_apply_authorized_code_upgrade(
-		c: Linear<0, { T::MaxCodeSize::get() }>,
+		c: Linear<{ MIN_CODE_SIZE }, { T::MaxCodeSize::get() }>,
 	) -> Result<(), BenchmarkError> {
 		let code = code_of(c);
-		authorize::<T>(&code);
+		authorize::<T>(&code)?;
 		let call =
 			Call::<T>::apply_authorized_code_upgrade { para_id: PARA_ID, validation_code: code };
 
