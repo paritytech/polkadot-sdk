@@ -45,7 +45,7 @@ use pallet_revive_fixtures::{
 };
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256, U256};
-use test_case::test_case;
+use test_case::{test_case, test_matrix};
 
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
@@ -430,19 +430,32 @@ fn a_value_transfer_finds_both_account_infos_hot(fixture_type: FixtureType) {
 	});
 }
 
-#[test_case(FixtureType::Solc)]
-#[test_case(FixtureType::Resolc)]
-fn a_hot_transfer_still_pays_for_creating_the_account(fixture_type: FixtureType) {
+#[test_matrix(
+	[FixtureType::Solc, FixtureType::Resolc],
+	[
+		// Half the caller's balance, in one cold transfer.
+		&[50],
+		// Twice the caller's balance, which fails, then half of it to the same receiver, now hot.
+		&[200, 50],
+	],
+	[false, true]
+)]
+fn a_transfer_pays_for_creating_the_account_only_when_it_is_missing(
+	fixture_type: FixtureType,
+	percents_of_caller_balance: &[u64],
+	dust: bool,
+) {
 	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
 	let (call_each_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
 	let caller_balance = 100_000_000_000u64;
-	let above_balance_value = caller_balance * 2;
-	let below_balance_value = caller_balance / 2;
+
+	let transfer_values: Vec<u64> = percents_of_caller_balance
+		.iter()
+		.map(|percent| caller_balance * percent / 100 + u64::from(dust))
+		.collect();
 	let receiver = H160::from([0xfe; 20]);
 
-	// Two transfers to the receiver in one transaction: the first is above the caller's balance,
-	// so it fails, and the second succeeds.
-	let retried_transfer_weight = |receiver_has_account: bool| {
+	let transfers_weight = |receiver_has_account: bool| {
 		ExtBuilder::default().build().execute_with(|| {
 			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 			let caller = builder::bare_instantiate(Code::Upload(caller_code.clone()))
@@ -473,11 +486,8 @@ fn a_hot_transfer_still_pays_for_creating_the_account(fixture_type: FixtureType)
 			let transaction_weight = builder::bare_call(call_each)
 				.data(
 					CallEach::callEachCall {
-						targets: vec![caller.0.into(); 2],
-						data: vec![
-							transfer_data(above_balance_value),
-							transfer_data(below_balance_value),
-						],
+						targets: vec![caller.0.into(); transfer_values.len()],
+						data: transfer_values.iter().map(|value| transfer_data(*value)).collect(),
 					}
 					.abi_encode(),
 				)
@@ -485,17 +495,35 @@ fn a_hot_transfer_still_pays_for_creating_the_account(fixture_type: FixtureType)
 				.weight_consumed;
 			assert_eq!(
 				crate::Pallet::<Test>::evm_balance(&receiver),
-				U256::from(below_balance_value)
+				U256::from(*transfer_values.last().unwrap())
 			);
 			transaction_weight
 		})
 	};
 
-	let to_missing_account = retried_transfer_weight(false);
-	let to_existing_account = retried_transfer_weight(true);
-	let account_creation_weight = <Test as Config>::WeightInfo::seal_call_transfer(0)
-		.saturating_sub(<Test as Config>::WeightInfo::seal_call_transfer_to_existing(0));
-	assert_eq!(to_missing_account.saturating_sub(to_existing_account), account_creation_weight);
+	let to_missing_account = transfers_weight(false);
+	let to_existing_account = transfers_weight(true);
+
+	let to_missing_account_bench = <Test as Config>::WeightInfo::seal_call_transfer(dust.into());
+	let to_existing_account_bench =
+		<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into());
+
+	// Creating the account costs more ref time, but reading an existing one adds more proof.
+	let creating_account_surcharge =
+		to_missing_account_bench.saturating_sub(to_existing_account_bench);
+	let existing_account_surcharge =
+		to_existing_account_bench.saturating_sub(to_missing_account_bench);
+
+	assert_eq!(
+		to_missing_account.saturating_sub(to_existing_account),
+		creating_account_surcharge.saturating_mul(transfer_values.len() as u64),
+		"each transfer to a missing account pays for creating it",
+	);
+	assert_eq!(
+		to_existing_account.saturating_sub(to_missing_account),
+		existing_account_surcharge,
+		"the cold transfer to an existing account pays its surcharge",
+	);
 }
 
 #[test_case(FixtureType::Solc)]

@@ -47,10 +47,11 @@ doc:
       ```
     - `StorageOp` and `Warmth` are no longer re-exported.
     - In `RuntimeCosts`, `DelegateCallBase` is removed, `CallBase` takes the warmth of the call's
-      entries as a new parameter, `CallTransferSurcharge` takes the transfer's warmth in place of
-      `dust_transfer`, and `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that
-      charged `CallBase`, `DelegateCallBase` or `CallTransferSurcharge` can no longer build these
-      variants; it should charge the cold price from `WeightInfo` instead, for example
+      entries as a new parameter, `CallTransferSurcharge` replaces `dust_transfer` with the
+      transfer's warmth and whether the callee has a `frame_system` account, and
+      `ChainedDelegationCheck` and `AccessListRegistration` are new. Code that charged `CallBase`,
+      `DelegateCallBase` or `CallTransferSurcharge` can no longer build these variants; it should
+      charge the cold price from `WeightInfo` instead, for example
       `env.charge(T::WeightInfo::seal_call(0))`, `seal_delegate_call()` for a delegate call, or
       `seal_call_transfer(dust).max(seal_call_transfer_to_existing(dust))` for a call with value.
 
@@ -83,8 +84,10 @@ doc:
     deployed contract now also pays for reading the target's account info, which tells whether
     the target is itself delegated.
 
-    A call with value to an address that has no account pays for creating the account, even when
-    the transfer's state items are hot.
+    A call with value pays for creating the callee's `frame_system` account only when that
+    account does not exist, regardless of whether the transfer's state items are cold or hot.
+    Before, every call with value paid for creating it. A call with value to a precompile still
+    always pays for creating the precompile's `frame_system` account.
 
     A contract creation now sets aside the weight to register the new contract in the access list
     before the constructor runs, so the constructor gets that much less weight. If the constructor

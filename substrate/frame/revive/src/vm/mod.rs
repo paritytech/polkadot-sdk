@@ -485,15 +485,14 @@ pub fn charge_call_transfer<E: Ext>(
 				TransferAccessKind::Tracked { warmth, callee_exists: None },
 			))?;
 		// Look the account up only after the charge has paid for reading it.
-		if ext.has_system_account(&callee) {
-			ext.frame_meter_mut().adjust_weight(
-				charged,
-				RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
-					warmth,
-					callee_exists: Some(true),
-				}),
-			);
-		}
+		let callee_exists = Some(ext.has_system_account(&callee));
+		ext.frame_meter_mut().adjust_weight(
+			charged,
+			RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
+				warmth,
+				callee_exists,
+			}),
+		);
 	}
 	Ok(())
 }

@@ -389,12 +389,17 @@ pub enum TransferAccessKind {
 }
 
 /// Computes what a cold value transfer adds to a call.
-fn cold_transfer_surcharge<T: Config>(dust: u32) -> Weight {
-	// `Weight::max` is per dimension, so ref time and proof size can each be taken from either of
-	// the two benches.
-	T::WeightInfo::seal_call_transfer(dust)
-		.max(T::WeightInfo::seal_call_transfer_to_existing(dust))
-		.saturating_sub(T::WeightInfo::seal_call(0))
+fn cold_transfer_surcharge<T: Config>(dust: u32, callee_exists: Option<bool>) -> Weight {
+	let to_missing_account = T::WeightInfo::seal_call_transfer(dust);
+	let to_existing_account = T::WeightInfo::seal_call_transfer_to_existing(dust);
+	let call_with_transfer = match callee_exists {
+		Some(true) => to_existing_account,
+		Some(false) => to_missing_account,
+		// `Weight::max` is per dimension, so ref time and proof size can each be taken from either
+		// of the two benches.
+		None => to_missing_account.max(to_existing_account),
+	};
+	call_with_transfer.saturating_sub(T::WeightInfo::seal_call(0))
 }
 
 impl<T: Config> Token<T> for RuntimeCosts {
@@ -503,13 +508,13 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
 			CallTransferSurcharge(TransferAccessKind::Untracked { dust }) => {
-				cold_transfer_surcharge::<T>(dust.into())
+				cold_transfer_surcharge::<T>(dust.into(), None)
 			},
 			CallTransferSurcharge(TransferAccessKind::Tracked { warmth, callee_exists }) => {
 				let dust = u32::from(warmth.entries().dust);
 				weight_from_warmth_summary::<T>(
 					warmth.summary(),
-					|| cold_transfer_surcharge::<T>(dust),
+					|| cold_transfer_surcharge::<T>(dust, callee_exists),
 					|| {
 						// Creating the account is priced by whether it exists, not by warmth.
 						let account_creation = match callee_exists {
@@ -1048,8 +1053,8 @@ mod tests {
 			);
 		}
 
-		let untracked = weight_of(false, None, Some(true));
-		let tracked_cold = weight_of(false, Some(Warmth::new_cold_non_revertible()), Some(true));
+		let untracked = weight_of(false, None, None);
+		let tracked_cold = weight_of(false, Some(Warmth::new_cold_non_revertible()), None);
 		assert!(
 			untracked.ref_time() < tracked_cold.ref_time(),
 			"untracked pays no access-list overhead: \
@@ -1092,11 +1097,21 @@ mod tests {
 
 		for dust in [false, true] {
 			let hot_bench = <Test as Config>::WeightInfo::seal_call_transfer_hot(dust.into());
-			let cold_bench = <Test as Config>::WeightInfo::seal_call_transfer(dust.into())
-				.max(<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into()));
-			for (case, warmth, bench) in [
-				("hot", Warmth::new_write_paid(), hot_bench),
-				("cold", Warmth::new_cold_non_revertible(), cold_bench),
+			let to_missing_account_bench =
+				<Test as Config>::WeightInfo::seal_call_transfer(dust.into());
+			let to_existing_account_bench =
+				<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into());
+			let cold = Warmth::new_cold_non_revertible();
+			for (case, warmth, callee_exists, bench) in [
+				("hot", Warmth::new_write_paid(), Some(true), hot_bench),
+				("cold, existing account", cold, Some(true), to_existing_account_bench),
+				("cold, missing account", cold, Some(false), to_missing_account_bench),
+				(
+					"cold, unknown account",
+					cold,
+					None,
+					to_missing_account_bench.max(to_existing_account_bench),
+				),
 			] {
 				let call = Summarized::from_warmths(CallItems::new(target, false), [warmth; 2]);
 				let transfer = Summarized::from_warmths(
@@ -1106,7 +1121,7 @@ mod tests {
 				let charged = weight(&RuntimeCosts::CallBase(call)).saturating_add(weight(
 					&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
 						warmth: transfer,
-						callee_exists: Some(true),
+						callee_exists,
 					}),
 				));
 
