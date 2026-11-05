@@ -2220,3 +2220,71 @@ fn get_batches_footprints_works() {
 		check_get_batches_footprints(There, &[max_message_len], 1, 0, vec![1]);
 	});
 }
+
+/// Like `build_and_execute`, but for the `mock::reentrant` runtime (whose processor
+/// re-entrantly enqueues a message while processing one).
+fn build_and_execute_reentrant(test: impl FnOnce() -> ()) {
+	new_test_ext::<mock::reentrant::RT>().execute_with(|| {
+		test();
+		crate::Pallet::<mock::reentrant::RT>::do_try_state()
+			.expect("All invariants must hold after a test");
+	});
+}
+
+#[test]
+fn regression_reentrant_enqueue_not_clobbered_by_execute_overweight() {
+	// Regression test: the message processor is allowed to call `Pallet::enqueue_message` while a
+	// message is being processed (see the module docs: the only functions a processor may call
+	// recursively are `enqueue_message`/`enqueue_messages`). When this happens inside
+	// `do_execute_overweight_inner`, the re-queued message is committed by the recursive call,
+	// but the stale pre-read `BookStateFor`/`Pages` snapshot of `do_execute_overweight_inner`
+	// would be written back afterwards and clobber the committed re-queued message (its bytes
+	// drop off the page and the book counter loses it). The guard (the same one
+	// `service_page_item` uses) stores the state before processing and re-reads it afterwards.
+	build_and_execute_reentrant(|| {
+		use mock::reentrant::*;
+		set_weight("bump_service_head", 1.into_weight());
+		set_weight("service_queue_base", 1.into_weight());
+		set_weight("service_page_base_completion", 1.into_weight());
+
+		let origin = MessageOrigin::Here;
+		// A cheap message followed by an overweight one (same page). Executing any
+		// `...requeue=` message re-entrantly enqueues `requeue` (weight 1).
+		MessageQueue::enqueue_message(msg("weight=1"), origin.clone());
+		MessageQueue::enqueue_message(msg("weight=200requeue="), origin.clone());
+		assert_eq!(Pages::<mock::reentrant::RT>::iter().count(), 1, "both messages share page 0");
+
+		// Service with a tight budget: `weight=1` is processed and the overweight message is
+		// marked as such; the frontier advances past both and the page is kept.
+		let _serviced = MessageQueue::service_queues(10.into_weight());
+		let book = BookStateFor::<mock::reentrant::RT>::get(&origin);
+		assert_eq!(book.message_count, 1, "only the overweight message remains");
+		assert!(Pages::<mock::reentrant::RT>::contains_key(&origin, 0));
+
+		// Execute the overweight message (page 0, index 1). Its processing re-entrantly
+		// enqueues `requeue`, which commits inside `process_message_payload` and is appended to
+		// the page.
+		let consumed = <MessageQueue as ServiceQueues>::execute_overweight(
+			300.into_weight(),
+			(origin, 0, 1),
+		)
+		.unwrap();
+		assert_eq!(consumed, 200.into_weight());
+
+		// The re-entrant message must still be present in the book and on its page.
+		let book = BookStateFor::<mock::reentrant::RT>::get(&origin);
+		assert_eq!(
+			book.message_count, 1,
+			"BUG: the stale book state written back by execute_overweight lost the re-entrant message"
+		);
+		assert_eq!(
+			Pages::<mock::reentrant::RT>::iter().count(),
+			1,
+			"BUG: the stale page write-back by execute_overweight removed the page holding the re-entrant message"
+		);
+		// (A message silently dropped by the stale write-back would instead leave
+		// `message_count == 0` and zero pages, so the two assertions above are the
+		// discriminator between "re-queued message clobbered" and "re-queued message
+		// correctly preserved".)
+	});
+}
