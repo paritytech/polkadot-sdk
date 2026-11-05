@@ -1612,16 +1612,21 @@ mod benchmarks {
 		let data = vec![42u8; n as _];
 		build_runtime!(runtime, instance, memory: [ topics_data, data, ]);
 
+		// Inside an ethereum transaction, the worst case: the log is also captured into the open
+		// receipt, which encodes it, accrues the bloom and writes what the transaction has
+		// committed so far to storage.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_deposit_event(
-				memory.as_mut_slice(),
-				0, // topics_ptr
-				num_topic,
-				topics_data.len() as u32, // data_ptr
-				n,                        // data_len
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_deposit_event(
+					memory.as_mut_slice(),
+					0, // topics_ptr
+					num_topic,
+					topics_data.len() as u32, // data_ptr
+					n,                        // data_len
+				)
+			});
 		}
 		assert_ok!(result);
 
@@ -2609,18 +2614,22 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(callee_bytes, deposit_bytes, value_bytes,);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
-				u64::MAX,                                     // ref_time_limit
-				u64::MAX,                                     // proof_size_limit
-				pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
-				pack_hi_lo(0, 0),                             // input len + data ptr
-				pack_hi_lo(0, SENTINEL),                      // output len + data ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(CallFlags::CLONE_INPUT.bits(), 0), // flags + callee
+					u64::MAX,                                     // ref_time_limit
+					u64::MAX,                                     // proof_size_limit
+					pack_hi_lo(callee_len, callee_len + deposit_len), // deposit_ptr + value_pr
+					pack_hi_lo(0, 0),                             // input len + data ptr
+					pack_hi_lo(0, SENTINEL),                      // output len + data ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2684,10 +2693,12 @@ mod benchmarks {
 		// so we make sure to create it
 		assert_eq!(do_benchmark().unwrap(), ReturnErrorCode::Success);
 
+		// Inside an ethereum transaction, the worst case: the pre-compile's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = do_benchmark();
+			result = block_storage::bench_with_ethereum_context(|| do_benchmark());
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2712,18 +2723,22 @@ mod benchmarks {
 		let mut runtime = pvm::Runtime::<_, [u8]>::new(&mut ext, vec![]);
 		let mut memory = memory!(address_bytes, deposit_bytes,);
 
+		// Inside an ethereum transaction, the worst case: the callee's successful exit also checks
+		// the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_delegate_call(
-				memory.as_mut_slice(),
-				pack_hi_lo(0, 0),        // flags + address ptr
-				u64::MAX,                // ref_time_limit
-				u64::MAX,                // proof_size_limit
-				address_len,             // deposit_ptr
-				pack_hi_lo(0, 0),        // input len + data ptr
-				pack_hi_lo(0, SENTINEL), // output len + ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_delegate_call(
+					memory.as_mut_slice(),
+					pack_hi_lo(0, 0),        // flags + address ptr
+					u64::MAX,                // ref_time_limit
+					u64::MAX,                // proof_size_limit
+					address_len,             // deposit_ptr
+					pack_hi_lo(0, 0),        // input len + data ptr
+					pack_hi_lo(0, SENTINEL), // output len + ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2779,18 +2794,22 @@ mod benchmarks {
 
 		assert!(AccountInfoOf::<T>::get(&addr).is_none());
 
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = runtime.bench_instantiate(
-				memory.as_mut_slice(),
-				u64::MAX,                                           // ref_time_limit
-				u64::MAX,                                           // proof_size_limit
-				pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
-				pack_hi_lo(input_len, 0),                           // input_data_len + input_data
-				pack_hi_lo(0, SENTINEL),                            // output_len_ptr + output_ptr
-				pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
-			);
+			result = block_storage::bench_with_ethereum_context(|| {
+				runtime.bench_instantiate(
+					memory.as_mut_slice(),
+					u64::MAX,                                           // ref_time_limit
+					u64::MAX,                                           // proof_size_limit
+					pack_hi_lo(offset(input_len), offset(deposit_len)), // deposit_ptr + value_ptr
+					pack_hi_lo(input_len, 0),                           // input len + input ptr
+					pack_hi_lo(0, SENTINEL),                            // output len + output ptr
+					pack_hi_lo(SENTINEL, offset(value_len)),            // address_ptr + salt_ptr
+				)
+			});
 		}
 
 		assert_eq!(result.unwrap(), ReturnErrorCode::Success);
@@ -2838,10 +2857,14 @@ mod benchmarks {
 		let _ = interpreter.stack.push(U256::zero());
 		let _ = interpreter.stack.push(value);
 
+		// Inside an ethereum transaction, the worst case: the constructor's successful exit also
+		// checks the open receipt, see `block_storage::ensure_receipt_within_limit`.
 		let result;
 		#[block]
 		{
-			result = instructions::contract::create::<true, _>(&mut interpreter);
+			result = block_storage::bench_with_ethereum_context(|| {
+				instructions::contract::create::<true, _>(&mut interpreter)
+			});
 		}
 
 		assert!(result.is_continue());
@@ -4301,7 +4324,7 @@ mod benchmarks {
 				// Store transaction
 				let _ = block_storage::bench_with_ethereum_context(|| {
 					let (encoded_logs, bloom) =
-						block_storage::get_receipt_details().unwrap_or_default();
+						block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 					let block_builder_ir = EthBlockBuilderIR::<T>::get();
 					let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -4377,7 +4400,7 @@ mod benchmarks {
 			// Store transaction
 			let _ = block_storage::bench_with_ethereum_context(|| {
 				let (encoded_logs, bloom) =
-					block_storage::get_receipt_details().unwrap_or_default();
+					block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 				let block_builder_ir = EthBlockBuilderIR::<T>::get();
 				let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -4443,8 +4466,15 @@ mod benchmarks {
 		};
 
 		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
+			// Captured inside the ethereum context, so each lands on the transaction's own receipt:
+			// the path `on_finalize_block_per_event` is charged for on every `DepositEvent`.
+			for _ in 0..e {
+				block_storage::capture_frame_log::<T>(&instance.address, &vec![], &vec![])?;
+			}
+
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
 
 			let block_builder_ir = EthBlockBuilderIR::<T>::get();
 			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
@@ -4458,12 +4488,8 @@ mod benchmarks {
 			);
 
 			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
-		// Create e events with minimal data to isolate event count overhead
-		for _ in 0..e {
-			block_storage::capture_ethereum_log(&instance.address, &vec![], &vec![]);
-		}
+			Ok(())
+		})?;
 
 		#[block]
 		{
@@ -4507,24 +4533,6 @@ mod benchmarks {
 			effective_gas_price: Pallet::<T>::evm_base_fee(),
 		};
 
-		// Store transaction
-		let _ = block_storage::bench_with_ethereum_context(|| {
-			let (encoded_logs, bloom) = block_storage::get_receipt_details().unwrap_or_default();
-
-			let block_builder_ir = EthBlockBuilderIR::<T>::get();
-			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
-
-			block_builder.process_transaction(
-				signed_transaction,
-				true,
-				receipt_gas_info,
-				encoded_logs,
-				bloom,
-			);
-
-			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
-		});
-
 		// Create one event with d bytes of data distributed across topics and data field
 		let (event_data, topics) = if d < 32 {
 			// If total data is less than 32 bytes, put all in data field
@@ -4548,7 +4556,30 @@ mod benchmarks {
 			(event_data, topics)
 		};
 
-		block_storage::capture_ethereum_log(&instance.address, &event_data, &topics);
+		// Store transaction
+		block_storage::bench_with_ethereum_context(|| -> Result<(), BenchmarkError> {
+			// Captured inside the ethereum context, so the log lands on the transaction's own
+			// receipt: the path `on_finalize_block_per_event` is charged for on every
+			// `DepositEvent`.
+			block_storage::capture_frame_log::<T>(&instance.address, &event_data, &topics)?;
+
+			let (encoded_logs, bloom) =
+				block_storage::get_receipt_details::<T>().unwrap_or_default();
+
+			let block_builder_ir = EthBlockBuilderIR::<T>::get();
+			let mut block_builder = EthereumBlockBuilder::<T>::from_ir(block_builder_ir);
+
+			block_builder.process_transaction(
+				signed_transaction,
+				true,
+				receipt_gas_info,
+				encoded_logs,
+				bloom,
+			);
+
+			EthBlockBuilderIR::<T>::put(block_builder.to_ir());
+			Ok(())
+		})?;
 
 		#[block]
 		{
