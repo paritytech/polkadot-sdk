@@ -14537,7 +14537,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.21.0"
+version = "0.21.1"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -14657,7 +14657,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "alloy-core",
  "anyhow",
@@ -14682,7 +14682,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-uapi"
-version = "0.15.5"
+version = "0.15.6"
 dependencies = [
  "alloy-core",
  "bitflags 1.3.2",

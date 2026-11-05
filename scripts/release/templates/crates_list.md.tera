@@ -3,43 +3,8 @@ The following crates were updated to the corresponding versions:
 <details>
   <summary>Changed crates: </summary>
 
-- pallet-revive-uapi@0.15.5
-- pallet-revive-fixtures@0.15.2
-- frame-support@48.1.1
-- snowbridge-beacon-primitives@0.21.2
-- pallet-asset-conversion@31.0.1
-- pallet-assets@53.0.1
-- pallet-balances@50.0.1
-- pallet-on-demand-para@0.2.1
-- pallet-oracle@28.1.0
-- pallet-psm@0.7.0
-- staging-xcm-executor@28.1.1
-- snowbridge-runtime-common@0.23.1
-- cumulus-primitives-utility@0.34.1
-- pallet-revive@0.21.0
-- pallet-asset-conversion-precompiles@0.8.0
-- pallet-assets-precompiles@0.13.0
-- pallet-vesting-precompiles@0.7.0
-- pallet-staking-async@0.15.1
-- pallet-xcm-precompiles@0.12.0
-- polkadot-runtime-parachains@29.1.0
-- rococo-runtime@38.0.1
-- westend-runtime@39.0.1
-- assets-common@0.41.0
-- asset-test-utils@43.0.0
-- penpal-runtime@0.49.0
-- snowbridge-inbound-queue-primitives@0.22.0
-- asset-hub-rococo-runtime@0.45.0
-- asset-hub-westend-runtime@0.58.0
-- bridge-hub-test-utils@0.42.0
-- emulated-integration-tests-common@42.0.0
-- snowbridge-pallet-inbound-queue-fixtures@0.41.0
-- snowbridge-pallet-inbound-queue-v2-fixtures@0.22.0
-- snowbridge-pallet-inbound-queue@0.33.0
-- snowbridge-pallet-inbound-queue-v2@0.22.0
-- bridge-hub-rococo-runtime@0.40.0
-- bridge-hub-westend-runtime@0.37.0
-- polkadot-sdk@2606.6.0
-- yet-another-parachain-runtime@0.17.0
+- pallet-revive-uapi@0.15.6
+- pallet-revive-fixtures@0.15.3
+- pallet-revive@0.21.1
 
 </details>

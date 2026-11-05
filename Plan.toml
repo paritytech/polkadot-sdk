@@ -276,8 +276,8 @@ to = "13.0.1"
 [[crate]]
 # substrate/frame/revive/uapi
 name = "pallet-revive-uapi"
-from = "0.15.1"
-to = "0.15.5"
+from = "0.15.5"
+to = "0.15.6"
 bump = "patch"
 reason = "changed"
 
@@ -510,8 +510,8 @@ reason = "changed"
 [[crate]]
 # substrate/frame/revive/fixtures
 name = "pallet-revive-fixtures"
-from = "0.15.1"
-to = "0.15.2"
+from = "0.15.2"
+to = "0.15.3"
 bump = "minor"
 reason = "changed"
 
@@ -2070,9 +2070,9 @@ reason = "changed"
 [[crate]]
 # substrate/frame/revive
 name = "pallet-revive"
-from = "0.19.1"
-to = "0.21.0"
-bump = "major"
+from = "0.21.0"
+to = "0.21.1"
+bump = "minor"
 reason = "changed"
 
 [[crate]]
