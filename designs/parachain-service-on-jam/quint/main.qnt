@@ -68,6 +68,7 @@ module main {
     lastStepWorkResults' = List(),
     lastStepAssigns' = List(),
     lastStepAssignBudget' = { flush: 0, end: 0 },
+    lastStepOutOfGas' = Never,
     lastHeadRoot' = None,
     foreignServices' = Map(),
     logPrunedBelow' = Map()
@@ -265,9 +266,18 @@ module main {
       else if (numPkgs == 1) List(wp1Wr)
       else List(wp1Wr, wp2Wr)
     nondet budget = oneOf(AssignBudgets)
+    // The invocation runs out of gas in one of eight samples, so most blocks run
+    // to the end. When it does, it is in one of the packages or in the late due
+    // assigns after them.
+    nondet outOfGasRoll = oneOf(0.to(7))
+    nondet outOfGasIndex = oneOf(0.to(2))
+    val outOfGas =
+      if (outOfGasRoll != 0 or outOfGasIndex > numPkgs) Never
+      else if (outOfGasIndex == numPkgs) InLateAssigns
+      else InPackage(outOfGasIndex)
     val blockOut = accumulateBlockBudgeted(
       svc, blockNow, jamStagingSet, solicitedSet, FixedCodeLen, packages,
-      foreignServices, budget
+      foreignServices, budget, outOfGas
     )
 
     // Fold each candidate's `(para, lookup-anchor)` into the ghost
@@ -284,6 +294,7 @@ module main {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastStepAssignBudget' = budget,
+      lastStepOutOfGas' = outOfGas,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' = newLogPrunedBelow
@@ -310,6 +321,7 @@ module main {
       lastStepWorkResults' = List(),
       lastStepAssigns' = out.assigns,
       lastStepAssignBudget' = budget,
+      lastStepOutOfGas' = Never,
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,
@@ -350,6 +362,7 @@ module main {
       lastStepAssigns' = List(),
       // Not an accumulate invocation, so no due assign is applied.
       lastStepAssignBudget' = { flush: 0, end: 0 },
+      lastStepOutOfGas' = Never,
       // Touches no head, so the commitment is empty (checked by the invariant).
       lastHeadRoot' = None,
       foreignServices' = foreignServices,

@@ -71,7 +71,9 @@ module accumulate {
     // Each candidate-bearing package's `(para, lookup-anchor)` prune record, in
     // order; the caller folds these into the ghost `logPrunedBelow`.
     logPruned: List[(ParaId, Timeslot)],
-    foreign: ForeignServices
+    foreign: ForeignServices,
+    // The head-commitment root last `yield`ed (§5.5).
+    headRoot: Option[MerkleHash]
   }
 
   /// Outcome of a whole block's Accumulate (`accumulateBlock`): the new state
@@ -87,8 +89,8 @@ module accumulate {
     logPruned: List[(ParaId, Timeslot)],
     // The block's work results, in order (for `lastStepWorkResults`).
     results: List[WorkResult],
-    // The 32-byte value this accumulate invocation returns: the head
-    // commitment (§5.5). `None` when no head changed and nothing is returned.
+    // The 32-byte value this accumulate invocation outputs: the head-commitment
+    // root last `yield`ed (§5.5). `None` when no head changed.
     headRoot: Option[MerkleHash],
     foreign: ForeignServices
   }
@@ -550,38 +552,56 @@ module accumulate {
     }
   }
 
-  /// Accumulate a block's work packages in order (§5.1). 
+  /// Accumulate a block's work packages in order (§5.1), starting from the state
+  /// and `assign` calls the due-assign flush left. The flush and every package
+  /// that reaches the steps end with a `checkpoint`; a package first `yield`s the
+  /// root over the heads changed so far (§5.5). When the invocation runs out of
+  /// gas in a package, neither that package nor any later one takes effect.
   pure def accumulateAll(
-    state: ParachainServiceState,
+    flushed: { state: ParachainServiceState, assigns: List[AssignCall] },
     solicited: Set[(ParaId, Hash, int)],
     prevDesignate: List[ValidatorKey],
     codeLen: int,
     now: Timeslot,
     packages: List[WorkResult],
-    foreign: ForeignServices
-  ): MultiPackageOutcome = {
-    packages.foldl(
-      {
-        state: state,
-        solicited: solicited,
-        jamDesignate: prevDesignate,
-        jamAssigns: List(),
-        logPruned: List(),
-        foreign: foreign
-      },
-      (acc, p) => {
-        val out = accumulateOnePackage(
-          acc.state, p, acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign
-        )
-        {
-          state: out.state,
-          solicited: out.solicited,
-          jamDesignate: out.jamDesignate,
-          jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
-          logPruned: acc.logPruned.appendOption(out.logPruned),
-          foreign: out.foreign
+    foreign: ForeignServices,
+    outOfGas: OutOfGas
+  ): { current: MultiPackageOutcome, checkpoint: MultiPackageOutcome, ranOut: bool } = {
+    val initial: MultiPackageOutcome = {
+      state: flushed.state,
+      solicited: solicited,
+      jamDesignate: prevDesignate,
+      jamAssigns: flushed.assigns,
+      logPruned: List(),
+      foreign: foreign,
+      headRoot: None
+    }
+    range(0, packages.length()).foldl(
+      { current: initial, checkpoint: initial, ranOut: false },
+      (soFar, i) =>
+        if (soFar.ranOut or outOfGas == InPackage(i)) { ...soFar, ranOut: true }
+        else {
+          val acc = soFar.current
+          val out = accumulateOnePackage(
+            acc.state, packages[i], acc.solicited, acc.jamDesignate, codeLen, now, acc.foreign
+          )
+          val after = {
+            state: out.state,
+            solicited: out.solicited,
+            jamDesignate: out.jamDesignate,
+            jamAssigns: acc.jamAssigns.concat(out.jamAssigns),
+            logPruned: acc.logPruned.appendOption(out.logPruned),
+            foreign: out.foreign,
+            headRoot: acc.headRoot
+          }
+          match packages[i].result {
+            // Never reaches the steps, so it neither yields nor checkpoints.
+            | WorkErr => { ...soFar, current: after }
+            | WorkOk(_) =>
+              val done = { ...after, headRoot: headCommitment(flushed.state, out.state) }
+              { current: done, checkpoint: done, ranOut: false }
+          }
         }
-      }
     )
   }
 
@@ -774,7 +794,8 @@ module accumulate {
   /// (flush due authorizer queues), then accumulate the block's work packages.
   /// `budget.flush` due assigns fit into the always-accumulate allowance; any due
   /// ones left over are fired after the work packages while `budget.end` lasts,
-  /// and otherwise carried over to the next block.
+  /// and otherwise carried over to the next block. `outOfGas` is where the
+  /// invocation runs out of gas, which restores the last `checkpoint` (§5.1).
   pure def accumulateBlockBudgeted(
     state: ParachainServiceState,
     now: Timeslot,
@@ -783,21 +804,29 @@ module accumulate {
     codeLen: int,
     packages: List[WorkResult],
     foreign: ForeignServices,
-    budget: AssignBudget
+    budget: AssignBudget,
+    outOfGas: OutOfGas
   ): BlockOutcome = {
     val flushed = flushDueAssigns(state, now, budget.flush)
-    val acc =
-      accumulateAll(flushed.state, solicited, List(), codeLen, now, packages, foreign)
-    val late = flushDueAssigns(acc.state, now, budget.end)
+    val pkgs =
+      accumulateAll(flushed, solicited, List(), codeLen, now, packages, foreign, outOfGas)
+    val late = flushDueAssigns(pkgs.current.state, now, budget.end)
+    val out =
+      if (pkgs.ranOut or outOfGas == InLateAssigns) pkgs.checkpoint
+      else {
+        ...pkgs.current,
+        state: late.state,
+        jamAssigns: pkgs.current.jamAssigns.concat(late.assigns)
+      }
     {
-      state: late.state,
-      staging: if (acc.jamDesignate == List()) staging else acc.jamDesignate,
-      solicited: acc.solicited,
-      assigns: flushed.assigns.concat(acc.jamAssigns).concat(late.assigns),
-      logPruned: acc.logPruned,
+      state: out.state,
+      staging: if (out.jamDesignate == List()) staging else out.jamDesignate,
+      solicited: out.solicited,
+      assigns: out.jamAssigns,
+      logPruned: out.logPruned,
       results: packages,
-      headRoot: headCommitment(state, late.state),
-      foreign: acc.foreign
+      headRoot: out.headRoot,
+      foreign: out.foreign
     }
   }
 
@@ -812,6 +841,6 @@ module accumulate {
     foreign: ForeignServices
   ): BlockOutcome =
     accumulateBlockBudgeted(
-      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget
+      state, now, staging, solicited, codeLen, packages, foreign, FullAssignBudget, Never
     )
 }

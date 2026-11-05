@@ -173,6 +173,14 @@ module invariants {
   val parachain_log_only_for_live: bool =
     svc.parachainLog.keys().forall(para_id => svc.isLive(para_id))
 
+  /// The last step's work results whose effects it kept: those before the
+  /// package during which it ran out of gas (§5.1).
+  val lastStepKeptWorkResults =
+    match lastStepOutOfGas {
+      | InPackage(i) => lastStepWorkResults.slice(0, i)
+      | _ => lastStepWorkResults
+    }
+
   /// Every `headData` change between `prevSvc` and `svc` must be backed
   /// by an `Ok` work result that claims that new head, either directly
   /// (the Ok's own `headData` for its `paraId`) or indirectly via a
@@ -185,7 +193,7 @@ module invariants {
       // would crash on a `ParachainCleanUp`-removed para.
       if (not(svc.parachains.keys().contains(p))) true
       else if (svc.paraInfo(p).headData == prevSvc.paraInfo(p).headData) true
-      else lastStepWorkResults.foldl(false, (acc, r) => match r.result {
+      else lastStepKeptWorkResults.foldl(false, (acc, r) => match r.result {
         | WorkErr => acc
         | WorkOk(digest) =>
           match digest {
@@ -217,7 +225,7 @@ module invariants {
   val parent_head_continuity: bool = {
     val initialHeads = prevSvc.parachains.keys().mapBy(p => prevSvc.paraInfo(p).headData)
     val replayedHeads =
-      lastStepWorkResults.foldl(initialHeads, (heads, r) => match r.result {
+      lastStepKeptWorkResults.foldl(initialHeads, (heads, r) => match r.result {
         | WorkErr => heads
         | WorkOk(digest) => match digest {
           | Err(_) => heads

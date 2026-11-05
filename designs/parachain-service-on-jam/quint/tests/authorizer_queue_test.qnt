@@ -448,7 +448,10 @@ module authorizer_queue_test {
 
   /// §5.1: due assigns beyond the always-accumulate allowance stay cached. The
   /// earliest due fire first, more fire after the work packages if gas is left,
-  /// and the rest are carried over to the next block.
+  /// and the rest are carried over to the next block. The flush ends with a
+  /// `checkpoint`, so running out of gas later, in a work package or in the late
+  /// flush, keeps the assigns it fired and carries over those the late flush
+  /// would have fired.
   run dueAssignsBeyondBudgetCarriedOverTest = {
     val one = List({ authBytes: 1 })
     val armed = {
@@ -464,13 +467,21 @@ module authorizer_queue_test {
     pure def call(c: CoreIndex): AssignCall =
       { core: c, assigner: ParachainServiceId, queue: repeatList(one, AuthorizerQueueLength) }
     val first = accumulateBlockBudgeted(
-      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 }
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 }, Never
     )
     val second = accumulateBlockBudgeted(
-      first.state, 11, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 0 }
+      first.state, 11, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 0 }, Never
     )
     val everything = accumulateBlockBudgeted(
-      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), FullAssignBudget
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), FullAssignBudget, Never
+    )
+    val outOfGasLate = accumulateBlockBudgeted(
+      armed, 10, List(), Set(), FixedCodeLen, List(), Map(), { flush: 1, end: 2 }, InLateAssigns
+    )
+    val outOfGasInPackage = accumulateBlockBudgeted(
+      armed, 10, List(), Set(), FixedCodeLen,
+      List({ result: refineWithMsgs(armed, CoretimeParaId, List()), authTrace: 0 }),
+      Map(), { flush: 1, end: 2 }, InPackage(0)
     )
     all {
       // A budget covering every due assign still fires them in order.
@@ -480,6 +491,11 @@ module authorizer_queue_test {
       assert(first.state.pendingAssignCores == Map(5 -> 8)),
       assert(second.assigns == List(call(5))),
       assert(second.state.pendingAssignCores == Map()),
+      assert(outOfGasLate.assigns == List(call(4))),
+      assert(outOfGasLate.state.pendingAssignCores == Map(3 -> 5, 5 -> 8, 6 -> 5)),
+      assert(outOfGasInPackage.assigns == List(call(4))),
+      assert(outOfGasInPackage.state.pendingAssignCores == Map(3 -> 5, 5 -> 8, 6 -> 5)),
+      assert(outOfGasInPackage.state.paraInfo(CoretimeParaId).headData == 0),
       init
     }
   }

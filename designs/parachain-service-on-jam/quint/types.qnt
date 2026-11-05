@@ -107,6 +107,14 @@ module types {
   /// `end` what fits into the gas left once the work packages are done.
   type AssignBudget = { flush: int, end: int }
 
+  /// Where an accumulate invocation runs out of gas (§5.1): while processing the
+  /// work package at the given index, while applying the due assigns after the
+  /// packages, or not at all.
+  type OutOfGas =
+    | Never
+    | InPackage(int)
+    | InLateAssigns
+
   /// An always-accumulate allowance that pays for every due assign.
   pure val FullAssignBudget: AssignBudget = { flush: CoreCount, end: 0 }
   /// Valid `stagingset` lengths (gray paper Safrole, eq. valcount): a multiple

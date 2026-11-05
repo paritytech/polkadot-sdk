@@ -84,6 +84,7 @@ module support {
       lastStepWorkResults' = blockOut.results,
       lastStepAssigns' = blockOut.assigns,
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = blockOut.headRoot,
       foreignServices' = blockOut.foreign,
       logPrunedBelow' =
@@ -108,6 +109,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -123,6 +125,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -138,6 +141,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = fs,
     logPrunedBelow' = logPrunedBelow
@@ -154,6 +158,7 @@ module support {
     lastStepWorkResults' = lastStepWorkResults,
     lastStepAssigns' = lastStepAssigns,
     lastStepAssignBudget' = lastStepAssignBudget,
+    lastStepOutOfGas' = lastStepOutOfGas,
     lastHeadRoot' = lastHeadRoot,
     foreignServices' = foreignServices,
     logPrunedBelow' = logPrunedBelow
@@ -227,6 +232,7 @@ module support {
       lastStepWorkResults' = List(wr),
       lastStepAssigns' = afterAlwaysAccumulate.assigns.concat(out.jamAssigns),
       lastStepAssignBudget' = FullAssignBudget,
+      lastStepOutOfGas' = Never,
       lastHeadRoot' = headCommitment(svc, out.state),
       foreignServices' = out.foreign,
       logPrunedBelow' = logPrunedBelow

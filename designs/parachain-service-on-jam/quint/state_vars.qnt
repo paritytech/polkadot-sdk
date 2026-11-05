@@ -51,6 +51,10 @@ module state_vars {
   /// protocol.
   var lastStepAssignBudget: AssignBudget
 
+  /// Ghost state: where the last step's accumulate invocation ran out of gas.
+  /// Records the nondet choice for the Rust harness. Not part of the protocol.
+  var lastStepOutOfGas: OutOfGas
+
   /// The 32-byte value `accumulate` returned for the last step: the head
   /// commitment of §5.5, or `None` when no head changed. Not ghost state: it
   /// is the service's actual accumulate output, but only the most recent one
