@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793819688193,
+  "lastUpdate": 1793882401489,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "request_response_protocol": [
@@ -141803,6 +141803,114 @@ window.BENCHMARK_DATA = {
             "name": "request_response_protocol/litep2p/serially/16MB",
             "value": 2630035579,
             "range": "± 22262485",
+            "unit": "ns/iter"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ef000ff2bb06d9ec9cc188c8741dad798c56fbd4",
+          "message": "ci: fix review-trigger (#13732)\n\nshould fix a bug when gh shows wrong user association, e.g.\nhttps://github.com/paritytech/polkadot-sdk/pull/13705\n\ncc @playX18",
+          "timestamp": "2026-11-05T10:19:47Z",
+          "tree_id": "e3d67c44f61549b8ded21102fbfeeafba29e0f30",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef000ff2bb06d9ec9cc188c8741dad798c56fbd4"
+        },
+        "date": 1793882366389,
+        "tool": "cargo",
+        "benches": [
+          {
+            "name": "request_response_protocol/libp2p/serially/64B",
+            "value": 21852558,
+            "range": "± 665218",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/512B",
+            "value": 21325414,
+            "range": "± 770391",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/4KB",
+            "value": 23172698,
+            "range": "± 526671",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/64KB",
+            "value": 27335465,
+            "range": "± 529008",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/256KB",
+            "value": 63045375,
+            "range": "± 1780733",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/2MB",
+            "value": 386688029,
+            "range": "± 7684292",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/libp2p/serially/16MB",
+            "value": 2731405068,
+            "range": "± 278275030",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64B",
+            "value": 18053257,
+            "range": "± 414864",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/512B",
+            "value": 18300263,
+            "range": "± 457042",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/4KB",
+            "value": 20182633,
+            "range": "± 819751",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/64KB",
+            "value": 24754290,
+            "range": "± 829484",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/256KB",
+            "value": 65999633,
+            "range": "± 2453957",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/2MB",
+            "value": 399122343,
+            "range": "± 10067414",
+            "unit": "ns/iter"
+          },
+          {
+            "name": "request_response_protocol/litep2p/serially/16MB",
+            "value": 2869893298,
+            "range": "± 43135876",
             "unit": "ns/iter"
           }
         ]
