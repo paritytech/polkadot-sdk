@@ -22,6 +22,8 @@ use zombienet_sdk::{
 
 use crate::utils::{assert_candidates_version, assert_validator_backed_candidates};
 
+const RELAY_LOG_ARGS: &str = "-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug";
+
 /// Test that spawns a relay chain with 2 parachains:
 /// - a V2 parachain with async backing
 /// - a V3 parachain with async backing
@@ -63,7 +65,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
+				.with_default_args(vec![RELAY_LOG_ARGS.into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -75,10 +77,21 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 						}
 					}
 				}))
-				.with_validator(|node| node.with_name("validator-0"));
+				// Legacy collator protocol validators.
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				});
 
 			let r = (1..3).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			});
 
 			// Experimental collator protocol validators.
@@ -208,7 +221,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
+				.with_default_args(vec![RELAY_LOG_ARGS.into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -221,10 +234,21 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 						}
 					}
 				}))
-				.with_validator(|node| node.with_name("validator-0"));
+				// Legacy collator protocol validators.
+				.with_validator(|node| {
+					node.with_name("validator-0").with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				});
 
 			let r = (1..3).fold(r, |acc, i| {
-				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+				acc.with_validator(|node| {
+					node.with_name(&format!("validator-{i}")).with_args(vec![
+						RELAY_LOG_ARGS.into(),
+						("--experimental-collator-protocol=false").into(),
+					])
+				})
 			});
 
 			// Experimental collator protocol validators.
