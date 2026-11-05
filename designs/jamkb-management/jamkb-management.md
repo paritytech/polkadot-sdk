@@ -1143,9 +1143,10 @@ bytes is missing.
 ## 7. Open Issues
 
 1. **Launch distribution.** At launch the existing parachains receive the JAMKB
-   they need, system chains as a grant. The distribution contract comes later.
-   How a grant to non-system chains relates to the referendum, which allows
-   only selling JAMKB for DOT, is open.
+   they need; the distribution contract comes later. Referendum 1926 allows
+   only selling JAMKB for DOT at market price, with no exception for system
+   chains, so a grant to any parachain, system chains included, conflicts with
+   it. How the launch allocation is paid for is open.
 2. **Storage footprint cleanup.** The pallet does not know the value length of
    a deleted key, so it cannot reclaim what a cleanup page freed. The freeing
    and the reclaim must also be atomic: with several leases on one target,
