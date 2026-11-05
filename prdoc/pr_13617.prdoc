@@ -1,0 +1,87 @@
+title: '[pallet-revive] Bound per-transaction receipt size'
+doc:
+- audience: Runtime User
+  description: |-
+    The receipt of an Ethereum transaction now holds only the logs of frames that took effect.
+    Before, a log stayed in the receipt even when the frame that emitted it reverted, when a
+    `utility::batch_all` around the call rolled back, or when the transaction failed while its fee
+    was settled. The `ContractEmitted` events of those logs were already rolled back, so the
+    receipts served by the ETH RPC did not change, but the block's `logsBloom`, `receiptsRoot`
+    and hash committed to the extra logs. They now match the receipts. Tools that check receipts
+    against `receiptsRoot` or filter blocks by `logsBloom` see consistent data from this release
+    on; blocks produced before it are not rewritten.
+
+    The logs of one Ethereum transaction may now take up at most 2,097,152 bytes (2 MiB) of its
+    receipt, counted over the RLP encoding of every log it keeps: address, topics and data, each
+    with its RLP headers. The limit counts the logs of every contract the transaction calls and
+    applies to `eth_transact`, `eth_substrate_call` and their dry runs, so gas estimation reports
+    the same outcome as inclusion. Calls that do not run as an Ethereum transaction, such as
+    `Revive::call`, have no receipt and are not affected.
+
+    A log that would take the receipt past the limit fails the call frame that emitted it with
+    the new `ReceiptTooLarge` error, like an oversized event does. This covers a `LOG`
+    instruction, the `deposit_event` syscall and a log emitted by a precompile, including the
+    `Transfer` and `Approval` logs of the pallet-assets ERC-20 precompile. The frame's state
+    changes and logs roll back and the calling contract can handle the failure. This applies to
+    contracts deployed before the change as well. An Ethereum transaction at the EIP-7825 cap of
+    2^24 gas can log at most about 2.09 MB, so only transactions that this chain allowed past
+    what Ethereum allows are affected; split such work over several transactions.
+
+    The RLP encoded payload of an `eth_transact` may now be at most 1,245,184 bytes: 1 MiB of
+    code, 128 KiB of call data and 64 KiB for the rest of the transaction. A larger payload is
+    rejected with `InvalidTransaction::ExhaustsResources` when the transaction is checked, and a
+    dry run of it fails with the same error. This also applies to an `eth_transact` to
+    `RUNTIME_PALLETS_ADDR`, whose call data is a SCALE encoded runtime call; submit a larger
+    runtime call as a native extrinsic. Dev chains with `DebugEnabled` and
+    `allow_unlimited_contract_size` can no longer submit EVM init code that takes the payload past
+    the limit.
+- audience: Runtime Dev
+  description: |-
+    No storage migration and no configuration change is needed. The new `ReceiptLogsCommitted`
+    storage value is only written while an Ethereum transaction or its dry run runs and is empty
+    between transactions.
+
+    `Error` has the new variant `ReceiptTooLarge` (index `0x45`). Index `0x44` is left unused so
+    that the indexes match later releases. Code that matches on the error exhaustively needs an arm
+    for it.
+
+    `PrecompileExt::deposit_event` (`precompiles::Ext` for precompile authors) now returns
+    `Result<(), DispatchError>`. It fails with `ReceiptTooLarge` when the log does not fit the
+    open receipt, and deposits nothing in that case. The trait is sealed, so no implementation
+    changes, but a custom precompile that emits logs through it should propagate the result so
+    that the precompile call fails with the error:
+
+    ```rust
+    // before
+    env.deposit_event(topics, data);
+    // after
+    env.deposit_event(topics, data)?;
+    ```
+
+    Ignoring the result compiles with an unused `Result` warning and does not keep the log: the
+    precompile's frame then fails with `ReceiptTooLarge` when it returns.
+
+    The weights shipped with pallet-revive are not regenerated for this release. These benchmarks
+    now measure more work: `seal_deposit_event` runs with an Ethereum receipt open, so it includes
+    adding the log to the receipt; `on_finalize_per_event` and `on_finalize_per_event_data` put
+    their logs into the transaction's receipt; `seal_call`, `seal_call_precompile`,
+    `seal_delegate_call`, `seal_instantiate` and `evm_instantiate` include the receipt check when a
+    frame returns. Runtimes that use their own `pallet_revive` weights should re-run the
+    `pallet_revive` benchmarks. The new storage accesses are to whitelisted storage and add no
+    database reads or writes.
+
+    `integrity_test` now sizes the Ethereum block builder from the transaction payload and
+    receipt limits instead of from the block weight.
+
+    `pallet-revive-fixtures` gains the `Emitter`, `LogVolume` and `LogVolumeConstructor`
+    fixtures. The existing fixtures are unchanged.
+crates:
+- name: pallet-revive
+  bump: major
+  validate: false
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive-uapi
+  bump: none
+- name: pallet-assets-precompiles
+  bump: patch
