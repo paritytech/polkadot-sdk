@@ -149,7 +149,7 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Take a message from the relay chain for HRMP deposits.
+		/// Receive a message from the relay chain.
 		///
 		/// The origin must be root.
 		// The index must equal `RECEIVE_CALL_INDEX`.
