@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! Inherent data provider carrying the pooled reports into a block.
 
-use crate::pool::ReportPool;
+use crate::{pool::ReportPool, LOG_TARGET};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_price_oracle::{
@@ -27,8 +27,6 @@ use sp_runtime::{
 	traits::{Block as BlockT, Header, SaturatedConversion},
 	RuntimeAppPublic,
 };
-
-const LOG_TARGET: &str = "price-oracle";
 
 /// Constructor of the price oracle inherent data provider.
 pub struct PriceOracleInherentDataProvider;
@@ -57,7 +55,11 @@ impl PriceOracleInherentDataProvider {
 	{
 		let reports =
 			Self::select::<Block, Client, Id, Signature>(client, pool, parent).unwrap_or_default();
-		log::debug!(target: LOG_TARGET, "Providing {} reports for the block on {parent:?}", reports.len());
+		log::debug!(
+			target: LOG_TARGET,
+			"Providing {} reports for the block on {parent:?}",
+			reports.len(),
+		);
 		InherentDataProvider::new(reports)
 	}
 
@@ -76,11 +78,17 @@ impl PriceOracleInherentDataProvider {
 		let header = match client.header(parent) {
 			Ok(Some(header)) => header,
 			Ok(None) => {
-				log::debug!(target: LOG_TARGET, "Header of {parent:?} not found, providing no reports");
+				log::debug!(
+					target: LOG_TARGET,
+					"Header of {parent:?} not found, providing no reports",
+				);
 				return None;
 			},
 			Err(e) => {
-				log::debug!(target: LOG_TARGET, "Header of {parent:?} unavailable ({e}), providing no reports");
+				log::debug!(
+					target: LOG_TARGET,
+					"Header of {parent:?} unavailable ({e}), providing no reports",
+				);
 				return None;
 			},
 		};
@@ -90,7 +98,10 @@ impl PriceOracleInherentDataProvider {
 		let (window, on_chain) = match (api.settings(parent), api.latest_anchors(parent)) {
 			(Ok(settings), Ok(on_chain)) => (settings.report_window, on_chain),
 			(Err(e), _) | (_, Err(e)) => {
-				log::debug!(target: LOG_TARGET, "Price oracle API unavailable at {parent:?} ({e}), providing no reports");
+				log::debug!(
+					target: LOG_TARGET,
+					"Price oracle API unavailable at {parent:?} ({e}), providing no reports",
+				);
 				return None;
 			},
 		};

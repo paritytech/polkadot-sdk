@@ -22,7 +22,7 @@
 use crate::{
 	fetcher::{Fetcher, MarketResponses},
 	pool::ReportPool,
-	signer,
+	signer, LOG_TARGET,
 };
 use codec::{Decode, DecodeAll, Encode};
 use futures::{channel::mpsc, StreamExt};
@@ -32,7 +32,8 @@ use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::{
-	market::Market, runtime_api::PriceOracleApi, Anchor, PriceReport, Settings, SignedPriceReport,
+	market::Market, runtime_api::PriceOracleApi, Anchor, PairAggregate, PriceReport, Quote,
+	Settings, SignedPriceReport,
 };
 use sp_runtime::{
 	traits::{Block as BlockT, SaturatedConversion},
@@ -44,7 +45,6 @@ use std::{
 };
 use tokio::time::Instant;
 
-const LOG_TARGET: &str = "price-oracle";
 /// Lower bound on the tick interval. A shorter interval configured in the runtime is raised to
 /// this value.
 pub const MIN_TICK_INTERVAL: Duration = Duration::from_secs(1);
@@ -119,6 +119,11 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 		Some(Self { best_hash, anchor, settings, signer, markets })
 	}
 
+	/// Whether the keystore holds one of the accepted signer keys.
+	pub fn has_signer(&self) -> bool {
+		self.signer.is_some()
+	}
+
 	/// The tick interval in force, raised to [`MIN_TICK_INTERVAL`] if shorter.
 	pub fn interval(&self) -> Duration {
 		Duration::from_millis(self.settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL)
@@ -189,16 +194,15 @@ where
 {
 	let interval = setup.interval();
 	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
-	let Some(signer) = signer else {
-		log::debug!(target: LOG_TARGET, "No signer key in the keystore, not reporting");
-		return None;
-	};
+	// The missing signer is warned about in `run`.
+	let signer = signer?;
 	if markets.is_empty() {
 		log::debug!(target: LOG_TARGET, "No markets registered, not reporting");
 		return None;
 	}
 
-	let deadline = Instant::now() + interval.saturating_sub(TICK_MARGIN);
+	let started = Instant::now();
+	let deadline = started + interval.saturating_sub(TICK_MARGIN);
 	let (tx, mut rx) = mpsc::unbounded();
 	let fetch = fetcher.fetch_markets(&markets, deadline, tx);
 	let parse = async {
@@ -206,43 +210,55 @@ where
 		while let Some(MarketResponses { market, responses }) = rx.next().await {
 			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
 				Ok(Ok(price)) => prices.push((market, price)),
-				Ok(Err(e)) => log::debug!(
+				Ok(Err(e)) => log::warn!(
 					target: LOG_TARGET,
 					"Market {market:?} not priced: {}",
 					String::from_utf8_lossy(&e.0),
 				),
-				Err(e) => log::warn!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
+				Err(e) => log::error!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
 			}
 		}
 		prices
 	};
 	let (failures, prices) = futures::join!(fetch, parse);
 	for (market, failure) in failures {
-		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure:?}");
-	}
-	log::debug!(target: LOG_TARGET, "Priced {} of {} markets", prices.len(), markets.len());
-	if prices.is_empty() {
-		return None;
+		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure}");
 	}
 
-	let quotes = match client.runtime_api().aggregate(best_hash, prices) {
-		Ok(quotes) => quotes,
+	let priced = prices.len();
+	let aggregates = match client.runtime_api().aggregate(best_hash, prices) {
+		Ok(aggregates) => aggregates,
 		Err(e) => {
-			log::warn!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
+			log::error!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
 			return None;
 		},
 	};
+	let quotes: Vec<Quote> = aggregates
+		.into_iter()
+		.filter_map(|PairAggregate { pair, votes, quorum, price }| {
+			if votes < quorum {
+				log::warn!(target: LOG_TARGET, "{pair:?} below quorum: {votes} of {quorum} votes");
+			} else if votes == quorum {
+				// One failing market away from being unpriced.
+				log::debug!(target: LOG_TARGET, "{pair:?} at quorum: {votes} of {quorum} votes");
+			}
+			Some(Quote { pair, price: price? })
+		})
+		.collect();
 	if quotes.is_empty() {
 		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
 		return None;
 	}
+	log::debug!(target: LOG_TARGET, "Aggregated quotes: {quotes:?}");
 
 	let report = PriceReport { anchor, quotes };
 	let signed = signer::sign_report(&keystore, signer, report)?;
 	log::info!(
 		target: LOG_TARGET,
-		"Reporting {} pair prices at anchor {anchor:?}",
+		"Reporting {} pair prices from {priced} of {} markets at anchor {anchor:?}, tick took {:?}",
 		signed.report.quotes.len(),
+		markets.len(),
+		started.elapsed(),
 	);
 	let encoded = signed.encode();
 	pool.insert(signed);

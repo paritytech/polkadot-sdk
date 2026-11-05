@@ -121,9 +121,9 @@ async fn venues_are_fetched_and_priced() {
 
 	let n = prices.len();
 	let m = stored.len();
-	let quotes = pricing::aggregate(prices, &[PAIR], |_| Vec::new(), |_| 1);
-	match quotes.first() {
-		Some(q) => println!("{n}/{m} priced  {price}", price = q.price),
+	let aggregates = pricing::aggregate(prices, &[PAIR], |_| Vec::new(), |_| 1);
+	match aggregates.first().and_then(|a| a.price) {
+		Some(price) => println!("{n}/{m} priced  {price}"),
 		None => println!("{n}/{m} priced"),
 	}
 	missing.iter().for_each(|(name, reason)| println!("  {name}: {reason}"));

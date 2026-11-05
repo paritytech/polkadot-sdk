@@ -18,6 +18,7 @@
 
 //! Delivery of price reports to the coming block authors.
 
+use crate::LOG_TARGET;
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
 	service::traits::{NetworkService, NotificationService},
@@ -26,7 +27,6 @@ use sc_network::{
 use sp_runtime::traits::Block as BlockT;
 use std::{collections::HashSet, future::Future, sync::Arc};
 
-const LOG_TARGET: &str = "price-oracle";
 /// Suffix of the protocol name, after the genesis hash and the optional fork id.
 const PROTOCOL_SUFFIX: &str = "/price-oracle/1";
 /// Largest message accepted, in bytes.

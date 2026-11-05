@@ -48,7 +48,7 @@ use std::sync::Arc;
 use tick::{benefit::GOOD_REPORT, run_tick, TickSetup, MIN_TICK_INTERVAL};
 use tokio::time::MissedTickBehavior;
 
-const LOG_TARGET: &str = "price-oracle";
+pub(crate) const LOG_TARGET: &str = "price-oracle";
 
 /// Parameters of [`run`].
 pub struct Params<Client, SyncService, Recipients, Id, Signature> {
@@ -115,7 +115,10 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 	let fetcher = match Fetcher::new() {
 		Ok(fetcher) => fetcher,
 		Err(e) => {
-			log::error!(target: LOG_TARGET, "Cannot create the HTTPS client, price oracle disabled: {e}");
+			log::error!(
+				target: LOG_TARGET,
+				"Cannot create the HTTPS client, price oracle disabled: {e}",
+			);
 			return;
 		},
 	};
@@ -129,6 +132,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 	let mut tick = futures::future::Fuse::terminated();
 	let mut api_missing_logged = false;
+	let mut no_signer_logged = false;
 
 	log::info!(target: LOG_TARGET, "Price oracle service started on {protocol_name}");
 	loop {
@@ -152,6 +156,16 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 				else {
 					continue;
 				};
+				// Warn only once until a signer key is found.
+				if setup.has_signer() {
+					no_signer_logged = false;
+				} else if !no_signer_logged {
+					log::warn!(
+						target: LOG_TARGET,
+						"No accepted signer key in the keystore, not reporting",
+					);
+					no_signer_logged = true;
+				}
 				// Drop pooled reports that fell out of the report window.
 				pool.prune(setup.oldest());
 				// Keep a substream open to the recipients of this tick.

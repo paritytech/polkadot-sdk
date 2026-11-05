@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! HTTPS client for the queries of the markets.
 
+use crate::LOG_TARGET;
 use bytes::Bytes;
 use futures::{channel::mpsc, future::try_join_all, stream::FuturesUnordered, StreamExt};
 use http_body_util::{BodyExt, Full};
@@ -103,6 +104,15 @@ pub enum MarketFailure {
 	Query(QueryTag, FetchError),
 	/// Not every query of the market answered before the tick deadline.
 	Deadline,
+}
+
+impl std::fmt::Display for MarketFailure {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Query(tag, e) => write!(f, "query {}: {e}", tag.0),
+			Self::Deadline => write!(f, "tick deadline reached"),
+		}
+	}
 }
 
 impl Fetcher {
@@ -227,7 +237,7 @@ impl Fetcher {
 			Method::Get => hyper::Method::GET,
 			Method::Post => hyper::Method::POST,
 		};
-		let mut builder = hyper::Request::builder().method(method).uri(uri);
+		let mut builder = hyper::Request::builder().method(method).uri(uri.clone());
 		for header in &request.headers {
 			builder = builder.header(header.name.as_slice(), header.value.as_slice());
 		}
@@ -238,18 +248,29 @@ impl Fetcher {
 		let timeout = Duration::from_millis(request.timeout_ms.min(MAX_TIMEOUT_MS).into());
 		let max_bytes = request.max_response_bytes.min(MAX_RESPONSE_BYTES) as usize;
 
+		let started = Instant::now();
 		let response = async {
 			let response = self
 				.client
 				.request(http_request)
 				.await
-				.map_err(|e| FetchError::Transport(e.to_string()))?;
+				.map_err(|e| FetchError::Transport(format!("{e:?}")))?;
 			if !response.status().is_success() {
 				return Err(FetchError::Status(response.status().as_u16()));
 			}
 			read_body(response, max_bytes).await
 		};
-		tokio::time::timeout(timeout, response).await.map_err(|_| FetchError::Timeout)?
+		let result = tokio::time::timeout(timeout, response)
+			.await
+			.unwrap_or(Err(FetchError::Timeout));
+		if let Err(e) = &result {
+			log::debug!(
+				target: LOG_TARGET,
+				"Request to {uri} failed after {:?}: {e}",
+				started.elapsed(),
+			);
+		}
+		result
 	}
 }
 
@@ -272,7 +293,7 @@ async fn read_body(response: Response<Incoming>, max_bytes: usize) -> Result<Vec
 	let mut body = response.into_body();
 	let mut bytes = Vec::new();
 	while let Some(frame) = body.frame().await {
-		let frame = frame.map_err(|e| FetchError::Transport(e.to_string()))?;
+		let frame = frame.map_err(|e| FetchError::Transport(format!("{e:?}")))?;
 		if let Some(data) = frame.data_ref() {
 			if bytes.len() + data.len() > max_bytes {
 				return Err(FetchError::TooLarge);

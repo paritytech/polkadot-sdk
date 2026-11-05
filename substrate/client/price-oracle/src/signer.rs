@@ -18,13 +18,12 @@
 
 //! The local signer key and signing of reports.
 
+use crate::LOG_TARGET;
 use codec::Decode;
 use sp_application_crypto::AppCrypto;
 use sp_keystore::KeystorePtr;
 use sp_price_oracle::{PriceReport, SignedPriceReport};
 use sp_runtime::RuntimeAppPublic;
-
-const LOG_TARGET: &str = "price-oracle";
 
 /// The key among `signers` whose private part the keystore holds. The first such key in the
 /// order of `signers`, or `None` if the keystore holds none of them.
@@ -70,12 +69,12 @@ where
 			return None;
 		},
 		Err(e) => {
-			log::warn!(target: LOG_TARGET, "Keystore refused to sign: {e}");
+			log::error!(target: LOG_TARGET, "Keystore refused to sign: {e}");
 			return None;
 		},
 	};
 	let Ok(signature) = Decode::decode(&mut &bytes[..]) else {
-		log::warn!(target: LOG_TARGET, "Keystore returned an undecodable signature");
+		log::error!(target: LOG_TARGET, "Keystore returned an undecodable signature");
 		return None;
 	};
 	Some(SignedPriceReport { report, signer, signature })

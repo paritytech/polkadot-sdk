@@ -19,7 +19,7 @@
 
 use crate::{
 	market::{Market, MarketId, QueryTag},
-	Anchor, Price, Quote, Settings,
+	Anchor, PairAggregate, Price, Settings,
 };
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
@@ -47,7 +47,8 @@ sp_api::decl_runtime_apis! {
 			responses: Vec<(QueryTag, Vec<u8>)>,
 			now_ms: u64,
 		) -> Result<Price, ParseError>;
-		/// Turn market prices into the pair prices to report.
-		fn aggregate(prices: Vec<(MarketId, Price)>) -> Vec<Quote>;
+		/// Turn market prices into pair prices, one entry per registered pair. The pairs with a
+		/// price are the ones to report.
+		fn aggregate(prices: Vec<(MarketId, Price)>) -> Vec<PairAggregate>;
 	}
 }

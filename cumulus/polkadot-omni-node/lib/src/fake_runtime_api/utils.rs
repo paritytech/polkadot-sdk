@@ -298,7 +298,7 @@ macro_rules! impl_node_runtime_apis {
 
 				fn aggregate(
 					_prices: Vec<(sp_price_oracle::market::MarketId, sp_price_oracle::Price)>,
-				) -> Vec<sp_price_oracle::Quote> {
+				) -> Vec<sp_price_oracle::PairAggregate> {
 					unimplemented!()
 				}
 			}
