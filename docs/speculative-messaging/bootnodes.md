@@ -31,10 +31,10 @@ pub trait Config: frame_system::Config + pallet_jam_kv::Config {
 /// Obtained via: `address.to_string().into_bytes()`.
 type TextMultiAddr = BoundedVec<u8, ConstU32<512>>;
 
-/// Optional fork ID of the chain.
-type ForkId = Option<BoundedVec<u8, ConstU32<32>>>;
+/// Fork ID of the chain.
+type ForkId = BoundedVec<u8, ConstU32<32>>;
 
-pub fn set_bootnodes(origin, addresses: BoundedVec<TextMultiAddr, ConstU32<8>>, fork_id: ForkId)
+pub fn set_bootnodes(origin, addresses: BoundedVec<TextMultiAddr, ConstU32<8>>, fork_id: Option<ForkId>)
 pub fn clear_bootnodes(origin)
 ```
 
@@ -55,13 +55,14 @@ Before writing to the key-value store, the pallet parses the received addresses 
 Once validated, the pallet writes a SCALE-encoded record to the JAM KV store:
 
 ```rust
+#[derive(Encode, Decode)]
 pub struct BootnodeRecord {
     /// Genesis hash of the chain.
     genesis: [u8; 32],
     /// Fork ID of the chain.
     fork_id: ForkId,
     /// Binary representation of each multiaddress (`address.to_vec()`).
-    addresses: Vec<Vec<u8>>,
+    addresses: BoundedVec<BoundedVec<u8, ConstU32<512>>, ConstU32<8>>,
 }
 ```
 
@@ -69,9 +70,9 @@ The pallet has access to the genesis hash under `frame_system::Pallet::<T>::bloc
 Within the record, addresses are stored in their binary format, where each protocol consists of a code number followed by its raw value.
 The format is similar to authority discovery on DHT records and is obtained by calling `address.to_vec()`.
 
-Because setting a value in the KV store can fail silently with insufficient balance, the governance is responsible for monitoring the state in JAM and resubmitting the transaction at a later time if it fails.
+The write costs `49 + 12 + record length` units of the parachain's JAM state balance. An overwrite charges only the size difference, and `clear_bootnodes` removes the key from storage and refunds the whole amount.
 
-The `clear_bootnodes` removes the key from storage.
+Because setting a value in the KV store can fail silently with insufficient balance, the governance is responsible for monitoring the state in JAM and resubmitting the transaction at a later time if it fails.
 
 ## Consumers
 
