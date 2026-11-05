@@ -83,7 +83,6 @@ pub struct Params<Client, Net, SyncService, Id, Signature> {
 	pub pool: ReportPool<Id, Signature>,
 	/// Registry to register the metrics of the service and its gossip engine with, if metrics
 	/// are enabled.
-	// TODO: register the remaining metrics.
 	pub prometheus_registry: Option<Registry>,
 }
 
@@ -199,6 +198,7 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				let acceptance = setup.acceptance();
 				// Drop pooled reports that fell out of the report window.
 				pool.prune(acceptance.oldest());
+				metrics.on_pool_reports(pool.len());
 				// Validate incoming reports against the signers and window of this block.
 				validator.set_acceptance(acceptance);
 				// Follow a changed tick interval from the next tick on.

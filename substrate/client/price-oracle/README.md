@@ -118,7 +118,5 @@ tick so key rotation and set changes need no restart.
 
 ## Open points
 
-- Metrics of the service itself are not registered: tick duration, markets priced and failed,
-  reports signed and received, pool size.
 - The validator does not bound how far ahead of the current anchor a report may be.
 - The service stops if the gossip stream or engine ends, rather than recovering.

@@ -39,6 +39,7 @@ struct Inner {
 	market_fetch_duration: HistogramVec,
 	pair_votes: GaugeVec<U64>,
 	gossip_reports: CounterVec<U64>,
+	pool_reports: Gauge<U64>,
 }
 
 impl Metrics {
@@ -110,6 +111,13 @@ impl Metrics {
 	pub(crate) fn on_gossip_report(&self, result: &str) {
 		if let Some(metrics) = &self.0 {
 			metrics.gossip_reports.with_label_values(&[result]).inc();
+		}
+	}
+
+	/// Set the number of reports in the pool.
+	pub(crate) fn on_pool_reports(&self, count: usize) {
+		if let Some(metrics) = &self.0 {
+			metrics.pool_reports.set(count as u64);
 		}
 	}
 }
@@ -187,6 +195,13 @@ impl Inner {
 						"Number of reports received through gossip, by validation result",
 					),
 					&["result"],
+				)?,
+				registry,
+			)?,
+			pool_reports: register(
+				Gauge::new(
+					"substrate_price_oracle_pool_reports",
+					"Number of reports in the pool at the start of the last tick",
 				)?,
 				registry,
 			)?,
