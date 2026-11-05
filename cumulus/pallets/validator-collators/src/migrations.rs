@@ -46,9 +46,12 @@ pub mod v1 {
 		pub type MaxCollators<T: Config> = StorageValue<Pallet<T>, u32>;
 	}
 
-	/// Translates a stored cap to `Some(cap)`. Without one, the cap becomes
-	/// [`Config::DefaultMaxCollators`]. If that is a cap and a set is stored, the set is drawn
-	/// again as [`Pallet::set_max_collators`] does.
+	/// Rewrites a cap stored as a `u32` as `Some(cap)`.
+	///
+	/// Without a stored cap, [`MaxCollators`] reads [`Config::DefaultMaxCollators`]. When that
+	/// default is `Some(_)` and a validator set is stored, it sets [`PendingRotation`] to
+	/// [`RotationState::AwaitingQueue`], so the set is drawn again under the default, as
+	/// [`Pallet::set_max_collators`] does.
 	pub struct VersionUncheckedMigrateV0ToV1<T>(PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T> {

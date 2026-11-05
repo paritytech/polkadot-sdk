@@ -284,9 +284,9 @@ pub mod pallet {
 
 		/// Value of [`MaxCollators`] until governance sets it, `None` meaning no cap.
 		///
-		/// A runtime upgrade that changes it does not draw the collators again. Where
-		/// [`MaxCollators`] is not stored and a set is, the upgrade needs a migration that sets
-		/// [`PendingRotation`] to [`RotationState::AwaitingQueue`].
+		/// A runtime upgrade that changes it keeps the collators drawn under the previous value
+		/// until the next draw, unless the upgrade sets [`PendingRotation`] to
+		/// [`RotationState::AwaitingQueue`].
 		#[pallet::constant]
 		type DefaultMaxCollators: Get<Option<u32>>;
 

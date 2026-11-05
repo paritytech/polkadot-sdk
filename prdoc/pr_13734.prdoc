@@ -3,9 +3,10 @@ doc:
 - audience: Runtime Dev
   description: |-
     `MaxCollators` is stored as `Option<u32>` with `DefaultMaxCollators` as default. The new
-    migration `MigrateV0ToV1` moves a cap stored as `u32` to `Some(cap)`. Without a stored
-    cap, the cap becomes `DefaultMaxCollators`. If that is a cap and a set of validators is
-    stored, the migration draws the collators again, as `set_max_collators` does.
+    migration `MigrateV0ToV1` rewrites a cap stored as `u32` as `Some(cap)`. Without a stored
+    cap, `MaxCollators` reads `DefaultMaxCollators`. When that default is `Some(_)` and a set of
+    validators is stored, the migration draws the collators again under it, as
+    `set_max_collators` does.
 
     Asset Hub Westend and People Westend run the migration.
 crates:
