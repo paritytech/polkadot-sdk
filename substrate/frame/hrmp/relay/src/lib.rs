@@ -318,11 +318,11 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let mut releases = FailedReleases::<T>::get();
-		let mut sent = 0usize;
-		for (n, release) in (1..).zip(releases.iter()) {
-			// What the `n`th message adds to the flush.
-			let weight = T::WeightInfo::retry_failed_releases(n)
-				.saturating_sub(T::WeightInfo::retry_failed_releases(n - 1));
+		let mut sent = 0u32;
+		for release in releases.iter() {
+			// What one more message adds to the retry.
+			let weight = T::WeightInfo::retry_failed_releases(sent + 1)
+				.saturating_sub(T::WeightInfo::retry_failed_releases(sent));
 			if meter.try_consume(weight).is_err() {
 				break;
 			}
@@ -334,7 +334,7 @@ impl<T: Config> Pallet<T> {
 		}
 
 		if sent > 0 {
-			releases.drain(..sent);
+			releases.drain(..sent as usize);
 			FailedReleases::<T>::put(releases);
 		}
 	}
