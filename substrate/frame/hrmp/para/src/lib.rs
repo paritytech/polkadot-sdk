@@ -259,8 +259,16 @@ impl<T: Config> Pallet<T> {
 				})?;
 			},
 			Ordering::Less => {
-				T::Currency::release(&reason, &who, held - target, Precision::BestEffort)
-					.map_err(|_| DepositError::Other)?;
+				let to_release = held - target;
+				let released =
+					T::Currency::release(&reason, &who, to_release, Precision::BestEffort)
+						.map_err(|_| DepositError::Other)?;
+				if released != to_release {
+					frame_support::defensive!(
+						"hrmp-para: released less than recorded",
+						(to_release, released)
+					);
+				}
 			},
 			Ordering::Equal => {},
 		}
