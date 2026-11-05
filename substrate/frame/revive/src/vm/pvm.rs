@@ -22,14 +22,14 @@ pub mod env;
 use crate::{
 	Code, Config, Error, LOG_TARGET, Pallet, ReentrancyProtection, RuntimeCosts, SENTINEL,
 	StorageAccessKind,
-	access_list::{Access, CallItems, InstantiateItems, StorageOp, TransferItems, WarmthSummary},
+	access_list::{CallItems, InstantiateItems, StorageOp},
 	exec::{CallResources, ExecError, ExecResult, Ext, Key},
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
-	vm::TransferAccessKind,
+	vm::{adjust_instantiate_registration_charge, charge_call_transfer},
 };
 use alloc::{vec, vec::Vec};
 use codec::Encode;
@@ -700,33 +700,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						return Err(Error::<E::T>::StateChangeDenied.into());
 					}
 
-					let dust_transfer = Pallet::<E::T>::has_dust(value);
-					// A precompile's account state is untracked, so its transfer pays cold.
-					let transfer = if precompile.is_none() {
-						TransferAccessKind::Tracked {
-							warmth: self.ext.warm(TransferItems {
-								from: self.ext.address(),
-								to: callee,
-								dust: dust_transfer,
-							}),
-							callee_exists: None,
-						}
-					} else {
-						TransferAccessKind::Untracked { dust: dust_transfer }
-					};
-					let charged = self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
-					if let TransferAccessKind::Tracked { warmth, .. } = transfer {
-						// Look the account up only after the charge has paid for reading it.
-						if self.ext.has_system_account(&callee) {
-							self.adjust_gas(
-								charged,
-								RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
-									warmth,
-									callee_exists: Some(true),
-								}),
-							);
-						}
-					}
+					charge_call_transfer(self.ext, callee, value, precompile.is_some())?;
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {
@@ -827,15 +801,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let worst_case_registration_charge = self.charge_gas(
 			RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
 		)?;
-		let adjust_registration_charge = |runtime: &mut Self, summary: Option<WarmthSummary>| {
-			let summary =
-				summary.unwrap_or_else(|| WarmthSummary::new(InstantiateItems::KEY_FAMILY));
-			runtime.adjust_gas(
-				worst_case_registration_charge,
-				RuntimeCosts::AccessListRegistration(summary),
-			)
-		};
-
 		match self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
@@ -845,10 +810,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		) {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
-					// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
-					let warmth =
-						self.ext.warm(InstantiateItems { address, deployer: self.ext.address() });
-					adjust_registration_charge(self, Some(warmth.summary()));
+					adjust_instantiate_registration_charge(
+						self.ext,
+						worst_case_registration_charge,
+						Some(address),
+					);
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
@@ -857,7 +823,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						already_charged,
 					)?;
 				} else {
-					adjust_registration_charge(self, None);
+					adjust_instantiate_registration_charge(
+						self.ext,
+						worst_case_registration_charge,
+						None,
+					);
 				}
 				let output = mem::take(self.ext.last_frame_output_mut());
 				let write_result = self.write_sandbox_output(
@@ -873,7 +843,11 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				Ok(self.ext.last_frame_output().into())
 			},
 			Err(err) => {
-				adjust_registration_charge(self, None);
+				adjust_instantiate_registration_charge(
+					self.ext,
+					worst_case_registration_charge,
+					None,
+				);
 				Ok(super::exec_error_into_return_code::<E>(err)?)
 			},
 		}

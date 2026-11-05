@@ -20,10 +20,10 @@ mod call_helpers;
 use super::utility::IntoAddress;
 use crate::{
 	Code, DebugSettings, Error, H160, LOG_TARGET, Pallet, ReentrancyProtection, U256,
-	access_list::{Access, InstantiateItems, WarmthSummary},
+	access_list::InstantiateItems,
 	exec::CallResources,
 	vm::{
-		Ext, RuntimeCosts,
+		Ext, RuntimeCosts, adjust_instantiate_registration_charge,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -78,15 +78,6 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 	let worst_case_registration_charge = interpreter.ext.charge_or_halt(
 		RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
 	)?;
-	let adjust_registration_charge =
-		|interpreter: &mut Interpreter<E>, summary: Option<WarmthSummary>| {
-			let summary =
-				summary.unwrap_or_else(|| WarmthSummary::new(InstantiateItems::KEY_FAMILY));
-			interpreter.ext.frame_meter_mut().adjust_weight(
-				worst_case_registration_charge,
-				RuntimeCosts::AccessListRegistration(summary),
-			)
-		};
 	let call_result = interpreter.ext.instantiate(
 		&CallResources::NoLimits,
 		Code::Upload(code),
@@ -99,21 +90,30 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		Ok(address) => {
 			let return_value = interpreter.ext.last_frame_output();
 			if return_value.did_revert() {
-				adjust_registration_charge(interpreter, None);
+				adjust_instantiate_registration_charge(
+					interpreter.ext,
+					worst_case_registration_charge,
+					None,
+				);
 				// Contract creation reverted — return data must be propagated
 				interpreter.stack.push(U256::zero())
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
 				*interpreter.ext.last_frame_output_mut() = Default::default();
-				// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
-				let deployer = interpreter.ext.address();
-				let warmth = interpreter.ext.warm(InstantiateItems { address, deployer });
-				adjust_registration_charge(interpreter, Some(warmth.summary()));
+				adjust_instantiate_registration_charge(
+					interpreter.ext,
+					worst_case_registration_charge,
+					Some(address),
+				);
 				interpreter.stack.push(address)
 			}
 		},
 		Err(err) => {
-			adjust_registration_charge(interpreter, None);
+			adjust_instantiate_registration_charge(
+				interpreter.ext,
+				worst_case_registration_charge,
+				None,
+			);
 			log::debug!(target: LOG_TARGET, "Create failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
 			ControlFlow::Continue(())

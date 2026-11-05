@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	Pallet, RuntimeCosts,
-	access_list::{CallItems, TransferItems},
+	RuntimeCosts,
+	access_list::CallItems,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		Ext, TransferAccessKind,
+		Ext, charge_call_transfer,
 		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
 };
@@ -96,35 +96,9 @@ pub fn charge_call_gas<'a, E: Ext>(
 	};
 
 	if !value.is_zero() {
-		let dust_transfer = Pallet::<E::T>::has_dust(value);
-		// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
-		let transfer = if precompile.is_none() {
-			TransferAccessKind::Tracked {
-				warmth: interpreter.ext.warm(TransferItems {
-					from: interpreter.ext.address(),
-					to: callee,
-					dust: dust_transfer,
-				}),
-				callee_exists: None,
-			}
-		} else {
-			TransferAccessKind::Untracked { dust: dust_transfer }
-		};
-		let charged = interpreter
-			.ext
-			.frame_meter_mut()
-			.charge_or_halt(RuntimeCosts::CallTransferSurcharge(transfer))?;
-		if let TransferAccessKind::Tracked { warmth, .. } = transfer {
-			// Look the account up only after the charge has paid for reading it.
-			if interpreter.ext.has_system_account(&callee) {
-				interpreter.ext.frame_meter_mut().adjust_weight(
-					charged,
-					RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
-						warmth,
-						callee_exists: Some(true),
-					}),
-				);
-			}
+		if let Err(err) = charge_call_transfer(interpreter.ext, callee, value, precompile.is_some())
+		{
+			return ControlFlow::Break(Halt::Err(err));
 		}
 	}
 
