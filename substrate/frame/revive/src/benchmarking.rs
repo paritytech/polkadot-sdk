@@ -4283,7 +4283,7 @@ mod benchmarks {
 			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
 		);
 
-		let first = match v4::Migration::<T>::step_once(None) {
+		let first = match v4::Migration::<T>::step_once(None).unwrap() {
 			Some(v4::Cursor::CodeUpload(h)) => h,
 			other => panic!("expected CodeUpload cursor, got {other:?}"),
 		};
@@ -4304,7 +4304,9 @@ mod benchmarks {
 	/// One iteration of the v4 step that clears the pallet account's [`NativeDepositOf`] rows
 	/// before phase 1 rebuilds them.
 	///
-	/// Seeds two rows so the benched iteration removes one and leaves the other in place.
+	/// Seeds three rows and removes the first before the measured block, so the benched
+	/// iteration resumes from the cursor past a row already removed in the same block, removes
+	/// the second, and leaves the third in place.
 	#[benchmark]
 	fn v4_clear_code_credit_step() {
 		use crate::migrations::v4;
@@ -4312,16 +4314,24 @@ mod benchmarks {
 		let pallet_account = Pallet::<T>::account_id();
 		let _ = NativeDepositOf::<T>::clear_prefix(&pallet_account, u32::MAX, None);
 		let deposit: BalanceOf<T> = 1_000u32.into();
-		NativeDepositOf::<T>::insert(&pallet_account, &account::<T::AccountId>("a", 0, 0), deposit);
-		NativeDepositOf::<T>::insert(&pallet_account, &account::<T::AccountId>("b", 0, 0), deposit);
+		for seed in ["a", "b", "c"] {
+			NativeDepositOf::<T>::insert(
+				&pallet_account,
+				&account::<T::AccountId>(seed, 0, 0),
+				deposit,
+			);
+		}
+		let cursor =
+			v4::Migration::<T>::step_once(Some(v4::Cursor::ClearCodeCredits(None))).unwrap();
+		assert!(matches!(cursor, Some(v4::Cursor::ClearCodeCredits(Some(_)))));
 
 		let next;
 		#[block]
 		{
-			next = v4::Migration::<T>::step_once(Some(v4::Cursor::ClearCodeCredits));
+			next = v4::Migration::<T>::step_once(cursor).unwrap();
 		}
 
-		assert_eq!(next, Some(v4::Cursor::ClearCodeCredits));
+		assert!(matches!(next, Some(v4::Cursor::ClearCodeCredits(Some(_)))));
 		assert_eq!(NativeDepositOf::<T>::iter_prefix(&pallet_account).count(), 1);
 	}
 
@@ -4360,7 +4370,7 @@ mod benchmarks {
 			.unwrap();
 		}
 
-		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))) {
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))).unwrap() {
 			Some(v4::Cursor::Contract(Some(addr))) => addr,
 			other => panic!("expected Contract cursor, got {other:?}"),
 		};
@@ -4405,10 +4415,11 @@ mod benchmarks {
 		v4::old::DeletionQueue::<T>::insert(0u32, trie_a);
 		v4::old::DeletionQueue::<T>::insert(1u32, trie_b);
 
-		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))) {
-			Some(v4::Cursor::DeletionQueue(Some(key))) => key,
-			other => panic!("expected DeletionQueue cursor, got {other:?}"),
-		};
+		let first =
+			match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))).unwrap() {
+				Some(v4::Cursor::DeletionQueue(Some(key))) => key,
+				other => panic!("expected DeletionQueue cursor, got {other:?}"),
+			};
 		let cursor = Some(v4::Cursor::DeletionQueue(Some(first)));
 
 		#[block]

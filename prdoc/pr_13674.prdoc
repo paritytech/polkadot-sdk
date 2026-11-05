@@ -9,15 +9,35 @@ doc:
     `CodeInfoOf`. Before, it added to rows already written since the switch, crediting those code
     deposits twice. `PGasDeposit::migrate_native_to_pgas` now rolls back if minting or holding
     PGAS fails. Before, phase 2 could burn a contract's native deposit and leave nothing in its
-    place, for example when the PGAS asset was not registered yet.
+    place, for example when the PGAS asset was not registered yet. Phase 2 now swaps only the part
+    of a contract's native hold not recorded in its `NativeDepositOf` rows. Before, it swapped the
+    whole hold, so payers who paid native after the switch could no longer free storage.
+
+    `CodeInfoOf` does not record which asset paid a code deposit, so phase 1 credits every code
+    deposit as native. v4 now fails at its first step, before changing any state, if the pallet
+    account holds PGAS under `CodeUploadDepositReserve`. Before, it credited those deposits as
+    native, so their owners were refunded from other uploaders' native deposits and the last
+    owner's `remove_code` failed with `StorageRefundLocked`.
+
+    Phase 3 now rewrites only `DeletionQueue` slots still in the legacy `TrieId` layout. Before, it
+    also rewrote items queued in the new layout after the runtime upgrade, replacing their contract
+    account with the zero placeholder. The deletion processor then never cleared that contract's
+    `NativeDepositOf` rows, and its address could not be instantiated again
+    (`PendingDepositCleanup`).
 
     Runtimes that already ran v4 are unaffected. Runtimes that have not:
-    - Register the PGAS asset before scheduling v4. Without it phase 2 converts nothing (it no
-      longer burns), and partial storage-deposit refunds on old contracts stay unavailable.
+    - Schedule v4 before the first code upload paid in PGAS. Otherwise v4 fails and the
+      runtime's `FailedMigrationHandler` decides what happens next.
+    - Register the PGAS asset before scheduling v4. v4 now fails at its first step if the asset
+      is not registered, and fails if any contract's swap to PGAS fails; the runtime's
+      `FailedMigrationHandler` decides what happens next. Before, phase 2 logged the error and v4
+      completed and was recorded with nothing converted, so it never ran again.
     - If you implement `pallet_revive::WeightInfo` yourself, add `v4_clear_code_credit_step`, or
       regenerate your weights.
-    - If you match on `pallet_revive::migrations::v4::Cursor`, handle the new `ClearCodeCredits`
-      variant.
+    - `pallet_revive::migrations::v4::Cursor` is now generic over the account id, with
+      `CursorOf<T>` as the runtime's alias, and has a new `ClearCodeCredits(Option<AccountId>)`
+      variant. Code that names the type should use `CursorOf<T>`; code that matches on it must
+      handle the new variant.
 crates:
 - name: pallet-revive
   bump: major

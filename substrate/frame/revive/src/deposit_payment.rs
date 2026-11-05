@@ -71,6 +71,14 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// are no-ops, since there is no PGAS asset to migrate native deposits over to.
 	const SUPPORTS_PGAS: bool;
 
+	/// Whether the PGAS asset is registered. Always `true` for backends without PGAS support.
+	///
+	/// Checked by the v4 migration before it starts, so it fails instead of completing with
+	/// nothing converted.
+	fn pgas_asset_exists() -> bool {
+		true
+	}
+
 	/// Mint each backend's existential deposit into `contract`.
 	///
 	/// Used by [`crate::exec`] when bringing a new contract account into existence.
@@ -301,6 +309,10 @@ where
 	RefundPercent: Get<Perbill>,
 {
 	const SUPPORTS_PGAS: bool = true;
+
+	fn pgas_asset_exists() -> bool {
+		<Mutator as fungibles::Inspect<T::AccountId>>::asset_exists(Id::get())
+	}
 
 	/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
