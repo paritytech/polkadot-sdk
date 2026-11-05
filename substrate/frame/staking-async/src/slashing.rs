@@ -41,9 +41,11 @@
 //! Based on research at <https://research.web3.foundation/Polkadot/security/slashing/npos>
 
 use crate::{
-	asset, log, session_rotation::Eras, BalanceOf, Config, ErasStakersOverview,
-	NegativeImbalanceOf, OffenceQueue, OffenceQueueEras, PagedExposure, Pallet, Perbill,
-	ProcessingOffence, SlashRewardFraction, UnappliedSlash, UnappliedSlashes, WeightInfo,
+	asset, log,
+	session_rotation::{Eras, Rotator},
+	BalanceOf, Config, ErasStakersOverview, NegativeImbalanceOf, OffenceQueue, OffenceQueueEras,
+	PagedExposure, Pallet, Perbill, ProcessingOffence, SlashRewardFraction, UnappliedSlash,
+	UnappliedSlashes, UnappliedSlashesOffenceEra, WeightInfo,
 };
 use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -211,7 +213,7 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 
 	let slash_page = offence_record.exposure_page;
 	let slash_defer_duration = T::SlashDeferDuration::get();
-	let slash_era = offence_era.saturating_add(slash_defer_duration);
+	let slash_era = slash_era_of::<T>(offence_era, offence_record.reported_era);
 
 	add_db_reads_writes(3, 3);
 	let Some(mut unapplied) = compute_slash::<T>(SlashParams {
@@ -267,11 +269,6 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 		T::WeightInfo::apply_slash(nominators_slashed)
 			.saturating_add(T::WeightInfo::process_offence_queue())
 	} else {
-		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
-		// slashes were applied at the start of the 28th era from `offence_era`.
-		// However, with paged slashing, applying slashes now takes multiple blocks.
-		// To account for this delay, slashes are now applied at the start of the 27th era from
-		// `offence_era`.
 		log!(
 			debug,
 			"🦹 deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
@@ -282,9 +279,10 @@ pub(crate) fn process_offence<T: Config>() -> Weight {
 		);
 		UnappliedSlashes::<T>::insert(
 			slash_era,
-			(offender, offence_record.slash_fraction, slash_page),
+			(offender, offence_record.slash_fraction, slash_page, offence_era),
 			unapplied,
 		);
+		track_unapplied_slash::<T>(slash_era, offence_era);
 		T::WeightInfo::process_offence_queue()
 	}
 }
@@ -359,7 +357,7 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 	};
 
 	let slash_defer_duration = T::SlashDeferDuration::get();
-	let slash_era = offence_era.saturating_add(slash_defer_duration);
+	let slash_era = slash_era_of::<T>(offence_era, offence_record.reported_era);
 
 	add_db_reads_writes(3, 3);
 	// For validator-only slashing, call slash_validator directly instead of compute_slash
@@ -429,11 +427,6 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		apply_slash::<T>(unapplied, offence_era);
 		T::WeightInfo::apply_slash(0).saturating_add(T::WeightInfo::process_offence_queue())
 	} else {
-		// Historical Note: Previously, with BondingDuration = 28 and SlashDeferDuration = 27,
-		// slashes were applied at the start of the 28th era from `offence_era`.
-		// However, with paged slashing, applying slashes now takes multiple blocks.
-		// To account for this delay, slashes are now applied at the start of the 27th era from
-		// `offence_era`.
 		log!(
 			debug,
 			"🦹 deferring slash of {:?}% happened in {:?} (reported in {:?}) to {:?}",
@@ -444,9 +437,10 @@ pub(crate) fn process_offence_validator_only<T: Config>() -> Weight {
 		);
 		UnappliedSlashes::<T>::insert(
 			slash_era,
-			(offender, offence_record.slash_fraction, 0),
+			(offender, offence_record.slash_fraction, 0, offence_era),
 			unapplied,
 		);
+		track_unapplied_slash::<T>(slash_era, offence_era);
 		T::WeightInfo::process_offence_queue()
 	}
 }
@@ -510,6 +504,40 @@ pub(crate) fn compute_slash<T: Config>(params: SlashParams<T>) -> Option<Unappli
 		reporter: None,
 		payout: reward_payout,
 	})
+}
+
+/// The era in which a slash is applied.
+///
+/// The deferral starts when the offence is reported, so every report keeps the full
+/// `SlashDeferDuration` window in which governance can cancel the slash. Without deferral, the
+/// slash is applied right away and the offence era is returned.
+pub(crate) fn slash_era_of<T: Config>(offence_era: EraIndex, reported_era: EraIndex) -> EraIndex {
+	match T::SlashDeferDuration::get() {
+		0 => offence_era,
+		defer => offence_era.max(reported_era).saturating_add(defer),
+	}
+}
+
+/// Records `offence_era` in [`UnappliedSlashesOffenceEra`] for a slash queued in `slash_era`.
+///
+/// Entries of application eras before `active_era - 1` are pruned, as withdrawals only wait for
+/// the slashes of the previous era to be applied.
+fn track_unapplied_slash<T: Config>(slash_era: EraIndex, offence_era: EraIndex) {
+	let oldest_tracked_era = Rotator::<T>::active_era().saturating_sub(1);
+	UnappliedSlashesOffenceEra::<T>::mutate(|tracked| {
+		let mut eras = core::mem::take(tracked).into_inner();
+		eras.retain(|(era, _)| *era >= oldest_tracked_era);
+		match eras.binary_search_by_key(&slash_era, |(era, _)| *era) {
+			Ok(index) => eras[index].1 = eras[index].1.min(offence_era),
+			Err(index) => eras.insert(index, (slash_era, offence_era)),
+		}
+		*tracked = WeakBoundedVec::force_from(eras, Some("UnappliedSlashesOffenceEra"));
+	});
+}
+
+/// Stops tracking `slash_era` in [`UnappliedSlashesOffenceEra`] once all its slashes are gone.
+pub(crate) fn untrack_unapplied_slashes<T: Config>(slash_era: EraIndex) {
+	UnappliedSlashesOffenceEra::<T>::mutate(|tracked| tracked.retain(|(era, _)| *era != slash_era));
 }
 
 /// Compute the slash for a validator. Returns the amount slashed and the reward payout.

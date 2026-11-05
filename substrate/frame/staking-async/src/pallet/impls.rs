@@ -179,11 +179,6 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
-	/// Calculates the offence era from the slash application era.
-	pub(crate) fn offence_era_of(application_era: EraIndex) -> EraIndex {
-		application_era.saturating_sub(T::SlashDeferDuration::get())
-	}
-
 	/// Checks if a slash has been cancelled for the given era and slash parameters.
 	pub(crate) fn check_slash_cancelled(
 		era: EraIndex,
@@ -229,6 +224,8 @@ impl<T: Config> Pallet<T> {
 	/// Calculate the earliest era that withdrawals are allowed for, considering:
 	/// - The current active era
 	/// - Any unprocessed offences in the queue
+	/// - Any unapplied slashes, which may be applied after their offence era + `BondingDuration`
+	///   when the offence was reported late.
 	fn calculate_earliest_withdrawal_era(active_era: EraIndex) -> EraIndex {
 		// get lowest era for which all offences are processed and withdrawals can be allowed.
 		let earliest_unlock_era_by_offence_queue = OffenceQueueEras::<T>::get()
@@ -253,7 +250,18 @@ impl<T: Config> Pallet<T> {
 		// Note: This situation is extremely unlikely, since offences have `SlashDeferDuration` eras
 		// to be processed. If it ever occurs, it likely indicates offence spam and that we're
 		// struggling to keep up with processing.
-		active_era.min(earliest_unlock_era_by_offence_queue)
+		let earliest_withdrawal_era = active_era.min(earliest_unlock_era_by_offence_queue);
+
+		// Chunks unlocking at `offence_era + BondingDuration` or later are slashable for
+		// `offence_era`, so they stay locked until the slash is applied. Slashes of application
+		// eras before the previous era are ignored, like in `ensure_era_slashes_applied`.
+		UnappliedSlashesOffenceEra::<T>::get()
+			.iter()
+			.filter(|(slash_era, _)| *slash_era >= active_era.saturating_sub(1))
+			.map(|(_, offence_era)| {
+				offence_era.saturating_sub(1).saturating_add(T::BondingDuration::get())
+			})
+			.fold(earliest_withdrawal_era, |earliest, era| earliest.min(era))
 	}
 
 	pub(super) fn do_withdraw_unbonded(controller: &T::AccountId) -> Result<Weight, DispatchError> {
@@ -1443,9 +1451,8 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 
 	/// Accepts offences only if they are from era `active_era - (SlashDeferDuration - 1)` or newer.
 	///
-	/// Slashes for offences are applied `SlashDeferDuration` eras after the offence occurred.
-	/// Accepting offences older than this range would not leave enough time for slashes to be
-	/// applied.
+	/// Slashes for offences are applied `SlashDeferDuration` eras after the offence is reported.
+	/// Funds that are slashable for an offence stay locked until its slash is applied.
 	///
 	/// Note: The validator set report that we send to the relay chain contains the pruning
 	/// information for a relay chain, but we conservatively keep some extra sessions, so it is
@@ -2517,6 +2524,15 @@ impl<T: Config> Pallet<T> {
 		// (5) Ensure no canceled slashes exist in the past eras.
 		for (era, _) in CancelledSlashes::<T>::iter() {
 			ensure!(era >= active_era, "Found cancelled slashes for era before active era");
+		}
+
+		// (6) Ensure withdrawals are blocked for the offence era of every unapplied slash.
+		let tracked = UnappliedSlashesOffenceEra::<T>::get();
+		for (slash_era, (_, _, _, offence_era)) in UnappliedSlashes::<T>::iter_keys() {
+			ensure!(
+				tracked.iter().any(|(era, oldest)| *era == slash_era && *oldest <= offence_era),
+				"Unapplied slash is not tracked in UnappliedSlashesOffenceEra"
+			);
 		}
 
 		Ok(())

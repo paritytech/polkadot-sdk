@@ -595,17 +595,17 @@ mod tests {
 			// Check validator 2 slashes
 			let slash_v2_100_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(2, Perbill::from_percent(100), 0),
+				(2, Perbill::from_percent(100), 0, 1),
 			)
 			.is_some();
 			let slash_v2_90_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(2, Perbill::from_percent(90), 0),
+				(2, Perbill::from_percent(90), 0, 1),
 			)
 			.is_some();
 			let slash_v2_70_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(2, Perbill::from_percent(70), 0),
+				(2, Perbill::from_percent(70), 0, 1),
 			)
 			.is_some();
 
@@ -620,17 +620,17 @@ mod tests {
 			// Check validator 1 slashes
 			let slash_v1_75_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(1, Perbill::from_percent(75), 0),
+				(1, Perbill::from_percent(75), 0, 1),
 			)
 			.is_some();
 			let slash_v1_85_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(1, Perbill::from_percent(85), 0),
+				(1, Perbill::from_percent(85), 0, 1),
 			)
 			.is_some();
 			let slash_v1_65_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(1, Perbill::from_percent(65), 0),
+				(1, Perbill::from_percent(65), 0, 1),
 			)
 			.is_some();
 
@@ -645,17 +645,17 @@ mod tests {
 			// Check validator 5 slashes
 			let slash_v5_55_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(5, Perbill::from_percent(55), 0),
+				(5, Perbill::from_percent(55), 0, 1),
 			)
 			.is_some();
 			let slash_v5_45_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(5, Perbill::from_percent(45), 0),
+				(5, Perbill::from_percent(45), 0, 1),
 			)
 			.is_some();
 			let slash_v5_40_present = pallet_staking_async::UnappliedSlashes::<ah::Runtime>::get(
 				3,
-				(5, Perbill::from_percent(40), 0),
+				(5, Perbill::from_percent(40), 0, 1),
 			)
 			.is_some();
 

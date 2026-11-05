@@ -16,7 +16,12 @@
 // limitations under the License.
 
 use super::*;
-use crate::{session_rotation::Eras, slashing};
+use crate::{
+	migrations::{v18, VersionUncheckedAddOffenceEraToUnappliedSlashes},
+	session_rotation::Eras,
+	slashing,
+};
+use frame_support::traits::UncheckedOnRuntimeUpgrade;
 use pallet_staking_async_rc_client as rc_client;
 use sp_runtime::{Perquintill, Rounding};
 use sp_staking::StakingInterface;
@@ -406,7 +411,7 @@ fn retroactive_deferred_slashes_two_eras_before() {
 		Session::roll_until_active_era(2);
 		let _ = staking_events_since_last_call();
 
-		// slash for era 1 detected in era 2, defer for 2, apply in era 3.
+		// slash for era 1 detected in era 2, defer for 2, apply in era 4.
 		add_slash_in_era(11, 1, Perbill::from_percent(10));
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -421,7 +426,7 @@ fn retroactive_deferred_slashes_two_eras_before() {
 		Session::roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![Event::SlashComputed { offence_era: 1, slash_era: 3, offender: 11, page: 0 }]
+			vec![Event::SlashComputed { offence_era: 1, slash_era: 4, offender: 11, page: 0 }]
 		);
 
 		Session::roll_until_active_era(3);
@@ -435,6 +440,13 @@ fn retroactive_deferred_slashes_two_eras_before() {
 				Event::SessionRotated { starting_session: 9, active_era: 3, planned_era: 3 }
 			]
 		);
+
+		// not applied in era 3, `SlashDeferDuration` eras after the offence.
+		Session::roll_next();
+		assert_eq!(staking_events_since_last_call(), vec![]);
+
+		Session::roll_until_active_era(4);
+		let _ = staking_events_since_last_call();
 
 		// Slashes not applied yet. Will apply in the next block after era starts.
 		Session::roll_next();
@@ -480,7 +492,7 @@ fn retroactive_deferred_slashes_one_before() {
 			Session::roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
-				vec![Event::SlashComputed { offence_era: 2, slash_era: 4, offender: 11, page: 0 }]
+				vec![Event::SlashComputed { offence_era: 2, slash_era: 5, offender: 11, page: 0 }]
 			);
 
 			Session::roll_until_active_era(4);
@@ -496,6 +508,10 @@ fn retroactive_deferred_slashes_one_before() {
 			);
 
 			// no slash applied yet
+			assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000);
+
+			Session::roll_until_active_era(5);
+			let _ = staking_events_since_last_call();
 			assert_eq!(Staking::ledger(11.into()).unwrap().total, 1000);
 
 			// slash happens at next blocks.
@@ -653,14 +669,14 @@ fn really_old_offences_are_ignored() {
 				staking_events_since_last_call(),
 				vec![Event::SlashComputed {
 					offence_era: 74,
-					slash_era: 101,
+					slash_era: 127,
 					offender: 11,
 					page: 0
 				},]
 			);
 
-			// Slash is applied at the start of the next era.
-			Session::roll_until_active_era(101);
+			// Slash is applied `SlashDeferDuration` eras after the report.
+			Session::roll_until_active_era(127);
 			// clear staking events until now
 			staking_events_since_last_call();
 
@@ -993,9 +1009,7 @@ fn remove_deferred() {
 		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
 		assert_eq!(asset::stakeable_balance::<T>(&101), 500);
 
-		Session::roll_until_active_era(2);
-		let _ = staking_events_since_last_call();
-		// reported later, but deferred to start of era 3 as well.
+		// reported in a later block of the same era, so deferred to start of era 3 as well.
 		add_slash_in_era(11, 1, Perbill::from_percent(15));
 		Session::roll_next();
 		assert_eq!(
@@ -1014,7 +1028,7 @@ fn remove_deferred() {
 			UnappliedSlashes::<T>::iter_prefix(&3).collect::<Vec<_>>(),
 			vec![
 				(
-					(11, Perbill::from_percent(10), 0),
+					(11, Perbill::from_percent(10), 0, 1),
 					UnappliedSlash {
 						validator: 11,
 						own: 100,
@@ -1025,7 +1039,7 @@ fn remove_deferred() {
 					}
 				),
 				(
-					(11, Perbill::from_percent(15), 0),
+					(11, Perbill::from_percent(15), 0, 1),
 					UnappliedSlash {
 						validator: 11,
 						own: 50,
@@ -1283,7 +1297,7 @@ fn apply_slash_rejects_cancelled_slashes() {
 
 		// Verify the slash is scheduled for era 3
 		let slash_era = 3;
-		let slash_key = (11, Perbill::from_percent(10), 0);
+		let slash_key = (11, Perbill::from_percent(10), 0, 1);
 		assert!(UnappliedSlashes::<T>::contains_key(&slash_era, &slash_key));
 
 		// Governance cancels this slash
@@ -1598,11 +1612,11 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			// Rationale: We want to simulate a backlog of offences from era 3 that remain
 			// unprocessed by the time unbonding becomes possible in era 6.
 			//
-			// Offences for era 3 must be reported no later than era 4, since slashing application
-			// starts in era 5. To achieve this, we flood era 3 with more than 4 offences, all
-			// reported just before the end of era 4. Given there are only 2 blocks per era
-			// (limiting processing throughput), this ensures not all offences will be processed by
-			// era 6 — blocking withdrawal as intended.
+			// Offences for era 3 must be reported no later than era 4, and are applied
+			// `SlashDeferDuration` eras after the report, i.e. in era 6. To achieve this, we flood
+			// era 3 with more than 4 offences, all reported just before the end of era 4. Given
+			// there are only 2 blocks per era (limiting processing throughput), this ensures not
+			// all offences will be processed by era 6 — blocking withdrawal as intended.
 
 			// go to era 4.
 			Session::roll_until_active_era(4);
@@ -1635,16 +1649,32 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 			assert_eq!(era_unprocessed_offence_count(3), 5 - 3);
 			assert_eq!(OffenceQueueEras::<T>::get().unwrap(), vec![3]);
 
+			// the processed offences are deferred from the reported era 4 to era 6, and are not
+			// applied yet.
+			assert_eq!(era_unapplied_slash_count(5), 0);
+			assert_eq!(era_unapplied_slash_count(6), 3);
+
 			// all nominator balance other than ED is staked.
 			let nominator_balance_pre_withdraw = Balances::free_balance(&nominator);
 			assert_eq!(nominator_balance_pre_withdraw, 1);
 
-			// Since the eras are too short, the offences that needed to be applied for last era 5
-			// are still unapplied. This will block the withdrawal.
-			assert_eq!(era_unapplied_slash_count(5), 1);
+			// WHEN: the nominator tries to withdraw unbonded funds.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
 
-			// WHEN: the nominator tries to withdraw unbonded funds while there are unapplied
-			// offence in the last era.
+			// THEN: only the first unbonding chunk is withdrawn, as the second one is slashable for
+			// the unprocessed and unapplied offences of era 3.
+			let nominator_balance_post_withdraw_1 = Balances::free_balance(&nominator);
+			// free balance increases by unlock chunk 1 value.
+			assert_eq!(nominator_balance_post_withdraw_1, nominator_balance_pre_withdraw + 100);
+
+			// WHEN: all offences are processed, but the era is too short to apply all their
+			// slashes.
+			Session::roll_until_active_era(7);
+			assert_eq!(era_unprocessed_offence_count(3), 0);
+			assert_eq!(OffenceQueueEras::<T>::get(), None);
+			assert_eq!(era_unapplied_slash_count(6), 3);
+
+			// THEN: withdrawals are blocked until the slashes of the last era are applied.
 			assert_noop!(
 				Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0),
 				Error::<T>::UnappliedSlashesInPreviousEra
@@ -1652,53 +1682,11 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 
 			// let's clear the slashes by manually applying them.
 			apply_pending_slashes_from_previous_era();
-			// ensure unapplied slashes are cleared.
-			assert_eq!(era_unapplied_slash_count(5), 0);
-
-			// WHEN: the nominator tries to withdraw unbonded funds.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
-
-			// THEN: only the first unbonding chunk is withdrawn, as the second one is blocked by
-			// unprocessed offences.
-			let nominator_balance_post_withdraw_1 = Balances::free_balance(&nominator);
-			// free balance increases by unlock chunk 1 value.
-			assert_eq!(nominator_balance_post_withdraw_1, nominator_balance_pre_withdraw + 100);
-
-			// rolling a block creates another unapplied slash for era 3 as well as process a
-			// remaining offence.
-			Session::roll_next();
-			assert_eq!(era_unapplied_slash_count(5), 1);
-			// clear the pending slashes.
-			apply_pending_slashes_from_previous_era();
-
-			// there is still one offence unprocessed for era 3.
-			assert_eq!(era_unprocessed_offence_count(3), 1);
-
-			// withdrawals are still not possible for era (3 + 3 =) 6.
-			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
-			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1);
-
-			// WHEN: all offences are processed.
-			Session::roll_next();
-			// Note that active_era has bumped to 7.
-			assert_eq!(active_era(), 7);
-			// The previous block created another unapplied slash for era 5, but we only block
-			// withdrawals upto 1 block (to give enough time for offchain actors to apply slashes
-			// manually). So, we dont need to apply pending slashes for era 5.
-			assert_eq!(era_unapplied_slash_count(5), 1);
-			// But era 6 (last era) has no unapplied slashes.
 			assert_eq!(era_unapplied_slash_count(6), 0);
-			// We also ensure all offences in the queue for era 3 are now processed.
-			assert_eq!(era_unprocessed_offence_count(3), 0);
-			assert_eq!(OffenceQueueEras::<T>::get(), None);
 
 			// Withdrawing for era 3 should be possible.
 			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(nominator), 0));
 			assert_eq!(Balances::free_balance(&nominator), nominator_balance_post_withdraw_1 + 150);
-
-			// Finally, we clear the unapplied slashes for era 5. Otherwise our try state checks
-			// will fail. (Try by commenting the next line :))
-			apply_pending_slashes_from_era(5);
 		});
 }
 
@@ -1763,6 +1751,189 @@ fn apply_slash_paths_agree_on_unbonding_chunk_at_offence_era() {
 				assert_post_slash();
 			});
 		});
+}
+
+#[test]
+fn late_report_is_deferred_from_reported_era() {
+	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+		let offence_era = 1;
+		let reported_era = 2;
+		let slash_era = reported_era + SlashDeferDuration::get();
+
+		// GIVEN: an offence of era 1 is reported in era 2, the last era it is accepted in.
+		Session::roll_until_active_era(reported_era);
+		let _ = staking_events_since_last_call();
+		add_slash_in_era(11, offence_era, Perbill::from_percent(10));
+		Session::roll_next();
+
+		// THEN: the slash is deferred from the reported era, not from the offence era.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::OffenceReported {
+					offence_era,
+					validator: 11,
+					fraction: Perbill::from_percent(10)
+				},
+				Event::SlashComputed { offence_era, slash_era, offender: 11, page: 0 }
+			]
+		);
+		assert_eq!(era_unapplied_slash_count(offence_era + SlashDeferDuration::get()), 0);
+		assert_eq!(era_unapplied_slash_count(slash_era), 1);
+
+		// WHEN: the era `offence_era + SlashDeferDuration` starts.
+		Session::roll_until_active_era(offence_era + SlashDeferDuration::get());
+		Session::roll_next();
+
+		// THEN: nothing is slashed yet.
+		assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+		assert_eq!(asset::stakeable_balance::<T>(&101), 500);
+
+		// WHEN: governance cancels the slash before its application era.
+		hypothetically!({
+			assert_ok!(Staking::cancel_deferred_slash(
+				RuntimeOrigin::root(),
+				slash_era,
+				vec![(11, Perbill::from_percent(10))],
+			));
+			Session::roll_until_active_era(slash_era);
+			Session::roll_next();
+
+			// THEN: the slash is dropped without being applied.
+			assert_eq!(era_unapplied_slash_count(slash_era), 0);
+			assert_eq!(asset::stakeable_balance::<T>(&11), 1000);
+			assert_eq!(asset::stakeable_balance::<T>(&101), 500);
+		});
+
+		// WHEN: the slash is not cancelled.
+		Session::roll_until_active_era(slash_era);
+		Session::roll_next();
+
+		// THEN: it is applied in its application era.
+		assert_eq!(era_unapplied_slash_count(slash_era), 0);
+		assert_eq!(asset::stakeable_balance::<T>(&11), 900);
+		assert_eq!(asset::stakeable_balance::<T>(&101), 475);
+	});
+}
+
+#[test]
+fn offences_of_different_eras_reported_together_are_all_applied() {
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.nominate(false)
+		.build_and_execute(|| {
+			let reported_era = 2;
+			let slash_era = reported_era + SlashDeferDuration::get();
+
+			// GIVEN: offences of eras 1 and 2 with the same fraction, both reported in era 2.
+			Session::roll_until_active_era(reported_era);
+			add_slash_in_era(11, 1, Perbill::from_percent(10));
+			add_slash_in_era(11, 2, Perbill::from_percent(10));
+			Session::roll_next();
+			Session::roll_next();
+
+			// THEN: both are queued for the same application era without overwriting each other.
+			let mut keys = UnappliedSlashes::<T>::iter_key_prefix(slash_era).collect::<Vec<_>>();
+			keys.sort();
+			assert_eq!(
+				keys,
+				vec![(11, Perbill::from_percent(10), 0, 1), (11, Perbill::from_percent(10), 0, 2)]
+			);
+			assert_eq!(UnappliedSlashesOffenceEra::<T>::get().into_inner(), vec![(slash_era, 1)]);
+
+			// WHEN: the application era starts.
+			Session::roll_until_active_era(slash_era);
+			Session::roll_next();
+			Session::roll_next();
+
+			// THEN: both slashes are applied.
+			assert_eq!(asset::stakeable_balance::<T>(&11), 1000 - 100 - 100);
+			assert_eq!(era_unapplied_slash_count(slash_era), 0);
+			assert!(UnappliedSlashesOffenceEra::<T>::get().is_empty());
+		});
+}
+
+#[test]
+fn late_reported_slash_keeps_slashable_chunk_locked() {
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.nominate(false)
+		.build_and_execute(|| {
+			let alice = 11;
+			let offence_era = 1;
+			let reported_era = 2;
+			let slash_era = reported_era + SlashDeferDuration::get();
+			let chunk_unlock_era = offence_era + BondingDuration::get();
+			assert_eq!(slash_era, chunk_unlock_era);
+
+			// GIVEN: alice unbonds 500 in the offence era.
+			assert_eq!(active_era(), offence_era);
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 500));
+
+			// AND: a 30% offence of the offence era is reported one era later.
+			Session::roll_until_active_era(reported_era);
+			add_slash_in_era(alice, offence_era, Perbill::from_percent(30));
+			Session::roll_next();
+			assert!(UnappliedSlashes::<T>::contains_key(
+				slash_era,
+				(alice, Perbill::from_percent(30), 0, offence_era)
+			));
+
+			// WHEN: the chunk unlocks before the slash is applied.
+			Session::roll_until_active_era(chunk_unlock_era);
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+
+			// THEN: the chunk is still locked.
+			assert_eq!(
+				Staking::ledger(alice.into()).unwrap().unlocking.to_vec(),
+				vec![UnlockChunk { era: chunk_unlock_era, value: 500 }],
+			);
+
+			// WHEN: the slash is applied.
+			Session::roll_next();
+
+			// THEN: 30% of (500 active + 500 chunk) is slashed proportionally, as the chunk is
+			// slashable for the offence era.
+			let ledger = Staking::ledger(alice.into()).unwrap();
+			assert_eq!(ledger.active, 350);
+			assert_eq!(
+				ledger.unlocking.to_vec(),
+				vec![UnlockChunk { era: chunk_unlock_era, value: 350 }],
+			);
+
+			// AND: the remaining chunk can be withdrawn.
+			assert_ok!(Staking::withdraw_unbonded(RuntimeOrigin::signed(alice), 0));
+			assert!(Staking::ledger(alice.into()).unwrap().unlocking.is_empty());
+		});
+}
+
+#[test]
+fn migration_adds_offence_era_to_unapplied_slashes() {
+	ExtBuilder::default().slash_defer_duration(2).build_and_execute(|| {
+		let slash = |validator, own| UnappliedSlash::<T> {
+			validator,
+			own,
+			others: Default::default(),
+			reporter: None,
+			payout: 0,
+		};
+		v18::UnappliedSlashes::<T>::insert(3, (11, Perbill::from_percent(10), 0), slash(11, 100));
+		v18::UnappliedSlashes::<T>::insert(4, (21, Perbill::from_percent(20), 1), slash(21, 200));
+
+		VersionUncheckedAddOffenceEraToUnappliedSlashes::<T>::on_runtime_upgrade();
+
+		let mut slashes = UnappliedSlashes::<T>::iter().collect::<Vec<_>>();
+		slashes.sort_by_key(|(era, _, _)| *era);
+		assert_eq!(
+			slashes,
+			vec![
+				(3, (11, Perbill::from_percent(10), 0, 1), slash(11, 100)),
+				(4, (21, Perbill::from_percent(20), 1, 2), slash(21, 200)),
+			]
+		);
+		assert_eq!(UnappliedSlashesOffenceEra::<T>::get().into_inner(), vec![(3, 1), (4, 2)]);
+	});
 }
 
 mod paged_slashing {
@@ -1889,7 +2060,7 @@ mod paged_slashing {
 
 				// this is a unique key to ensure unapplied slash is not overwritten for multiple
 				// offence by offender in the same era.
-				assert_eq!(*slash_key, (11, Perbill::from_percent(10), expected_page_count - 1));
+				assert_eq!(*slash_key, (11, Perbill::from_percent(10), expected_page_count - 1, 2));
 
 				// validator own stake is only included in the first page. Since this is page 3,
 				// only nominators are slashed.
@@ -2043,7 +2214,10 @@ mod paged_slashing {
 			assert!(OffenceQueue::<T>::get(2, 11).is_none());
 			assert!(OffenceQueueEras::<T>::get().is_none());
 			// unapplied slash is created for the offence.
-			assert!(UnappliedSlashes::<T>::contains_key(2 + 3, (11, Perbill::from_percent(15), 0)));
+			assert!(UnappliedSlashes::<T>::contains_key(
+				2 + 3,
+				(11, Perbill::from_percent(15), 0, 2)
+			));
 
 			// Scenario 2A: offence has **lower** slash fraction than the previous offence.
 			add_slash_with_percent(11, 14);
@@ -2081,9 +2255,9 @@ mod paged_slashing {
 			// there are now two slash records for 11, for era 5, with the newer one only slashing
 			// the diff between slash fractions of 16 and 15.
 			let slash_one =
-				UnappliedSlashes::<T>::get(2 + 3, (11, Perbill::from_percent(15), 0)).unwrap();
+				UnappliedSlashes::<T>::get(2 + 3, (11, Perbill::from_percent(15), 0, 2)).unwrap();
 			let slash_two =
-				UnappliedSlashes::<T>::get(2 + 3, (11, Perbill::from_percent(16), 0)).unwrap();
+				UnappliedSlashes::<T>::get(2 + 3, (11, Perbill::from_percent(16), 0, 2)).unwrap();
 			assert!(slash_one.own > slash_two.own);
 		});
 	}

@@ -103,7 +103,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(18);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(19);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1018,11 +1018,19 @@ pub mod pallet {
 		Twox64Concat,
 		EraIndex,
 		Twox64Concat,
-		// Unique key for unapplied slashes: (validator, slash fraction, page index).
-		(T::AccountId, Perbill, u32),
+		// Unique key for unapplied slashes: (validator, slash fraction, page index, offence era).
+		(T::AccountId, Perbill, u32, EraIndex),
 		UnappliedSlash<T>,
 		OptionQuery,
 	>;
+
+	/// The oldest offence era of the slashes in [`UnappliedSlashes`], per application era.
+	///
+	/// Sorted by application era. Unbonded funds that are still slashable for one of these
+	/// offence eras cannot be withdrawn until the slashes of that application era are applied.
+	#[pallet::storage]
+	pub type UnappliedSlashesOffenceEra<T: Config> =
+		StorageValue<_, WeakBoundedVec<(EraIndex, EraIndex), OffenceQueueErasBound<T>>, ValueQuery>;
 
 	/// Cancelled slashes by era and validator with maximum slash fraction to be cancelled.
 	///
@@ -1631,7 +1639,7 @@ pub mod pallet {
 						active_era,
 					);
 				} else {
-					slashing::apply_slash::<T>(slash, Self::offence_era_of(active_era));
+					slashing::apply_slash::<T>(slash, key.3);
 				}
 
 				// Always remove the slash from UnappliedSlashes
@@ -1641,6 +1649,7 @@ pub mod pallet {
 				if UnappliedSlashes::<T>::iter_prefix(&active_era).next().is_none() {
 					// No more slashes for this era, clear CancelledSlashes
 					CancelledSlashes::<T>::remove(&active_era);
+					slashing::untrack_unapplied_slashes::<T>(active_era);
 				}
 
 				T::WeightInfo::apply_slash(nominators_slashed)
@@ -3060,12 +3069,13 @@ pub mod pallet {
 		/// for eras older than the active era.
 		///
 		/// ## Parameters
-		/// - `slash_era`: The application era (`offence_era + SlashDeferDuration`), i.e. the key
+		/// - `slash_era`: The application era (`reported_era + SlashDeferDuration`), i.e. the key
 		///   into [`UnappliedSlashes`].
 		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
 		///   - `stash`: The stash account of the validator being slashed.
 		///   - `slash_fraction`: The fraction of the stake that was slashed.
 		///   - `page_index`: The index of the exposure page being processed.
+		///   - `offence_era`: The era in which the offence was committed.
 		///
 		/// ## Behavior
 		/// - The function is **permissionless**—anyone can call it.
@@ -3082,7 +3092,7 @@ pub mod pallet {
 		pub fn apply_slash(
 			origin: OriginFor<T>,
 			slash_era: EraIndex,
-			slash_key: (T::AccountId, Perbill, u32),
+			slash_key: (T::AccountId, Perbill, u32, EraIndex),
 		) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
 			let active_era = ActiveEra::<T>::get().map(|a| a.index).unwrap_or_default();
@@ -3096,7 +3106,10 @@ pub mod pallet {
 
 			let unapplied_slash = UnappliedSlashes::<T>::take(&slash_era, &slash_key)
 				.ok_or(Error::<T>::InvalidSlashRecord)?;
-			slashing::apply_slash::<T>(unapplied_slash, Self::offence_era_of(slash_era));
+			slashing::apply_slash::<T>(unapplied_slash, slash_key.3);
+			if UnappliedSlashes::<T>::iter_prefix(&slash_era).next().is_none() {
+				slashing::untrack_unapplied_slashes::<T>(slash_era);
+			}
 
 			Ok(Pays::No.into())
 		}

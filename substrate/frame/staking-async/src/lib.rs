@@ -137,7 +137,8 @@
 //!
 //! **Deferred (SlashDeferDuration > 0)**:
 //! - Stored in `UnappliedSlashes` for future application
-//! - Applied at era: `offence_era + SlashDeferDuration`
+//! - Applied at era: `reported_era + SlashDeferDuration`, so every report leaves the full deferral
+//!   window to governance, regardless of how old the offence is
 //! - Can be cancelled by governance before application
 //!
 //! ### Storage Items Involved
@@ -147,6 +148,7 @@
 //! - `ProcessingOffence`: Currently processing offence
 //! - `ValidatorSlashInEra`: Tracks highest slash per validator per era
 //! - `UnappliedSlashes`: Deferred slashes waiting for application
+//! - `UnappliedSlashesOffenceEra`: Oldest offence era of the deferred slashes per application era
 //!
 //! ### Withdrawal Restrictions
 //!
@@ -156,7 +158,8 @@
 //! ```text
 //! earliest_era_to_withdraw = min(
 //!     active_era,
-//!     last_fully_processed_offence_era + BondingDuration
+//!     last_fully_processed_offence_era + BondingDuration,
+//!     oldest_unapplied_slash_offence_era - 1 + BondingDuration
 //! )
 //! ```
 //!
@@ -168,27 +171,29 @@
 //!
 //! **Withdrawal Timeline Example with an Offence**:
 //! ```text
-//! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118
-//!             |     |     |     |     |     |     |     |     |     |     |          |     |
+//! Era:        90    91    92    93    94    95    96    97    98    99    100   ...  117   118   119
+//!             |     |     |     |     |     |     |     |     |     |     |          |     |     |
 //! Unbond:     U
 //! Offence:    X
 //! Reported:               R
 //! Processed:              P (within next few blocks)
-//! Slash Applied:                                                                       S
-//! Withdraw:                                                                            ❌    ✓
+//! Slash Applied:                                                                                   S
+//! Withdraw:                                                                            ❌    ❌    ✓
 //!
 //! With BondingDuration = 28 and SlashDeferDuration = 27:
 //! - User unbonds in era 90
 //! - Offence occurs in era 90
 //! - Reported in era 92 (typically within 2 days, but reportable until Era 116)
 //! - Processed in era 92 (within next few blocks after reporting)
-//! - Slash deferred for 27 eras, applied at era 117 (90 + 27)
-//! - Cannot withdraw unbonded chunks until era 118 (90 + 28)
+//! - Slash deferred for 27 eras from the report, applied at era 119 (92 + 27)
+//! - The unbonded chunk unlocks at era 118 (90 + 28), but cannot be withdrawn until the slash
+//!   is applied in era 119
 //!
 //! The 28-era bonding duration ensures that any offences committed before or during
-//! unbonding have time to be reported, processed, and applied before funds can be
-//! withdrawn. This provides a window for governance to cancel slashes that may have
-//! resulted from software bugs.
+//! unbonding have time to be reported and processed before funds can be withdrawn. Funds that
+//! are still slashable by a deferred slash stay locked until the slash is applied. Deferring
+//! from the report gives governance the full deferral window to cancel slashes that may have
+//! resulted from software bugs or abuse.
 //! ```
 //!
 //! **Key Restrictions**:

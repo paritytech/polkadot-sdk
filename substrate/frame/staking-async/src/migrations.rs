@@ -19,8 +19,9 @@
 
 use crate::{
 	log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot,
-	WeightedPointsFormulaStartEra,
+	UnappliedSlash, UnappliedSlashes, UnappliedSlashesOffenceEra, WeightedPointsFormulaStartEra,
 };
+use alloc::collections::BTreeMap;
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::*,
@@ -31,7 +32,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use sp_runtime::{traits::AccountIdConversion, Saturating};
+use sp_runtime::{traits::AccountIdConversion, Perbill, Saturating};
 use sp_staking::EraIndex;
 
 /// One-shot migration relocating already-funded era pots after the seed-derivation
@@ -266,6 +267,86 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedSetWeightedPointsF
 		frame_support::ensure!(
 			WeightedPointsFormulaStartEra::<T>::get() == Some(pre_active_era.saturating_add(1)),
 			"cutoff must be active_era + 1 after the migration"
+		);
+
+		Ok(())
+	}
+}
+
+/// Storage layout of version 18 and older.
+pub(crate) mod v18 {
+	use super::*;
+
+	/// [`UnappliedSlashes`] keyed by `(validator, slash fraction, page index)`.
+	#[frame_support::storage_alias]
+	pub(crate) type UnappliedSlashes<T: Config> = StorageDoubleMap<
+		crate::Pallet<T>,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		(<T as frame_system::Config>::AccountId, Perbill, u32),
+		UnappliedSlash<T>,
+		OptionQuery,
+	>;
+}
+
+/// Version-gated form of [`VersionUncheckedAddOffenceEraToUnappliedSlashes`].
+pub type AddOffenceEraToUnappliedSlashes<T> = VersionedMigration<
+	18,
+	19,
+	VersionUncheckedAddOffenceEraToUnappliedSlashes<T>,
+	crate::Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
+
+/// Adds the offence era to the keys of [`UnappliedSlashes`] and fills
+/// [`UnappliedSlashesOffenceEra`].
+///
+/// Slashes queued before this migration were scheduled at `offence_era + SlashDeferDuration`, so
+/// the offence era is recovered from the era they are queued under. The number of queued slashes
+/// is small in practice, so this runs in a single block.
+///
+/// Runtimes should wire the version-gated [`AddOffenceEraToUnappliedSlashes`], not this type
+/// directly.
+pub struct VersionUncheckedAddOffenceEraToUnappliedSlashes<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedAddOffenceEraToUnappliedSlashes<T> {
+	fn on_runtime_upgrade() -> Weight {
+		let slashes = v18::UnappliedSlashes::<T>::drain().collect::<alloc::vec::Vec<_>>();
+		let migrated = slashes.len() as u64;
+
+		let mut offence_eras = BTreeMap::new();
+		for (slash_era, (validator, fraction, page), slash) in slashes {
+			let offence_era = slash_era.saturating_sub(T::SlashDeferDuration::get());
+			UnappliedSlashes::<T>::insert(
+				slash_era,
+				(validator, fraction, page, offence_era),
+				slash,
+			);
+			offence_eras.insert(slash_era, offence_era);
+		}
+		UnappliedSlashesOffenceEra::<T>::put(WeakBoundedVec::force_from(
+			offence_eras.into_iter().collect(),
+			Some("UnappliedSlashesOffenceEra"),
+		));
+
+		log!(info, "AddOffenceEraToUnappliedSlashes: migrated {} unapplied slashes", migrated);
+
+		T::DbWeight::get()
+			.reads_writes(migrated.saturating_add(1), migrated.saturating_mul(2).saturating_add(1))
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+		Ok((v18::UnappliedSlashes::<T>::iter_keys().count() as u32).encode())
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let pre_count = u32::decode(&mut &state[..]).map_err(|_| "decode pre count")?;
+		frame_support::ensure!(
+			UnappliedSlashes::<T>::iter().count() as u32 == pre_count,
+			"all unapplied slashes must be migrated"
 		);
 
 		Ok(())

@@ -770,15 +770,15 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::Slashed { staker: 3, amount: 50 },]
-		);
-		roll_next();
-		assert_eq!(
-			staking_events_since_last_call(),
 			vec![
 				staking_async::Event::Slashed { staker: 5, amount: 50 },
 				staking_async::Event::Slashed { staker: 110, amount: 50 }
 			]
+		);
+		roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![staking_async::Event::Slashed { staker: 3, amount: 50 },]
 		);
 	});
 }
@@ -986,13 +986,13 @@ fn on_offence_previous_era() {
 			}]
 		);
 
-		// computed in the next block (will be applied in era 4)
+		// computed in the next block (will be applied in era 5, two eras after the report)
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
 			vec![StakingEvent::SlashComputed {
 				offence_era: 2,
-				slash_era: 4,
+				slash_era: 5,
 				offender: 3,
 				page: 0,
 			}]
@@ -1005,16 +1005,15 @@ fn on_offence_previous_era() {
 		// clear staking events.
 		let _ = staking_events_since_last_call();
 
-		// the next block applies the slashes.
-		roll_next();
-		assert_eq!(
-			staking_events_since_last_call(),
-			vec![staking_async::Event::Slashed { staker: 3, amount: 50 }]
-		);
-
-		// nothing left
+		// nothing is applied two eras after the offence.
 		roll_next();
 		assert_eq!(staking_events_since_last_call(), vec![]);
+
+		// the slash stays queued for its application era.
+		assert!(pallet_staking_async::UnappliedSlashes::<Runtime>::contains_key(
+			5,
+			(3, Perbill::from_percent(50), 0, 2)
+		));
 	});
 }
 

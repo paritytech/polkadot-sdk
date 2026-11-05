@@ -693,7 +693,7 @@ mod benchmarks {
 				let validator: T::AccountId = account("validator", i, SEED);
 
 				// Insert slash for this validator
-				let slash_key = (validator.clone(), Perbill::from_percent(10), 0);
+				let slash_key = (validator.clone(), Perbill::from_percent(10), 0, era);
 				let unapplied_slash = UnappliedSlash::<T> {
 					validator: validator.clone(),
 					own: Zero::zero(),
@@ -1062,7 +1062,7 @@ mod benchmarks {
 		let page_index = 0;
 		let slashed_balance = BalanceOf::<T>::from(10u32);
 
-		let slash_key = (validator.clone(), slash_fraction, page_index);
+		let slash_key = (validator.clone(), slash_fraction, page_index, era);
 		// Only include `n` nominators in the slash (to benchmark variable nominator counts)
 		let slashed_nominators = nominators
 			.iter()
