@@ -13947,6 +13947,8 @@ dependencies = [
  "frame-system",
  "hrmp-primitives",
  "log",
+ "pallet-balances",
+ "pallet-hrmp-para",
  "parity-scale-codec",
  "polkadot-primitives",
  "polkadot-runtime-parachains",

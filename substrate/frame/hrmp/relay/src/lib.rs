@@ -57,6 +57,8 @@ mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
+mod integration_tests;
+#[cfg(test)]
 mod tests;
 
 /// The index of [`Call::receive`] that receives [`MessageToPara`].
