@@ -22,7 +22,7 @@ governance ──venues, pairs, markets──▶ storage
                                            │ quotes
                                            ▼
                                      signed report
-                                           │ gossip, inherent
+                                           │ delivery, inherent
                                            ▼
 block author ──▶ process_reports ──filter, vote, median──▶ Prices
                                                              │
@@ -63,8 +63,8 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 2. The node prices each market and aggregates the market prices into pair prices through the
    runtime APIs, so the rules are the runtime's and governance changes them without a node
    release.
-3. The node signs the pair prices as a report anchored to the current block height and gossips it
-   to the other oracle nodes.
+3. The node signs the pair prices as a report anchored to the current block height and sends it
+   to the nodes authoring next.
 4. A block author includes the reports it collected as an inherent. The inherent never rejects a
    block: if it fails, the block keeps no oracle update.
 5. The pallet drops reports that are stale, from an unknown signer or wrongly signed, replaces

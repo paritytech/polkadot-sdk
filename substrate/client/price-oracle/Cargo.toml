@@ -6,7 +6,7 @@ edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Price oracle node service: fetches, signs, gossips and provides price reports."
+description = "Price oracle node service: fetches, signs, delivers and provides price reports."
 readme = "README.md"
 
 [lints]
@@ -26,11 +26,8 @@ hyper-rustls = { workspace = true }
 hyper-util = { features = ["client-legacy", "http1", "http2", "tokio"], workspace = true }
 log = { workspace = true, default-features = true }
 parking_lot = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
 rustls = { workspace = true }
 sc-network = { workspace = true, default-features = true }
-sc-network-gossip = { workspace = true, default-features = true }
-sc-network-types = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-application-crypto = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }

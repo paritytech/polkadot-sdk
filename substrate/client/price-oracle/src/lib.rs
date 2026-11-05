@@ -18,68 +18,58 @@
 #![doc = include_str!("../README.md")]
 #![warn(missing_docs)]
 
+pub mod delivery;
 pub mod fetcher;
-pub mod gossip;
 pub mod inherent;
 pub mod pool;
 pub mod signer;
+pub mod tick;
 
-pub use gossip::peers_set_config;
+pub use delivery::{peers_set_config, ReportRecipients};
 pub use inherent::PriceOracleInherentDataProvider;
 pub use pool::ReportPool;
 
 use codec::{Decode, Encode};
-use fetcher::{Fetcher, MarketResponses};
-use futures::{channel::mpsc, future::FusedFuture, FutureExt, StreamExt};
-use gossip::{Acceptance, ReportValidator};
-use prometheus_endpoint::Registry;
-use sc_network::{service::traits::NotificationService, ProtocolName};
-use sc_network_gossip::{GossipEngine, Network, Syncing};
+use delivery::Targets;
+use fetcher::Fetcher;
+use futures::{future::FusedFuture, FutureExt};
+use sc_network::{
+	service::traits::{NetworkService, NotificationEvent, NotificationService, ValidationResult},
+	ProtocolName,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_application_crypto::AppCrypto;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::SyncOracle;
 use sp_keystore::KeystorePtr;
-use sp_price_oracle::{market::Market, runtime_api::PriceOracleApi, Anchor, PriceReport, Settings};
-use sp_runtime::{
-	traits::{Block as BlockT, SaturatedConversion},
-	RuntimeAppPublic,
-};
-use std::{
-	sync::Arc,
-	time::{Duration, SystemTime, UNIX_EPOCH},
-};
-use tokio::time::{Instant, MissedTickBehavior};
+use sp_price_oracle::runtime_api::PriceOracleApi;
+use sp_runtime::{traits::Block as BlockT, RuntimeAppPublic};
+use std::sync::Arc;
+use tick::{benefit::GOOD_REPORT, run_tick, TickSetup, MIN_TICK_INTERVAL};
+use tokio::time::MissedTickBehavior;
 
 const LOG_TARGET: &str = "price-oracle";
-/// Lower bound on the tick interval. A shorter interval configured in the runtime is raised to
-/// this value.
-const MIN_TICK_INTERVAL: Duration = Duration::from_secs(1);
-/// Part of the tick interval reserved for aggregating and signing. Fetching stops this long
-/// before the tick interval elapses.
-const TICK_MARGIN: Duration = Duration::from_millis(200);
 
 /// Parameters of [`run`].
-pub struct Params<Client, Net, SyncService, Id, Signature> {
+pub struct Params<Client, SyncService, Recipients, Id, Signature> {
 	/// Client providing the chain head and the runtime APIs.
 	pub client: Arc<Client>,
-	/// Network service the gossip engine runs on. Peer reputation changes are reported through it.
-	pub network: Net,
-	/// Sync service the gossip engine consults. Also tells whether the node is major syncing.
+	/// Network service the protocol runs on. The recipients are reserved and peer reputation
+	/// changes are reported through it.
+	pub network: Arc<dyn NetworkService>,
+	/// Tells whether the node is major syncing.
 	pub sync: SyncService,
-	/// Notification service of the gossip protocol, as returned by [`peers_set_config`].
+	/// Notification service of the protocol, as returned by [`peers_set_config`].
 	pub notification_service: Box<dyn NotificationService>,
-	/// Name of the gossip protocol, as returned by [`peers_set_config`].
+	/// Name of the protocol, as returned by [`peers_set_config`].
 	pub protocol_name: ProtocolName,
+	/// Where the reports are sent.
+	pub recipients: Recipients,
 	/// Keystore to look the signer key up in and to sign reports with.
 	pub keystore: KeystorePtr,
 	/// Pool the service inserts reports into. The same pool is given to the inherent data
 	/// provider.
 	pub pool: ReportPool<Id, Signature>,
-	/// Registry to register the metrics of the service with, if metrics are enabled.
-	// TODO: register metrics of the service itself (tick duration, markets priced and failed,
-	// reports signed and received, pool size). Only the gossip engine's metrics are registered.
-	pub prometheus_registry: Option<Registry>,
 }
 
 /// The price oracle service.
@@ -87,19 +77,19 @@ pub struct Params<Client, Net, SyncService, Id, Signature> {
 /// Runs until the network shuts down. On every tick, the service reads the accepted signers,
 /// the report window, the tick interval and the active markets from the runtime at the best
 /// block, fetches and prices the markets, aggregates the prices into pair prices, signs them as
-/// a report and gossips the report. Reports received from peers are validated and inserted into
-/// the pool by the gossip validator.
+/// a report and sends the report to the recipients of the tick. Reports received from peers are
+/// validated and inserted into the pool.
 ///
 /// A tick is skipped while the node is major syncing, while the previous tick has not finished,
 /// and while the runtime does not implement the price oracle APIs.
-pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
-	params: Params<Client, Net, SyncService, Id, Signature>,
+pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
+	params: Params<Client, SyncService, Recipients, Id, Signature>,
 ) where
 	Block: BlockT,
 	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block> + Send + Sync + 'static,
 	Client::Api: PriceOracleApi<Block, Id>,
-	Net: Network<Block> + Clone + Send + Sync + 'static,
-	SyncService: Syncing<Block> + SyncOracle + Clone + Send + 'static,
+	SyncService: SyncOracle + Send + 'static,
+	Recipients: ReportRecipients<Block> + 'static,
 	Id: RuntimeAppPublic<Signature = Signature>
 		+ AppCrypto
 		+ Ord
@@ -115,11 +105,11 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 		client,
 		network,
 		sync,
-		notification_service,
+		mut notification_service,
 		protocol_name,
+		recipients,
 		keystore,
 		pool,
-		prometheus_registry,
 	} = params;
 
 	let fetcher = match Fetcher::new() {
@@ -129,21 +119,11 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 			return;
 		},
 	};
-	let report_peer = {
-		let network = network.clone();
-		move |peer, change| network.report_peer(peer, change)
-	};
-	let validator =
-		Arc::new(ReportValidator::<Block, Id, Signature>::new(pool.clone(), report_peer));
-	let mut gossip_engine = GossipEngine::new(
-		network,
-		sync.clone(),
-		notification_service,
-		protocol_name.clone(),
-		validator.clone(),
-		prometheus_registry.as_ref(),
-	);
-	let mut incoming = gossip_engine.messages_for(gossip::topic::<Block>());
+	// The setup of the last tick, whose rules incoming reports are checked against. `None`
+	// before the first tick and while the node is syncing: reports are then dropped without
+	// judging the sender.
+	let mut tick_setup: Option<TickSetup<Block::Hash, Id>> = None;
+	let mut targets = Targets::new(network.clone(), protocol_name.clone());
 
 	let mut ticker = tokio::time::interval(MIN_TICK_INTERVAL);
 	ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -161,21 +141,21 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 				}
 				if sync.is_major_syncing() {
 					log::debug!(target: LOG_TARGET, "Major syncing, skipping a tick");
-					// The rules of the last tick are stale; do not judge peers by them.
-					validator.clear_acceptance();
+					// The rules of the last tick are far behind; do not judge peers by them.
+					tick_setup = None;
 					continue;
 				}
-				// Read the settings and the markets from the runtime at the best block.
+				// Read the settings and the markets from the runtime at the best block. Without
+				// them the node reports nothing this tick, but keeps receiving reports under
+				// the rules of the last tick it read.
 				let Some(setup) = TickSetup::read(&*client, &keystore, &mut api_missing_logged)
 				else {
-					validator.clear_acceptance();
 					continue;
 				};
-				let acceptance = setup.acceptance();
 				// Drop pooled reports that fell out of the report window.
-				pool.prune(acceptance.oldest());
-				// Validate incoming reports against the signers and window of this block.
-				validator.set_acceptance(acceptance);
+				pool.prune(setup.oldest());
+				// Keep a substream open to the recipients of this tick.
+				targets.reserve(recipients.recipients(setup.best_hash).await);
 				// Follow a changed tick interval from the next tick on.
 				if setup.interval() != ticker.period() {
 					let period = setup.interval();
@@ -184,176 +164,55 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 					ticker.set_missed_tick_behavior(MissedTickBehavior::Delay);
 				}
 				// Fetch, price, sign and pool in the background; the result arrives in the arm below.
-				tick = run_tick(client.clone(), fetcher.clone(), keystore.clone(), pool.clone(), setup)
+				tick = run_tick(client.clone(), fetcher.clone(), keystore.clone(), pool.clone(), setup.clone())
 					.boxed()
 					.fuse();
+				// Check incoming reports against the rules of this tick.
+				tick_setup = Some(setup);
 			},
 			encoded = &mut tick, if !tick.is_terminated() => {
-				// The tick finished: gossip the signed report, if it produced one.
-				if let Some(encoded) = encoded {
-					gossip_engine.gossip_message(gossip::topic::<Block>(), encoded, false);
+				// The tick finished: send the signed report, if it produced one, to every
+				// recipient reachable now.
+				let Some(encoded) = encoded else { continue };
+				let mut sent = 0;
+				for peer in targets.reachable() {
+					match notification_service.send_async_notification(peer, encoded.clone()).await {
+						Ok(()) => sent += 1,
+						Err(e) => log::debug!(target: LOG_TARGET, "Cannot send the report to {peer}: {e}"),
+					}
 				}
+				log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
 			},
-			notification = incoming.next() => {
-				// Incoming reports were validated and pooled by the validator; only the end of
-				// the stream matters here.
-				if notification.is_none() {
-					log::warn!(target: LOG_TARGET, "Gossip topic stream ended, stopping");
-					// TODO: can we handle this without stopping the service?
-					return;
+			event = notification_service.next_event() => {
+				use NotificationEvent::*;
+				match event {
+					Some(NotificationReceived { peer, notification }) => {
+						let Some(setup) = &tick_setup else {
+							log::trace!(target: LOG_TARGET, "No tick setup yet, dropping a report from {peer}");
+							continue;
+						};
+						match setup.check(&peer, &notification) {
+							Ok(report) =>
+								if pool.insert(report) {
+									network.report_peer(peer, GOOD_REPORT);
+								} else {
+									log::trace!(target: LOG_TARGET, "Superseded report from {peer}");
+								},
+							Err(cost) => network.report_peer(peer, cost),
+						}
+					},
+					Some(NotificationStreamOpened { peer, .. }) => targets.opened(peer),
+					Some(NotificationStreamClosed { peer }) => targets.closed(&peer),
+					Some(ValidateInboundSubstream { result_tx, .. }) => {
+						let _ = result_tx.send(ValidationResult::Accept);
+					},
+					None => {
+						log::warn!(target: LOG_TARGET, "Notification stream ended, stopping");
+						// TODO: can we handle this without stopping the service?
+						return;
+					},
 				}
-			},
-			_ = &mut gossip_engine => {
-				// Drive the gossip engine; it only completes when the network shuts down.
-				log::warn!(target: LOG_TARGET, "Gossip engine ended, stopping");
-				// TODO: can we handle this without stopping the service?
-				return;
 			},
 		}
 	}
-}
-
-/// The state a tick starts from, read from the runtime at the best block.
-struct TickSetup<Hash, Id> {
-	best_hash: Hash,
-	anchor: Anchor,
-	settings: Settings<Id>,
-	signer: Option<Id>,
-	markets: Vec<Market>,
-}
-
-impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
-	/// Read the state at the best block.
-	///
-	/// Returns `None` if a runtime API call fails, which is the case when the runtime does not
-	/// implement the price oracle API. The failure is logged once, and again only after the
-	/// calls have succeeded in between.
-	fn read<Block, Client>(
-		client: &Client,
-		keystore: &KeystorePtr,
-		api_missing_logged: &mut bool,
-	) -> Option<Self>
-	where
-		Block: BlockT<Hash = Hash>,
-		Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-		Client::Api: PriceOracleApi<Block, Id>,
-		Id: RuntimeAppPublic + AppCrypto + Ord + Clone + Decode,
-	{
-		let info = client.info();
-		let best_hash = info.best_hash;
-		let anchor = Anchor(info.best_number.saturated_into());
-		let api = client.runtime_api();
-
-		let (settings, markets) = match (api.settings(best_hash), api.markets(best_hash)) {
-			(Ok(settings), Ok(markets)) => (settings, markets),
-			(Err(e), _) | (_, Err(e)) => {
-				if !*api_missing_logged {
-					log::error!(target: LOG_TARGET, "Runtime does not serve the price oracle API: {e}");
-					*api_missing_logged = true;
-				}
-				return None;
-			},
-		};
-		*api_missing_logged = false;
-
-		let signer = signer::local_signer(keystore, &settings.signers);
-		Some(Self { best_hash, anchor, settings, signer, markets })
-	}
-
-	/// The tick interval in force, raised to [`MIN_TICK_INTERVAL`] if shorter.
-	fn interval(&self) -> Duration {
-		Duration::from_millis(self.settings.tick_interval_ms.into()).max(MIN_TICK_INTERVAL)
-	}
-
-	/// The rules incoming reports are checked against at this tick.
-	fn acceptance(&self) -> Acceptance<Id> {
-		Acceptance::new(self.settings.clone(), self.anchor)
-	}
-}
-
-/// Fetch and price the markets, aggregate the prices, and sign the result as a report anchored
-/// at `setup.anchor`.
-///
-/// Returns the encoded signed report after inserting it into `pool`. Returns `None` if the node
-/// has no signer key, no markets are registered, no market could be priced, the aggregation
-/// yields no quotes, or signing fails.
-async fn run_tick<Block, Client, Id, Signature>(
-	client: Arc<Client>,
-	fetcher: Fetcher,
-	keystore: KeystorePtr,
-	pool: ReportPool<Id, Signature>,
-	setup: TickSetup<Block::Hash, Id>,
-) -> Option<Vec<u8>>
-where
-	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>,
-	Client::Api: PriceOracleApi<Block, Id>,
-	Id: RuntimeAppPublic<Signature = Signature> + AppCrypto + Ord + Clone + Encode + Decode,
-	Signature: Clone + Encode,
-{
-	let interval = setup.interval();
-	let TickSetup { best_hash, anchor, signer, markets, .. } = setup;
-	let Some(signer) = signer else {
-		log::debug!(target: LOG_TARGET, "No signer key in the keystore, not reporting");
-		return None;
-	};
-	if markets.is_empty() {
-		log::debug!(target: LOG_TARGET, "No markets registered, not reporting");
-		return None;
-	}
-
-	let deadline = Instant::now() + interval.saturating_sub(TICK_MARGIN);
-	let (tx, mut rx) = mpsc::unbounded();
-	let fetch = fetcher.fetch_markets(&markets, deadline, tx);
-	let parse = async {
-		let mut prices = Vec::new();
-		while let Some(MarketResponses { market, responses }) = rx.next().await {
-			match client.runtime_api().parse(best_hash, market, responses, now_ms()) {
-				Ok(Ok(price)) => prices.push((market, price)),
-				Ok(Err(e)) => log::debug!(
-					target: LOG_TARGET,
-					"Market {market:?} not priced: {}",
-					String::from_utf8_lossy(&e.0),
-				),
-				Err(e) => log::warn!(target: LOG_TARGET, "Runtime `parse` failed: {e}"),
-			}
-		}
-		prices
-	};
-	let (failures, prices) = futures::join!(fetch, parse);
-	for (market, failure) in failures {
-		log::debug!(target: LOG_TARGET, "Market {market:?} not fetched: {failure:?}");
-	}
-	log::debug!(target: LOG_TARGET, "Priced {} of {} markets", prices.len(), markets.len());
-	if prices.is_empty() {
-		return None;
-	}
-
-	let quotes = match client.runtime_api().aggregate(best_hash, prices) {
-		Ok(quotes) => quotes,
-		Err(e) => {
-			log::warn!(target: LOG_TARGET, "Runtime `aggregate` failed: {e}");
-			return None;
-		},
-	};
-	if quotes.is_empty() {
-		log::debug!(target: LOG_TARGET, "Nothing aggregated, not reporting");
-		return None;
-	}
-
-	let report = PriceReport { anchor, quotes };
-	let signed = signer::sign_report(&keystore, signer, report)?;
-	log::info!(
-		target: LOG_TARGET,
-		"Reporting {} pair prices at anchor {anchor:?}",
-		signed.report.quotes.len(),
-	);
-	let encoded = signed.encode();
-	pool.insert(signed);
-	Some(encoded)
-}
-
-/// Current Unix time in milliseconds.
-fn now_ms() -> u64 {
-	SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }

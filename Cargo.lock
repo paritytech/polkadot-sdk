@@ -22814,8 +22814,6 @@ dependencies = [
  "rustls 0.23.31",
  "sc-keystore",
  "sc-network 0.34.0",
- "sc-network-gossip",
- "sc-network-types 0.10.0",
  "sp-api 26.0.0",
  "sp-application-crypto 30.0.0",
  "sp-blockchain 28.0.0",
@@ -22825,7 +22823,6 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-price-oracle",
  "sp-runtime 31.0.1",
- "substrate-prometheus-endpoint 0.17.0",
  "tokio",
  "url",
 ]
