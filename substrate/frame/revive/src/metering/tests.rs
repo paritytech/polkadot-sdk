@@ -770,6 +770,7 @@ fn clear_and_terminate_then_write(target: H160, slots: BalanceOf<Test>) -> Vec<u
 #[test_case(FixtureType::Solc  , false ; "solc pgas")]
 #[test_case(FixtureType::Resolc, true  ; "resolc unheld slots")]
 #[test_case(FixtureType::Resolc, false ; "resolc pgas")]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn cleared_then_terminated_counts_against_deposit_limit(
 	fixture_type: FixtureType,
 	unheld_slots: bool,
@@ -864,6 +865,7 @@ fn cleared_then_terminated_counts_against_deposit_limit(
 /// [`bounded_refund_counts_against_eth_gas_limit`].
 #[test_case(FixtureType::Solc   ; "solc")]
 #[test_case(FixtureType::Resolc ; "resolc")]
+#[ignore = "contracts from earlier transactions cannot be terminated, see #13689"]
 fn cleared_then_terminated_counts_against_eth_gas_limit(fixture_type: FixtureType) {
 	ExtBuilder::default()
 		.with_next_fee_multiplier(FixedU128::from_rational(1, 1_000_000_000))

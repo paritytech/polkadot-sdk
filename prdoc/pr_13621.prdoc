@@ -21,23 +21,12 @@ doc:
     receipts is now the amount released from the contracts' holds. After the refunds are paid,
     the deposit limit, or the Ethereum gas limit, is checked again before any charge is paid, and
     the call fails with `StorageDepositNotEnoughFunds` if it is exceeded. The deposit consumed
-    rises there when a refund is not released in full, and when a contract clears storage and
-    terminates in the same call stack: the refund recorded for the cleared storage is dropped,
-    and only the amount released by the termination counts. Previously the limit was checked
-    again only in the first case. A call where a contract clears storage and then terminates can
-    therefore now fail with `StorageDepositNotEnoughFunds` where it passed before, and report a
-    higher `max_storage_deposit`, when the refund recorded for the cleared storage exceeds the
-    amount the termination released. That happens when slots were written under `Origin::Root`
-    and never held, or when a freeze keeps part of the hold on the account. It can also happen
-    when the termination charges an existential deposit to create the beneficiary. When every
-    cleared slot was held and the termination released the whole hold, the outcome is unchanged.
+    rises there when a refund is not released in full.
 
     `PGasDeposit::refund_all` now returns the amount released from the contract's holds,
     including the burned part of the PGAS hold, as documented on `Deposit::refund_all`.
     Previously it returned the native part and only the PGAS share credited to the destination.
-    The storage deposit refund reported for a call that terminates a contract on a `PGasDeposit`
-    runtime now includes the burned share, the same way a refund for removed storage already
-    does. The amounts credited and burned are unchanged.
+    The amounts credited and burned are unchanged.
 
     With the native deposit backend (`()`), refunds within the deposit held above the base
     deposit are unchanged. With `PGasDeposit`, an origin that is not entitled to the native part
@@ -54,14 +43,10 @@ doc:
     unchanged. On runtimes using `PGasDeposit`, an origin that is not entitled to the native part
     of a refund can see a smaller reported refund, and its storage deposit limit is enforced
     against the amount released from the hold. A call whose limit is exceeded this way fails with
-    `StorageDepositNotEnoughFunds`. The same holds for a call in which a contract clears storage
-    and then terminates: only the deposit released by the termination counts against the limit,
-    not the refund recorded for the cleared storage on top of it. On runtimes using
-    `PGasDeposit`, the refund reported for terminating a contract includes the burned share of
-    its PGAS deposit. On these runtimes the deposit limit is checked against the charges minus the
-    deposit released from the holds, while the origin is credited only `RefundPercent` of a
-    released PGAS hold. The limit therefore does not cap the origin's out-of-pocket PGAS cost
-    when its call releases PGAS deposits, by clearing storage or terminating a contract.
+    `StorageDepositNotEnoughFunds`. On runtimes using `PGasDeposit`, the deposit limit is checked
+    against the charges minus the deposit released from the holds, while the origin is credited
+    only `RefundPercent` of a released PGAS hold. The limit therefore does not cap the origin's
+    out-of-pocket PGAS cost when its call releases PGAS deposits by clearing storage.
     Contracts instantiated by `Origin::Root` record a base deposit of zero, so storage deposits
     paid for them are refunded in full.
 crates:
