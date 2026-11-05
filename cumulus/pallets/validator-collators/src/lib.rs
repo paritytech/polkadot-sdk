@@ -133,6 +133,7 @@ mod tests;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migrations;
 #[cfg(any(test, feature = "runtime-benchmarks"))]
 mod relay_proof;
 pub mod weights;
@@ -244,6 +245,7 @@ pub mod pallet {
 	}
 
 	#[pallet::pallet]
+	#[pallet::storage_version(crate::migrations::STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	/// Configuration trait of this pallet.
@@ -281,6 +283,10 @@ pub mod pallet {
 		type BlockReporter: ReportAuthoredBlocks<Self::AccountId>;
 
 		/// Value of [`MaxCollators`] until governance sets it, `None` meaning no cap.
+		///
+		/// A runtime upgrade that changes it does not draw the collators again. Where
+		/// [`MaxCollators`] is not stored and a set is, the upgrade needs a migration that sets
+		/// [`PendingRotation`] to [`RotationState::AwaitingQueue`].
 		#[pallet::constant]
 		type DefaultMaxCollators: Get<Option<u32>>;
 

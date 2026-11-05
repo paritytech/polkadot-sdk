@@ -144,6 +144,9 @@ pub type Migrations = (
 		AdMigrationVersion,
 		ad_migration::KeysTranslator,
 	>,
+	// unreleased
+	// Moves `MaxCollators` to `Option<u32>` and draws the collators again under a new default cap.
+	pallet_validator_collators::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

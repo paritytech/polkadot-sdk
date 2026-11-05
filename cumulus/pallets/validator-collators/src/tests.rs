@@ -14,9 +14,9 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, relay_proof::relay_state_proof, weights::WeightInfo, AuthoredBlocks, Call, Config,
-	DrawnCollators, EpochRandomness, EraCollators, EraValidatorSet, Error, Event,
-	ExpectedEraDuration, ExternalSetReceivedAt, ExternalValidatorSet, MaxCollators,
+	migrations::v1::MigrateV0ToV1, mock::*, relay_proof::relay_state_proof, weights::WeightInfo,
+	AuthoredBlocks, Call, Config, DrawnCollators, EpochRandomness, EraCollators, EraValidatorSet,
+	Error, Event, ExpectedEraDuration, ExternalSetReceivedAt, ExternalValidatorSet, MaxCollators,
 	PendingRotation, ReportMargin, ReportPeriod, RotationState, UnexpectedKind,
 };
 use codec::{Decode, Encode};
@@ -27,7 +27,10 @@ use cumulus_pallet_parachain_system::{
 use cumulus_primitives_core::relay_chain::well_known_keys::ONE_EPOCH_AGO_RANDOMNESS;
 use frame_support::{
 	assert_noop, assert_ok,
-	traits::{Hooks, UnfilteredDispatchable, ValidatorRegistration},
+	storage::unhashed,
+	traits::{
+		Hooks, OnRuntimeUpgrade, StorageVersion, UnfilteredDispatchable, ValidatorRegistration,
+	},
 	weights::{Weight, WeightMeter},
 	BoundedBTreeSet,
 };
@@ -818,6 +821,74 @@ fn default_cap_applies_until_governance_sets_the_cap() {
 		assert_eq!(MaxCollators::<Test>::get(), None);
 		assert_eq!(drawn(), Some(vec![10, 11]));
 		assert_eq!(Session::validators(), vec![1, 2, 10, 11]);
+	});
+}
+
+/// Run [`MigrateV0ToV1`] from storage version 0, with its try-runtime checks when enabled.
+fn migrate_to_v1() {
+	StorageVersion::new(0).put::<ValidatorCollators>();
+	#[cfg(feature = "try-runtime")]
+	MigrateV0ToV1::<Test>::try_on_runtime_upgrade(true).unwrap();
+	#[cfg(not(feature = "try-runtime"))]
+	MigrateV0ToV1::<Test>::on_runtime_upgrade();
+	assert_eq!(StorageVersion::get::<ValidatorCollators>(), 1);
+}
+
+#[test]
+fn migration_to_v1_keeps_a_cap_stored_as_u32() {
+	for cap in [0, 1] {
+		build_and_execute(|| {
+			// GIVEN validators with keys drawn under a cap, stored as a plain `u32` the way
+			// version 0 stores it
+			initialize_to_block(1);
+			set_keys(10);
+			set_keys(11);
+			assert_ok!(receive(1, vec![10, 11]));
+			set_cap(Some(cap));
+			initialize_to_block(3);
+			let expected = reference_draw(expected_seed(1, [7; 32]), &[10, 11], cap as usize);
+			assert_eq!(drawn(), Some(expected.clone()));
+			unhashed::put_raw(&MaxCollators::<Test>::hashed_key(), &cap.encode());
+			// AND read as `Option<u32>`, the stored cap is lost
+			assert_eq!(MaxCollators::<Test>::get(), None, "cap {cap}");
+
+			// WHEN the migration runs
+			migrate_to_v1();
+
+			// THEN the cap is kept and the next rotations draw under it
+			assert_eq!(MaxCollators::<Test>::get(), Some(cap));
+			assert_eq!(PendingRotation::<Test>::get(), RotationState::Idle);
+			initialize_to_block(10);
+			assert_eq!(drawn(), Some(expected.clone()), "cap {cap}");
+			assert_eq!(
+				Session::validators(),
+				[1, 2].into_iter().chain(expected).collect::<Vec<_>>()
+			);
+		});
+	}
+}
+
+#[test]
+fn migration_to_v1_draws_again_under_a_new_default_cap() {
+	build_and_execute(|| {
+		// GIVEN validators with keys drawn without a cap, and no cap stored
+		initialize_to_block(1);
+		set_keys(10);
+		set_keys(11);
+		assert_ok!(receive(1, vec![10, 11]));
+		initialize_to_block(3);
+		assert_eq!(drawn(), Some(vec![10, 11]));
+		assert!(!MaxCollators::<Test>::exists());
+
+		// WHEN the upgrade brings a default cap of zero and the migration runs
+		DefaultMaxCollators::set(Some(0));
+		migrate_to_v1();
+
+		// THEN the set is drawn again under the default cap at the next rotations
+		assert_eq!(PendingRotation::<Test>::get(), RotationState::AwaitingQueue);
+		initialize_to_block(5);
+		assert_eq!(drawn(), Some(vec![]));
+		assert_eq!(Session::validators(), vec![1, 2]);
 	});
 }
 
