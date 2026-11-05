@@ -16,8 +16,10 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
+	handover::classify_bundles,
 	message::{CollationParts, CollatorMessage, CollatorMessageBuilder},
 	resubmission::resolve_session,
+	resubmittable_segment::split_bundles,
 };
 use crate::{
 	collator::{self as collator_util, BuildBlockAndImportParams, Collator, SlotClaim},
@@ -59,7 +61,7 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::HeaderBackend;
 use sp_consensus::Environment;
 use sp_consensus_aura::AuraApi;
-use sp_core::crypto::Pair;
+use sp_core::{crypto::Pair, ByteArray};
 use sp_externalities::Extensions;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
@@ -412,18 +414,6 @@ where
 		allowed_pov_size as usize
 	}
 
-	/// Refresh the backing-group connections for the authorities at `parent`, logging on failure.
-	async fn update_backing_connections(&mut self, slot: Slot, parent: Block::Hash) {
-		match onchain_runtime_api(&*self.para_client).authorities(parent) {
-			Ok(authorities) => self.connection_helper.update::<P>(slot, &authorities).await,
-			Err(error) => tracing::warn!(
-				target: LOG_TARGET,
-				?error,
-				"Failed to fetch authorities for backing-group connections.",
-			),
-		}
-	}
-
 	/// Derive the [`BuildingPrerequisites`] for the current slot. `None` means the slot is skipped.
 	///
 	/// The relay chain context follows the [`SchedulingParams`] of the runtime that executes the
@@ -538,20 +528,11 @@ where
 		})
 	}
 
-	/// The para slot and authorities the scheduling verifier uses for `relay_slot` at `at`.
-	fn era_at(&self, at: Block::Hash, relay_slot: Slot) -> Option<(Slot, Vec<P::Public>)> {
+	/// The author the scheduling verifier expects for `para_slot` at `at`, assuming the slot
+	/// duration is unchanged across the unincluded segment.
+	fn author_at(&self, at: Block::Hash, para_slot: Slot) -> Option<P::Public> {
 		let authorities = onchain_runtime_api(&*self.para_client).authorities(at).ok()?;
-		let duration = crate::slot_duration_at(&*self.para_client, at).ok()?.as_millis();
-		let relay_millis =
-			u64::from(relay_slot).checked_mul(self.relay_chain_slot_duration.as_millis() as u64)?;
-
-		Some((relay_millis.checked_div(duration)?.into(), authorities))
-	}
-
-	/// The author the scheduling verifier expects for `relay_slot` at `at`.
-	fn author_at(&self, at: Block::Hash, relay_slot: Slot) -> Option<P::Public> {
-		let (slot, authorities) = self.era_at(at, relay_slot)?;
-		aura_internal::slot_author::<P>(slot, &authorities).cloned()
+		aura_internal::slot_author::<P>(para_slot, &authorities).cloned()
 	}
 
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
@@ -610,50 +591,48 @@ where
 
 		let included_hash_at_execution = included_header_at_execution.hash();
 
-		self.update_backing_connections(para_slot.slot, initial_parent_hash).await;
-
-		let slot_claim = crate::collators::claim_slot::<_, _, P>(
-			para_slot.slot,
-			para_slot.timestamp,
-			initial_parent_hash,
-			&*self.para_client,
-			&self.keystore,
-		)
-		.await;
+		// Read once: backing connections, the claim and the tip author all use the tip's set.
+		let Ok(authorities) =
+			onchain_runtime_api(&*self.para_client).authorities(initial_parent_hash)
+		else {
+			tracing::error!(target: LOG_TARGET, "Failed to fetch authorities from runtime.");
+			return None;
+		};
+		self.connection_helper.update::<P>(para_slot.slot, &authorities).await;
+		let tip_author = aura_internal::slot_author::<P>(para_slot.slot, &authorities).cloned();
+		let slot_claim =
+			aura_internal::claim_slot::<P>(para_slot.slot, &authorities, &self.keystore)
+				.await
+				.map(|author| {
+					SlotClaim::unchecked::<P>(author, para_slot.slot, para_slot.timestamp)
+				});
 
 		// The PVF checks a resubmission's signature against the candidate's parent state, so a
-		// block from before an authority-set change needs the prior set's author for this slot.
+		// bundle from before an authority-set change needs the prior set's author for this slot.
 		// Such a handover takes the slot: building above those blocks is useless until they land.
 		let mut handover: Option<(P::Public, Vec<Block::Header>)> = None;
-		let tip_author =
-			v3_enabled.then(|| self.author_at(initial_parent_hash, relay_slot)).flatten();
+		let mut authors = HashMap::from([(initial_parent_hash, tip_author.clone())]);
+		let mut author_of = |at: Block::Hash| {
+			authors.entry(at).or_insert_with(|| self.author_at(at, para_slot.slot)).clone()
+		};
 		let resubmittable_headers = match resubmittable_headers.first() {
-			Some(oldest)
-				if v3_enabled &&
-					self.author_at(*oldest.parent_hash(), relay_slot) != tip_author =>
-			{
-				let mut ours = Vec::new();
-				for header in resubmittable_headers {
-					let Some((slot, authorities)) = self.era_at(*header.parent_hash(), relay_slot)
-					else {
-						continue;
-					};
-					if aura_internal::slot_author::<P>(slot, &authorities) == tip_author.as_ref() {
-						ours.push(header);
-						continue;
-					}
-					let Some(key) =
-						aura_internal::claim_slot::<P>(slot, &authorities, &self.keystore).await
-					else {
-						continue;
-					};
-					let (author, headers) =
-						handover.get_or_insert_with(|| (key.clone(), Vec::new()));
-					if *author == key {
-						headers.push(header);
-					}
+			Some(oldest) if v3_enabled => {
+				let first_author = author_of(*oldest.parent_hash());
+				if first_author.is_some() && first_author == tip_author {
+					resubmittable_headers
+				} else {
+					let bundles = split_bundles(resubmittable_headers)
+						.into_iter()
+						.map(|bundle| (author_of(*bundle[0].parent_hash()), bundle));
+					let classified = classify_bundles(bundles, tip_author.as_ref(), |author| {
+						self.keystore.has_keys(&[(
+							author.to_raw_vec(),
+							sp_application_crypto::key_types::AURA,
+						)])
+					});
+					handover = classified.handover;
+					classified.tip
 				}
-				ours
 			},
 			_ => resubmittable_headers,
 		};
@@ -1538,11 +1517,8 @@ fn adjust_para_to_relay_parent_slot(
 	let relay_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_header)
 		.map(|babe_pre_digest| babe_pre_digest.slot())
 		.ok()?;
-	let new_slot = Slot::from_timestamp(
-		relay_slot
-			.timestamp(SlotDuration::from_millis(relay_chain_slot_duration.as_millis() as u64))?,
-		para_slot_duration,
-	);
+	let new_slot =
+		para_slot_from_relay_slot(relay_slot, relay_chain_slot_duration, para_slot_duration)?;
 	let para_slot = SlotInfo { slot: new_slot, timestamp: new_slot.timestamp(para_slot_duration)? };
 	tracing::debug!(
 		target: LOG_TARGET,
@@ -1551,6 +1527,18 @@ fn adjust_para_to_relay_parent_slot(
 		"Parachain slot adjusted to relay chain.",
 	);
 	Some(para_slot)
+}
+
+/// The para slot containing the start of `relay_slot`; the scheduling verifier's formula.
+fn para_slot_from_relay_slot(
+	relay_slot: Slot,
+	relay_chain_slot_duration: Duration,
+	para_slot_duration: SlotDuration,
+) -> Option<Slot> {
+	u64::from(relay_slot)
+		.checked_mul(relay_chain_slot_duration.as_millis() as u64)?
+		.checked_div(para_slot_duration.as_millis())
+		.map(Slot::from)
 }
 
 /// Finds a relay chain parent block at a specified offset from the best block, collecting its
