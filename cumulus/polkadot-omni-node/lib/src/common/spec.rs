@@ -437,6 +437,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					let proto = new_statement_handler_proto(
 						&*client,
 						&parachain_config,
+						&config,
 						&metrics,
 						&mut net_config,
 					);
@@ -489,20 +490,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let _ = bitswap_slot.set(Arc::new(handle));
 			}
 
-			let price_oracle =
-				price_oracle_protocol.map(|(notification_service, protocol_name)| {
-					PriceOracleNetwork {
-						notification_service,
-						protocol_name,
-						network: network.clone(),
-						sync_service: sync_service.clone(),
-						prometheus_registry: prometheus_registry.clone(),
-					}
-				});
 			let peer_id = relay_chain_network.local_peer_id();
 
-			if validator && node_extra_args.collator_reserved_slots > 0 {
-				cumulus_client_collator_discovery::start_collator_discovery(
+			// The price oracle needs authority discovery to find the authors it reports to,
+			// even when no collator slots are reserved.
+			let run_discovery =
+				node_extra_args.collator_reserved_slots > 0 || node_extra_args.price_oracle;
+			let authority_discovery = if validator && run_discovery {
+				let service = cumulus_client_collator_discovery::start_collator_discovery(
 					cumulus_client_collator_discovery::StartCollatorDiscoveryParams {
 						max_reserved: node_extra_args.collator_reserved_slots,
 						client: client.clone(),
@@ -521,7 +516,22 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					},
 				)
 				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-			}
+				Some(service)
+			} else {
+				None
+			};
+
+			// The oracle requires `--collator`, checked above, so discovery runs with it.
+			let price_oracle = price_oracle_protocol.zip(authority_discovery).map(
+				|((notification_service, protocol_name), authority_discovery)| PriceOracleNetwork {
+					notification_service,
+					protocol_name,
+					network: network.clone(),
+					sync_service: sync_service.clone(),
+					authority_discovery,
+					prometheus_registry: prometheus_registry.clone(),
+				},
+			);
 
 			let statement_store = statement_handler_proto
 				.map(|(statement_handler_proto, config)| {

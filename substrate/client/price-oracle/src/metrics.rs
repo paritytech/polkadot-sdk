@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! Prometheus metrics of the price oracle service.
 
-use crate::{TickOutcome, LOG_TARGET};
+use crate::{tick::TickOutcome, LOG_TARGET};
 use prometheus_endpoint::{
 	exponential_buckets, prometheus::HistogramTimer, register, CounterVec, Gauge, GaugeVec,
 	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, I64, U64,
@@ -36,7 +36,7 @@ struct Inner {
 	market_results: CounterVec<U64>,
 	market_fetch_duration: HistogramVec,
 	pair_vote_margins: GaugeVec<I64>,
-	gossip_reports: CounterVec<U64>,
+	received_reports: CounterVec<U64>,
 	pool_reports: Gauge<U64>,
 }
 
@@ -98,10 +98,10 @@ impl Metrics {
 		}
 	}
 
-	/// Count a report received through gossip with validation `result`.
-	pub(crate) fn on_gossip_report(&self, result: &str) {
+	/// Count a report received from a peer with validation `result`.
+	pub(crate) fn on_received_report(&self, result: &str) {
 		if let Some(metrics) = &self.0 {
-			metrics.gossip_reports.with_label_values(&[result]).inc();
+			metrics.received_reports.with_label_values(&[result]).inc();
 		}
 	}
 
@@ -167,11 +167,11 @@ impl Inner {
 				)?,
 				registry,
 			)?,
-			gossip_reports: register(
+			received_reports: register(
 				CounterVec::new(
 					Opts::new(
-						"substrate_price_oracle_gossip_reports_total",
-						"Number of reports received through gossip, by validation result",
+						"substrate_price_oracle_received_reports_total",
+						"Number of reports received from peers, by validation result",
 					),
 					&["result"],
 				)?,

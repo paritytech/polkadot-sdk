@@ -260,7 +260,7 @@ impl Fetcher {
 			Method::Get => hyper::Method::GET,
 			Method::Post => hyper::Method::POST,
 		};
-		let mut builder = hyper::Request::builder().method(method).uri(uri.clone());
+		let mut builder = hyper::Request::builder().method(method).uri(uri);
 		for header in &request.headers {
 			builder = builder.header(header.name.as_slice(), header.value.as_slice());
 		}
@@ -289,7 +289,10 @@ impl Fetcher {
 		if let Err(e) = &result {
 			log::debug!(
 				target: LOG_TARGET,
-				"Request to {uri} failed after {:?}: {e}",
+				"Request to {}{} failed after {:?}: {e}",
+				// Host and path only: the query may carry values not meant for the logs.
+				String::from_utf8_lossy(&request.host),
+				String::from_utf8_lossy(&request.path),
 				started.elapsed(),
 			);
 		}

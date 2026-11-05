@@ -515,7 +515,7 @@ macro_rules! implement_fixed {
 						Rounding::NearestPrefDown,
 					) {
 						Some(value) => {
-							if value > (u32::max_value() as u128) {
+							if value > (u32::MAX as u128) {
 								panic!(
 									"prior logic ensures 0<self.0<DIV; \
 									multiply ensures 0<self.0<1000000000; \
@@ -656,7 +656,7 @@ macro_rules! implement_fixed {
 				if self.0 < 0 {
 					let value = match self.0.checked_neg() {
 						Some(n) => n as u128,
-						None => u128::saturating_add(<$inner_type>::max_value() as u128, 1),
+						None => u128::saturating_add(<$inner_type>::MAX as u128, 1),
 					};
 					I129 { value, negative: true }
 				} else {
@@ -669,10 +669,10 @@ macro_rules! implement_fixed {
 			/// WARNING: This is a `const` function designed for convenient use at build time and
 			/// will panic on overflow. Ensure that any inputs are sensible.
 			const fn from_i129(n: I129) -> Option<Self> {
-				let max_plus_one = u128::saturating_add(<$inner_type>::max_value() as u128, 1);
+				let max_plus_one = u128::saturating_add(<$inner_type>::MAX as u128, 1);
 				#[allow(unused_comparisons)]
-				let inner = if n.negative && <$inner_type>::min_value() < 0 && n.value == max_plus_one {
-					<$inner_type>::min_value()
+				let inner = if n.negative && <$inner_type>::MIN < 0 && n.value == max_plus_one {
+					<$inner_type>::MIN
 				} else {
 					let unsigned_inner = n.value as $inner_type;
 					if unsigned_inner as u128 != n.value || (unsigned_inner > 0) != (n.value > 0) {
@@ -923,11 +923,11 @@ macro_rules! implement_fixed {
 
 		impl Bounded for $name {
 			fn min_value() -> Self {
-				Self(<Self as FixedPointNumber>::Inner::min_value())
+				Self(<$inner_type>::MIN)
 			}
 
 			fn max_value() -> Self {
-				Self(<Self as FixedPointNumber>::Inner::max_value())
+				Self(<$inner_type>::MAX)
 			}
 		}
 
@@ -1343,8 +1343,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn saturating_from_integer_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 				let accuracy = $name::accuracy();
 
 				// Cases where integer fits.
@@ -1371,8 +1371,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn checked_from_integer_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 				let accuracy = $name::accuracy();
 
 				// Case where integer fits.
@@ -1408,8 +1408,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn from_inner_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 
 				assert_eq!(max(), $name::from_inner(inner_max));
 				assert_eq!(min(), $name::from_inner(inner_min));
@@ -1423,8 +1423,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn saturating_from_rational_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 				let accuracy = $name::accuracy();
 
 				let a = $name::saturating_from_rational(5, 2);
@@ -1545,8 +1545,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn checked_from_rational_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 				let accuracy = $name::accuracy();
 
 				// Divide by zero => None.
@@ -1612,7 +1612,7 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn from_rational_works() {
-				let inner_max: u128 = <$name as FixedPointNumber>::Inner::max_value() as u128;
+				let inner_max: u128 = <$name as FixedPointNumber>::Inner::MAX as u128;
 				let inner_min: u128 = 0;
 				let accuracy: u128 = $name::accuracy() as u128;
 
@@ -1721,8 +1721,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn checked_mul_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 
 				let a = $name::saturating_from_integer(2);
 
@@ -1786,8 +1786,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn const_checked_mul_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 
 				let a = $name::saturating_from_integer(2u32);
 
@@ -1856,8 +1856,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn checked_div_int_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 				let accuracy = $name::accuracy();
 
 				let a = $name::from_inner(inner_max);
@@ -1924,8 +1924,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn saturating_div_int_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 				let accuracy = $name::accuracy();
 
 				let a = $name::saturating_from_integer(5);
@@ -1945,8 +1945,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn saturating_abs_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 
 				assert_eq!($name::from_inner(inner_max).saturating_abs(), $name::max_value());
 				assert_eq!($name::zero().saturating_abs(), 0.into());
@@ -2051,8 +2051,8 @@ macro_rules! implement_fixed {
 
 			#[test]
 			fn checked_div_works() {
-				let inner_max = <$name as FixedPointNumber>::Inner::max_value();
-				let inner_min = <$name as FixedPointNumber>::Inner::min_value();
+				let inner_max = <$name as FixedPointNumber>::Inner::MAX;
+				let inner_min = <$name as FixedPointNumber>::Inner::MIN;
 
 				let a = $name::from_inner(inner_max);
 				let b = $name::from_inner(inner_min);

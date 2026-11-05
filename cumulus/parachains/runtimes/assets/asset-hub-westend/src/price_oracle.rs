@@ -29,7 +29,9 @@ impl Signers<AuraId> for Collators {
 		let mut signers: Vec<AuraId> = pallet_aura::Authorities::<Runtime>::get().into_inner();
 		for (_, keys) in pallet_session::QueuedKeys::<Runtime>::get() {
 			if !signers.contains(&keys.aura) {
-				// TODO: should happen only at the end of the current session.
+				// TODO: accept the queued set only a few blocks before a session change, for nodes
+				// lagging behind it, and the previous set for one report window after it, for the
+				// outgoing collators' last reports.
 				signers.push(keys.aura);
 			}
 		}

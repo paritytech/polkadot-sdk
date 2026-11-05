@@ -22,7 +22,7 @@ governance ──venues, pairs, markets──▶ storage
                                            │ quotes
                                            ▼
                                      signed report
-                                           │ gossip, inherent
+                                           │ delivery, inherent
                                            ▼
 block author ──▶ process_reports ──filter, vote, median──▶ Prices
                                                              │
@@ -63,10 +63,10 @@ block author ──▶ process_reports ──filter, vote, median──▶ Price
 2. The node prices each market and aggregates the market prices into pair prices through the
    runtime APIs, so the rules are the runtime's and governance changes them without a node
    release.
-3. The node signs the pair prices as a report anchored to the current block height and gossips it
-   to the other oracle nodes.
+3. The node signs the pair prices as a report anchored to the current block height and sends it
+   to the nodes authoring next.
 4. A block author includes the reports it collected as an inherent. The inherent never rejects a
-   block.
+   block: if it fails, the block keeps no oracle update.
 5. The pallet drops reports that are stale, from an unknown signer or wrongly signed, replaces
    each signer's vote with its newer one, and publishes the median of every pair with enough
    votes.
@@ -82,9 +82,9 @@ USDT/USD rate:
 
 ```text
 set_venue(BINANCE, Venue { name: "Binance" })
-set_pair(DOT_USDT, 3)                               // needs 3 market votes
-set_pair(USDT_USD, 2)
-set_pair(DOT_USD, 3)
+set_pair(DOT_USDT, PairConfig { market_quorum: 3 }) // needs 3 market votes
+set_pair(USDT_USD, PairConfig { market_quorum: 2 })
+set_pair(DOT_USD, PairConfig { market_quorum: 3 })
 set_cross_rates(DOT_USD, [(DOT_USDT, USDT_USD)])    // DOT/USD = DOT/USDT * USDT/USD
 set_market(0, StoredMarket { venue: BINANCE, pair: DOT_USDT, pricing, active: true })
 set_parameters(Parameters { report_window, quorum, tick_interval_ms })
@@ -159,7 +159,8 @@ equally anchored vote. Votes anchored outside the report window are dropped. A p
 the signer `quorum` of `Params` gets the median as its price, stamped with the current block
 number of `BlockNumberProvider` and the number of votes. When the price differs from the stored
 one, `PriceUpdated` is emitted and `OnPriceUpdate` is called, unless publishing is paused. The
-inherent never fails, and rejected reports are counted in `ReportsProcessed`.
+inherent fails only if it carries more reports than `MaxSigners` or comes twice in a block; the
+block stays valid either way. Rejected reports are counted in `ReportsProcessed`.
 
 ## Open points
 

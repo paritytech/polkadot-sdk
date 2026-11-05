@@ -133,7 +133,7 @@ impl frame_support::traits::EstimateNextSessionRotation<BlockNumber> for TestNex
 }
 
 parameter_types! {
-	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+	pub const ParasUnsignedPriority: TransactionPriority = TransactionPriority::MAX;
 }
 
 impl paras::Config for Runtime {
@@ -183,7 +183,7 @@ impl paras_registrar::Config for Runtime {
 }
 
 parameter_types! {
-	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+	pub const RegistrarUnsignedPriority: TransactionPriority = TransactionPriority::MAX / 2;
 }
 
 impl pallet_registrar_relay::Config for Runtime {

@@ -1,15 +1,15 @@
 # sc-price-oracle
 
 Node side of the price oracle. Runs inside a block producing node, fetches market data from
-exchanges, prices it through the runtime, signs the result, gossips it to the other oracle
-nodes, and hands the collected reports to the block author as inherent data.
+exchanges, prices it through the runtime, signs the result, sends it to the nodes authoring
+next, and hands the collected reports to the block author as inherent data.
 `pallet-price-oracle` documents the model and the vocabulary; this README covers what the node
 does with it.
 
 The crate is chain agnostic. It knows the runtime only through `PriceOracleApi` of
 `sp-price-oracle` and the signer key only as a type parameter. A node without a signer key in its
-keystore reports nothing, but still relays the reports of others and includes them in the blocks
-it authors.
+keystore reports nothing, but still receives the reports of others and includes them in the
+blocks it authors.
 
 ## Position in the stack
 
@@ -22,18 +22,19 @@ exchanges ──HTTPS──▶ fetcher
                                                   ▼
                               keystore ──sign──▶ SignedPriceReport
                                                   │
-                  ┌──── gossip ◀──────────────────┤
+                  ┌──── send ◀────────────────────┤
                   ▼                               ▼
-            other nodes                      ReportPool
+           next authors                      ReportPool
                                                   │ select
                                                   ▼
              block author ──▶ InherentDataProvider ──▶ runtime
 ```
 
-The host node makes three calls: `peers_set_config` to register the gossip protocol while
-building the network, `run` to spawn the service, and `PriceOracleInherentDataProvider::create`
-inside its inherent data providers for every block it authors. The service and the provider
-share a `ReportPool`.
+The host node makes three calls: `peers_set_config` to register the protocol while building
+the network, `run` to spawn the service, and `PriceOracleInherentDataProvider::create` inside
+its inherent data providers for every block it authors. The service and the provider share a
+`ReportPool`. The host also tells the service where to send reports, through an implementation
+of `ReportRecipients`: the peer addresses of the nodes expected to author soon.
 
 ## One tick
 
@@ -52,13 +53,15 @@ effect without restart, with a floor of 500 ms.
    whose queries did not all succeed by the deadline is dropped for this tick.
 3. **Parse**: as soon as all responses of one market are in, call `parse` for it.
 4. **Aggregate**: at the deadline, one call to `aggregate`, which returns every registered pair
-   with its votes, quorum and price if it reached the quorum. A pair at or below its quorum is
-   warned about. No priced pair means nothing to sign this tick.
+   with its votes, quorum and price if it reached the quorum. A pair below its quorum is warned
+   about. No priced pair means nothing to sign this tick.
 5. **Sign** a `PriceReport` anchored to the best block number with the local key.
-6. **Publish**: insert into the pool and gossip.
+6. **Publish**: insert into the pool and send to the recipients.
 
 A tick is skipped while the node is major syncing, while the previous tick is still running,
-and while the runtime does not implement the API.
+and while the runtime does not implement the API. A skipped tick stops only the node's own
+report. Reports from peers are still received under the rules of the last tick, except while
+the node is syncing, when they are dropped.
 
 ## Fetcher
 
@@ -75,29 +78,40 @@ scheme is not configurable. Redirects are not followed and a non 2xx status is a
 response larger than the request's `max_response_bytes` is aborted while streaming. Caps that
 governance cannot exceed protect the process: host and path 2 KB, response 4 MB, timeout 12 s.
 
-## Gossip
+## Delivery
 
-Protocol `/{genesis_hash}[/{fork_id}]/price-oracle/1` on `sc-network-gossip`, 25 in and 25 out
-peers, non reserved peers accepted. One topic for all reports, so every node receives every
-report. A message is a SCALE encoded `SignedPriceReport`.
+Protocol `/{genesis_hash}[/{fork_id}]/price-oracle/1`. A message is a SCALE encoded
+`SignedPriceReport`. There is no gossip: a report goes straight from its signer to the nodes
+that author next, and nothing is forwarded.
 
-The validator runs on every incoming message before it enters the engine. A message is
-discarded, and the sending peer's reputation lowered, if it does not decode, is anchored before
-the window, comes from a signer outside the accepted set, or carries an invalid signature, in
-that order, so the signature is checked last. A report the pool declines as superseded is
-discarded without penalty. Anything else is kept, forwarded, and rewarded.
+Every tick, the service asks its `ReportRecipients` for the addresses of the coming authors and
+reserves them on the protocol, so the network keeps a substream open to each. The signed report
+is sent to every recipient whose substream is open at that moment. An author therefore receives
+the reports of all signers directly, and a signer talks to a handful of peers. The protocol
+accepts inbound substreams from anyone, with slots for 512 peers, and dials only the reserved
+ones.
+
+`polkadot-omni-node` sends to the authors of the Aura slot of the best block and the next
+three, with the authorities from the best block. The authors are found through the parachain's
+authority discovery, so the runtime must return its authority discovery keys in authoring order,
+as `cumulus-client-collator-discovery` requires.
+
+Every incoming message is validated. A message is rejected, and the sending peer's reputation
+lowered, if it does not decode, is anchored before the window, comes from a signer outside the
+accepted set, or carries an invalid signature, in that order, so the signature is checked last.
+A report the pool declines as superseded is ignored without penalty. Anything else is pooled
+and rewarded.
 
 Anchors ahead of the current anchor are accepted: a peer may be ahead of this node, and the
-runtime rejects anchors ahead of the block including them. Valid messages are inserted into the
-pool by the validator itself. The signer set, the current anchor and the window form a snapshot
-the tick loop replaces once per tick, so validation never calls the runtime on the network path.
-While the node is major syncing or cannot read the rules from the runtime, the snapshot is
-cleared and incoming reports are discarded without judging the sender. A message is expired for
-rebroadcast once its anchor falls out of the window.
+runtime rejects anchors ahead of the block including them. The signer set, the current anchor
+and the window form a snapshot the tick loop replaces once per tick, so validation never calls
+the runtime on the network path. While the node is major syncing or cannot read the rules from
+the runtime, the snapshot is cleared and incoming reports are ignored without judging the
+sender.
 
 ## Pool
 
-`ReportPool` holds one report per signer, shared by the validator, the tick loop and the
+`ReportPool` holds one report per signer, shared by the tick loop and the
 inherent data provider. A report replaces the signer's previous one if its anchor is greater or
 equal: at equal anchors nothing tells which is fresher, so the last received wins. The tick loop
 prunes reports that fell out of the window. Reading for a block removes nothing, so a report not
@@ -118,5 +132,6 @@ tick so key rotation and set changes need no restart.
 
 ## Open points
 
-- The validator does not bound how far ahead of the current anchor a report may be.
-- The service stops if the gossip stream or engine ends, rather than recovering.
+- The acceptance rules do not bound how far ahead of the current anchor a report may be.
+- The service stops if the notification stream ends, rather than recovering.
+- A recipient still being dialed when the report is ready misses it; nothing is retried.
