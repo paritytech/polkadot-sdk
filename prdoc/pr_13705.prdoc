@@ -5,7 +5,7 @@ doc:
       Adds metrics to help watch the statement store while some nodes run the new v2 DHT mode
       and others don't yet.
 
-      These metrics now have a `route` label (`dht` or `without_dht`). `without_dht` covers every
+      These metrics now have a `route` label (`dht` or `legacy`). `legacy` covers every
       peer this node sends everything to: v1 peers, v2 peers that sent no filter in time, and all
       peers when the node runs without the v2 DHT. Names stay the same, so dashboards that
       read them without labels may need a `sum()`:

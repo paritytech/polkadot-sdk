@@ -79,11 +79,11 @@ const PEERS_CONNECTED_METRIC: &str = "substrate_sync_statement_peers_connected{k
 const DESIRED_UNCONNECTED_METRIC: &str = "substrate_sync_statement_v2dht_desired_unconnected_peers";
 const BYTES_SENT_METRICS: [&str; 2] = [
 	"substrate_sync_statement_bytes_sent_total{route=\"dht\"}",
-	"substrate_sync_statement_bytes_sent_total{route=\"without_dht\"}",
+	"substrate_sync_statement_bytes_sent_total{route=\"legacy\"}",
 ];
 const BYTES_RECEIVED_METRICS: [&str; 2] = [
 	"substrate_sync_statement_bytes_received_total{route=\"dht\"}",
-	"substrate_sync_statement_bytes_received_total{route=\"without_dht\"}",
+	"substrate_sync_statement_bytes_received_total{route=\"legacy\"}",
 ];
 const LATE_AFTER: Duration = Duration::from_secs(10);
 const RESTART_EVERY_WAVES: u64 = 4;

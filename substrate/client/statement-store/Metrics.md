@@ -244,13 +244,13 @@ bandwidth, latency, and network health indicators.
 - **Why it matters:** Metric for sizing network requirements.
 - **How to read:** Two-line chart in bytes/sec. Compare sent vs received for balance.
 - **Labels:** `statements_received`, `propagated_statements`, `bytes_sent_total` and `bytes_received_total`
-  carry `route`: `dht` for peers served through the v2 DHT path, `without_dht` for the rest (v1 peers and v2
+  carry `route`: `dht` for peers served through the v2 DHT path, `legacy` for the rest (v1 peers and v2
   peers without a filter). A peer counts as `dht` only once its affinity filter applies, so a peer in its grace
-  period counts as `without_dht`. A node without the v2 DHT path reports every peer as `without_dht`.
+  period counts as `legacy`. A node without the v2 DHT path reports every peer as `legacy`.
 - **Problems it solves:**
   - Detect bandwidth issues
   - Compare bandwidth across releases to measure protocol efficiency improvements
-  - Show the `without_dht` share of a v2 node's traffic during the rollout
+  - Show the `legacy` share of a v2 node's traffic during the rollout
 
 ---
 
@@ -338,7 +338,7 @@ percentiles, making it easy to spot tail latency regressions.
 ### Initial Sync
 
 `initial_sync_statements_sent` and `initial_sync_bursts_total` carry a `route` label (`dht` or
-`without_dht`), read when each burst runs. A flapping peer without the DHT path that gets a full store replay
+`legacy`), read when each burst runs. A flapping peer without the DHT path that gets a full store replay
 on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
 
 #### Initial Sync Active Peers
