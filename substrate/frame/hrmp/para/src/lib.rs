@@ -115,7 +115,9 @@ pub mod pallet {
 		ChannelDeposit,
 	}
 
-	/// What is held for each side of each channel. A side holding nothing has no entry.
+	/// What is held for each side of each channel.
+	///
+	/// A side holding nothing has no entry.
 	#[pallet::storage]
 	pub type Deposits<T: Config> =
 		StorageMap<_, Twox64Concat, (ChannelId, DepositSide), Balance, OptionQuery>;
@@ -161,6 +163,7 @@ pub mod pallet {
 		})]
 		pub fn receive(origin: OriginFor<T>, message: MessageToPara) -> DispatchResult {
 			ensure_root(origin)?;
+
 			match message {
 				MessageToPara::V1(MessageToParaV1::SetDeposits {
 					id,
@@ -169,18 +172,20 @@ pub mod pallet {
 					recipient,
 				}) => {
 					let result = with_transaction_opaque_err(|| {
-						let result =
-							[(DepositSide::Sender, sender), (DepositSide::Recipient, recipient)]
-								.into_iter()
-								.try_for_each(|(side, target)| match target {
-									Some(target) => Self::set_side(channel, side, target),
-									None => Ok(()),
-								});
-						if result.is_ok() {
-							TransactionOutcome::Commit(result)
-						} else {
-							TransactionOutcome::Rollback(result)
+						if let Some(target) = sender {
+							if let Err(err) = Self::set_side(channel, DepositSide::Sender, target) {
+								return TransactionOutcome::Rollback(Err(err));
+							}
 						}
+						if let Some(target) = recipient {
+							if let Err(err) =
+								Self::set_side(channel, DepositSide::Recipient, target)
+							{
+								return TransactionOutcome::Rollback(Err(err));
+							}
+						}
+
+						TransactionOutcome::Commit(Ok(()))
 					})
 					.unwrap_or(Err(DepositError::Other)); // Too deep in nested transactions.
 
@@ -190,12 +195,11 @@ pub mod pallet {
 					Self::send(MessageToRelayV1::DepositsSet { id, result })
 				},
 				MessageToPara::V1(MessageToParaV1::Release { channel, sender, recipient }) => {
-					for (side, release) in
-						[(DepositSide::Sender, sender), (DepositSide::Recipient, recipient)]
-					{
-						if release {
-							Self::release_side(channel, side);
-						}
+					if sender {
+						Self::release_side(channel, DepositSide::Sender);
+					}
+					if recipient {
+						Self::release_side(channel, DepositSide::Recipient);
 					}
 					Ok(())
 				},
@@ -213,6 +217,7 @@ pub mod pallet {
 			amount: Balance,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
 			if Deposits::<T>::get((channel, side)).unwrap_or_default() == amount {
 				return Ok(());
 			}
@@ -243,6 +248,7 @@ impl<T: Config> Pallet<T> {
 		let reason = HoldReason::ChannelDeposit.into();
 		let who = Self::payer(&channel, side);
 		let held = Deposits::<T>::get((channel, side)).unwrap_or_default();
+
 		match target.cmp(&held) {
 			Ordering::Greater => {
 				T::Currency::hold(&reason, &who, target - held).map_err(|e| match e {
@@ -258,6 +264,7 @@ impl<T: Config> Pallet<T> {
 			},
 			Ordering::Equal => {},
 		}
+
 		if target == 0 {
 			Deposits::<T>::remove((channel, side));
 		} else {
@@ -267,16 +274,20 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	/// Releases everything held for `side`. Nothing held is not an error.
+	/// Releases everything held for `side`.
+	///
+	/// Nothing held is not an error.
 	fn release_side(channel: ChannelId, side: DepositSide) {
 		let Some(held) = Deposits::<T>::take((channel, side)) else { return };
 		let reason = HoldReason::ChannelDeposit.into();
 		let who = Self::payer(&channel, side);
+
 		let released =
 			T::Currency::release(&reason, &who, held, Precision::BestEffort).unwrap_or_default();
 		if released != held {
 			frame_support::defensive!("hrmp-para: released less than recorded", (held, released));
 		}
+
 		Self::deposit_event(Event::DepositSet { channel, side, amount: 0 });
 	}
 
@@ -286,11 +297,13 @@ impl<T: Config> Pallet<T> {
 		use alloc::collections::btree_map::BTreeMap;
 		use frame_support::traits::fungible::InspectHold;
 		let mut per_para = BTreeMap::<ParaId, Balance>::new();
+
 		for ((channel, side), amount) in Deposits::<T>::iter() {
 			ensure!(amount != 0, "hrmp-para: a side holding nothing is recorded");
 			let total = per_para.entry(side.para(&channel)).or_default();
 			*total = total.saturating_add(amount);
 		}
+
 		for (para, recorded) in per_para {
 			let on_hold = T::Currency::balance_on_hold(
 				&HoldReason::ChannelDeposit.into(),
@@ -298,6 +311,7 @@ impl<T: Config> Pallet<T> {
 			);
 			ensure!(on_hold == recorded, "hrmp-para: a para's hold differs from its deposits");
 		}
+
 		Ok(())
 	}
 }

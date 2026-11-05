@@ -123,7 +123,9 @@ pub mod pallet {
 		/// Receives the outcome of each pending request: the `hrmp` pallet.
 		type OnDepositSet: OnDepositSet;
 
-		/// The para that holds the deposits. Only it may answer requests.
+		/// The para that holds the deposits.
+		///
+		/// Only it may answer requests.
 		#[pallet::constant]
 		type HolderParaId: Get<ParaId>;
 
@@ -223,11 +225,13 @@ pub mod pallet {
 		pub fn receive(origin: OriginFor<T>, message: MessageToRelay) -> DispatchResult {
 			let para = ensure_parachain(origin)?;
 			ensure!(para == T::HolderParaId::get(), DispatchError::BadOrigin);
+
 			match message {
 				MessageToRelay::V1(MessageToRelayV1::DepositsSet { id, result }) => {
 					Self::answer(id, result)
 				},
 			}
+
 			Ok(())
 		}
 
@@ -243,7 +247,9 @@ pub mod pallet {
 			result: Result<(), WireDepositError>,
 		) -> DispatchResult {
 			ensure_root(origin)?;
+
 			Self::answer(id, result);
+
 			Ok(())
 		}
 	}
@@ -292,6 +298,7 @@ impl<T: Config> Pallet<T> {
 			return;
 		};
 		let channel = Self::to_wire(&request.channel_id);
+
 		for side in Self::sides(&request) {
 			PendingSides::<T>::remove((channel, side));
 		}
@@ -309,6 +316,7 @@ impl<T: Config> Pallet<T> {
 		if meter.try_consume(T::WeightInfo::retry_failed_releases(0)).is_err() {
 			return;
 		}
+
 		let mut releases = FailedReleases::<T>::get();
 		let mut sent = 0usize;
 		for (n, release) in (1..).zip(releases.iter()) {
@@ -324,6 +332,7 @@ impl<T: Config> Pallet<T> {
 			Self::deposit_event(Event::ReleaseSent { channel: release.channel });
 			sent += 1;
 		}
+
 		if sent > 0 {
 			releases.drain(..sent);
 			FailedReleases::<T>::put(releases);
@@ -363,6 +372,7 @@ impl<T: Config> Pallet<T> {
 				"hrmp-relay: a side is locked by a request for another side"
 			);
 		}
+
 		for (id, request) in PendingRequests::<T>::iter() {
 			let channel = Self::to_wire(&request.channel_id);
 			for side in Self::sides(&request) {
@@ -372,6 +382,7 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 		}
+
 		Ok(())
 	}
 }

@@ -128,20 +128,27 @@ pub enum MessageToPara {
 	Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen,
 )]
 pub enum MessageToParaV1 {
-	/// Move each named side of `channel` to what it should hold, both or neither. `None` leaves
-	/// that side alone. Answered with [`MessageToRelayV1::DepositsSet`] carrying `id`.
+	/// Request to set the deposits for some sides of `channel`.
+	///
+	/// For each side, `Some(amount)` means to set that side's deposit to `amount`, and `None`
+	/// means to not modify that side's deposit. The request fails without touching any deposit
+	/// if any side's operation fails.
+	///
+	/// The request is answered with [`MessageToRelayV1::DepositsSet`] carrying `id`.
 	#[codec(index = 0)]
 	SetDeposits {
 		/// Chosen by the relay chain, echoed back in the answer.
 		id: u64,
 		/// The channel whose deposits change.
 		channel: ChannelId,
-		/// What the sender should hold.
+		/// What the sender deposit for this channel is requested to be.
 		sender: Option<Balance>,
-		/// What the recipient should hold.
+		/// What the recipient deposit for this channel is requested to be.
 		recipient: Option<Balance>,
 	},
-	/// Release everything held for the named sides of `channel`. Never fails, never answered.
+	/// Request to release everything held for the named sides of `channel`.
+	///
+	/// Never fails, never answered.
 	#[codec(index = 1)]
 	Release {
 		/// The channel whose deposits are given back.
