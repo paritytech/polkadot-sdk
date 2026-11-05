@@ -1620,7 +1620,7 @@ mod benchmarks {
 		));
 		// A `transfer` or `send` receiver runs on a stipend too small for a storage read, and must
 		// still be able to read its own balance. In a contract called without value by another
-		// contract, the read is unpaid until #12673 removes this whitelist.
+		// contract, the read is unpaid until a follow-up extends cold/hot pricing to `BALANCE`.
 		let account_id = &contract.account_id;
 		whitelist_account!(account_id);
 
