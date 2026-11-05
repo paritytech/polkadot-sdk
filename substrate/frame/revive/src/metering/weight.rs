@@ -269,10 +269,12 @@ impl<T: Config> WeightMeter<T> {
 	/// Needs to be called when entering a host function to update this meter with the
 	/// gas that was tracked by the executor. It tracks the latest seen total value
 	/// in order to compute the delta that needs to be charged.
+	///
+	/// The executor can leave its gas negative when it charges more than is left. All of the
+	/// gas it was given is then consumed and `OutOfGas` is returned.
 	pub fn sync_from_executor(&mut self, engine_fuel: polkavm::Gas) -> Result<(), DispatchError> {
-		let weight_consumed = self
-			.engine_meter
-			.set_fuel(engine_fuel.try_into().map_err(|_| Error::<T>::OutOfGas)?);
+		let fuel_left = u64::try_from(engine_fuel).ok();
+		let weight_consumed = self.engine_meter.set_fuel(fuel_left.unwrap_or(0));
 
 		self.weight_consumed.saturating_accrue(weight_consumed);
 		if self.weight_consumed.any_gt(self.effective_weight_limit) {
@@ -280,7 +282,10 @@ impl<T: Config> WeightMeter<T> {
 			return Err(<Error<T>>::OutOfGas.into());
 		}
 
-		Ok(())
+		match fuel_left {
+			Some(_) => Ok(()),
+			None => Err(<Error<T>>::OutOfGas.into()),
+		}
 	}
 
 	/// Hand over the gas metering responsibility from this meter to the executor.

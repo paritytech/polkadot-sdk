@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{Token, Weight, WeightMeter};
+use super::{EngineMeter, Token, Weight, WeightMeter};
 use crate::tests::Test;
 
 /// A simple utility macro that helps to match against a
@@ -148,4 +148,19 @@ fn overcharge_does_not_charge() {
 fn charge_exact_amount() {
 	let mut weight_meter = WeightMeter::<Test>::new(Weight::from_parts(25, 0), None);
 	assert!(!weight_meter.charge(SimpleToken(25)).is_err());
+}
+
+/// Negative gas left in the executor means it used all the gas it was given and more. The proof
+/// size is not affected.
+#[test]
+fn negative_executor_gas_consumes_all_gas() {
+	let mut weight_meter =
+		WeightMeter::<Test>::new(Weight::from_parts(1_000_000_000, 1_000_000), None);
+	let gas = u64::try_from(weight_meter.sync_to_executor()).unwrap();
+	assert!(gas > 0);
+
+	assert!(weight_meter.sync_from_executor(-1).is_err());
+	let ref_time_per_fuel = EngineMeter::<Test>::ref_time_per_fuel();
+	assert_eq!(weight_meter.weight_consumed(), Weight::from_parts(gas * ref_time_per_fuel, 0));
+	assert!(weight_meter.weight_left().ref_time() < ref_time_per_fuel);
 }
