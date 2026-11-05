@@ -543,6 +543,7 @@ enum Error {
     SettlementNotFailed, TooManyOperations, CannotCreate, Transport,
     UnknownAllocation, UnknownOperation, DurationNotIncreased,
     InsufficientExcess, InsufficientBalance, NothingToClaim, HasLeases,
+    DuplicateKey,
 }
 ```
 
@@ -708,7 +709,8 @@ fn unfreeze_target(target: ServiceId, code_hash: Hash, min_acc_gas: u64,
 /// Deletes one bounded page of keys from the target's storage. Origin: any
 /// signed account, with `RECOVERY_DEPOSIT` plus `RECOVERY_DEPOSIT_PER_KEY`
 /// per key. Legal while a lease on the target is `Reclaiming` and the target
-/// is recorded frozen. Records a `Cleanup` operation.
+/// is recorded frozen. Rejected with `DuplicateKey` if a key repeats.
+/// Records a `Cleanup` operation.
 fn cleanup_storage(target: ServiceId, keys: BoundedVec<Key, MAX_KEYS_PER_PAGE>);
 
 /// Releases a solicited preimage of the target. Origin: the target's service
