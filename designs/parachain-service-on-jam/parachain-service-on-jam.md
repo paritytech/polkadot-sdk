@@ -827,7 +827,8 @@ Due timeslots are kept only in `pending_assign_cores`, so Accumulate reads a cor
 The cost of applying one due assign must be **benchmarked**, so the flush knows how many fit.
 The flush only applies as many due assigns as fit into the always-accumulate allowance,
 earliest due timeslot first and then lowest core index, so carried-over ones go before
-newer ones. If gas is left once the work packages are done, they are applied at the end
+newer ones. Once the flush is done, the invocation `checkpoint`s, so running out of gas
+later cannot undo it. If gas is left once the work packages are done, they are applied at the end
 of the invocation, otherwise they are carried over to the next block's flush.
 
 The always-accumulate allowance is unlikely to cover an assign for every core in one
