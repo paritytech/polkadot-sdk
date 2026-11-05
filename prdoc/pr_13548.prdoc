@@ -25,3 +25,5 @@ crates:
   bump: patch
 - name: polkadot-sdk-frame
   bump: none
+- name: polkadot-sdk
+  bump: minor
