@@ -3,16 +3,22 @@ doc:
 - audience: Runtime Dev
   description: |-
     The base deposit of a signed submission is now charged once, when the submitter calls
-    `register`, and is not re-computed afterwards. `submit_page` only holds or releases the change
-    in the per-page part of the deposit. Previously, every `submit_page` re-computed the
-    whole deposit from the current queue length, so the held amount depended on registrations made
-    by other accounts after the submitter registered.
+    `register`, and stored in the submission metadata as `base`. On every `submit_page`, the held
+    deposit becomes that base plus the per-page deposit of the stored pages. Previously, every
+    `submit_page` re-computed the whole deposit from the current queue length, so the held amount
+    depended on registrations made by other accounts after the submitter registered.
 
     `CalculatePageDeposit::calculate_page_deposit` no longer takes the number of existing
     submitters. Custom implementations must drop that argument.
 
-    No storage migration is needed. Submissions in flight at upgrade keep their held deposit, and
-    later page changes only move the per-page part.
+    The signed pallet now has storage version 1. Runtimes must include
+    `pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1` in their
+    migrations. It adds `base` to every stored submission: the held deposit minus the per-page
+    deposit of the stored pages, at the current price. For accounts in `Invulnerables`, the whole
+    deposit becomes the base. If `DepositPerPage` changes in the same release, submissions
+    registered before the upgrade get their base at the new price for the rest of that round.
 crates:
 - name: pallet-election-provider-multi-block
+  bump: major
+- name: asset-hub-westend-runtime
   bump: major

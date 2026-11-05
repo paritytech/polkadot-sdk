@@ -23,8 +23,9 @@
 //! Each submission must put a deposit down. This is parameterize-able by the runtime, and might be
 //! a constant, linear or exponential value. See [`signed::Config::DepositPerPage`] and
 //! [`signed::Config::DepositBase`]. The base deposit is charged once, at
-//! [`signed::Call::register`]. [`signed::Call::submit_page`] only holds or releases the per-page
-//! part.
+//! [`signed::Call::register`], and stored with the submission. The deposit held is that base plus
+//! the per-page deposit of the stored pages, at the current per-page price. Accounts in
+//! [`signed::Invulnerables`] have no per-page part.
 //!
 //! During the queuing time, if the queue is full, and a better solution comes in, the weakest
 //! deposit is said to be **Ejected**. Ejected solutions get [`signed::Config::EjectGraceRatio`] of
@@ -92,6 +93,7 @@ pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod migrations;
 
 pub(crate) type SignedWeightsOf<T> = <T as crate::signed::Config>::WeightInfo;
 
@@ -117,6 +119,8 @@ pub struct SubmissionMetadata<T: Config> {
 	claimed_score: ElectionScore,
 	/// A bounded-bool-vec of pages that have been submitted so far.
 	pages: BoundedVec<bool, T::Pages>,
+	/// The base deposit charged at registration, included in `deposit`.
+	base: BalanceOf<T>,
 }
 
 /// Maximum number of entries in [`UnpaidRewards`].
@@ -491,7 +495,7 @@ pub mod pallet {
 	/// invariant: for any Key1 of type `AccountId` in [`Submissions`], this storage map also has a
 	/// value.
 	#[pallet::storage]
-	type SubmissionMetadataStorage<T: Config> =
+	pub(super) type SubmissionMetadataStorage<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata<T>>;
 
 	impl<T: Config> Submissions<T> {
@@ -680,14 +684,25 @@ pub mod pallet {
 
 		/// Get the deposit of a registration with the given number of pages.
 		fn deposit_for(who: &T::AccountId, pages: usize) -> BalanceOf<T> {
+			Self::base_deposit_for(who).saturating_add(Self::page_deposit_for(who, pages))
+		}
+
+		/// Get the base deposit of a registration made now.
+		fn base_deposit_for(who: &T::AccountId) -> BalanceOf<T> {
 			if Pallet::<T>::is_invulnerable(who) {
 				T::InvulnerableDeposit::get()
 			} else {
-				let round = Pallet::<T>::current_round();
-				let queue_size = Self::submitters_count(round);
-				let base = T::DepositBase::calculate_base_deposit(queue_size);
-				let pages = T::DepositPerPage::calculate_page_deposit(pages);
-				base.saturating_add(pages)
+				let queue_size = Self::submitters_count(Pallet::<T>::current_round());
+				T::DepositBase::calculate_base_deposit(queue_size)
+			}
+		}
+
+		/// Get the per-page deposit for the given number of pages. Invulnerables have none.
+		fn page_deposit_for(who: &T::AccountId, pages: usize) -> BalanceOf<T> {
+			if Pallet::<T>::is_invulnerable(who) {
+				Zero::zero()
+			} else {
+				T::DepositPerPage::calculate_page_deposit(pages)
 			}
 		}
 
@@ -702,7 +717,6 @@ pub mod pallet {
 			ensure!(page < T::Pages::get(), Error::<T>::BadPageIndex);
 
 			let was_set = metadata.pages.get(page as usize).copied().unwrap_or_default();
-			let old_pages = metadata.pages.iter().filter(|x| **x).count();
 
 			// defensive only: we resize `meta.pages` once to be `T::Pages` elements once, and never
 			// resize it again; `page` is checked here to be in bound; element must exist; qed.
@@ -710,21 +724,11 @@ pub mod pallet {
 				*page_bit = maybe_solution.is_some();
 			}
 
-			// update deposit: keep the base charged at registration, move only the per-page part.
-			// Invulnerables have no per-page part.
-			let is_invulnerable = Pallet::<T>::is_invulnerable(who);
-			let page_deposit = |pages: usize| -> BalanceOf<T> {
-				if is_invulnerable {
-					Zero::zero()
-				} else {
-					T::DepositPerPage::calculate_page_deposit(pages)
-				}
-			};
+			// update deposit: the base charged at registration plus the per-page deposit of the
+			// stored pages. Invulnerables have no per-page part.
 			let new_pages = metadata.pages.iter().filter(|x| **x).count();
+			let new_deposit = metadata.base.saturating_add(Self::page_deposit_for(who, new_pages));
 			let old_deposit = metadata.deposit;
-			let new_deposit = old_deposit
-				.saturating_add(page_deposit(new_pages))
-				.saturating_sub(page_deposit(old_pages));
 			if new_deposit > old_deposit {
 				let to_reserve = new_deposit - old_deposit;
 				T::Currency::hold(&HoldReason::SignedSubmission.into(), who, to_reserve)?;
@@ -870,6 +874,7 @@ pub mod pallet {
 
 					let (_, score) = matches.pop().expect("checked; qed");
 					ensure!(score == meta.claimed_score, "score mismatch");
+					ensure!(meta.deposit >= meta.base, "deposit below the registration base");
 					Ok(())
 				})
 				.collect::<Result<Vec<_>, &'static str>>()?;
@@ -894,7 +899,11 @@ pub mod pallet {
 		}
 	}
 
+	/// The in-code storage version.
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(PhantomData<T>);
 
 	#[pallet::event]
@@ -965,7 +974,7 @@ pub mod pallet {
 			// note: we could already check if this is a duplicate here, but prefer keeping the code
 			// simple for now.
 
-			let deposit = Submissions::<T>::deposit_for(&who, 0);
+			let deposit = Submissions::<T>::base_deposit_for(&who);
 			let reward = T::RewardBase::get();
 			let fee = T::EstimateCallFee::estimate_call_fee(
 				&Call::register { claimed_score },
@@ -974,7 +983,8 @@ pub mod pallet {
 			let mut pages = BoundedVec::<_, _>::with_bounded_capacity(T::Pages::get() as usize);
 			pages.bounded_resize(T::Pages::get() as usize, false);
 
-			let new_metadata = SubmissionMetadata { claimed_score, deposit, reward, fee, pages };
+			let new_metadata =
+				SubmissionMetadata { claimed_score, deposit, base: deposit, reward, fee, pages };
 
 			T::Currency::hold(&HoldReason::SignedSubmission.into(), &who, deposit)?;
 			let round = Self::current_round();
@@ -995,9 +1005,9 @@ pub mod pallet {
 		///
 		/// `maybe_solution` can be set to `None` to erase the page.
 		///
-		/// Adding a page holds its [`Config::DepositPerPage`] deposit, removing one releases it.
-		/// Replacing a stored page changes nothing. The base deposit charged at
-		/// [`Pallet::register`] is not changed.
+		/// The held deposit becomes the base deposit charged at [`Pallet::register`] plus the
+		/// [`Config::DepositPerPage`] deposit of the stored pages. Invulnerables have no per-page
+		/// part.
 		#[pallet::weight(SignedWeightsOf::<T>::submit_page())]
 		#[pallet::call_index(1)]
 		pub fn submit_page(
@@ -1130,11 +1140,11 @@ pub mod pallet {
 		/// Get the deposit `who` would hold if it registered now and then submitted `pages` pages.
 		///
 		/// The base part is priced from the number of submitters currently registered, so the
-		/// result can differ from what an account that already registered in this round holds.
+		/// result only matches what `who` would pay if it has not registered in this round yet. A
+		/// submitter that already registered holds the base charged at its registration, plus the
+		/// per-page deposit of the pages it has stored.
 		///
-		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
-		/// [`Config::DepositBase`] are doing under the hood. It also takes into account if `who` is
-		/// [`Invulnerables`] or not.
+		/// It also takes into account whether `who` is in [`Invulnerables`].
 		pub fn deposit_for(who: T::AccountId, pages: u32) -> BalanceOf<T> {
 			Submissions::<T>::deposit_for(&who, pages as usize)
 		}

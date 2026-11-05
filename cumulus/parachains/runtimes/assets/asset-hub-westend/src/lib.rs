@@ -1978,6 +1978,9 @@ pub type Migrations = (
 		AdMigrationVersion,
 		ad_migration::KeysTranslator,
 	>,
+	// unreleased
+	// Stores the registration base deposit of every signed election submission.
+	pallet_election_provider_multi_block::signed::migrations::v1::MigrateV0ToV1<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
