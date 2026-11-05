@@ -1,0 +1,17 @@
+title: 'pallet-validator-collators: migrate MaxCollators to Option<u32>'
+doc:
+- audience: Runtime Dev
+  description: |-
+    `MaxCollators` is stored as `Option<u32>` with `DefaultMaxCollators` as default. The new
+    migration `MigrateV0ToV1` moves a cap stored as `u32` to `Some(cap)`. Without a stored
+    cap, the cap becomes `DefaultMaxCollators`. If that is a cap and a set of validators is
+    stored, the migration draws the collators again, as `set_max_collators` does.
+
+    Asset Hub Westend and People Westend run the migration.
+crates:
+- name: pallet-validator-collators
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
