@@ -175,8 +175,10 @@ impl<Hash: Copy, Id: Clone> TickSetup<Hash, Id> {
 
 /// How a tick ended.
 pub(crate) enum TickOutcome {
-	/// A report was signed and sent.
+	/// A report was signed and sent to at least one peer.
 	Reported,
+	/// A report was signed, but no peer it was sent to took it.
+	NotSent,
 	/// The previous tick was still running.
 	Overrun,
 	/// The node was major syncing.
@@ -200,6 +202,7 @@ impl TickOutcome {
 	pub(crate) fn label(&self) -> &'static str {
 		match self {
 			Self::Reported => "reported",
+			Self::NotSent => "not_sent",
 			Self::Overrun => "overrun",
 			Self::Syncing => "syncing",
 			Self::ApiUnavailable => "api_unavailable",

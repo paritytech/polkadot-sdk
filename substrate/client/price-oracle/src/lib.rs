@@ -213,7 +213,6 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 						continue;
 					},
 				};
-				metrics.on_tick(TickOutcome::Reported);
 				let mut sent = 0;
 				for peer in targets.reachable() {
 					match notification_service.send_async_notification(peer, encoded.clone()).await {
@@ -222,6 +221,7 @@ pub async fn run<Block, Client, SyncService, Recipients, Id, Signature>(
 					}
 				}
 				log::debug!(target: LOG_TARGET, "Sent the report to {sent} of {} peers", targets.len());
+				metrics.on_tick(if sent > 0 { TickOutcome::Reported } else { TickOutcome::NotSent });
 			},
 			event = notification_service.next_event() => {
 				use NotificationEvent::*;
