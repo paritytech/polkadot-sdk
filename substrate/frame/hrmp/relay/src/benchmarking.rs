@@ -76,24 +76,26 @@ mod benchmarks {
 		assert_eq!(response, Ok(DepositChangeResponse::Pending));
 	}
 
-	/// `n` releases waiting in the outbox, all sent.
+	/// `n` failed releases waiting, all sent.
 	#[benchmark]
-	fn flush_outbox(n: Linear<0, { T::MaxOutbox::get() }>) {
+	fn retry_failed_releases(n: Linear<0, { T::MaxFailedReleases::get() }>) {
 		T::BenchmarkHelper::ensure_send_to_para();
-		let outbox: Vec<_> = (0..n)
+		let releases: Vec<_> = (0..n)
 			.map(|i| {
 				let channel = ChannelId { sender: i, recipient: i + 1 };
 				ReleaseMessageToPara { channel, sender: true, recipient: true }
 			})
 			.collect();
-		Outbox::<T>::put(BoundedVec::try_from(outbox).expect("at most `MaxOutbox`; qed"));
+		FailedReleases::<T>::put(
+			BoundedVec::try_from(releases).expect("at most `MaxFailedReleases`; qed"),
+		);
 
 		#[block]
 		{
-			Pallet::<T>::flush_outbox(&mut WeightMeter::new());
+			Pallet::<T>::retry_failed_releases(&mut WeightMeter::new());
 		}
 
-		assert!(Outbox::<T>::get().is_empty());
+		assert!(FailedReleases::<T>::get().is_empty());
 	}
 
 	impl_benchmark_test_suite!(Pallet, crate::mock::build_ext(), crate::mock::Test);

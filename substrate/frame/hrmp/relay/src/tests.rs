@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use crate::{
-	mock::*, Call, Error, Event, Outbox, PendingRequests, PendingSides, WeightInfo,
+	mock::*, Call, Error, Event, FailedReleases, PendingRequests, PendingSides, WeightInfo,
 	RECEIVE_CALL_INDEX,
 };
 use frame_support::{
@@ -91,9 +91,9 @@ fn release_message(channel: (u32, u32)) -> MessageToPara {
 	})
 }
 
-/// The releases waiting in the outbox, as sent.
-fn outbox() -> Vec<MessageToPara> {
-	Outbox::<Test>::get().into_iter().map(Into::into).collect()
+/// The failed releases waiting to be retried, as sent.
+fn failed_releases() -> Vec<MessageToPara> {
+	FailedReleases::<Test>::get().into_iter().map(Into::into).collect()
 }
 
 /// Takes the messages sent so far.
@@ -237,9 +237,9 @@ fn send_failure_leaves_no_trace() {
 	});
 }
 
-/// A request must not overtake a release that waits in the outbox, whatever its channel.
+/// A request must not overtake a release that failed, whatever its channel.
 #[test]
-fn request_refused_while_outbox_not_empty() {
+fn request_refused_while_releases_failed() {
 	new_test_ext(|| {
 		queue_release((1, 2));
 		assert_noop!(
@@ -291,31 +291,31 @@ fn release_ignores_pending_side() {
 	});
 }
 
-/// A release the transport refuses waits in the outbox.
+/// A release the transport refuses waits to be retried.
 #[test]
 fn release_queued_on_send_failure() {
 	new_test_ext(|| {
 		queue_release((1, 2));
-		assert_eq!(outbox(), vec![release_message((1, 2))]);
+		assert_eq!(failed_releases(), vec![release_message((1, 2))]);
 		assert!(sent().is_empty());
 		assert!(events().is_empty());
 	});
 }
 
-/// A release waits behind those already in the outbox, even if the transport would take it.
+/// A release waits behind those that already failed, even if the transport would take it.
 #[test]
-fn release_queued_behind_outbox() {
+fn release_queued_behind_failed_releases() {
 	new_test_ext(|| {
 		queue_release((1, 2));
 		assert_ok!(try_set(release_request((3, 4))));
 		assert!(sent().is_empty());
-		assert_eq!(outbox(), vec![release_message((1, 2)), release_message((3, 4))]);
+		assert_eq!(failed_releases(), vec![release_message((1, 2)), release_message((3, 4))]);
 	});
 }
 
-/// A release that finds the outbox full is dropped, and still reported as applied.
+/// A release is dropped when too many failed ones already wait, and still reported as applied.
 #[test]
-fn release_dropped_when_outbox_full() {
+fn release_dropped_when_failed_releases_full() {
 	new_test_ext(|| {
 		for sender in 0..4 {
 			queue_release((sender, 10));
@@ -325,11 +325,11 @@ fn release_dropped_when_outbox_full() {
 		ACCEPT.set(Some(0));
 		assert_eq!(try_set(release_request((5, 10))), Ok(DepositChangeResponse::Applied));
 		assert_eq!(events(), vec![Event::ReleaseDropped { channel: wire(5, 10) }]);
-		assert_eq!(Outbox::<Test>::decode_len(), Some(4));
+		assert_eq!(FailedReleases::<Test>::decode_len(), Some(4));
 	});
 }
 
-/// `on_poll` sends what waits in the outbox, oldest first.
+/// `on_poll` retries the failed releases, oldest first.
 #[test]
 fn poll_sends_in_order() {
 	new_test_ext(|| {
@@ -346,7 +346,7 @@ fn poll_sends_in_order() {
 			events(),
 			channels.map(|(s, r)| Event::ReleaseSent { channel: wire(s, r) }).to_vec()
 		);
-		assert!(Outbox::<Test>::get().is_empty());
+		assert!(FailedReleases::<Test>::get().is_empty());
 	});
 }
 
@@ -360,7 +360,7 @@ fn poll_stops_at_first_failure() {
 		ACCEPT.set(Some(1));
 		poll();
 		assert_eq!(sent(), vec![release_message((0, 10))]);
-		assert_eq!(outbox(), vec![release_message((1, 10)), release_message((2, 10))]);
+		assert_eq!(failed_releases(), vec![release_message((1, 10)), release_message((2, 10))]);
 
 		// It goes on in a later block.
 		ACCEPT.set(None);
@@ -377,21 +377,22 @@ fn poll_respects_weight_meter() {
 			queue_release((sender, 10));
 		}
 
-		// No room to check the outbox.
+		// No room to check the failed releases.
 		let mut meter = WeightMeter::with_limit(
-			<() as WeightInfo>::flush_outbox(0).saturating_sub(Weight::from_parts(1, 0)),
+			<() as WeightInfo>::retry_failed_releases(0).saturating_sub(Weight::from_parts(1, 0)),
 		);
 		HrmpRelay::on_poll(1, &mut meter);
 		assert_eq!(meter.consumed(), Weight::zero());
 		assert!(sent().is_empty());
 
 		// Room for one message.
-		let limit = <() as WeightInfo>::flush_outbox(2).saturating_sub(Weight::from_parts(1, 0));
+		let limit =
+			<() as WeightInfo>::retry_failed_releases(2).saturating_sub(Weight::from_parts(1, 0));
 		let mut meter = WeightMeter::with_limit(limit);
 		HrmpRelay::on_poll(1, &mut meter);
-		assert_eq!(meter.consumed(), <() as WeightInfo>::flush_outbox(1));
+		assert_eq!(meter.consumed(), <() as WeightInfo>::retry_failed_releases(1));
 		assert_eq!(sent(), vec![release_message((0, 10))]);
-		assert_eq!(Outbox::<Test>::decode_len(), Some(2));
+		assert_eq!(FailedReleases::<Test>::decode_len(), Some(2));
 	});
 }
 

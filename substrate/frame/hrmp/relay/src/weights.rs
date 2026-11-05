@@ -33,11 +33,11 @@ use frame_support::{
 pub trait WeightInfo {
 	/// `receive`, without what `OnDepositSet` spends.
 	fn receive() -> Weight;
-	/// A deposit request or a release: one pending entry per side, the id, the outbox's length,
-	/// one message sent or kept.
+	/// A deposit request or a release: one pending entry per side, the id, the number of failed
+	/// releases, one message sent or kept.
 	fn try_set_deposit() -> Weight;
-	/// Flushing the outbox with `n` messages waiting, all sent.
-	fn flush_outbox(n: u32) -> Weight;
+	/// Retrying `n` failed releases, all sent.
+	fn retry_failed_releases(n: u32) -> Weight;
 }
 
 /// Weights for `pallet_hrmp_relay`, using the runtime's database weights.
@@ -53,7 +53,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(6))
 			.saturating_add(T::DbWeight::get().writes(6))
 	}
-	fn flush_outbox(n: u32) -> Weight {
+	fn retry_failed_releases(n: u32) -> Weight {
 		Weight::from_parts(5_000_000, 2_000)
 			.saturating_add(Weight::from_parts(20_000_000, 2_000).saturating_mul(n.into()))
 			.saturating_add(T::DbWeight::get().reads(1))
@@ -74,7 +74,7 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(6))
 			.saturating_add(RocksDbWeight::get().writes(6))
 	}
-	fn flush_outbox(n: u32) -> Weight {
+	fn retry_failed_releases(n: u32) -> Weight {
 		Weight::from_parts(5_000_000, 2_000)
 			.saturating_add(Weight::from_parts(20_000_000, 2_000).saturating_mul(n.into()))
 			.saturating_add(RocksDbWeight::get().reads(1))

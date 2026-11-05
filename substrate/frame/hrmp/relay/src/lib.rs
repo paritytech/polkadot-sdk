@@ -71,7 +71,8 @@ pub trait SendToPara {
 	fn send(message: MessageToPara) -> Result<(), ()>;
 }
 
-/// A [`MessageToParaV1::Release`] waiting in [`Outbox`] for the transport.
+/// A [`MessageToParaV1::Release`] the transport refused, waiting in [`FailedReleases`] to be
+/// retried.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo, MaxEncodedLen)]
 pub struct ReleaseMessageToPara {
 	/// The channel whose deposits are given back.
@@ -129,9 +130,9 @@ pub mod pallet {
 		/// Sends messages to the parachain that holds the deposits.
 		type SendToPara: SendToPara;
 
-		/// How many releases may wait in [`Outbox`] for the transport.
+		/// How many releases may wait in [`FailedReleases`] to be retried.
 		#[pallet::constant]
-		type MaxOutbox: Get<u32>;
+		type MaxFailedReleases: Get<u32>;
 
 		/// Weight information for the extrinsics in this pallet.
 		type WeightInfo: WeightInfo;
@@ -165,14 +166,14 @@ pub mod pallet {
 	/// retried in `on_poll`. Any later release joins the queue behind it, to keep releases in
 	/// order.
 	///
-	/// Normally the outbox is empty. It only fills when the transport to the parachain is broken.
+	/// Normally nothing waits here. It only fills when the transport to the parachain is broken.
 	/// While it is not empty, other deposit requests are refused with [`Error::TransportBusy`] so
 	/// that they do not overtake a waiting release. Once it is full, further releases are dropped
 	/// with [`Event::ReleaseDropped`]; governance then has to fix the deposits on the parachain
 	/// with `force_set_deposit` of `pallet-hrmp-para`.
 	#[pallet::storage]
-	pub type Outbox<T: Config> =
-		StorageValue<_, BoundedVec<ReleaseMessageToPara, T::MaxOutbox>, ValueQuery>;
+	pub type FailedReleases<T: Config> =
+		StorageValue<_, BoundedVec<ReleaseMessageToPara, T::MaxFailedReleases>, ValueQuery>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -202,7 +203,7 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_poll(_: BlockNumberFor<T>, meter: &mut WeightMeter) {
-			Self::flush_outbox(meter);
+			Self::retry_failed_releases(meter);
 		}
 
 		#[cfg(feature = "try-runtime")]
@@ -302,18 +303,18 @@ impl<T: Config> Pallet<T> {
 		T::OnDepositSet::on_deposit_set(request, result);
 	}
 
-	/// Sends what waits in [`Outbox`], oldest first, until `meter` has no room for the next one or
-	/// the transport refuses it.
-	fn flush_outbox(meter: &mut WeightMeter) {
-		if meter.try_consume(T::WeightInfo::flush_outbox(0)).is_err() {
+	/// Retries the releases in [`FailedReleases`], oldest first, until `meter` has no room for the
+	/// next one or the transport refuses it.
+	fn retry_failed_releases(meter: &mut WeightMeter) {
+		if meter.try_consume(T::WeightInfo::retry_failed_releases(0)).is_err() {
 			return;
 		}
-		let mut outbox = Outbox::<T>::get();
+		let mut releases = FailedReleases::<T>::get();
 		let mut sent = 0usize;
-		for (n, release) in (1..).zip(outbox.iter()) {
+		for (n, release) in (1..).zip(releases.iter()) {
 			// What the `n`th message adds to the flush.
-			let weight =
-				T::WeightInfo::flush_outbox(n).saturating_sub(T::WeightInfo::flush_outbox(n - 1));
+			let weight = T::WeightInfo::retry_failed_releases(n)
+				.saturating_sub(T::WeightInfo::retry_failed_releases(n - 1));
 			if meter.try_consume(weight).is_err() {
 				break;
 			}
@@ -324,25 +325,28 @@ impl<T: Config> Pallet<T> {
 			sent += 1;
 		}
 		if sent > 0 {
-			outbox.drain(..sent);
-			Outbox::<T>::put(outbox);
+			releases.drain(..sent);
+			FailedReleases::<T>::put(releases);
 		}
 	}
 
-	/// Whether nothing waits in [`Outbox`].
-	fn outbox_is_empty() -> bool {
-		Outbox::<T>::decode_len().unwrap_or_default() == 0
+	/// Whether no release waits in [`FailedReleases`].
+	fn failed_releases_is_empty() -> bool {
+		FailedReleases::<T>::decode_len().unwrap_or_default() == 0
 	}
 
-	/// Sends a release, or keeps it in [`Outbox`] after anything already waiting there.
+	/// Sends a release, or keeps it in [`FailedReleases`] behind those already waiting there.
 	fn release(channel: ChannelId, sender: bool, recipient: bool) {
 		let release = ReleaseMessageToPara { channel, sender, recipient };
-		if Self::outbox_is_empty() && T::SendToPara::send(release.clone().into()).is_ok() {
+		if Self::failed_releases_is_empty() && T::SendToPara::send(release.clone().into()).is_ok() {
 			Self::deposit_event(Event::ReleaseSent { channel });
 			return;
 		}
-		if Outbox::<T>::try_append(release).is_err() {
-			log::error!(target: LOG_TARGET, "outbox full, dropped the release of {channel:?}");
+		if FailedReleases::<T>::try_append(release).is_err() {
+			log::error!(
+				target: LOG_TARGET,
+				"no room for failed releases, dropped the release of {channel:?}"
+			);
 			Self::deposit_event(Event::ReleaseDropped { channel });
 		}
 	}
@@ -392,7 +396,7 @@ impl<T: Config> ChannelDepositProvider for Pallet<T> {
 			Error::<T>::DepositPending
 		);
 		// A request must not overtake a release made before it.
-		ensure!(Self::outbox_is_empty(), Error::<T>::TransportBusy);
+		ensure!(Self::failed_releases_is_empty(), Error::<T>::TransportBusy);
 
 		let id = NextRequestId::<T>::get();
 		let message = MessageToPara::V1(MessageToParaV1::SetDeposits {
