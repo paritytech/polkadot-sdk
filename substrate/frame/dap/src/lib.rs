@@ -682,10 +682,6 @@ pub mod pallet {
 						continue;
 					};
 
-					if allocation.amount_per_ms.is_zero() {
-						continue;
-					}
-
 					let amount = allocation.amount_per_ms.saturating_mul(elapsed_as_balance);
 
 					let result = T::Assets::transfer(
@@ -708,11 +704,13 @@ pub mod pallet {
 					}
 				}
 
-				Self::deposit_event(Event::AssetDistributed {
-					asset,
-					amount: total_distributed,
-					elapsed_millis: elapsed,
-				});
+				if !total_distributed.is_zero() {
+					Self::deposit_event(Event::AssetDistributed {
+						asset,
+						amount: total_distributed,
+						elapsed_millis: elapsed,
+					});
+				}
 			}
 		}
 	}
