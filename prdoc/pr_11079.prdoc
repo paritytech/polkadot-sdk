@@ -22,7 +22,9 @@ doc:
     The 63/64 rule is the one EIP-150 introduced on Ethereum, but the stipend is added differently.
     On Ethereum, the stipend of a call that transfers value does not come out of the caller's
     gas, so the caller always keeps 1/64. In pallet-revive, the stipend comes out of what the
-    caller has left, so the caller can keep less than 1/64.
+    caller has left, so the caller keeps 1/64 minus the stipend, and nothing when it has 64
+    stipends or fewer left. If the callee then uses up its gas, a `catch` block after the call
+    runs out of gas.
 
     The dry-run estimates now account for the gas, weight and storage deposit each caller keeps:
     `weight_required` and `max_storage_deposit` of `ContractResult` and `EthTransactInfo`, and
