@@ -36,7 +36,7 @@ use codec::Encode;
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
 use parachain_authorizer::aura::{
-	build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
+	build_collator_proof, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
 	CollatorSignature,
 };
 use parachain_service_core::authorizer::{
@@ -48,7 +48,7 @@ use sp_core::{
 };
 use sp_keystore::{Keystore, KeystorePtr};
 use sp_runtime::app_crypto::AppCrypto;
-use std::{fmt::Debug, path::Path};
+use std::{fmt::Debug, num::NonZero, path::Path};
 
 /// The public key of one aura authority, as `AuraApi::authorities()` hands it out for a runtime
 /// whose authority id is `AuraId`.
@@ -90,9 +90,8 @@ impl AuraAuthorizer {
 		slot_duration: u32,
 		keystore: KeystorePtr,
 	) -> Result<Self, String> {
-		if slot_duration == 0 {
-			return Err("`--jam-slot-duration` must be at least one JAM timeslot".into());
-		}
+		let slot_duration = NonZero::new(slot_duration)
+			.ok_or("`--jam-slot-duration` must be at least one JAM timeslot")?;
 
 		let blob = std::fs::read(blob_path).map_err(|error| {
 			format!("cannot read `--jam-authorizer-blob` {blob_path:?}: {error}")
@@ -100,28 +99,28 @@ impl AuraAuthorizer {
 		let code_hash = CodeHash::from(jam_std_common::hash_raw(&blob));
 
 		let collators = collator_keys(authorities)?;
-		if collators.is_empty() {
-			return Err("the runtime's aura authority set is empty, so there is no collator set \
-			            to authorize against"
-				.into());
-		}
-		let (collator_set_root, proofs) = build_collator_proofs(&collators)
-			.map_err(|error| format!("cannot build the collator-set tree: {error:?}"))?;
-		let config = AuthConfig {
-			para_ids: vec![para_id.into()],
-			parachain_service,
-			collator_set_root,
-			collator_set_size: collators.len() as u32,
-			slot_duration,
-		};
-		let authorizer = Authorizer { code_hash, config: AuthConfigBlob(config.encode()) };
-		let hash = authorizer_hash(&authorizer);
+		let collator_set_size = u32::try_from(collators.len())
+			.ok()
+			.and_then(NonZero::new)
+			.ok_or("the runtime's aura authority set is empty or too large to authorize against")?;
 
 		let key_type = <AuraId as AppCrypto>::ID;
 		let crypto_id = <AuraId as AppCrypto>::CRYPTO_ID;
 		let scheme = scheme_name(crypto_id);
 		let own_index = own_index(&*keystore, key_type, &collators)
 			.ok_or_else(|| own_key_missing(&*keystore, key_type, &scheme, &collators))?;
+
+		let (collator_set_root, own_proof) = build_collator_proof(&collators, own_index as u32)
+			.map_err(|error| format!("cannot build the collator-set tree: {error:?}"))?;
+		let config = AuthConfig {
+			para_ids: vec![para_id.into()],
+			parachain_service,
+			collator_set_root,
+			collator_set_size,
+			slot_duration,
+		};
+		let authorizer = Authorizer { code_hash, config: AuthConfigBlob(config.encode()) };
+		let hash = authorizer_hash(&authorizer);
 
 		tracing::info!(
 			target: LOG_TARGET,
@@ -139,7 +138,7 @@ impl AuraAuthorizer {
 			authorizer_hash = ?hash,
 			own_index,
 			own_key = %hex(&collators[own_index]),
-			proof_len = proofs[own_index].len(),
+			proof_len = own_proof.len(),
 			"Derived the para's AURA authorizer from the runtime's aura authorities; this is the \
 			 hash a core's pool must hold for our packages to be authorized.",
 		);
@@ -150,7 +149,7 @@ impl AuraAuthorizer {
 			config,
 			own_index: own_index as u32,
 			own_key: collators[own_index],
-			own_proof: proofs[own_index].clone(),
+			own_proof,
 			collators,
 			key_type,
 			crypto_id,
@@ -173,15 +172,13 @@ impl AuraAuthorizer {
 	}
 
 	pub(crate) fn collator_set_size(&self) -> u32 {
-		self.config.collator_set_size
+		self.config.collator_set_size.get()
 	}
 
 	/// The collator the round-robin names for `slot` — what the guest computes from the package's
 	/// *lookup* anchor slot, and therefore what the lookup-anchor policy has to satisfy.
 	pub(crate) fn collator_for(&self, slot: JamSlot) -> u32 {
-		self.config
-			.expected_collator_index(slot)
-			.expect("`new` rejects a zero slot duration and an empty collator set; qed")
+		self.config.expected_collator_index(slot)
 	}
 
 	/// Whether `slot` names this collator.
@@ -192,7 +189,7 @@ impl AuraAuthorizer {
 	/// How far back a search for a slot naming this collator has to look: one full turn of the
 	/// round-robin, past which the arithmetic only repeats itself.
 	pub(crate) fn round_robin_window(&self) -> u32 {
-		self.config.collator_set_size.saturating_mul(self.config.slot_duration)
+		self.config.collator_set_size.saturating_mul(self.config.slot_duration).get()
 	}
 
 	/// Whether the runtime's authorities have moved away from the set this authorizer commits to.

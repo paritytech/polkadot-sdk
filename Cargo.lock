@@ -4827,13 +4827,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "cumulus-aura-authorizer"
+name = "cumulus-aura-authorizer-utils"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "binary-merkle-tree 16.1.1",
+ "blake2b_simd",
  "hash-db",
  "hash256-std-hasher",
- "jam-types 0.1.28",
+ "jam-codec",
+ "jam-types 0.1.29",
  "parity-scale-codec",
  "polkadot-parachain-primitives 23.0.0",
  "primitive-types 0.13.1",
@@ -9694,6 +9697,7 @@ dependencies = [
 [[package]]
 name = "jam-chainspec"
 version = "0.1.29"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "bounded-collections 0.3.2",
  "jam-codec",
@@ -9737,10 +9741,12 @@ dependencies = [
 [[package]]
 name = "jam-null-authorizer-bin"
 version = "0.1.29"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 
 [[package]]
 name = "jam-pvm-common"
 version = "0.1.29"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "bounded-collections 0.3.2",
  "jam-codec",
@@ -9775,6 +9781,7 @@ dependencies = [
 [[package]]
 name = "jam-std-common"
 version = "0.1.29"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "ark-vrf 0.2.2",
  "arrayvec 0.7.8",
@@ -9815,6 +9822,7 @@ dependencies = [
 [[package]]
 name = "jam-types"
 version = "0.1.29"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "atomic-traits",
  "base64 0.22.1",
@@ -15849,9 +15857,10 @@ dependencies = [
 [[package]]
 name = "parachain-authorizer"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "blake2b_simd",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-pvm-common",
  "jam-types 0.1.29",
  "parachain-service-core",
@@ -15862,6 +15871,7 @@ dependencies = [
 [[package]]
 name = "parachain-authorizer-ed25519"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "ed25519-dalek",
  "jam-pvm-common",
@@ -15873,6 +15883,7 @@ dependencies = [
 [[package]]
 name = "parachain-authorizer-sr25519"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "jam-pvm-common",
  "jam-types 0.1.29",
@@ -15884,8 +15895,9 @@ dependencies = [
 [[package]]
 name = "parachain-chain-spec"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-chainspec",
  "jam-std-common 0.1.29",
  "jam-types 0.1.29",
@@ -15898,9 +15910,10 @@ dependencies = [
 [[package]]
 name = "parachain-service"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "bounded-collections 0.3.2",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-codec",
  "jam-pvm-common",
  "jam-std-common 0.1.29",
@@ -15915,9 +15928,10 @@ dependencies = [
 [[package]]
 name = "parachain-service-core"
 version = "0.1.0"
+source = "git+https://github.com/paritytech/parachain-service?rev=527e4d1eb62156226f2bd8954f11bd224224f550#527e4d1eb62156226f2bd8954f11bd224224f550"
 dependencies = [
  "bounded-collections 0.3.2",
- "cumulus-aura-authorizer",
+ "cumulus-aura-authorizer-utils",
  "jam-pvm-common",
  "jam-types 0.1.29",
  "num_enum",

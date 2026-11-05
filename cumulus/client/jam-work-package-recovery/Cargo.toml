@@ -27,7 +27,7 @@ sp-runtime = { workspace = true, features = ["std"] }
 tracing = { workspace = true, default-features = true }
 
 [dependencies.parachain-service-core]
-path = "../../../../parachain-service/core"
+workspace = true
 features = ["std"]
 
 [dev-dependencies]

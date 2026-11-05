@@ -70,6 +70,22 @@ target/jam/riscv64emac-unknown-none-polkavm/production/parachain-service.jam
 target/jam/riscv64emac-unknown-none-polkavm/production-authorizer/parachain-authorizer-sr25519.jam
 ```
 
+### Fetching polkajam
+
+parachain-service is public, but its polkajam submodule is private and is fetched over SSH. The
+submodule URL is HTTPS, so make Cargo use the git CLI and route that one repository through SSH:
+
+```sh
+git config --global url.git@github.com:paritytech/polkajam.insteadOf https://github.com/paritytech/polkajam
+```
+
+and in `~/.cargo/config.toml`:
+
+```toml
+[net]
+git-fetch-with-cli = true
+```
+
 The `parasim-tool` CLI is needed only by the two dynamic-core tests, which are the only ones that
 move a core mid-run; without it those two fail and everything else runs.
 

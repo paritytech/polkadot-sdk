@@ -29,7 +29,7 @@ codec = { workspace = true }
 # no_std by default (`default = []`): the riscv build of this crate needs the verifier no_std,
 # while the std feature gates its std side. Wired the same way omni-node-lib pulls it, except
 # feature-driven instead of hard-coded to std.
-parachain-service-core = { path = "../../../../parachain-service/core", default-features = false }
+parachain-service-core = { workspace = true }
 
 [target.'cfg(jam)'.dependencies]
 # The JAM (PolkaVM) side declares its host calls at fixed indices.
