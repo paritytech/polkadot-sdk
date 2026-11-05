@@ -51,7 +51,7 @@ use futures::prelude::*;
 use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
-use sc_consensus_aura::SlotDuration;
+use sc_consensus_aura::{standalone as aura_internal, SlotDuration};
 use sc_network_types::PeerId;
 use sp_api::{ApiExt, ApiRef, CallContext, ProofRecorder, ProvideRuntimeApi, StorageProof};
 use sp_application_crypto::AppPublic;
@@ -291,7 +291,10 @@ struct SlotContext<Block: BlockT, Pub> {
 	max_pov_size: u32,
 	allowed_pov_size: usize,
 	relay_slot: Slot,
-	slot_claim: SlotClaim<Pub>,
+	/// `None` when another author owns the slot: we only resubmit.
+	slot_claim: Option<SlotClaim<Pub>>,
+	/// Signs the resubmissions; every header in `resubmittable_headers` verifies under it.
+	resubmit_author: Pub,
 }
 
 impl<Block: BlockT, Pub> SlotContext<Block, Pub> {
@@ -535,6 +538,22 @@ where
 		})
 	}
 
+	/// The para slot and authorities the scheduling verifier uses for `relay_slot` at `at`.
+	fn era_at(&self, at: Block::Hash, relay_slot: Slot) -> Option<(Slot, Vec<P::Public>)> {
+		let authorities = onchain_runtime_api(&*self.para_client).authorities(at).ok()?;
+		let duration = crate::slot_duration_at(&*self.para_client, at).ok()?.as_millis();
+		let relay_millis =
+			u64::from(relay_slot).checked_mul(self.relay_chain_slot_duration.as_millis() as u64)?;
+
+		Some((relay_millis.checked_div(duration)?.into(), authorities))
+	}
+
+	/// The author the scheduling verifier expects for `relay_slot` at `at`.
+	fn author_at(&self, at: Block::Hash, relay_slot: Slot) -> Option<P::Public> {
+		let (slot, authorities) = self.era_at(at, relay_slot)?;
+		aura_internal::slot_author::<P>(slot, &authorities).cloned()
+	}
+
 	/// Resolve everything needed to author in the current slot, up to a successful slot claim.
 	/// Returns `None` when this slot should be skipped.
 	async fn prepare_slot(&mut self, slot: Slot) -> Option<SlotContext<Block, P::Public>> {
@@ -593,15 +612,70 @@ where
 
 		self.update_backing_connections(para_slot.slot, initial_parent_hash).await;
 
-		let Some(slot_claim) = crate::collators::claim_slot::<_, _, P>(
+		let slot_claim = crate::collators::claim_slot::<_, _, P>(
 			para_slot.slot,
 			para_slot.timestamp,
 			initial_parent_hash,
 			&*self.para_client,
 			&self.keystore,
 		)
-		.await
-		else {
+		.await;
+
+		// The PVF checks a resubmission's signature against the candidate's parent state, so a
+		// block from before an authority-set change needs the prior set's author for this slot.
+		// Such a handover takes the slot: building above those blocks is useless until they land.
+		let mut handover: Option<(P::Public, Vec<Block::Header>)> = None;
+		let tip_author =
+			v3_enabled.then(|| self.author_at(initial_parent_hash, relay_slot)).flatten();
+		let resubmittable_headers = match resubmittable_headers.first() {
+			Some(oldest)
+				if v3_enabled &&
+					self.author_at(*oldest.parent_hash(), relay_slot) != tip_author =>
+			{
+				let mut ours = Vec::new();
+				for header in resubmittable_headers {
+					let Some((slot, authorities)) = self.era_at(*header.parent_hash(), relay_slot)
+					else {
+						continue;
+					};
+					if aura_internal::slot_author::<P>(slot, &authorities) == tip_author.as_ref() {
+						ours.push(header);
+						continue;
+					}
+					let Some(key) =
+						aura_internal::claim_slot::<P>(slot, &authorities, &self.keystore).await
+					else {
+						continue;
+					};
+					let (author, headers) =
+						handover.get_or_insert_with(|| (key.clone(), Vec::new()));
+					if *author == key {
+						headers.push(header);
+					}
+				}
+				ours
+			},
+			_ => resubmittable_headers,
+		};
+
+		let (slot_claim, resubmit_author, resubmittable_headers) = match handover {
+			Some((author, headers)) => {
+				tracing::info!(
+					target: LOG_TARGET,
+					blocks = headers.len(),
+					first = ?headers.first().map(|header| header.hash()),
+					slot = ?para_slot.slot,
+					"Authority handover: resubmitting the prior era's blocks, building nothing.",
+				);
+				(None, Some(author), headers)
+			},
+			None => {
+				let author = slot_claim.as_ref().map(|claim| claim.author_pub().clone());
+				(slot_claim, author, resubmittable_headers)
+			},
+		};
+
+		let Some(resubmit_author) = resubmit_author else {
 			tracing::debug!(
 				target: LOG_TARGET,
 				?unincluded_segment_len_at_execution,
@@ -643,6 +717,7 @@ where
 			allowed_pov_size,
 			relay_slot,
 			slot_claim,
+			resubmit_author,
 		})
 	}
 
@@ -904,7 +979,7 @@ where
 					para_id,
 					relay_client: &env.relay_client,
 					code_hash_provider: &code_hash_provider,
-					slot_claim: &cx.slot_claim,
+					slot_claim: cx.slot_claim.as_ref(),
 					collator: &mut collator,
 					allowed_pov_size: cx.allowed_pov_size,
 					core_info: core_info.clone(),
@@ -975,7 +1050,7 @@ where
 					cx.relay_parent(),
 					&core_info,
 					collator_peer_id,
-					cx.slot_claim.author_pub(),
+					&cx.resubmit_author,
 					&env.keystore,
 					this_core_index,
 				);
@@ -1032,7 +1107,8 @@ struct BuildCollationParams<
 	para_id: ParaId,
 	relay_client: &'a RelayClient,
 	code_hash_provider: &'a CHP,
-	slot_claim: &'a SlotClaim<P::Public>,
+	/// `None` builds nothing.
+	slot_claim: Option<&'a SlotClaim<P::Public>>,
 	collator: &'a mut Collator<Block, P, BI, CIDP, RelayClient, Proposer, CS>,
 	allowed_pov_size: usize,
 	core_info: CoreInfo,
@@ -1170,6 +1246,7 @@ where
 		+ ApiExt<Block>
 		+ cumulus_primitives_core::KeyToIncludeInRelayProof<Block>,
 {
+	let Some(slot_claim) = slot_claim else { return Ok(None) };
 	let core_start = Instant::now();
 
 	let pov_parent_hash = pov_parent_header.hash();
