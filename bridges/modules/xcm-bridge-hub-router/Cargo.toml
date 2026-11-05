@@ -14,19 +14,25 @@ workspace = true
 codec = { workspace = true }
 scale-info = { features = ["bit-vec", "derive", "serde"], workspace = true }
 tracing = { workspace = true }
-bp-xcm-bridge-hub-router.workspace = true
+
+# Bridge dependencies
+bp-xcm-bridge-hub-router = { workspace = true }
+
+# Substrate Dependencies
 frame-benchmarking = { optional = true, workspace = true }
-frame-support.workspace = true
-frame-system.workspace = true
-sp-core.workspace = true
-sp-runtime.workspace = true
-sp-std.workspace = true
-polkadot-runtime-parachains.workspace = true
-xcm.workspace = true
-xcm-builder.workspace = true
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+sp-core = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+
+# Polkadot Dependencies
+polkadot-runtime-parachains = { workspace = true }
+xcm = { workspace = true }
+xcm-builder = { workspace = true }
 
 [dev-dependencies]
-sp-io = { default-features = true, path = "../../../substrate/primitives/io" }
+sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]

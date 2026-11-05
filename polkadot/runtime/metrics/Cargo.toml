@@ -14,8 +14,8 @@ workspace = true
 [dependencies]
 codec = { workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
-polkadot-primitives.workspace = true
-sp-tracing.workspace = true
+polkadot-primitives = { workspace = true }
+sp-tracing = { workspace = true }
 
 bs58 = { features = ["alloc"], workspace = true }
 
