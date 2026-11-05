@@ -151,6 +151,7 @@ std = [
 	"pallet-skip-feeless-payment?/std",
 	"pallet-society?/std",
 	"pallet-staking-async-ah-client?/std",
+	"pallet-staking-async-points-converter?/std",
 	"pallet-staking-async-rc-client?/std",
 	"pallet-staking-async-runtime-api?/std",
 	"pallet-staking-async?/std",
@@ -350,6 +351,7 @@ runtime-benchmarks = [
 	"pallet-skip-feeless-payment?/runtime-benchmarks",
 	"pallet-society?/runtime-benchmarks",
 	"pallet-staking-async-ah-client?/runtime-benchmarks",
+	"pallet-staking-async-points-converter?/runtime-benchmarks",
 	"pallet-staking-async-rc-client?/runtime-benchmarks",
 	"pallet-staking-async?/runtime-benchmarks",
 	"pallet-staking?/runtime-benchmarks",
@@ -503,6 +505,7 @@ try-runtime = [
 	"pallet-skip-feeless-payment?/try-runtime",
 	"pallet-society?/try-runtime",
 	"pallet-staking-async-ah-client?/try-runtime",
+	"pallet-staking-async-points-converter?/try-runtime",
 	"pallet-staking-async-rc-client?/try-runtime",
 	"pallet-staking-async?/try-runtime",
 	"pallet-staking?/try-runtime",
@@ -735,6 +738,7 @@ runtime-full = [
 	"pallet-staking",
 	"pallet-staking-async",
 	"pallet-staking-async-ah-client",
+	"pallet-staking-async-points-converter",
 	"pallet-staking-async-rc-client",
 	"pallet-staking-async-runtime-api",
 	"pallet-staking-reward-curve",
@@ -1811,6 +1815,11 @@ path = "../substrate/frame/staking-async"
 default-features = false
 optional = true
 path = "../substrate/frame/staking-async/ah-client"
+
+[dependencies.pallet-staking-async-points-converter]
+default-features = false
+optional = true
+path = "../substrate/frame/staking-async/points-converter"
 
 [dependencies.pallet-staking-async-rc-client]
 default-features = false
