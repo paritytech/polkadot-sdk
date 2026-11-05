@@ -6,9 +6,10 @@ doc:
     `register`, and stored in the submission metadata as `base`. On every `submit_page`, the held
     deposit becomes that base plus the per-page deposit of the stored pages. Previously, every
     `submit_page` re-computed the whole deposit from the current queue length, so the held amount
-    depended on registrations made by other accounts after the submitter registered. A submitter
-    no longer counts itself: on a geometric base deposit, the first submitter's base is no longer
-    doubled at its first page.
+    depended on registrations made by other accounts after the submitter registered. That
+    re-computation also counted the submitter itself, so a submitter that stored pages held the
+    base one step of `DepositBase` higher than at registration. The base now stays at the
+    registration price.
 
     `CalculatePageDeposit::calculate_page_deposit` no longer takes the number of existing
     submitters. Custom implementations must drop that argument.
