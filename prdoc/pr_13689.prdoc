@@ -19,3 +19,5 @@ crates:
   bump: minor
 - name: pallet-revive-uapi
   bump: patch
+- name: pallet-revive-types
+  bump: patch
