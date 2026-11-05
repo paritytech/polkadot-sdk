@@ -67,7 +67,7 @@
 //!
 //! - [`Currency`]: Functions for dealing with a fungible assets system.
 //! - [`ReservableCurrency`]
-//! - [`NamedReservableCurrency`](frame_support::traits::NamedReservableCurrency):
+//! - [`NamedReservableCurrency`]:
 //! Functions for dealing with assets that can be reserved from an account.
 //! - [`LockableCurrency`](frame_support::traits::LockableCurrency): Functions for
 //! dealing with accounts that allow liquidity restrictions.
