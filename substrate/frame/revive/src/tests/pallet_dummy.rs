@@ -78,6 +78,27 @@ pub mod pallet {
 			Ok(())
 		}
 
+		/// Mirror one log without topics per entry of `data_lens`, with that many bytes of data,
+		/// from outside any contract frame.
+		#[pallet::call_index(4)]
+		pub fn emit_logs(
+			origin: OriginFor<T>,
+			contract: H160,
+			data_lens: Vec<u32>,
+		) -> DispatchResult {
+			ensure_signed(origin)?;
+			for data_len in data_lens {
+				crate::Pallet::<T>::emit_contract_log_outside_frame(
+					contract,
+					Default::default(),
+					vec![0u8; data_len as usize]
+						.try_into()
+						.map_err(|_| DispatchError::Other("data exceeds the LOG limit"))?,
+				);
+			}
+			Ok(())
+		}
+
 		/// Fail, so that a `batch_all` around this call rolls back what it dispatched before.
 		#[pallet::call_index(3)]
 		pub fn fail(origin: OriginFor<T>) -> DispatchResult {

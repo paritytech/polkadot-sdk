@@ -77,3 +77,22 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: script
         run: forklift cargo check --all --benches --quiet
+
+  confirm-required-tests-jobs-passed:
+    runs-on: ubuntu-latest
+    name: All quick tests passed
+    # Only quick-benchmarks is a required check today, so only it is listed
+    # here. test-syscalls is `continue-on-error: true` and cargo-check-all-benches
+    # is not required; both stay advisory. Add a job here to make it blocking.
+    needs: [preflight, quick-benchmarks]
+    if: always() && !cancelled()
+    steps:
+      - run: |
+          tee resultfile <<< '${{ toJSON(needs) }}'
+          FAILURES=$(cat resultfile | grep -E '"result": "(failure|cancelled)"' | wc -l)
+          if [ $FAILURES -gt 0 ]; then
+            echo "### At least one required job failed ❌" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo '### Good job! All the required jobs passed 🚀' >> $GITHUB_STEP_SUMMARY
+          fi
