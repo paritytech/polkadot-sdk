@@ -71,7 +71,8 @@ use jam_interface::{
 };
 use jam_types::RefineContext;
 use parachain_service_core::{
-	para_info_key, service_value_state_key, verify as verify_state_proof, StateKey, StateProof,
+	block_authorization::AUTH_POOLS_STATE_KEY, para_info_key, service_value_state_key,
+	verify as verify_state_proof, StateKey, StateProof,
 };
 use polkadot_primitives::{HeadData, Id as ParaId};
 use sc_client_api::Backend as _;
@@ -82,10 +83,10 @@ use sp_additional_data::{hash_value, AdditionalData, AdditionalDataExt, Addition
 use sp_api::{ProofRecorder, ProvideRuntimeApi};
 use sp_blockchain::{Backend as BlockchainBackend, HeaderBackend};
 use sp_consensus::{Environment, ProposeArgs, Proposer};
-use sp_consensus_aura::{AuraApi, Slot, SlotDuration};
+use sp_consensus_aura::{Slot, SlotDuration};
+use sp_core::crypto::ByteArray;
 use sp_externalities::Extensions;
 use sp_inherents::{InherentData, InherentDataProvider};
-use sp_keystore::KeystorePtr;
 use sp_runtime::traits::{Header as HeaderT, UniqueSaturatedInto};
 use sp_timestamp::Timestamp;
 use sp_trie::proof_size_extension::ProofSizeExt;
@@ -132,6 +133,10 @@ const STALL_REROOT_SLOTS: u64 = 8;
 /// so this only has to be comfortably large.
 const PROOF_SIZE_LIMIT: u32 = 64 * 1024;
 
+/// Byte budget of the authorizer code's proof: the code is a single value of up to JAM's 64 kB
+/// authorizer code limit plus its trie path.
+const CODE_PROOF_SIZE_LIMIT: u32 = 256 * 1024;
+
 pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub para_client: Arc<ParachainClient<Block, RuntimeApi>>,
 	/// Needed for the block tree alone: picking a parent means walking the children of the
@@ -139,7 +144,6 @@ pub(crate) struct BuilderTaskParams<Block: NodeBlock, RuntimeApi, BI, PF, Jam> {
 	pub para_backend: Arc<ParachainBackend<Block>>,
 	pub block_import: BI,
 	pub proposer_factory: PF,
-	pub keystore: KeystorePtr,
 	pub para_id: ParaId,
 	pub service_id: ServiceId,
 	/// The para's AURA authorizer, which decides which lookup anchors this collator may sign
@@ -712,9 +716,9 @@ async fn fetch_anchor_state_proof<Jam: JamStateSource + ?Sized>(
 	let log_key =
 		service_value_state_key(service_id, &parachain_service_core::para_log_key(para_id.into()));
 
-	let mut proof = fetch_proof_for(jam, anchor, key).await?;
+	let mut proof = fetch_proof_for(jam, anchor, key, PROOF_SIZE_LIMIT).await?;
 	if log_key != key {
-		let log_proof = fetch_proof_for(jam, anchor, log_key).await?;
+		let log_proof = fetch_proof_for(jam, anchor, log_key, PROOF_SIZE_LIMIT).await?;
 		merge_proof(&mut proof, log_proof);
 	}
 
@@ -734,9 +738,10 @@ async fn fetch_proof_for<Jam: JamStateSource + ?Sized>(
 	jam: &Jam,
 	anchor: HeaderHash,
 	key: StateKey,
+	size_limit: u32,
 ) -> Result<StateProof, String> {
 	let range_proof = jam
-		.state_proof(anchor, StorageKey(key), StorageKey(key), PROOF_SIZE_LIMIT)
+		.state_proof(anchor, StorageKey(key), StorageKey(key), size_limit)
 		.await
 		.map_err(|error| format!("state proof: {error}"))?;
 	// polkajam's `RangeProof` is a host-side JSON type with no SCALE codec at all, so the form
@@ -808,7 +813,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 		para_backend,
 		mut block_import,
 		mut proposer_factory,
-		keystore,
 		para_id,
 		service_id,
 		authorizer,
@@ -920,7 +924,6 @@ pub(crate) async fn run_builder_task<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 			&para_backend,
 			&mut block_import,
 			&mut proposer_factory,
-			&keystore,
 			para_id,
 			service_id,
 			&authorizer,
@@ -977,7 +980,6 @@ async fn run_tick<Block, RuntimeApi, AuraId, BI, PF, Jam>(
 	para_backend: &ParachainBackend<Block>,
 	block_import: &mut BI,
 	proposer_factory: &mut PF,
-	keystore: &KeystorePtr,
 	para_id: ParaId,
 	service_id: ServiceId,
 	authorizer: &AuraAuthorizer,
@@ -1271,28 +1273,24 @@ where
 		}
 	}
 
-	let authorities = para_client
-		.runtime_api()
-		.authorities(parent_hash)
-		.map_err(|e| format!("authorities: {e}"))?;
-	// The set that claims slots is the set the authorizer hash was built from; the moment the two
-	// part ways, blocks keep being authored but their packages stop being authorized.
-	authorizer.warn_on_set_drift(parent_hash, &authorities);
-	let Some(author_pub) = aura_internal::claim_slot::<<AuraId as AuraIdT>::BoundedPair>(
-		para_slot,
-		&authorities,
-		keystore,
-	)
-	.await
-	else {
+	// The authorizer decides who authors a block exactly as it decides whose packages JAM
+	// authorizes: the runtime runs it on the block's seal (issue #62). So the collator the lookup
+	// anchor names authors, and the runtime's own Aura authorities have no say.
+	if !authorizer.names_us(context.lookup_anchor_slot) {
 		tracing::debug!(
 			target: LOG_TARGET,
-			?para_slot,
-			authorities = authorities.len(),
-			"Slot not ours; skipping.",
+			lookup_anchor_slot = context.lookup_anchor_slot,
+			expected_collator = authorizer.collator_for(context.lookup_anchor_slot),
+			own_index = authorizer.own_index(),
+			"The lookup anchor does not name us; skipping.",
 		);
 		return Ok(Vec::new());
-	};
+	}
+	let author_pub =
+		<<<AuraId as AuraIdT>::BoundedPair as sp_core::Pair>::Public as ByteArray>::from_slice(
+			&authorizer.own_key(),
+		)
+		.map_err(|_| "the authorizer key is no aura key".to_string())?;
 	let slot_claim =
 		SlotClaim::unchecked::<<AuraId as AuraIdT>::BoundedPair>(author_pub, para_slot, now);
 
@@ -1301,7 +1299,7 @@ where
 	// proof refine would reject never leaves the node: an unverifiable proof fails this tick
 	// loudly (`?`) instead of shipping a block JAM would refuse. It describes the anchor, not
 	// the parent, so every package of the turn carries a copy of the same proof.
-	let (anchor_state_proof, proved_head) = fetch_anchor_state_proof(
+	let (mut anchor_state_proof, proved_head) = fetch_anchor_state_proof(
 		&**jam,
 		anchor.header_hash,
 		&context.state_root,
@@ -1309,6 +1307,20 @@ where
 		para_id_u32,
 	)
 	.await?;
+	// The runtime checks the seal against the auth pools and runs the authorizer code it reads
+	// from JAM state at the anchor, so both travel in the proof as well.
+	for (key, size_limit) in [
+		(AUTH_POOLS_STATE_KEY, PROOF_SIZE_LIMIT),
+		(authorizer.code_state_key(), CODE_PROOF_SIZE_LIMIT),
+	] {
+		merge_proof(
+			&mut anchor_state_proof,
+			fetch_proof_for(&**jam, anchor.header_hash, key, size_limit).await?,
+		);
+		verify_state_proof(&anchor_state_proof, &context.state_root, &key).map_err(|error| {
+			format!("the node's own state proof does not cover the block authorization: {error:?}")
+		})?;
+	}
 
 	// The proof and the head read above describe the same key at the same anchor, so anything
 	// but equality means one of the two reads is stale — shipping it would only earn a refine
@@ -1407,103 +1419,96 @@ where
 
 		// A later package's failure must not drop the packages already authored: their blocks
 		// are imported and their messages are ready, and nothing else would ever submit them.
-		let built =
-			async {
-				let inherent_data = create_inherent_data::<Block, RuntimeApi>(
-					para_client,
-					para_id,
-					&parent_header,
-					&included_header,
-					wall_jam_slot,
-					now,
-					slot_duration,
-				)
-				.await?;
+		let built = async {
+			let inherent_data = create_inherent_data::<Block, RuntimeApi>(
+				para_client,
+				para_id,
+				&parent_header,
+				&included_header,
+				wall_jam_slot,
+				now,
+				slot_duration,
+			)
+			.await?;
 
-				let proposer = proposer_factory
-					.init(&parent_header)
-					.await
-					.map_err(|e| format!("proposer init: {e}"))?;
-				let storage_proof_recorder = ProofRecorder::<Block>::default();
-				let mut extra_extensions = Extensions::new();
-				extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
-				// The runtime reads the refine context (`refine_anchor_slot`, `JamSlotNumber`)
-				// while authoring; the PVF serves it through the JAM `fetch` host call, and the
-				// collator's local execution of the same runtime must serve it too.
-				extra_extensions.register(JamRefineContextExt(jam_codec::Encode::encode(&context)));
-				let additional_data = register_jam_state_reader(
-					&mut extra_extensions,
-					*context.state_root,
-					anchor_state_proof.clone(),
-				);
+			let proposer = proposer_factory
+				.init(&parent_header)
+				.await
+				.map_err(|e| format!("proposer init: {e}"))?;
+			let storage_proof_recorder = ProofRecorder::<Block>::default();
+			let mut extra_extensions = Extensions::new();
+			extra_extensions.register(ProofSizeExt::new(storage_proof_recorder.clone()));
+			// The runtime reads the refine context (`refine_anchor_slot`, `JamSlotNumber`)
+			// while authoring; the PVF serves it through the JAM `fetch` host call, and the
+			// collator's local execution of the same runtime must serve it too.
+			extra_extensions.register(JamRefineContextExt(jam_codec::Encode::encode(&context)));
+			let additional_data = register_jam_state_reader(
+				&mut extra_extensions,
+				*context.state_root,
+				anchor_state_proof.clone(),
+			);
 
-				let proposal = proposer
-					.propose(ProposeArgs {
-						inherent_data,
-						inherent_digests: sp_runtime::generic::Digest {
-							logs: vec![
-								slot_claim.pre_digest().clone(),
-								cumulus_primitives_core::CumulusDigestItem::JamParent {
-									anchor: context.anchor.0.into(),
-									anchor_slot: context.anchor_slot,
-									lookup_anchor: context.lookup_anchor.0.into(),
-									lookup_anchor_slot: context.lookup_anchor_slot,
-								}
-								.to_digest_item(),
-								// Every block is alone in its work package, so it is the first and
-								// the last block of its core: the runtime grants it the full core.
-								BlockBundleInfo { index: 0, is_last: true }.to_digest_item(),
-							],
-						},
-						max_duration: PROPOSAL_DURATION,
-						block_size_limit: Some(MAX_POV_SIZE),
-						extra_extensions,
-						storage_proof_recorder: Some(storage_proof_recorder.clone()),
-					})
-					.await
-					.map_err(|e| format!("propose: {e}"))?;
+			let proposal = proposer
+				.propose(ProposeArgs {
+					inherent_data,
+					inherent_digests: sp_runtime::generic::Digest {
+						logs: vec![
+							slot_claim.pre_digest().clone(),
+							cumulus_primitives_core::CumulusDigestItem::JamParent {
+								anchor: context.anchor.0.into(),
+								anchor_slot: context.anchor_slot,
+								lookup_anchor: context.lookup_anchor.0.into(),
+								lookup_anchor_slot: context.lookup_anchor_slot,
+							}
+							.to_digest_item(),
+							// Every block is alone in its work package, so it is the first and
+							// the last block of its core: the runtime grants it the full core.
+							BlockBundleInfo { index: 0, is_last: true }.to_digest_item(),
+						],
+					},
+					max_duration: PROPOSAL_DURATION,
+					block_size_limit: Some(MAX_POV_SIZE),
+					extra_extensions,
+					storage_proof_recorder: Some(storage_proof_recorder.clone()),
+				})
+				.await
+				.map_err(|e| format!("propose: {e}"))?;
 
-				tracing::info!(
-					target: LOG_TARGET,
-					digest = ?proposal.block.header().digest().logs,
-					"JAM-PARENT-DIAG: digest of the freshly proposed block",
-				);
+			tracing::info!(
+				target: LOG_TARGET,
+				digest = ?proposal.block.header().digest().logs,
+				"JAM-PARENT-DIAG: digest of the freshly proposed block",
+			);
 
-				let mut sealed_importable =
-					cumulus_client_consensus_aura::collator::seal::<
-						_,
-						<AuraId as AuraIdT>::BoundedPair,
-					>(
-						proposal.block, proposal.storage_changes, slot_claim.author_pub(), keystore
-					)
-					.map_err(|e| format!("seal: {e}"))?;
+			let mut sealed_importable =
+				super::authorizer::seal(proposal.block, proposal.storage_changes, authorizer)?;
 
-				// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the
-				// built additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on
-				// the sealed import, so the importing path and peer sync serve `jam_state_read`
-				// instead of trapping.
-				sealed_importable.additional_data = Some(additional_data.clone());
+			// Mirror the relay collator's `build_block_and_import` (`collator.rs`): carry the
+			// built additional-data blob (the `JAM_PROOF_KEY` entry for this block's reads) on
+			// the sealed import, so the importing path and peer sync serve `jam_state_read`
+			// instead of trapping.
+			sealed_importable.additional_data = Some(additional_data.clone());
 
-				let block = Block::new(
-					sealed_importable.post_header(),
-					sealed_importable
-						.body
-						.clone()
-						.ok_or_else(|| "sealed block has no body".to_string())?,
-				);
-				if !matches!(sealed_importable.state_action, StateAction::ApplyChanges(_)) {
-					return Err("Building a block should return storage changes".into());
-				}
-				let proof = storage_proof_recorder.drain_storage_proof();
-
-				block_import
-					.import_block(sealed_importable)
-					.await
-					.map_err(|e| format!("import: {e}"))?;
-
-				Ok::<_, String>((block, proof, additional_data))
+			let block = Block::new(
+				sealed_importable.post_header(),
+				sealed_importable
+					.body
+					.clone()
+					.ok_or_else(|| "sealed block has no body".to_string())?,
+			);
+			if !matches!(sealed_importable.state_action, StateAction::ApplyChanges(_)) {
+				return Err("Building a block should return storage changes".into());
 			}
-			.await;
+			let proof = storage_proof_recorder.drain_storage_proof();
+
+			block_import
+				.import_block(sealed_importable)
+				.await
+				.map_err(|e| format!("import: {e}"))?;
+
+			Ok::<_, String>((block, proof, additional_data))
+		}
+		.await;
 		let (block, proof, additional_data) = match built {
 			Ok(built) => built,
 			Err(error) if messages.is_empty() => return Err(error),

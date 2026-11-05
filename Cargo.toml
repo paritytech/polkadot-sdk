@@ -83,6 +83,7 @@ members = [
 	"cumulus/jam/pallet-jam-broker",
 	"cumulus/jam/rpc-interface",
 	"cumulus/jam/state-reader",
+	"cumulus/jam/tx-gas-benchmark",
 	"cumulus/pallets/ah-ops",
 	"cumulus/pallets/aura-ext",
 	"cumulus/pallets/collator-selection",
@@ -933,8 +934,8 @@ itertools = { version = "0.11" }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
 # The vendored copies rather than the polkajam git rev: the omni-node names these by path
 # already, and two instances of them would not unify at the jam-interface trait boundary.
-jam-std-common = { path = "../parachain-service/vendor/polkajam/crates/jam-std-common" }
-jam-types = { path = "../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
+jam-std-common = { path = "../polkajam2/crates/jam-std-common" }
+jam-types = { path = "../polkajam2/crates/jam-types", default-features = false }
 jobserver = { version = "0.1.26" }
 jsonrpsee = { version = "0.24.11" }
 jsonrpsee-core = { version = "0.24.11" }

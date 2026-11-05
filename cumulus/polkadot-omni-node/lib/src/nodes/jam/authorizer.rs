@@ -35,20 +35,31 @@ use crate::common::aura::AuraIdT;
 use codec::Encode;
 use jam_interface::{ServiceId, Slot as JamSlot};
 use jam_types::{Authorization, CodeHash, WorkPackage};
-use parachain_authorizer::aura::{
-	build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
-	CollatorSignature,
+use parachain_authorizer::{
+	aura::{
+		build_collator_proofs, signable_work_package_hash, AuthConfig, AuthToken, CollatorKey,
+		CollatorSignature,
+	},
+	block::signable_block_hash,
 };
-use parachain_service_core::authorizer::{
-	authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash,
+use parachain_service_core::{
+	authorizer::{authorizer_hash, AuthConfigBlob, Authorizer, AuthorizerHash},
+	block_authorization::{BlockAuthorization, BLOCK_AUTHORIZATION_ENGINE_ID},
 };
+use sc_consensus::{BlockImportParams, ForkChoiceStrategy, StateAction};
+use sp_api::StorageChanges;
+use sp_consensus::BlockOrigin;
 use sp_core::{
 	crypto::{ByteArray, CryptoTypeId, KeyTypeId},
 	ed25519, sr25519, Pair, H256,
 };
 use sp_keystore::{Keystore, KeystorePtr};
-use sp_runtime::app_crypto::AppCrypto;
-use std::{fmt::Debug, path::Path};
+use sp_runtime::{
+	app_crypto::AppCrypto,
+	traits::{Block as BlockT, Header as HeaderT},
+	DigestItem,
+};
+use std::path::Path;
 
 /// The public key of one aura authority, as `AuraApi::authorities()` hands it out for a runtime
 /// whose authority id is `AuraId`.
@@ -59,9 +70,6 @@ pub(crate) struct AuraAuthorizer {
 	authorizer: Authorizer,
 	hash: AuthorizerHash,
 	config: AuthConfig,
-	/// The set the config's root commits to, kept to catch the runtime's set drifting away from
-	/// it (see [`AuraAuthorizer::warn_on_set_drift`]).
-	collators: Vec<CollatorKey>,
 	/// This collator's leaf index in the set, which is what the round-robin has to name before a
 	/// signature of ours is worth anything.
 	own_index: u32,
@@ -151,7 +159,6 @@ impl AuraAuthorizer {
 			own_index: own_index as u32,
 			own_key: collators[own_index],
 			own_proof: proofs[own_index].clone(),
-			collators,
 			key_type,
 			crypto_id,
 			keystore,
@@ -195,42 +202,57 @@ impl AuraAuthorizer {
 		self.config.collator_set_size.saturating_mul(self.config.slot_duration)
 	}
 
-	/// Whether the runtime's authorities have moved away from the set this authorizer commits to.
-	pub(crate) fn set_drifted<Public: ByteArray>(&self, authorities: &[Public]) -> bool {
-		authorities.len() != self.collators.len() ||
-			authorities
-				.iter()
-				.zip(&self.collators)
-				.any(|(now, committed)| now.as_slice() != &committed[..])
+	/// This collator's key, the one it signs packages and blocks with.
+	pub(crate) fn own_key(&self) -> CollatorKey {
+		self.own_key
 	}
 
-	/// Say so, loudly, when it has.
+	/// The state key of the authorizer code, a preimage held by the parachain service.
+	pub(crate) fn code_state_key(&self) -> parachain_service_core::StateKey {
+		parachain_service_core::service_preimage_state_key(
+			self.config.parachain_service,
+			&self.authorizer.code_hash.0,
+		)
+	}
+
+	/// Authorize the block whose seal-less header hashes to `pre_hash`, for its seal.
 	///
-	/// An authorizer hash commits to a *snapshot* of the set, so a session rotation leaves the
-	/// core's queue pointing at a root the new collators cannot prove against: their packages die
-	/// in-core with nothing to show for it until somebody re-assigns the core with the new root.
-	pub(crate) fn warn_on_set_drift<Public: ByteArray>(
+	/// The runtime runs the very same authorizer on it (issue #62), so the block is valid exactly
+	/// when a package carrying it would be authorized: by the collator the block's lookup anchor
+	/// names, under an authorizer in an auth pool at the block's anchor.
+	pub(crate) fn authorize_block(
 		&self,
-		at: impl Debug,
-		authorities: &[Public],
-	) {
-		if !self.set_drifted(authorities) {
-			return;
-		}
-		let current: Vec<_> = authorities
-			.iter()
-			.map(|key| array_bytes::bytes2hex("0x", key.as_slice()))
-			.collect();
-		tracing::warn!(
-			target: LOG_TARGET,
-			at = ?at,
-			authorities = ?current,
-			committed = ?self.collators.iter().map(hex).collect::<Vec<_>>(),
-			authorizer_hash = ?self.hash,
-			"The runtime's aura authorities are no longer the set this para's authorizer hash was \
-			 built from. Our packages stop being authorized until the core is re-assigned with the \
-			 new set's root.",
-		);
+		pre_hash: &[u8; 32],
+	) -> Result<BlockAuthorization, String> {
+		let signature = self.sign(signable_block_hash(pre_hash).as_bytes())?;
+		let token = AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature };
+
+		Ok(BlockAuthorization {
+			auth_code_host: self.config.parachain_service,
+			code_hash: self.authorizer.code_hash.0,
+			config: self.authorizer.config.0.clone(),
+			token: token.encode(),
+		})
+	}
+
+	/// Sign `payload` with this collator's aura key.
+	fn sign(&self, payload: &[u8]) -> Result<CollatorSignature, String> {
+		let signature = self
+			.keystore
+			.sign_with(self.key_type, self.crypto_id, &self.own_key, payload)
+			.map_err(|error| format!("the aura keystore refused to sign: {error}"))?
+			.ok_or_else(|| {
+				format!(
+					"the keystore no longer holds the aura key {} it was started with",
+					hex(&self.own_key),
+				)
+			})?;
+		signature.as_slice().try_into().map_err(|_| {
+			format!(
+				"the keystore signed with a {}-byte signature; a collator token takes 64",
+				signature.len(),
+			)
+		})
 	}
 
 	/// Sign `package` as this collator and put the token in its authorization.
@@ -240,22 +262,7 @@ impl AuraAuthorizer {
 	/// complete, and re-anchoring re-signs.
 	pub(crate) fn authorize(&self, package: &mut WorkPackage) -> Result<(), String> {
 		let wp_hash = signable_work_package_hash(package);
-		let signature = self
-			.keystore
-			.sign_with(self.key_type, self.crypto_id, &self.own_key, wp_hash.as_bytes())
-			.map_err(|error| format!("the aura keystore refused to sign: {error}"))?
-			.ok_or_else(|| {
-				format!(
-					"the keystore no longer holds the aura key {} it was started with",
-					hex(&self.own_key),
-				)
-			})?;
-		let signature: CollatorSignature = signature.as_slice().try_into().map_err(|_| {
-			format!(
-				"the keystore signed with a {}-byte signature; a collator token takes 64",
-				signature.len(),
-			)
-		})?;
+		let signature = self.sign(wp_hash.as_bytes())?;
 		let token = AuthToken { proof: self.own_proof.clone(), key: self.own_key, signature };
 		let authorization = Authorization(token.encode());
 
@@ -273,6 +280,31 @@ impl AuraAuthorizer {
 		package.authorization = authorization;
 		Ok(())
 	}
+}
+
+/// Seal `block` with the authorizer's [`BlockAuthorization`] of it, ready for import.
+pub(crate) fn seal<Block: BlockT>(
+	block: Block,
+	storage_changes: StorageChanges<Block>,
+	authorizer: &AuraAuthorizer,
+) -> Result<BlockImportParams<Block>, String> {
+	let (pre_header, body) = block.deconstruct();
+	let pre_hash: [u8; 32] = pre_header
+		.hash()
+		.as_ref()
+		.try_into()
+		.map_err(|_| "a parachain block hash is 32 bytes".to_string())?;
+	let authorization = authorizer.authorize_block(&pre_hash)?;
+
+	let mut params = BlockImportParams::new(BlockOrigin::Own, pre_header);
+	params
+		.post_digests
+		.push(DigestItem::Seal(BLOCK_AUTHORIZATION_ENGINE_ID, authorization.encode()));
+	params.body = Some(body);
+	params.state_action =
+		StateAction::ApplyChanges(sc_consensus::StorageChanges::Changes(storage_changes));
+	params.fork_choice = Some(ForkChoiceStrategy::LongestChain);
+	Ok(params)
 }
 
 /// The set's raw public keys, in the order `authorities()` returned them, which is the order the
@@ -347,6 +379,7 @@ pub(crate) mod tests {
 	use parachain_authorizer::aura::AuthToken as GuestToken;
 	use parachain_authorizer_ed25519::Ed25519;
 	use parachain_authorizer_sr25519::Sr25519;
+	use parachain_service_core::block_authorization::BlockAuthorizationParams;
 	use sp_consensus_aura::{
 		ed25519::AuthorityId as Ed25519AuraId, sr25519::AuthorityId as Sr25519AuraId,
 	};
@@ -526,19 +559,36 @@ pub(crate) mod tests {
 		);
 	}
 
-	/// The authorizer hash commits to the set as it was at startup, so a runtime that rotates its
-	/// authorities silently stops authorizing this collator. Drift is what the tick has to spot.
+	/// A block authorization this node assembles must pass the guest's `authorize_block_ext`:
+	/// the very code the runtime runs on the block's seal, under the ed25519 verifier.
 	#[test]
-	fn set_drift_is_any_change_to_the_authorities_works() {
-		let alice = authorizer_of("alice,bob", "Alice", 1);
-		assert!(!alice.set_drifted(&authorities::<Sr25519AuraId>("alice,bob")));
-		assert!(alice.set_drifted(&authorities::<Sr25519AuraId>("alice,bob,charlie")), "grown");
-		assert!(alice.set_drifted(&authorities::<Sr25519AuraId>("alice")), "shrunk");
-		assert!(alice.set_drifted(&authorities::<Sr25519AuraId>("alice,charlie")), "replaced");
-		assert!(alice.set_drifted(&authorities::<Sr25519AuraId>("bob,alice")), "reordered");
+	fn a_block_authorization_satisfies_the_guest_verifier_works() {
+		let bob = authorizer_for::<Ed25519AuraId>("alice,bob,charlie", "Bob", 1);
+		let pre_hash = [7u8; 32];
+		let auth = bob.authorize_block(&pre_hash).expect("the keystore holds Bob's aura key; qed");
+		assert_eq!(auth.authorizer_hash(), bob.hash(), "the seal names the pooled authorizer");
+
+		let params = |block_hash, slot| {
+			BlockAuthorizationParams {
+				config: auth.config.clone(),
+				token: auth.token.clone(),
+				block_hash,
+				slot,
+			}
+			.encode()
+		};
+		// Slot 4 names collator 4 % 3 == 1, which is Bob.
+		let trace = parachain_authorizer::block::authorize_block::<Ed25519>(&params(pre_hash, 4))
+			.expect("the guest authorizes Bob's block");
+		assert_eq!(trace.author_key, bob.own_key());
+
 		assert!(
-			alice.set_drifted(&authorities::<Ed25519AuraId>("alice,bob")),
-			"the same names on another curve are other keys",
+			parachain_authorizer::block::authorize_block::<Ed25519>(&params([8; 32], 4)).is_err(),
+			"the signature covers this block only",
+		);
+		assert!(
+			parachain_authorizer::block::authorize_block::<Ed25519>(&params(pre_hash, 3)).is_err(),
+			"slot 3 names Alice",
 		);
 	}
 

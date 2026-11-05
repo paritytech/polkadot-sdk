@@ -100,14 +100,24 @@ struct Verifier<Block, Client, AuraId> {
 impl<Block: BlockT, Client, AuraId> VerifierT<Block> for Verifier<Block, Client, AuraId>
 where
 	Client: ProvideRuntimeApi<Block> + Send + Sync,
-	Client::Api: AuraRuntimeApi<Block, AuraId>,
+	Client::Api: AuraRuntimeApi<Block, AuraId> + GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync,
 {
 	async fn verify(
 		&self,
 		block_import: BlockImportParams<Block>,
 	) -> Result<BlockImportParams<Block>, String> {
-		if self.client.runtime_api().has_aura_api(*block_import.header.parent_hash()) {
+		let parent_hash = *block_import.header.parent_hash();
+		// On JAM the seal is a JAM block authorization rather than an Aura seal (issue #62).
+		if jam::verifier::has_jam_seal(&block_import.header) {
+			let para_id = self
+				.client
+				.runtime_api()
+				.parachain_id(parent_hash)
+				.map_err(|error| format!("parachain id at {parent_hash:?}: {error}"))?;
+			return jam::verifier::verify(block_import, para_id.into());
+		}
+		if self.client.runtime_api().has_aura_api(parent_hash) {
 			self.aura_verifier.verify(block_import).await
 		} else {
 			self.relay_chain_verifier.verify(block_import).await
@@ -691,8 +701,8 @@ where
 		// node signs nothing, so it is not asked for a key it has no reason to hold.
 		//
 		// The set is read once, here: the authorizer hash commits to a snapshot of it, so
-		// re-reading it every block could only produce a hash no core holds. The builder warns
-		// when the runtime's set drifts away from this one.
+		// re-reading it every block could only produce a hash no core holds. From then on the
+		// authorizer alone decides who authors, the runtime's Aura authorities have no say.
 		let jam_authorizer = if is_authority {
 			let best_hash = client.info().best_hash;
 			let authorities = client.runtime_api().authorities(best_hash).map_err(|error| {
@@ -718,7 +728,6 @@ where
 			let block_povs = block_povs.clone();
 			let client = client.clone();
 			let para_backend = backend.clone();
-			let keystore = keystore_container.keystore();
 			let spawn_essential = task_manager.spawn_essential_handle();
 			let announce_block = announce_block.clone();
 			let block_import = block_import.clone();
@@ -902,7 +911,6 @@ where
 						para_backend: para_backend.clone(),
 						block_import,
 						proposer_factory,
-						keystore,
 						para_id,
 						service_id: jam_params.service_id,
 						authorizer: jam_authorizer.clone(),

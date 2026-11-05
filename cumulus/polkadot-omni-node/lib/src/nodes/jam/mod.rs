@@ -54,6 +54,7 @@ pub(crate) mod hash_ledger;
 pub(crate) mod package;
 pub(crate) mod pov_store;
 pub(crate) mod resubmission;
+pub(crate) mod verifier;
 
 use crate::common::{
 	types::{ParachainBackend, ParachainClient},

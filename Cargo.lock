@@ -5281,6 +5281,55 @@ dependencies = [
 ]
 
 [[package]]
+name = "cumulus-jam-tx-gas-benchmark"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "cumulus-client-parachain-inherent",
+ "cumulus-client-service",
+ "cumulus-jam-state-reader",
+ "cumulus-pallet-weight-reclaim",
+ "cumulus-primitives-core",
+ "cumulus-primitives-parachain-inherent",
+ "frame-metadata-hash-extension",
+ "frame-system",
+ "futures",
+ "jam-codec",
+ "jam-types 0.1.29",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parachain-authorizer",
+ "parachain-service-core",
+ "parachain-template-runtime",
+ "parity-scale-codec",
+ "polkavm 0.36.0",
+ "rand_chacha 0.3.1",
+ "sc-block-builder",
+ "sc-chain-spec 28.0.0",
+ "sc-client-api 28.0.0",
+ "sc-consensus",
+ "sc-executor 0.32.0",
+ "sc-executor-polkavm 0.29.0",
+ "sc-service",
+ "schnorrkel 0.11.5",
+ "sp-additional-data",
+ "sp-api 26.0.0",
+ "sp-blockchain 28.0.0",
+ "sp-consensus 0.32.0",
+ "sp-consensus-aura",
+ "sp-consensus-babe",
+ "sp-core 28.0.0",
+ "sp-externalities 0.25.0",
+ "sp-genesis-builder 0.8.0",
+ "sp-inherents 26.0.0",
+ "sp-keyring",
+ "sp-runtime 31.0.1",
+ "sp-statement-store",
+ "sp-timestamp",
+ "sp-trie 29.0.0",
+]
+
+[[package]]
 name = "cumulus-jam-zombienet-tests"
 version = "0.1.0"
 dependencies = [
@@ -5313,6 +5362,7 @@ dependencies = [
 name = "cumulus-pallet-aura-ext"
 version = "0.7.0"
 dependencies = [
+ "cumulus-jam-state-reader",
  "cumulus-pallet-parachain-system",
  "cumulus-primitives-core",
  "cumulus-primitives-proof-size-hostfunction",
@@ -5322,6 +5372,7 @@ dependencies = [
  "log",
  "pallet-aura",
  "pallet-timestamp",
+ "parachain-service-core",
  "parity-scale-codec",
  "rstest",
  "scale-info",
@@ -9737,6 +9788,14 @@ dependencies = [
 [[package]]
 name = "jam-null-authorizer-bin"
 version = "0.1.29"
+
+[[package]]
+name = "jam-program-blob-common"
+version = "0.1.29"
+dependencies = [
+ "jam-codec",
+ "polkavm 0.36.0",
+]
 
 [[package]]
 name = "jam-pvm-common"
@@ -15918,11 +15977,13 @@ version = "0.1.0"
 dependencies = [
  "bounded-collections 0.3.2",
  "cumulus-aura-authorizer",
+ "jam-program-blob-common",
  "jam-pvm-common",
  "jam-types 0.1.29",
  "num_enum",
  "parity-scale-codec",
  "polkadot-parachain-primitives 23.0.0",
+ "polkavm 0.36.0",
  "polkavm-derive 0.36.0",
  "sp-crypto-hashing 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-io 48.0.0",

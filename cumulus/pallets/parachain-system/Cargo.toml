@@ -77,7 +77,7 @@ sp-io = { workspace = true, features = ["disable_allocator", "disable_panic_hand
 # offset, so a field reordering upstream becomes a decode error instead of silently wrong
 # randomness. Both crates are already in this target's graph via `parachain-service-core`;
 # `jam-types` derives `jam-codec`, not `parity-scale-codec`, so both have to be named.
-jam-types = { path = "../../../../parachain-service/vendor/polkajam/crates/jam-types", default-features = false }
+jam-types = { path = "../../../../polkajam2/crates/jam-types", default-features = false }
 jam-codec = { version = "0.1.1", default-features = false, features = ["derive"] }
 
 [dev-dependencies]

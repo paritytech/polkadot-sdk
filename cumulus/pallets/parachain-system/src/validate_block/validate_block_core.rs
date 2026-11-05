@@ -178,7 +178,7 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 	// ORIGINAL parent header from `inputs.parent_head`.
 	on_db_ready.map(|f| f(&db, &cache_provider, &parent_header, state_version));
 
-	for (block_index, mut block) in blocks.into_iter().enumerate() {
+	for (block_index, block) in blocks.into_iter().enumerate() {
 		// We use the storage root of the `parent_head` to ensure that it is the correct root.
 		// This is already being done above while creating the in-memory db, but let's be paranoid!!
 		let backend = sp_state_machine::TrieBackendBuilder::new_with_cache(
@@ -228,22 +228,29 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 			_ => {},
 		}
 
-		run_with_externalities_and_recorder::<B, _, _>(
-			&backend,
-			&mut Default::default(),
-			&mut Default::default(),
-			state_version,
-			|| {
-				E::verify_and_remove_seal(&mut block);
-			},
-		);
-
 		// block is moved into the inner FnOnce, so wrap it in RefCell<Option<_>> so that
 		// the outer `execute` closure can implement FnMut (required by `on_execute`'s
 		// `&mut dyn FnMut()` parameter). The `.take()` panics on a second call, preserving
 		// exactly-once semantics.
 		let block = core::cell::RefCell::new(Some(block));
 		let mut execute = || {
+			let mut block = block
+				.borrow_mut()
+				.take()
+				.expect("the execute closure is invoked exactly once; qed");
+
+			// The seal is verified under `on_execute` as well: on JAM verifying it reads JAM state
+			// through the reader `on_execute` arms.
+			run_with_externalities_and_recorder::<B, _, _>(
+				&backend,
+				&mut Default::default(),
+				&mut Default::default(),
+				state_version,
+				|| {
+					E::verify_and_remove_seal(&mut block);
+				},
+			);
+
 			run_with_externalities_and_recorder::<B, _, _>(
 				&execute_backend,
 				// Here is the only place where we want to use the recorder.
@@ -254,12 +261,7 @@ pub(crate) fn execute_blocks<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 				&mut overlay,
 				state_version,
 				|| {
-					E::execute_verified_block(
-						block
-							.borrow_mut()
-							.take()
-							.expect("the execute closure is invoked exactly once; qed"),
-					);
+					E::execute_verified_block(block);
 				},
 			);
 		};
