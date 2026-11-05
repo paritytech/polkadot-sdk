@@ -1,0 +1,15 @@
+title: Make the collator protocol revamp the default implementation (on Polkadot)
+doc:
+- audience: Node Dev
+  description: |-
+    Currently if a node binary is executed with a Kusama chainspec the collator protocol revamp is the default validator side collator protocol implementation. This PR takes this further by making the revamp the default implementation no matter what the chainspec is (polkadot included).
+
+    The `--experimental-collator-protocol` flag is kept so that we can run the legacy implementation if needed (with `--experimental-collator-protocol=false`.
+
+    Before this change the CI was executing some tests with both collator protocol implementations. To keep this behaviour, this PR adds`--experimental-collator-protocol=false` where necessary. The change is here:
+    https://github.com/paritytech/polkadot-sdk/blob/f02224d7863fae256f4675cc0825bfb009fcfb75/polkadot/zombienet-sdk-tests/tests/utils.rs#L58
+crates:
+- name: polkadot-cli
+  bump: patch
+- name: polkadot-collator-protocol
+  bump: patch
