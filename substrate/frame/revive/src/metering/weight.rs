@@ -18,7 +18,7 @@
 #[cfg(test)]
 mod tests;
 
-use crate::{Config, Error, vm::evm::Halt, weights::WeightInfo};
+use crate::{Config, Error, limits::code::BASIC_BLOCK_SIZE, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{DefaultNoBound, weights::Weight};
 use sp_runtime::DispatchError;
@@ -37,7 +37,7 @@ impl ChargedAmount {
 
 /// Meter for syncing the gas between the executor and the weight meter.
 #[derive(DefaultNoBound)]
-struct EngineMeter<T: Config> {
+pub struct EngineMeter<T: Config> {
 	fuel: u64,
 	_phantom: PhantomData<T>,
 }
@@ -63,16 +63,52 @@ impl<T: Config> EngineMeter<T> {
 		self.fuel.try_into().unwrap_or(polkavm::Gas::MAX)
 	}
 
-	/// How much ref time does each PolkaVM gas correspond to.
-	fn ref_time_per_fuel() -> u64 {
-		let loop_iteration =
-			T::WeightInfo::instr(1).saturating_sub(T::WeightInfo::instr(0)).ref_time();
-		let empty_loop_iteration = T::WeightInfo::instr_empty_loop(1)
-			.saturating_sub(T::WeightInfo::instr_empty_loop(0))
-			.ref_time();
-		loop_iteration.saturating_sub(empty_loop_iteration)
+	/// How much ref time each PolkaVM gas corresponds to.
+	///
+	/// It is the largest ref time per gas of nine benchmarks, each rounded up. All run only
+	/// instructions that cost one gas each, so the slope of one iteration divided by its gas is
+	/// the time of one gas:
+	///
+	/// - `instr_load_chain_<m>` for `m` in `0..8`: dependent 8 byte loads from memory that is not
+	///   cached, over all memory a contract can address. The variants place the values at the 8
+	///   offsets modulo 64 an 8 byte aligned host buffer can give them, so in one variant every
+	///   load spans two cache lines. The slope of one iteration is divided by [`LOAD_CHAIN_GAS`].
+	/// - `instr_indirect_jump`: indirect jumps through a random cycle of compiled basic blocks. The
+	///   slope of one lap is divided by [`INDIRECT_JUMP_GAS`].
+	pub fn ref_time_per_fuel() -> u64 {
+		let per_gas = |weight: fn(u32) -> Weight, gas: u32| {
+			weight(1).saturating_sub(weight(0)).ref_time().div_ceil(u64::from(gas))
+		};
+		let load_chains: [fn(u32) -> Weight; 8] = [
+			T::WeightInfo::instr_load_chain_0,
+			T::WeightInfo::instr_load_chain_1,
+			T::WeightInfo::instr_load_chain_2,
+			T::WeightInfo::instr_load_chain_3,
+			T::WeightInfo::instr_load_chain_4,
+			T::WeightInfo::instr_load_chain_5,
+			T::WeightInfo::instr_load_chain_6,
+			T::WeightInfo::instr_load_chain_7,
+		];
+		load_chains
+			.into_iter()
+			.map(|weight| per_gas(weight, LOAD_CHAIN_GAS))
+			.fold(per_gas(T::WeightInfo::instr_indirect_jump, INDIRECT_JUMP_GAS), u64::max)
 	}
 }
+
+/// Gas of one iteration of the `instr_load_chain_<m>` benchmarks.
+///
+/// An iteration is a basic block holding the loop condition, and a basic block holding
+/// `LOAD_CHAIN_GAS - 3` dependent loads, the counter increment and the jump back. Every
+/// instruction costs one gas. The second block has `BASIC_BLOCK_SIZE` instructions.
+pub const LOAD_CHAIN_GAS: u32 = BASIC_BLOCK_SIZE + 1;
+
+/// Gas of one lap of the `instr_indirect_jump` benchmark.
+///
+/// A lap is the loop condition, the counter increment, and `INDIRECT_JUMP_GAS - 2` indirect
+/// jumps: one into a cycle of `INDIRECT_JUMP_GAS - 3` basic blocks and one out of each of them.
+/// Every instruction costs one gas.
+pub const INDIRECT_JUMP_GAS: u32 = 20_003;
 
 /// Resource that needs to be synced to the executor.
 ///

@@ -1205,6 +1205,11 @@ pub mod pallet {
 
 			assert!(T::GasScale::get() > 0u32.into(), "GasScale must not be 0");
 
+			assert!(
+				crate::metering::EngineMeter::<T>::ref_time_per_fuel() > 0,
+				"The ref time per PolkaVM gas derived from the weights must not be 0"
+			);
+
 			T::FeeInfo::integrity_test();
 
 			// The memory available in the block building runtime

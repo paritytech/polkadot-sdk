@@ -29,6 +29,7 @@ use crate::{
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
+	limits,
 	metering::{ResourceMeter, State, Token},
 	weights::WeightInfo,
 };
@@ -138,13 +139,15 @@ impl<T: Config> Token<T> for CodeLoadToken {
 			// benchmark also compiles the entry block of the called contract, which is a
 			// maximum-sized block for all but the smallest code sizes. The linear fit puts that
 			// cost into the intercept, which is subtracted here. The compilation of the entry
-			// block is therefore charged once, by `basic_block_compilation`.
+			// block is therefore charged once, by `interpreter_compile_per_instruction`.
 			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
 				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0))
 				.saturating_add(
-					T::WeightInfo::basic_block_compilation(1)
-						.saturating_sub(T::WeightInfo::basic_block_compilation(0))
-						.set_proof_size(0),
+					T::WeightInfo::interpreter_compile_per_instruction(
+						limits::code::BASIC_BLOCK_SIZE,
+					)
+					.saturating_sub(T::WeightInfo::interpreter_compile_per_instruction(0))
+					.set_proof_size(0),
 				),
 			BytecodeType::Evm => T::WeightInfo::call_with_evm_code_per_byte(self.code_len)
 				.saturating_sub(T::WeightInfo::call_with_evm_code_per_byte(0)),
@@ -353,8 +356,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		input_data: Vec<u8>,
 	) -> ExecResult {
 		if self.code_info().is_pvm() {
-			let prepared_call =
-				self.prepare_call(pvm::Runtime::new(ext, input_data), function, 0)?;
+			let prepared_call = self.prepare_call(pvm::Runtime::new(ext, input_data), function)?;
 			prepared_call.call()
 		} else if T::AllowEVMBytecode::get() {
 			use revm::bytecode::Bytecode;

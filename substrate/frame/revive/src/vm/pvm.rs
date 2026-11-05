@@ -865,33 +865,35 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 		sync_result?;
 		exec_result
 	}
+}
 
-	/// The guest memory address at which the aux data is located.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn aux_data_base(&self) -> u32 {
-		self.instance.module().memory_map().aux_data_address()
+/// Access to the instance for the benchmarks.
+#[cfg(feature = "runtime-benchmarks")]
+impl<'a, E: Ext> PreparedCall<'a, E> {
+	/// The memory map of the contract.
+	pub fn memory_map(&self) -> &polkavm::MemoryMap {
+		self.instance.module().memory_map()
 	}
 
-	/// Copies `data` to the aux data at address `offset`.
-	///
-	/// It sets `a0` to the beginning of data inside the aux data.
-	/// It sets `a1` to the value passed.
-	///
-	/// Only used in benchmarking so far.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub fn setup_aux_data(
+	/// Writes `data` to the contract's memory at `address`.
+	pub fn write_memory(
 		&mut self,
+		address: u32,
 		data: &[u8],
-		offset: u32,
-		a1: u64,
 	) -> frame_support::dispatch::DispatchResult {
-		let a0 = self.aux_data_base().saturating_add(offset);
-		self.instance.write_memory(a0, data).map_err(|err| {
-			log::debug!(target: LOG_TARGET, "failed to write aux data: {err:?}");
-			Error::<E::T>::CodeRejected
-		})?;
-		self.instance.set_reg(polkavm::Reg::A0, a0.into());
-		self.instance.set_reg(polkavm::Reg::A1, a1);
-		Ok(())
+		self.instance.write_memory(address, data).map_err(|err| {
+			log::debug!(target: LOG_TARGET, "failed to write memory: {err:?}");
+			Error::<E::T>::CodeRejected.into()
+		})
+	}
+
+	/// Sets the register `reg` to `value`.
+	pub fn set_reg(&mut self, reg: polkavm::Reg, value: u64) {
+		self.instance.set_reg(reg, value);
+	}
+
+	/// Drops the interpreter state of the contract, as a sub-call does.
+	pub fn reset_interpreter_cache(&mut self) {
+		self.instance.reset_interpreter_cache();
 	}
 }

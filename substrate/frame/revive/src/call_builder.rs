@@ -184,11 +184,8 @@ where
 		ext: &'a mut StackExt<'a, T>,
 		module: ContractBlob<T>,
 		input: Vec<u8>,
-		aux_data_size: u32,
 	) -> PreparedCall<'a, StackExt<'a, T>> {
-		module
-			.prepare_call(Runtime::new(ext, input), ExportedFunction::Call, aux_data_size)
-			.unwrap()
+		module.prepare_call(Runtime::new(ext, input), ExportedFunction::Call).unwrap()
 	}
 
 	/// Add transient_storage
@@ -481,47 +478,215 @@ impl VmBinaryModule {
 		Self::from_assembly(&text)
 	}
 
-	/// A contract whose `call` export starts with a basic block of two instructions.
+	/// The number of branches in [`Self::with_branch_blocks`].
 	///
-	/// It holds the same instructions as [`Self::with_full_entry_block`], so its code has the
-	/// same size. The `fallthrough` comes right after the `ecalli SENTINEL`, so the entry block
-	/// holds these two instructions and all fillers are in the second block.
-	pub fn with_small_entry_block() -> Self {
-		Self::with_entry_block_size(2)
+	/// All blocks the contract enters must fit into the interpreter cache at the same time, or
+	/// the interpreter would reset the cache and compile blocks again. The cache holds
+	/// `INTERPRETER_CACHE_BYTES / 24` entries and keeps room for one block of
+	/// `BASIC_BLOCK_SIZE` instructions. A block of one instruction takes two entries: its gas
+	/// charge and the instruction. 16000 such blocks and the final block of two instructions
+	/// take 32003 entries, below the 42689 usable.
+	///
+	/// The cache entries are kept in vectors that double their capacity as they grow, up to
+	/// the cache limit. 32003 entries stay below a capacity of 32768. Above it the vectors would
+	/// be reallocated once more, which adds a copy of the whole cache to the largest values of
+	/// `b` and skews the linear fit.
+	pub const BRANCH_BLOCKS: u32 = 16_000;
+
+	/// A contract whose `call` export enters `b` basic blocks of one instruction and returns.
+	///
+	/// The code holds [`Self::BRANCH_BLOCKS`] branches, one `ecalli SENTINEL` and one `ret`.
+	/// Each branch ends a basic block, so each forms a block of its own, and it is always taken
+	/// to the next block. The `ecalli SENTINEL` comes after `b` of them: the call compiles and
+	/// runs `b` blocks of one branch each, then compiles the block of the `ecalli SENTINEL` and
+	/// the instruction after it, and stops at the `ecalli SENTINEL`. The code holds the same
+	/// instructions for every `b`, so its size does not depend on `b`.
+	///
+	/// The branch is a `branch_eq` of two registers. Of the instructions that end a basic block
+	/// and continue at another one, branches took the longest to compile and run per block in a
+	/// local measurement: 40 to 60% longer than a `fallthrough` and 25% longer than a `jump`, a
+	/// `load_imm_and_jump` or a `load_imm_and_jump_indirect`. Branches with an immediate, taken
+	/// or not, were within the noise of it.
+	///
+	/// `b` is within `0..=BRANCH_BLOCKS`.
+	pub fn with_branch_blocks(b: u32) -> Self {
+		let mut text = alloc::string::String::from("pub @deploy:\nret\npub @call:\n");
+		for i in 0..Self::BRANCH_BLOCKS {
+			if i == b {
+				text.push_str(&alloc::format!("ecalli {}\n", crate::SENTINEL));
+			}
+			text.push_str(&alloc::format!("jump @next{i} if a0 == a0\n@next{i}:\n"));
+		}
+		if b == Self::BRANCH_BLOCKS {
+			text.push_str(&alloc::format!("ecalli {}\n", crate::SENTINEL));
+		}
+		text.push_str("ret\n");
+		Self::from_assembly(&text)
 	}
 
-	/// A contract whose `call` export starts with a basic block of `BASIC_BLOCK_SIZE`
-	/// instructions.
+	/// A contract whose `call` export compiles an entry block of `n` instructions and returns.
 	///
-	/// The first instruction of that block ends the execution. It is an `ecalli SENTINEL`, which
-	/// does not end the basic block, so the interpreter still compiles the whole block before
-	/// running it. No other block is compiled.
+	/// The entry block starts with an `ecalli SENTINEL`, which ends the execution but not the
+	/// basic block, so the interpreter compiles the whole block before running it. `n - 2`
+	/// fillers and a `fallthrough` follow. The remaining `BASIC_BLOCK_SIZE - n` fillers and a
+	/// `ret` form a second block, which is never entered. The code holds the same instructions
+	/// for every `n`, so its size does not depend on `n`.
 	///
-	/// The code holds one `ecalli SENTINEL`, `BASIC_BLOCK_SIZE - 2` fillers, one `fallthrough`
-	/// that ends the entry block and one `ret` that forms a second block.
-	/// [`Self::with_small_entry_block`] holds the same instructions with the `fallthrough` right
-	/// after the `ecalli SENTINEL`.
+	/// The filler is a `store_imm_indirect_u64` with two 4 byte immediates. It never executes.
+	/// Of the instructions that do not end a basic block, the `store_imm_indirect` kinds took
+	/// the longest to compile per instruction in a local measurement of arithmetic with
+	/// registers and immediates, 32 and 64 bit immediate loads, register moves, and loads and
+	/// stores with absolute and indirect addresses. The others took up to 13% less. With short
+	/// immediates it is still among the slowest, so the difference is not only the size of the
+	/// instruction.
 	///
-	/// The filler is a `store_imm_u32`: it stores a 32 bit immediate to an absolute address and
-	/// carries two 4 byte immediates. It never executes.
-	pub fn with_full_entry_block() -> Self {
-		Self::with_entry_block_size(limits::code::BASIC_BLOCK_SIZE)
-	}
-
-	/// The contract of [`Self::with_small_entry_block`] and [`Self::with_full_entry_block`] with
-	/// the `fallthrough` placed so that the entry block has `block_size` instructions.
-	///
-	/// `block_size` is within `2..=BASIC_BLOCK_SIZE`.
-	fn with_entry_block_size(block_size: u32) -> Self {
-		const FILLER: &str = "u32 [0x12345678] = 0x12345678\n";
+	/// `n` is within `2..=BASIC_BLOCK_SIZE`.
+	pub fn with_entry_block(n: u32) -> Self {
+		const FILLER: &str = "u64 [a0 + 0x12345678] = 0x12345678\n";
 		let mut text =
 			alloc::format!("pub @deploy:\nret\npub @call:\necalli {}\n", crate::SENTINEL);
-		for _ in 2..block_size {
+		for _ in 2..n {
 			text.push_str(FILLER);
 		}
 		text.push_str("fallthrough\n");
-		for _ in block_size..limits::code::BASIC_BLOCK_SIZE {
+		for _ in n..limits::code::BASIC_BLOCK_SIZE {
 			text.push_str(FILLER);
+		}
+		text.push_str("ret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// The read-write memory a contract with less than one page of code can declare.
+	///
+	/// [`limits::code::BASELINE_MEMORY_LIMIT`] bounds the size of the code blob plus the
+	/// zero-initialized parts of the read-only data, the read-write data and the stack, each
+	/// rounded up to `PAGE_SIZE`. Initialized data is part of the blob. Contracts cannot grow
+	/// their memory at runtime, so this is all the memory a contract can address next to one
+	/// page of code.
+	pub const MAX_DATA_BYTES: u32 = limits::code::BASELINE_MEMORY_LIMIT - limits::PAGE_SIZE;
+
+	/// A contract whose `call` export runs `a1` iterations of `LOAD_CHAIN_GAS - 3` dependent
+	/// loads.
+	///
+	/// An iteration is the branch `jump @done if t0 == a1`, then one basic block of loads
+	/// `a0 = u64 [a0]`, `t0 = t0 + 1` and `jump @loop`. Each load reads the address of the next
+	/// one, so it cannot start before the previous load has finished. The contract declares
+	/// [`Self::MAX_DATA_BYTES`] of read-write data. The caller writes the chain of addresses
+	/// into it and sets `a0` to the first address.
+	pub fn with_load_chain() -> Self {
+		let mut text = alloc::format!(
+			"%rw_data_size = {}\npub @deploy:\nret\npub @call:\n@loop:\njump @done if t0 == a1\n",
+			Self::MAX_DATA_BYTES,
+		);
+		for _ in 3..crate::metering::LOAD_CHAIN_GAS {
+			text.push_str("a0 = u64 [a0]\n");
+		}
+		text.push_str("t0 = t0 + 1\njump @loop\n@done:\nret\n");
+		Self::from_assembly(&text)
+	}
+
+	/// A contract whose `call` export runs `a1` laps of a random cycle of indirect jumps.
+	///
+	/// The cycle has `INDIRECT_JUMP_GAS - 3` basic blocks of one instruction each. Every block
+	/// is a `load_imm_and_jump_indirect` that jumps to the address in `a0` and loads the address
+	/// of the block after the next one into `a0`. A lap starts and ends at a block with the
+	/// branch `jump @done if t0 == a1`, followed by `t0 = t0 + 1` and the jump into the cycle.
+	/// The order of the blocks in the cycle is a fixed random permutation, so consecutive
+	/// jumps go to unrelated code addresses.
+	pub fn with_indirect_jump_cycle() -> Self {
+		use polkavm_common::{
+			abi::VM_CODE_ADDRESS_ALIGNMENT,
+			program::{Instruction, Reg},
+			writer::ProgramBlobBuilder,
+		};
+		use rand::{SeedableRng, seq::SliceRandom};
+
+		// Basic block indices. The cycle starts at `CYCLE`.
+		const DEPLOY: u32 = 0;
+		const ENTRY: u32 = 1;
+		const HEAD: u32 = 2;
+		const DONE: u32 = 4;
+		const CYCLE: u32 = 5;
+
+		let blocks = crate::metering::INDIRECT_JUMP_GAS - 3;
+		// Jump table entry 0 is `HEAD`, entry `1 + i` is cycle block `i`. A jump table entry
+		// `k` has the code address `(k + 1) * VM_CODE_ADDRESS_ALIGNMENT`.
+		let address = |entry: u32| {
+			i32::try_from((entry + 1) * VM_CODE_ADDRESS_ALIGNMENT)
+				.expect("the jump table has fewer than 2^30 entries; qed")
+		};
+		let head = address(0);
+		let block = |i: u32| address(1 + i);
+
+		let mut order: Vec<u32> = (0..blocks).collect();
+		order.shuffle(&mut rand_pcg::Pcg64::seed_from_u64(1337));
+		// The lap visits `HEAD`, then the cycle blocks in `order`. Each block loads the address
+		// of the block two steps ahead.
+		let lap: Vec<i32> = core::iter::once(head).chain(order.iter().map(|&i| block(i))).collect();
+		let two_ahead = |position: usize| lap[(position + 2) % lap.len()];
+
+		let a0 = Reg::A0.into();
+		let a1 = Reg::A1.into();
+		let t0 = Reg::T0.into();
+		let ra = Reg::RA.into();
+		let mut code = vec![
+			Instruction::jump_indirect(ra, 0),
+			Instruction::load_imm(a0, lap[1]),
+			Instruction::fallthrough,
+			Instruction::branch_eq(t0, a1, DONE),
+			Instruction::add_imm_64(t0, t0, 1),
+			Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(0), 0),
+			Instruction::jump_indirect(ra, 0),
+		];
+		// Cycle block `i` sits at lap position `1 + k` where `order[k] == i`.
+		let mut cycle: Vec<(u32, Instruction)> = order
+			.iter()
+			.enumerate()
+			.map(|(k, &i)| {
+				(i, Instruction::load_imm_and_jump_indirect(a0, a0, two_ahead(1 + k), 0))
+			})
+			.collect();
+		cycle.sort_by_key(|(i, _)| *i);
+		code.extend(cycle.into_iter().map(|(_, instruction)| instruction));
+		let jump_table: Vec<u32> =
+			core::iter::once(HEAD).chain((0..blocks).map(|i| CYCLE + i)).collect();
+
+		let mut builder =
+			ProgramBlobBuilder::new(polkavm_common::program::InstructionSetKind::ReviveV1);
+		builder.set_code(&code, &jump_table);
+		builder.add_export_by_basic_block(DEPLOY, b"deploy");
+		builder.add_export_by_basic_block(ENTRY, b"call");
+		Self::new(builder.into_vec().expect("the program built here is valid; qed"))
+	}
+
+	/// The largest code section [`Self::with_code_bytes`] builds.
+	///
+	/// The interpreter keeps a map with one entry per byte of the code section. It counts
+	/// towards [`limits::code::PURGABLE_MEMORY_LIMIT`] next to the interpreter cache, which a
+	/// contract of this size fills. That allows at most 512 KiB of code. One page is left as a
+	/// margin for the code that [`Self::with_code_bytes`] adds.
+	pub const MAX_CODE_BYTES: u32 = (limits::code::PURGABLE_MEMORY_LIMIT -
+		limits::code::INTERPRETER_CACHE_BYTES) /
+		polkavm_common::program::INTERPRETER_FLATMAP_ENTRY_SIZE -
+		limits::PAGE_SIZE;
+
+	/// A contract with a code section of about `code_bytes` bytes whose `call` export returns
+	/// at once.
+	///
+	/// The `call` export is a basic block of `ecalli SENTINEL` and `fallthrough`, which stops
+	/// the call. Blocks of `a0 = a1 + a2`, 3 bytes each, fill the rest of the code section and
+	/// never run. Only the size of the code section depends on `code_bytes`.
+	pub fn with_code_bytes(code_bytes: u32) -> Self {
+		let mut text = alloc::format!(
+			"pub @deploy:\nret\npub @call:\necalli {}\nfallthrough\n",
+			crate::SENTINEL
+		);
+		for i in 0..code_bytes / 3 {
+			if i % limits::code::BASIC_BLOCK_SIZE == limits::code::BASIC_BLOCK_SIZE - 1 {
+				text.push_str("fallthrough\n");
+			} else {
+				text.push_str("a0 = a1 + a2\n");
+			}
 		}
 		text.push_str("ret\n");
 		Self::from_assembly(&text)
@@ -542,29 +707,6 @@ impl VmBinaryModule {
 		Self::new(bench_fixtures::noop().to_vec())
 	}
 
-	/// A contract code that does unaligned memory accessed in a loop.
-	pub fn instr(do_load: bool) -> Self {
-		let load = match do_load {
-			false => "",
-			true => "a0 = u64 [a0]",
-		};
-		let text = alloc::format!(
-			"
-		pub @deploy:
-		ret
-		pub @call:
-			@loop:
-				jump @done if t0 == a1
-				{load}
-				t0 = t0 + 1
-				jump @loop
-			@done:
-		ret
-		"
-		);
-		Self::from_assembly(&text)
-	}
-
 	/// An evm contract that executes `size` JUMPDEST instructions.
 	pub fn evm_noop(size: u32) -> Self {
 		use revm::bytecode::opcode::JUMPDEST;
@@ -577,29 +719,182 @@ impl VmBinaryModule {
 #[cfg(all(test, feature = "runtime-benchmarks"))]
 mod tests {
 	use super::VmBinaryModule;
-	use crate::limits::code::{BASIC_BLOCK_SIZE, check_pvm_code};
-	use polkavm_common::program::{ISA_ReviveV1, ProgramBlob};
+	use crate::{
+		SENTINEL,
+		limits::code::{BASIC_BLOCK_SIZE, INTERPRETER_CACHE_BYTES, check_pvm_code},
+		metering::{INDIRECT_JUMP_GAS, LOAD_CHAIN_GAS},
+	};
+	use polkavm_common::program::{
+		INTERPRETER_CACHE_ENTRY_SIZE, ISA_ReviveV1, Instruction, ParsedInstruction, ProgramBlob,
+	};
 
-	/// The contracts of the `basic_block_compilation` benchmark differ only in the size of the
-	/// entry block.
+	/// The instructions of the `call` export, from its start to the end of the code.
+	fn call_instructions(module: &VmBinaryModule) -> alloc::vec::Vec<ParsedInstruction> {
+		let blob = ProgramBlob::parse(module.code[..].into()).unwrap();
+		let call = blob.exports().find(|export| export.symbol().as_bytes() == b"call").unwrap();
+		blob.instructions_bounded_at_with_isa(ISA_ReviveV1, call.program_counter())
+			.collect()
+	}
+
+	/// The contracts of `interpreter_compile_per_instruction` have the same size and differ only
+	/// in the size of the entry block.
 	#[test]
-	fn basic_block_compilation_benchmark_contracts() {
-		let entry_block_size = |module: &VmBinaryModule| {
-			let blob = ProgramBlob::parse(module.code[..].into()).unwrap();
-			let call = blob.exports().find(|export| export.symbol().as_bytes() == b"call").unwrap();
-			let terminator = blob
-				.instructions_bounded_at_with_isa(ISA_ReviveV1, call.program_counter())
+	fn interpreter_compile_per_instruction_benchmark_contracts() {
+		let code_len = VmBinaryModule::with_entry_block(2).code.len();
+		for n in [2, 3, BASIC_BLOCK_SIZE / 2, BASIC_BLOCK_SIZE - 1, BASIC_BLOCK_SIZE] {
+			let module = VmBinaryModule::with_entry_block(n);
+			let instructions = call_instructions(&module);
+			let entry_block_size = instructions
+				.iter()
 				.position(|inst| inst.kind.opcode().starts_new_basic_block())
-				.unwrap();
-			u32::try_from(terminator + 1).unwrap()
-		};
-		let small = VmBinaryModule::with_small_entry_block();
-		let full = VmBinaryModule::with_full_entry_block();
+				.unwrap() + 1;
 
-		assert_eq!(small.code.len(), full.code.len());
-		assert_eq!(entry_block_size(&small), 2);
-		assert_eq!(entry_block_size(&full), BASIC_BLOCK_SIZE);
-		assert_eq!(check_pvm_code(&small.code), Ok(()));
-		assert_eq!(check_pvm_code(&full.code), Ok(()));
+			assert_eq!(module.code.len(), code_len, "n = {n}");
+			assert_eq!(
+				instructions[0].kind,
+				Instruction::ecalli(SENTINEL.cast_signed()),
+				"n = {n}"
+			);
+			assert_eq!(u32::try_from(entry_block_size).unwrap(), n);
+			assert!(
+				instructions[1..entry_block_size - 1]
+					.iter()
+					.all(|inst| matches!(inst.kind, Instruction::store_imm_indirect_u64(..))),
+				"n = {n}"
+			);
+			assert_eq!(check_pvm_code(&module.code), Ok(()), "n = {n}");
+		}
+	}
+
+	/// The contracts of `interpreter_compile_per_block` have the same size and enter `b`
+	/// blocks of one instruction before they stop.
+	///
+	/// All blocks fit into the interpreter cache at once. The cache reserves room for one
+	/// block of `BASIC_BLOCK_SIZE` instructions and resets when it would grow into it. Every
+	/// compiled block takes one entry for its gas charge and one per instruction. The entries
+	/// also stay below 32768, see [`VmBinaryModule::BRANCH_BLOCKS`].
+	#[test]
+	fn interpreter_compile_per_block_benchmark_contracts() {
+		let max = VmBinaryModule::BRANCH_BLOCKS;
+		let code_len = VmBinaryModule::with_branch_blocks(0).code.len();
+		for b in [0, 1, max / 2, max - 1, max] {
+			let module = VmBinaryModule::with_branch_blocks(b);
+			let instructions = call_instructions(&module);
+			let sentinel = instructions
+				.iter()
+				.position(|inst| inst.kind == Instruction::ecalli(SENTINEL.cast_signed()))
+				.unwrap();
+
+			assert_eq!(module.code.len(), code_len, "b = {b}");
+			assert_eq!(u32::try_from(sentinel).unwrap(), b);
+			// Every block before the sentinel is a branch that is taken to the next block.
+			for inst in &instructions[..sentinel] {
+				let Instruction::branch_eq(s1, s2, target) = inst.kind else {
+					panic!("b = {b}: {inst:?}")
+				};
+				assert!(s1 == s2 && target == inst.next_offset.0, "b = {b}: {inst:?}");
+			}
+			assert!(instructions[sentinel + 1].kind.opcode().starts_new_basic_block(), "b = {b}");
+			assert_eq!(check_pvm_code(&module.code), Ok(()), "b = {b}");
+		}
+
+		let cache_entries = INTERPRETER_CACHE_BYTES / INTERPRETER_CACHE_ENTRY_SIZE;
+		let usable_entries = cache_entries - (BASIC_BLOCK_SIZE + 1);
+		// `max` blocks of one instruction and the block of `ecalli` and its terminator.
+		let compiled_entries = 2 * max + 3;
+		assert!(compiled_entries <= usable_entries, "{compiled_entries} > {usable_entries}");
+		assert!(compiled_entries <= 32 * 1024, "{compiled_entries} > {}", 32 * 1024);
+	}
+
+	/// An iteration of the `instr_load_chain_<m>` contract costs `LOAD_CHAIN_GAS` and its loads
+	/// fill a maximum-sized basic block.
+	#[test]
+	fn instr_load_chain_benchmark_contract() {
+		let module = VmBinaryModule::with_load_chain();
+		let instructions = call_instructions(&module);
+		let ends: Vec<usize> = instructions
+			.iter()
+			.enumerate()
+			.filter(|(_, inst)| inst.kind.opcode().starts_new_basic_block())
+			.map(|(i, _)| i)
+			.collect();
+		let loads = instructions
+			.iter()
+			.filter(|inst| matches!(inst.kind, Instruction::load_indirect_u64(..)))
+			.count();
+
+		// The loop condition, the loop body, `ret`.
+		assert_eq!(ends.len(), 3);
+		assert_eq!(ends[0], 0);
+		assert_eq!(u32::try_from(ends[1] - ends[0]).unwrap(), BASIC_BLOCK_SIZE);
+		assert_eq!(u32::try_from(ends[1] + 1).unwrap(), LOAD_CHAIN_GAS);
+		assert_eq!(u32::try_from(loads).unwrap(), LOAD_CHAIN_GAS - 3);
+		assert_eq!(check_pvm_code(&module.code), Ok(()));
+	}
+
+	/// A lap of the `instr_indirect_jump` contract visits every block of the cycle once and
+	/// costs `INDIRECT_JUMP_GAS`. All blocks fit into the interpreter cache.
+	#[test]
+	fn instr_indirect_jump_benchmark_contract() {
+		let module = VmBinaryModule::with_indirect_jump_cycle();
+		assert_eq!(check_pvm_code(&module.code), Ok(()));
+
+		let blob = ProgramBlob::parse(module.code[..].into()).unwrap();
+		let jump_table = blob.jump_table();
+		let kind =
+			|pc| blob.instructions_bounded_at_with_isa(ISA_ReviveV1, pc).next().unwrap().kind;
+		let entry = call_instructions(&module);
+		let Instruction::load_imm(_, first) = entry[0].kind else { panic!("{:?}", entry[0]) };
+		let Instruction::load_imm_and_jump_indirect(_, _, mut next, _) = entry[4].kind else {
+			panic!("{:?}", entry[4])
+		};
+		let head = jump_table.get_by_index(0).unwrap();
+		assert!(matches!(entry[2].kind, Instruction::branch_eq(..)));
+		assert_eq!(kind(head), entry[2].kind);
+
+		// Follow the jumps from the head into the cycle and back.
+		let mut target = jump_table.get_by_address(first.cast_unsigned()).unwrap();
+		let mut visited = alloc::collections::BTreeSet::new();
+		let mut jumps = 1;
+		while target != head {
+			assert!(visited.insert(target), "block {target} visited twice");
+			let Instruction::load_imm_and_jump_indirect(_, _, value, _) = kind(target) else {
+				panic!("{:?}", kind(target))
+			};
+			target = jump_table.get_by_address(next.cast_unsigned()).unwrap();
+			next = value;
+			jumps += 1;
+		}
+		let blocks = INDIRECT_JUMP_GAS - 3;
+		assert_eq!(u32::try_from(visited.len()).unwrap(), blocks);
+		assert_eq!(jump_table.len(), blocks + 1);
+		// The branch, the increment and the jumps.
+		assert_eq!(2 + jumps, INDIRECT_JUMP_GAS);
+
+		// Every cycle block takes a gas charge and one instruction. The entry, the head and the
+		// exit take 10 entries.
+		let cache_entries = INTERPRETER_CACHE_BYTES / INTERPRETER_CACHE_ENTRY_SIZE;
+		let usable_entries = cache_entries - (BASIC_BLOCK_SIZE + 1);
+		let compiled_entries = 2 * blocks + 10;
+		assert!(compiled_entries <= usable_entries, "{compiled_entries} > {usable_entries}");
+	}
+
+	/// The `interpreter_cache_rebuild` contracts have a code section of about the requested
+	/// size and the same entry block.
+	#[test]
+	fn interpreter_cache_rebuild_benchmark_contracts() {
+		for code_bytes in
+			[0, 3000, VmBinaryModule::MAX_CODE_BYTES / 2, VmBinaryModule::MAX_CODE_BYTES]
+		{
+			let module = VmBinaryModule::with_code_bytes(code_bytes);
+			let blob = ProgramBlob::parse(module.code[..].into()).unwrap();
+			let code_len = u32::try_from(blob.code().len()).unwrap();
+			let instructions = call_instructions(&module);
+
+			assert!(code_len.abs_diff(code_bytes) <= code_bytes / 100 + 16, "{code_len}");
+			assert_eq!(instructions[0].kind, Instruction::ecalli(SENTINEL.cast_signed()));
+			assert_eq!(instructions[1].kind, Instruction::fallthrough);
+			assert_eq!(check_pvm_code(&module.code), Ok(()), "code_bytes = {code_bytes}");
+		}
 	}
 }
