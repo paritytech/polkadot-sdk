@@ -55,9 +55,9 @@ pub mod weights;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
-mod mock;
-#[cfg(test)]
 mod integration_tests;
+#[cfg(test)]
+mod mock;
 #[cfg(test)]
 mod tests;
 
