@@ -8,7 +8,8 @@ doc:
 
     - `ecdsa_bls381_generate_new` no longer panics when called with `seed = None`; the
       generated seed is now looked up through `key_phrase_by_type`, which handles the
-      on-disk path.
+      on-disk path. The individual ECDSA and BLS381 keys now use the keystore password,
+      so they match the paired key on a keystore with a password.
     - All keys are now stored in a `.json` format: the filename is
       `hex(key_type || blake2_256(public_key))` with a `.json` suffix, and the body is a
       JSON object `{"public_key": <hex>, "phrase": <phrase>}`. As such, the `.json`

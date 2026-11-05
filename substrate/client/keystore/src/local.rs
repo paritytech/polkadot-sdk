@@ -410,9 +410,8 @@ impl Keystore for LocalKeystore {
 		) -> std::result::Result<ecdsa_bls381::Public, TraitError> {
 			let pubkey = self.generate_new::<ecdsa_bls381::Pair>(key_type, seed)?;
 
-			let seed = self
-				.0
-				.read()
+			let mut inner = self.0.write();
+			let phrase = inner
 				.key_phrase_by_type(pubkey.as_ref(), key_type)
 				.map_err(TraitError::from)?
 				.ok_or_else(|| {
@@ -425,8 +424,13 @@ impl Keystore for LocalKeystore {
 			// This is done to give the keystore access to individual keys, this is necessary to avoid
 			// unnecessary host functions for paired keys and re-use host functions implemented for each
 			// element of the pair.
-			self.generate_new::<ecdsa::Pair>(key_type, Some(&*seed))?;
-			self.generate_new::<bls381::Pair>(key_type, Some(&*seed))?;
+			// A generated key uses the keystore password, and a key from a seed does not.
+			let password = if seed.is_none() { inner.password() } else { None };
+			let invalid_phrase = |_| TraitError::from(Error::InvalidPhrase);
+			let ecdsa_pair = ecdsa::Pair::from_string(&phrase, password).map_err(invalid_phrase)?;
+			let bls381_pair = bls381::Pair::from_string(&phrase, password).map_err(invalid_phrase)?;
+			inner.insert_ephemeral_pair(&ecdsa_pair, &phrase, key_type);
+			inner.insert_ephemeral_pair(&bls381_pair, &phrase, key_type);
 
 			Ok(pubkey)
 		}
@@ -1139,6 +1143,42 @@ mod tests {
 		let combined_key = ecdsa_bls381::Public::from_raw(combined_key_raw);
 
 		assert_eq!(combined_key, ecdsa_bls381_key);
+	}
+
+	#[test]
+	#[cfg(feature = "bls-experimental")]
+	fn ecdsa_bls381_component_keys_follow_the_keystore_password() {
+		use sp_core::testing::ECDSA_BLS381;
+
+		// `generate_session_keys` signs the proof of possession with the component keys. If they
+		// are not the halves of the paired key, the keystore does not find them and the call
+		// panics.
+		let temp_dir = TempDir::new().unwrap();
+		let password = FromStr::from_str("password").unwrap();
+		let store = LocalKeystore::open(temp_dir.path(), Some(password)).unwrap();
+		let halves = |paired: ecdsa_bls381::Public| {
+			let raw = paired.to_raw_vec();
+			let (ecdsa_half, bls381_half) = raw.split_at(ecdsa::PUBLIC_KEY_SERIALIZED_SIZE);
+			(
+				ecdsa::Public::from_slice(ecdsa_half).unwrap(),
+				bls381::Public::from_slice(bls381_half).unwrap(),
+			)
+		};
+
+		// A generated key uses the keystore password.
+		let generated = store.ecdsa_bls381_generate_new(ECDSA_BLS381, None).unwrap();
+		let (ecdsa_half, bls381_half) = halves(generated);
+		assert!(store.ecdsa_sign(ECDSA_BLS381, &ecdsa_half, b"message").unwrap().is_some());
+		assert!(store
+			.bls381_generate_proof_of_possession(ECDSA_BLS381, &bls381_half, b"owner")
+			.unwrap()
+			.is_some());
+
+		// A key from a seed ignores the password at creation.
+		let seeded = store.ecdsa_bls381_generate_new(ECDSA_BLS381, Some("//Alice")).unwrap();
+		let (ecdsa_half, bls381_half) = halves(seeded);
+		assert!(store.ecdsa_public_keys(ECDSA_BLS381).contains(&ecdsa_half));
+		assert!(store.bls381_public_keys(ECDSA_BLS381).contains(&bls381_half));
 	}
 
 	#[cfg(feature = "bls-experimental")]
