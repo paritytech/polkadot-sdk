@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1793820511793,
+  "lastUpdate": 1793881475459,
   "repoUrl": "https://github.com/paritytech/polkadot-sdk",
   "entries": {
     "availability-distribution-regression-bench": [
-      {
-        "commit": {
-          "author": {
-            "email": "363911+pepoviola@users.noreply.github.com",
-            "name": "Javier Viola",
-            "username": "pepoviola"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0cfb1d5b0f990f1e6b8d36ed156a7a0ca562c2eb",
-          "message": "make prepare-* jobs required to trigger zombienet workflows (#11835)\n\nMake `prepare-*` jobs required to prevent race conditions like\nhttps://github.com/paritytech/polkadot-sdk/actions/runs/24575289788/job/71864462979?pr=11815.\n\ncc: @alvicsam / @bkchr",
-          "timestamp": "2026-04-21T10:44:16Z",
-          "tree_id": "28c3613306b026a3cf94266be7e2ae44f495146f",
-          "url": "https://github.com/paritytech/polkadot-sdk/commit/0cfb1d5b0f990f1e6b8d36ed156a7a0ca562c2eb"
-        },
-        "date": 1776774792235,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Received from peers",
-            "value": 433.3333333333332,
-            "unit": "KiB"
-          },
-          {
-            "name": "Sent to peers",
-            "value": 18481.666666666653,
-            "unit": "KiB"
-          },
-          {
-            "name": "availability-distribution",
-            "value": 0.007159491106666665,
-            "unit": "seconds"
-          },
-          {
-            "name": "availability-store",
-            "value": 0.14467584947333345,
-            "unit": "seconds"
-          },
-          {
-            "name": "test-environment",
-            "value": 0.00950063959999997,
-            "unit": "seconds"
-          },
-          {
-            "name": "bitfield-distribution",
-            "value": 0.023816419126666672,
-            "unit": "seconds"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -26999,6 +26945,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "availability-distribution",
             "value": 0.007437476453333335,
+            "unit": "seconds"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "41779041+alvicsam@users.noreply.github.com",
+            "name": "Alexander Samusev",
+            "username": "alvicsam"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ef000ff2bb06d9ec9cc188c8741dad798c56fbd4",
+          "message": "ci: fix review-trigger (#13732)\n\nshould fix a bug when gh shows wrong user association, e.g.\nhttps://github.com/paritytech/polkadot-sdk/pull/13705\n\ncc @playX18",
+          "timestamp": "2026-11-05T10:19:47Z",
+          "tree_id": "e3d67c44f61549b8ded21102fbfeeafba29e0f30",
+          "url": "https://github.com/paritytech/polkadot-sdk/commit/ef000ff2bb06d9ec9cc188c8741dad798c56fbd4"
+        },
+        "date": 1793881447552,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sent to peers",
+            "value": 18481.666666666653,
+            "unit": "KiB"
+          },
+          {
+            "name": "Received from peers",
+            "value": 433.3333333333332,
+            "unit": "KiB"
+          },
+          {
+            "name": "availability-store",
+            "value": 0.14422592407333334,
+            "unit": "seconds"
+          },
+          {
+            "name": "test-environment",
+            "value": 0.009664211653333315,
+            "unit": "seconds"
+          },
+          {
+            "name": "availability-distribution",
+            "value": 0.007638315766666668,
+            "unit": "seconds"
+          },
+          {
+            "name": "bitfield-distribution",
+            "value": 0.024975764660000007,
             "unit": "seconds"
           }
         ]
