@@ -336,6 +336,23 @@ fn force_open_channel_works_with_existing_request() {
 }
 
 #[test]
+fn force_open_channel_with_invalid_sender_fails() {
+	let para_a = 2001.into();
+	let para_b = 2003.into();
+
+	new_test_ext(GenesisConfigBuilder::default().build()).execute_with(|| {
+		// Only B is registered.
+		register_parachain(para_b);
+		run_to_block(5, Some(vec![4, 5]));
+
+		assert_noop!(
+			Hrmp::force_open_hrmp_channel(RuntimeOrigin::root(), para_a, para_b, 2, 8),
+			Error::<Test>::OpenHrmpChannelInvalidSender
+		);
+	});
+}
+
+#[test]
 fn open_system_channel_works() {
 	let para_a = 1.into();
 	let para_b = 3.into();

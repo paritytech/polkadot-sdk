@@ -27,10 +27,9 @@
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
 use anyhow::anyhow;
-use codec::Decode;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, submit_sudo_runtime_upgrade, wait_for_pallet_in_metadata,
-	wait_for_pvf_prepare, wait_for_runtime_upgrade,
+	assert_para_throughput, submit_sudo_runtime_upgrade, wait_for_authority_discovery_keys,
+	wait_for_pallet_in_metadata, wait_for_pvf_prepare, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use std::{
@@ -182,7 +181,7 @@ fn capitalize(name: &str) -> String {
 async fn rotate_authority_discovery_keys(
 	network: &Network<LocalFileSystem>,
 	names: &[&str],
-) -> anyhow::Result<HashSet<Vec<u8>>> {
+) -> anyhow::Result<HashSet<[u8; 32]>> {
 	// Key-type-id for authority-discovery: ASCII "audi" = 0x61756469.
 	const AUDI_KEY_TYPE: &str = "audi";
 	let mut expected_authorities = HashSet::new();
@@ -256,7 +255,7 @@ async fn rotate_authority_discovery_keys(
 				call: Session(set_keys { keys: keys_value, proof: Value::from_bytes(proof_bytes) })
 			})
 		});
-		expected_authorities.insert(audi_pub.to_vec());
+		expected_authorities.insert(audi_pub);
 	}
 
 	// All updates execute in one block, so they are queued for the same session.
@@ -293,58 +292,6 @@ async fn rotate_authority_discovery_keys(
 	anyhow::ensure!(completed, "Authority-discovery key rotation batch failed");
 	log::info!("All {} set_keys calls batched and finalised", names.len());
 	Ok(expected_authorities)
-}
-
-/// Read the latest finalized AD authority keys from `AuthorityDiscovery.Keys` storage.
-///
-/// Returns each key as a 32-byte `Vec<u8>` in a `HashSet` for set-difference comparison.
-async fn read_authority_discovery_authorities(
-	para_client: &OnlineClient<PolkadotConfig>,
-) -> anyhow::Result<HashSet<Vec<u8>>> {
-	let query = zombienet_sdk::subxt::dynamic::storage("AuthorityDiscovery", "Keys", vec![]);
-	let result = para_client.storage().at_latest().await?.fetch(&query).await?;
-	let thunk = match result {
-		Some(v) => v,
-		None => {
-			log::warn!("AuthorityDiscovery.Keys storage returned None — treating as empty set");
-			return Ok(HashSet::new());
-		},
-	};
-
-	let raw = thunk.into_encoded();
-	let keys_array: Vec<[u8; 32]> =
-		Decode::decode(&mut &raw[..]).map_err(|e| anyhow!("decode AD keys: {e}"))?;
-
-	let keys: HashSet<Vec<u8>> = keys_array.into_iter().map(|k| k.to_vec()).collect();
-	log::info!("AuthorityDiscovery.Keys: {} entries decoded", keys.len());
-	Ok(keys)
-}
-
-/// Wait until the complete expected authority set is active in finalized storage.
-/// Finalizing `set_keys` only schedules the change; session rotation activates it later.
-async fn wait_for_authorities(
-	para_client: &OnlineClient<PolkadotConfig>,
-	expected: &HashSet<Vec<u8>>,
-) -> anyhow::Result<()> {
-	let deadline = Instant::now() + SESSION_CHANGE_TIMEOUT;
-	loop {
-		let current = read_authority_discovery_authorities(para_client).await?;
-		if current == *expected {
-			log::info!("All {} expected authority-discovery keys are active", expected.len());
-			return Ok(());
-		}
-		let missing = expected.difference(&current).count();
-		let unexpected = current.difference(expected).count();
-		if Instant::now() >= deadline {
-			return Err(anyhow!(
-				"AuthorityDiscovery keys did not match the expected set within {:?}: \
-				 {missing} missing, {unexpected} unexpected",
-				SESSION_CHANGE_TIMEOUT,
-			));
-		}
-		log::info!("Waiting for AD key activation: {missing} missing, {unexpected} unexpected");
-		tokio::time::sleep(Duration::from_secs(3)).await;
-	}
 }
 
 /// Assert the full collator-to-collator mesh after keys have taken effect.
@@ -492,9 +439,15 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	log::info!("Waiting for authority-discovery keys to populate post-upgrade");
 	let initial_authorities = collator_names()
 		.iter()
-		.map(|name| dev_pair(name).map(|pair| pair.public_key().0.to_vec()))
+		.map(|name| dev_pair(name).map(|pair| pair.public_key().0))
 		.collect::<anyhow::Result<HashSet<_>>>()?;
-	wait_for_authorities(&para_client, &initial_authorities).await?;
+	wait_for_authority_discovery_keys(
+		&para_client,
+		&initial_authorities,
+		SESSION_CHANGE_TIMEOUT,
+		Duration::from_secs(3),
+	)
+	.await?;
 
 	// Step 3: rotate keys and retain the exact set we expect to become active.
 	let expected_authorities = rotate_authority_discovery_keys(&network, collator_names()).await?;
@@ -504,7 +457,13 @@ async fn collator_discovery_full_mesh_with_tight_non_reserved_budget() -> Result
 	for &name in collator_names() {
 		log::info!("Waiting for all rotated authority-discovery keys to activate on `{name}`");
 		let client: OnlineClient<PolkadotConfig> = network.get_node(name)?.wait_client().await?;
-		wait_for_authorities(&client, &expected_authorities).await?;
+		wait_for_authority_discovery_keys(
+			&client,
+			&expected_authorities,
+			SESSION_CHANGE_TIMEOUT,
+			Duration::from_secs(3),
+		)
+		.await?;
 	}
 
 	// Step 5: assert the full collator-to-collator mesh forms with real AD keys in place.

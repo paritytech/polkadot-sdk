@@ -8,14 +8,17 @@
 #   selected; the prdoc is assigned the earliest (highest-priority) topic
 #   matched by any of its crates.
 # - A prdoc can override derivation with an explicit `topic:` field, matched
-#   case-insensitively against a topic `id` or `label`. Unknown values fall
-#   back to derivation.
+#   case-insensitively against a topic `id`, `label` or one of its `aliases`.
+#   Unknown values fall back to derivation: the generator logs a notice and
+#   .github/scripts/check-prdoc.py warns on the PR, neither fails.
 #
 # Maintenance:
 # - Adding a crate or topic is a one-line change; order matters (first match
 #   wins), so keep specific topics above the FRAME/Node catch-alls.
 # - A topic with no `patterns` can only be selected explicitly via the prdoc
 #   `topic:` field (useful for initiatives that span many crates).
+# - `aliases` are alternative spellings accepted in the `topic:` field (e.g.
+#   names used by older prdocs); they play no part in crate derivation.
 topics:
   # NB: no `bridge-*` glob here — it would swallow the bridge-hub-*-runtime
   # testnet runtimes and with them every PR that touches all system runtimes.
@@ -102,6 +105,8 @@ topics:
 
   - id: parachains
     label: Parachains (protocol)
+    aliases:
+      - cumulus
     patterns:
       - "polkadot-runtime-parachains"
       - "polkadot-primitives"
@@ -134,6 +139,9 @@ topics:
 
   - id: tooling
     label: Tooling & Benchmarking
+    aliases:
+      - benchmarks
+      - benchmarking
     patterns:
       - "frame-benchmarking-cli"
       - "frame-omni-bencher"
@@ -147,6 +155,8 @@ topics:
 
   - id: frame
     label: FRAME & Runtime
+    aliases:
+      - pallets
     patterns:
       - "frame-*"
       - "polkadot-sdk-frame"
@@ -157,6 +167,9 @@ topics:
 
   - id: testnets
     label: Testnets & Test Utilities
+    aliases:
+      - tests
+      - testing
     patterns:
       - "xcm-emulator"
       - "xcm-simulator*"
