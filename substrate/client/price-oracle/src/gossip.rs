@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 //! Gossip of price reports between the oracle nodes.
 
-use crate::{pool::ReportPool, LOG_TARGET};
+use crate::{metrics::Metrics, pool::ReportPool, LOG_TARGET};
 use codec::{Decode, DecodeAll};
 use parking_lot::RwLock;
 use sc_network::{
@@ -137,20 +137,23 @@ pub struct ReportValidator<Block, Id, Signature> {
 	acceptance: RwLock<Option<Acceptance<Id>>>,
 	pool: ReportPool<Id, Signature>,
 	report_peer: Box<dyn Fn(PeerId, ReputationChange) + Send + Sync>,
+	metrics: Metrics,
 	_block: PhantomData<Block>,
 }
 
 impl<Block, Id, Signature> ReportValidator<Block, Id, Signature> {
 	/// Create a validator inserting accepted reports into `pool` and reporting peers through
 	/// `report_peer`.
-	pub fn new(
+	pub(crate) fn new(
 		pool: ReportPool<Id, Signature>,
 		report_peer: impl Fn(PeerId, ReputationChange) + Send + Sync + 'static,
+		metrics: Metrics,
 	) -> Self {
 		Self {
 			acceptance: RwLock::new(None),
 			pool,
 			report_peer: Box::new(report_peer),
+			metrics,
 			_block: PhantomData,
 		}
 	}
@@ -187,9 +190,10 @@ where
 		sender: &PeerId,
 		mut data: &[u8],
 	) -> ValidationResult<Block::Hash> {
-		let reject = |cost: ReputationChange, what: &str| {
-			log::debug!(target: LOG_TARGET, "Rejecting report from {sender}: {what}");
+		let reject = |cost: ReputationChange, result: &str| {
+			log::debug!(target: LOG_TARGET, "Rejecting report from {sender}: {result}");
 			(self.report_peer)(*sender, cost);
+			self.metrics.on_gossip_report(result);
 			ValidationResult::Discard
 		};
 
@@ -202,26 +206,28 @@ where
 			return ValidationResult::Discard;
 		};
 		let Ok(report) = SignedPriceReport::<Id, Signature>::decode_all(&mut data) else {
-			return reject(cost::MALFORMED, "undecodable");
+			return reject(cost::MALFORMED, "malformed");
 		};
 		let anchor = report.report.anchor;
 		if anchor < acceptance.oldest() {
 			return reject(cost::STALE_REPORT, "stale");
 		}
 		if !acceptance.signers.contains(&report.signer) {
-			return reject(cost::UNKNOWN_SIGNER, "unknown signer");
+			return reject(cost::UNKNOWN_SIGNER, "unknown_signer");
 		}
 		// Release the lock before the signature check.
 		drop(guard);
 		if !report.verify_signature() {
-			return reject(cost::BAD_SIGNATURE, "bad signature");
+			return reject(cost::BAD_SIGNATURE, "bad_signature");
 		}
 
 		if !self.pool.insert(report) {
 			// Already held, or a later report of the same signer is: nothing to forward.
+			self.metrics.on_gossip_report("duplicate");
 			return ValidationResult::Discard;
 		}
 		(self.report_peer)(*sender, benefit::GOOD_REPORT);
+		self.metrics.on_gossip_report("accepted");
 		ValidationResult::ProcessAndKeep(topic::<Block>())
 	}
 
@@ -281,8 +287,11 @@ mod tests {
 		let pool = ReportPool::new();
 		let reports = Arc::new(Mutex::new(Vec::new()));
 		let recorder = reports.clone();
-		let validator =
-			TestValidator::new(pool.clone(), move |_, rep| recorder.lock().push(rep.value));
+		let validator = TestValidator::new(
+			pool.clone(),
+			move |_, rep| recorder.lock().push(rep.value),
+			Metrics::register(None),
+		);
 		validator.set_acceptance(Acceptance {
 			signers: vec![id(1), id(2)],
 			current: Anchor(100),
@@ -395,7 +404,11 @@ mod tests {
 		let pool = ReportPool::new();
 		let reports = Arc::new(Mutex::new(Vec::new()));
 		let recorder = reports.clone();
-		let v = TestValidator::new(pool.clone(), move |_, rep| recorder.lock().push(rep.value));
+		let v = TestValidator::new(
+			pool.clone(),
+			move |_, rep| recorder.lock().push(rep.value),
+			Metrics::register(None),
+		);
 		// A valid report, an unknown signer and garbage: all discarded, nobody judged.
 		assert!(matches!(validate(&v, &signed(1, 100).encode()), ValidationResult::Discard));
 		assert!(matches!(validate(&v, &signed(3, 100).encode()), ValidationResult::Discard));

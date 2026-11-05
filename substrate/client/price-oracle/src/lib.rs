@@ -143,8 +143,11 @@ pub async fn run<Block, Client, Net, SyncService, Id, Signature>(
 		let network = network.clone();
 		move |peer, change| network.report_peer(peer, change)
 	};
-	let validator =
-		Arc::new(ReportValidator::<Block, Id, Signature>::new(pool.clone(), report_peer));
+	let validator = Arc::new(ReportValidator::<Block, Id, Signature>::new(
+		pool.clone(),
+		report_peer,
+		metrics.clone(),
+	));
 	let mut gossip_engine = GossipEngine::new(
 		network,
 		sync.clone(),

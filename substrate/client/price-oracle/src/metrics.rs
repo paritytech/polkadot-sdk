@@ -38,6 +38,7 @@ struct Inner {
 	market_failures: CounterVec<U64>,
 	market_fetch_duration: HistogramVec,
 	pair_votes: GaugeVec<U64>,
+	gossip_reports: CounterVec<U64>,
 }
 
 impl Metrics {
@@ -102,6 +103,13 @@ impl Metrics {
 	pub(crate) fn on_pair_votes(&self, pair: PairId, votes: u32) {
 		if let Some(metrics) = &self.0 {
 			metrics.pair_votes.with_label_values(&[&pair.0.to_string()]).set(votes.into());
+		}
+	}
+
+	/// Count a report received through gossip with validation `result`.
+	pub(crate) fn on_gossip_report(&self, result: &str) {
+		if let Some(metrics) = &self.0 {
+			metrics.gossip_reports.with_label_values(&[result]).inc();
 		}
 	}
 }
@@ -169,6 +177,16 @@ impl Inner {
 						"Number of votes a pair got in the last tick that aggregated, by pair",
 					),
 					&["pair"],
+				)?,
+				registry,
+			)?,
+			gossip_reports: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_price_oracle_gossip_reports_total",
+						"Number of reports received through gossip, by validation result",
+					),
+					&["result"],
 				)?,
 				registry,
 			)?,
