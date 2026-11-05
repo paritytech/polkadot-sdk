@@ -13,3 +13,4 @@ doc:
 crates:
 - name: pallet-psm
   bump: major
+  validate: false
