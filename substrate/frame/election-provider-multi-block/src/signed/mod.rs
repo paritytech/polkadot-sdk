@@ -1127,7 +1127,10 @@ pub mod pallet {
 
 	#[pallet::view_functions]
 	impl<T: Config> Pallet<T> {
-		/// Get the deposit amount that will be held for a solution of `pages`.
+		/// Get the deposit `who` would hold if it registered now and then submitted `pages` pages.
+		///
+		/// The base part is priced from the number of submitters currently registered, so the
+		/// result can differ from what an account that already registered in this round holds.
 		///
 		/// This allows an offchain application to know what [`Config::DepositPerPage`] and
 		/// [`Config::DepositBase`] are doing under the hood. It also takes into account if `who` is
