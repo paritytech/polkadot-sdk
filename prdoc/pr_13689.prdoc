@@ -14,7 +14,7 @@ doc:
     - Removed tests whose scenario can no longer happen (deposit refund at call time and several payers' deposits being refunded at termination).
 crates:
 - name: pallet-revive-fixtures
-  bump: minor
+  bump: major
 - name: pallet-revive
   bump: minor
 - name: pallet-revive-uapi
