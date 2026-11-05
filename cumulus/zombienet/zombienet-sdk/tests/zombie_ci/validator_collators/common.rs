@@ -120,9 +120,10 @@ pub(super) async fn build_network_config(
 		);
 	}
 	let extra_collators = if options.validator_collators { &VALIDATORS[..] } else { &[] };
-	// The tests need every validator with keys to collate, so the cap is removed at genesis.
+	// The tests need every validator with keys to collate, so the cap is set at genesis to
+	// `CollatorDraw::All`, encoded as `2`.
 	let report_settings = [
-		Some(validator_collators_entry("MaxCollators", None::<u32>)),
+		Some(validator_collators_entry("MaxCollators", 2u8)),
 		options
 			.report_period
 			.map(|period| validator_collators_entry("ReportPeriod", period)),

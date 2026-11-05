@@ -16,7 +16,8 @@
 //! Storage migrations of the pallet.
 
 use crate::{
-	Config, ExternalValidatorSet, MaxCollators, Pallet, PendingRotation, RotationState, LOG_TARGET,
+	CollatorDraw, Config, ExternalValidatorSet, MaxCollators, Pallet, PendingRotation,
+	RotationState, LOG_TARGET,
 };
 use frame_support::{
 	migrations::VersionedMigration,
@@ -27,7 +28,7 @@ use frame_support::{
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
-/// Moves [`MaxCollators`] to `Option<u32>` with [`Config::DefaultMaxCollators`] as default.
+/// Moves [`MaxCollators`] to [`CollatorDraw`] with [`Config::DefaultMaxCollators`] as default.
 pub mod v1 {
 	use super::*;
 	#[cfg(feature = "try-runtime")]
@@ -46,21 +47,17 @@ pub mod v1 {
 		pub type MaxCollators<T: Config> = StorageValue<Pallet<T>, u32>;
 	}
 
-	/// Rewrites a cap stored as a `u32` as `Some(cap)`.
+	/// Rewrites a cap stored as a `u32` as [`CollatorDraw::UpTo`].
 	///
-	/// Without a stored cap, [`MaxCollators`] reads [`Config::DefaultMaxCollators`]. When that
-	/// default is `Some(_)` and a validator set is stored, it sets [`PendingRotation`] to
-	/// [`RotationState::AwaitingQueue`], so the set is drawn again under the default, as
-	/// [`Pallet::set_max_collators`] does.
+	/// Without a stored cap, [`MaxCollators`] reads [`Config::DefaultMaxCollators`]. When a
+	/// validator set is stored, it sets [`PendingRotation`] to [`RotationState::AwaitingQueue`], so
+	/// the set is drawn again under the default, as [`Pallet::set_max_collators`] does.
 	pub struct VersionUncheckedMigrateV0ToV1<T>(PhantomData<T>);
 
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV0ToV1<T> {
 		fn on_runtime_upgrade() -> Weight {
-			match MaxCollators::<T>::translate::<u32, _>(|old| old.map(Some)) {
+			match MaxCollators::<T>::translate::<u32, _>(|old| old.map(CollatorDraw::UpTo)) {
 				Ok(Some(_)) => T::DbWeight::get().reads_writes(1, 1),
-				Ok(None) if T::DefaultMaxCollators::get().is_none() => {
-					T::DbWeight::get().reads_writes(1, 1)
-				},
 				Ok(None) if ExternalValidatorSet::<T>::exists() => {
 					PendingRotation::<T>::put(RotationState::AwaitingQueue);
 					T::DbWeight::get().reads_writes(2, 2)
@@ -75,12 +72,8 @@ pub mod v1 {
 
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-			let stored = v0::MaxCollators::<T>::exists();
-			let cap =
-				if stored { v0::MaxCollators::<T>::get() } else { T::DefaultMaxCollators::get() };
-			let redraw = !stored &&
-				T::DefaultMaxCollators::get().is_some() &&
-				ExternalValidatorSet::<T>::exists();
+			let cap = v0::MaxCollators::<T>::get();
+			let redraw = cap.is_none() && ExternalValidatorSet::<T>::exists();
 			Ok((cap, redraw).encode())
 		}
 
@@ -91,11 +84,14 @@ pub mod v1 {
 			// A cap left as a `u32` can read as the default, so the stored bytes are checked too.
 			if let Some(raw) = unhashed::get_raw(&MaxCollators::<T>::hashed_key()) {
 				ensure!(
-					Option::<u32>::decode_all(&mut &raw[..]).is_ok(),
-					"MaxCollators does not decode as an Option<u32>"
+					CollatorDraw::decode_all(&mut &raw[..]).is_ok(),
+					"MaxCollators does not decode as a CollatorDraw"
 				);
 			}
-			ensure!(MaxCollators::<T>::get() == cap, "MaxCollators changed in the migration");
+			ensure!(
+				cap.is_none_or(|cap| MaxCollators::<T>::get() == CollatorDraw::UpTo(cap)),
+				"MaxCollators changed in the migration"
+			);
 			ensure!(
 				!redraw || PendingRotation::<T>::get() == RotationState::AwaitingQueue,
 				"the set is not drawn again under the default cap"

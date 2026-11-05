@@ -45,10 +45,9 @@
 //! randomness cached at the time of the draw. The seed includes the genesis hash, so each chain
 //! draws independently from the same set. A drawn validator that removes its keys is dropped at
 //! the next rotation and its place stays empty, and a validator that registers keys after the draw
-//! waits, until the next set or cap change. Without a cap, key changes take effect at the next
-//! rotation. Each set, so each era, gets a new draw, which is enacted at the second forced rotation
-//! with no notice, so a validator with keys must already run a synced collator node to collate
-//! when drawn.
+//! waits, until the next set or cap change. Each set, so each era, gets a new draw, which is
+//! enacted at the second forced rotation with no notice, so a validator with keys must already
+//! run a synced collator node to collate when drawn.
 //!
 //! Until governance sets it, the cap is [`Config::DefaultMaxCollators`].
 //!
@@ -226,8 +225,34 @@ pub mod pallet {
 	pub struct EraCollators<AccountId, MaxValidators: Get<u32>> {
 		/// The era of the set the collators were taken from.
 		pub era: EraIndex,
-		/// The collators, in drawn order under a cap and in account order without one.
+		/// The collators, in drawn order.
 		pub collators: BoundedVec<AccountId, MaxValidators>,
+	}
+
+	/// How many validators of the stored set are drawn as collators.
+	#[frame_support::stored]
+	#[derive(Copy)]
+	pub enum CollatorDraw {
+		/// No validator.
+		#[codec(index = 0)]
+		None,
+		/// Up to this many validators with registered keys.
+		#[codec(index = 1)]
+		UpTo(u32),
+		/// Every validator with registered keys.
+		#[codec(index = 2)]
+		All,
+	}
+
+	impl CollatorDraw {
+		/// The largest number of validators drawn.
+		pub fn limit(self) -> u32 {
+			match self {
+				Self::None => 0,
+				Self::UpTo(max) => max,
+				Self::All => u32::MAX,
+			}
+		}
 	}
 
 	/// Progress of the two rotations that bring a received set into force.
@@ -282,13 +307,13 @@ pub mod pallet {
 		/// Hands the block counts of one report to the chain that credits them.
 		type BlockReporter: ReportAuthoredBlocks<Self::AccountId>;
 
-		/// Value of [`MaxCollators`] until governance sets it, `None` meaning no cap.
+		/// Value of [`MaxCollators`] until governance sets it.
 		///
 		/// A runtime upgrade that changes it keeps the collators drawn under the previous value
 		/// until the next draw, unless the upgrade sets [`PendingRotation`] to
 		/// [`RotationState::AwaitingQueue`].
 		#[pallet::constant]
-		type DefaultMaxCollators: Get<Option<u32>>;
+		type DefaultMaxCollators: Get<CollatorDraw>;
 
 		/// Number of blocks between two reports until governance sets [`ReportPeriod`].
 		#[pallet::constant]
@@ -326,10 +351,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ExternalSetReceivedAt<T: Config> = StorageValue<_, u64, OptionQuery>;
 
-	/// Maximum number of validators returned as collators, `None` returns every validator with
-	/// registered keys. Only validators with keys count against the cap. It is
-	/// [`Config::DefaultMaxCollators`] until [`Pallet::set_max_collators`] stores a value,
-	/// including an explicit `None`.
+	/// How many validators are returned as collators, see [`CollatorDraw`]. Only validators with
+	/// keys count against the cap. It is [`Config::DefaultMaxCollators`] until
+	/// [`Pallet::set_max_collators`] stores a value.
 	///
 	/// The cap applies before the union with the other session manager. A validator that the
 	/// other session manager also returns takes a place under the cap without adding a collator.
@@ -346,13 +370,12 @@ pub mod pallet {
 	/// later. Removing the cap returns every validator of the stored set with registered keys.
 	#[pallet::storage]
 	pub type MaxCollators<T: Config> =
-		StorageValue<_, Option<u32>, ValueQuery, <T as Config>::DefaultMaxCollators>;
+		StorageValue<_, CollatorDraw, ValueQuery, <T as Config>::DefaultMaxCollators>;
 
 	/// The collators last returned to pallet-session, taken from [`ExternalValidatorSet`].
 	///
 	/// Written at every session rotation, and holds only validators that had registered keys at
-	/// that rotation. Without a cap it is every validator of the set with keys, in
-	/// account order. Under a cap it is the draw made at the first rotation after a set arrives or
+	/// that rotation. Under a cap it is the draw made at the first rotation after a set arrives or
 	/// the cap changes, and each later rotation returns it again without the validators that have
 	/// removed their keys since. `None` when the last rotation returned no list, as before the
 	/// first set arrives.
@@ -405,7 +428,7 @@ pub mod pallet {
 		/// A validator set was stored for an era.
 		ValidatorSetReceived { era: EraIndex, count: u32 },
 		/// The maximum number of validator collators was changed.
-		MaxCollatorsSet { max: Option<u32> },
+		MaxCollatorsSet { max: CollatorDraw },
 		/// No external set is stored, so no validators were returned for the session, with or
 		/// without a cap. This happens in the sessions after this pallet is added to a runtime and
 		/// before the first set arrives, so it is not an `UnexpectedKind`.
@@ -413,7 +436,7 @@ pub mod pallet {
 		/// `drawn_len` of the `external_len` validators of the set of `era`, all with registered
 		/// keys, were returned for a session and recorded in [`DrawnCollators`]. `new_external` is
 		/// `true` at the first rotation after a set arrives or the cap changes, and `false` at the
-		/// later ones, which under a cap return the previous draw again.
+		/// later ones, which return the previous draw again.
 		CollatorsDrawn { era: EraIndex, external_len: u32, drawn_len: u32, new_external: bool },
 		/// The number of blocks between two reports was changed.
 		ReportPeriodSet { period: BlockNumberFor<T> },
@@ -599,11 +622,10 @@ pub mod pallet {
 		/// Set the maximum number of validators returned as collators.
 		///
 		/// With a stored set, the change forces two rotations and the first draws
-		/// [`DrawnCollators`] again, so the drawn validators can change. `None` returns the whole
-		/// stored set from then on, and replaces [`Config::DefaultMaxCollators`].
+		/// [`DrawnCollators`] again, so the drawn validators can change.
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::WeightInfo::set_max_collators())]
-		pub fn set_max_collators(origin: OriginFor<T>, max: Option<u32>) -> DispatchResult {
+		pub fn set_max_collators(origin: OriginFor<T>, max: CollatorDraw) -> DispatchResult {
 			T::UpdateOrigin::ensure_origin(origin)?;
 			MaxCollators::<T>::set(max);
 			if ExternalValidatorSet::<T>::exists() {
@@ -862,26 +884,17 @@ pub mod pallet {
 				drawn.collators.iter().all(|v| set.validators.contains(v)),
 				"a drawn collator is not in the stored validator set"
 			);
-			match MaxCollators::<T>::get() {
-				Some(cap) => {
-					ensure!(
-						drawn.collators.len() <= cap as usize,
-						"more collators are drawn than the cap allows"
-					);
-					// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a
-					// value in every block's inherent and the cache is never removed. So this holds
-					// for every draw after the first block that runs the pallet, and flags a
-					// runtime without that wiring.
-					ensure!(
-						EpochRandomness::<T>::exists(),
-						"collators are drawn without a cached relay chain epoch randomness"
-					);
-				},
-				None => ensure!(
-					drawn.collators.windows(2).all(|pair| pair[0] < pair[1]),
-					"without a cap the drawn collators are not in account order"
-				),
-			}
+			ensure!(
+				drawn.collators.len() <= MaxCollators::<T>::get().limit() as usize,
+				"more collators are drawn than the cap allows"
+			);
+			// With the pallet wired as `OnSystemEvent`, `on_relay_state_proof` caches a value in
+			// every block's inherent and the cache is never removed. So this holds for every draw
+			// after the first block that runs the pallet, and flags a runtime without that wiring.
+			ensure!(
+				EpochRandomness::<T>::exists(),
+				"collators are drawn without a cached relay chain epoch randomness"
+			);
 			Ok(())
 		}
 
@@ -929,17 +942,11 @@ pub mod pallet {
 			// Drawn and filtered at the rotation, which pallet-session weighs as the whole block,
 			// since the key reads may not fit the weight of the message or report that delivers
 			// the set.
-			let collators: Vec<_> = match (MaxCollators::<T>::get(), new_external) {
-				// no cap: every validator of the set with keys, in account order.
-				(None, _) => external_set
-					.validators
-					.into_iter()
-					.filter(T::ValidatorRegistration::is_registered)
-					.collect(),
-				// a cap, and a new set or cap: draw again, from the validators with keys.
-				(Some(cap), true) => Self::draw_collators(external_set, cap),
-				// a cap, nothing new: the last draw, without those that removed their keys since.
-				(Some(_), false) => match DrawnCollators::<T>::get() {
+			let collators: Vec<_> = match new_external {
+				// a new set or cap: draw again, from the validators with keys.
+				true => Self::draw_collators(external_set, MaxCollators::<T>::get().limit()),
+				// nothing new: the last draw, without those that removed their keys since.
+				false => match DrawnCollators::<T>::get() {
 					Some(prev) => prev
 						.collators
 						.into_iter()
