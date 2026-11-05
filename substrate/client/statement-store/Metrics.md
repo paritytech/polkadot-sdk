@@ -339,7 +339,7 @@ percentiles, making it easy to spot tail latency regressions.
 
 `initial_sync_statements_sent` and `initial_sync_bursts_total` carry a `route` label (`dht` or
 `without_dht`), read when each burst runs. A flapping peer without the DHT path that gets a full store replay
-on every reconnect shows as a high `bursts_total{route="without_dht"}` rate.
+on every reconnect shows as a high `bursts_total{route="legacy"}` rate.
 
 #### Initial Sync Active Peers
 - **Metric:** `substrate_sync_initial_sync_peers_active`

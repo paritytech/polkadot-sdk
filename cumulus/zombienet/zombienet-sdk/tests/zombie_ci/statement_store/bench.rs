@@ -151,7 +151,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 			let prev_count = prev_propagated.get(name).copied().unwrap_or(0);
 
 			let mut total = 0.0f64;
-			for route in ["dht", "without_dht"] {
+			for route in ["dht", "legacy"] {
 				let current_count = Cell::new(0.0f64);
 				node.wait_metric_with_timeout(
 					format!("substrate_sync_propagated_statements{{route=\"{route}\"}}"),

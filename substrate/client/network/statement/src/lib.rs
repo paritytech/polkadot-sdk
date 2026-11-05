@@ -350,7 +350,7 @@ mod peer_route {
 	pub const DHT: &str = "dht";
 	/// We send the peer everything. This covers v1 peers, v2 peers that sent no filter within the
 	/// grace period, and every peer while this node runs without the v2 DHT.
-	pub const WITHOUT_DHT: &str = "without_dht";
+	pub const LEGACY: &str = "legacy";
 }
 
 mod sync_outcome {
@@ -367,7 +367,7 @@ impl Metrics {
 		let register_by_route =
 			|opts: Opts, registry: &Registry| -> Result<CounterVec<U64>, PrometheusError> {
 				let counter = register(CounterVec::new(opts, &["route"])?, registry)?;
-				for route in [peer_route::DHT, peer_route::WITHOUT_DHT] {
+				for route in [peer_route::DHT, peer_route::LEGACY] {
 					counter.with_label_values(&[route]);
 				}
 				Ok(counter)
@@ -1265,7 +1265,7 @@ impl Peer {
 		if v2dht_enabled() && !self.without_dht() && self.topic_affinity.is_some() {
 			peer_route::DHT
 		} else {
-			peer_route::WITHOUT_DHT
+			peer_route::LEGACY
 		}
 	}
 
@@ -1553,7 +1553,7 @@ where
 		.await
 		{
 			Ok(Ok(())) => {
-				let route = self.peers.get(peer).map_or(peer_route::WITHOUT_DHT, Peer::route);
+				let route = self.peers.get(peer).map_or(peer_route::LEGACY, Peer::route);
 				self.metrics.as_ref().map(|metrics| {
 					metrics.bytes_sent_total.with_label_values(&[route]).inc_by(bytes_to_send);
 				});
@@ -1883,7 +1883,7 @@ where
 			NotificationEvent::NotificationReceived { peer, notification } => {
 				let bytes_received = notification.len() as u64;
 				self.metrics.as_ref().map(|metrics| {
-					let route = self.peers.get(&peer).map_or(peer_route::WITHOUT_DHT, Peer::route);
+					let route = self.peers.get(&peer).map_or(peer_route::LEGACY, Peer::route);
 					metrics.bytes_received_total.with_label_values(&[route]).inc_by(bytes_received);
 				});
 
@@ -2017,7 +2017,7 @@ where
 	pub fn on_statements(&mut self, who: PeerId, statements: Statements) {
 		log::trace!(target: LOG_TARGET, "Received {} statements from {}", statements.len(), who);
 
-		let route = self.peers.get(&who).map_or(peer_route::WITHOUT_DHT, Peer::route);
+		let route = self.peers.get(&who).map_or(peer_route::LEGACY, Peer::route);
 		self.metrics.as_ref().map(|metrics| {
 			metrics
 				.statements_received
@@ -2409,7 +2409,7 @@ where
 			let in_flight = self.propagation_in_flight_bytes.saturating_add(bytes_sent);
 			self.set_propagation_in_flight_bytes(in_flight);
 			self.charge_send_budget(&who, statement_count);
-			let route = self.peers.get(&who).map_or(peer_route::WITHOUT_DHT, Peer::route);
+			let route = self.peers.get(&who).map_or(peer_route::LEGACY, Peer::route);
 			let sent_latency =
 				self.metrics.as_ref().map(|metrics| metrics.sent_latency_seconds.clone());
 			self.pending_sends.push(Box::pin(async move {
@@ -2816,7 +2816,7 @@ where
 			return;
 		};
 		let sync_id = entry.get().sync_id;
-		let route = self.peers.get(&peer_id).map_or(peer_route::WITHOUT_DHT, Peer::route);
+		let route = self.peers.get(&peer_id).map_or(peer_route::LEGACY, Peer::route);
 
 		self.metrics.as_ref().map(|metrics| {
 			metrics.initial_sync_bursts_total.with_label_values(&[route]).inc();
@@ -5191,7 +5191,7 @@ mod tests {
 			bytes_sent: MAX_SEND_IN_FLIGHT_BYTES,
 			result: SendOutcome::Sent,
 			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
-			route: peer_route::WITHOUT_DHT,
+			route: peer_route::LEGACY,
 			chunk_id: 0,
 		});
 		handler.flush_pending_sends().await;
@@ -5225,7 +5225,7 @@ mod tests {
 			bytes_sent: 100,
 			result: SendOutcome::Sent,
 			kind: SendKind::InitialSync { sync_id: 0, next_cursor: 0 },
-			route: peer_route::WITHOUT_DHT,
+			route: peer_route::LEGACY,
 			chunk_id: 0,
 		});
 		assert_eq!(handler.pending_sends.len(), 1);
@@ -5270,7 +5270,7 @@ mod tests {
 			bytes_sent: INITIAL_SYNC_RESERVED_BYTES,
 			result: SendOutcome::Sent,
 			kind: SendKind::Propagation,
-			route: peer_route::WITHOUT_DHT,
+			route: peer_route::LEGACY,
 			chunk_id: 0,
 		});
 		assert!(handler.pending_sends.is_empty(), "the reserve must not refill propagation");
