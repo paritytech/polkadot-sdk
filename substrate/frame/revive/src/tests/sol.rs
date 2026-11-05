@@ -33,7 +33,9 @@ use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
 	assert_err, assert_noop, assert_ok, dispatch::GetDispatchInfo, traits::fungible::Mutate,
 };
-use pallet_revive_fixtures::{Fibonacci, FixtureType, NestedCounter, compile_module_with_type};
+use pallet_revive_fixtures::{
+	ConstructorRevertAfterAction, Fibonacci, FixtureType, NestedCounter, compile_module_with_type,
+};
 use pallet_revive_types::runtime_api::*;
 use pretty_assertions::assert_eq;
 use sp_runtime::Weight;
@@ -1135,6 +1137,58 @@ fn prestate_diff_mode_tracing_works() {
 			);
 		});
 	}
+}
+
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::ReadOwnBalance, false)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::ReadOwnBalance, false)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::WriteStorage, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::WriteStorage, true)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::Call, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::Call, true)]
+#[test_case(FixtureType::Solc, ConstructorRevertAfterAction::Action::Create, true)]
+#[test_case(FixtureType::Resolc, ConstructorRevertAfterAction::Action::Create, true)]
+fn prestate_diff_includes_reverted_contract_by_action(
+	fixture_type: FixtureType,
+	action: ConstructorRevertAfterAction::Action,
+	appears_in_post: bool,
+) {
+	use crate::{InstantiateReturnValue, evm::PrestateTrace};
+	use alloy_core::sol_types::SolConstructor;
+
+	let (code, _) = compile_module_with_type("ConstructorRevertAfterAction", fixture_type).unwrap();
+	let (dummy_code, _) = compile_module_with_type("Dummy", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000_000_000);
+		if fixture_type == FixtureType::Resolc {
+			assert_ok!(Pallet::<Test>::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				dummy_code,
+				<BalanceOf<Test>>::MAX,
+			));
+		}
+
+		let mut tracer = PrestateTracer::<Test>::new(PrestateTracerConfig {
+			diff_mode: true,
+			disable_storage: false,
+			disable_code: false,
+		});
+		let InstantiateReturnValue { result, addr } = trace(&mut tracer, || {
+			builder::bare_instantiate(Code::Upload(code))
+				.constructor_data(
+					ConstructorRevertAfterAction::constructorCall { action }.abi_encode(),
+				)
+				.build_and_unwrap_result()
+		});
+		assert!(result.did_revert(), "{result:?}");
+
+		match tracer.collect_trace() {
+			PrestateTrace::DiffMode { post, .. } => {
+				assert_eq!(post.contains_key(&addr), appears_in_post, "addr={addr:?} post={post:?}")
+			},
+			other => panic!("expected DiffMode, got {:?}", other),
+		}
+	});
 }
 
 #[test]

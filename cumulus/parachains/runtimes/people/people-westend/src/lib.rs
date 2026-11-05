@@ -457,6 +457,8 @@ parameter_types! {
 			+ <<Runtime as pallet_collator_selection::Config>::MaxInvulnerables as frame_support::traits::Get<u32>>::get()
 			+ <<Runtime as pallet_collator_selection::Config>::MaxCandidates as frame_support::traits::Get<u32>>::get()
 			+ 30;
+	// Validators contribute no collators until governance raises the cap.
+	pub const DefaultMaxCollators: Option<u32> = Some(0);
 }
 
 impl pallet_validator_collators::Config for Runtime {
@@ -468,6 +470,7 @@ impl pallet_validator_collators::Config for Runtime {
 	type MaxEntriesPerReport = MaxEntriesPerReport;
 	type PeriodicSession = pallet_session::PeriodicSessions<ConstU32<PERIOD>, ConstU32<OFFSET>>;
 	type BlockReporter = ReportBlocksToAssetHub;
+	type DefaultMaxCollators = DefaultMaxCollators;
 	type DefaultReportPeriod = ConstU32<{ 10 * MINUTES * BLOCK_PROCESSING_VELOCITY }>;
 	type UnixTime = Timestamp;
 	type DefaultExpectedEraDuration =
@@ -591,6 +594,12 @@ pub enum ProxyType {
 	IdentityJudgement,
 	/// Collator selection proxy. Can execute calls related to collator selection mechanism.
 	Collator,
+	/// Operator proxy for validators. Can manage the session keys with which a validator
+	/// collates on this chain. Cannot move funds.
+	///
+	/// Contains `Session` (set_keys, purge_keys) and `Utility` batching calls (batch,
+	/// batch_all, force_batch).
+	StakingOperator,
 }
 impl Default for ProxyType {
 	fn default() -> Self {
@@ -634,6 +643,14 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 					RuntimeCall::Utility { .. } |
 					RuntimeCall::Multisig { .. }
 			),
+			ProxyType::StakingOperator => matches!(
+				c,
+				RuntimeCall::Session(pallet_session::Call::set_keys { .. }) |
+					RuntimeCall::Session(pallet_session::Call::purge_keys { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
+			),
 		}
 	}
 
@@ -645,6 +662,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			(ProxyType::Identity, ProxyType::IdentityJudgement) => true,
 			(ProxyType::NonTransfer, ProxyType::IdentityJudgement) => true,
 			(ProxyType::NonTransfer, ProxyType::Collator) => true,
+			(ProxyType::NonTransfer, ProxyType::StakingOperator) => true,
 			_ => false,
 		}
 	}
