@@ -23,6 +23,7 @@ use crate::{
 	debug::DebugSettings,
 	exec::Ext,
 	limits,
+	metering::EngineMeter,
 	primitives::ExecReturnValue,
 	vm::{BytecodeType, ExportedFunction, RuntimeCosts, calculate_code_deposit},
 };
@@ -64,6 +65,9 @@ impl<T: Config> ContractBlob<T> {
 		let mut module_config = polkavm::ModuleConfig::new();
 		module_config.set_page_size(limits::PAGE_SIZE);
 		module_config.set_gas_metering(Some(polkavm::GasMeteringKind::Sync));
+		module_config.set_interpreter_compilation_cost(Some(
+			EngineMeter::<T>::interpreter_compilation_cost(),
+		));
 		let module =
 			polkavm::Module::new(&engine, &module_config, self.code.into()).map_err(|err| {
 				log::debug!(target: LOG_TARGET, "failed to create polkavm module: {err:?}");

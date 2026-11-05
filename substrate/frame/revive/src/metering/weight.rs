@@ -21,7 +21,7 @@ mod tests;
 use crate::{Config, Error, limits::code::BASIC_BLOCK_SIZE, vm::evm::Halt, weights::WeightInfo};
 use core::{marker::PhantomData, ops::ControlFlow};
 use frame_support::{DefaultNoBound, weights::Weight};
-use sp_runtime::DispatchError;
+use sp_runtime::{DispatchError, SaturatedConversion};
 
 #[cfg(test)]
 use std::{any::Any, fmt::Debug};
@@ -93,6 +93,50 @@ impl<T: Config> EngineMeter<T> {
 			.into_iter()
 			.map(|weight| per_gas(weight, LOAD_CHAIN_GAS))
 			.fold(per_gas(T::WeightInfo::instr_indirect_jump, INDIRECT_JUMP_GAS), u64::max)
+	}
+
+	/// The gas the PolkaVM interpreter charges for compiling code, derived from the weights.
+	///
+	/// Each part is the slope of a benchmark, converted with [`Self::ref_time_per_fuel`]:
+	///
+	/// - `per_instruction_millis`: `interpreter_compile_per_instruction`.
+	/// - `per_block`: `interpreter_compile_per_block`, which compiles blocks of one instruction,
+	///   minus the cost of that instruction.
+	/// - `per_code_byte_millis`: `interpreter_cache_rebuild`. The interpreter charges it for the
+	///   whole code section when it allocates its map of compiled blocks, on the first compilation
+	///   of a call and after every call into another contract, and when it rewrites the map after
+	///   many cache resets.
+	pub fn interpreter_compilation_cost() -> polkavm::InterpreterCompilationCost {
+		let slope = |weight: fn(u32) -> Weight| weight(1).saturating_sub(weight(0)).ref_time();
+		let per_instruction = slope(T::WeightInfo::interpreter_compile_per_instruction);
+		let per_block =
+			slope(T::WeightInfo::interpreter_compile_per_block).saturating_sub(per_instruction);
+		let per_code_byte = slope(T::WeightInfo::interpreter_cache_rebuild);
+		Self::compilation_cost_from_ref_time(
+			per_block,
+			per_instruction,
+			per_code_byte,
+			Self::ref_time_per_fuel(),
+		)
+	}
+
+	/// Converts ref time to whole gas for `per_block` and thousandths of gas for the other parts,
+	/// rounding up and saturating at `u32::MAX`.
+	///
+	/// `ref_time_per_fuel` must not be zero, as in [`Self::sync_remaining_ref_time`].
+	fn compilation_cost_from_ref_time(
+		per_block: u64,
+		per_instruction: u64,
+		per_code_byte: u64,
+		ref_time_per_fuel: u64,
+	) -> polkavm::InterpreterCompilationCost {
+		let gas = |ref_time: u64| ref_time.div_ceil(ref_time_per_fuel).saturated_into();
+		let millis = |ref_time: u64| gas(ref_time.saturating_mul(1000));
+		polkavm::InterpreterCompilationCost {
+			per_block: gas(per_block),
+			per_instruction_millis: millis(per_instruction),
+			per_code_byte_millis: millis(per_code_byte),
+		}
 	}
 }
 

@@ -24,12 +24,12 @@ use crate::{
 	ExecReturnValue, Weight,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
-	metering::TransactionLimits,
+	metering::{EngineMeter, TransactionLimits},
 	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
 	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, RuntimeOrigin, Test, builder},
 };
 use alloy_core::{
-	primitives::{Bytes, FixedBytes},
+	primitives::{Bytes, FixedBytes, U256},
 	sol_types::{Revert, SolCall, SolError, SolInterface},
 };
 use frame_support::{
@@ -37,7 +37,9 @@ use frame_support::{
 	traits::fungible::{Balanced, Inspect, Mutate},
 };
 use itertools::Itertools;
-use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
+use pallet_revive_fixtures::{
+	Callee, Caller, FixtureType, Host, SubCaller, compile_module_with_type,
+};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
 use sp_core::{H160, H256};
@@ -147,6 +149,132 @@ fn call_works(caller_type: FixtureType, callee_type: FixtureType) {
 
 		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
 		assert!(result.success, "the store call must succeed");
+	});
+}
+
+/// What `SubCaller` does in a loop.
+#[derive(Clone, Copy, Debug)]
+enum SubCall {
+	/// Calls the identity pre-compile, a builtin pre-compile.
+	BuiltinPrecompile,
+	/// Calls `NoInfo`, an external pre-compile of the test runtime.
+	///
+	/// The loop passes no input and does not copy the revert data the pre-compile returns.
+	/// Loops that copied input or return data compiled to 101 to 232 more instructions per
+	/// iteration in `SubCallerLarge` than in `SubCaller`, which hides the charge under test.
+	ExternalPrecompile,
+	/// Calls a contract that accepts the call.
+	Call,
+	/// Calls a contract that reverts.
+	RevertingCall,
+	/// Delegate calls a contract that accepts the call.
+	DelegateCall,
+	/// Creates a contract.
+	Create,
+}
+
+/// A PVM caller pays for rebuilding its interpreter state after every call, delegate call and
+/// contract creation, to contracts and pre-compiles alike, whether it succeeds or not, in
+/// proportion to the size of its code. The interpreter charges it as gas through the
+/// `per_code_byte_millis` compilation cost. An EVM caller keeps no interpreter state and pays
+/// nothing for it.
+///
+/// `SubCallerLarge` runs the same functions as `SubCaller` but has more code. Both make one
+/// and three sub-calls; the difference is the cost of two sub-calls. The two PVM contracts are
+/// compiled separately, so their loops can differ by a few instructions. The caller runs them
+/// and, since it dropped its compiled code at the sub-call, compiles them again in every
+/// iteration. The comparison allows for 8 instructions and one basic block per sub-call, while
+/// the cost of the extra code is asserted to be more than ten times that.
+#[test_case(FixtureType::Solc, SubCall::BuiltinPrecompile)]
+#[test_case(FixtureType::Solc, SubCall::ExternalPrecompile)]
+#[test_case(FixtureType::Solc, SubCall::Call)]
+#[test_case(FixtureType::Solc, SubCall::RevertingCall)]
+#[test_case(FixtureType::Solc, SubCall::DelegateCall)]
+#[test_case(FixtureType::Solc, SubCall::Create)]
+#[test_case(FixtureType::Resolc, SubCall::BuiltinPrecompile)]
+#[test_case(FixtureType::Resolc, SubCall::ExternalPrecompile)]
+#[test_case(FixtureType::Resolc, SubCall::Call)]
+#[test_case(FixtureType::Resolc, SubCall::RevertingCall)]
+#[test_case(FixtureType::Resolc, SubCall::DelegateCall)]
+#[test_case(FixtureType::Resolc, SubCall::Create)]
+fn sub_call_charges_caller_cache_rebuild(fixture_type: FixtureType, sub_call: SubCall) {
+	let (small_code, _) = compile_module_with_type("SubCaller", fixture_type).unwrap();
+	let (large_code, _) = compile_module_with_type("SubCallerLarge", fixture_type).unwrap();
+	let (sink_code, _) = compile_module_with_type("Sink", fixture_type).unwrap();
+	let (reverter_code, _) = compile_module_with_type("Reverter", fixture_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+		// Deploying `Sink` also uploads the code that `createN` instantiates with resolc.
+		let Contract { addr: sink, .. } =
+			builder::bare_instantiate(Code::Upload(sink_code)).build_and_unwrap_contract();
+		let Contract { addr: reverter, .. } =
+			builder::bare_instantiate(Code::Upload(reverter_code)).build_and_unwrap_contract();
+		let call_data = |n: u64| {
+			let n = U256::from(n);
+			match sub_call {
+				SubCall::BuiltinPrecompile => {
+					let target = H160::from_low_u64_be(4).0.into();
+					SubCaller::callNCall { target, n }.abi_encode()
+				},
+				SubCall::ExternalPrecompile => {
+					use crate::{precompiles::Precompile, tests::precompiles::NoInfo};
+					// The empty input does not decode, so the pre-compile reverts after the
+					// caller dropped its interpreter state.
+					let target = <NoInfo<Test> as Precompile>::MATCHER.base_address().into();
+					SubCaller::callDroppingOutputNCall { target, n }.abi_encode()
+				},
+				SubCall::Call => SubCaller::callNCall { target: sink.0.into(), n }.abi_encode(),
+				SubCall::RevertingCall => {
+					SubCaller::callIgnoringNCall { target: reverter.0.into(), n }.abi_encode()
+				},
+				SubCall::DelegateCall => {
+					SubCaller::delegateCallNCall { target: sink.0.into(), n }.abi_encode()
+				},
+				SubCall::Create => SubCaller::createNCall { n }.abi_encode(),
+			}
+		};
+		let two_calls = |code: Vec<u8>| {
+			let Contract { addr, .. } =
+				builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+			let weight = |n: u64| {
+				let result = builder::bare_call(addr).data(call_data(n)).build();
+				assert!(!result.result.unwrap().did_revert());
+				result.weight_consumed.ref_time()
+			};
+			weight(3) - weight(1)
+		};
+		let small = two_calls(small_code.clone());
+		let large = two_calls(large_code.clone());
+
+		let ref_time_per_fuel = EngineMeter::<Test>::ref_time_per_fuel();
+		let expected = match fixture_type {
+			FixtureType::Resolc => {
+				let per_code_byte_millis =
+					EngineMeter::<Test>::interpreter_compilation_cost().per_code_byte_millis;
+				// The gas the interpreter charges for the map of a code section.
+				let rebuild = |code: Vec<u8>| {
+					let blob = polkavm::ProgramBlob::parse(code.into()).unwrap();
+					let code_len = u64::try_from(blob.code().len()).unwrap();
+					(code_len * u64::from(per_code_byte_millis)).div_ceil(1000)
+				};
+				let (small_gas, large_gas) = (rebuild(small_code), rebuild(large_code));
+				assert!(large_gas > small_gas);
+				2 * (large_gas - small_gas) * ref_time_per_fuel
+			},
+			_ => 0,
+		};
+		// 8 instructions and one basic block per sub-call, each instruction executed once and
+		// compiled once.
+		let cost = EngineMeter::<Test>::interpreter_compilation_cost();
+		let per_sub_call_millis =
+			8 * (1000 + u64::from(cost.per_instruction_millis)) + 1000 * u64::from(cost.per_block);
+		let tolerance = (2 * per_sub_call_millis).div_ceil(1000) * ref_time_per_fuel;
+		assert!(expected == 0 || expected > 10 * tolerance, "{expected} <= 10 * {tolerance}");
+		assert!(
+			large.abs_diff(small + expected) <= tolerance,
+			"{large} - {small} != {expected} +- {tolerance}"
+		);
 	});
 }
 

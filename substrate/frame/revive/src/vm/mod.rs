@@ -29,7 +29,6 @@ use crate::{
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::ensure,
-	limits,
 	metering::{ResourceMeter, State, Token},
 	weights::WeightInfo,
 };
@@ -135,20 +134,11 @@ impl CodeLoadToken {
 impl<T: Config> Token<T> for CodeLoadToken {
 	fn weight(&self) -> Weight {
 		match self.code_type {
-			// The proof size impact is accounted for in `call_with_pvm_code_per_byte`. Its
-			// benchmark also compiles the entry block of the called contract, which is a
-			// maximum-sized block for all but the smallest code sizes. The linear fit puts that
-			// cost into the intercept, which is subtracted here. The compilation of the entry
-			// block is therefore charged once, by `interpreter_compile_per_instruction`.
+			// The benchmark also compiles the entry block of the called contract. The linear fit
+			// puts that cost into the intercept, which is subtracted here. The interpreter
+			// charges the compilation of every block as gas.
 			BytecodeType::Pvm => T::WeightInfo::call_with_pvm_code_per_byte(self.code_len)
-				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0))
-				.saturating_add(
-					T::WeightInfo::interpreter_compile_per_instruction(
-						limits::code::BASIC_BLOCK_SIZE,
-					)
-					.saturating_sub(T::WeightInfo::interpreter_compile_per_instruction(0))
-					.set_proof_size(0),
-				),
+				.saturating_sub(T::WeightInfo::call_with_pvm_code_per_byte(0)),
 			BytecodeType::Evm => T::WeightInfo::call_with_evm_code_per_byte(self.code_len)
 				.saturating_sub(T::WeightInfo::call_with_evm_code_per_byte(0)),
 		}

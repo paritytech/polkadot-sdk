@@ -81,7 +81,7 @@ pub trait Memory<T: Config> {
 	/// This is used before we call into a new contract to free up some memory. Doing
 	/// so we make sure that we only ever have to hold one compilation cache at a time
 	/// independtently of of our call stack depth.
-	fn reset_interpreter_cache(&mut self);
+	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError>;
 
 	/// Read designated chunk from the sandbox memory.
 	///
@@ -168,7 +168,9 @@ impl<T: Config> Memory<T> for [u8] {
 		<[u8] as Memory<T>>::write(self, ptr, &vec![0; len as usize])
 	}
 
-	fn reset_interpreter_cache(&mut self) {}
+	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		Ok(())
+	}
 }
 
 impl<T: Config> Memory<T> for polkavm::RawInstance {
@@ -186,8 +188,11 @@ impl<T: Config> Memory<T> for polkavm::RawInstance {
 		self.zero_memory(ptr, len).map_err(|_| Error::<T>::OutOfBounds.into())
 	}
 
-	fn reset_interpreter_cache(&mut self) {
-		self.reset_interpreter_cache();
+	fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		self.reset_interpreter_cache().map_err(|err| {
+			log::error!(target: LOG_TARGET, "failed to reset the interpreter cache: {err}");
+			Error::<T>::ExecutionFailed.into()
+		})
 	}
 }
 
@@ -677,7 +682,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			memory.read(input_data_ptr, input_data_len)?
 		};
 
-		memory.reset_interpreter_cache();
+		memory.reset_interpreter_cache()?;
 
 		let call_outcome = match call_type {
 			CallType::Call { value_ptr } => {
@@ -788,7 +793,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 			Some(salt)
 		};
 
-		memory.reset_interpreter_cache();
+		memory.reset_interpreter_cache()?;
 
 		match self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
@@ -893,7 +898,7 @@ impl<'a, E: Ext> PreparedCall<'a, E> {
 	}
 
 	/// Drops the interpreter state of the contract, as a sub-call does.
-	pub fn reset_interpreter_cache(&mut self) {
-		self.instance.reset_interpreter_cache();
+	pub fn reset_interpreter_cache(&mut self) -> Result<(), DispatchError> {
+		Memory::<E::T>::reset_interpreter_cache(&mut self.instance)
 	}
 }

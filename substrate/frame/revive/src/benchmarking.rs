@@ -721,8 +721,9 @@ mod benchmarks {
 	/// the call reads the same storage items of the same size and the slope is the time to
 	/// compile one more instruction of the entry block, including its gas cost calculation.
 	///
-	/// Only the ref time slope is used. Loading the code is charged by
-	/// `call_with_pvm_code_per_byte`.
+	/// Only the ref time slope is used, for the gas the interpreter charges per compiled
+	/// instruction (see [`crate::metering::EngineMeter::interpreter_compilation_cost`]). Loading
+	/// the code is charged by `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn interpreter_compile_per_instruction(
 		n: Linear<2, { limits::code::BASIC_BLOCK_SIZE }>,
@@ -760,8 +761,9 @@ mod benchmarks {
 	/// `interpreter_compile_per_instruction`. It keeps the execution of the branch, which is
 	/// small and already charged as gas.
 	///
-	/// Only the ref time slope is used. Loading the code is charged by
-	/// `call_with_pvm_code_per_byte`.
+	/// Only the ref time slope is used, for the gas the interpreter charges per compiled block
+	/// (see [`crate::metering::EngineMeter::interpreter_compilation_cost`]). Loading the code is
+	/// charged by `call_with_pvm_code_per_byte`.
 	#[benchmark(pov_mode = Measured)]
 	fn interpreter_compile_per_block(
 		b: Linear<0, { VmBinaryModule::BRANCH_BLOCKS }>,
@@ -799,6 +801,9 @@ mod benchmarks {
 	/// of two instructions and stops. The code section has `c` bytes and the entry block is the
 	/// same for every `c` (see [`VmBinaryModule::with_code_bytes`]), so the slope is the
 	/// rebuild per byte of code. The compilation of the entry block is in the intercept.
+	///
+	/// The interpreter charges the slope per byte of code section whenever it allocates or
+	/// rewrites the map, see [`crate::metering::EngineMeter::interpreter_compilation_cost`].
 	#[benchmark(pov_mode = Ignored)]
 	fn interpreter_cache_rebuild(c: Linear<0, { VmBinaryModule::MAX_CODE_BYTES }>) {
 		let mut setup = CallSetup::<T>::new(VmBinaryModule::with_code_bytes(c));
@@ -807,7 +812,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			prepared.reset_interpreter_cache();
+			prepared.reset_interpreter_cache().unwrap();
 			prepared.call().unwrap();
 		}
 	}
@@ -4333,10 +4338,10 @@ mod benchmarks {
 	/// Laps over compiled blocks are the model for the cost per gas. The interpreter drops its
 	/// compiled blocks at every call into another contract and compiles a block again when
 	/// execution next enters it. A block is therefore cold only right after its compilation,
-	/// which `interpreter_compile_per_block` and `interpreter_compile_per_instruction` measure,
-	/// and later jumps to it find it compiled. Data is different: it
-	/// survives calls without being touched, which is why the `instr_load_chain_<m>`
-	/// benchmarks measure loads from uncached memory.
+	/// which `interpreter_compile_per_block` and `interpreter_compile_per_instruction` measure
+	/// and the interpreter charges every time it compiles a block, and later jumps to it find it
+	/// compiled. Data is different: it survives calls without being touched, which is why the
+	/// `instr_load_chain_<m>` benchmarks measure loads from uncached memory.
 	///
 	/// [`crate::metering::EngineMeter::ref_time_per_fuel`] divides the slope by
 	/// [`crate::metering::INDIRECT_JUMP_GAS`].
