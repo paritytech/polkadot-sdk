@@ -16,16 +16,21 @@
 // limitations under the License.
 
 use crate::{
-	Code, Config, EthTxInfo, ExecReturnValue, H160, TransactionLimits, U256, Weight,
-	evm::fees::InfoT,
+	Code, Config, EthTxInfo, ExecReturnValue, H160, U256, Weight,
+	evm::{CallTracer, fees::InfoT},
 	test_utils::{ETH_GAS_LIMIT, builder::Contract},
-	tests::{ExtBuilder, Test, builder},
+	tests::{ExtBuilder, Test, builder, sol::eth_extrinsic_revert},
+	tracing::trace,
 };
 use alloy_core::sol_types::SolCall;
-use frame_support::traits::fungible::{Balanced, Mutate};
+use frame_support::{
+	assert_ok,
+	traits::fungible::{Balanced, Mutate},
+};
 use pallet_revive_fixtures::{
 	FixtureType, SendAndTransferTest, StipendTest, compile_module_with_type,
 };
+use pallet_revive_uapi::ReturnFlags;
 use test_case::test_case;
 
 /// Calls `dest` with weight and deposit limits, configured like the `call` dispatchable.
@@ -37,24 +42,21 @@ fn run_call_in_substrate_tx(dest: H160, data: Vec<u8>, value: U256) -> ExecRetur
 		.build_and_unwrap_result()
 }
 
-/// Calls `dest` with an Ethereum gas limit, configured like the `eth_call` dispatchable.
+/// Dispatches `eth_call` to `dest`.
 fn run_call_in_eth_tx(dest: H160, data: Vec<u8>, value: U256) -> ExecReturnValue {
-	let eth_tx_info = EthTxInfo::<Test>::new(0, Weight::zero());
 	// A real transaction fills this pot from its gas before `eth_call` runs.
 	<Test as Config>::FeeInfo::deposit_txfee(<Test as Config>::Currency::issue(
-		eth_tx_info.max_deposit(ETH_GAS_LIMIT.into()),
+		EthTxInfo::<Test>::new(0, Weight::zero()).max_deposit(ETH_GAS_LIMIT.into()),
 	));
-	builder::bare_call(dest)
-		.data(data)
-		.evm_value(value)
-		.transaction_limits(TransactionLimits::EthereumGas {
-			eth_gas_limit: ETH_GAS_LIMIT.into(),
-			weight_limit: Weight::MAX,
-			eth_tx_info,
-			authorization_deposit: Default::default(),
-		})
-		.exec_config(crate::Pallet::<Test>::eth_call_exec_config(0u32.into(), 0, Weight::zero()))
-		.build_and_unwrap_result()
+	let mut tracer = CallTracer::new(Default::default());
+	trace(&mut tracer, || {
+		assert_ok!(builder::eth_call(dest).data(data).value(value).build());
+	});
+	// A failed `eth_call` still dispatches successfully, and reports its failure as an event.
+	let flags =
+		if eth_extrinsic_revert().is_some() { ReturnFlags::REVERT } else { ReturnFlags::empty() };
+	let output = tracer.collect_trace().expect("the transaction runs the call").output;
+	ExecReturnValue { flags, data: output.0 }
 }
 
 #[test_case(run_call_in_substrate_tx; "substrate tx")]

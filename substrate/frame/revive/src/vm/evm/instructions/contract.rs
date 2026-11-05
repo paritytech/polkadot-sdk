@@ -85,35 +85,25 @@ pub fn create<const IS_CREATE2: bool, E: Ext>(
 		vec![],
 		salt.as_ref(),
 	);
+	adjust_instantiate_registration_charge(
+		interpreter.ext,
+		worst_case_registration_charge,
+		&call_result,
+	);
 
 	match call_result {
 		Ok(address) => {
 			let return_value = interpreter.ext.last_frame_output();
 			if return_value.did_revert() {
-				adjust_instantiate_registration_charge(
-					interpreter.ext,
-					worst_case_registration_charge,
-					None,
-				);
 				// Contract creation reverted — return data must be propagated
 				interpreter.stack.push(U256::zero())
 			} else {
 				// Otherwise clear it. Note that RETURN opcode should abort.
 				*interpreter.ext.last_frame_output_mut() = Default::default();
-				adjust_instantiate_registration_charge(
-					interpreter.ext,
-					worst_case_registration_charge,
-					Some(address),
-				);
 				interpreter.stack.push(address)
 			}
 		},
 		Err(err) => {
-			adjust_instantiate_registration_charge(
-				interpreter.ext,
-				worst_case_registration_charge,
-				None,
-			);
 			log::debug!(target: LOG_TARGET, "Create failed: {err:?}");
 			interpreter.stack.push(U256::zero())?;
 			ControlFlow::Continue(())

@@ -497,17 +497,19 @@ pub fn charge_call_transfer<E: Ext>(
 	Ok(())
 }
 
-/// Warms the entries of the created contract, if any, and lowers the worst-case registration
-/// charge to what they cost.
+/// Warms the entries of the contract `instantiate_result` created, if any, and lowers the
+/// worst-case registration charge to what they cost.
 pub fn adjust_instantiate_registration_charge<E: Ext>(
 	ext: &mut E,
 	worst_case_charge: ChargedAmount,
-	new_contract_addr: Option<H160>,
+	instantiate_result: &Result<H160, ExecError>,
 ) {
-	let summary = match new_contract_addr {
+	let summary = match instantiate_result {
 		// EIP-2929 warms the new contract, whose entries are in the overlay or prepaid.
-		Some(address) => ext.warm(InstantiateItems { address, deployer: ext.address() }).summary(),
-		None => WarmthSummary::new(InstantiateItems::KEY_FAMILY),
+		Ok(address) if !ext.last_frame_output().did_revert() => ext
+			.warm(InstantiateItems { address: *address, deployer: ext.address() })
+			.summary(),
+		Ok(_) | Err(_) => WarmthSummary::new(InstantiateItems::KEY_FAMILY),
 	};
 	ext.frame_meter_mut()
 		.adjust_weight(worst_case_charge, RuntimeCosts::AccessListRegistration(summary));

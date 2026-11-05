@@ -102,7 +102,7 @@ fn make_extcodecopy_reader(copy_len: u32) -> Vec<u8> {
 }
 
 /// Returns the error the Ethereum transaction failed with.
-fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
+pub fn eth_extrinsic_revert() -> Option<sp_runtime::DispatchError> {
 	System::events().into_iter().find_map(|record| match record.event {
 		// Benchmark builds emit this event for successful transactions too, so it is not a failure.
 		#[cfg(feature = "runtime-benchmarks")]

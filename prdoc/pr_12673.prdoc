@@ -93,6 +93,10 @@ doc:
     before the constructor runs, so the constructor gets that much less weight. If the constructor
     fails or reverts after using up all of its weight, the caller gets the set-aside weight back and
     can continue with it.
+
+    The `call` and `instantiate` dispatchables used to include loading the contract's code in
+    their own weight. Now it is charged to their `weight_limit`, so a `weight_limit` that was just
+    enough before can be too low. The `weight_limit` should be estimated again with a dry run.
 crates:
 - name: pallet-revive
   bump: major

@@ -2386,12 +2386,7 @@ where
 	}
 
 	fn has_system_account(&self, address: &H160) -> bool {
-		let account_id = if is_precompile::<T, E>(address) {
-			T::AddressMapper::to_fallback_account_id(address)
-		} else {
-			T::AddressMapper::to_account_id(address)
-		};
-		System::<T>::account_exists(&account_id)
+		System::<T>::account_exists(&account_id_of::<T, E>(address))
 	}
 }
 
@@ -2501,12 +2496,7 @@ where
 			// Enable read-only access if requested; cannot disable it if already set.
 			let is_read_only = read_only || self.is_read_only();
 
-			// We can skip the stateful lookup for pre-compiles.
-			let dest = if <AllPrecompiles<T>>::get::<Self>(dest_addr.as_fixed_bytes()).is_some() {
-				T::AddressMapper::to_fallback_account_id(dest_addr)
-			} else {
-				T::AddressMapper::to_account_id(dest_addr)
-			};
+			let dest = account_id_of::<T, E>(dest_addr);
 
 			if !self.allows_reentry(&dest) {
 				return Err(<Error<T>>::ReentranceDenied.into());
@@ -2939,6 +2929,16 @@ where
 /// Returns true if the address has a precompile contract, else false.
 pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 	<AllPrecompiles<T>>::get::<Stack<'_, T, E>>(address.as_fixed_bytes()).is_some()
+}
+
+/// Returns the account id of `address`.
+fn account_id_of<T: Config, E: Executable<T>>(address: &H160) -> T::AccountId {
+	// We can skip the stateful lookup for pre-compiles.
+	if is_precompile::<T, E>(address) {
+		T::AddressMapper::to_fallback_account_id(address)
+	} else {
+		T::AddressMapper::to_account_id(address)
+	}
 }
 
 /// Runs the teardown of a terminated contract at the end of the call stack.

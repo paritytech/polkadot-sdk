@@ -801,20 +801,21 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 		let worst_case_registration_charge = self.charge_gas(
 			RuntimeCosts::AccessListRegistration(InstantiateItems::all_cold_revertible_summary()),
 		)?;
-		match self.ext.instantiate(
+		let instantiate_result = self.ext.instantiate(
 			&CallResources::from_weight_and_deposit(weight, deposit_limit),
 			Code::Existing(code_hash),
 			value,
 			input_data,
 			salt.as_ref(),
-		) {
+		);
+		adjust_instantiate_registration_charge(
+			self.ext,
+			worst_case_registration_charge,
+			&instantiate_result,
+		);
+		match instantiate_result {
 			Ok(address) => {
 				if !self.ext.last_frame_output().flags.contains(ReturnFlags::REVERT) {
-					adjust_instantiate_registration_charge(
-						self.ext,
-						worst_case_registration_charge,
-						Some(address),
-					);
 					self.write_fixed_sandbox_output(
 						memory,
 						address_ptr,
@@ -822,12 +823,6 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 						true,
 						already_charged,
 					)?;
-				} else {
-					adjust_instantiate_registration_charge(
-						self.ext,
-						worst_case_registration_charge,
-						None,
-					);
 				}
 				let output = mem::take(self.ext.last_frame_output_mut());
 				let write_result = self.write_sandbox_output(
@@ -842,14 +837,7 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 				write_result?;
 				Ok(self.ext.last_frame_output().into())
 			},
-			Err(err) => {
-				adjust_instantiate_registration_charge(
-					self.ext,
-					worst_case_registration_charge,
-					None,
-				);
-				Ok(super::exec_error_into_return_code::<E>(err)?)
-			},
+			Err(err) => Ok(super::exec_error_into_return_code::<E>(err)?),
 		}
 	}
 }
