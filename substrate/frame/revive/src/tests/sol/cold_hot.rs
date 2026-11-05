@@ -20,8 +20,8 @@
 //! real dispatch, on both VMs.
 
 use crate::{
-	AccountInfo, BalanceOf, CallResources, Code, Config, ExecConfig, ReentrancyProtection, Weight,
-	WeightInfo, WeightToken,
+	AccountInfo, AddressMapper, BalanceOf, CallResources, Code, Config, ExecConfig,
+	ReentrancyProtection, Weight, WeightInfo, WeightToken,
 	access_list::{
 		Access, AccessListMetrics, CallItems, CodeLoadItems, InstantiateItems, KeyFamily,
 		StorageOp, TransferItems, Warmth, WarmthSummary,
@@ -428,6 +428,74 @@ fn a_value_transfer_finds_both_account_infos_hot(fixture_type: FixtureType) {
 			"the rest of the value-transfer entries are newly touched",
 		);
 	});
+}
+
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn a_hot_transfer_still_pays_for_creating_the_account(fixture_type: FixtureType) {
+	let (caller_code, _) = compile_module_with_type("Caller", fixture_type).unwrap();
+	let (call_each_code, _) = compile_module_with_type("CallEach", fixture_type).unwrap();
+	let caller_balance = 100_000_000_000u64;
+	let above_balance_value = caller_balance * 2;
+	let below_balance_value = caller_balance / 2;
+	let receiver = H160::from([0xfe; 20]);
+
+	// Two transfers to the receiver in one transaction: the first is above the caller's balance,
+	// so it fails, and the second succeeds.
+	let retried_transfer_weight = |receiver_has_account: bool| {
+		ExtBuilder::default().build().execute_with(|| {
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+			let caller = builder::bare_instantiate(Code::Upload(caller_code.clone()))
+				.build_and_unwrap_contract()
+				.addr;
+			let call_each = builder::bare_instantiate(Code::Upload(call_each_code.clone()))
+				.build_and_unwrap_contract()
+				.addr;
+			let _ = crate::Pallet::<Test>::set_evm_balance(&caller, caller_balance.into());
+			if receiver_has_account {
+				let receiver_account = <Test as Config>::AddressMapper::to_account_id(&receiver);
+				let _ = <Test as Config>::Currency::set_balance(
+					&receiver_account,
+					crate::Pallet::<Test>::min_balance(),
+				);
+			}
+			let transfer_data = |value: u64| {
+				Caller::normalCall {
+					_callee: receiver.0.into(),
+					_value: value,
+					_data: Vec::<u8>::new().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode()
+				.into()
+			};
+
+			let transaction_weight = builder::bare_call(call_each)
+				.data(
+					CallEach::callEachCall {
+						targets: vec![caller.0.into(); 2],
+						data: vec![
+							transfer_data(above_balance_value),
+							transfer_data(below_balance_value),
+						],
+					}
+					.abi_encode(),
+				)
+				.build()
+				.weight_consumed;
+			assert_eq!(
+				crate::Pallet::<Test>::evm_balance(&receiver),
+				U256::from(below_balance_value)
+			);
+			transaction_weight
+		})
+	};
+
+	let to_missing_account = retried_transfer_weight(false);
+	let to_existing_account = retried_transfer_weight(true);
+	let account_creation_weight = <Test as Config>::WeightInfo::seal_call_transfer(0)
+		.saturating_sub(<Test as Config>::WeightInfo::seal_call_transfer_to_existing(0));
+	assert_eq!(to_missing_account.saturating_sub(to_existing_account), account_creation_weight);
 }
 
 #[test_case(FixtureType::Solc)]

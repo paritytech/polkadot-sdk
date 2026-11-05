@@ -99,18 +99,33 @@ pub fn charge_call_gas<'a, E: Ext>(
 		let dust_transfer = Pallet::<E::T>::has_dust(value);
 		// A precompile's account state is untracked, so its transfer has no warmth and pays cold.
 		let transfer = if precompile.is_none() {
-			TransferAccessKind::Tracked(interpreter.ext.warm(TransferItems {
-				from: interpreter.ext.address(),
-				to: callee,
-				dust: dust_transfer,
-			}))
+			TransferAccessKind::Tracked {
+				warmth: interpreter.ext.warm(TransferItems {
+					from: interpreter.ext.address(),
+					to: callee,
+					dust: dust_transfer,
+				}),
+				callee_exists: None,
+			}
 		} else {
 			TransferAccessKind::Untracked { dust: dust_transfer }
 		};
-		interpreter
+		let charged = interpreter
 			.ext
 			.frame_meter_mut()
 			.charge_or_halt(RuntimeCosts::CallTransferSurcharge(transfer))?;
+		if let TransferAccessKind::Tracked { warmth, .. } = transfer {
+			// Look the account up only after the charge has paid for reading it.
+			if interpreter.ext.has_system_account(&callee) {
+				interpreter.ext.frame_meter_mut().adjust_weight(
+					charged,
+					RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
+						warmth,
+						callee_exists: Some(true),
+					}),
+				);
+			}
+		}
 	}
 
 	ControlFlow::Continue(())

@@ -379,7 +379,11 @@ impl StorageAccessKind {
 #[derive(Clone, Copy)]
 pub enum TransferAccessKind {
 	/// A transfer the access list tracks, priced by the warmth of its entries.
-	Tracked(Summarized<TransferWarmth>),
+	Tracked {
+		warmth: Summarized<TransferWarmth>,
+		/// Whether the callee has an account, or `None` if unknown.
+		callee_exists: Option<bool>,
+	},
 	/// A transfer the access list does not track, priced by its benchmark alone.
 	Untracked { dust: bool },
 }
@@ -501,14 +505,23 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			CallTransferSurcharge(TransferAccessKind::Untracked { dust }) => {
 				cold_transfer_surcharge::<T>(dust.into())
 			},
-			CallTransferSurcharge(TransferAccessKind::Tracked(warmth)) => {
+			CallTransferSurcharge(TransferAccessKind::Tracked { warmth, callee_exists }) => {
 				let dust = u32::from(warmth.entries().dust);
 				weight_from_warmth_summary::<T>(
 					warmth.summary(),
 					|| cold_transfer_surcharge::<T>(dust),
 					|| {
+						// Creating the account is priced by whether it exists, not by warmth.
+						let account_creation = match callee_exists {
+							Some(true) => Weight::zero(),
+							Some(false) | None => T::WeightInfo::seal_call_transfer(dust)
+								.saturating_sub(T::WeightInfo::seal_call_transfer_to_existing(
+									dust,
+								)),
+						};
 						T::WeightInfo::seal_call_transfer_hot(dust)
 							.saturating_sub(T::WeightInfo::seal_call_hot())
+							.saturating_add(account_creation)
 					},
 				)
 			},
@@ -1009,13 +1022,15 @@ mod tests {
 	#[test]
 	fn a_value_call_prices_the_transfer_at_its_own_warmth() {
 		let write_paid = Warmth::new_write_paid();
-		let transfer = |dust| TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust };
-		let weight_of = |dust, warmth: Option<Warmth>| {
+		let weight_of = |dust, warmth: Option<Warmth>, callee_exists| {
 			weight(&RuntimeCosts::CallTransferSurcharge(match warmth {
-				Some(warmth) => TransferAccessKind::Tracked(Summarized::from_warmths(
-					transfer(dust),
-					[warmth, warmth, write_paid, warmth],
-				)),
+				Some(warmth) => TransferAccessKind::Tracked {
+					warmth: Summarized::from_warmths(
+						TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust },
+						[warmth, warmth, write_paid, warmth],
+					),
+					callee_exists,
+				},
 				None => TransferAccessKind::Untracked { dust },
 			}))
 		};
@@ -1025,53 +1040,83 @@ mod tests {
 			("cold", Some(Warmth::new_cold_non_revertible())),
 			("untracked (precompile)", None),
 		] {
-			let (with_dust, without_dust) = (weight_of(true, warmth), weight_of(false, warmth));
+			let (with_dust, without_dust) =
+				(weight_of(true, warmth, Some(true)), weight_of(false, warmth, Some(true)));
 			assert!(
 				with_dust.ref_time() > without_dust.ref_time(),
 				"{case}: with_dust={with_dust:?} without_dust={without_dust:?}",
 			);
 		}
 
-		let untracked = weight_of(false, None);
-		let tracked_cold = weight_of(false, Some(Warmth::new_cold_non_revertible()));
+		let untracked = weight_of(false, None, Some(true));
+		let tracked_cold = weight_of(false, Some(Warmth::new_cold_non_revertible()), Some(true));
 		assert!(
 			untracked.ref_time() < tracked_cold.ref_time(),
 			"untracked pays no access-list overhead: \
 			 untracked={untracked:?} tracked_cold={tracked_cold:?}",
 		);
 
-		let call_bench = <Test as Config>::WeightInfo::seal_call(0);
 		for dust in [false, true] {
-			let cold_transfer_measurements = [
-				<Test as Config>::WeightInfo::seal_call_transfer(dust.into())
-					.saturating_sub(call_bench),
-				<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into())
-					.saturating_sub(call_bench),
-			];
-			let hot_transfer_measurement =
-				<Test as Config>::WeightInfo::seal_call_transfer_hot(dust.into())
-					.saturating_sub(<Test as Config>::WeightInfo::seal_call_hot());
-
-			let hot_transfer_charge = weight_of(dust, Some(write_paid));
-			let cold_transfer_charge = weight_of(dust, Some(Warmth::new_cold_non_revertible()));
+			let hot_transfer_charge = weight_of(dust, Some(write_paid), Some(true));
+			let cold_transfer_charge =
+				weight_of(dust, Some(Warmth::new_cold_non_revertible()), Some(true));
 			assert!(
 				cold_transfer_charge.ref_time() > hot_transfer_charge.ref_time(),
 				"dust={dust}: cold={cold_transfer_charge:?} hot={hot_transfer_charge:?}",
 			);
-			assert!(
-				hot_transfer_charge.all_gte(hot_transfer_measurement),
-				"dust={dust}: charge={hot_transfer_charge:?} \
-				 measurement={hot_transfer_measurement:?}",
+
+			let to_missing_account = weight_of(dust, Some(write_paid), Some(false));
+			let account_creation = <Test as Config>::WeightInfo::seal_call_transfer(dust.into())
+				.saturating_sub(<Test as Config>::WeightInfo::seal_call_transfer_to_existing(
+					dust.into(),
+				));
+			assert_eq!(
+				to_missing_account.saturating_sub(hot_transfer_charge),
+				account_creation,
+				"dust={dust}",
 			);
-			for (case, charge) in
-				[("cold", cold_transfer_charge), ("untracked (precompile)", weight_of(dust, None))]
-			{
-				for measurement in cold_transfer_measurements {
-					assert!(
-						charge.all_gte(measurement),
-						"{case}, dust={dust}: charge={charge:?} measurement={measurement:?}",
-					);
-				}
+			assert_eq!(
+				weight_of(dust, Some(write_paid), None),
+				to_missing_account,
+				"dust={dust}: an unknown callee pays as a missing one",
+			);
+		}
+	}
+
+	#[test]
+	fn a_value_call_pays_its_bench_once() {
+		let target = H160::repeat_byte(2);
+		let overhead_only_cost = |summary: WarmthSummary| {
+			weight_from_warmth_summary::<Test>(summary, Weight::zero, Weight::zero)
+		};
+
+		for dust in [false, true] {
+			let hot_bench = <Test as Config>::WeightInfo::seal_call_transfer_hot(dust.into());
+			let cold_bench = <Test as Config>::WeightInfo::seal_call_transfer(dust.into())
+				.max(<Test as Config>::WeightInfo::seal_call_transfer_to_existing(dust.into()));
+			for (case, warmth, bench) in [
+				("hot", Warmth::new_write_paid(), hot_bench),
+				("cold", Warmth::new_cold_non_revertible(), cold_bench),
+			] {
+				let call = Summarized::from_warmths(CallItems::new(target, false), [warmth; 2]);
+				let transfer = Summarized::from_warmths(
+					TransferItems { from: H160::zero(), to: target, dust },
+					[warmth; 4],
+				);
+				let charged = weight(&RuntimeCosts::CallBase(call)).saturating_add(weight(
+					&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
+						warmth: transfer,
+						callee_exists: Some(true),
+					}),
+				));
+
+				assert_eq!(
+					charged
+						.saturating_sub(overhead_only_cost(call.summary()))
+						.saturating_sub(overhead_only_cost(transfer.summary())),
+					bench,
+					"{case}, dust={dust}: the call and its transfer pay their bench once",
+				);
 			}
 		}
 	}
@@ -1083,12 +1128,13 @@ mod tests {
 		let transfer = |dust| TransferItems { from: H160::zero(), to: H160::repeat_byte(2), dust };
 		// Each pair at the same paid level, so a difference is only what the writes owe.
 		let weight_of = |dust, account_warmth, account_info_warmth| {
-			weight(&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked(
-				Summarized::from_warmths(
+			weight(&RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
+				warmth: Summarized::from_warmths(
 					transfer(dust),
 					[account_warmth, account_warmth, account_info_warmth, account_info_warmth],
 				),
-			)))
+				callee_exists: Some(true),
+			}))
 		};
 
 		let surcharge_and_upgrade = deferred_write_cost::<Test>()

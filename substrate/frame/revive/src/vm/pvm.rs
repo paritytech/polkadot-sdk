@@ -703,15 +703,30 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 					let dust_transfer = Pallet::<E::T>::has_dust(value);
 					// A precompile's account state is untracked, so its transfer pays cold.
 					let transfer = if precompile.is_none() {
-						TransferAccessKind::Tracked(self.ext.warm(TransferItems {
-							from: self.ext.address(),
-							to: callee,
-							dust: dust_transfer,
-						}))
+						TransferAccessKind::Tracked {
+							warmth: self.ext.warm(TransferItems {
+								from: self.ext.address(),
+								to: callee,
+								dust: dust_transfer,
+							}),
+							callee_exists: None,
+						}
 					} else {
 						TransferAccessKind::Untracked { dust: dust_transfer }
 					};
-					self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
+					let charged = self.charge_gas(RuntimeCosts::CallTransferSurcharge(transfer))?;
+					if let TransferAccessKind::Tracked { warmth, .. } = transfer {
+						// Look the account up only after the charge has paid for reading it.
+						if self.ext.has_system_account(&callee) {
+							self.adjust_gas(
+								charged,
+								RuntimeCosts::CallTransferSurcharge(TransferAccessKind::Tracked {
+									warmth,
+									callee_exists: Some(true),
+								}),
+							);
+						}
+					}
 				}
 
 				let reentrancy = if flags.contains(CallFlags::ALLOW_REENTRY) {

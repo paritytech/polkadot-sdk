@@ -291,6 +291,9 @@ pub trait Ext: PrecompileWithInfoExt + BuiltinPrecompileExt {
 	///
 	/// Note: Requires &mut self to access the contract info.
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError>;
+
+	/// Returns whether `address` has a `frame_system` account.
+	fn has_system_account(&self, address: &H160) -> bool;
 }
 
 /// Environment functions available to builtin pre-compiles and host functions, but not to
@@ -2380,6 +2383,15 @@ where
 		frame.contract_info().set_immutable_data_len(data.len() as u32);
 		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&frame.account_id), &data);
 		Ok(())
+	}
+
+	fn has_system_account(&self, address: &H160) -> bool {
+		let account_id = if is_precompile::<T, E>(address) {
+			T::AddressMapper::to_fallback_account_id(address)
+		} else {
+			T::AddressMapper::to_account_id(address)
+		};
+		System::<T>::account_exists(&account_id)
 	}
 }
 
