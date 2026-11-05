@@ -25,7 +25,7 @@ use crate::{
 		fees::{InfoT, compute_max_integer_quotient},
 		runtime::SetWeightLimit,
 	},
-	extract_code_and_data,
+	extract_code_and_data, limits,
 };
 use alloc::{boxed::Box, vec::Vec};
 use codec::DecodeLimit;
@@ -49,6 +49,16 @@ pub struct CallInfo<T: Config> {
 	pub storage_deposit: BalanceOf<T>,
 	/// The ethereum gas limit of the transaction.
 	pub eth_gas_limit: U256,
+}
+
+/// Reject an ethereum transaction whose RLP encoded payload is larger than
+/// [`limits::MAX_TRANSACTION_PAYLOAD_SIZE`], with [`InvalidTransaction::ExhaustsResources`].
+pub fn ensure_transaction_payload_size(payload: &[u8]) -> Result<(), InvalidTransaction> {
+	if payload.len() > limits::MAX_TRANSACTION_PAYLOAD_SIZE as usize {
+		log::debug!(target: LOG_TARGET, "Transaction payload too large: {} bytes", payload.len());
+		return Err(InvalidTransaction::ExhaustsResources);
+	}
+	Ok(())
 }
 
 /// Mode for creating a call from an ethereum transaction.
@@ -131,6 +141,9 @@ impl GenericTransaction {
 					InvalidTransaction::Call
 				})?;
 				let transaction_encoded = unsigned_tx.dummy_signed_payload();
+				// Submission checks the signed payload, see `EthExtra::try_into_checked_extrinsic`.
+				// The maximized one checked here is at most a few bytes longer.
+				ensure_transaction_payload_size(&transaction_encoded)?;
 
 				let eth_transact_call =
 					crate::Call::<T>::eth_transact { payload: transaction_encoded.clone() };
