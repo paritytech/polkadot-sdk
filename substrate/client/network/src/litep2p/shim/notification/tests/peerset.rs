@@ -700,8 +700,8 @@ async fn open_failure_for_canceled_peer() {
 	);
 
 	// the substream failed to open, verify that peer state is now `Backoff`
-	// and that `Peerset` doesn't emit any events
-	assert!(peerset.report_substream_open_failure(peer, NotificationError::NoConnection));
+	// and that neither `Peerset` nor the protocol hears about it
+	assert!(!peerset.report_substream_open_failure(peer, NotificationError::NoConnection));
 	assert_eq!(peerset.peers().get(&peer), Some(&PeerState::Backoff));
 	assert!(!peerset.report_substream_open_failure(peer, NotificationError::NoConnection));
 

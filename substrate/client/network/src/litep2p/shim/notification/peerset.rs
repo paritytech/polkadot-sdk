@@ -757,7 +757,8 @@ impl Peerset {
 
 	/// Report to [`Peerset`] that there was an error opening a substream.
 	///
-	/// Returns `false` for a peer with no attempt in progress, whose failure is stale.
+	/// Returns `false` when the protocol is not told about the failure: the peer has no attempt
+	/// in progress, or the protocol itself withdrew the peer while the attempt was in flight.
 	pub fn report_substream_open_failure(
 		&mut self,
 		peer: PeerId,
@@ -769,6 +770,7 @@ impl Peerset {
 			self.protocol,
 		);
 
+		let canceled = matches!(self.peers.get(&peer), Some(PeerState::Canceled { .. }));
 		match self.peers.get(&peer) {
 			Some(PeerState::Opening { direction: Direction::Outbound(Reserved::No) }) => {
 				decrement_or_warn!(
@@ -830,7 +832,7 @@ impl Peerset {
 			Delay::new(OPEN_FAILURE_BACKOFF).await;
 			(peer, OPEN_FAILURE_ADJUSTMENT)
 		}));
-		true
+		!canceled
 	}
 
 	/// [`Peerset`] had accepted a peer but it was then rejected by the protocol.
