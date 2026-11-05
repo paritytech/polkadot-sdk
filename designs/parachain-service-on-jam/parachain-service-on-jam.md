@@ -894,8 +894,9 @@ processes a report it cannot pay for in full. Before any of the steps below run 
 - **Fit check**: if base plus report cost exceeds the report's own gas limit, the report
   is skipped and the next one is checked.
 
-A report that clears the gate runs the steps below, and the invocation `checkpoint`s once
-they are done, so a later report running the budget dry cannot undo it.
+A report that clears the gate runs the steps below. Once they are done, the invocation
+`yield`s the head-commitment root (§5.5) over the heads changed so far, if any, then
+`checkpoint`s, so the invocation running out of gas or panicking later cannot undo it.
 
 A candidate **rejected** at any step below has no effect. No later step runs for it, and it
 writes no state, records no log entry, and prunes nothing. The steps are:
@@ -1113,10 +1114,10 @@ Phase 5: Forget
 
 ### 5.5 Parachain Head Commitment
 
-`accumulate` may return a 32-byte hash. The Parachain Service uses it to commit to
-**parachain heads**. An accumulate invocation that changed at least one head builds a
-binary Merkle tree over the heads it changed and returns its root. One that changed
-none returns nothing and adds no entry to the accumulation output log.
+`accumulate` may output a 32-byte hash. The Parachain Service uses it to commit to
+**parachain heads**: the root of a binary Merkle tree over the heads the invocation
+changed. An invocation that changed no head outputs nothing and adds no entry to the
+accumulation output log.
 
 ```rust
 enum MerkleTree {
@@ -1130,8 +1131,9 @@ enum MerkleTree {
   The variant discriminant is therefore covered by the hash, so a leaf hash can never
   collide with a node hash. A `Leaf` encodes to 37 octets (discriminant, 4-octet
   `para_id`, 32-octet `head_hash`) and a `Node` to 65 (discriminant, two hashes).
-- One leaf per parachain whose `head_data` changed during the invocation, carrying the
-  value it holds when the invocation ends. A parachain written more than once within
+- One leaf per parachain whose `head_data` changed during the invocation, whether by a
+  candidate or a forced `ParachainSetHead`, carrying the value it holds when the
+  invocation ends. A parachain written more than once within
   the invocation, by a candidate and then a forced `ParachainSetHead`, still
   contributes exactly one leaf.
 - Leaves are ordered by ascending `para_id`, so every verifier builds the same tree and
@@ -1140,7 +1142,8 @@ enum MerkleTree {
 
 **A block may carry more than one root.** JAM can invoke `accumulate` of the same
 service several times in one block. Each invocation yields its
-own root, and the accumulation output log records all of them.
+own root, and the accumulation output log records all of them. A parachain whose head
+changed in more than one of these invocations has a leaf in each of their trees.
 
 **A root proves only what changed.** The absence of a leaf means a parachain's head did
 not change in that invocation, not that it holds any particular value. Proving a
